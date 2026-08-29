@@ -1,0 +1,20 @@
+{
+    "ambient_fire_left_brazier_atlas": {
+        "sourceX": 53.6,
+        "sourceY": 755.5,
+        "sourceWidth": 85.6,
+        "sourceHeight": 48.7,
+        "alpha": 1.5,
+        "glowAlpha": 1.11,
+        "contactGlowStrength": 0
+    },
+    "ambient_fire_right_brazier_atlas": {
+        "sourceX": 1474.5,
+        "sourceY": 748.7,
+        "sourceWidth": 75.4,
+        "sourceHeight": 53.6,
+        "alpha": 1.16,
+        "glowAlpha": 1.15,
+        "contactGlowStrength": 0
+    }
+}

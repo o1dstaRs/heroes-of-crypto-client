@@ -15,15 +15,12 @@
             type="font/ttf"
             crossorigin="anonymous"
         />
-        <!-- Google Identity Services is requested HERE, at parse time, instead of when the sign-in
-             component mounts. The client boots a full Pixi scene and its atlases first, so waiting for
-             that React effect left the sign-in button ~20s behind a cold load — on production as well as
-             staging. loadGoogleIdentityServices() looks for this exact tag and reuses it rather than
-             injecting a second one, and resolves immediately if it has already finished. -->
-        <link rel="preconnect" href="https://accounts.google.com" crossorigin />
-        <script src="https://accounts.google.com/gsi/client" async defer></script>
         <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <!-- viewport-fit=cover: without it a notched Mac in fullscreen lays the page out BELOW the
+             camera housing and leaves a black band across the top. Opting in lets the viewport run
+             edge to edge; the notch then simply covers whatever is behind it, which is what we want
+             here — the board is centred and has nothing to lose up there. -->
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
         <title>Play Heroes of Crypto</title>
     </head>
     <body>

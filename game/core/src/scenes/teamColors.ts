@@ -17,6 +17,12 @@ import { TeamType, TeamVals } from "@heroesofcrypto/common";
  * 2026-08-08). This deliberately reverted the old "whoever is playing is green" perspective flip, which drew
  * the same match in opposite colours on the two screens.
  *
+ * Reverted a SECOND time on 2026-08-28 (b0aed99c had reintroduced the viewer-relative flip and deleted this
+ * paragraph). That attempt also showed why the rule earns its keep: only the Pixi board was flipped, so an
+ * UPPER-seat player saw their army green on the battlefield and red in the Up Next queue, the stats pips and
+ * the fight log, and the results screen labelled a red-painted card "GREEN LOSSES". A viewer-relative palette
+ * has to be threaded through every surface that names a colour; team-fixed needs no threading at all.
+ *
  * Colour is one question; OWNERSHIP is a different one. Whose turn it is, which units the viewer may drive,
  * and which placement zone is the viewer's own are answered by the scene's viewerTeam
  * (RankedPlayScene.getViewerTeam) — NEVER by these colour helpers. Do not reintroduce a viewer argument here.

@@ -1,5 +1,4 @@
 import React from "react";
-import { t, useTranslation } from "../i18n/i18n";
 
 /**
  * Top-left post-match actions, shown on a FINISHED ranked board (for the participating player, not
@@ -37,7 +36,7 @@ const FinishedActionButton: React.FC<{
             fontWeight: 800,
             fontSize: 14,
             letterSpacing: 0.3,
-            cursor: disabled ? "not-allowed" : "pointer",
+            cursor: disabled ? "not-allowed" : "var(--hoc-cursor-interactive), pointer",
             opacity: disabled ? 0.5 : 1,
             pointerEvents: "auto",
             boxShadow: primary ? `0 0 16px ${GOLD}66` : "0 0 14px rgba(246, 216, 124, 0.2)",
@@ -54,46 +53,43 @@ export const RankedFinishedActions: React.FC<{
     error?: string;
     onPlayAnother: () => void;
     onHome: () => void;
-}> = ({ left = 16, playAnotherLabel = "Play another", playAnotherBusy, error, onPlayAnother, onHome }) => {
-    useTranslation();
-    return (
-        <div
-            style={{
-                position: "absolute",
-                left,
-                top: 16,
-                zIndex: 9999,
-                display: "flex",
-                flexDirection: "column",
-                gap: 8,
-                pointerEvents: "none",
-            }}
-        >
-            <div style={{ display: "flex", gap: 8, pointerEvents: "auto" }}>
-                <FinishedActionButton
-                    label={playAnotherBusy ? t("Starting…") : t(playAnotherLabel)}
-                    primary
-                    disabled={playAnotherBusy}
-                    onClick={onPlayAnother}
-                />
-                <FinishedActionButton label={t("Home screen")} onClick={onHome} />
-            </div>
-            {error && (
-                <span
-                    style={{
-                        pointerEvents: "auto",
-                        maxWidth: 320,
-                        color: "#ff8a8a",
-                        fontSize: 12,
-                        fontWeight: 600,
-                        textShadow: "0 1px 2px rgba(0,0,0,0.8)",
-                    }}
-                >
-                    {error}
-                </span>
-            )}
+}> = ({ left = 16, playAnotherLabel = "Play another", playAnotherBusy, error, onPlayAnother, onHome }) => (
+    <div
+        style={{
+            position: "absolute",
+            left,
+            top: 16,
+            zIndex: 9999,
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+            pointerEvents: "none",
+        }}
+    >
+        <div style={{ display: "flex", gap: 8, pointerEvents: "auto" }}>
+            <FinishedActionButton
+                label={playAnotherBusy ? "Starting…" : playAnotherLabel}
+                primary
+                disabled={playAnotherBusy}
+                onClick={onPlayAnother}
+            />
+            <FinishedActionButton label="Home screen" onClick={onHome} />
         </div>
-    );
-};
+        {error && (
+            <span
+                style={{
+                    pointerEvents: "auto",
+                    maxWidth: 320,
+                    color: "#ff8a8a",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    textShadow: "0 1px 2px rgba(0,0,0,0.8)",
+                }}
+            >
+                {error}
+            </span>
+        )}
+    </div>
+);
 
 export default RankedFinishedActions;

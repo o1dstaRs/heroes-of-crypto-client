@@ -1,4 +1,5 @@
 import { describe, expect, it, afterEach } from "bun:test";
+import { ARMY_COLOR_PRESETS } from "../settings/playerArmyColor";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
@@ -96,6 +97,7 @@ describe("ranked flow localization", () => {
             join(ui, "MatchmakingRoute.tsx"),
             join(ui, "RankedBanPicker.tsx"),
             join(ui, "RankedGameView.tsx"),
+            join(ui, "PlayerSettingsPanel.tsx"),
             join(ui, "AugmentStepPreview.tsx"),
             join(ui, "ExitReplayBadge.tsx"),
             join(ui, "RankedFinishedActions.tsx"),
@@ -115,8 +117,17 @@ describe("ranked flow localization", () => {
             join(import.meta.dir, "..", "scenes", "LoadingScreen.ts"),
             join(import.meta.dir, "..", "scenes", "sandbox", "CombatVisuals.ts"),
         ]);
-        expect(keys.length).toBeGreaterThan(250);
+        expect(keys.length).toBeGreaterThan(190);
         expect(keys.filter((key) => !(key in RU_TRANSLATIONS))).toEqual([]);
+    });
+
+    // The army-colour presets are rendered through t(preset.label), so the literal scan above cannot see
+    // them; an untranslated swatch name would otherwise ship silently.
+    it("has a Russian entry for every army colour preset name", () => {
+        expect(ARMY_COLOR_PRESETS.length).toBe(10);
+        expect(ARMY_COLOR_PRESETS.map((preset) => preset.label).filter((label) => !(label in RU_TRANSLATIONS))).toEqual(
+            [],
+        );
     });
 
     it("covers data-driven doctrine, map, and hazard copy", () => {

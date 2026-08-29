@@ -27,6 +27,7 @@ import {
     type TeamType,
     Unit,
     UnitVals,
+    GridMath,
 } from "@heroesofcrypto/common";
 
 import { createLegalActionBundle, getAvailableSummonCells, getEnemiesWithinMovementRange } from "./legal_actions";
@@ -527,14 +528,14 @@ export class HeadlessMatch {
 
         for (const y of rowOrder) {
             for (const x of columnOrder) {
-                const cells = unit.isSmallSize()
-                    ? [{ x, y }]
-                    : [
-                          { x, y },
-                          { x: x + 1, y },
-                          { x, y: y + 1 },
-                          { x: x + 1, y: y + 1 },
-                      ];
+                // Same MAX-corner anchor convention as placeDraftUnit — the vacancy probe and the
+                // placement must describe the identical body or the probe approves cells the drop
+                // never occupies.
+                const cells = GridMath.getFootprintCellsForAnchor(
+                    { x, y },
+                    unit.getFootprintWidth(),
+                    unit.getFootprintHeight(),
+                );
                 if (
                     this.grid.canOccupyCells(
                         cells,

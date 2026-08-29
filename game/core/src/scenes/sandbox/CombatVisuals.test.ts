@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 
-import { Container, Texture, TextureSource } from "pixi.js";
+import { Container, Sprite, Texture, TextureSource } from "pixi.js";
 import type { GridSettings, UnitsHolder } from "@heroesofcrypto/common";
 
+import { images } from "../../generated/image_imports";
 import { CombatVisuals } from "./CombatVisuals";
 
 // spawnDeathVfx / the death animations only touch attachToWorldRoot; the rest of the context is
@@ -32,6 +33,9 @@ const makeInfo = () => ({
 });
 
 type VisualsInternals = {
+    floatingTexts: {
+        container: Container;
+    }[];
     shatterGroups: unknown[];
     iceBreaks: {
         container: Container;
@@ -78,6 +82,31 @@ const internals = (visuals: CombatVisuals): VisualsInternals => visuals as unkno
 const originalRandom = Math.random;
 afterEach(() => {
     Math.random = originalRandom;
+});
+
+describe("floating received damage", () => {
+    test("uses the hover kill icon and keeps the complete result above the stack flag", () => {
+        const { visuals, attached } = makeVisuals();
+        const skullTexture = new Texture({ source: new TextureSource({ width: 256, height: 256 }) });
+        const textureFrom = spyOn(Texture, "from").mockReturnValue(skullTexture);
+        const flagTop = { x: 120, y: 200 };
+
+        visuals.showFloatingDamage({ x: 900, y: 10 }, 140, undefined, 15, undefined, undefined, flagTop);
+
+        expect(textureFrom).toHaveBeenCalledWith(images.combat_kills_skull_icon_v1);
+        textureFrom.mockRestore();
+        expect(attached).toHaveLength(1);
+        const floating = internals(visuals).floatingTexts[0].container;
+        const skull = floating.children.find((child) => child instanceof Sprite) as Sprite | undefined;
+        expect(skull).toBeDefined();
+        expect(skull?.width).toBe(40);
+        expect(skull?.height).toBe(40);
+        expect(floating.x).toBe(flagTop.x);
+
+        // 80px reserves the complete damage + deaths block and another 6px clears the banner. The label
+        // starts at the flag anchor, never down at the old impact position passed as the first argument.
+        expect(floating.y).toBe(flagTop.y + 80 + 6);
+    });
 });
 
 describe("spawnDeathVfx kill-specific death animations", () => {

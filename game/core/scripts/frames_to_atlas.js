@@ -74,6 +74,28 @@ async function buildAtlas(inputDir, outPng, outJson, fps, maxWidth, webpOptions,
     const frameCount = frames.length;
     const frameWidth = frames[0].png.width;
     const frameHeight = frames[0].png.height;
+    // Full-body board models are grounded by their authored opaque foot row. Record the median
+    // bottom-most alpha row across the sequence so a loose projectile/effect in one frame cannot
+    // drag the whole animation away from the tile. Consumers that do not use full-body rendering
+    // simply ignore this metadata.
+    const alphaBottomRows = frames
+        .map(({ png }) => {
+            for (let y = png.height - 1; y >= 0; y--) {
+                for (let x = 0; x < png.width; x++) {
+                    if (png.data[(png.width * y + x) * 4 + 3] > 8) return y + 1;
+                }
+            }
+            return null;
+        })
+        .filter((row) => row != null)
+        .sort((a, b) => a - b);
+    const middle = Math.floor(alphaBottomRows.length / 2);
+    const medianAlphaBottom = alphaBottomRows.length
+        ? alphaBottomRows.length % 2
+            ? alphaBottomRows[middle]
+            : (alphaBottomRows[middle - 1] + alphaBottomRows[middle]) / 2
+        : frameHeight;
+    const footAnchorY = medianAlphaBottom / frameHeight;
 
     // Compute atlas grid
     const maxCols = Math.max(1, Math.floor(maxWidth / frameWidth) || 1);
@@ -181,6 +203,7 @@ async function buildAtlas(inputDir, outPng, outJson, fps, maxWidth, webpOptions,
             frameDurationSec,
             totalDurationSec,
             layout: { cols, rows },
+            footAnchorY,
         },
         frames: framesMeta,
     };

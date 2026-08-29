@@ -7,8 +7,8 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import { fetchPickObserveSnapshot, type PickObserveSnapshot, type PickObserveTeam } from "../../api/ranked_play_client";
 import { images as rawImages } from "../../generated/image_imports";
-import { t, tf, useTranslation } from "../../i18n/i18n";
-import { UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "../unit_ui_constants";
+import { CreaturePortraitImage } from "../CreaturePortraitImage";
+import { UNIT_ID_TO_NAME } from "../unit_ui_constants";
 import { observedDraftArtifactSlots, type ObservedDraftArtifactSlot } from "./observerPickArtifacts";
 
 const images = rawImages as Record<string, string>;
@@ -37,18 +37,16 @@ const PHASE_LABELS: Record<string, string> = {
 
 const phaseLabel = (snapshot: PickObserveSnapshot): string => {
     const raw = snapshot.phaseName ?? "";
-    return t(PHASE_LABELS[raw] ?? raw.replaceAll("_", " ").toLowerCase() ?? "Drafting");
+    return PHASE_LABELS[raw] ?? raw.replaceAll("_", " ").toLowerCase() ?? "Drafting";
 };
 
 const CreatureSlot: React.FC<{ creatureId: number; levelLabel: string }> = ({ creatureId, levelLabel }) => {
-    const img = creatureId ? UNIT_ID_TO_IMAGE[creatureId] : undefined;
-    const name = creatureId ? (UNIT_ID_TO_NAME[creatureId] ?? `#${creatureId}`) : t("Hidden");
+    const name = creatureId ? (UNIT_ID_TO_NAME[creatureId] ?? `#${creatureId}`) : "Hidden";
     return (
         <Stack spacing={0.5} alignItems="center" sx={{ width: 92 }}>
-            {img ? (
-                <Box
-                    component="img"
-                    src={img}
+            {creatureId ? (
+                <CreaturePortraitImage
+                    creatureId={creatureId}
                     alt={name}
                     sx={{
                         width: 72,
@@ -104,7 +102,7 @@ const ArtifactSlot: React.FC<{ slot: ObservedDraftArtifactSlot }> = ({ slot }) =
                 <Box
                     component="img"
                     src={image}
-                    alt={artifact?.name ?? tf("Tier-{tier} artifact", { tier })}
+                    alt={artifact?.name ?? `Tier-${tier} artifact`}
                     sx={{
                         width: 44,
                         height: 44,
@@ -135,7 +133,7 @@ const ArtifactSlot: React.FC<{ slot: ObservedDraftArtifactSlot }> = ({ slot }) =
             )}
             <Stack spacing={0.1} sx={{ minWidth: 0 }}>
                 <Typography level="body-xs" sx={{ color: "#dcb158", fontWeight: 700 }}>
-                    {tf("Tier {tier}", { tier })}
+                    Tier {tier}
                 </Typography>
                 <Typography
                     level="body-xs"
@@ -146,7 +144,7 @@ const ArtifactSlot: React.FC<{ slot: ObservedDraftArtifactSlot }> = ({ slot }) =
                         textOverflow: "ellipsis",
                     }}
                 >
-                    {artifact?.name ?? t("Not selected")}
+                    {artifact?.name ?? "Not selected"}
                 </Typography>
             </Stack>
         </Stack>
@@ -183,7 +181,7 @@ const TeamColumn: React.FC<{ team?: PickObserveTeam; fallbackLabel: string }> = 
                                 color: "#dcb158",
                             }}
                         >
-                            {t("AI")} {team.aiVersion ?? ""}
+                            AI {team.aiVersion ?? ""}
                         </Typography>
                     )}
                 </Stack>
@@ -207,7 +205,7 @@ const TeamColumn: React.FC<{ team?: PickObserveTeam; fallbackLabel: string }> = 
                         level="body-xs"
                         sx={{ color: "#9fb6d4", textTransform: "uppercase", letterSpacing: 0.7, mb: 0.75 }}
                     >
-                        {t("Selected artifacts")}
+                        Selected artifacts
                     </Typography>
                     <Stack direction="row" spacing={1} justifyContent="space-between">
                         {artifactSlots.map((slot) => (
@@ -224,22 +222,15 @@ interface IObserverPickViewProps {
     gameId: string;
     /** Forwards the live phase so GameRoute can speed up its pick->play handoff poll. */
     onPickPhaseChange?: (phase: number) => void;
-    /** Backend-free snapshot used only by the local ranked preview. */
-    previewSnapshot?: PickObserveSnapshot;
 }
 
-export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onPickPhaseChange, previewSnapshot }) => {
-    useTranslation();
-    const [snapshot, setSnapshot] = useState<PickObserveSnapshot | undefined>(previewSnapshot);
+export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onPickPhaseChange }) => {
+    const [snapshot, setSnapshot] = useState<PickObserveSnapshot | undefined>(undefined);
     const [now, setNow] = useState(() => Date.now());
     // Server/browser clock drift so the countdown tracks the authoritative deadline.
     const driftRef = useRef(0);
 
     useEffect(() => {
-        if (previewSnapshot) {
-            setSnapshot(previewSnapshot);
-            return undefined;
-        }
         let cancelled = false;
         const poll = async () => {
             try {
@@ -264,7 +255,7 @@ export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onP
             cancelled = true;
             window.clearInterval(pollId);
         };
-    }, [gameId, onPickPhaseChange, previewSnapshot]);
+    }, [gameId, onPickPhaseChange]);
 
     useEffect(() => {
         const tickId = window.setInterval(() => setNow(Date.now()), 500);
@@ -298,16 +289,13 @@ export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onP
             <Stack spacing={2.5} alignItems="center">
                 <Stack spacing={0.5} alignItems="center">
                     <Typography sx={{ fontSize: 26, fontWeight: 700, color: "#efe4cc" }}>
-                        {t("Spectating the draft")}
+                        Spectating the draft
                     </Typography>
                     <Stack direction="row" spacing={1.5} alignItems="center">
                         <Typography sx={{ color: "#9fb6d4", fontSize: 16 }}>
-                            {snapshot ? phaseLabel(snapshot) : t("Connecting to the draft")}
+                            {snapshot ? phaseLabel(snapshot) : "Connecting to the draft"}
                             {snapshot?.phaseCount
-                                ? tf(" — phase {current}/{total}", {
-                                      current: Math.min((snapshot.phaseSeq ?? 0) + 1, snapshot.phaseCount),
-                                      total: snapshot.phaseCount,
-                                  })
+                                ? ` — phase ${Math.min((snapshot.phaseSeq ?? 0) + 1, snapshot.phaseCount)}/${snapshot.phaseCount}`
                                 : ""}
                         </Typography>
                         {secondsLeft !== undefined && (
@@ -327,18 +315,17 @@ export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onP
                         )}
                     </Stack>
                     <Typography level="body-xs" sx={{ color: "rgba(159,182,212,0.6)" }}>
-                        {t(
-                            "Creature picks follow scouting reveals; selected artifacts are public as soon as they are locked in.",
-                        )}
+                        Creature picks follow scouting reveals; selected artifacts are public as soon as they are locked
+                        in.
                     </Typography>
                 </Stack>
 
                 <Stack direction={{ xs: "column", md: "row" }} spacing={2.5} alignItems="stretch">
-                    <TeamColumn team={lower} fallbackLabel={t("Lower team")} />
+                    <TeamColumn team={lower} fallbackLabel="Lower team" />
                     <Stack alignItems="center" justifyContent="center">
-                        <Typography sx={{ color: "#dcb158", fontSize: 22, fontWeight: 700 }}>{t("VS")}</Typography>
+                        <Typography sx={{ color: "#dcb158", fontSize: 22, fontWeight: 700 }}>VS</Typography>
                     </Stack>
-                    <TeamColumn team={upper} fallbackLabel={t("Upper team")} />
+                    <TeamColumn team={upper} fallbackLabel="Upper team" />
                 </Stack>
 
                 {bans.length > 0 && (
@@ -353,32 +340,30 @@ export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onP
                     >
                         <Stack spacing={0.75} alignItems="center">
                             <Typography level="body-sm" sx={{ color: "#d99" }}>
-                                {t("Banned creatures")}
+                                Banned creatures
                             </Typography>
                             <Stack direction="row" spacing={1} flexWrap="wrap" justifyContent="center">
                                 {bans.map((creatureId) => (
                                     <Stack key={creatureId} spacing={0.25} alignItems="center" sx={{ width: 64 }}>
                                         <Box sx={{ position: "relative", width: 44, height: 44 }}>
-                                            {UNIT_ID_TO_IMAGE[creatureId] && (
-                                                <Box
-                                                    component="img"
-                                                    src={UNIT_ID_TO_IMAGE[creatureId]}
+                                            {creatureId > 0 && (
+                                                <CreaturePortraitImage
+                                                    creatureId={creatureId}
                                                     alt={UNIT_ID_TO_NAME[creatureId] ?? `#${creatureId}`}
                                                     sx={{
                                                         width: 44,
                                                         height: 44,
                                                         borderRadius: "50%",
-                                                        objectFit: "cover",
                                                         border: "2px solid rgba(178,66,66,0.7)",
-                                                        filter: "grayscale(0.8)",
                                                     }}
+                                                    imageStyle={{ filter: "grayscale(0.8)" }}
                                                 />
                                             )}
                                             {images.x_mark_2_512 && (
                                                 <Box
                                                     component="img"
                                                     src={images.x_mark_2_512}
-                                                    alt={t("banned")}
+                                                    alt="banned"
                                                     sx={{
                                                         position: "absolute",
                                                         inset: 8,
@@ -408,44 +393,6 @@ export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onP
             </Stack>
         </Box>
     );
-};
-
-/** Read-only fake draft reached from the mock prediction card's Spectate action. */
-export const MockObserverPickView: React.FC = () => {
-    const snapshot = useMemo<PickObserveSnapshot>(
-        () => ({
-            gameId: "mock-live-draft",
-            stage: "pick",
-            phaseName: "PICK",
-            phaseSeq: 6,
-            phaseCount: 16,
-            phaseEndsAt: Date.now() + 4 * 60_000,
-            serverTimeMs: Date.now(),
-            bans: [16, 31],
-            teams: [
-                {
-                    team: "lower",
-                    playerId: "mock-iron-warden",
-                    username: "IronWarden",
-                    isBot: false,
-                    aiVersion: null,
-                    artifactTier1: 1,
-                    revealedCreatureSlots: [12, 24, 0, 0, 0, 0],
-                },
-                {
-                    team: "upper",
-                    playerId: "mock-frost-queen",
-                    username: "FrostQueen",
-                    isBot: false,
-                    aiVersion: null,
-                    artifactTier1: 2,
-                    revealedCreatureSlots: [31, 11, 0, 0, 0, 0],
-                },
-            ],
-        }),
-        [],
-    );
-    return <ObserverPickView gameId={snapshot.gameId} previewSnapshot={snapshot} />;
 };
 
 export default ObserverPickView;

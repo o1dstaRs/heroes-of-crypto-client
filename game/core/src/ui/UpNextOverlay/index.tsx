@@ -1,21 +1,28 @@
 import React, { useEffect, useState } from "react";
-import { TeamVals, TeamType } from "@heroesofcrypto/common";
+import { TeamType } from "@heroesofcrypto/common";
 import Avatar from "@mui/joy/Avatar";
 import Box from "@mui/joy/Box";
 import Stack from "@mui/joy/Stack";
 import Typography from "@mui/joy/Typography";
 import { IVisibleState, IVisibleUnit } from "../../scenes/VisibleState";
+import { unitsOverlayTopBandLayout } from "../../scenes/UnitsOverlay";
 import { usePixiManager } from "../../pixi/PixiGameManager";
-import { nextLapHazard } from "../nextLapHazard";
-import { CasualtyChart, CasualtyPercents } from "../FightStats/CasualtyChart";
-import { meteorIconDataUrl } from "../meteorIcon";
+import { CreaturePortraitImage } from "../CreaturePortraitImage";
+import { CREATURE_PORTRAIT_ASPECT } from "../creaturePortraitVisual";
+import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
 import { resolveUnitImage } from "../unitImage";
-import { TeamAmountFlag } from "../TeamAmountFlag";
+import { getTeamFlagBackground, TeamAmountFlag } from "../TeamAmountFlag";
+import { ACTIVE_TURN_QUEUE_PULSE_MAX_SCALE, useSynchronizedActiveTurnQueuePulse } from "../activeTurnQueuePulse";
+import { upNextWideSmokyChainsBackgroundSurface } from "../upNextBackground";
+import { hocColors, hocDisplayFontFamily } from "../hocTheme";
 const stopImg = new URL("../../../images/stop.webp", import.meta.url).toString();
 const hourglassImg = new URL("../../../images/hourglass.webp", import.meta.url).toString();
-import ZoomInMapIcon from "@mui/icons-material/ZoomInMap";
-import { Tooltip } from "@mui/joy";
-import { t, tf, useTranslation } from "../../i18n/i18n";
+
+// The regular top band stops 4.5% of the fitted artwork band above the painted battlefield seam.
+// Extending its 95%-high rectangle by this ratio lands the Option panel exactly on that seam.
+const OPTION_PANEL_BOTTOM_EXTENSION = 0.045 / 0.95;
+const OPTION_PANEL_BOTTOM_TRIM = 0.002;
+const ACTIVE_TURN_GLOW_MARGIN_PX = 16;
 
 // Copied from UnitStatsListItem.tsx / UpNext.tsx
 const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAura: boolean }> = ({
@@ -24,12 +31,7 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAu
     isAura,
 }) => {
     if (stackPower <= 0) return null;
-    const isLower = teamType === TeamVals.LOWER;
-    const activeColor = isLower
-        ? "rgba(0, 210, 0, 1)"
-        : teamType === TeamVals.UPPER
-          ? "rgba(255, 0, 0, 1)"
-          : "rgba(255, 255, 255, 0.85)";
+    const activeBackground = getTeamFlagBackground(teamType);
     const emptyColor = "rgba(34, 34, 34, 0.7)";
 
     return (
@@ -54,7 +56,7 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAu
                     key={`pip_${i}`}
                     sx={{
                         flex: 1,
-                        backgroundColor: i < stackPower ? activeColor : emptyColor,
+                        background: i < stackPower ? activeBackground : emptyColor,
                         borderRadius: "2px",
                         border: `1px solid rgba(0, 0, 0, 0.8)`,
                         boxSizing: "border-box",
@@ -66,7 +68,6 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAu
 };
 
 export const UpNextOverlay: React.FC = () => {
-    useTranslation();
     const [visibleState, setVisibleState] = useState<IVisibleState>({} as IVisibleState);
     const [altPressed, setAltPressed] = useState<boolean>(false);
 
@@ -102,149 +103,240 @@ export const UpNextOverlay: React.FC = () => {
     }, []);
 
     const visibleUnits: IVisibleUnit[] = visibleState.upNext ?? [];
+    const displayedUnits = [...visibleUnits].reverse();
+    const activeUnitId = displayedUnits[0]?.id;
+    const overlayVisible = altPressed && visibleState.lapNumber > 0;
+    const activeTurnPulseRef = useSynchronizedActiveTurnQueuePulse(activeUnitId, overlayVisible);
 
-    if (!altPressed || visibleState.lapNumber <= 0) return null;
+    if (!overlayVisible) return null;
 
-    const maxVisibleUnits = Math.floor(window.innerWidth / 90); // Estimate based on each unit and space
-
-    const fightStats = visibleState.fightStats;
-    const lastSample = fightStats?.series?.length ? fightStats.series[fightStats.series.length - 1] : undefined;
-    const chartMetric =
-        lastSample?.lowerDamagePct !== undefined || lastSample?.upperDamagePct !== undefined ? "damage" : "casualties";
-    const lowerChartPct =
-        chartMetric === "damage" ? (lastSample?.lowerDamagePct ?? 0) : (lastSample?.lowerKilledPct ?? 0);
-    const upperChartPct =
-        chartMetric === "damage" ? (lastSample?.upperDamagePct ?? 0) : (lastSample?.upperKilledPct ?? 0);
-
-    // Same rule as the bottom-centre NextLapHazardBadge / the MessageBox icon (see nextLapHazard).
-    const hazard = nextLapHazard(visibleState);
-    let defaultIcon =
-        hazard?.kind === "narrowing" ? (
-            <Tooltip title={t("The map will narrow after this turn.")} placement="top" sx={{ zIndex: 9999 }}>
-                <ZoomInMapIcon sx={{ color: "white", pb: 2, width: 50, height: 50 }} />
-            </Tooltip>
-        ) : (
-            <React.Fragment />
-        );
-
-    if (hazard?.kind === "armageddon") {
-        defaultIcon = (
-            <Tooltip title={t("Armageddon wave after this turn.")} placement="top" sx={{ zIndex: 9999 }}>
-                <Box component="img" src={meteorIconDataUrl} sx={{ width: 50, height: 50, pb: 2 }} />
-            </Tooltip>
-        );
-    }
+    const topBand = unitsOverlayTopBandLayout(window.innerWidth, window.innerHeight);
+    // Keep the approved portrait aspect, but use the whole available band when the queue is short. Once
+    // fitting every portrait would make them too small to read, keep a comfortable card size and let the
+    // complete queue scroll instead. This also means a scrollbar exists only when it is genuinely useful.
+    const portraitGap = 8;
+    const availableRowWidth = Math.max(60, topBand.width - 32);
+    const optionPanelHeight = Math.min(
+        window.innerHeight - topBand.y,
+        topBand.height * (1 + OPTION_PANEL_BOTTOM_EXTENSION - OPTION_PANEL_BOTTOM_TRIM),
+    );
+    const maxPortraitHeight = Math.max(60, Math.floor((optionPanelHeight - 86) / ACTIVE_TURN_QUEUE_PULSE_MAX_SCALE));
+    const fittedPortraitWidth = displayedUnits.length
+        ? Math.floor(
+              (availableRowWidth - portraitGap * Math.max(0, displayedUnits.length - 1)) /
+                  (displayedUnits.length + ACTIVE_TURN_QUEUE_PULSE_MAX_SCALE - 1),
+          )
+        : Math.round(maxPortraitHeight * CREATURE_PORTRAIT_ASPECT);
+    const fittedPortraitHeight = Math.floor(fittedPortraitWidth / CREATURE_PORTRAIT_ASPECT);
+    const minimumReadableHeight = Math.min(maxPortraitHeight, 156);
+    const needsScroll = displayedUnits.length > 0 && fittedPortraitHeight < minimumReadableHeight;
+    const portraitHeight = needsScroll
+        ? Math.min(maxPortraitHeight, 256)
+        : Math.max(60, Math.min(maxPortraitHeight, fittedPortraitHeight));
+    const portraitWidth = Math.round(portraitHeight * CREATURE_PORTRAIT_ASPECT);
+    const cardWidth = portraitWidth + 2;
+    const cardHeight = portraitHeight + 2;
+    const activeCardMaxWidth = Math.ceil(cardWidth * ACTIVE_TURN_QUEUE_PULSE_MAX_SCALE);
+    const activeCardMaxHeight = Math.ceil(cardHeight * ACTIVE_TURN_QUEUE_PULSE_MAX_SCALE);
+    const activeCardSlotWidth = activeCardMaxWidth + ACTIVE_TURN_GLOW_MARGIN_PX * 2;
+    const activeCardSlotHeight = activeCardMaxHeight + ACTIVE_TURN_GLOW_MARGIN_PX * 2;
 
     return (
         <Box
             sx={{
                 position: "fixed",
-                top: 0,
-                left: 0,
-                width: "100%",
-                height: "100%",
-                backgroundColor: "rgba(0, 0, 0, 0.92)",
-                backdropFilter: "blur(2px)",
+                top: topBand.y,
+                left: topBand.x,
+                width: topBand.width,
+                height: optionPanelHeight,
                 padding: 2,
-                borderRadius: 2,
+                boxSizing: "border-box",
                 zIndex: 9998, // Increased z-index to ensure it's on top
-                overflowX: "auto",
+                overflow: "visible",
                 whiteSpace: "nowrap",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 flexDirection: "column",
+                backdropFilter: "brightness(0.72)",
+                WebkitBackdropFilter: "brightness(0.72)",
+                boxShadow: "inset 0 -24px 34px rgba(0, 0, 0, 0.22)",
+                ...upNextWideSmokyChainsBackgroundSurface,
             }}
         >
-            {fightStats && lastSample && (
-                <Box
-                    sx={{
-                        position: "absolute",
-                        top: 18,
-                        left: "50%",
-                        transform: "translateX(-50%)",
-                        width: "min(440px, 82vw)",
-                        opacity: 1,
-                        pointerEvents: "none",
-                    }}
-                >
-                    <CasualtyPercents lowerKilledPct={lowerChartPct} upperKilledPct={upperChartPct} />
-                    <CasualtyChart series={fightStats.series} drawDurationSec={0.5} metric={chartMetric} />
-                </Box>
-            )}
-            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Box
+                sx={{
+                    position: "relative",
+                    zIndex: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                }}
+            >
                 <Typography
                     level="h4"
                     sx={{
-                        color: "white",
                         mb: 2,
-                        mr: 2,
+                        fontFamily: hocDisplayFontFamily,
+                        fontSize: "1.35rem",
+                        fontWeight: 570,
+                        fontSynthesis: "weight",
+                        WebkitTextStroke: "0.0114em currentColor",
+                        paintOrder: "stroke fill",
+                        letterSpacing: "0.13em",
+                        textTransform: "uppercase",
+                        color: hocColors.gold,
+                        textShadow: "0 2px 4px rgba(0, 0, 0, 0.95)",
                     }}
                 >
-                    {tf("Lap {number}", { number: visibleState.lapNumber })}
+                    LAP {visibleState.lapNumber}
                 </Typography>
-                {defaultIcon}
             </Box>
             <Stack
                 direction="row"
                 spacing={1}
                 sx={{
-                    justifyContent: "center",
+                    position: "relative",
+                    zIndex: 1,
+                    alignItems: "center",
+                    justifyContent: needsScroll ? "flex-start" : "center",
+                    width: needsScroll ? "100%" : "auto",
+                    maxWidth: needsScroll ? "100%" : "none",
+                    overflowX: needsScroll ? "auto" : "visible",
+                    overflowY: needsScroll ? "hidden" : "visible",
+                    flexShrink: 0,
+                    scrollbarWidth: needsScroll ? "thin" : "none",
+                    scrollbarColor: needsScroll
+                        ? "rgba(177, 132, 57, 0.82) rgba(19, 12, 8, 0.72)"
+                        : "transparent transparent",
+                    "&::-webkit-scrollbar": {
+                        height: needsScroll ? "6px" : 0,
+                        display: needsScroll ? "block" : "none",
+                    },
+                    "&::-webkit-scrollbar-track": {
+                        background: "rgba(19, 12, 8, 0.72)",
+                        borderRadius: "3px",
+                        boxShadow: "inset 0 0 2px rgba(0, 0, 0, 0.9)",
+                    },
+                    "&::-webkit-scrollbar-thumb": {
+                        background: "linear-gradient(90deg, rgba(112, 76, 29, 0.92), rgba(190, 144, 66, 0.92))",
+                        border: "1px solid rgba(218, 174, 91, 0.45)",
+                        borderRadius: "3px",
+                    },
+                    "&::-webkit-scrollbar-thumb:hover": {
+                        background: "linear-gradient(90deg, rgba(137, 94, 35, 0.96), rgba(212, 166, 78, 0.96))",
+                    },
                 }}
             >
-                {[...visibleUnits]
-                    .slice(-maxVisibleUnits)
-                    .reverse()
-                    .map((unit, index) => (
-                        <Box key={index} sx={{ position: "relative" }}>
-                            <Box sx={{ position: "relative", display: "inline-block" }}>
-                                <Avatar
-                                    // @ts-ignore: src params
-                                    src={resolveUnitImage(unit.smallTextureName, unit.name)}
-                                    variant="plain"
+                {displayedUnits.map((unit) => {
+                    const isActiveTurn = unit.id === activeUnitId;
+
+                    return (
+                        <Box
+                            key={unit.id}
+                            sx={{
+                                position: "relative",
+                                width: `${isActiveTurn ? activeCardSlotWidth : cardWidth}px`,
+                                height: `${isActiveTurn ? activeCardSlotHeight : cardHeight}px`,
+                                flex: "0 0 auto",
+                                lineHeight: 0,
+                                zIndex: isActiveTurn ? 2 : 1,
+                            }}
+                        >
+                            <Box
+                                sx={{
+                                    position: "absolute",
+                                    top: isActiveTurn
+                                        ? `${ACTIVE_TURN_GLOW_MARGIN_PX + (activeCardMaxHeight - cardHeight) / 2}px`
+                                        : 0,
+                                    left: "50%",
+                                    width: `${cardWidth}px`,
+                                    height: `${cardHeight}px`,
+                                    transform: "translateX(-50%)",
+                                }}
+                            >
+                                <Box
+                                    ref={isActiveTurn ? activeTurnPulseRef : undefined}
+                                    aria-current={isActiveTurn ? "true" : undefined}
+                                    data-active-turn-portrait={isActiveTurn ? "true" : undefined}
                                     sx={{
-                                        width: index === 0 ? "86.4px" : "72px",
-                                        height: index === 0 ? "86.4px" : "72px",
-                                        flexShrink: 0,
-                                        borderRadius: "15%",
+                                        position: "relative",
+                                        width: "100%",
+                                        height: "100%",
+                                        transformOrigin: "50% 50%",
+                                        willChange: isActiveTurn ? "transform, opacity, box-shadow" : "auto",
+                                        border: "1px solid transparent",
+                                        borderRadius: "3px",
+                                        boxSizing: "border-box",
+                                        boxShadow: isActiveTurn
+                                            ? "none"
+                                            : "0 5px 14px rgba(0, 0, 0, 0.9), inset 0 0 0 1px rgba(0, 0, 0, 0.82)",
                                     }}
-                                />
-                                <StackPowerOverlay
-                                    stackPower={unit.isStackPowered ? unit.stackPower : 0}
-                                    teamType={unit.teamType}
-                                    isAura={false}
-                                />
+                                >
+                                    <Box sx={{ position: "absolute", inset: 0 }}>
+                                        {unit.name && UNIT_NAME_TO_ID[unit.name.trim()] !== undefined ? (
+                                            <CreaturePortraitImage
+                                                creatureId={UNIT_NAME_TO_ID[unit.name.trim()]}
+                                                alt={unit.name}
+                                                sx={{
+                                                    width: "100%",
+                                                    height: "100%",
+                                                    flexShrink: 0,
+                                                    borderRadius: "2px",
+                                                }}
+                                            />
+                                        ) : (
+                                            <Avatar
+                                                // @ts-ignore: src params
+                                                src={resolveUnitImage(unit.smallTextureName, unit.name)}
+                                                variant="plain"
+                                                sx={{
+                                                    width: "100%",
+                                                    height: "100%",
+                                                    flexShrink: 0,
+                                                    borderRadius: "2px",
+                                                }}
+                                            />
+                                        )}
+                                        <StackPowerOverlay
+                                            stackPower={unit.isStackPowered ? unit.stackPower : 0}
+                                            teamType={unit.teamType}
+                                            isAura={false}
+                                        />
+                                    </Box>
+                                    {unit.isSkipping ? (
+                                        <img
+                                            src={stopImg}
+                                            alt="Skipping"
+                                            style={{
+                                                position: "absolute",
+                                                top: 0,
+                                                left: 0,
+                                                width: "20px",
+                                                height: "20px",
+                                                zIndex: 2,
+                                            }}
+                                        />
+                                    ) : unit.isOnHourglass ? (
+                                        <img
+                                            src={hourglassImg}
+                                            alt="On Hourglass"
+                                            style={{
+                                                position: "absolute",
+                                                top: 0,
+                                                left: 0,
+                                                width: "20px",
+                                                height: "20px",
+                                                zIndex: 2,
+                                            }}
+                                        />
+                                    ) : null}
+                                    <TeamAmountFlag amount={unit.amount} teamType={unit.teamType} />
+                                </Box>
                             </Box>
-                            {unit.isSkipping ? (
-                                <img
-                                    src={stopImg}
-                                    alt={t("Skipping")}
-                                    style={{
-                                        position: "absolute",
-                                        top: 0,
-                                        left: 0,
-                                        width: "20px",
-                                        height: "20px",
-                                        zIndex: 2,
-                                    }}
-                                />
-                            ) : unit.isOnHourglass ? (
-                                <img
-                                    src={hourglassImg}
-                                    alt={t("On Hourglass")}
-                                    style={{
-                                        position: "absolute",
-                                        top: 0,
-                                        left: 0,
-                                        width: "20px",
-                                        height: "20px",
-                                        zIndex: 2,
-                                    }}
-                                />
-                            ) : null}
-                            <TeamAmountFlag amount={unit.amount} teamType={unit.teamType} />
                         </Box>
-                    ))}
+                    );
+                })}
             </Stack>
         </Box>
     );

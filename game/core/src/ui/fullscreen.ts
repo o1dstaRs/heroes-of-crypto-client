@@ -26,6 +26,9 @@ type PrefixedElement = HTMLElement & {
 /** Every event name a browser might use to announce the change, so the icon tracks the real state. */
 const CHANGE_EVENTS = ["fullscreenchange", "webkitfullscreenchange", "mozfullscreenchange", "MSFullscreenChange"];
 
+/** CSS can react to this even if React receives the fullscreen event late. */
+export const FULLSCREEN_PRESENTATION_ATTRIBUTE = "data-hoc-fullscreen-active";
+
 export const getFullscreenElement = (): Element | null => {
     const doc = document as PrefixedDocument;
     return (
@@ -38,6 +41,41 @@ export const getFullscreenElement = (): Element | null => {
 };
 
 export const isFullscreenActive = (): boolean => getFullscreenElement() !== null;
+
+export const FULLSCREEN_BROWSER_CHROME_TOLERANCE_PX = 24;
+
+/**
+ * Browser-level fullscreen (for example F11) does not populate `document.fullscreenElement`. Its reliable
+ * observable signal is that the page viewport fills the browser window because the tab/address bars are gone.
+ */
+export const viewportFillsBrowserWindow = (
+    innerHeight: number,
+    outerHeight: number,
+    tolerance = FULLSCREEN_BROWSER_CHROME_TOLERANCE_PX,
+): boolean => innerHeight > 0 && outerHeight > 0 && Math.abs(outerHeight - innerHeight) <= Math.max(0, tolerance);
+
+/** Covers both HTML Fullscreen API and browser-level fullscreen presentation. */
+export const isFullscreenPresentationActive = (): boolean =>
+    isFullscreenActive() || viewportFillsBrowserWindow(window.innerHeight, window.outerHeight);
+
+/** Mirror the browser state onto <html>, giving fullscreen-only layout a synchronous CSS hook. */
+export const syncFullscreenPresentationAttribute = (): boolean => {
+    const active = isFullscreenPresentationActive();
+    if (active) {
+        document.documentElement.setAttribute(FULLSCREEN_PRESENTATION_ATTRIBUTE, "true");
+    } else {
+        document.documentElement.removeAttribute(FULLSCREEN_PRESENTATION_ATTRIBUTE);
+    }
+    return active;
+};
+
+const setFullscreenPresentationAttribute = (active: boolean): void => {
+    if (active) {
+        document.documentElement.setAttribute(FULLSCREEN_PRESENTATION_ATTRIBUTE, "true");
+    } else {
+        document.documentElement.removeAttribute(FULLSCREEN_PRESENTATION_ATTRIBUTE);
+    }
+};
 
 /** Subscribe to fullscreen changes. Returns the unsubscribe. */
 export const onFullscreenChange = (handler: () => void): (() => void) => {
@@ -59,12 +97,15 @@ export const toggleFullscreen = (): void => {
     const doc = document as PrefixedDocument;
     try {
         if (isFullscreenActive()) {
+            setFullscreenPresentationAttribute(false);
             const exit =
                 doc.exitFullscreen?.bind(doc) ??
                 doc.webkitExitFullscreen?.bind(doc) ??
                 doc.mozCancelFullScreen?.bind(doc) ??
                 doc.msExitFullscreen?.bind(doc);
-            void Promise.resolve(exit?.()).catch(() => undefined);
+            void Promise.resolve(exit?.())
+                .then(syncFullscreenPresentationAttribute)
+                .catch(syncFullscreenPresentationAttribute);
             return;
         }
         const root = document.documentElement as PrefixedElement;
@@ -73,8 +114,13 @@ export const toggleFullscreen = (): void => {
             root.webkitRequestFullscreen?.bind(root) ??
             root.mozRequestFullScreen?.bind(root) ??
             root.msRequestFullscreen?.bind(root);
-        void Promise.resolve(request?.()).catch(() => undefined);
+        // Apply compact fullscreen layout on the click itself. The resolved browser state then confirms it
+        // or removes it again if fullscreen was refused.
+        setFullscreenPresentationAttribute(true);
+        void Promise.resolve(request?.())
+            .then(syncFullscreenPresentationAttribute)
+            .catch(syncFullscreenPresentationAttribute);
     } catch {
-        /* fullscreen unsupported — leave the window as it is */
+        syncFullscreenPresentationAttribute();
     }
 };

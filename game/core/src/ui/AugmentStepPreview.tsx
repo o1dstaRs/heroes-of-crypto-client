@@ -14,20 +14,21 @@
  *   /preview/augments?doctrine=spymaster -> 5 points   (also: scout, blind_fury, or the numeric doctrine id)
  *   /preview/augments?points=3       -> any budget, clamped to MAX_AUGMENT_POINTS, for pricing experiments
  *   /preview/augments?team=upper     -> the red seat
+ *   /preview/augments?map=barrels    -> also: lava or normal
  */
-import { HoCConstants, Doctrine, TeamType, TeamVals } from "@heroesofcrypto/common";
+import { GridVals, HoCConstants, Doctrine, TeamType, TeamVals } from "@heroesofcrypto/common";
 import { Box, Stack } from "@mui/joy";
 import CssBaseline from "@mui/joy/CssBaseline";
 import { CssVarsProvider } from "@mui/joy/styles";
 import React, { useCallback, useMemo, useState } from "react";
 
 import { PixiGameManager, PixiManagerContext } from "../pixi/PixiGameManager";
-import { t, useTranslation } from "../i18n/i18n";
 import {
     DRAFT_ARMIES_HEIGHT,
     DRAFT_HEADER_HEIGHT,
     DRAFT_ZONE_GAP,
     DraftBottomControls,
+    CreatureDetailPanel,
     DraftTitle,
     MyDraftBar,
     OpponentDraftBar,
@@ -37,6 +38,7 @@ import {
     draftShellSx,
     useDraftScale,
 } from "./PickAndBan";
+import { PickLanternFire } from "./PickAndBan/PickLanternFire";
 import { MapBadge } from "./PickAndBan/MapReveal";
 import SideToggleContainer from "./RightSideBar/SideToggleContainer";
 
@@ -65,8 +67,13 @@ const PREVIEW_DOCTRINES: Record<string, Doctrine.Doctrine> = {
 // wrong slot and one heading ends up empty.
 const PREVIEW_ARMY = [12, 33, 24, 51, 17, 40];
 
+const PREVIEW_MAP_TYPES: Record<string, number> = {
+    barrels: GridVals.BLOCK_CENTER,
+    lava: GridVals.LAVA_CENTER,
+    normal: GridVals.NORMAL,
+};
+
 export const AugmentStepPreview: React.FC = () => {
-    useTranslation();
     const params = new URLSearchParams(window.location.search);
     const doctrineId =
         PREVIEW_DOCTRINES[params.get("doctrine")?.toLowerCase() ?? ""] ?? Doctrine.Doctrine.THREE_REVEALS;
@@ -75,9 +82,11 @@ export const AugmentStepPreview: React.FC = () => {
         ? Math.max(0, Math.min(HoCConstants.MAX_AUGMENT_POINTS, requestedPoints))
         : Doctrine.getUpgradePoints(doctrineId);
     const userTeam = (params.get("team")?.toLowerCase() === "upper" ? TeamVals.UPPER : TeamVals.LOWER) as TeamType;
+    const mapType = PREVIEW_MAP_TYPES[params.get("map")?.toLowerCase() ?? ""] ?? GridVals.NORMAL;
 
     const draftScale = useDraftScale();
     const [ready, setReady] = useState(false);
+    const [inspectedCreatureId, setInspectedCreatureId] = useState(0);
     const [pointsRemaining, setPointsRemaining] = useState(budgetPoints);
     // SideToggleContainer re-runs its report effect whenever this identity changes, so it has to be stable.
     const onReadyChange = useCallback(
@@ -97,6 +106,8 @@ export const AugmentStepPreview: React.FC = () => {
             <CssVarsProvider>
                 <CssBaseline />
                 <Box sx={draftShellSx}>
+                    <PickLanternFire slot={0} />
+                    <PickLanternFire slot={1} />
                     <Box sx={draftBoardSx(draftScale)}>
                         <Box
                             sx={{
@@ -111,7 +122,11 @@ export const AugmentStepPreview: React.FC = () => {
                                 overflow: "hidden",
                             }}
                         >
-                            <DraftTitle>{t("Choose your augments")}</DraftTitle>
+                            {inspectedCreatureId ? (
+                                <CreatureDetailPanel creatureId={inspectedCreatureId} />
+                            ) : (
+                                <DraftTitle>Choose your augments</DraftTitle>
+                            )}
                         </Box>
                         <Stack
                             direction="row"
@@ -133,15 +148,19 @@ export const AugmentStepPreview: React.FC = () => {
                                 artifactTier1={1}
                                 artifactTier2={1}
                                 gameId="augment-step-preview"
+                                onInspect={setInspectedCreatureId}
+                                onInspectEnd={() => setInspectedCreatureId(0)}
                             />
                             <Box sx={{ flex: "0 0 auto", display: "flex", alignItems: "center" }}>
-                                <MapBadge mapType={0} />
+                                <MapBadge mapType={mapType} />
                             </Box>
                             <OpponentDraftBar
                                 opponentPicked={PREVIEW_ARMY}
-                                opponentLabel={t("Opponent")}
+                                opponentLabel="Opponent"
                                 watchedSlots={[0, 1, 2, 3, 4, 5]}
                                 gameId="augment-step-preview"
+                                onInspect={setInspectedCreatureId}
+                                onInspectEnd={() => setInspectedCreatureId(0)}
                             />
                         </Stack>
                         <Box
@@ -194,13 +213,13 @@ export const AugmentStepPreview: React.FC = () => {
                                 </PhasePanel>
                             </Box>
                             <PickCommitButton
-                                label={ready ? t("Waiting for opponent…") : t("Lock in augments")}
+                                label={ready ? "Waiting for opponent…" : "Lock in augments"}
                                 armed={complete && !ready}
                                 isYourTurn={!ready}
                                 seconds={90}
                                 extra={`${spent} / ${budgetPoints}`}
                                 tone={complete ? "green" : "gold"}
-                                blockedHint={t("Spend every upgrade point first.")}
+                                blockedHint="Spend every upgrade point first."
                                 onCommit={() => setReady(true)}
                             />
                         </Box>

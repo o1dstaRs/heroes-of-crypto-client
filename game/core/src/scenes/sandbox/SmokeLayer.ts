@@ -1,4 +1,6 @@
-import { Container, Graphics, Filter } from "pixi.js";
+import { Assets, Container, Graphics, Filter, Rectangle, Sprite, Texture } from "pixi.js";
+
+import { images } from "../../generated/image_imports";
 
 import type { ILingeringTrack } from "../SandboxDrawer";
 
@@ -66,9 +68,11 @@ float vnoise(vec2 p) {
 float fbm(vec2 p) {
     float v = 0.0;
     float amp = 0.5;
-    for (int i = 0; i < 5; i++) {
+    // Six octaves retain fine granular detail after the effect is scaled down on the board.
+    for (int i = 0; i < 6; i++) {
         v += amp * vnoise(p);
-        p *= 2.0;
+        // A small rotation between octaves prevents obvious axis-aligned noise bands.
+        p = mat2(1.71, -1.03, 1.03, 1.71) * p;
         amp *= 0.5;
     }
     return v;
@@ -78,35 +82,98 @@ void main(void) {
     vec2 uv = vTextureCoord;
     float t = uTime;
 
-    // Domain warp: push the sample coords around with two animated fBM fields so the round
-    // blobs get pulled into wisps.
-    vec2 warp = vec2(
-        fbm(uv * 4.0 + vec2(0.0, t * 0.16)),
-        fbm(uv * 4.0 + vec2(5.2, 1.3) + vec2(t * 0.12, 0.0))
+    // Two moving warp scales: a broad curl shapes the puff while the finer field continuously
+    // breaks its rim into small rolling wisps. This gives every rendered frame visible detail.
+    vec2 broadWarp = vec2(
+        fbm(uv * 4.2 + vec2(t * 0.035, t * 0.19)),
+        fbm(uv * 4.2 + vec2(5.2, 1.3) + vec2(t * 0.15, -t * 0.025))
     );
-    vec2 sampleUv = uv + (warp - 0.5) * 0.09;
+    vec2 fineWarp = vec2(
+        fbm(uv * 11.0 + broadWarp * 1.6 + vec2(-t * 0.21, t * 0.11)),
+        fbm(uv * 11.0 + broadWarp.yx * 1.4 + vec2(t * 0.13, t * 0.24))
+    );
+    vec2 sampleUv = uv + (broadWarp - 0.5) * 0.075 + (fineWarp - 0.5) * 0.022;
 
     vec4 col = texture(uTexture, sampleUv);
 
-    // Erode with animated noise to break the edges into wisps — but keep it continuous enough to
-    // read as a smoke body rather than scattered specks.
-    float n = fbm(uv * 7.0 - vec2(t * 0.08, t * 0.04));
-    float density = smoothstep(0.18, 0.9, n);
+    // Layer a soft body, thin filaments and high-frequency grains. The layers travel at different
+    // rates, avoiding the old single blurred blob while remaining stable rather than flickering.
+    float body = fbm(sampleUv * 7.5 - vec2(t * 0.09, t * 0.055));
+    float filament = fbm(sampleUv * 16.0 + broadWarp * 2.3 + vec2(t * 0.17, -t * 0.08));
+    float grain = fbm(sampleUv * 29.0 - vec2(t * 0.31, t * 0.14));
+    float density = smoothstep(0.24, 0.82, body * 0.58 + filament * 0.29 + grain * 0.13);
+    float wisps = smoothstep(0.58, 0.84, filament) * (0.55 + 0.45 * grain);
 
-    // col is premultiplied; scaling by a scalar keeps it valid.
-    finalColor = col * (0.24 + 0.82 * density);
+    // col is premultiplied; scaling by a scalar keeps it valid. The lower baseline deliberately
+    // keeps the entire effect translucent even where several detailed particles overlap.
+    finalColor = col * (0.10 + 0.62 * density + 0.18 * wisps);
 }
 `;
+
+/**
+ * The dust artwork is a horizontal strip. Align that strip with the grid axis travelled by the unit,
+ * treating opposite directions as the same axis so left/right preserve the existing presentation.
+ */
+const dustTrailRotation = (dirX: number, dirY: number): number => {
+    const hasHorizontalMovement = Math.abs(dirX) > 0.001;
+    const hasVerticalMovement = Math.abs(dirY) > 0.001;
+    if (!hasVerticalMovement) return 0;
+    if (!hasHorizontalMovement) return Math.PI / 2;
+    return Math.sign(dirX * dirY) * (Math.PI / 4);
+};
 
 export class SmokeLayer {
     private readonly container = new Container();
     private readonly graphics = new Graphics();
+    private readonly spriteContainer = new Container();
+    private readonly dustSprites = new Map<ILingeringTrack, Sprite>();
+    private dustFrames?: Texture[];
     private filter?: Filter;
     private time = 0;
+    private atlasLoadFailed = false;
     /** Whether the graphics currently contain dust that must be cleared when the last track expires. */
     private hasGeometry = false;
     public constructor() {
-        this.container.addChild(this.graphics);
+        this.container.addChild(this.graphics, this.spriteContainer);
+
+        // The selected painted atlas is a 3x2 sheet of square frames. It replaces the generated blobs
+        // during normal play, while the old shader remains below as a safe fallback for headless tests or
+        // a missing image asset. Keeping square source frames gives the fine particles enough resolution;
+        // the display scale deliberately compresses only Y so the result stays broad and ground-hugging.
+        // Animation atlases are loaded in Pixi's non-blocking tier after Sandbox has already been
+        // constructed. Texture.from() therefore permanently selected the procedural fallback whenever
+        // the scene opened before that tier finished. Load the selected atlas explicitly and keep this
+        // layer empty while it is pending: the old dust must never flash in place of the chosen artwork.
+        void Assets.load<Texture>(images.vfx_dust_smoky_ash_atlas)
+            .then((atlas) => {
+                this.installDustAtlas(atlas);
+            })
+            .catch(() => {
+                this.atlasLoadFailed = true;
+                this.installProceduralFallback();
+            });
+    }
+    private installDustAtlas(atlas: Texture): void {
+        try {
+            atlas.source.autoGenerateMipmaps = true;
+            atlas.source.scaleMode = "linear";
+            const frameSide = 512;
+            this.dustFrames = Array.from({ length: 6 }, (_, index) => {
+                const col = index % 3;
+                const row = Math.floor(index / 3);
+                return new Texture({
+                    source: atlas.source,
+                    frame: new Rectangle(col * frameSide, row * frameSide, frameSide, frameSide),
+                });
+            });
+        } catch {
+            this.dustFrames = undefined;
+            this.atlasLoadFailed = true;
+            this.installProceduralFallback();
+        }
+    }
+    private installProceduralFallback(): void {
+        if (this.filter) return;
         try {
             this.filter = Filter.from({
                 gl: { vertex: SMOKE_VERTEX, fragment: SMOKE_FRAGMENT },
@@ -130,8 +197,66 @@ export class SmokeLayer {
     public getContainer(): Container {
         return this.container;
     }
+    /** Draw the selected six-frame atlas at the bottom edge of every travelled cell. */
+    private updateSpriteDust(tracks: readonly ILingeringTrack[]): void {
+        const frames = this.dustFrames;
+        if (!frames) return;
+
+        const activeTracks = new Set<ILingeringTrack>();
+        for (const track of tracks) {
+            if (track.flying) continue;
+            activeTracks.add(track);
+
+            let sprite = this.dustSprites.get(track);
+            if (!sprite) {
+                sprite = new Sprite(frames[0]);
+                sprite.anchor.set(0.5, 1);
+                this.spriteContainer.addChild(sprite);
+                this.dustSprites.set(track, sprite);
+            }
+
+            const life = Math.max(0, track.life / track.maxLife); // 1 -> 0
+            const age = 1 - life; // 0 -> 1
+            const frameIndex = Math.min(frames.length - 1, Math.floor(age * frames.length));
+            sprite.texture = frames[frameIndex];
+
+            // Small units fill roughly one cell; a 2x2 unit receives a proportionally wider sheet, but
+            // only a slightly taller one. This is intentionally non-uniform: the owner asked for a wide,
+            // low effect rather than a circular cloud around the unit's waist.
+            const footprintScale = Math.max(1, track.radius / (track.cellSize * 0.42));
+            const displayWidth = track.cellSize * 1.38 * footprintScale;
+            const displayHeight = track.cellSize * (0.62 + (footprintScale - 1) * 0.12);
+            sprite.scale.set(displayWidth / 512, -displayHeight / 512);
+            sprite.rotation = dustTrailRotation(track.dirX, track.dirY);
+
+            // The generated frames have a small transparent strip below their painted baseline. Offset
+            // that strip as well as half a cell so the visible dust itself hugs the cell's lower edge.
+            const transparentBottomPadding = displayHeight * 0.12;
+            sprite.position.set(track.x, track.y - track.cellSize * 0.5 - transparentBottomPadding);
+
+            // The atlas already has a soft alpha matte. A second restrained layer opacity keeps its dense
+            // middle frames from looking like an opaque wall and fades the final flecks smoothly.
+            const fade = Math.min(1, life * 1.6);
+            sprite.alpha = 0.52 * fade;
+        }
+
+        for (const [track, sprite] of this.dustSprites) {
+            if (activeTracks.has(track)) continue;
+            sprite.destroy();
+            this.dustSprites.delete(track);
+        }
+    }
     /** Advance the smoke and redraw the blobs for the current tracks. */
     public update(dt: number, tracks: readonly ILingeringTrack[]): void {
+        if (this.dustFrames) {
+            this.updateSpriteDust(tracks);
+            return;
+        }
+
+        // Do not show the former procedural dust while the chosen atlas is still loading. It made a
+        // refreshed browser look as if the replacement had not been connected at all.
+        if (!this.atlasLoadFailed) return;
+
         this.time += dt;
         if (this.filter) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -175,23 +300,25 @@ export class SmokeLayer {
             const k = Math.max(0, t.life / t.maxLife); // 1 -> 0
             const fade = Math.min(1, k * 1.6); // hold then fall off
             const age = 1 - k; // 0 -> 1
-            const puffCount = 3 + Math.floor(rnd(seed, 0) * 2); // 3..4 — fewer, less busy
+            const puffCount = 5 + Math.floor(rnd(seed, 0) * 3); // 5..7 smaller particles add detail
             const scale = 0.8 + rnd(seed, 1) * 0.45;
             const tint = dustTints[Math.floor(rnd(seed, 2) * dustTints.length)];
+            const visualRadius = t.radius * 0.72;
 
-            // Low, faint blobs that barely spread — the shader erodes them into thin dust. Real
-            // kicked-up dust stays close to the ground rather than billowing up dramatically.
+            // Small, translucent grains stay close to the boots. The shader connects and erodes
+            // their overlap into a detailed puff without restoring the previous oversized cloud.
             for (let i = 0; i < puffCount; i++) {
                 const ang = seed + (i * 2 * Math.PI) / puffCount + (rnd(seed, i + 3) - 0.5) * 1.0 + age * 0.25;
-                const spread = t.radius * scale * (0.1 + (0.4 + rnd(seed, i + 9) * 0.35) * age);
+                const spread = visualRadius * scale * (0.08 + (0.34 + rnd(seed, i + 9) * 0.28) * age);
                 const px = t.x + Math.cos(ang) * spread;
-                const py = t.y + Math.sin(ang) * spread + t.radius * (0.22 + rnd(seed, i + 17) * 0.3) * age;
-                const pr = t.radius * scale * (0.36 + 0.4 * age) * (0.7 + 0.6 * rnd(seed, i + 25));
-                g.circle(px, py, pr).fill({ color: tint, alpha: 0.4 * fade });
+                const py = t.y + Math.sin(ang) * spread + visualRadius * (0.16 + rnd(seed, i + 17) * 0.24) * age;
+                const pr = visualRadius * scale * (0.2 + 0.28 * age) * (0.68 + 0.52 * rnd(seed, i + 25));
+                g.circle(px, py, pr).fill({ color: tint, alpha: 0.26 * fade });
             }
         }
     }
     public destroy(): void {
+        this.dustSprites.clear();
         this.container.destroy({ children: true });
     }
 }

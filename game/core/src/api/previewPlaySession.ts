@@ -18,6 +18,7 @@ import {
     GridVals,
     HoCConfig,
     Doctrine,
+    GridMath,
     PlacementPositionType,
     RectanglePlacement,
     TeamType,
@@ -38,12 +39,14 @@ import {
     type PlaySnapshot,
     type PlayUnitState,
 } from "./play_protocol";
-import { PREVIEW_PLACEMENT_GAME_ID } from "./previewPlayGate";
 
-export { PREVIEW_PLACEMENT_GAME_ID } from "./previewPlayGate";
+/** The one game id this fake session answers for. Anything else goes to the real API untouched. */
+export const PREVIEW_PLACEMENT_GAME_ID = "preview-placement";
 
 export const PREVIEW_LOWER_PLAYER_ID = "preview-player-lower";
 export const PREVIEW_UPPER_PLAYER_ID = "preview-player-upper";
+
+export const isPreviewPlayGame = (gameId: string): boolean => gameId === PREVIEW_PLACEMENT_GAME_ID;
 
 // Stack sizes, mirroring the server's pick->play bridge: a stack is worth ~1000 experience, and a
 // creature the config has no exp for falls back to a flat ten.
@@ -58,6 +61,9 @@ const UPPER_ARMY = [1, 21, 4, 34, 27, 42];
 
 const PLACEMENT_SECONDS = 120;
 
+/** Long-bodied comparison art spans two cells even while the stable engine catalog remains one-cell. */
+const HORIZONTAL_COMPARISON_FOOTPRINTS = new Set(["Wolf", "Centaur", "Wolf Rider", "Nomad"]);
+
 /** The lower team's committed augment build: 2 + 2 + 1 + 1 = the Scout doctrine's whole 6-point budget. */
 const LOWER_AUGMENTS = { placement: 2, armor: 2, might: 1, empower: 0, sniper: 0, movement: 1 } as const;
 
@@ -66,9 +72,29 @@ export interface PreviewPlacementOptions {
     userTeam: TeamType;
     /** GridVals.* — the map the board is drawn on. */
     gridType: number;
+    /** Optional dev-fixture rosters; the regular placement preview keeps its canonical six stacks. */
+    lowerArmy?: readonly number[];
+    upperArmy?: readonly number[];
+    /** Dev comparison views can align a large lower roster along the board's bottom edge. */
+    spreadLowerArmyAcrossBoard?: boolean;
+    /** Consecutive group sizes for horizontal rows (the framing editor uses one row per level). */
+    comparisonRowSizes?: readonly number[];
+    /** Optional exact ground row for each comparison row; shadow tuning pins its selected unit at the top. */
+    comparisonRowGroundYs?: readonly number[];
+    /** When set, comparison units are packed left-to-right with this many empty cells between footprints. */
+    comparisonHorizontalGapCells?: number;
+    /** Preserve this many fixed horizontal slots, including empty lowerArmy entries such as 0. */
+    comparisonFixedSlotCount?: number;
 }
 
-const buildUnit = (creatureId: number, team: TeamType, index: number): PlayUnitState | undefined => {
+// The footprint pair used to live here, because the wire type had no shape beyond the scalar `size`. It
+// is part of PlayUnitState now, so the preview and the real ranked path share one geometry contract and
+// only the layout bookkeeping stays local.
+type PreviewUnitState = PlayUnitState & {
+    previewSlotIndex: number;
+};
+
+const buildUnit = (creatureId: number, team: TeamType, index: number): PreviewUnitState | undefined => {
     const name = UNIT_ID_TO_NAME[creatureId];
     if (!name) {
         return undefined;
@@ -99,6 +125,9 @@ const buildUnit = (creatureId: number, team: TeamType, index: number): PlayUnitS
         maxHp: properties.max_hp,
         attackType: properties.attack_type_selected,
         size: properties.size,
+        footprintWidth: HORIZONTAL_COMPARISON_FOOTPRINTS.has(name) ? 2 : properties.footprint_width,
+        footprintHeight: properties.footprint_height,
+        previewSlotIndex: index,
         // Deployed by deployTeam() below, before the snapshot is ever served.
         baseCell: { x: 0, y: 0 },
         cells: [],
@@ -125,21 +154,18 @@ const GRID = new GridSettings(
     GridConstants.UNIT_SIZE_DELTA,
 );
 
-/** Placement-zone height per Placement augment level (the radio labels: 3 partial, 4 full, 6 + edge). */
-const PLACEMENT_ZONE_HEIGHT = [3, 4, 6];
+/** Placement-zone depth per Placement augment level (the radio labels: 3 partial, 4 full, 6 + edge). */
+const PLACEMENT_ZONE_DEPTH = [3, 4, 6];
 
 const cellKey = (cell: PlayCell): number => (cell.x << 4) | cell.y;
 
-/** A large unit's footprint hangs down-left of its base cell, which is always the max corner. */
-const footprintOf = (base: PlayCell, size: number): PlayCell[] =>
-    size === 1
-        ? [{ ...base }]
-        : [
-              { x: base.x, y: base.y },
-              { x: base.x - 1, y: base.y },
-              { x: base.x, y: base.y - 1 },
-              { x: base.x - 1, y: base.y - 1 },
-          ];
+/**
+ * A fixed rectangular footprint hangs down-left of its max-corner base cell and never rotates. The engine
+ * owns that rule (GridMath.getFootprintCellsForAnchor) and the preview must not hold a second copy of it:
+ * a divergence here would move the preview's units off the cells a real session would give them.
+ */
+const footprintOf = (base: PlayCell, width: number, height: number): PlayCell[] =>
+    GridMath.getFootprintCellsForAnchor(base, width, height);
 
 /**
  * Deploy a team inside its placement zone, because that is the state a real placement screen opens in:
@@ -149,35 +175,56 @@ const footprintOf = (base: PlayCell, size: number): PlayCell[] =>
  * Not the server's randomized scatter — a deterministic front-first sweep with a one-cell buffer, so the
  * preview opens the same way every time and the army reads as a formation rather than a pile.
  */
-const deployTeam = (units: PlayUnitState[], team: TeamType, zoneHeight: number): void => {
+const deployTeam = (units: PreviewUnitState[], team: TeamType, zoneDepth: number): void => {
     const isLower = team === TeamVals.LOWER;
     const placement = new RectanglePlacement(
         GRID,
         isLower ? PlacementPositionType.LOWER_LEFT : PlacementPositionType.UPPER_RIGHT,
-        zoneHeight,
+        zoneDepth,
+        true, // every surface plays the side-oriented board now (left/right x-bands)
     );
     const blocked = new Set<number>();
-    // Large units first: they need a 2x2 hole, and a small unit dropped in the middle of the zone can
-    // leave no room for one.
-    for (const unit of [...units].sort((a, b) => b.size - a.size)) {
+    // Biggest body first: it needs the largest contiguous hole, and a one-cell stack dropped in the middle
+    // of the zone can leave no room for one. Ranked by footprint AREA, not by `size`: a two-cell rectangle
+    // carries the same `size` as the square it is half of, so `size` cannot order it against either.
+    for (const unit of [...units].sort(
+        (a, b) => b.footprintWidth * b.footprintHeight - a.footprintWidth * a.footprintHeight,
+    )) {
         const candidates = placement
-            .possibleCellPositions(unit.size === 1)
+            .possibleCellPositions(
+                unit.footprintWidth === 1 && unit.footprintHeight === 1,
+                unit.footprintWidth,
+                unit.footprintHeight,
+            )
             .filter(Boolean)
-            // Front rank first (toward the middle of the board), then left to right.
-            .sort((a, b) => (isLower ? b.y - a.y : a.y - b.y) || a.x - b.x);
+            // Front rank first (toward the middle of the board), then top to bottom.
+            .sort((a, b) => (isLower ? b.x - a.x : a.x - b.x) || a.y - b.y);
         for (const base of candidates) {
-            const cells = footprintOf(base, unit.size);
+            const cells = footprintOf(base, unit.footprintWidth, unit.footprintHeight);
             if (cells.some((cell) => blocked.has(cellKey(cell)))) {
                 continue;
             }
             unit.placed = true;
             unit.cells = cells;
             unit.baseCell = { ...base };
-            // Same one-cell buffer the server keeps between auto-placed stacks.
+            // Same one-cell buffer the server keeps between auto-placed stacks — including its bounds
+            // check. `cellKey` packs four bits per axis, so an off-board neighbour does not miss, it
+            // ALIASES: y = 16 sets the low bit of x, making key(x, 16) === key(x | 1, 0), which would blank
+            // a real cell in row 0. Today no caller reaches row 15 (deploy depth is always 3), so this is a
+            // trap rather than a live bug — guarded here so a deeper strip cannot spring it.
             for (const cell of cells) {
                 for (let dx = -1; dx <= 1; dx += 1) {
                     for (let dy = -1; dy <= 1; dy += 1) {
-                        blocked.add(cellKey({ x: cell.x + dx, y: cell.y + dy }));
+                        const neighbour = { x: cell.x + dx, y: cell.y + dy };
+                        if (
+                            neighbour.x < 0 ||
+                            neighbour.y < 0 ||
+                            neighbour.x >= GridConstants.GRID_SIZE ||
+                            neighbour.y >= GridConstants.GRID_SIZE
+                        ) {
+                            continue;
+                        }
+                        blocked.add(cellKey(neighbour));
                     }
                 }
             }
@@ -186,30 +233,126 @@ const deployTeam = (units: PlayUnitState[], team: TeamType, zoneHeight: number):
     }
 };
 
+/**
+ * Deterministic bottom-row layout used only by the creature-framing editor. The real placement preview
+ * intentionally stays inside the legal deployment zone; this comparison surface instead gives every
+ * model the same ground line so scale and vertical offsets can be compared directly.
+ */
+const deployComparisonTeam = (
+    units: PreviewUnitState[],
+    requestedRowSizes?: readonly number[],
+    requestedRowGroundYs?: readonly number[],
+    requestedHorizontalGapCells?: number,
+    requestedFixedSlotCount?: number,
+): void => {
+    if (!units.length) return;
+
+    const requestedRows = requestedRowSizes?.map((size) => Math.max(0, Math.round(size))).filter(Boolean);
+    const rowSizes = requestedRows?.length ? [...requestedRows] : [units.length];
+    const unassignedUnitCount = units.length - rowSizes.reduce((sum, size) => sum + size, 0);
+    if (unassignedUnitCount > 0) rowSizes[rowSizes.length - 1] += unassignedUnitCount;
+    const rowCount = Math.min(GridConstants.GRID_SIZE, rowSizes.length);
+    let unitOffset = 0;
+
+    for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+        const rowUnits = units.slice(unitOffset, unitOffset + rowSizes[rowIndex]);
+        unitOffset += rowSizes[rowIndex];
+        if (!rowUnits.length) break;
+
+        // Keep the whole fixed footprint inside the board. In particular, a 2x1 model starts at max-corner
+        // x = 1, so getPositionForCells resolves its render point to the exact centre seam of cells 0 and 1.
+        const minBaseX = Math.max(...rowUnits.map((unit) => unit.footprintWidth - 1));
+        const maxBaseX = GridConstants.GRID_SIZE - 1;
+        const slot = rowUnits.length > 1 ? (maxBaseX - minBaseX) / (rowUnits.length - 1) : 0;
+        const requestedGap =
+            requestedHorizontalGapCells === undefined
+                ? undefined
+                : Math.max(0, Math.round(requestedHorizontalGapCells));
+        const totalFootprintWidth = rowUnits.reduce((sum, unit) => sum + unit.footprintWidth, 0);
+        const horizontalGapCells =
+            requestedGap === undefined
+                ? undefined
+                : Math.min(
+                      requestedGap,
+                      Math.max(
+                          0,
+                          Math.floor(
+                              (GridConstants.GRID_SIZE - totalFootprintWidth) / Math.max(1, rowUnits.length - 1),
+                          ),
+                      ),
+                  );
+        const packedWidth = totalFootprintWidth + Math.max(0, rowUnits.length - 1) * (horizontalGapCells ?? 0);
+        let packedLeftX = Math.max(0, Math.floor((GridConstants.GRID_SIZE - packedWidth) / 2));
+        const automaticRowGroundY =
+            rowCount > 1 ? Math.round((rowIndex * (GridConstants.GRID_SIZE - 1)) / (rowCount - 1)) : 0;
+        const rowGroundY = Math.max(
+            0,
+            Math.min(GridConstants.GRID_SIZE - 1, requestedRowGroundYs?.[rowIndex] ?? automaticRowGroundY),
+        );
+
+        rowUnits.forEach((unit, columnIndex) => {
+            const fixedSlotCount = Math.max(
+                0,
+                Math.min(GridConstants.GRID_SIZE, Math.round(requestedFixedSlotCount ?? 0)),
+            );
+            const fixedSlotIndex = Math.max(0, Math.min(fixedSlotCount - 1, unit.previewSlotIndex));
+            const fixedSlotAnchorX =
+                fixedSlotCount > 1
+                    ? Math.round((fixedSlotIndex * (GridConstants.GRID_SIZE - 1)) / (fixedSlotCount - 1))
+                    : Math.floor((GridConstants.GRID_SIZE - 1) / 2);
+            const packedBaseX =
+                fixedSlotCount > 0
+                    ? Math.max(unit.footprintWidth - 1, fixedSlotAnchorX)
+                    : packedLeftX + unit.footprintWidth - 1;
+            const base = {
+                x:
+                    fixedSlotCount > 0
+                        ? packedBaseX
+                        : horizontalGapCells === undefined
+                          ? Math.round(minBaseX + slot * columnIndex)
+                          : packedBaseX,
+                y: Math.min(GridConstants.GRID_SIZE - 1, rowGroundY + unit.footprintHeight - 1),
+            };
+            unit.placed = true;
+            unit.cells = footprintOf(base, unit.footprintWidth, unit.footprintHeight);
+            unit.baseCell = { ...base };
+            if (fixedSlotCount === 0) packedLeftX += unit.footprintWidth + (horizontalGapCells ?? 0);
+        });
+    }
+};
+
 const buildSnapshot = (options: PreviewPlacementOptions): PlaySnapshot => {
     const now = Date.now();
+    const lowerArmy = options.lowerArmy ?? LOWER_ARMY;
+    const upperArmy = options.upperArmy ?? UPPER_ARMY;
     const units = [
-        ...LOWER_ARMY.map((creatureId, index) => buildUnit(creatureId, TeamVals.LOWER, index)),
-        ...UPPER_ARMY.map((creatureId, index) => buildUnit(creatureId, TeamVals.UPPER, index)),
-    ].filter((unit): unit is PlayUnitState => !!unit);
+        ...lowerArmy.map((creatureId, index) => buildUnit(creatureId, TeamVals.LOWER, index)),
+        ...upperArmy.map((creatureId, index) => buildUnit(creatureId, TeamVals.UPPER, index)),
+    ].filter((unit): unit is PreviewUnitState => !!unit);
 
     const viewerIsLower = options.userTeam === TeamVals.LOWER;
     // Deployed into the DEFAULT (height 3) zone for both sides, deliberately — not into the taller zone
     // the viewer's Placement augment buys. The client derives the legal zone itself from FightProperties,
-    // and the height-3 rectangle is a subset of every taller one, so this layout is legal whatever the
-    // client decides the zone is. Deploying into the augmented zone instead put the army one row outside
+    // and the depth-3 rectangle is a subset of every deeper one, so this layout is legal whatever the
+    // client decides the zone is. Deploying into the augmented zone instead put the army one column outside
     // the drawn zone whenever the client had not yet folded the augment in.
-    deployTeam(
-        units.filter((unit) => unit.team === TeamVals.LOWER),
-        TeamVals.LOWER,
-        PLACEMENT_ZONE_HEIGHT[0],
-    );
+    const lowerUnits = units.filter((unit) => unit.team === TeamVals.LOWER);
+    if (options.spreadLowerArmyAcrossBoard) {
+        deployComparisonTeam(
+            lowerUnits,
+            options.comparisonRowSizes,
+            options.comparisonRowGroundYs,
+            options.comparisonHorizontalGapCells,
+            options.comparisonFixedSlotCount,
+        );
+    } else {
+        deployTeam(lowerUnits, TeamVals.LOWER, PLACEMENT_ZONE_DEPTH[0]);
+    }
     deployTeam(
         units.filter((unit) => unit.team === TeamVals.UPPER),
         TeamVals.UPPER,
-        PLACEMENT_ZONE_HEIGHT[0],
+        PLACEMENT_ZONE_DEPTH[0],
     );
-
     return {
         gameId: PREVIEW_PLACEMENT_GAME_ID,
         phase: PlayPhase.PLACEMENT,
@@ -248,8 +391,8 @@ const buildSnapshot = (options: PreviewPlacementOptions): PlaySnapshot => {
         ],
         readyPlayerIds: [],
         journalTail: [],
-        maxLowerUnits: LOWER_ARMY.length,
-        maxUpperUnits: UPPER_ARMY.length,
+        maxLowerUnits: lowerArmy.length,
+        maxUpperUnits: upperArmy.length,
         narrowingLayers: 0,
         centerDried: false,
         upNext: [],
@@ -282,7 +425,9 @@ let session: PlaySnapshot | undefined;
 
 /** (Re)start the fake session. Called by the route on mount so a reload always opens a clean board. */
 export const startPreviewPlaySession = (options: PreviewPlacementOptions): void => {
-    session = buildSnapshot(options);
+    const next = buildSnapshot(options);
+    next.latestSequence = (session?.latestSequence ?? 0) + 1;
+    session = next;
 };
 
 export const getPreviewPlaySnapshot = (): PlaySnapshot | undefined => {
@@ -301,9 +446,13 @@ export const getPreviewPlaySnapshot = (): PlaySnapshot | undefined => {
     return session;
 };
 
-/** A 2x2 unit's base cell is the max corner of its footprint — the scene rebuilds the footprint from it. */
-const baseCellOf = (cells: PlayCell[]): PlayCell =>
-    cells.reduce((best, cell) => (cell.x >= best.x && cell.y >= best.y ? cell : best), cells[0]);
+/**
+ * A unit's base cell is the max corner of its footprint — the scene rebuilds the footprint from it, so a
+ * wrong answer here rebuilds the body in the wrong direction on the next hydrate. The engine's reducer
+ * takes the per-axis maximum rather than looking for one cell that dominates on both axes, which is the
+ * same answer for a rectangle and a defined one for a truncated cell set.
+ */
+const baseCellOf = (cells: PlayCell[]): PlayCell => GridMath.getFootprintAnchorForCells(cells) ?? cells[0];
 
 const bump = (snapshot: PlaySnapshot, units?: PlayUnitState[]): PlaySnapshot => ({
     ...snapshot,

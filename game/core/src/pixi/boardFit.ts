@@ -9,55 +9,79 @@
  * -----------------------------------------------------------------------------
  */
 
-/**
- * The single definition of how big the board is drawn in the window.
- *
- * Two separate things have to agree on it, and they are not drawn the same way. The grid and everything
- * standing on it live under the camera, which fits the world into the viewport minus this padding. The stone
- * backdrop is a plain screen-space sprite on the stage, sized straight from the viewport. When only the
- * camera learned about the padding, the painted squares stayed a full viewport wide while the logical grid
- * shrank inside them — the two agreed near the middle and drifted further apart toward the edges, so a unit
- * that is exactly on its cell in world space no longer looked centred on the square under it.
- *
- * So both read the padding from here.
- */
-export const BOARD_FIT_PADDING_RATIO = 0;
+/** Sidebars keep 85% of their former width, handing the remaining 15% to the battlefield. */
+export const BATTLE_SIDEBAR_WIDTH_RATIO = 0.85;
 
 /**
- * Breathing room around the grid, in the same pixels the viewport is measured in.
- *
- * Currently ZERO: the board is fitted edge to edge so the stone floor reaches the top and bottom of the
- * window with no bare band around it, while still showing all 16x16 squares whole. The floor is painted at
- * exactly the grid's 16 squares and drawn at exactly this fitted size, so growing the board grows both
- * together and one painted square stays one cell.
- *
- * It used to be ~4.5% (about one cell). That margin existed because a stack's art is drawn LARGER than its
- * cell, so with no padding the outermost row and column can have their art clipped by the window edge —
- * the squares themselves are all fully visible, only the figures standing on the border rows may be
- * trimmed. Raise this again if that trimming matters more than the bare band did.
+ * Painted floor height above its bottom seam in the canonical battlefield artwork (1013px of 1342px),
+ * plus a small vertical bleed. The bleed pushes the bitmap's rounded dark top edge under the combat frame
+ * at every aspect ratio while the camera, units and visual 16x16 projection keep the same shared fit.
  */
+export const BATTLEFIELD_VERTICAL_BLEED = 1.03;
+export const BATTLEFIELD_HEIGHT_RATIO = (1013 / 1342) * BATTLEFIELD_VERTICAL_BLEED;
+
+/** Padding remains zero: the new top band comes from the shorter rows, not from cropping the board. */
+export const BOARD_FIT_PADDING_RATIO = 0;
+
 export const boardFitPadding = (width: number, height: number): number =>
     Math.round(Math.min(width, height) * BOARD_FIT_PADDING_RATIO);
 
+/** Size of the old square fit, retained as the baseline for the 15% sidebar reduction. */
+export const legacyBoardFitSize = (width: number, height: number): number =>
+    Math.max(0, Math.min(width, height) - 2 * boardFitPadding(width, height));
+
+/** Sidebar width before the requested reduction; also used to preserve existing UI element sizing. */
+export const legacyBattleSidebarWidth = (width: number, height: number): number =>
+    Math.max(0, Math.round((width - legacyBoardFitSize(width, height)) / 2));
+
+/** Width of either sidebar after the requested 15% reduction. */
+export const battleSidebarWidth = (width: number, height: number): number =>
+    Math.max(0, Math.round(legacyBattleSidebarWidth(width, height) * BATTLE_SIDEBAR_WIDTH_RATIO));
+
+/** Battlefield width between the two equally sized sidebars. */
+export const boardFitWidth = (width: number, height: number): number =>
+    Math.max(0, width - 2 * battleSidebarWidth(width, height));
+
+/** Battlefield height matched to the painted 16-row floor. */
+export const boardFitHeight = (width: number, height: number): number =>
+    Math.max(0, legacyBoardFitSize(width, height) * BATTLEFIELD_HEIGHT_RATIO);
+
+export type BoardChildScaleCompensation = Readonly<{ x: number; y: number }>;
+
 /**
- * How far UP the board sits from the exact centre of the window, as a fraction of the board's own size.
+ * Counter-scale for artwork that must retain its old on-screen size inside the rectangular board camera.
  *
- * Currently ZERO, and that is a geometric necessity rather than a preference: with BOARD_FIT_PADDING_RATIO
- * at 0 the board already fills the window's shorter side exactly, so there is no slack to slide into. Any
- * non-zero shift trims that many pixels off the top row and opens an equally black strip along the bottom —
- * the two things this layout was explicitly asked NOT to do.
- *
- * It stays here as a knob for when the board is ever fitted smaller than the window again (padding > 0):
- * then a nudge up costs nothing, and it counteracts the board reading bottom-heavy next to the toolbar and
- * the start button. Both the camera and the stone backdrop apply it, from here, in the same screen pixels —
- * they must move as one or the painted squares slide off the logical cells.
+ * Grid positions must inherit the new X/Y camera fit, but character artwork must not: multiplying its local
+ * scale by this pair makes the final screen-space width and height match the former square fit exactly.
  */
-export const BOARD_FIT_VERTICAL_SHIFT_RATIO = 0;
+export const legacyBoardChildScaleCompensation = (
+    inheritedScaleX: number,
+    inheritedScaleY: number,
+): BoardChildScaleCompensation => {
+    const scaleX = Math.abs(inheritedScaleX);
+    const scaleY = Math.abs(inheritedScaleY);
+    if (!Number.isFinite(scaleX) || !Number.isFinite(scaleY) || scaleX <= 0 || scaleY <= 0) {
+        return { x: 1, y: 1 };
+    }
+    // Unit tests, previews and any non-battle scene still use a uniform camera and need no correction.
+    if (Math.abs(scaleX - scaleY) <= Math.max(scaleX, scaleY) * 1e-6) {
+        return { x: 1, y: 1 };
+    }
 
-/** Side of the square the board occupies on screen — the backdrop must match this, not the raw viewport. */
-export const boardFitSize = (width: number, height: number): number =>
-    Math.min(width, height) - 2 * boardFitPadding(width, height);
+    // The current Y fit is exactly BATTLEFIELD_HEIGHT_RATIO of the former square fit.
+    const legacyScale = scaleY / BATTLEFIELD_HEIGHT_RATIO;
+    return { x: legacyScale / scaleX, y: legacyScale / scaleY };
+};
 
-/** Upward offset from centre, in the same pixels the viewport is measured in. */
+/**
+ * Compatibility alias for callers that still need a single baseline size. New rendering code must use
+ * boardFitWidth/boardFitHeight because the battlefield is intentionally rectangular now.
+ */
+export const boardFitSize = legacyBoardFitSize;
+
+/**
+ * Camera/background offset from the viewport centre. A negative value moves the battlefield down so its
+ * bottom edge remains flush with the window and all freed vertical space becomes a black band above it.
+ */
 export const boardFitVerticalShift = (width: number, height: number): number =>
-    Math.round(boardFitSize(width, height) * BOARD_FIT_VERTICAL_SHIFT_RATIO);
+    (boardFitHeight(width, height) - height) / 2;

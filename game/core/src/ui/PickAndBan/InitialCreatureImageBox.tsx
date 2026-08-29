@@ -1,9 +1,10 @@
 import { getCreaturesByLevel } from "@heroesofcrypto/common";
 import { Badge, Box } from "@mui/joy";
-import { UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "../unit_ui_constants";
+import { UNIT_ID_TO_NAME } from "../unit_ui_constants";
 import React from "react";
 import { usePickBanEvents } from "@/ui";
 import { images } from "../../generated/image_imports";
+import { CreaturePortraitImage } from "../CreaturePortraitImage";
 
 export const InitialCreatureImageBox = ({
     creatureId,
@@ -99,13 +100,12 @@ export const InitialCreatureImageBox = ({
                 }}
             >
                 <>
-                    <img
-                        src={UNIT_ID_TO_IMAGE[creatureId]}
+                    <CreaturePortraitImage
+                        creatureId={creatureId}
                         alt={`Creature ${creatureId}`}
-                        style={{
+                        sx={{
                             width: "100%",
                             height: "100%",
-                            objectFit: "contain",
                             borderRadius: "50%",
                             transition: "filter 0.3s ease, transform 0.3s ease",
                             filter: pickBanContext.banned.includes(creatureId) ? "grayscale(100%)" : "none",

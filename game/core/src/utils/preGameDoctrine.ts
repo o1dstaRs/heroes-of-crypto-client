@@ -11,6 +11,9 @@
 import { Doctrine } from "@heroesofcrypto/common";
 
 const PRE_GAME_DOCTRINE_STORAGE_KEY = "hoc:pre-game-doctrine";
+// The same choice under the short-lived "perk" key this branch used for a while (identical numeric
+// values) — read as a fallback and migrated forward so nobody's saved pick silently resets.
+const LEGACY_PRE_GAME_PERK_STORAGE_KEY = "hoc:pre-game-perk";
 
 // Default doctrine when the player has never picked one: THREE_REVEALS (the middle-of-the-road
 // scouting option, 6 upgrade points — a sensible neutral default).
@@ -19,7 +22,9 @@ export const DEFAULT_PRE_GAME_DOCTRINE: Doctrine.Doctrine = Doctrine.Doctrine.TH
 /** The doctrine the player chose in the lobby, or the default if none chosen yet. */
 export const getPreGameDoctrine = (): Doctrine.Doctrine => {
     try {
-        const raw = localStorage.getItem(PRE_GAME_DOCTRINE_STORAGE_KEY);
+        const raw =
+            localStorage.getItem(PRE_GAME_DOCTRINE_STORAGE_KEY) ??
+            localStorage.getItem(LEGACY_PRE_GAME_PERK_STORAGE_KEY);
         const parsed = raw ? Number(raw) : NaN;
         // Must be one of the 3 selectable doctrines (THREE_REVEALS / SEE_ALL / SEE_NONE).
         if (
@@ -27,6 +32,9 @@ export const getPreGameDoctrine = (): Doctrine.Doctrine => {
             parsed === Doctrine.Doctrine.SEE_ALL ||
             parsed === Doctrine.Doctrine.SEE_NONE
         ) {
+            if (!localStorage.getItem(PRE_GAME_DOCTRINE_STORAGE_KEY)) {
+                localStorage.setItem(PRE_GAME_DOCTRINE_STORAGE_KEY, String(parsed));
+            }
             return parsed;
         }
     } catch {

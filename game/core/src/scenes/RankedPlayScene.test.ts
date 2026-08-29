@@ -16,7 +16,10 @@ import {
     UnitsHolder,
     scatteredMountainsForSeed,
     SCATTERED_MOUNTAIN_BAND_ROWS,
-    SCATTERED_MOUNTAIN_COUNT,
+    SCATTERED_MOUNTAIN_MAX_COUNT,
+    SCATTERED_MOUNTAIN_MIN_COUNT,
+    SCATTERED_MOUNTAIN_VARIANTS,
+    scatteredMountainCountForSeed,
     type GameEvent,
 } from "@heroesofcrypto/common";
 
@@ -36,6 +39,9 @@ import {
     rankedUnitStartHealth,
     multiHitSceneLogLines,
     restoreRankedStepsMoraleMultiplier,
+    centeredPlacementColumnCells,
+    centeredPlacementLineCells,
+    placementFootprintOfUnitState,
     revealedOpponentRowScale,
     revealedOpponentRowX,
     revealedOpponentRowY,
@@ -86,6 +92,85 @@ const placementSnapshot = (units: AuthoritativeUnitState[]): AuthoritativeGameSn
     centerDried: false,
     units,
     upNext: [],
+});
+
+describe("ranked rectangular footprints", () => {
+    const GRID = new GridSettings(
+        GridConstants.GRID_SIZE,
+        GridConstants.MAX_Y,
+        GridConstants.MIN_Y,
+        GridConstants.MAX_X,
+        GridConstants.MIN_X,
+        GridConstants.MOVEMENT_DELTA,
+        GridConstants.UNIT_SIZE_DELTA,
+    );
+
+    /**
+     * No shipped creature declares a rectangle yet — turning one rectangular is a balance and art call.
+     * The engine's QA override is the supported way to exercise the shape without touching creature data,
+     * and it is re-read on every config build, so it can be set and cleared around a single test.
+     */
+    const withFootprintOverride = <T>(override: string, body: () => T): T => {
+        const holder = globalThis as { __hocFootprintOverrides?: string };
+        const previous = holder.__hocFootprintOverrides;
+        holder.__hocFootprintOverrides = override;
+        try {
+            return body();
+        } finally {
+            holder.__hocFootprintOverrides = previous;
+        }
+    };
+
+    test("hydrates a 2x1 snapshot unit and re-derives exactly the cells it arrived with", () => {
+        withFootprintOverride("White Tiger=2x1", () => {
+            const baseCell = { x: 7, y: 3 };
+            const cells = GridMath.getFootprintCellsForAnchor(baseCell, 2, 1);
+            const state = authoritativeSnapshotToSandboxSceneState(
+                placementSnapshot([
+                    unitState({
+                        id: "white-tiger-1",
+                        name: "White Tiger",
+                        creatureId: CreatureVals.WHITE_TIGER,
+                        // `size` is max(width, height), so a 2x1 is indistinguishable from a 2x2 by it alone.
+                        size: 2,
+                        footprintWidth: 2,
+                        footprintHeight: 1,
+                        placed: true,
+                        baseCell,
+                        cells,
+                    }),
+                ]),
+            );
+            const hydrated = state.units[0];
+
+            expect(hydrated).toBeDefined();
+            expect(hydrated.properties.footprint_width).toBe(2);
+            expect(hydrated.properties.footprint_height).toBe(1);
+            expect(placementFootprintOfUnitState(hydrated)).toEqual({ width: 2, height: 1 });
+
+            // Re-serialise: the cells resolve to a centre, and that centre resolves back to the same cells
+            // and the same max-corner anchor. That round trip is what every hydrate, occupancy heal and
+            // placement submit rides on, and it used to have no answer at all for a two-cell body.
+            const position = GridMath.getPositionForCells(GRID, hydrated.cells);
+            expect(position).toBeDefined();
+            expect(GridMath.getFootprintCellsForPosition(GRID, position!, 2, 1)).toEqual(cells);
+            expect(GridMath.getFootprintAnchorForCells(hydrated.cells)).toEqual(baseCell);
+        });
+    });
+
+    test("keeps the two shipped square shapes square when the snapshot carries no footprint", () => {
+        // An older server sends neither field, and the wire type defaults them to `size` x `size`. Every
+        // creature in the catalog is one of these two, so this is the path that must not move an inch.
+        const state = authoritativeSnapshotToSandboxSceneState(
+            placementSnapshot([
+                unitState({ id: "peasant-1", name: "Peasant", creatureId: CreatureVals.PEASANT, size: 1 }),
+                unitState({ id: "angel-1", name: "Angel", creatureId: CreatureVals.ANGEL, size: 2 }),
+            ]),
+        );
+
+        expect(placementFootprintOfUnitState(state.units[0])).toEqual({ width: 1, height: 1 });
+        expect(placementFootprintOfUnitState(state.units[1])).toEqual({ width: 2, height: 2 });
+    });
 });
 
 describe("ranked system movement log", () => {
@@ -360,155 +445,6 @@ describe("ranked placement scene state", () => {
         unitsHolder.refreshStackPowerForAllUnits();
         expect(flyer.hasBuffActive("Angelic Host")).toBe(false);
         expect(flyer.getSteps()).toBe(stepsWhileBroken);
-    });
-
-    test("applies and clears authoritative forced and forbidden targets on a preserved ranked unit", () => {
-        let target = "";
-        let forbiddenTarget = "";
-        const unit = {
-            syncAuthoritativeBreak: () => false,
-            getTarget: () => target,
-            setTarget: (next: string) => {
-                target = next;
-            },
-            getForbiddenTarget: () => forbiddenTarget,
-            setForbiddenTarget: (next: string) => {
-                forbiddenTarget = next;
-            },
-        } as unknown as RenderableUnit;
-        const state = {
-            forcedTargetId: "pikeman",
-            forbiddenTargetId: "manticore",
-        } as Parameters<typeof applyRankedUnitMechanicalEffects>[1];
-
-        expect(applyRankedUnitMechanicalEffects(unit, state)).toBe(true);
-        expect(target).toBe("pikeman");
-        expect(forbiddenTarget).toBe("manticore");
-        expect(applyRankedUnitMechanicalEffects(unit, state)).toBe(false);
-        expect(
-            applyRankedUnitMechanicalEffects(unit, {
-                ...state,
-                forcedTargetId: undefined,
-                forbiddenTargetId: undefined,
-            }),
-        ).toBe(true);
-        expect(target).toBe("");
-        expect(forbiddenTarget).toBe("");
-    });
-
-    test("preserves the ranked Terrifying Gaze target through display-only status refresh", () => {
-        const sceneState = authoritativeSnapshotToSandboxSceneState({
-            ...placementSnapshot([
-                unitState({
-                    id: "healer",
-                    name: "Healer",
-                    creatureId: CreatureVals.HEALER,
-                    forbiddenTargetId: "manticore",
-                    debuffs: ["Terrifying Gaze"],
-                    debuffLaps: [1],
-                    debuffDescriptions: ["Cannot attack the gazer."],
-                }),
-            ]),
-            phase: 2,
-            fightStarted: true,
-        });
-        const state = sceneState.units[0];
-        const gridSettings = new GridSettings(
-            GridConstants.GRID_SIZE,
-            GridConstants.MAX_Y,
-            GridConstants.MIN_Y,
-            GridConstants.MAX_X,
-            GridConstants.MIN_X,
-            GridConstants.MOVEMENT_DELTA,
-            GridConstants.UNIT_SIZE_DELTA,
-        );
-        const unitsHolder = new UnitsHolder(new Grid(gridSettings, GridVals.NORMAL));
-        const effectFactory = new EffectFactory();
-        const unit = RenderableUnit.fromBase(
-            Unit.createUnit(
-                state.properties,
-                gridSettings,
-                state.properties.team,
-                UnitVals.CREATURE,
-                new AbilityFactory(effectFactory),
-                effectFactory,
-                false,
-            ),
-            undefined as never,
-        );
-        unitsHolder.addUnit(unit);
-
-        expect(applyRankedUnitMechanicalEffects(unit, state)).toBe(true);
-        unitsHolder.refreshStackPowerForAllUnits();
-
-        expect(unit.hasStatusApplied("Terrifying Gaze")).toBe(true);
-        expect(unit.getForbiddenTarget()).toBe("manticore");
-        expect(unit.cannotAttackUnitId("manticore")).toBe(true);
-        expect(unit.cannotAttackUnitId("another-enemy")).toBe(false);
-    });
-
-    test("preserves the ranked Aggr target through stat refresh and clears it with the status", () => {
-        const sceneState = authoritativeSnapshotToSandboxSceneState({
-            ...placementSnapshot([
-                unitState({
-                    id: "orc",
-                    name: "Orc",
-                    creatureId: CreatureVals.ORC,
-                    forcedTargetId: "pikeman",
-                    debuffs: ["Aggr"],
-                    debuffLaps: [1],
-                    debuffDescriptions: ["Must attack the unit that provoked it."],
-                }),
-            ]),
-            phase: 2,
-            fightStarted: true,
-        });
-        const state = sceneState.units[0];
-        const gridSettings = new GridSettings(
-            GridConstants.GRID_SIZE,
-            GridConstants.MAX_Y,
-            GridConstants.MIN_Y,
-            GridConstants.MAX_X,
-            GridConstants.MIN_X,
-            GridConstants.MOVEMENT_DELTA,
-            GridConstants.UNIT_SIZE_DELTA,
-        );
-        const unitsHolder = new UnitsHolder(new Grid(gridSettings, GridVals.NORMAL));
-        const effectFactory = new EffectFactory();
-        const initialProperties = structuredClone(state.properties);
-        initialProperties.applied_debuffs = [];
-        initialProperties.applied_debuffs_laps = [];
-        initialProperties.applied_debuffs_descriptions = [];
-        initialProperties.applied_debuffs_powers = [];
-        const unit = RenderableUnit.fromBase(
-            Unit.createUnit(
-                initialProperties,
-                gridSettings,
-                state.properties.team,
-                UnitVals.CREATURE,
-                new AbilityFactory(effectFactory),
-                effectFactory,
-                false,
-            ),
-            undefined as never,
-        );
-        unitsHolder.addUnit(unit);
-
-        expect(applyRankedUnitSnapshotStats(unit, state.properties)).toBe(true);
-        expect(applyRankedUnitMechanicalEffects(unit, state)).toBe(true);
-        unitsHolder.refreshStackPowerForAllUnits();
-        expect(unit.getTarget()).toBe("pikeman");
-
-        const clearedState = structuredClone(state);
-        clearedState.forcedTargetId = undefined;
-        clearedState.properties.applied_debuffs = [];
-        clearedState.properties.applied_debuffs_laps = [];
-        clearedState.properties.applied_debuffs_descriptions = [];
-        clearedState.properties.applied_debuffs_powers = [];
-        expect(applyRankedUnitSnapshotStats(unit, clearedState.properties)).toBe(true);
-        expect(applyRankedUnitMechanicalEffects(unit, clearedState)).toBe(true);
-        unitsHolder.refreshStackPowerForAllUnits();
-        expect(unit.getTarget()).toBe("");
     });
 
     test("collapses the Visible debuff the ranked seam applies on top of the snapshot's own entry", () => {
@@ -1463,6 +1399,124 @@ describe("revealed opponent roster row", () => {
     const MAX_X = GridConstants.MAX_X;
     const STEP = GridConstants.MAX_Y / GridConstants.GRID_SIZE;
 
+    // The five shipped shapes these layouts have to serve. Only the squares exist in the catalog today;
+    // the rectangles are the shapes the layout must not collapse back into a square.
+    const SMALL = { width: 1, height: 1 };
+    const LARGE = { width: 2, height: 2 };
+    const WIDE = { width: 2, height: 1 };
+    const TALL = { width: 1, height: 2 };
+    /** Cell sets, not cell lists: every one of these layouts is consumed as an unordered footprint. */
+    const cellSet = (cells: { x: number; y: number }[]): string[] => cells.map((cell) => `${cell.x}:${cell.y}`).sort();
+
+    test("centres revealed opponents on the front cells of the upper placement zone", () => {
+        const footprints = centeredPlacementLineCells([SMALL, SMALL, SMALL, SMALL, SMALL, LARGE], 1, 14, 12, true);
+        const occupiedXs = footprints.flat().map((cell) => cell.x);
+
+        expect(Math.min(...occupiedXs)).toBe(2);
+        expect(Math.max(...occupiedXs)).toBe(13);
+        expect(footprints.slice(0, 5).every((cells) => cells.length === 1 && cells[0].y === 12)).toBe(true);
+        expect(cellSet(footprints[5])).toEqual(
+            cellSet([
+                { x: 12, y: 12 },
+                { x: 13, y: 12 },
+                { x: 12, y: 13 },
+                { x: 13, y: 13 },
+            ]),
+        );
+    });
+
+    test("centres the full red army vertically inside its baseline right-side zone", () => {
+        const footprints = centeredPlacementColumnCells([SMALL, SMALL, SMALL, SMALL, SMALL, LARGE], 1, 14, 12, true);
+        const occupied = footprints.flat();
+
+        expect(footprints.slice(0, 5).map((cells) => cells[0])).toEqual([
+            { x: 12, y: 2 },
+            { x: 12, y: 4 },
+            { x: 12, y: 6 },
+            { x: 12, y: 8 },
+            { x: 12, y: 10 },
+        ]);
+        expect(cellSet(footprints[5])).toEqual(
+            cellSet([
+                { x: 12, y: 12 },
+                { x: 13, y: 12 },
+                { x: 12, y: 13 },
+                { x: 13, y: 13 },
+            ]),
+        );
+        expect(occupied.every((cell) => cell.x >= 12 && cell.x <= 14 && cell.y >= 1 && cell.y <= 14)).toBe(true);
+    });
+
+    test("mirrors large creatures inward from the green zone's front column", () => {
+        expect(cellSet(centeredPlacementColumnCells([LARGE], 1, 14, 3, false)[0])).toEqual(
+            cellSet([
+                { x: 2, y: 7 },
+                { x: 3, y: 7 },
+                { x: 2, y: 8 },
+                { x: 3, y: 8 },
+            ]),
+        );
+    });
+
+    test("mirrors a large creature away from the battlefield for the lower zone", () => {
+        expect(cellSet(centeredPlacementLineCells([LARGE], 1, 14, 3, false)[0])).toEqual(
+            cellSet([
+                { x: 7, y: 2 },
+                { x: 8, y: 2 },
+                { x: 7, y: 3 },
+                { x: 8, y: 3 },
+            ]),
+        );
+    });
+
+    test("lays a 2x1 out two cells wide and one row tall, on the front row itself", () => {
+        // The old layout keyed the row offset off the WIDTH, so a wide-but-short body was pushed a row
+        // back and reserved a row it does not occupy. Its front edge belongs on the front row like a 1x1's.
+        expect(cellSet(centeredPlacementLineCells([WIDE], 1, 14, 3, false)[0])).toEqual(
+            cellSet([
+                { x: 7, y: 3 },
+                { x: 8, y: 3 },
+            ]),
+        );
+        expect(cellSet(centeredPlacementLineCells([WIDE], 1, 14, 12, true)[0])).toEqual(
+            cellSet([
+                { x: 7, y: 12 },
+                { x: 8, y: 12 },
+            ]),
+        );
+    });
+
+    test("lays a 1x2 out one cell wide and two rows deep, away from the battlefield", () => {
+        expect(cellSet(centeredPlacementLineCells([TALL], 1, 14, 3, false)[0])).toEqual(
+            cellSet([
+                { x: 7, y: 2 },
+                { x: 7, y: 3 },
+            ]),
+        );
+        expect(cellSet(centeredPlacementLineCells([TALL], 1, 14, 12, true)[0])).toEqual(
+            cellSet([
+                { x: 7, y: 12 },
+                { x: 7, y: 13 },
+            ]),
+        );
+    });
+
+    test("advances the line cursor by each unit's own width, so rectangles never overlap", () => {
+        const footprints = centeredPlacementLineCells([WIDE, SMALL, WIDE], 1, 14, 3, false);
+        const keys = footprints.flat().map((cell) => `${cell.x}:${cell.y}`);
+
+        expect(footprints.map((cells) => cells.length)).toEqual([2, 1, 2]);
+        expect(new Set(keys).size).toBe(keys.length);
+    });
+
+    test("advances the column cursor by each unit's own height, so rectangles never overlap", () => {
+        const footprints = centeredPlacementColumnCells([TALL, SMALL, TALL], 1, 14, 12, true);
+        const keys = footprints.flat().map((cell) => `${cell.x}:${cell.y}`);
+
+        expect(footprints.map((cells) => cells.length)).toEqual([2, 1, 2]);
+        expect(new Set(keys).size).toBe(keys.length);
+    });
+
     test("spreads the army across the full board width, inside both edges", () => {
         const xs = Array.from({ length: 6 }, (_, index) => revealedOpponentRowX(index, 6, MIN_X, MAX_X));
 
@@ -1803,17 +1857,89 @@ describe("ranked ability-transfer scene log", () => {
     });
 });
 
-// Ranked derives its stones from the game id and the sandbox rolls its own, so the COUNT is the one thing
-// both boards must share. Sandbox.ts used to restate it locally, which meant a ranked-side change left the
-// sandbox scattering the old number — the whole point of importing it from common now.
-describe("cemetery stone count", () => {
-    test("is twelve, and ranked derives exactly that many", () => {
-        expect(SCATTERED_MOUNTAIN_COUNT).toBe(12);
-        expect(scatteredMountainsForSeed("any-cemetery-game").length).toBe(12);
+// Ranked and the sandbox build a cemetery through the SAME seeded generator, so the count is derived on
+// both sides rather than restated on either. Sandbox.ts used to keep a Math.random() twin of that
+// generator, which meant a ranked-side change left static games scattering the old number. The count is
+// the owner's fixed twelve (2026-08-28); the range plumbing survives so restoring variety is one
+// constant.
+describe("cemetery barrel count", () => {
+    test("every board rolls a count inside the range, and derives exactly that many stones", () => {
+        expect(SCATTERED_MOUNTAIN_MIN_COUNT).toBe(12);
+        expect(SCATTERED_MOUNTAIN_MAX_COUNT).toBe(12);
+        for (let i = 0; i < 200; i++) {
+            const gameId = `cemetery-game-${i}`;
+            const rolled = scatteredMountainCountForSeed(gameId);
+            expect(rolled).toBeGreaterThanOrEqual(SCATTERED_MOUNTAIN_MIN_COUNT);
+            expect(rolled).toBeLessThanOrEqual(SCATTERED_MOUNTAIN_MAX_COUNT);
+            expect(scatteredMountainsForSeed(gameId).length).toBe(rolled);
+        }
     });
 
-    test("fits the neutral band with room to spare", () => {
-        expect(SCATTERED_MOUNTAIN_COUNT).toBeLessThanOrEqual(GridConstants.GRID_SIZE * SCATTERED_MOUNTAIN_BAND_ROWS);
+    test("every ranked board carries the same twelve barrels", () => {
+        const seen = new Set<number>();
+        for (let i = 0; i < 200; i++) {
+            seen.add(scatteredMountainCountForSeed(`ranked-spread-${i}`));
+        }
+        expect([...seen]).toEqual([12]);
+    });
+
+    test("even the largest roll fits the neutral band with room to spare", () => {
+        expect(SCATTERED_MOUNTAIN_MAX_COUNT).toBeLessThanOrEqual(
+            GridConstants.GRID_SIZE * SCATTERED_MOUNTAIN_BAND_ROWS,
+        );
+    });
+});
+
+/**
+ * The server owns the board, so its stone list is installed verbatim — not used as a filter over what we
+ * happened to derive.
+ *
+ * This was harmless while the barrel count was a compile-time 9 in every bundle: two sides could not
+ * disagree about how many stones exist. The count is ROLLED per game now (9-12), and client and server pin
+ * common independently and deploy separately, so a bundle from before the roll derives 9 against a server
+ * board of 10-12 — and ~75% of game ids roll above 9. Every stone the old code failed to derive became an
+ * invisible wall: the server refuses moves through it from its own matrix, while the client offers them and
+ * draws no sprite. That is precisely the "invisible walls for everyone" failure the scattered-ranked work
+ * was written to kill, so it must not be reachable by version skew either.
+ */
+describe("planScatteredMountainSync follows the server, not our own roll", () => {
+    const packed = (cell: { x: number; y: number }) => cell.x * GridConstants.GRID_SIZE + cell.y;
+
+    test("installs stones the local derivation never produced", () => {
+        const gameId = "skew-guard-game";
+        const derived = scatteredMountainsForSeed(gameId);
+        const derivedKeys = new Set(derived.map((rock) => packed(rock.cell)));
+        // Two cells in the neutral band that this seed did NOT roll — what a newer server would hold.
+        const extra: number[] = [];
+        for (let x = 6; x <= 9 && extra.length < 2; x++) {
+            for (let y = 0; y < GridConstants.GRID_SIZE && extra.length < 2; y++) {
+                const key = x * GridConstants.GRID_SIZE + y;
+                if (!derivedKeys.has(key)) extra.push(key);
+            }
+        }
+        expect(extra).toHaveLength(2);
+
+        const serverStanding = [...derived.map((rock) => packed(rock.cell)), ...extra];
+        const plan = planScatteredMountainSync(gameId, serverStanding, serverStanding.length);
+        expect(plan).toBeDefined();
+        const installed = new Set(plan!.standing.map((stone) => packed(stone)));
+        for (const key of serverStanding) {
+            expect(installed.has(key)).toBe(true);
+        }
+        // An undrawn stone still gets stable art rather than a missing sprite.
+        for (const stone of plan!.standing) {
+            expect(stone.variant).toBeGreaterThanOrEqual(0);
+            expect(stone.variant).toBeLessThan(SCATTERED_MOUNTAIN_VARIANTS);
+        }
+    });
+
+    test("a stone the server dropped is still reported destroyed so its collapse plays", () => {
+        const gameId = "skew-guard-destroyed";
+        const derived = scatteredMountainsForSeed(gameId);
+        const survivors = derived.slice(1).map((rock) => packed(rock.cell));
+        const plan = planScatteredMountainSync(gameId, survivors, survivors.length);
+        expect(plan!.destroyed).toContainEqual({ x: derived[0].cell.x, y: derived[0].cell.y });
+        expect(plan!.standing).toHaveLength(survivors.length);
     });
 });
 

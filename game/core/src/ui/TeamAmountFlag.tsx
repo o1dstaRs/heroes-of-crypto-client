@@ -7,15 +7,17 @@ type TeamAmountFlagProps = {
     teamType: TeamType;
     top?: string;
     right?: string;
+    scale?: number;
 };
 
-const getTeamFlagColor = (teamType: TeamType): string => {
-    if (teamType === TeamVals.LOWER) return "rgba(0, 210, 0, 1)";
-    if (teamType === TeamVals.UPPER) return "rgba(255, 0, 0, 1)";
-    return "rgba(139, 148, 166, 1)";
+/** Bright team palette shared by amount flags and stack-power pips. */
+export const getTeamFlagBackground = (teamType: TeamType): string => {
+    if (teamType === TeamVals.LOWER) return "#00d200";
+    if (teamType === TeamVals.UPPER) return "#ff0000";
+    return "#8b94a6";
 };
 
-export const TeamAmountFlag = ({ amount, teamType, top = "0px", right = "-5px" }: TeamAmountFlagProps) => {
+export const TeamAmountFlag = ({ amount, teamType, top = "0px", right = "-5px", scale = 1 }: TeamAmountFlagProps) => {
     const label = String(amount);
     const width = Math.max(26, label.length * 8 + 16);
     const height = 18;
@@ -28,6 +30,8 @@ export const TeamAmountFlag = ({ amount, teamType, top = "0px", right = "-5px" }
                 right,
                 width: `${width}px`,
                 height: `${height + 3}px`,
+                transform: `scale(${scale})`,
+                transformOrigin: "top right",
                 pointerEvents: "none",
                 zIndex: 12,
             }}
@@ -58,7 +62,7 @@ export const TeamAmountFlag = ({ amount, teamType, top = "0px", right = "-5px" }
                     pr: "7px",
                     boxSizing: "border-box",
                     clipPath: "polygon(0 0, 100% 0, calc(100% - 4px) 50%, 100% 100%, 0 100%)",
-                    backgroundColor: getTeamFlagColor(teamType),
+                    background: getTeamFlagBackground(teamType),
                     color: "#ffffff",
                     fontSize: "0.76rem",
                     lineHeight: 1,

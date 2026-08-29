@@ -1,4 +1,4 @@
-import { Box, Button, Divider, Input, Sheet, Stack, Tab, TabList, TabPanel, Tabs, Typography } from "@mui/joy";
+import { Button, Divider, Input, Sheet, Stack, Tab, TabList, TabPanel, Tabs, Typography } from "@mui/joy";
 import React, { useCallback, useEffect, useState } from "react";
 
 import {
@@ -16,7 +16,7 @@ import { t, tf } from "../../i18n/i18n";
 import { CurrencyIcon } from "../GoldCurrencyIcon";
 import { hocColors, hocInputSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "../hocTheme";
 import { useRankedSeason } from "../useRankedSeason";
-import { DockPanelShell } from "./DockPanelShell";
+import { DockPanelCloseButton, DockPanelShell } from "./DockPanelShell";
 
 /**
  * In-game prediction tray: the markets you can still bet on, and everything you have bet already.
@@ -293,11 +293,7 @@ export const PredictionsPanel: React.FC<PredictionsPanelProps> = ({ open, onClos
             </Tabs>
 
             <Divider sx={{ my: 0.5 }} />
-            <Box>
-                <Button variant="outlined" sx={hocSoftButtonSx} onClick={onClose}>
-                    {t("Close")}
-                </Button>
-            </Box>
+            <DockPanelCloseButton onClose={onClose} />
         </DockPanelShell>
     );
 };

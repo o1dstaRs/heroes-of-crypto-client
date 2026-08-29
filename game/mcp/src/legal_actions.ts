@@ -96,20 +96,12 @@ const getTargetCells = (
     grid: Grid,
     destination: { x: number; y: number },
 ): Array<{ x: number; y: number }> => {
-    if (unit.isSmallSize()) {
-        return [{ ...destination }];
-    }
-
-    const gridSettings = grid.getSettings();
-    const position = GridMath.getPositionForCell(
-        destination,
-        gridSettings.getMinX(),
-        gridSettings.getStep(),
-        gridSettings.getHalfStep(),
-    );
-    position.x -= gridSettings.getHalfStep();
-    position.y -= gridSettings.getHalfStep();
-    return GridMath.getCellsAroundPosition(gridSettings, position);
+    // `destination` is an ANCHOR — it comes out of PathHelper's known-path keys — so the body hangs off it
+    // towards -x / -y. Going through a position was how this was written when only squares existed, and it
+    // has to subtract the half-step that turns a cell CENTRE into the block's corner; without that the whole
+    // body lands one cell up and to the right of where the pather said it could stand, and the engine
+    // rejects the move. The shared anchor expansion says the same thing without the round trip.
+    return GridMath.getFootprintCellsForAnchor(destination, unit.getFootprintWidth(), unit.getFootprintHeight());
 };
 
 const estimateUnitValue = (unit: Unit): number =>
@@ -297,6 +289,9 @@ export const getEnemiesWithinMovementRange = (
         activeUnit.canFly(),
         activeUnit.isSmallSize(),
         activeUnit.hasAbilityActive("Made of Fire"),
+        activeUnit.hasAbilityActive("In Its Own World"),
+        activeUnit.getFootprintWidth(),
+        activeUnit.getFootprintHeight(),
     ).cells;
     const enemies: Array<{ x: number; y: number }> = [];
 
@@ -311,8 +306,10 @@ export const getEnemiesWithinMovementRange = (
     return enemies.length ? enemies : undefined;
 };
 
+// The ring around the caster's WHOLE body, not its anchor cell: for a multi-cell caster the
+// anchor ring includes the caster's own cells and misses everything off the body's far side.
 export const getAvailableSummonCells = (caster: Unit, grid: Grid, spell: Spell): Array<{ x: number; y: number }> => {
-    const candidates = GridMath.getCellsAroundCell(grid.getSettings(), caster.getBaseCell());
+    const candidates = GridMath.getCellsAroundFootprint(grid.getSettings(), caster.getCells());
     return candidates.filter((cell) => SpellHelper.canCastSummon(spell, grid.getMatrix(), cell));
 };
 

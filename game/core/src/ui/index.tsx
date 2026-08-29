@@ -16,19 +16,18 @@ import {
     type PickRandomInt,
 } from "@heroesofcrypto/common";
 import { PICK_EVENT_SOURCE } from "./env";
-import { PREVIEW_ROUTES_ENABLED } from "../api/previewPlayGate";
+import { installFootprintOverridesFromSearch } from "./footprintOverridesFromUrl";
 
 import CssBaseline from "@mui/joy/CssBaseline";
 import { CssVarsProvider } from "@mui/joy/styles";
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter as Router, Route, Routes, useParams } from "react-router";
+import { BrowserRouter as Router, Route, Routes, useNavigate, useParams } from "react-router";
 import { TextStyle } from "pixi.js";
 
 import { usePixiManager } from "../pixi/PixiGameManager";
 import { HOC_GAME_FONT_FAMILY } from "../fontFamilies";
 import { images } from "../generated/image_imports";
-import { t, useTranslation } from "../i18n/i18n";
 import { WalletProvider } from "../wallet/WalletProvider";
 import LeftSideBar from "./LeftSideBar";
 import { Main } from "./Main";
@@ -41,9 +40,13 @@ import { AiControlBadge, aiBadgeLeft } from "./AiControlBadge";
 import { NextLapHazardBadge } from "./NextLapHazardBadge";
 import { ExitReplayBadge } from "./ExitReplayBadge";
 import { PlayRankedBadge } from "./PlayRankedBadge";
+import { LoadingFullscreenToggle } from "./LoadingFullscreenToggle";
 import { useGameCursor } from "./cursor/useGameCursor";
 import { IWindowSize } from "../scenes/VisibleState";
 import StainedGlassWindow from "./PickAndBan";
+import { AugmentStepPreview } from "./AugmentStepPreview";
+import { PlacementStepPreview } from "./PlacementStepPreview";
+import { SIDE_FIRE_DEFINITIONS } from "../scenes/sandbox/ambientFireTuning";
 import { LocalModelDraftOpponent } from "./PickAndBan/LocalModelDraftOpponent";
 import AutoPickToast from "./PickAndBan/AutoPickToast";
 import { buildApiUrl, endpoints, HOST_GAME_API } from "../api/axios";
@@ -52,23 +55,44 @@ import { AuthContext, useAuthContext } from "./auth/context/auth_context";
 import { LobbiesBrowse } from "./LobbiesBrowse";
 import { LobbyView } from "./LobbyView";
 import { LoginScreen } from "./LoginScreen/LoginScreen";
+import { startBackgroundAssetPrefetch } from "./assetPrefetch";
 import { MatchmakingRoute } from "./MatchmakingRoute";
-import { WagerNegotiator } from "./WagerNegotiator";
 import { ThemeMusic } from "./audio/ThemeMusic";
 import { CurrentLobbyProvider } from "./social/CurrentLobbyContext";
 import { SocialDock } from "./social/SocialDock";
 import { SocialProvider } from "./social/SocialProvider";
+import { setBattleSystemControlsActive } from "./social/systemControlsMode";
 import { setPrefightMusicActive } from "./audio/prefightMusic";
 import type { SceneGameActionTransport } from "../game_action_transport";
 import { fetchPickObserveSnapshot, fetchRankedPlaySnapshot } from "../api/ranked_play_client";
-import ObserverPickView, { MockObserverPickView } from "./PickAndBan/ObserverPickView";
+import ObserverPickView from "./PickAndBan/ObserverPickView";
 import { PlayerPortalPage } from "./PlayerPortal/PlayerPortalPage";
 import { isMockPortalEnabled } from "./PlayerPortal/mockPortal";
 import { RankedGameView } from "./RankedGameView";
 import { getMarkedVsAiDifficulty, isMarkedVsAiGame, vsAiDifficultyLabel } from "../utils/aiOpponent";
 
-const AugmentStepPreview = PREVIEW_ROUTES_ENABLED ? React.lazy(() => import("./AugmentStepPreview")) : null;
-const PlacementStepPreview = PREVIEW_ROUTES_ENABLED ? React.lazy(() => import("./PlacementStepPreview")) : null;
+const LoadingScreenFireEditor = React.lazy(() => import("./LoadingScreenFireEditor"));
+// Every dev editor is lazy so the production entry chunk never carries them: their routes below are
+// mounted only under import.meta.env.DEV, and a literal DEV guard + dynamic import lets Rollup drop
+// the whole subtree from a production build instead of shipping guarded-but-present code.
+const PortraitFramingEditor = React.lazy(() =>
+    import("./PortraitFramingEditor").then((m) => ({ default: m.PortraitFramingEditor })),
+);
+const LeftSidebarPortraitEditor = React.lazy(() =>
+    import("./LeftSidebarPortraitEditor").then((m) => ({ default: m.LeftSidebarPortraitEditor })),
+);
+const BattlefieldCreatureFramingEditor = React.lazy(() =>
+    import("./BattlefieldCreatureFramingEditor").then((m) => ({ default: m.BattlefieldCreatureFramingEditor })),
+);
+const BattlefieldShadowEditor = React.lazy(() =>
+    import("./BattlefieldShadowEditor").then((m) => ({ default: m.BattlefieldShadowEditor })),
+);
+const AmbientFireTuningEditor = React.lazy(() =>
+    import("./AmbientFireTuningEditor").then((m) => ({ default: m.AmbientFireTuningEditor })),
+);
+const LavaAnimationTuningEditor = React.lazy(() =>
+    import("./LavaAnimationTuningEditor").then((m) => ({ default: m.LavaAnimationTuningEditor })),
+);
 
 const isEditableTarget = (target: EventTarget | null): boolean => {
     if (!(target instanceof HTMLElement)) {
@@ -156,10 +180,25 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
     gameActionTransport,
 }) => {
     const manager = usePixiManager();
+    const navigate = useNavigate();
     const [started, setStarted] = useState(false);
     const [isLoading, setIsLoading] = useState(manager.isLoading);
     const [aiToggleOn, setAiToggleOn] = useState(false);
     const [replayPlaybackActive, setReplayPlaybackActive] = useState(false);
+
+    // The offline sandbox owns the compact top-right system-controls medallion on every route shape.
+    useEffect(() => {
+        setBattleSystemControlsActive(true);
+        return () => setBattleSystemControlsActive(false);
+    }, []);
+
+    const closeSandbox = useCallback(() => {
+        if (window.history.length > 1) {
+            navigate(-1);
+            return;
+        }
+        navigate("/play", { replace: true });
+    }, [navigate]);
 
     // Themed in-game cursor (applied globally via document.body.style.cursor). Mounted at the app
     // root so the cursor covers the whole screen, not just the battle canvas.
@@ -203,19 +242,24 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
             <div className="container" style={{ display: "flex" }}>
                 <CssVarsProvider>
                     <CssBaseline />
+                    {isLoading && <LoadingFullscreenToggle />}
                     {!isLoading && <LeftSideBar gameStarted={started} windowSize={windowSize} />}
-                    {!isLoading && <RightSideBar gameStarted={started} windowSize={windowSize} />}
+                    {!isLoading && (
+                        <RightSideBar
+                            gameStarted={started}
+                            windowSize={windowSize}
+                            rankedFooter={!started && !replayPlaybackActive ? <PlayRankedBadge /> : undefined}
+                            onClose={!started && !replayPlaybackActive ? closeSandbox : undefined}
+                        />
+                    )}
                     <UpNextOverlay />
                     <FightFinishedOverlay />
-                    {!isLoading && started && aiToggleOn && !replayPlaybackActive && (
-                        <AiControlBadge left={aiBadgeLeft(windowSize)} />
-                    )}
+                    {!isLoading && started && aiToggleOn && <AiControlBadge left={aiBadgeLeft(windowSize)} />}
                     {!isLoading && started && <NextLapHazardBadge />}
                     {!isLoading && replayPlaybackActive && (
                         // Sandbox: leaving the replay drops back to the regular (fresh) sandbox screen.
                         <ExitReplayBadge left={aiBadgeLeft(windowSize)} onExit={() => window.location.reload()} />
                     )}
-                    {!isLoading && !replayPlaybackActive && <PlayRankedBadge left={aiBadgeLeft(windowSize)} />}
                 </CssVarsProvider>
                 <Main />
                 <Popover />
@@ -239,8 +283,8 @@ const BUNDLE_PREVIEW_STATE: PickBanContextType = {
     watchedSlots: [],
     isYourTurn: true,
     isAbandoned: false,
+    phaseIdentity: "bundle-preview",
     pickPhase: PickPhaseVals.INITIAL_PICK,
-    phaseIdentity: "preview:bundle",
     secondsRemaining: 300,
     revealsRemaining: 0,
     initialBundles: [
@@ -259,7 +303,7 @@ const BUNDLE_PREVIEW_STATE: PickBanContextType = {
 
 const BUNDLE_PREVIEW_MAP_TYPES: Record<string, number> = {
     normal: GridVals.NORMAL,
-    cemetery: GridVals.BLOCK_CENTER,
+    barrels: GridVals.BLOCK_CENTER,
     lava: GridVals.LAVA_CENTER,
 };
 
@@ -293,7 +337,6 @@ const LEVEL_ONE_PICK_PREVIEW_STATE: PickBanContextType = {
     initialBundles: [],
     artifactTier1: 1,
     pickPhase: PickPhaseVals.PICK,
-    phaseIdentity: "preview:level-1",
     requiredLevel: 1,
 };
 
@@ -492,8 +535,8 @@ const LocalPlayableDraft: React.FC = () => {
             watchedSlots,
             isYourTurn: !resolving && view.actors.includes(LOCAL_DRAFT_TEAM) && !alreadyActed && !view.complete,
             isAbandoned: false,
+            phaseIdentity: `local-model:${view.phase}`,
             pickPhase: view.phase,
-            phaseIdentity: `sequence:${view.phaseSequence}`,
             secondsRemaining: 300,
             revealsRemaining: 0,
             initialBundles: view.bundles.map((bundle) => [...bundle] as [number, number, number]),
@@ -683,57 +726,54 @@ const PickAndBanView: React.FC<{
     );
 };
 
-const MatchLoadingOverlay: React.FC = () => {
-    useTranslation();
-    return (
-        <div
-            style={{
-                position: "fixed",
-                inset: 0,
-                backgroundColor: "#0f1117",
-                color: "#f8fafc",
-                display: "grid",
-                placeItems: "center",
-                zIndex: 1000,
-                padding: 24,
-            }}
-        >
-            <style>
-                {`
+const MatchLoadingOverlay: React.FC = () => (
+    <div
+        style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "#0f1117",
+            color: "#f8fafc",
+            display: "grid",
+            placeItems: "center",
+            zIndex: 1000,
+            padding: 24,
+        }}
+    >
+        <style>
+            {`
                 @keyframes hoc-route-progress {
                     0% { transform: translateX(-80%); }
                     50% { transform: translateX(20%); }
                     100% { transform: translateX(140%); }
                 }
             `}
-            </style>
-            <div style={{ width: "min(440px, 100%)" }}>
-                <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>{t("Opening match")}</div>
-                <div style={{ color: "#aeb7c5", fontSize: 14, lineHeight: 1.4, marginBottom: 18 }}>
-                    {t("Syncing your seat and loading the latest match state.")}
-                </div>
+        </style>
+        <div style={{ width: "min(440px, 100%)" }}>
+            <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>Opening match</div>
+            <div style={{ color: "#aeb7c5", fontSize: 14, lineHeight: 1.4, marginBottom: 18 }}>
+                Syncing your seat and loading the latest match state.
+            </div>
+            <div
+                style={{
+                    height: 8,
+                    overflow: "hidden",
+                    borderRadius: 999,
+                    backgroundColor: "rgba(148, 163, 184, 0.24)",
+                }}
+            >
                 <div
                     style={{
-                        height: 8,
-                        overflow: "hidden",
+                        width: "55%",
+                        height: "100%",
                         borderRadius: 999,
-                        backgroundColor: "rgba(148, 163, 184, 0.24)",
+                        background: "linear-gradient(90deg, #f97316, #22c55e)",
+                        animation: "hoc-route-progress 1.25s ease-in-out infinite",
                     }}
-                >
-                    <div
-                        style={{
-                            width: "55%",
-                            height: "100%",
-                            borderRadius: 999,
-                            background: "linear-gradient(90deg, #f97316, #22c55e)",
-                            animation: "hoc-route-progress 1.25s ease-in-out infinite",
-                        }}
-                    />
-                </div>
+                />
             </div>
         </div>
-    );
-};
+    </div>
+);
 
 const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
     const { gameId } = useParams<{ gameId: string }>();
@@ -755,6 +795,18 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
         setPrefightMusicActive(!!gameId && !showOverlay && routeMode !== "play");
     }, [gameId, showOverlay, routeMode]);
     useEffect(() => () => setPrefightMusicActive(false), []);
+
+    // Drafting is the one stretch of this route where the player is thinking and the network is idle, so
+    // pull the board's art down now. Without it nothing downloads until RankedGameView boots Pixi, which
+    // BLOCKS on the core tier behind a loading screen — landing a load between the draft and choosing
+    // augments. Warming the HTTP cache here means that blocking step resolves from cache instead.
+    // Best-effort and abortable: leaving the draft stops it mid-flight.
+    useEffect(() => {
+        if (!gameId || routeMode !== "pick") {
+            return undefined;
+        }
+        return startBackgroundAssetPrefetch();
+    }, [gameId, routeMode]);
     // Set once the live pick-phase SSE (already open inside PickAndBanView) reports one of the two
     // phases that hand the completed draft off to placement/play (see LIVE_PICK_PHASES in
     // common/picks/pick_sim.ts — AUGMENTS/AUGMENTS_SCOUT are last, PICK/BAN/ARTIFACT_* come first).
@@ -947,14 +999,6 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
             {!showOverlay && gameId && routeMode === "checking" && <MatchLoadingOverlay />}
             {!showOverlay && gameId && routeMode !== "checking" && (
                 <>
-                    {/* Wager negotiation rides the draft: it forms a few seconds into pick and must
-                        resolve before the fight. Observers have no seat, hence no wager. Neither does a
-                        vs-AI match: the server only materializes a wager when BOTH seats hold an intent
-                        and the bot seat never sets one, so the panel could only ever invite a stake that
-                        cannot form on this game. */}
-                    {routeMode === "pick" && !observerMode && authenticated && !isMarkedVsAiGame(gameId) && (
-                        <WagerNegotiator gameId={gameId} active={routeMode === "pick"} />
-                    )}
                     {routeMode === "pick" &&
                         (observerMode ? (
                             <ObserverPickView gameId={gameId} onPickPhaseChange={handlePickPhaseChange} />
@@ -1002,25 +1046,95 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
         <Routes>
             {/* Offline sandbox is available without login */}
             <Route path="/" element={<Heroes windowSize={windowSize} />} />
-            {PREVIEW_ROUTES_ENABLED && AugmentStepPreview && PlacementStepPreview && (
+            {/* Dev-only harnesses and calibration editors. The literal import.meta.env.DEV guard is the
+                actual prod gate: a production build statically drops every route below (and, with the lazy
+                imports above, their chunks), so none of these are reachable — or even shipped — in prod.
+                The in-component IS_PROD guards remain as a second line of defense. */}
+            {import.meta.env.DEV && (
                 <>
+                    {/* Backend-free visual fixture: intentionally remains on the starting-bundle phase. */}
                     <Route path="/preview/picks/bundle" element={<BundlePickPreview />} />
+                    {/* Backend-free visual fixture for the first creature-pick phase. */}
                     <Route path="/preview/picks/level1" element={<LevelOnePickPreview />} />
+                    {/* Backend-free but PLAYABLE draft: bundle -> picks -> tier-2 artifact -> placement handoff. */}
                     <Route path="/preview/picks/local" element={<LocalPlayableDraft />} />
-                    <Route path="/preview/picks/spectator" element={<MockObserverPickView />} />
+                    {/* Backend-free augment step: the ranked "Choose your augments" screen with no game behind it. */}
+                    <Route path="/preview/augments" element={<AugmentStepPreview />} />
+                    {/* Backend-free pre-fight placement: the ranked board+sidebar driven by an in-memory session. */}
+                    <Route path="/preview/placement" element={<PlacementStepPreview windowSize={windowSize} />} />
+                    {/* Local-only visual calibration tool. Draft values persist in localStorage until exported. */}
                     <Route
-                        path="/preview/augments"
+                        path="/dev/portrait-framing"
                         element={
                             <React.Suspense fallback={null}>
-                                <AugmentStepPreview />
+                                <PortraitFramingEditor />
                             </React.Suspense>
                         }
                     />
+                    {/* Per-creature art crop and linked portrait/stat sizing for the left sandbox/battle sidebar only. */}
                     <Route
-                        path="/preview/placement"
+                        path="/dev/left-sidebar-portraits"
                         element={
                             <React.Suspense fallback={null}>
-                                <PlacementStepPreview windowSize={windowSize} />
+                                <LeftSidebarPortraitEditor />
+                            </React.Suspense>
+                        }
+                    />
+                    {/* Real-map model calibration: direct drag, independent X/Y scale and local draft export. */}
+                    <Route
+                        path="/dev/battlefield-framing"
+                        element={
+                            <React.Suspense fallback={null}>
+                                <BattlefieldCreatureFramingEditor windowSize={windowSize} />
+                            </React.Suspense>
+                        }
+                    />
+                    {/* Live top/bottom endpoint tuning for animated battlefield silhouette shadows. */}
+                    <Route
+                        path="/dev/shadow-editor"
+                        element={
+                            <React.Suspense fallback={null}>
+                                <BattlefieldShadowEditor windowSize={windowSize} />
+                            </React.Suspense>
+                        }
+                    />
+                    {/* Real-map ambient-fire calibration with live position, size and glow controls. */}
+                    <Route
+                        path="/dev/fire-editor"
+                        element={
+                            <React.Suspense fallback={null}>
+                                <AmbientFireTuningEditor windowSize={windowSize} />
+                            </React.Suspense>
+                        }
+                    />
+                    {/* Side-brazier-only calibration using the pit-style video fire requested for the map edges. */}
+                    <Route
+                        path="/dev/side-fire-editor"
+                        element={
+                            <React.Suspense fallback={null}>
+                                <AmbientFireTuningEditor
+                                    windowSize={windowSize}
+                                    definitions={SIDE_FIRE_DEFINITIONS}
+                                    title="SIDE FIRE EDITOR"
+                                />
+                            </React.Suspense>
+                        }
+                    />
+                    {/* Live 60-frame lava-atlas calibration: playback, color, geometry, light and procedural splashes. */}
+                    <Route
+                        path="/dev/lava-editor"
+                        element={
+                            <React.Suspense fallback={null}>
+                                <LavaAnimationTuningEditor windowSize={windowSize} />
+                            </React.Suspense>
+                        }
+                    />
+                    {/* Real loading-screen preview with independently tunable overall and lower fire zones. */}
+                    <Route
+                        path="/dev/loading-fire-editor"
+                        element={
+                            <React.Suspense fallback={null}>
+                                <LoadingScreenFireEditor />
                             </React.Suspense>
                         }
                     />
@@ -1139,6 +1253,8 @@ const App: React.FC = () => {
         </AuthProvider>
     );
 };
+
+installFootprintOverridesFromSearch(window.location.search);
 
 // Reuse an existing root across hot-reloads / re-evaluations instead of calling createRoot()
 // on the same #root container twice (React warns and leaks the previous root otherwise).

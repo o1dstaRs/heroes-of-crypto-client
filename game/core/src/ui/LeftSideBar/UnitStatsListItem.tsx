@@ -1,6 +1,5 @@
 import {
     HoCConstants,
-    HoCConfig,
     UnitProperties,
     AttackVals,
     MovementVals,
@@ -21,28 +20,23 @@ import ListItemContent from "@mui/joy/ListItemContent";
 import Stack from "@mui/joy/Stack";
 import Tooltip from "@mui/joy/Tooltip";
 import Typography from "@mui/joy/Typography";
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 
-import { animationAtlases, AnimationUnitName, AnimationStateName } from "../../generated/animation_atlases";
+import { animationAtlases, AnimationUnitName, type AnimationAtlasMeta } from "../../generated/animation_atlases";
 import { images, type ImageKey } from "../../generated/image_imports";
-import { usesUnitAtlasAnimation } from "../../pixi/PixiUnitsFactory";
 import { buildAtlasPingPongTiming } from "../../scenes/atlasAnimationTiming";
 import { IVisibleImpact } from "../../scenes/VisibleState";
-import { ArrowShieldIcon } from "../svg/arrow_shield";
-import { ScrollIcon } from "../svg/scroll";
-import { BootIcon } from "../svg/boot";
-import { BowIcon } from "../svg/bow";
-import { FistIcon } from "../svg/fist";
-import { HeartIcon } from "../svg/heart";
-import { HourglassIcon } from "../svg/hourglass";
-import { LuckIcon } from "../svg/luck";
-import { MagicShieldIcon } from "../svg/magic_shield";
-import { MoraleIcon } from "../svg/morale";
-import { QuiverIcon } from "../svg/quiver";
-import { ShieldIcon } from "../svg/shield";
-import { ShotRangeIcon } from "../svg/shot_range";
-import { SwordIcon } from "../svg/sword";
-import { WingIcon } from "../svg/wing";
+import { CreaturePortraitImage } from "../CreaturePortraitImage";
+import { CREATURE_PORTRAIT_ASPECT } from "../creaturePortraitVisual";
+import {
+    DEFAULT_LEFT_SIDEBAR_PORTRAIT_TUNING,
+    LEFT_SIDEBAR_PORTRAIT_TUNING_EVENT,
+    LEFT_SIDEBAR_PORTRAIT_TUNING_STORAGE_KEY,
+    resolveLeftSidebarPortraitTuning,
+    type LeftSidebarPortraitTuning,
+} from "../leftSidebarPortraitTuning";
+import { resolveLeftSidebarPortraitArt } from "../leftSidebarPortraitArt";
+import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
 import Toggler from "../Toggler";
 import SynergiesRow from "./SynergiesRow";
 import {
@@ -51,18 +45,13 @@ import {
     isAuraRangeSynergy,
     isFlyArmorSynergy,
 } from "./SynergiesConstants";
-import {
-    formatSidebarAttackModifier,
-    formatSidebarModifier,
-    formatSidebarStat,
-    useSidebarMetrics,
-    type ISidebarMetrics,
-} from "./sidebarMetrics";
+import { orderSidebarBuffs, orderSidebarDebuffs } from "./effectOrder";
+import { formatSidebarStat, useSidebarMetrics, type ISidebarMetrics } from "./sidebarMetrics";
 
 import { commonTooltipSx } from "./tooltipStyles";
-import { areUnitStatsPropsEqual, getSidebarRangedStats, type UnitStatsListItemProps } from "./unitStatsMemo";
+import { areUnitStatsPropsEqual, type UnitStatsListItemProps } from "./unitStatsMemo";
 import { hocDisplayFontFamily } from "../hocTheme";
-import { t, tf, useTranslation } from "../../i18n/i18n";
+
 interface IAbilityStackProps {
     abilities: IVisibleImpact[];
     teamType: TeamType;
@@ -106,7 +95,7 @@ function getFactionSynergyGroups(factionName: string): FactionSynergyItem[][] {
             const synergyKey = `${factionName}:${synergyId}:${level}`;
             return {
                 key: synergyKey,
-                label: t(FACTION_SYNERGY_LABELS[factionName]?.[synergyId] ?? "Synergy"),
+                label: FACTION_SYNERGY_LABELS[factionName]?.[synergyId] ?? "Synergy",
                 level,
             };
         }).filter((synergy) => synergy.key in SYNERGY_KEY_TO_IMAGE),
@@ -114,19 +103,19 @@ function getFactionSynergyGroups(factionName: string): FactionSynergyItem[][] {
 }
 
 function getSynergyTooltip(synergyKey: string, level: number): string {
-    const description = (
-        SYNERGY_NAME_TO_DESCRIPTION[synergyKey as keyof typeof SYNERGY_NAME_TO_DESCRIPTION] || t("Unknown Synergy")
+    return `Level ${level}: ${(
+        SYNERGY_NAME_TO_DESCRIPTION[synergyKey as keyof typeof SYNERGY_NAME_TO_DESCRIPTION] || "Unknown Synergy"
     )
         .replace(/\{\}/, SynergyKeysToPower[synergyKey]?.[0]?.toString() || "0")
-        .replace(/\{\}/, SynergyKeysToPower[synergyKey]?.[1]?.toString() || "0");
-    return tf("Level {level}: {description}", { level, description: t(description) });
+        .replace(/\{\}/, SynergyKeysToPower[synergyKey]?.[1]?.toString() || "0")}`;
 }
 
 function normalizeUnitNameForAtlas(name?: string | null): AnimationUnitName | null {
     if (!name) return null;
     const trimmed = name.trim();
     if (!trimmed) return null;
-    if (!usesUnitAtlasAnimation(trimmed)) return null;
+    if (trimmed === "Scavenger") return "Thief" as AnimationUnitName;
+    if (trimmed === "Wandering Mage") return "Ash Moth" as AnimationUnitName;
     if (trimmed in animationAtlases) return trimmed as AnimationUnitName;
     return null;
 }
@@ -139,17 +128,81 @@ function atlasImageKeyFromUnitAndState(unitName: string, state: string): ImageKe
     return null;
 }
 
-type AtlasMeta = (typeof animationAtlases)[AnimationUnitName][AnimationStateName];
+type AtlasMeta = AnimationAtlasMeta;
+
+const FULL_BODY_PORTRAIT_UNITS = new Set([
+    "Abomination",
+    "Angel",
+    "Arachna Queen",
+    "Arachna Spider",
+    "Arbalester",
+    "Battle Mage",
+    "Behemoth",
+    "Beholder",
+    "Berserker",
+    "Black Dragon",
+    "Blacksmith",
+    "Centaur",
+    "Champion",
+    "Crusader",
+    "Cyclops",
+    "Dryad",
+    "Efreet",
+    "Elf",
+    "Fairy",
+    "Frenzied Boar",
+    "Gargantuan",
+    "Goblin Knight",
+    "Griffin",
+    "Harpy",
+    "Healer",
+    "Hydra",
+    "Hyena",
+    "Leprechaun",
+    "Magic Dragon",
+    "Manticore",
+    "Mantis",
+    "Medusa",
+    "Mermaid",
+    "Monk",
+    "Nightmare",
+    "Nomad",
+    "Ogre Mage",
+    "Peasant",
+    "Pegasus",
+    "Pikeman",
+    "Satyr",
+    "Squire",
+    "Thunderbird",
+    "Trent",
+    "Troglodyte",
+    "Troll",
+    "Tsar Cannon",
+    "Unicorn",
+    "Valkyrie",
+    "White Tiger",
+    "Wolf",
+    "Wolf Rider",
+    "Wyvern",
+    "Zena",
+    "Wandering Mage",
+]);
 
 function getDefaultAnimationConfig(unitName?: string | null): { meta: AtlasMeta; imageSrc: string } | null {
+    // Sidebar art is a portrait, not a distant full-body board pose. All creatures from the approved
+    // full-body refresh have a matching generated chest-to-head 512 image, so keep that crop here while
+    // the battlefield uses their authored idle/action atlases.
+    if (unitName && FULL_BODY_PORTRAIT_UNITS.has(unitName.trim())) return null;
     const normalized = normalizeUnitNameForAtlas(unitName);
     if (!normalized) return null;
-    const unitStates = animationAtlases[normalized];
-    const stateNames = Object.keys(unitStates) as AnimationStateName[];
+    const unitStates = animationAtlases[normalized] as unknown as Record<string, AtlasMeta>;
+    const stateNames = Object.keys(unitStates);
     if (!stateNames.length) return null;
-    const preferredState = (stateNames as string[]).includes("default")
-        ? ("default" as AnimationStateName)
-        : stateNames[0];
+    const preferredState = stateNames.includes("idle")
+        ? "idle"
+        : stateNames.includes("default")
+          ? "default"
+          : stateNames[0];
     const meta = unitStates[preferredState];
     const imageKey = atlasImageKeyFromUnitAndState(normalized, preferredState as string);
     if (!imageKey) return null;
@@ -373,6 +426,41 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAu
 // Ability textures that have completed a load once this session (see the fade note in AbilityCell).
 const loadedAbilityTextures = new Set<string>();
 
+// Three tiles must fit across the actual inner sidebar column. Account for both inter-tile gaps and the
+// shell/scroll-well inset; using the legacy visual metric alone made only two oversized tiles fit on the
+// narrower current sidebar.
+const threeAcrossTileSize = (metrics: ISidebarMetrics): number => {
+    const tileGap = metrics.gapPx;
+    const innerInset = Math.max(6, Math.round(metrics.padPx * 0.32) + 4);
+    return Math.max(24, Math.floor((metrics.contentWidth - innerInset - tileGap * 2) / 3));
+};
+
+const baseAbilityTileSize = (metrics: ISidebarMetrics): number =>
+    Math.min(Math.round(metrics.abilityCell * 1.4), threeAcrossTileSize(metrics));
+
+// Keep the responsive three-across calculation intact, then make only the rendered ability tiles 6% smaller.
+// Applying the reduction last also covers widths where the three-across cap, rather than abilityCell, wins.
+const ABILITY_TILE_SCALE = 0.94;
+const abilityTileSize = (metrics: ISidebarMetrics): number =>
+    Math.round(baseAbilityTileSize(metrics) * ABILITY_TILE_SCALE);
+
+// Effects retain their approved size when ability tiles are tuned independently. Fullscreen is already
+// constrained to this size by the four-slot calculation; this cap only prevents a wider browser-window
+// sidebar from inflating effects up to the original ability-tile size.
+const EFFECT_TO_ABILITY_RATIO = 0.71;
+const EFFECT_TILE_SCALE = 0.94;
+const EFFECT_TILE_BORDER_PX = 2;
+
+// Buffs and debuffs use four fixed slots across the expanded sidebar. Their wells keep a fixed layout
+// height; overflowing buff rows scroll vertically inside that slot instead of changing the card's fit scale.
+const effectTileSize = (metrics: ISidebarMetrics): number => {
+    const tileGap = metrics.gapPx * 0.6;
+    const innerInset = Math.max(6, Math.round(metrics.padPx * 0.32) + 4);
+    const fourAcrossSize = Math.floor((metrics.contentWidth - innerInset - tileGap * 3) / 4);
+    const proportionalSize = Math.round(baseAbilityTileSize(metrics) * EFFECT_TO_ABILITY_RATIO);
+    return Math.max(24, Math.round(Math.min(fourAcrossSize, proportionalSize) * EFFECT_TILE_SCALE));
+};
+
 const AbilityCell: React.FC<{
     ability: IVisibleImpact;
     teamType: TeamType;
@@ -527,15 +615,15 @@ const AbilityStack: React.FC<IAbilityStackProps & { metrics: ISidebarMetrics; ha
     return (
         <Stack
             direction="row"
-            flexWrap="wrap"
-            sx={{ width: "100%", gap: `${metrics.gapPx}px`, marginTop: `${Math.round(metrics.gapPx * 0.6)}px` }}
+            flexWrap="nowrap"
+            sx={{ width: "max-content", minWidth: "100%", gap: `${metrics.gapPx}px` }}
         >
             {filtered.map((ability, index) => (
                 <AbilityCell
                     key={`${ability.name}-${ability.smallTextureName}-${index}`}
                     ability={ability}
                     teamType={teamType}
-                    size={metrics.abilityCell}
+                    size={abilityTileSize(metrics)}
                     hasBreakApplied={hasBreakApplied}
                 />
             ))}
@@ -658,8 +746,7 @@ export const hocScrollSx = {
     scrollbarColor: "rgba(202,162,79,0.65) rgba(0,0,0,0.35)",
 } as const;
 
-// A constant-height well. Whatever the unit carries — one ability or nine buffs — the block occupies the
-// same space and the overflow scrolls, so the card's geometry never depends on the creature.
+// A constant-height vertical well used by the stat grid.
 const ScrollWell: React.FC<{
     height: number;
     children: React.ReactNode;
@@ -690,80 +777,177 @@ const ScrollWell: React.FC<{
     );
 };
 
+// Fixed-height icon well. Abilities/debuffs remain horizontal strips; Buffs opts into a wrapped vertical
+// well whose scrollbar sits on the right, so a normal mouse-wheel gesture reaches additional rows.
+const IconScrollWell: React.FC<{
+    height: number;
+    children: React.ReactNode;
+    offsetY?: number;
+    vertical?: boolean;
+}> = ({ height, children, offsetY = 0, vertical = false }) => (
+    <Box
+        onWheel={
+            vertical
+                ? (event) => {
+                      const well = event.currentTarget;
+                      if (well.scrollHeight <= well.clientHeight) return;
+                      well.scrollTop += event.deltaY;
+                      event.stopPropagation();
+                  }
+                : undefined
+        }
+        sx={{
+            position: "relative",
+            // Keep the vertical rail inside the sidebar's decorative right frame instead of painting
+            // underneath it, where the thumb looked absent even while the well was scrollable.
+            width: vertical ? "calc(100% - 8px)" : "100%",
+            mr: vertical ? "8px" : 0,
+            height: `${height}px`,
+            boxSizing: "border-box",
+            overflowX: vertical ? "hidden" : "auto",
+            overflowY: vertical ? "scroll" : "hidden",
+            whiteSpace: vertical ? "normal" : "nowrap",
+            pr: vertical ? "5px" : 0,
+            scrollbarGutter: vertical ? "stable" : "auto",
+            overscrollBehaviorY: vertical ? "contain" : "auto",
+            touchAction: vertical ? "pan-y" : "auto",
+            transform: offsetY ? `translateY(${offsetY}px)` : "none",
+            ...hocScrollSx,
+            "&::-webkit-scrollbar": vertical ? { width: "7px" } : { height: "5px" },
+        }}
+    >
+        {children}
+    </Box>
+);
+
 // Section caption + the 2px rule under it. Used for Abilities / Buffs / Debuffs here and for Up next in
 // the sidebar itself, so all four headings read as one family.
+const UNIT_SECTION_PLAQUE_HEIGHT_SCALE = 0.75;
+
 export const SectionTitle: React.FC<{
     title: string;
     metrics: ISidebarMetrics;
     displayFont?: boolean;
     preserveCase?: boolean;
     namePlaque?: boolean;
-}> = ({ title, metrics, displayFont = false, preserveCase = false, namePlaque = false }) => (
-    <Box sx={{ width: "100%", display: "flex", alignItems: "center", gap: "6px" }}>
-        <Box sx={{ height: "1px", flex: 1, background: "linear-gradient(90deg, transparent, rgba(132,91,52,.58))" }} />
-        <Typography
-            level="title-sm"
-            sx={{
-                // The three unit-card plaques are deliberately 10% larger than the shared Up next title.
-                // This is local to displayFont; the common font metrics remain unchanged everywhere else.
-                fontSize: `${metrics.sectionTitleRem * (namePlaque ? 1.45 : displayFont ? 1.1 : 1)}rem`,
-                ...(displayFont
-                    ? {
-                          fontFamily: hocDisplayFontFamily,
-                          fontSynthesis: "weight",
-                          // 10% more than the chosen global HoC Forge spacing (0.121em).
-                          letterSpacing: "0.1331em",
-                      }
-                    : {}),
-                fontWeight: 800,
-                lineHeight: 1,
-                ...(!displayFont ? { letterSpacing: "0.16em" } : {}),
-                textTransform: preserveCase ? "none" : "uppercase",
-                color: "#d7b77b",
-                textShadow: "0 1px 0 rgba(0,0,0,.9)",
-                px: namePlaque ? "14px" : "10px",
-                py: namePlaque ? "2px" : "5px",
-                minWidth: namePlaque ? "58.8%" : "42%",
-                textAlign: "center",
-                clipPath: "polygon(7px 0, calc(100% - 7px) 0, 100% 50%, calc(100% - 7px) 100%, 7px 100%, 0 50%)",
-                background: namePlaque
-                    ? "linear-gradient(180deg, rgba(44,37,30,.59), rgba(14,13,12,.605))"
-                    : "linear-gradient(180deg, rgba(44,37,30,.96), rgba(14,13,12,.98)) padding-box, linear-gradient(90deg, #241a12, #8b6238, #241a12) border-box",
-                border: "1px solid transparent",
-                ...(namePlaque
-                    ? {
-                          borderImage: "linear-gradient(90deg, #241a12, #8b6238, #241a12) 1",
-                      }
-                    : {}),
-                boxShadow: "inset 0 1px 0 rgba(237,190,121,.12), 0 2px 4px rgba(0,0,0,.55)",
-            }}
-        >
-            {title}
-        </Typography>
+    heightScale?: number;
+}> = ({ title, metrics, displayFont = false, preserveCase = false, namePlaque = false, heightScale = 1 }) => {
+    const fontSizeRem = metrics.sectionTitleRem * (namePlaque ? 1.45 : displayFont ? 1.1 : 1);
+    const naturalHeightPx = fontSizeRem * 16 + (namePlaque ? 6 : 12);
+    const scaledHeightPx = naturalHeightPx * heightScale;
+
+    return (
         <Box
             sx={{
-                height: "1px",
-                flex: 1,
-                background: "linear-gradient(90deg, rgba(132,91,52,.58), transparent)",
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                // Keep a compact plaque centred on the original divider axis so neighbouring sections and
+                // the selected-unit frame retain their approved positions.
+                position: heightScale === 1 ? "static" : "relative",
+                top: heightScale === 1 ? 0 : `${(naturalHeightPx - scaledHeightPx) / 2}px`,
             }}
-        />
-    </Box>
-);
+        >
+            <Box
+                sx={{ height: "1px", flex: 1, background: "linear-gradient(90deg, transparent, rgba(132,91,52,.58))" }}
+            />
+            <Typography
+                level="title-sm"
+                sx={{
+                    // The three unit-card plaques are deliberately 10% larger than the shared Up next title.
+                    // This is local to displayFont; the common font metrics remain unchanged everywhere else.
+                    fontSize: `${fontSizeRem}rem`,
+                    ...(displayFont
+                        ? {
+                              fontFamily: hocDisplayFontFamily,
+                              fontSynthesis: "weight",
+                              // 10% more than the chosen global HoC Forge spacing (0.121em).
+                              letterSpacing: "0.1331em",
+                          }
+                        : {}),
+                    fontWeight: 800,
+                    lineHeight: 1,
+                    ...(!displayFont ? { letterSpacing: "0.16em" } : {}),
+                    textTransform: preserveCase ? "none" : "uppercase",
+                    color: "#d7b77b",
+                    textShadow: "0 1px 0 rgba(0,0,0,.9)",
+                    px: namePlaque ? "14px" : "10px",
+                    py: heightScale === 1 ? (namePlaque ? "2px" : "5px") : 0,
+                    ...(heightScale === 1
+                        ? {}
+                        : {
+                              height: `${scaledHeightPx}px`,
+                              boxSizing: "border-box",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                          }),
+                    minWidth: namePlaque ? "58.8%" : "42%",
+                    textAlign: "center",
+                    clipPath: "polygon(7px 0, calc(100% - 7px) 0, 100% 50%, calc(100% - 7px) 100%, 7px 100%, 0 50%)",
+                    background: namePlaque
+                        ? "linear-gradient(180deg, rgba(44,37,30,.59), rgba(14,13,12,.605))"
+                        : "linear-gradient(180deg, rgba(44,37,30,.96), rgba(14,13,12,.98)) padding-box, linear-gradient(90deg, #241a12, #8b6238, #241a12) border-box",
+                    border: "1px solid transparent",
+                    ...(namePlaque
+                        ? {
+                              borderImage: "linear-gradient(90deg, #241a12, #8b6238, #241a12) 1",
+                          }
+                        : {}),
+                    boxShadow: "inset 0 1px 0 rgba(237,190,121,.12), 0 2px 4px rgba(0,0,0,.55)",
+                }}
+            >
+                {title}
+            </Typography>
+            <Box
+                sx={{
+                    height: "1px",
+                    flex: 1,
+                    background: "linear-gradient(90deg, rgba(132,91,52,.58), transparent)",
+                }}
+            />
+        </Box>
+    );
+};
 
 const PanelSection: React.FC<{
     title: string;
     metrics: ISidebarMetrics;
     children: React.ReactNode;
-}> = ({ title, metrics, children }) => (
+    overlayTitle?: boolean;
+    offsetY?: number;
+    titleHeightScale?: number;
+}> = ({ title, metrics, children, overlayTitle = false, offsetY = 0, titleHeightScale = 1 }) => (
     <Box
         sx={{
             width: "100%",
             display: "flex",
             flexDirection: "column",
-            gap: `${Math.max(2, Math.round(metrics.gapPx * 0.4))}px`,
+            transform: offsetY ? `translateY(${offsetY}px)` : "none",
+            // Buff/debuff wells need only a compact inset below their plaques; Abilities gets its larger
+            // dedicated offset from the lifted overlay-title wrapper below.
+            gap: `${Math.max(2, Math.round(metrics.gapPx * (overlayTitle ? 0.4 : 0.65)))}px`,
         }}
     >
-        <SectionTitle title={title} metrics={metrics} displayFont />
+        <Box
+            sx={
+                overlayTitle
+                    ? {
+                          position: "relative",
+                          // The selected portrait/stat layer deliberately reaches the divider's centre.
+                          // Keep the plaque and both rule segments above that artwork.
+                          zIndex: 6,
+                          // Reserve one compact gap below the lifted plaque so the enlarged ability art
+                          // starts after its lower rim instead of sliding underneath it.
+                          height: `${Math.round(metrics.gapPx)}px`,
+                          transform: `translateY(calc(-50% - ${Math.round(metrics.gapPx * 0.5)}px))`,
+                      }
+                    : undefined
+            }
+        >
+            <SectionTitle title={title} metrics={metrics} displayFont heightScale={titleHeightScale} />
+        </Box>
         {children}
     </Box>
 );
@@ -780,7 +964,9 @@ const unitDetailsShellSx = (metrics: ISidebarMetrics) =>
         display: "flex",
         flexDirection: "column",
         padding: `0 ${Math.max(2, Math.round(metrics.padPx * 0.16))}px`,
-        overflow: "hidden",
+        // The fit-scaled card is narrower than the sidebar. Portrait and stats counter that horizontal
+        // scale and must be allowed to reach the outer viewport, whose frame supplies the final clip.
+        overflow: "visible",
     }) as const;
 
 // Just the tiles. Split out of EffectRow so the Buffs section can put buff tiles and synergy badges under
@@ -789,7 +975,7 @@ const EffectTiles: React.FC<{
     effects: IVisibleImpact[];
     title: string;
     metrics: ISidebarMetrics;
-    /** See SynergiesRow's `inline`: hand the tiles to the parent's wrap rather than opening a row of our own. */
+    /** See SynergiesRow's `inline`: hand the tiles to the parent's horizontal strip. */
     inline?: boolean;
 }> = ({ effects, title, metrics, inline = false }) => {
     if (!effects.length) return null;
@@ -800,7 +986,9 @@ const EffectTiles: React.FC<{
                 sx={{
                     display: inline ? "contents" : "flex",
                     flexDirection: "row",
-                    flexWrap: "wrap",
+                    flexWrap: "nowrap",
+                    width: inline ? undefined : "max-content",
+                    minWidth: inline ? undefined : "100%",
                     gap: `${metrics.gapPx * 0.6}px`,
                 }}
             >
@@ -814,12 +1002,12 @@ const EffectTiles: React.FC<{
                             sx={{
                                 position: "relative",
                                 display: "inline-flex",
-                                width: `${metrics.effectIcon}px`,
-                                height: `${metrics.effectIcon}px`,
+                                width: `${effectTileSize(metrics)}px`,
+                                height: `${effectTileSize(metrics)}px`,
                                 flex: "none",
                                 // Same tile frame as the ability cells — see the handoff.
                                 borderRadius: effect.isAura ? "50%" : "15%",
-                                border: "2px solid #0d0906",
+                                border: `${EFFECT_TILE_BORDER_PX}px solid #0d0906`,
                                 boxShadow: "inset 0 0 0 1px rgba(150,130,98,.22), 0 2px 6px rgba(0,0,0,.7)",
                             }}
                         >
@@ -866,70 +1054,52 @@ const EffectTiles: React.FC<{
  * component silently drops both, and the stat explanations stop appearing on hover with nothing in the
  * console to say why. If this stops forwarding, the tooltips go quiet again.
  */
-// Every large figure is the final effective stat. A small signed label keeps the adjustment that produced
-// it visible as well, so a buff/debuff does not silently disappear into the total.
-const MOD_UP_COLOR = "#7ee787";
-const MOD_DOWN_COLOR = "#ff8a7a";
+// Every figure on this plate is the final effective value. Buff/debuff deltas are intentionally omitted:
+// the compact card should answer "what is the stat now?" without showing the arithmetic that produced it.
 
 const StatValue = React.forwardRef<
     HTMLDivElement,
     {
-        icon: React.ReactElement<Record<string, unknown>>;
+        icon: React.ReactElement<Record<string, unknown>> | string;
         value: string | number;
         color: string;
         metrics: ISidebarMetrics;
-        modifier?: string;
     } & React.HTMLAttributes<HTMLDivElement>
->(({ icon, value, color, metrics, modifier, ...tooltipProps }, ref) => (
-    // No buff/debuff frame: a modified stat used to get a pulsing green or red ring, which on creatures
-    // that carry a permanent modifier sat on screen for the whole fight and read as clutter.
+>(({ icon, value, color, metrics, ...tooltipProps }, ref) => (
     <Box
         ref={ref}
         {...tooltipProps}
         sx={{ display: "inline-flex", alignItems: "center", width: "fit-content", minWidth: 0 }}
     >
-        {React.cloneElement(icon, {
-            sx: { color, fontSize: `${metrics.statIconPx}px`, pr: "3px", flex: "none" },
-        })}
+        {typeof icon === "string" ? (
+            <Box
+                component="img"
+                src={icon}
+                alt=""
+                aria-hidden
+                sx={{
+                    width: `${metrics.statIconPx}px`,
+                    height: `${metrics.statIconPx}px`,
+                    mr: "3px",
+                    flex: "none",
+                    objectFit: "contain",
+                }}
+            />
+        ) : (
+            React.cloneElement(icon, {
+                sx: { color, fontSize: `${metrics.statIconPx}px`, pr: "3px", flex: "none" },
+            })
+        )}
         <Typography
             fontSize={`${metrics.statFontRem * 1.15}rem`}
             component="span"
             sx={{ whiteSpace: "nowrap", fontWeight: 600, fontSynthesis: "weight" }}
         >
             {value}
-            {modifier && (
-                <Box
-                    component="span"
-                    sx={{
-                        fontSize: "0.68em",
-                        ml: "2px",
-                        fontWeight: 700,
-                        color: modifier.startsWith("-") || modifier.startsWith("x0.") ? MOD_DOWN_COLOR : MOD_UP_COLOR,
-                    }}
-                >
-                    {modifier}
-                </Box>
-            )}
         </Typography>
     </Box>
 ));
 StatValue.displayName = "StatValue";
-
-// Poleless, transparent banners selected for the unit card. Both team variants share the exact same
-// silhouette and bronze binding; only the cloth colour changes.
-const greenBannerImage = images.ui_banner_green_soft_wide;
-const redBannerImage = images.ui_banner_red_soft_wide;
-const bannerOrnamentsImage = images.banner_riveted_ornaments;
-const GREEN_BANNER_FILTER = "saturate(1.38) brightness(1.14) contrast(1.1)";
-
-// Neutral selection keeps the cloth monochrome but not the metal. A narrow alpha-only path reveals the
-// original brown/gold binding from the coloured source above the grayscale banner; it does not resurrect
-// the old separate rounded frame overlay or leak team colour back into the fabric.
-const BANNER_FRAME_PATH = "M 20 18 H 1016 V 1145 Q 1016 1180 982 1194 L 518 1294 L 54 1194 Q 20 1180 20 1145 Z";
-const neutralBannerFrameMaskSvg = encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1036 1309" preserveAspectRatio="none"><path d="${BANNER_FRAME_PATH}" fill="none" stroke="white" stroke-width="24" stroke-linejoin="round"/></svg>`,
-);
-const neutralBannerFrameMask = `url("data:image/svg+xml,${neutralBannerFrameMaskSvg}")`;
 
 /** Where the portrait's top edge lands on the banner, as a share of the art's height — just under the
  *  crossbar's valance, which is the last thing on the cloth now that the crenellated line has been cut out
@@ -941,16 +1111,6 @@ const neutralBannerFrameMask = `url("data:image/svg+xml,${neutralBannerFrameMask
  *  head cut further into the portrait the larger the card got. */
 const BANNER_PORTRAIT_TOP = 0.1229;
 
-/** How much bigger the portrait art draws than the box the banner is measured against.
- *
- *  The creature is a medallion inside a square frame, so its widest point falls short of the frame's edge and
- *  the cloth — cut to the frame — read as wider than the creature on it. This closes that gap. It is a
- *  TRANSFORM, not a size: the banner's crest, hem and name are all solved from the portrait's box, so growing
- *  the box would move every one of them, whereas a transform leaves the layout alone. It grows from the
- *  BOTTOM edge, so the art's foot stays where the stat plate begins and never disappears behind it, and the
- *  extra height goes up under the crest instead. */
-const PORTRAIT_ART_SCALE = 1.06;
-
 /** How far the name clears the very top of the banner. Zero: the row starts on the banner's own top edge,
  *  and its line-height already carries half-leading above the letters, so nothing actually touches the
  *  crossbar. */
@@ -959,14 +1119,8 @@ const NAME_TOP_PAD_PX = 6;
  *  bright cloth and the plate — that gap plus the near-black rim read as a black rule under the banner. */
 const STAT_PLATE_RIM_PX = 2;
 
-/** The portrait's side, which is also the banner's cloth width.
- *
- *  A blurred layer paints roughly one blur radius outside its own box in every direction, and that overspill
- *  is what the bar's `overflowX: hidden` used to slice into a visible edge — so the flame layers are sized as
- *  (bar width - 2x their own blur). The portrait matches the innermost of them, 12px of blur inset by 26 a
- *  side, which is what leaves the glow reading as a ring around the art rather than a rectangle behind it. */
-const portraitBoxPx = (metrics: ISidebarMetrics): number =>
-    Math.round(Math.min(metrics.portraitMax, Math.max(60, metrics.contentWidth - 12 * 2 - 52)));
+/** The complete pink-boundary card uses the exact 190:256 pick-stage silhouette at full content width. */
+const portraitBoxPx = (metrics: ISidebarMetrics): number => Math.round(metrics.contentWidth);
 
 /** The name plaque keeps the shared section geometry, but its type fills the height: 2px vertical padding
  *  and the same 1px transparent border on both sides. */
@@ -984,9 +1138,8 @@ const bannerLayout = (metrics: ISidebarMetrics) => {
     const portrait = portraitBoxPx(metrics);
     const columnGap = Math.round(metrics.gapPx * 0.5);
     const overhang = columnGap + STAT_PLATE_RIM_PX;
-    // What the height would be if the crest sat exactly on the portrait's top; the lift it implies is then
-    // rounded to whole pixels and the height rebuilt from it, so the hem stays exact either way.
-    const crest = Math.round(BANNER_PORTRAIT_TOP * ((portrait + overhang) / (1 - BANNER_PORTRAIT_TOP)));
+    const height = Math.round(portrait / CREATURE_PORTRAIT_ASPECT);
+    const crest = Math.round(BANNER_PORTRAIT_TOP * height);
     const text = nameTextHeightPx(metrics);
     // Hard to the top of the banner rather than centred in the cloth below the crossbar: the crest is thick,
     // and splitting the run left the name sitting on it. Everything the name does not take goes to the
@@ -998,72 +1151,22 @@ const bannerLayout = (metrics: ISidebarMetrics) => {
     const above = NAME_TOP_PAD_PX;
     const below = Math.max(0, crest - above - text);
     const lift = above + text + below;
-    return { portrait, above, below, lift, height: lift + portrait + overhang };
-};
-
-/**
- * The team's heraldic banner, hung behind the portrait and the stat plate.
- *
- * It lives in the card rather than in the sidebar so that it is measured against the portrait it hangs
- * behind. Positioned in the sidebar instead, both ends had to be guessed, and every change to the card's
- * metrics broke it.
- *
- * Its horizontal edges follow the stat plate's full width. Vertically, the alpha-trimmed top rail starts at
- * the card's top and the lower point lands exactly on the stat plate, so no transparent source padding can
- * reintroduce the old gaps.
- */
-const teamBannerSx = (layout: ReturnType<typeof bannerLayout>) => {
-    return {
-        position: "absolute",
-        top: `calc(${-layout.lift}px - var(--sidebar-card-top-extension, 0px))`,
-        left: 0,
-        width: "100%",
-        // The source has been alpha-trimmed: its first pixel is the upper rail and its last pixel is the
-        // lower point. This therefore anchors the point exactly on the stat plate's top edge.
-        height: `calc(${layout.height - STAT_PLATE_RIM_PX}px + var(--sidebar-card-top-extension, 0px))`,
-        objectFit: "fill",
-        objectPosition: "center",
-        // Match the production overlay's elliptical lower corners. Horizontal and vertical radii come from
-        // its alpha silhouette, so the cloth ends beneath the rail instead of poking through its curve.
-        borderRadius: "0 0 16.53% 16.53% / 0 0 11.76% 11.76%",
-        boxSizing: "border-box",
-        overflow: "hidden",
-        // Behind the portrait (zIndex 1) and the stat plate, which is given its own zIndex for the purpose:
-        // a positioned element at 0 still paints over a static sibling, which is why the swallowtail was
-        // crossing the stat rows.
-        zIndex: 0,
-        pointerEvents: "none",
-        transition: "opacity 220ms ease-out",
-        willChange: "opacity",
-    } as const;
+    const portraitHeight = Math.max(60, height - lift - overhang);
+    return { portrait, portraitHeight, above, below, lift, overhang, height };
 };
 
 const StatItem: React.FC<{
-    icon: React.ReactElement<Record<string, unknown>>;
+    icon: React.ReactElement<Record<string, unknown>> | string;
     value: string | number;
     tooltip: string;
     color: string;
     metrics: ISidebarMetrics;
-    secondIcon?: React.ReactElement<Record<string, unknown>>;
+    secondIcon?: React.ReactElement<Record<string, unknown>> | string;
     secondValue?: string | number;
     secondColor?: string;
     secondTooltip?: string;
-    modifier?: string;
-    secondModifier?: string;
-}> = ({
-    icon,
-    value,
-    tooltip,
-    color,
-    metrics,
-    secondIcon,
-    secondValue,
-    secondColor,
-    secondTooltip,
-    modifier,
-    secondModifier,
-}) => {
-    const first = <StatValue icon={icon} value={value} color={color} metrics={metrics} modifier={modifier} />;
+}> = ({ icon, value, tooltip, color, metrics, secondIcon, secondValue, secondColor, secondTooltip }) => {
+    const first = <StatValue icon={icon} value={value} color={color} metrics={metrics} />;
 
     return (
         <Box
@@ -1071,10 +1174,8 @@ const StatItem: React.FC<{
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                flexWrap: "nowrap",
                 overflow: "hidden",
                 minWidth: 0,
-                gap: "4px",
                 // Per the handoff each stat sits in its own shallow recess inside the stone plate. Every
                 // cell is one grid track wide, so the block is the same three-up shape for every creature.
                 padding: "3px 6px",
@@ -1083,20 +1184,35 @@ const StatItem: React.FC<{
                 boxShadow: "inset 0 0 0 1px rgba(150,130,98,.14)",
             }}
         >
-            <Tooltip title={tooltip} sx={commonTooltipSx}>
-                {first}
-            </Tooltip>
-            {secondIcon && secondValue !== undefined && (
-                <Tooltip title={secondTooltip ?? ""} sx={commonTooltipSx}>
-                    <StatValue
-                        icon={secondIcon}
-                        value={secondValue}
-                        color={secondColor ?? color}
-                        metrics={metrics}
-                        modifier={secondModifier}
-                    />
+            <Box
+                sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexWrap: "nowrap",
+                    minWidth: 0,
+                    gap: "4px",
+                    // The portrait/stat shell cancels the card's horizontal fit scale so its containers
+                    // still meet the sidebar rails. Reapply that scale only to the icon/value group: its
+                    // X and Y factors are equal again, preserving the original glyph and icon proportions.
+                    transform: "scaleX(var(--sidebar-card-fit-scale, 1))",
+                    transformOrigin: "center",
+                }}
+            >
+                <Tooltip title={tooltip} sx={commonTooltipSx}>
+                    {first}
                 </Tooltip>
-            )}
+                {secondIcon && secondValue !== undefined && (
+                    <Tooltip title={secondTooltip ?? ""} sx={commonTooltipSx}>
+                        <StatValue
+                            icon={secondIcon}
+                            value={secondValue}
+                            color={secondColor ?? color}
+                            metrics={metrics}
+                        />
+                    </Tooltip>
+                )}
+            </Box>
         </Box>
     );
 };
@@ -1140,29 +1256,38 @@ const UnitStatsLayout: React.FC<{
     hasBreakApplied,
     team,
 }) => {
-    useTranslation();
-    // magic_resist_mod and range_shots_mod replace their bases instead of adding to them, so their visible
-    // labels are the difference from base rather than the raw replacement value.
-    const magicResistDelta = unitProperties.magic_resist_mod
-        ? unitProperties.magic_resist_mod - unitProperties.magic_resist
-        : 0;
-    const rangeShotsDelta = unitProperties.range_shots_mod
-        ? unitProperties.range_shots_mod - unitProperties.range_shots
-        : 0;
-    const attackModifier = formatSidebarAttackModifier(unitProperties.attack_mod, unitProperties.attack_multiplier);
+    const creatureId = UNIT_NAME_TO_ID[unitProperties.name.trim()];
+    const sidebarPortraitArt = creatureId === undefined ? {} : resolveLeftSidebarPortraitArt(creatureId);
+    const [sidebarPortraitTuning, setSidebarPortraitTuning] = useState<LeftSidebarPortraitTuning>(() =>
+        creatureId === undefined
+            ? { ...DEFAULT_LEFT_SIDEBAR_PORTRAIT_TUNING }
+            : resolveLeftSidebarPortraitTuning(creatureId),
+    );
+    useEffect(() => {
+        const syncTuning = () =>
+            setSidebarPortraitTuning(
+                creatureId === undefined
+                    ? { ...DEFAULT_LEFT_SIDEBAR_PORTRAIT_TUNING }
+                    : resolveLeftSidebarPortraitTuning(creatureId),
+            );
+        const syncStoredTuning = (event: StorageEvent) => {
+            if (event.key === LEFT_SIDEBAR_PORTRAIT_TUNING_STORAGE_KEY) syncTuning();
+        };
 
-    // Ranked snapshots carry final luck in `luck` and intentionally leave luck_mod at zero. Diffing against
-    // the configured base makes this display-only label work in ranked and the local sandbox alike.
-    const configuredLuck = HoCConfig.getCreatureConfig(
-        unitProperties.team,
-        ToFactionName[unitProperties.faction],
-        unitProperties.name,
-        unitProperties.large_texture_name,
-        0,
-    ).luck;
-    const luckDelta = unitProperties.luck + unitProperties.luck_mod - configuredLuck;
-    const animationConfig = getDefaultAnimationConfig(unitProperties.name);
-    const rangedStats = getSidebarRangedStats(unitProperties);
+        syncTuning();
+        window.addEventListener(LEFT_SIDEBAR_PORTRAIT_TUNING_EVENT, syncTuning);
+        window.addEventListener("storage", syncStoredTuning);
+        return () => {
+            window.removeEventListener(LEFT_SIDEBAR_PORTRAIT_TUNING_EVENT, syncTuning);
+            window.removeEventListener("storage", syncStoredTuning);
+        };
+    }, [creatureId]);
+    const animationConfig = creatureId === undefined ? getDefaultAnimationConfig(unitProperties.name) : null;
+    const showRangedStats =
+        unitProperties.attack_type === AttackVals.RANGE ||
+        // Runtime shooter: a melee unit holding a stolen Endless Quiver gains shots
+        // (range_shots_mod) and a granted shot_distance — show its ranged stats too.
+        (unitProperties.shot_distance > 0 && (unitProperties.range_shots_mod || unitProperties.range_shots) > 0);
 
     // Order matters: the seven stats every creature has come first, in a fixed sequence, and the handful
     // that only some carry are appended after them. Otherwise a conditional cell in the middle re-seats
@@ -1170,109 +1295,114 @@ const UnitStatsLayout: React.FC<{
     const statsContent = (
         <>
             <StatItem
-                icon={<HeartIcon />}
+                icon={images.stat_health_gold_v2}
                 value={`${formatSidebarStat(unitProperties.hp)}/${formatSidebarStat(unitProperties.max_hp)}`}
-                tooltip={t("Current/max Health Points")}
+                tooltip="Current/max Health Points"
                 color="#ff4d4d"
                 metrics={metrics}
             />
             <StatItem
-                icon={<FistIcon />}
+                icon={images.stat_damage_gold_v2}
                 value={damageRange}
-                tooltip={t("Attack spread")}
+                tooltip="Attack spread"
                 color="#c0c0c0"
                 metrics={metrics}
             />
             <StatItem
-                icon={attackTypeSelected === AttackVals.RANGE ? <BowIcon /> : <SwordIcon />}
+                icon={
+                    attackTypeSelected === AttackVals.RANGE
+                        ? images.stat_ranged_attack_gold_v2
+                        : images.stat_melee_attack_gold_v2
+                }
                 value={formatSidebarStat(attackDamage)}
-                tooltip={t("Attack type and multiplier")}
+                tooltip="Attack type and multiplier"
                 color={attackTypeSelected === AttackVals.RANGE ? "#ffd700" : "#a52a2a"}
                 metrics={metrics}
-                modifier={attackModifier}
             />
             <StatItem
-                icon={<ShieldIcon />}
+                icon={images.stat_armor_gold_v2}
                 value={formatSidebarStat(meleeArmor)}
-                tooltip={hasDifferentRangeArmor ? t("Armor against melee attacks") : t("Armor")}
+                tooltip={hasDifferentRangeArmor ? "Armor against melee attacks" : "Armor"}
                 color="#4682b4"
                 metrics={metrics}
-                modifier={formatSidebarModifier(unitProperties.armor_mod)}
                 // A creature that armours differently against arrows shows both figures in ONE cell, the
                 // way morale and luck share theirs. They are the same stat read against two attack types,
                 // so splitting them across the grid made the pair read as unrelated -- and the second cell
                 // only existed for some creatures, which shifted every stat after it.
-                secondIcon={hasDifferentRangeArmor ? <ArrowShieldIcon /> : undefined}
+                secondIcon={hasDifferentRangeArmor ? images.stat_ranged_armor_gold_v2 : undefined}
                 secondValue={hasDifferentRangeArmor ? formatSidebarStat(rangeArmor) : undefined}
                 secondColor="#f4a460"
-                secondTooltip={t("Armor against ranged attacks")}
+                secondTooltip="Armor against ranged attacks"
             />
             <StatItem
-                icon={<MagicShieldIcon />}
+                icon={images.stat_magic_resist_gold_v2}
                 value={`${formatSidebarStat(unitProperties.magic_resist_mod || unitProperties.magic_resist)}%`}
-                tooltip={t("Magic resist in %")}
+                tooltip="Magic resist in %"
                 color="#8a2be2"
                 metrics={metrics}
-                modifier={formatSidebarModifier(magicResistDelta)}
             />
             {/* Movement range and initiative share a cell: both answer "how does this stack move through
                 the turn", and pairing them keeps the plate at seven fixed slots. */}
             <StatItem
-                icon={unitProperties.movement_type === MovementVals.FLY ? <WingIcon /> : <BootIcon />}
+                icon={
+                    unitProperties.movement_type === MovementVals.FLY
+                        ? images.stat_fly_gold_v2
+                        : images.stat_walk_gold_v2
+                }
                 // OWNER call: show the exact fractional stat (Elf's 2.93), with insignificant trailing
                 // zeroes dropped — and since 2026-08-06 the ENGINE moves on the same pure fraction (no rounding:
                 // a straight cell costs 1, a diagonal ~1.41, Trent's own vines 0.5), so the display and
                 // the board can no longer disagree.
                 value={formatSidebarStat(unitProperties.steps + stepsMod)}
-                tooltip={t("Movement budget in cells: straight costs 1, diagonal ~1.41 — spent exactly, no rounding")}
+                tooltip="Movement budget in cells: straight costs 1, diagonal ~1.41 — spent exactly, no rounding"
                 color={unitProperties.movement_type === MovementVals.FLY ? "#00ff7f" : "#8b4513"}
                 metrics={metrics}
-                modifier={formatSidebarModifier(stepsMod)}
-                secondIcon={<HourglassIcon />}
+                secondIcon={images.stat_initiative_gold_v2}
                 secondValue={formatSidebarStat(unitProperties.initiative)}
                 secondColor={isDarkMode ? "#f5fefd" : "#000000"}
-                secondTooltip={t("Units with higher initiative turn first")}
+                secondTooltip="Units with higher initiative turn first"
             />
             {/* Morale and luck share one cell. They are the two smallest, most closely related numbers, and
                 pairing them buys back a slot — a ranged creature carries enough extra stats to spill onto a
                 fourth row otherwise, which moved everything below the plate. */}
             <StatItem
-                icon={<MoraleIcon />}
+                icon={images.stat_morale_gold_v2}
                 value={formatSidebarStat(Math.round(unitProperties.morale))}
-                tooltip={t("Morale grants extra actions, and adds movement steps once the map starts narrowing")}
+                tooltip="Morale grants extra actions, and adds movement steps once the map starts narrowing"
                 color={isDarkMode ? "#ffff00" : "#DC4D01"}
                 metrics={metrics}
-                secondIcon={<LuckIcon />}
+                secondIcon={images.stat_luck_gold_v2}
                 secondValue={formatSidebarStat(Math.round(unitProperties.luck + unitProperties.luck_mod))}
                 secondColor="#ff4040"
-                secondTooltip={t("Luck raises damage rolls and the power of abilities")}
-                secondModifier={formatSidebarModifier(luckDelta)}
+                secondTooltip="Luck raises damage rolls and the power of abilities"
             />
             {/* Spellbook scroll count: the only readout of how many casts a spellcaster has left —
                 without it, answering that question means opening the spellbook. */}
             {unitProperties.can_cast_spells && (
                 <StatItem
-                    icon={<ScrollIcon />}
+                    icon={images.stat_scroll_gold_v2}
                     value={formatSidebarStat(unitProperties.spells.length)}
-                    tooltip={t("Magic scrolls left to cast")}
+                    tooltip="Magic scrolls left to cast"
                     color="#add8e6"
                     metrics={metrics}
                 />
             )}
-            {rangedStats && (
+            {showRangedStats && (
                 <StatItem
-                    icon={<ShotRangeIcon />}
-                    value={formatSidebarStat(rangedStats.shotDistance)}
-                    tooltip={t("Ranged shot distance in cells")}
+                    icon={images.stat_shot_range_gold_v2_arc}
+                    value={formatSidebarStat(unitProperties.shot_distance)}
+                    tooltip="Ranged shot distance in cells"
                     color="#ffff00"
                     metrics={metrics}
-                    // Distance and ammunition describe the same ranged attack. Keeping them in one cell
-                    // prevents a ranged spellcaster's shot count from becoming the hidden tenth grid item.
-                    secondIcon={<QuiverIcon />}
-                    secondValue={formatSidebarStat(rangedStats.remainingShots)}
-                    secondColor="#cd5c5c"
-                    secondTooltip={t("Number of ranged shots")}
-                    secondModifier={formatSidebarModifier(rangeShotsDelta)}
+                />
+            )}
+            {showRangedStats && !!(unitProperties.range_shots_mod || unitProperties.range_shots) && (
+                <StatItem
+                    icon={images.stat_ammo_gold_v2}
+                    value={formatSidebarStat(unitProperties.range_shots_mod || unitProperties.range_shots)}
+                    tooltip="Number of ranged shots"
+                    color="#cd5c5c"
+                    metrics={metrics}
                 />
             )}
         </>
@@ -1290,31 +1420,32 @@ const UnitStatsLayout: React.FC<{
             (emitsAura || !isAuraRangeSynergy(synergyKey)) && (isFlyingUnit || !isFlyArmorSynergy(synergyKey)),
     );
 
-    // Fixed reading order down the well after them: the army-wide, whole-fight things first — augments,
-    // then artifacts — and the per-turn traffic last. Ranked rather than sorted by arrival, so a buff never
-    // jumps groups the moment something else expires; the sort is stable, so inside a group the engine's
-    // own order survives.
-    const buffRank = (buff: IVisibleImpact): number => {
-        if (buff.name.endsWith(" Augment")) return 0;
-        if (buff.description.startsWith("Artifact.")) return 1;
-        return 2;
-    };
-    const orderedBuffs = buffs
-        .map((buff, index) => ({ buff, index }))
-        .sort((a, b) => buffRank(a.buff) - buffRank(b.buff) || a.index - b.index)
-        .map((entry) => entry.buff);
-    // Changes only when the well's contents do, so the pin-to-end does not fire on every timer tick.
-    const buffsPinKey = `${shownSynergies.join("|")}#${orderedBuffs.map((buff) => buff.name).join("|")}`;
+    // MOST RECENT FIRST, for both wells — see effectOrder.ts. The grouping still decides the blocks; the
+    // finished list is reversed, so the per-turn traffic leads (newest leftmost) and the permanent
+    // army-wide augments settle at the far end.
+    const orderedBuffs = orderSidebarBuffs(buffs);
+    const orderedDebuffs = orderSidebarDebuffs(debuffs);
     // Three stat rows, always — the well below scrolls if a creature carries more than nine.
     const statRowHeight = Math.round(metrics.statIconPx + 12);
     const statWellHeight = statRowHeight * 3 + STAT_ROW_GAP * 2;
     // One row of tiles each; anything beyond that scrolls inside the well rather than growing the card.
-    const abilityWellHeight = metrics.abilityCell + 6;
-    // Sized for the taller of a buff tile and a synergy badge — the badge stands above its level dots — on
-    // every creature, not only the ones that have synergies, so the card keeps its height either way.
-    const effectWellHeight = Math.max(metrics.effectIcon, metrics.synergyIcon + 9) + 6;
+    const abilityWellHeight = abilityTileSize(metrics) + 6;
+    // The shared effect size also applies to synergy/augment markers. The extra band holds their level
+    // dots and the scrollbar without changing the section's position.
+    const effectWellHeight = effectTileSize(metrics) + 9;
+    // This is only the PAINT viewport inside the fixed-height Debuffs layout slot. It is deliberately
+    // taller than the tile + frame + scrollbar, so the complete unscaled art can move upward without the
+    // scrolling element clipping its lower edge. The outer wrapper below keeps the layout height unchanged.
+    const debuffPaintWellHeight = effectTileSize(metrics) + 20;
     const layout = bannerLayout(metrics);
-    const portraitBox = layout.portrait;
+    const portraitHeight = layout.portraitHeight;
+    // The frame itself closes on the centre of the Abilities divider. PanelSection first advances by the
+    // card gap, then lifts its title wrapper by one full section gap; half of the plaque's rendered height
+    // lands the border exactly on the horizontal rules running through the plaque centre.
+    const abilityTitleHeightPx = metrics.sectionTitleRem * 1.1 * 16 + 12;
+    const abilityDividerCenterExtensionPx = Math.round(
+        Math.round(metrics.gapPx * 0.5) - Math.round(metrics.gapPx) + abilityTitleHeightPx * 0.5,
+    );
 
     return (
         <Box
@@ -1328,136 +1459,56 @@ const UnitStatsLayout: React.FC<{
                 gap: `${Math.round(metrics.gapPx * 0.5)}px`,
             }}
         >
-            {/* Portrait on top, stats under it. The portrait is the only block allowed to flex: the stat
-                plate and the three wells below have fixed heights, so it absorbs whatever the screen has
-                left. That keeps the card identical from creature to creature — only the screen changes it. */}
+            {/* The creature fills the complete pick-card silhouette. Stats are an overlay on its lower
+                portion, so they no longer add a second block below the image or change the card height. */}
             <Box
                 sx={{
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "stretch",
                     gap: `${Math.round(metrics.gapPx * 0.5)}px`,
-                    width: "100%",
+                    // Expand portrait, stats and their frame through both authored padding layers to the
+                    // physical left-panel edges. The rail overlays that larger silhouette without thickening.
+                    width: "calc(100% + var(--sidebar-card-left-bleed, 0px) + var(--sidebar-card-right-bleed, 0px))",
+                    ml: "calc(-1 * var(--sidebar-card-left-bleed, 0px))",
                     flex: "0 1 auto",
                     minHeight: 0,
-                    // Anchors the team banner below. It hangs behind exactly this block — portrait plus stat
-                    // plate — so it spans the plate's width and ends where the plate ends, without either
-                    // measurement being written down anywhere: the box already knows both.
+                    // useFitScale may shrink the complete card to fit a short sidebar. Restore only this
+                    // block's horizontal size so portrait and stats still touch the two inner frame rails.
+                    transform: "scaleX(var(--sidebar-card-inverse-fit-scale, 1))",
+                    transformOrigin: "top center",
                     position: "relative",
+                    zIndex: 4,
+                    // Keep only the selected frame's inner bronze/dark line. The broad carved outer rail is
+                    // intentionally removed so the portrait and stats remain visible all the way to the
+                    // panel edges. Name and Abilities plaques stay above this contour; the sidebar's own
+                    // authored metal rails now run uninterrupted above the complete card as a HUD overlay.
+                    "&::after": {
+                        content: '""',
+                        position: "absolute",
+                        // The artwork may overscan above the viewport; the frame itself begins on the visible
+                        // panel edge so its upper mitres are never clipped off-screen.
+                        top: `calc(${-layout.lift - layout.overhang}px - var(--sidebar-card-frame-top-gap, 0px))`,
+                        right: 0,
+                        // Close exactly on the Abilities divider; the ability tiles sit outside the frame.
+                        bottom: `${-abilityDividerCenterExtensionPx}px`,
+                        left: 0,
+                        zIndex: 5,
+                        boxSizing: "border-box",
+                        border: "1px solid rgba(9, 7, 5, 0.98)",
+                        borderBottom: 0,
+                        boxShadow: "inset 0 0 0 1px rgba(151, 104, 54, 0.82), inset 0 0 0 2px rgba(4, 4, 3, 0.78)",
+                        // Keep just the selected-card contour. It ends cleanly at the Abilities divider;
+                        // the separate full-height sidebar rails no longer need any transition ornaments.
+                        clipPath:
+                            "polygon(0 0, 100% 0, 100% 100%, calc(100% - 3px) 100%, calc(100% - 3px) 3px, 3px 3px, 3px 100%, 0 100%)",
+                        pointerEvents: "none",
+                    },
                 }}
             >
-                {/* A creature picked out of the roster has no team until it is placed, and both coloured
-                    banners used to hide at once — so the card lost its frame entirely and the portrait hung
-                    on bare leather. The third entry is the same cloth flown in neutral grey: the card keeps
-                    its shape from the moment you select a creature, and the absence of team colour is what
-                    says "not deployed yet". */}
-                {[
-                    {
-                        key: "lower",
-                        image: greenBannerImage,
-                        shown: team === TeamVals.LOWER,
-                        neutral: false,
-                    },
-                    {
-                        key: "upper",
-                        image: redBannerImage,
-                        shown: team === TeamVals.UPPER,
-                        neutral: false,
-                    },
-                    {
-                        key: "neutral",
-                        image: greenBannerImage,
-                        shown: team !== TeamVals.LOWER && team !== TeamVals.UPPER,
-                        neutral: true,
-                    },
-                ].map(({ key, image, shown, neutral }) => (
-                    <Box
-                        key={key}
-                        component="img"
-                        src={image}
-                        alt=""
-                        aria-hidden
-                        sx={{
-                            ...teamBannerSx(layout),
-                            opacity: shown ? 1 : 0,
-                            // The selected heraldic treatment belongs only to green. Red keeps its original
-                            // colour, while neutral remains grayscale. The metal is restored unfiltered below.
-                            filter: neutral
-                                ? "grayscale(1) brightness(0.92)"
-                                : key === "lower"
-                                  ? GREEN_BANNER_FILTER
-                                  : "none",
-                        }}
-                    />
-                ))}
-                {/* Preserve the source banner's warm metal over every cloth treatment. The upper team owns
-                    the red source; green and neutral share the green source because their binding is identical. */}
-                <Box
-                    component="img"
-                    src={team === TeamVals.UPPER ? redBannerImage : greenBannerImage}
-                    alt=""
-                    aria-hidden
-                    sx={{
-                        ...teamBannerSx(layout),
-                        borderRadius: 0,
-                        opacity: 1,
-                        WebkitMaskImage: neutralBannerFrameMask,
-                        maskImage: neutralBannerFrameMask,
-                        WebkitMaskRepeat: "no-repeat",
-                        maskRepeat: "no-repeat",
-                        WebkitMaskSize: "100% 100%",
-                        maskSize: "100% 100%",
-                    }}
-                />
-                {/* One transparent paired asset keeps the lower reinforcements exactly mirrored. It is
-                    registered to the banner rather than the card, so its slope and centre gap stay fixed at
-                    every responsive size. The portrait paints above this layer and preserves the original
-                    centre finial. */}
-                <Box
-                    aria-hidden
-                    sx={{
-                        ...teamBannerSx(layout),
-                        borderRadius: 0,
-                        overflow: "hidden",
-                        opacity: 1,
-                        transition: "none",
-                    }}
-                >
-                    {[
-                        { key: "left", side: { left: "-0.8%" }, clipPath: "inset(0 50% 0 0)" },
-                        { key: "right", side: { right: "-0.8%" }, clipPath: "inset(0 0 0 50%)" },
-                    ].map(({ key, side, clipPath }) => (
-                        <Box
-                            key={key}
-                            component="img"
-                            src={bannerOrnamentsImage}
-                            alt=""
-                            sx={{
-                                position: "absolute",
-                                ...side,
-                                // A slight drop clears the flag's own hem instead of letting the two metal
-                                // highlights touch. The transparent padding in the asset keeps its lower
-                                // edge safely inside the banner even with this fractional negative offset.
-                                bottom: "-0.15%",
-                                // Another 4% reduction from the previous 77% size. Independent anchors keep
-                                // the outer metal edges aligned while the centre gap grows.
-                                width: "73.9%",
-                                height: "auto",
-                                display: "block",
-                                clipPath,
-                                // Pull the generated copper toward the flag's own blackened antique gold:
-                                // quieter red saturation, deeper recesses and restrained warm highlights.
-                                filter: "saturate(.72) brightness(.83) contrast(1.16) sepia(.10)",
-                                pointerEvents: "none",
-                            }}
-                        />
-                    ))}
-                </Box>
                 <Box
                     sx={{
                         width: "100%",
-                        flex: "0 1 auto",
-                        minHeight: 0,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
@@ -1469,34 +1520,60 @@ const UnitStatsLayout: React.FC<{
                         // Hugs the art. The flame layers are absolutely positioned, so they spill past this
                         // box without reserving any layout height — reserving it left a wide empty band
                         // between the name and the portrait, and again under it.
-                        height: `${portraitBox}px`,
+                        height: `${portraitHeight}px`,
+                        minHeight: `${portraitHeight}px`,
+                        flex: "0 0 auto",
                         overflow: "visible",
                         ...teamAuraKeyframes,
                     }}
                 >
                     <Box
                         sx={{
-                            // No circular clip and no frame: the art keeps its own silhouette, so wings,
-                            // weapons and limbs that hang outside the portrait's box still show. The flame
-                            // simply burns behind it.
-                            position: "relative",
+                            // The portrait spans the complete card and remains visible through the
+                            // translucent stat plate, matching the editor's full 190:256 canvas.
+                            position: "absolute",
+                            top: `calc(${-layout.lift - layout.overhang}px - var(--sidebar-card-top-extension, 0px))`,
+                            left: 0,
+                            right: 0,
                             zIndex: 1,
-                            width: `${portraitBox}px`,
-                            maxWidth: "100%",
-                            maxHeight: "100%",
-                            transform: `scale(${PORTRAIT_ART_SCALE})`,
-                            transformOrigin: "bottom center",
+                            // Keep the authored top and width unchanged, extending the artwork until the
+                            // card reaches the Abilities divider.
+                            height: `calc(${layout.height + abilityDividerCenterExtensionPx}px + var(--sidebar-card-top-extension, 0px))`,
+                            flex: "0 0 auto",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
                         }}
                     >
-                        {animationConfig ? (
+                        {creatureId !== undefined ? (
+                            <CreaturePortraitImage
+                                creatureId={creatureId}
+                                alt={unitProperties.name}
+                                artScale={sidebarPortraitTuning.artScale}
+                                artScaleX={0.96 * (sidebarPortraitArt.artScaleX ?? 1)}
+                                artOffsetX={sidebarPortraitTuning.artOffsetX}
+                                artOffsetY={sidebarPortraitTuning.artOffsetY}
+                                artSource={sidebarPortraitArt.source}
+                                artSourceUsesFraming={sidebarPortraitArt.usesFraming !== false}
+                                artFit={sidebarPortraitArt.fit}
+                                artBaseScale={sidebarPortraitArt.baseScale}
+                                highQualityArt
+                                sx={{
+                                    width: "100%",
+                                    height: "100%",
+                                    bgcolor: "transparent",
+                                }}
+                                imageStyle={{
+                                    transition: "opacity 120ms ease-out",
+                                    imageRendering: "auto",
+                                }}
+                            />
+                        ) : animationConfig ? (
                             <AtlasAnimation
                                 meta={animationConfig.meta}
                                 src={animationConfig.imageSrc}
                                 onLoaded={onImageLoaded}
-                                maxHeight={portraitBox}
+                                maxHeight={portraitHeight}
                             />
                         ) : (
                             <Box
@@ -1519,72 +1596,142 @@ const UnitStatsLayout: React.FC<{
                             />
                         )}
                     </Box>
-                </Box>
-                <Box sx={{ flex: "none", minWidth: 0, position: "relative", zIndex: 1, ...stonePlateSx }}>
-                    {/* Exactly three columns by three rows, always. Paired armor, movement, morale and ranged
-                        readouts keep the optional values inside those nine cells; the well remains scrollable
-                        as a guard for any future stat that would otherwise push the sections below it down. */}
-                    <ScrollWell height={statWellHeight}>
-                        <Box
-                            sx={{
-                                display: "grid",
-                                gridTemplateColumns: `repeat(${metrics.statColumns}, minmax(0, 1fr))`,
-                                gridAutoRows: `${statRowHeight}px`,
-                                // Full width, matching the turn card below it.
-                                width: "100%",
-                                columnGap: "8px",
-                                rowGap: `${STAT_ROW_GAP}px`,
-                                alignContent: "start",
-                            }}
-                        >
-                            {statsContent}
-                        </Box>
-                    </ScrollWell>
+                    <Box
+                        sx={{
+                            minWidth: 0,
+                            position: "absolute",
+                            left: 0,
+                            right: 0,
+                            // Extend the translucent stats surface only through the remaining few pixels
+                            // to the frame on the Abilities divider. Its top and stat positions stay fixed.
+                            bottom: `${-abilityDividerCenterExtensionPx}px`,
+                            zIndex: 2,
+                            ...stonePlateSx,
+                            paddingBottom: `calc(10px + ${abilityDividerCenterExtensionPx}px)`,
+                            // Twenty-five percent transparent: the creature continues visibly behind the plate,
+                            // while the stat cells and their labels retain full opacity and contrast.
+                            background:
+                                "repeating-linear-gradient(135deg, rgba(255,255,255,.012) 0 1px, transparent 1px 7px), linear-gradient(180deg, rgba(28,27,24,.75), rgba(9,9,8,.75))",
+                            // The individual stat cells keep their frames; only the common brown frame
+                            // around the complete plate is removed.
+                            border: "none",
+                            outline: "none",
+                            outlineOffset: 0,
+                            boxShadow: "inset 0 2px 12px rgba(0,0,0,.55)",
+                        }}
+                    >
+                        {/* Exactly three columns by three rows, always. A creature with extra stats (scrolls,
+                            shot distance, shot count, separate range armour) scrolls inside this well instead
+                            of adding a fourth row and pushing everything below the plate down. */}
+                        <ScrollWell height={statWellHeight}>
+                            <Box
+                                sx={{
+                                    display: "grid",
+                                    gridTemplateColumns: `repeat(${metrics.statColumns}, minmax(0, 1fr))`,
+                                    gridAutoRows: `${statRowHeight}px`,
+                                    // Full width, matching the turn card below it.
+                                    width: "100%",
+                                    columnGap: "8px",
+                                    rowGap: `${STAT_ROW_GAP}px`,
+                                    alignContent: "start",
+                                }}
+                            >
+                                {statsContent}
+                            </Box>
+                        </ScrollWell>
+                    </Box>
                 </Box>
             </Box>
 
             {/* All three blocks are always rendered at a constant height, empty or not, so the card is the
                 same shape for every creature and nothing below it ever moves. */}
-            <PanelSection title={t("Abilities")} metrics={metrics}>
-                <ScrollWell height={abilityWellHeight}>
+            <PanelSection
+                title="Abilities"
+                metrics={metrics}
+                overlayTitle
+                titleHeightScale={UNIT_SECTION_PLAQUE_HEIGHT_SCALE}
+            >
+                <IconScrollWell height={abilityWellHeight}>
                     <AbilityStack
                         abilities={abilities}
                         teamType={team}
                         metrics={metrics}
                         hasBreakApplied={hasBreakApplied}
                     />
-                </ScrollWell>
+                </IconScrollWell>
             </PanelSection>
 
-            <PanelSection title={t("Buffs")} metrics={metrics}>
-                <ScrollWell height={effectWellHeight} pinToEnd pinKey={buffsPinKey}>
-                    {/* ONE wrapping row: every tile renders `display: contents`, so each wraps as its own
-                        item and each line fills the bar's full width. */}
+            {/* Move the complete lower pair together. At the approved scale, 1.2 of the shared gap closes
+                the extra empty band below the ability tiles and makes it match the plaque-to-tiles gap
+                above them. Keeping both sections in this wrapper preserves their authored relationship. */}
+            <Box
+                sx={{
+                    width: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: `${Math.round(metrics.gapPx * 0.5)}px`,
+                    transform: `translateY(${-Math.round(metrics.gapPx * 1.2)}px)`,
+                }}
+            >
+                <PanelSection title="Buffs" metrics={metrics} titleHeightScale={UNIT_SECTION_PLAQUE_HEIGHT_SCALE}>
+                    <IconScrollWell height={effectWellHeight} offsetY={-Math.round(metrics.gapPx)} vertical>
+                        {/* Additional buffs wrap into rows inside this fixed-height vertically scrolling well. */}
+                        <Box
+                            sx={{
+                                display: "flex",
+                                flexDirection: "row",
+                                flexWrap: "wrap",
+                                alignItems: "flex-start",
+                                alignContent: "flex-start",
+                                width: "100%",
+                                height: "max-content",
+                                minWidth: 0,
+                                gap: `${metrics.gapPx * 0.6}px`,
+                            }}
+                        >
+                            {/* Synergies lead. They hold for the whole fight, so they are the stable part of
+                                the row: put them after the buffs and every buff that lands or expires shifts
+                                them along, and the eye has to find them again each turn. */}
+                            {shownSynergies.length > 0 && (
+                                <SynergiesRow
+                                    synergies={shownSynergies}
+                                    // Use the same authored width/height as the neighbouring buff image.
+                                    // The synergy asset has no extra frame, so adding the buff border again
+                                    // made its visible footprint larger than every ordinary tile.
+                                    size={effectTileSize(metrics)}
+                                    inline
+                                />
+                            )}
+                            {orderedBuffs.length > 0 && (
+                                <EffectTiles effects={orderedBuffs} title="Buffs" metrics={metrics} inline />
+                            )}
+                        </Box>
+                    </IconScrollWell>
+                </PanelSection>
+
+                <PanelSection
+                    title="Debuffs"
+                    metrics={metrics}
+                    offsetY={-Math.round(metrics.gapPx * 3)}
+                    titleHeightScale={UNIT_SECTION_PLAQUE_HEIGHT_SCALE}
+                >
                     <Box
                         sx={{
-                            display: "flex",
-                            flexDirection: "row",
-                            flexWrap: "wrap",
-                            alignItems: "flex-start",
-                            gap: `${metrics.gapPx * 0.6}px`,
+                            position: "relative",
+                            width: "100%",
+                            height: `${effectWellHeight}px`,
+                            overflow: "visible",
+                            // Move the complete original-size row. The scrolling/clipping viewport itself
+                            // is no longer transformed, which prevents its lower edge slicing the artwork.
+                            transform: "translateY(-17.5%)",
                         }}
                     >
-                        {/* Synergies lead. They hold for the whole fight, so they are the stable part of
-                            the row: put them after the buffs and every buff that lands or expires shifts
-                            them along, and the eye has to find them again each turn. */}
-                        {shownSynergies.length > 0 && <SynergiesRow synergies={shownSynergies} inline />}
-                        {orderedBuffs.length > 0 && (
-                            <EffectTiles effects={orderedBuffs} title={t("Buffs")} metrics={metrics} inline />
-                        )}
+                        <IconScrollWell height={debuffPaintWellHeight}>
+                            <EffectTiles effects={orderedDebuffs} title="Debuffs" metrics={metrics} />
+                        </IconScrollWell>
                     </Box>
-                </ScrollWell>
-            </PanelSection>
-
-            <PanelSection title={t("Debuffs")} metrics={metrics}>
-                <ScrollWell height={effectWellHeight}>
-                    <EffectTiles effects={debuffs} title={t("Debuffs")} metrics={metrics} />
-                </ScrollWell>
-            </PanelSection>
+                </PanelSection>
+            </Box>
         </Box>
     );
 };
@@ -1811,7 +1958,9 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({ unitProperti
 
         const meleeArmor = Math.max(1, unitProperties.base_armor + unitProperties.armor_mod);
         const rangeArmor = Math.max(1, unitProperties.range_armor + unitProperties.armor_mod);
-        const hasDifferentRangeArmor = meleeArmor !== rangeArmor;
+        // Compared FORMATTED, not raw: two armors that differ only past the displayed hundredths render
+        // as the same "X.YY" twice, and a duplicated figure reads as a bug, not information.
+        const hasDifferentRangeArmor = formatSidebarStat(meleeArmor) !== formatSidebarStat(rangeArmor);
 
         const largeTextureName = unitProperties.large_texture_name;
 
@@ -1833,15 +1982,22 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({ unitProperti
                             mt: `${bannerLayout(metrics).above}px`,
                             mb: `${bannerLayout(metrics).below}px`,
                             position: "relative",
-                            zIndex: 2,
+                            // Like the Abilities divider, the creature-name plaque remains readable above
+                            // the full-viewport portrait layer.
+                            zIndex: 6,
                             width: "100%",
-                            // A restrained finishing rail closes the flag above the name plaque. It sits in
-                            // the banner's top padding, so it reaches the cloth edges without crossing the
-                            // plaque or stealing any room from the portrait.
+                            // Cancel the authored pad and the sidebar's measured top inset. The upper rail
+                            // then shares the exact screen-space edge of the roster collapse control at
+                            // every responsive density, without relying on a guessed pixel offset.
+                            transform: `translateY(calc(${-bannerLayout(metrics).above}px - var(--sidebar-card-top-inset, 0px)))`,
+                            // A restrained finishing rail closes the card above the name plaque without
+                            // crossing the plaque or stealing any room from the portrait.
                             "&::before": {
                                 content: '""',
                                 position: "absolute",
-                                top: "-4px",
+                                // Share the plaque's upper edge instead of floating above it. This keeps the
+                                // requested line visible even when the card begins at the top of the screen.
+                                top: 0,
                                 left: "1.5%",
                                 right: "1.5%",
                                 height: "1px",

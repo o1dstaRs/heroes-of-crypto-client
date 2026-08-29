@@ -14,6 +14,13 @@ import { tf, useTranslation } from "../i18n/i18n";
 import { markVsAiGame } from "../utils/aiOpponent";
 import { getPreGameDoctrine, setPreGameDoctrine } from "../utils/preGameDoctrine";
 import { ArenaChatPanel } from "./ArenaChatPanel";
+import { PlayerSettingsPanel } from "./PlayerSettingsPanel";
+import {
+    clearMatchReadyAlert,
+    isFreshMatchReady,
+    requestMatchReadyPermission,
+    signalMatchReady,
+} from "./matchReadyAlert";
 import { PublicLobbiesPanel } from "./PublicLobbiesPanel";
 import { RankedBanPicker } from "./RankedBanPicker";
 import { WagerStakeBox } from "./WagerStakeBox";
@@ -41,6 +48,7 @@ import {
     RankedNavIcon,
     RankedSearchIcon,
     SandboxNavIcon,
+    SettingsNavIcon,
     StatsPanelIcon,
 } from "./svg/navigation";
 import {
@@ -89,6 +97,8 @@ export const MatchmakingRoute: React.FC = () => {
     const acceptedGameIdRef = useRef("");
     const pendingGameIdRef = useRef("");
     const acceptAttemptRef = useRef(0);
+    /** The match we have already announced, so the repeating stream tick does not re-toast every second. */
+    const alertedGameIdRef = useRef("");
     const mountedRef = useRef(true);
     const aiStartInFlightRef = useRef(false);
     const vsAiAutoStartedRef = useRef(false);
@@ -133,6 +143,7 @@ export const MatchmakingRoute: React.FC = () => {
     }, []);
     // When this tab entered the queue — the fallback anchor for the "time in queue" readout while
     // the server's own enqueue timestamp is still in flight.
+    const [settingsOpen, setSettingsOpen] = useState(false);
     const [searchStartedAt, setSearchStartedAt] = useState(0);
     const [queueSize, setQueueSize] = useState<number | null>(null);
     const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
@@ -211,6 +222,9 @@ export const MatchmakingRoute: React.FC = () => {
             setSecondsRemaining(typeof event.r === "number" ? event.r : null);
 
             if (!event.ps) {
+                // Back to searching: nothing is waiting on the player, so stop shouting.
+                clearMatchReadyAlert();
+                alertedGameIdRef.current = "";
                 setState("searching");
                 return;
             }
@@ -218,6 +232,9 @@ export const MatchmakingRoute: React.FC = () => {
             updatePendingGameId(event.ps);
 
             if (event.r !== undefined && event.r < 0) {
+                // The window closed — whatever we were flashing is moot.
+                clearMatchReadyAlert();
+                alertedGameIdRef.current = "";
                 acceptedGameIdRef.current = "";
                 acceptAttemptRef.current += 1;
                 setState("idle");
@@ -230,6 +247,8 @@ export const MatchmakingRoute: React.FC = () => {
             }
 
             if (event.c === 1) {
+                // Both seats are in and we are navigating into the game: the alert has done its job.
+                clearMatchReadyAlert();
                 // Keep the completed handoff marker through close/navigation. closeStream aborts the
                 // underlying fetch; if its rejection lands before unmount it is still an intentional close.
                 acceptedGameIdRef.current = event.ps;
@@ -238,6 +257,20 @@ export const MatchmakingRoute: React.FC = () => {
                 closeStream();
                 navigate(`/game/${event.ps}`);
                 return;
+            }
+
+            // A match is waiting on this player. Announce it once, then keep the tab title counting down
+            // so a glance at the tab strip is enough — the accept window is short and missing it costs a
+            // no-accept cooldown. Already-accepted seats are just waiting on the opponent, so stay quiet.
+            const secondsLeft = typeof event.r === "number" ? event.r : null;
+            if (acceptedGameIdRef.current !== event.ps) {
+                const fresh = isFreshMatchReady(event.ps, alertedGameIdRef.current, secondsLeft);
+                if (fresh) {
+                    alertedGameIdRef.current = event.ps;
+                }
+                signalMatchReady(secondsLeft, fresh);
+            } else {
+                clearMatchReadyAlert();
             }
 
             setState(acceptedGameIdRef.current === event.ps ? "accepted" : "confirming");
@@ -332,6 +365,9 @@ export const MatchmakingRoute: React.FC = () => {
             mountedRef.current = false;
             acceptedGameIdRef.current = "";
             acceptAttemptRef.current += 1;
+            // Leaving the queue screen must restore the tab title; a stray interval would keep
+            // rewriting it over whatever page the player moved to.
+            clearMatchReadyAlert();
             closeStream();
         };
     }, [closeStream]);
@@ -426,8 +462,13 @@ export const MatchmakingRoute: React.FC = () => {
             return;
         }
         setError("");
+        // Ask here, not on page load: this is a real click, and it is the one moment where "let us tell
+        // you when your match is ready" explains itself. Declining costs nothing — the tab title still
+        // flashes.
+        requestMatchReadyPermission();
         acceptedGameIdRef.current = "";
         acceptAttemptRef.current += 1;
+        alertedGameIdRef.current = "";
         setState("searching");
         closeStream();
         openStream();
@@ -846,6 +887,29 @@ export const MatchmakingRoute: React.FC = () => {
                             }}
                         >
                             {t("Profile")}
+                        </Button>
+                        {/* Settings opens a popup rather than navigating, so it is not disabled while
+                            queued the way the destination links are, and it carries a sliders mark
+                            instead of a place pictogram. */}
+                        <Button
+                            aria-label={t("Player settings")}
+                            aria-haspopup="dialog"
+                            aria-expanded={settingsOpen}
+                            size="sm"
+                            variant="plain"
+                            onClick={() => setSettingsOpen(true)}
+                            startDecorator={<SettingsNavIcon sx={{ fontSize: 24 }} />}
+                            sx={{
+                                color: settingsOpen ? hocColors.gold : hocColors.mutedStrong,
+                                flex: { xs: 1, sm: "0 0 auto" },
+                                minWidth: 0,
+                                px: { xs: 0.75, sm: 1.25 },
+                                "&:hover": { bgcolor: hocColors.orangeSoft },
+                            }}
+                        >
+                            <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
+                                {t("Settings")}
+                            </Box>
                         </Button>
                     </Stack>
                 </Stack>
@@ -1650,6 +1714,7 @@ export const MatchmakingRoute: React.FC = () => {
                 {!needsActivation ? (
                     <Box sx={{ gridColumn: "1 / -1", minWidth: 0 }}>
                         <ArenaChatPanel selfUsername={user?.username} />
+                        <PlayerSettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
                     </Box>
                 ) : null}
             </Box>

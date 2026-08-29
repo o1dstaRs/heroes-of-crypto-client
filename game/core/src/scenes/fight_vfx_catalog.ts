@@ -157,7 +157,7 @@ export const FIGHT_EVENT_VFX: Record<GameEvent["type"], FightEventVfx> = {
     unit_split: { rendered: false, ranked: "none", note: "split (board rebuild)" },
     unit_moved_by_system: { rendered: false, ranked: "none", note: "forced move (narrowing/system); no distinct VFX" },
 
-    // ---- Smoke (Ash Moth's Book of Chaos) ----
+    // ---- Smoke (Wandering Mage's Book of Chaos) ----
     // Rendered by SmokeCloudLayer, which is STATE-driven, not event-driven: it reconciles every frame
     // against FightProperties.smokeClouds. That store rides the ranked snapshot (and is captured by
     // battle_snapshot), so one code path covers sandbox and ranked without either replaying these events —

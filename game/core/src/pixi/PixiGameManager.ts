@@ -34,7 +34,7 @@ import type { UnitsOverlay } from "../scenes/UnitsOverlay";
 import { PixiApp } from "./PixiApp";
 // import { PixiSceneManager } from "./PixiSceneManager"; // Deprecated
 import { PreloadedPixiTextures } from "./PixiTextureLoader";
-import { displayedLoadingProgress, minimumLoadingScreenDurationMs } from "./loadingProgress";
+import { displayedLoadingProgress, MINIMUM_LOADING_SCREEN_DURATION_MS } from "./loadingProgress";
 
 import "../scenes";
 import type { PixiScene, PixiSceneContext, SceneConstructor, SceneEntry } from "./PixiScene";
@@ -43,6 +43,12 @@ import type { LoadingScreen } from "../scenes/LoadingScreen";
 import { getScenesGrouped } from "./PixiScene";
 import type { AuthoritativeGameSnapshot, SceneGameActionTransport } from "../game_action_transport";
 import type { SandboxReplay } from "../replay/sandbox_replay";
+
+// Every fight this client hosts — sandbox, vs-AI, previews, ranked hydration — plays the
+// SIDE-oriented board (owner call 2026-08-25: everything fights left-to-right now). Set as the
+// process default so it survives every FightStateManager.reset() a scene performs; the ranked
+// server enforces the same geometry on its side.
+FightStateManager.setDefaultSideOrientedPlacement(true);
 
 // A scene that (optionally) exposes the overlay
 type SceneWithUnitsOverlay = PixiScene & {
@@ -270,55 +276,52 @@ export class PixiGameManager {
         // Ensure it's on top of everything (UI container usually) but for now just add to stage
         stage.addChild(loadingScreen);
         const loadingScreenShownAt = performance.now();
-        const minimumDurationMs = minimumLoadingScreenDurationMs(this.sceneTitle);
         let actualLoadingProgress = 0;
-        let minimumDurationElapsed = minimumDurationMs === 0;
+        let minimumDurationElapsed = false;
         const renderLoadingProgress = (now = performance.now()) => {
             if (!isCurrentLifecycle() || !loadingScreen) return;
-            const elapsedMs = minimumDurationElapsed ? minimumDurationMs : now - loadingScreenShownAt;
-            loadingScreen.setProgress(displayedLoadingProgress(actualLoadingProgress, elapsedMs, minimumDurationMs));
+            const elapsedMs = minimumDurationElapsed ? MINIMUM_LOADING_SCREEN_DURATION_MS : now - loadingScreenShownAt;
+            loadingScreen.setProgress(displayedLoadingProgress(actualLoadingProgress, elapsedMs));
         };
-        const minimumLoadingScreenDuration = minimumDurationMs
-            ? new Promise<void>((resolve) => {
-                  let animationFrameId = 0;
-                  let fallbackTimeoutId = 0;
-                  let completed = false;
+        const minimumLoadingScreenDuration = new Promise<void>((resolve) => {
+            let animationFrameId = 0;
+            let fallbackTimeoutId = 0;
+            let completed = false;
 
-                  const finish = () => {
-                      if (completed) return;
-                      completed = true;
-                      minimumDurationElapsed = true;
-                      window.cancelAnimationFrame(animationFrameId);
-                      window.clearTimeout(fallbackTimeoutId);
-                      renderLoadingProgress();
-                      resolve();
-                  };
-                  const animate = (now: number) => {
-                      if (!isCurrentLifecycle() || !loadingScreen) {
-                          finish();
-                          return;
-                      }
+            const finish = () => {
+                if (completed) return;
+                completed = true;
+                minimumDurationElapsed = true;
+                window.cancelAnimationFrame(animationFrameId);
+                window.clearTimeout(fallbackTimeoutId);
+                renderLoadingProgress();
+                resolve();
+            };
+            const animate = (now: number) => {
+                if (!isCurrentLifecycle() || !loadingScreen) {
+                    finish();
+                    return;
+                }
 
-                      renderLoadingProgress(now);
-                      if (now - loadingScreenShownAt >= minimumDurationMs) {
-                          finish();
-                          return;
-                      }
-                      animationFrameId = window.requestAnimationFrame(animate);
-                  };
+                renderLoadingProgress(now);
+                if (now - loadingScreenShownAt >= MINIMUM_LOADING_SCREEN_DURATION_MS) {
+                    finish();
+                    return;
+                }
+                animationFrameId = window.requestAnimationFrame(animate);
+            };
 
-                  animationFrameId = window.requestAnimationFrame(animate);
-                  fallbackTimeoutId = window.setTimeout(finish, minimumDurationMs);
-              })
-            : Promise.resolve();
+            animationFrameId = window.requestAnimationFrame(animate);
+            fallbackTimeoutId = window.setTimeout(finish, MINIMUM_LOADING_SCREEN_DURATION_MS);
+        });
 
         // 2. Load Core Assets (Blocking)
         // Ensure starting state
         this._isLoading = true;
         this.onLoadingChanged.emit(true);
 
-        const { preloadCoreAssets, preloadAnimationAssets } = await import("./PixiTextureLoader");
-        const { isUnitAtlasAnimationEnabled } = await import("./PixiUnitsFactory");
+        const { preloadCoreAssets, preloadIdleAtlasAssets, preloadAnimationAssets } =
+            await import("./PixiTextureLoader");
         if (!isCurrentLifecycle()) {
             cleanupLoadingScreen();
             pixiApp.destroy();
@@ -366,24 +369,37 @@ export class PixiGameManager {
 
         this.LoadGame();
 
-        // 5. Tier 2: Background Load Animations — ONLY while the unit-atlas feature is actually on.
-        // With it owner-disabled, this download/decode of ~1,000 atlas WebPs ran DURING live fights
-        // and its decode bursts stole frame time from everything dt-driven (the live report was
-        // projectile flights hitching), warming textures nothing would render. Flipping
-        // UNIT_ATLAS_ANIMATION_ENABLED back on restores the supplementary load unchanged; any
-        // consumer that races it still lazy-resolves through texAny's raw-URL fallback.
-        if (isUnitAtlasAnimationEnabled()) {
-            preloadAnimationAssets((p) => {
-                if (!isCurrentLifecycle()) return;
-                this.m_scene?.onBackgroundAssetLoad?.(p);
-            }).then((newTextures) => {
-                if (!isCurrentLifecycle()) return;
-                this.textures = { ...this.textures, ...newTextures } as PreloadedPixiTextures;
-                // Existing sprites created before the load won't auto-update, but Tier 2 assets are
-                // only used for animations triggered later; a race lazy-resolves via texAny.
+        // 5. Tier 2: Background Load Animations — idle atlases FIRST, then the rest.
+        //
+        // Two hard-learned rules live here (the "board keeps its old disc art on first load" bug):
+        // - MUTATE this.textures, never replace it. Every scene captured this exact object in its
+        //   constructor (PixiScene: `this.textures = context.textures`), so assigning a fresh object
+        //   here stranded them on the Tier-1 snapshot forever — texAny could not see a single atlas
+        //   and units limped along on the lazy per-URL fallback instead.
+        // - Tell the scene each time a bundle lands. ensureVisual only runs on sync points, so an
+        //   already-spawned unit showing its static fallback keeps it until something pokes it.
+        const applyLoadedTextures = (newTextures: Partial<PreloadedPixiTextures>) => {
+            Object.assign(this.textures as Record<string, unknown>, newTextures);
+            this.m_scene?.onSupplementaryTexturesLoaded?.();
+        };
+        preloadIdleAtlasAssets((p) => {
+            if (!isCurrentLifecycle()) return;
+            // The idle bundle is ~5% of the payload; report it as the first slice of the bar.
+            this.m_scene?.onBackgroundAssetLoad?.(p * 0.1);
+        })
+            .then((idleTextures) => {
+                if (!isCurrentLifecycle()) return undefined;
+                applyLoadedTextures(idleTextures);
+                return preloadAnimationAssets((p) => {
+                    if (!isCurrentLifecycle()) return;
+                    this.m_scene?.onBackgroundAssetLoad?.(0.1 + p * 0.9);
+                });
+            })
+            .then((newTextures) => {
+                if (!isCurrentLifecycle() || !newTextures) return;
+                applyLoadedTextures(newTextures);
                 this.m_scene?.onBackgroundAssetLoad?.(1.0);
             });
-        }
 
         const initialOverlay = getUnitsOverlayFromScene(this.m_scene);
         if (initialOverlay) {
@@ -417,6 +433,41 @@ export class PixiGameManager {
             this.initEventCleanups.push(() =>
                 debugCanvas.removeEventListener("pointerdown", forwardOverlayInteraction),
             );
+            const canvasPoint = (clientX: number, clientY: number) => {
+                const cr = debugCanvas.getBoundingClientRect();
+                return {
+                    x: (clientX - cr.left) * (debugCanvas.width / cr.width),
+                    y: (clientY - cr.top) * (debugCanvas.height / cr.height),
+                };
+            };
+            this.addInitEventListener(
+                debugCanvas,
+                "wheel",
+                (event) => {
+                    if (!(event instanceof WheelEvent) || this.started) return;
+                    const overlay = getUnitsOverlayFromScene(this.m_scene);
+                    if (!overlay) return;
+                    const point = canvasPoint(event.clientX, event.clientY);
+                    const lineScale = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 24 : 1;
+                    const pageScale = event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? debugCanvas.width : 1;
+                    const deltaScale = lineScale * pageScale;
+                    if (overlay.handleWheel(point.x, point.y, event.deltaX * deltaScale, event.deltaY * deltaScale)) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                    }
+                },
+                { passive: false },
+            );
+            this.addInitEventListener(window, "pointermove", (event) => {
+                if (!(event instanceof PointerEvent) || this.started) return;
+                const overlay = getUnitsOverlayFromScene(this.m_scene);
+                if (!overlay) return;
+                const point = canvasPoint(event.clientX, event.clientY);
+                if (overlay.handlePointerMove(point.x, point.y)) event.preventDefault();
+            });
+            this.addInitEventListener(window, "pointerup", () => {
+                getUnitsOverlayFromScene(this.m_scene)?.handlePointerUp();
+            });
             this.forwardOverlayInteraction = forwardOverlayInteraction; // For cleanup if needed
             this.overlayDebugCanvas = debugCanvas;
         }
@@ -748,8 +799,6 @@ export class PixiGameManager {
         this.started = false;
         this.lastAuthoritativeViewportKey = "";
         if (_restartScene) {
-            // React sidebars outlive a Pixi scene replacement. Clear the last scene's selection
-            // explicitly so "New Battle" opens on the neutral, no-unit-selected state.
             this.onSelectionCombined.emit({
                 unit: null,
                 impact: null,
@@ -1042,7 +1091,6 @@ export class PixiGameManager {
                 unitLevel: this.m_scene.sc_hoverUnitLevel,
                 unitMovementType: this.m_scene.sc_hoverUnitMovementType,
                 information: this.m_scene.sc_hoverInfoArr,
-                spellElement: this.m_scene.sc_hoverSpellElement,
                 isHoveringAttackTarget: this.m_scene.sc_isHoveringAttackTarget,
                 meleeCursorDirection: this.m_scene.sc_meleeCursorDirection,
             });

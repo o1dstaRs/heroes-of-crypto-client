@@ -13,6 +13,7 @@ export class PixiApp {
     private ticker!: Ticker;
     private camera!: Container; // pans/zooms
     private worldRoot!: Container; // Y-up (scaleY = -1)
+    private cursorOverlayRoot!: Container; // Y-up, always rendered after the battlefield
     private backgroundContainer!: Container;
     private terrainContainer!: Container;
     private unitsContainer!: Container;
@@ -51,6 +52,8 @@ export class PixiApp {
         this.camera = new Container(); // we pan/zoom this one
         this.worldRoot = new Container(); // we flip Y here ONCE to get y-up
         this.worldRoot.scale.set(1, -1); // flip once so world coords are y-up
+        this.cursorOverlayRoot = new Container();
+        this.cursorOverlayRoot.scale.set(1, -1);
 
         // Layers go under worldRoot (so they inherit y-up + camera transforms)
         this.backgroundContainer = new Container();
@@ -69,7 +72,10 @@ export class PixiApp {
 
         // Stage wiring
         this.stage = this.app.stage;
-        this.camera.addChild(this.worldRoot);
+        // Keep pointer-like battlefield markers in a sibling rendered after the entire world. A very
+        // large zIndex inside worldRoot is still part of the world's depth sort and can be obscured by
+        // later composite layers; sibling order makes the foreground guarantee structural.
+        this.camera.addChild(this.worldRoot, this.cursorOverlayRoot);
         this.stage.addChild(this.camera, this.uiContainer);
 
         this.ticker = this.app.ticker;
@@ -101,6 +107,9 @@ export class PixiApp {
     }
     public getWorldRoot(): Container {
         return this.worldRoot;
+    }
+    public getCursorOverlayRoot(): Container {
+        return this.cursorOverlayRoot;
     }
     public getBackgroundContainer(): Container {
         return this.backgroundContainer;
@@ -168,32 +177,37 @@ export class PixiApp {
         if (!this.app?.renderer || !this.camera) {
             return;
         }
-        const z = this.camera.scale.x || 1;
+        const zoomX = this.camera.scale.x || 1;
+        const zoomY = this.camera.scale.y || 1;
         const { width: W, height: H } = this.app.renderer;
-        // The board sits slightly above dead centre (see boardFitVerticalShift). The stone backdrop applies
-        // the SAME offset from the SAME helper, so grid and floor move together and stay cell-aligned.
-        this.camera.position.set(W / 2 - z * cx, H / 2 + z * cy - boardFitVerticalShift(W, H));
+        // X and Y deliberately use different scales: columns consume the space freed by narrower sidebars,
+        // while rows are 13% shorter. The backdrop applies the same dimensions and vertical offset.
+        this.camera.position.set(W / 2 - zoomX * cx, H / 2 + zoomY * cy - boardFitVerticalShift(W, H));
     }
     public setCameraZoom(zoom: number): void {
+        this.setCameraScale(zoom, zoom);
+    }
+    public setCameraScale(zoomX: number, zoomY: number): void {
         if (!this.app?.renderer || !this.camera) {
             return;
         }
         const { x, y } = this.getCameraPosition(); // current world center
-        this.camera.scale.set(zoom, zoom);
+        this.camera.scale.set(zoomX, zoomY);
         this.setCameraPosition(x, y); // keep same center after zoom
     }
     public getCameraPosition(): { x: number; y: number } {
         if (!this.app?.renderer || !this.camera) {
             return { x: 0, y: 0 };
         }
-        const z = this.camera.scale.x || 1;
+        const zoomX = this.camera.scale.x || 1;
+        const zoomY = this.camera.scale.y || 1;
         const { width: W, height: H } = this.app.renderer;
         // invert formulas:
-        // cx = (W/2 - pos.x) / z
-        // cy = (pos.y - H/2) / z
+        // cx = (W/2 - pos.x) / zoomX
+        // cy = (pos.y - H/2 + verticalShift) / zoomY
         return {
-            x: (W / 2 - this.camera.position.x) / z,
-            y: (this.camera.position.y - H / 2) / z,
+            x: (W / 2 - this.camera.position.x) / zoomX,
+            y: (this.camera.position.y - H / 2 + boardFitVerticalShift(W, H)) / zoomY,
         };
     }
     public getCameraZoom(): number {
@@ -205,20 +219,22 @@ export class PixiApp {
         if (!this.camera) {
             return { x: sx, y: sy };
         }
-        const z = this.getCameraZoom();
+        const zoomX = this.camera.scale.x || 1;
+        const zoomY = this.camera.scale.y || 1;
         return {
-            x: (sx - this.camera.position.x) / z,
-            y: (this.camera.position.y - sy) / z, // note the minus
+            x: (sx - this.camera.position.x) / zoomX,
+            y: (this.camera.position.y - sy) / zoomY, // note the minus
         };
     }
     public worldToScreen(wx: number, wy: number) {
         if (!this.camera) {
             return { x: wx, y: wy };
         }
-        const z = this.getCameraZoom();
+        const zoomX = this.camera.scale.x || 1;
+        const zoomY = this.camera.scale.y || 1;
         return {
-            x: this.camera.position.x + wx * z,
-            y: this.camera.position.y - wy * z, // note the minus
+            x: this.camera.position.x + wx * zoomX,
+            y: this.camera.position.y - wy * zoomY, // note the minus
         };
     }
     public render(): void {

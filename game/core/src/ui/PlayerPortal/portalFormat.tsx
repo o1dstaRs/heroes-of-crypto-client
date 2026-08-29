@@ -1,18 +1,15 @@
 import { ToFactionName } from "@heroesofcrypto/common";
-import { Avatar, Box, Tooltip, Typography } from "@mui/joy";
+import { Box, Tooltip, Typography } from "@mui/joy";
 import React from "react";
 
 import { t, tf } from "../../i18n/i18n";
-import { resolveUnitImage } from "../unitImage";
+import { CreaturePortraitImage } from "../CreaturePortraitImage";
 import { UNIT_ID_TO_NAME } from "../unit_ui_constants";
 import { hocColors } from "../hocTheme";
 
 // Creature names stay in English on purpose: they are content data from the shared configs, and the
 // pick phase already shows them untranslated. Only the chrome around them is localized.
 export const creatureName = (creatureId: number): string => UNIT_ID_TO_NAME[creatureId] ?? `#${creatureId}`;
-
-export const creatureIcon = (creatureId: number): string | undefined =>
-    resolveUnitImage(undefined, UNIT_ID_TO_NAME[creatureId]);
 
 export const factionName = (faction: number): string => t(ToFactionName[faction] || "Neutral");
 
@@ -71,10 +68,9 @@ export const timeAgo = (ms: number): string => {
 /** A small creature portrait with a name tooltip. */
 export const CreatureIcon: React.FC<{ creatureId: number; size?: number }> = ({ creatureId, size = 32 }) => (
     <Tooltip title={creatureName(creatureId)} size="sm" variant="soft">
-        <Avatar
-            src={creatureIcon(creatureId)}
+        <CreaturePortraitImage
+            creatureId={creatureId}
             alt={creatureName(creatureId)}
-            variant="plain"
             sx={{
                 width: size,
                 height: size,

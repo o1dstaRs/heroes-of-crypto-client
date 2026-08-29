@@ -5,9 +5,18 @@ import { getMapDisplay } from "./mapDisplay";
 
 describe("getMapDisplay (ranked map reveal presentation)", () => {
     it("maps each ranked grid type to its user-facing name and image", () => {
-        expect(getMapDisplay(GridVals.NORMAL)).toMatchObject({ name: "Standard", imageKey: "board_icon" });
-        expect(getMapDisplay(GridVals.LAVA_CENTER)).toMatchObject({ name: "Lava", imageKey: "lava_256" });
-        expect(getMapDisplay(GridVals.BLOCK_CENTER)).toMatchObject({ name: "Cemetery", imageKey: "mountain_432_412" });
+        expect(getMapDisplay(GridVals.NORMAL)).toMatchObject({
+            name: "Normal",
+            imageKey: "map_badge_normal_4x4_actual_style_v4",
+        });
+        expect(getMapDisplay(GridVals.LAVA_CENTER)).toMatchObject({
+            name: "Lava",
+            imageKey: "map_badge_lava_frameless_v2",
+        });
+        expect(getMapDisplay(GridVals.BLOCK_CENTER)).toMatchObject({
+            name: "Barrels",
+            imageKey: "map_badge_barrels_frameless_v2",
+        });
     });
 
     it("still resolves Water (disabled in ranked, but mapped for robustness)", () => {

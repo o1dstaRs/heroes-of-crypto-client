@@ -308,6 +308,52 @@ export const hocSidebarImageButtonSx = (variant: "primary" | "neutral" | "danger
     "&.Mui-disabled": { opacity: 0.42, color: "rgba(232,211,173,.65)", filter: "grayscale(.65) brightness(.68)" },
 });
 
+/** One shared plate treatment for the secondary Clone and Split placement actions. */
+export const hocSidebarCloneSplitButtonSx = hocSidebarImageButtonSx("neutral");
+
+/** Shared copper-and-ember split slider used by sandbox and ranked placement. */
+export const hocSplitterSliderSx = {
+    color: "#693012",
+    padding: "4px 0",
+    height: 10,
+    "&:hover": {
+        filter: "brightness(1.12) saturate(1.02)",
+    },
+    "& .MuiSlider-thumb": {
+        width: 24,
+        height: 24,
+        backgroundColor: "transparent",
+        backgroundImage: `url(${images.slider_dot})`,
+        backgroundSize: "contain",
+        backgroundRepeat: "no-repeat",
+        backgroundPosition: "center",
+        boxShadow: "none",
+        filter: "brightness(.9) saturate(.88) drop-shadow(0 0 4px rgba(224,83,34,.24))",
+        "&::before": {
+            display: "none",
+        },
+    },
+    "& .MuiSlider-thumb.Mui-focusVisible, & .MuiSlider-thumb:focus, & .MuiSlider-thumb:focus-visible": {
+        outline: "none !important",
+        outlineWidth: "0 !important",
+        outlineColor: "transparent !important",
+        boxShadow: "none !important",
+    },
+    "& .MuiSlider-rail": {
+        height: 6.5,
+        opacity: 1,
+        background: "linear-gradient(180deg,#28130a 0%,#080504 62%,#693012 63%,#693012 80%,#28130a 81%)",
+        border: "1px solid rgba(205,160,120,.58)",
+        boxShadow: "inset 0 1px 3px #000, 0 1px 2px rgba(224,83,34,.2)",
+    },
+    "& .MuiSlider-track": {
+        height: 6.5,
+        border: "1px solid rgba(205,160,120,.72)",
+        background: "linear-gradient(180deg,#87411e,#43190a 55%,#693012)",
+        boxShadow: "inset 0 1px 2px rgba(216,171,128,.26)",
+    },
+} as const;
+
 /** Destructive action (Delete): the same frame in the palette's ember red. */
 export const hocActionDangerButtonSx = {
     ...hocActionButtonBaseSx,

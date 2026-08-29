@@ -1,10 +1,25 @@
 // game/core/src/overlays/UnitsOverlay.ts
-import { Application, Circle, Container, Rectangle, Text, TextStyle, Texture, Graphics, Sprite, Ticker } from "pixi.js";
+import {
+    Application,
+    Container,
+    Rectangle,
+    Text,
+    TextStyle,
+    Texture,
+    Graphics,
+    Sprite,
+    Ticker,
+    type FederatedPointerEvent,
+    type FederatedWheelEvent,
+} from "pixi.js";
 
 import { unitToTextureName, TextureType } from "../pixi/PixiUnitsFactory";
 import { UnitChip } from "./UnitChip";
 
-import { UNIT_ID_TO_NAME } from "../ui/unit_ui_constants";
+import { images } from "../imageAssets";
+import { resolveCreaturePortraitVisual } from "../ui/creaturePortraitVisual";
+import { creatureTypePresentation } from "../ui/creatureTypePresentation";
+import { UNIT_ID_TO_NAME, UNIT_NAME_TO_ID } from "../ui/unit_ui_constants";
 
 import {
     LevelBuckets as CommonLevelBuckets,
@@ -20,6 +35,8 @@ import {
 import type { UnitLevelId } from "@heroesofcrypto/common";
 import { BASE_UNIT_STACK_TO_SPAWN_EXP } from "@/statics";
 import { HOC_NUMERIC_FONT_FAMILY } from "../fontFamilies";
+import { boardFitHeight, boardFitWidth } from "../pixi/boardFit";
+import { BATTLEFIELD_ARTWORK, battlefieldArtworkLayout } from "./sandbox/BattlefieldVisualGrid";
 
 /** The app's own stack — same as style.scss's <body> rule and the board labels in RenderableUnit. */
 const OVERLAY_FONT_FAMILY = HOC_NUMERIC_FONT_FAMILY;
@@ -30,47 +47,51 @@ const LEVEL_LABEL_SIZE_FACTOR = 1.13;
 /** Distance between the L and its digit, expressed in em so it follows responsive label sizing. */
 const LEVEL_LABEL_LETTER_SPACING_FACTOR = 0.18;
 
-/** Collapse-toggle diameter, as a fraction of a board cell. */
-const TOGGLE_BUTTON_CELL_FRACTION = 0.64;
-/** Muted moss for the open panel; ember red makes the enlarged closed control easy to find on the board. */
-const TOGGLE_OPEN_COLOR = 0x4f813f;
-const TOGGLE_OPEN_COLOR_HOVER = 0x73ad59;
-const TOGGLE_CLOSED_COLOR = 0xa63b32;
-const TOGGLE_CLOSED_COLOR_HOVER = 0xd45a4d;
+/** Collapse-toggle side, as a fraction of a board cell: 37.5% larger than the former round medallion. */
+export const TOGGLE_BUTTON_CELL_FRACTION = 0.88;
 const TOGGLE_CLOSED_SCALE = 1.3;
+/** Start the portraits just beyond the level plates; the former 1.5-cell rail left a wide dead strip. */
+export const CREATURE_GRID_START_CELL_FRACTION = 1.08;
+/** A restrained but clearly visible gutter between cards in the two-row expanded roster. */
+export const EXPANDED_CARD_GAP_CELL_FRACTION = 0.075;
+/** L1/L2 contain eight cards per row; sparse L3/L4 rosters must not upscale beyond that card size. */
+export const EXPANDED_ROSTER_REFERENCE_COLUMNS = 8;
 
-/** No faction line runs longer than this; past three the chips shrink faster than the line buys room. */
-const MAX_CHIPS_PER_ROW = 3;
-/** Share of its block a faction's chips may fill, leaving the frame and the dividers clear. */
-const BLOCK_FILL = 0.94;
-/**
- * The two ways the four faction blocks tile the grid. Which one is used is decided per level by whichever
- * gives the bigger chips (see onResize) rather than being fixed: with four creatures a faction, four blocks
- * across and a 2x2 of chips in each is best; at levels 3 and 4 every faction fields three, and four-across
- * leaves each block twice as tall as it needs, so a 2x2 of BLOCKS with the three creatures on one line wins.
- */
-const BLOCK_LAYOUTS: ReadonlyArray<{ cols: number; rows: number }> = [
-    { cols: 4, rows: 1 },
-    { cols: 2, rows: 2 },
-];
+/** The Pixi preload map is keyed by asset name while the shared portrait recipe exposes final URLs. */
+const IMAGE_URL_TO_KEY = new Map<string, string>(Object.entries(images).map(([key, url]) => [url, key]));
+const ROSTER_ATTACK_TYPE_ICON_KEY = {
+    MELEE: "pick_attack_melee_silver",
+    RANGE: "pick_attack_ranged_silver",
+    MAGIC: "pick_attack_magic_silver",
+} as const;
+const ROSTER_MOVEMENT_TYPE_ICON_KEY = {
+    WALK: "pick_movement_walk_silver",
+    FLY: "pick_movement_fly_silver",
+} as const;
+
+/** Draft cards use this exact portrait ratio (190 × 256). The sandbox roster keeps it too. */
+export const PICK_CARD_ASPECT = 190 / 256;
 
 /**
- * The widest chip that fits `n` of them in a `boxW` x `boxH` box, wrapping at most MAX_CHIPS_PER_ROW to a
- * line, and the line length that achieves it.
+ * Approved non-Nature cutouts that face into the roster after crop-first mirroring. Nature remains a
+ * faction-wide rule; these named exceptions come from the user's L2–L4 visual review.
  */
-function bestChipFit(n: number, boxW: number, boxH: number): { side: number; cols: number } {
-    const maxCols = Math.min(n, MAX_CHIPS_PER_ROW);
-    let bestSide = 0;
-    let bestCols = maxCols;
-    for (let cols = 1; cols <= maxCols; cols++) {
-        const side = Math.min(boxW / cols, boxH / Math.ceil(n / cols));
-        if (side > bestSide) {
-            bestSide = side;
-            bestCols = cols;
-        }
-    }
-    return { side: bestSide, cols: bestCols };
-}
+export const MIRRORED_ROSTER_PORTRAIT_NAMES = new Set([
+    "Valkyrie",
+    "Harpy",
+    "Nomad",
+    "Hyena",
+    "Wyvern",
+    "Cyclops",
+    "Ogre Mage",
+    "Zena",
+    "Thunderbird",
+    "Behemoth",
+    "Frenzied Boar",
+]);
+
+/** Nature is mirrored by default, but Trent's approved L2 portrait already faces into the roster. */
+const UNMIRRORED_NATURE_ROSTER_PORTRAIT_NAMES = new Set(["Trent"]);
 
 type GetTexture = (key: string) => Texture | undefined;
 type LevelBucket = Readonly<{ label: string; count: number; unitSize: 1 | 2 }>;
@@ -131,6 +152,100 @@ export const isVisibleThroughAncestor = (displayObject: Container, ancestor: Con
     return false;
 };
 
+export type UnitsOverlayLayout = Readonly<{ x: number; y: number; width: number; height: number }>;
+
+export type ExpandedRosterGridLayout = Readonly<{
+    columns: number;
+    rows: number;
+    cardWidth: number;
+    cardHeight: number;
+    gap: number;
+    padding: number;
+    width: number;
+    height: number;
+}>;
+
+/**
+ * Keep the expanded roster to two rows whenever possible. Width and the upper-background height both cap
+ * the portrait size, so every creature stays visible without the roster spilling onto the battlefield.
+ */
+export const expandedRosterGridLayout = (
+    viewportWidth: number,
+    availableHeight: number,
+    creatureCount: number,
+    cellSize: number,
+): ExpandedRosterGridLayout => {
+    const count = Math.max(1, creatureCount);
+    const rows = Math.min(2, count);
+    const columns = Math.ceil(count / rows);
+    const padding = Math.max(5, cellSize * 0.08);
+    const gap = Math.max(5, cellSize * EXPANDED_CARD_GAP_CELL_FRACTION);
+    const widthLimitedCard = Math.max(1, (viewportWidth - padding * 2 - gap * (columns - 1)) / columns);
+    const l1L2CardWidthCap = Math.max(
+        1,
+        (viewportWidth - padding * 2 - gap * (EXPANDED_ROSTER_REFERENCE_COLUMNS - 1)) /
+            EXPANDED_ROSTER_REFERENCE_COLUMNS,
+    );
+    const heightLimitedCard = Math.max(
+        1,
+        ((Math.max(1, availableHeight) - padding * 2 - gap * (rows - 1)) / rows) * PICK_CARD_ASPECT,
+    );
+    const cardWidth = Math.max(1, Math.min(widthLimitedCard, heightLimitedCard, l1L2CardWidthCap));
+    const cardHeight = cardWidth / PICK_CARD_ASPECT;
+    return {
+        columns,
+        rows,
+        cardWidth,
+        cardHeight,
+        gap,
+        padding,
+        width: columns * cardWidth + Math.max(0, columns - 1) * gap + padding * 2,
+        height: rows * cardHeight + Math.max(0, rows - 1) * gap + padding * 2,
+    };
+};
+
+/** Match the hand-marked top container, then pull each horizontal edge inward by 3%. */
+const UNITS_OVERLAY_TOP_BAND_SCALE_X = 0.93;
+const UNITS_OVERLAY_TOP_BAND_SCALE_Y = 0.95;
+/** Extend only the left edge; the hand-aligned right edge must stay fixed. */
+const UNITS_OVERLAY_TOP_BAND_LEFT_EXPANSION = 0.025;
+/** Raise the complete container without changing its height. */
+const UNITS_OVERLAY_TOP_BAND_SHIFT_Y = -0.02;
+
+/**
+ * The roster occupies the decorative wall/fireplace band above the first painted battlefield seam.
+ * Deriving the rectangle from the same bitmap fit as DungeonVisuals keeps the panel attached to that
+ * background at every aspect ratio instead of centring it over four playable rows.
+ */
+export const unitsOverlayTopBandLayout = (stageW: number, stageH: number): UnitsOverlayLayout => {
+    const artwork = battlefieldArtworkLayout(
+        stageW,
+        stageH,
+        boardFitWidth(stageW, stageH),
+        boardFitHeight(stageW, stageH),
+    );
+    const artworkLeft = artwork.x - artwork.width * 0.5;
+    const artworkTop = artwork.y - artwork.height * 0.5;
+    const artworkRight = artworkLeft + artwork.width;
+    const scaleY = artwork.height / BATTLEFIELD_ARTWORK.height;
+    const paintedFieldTop = artworkTop + BATTLEFIELD_ARTWORK.field.topLeft.y * scaleY;
+    const x = Math.max(0, artworkLeft);
+    const y = Math.max(0, artworkTop);
+    const right = Math.max(x, Math.min(stageW, artworkRight));
+    const bottom = Math.max(y, Math.min(stageH, paintedFieldTop));
+    const fittedWidth = right - x;
+    const fittedHeight = bottom - y;
+    const insetX = (fittedWidth * (1 - UNITS_OVERLAY_TOP_BAND_SCALE_X)) / 2;
+    const insetY = (fittedHeight * (1 - UNITS_OVERLAY_TOP_BAND_SCALE_Y)) / 2;
+    const leftExpansion = fittedWidth * UNITS_OVERLAY_TOP_BAND_LEFT_EXPANSION;
+    return {
+        x: x + insetX - leftExpansion,
+        y: Math.max(0, y + insetY + fittedHeight * UNITS_OVERLAY_TOP_BAND_SHIFT_Y),
+        width: fittedWidth * UNITS_OVERLAY_TOP_BAND_SCALE_X + leftExpansion,
+        height: fittedHeight * UNITS_OVERLAY_TOP_BAND_SCALE_Y,
+    };
+};
+
 export class UnitsOverlay {
     private app: Application;
     private getTex: GetTexture;
@@ -143,22 +258,46 @@ export class UnitsOverlay {
     private levelRail = new Container();
     /** One row per level; only the selected one is expanded. */
     private rowsContainer = new Container();
+    /** Clips the active roster to the fitted upper-background frame. */
+    private rowsMask = new Graphics();
+    /** Keep the complete creature roster visible in the two-row layout. */
+    private isListExpanded = true;
+    /** Panel height locked to the fitted upper-background band. */
+    private panelDisplayH = 0;
+    /** Visible frame width, trimmed to the active two-row roster instead of retaining empty background. */
+    private panelDisplayW = 0;
+    private scrollbarTrack = new Graphics();
+    private scrollbarThumb = new Graphics();
+    private scrollX = 0;
+    private maxScrollX = 0;
+    private scrollViewportX = 0;
+    private scrollTrackX = 0;
+    private scrollTrackY = 0;
+    private scrollTrackWidth = 0;
+    private scrollHitPadding = 0;
+    private scrollThumbWidth = 0;
+    private scrollThumbTravel = 0;
+    private scrollbarDragging = false;
+    private scrollbarDragOffset = 0;
+    private readonly onScrollbarPointerMove = (event: FederatedPointerEvent): void => {
+        if (!this.scrollbarDragging || this.maxScrollX <= 0) return;
+        const local = this.container.toLocal(event.global);
+        const ratio = (local.x - this.scrollbarDragOffset - this.scrollTrackX) / this.scrollThumbTravel;
+        this.setScrollX(ratio * this.maxScrollX);
+    };
+    private readonly stopScrollbarDrag = (): void => {
+        this.scrollbarDragging = false;
+    };
     /** Toggle button container */
     private toggleBtn = new Container();
-    /** Soft halo behind the toggle, breathing on the ticker so the control reads as live. */
-    private toggleGlow = new Graphics();
     private toggleGlowPhase = 0;
     private toggleGlowStep?: (ticker: Ticker) => void;
-    /** Generated rune-medallion base; neutral metal is tinted green/open or red/closed at runtime. */
-    private toggleMedallion = new Sprite(Texture.EMPTY);
-    /** Vector fallback if the generated medallion texture has not loaded. */
-    private toggleFrame = new Graphics();
-    /** The chevron inside that frame. */
-    private toggleArrow = new Graphics();
+    /** Production PNG contains the complete frame, metal treatment and chevron. */
+    private toggleButtonSprite = new Sprite(Texture.EMPTY);
     /**
      * Where the panel is HEADING, as opposed to `isOpen`, which only flips once the slide finishes because
-     * hit-testing keys off it. The button's colour and its chevron's beat follow the target, so both change
-     * the instant the click lands rather than 350ms later.
+     * hit-testing keys off it. The image direction follows the target immediately rather than waiting for
+     * the 350ms panel slide to finish.
      */
     private openTarget = true;
     /** Layout state */
@@ -204,37 +343,72 @@ export class UnitsOverlay {
         this.container.zIndex = 100;
         this.container.sortableChildren = true;
 
-        this.content.addChild(this.backdrop, this.levelRail, this.rowsContainer);
+        this.content.addChild(
+            this.backdrop,
+            this.levelRail,
+            this.rowsContainer,
+            this.rowsMask,
+            this.scrollbarTrack,
+            this.scrollbarThumb,
+        );
+        this.rowsContainer.mask = this.rowsMask;
         this.container.addChild(this.content);
         this.container.addChild(this.toggleBtn);
 
         this.app.stage.eventMode = "static";
         this.backdrop.eventMode = "none";
+        this.rowsContainer.eventMode = "static";
+        this.rowsContainer.on("wheel", (event: FederatedWheelEvent) => {
+            if (this.maxScrollX <= 0) return;
+            const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+            this.setScrollX(this.scrollX + delta);
+            event.preventDefault();
+            event.stopPropagation();
+        });
+
+        this.scrollbarThumb.eventMode = "static";
+        this.scrollbarThumb.cursor = "ew-resize";
+        this.scrollbarThumb.on("pointerdown", (event: FederatedPointerEvent) => {
+            if (this.maxScrollX <= 0) return;
+            const local = this.container.toLocal(event.global);
+            this.scrollbarDragging = true;
+            this.scrollbarDragOffset = local.x - this.scrollbarThumb.x;
+            event.stopPropagation();
+        });
+        this.scrollbarTrack.eventMode = "static";
+        this.scrollbarTrack.cursor = "pointer";
+        this.scrollbarTrack.on("pointerdown", (event: FederatedPointerEvent) => {
+            if (this.maxScrollX <= 0 || event.target === this.scrollbarThumb) return;
+            const local = this.container.toLocal(event.global);
+            const ratio = (local.x - this.scrollTrackX - this.scrollThumbWidth * 0.5) / this.scrollThumbTravel;
+            this.setScrollX(ratio * this.maxScrollX);
+        });
+
+        this.app.stage.on("pointermove", this.onScrollbarPointerMove);
+        this.app.stage.on("pointerup", this.stopScrollbarDrag);
+        this.app.stage.on("pointerupoutside", this.stopScrollbarDrag);
 
         // --- Toggle Button Setup ---
         this.toggleBtn.zIndex = 9999;
         this.toggleBtn.eventMode = "static";
         this.toggleBtn.cursor = "pointer";
 
-        const toggleMedallionTexture = this.getTex("panel_toggle_medallion");
-        if (toggleMedallionTexture) {
-            this.toggleMedallion.texture = toggleMedallionTexture;
-        }
-        this.toggleMedallion.anchor.set(0.5);
-        this.toggleMedallion.visible = !!toggleMedallionTexture;
-        this.toggleBtn.addChild(this.toggleGlow, this.toggleMedallion, this.toggleFrame, this.toggleArrow);
+        const preloadedToggleTexture = this.getTex("units_overlay_toggle_square_v1");
+        // A failed/unfinished Pixi preload can return the shared EMPTY texture. It is truthy, so `??`
+        // accepted it and left only the background's little square outline visible with no button art.
+        // Resolve the project-owned image directly in that case; this control is the only way to reopen
+        // the creature roster after it has slid off screen.
+        this.toggleButtonSprite.texture =
+            preloadedToggleTexture && preloadedToggleTexture !== Texture.EMPTY
+                ? preloadedToggleTexture
+                : Texture.from(images.units_overlay_toggle_square_v1);
+        this.toggleButtonSprite.anchor.set(0.5);
+        this.toggleBtn.addChild(this.toggleButtonSprite);
 
-        // A visible but restrained breath in the medallion's circular halo.
+        // Keep only the selected-level pulse animated. The button itself is a single authored bitmap and
+        // must remain pixel-stable instead of mixing generated art with procedural rings or arrow motion.
         this.toggleGlowStep = (ticker: Ticker) => {
             this.toggleGlowPhase += ticker.deltaMS / 1000;
-            this.toggleGlow.alpha = 0.54 + 0.12 * Math.sin(this.toggleGlowPhase * 1.65);
-            // Collapsed, the panel is gone and this medallion is the only way back to it, so the chevron beats as
-            // well as the halo. Open it holds still — a twitching arrow next to a full grid of chips is just
-            // one more thing moving. Faster than the halo so the two read as separate, and scale only: the
-            // rotation on this same object is the open/closed flip and must not be fought over.
-            const beat = this.openTarget ? 1 : 1 + 0.14 * Math.sin(this.toggleGlowPhase * 3.6);
-            this.toggleArrow.scale.set(beat);
-
             // Gold is reserved for the active creature level. A restrained independent breath keeps the
             // chosen plate alive without making its label or dark fill blink.
             const levelPulse = 0.5 + 0.5 * Math.sin(this.toggleGlowPhase * 2.35 + 0.7);
@@ -257,78 +431,46 @@ export class UnitsOverlay {
 
         this.app.stage.addChild(this.container);
     }
-    /**
-     * Draw the generated dark-metal rune medallion in the overlay state colour. The chevron points LEFT at
-     * rotation 0 (overlay open) and flips 180° when closed, while the medallion itself remains upright.
-     */
+    /** Size and orient the complete authored PNG; no part of the button is drawn procedurally. */
     private updateButtonVisuals(isHovered: boolean): void {
         const r = this.btnRadius;
         if (r <= 0) {
             return;
         }
         const size = r * 2;
-        const accent = this.openTarget
-            ? isHovered
-                ? TOGGLE_OPEN_COLOR_HOVER
-                : TOGGLE_OPEN_COLOR
-            : isHovered
-              ? TOGGLE_CLOSED_COLOR_HOVER
-              : TOGGLE_CLOSED_COLOR;
-        const outerRing = this.openTarget ? 0x172719 : 0x321312;
-        const innerRing = this.openTarget ? 0x203b22 : 0x55201d;
 
-        // Once the panel has left the screen this is its only return control. Grow the complete medallion —
-        // frame, arrow, halo and Pixi hit area — by exactly 30%; the open state remains at its original size.
+        // Once the panel has left the screen this is its only return control. Grow the complete button —
+        // texture and Pixi hit area together — by exactly 30%; open keeps the authored scale.
         this.toggleBtn.scale.set(this.openTarget ? 1 : TOGGLE_CLOSED_SCALE);
+        const textureWidth = Math.max(1, this.toggleButtonSprite.texture.width);
+        const textureHeight = Math.max(1, this.toggleButtonSprite.texture.height);
+        this.toggleButtonSprite.scale.set((size / textureWidth) * (this.openTarget ? 1 : -1), size / textureHeight);
+        this.toggleButtonSprite.alpha = isHovered ? 1 : 0.96;
+    }
+    private toggleExpandedList(): void {
+        this.isListExpanded = !this.isListExpanded;
+        this.onResize(this.app.renderer.width, this.app.renderer.height);
+    }
+    private selectChip(chip: UnitChip): void {
+        const unitName = chip.nameKey;
+        const next = this.selectedName === unitName ? null : unitName;
+        this.selectedName = next;
 
-        // Compact halo follows the medallion silhouette. It remains green while the panel is visible and turns
-        // red together with the enlarged button when the panel is hidden.
-        this.toggleGlow.clear();
-        for (let ring = 0; ring < 3; ring++) {
-            const t = ring / 2;
-            this.toggleGlow
-                .circle(0, 0, r * (0.98 + t * 0.24))
-                .stroke({ color: accent, width: size * 0.075, alpha: (1 - t) * (isHovered ? 0.76 : 0.56) });
+        for (const candidate of this.allChips) {
+            candidate.setSelected(candidate.nameKey === next);
         }
 
-        if (this.toggleMedallion.visible) {
-            this.toggleMedallion.width = size;
-            this.toggleMedallion.height = size;
-            this.toggleMedallion.tint = accent;
-            this.toggleFrame.clear();
-        } else {
-            // Keep the control usable if an old cached image manifest omits the new texture.
-            this.toggleFrame
-                .clear()
-                .circle(0, 0, r * 0.96)
-                .fill({ color: 0x030604, alpha: 0.98 })
-                .stroke({ color: outerRing, width: Math.max(2, size * 0.1), alpha: 0.98 })
-                .circle(0, 0, r * 0.8)
-                .stroke({ color: accent, width: Math.max(1, size * 0.046), alpha: isHovered ? 0.9 : 0.62 })
-                .circle(0, 0, r * 0.68)
-                .fill({ color: 0x050806, alpha: 1 })
-                .stroke({ color: innerRing, width: Math.max(1, size * 0.025), alpha: isHovered ? 0.78 : 0.52 });
+        if (this.onUnitSelected) {
+            this.onUnitSelected(next ? this.getUnitProperties(unitName) : null);
         }
-
-        const a = r * 0.34;
-        this.toggleArrow
-            .clear()
-            .moveTo(a * 0.62, -a)
-            .lineTo(-a * 0.66, 0)
-            .lineTo(a * 0.62, a)
-            .stroke({ color: 0x010201, width: Math.max(3, size * 0.13), join: "round", cap: "round" })
-            .moveTo(a * 0.62, -a)
-            .lineTo(-a * 0.66, 0)
-            .lineTo(a * 0.62, a)
-            .stroke({ color: accent, width: Math.max(2, size * 0.07), join: "round", cap: "round" });
     }
     public handlePointerDown(globalX: number, globalY: number): boolean {
         const localOverlay = this.container.toLocal({ x: globalX, y: globalY });
         const insideOverlay =
             localOverlay.x >= 0 &&
             localOverlay.y >= 0 &&
-            localOverlay.x <= this.overlayW &&
-            localOverlay.y <= this.overlayH;
+            localOverlay.x <= this.panelDisplayW &&
+            localOverlay.y <= this.panelDisplayH;
 
         const localToggle = this.toggleBtn.toLocal({ x: globalX, y: globalY });
         if (localToggle.x * localToggle.x + localToggle.y * localToggle.y <= this.btnRadius * this.btnRadius) {
@@ -337,6 +479,29 @@ export class UnitsOverlay {
         }
 
         if (!this.isOpen) return false;
+
+        // Pixi is rendered beneath the transparent interaction canvas used by PixiGameManager, so the
+        // native Graphics pointer handlers are not guaranteed to receive this press. Mirror the scrollbar
+        // hit test here: the manager already forwards canvas-space pointer input through this method.
+        const insideScrollbar =
+            this.maxScrollX > 0 &&
+            localOverlay.x >= this.scrollTrackX &&
+            localOverlay.x <= this.scrollTrackX + this.scrollTrackWidth &&
+            localOverlay.y >= this.scrollTrackY - this.scrollHitPadding &&
+            localOverlay.y <= this.scrollTrackY + this.scrollbarTrack.height + this.scrollHitPadding;
+        if (insideScrollbar) {
+            const thumbLeft = this.scrollbarThumb.x;
+            const thumbRight = thumbLeft + this.scrollThumbWidth;
+            if (localOverlay.x >= thumbLeft && localOverlay.x <= thumbRight) {
+                this.scrollbarDragging = true;
+                this.scrollbarDragOffset = localOverlay.x - thumbLeft;
+            } else {
+                const ratio =
+                    (localOverlay.x - this.scrollTrackX - this.scrollThumbWidth * 0.5) / this.scrollThumbTravel;
+                this.setScrollX(ratio * this.maxScrollX);
+            }
+            return true;
+        }
 
         // Level tabs come first: they sit in the left rail, clear of the chips, and a hit there swaps which
         // band is expanded rather than selecting anything.
@@ -363,17 +528,7 @@ export class UnitsOverlay {
             if (!b) continue;
 
             if (globalX >= b.x && globalX <= b.x + b.width && globalY >= b.y && globalY <= b.y + b.height) {
-                const unitName = (chip as UnitChip).nameKey as string;
-                const next = this.selectedName === unitName ? null : unitName;
-                this.selectedName = next;
-
-                for (const c of this.allChips) {
-                    c.setSelected((c as UnitChip).nameKey === next);
-                }
-
-                if (this.onUnitSelected) {
-                    this.onUnitSelected(next ? this.getUnitProperties(unitName) : null);
-                }
+                this.selectChip(chip);
                 return true;
             }
         }
@@ -384,6 +539,29 @@ export class UnitsOverlay {
         }
 
         return false;
+    }
+    /** Forwarded by the transparent interaction canvas while dragging the visible horizontal thumb. */
+    public handlePointerMove(globalX: number, globalY: number): boolean {
+        if (!this.scrollbarDragging || this.maxScrollX <= 0) return false;
+        const local = this.container.toLocal({ x: globalX, y: globalY });
+        const ratio = (local.x - this.scrollbarDragOffset - this.scrollTrackX) / this.scrollThumbTravel;
+        this.setScrollX(ratio * this.maxScrollX);
+        return true;
+    }
+    public handlePointerUp(): boolean {
+        const wasDragging = this.scrollbarDragging;
+        this.scrollbarDragging = false;
+        return wasDragging;
+    }
+    /** Convert either a vertical mouse wheel or a horizontal trackpad gesture into roster movement. */
+    public handleWheel(globalX: number, globalY: number, deltaX: number, deltaY: number): boolean {
+        if (!this.isOpen || this.isListExpanded || this.maxScrollX <= 0) return false;
+        const local = this.container.toLocal({ x: globalX, y: globalY });
+        if (local.x < 0 || local.y < 0 || local.x > this.panelDisplayW || local.y > this.panelDisplayH) return false;
+        const delta = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : deltaY;
+        if (!Number.isFinite(delta) || delta === 0) return false;
+        this.setScrollX(this.scrollX + delta);
+        return true;
     }
     /**
      * DEV automation/QA: canvas-space centers of everything currently clickable — the level tabs and the
@@ -511,14 +689,54 @@ export class UnitsOverlay {
 
                 for (const unitName of namesForLevel) {
                     const unitProperties = this.getUnitProperties(unitName);
-                    // 512 art: the chips render at ~90css px (180 device px on retina), where the small
-                    // 128/256 textures visibly blur. The 512s are already loaded for the board units.
-                    const tex = this.getTex(unitToTextureName(unitName, TextureType.LARGE, sizeFlag));
+                    const creatureId = UNIT_NAME_TO_ID[unitName];
+                    const portraitVisual =
+                        creatureId === undefined ? undefined : resolveCreaturePortraitVisual(creatureId);
+                    const portraitTextureKey = portraitVisual ? IMAGE_URL_TO_KEY.get(portraitVisual.source) : undefined;
+                    const portraitTexture = portraitTextureKey ? this.getTex(portraitTextureKey) : undefined;
+                    const backgroundTextureKey = portraitVisual?.background
+                        ? IMAGE_URL_TO_KEY.get(portraitVisual.background)
+                        : undefined;
+                    const backgroundTexture = backgroundTextureKey ? this.getTex(backgroundTextureKey) : undefined;
+                    const typePresentation = creatureTypePresentation(unitName);
+                    const attackTypeIcon = typePresentation
+                        ? this.getTex(ROSTER_ATTACK_TYPE_ICON_KEY[typePresentation.attack])
+                        : undefined;
+                    const movementTypeIcon = typePresentation
+                        ? this.getTex(ROSTER_MOVEMENT_TYPE_ICON_KEY[typePresentation.movement])
+                        : undefined;
+
+                    // Fall back only for an unknown/unregistered creature. The normal sandbox roster uses
+                    // the exact source, faction background and crop already approved for the pick cards.
+                    const fallbackTexture = this.getTex(unitToTextureName(unitName, TextureType.LARGE, sizeFlag));
+                    const portrait =
+                        portraitVisual && portraitTexture
+                            ? {
+                                  texture: portraitTexture,
+                                  backgroundTexture,
+                                  backgroundOpacity: portraitVisual.backgroundOpacity,
+                                  backgroundShadeAlpha: portraitVisual.backgroundShadeAlpha,
+                                  framing: portraitVisual.framing,
+                                  mirrorX:
+                                      (faction.type === FactionVals.NATURE &&
+                                          !UNMIRRORED_NATURE_ROSTER_PORTRAIT_NAMES.has(unitName)) ||
+                                      MIRRORED_ROSTER_PORTRAIT_NAMES.has(unitName),
+                              }
+                            : undefined;
 
                     const chip = new UnitChip({
                         unitName,
-                        texture: tex ?? Texture.EMPTY,
+                        texture: portraitTexture ?? fallbackTexture ?? Texture.EMPTY,
+                        portrait,
                         getAmount: () => (this.getAmount ? this.getAmount(unitName) : unitProperties.amount_alive),
+                        typeIcons:
+                            attackTypeIcon && movementTypeIcon
+                                ? {
+                                      attack: attackTypeIcon,
+                                      movement: movementTypeIcon,
+                                      movementScale: typePresentation?.movement === "FLY" ? 220 / 170 : 1,
+                                  }
+                                : undefined,
                     });
                     chip.setTicker(this.app.ticker);
                     bucketCont.addChild(chip);
@@ -532,6 +750,12 @@ export class UnitsOverlay {
         this.onResize(this.app.renderer.width, this.app.renderer.height);
         this.container.sortChildren();
     }
+    private setScrollX(value: number): void {
+        this.scrollX = Math.max(0, Math.min(this.maxScrollX, Number.isFinite(value) ? value : 0));
+        this.rowsContainer.x = this.scrollViewportX - this.scrollX;
+        const ratio = this.maxScrollX > 0 ? this.scrollX / this.maxScrollX : 0;
+        this.scrollbarThumb.x = this.scrollTrackX + this.scrollThumbTravel * ratio;
+    }
     /** Expand one level and collapse the rest. Chips of a collapsed level are hidden, so they also stop
      *  answering hit-tests — the pointer code walks `allChips` flat and cannot otherwise tell them apart. */
     private setSelectedLevel(level: number): void {
@@ -540,6 +764,7 @@ export class UnitsOverlay {
         // picked a creature from the newly expanded row.
         this.clearSelection(true);
         this.selectedLevel = level;
+        this.scrollX = 0;
         for (const tab of this.levelTabs) {
             tab.hovered = false;
             tab.label.scale.set(1);
@@ -553,122 +778,127 @@ export class UnitsOverlay {
         // fitViewToWindow) must not touch its torn-down container.
         if (this.container.destroyed) return;
 
-        const boardSide = Math.min(stageW, stageH);
-        const cell = boardSide / 16;
+        const topBand = unitsOverlayTopBandLayout(stageW, stageH);
+        const cell = Math.max(1, Math.min(topBand.width / 16, topBand.height / 4));
         this.cellSize = cell;
 
-        this.overlayW = 16 * cell;
-        this.overlayH = 4 * cell;
-
-        const boardX = (stageW - boardSide) / 2;
-        const boardY = (stageH - boardSide) / 2;
-        const overlayX = boardX;
-        const overlayY = boardY + (boardSide - this.overlayH) / 2;
-
-        this.container.position.set(overlayX, overlayY);
+        this.overlayW = topBand.width;
+        this.overlayH = topBand.height;
+        this.container.position.set(topBand.x, topBand.y);
 
         this.leftColW = 1.5 * cell;
         const levelCols = this.levelBuckets.length;
-        // EVERYTHING lives inside the panel's own 4 cells; nothing is drawn above y=0, or it would spill into
-        // the red deployment zone. There used to be a header band across the top carrying a faction crest per
+        // EVERYTHING lives inside the fitted upper-background band; nothing is drawn beyond its contour or it
+        // would spill onto the playable red deployment zone. There used to be a header band carrying a crest per
         // column, which spent a quarter of the panel's height on four small labels — the columns are already
         // in a fixed order and the creatures in them say which race they are. With it gone the creature grid
         // runs the full four cells and the chips grow by about a third.
         const toggleSize = cell * TOGGLE_BUTTON_CELL_FRACTION;
-        this.backdrop.clear();
-        this.backdrop.rect(0, 0, this.overlayW, this.overlayH).fill({ color: 0x000000, alpha: 0.55 });
 
-        // A frame around the whole creature grid, with hairlines dividing the faction blocks inside it.
-        // Without the dividers one faction's clump runs into the next; without the frame the grid has no
-        // edge and drifts into the rail. Both are appended to the backdrop (already cleared and filled
-        // above) so they cost no extra display objects, and both span exactly the same band so the lines
-        // meet the frame instead of stopping short of it.
+        // The outer frame follows the full marked container, including the L1..L4 rail. Portraits begin just
+        // beyond the level plates: the old 1.5-cell grid origin left a large empty strip and needed a divider
+        // to explain it. The tighter origin makes that separator unnecessary.
         const gridInset = cell * 0.07;
-        const gridX = this.leftColW + gridInset;
+        const gridX = cell * CREATURE_GRID_START_CELL_FRACTION;
         const gridY = gridInset;
         const gridW = this.overlayW - gridX - gridInset;
-        const gridH = this.overlayH - gridY - gridInset;
+        const collapsedGridH = this.overlayH - gridY - gridInset;
         const hairline = Math.max(1, cell * 0.014);
 
-        // How the four faction blocks tile that grid. Decided per level rather than fixed: score each
-        // candidate by the SMALLEST chip any faction would end up with and take the best. Four blocks in a
-        // row wins while a faction fields four creatures; at levels 3 and 4 they field three, and a 2x2 of
-        // blocks with the three on one line gives noticeably larger art than a tall, narrow quarter-column.
+        // Keep the cards at the pick stage's real portrait proportions and size them from HEIGHT. When the
+        // resulting one-line roster is wider than the viewport, it scrolls instead of crushing the art.
+        const scrollbarHeight = Math.max(4, Math.min(9, cell * 0.1));
+        const scrollbarGap = Math.max(2, cell * 0.045);
+        const collapsedViewportH = Math.max(1, collapsedGridH - scrollbarHeight - scrollbarGap * 2);
+        const cardHeight = collapsedViewportH * 0.9;
+        const cardWidth = cardHeight * PICK_CARD_ASPECT;
+        const cardGap = Math.max(2, cardWidth * 0.07);
+        const factionGap = Math.max(cardGap * 2.2, cardWidth * 0.22);
         const selectedRow = this.rowsContainer.children[this.selectedLevel - 1] as Container | undefined;
         const bucketCounts = this.factions.map(
             (_, f) => (selectedRow?.children[f] as Container | undefined)?.children.length ?? 0,
         );
+        const creatureCount = bucketCounts.reduce((sum, count) => sum + count, 0);
+        // The expanded grid owns the complete inner frame now that the ALL control is gone. Feeding that full
+        // height to the grid grows both card axes together, keeps 190:256, and brings the lower row down to the
+        // same inset as the top and side edges without introducing a scrollbar.
+        const availableExpandedHeight = Math.max(1, collapsedGridH);
+        const expandedLayout = expandedRosterGridLayout(gridW, availableExpandedHeight, creatureCount, cell);
+        const viewportH = this.isListExpanded ? expandedLayout.height : collapsedViewportH;
+        this.panelDisplayH = this.overlayH;
+        this.panelDisplayW = this.isListExpanded
+            ? Math.min(this.overlayW, gridX + expandedLayout.width)
+            : this.overlayW;
 
-        let blockCols = this.factions.length;
-        let blockRows = 1;
-        let bestBlockScore = -1;
-        for (const candidate of BLOCK_LAYOUTS) {
-            const boxW = (gridW / candidate.cols) * BLOCK_FILL;
-            const boxH = (gridH / candidate.rows) * BLOCK_FILL;
-            let smallest = Number.POSITIVE_INFINITY;
-            for (const n of bucketCounts) {
-                if (n > 0) smallest = Math.min(smallest, bestChipFit(n, boxW, boxH).side);
-            }
-            if (smallest !== Number.POSITIVE_INFINITY && smallest > bestBlockScore) {
-                bestBlockScore = smallest;
-                blockCols = candidate.cols;
-                blockRows = candidate.rows;
-            }
-        }
-
-        const blockW = gridW / blockCols;
-        const blockH = gridH / blockRows;
-        const blockX = (index: number) => gridX + (index % blockCols) * blockW;
-        const blockY = (index: number) => gridY + Math.floor(index / blockCols) * blockH;
-
-        // Dividers should separate the creature groups, not cut through the panel's empty padding. Derive
-        // their ends from the same fit calculation used below to place the chips, so switching level or
-        // changing the block tiling keeps every line flush with the outer edges of the visible icons.
-        const blockIconBounds = bucketCounts.map((n, index) => {
-            if (!n) return undefined;
-            const { side: spacing, cols } = bestChipFit(n, blockW * BLOCK_FILL, blockH * BLOCK_FILL);
-            const rows = Math.ceil(n / cols);
-            const iconSide = spacing * 0.9;
-            const centreX = blockX(index) + blockW * 0.5;
-            const centreY = blockY(index) + blockH * 0.5;
-            return {
-                left: centreX - ((cols - 1) * spacing + iconSide) * 0.5,
-                right: centreX + ((cols - 1) * spacing + iconSide) * 0.5,
-                top: centreY - ((rows - 1) * spacing + iconSide) * 0.5,
-                bottom: centreY + ((rows - 1) * spacing + iconSide) * 0.5,
-            };
-        });
+        const bucketWidths = bucketCounts.map((n) => Math.max(0, n * cardWidth + Math.max(0, n - 1) * cardGap));
+        const visibleBucketCount = bucketWidths.filter((width) => width > 0).length;
+        const rowInnerWidth =
+            bucketWidths.reduce((sum, width) => sum + width, 0) + Math.max(0, visibleBucketCount - 1) * factionGap;
+        const rowPadding = Math.max(cardGap, cell * 0.08);
+        const scrollContentWidth = this.isListExpanded ? gridW : Math.max(gridW, rowInnerWidth + rowPadding * 2);
+        const rowStartX = scrollContentWidth > gridW ? rowPadding : (gridW - rowInnerWidth) * 0.5;
+        this.maxScrollX = this.isListExpanded ? 0 : Math.max(0, scrollContentWidth - gridW);
+        this.scrollViewportX = gridX;
+        this.scrollX = Math.min(this.scrollX, this.maxScrollX);
 
         this.backdrop
-            .roundRect(gridX, gridY, gridW, gridH, Math.min(9, cell * 0.14))
+            .clear()
+            .rect(0, 0, this.panelDisplayW, this.panelDisplayH)
+            .fill({ color: 0x000000, alpha: 0.55 })
+            .roundRect(
+                gridInset,
+                gridInset,
+                this.panelDisplayW - gridInset * 2,
+                this.panelDisplayH - gridInset * 2,
+                Math.min(9, cell * 0.14),
+            )
             .stroke({ color: 0xdcb158, width: hairline, alpha: 0.34 });
 
-        for (let row = 0; row < blockRows; row++) {
-            const rowBounds = blockIconBounds
-                .slice(row * blockCols, (row + 1) * blockCols)
-                .filter((bounds) => bounds !== undefined);
-            if (!rowBounds.length) continue;
-            const top = Math.min(...rowBounds.map((bounds) => bounds.top));
-            const bottom = Math.max(...rowBounds.map((bounds) => bounds.bottom));
-            for (let col = 1; col < blockCols; col++) {
-                this.backdrop
-                    .moveTo(gridX + col * blockW, top)
-                    .lineTo(gridX + col * blockW, bottom)
-                    .stroke({ color: 0xdcb158, width: hairline, alpha: 0.26 });
-            }
-        }
-        for (let row = 1; row < blockRows; row++) {
-            const adjacentBounds = blockIconBounds
-                .slice((row - 1) * blockCols, (row + 1) * blockCols)
-                .filter((bounds) => bounds !== undefined);
-            if (!adjacentBounds.length) continue;
-            const left = Math.min(...adjacentBounds.map((bounds) => bounds.left));
-            const right = Math.max(...adjacentBounds.map((bounds) => bounds.right));
-            this.backdrop
-                .moveTo(left, gridY + row * blockH)
-                .lineTo(right, gridY + row * blockH)
-                .stroke({ color: 0xdcb158, width: hairline, alpha: 0.26 });
-        }
+        this.rowsMask
+            .clear()
+            .roundRect(gridX, gridY, gridW, viewportH, Math.min(7, cardWidth * 0.06))
+            .fill({ color: 0xffffff });
+
+        const trackY = gridY + viewportH + scrollbarGap;
+        this.scrollTrackY = trackY;
+        this.scrollHitPadding = scrollbarGap;
+        this.scrollTrackX = gridX + rowPadding * 0.4;
+        this.scrollTrackWidth = Math.max(1, gridW - rowPadding * 0.8);
+        this.scrollThumbWidth =
+            this.maxScrollX > 0
+                ? Math.max(cell * 0.65, this.scrollTrackWidth * (gridW / scrollContentWidth))
+                : this.scrollTrackWidth;
+        this.scrollThumbWidth = Math.min(this.scrollTrackWidth, this.scrollThumbWidth);
+        this.scrollThumbTravel = Math.max(1, this.scrollTrackWidth - this.scrollThumbWidth);
+        this.scrollbarTrack
+            .clear()
+            .roundRect(0, 0, this.scrollTrackWidth, scrollbarHeight, scrollbarHeight * 0.5)
+            .fill({ color: 0x090806, alpha: 0.82 })
+            .stroke({ color: 0x8c6a3f, width: Math.max(1, hairline), alpha: 0.72 });
+        this.scrollbarTrack.position.set(this.scrollTrackX, trackY);
+        this.scrollbarTrack.hitArea = new Rectangle(
+            0,
+            -scrollbarGap,
+            this.scrollTrackWidth,
+            scrollbarHeight + scrollbarGap * 2,
+        );
+        this.scrollbarThumb
+            .clear()
+            .roundRect(0, 0, this.scrollThumbWidth, scrollbarHeight, scrollbarHeight * 0.5)
+            .fill({ color: 0xb58a50, alpha: 0.9 })
+            .stroke({ color: 0xe4c590, width: Math.max(1, hairline), alpha: 0.68 });
+        this.scrollbarThumb.y = trackY;
+        this.scrollbarThumb.hitArea = new Rectangle(
+            0,
+            -scrollbarGap,
+            this.scrollThumbWidth,
+            scrollbarHeight + scrollbarGap * 2,
+        );
+        // The expanded two-row roster always fits the viewport, so it has no scroll range and should not
+        // retain a decorative full-width "thumb" beneath the cards. Keep the scrollbar only when the
+        // collapsed one-row roster genuinely overflows.
+        this.scrollbarTrack.visible = this.maxScrollX > 0;
+        this.scrollbarThumb.visible = this.maxScrollX > 0;
 
         // --- Left rail: the collapse toggle at its head, the level tabs under it ---
         // The panel's top-left corner lands exactly on a board cell corner, so the centre of the cell the
@@ -742,7 +972,7 @@ export class UnitsOverlay {
         for (let b = 0; b < levelCols; b++) {
             const rowCont = this.rowsContainer.children[b] as Container;
             const isSelected = b + 1 === this.selectedLevel;
-            // Buckets carry their own absolute block origin, so the row itself sits at the panel origin.
+            // The selected row is one horizontal scroll strip; each faction bucket follows the previous one.
             rowCont.position.set(0, 0);
             rowCont.visible = isSelected;
 
@@ -750,72 +980,70 @@ export class UnitsOverlay {
                 continue;
             }
 
-            for (let f = 0; f < this.factions.length; f++) {
-                const bucketCont = rowCont.children[f] as Container;
-                bucketCont.position.set(blockX(f), blockY(f));
-
-                const chips = bucketCont.children as unknown as UnitChip[];
-                const n = chips.length;
-                if (!n) {
-                    continue;
-                }
-
-                // Wrap the faction's creatures into whichever line length makes the chips largest inside
-                // its block — the same measure that chose the block tiling above, so the two agree.
-                const { side: spacing, cols: bestCols } = bestChipFit(n, blockW * BLOCK_FILL, blockH * BLOCK_FILL);
-                const rows = Math.ceil(n / bestCols);
-                const iconSide = spacing * 0.9;
-
-                // The SHORT line goes on top. An odd count (3 of 2) reads better as a single crowning icon
-                // over a full pair than as a full pair with an orphan hanging underneath it.
-                const perRow: number[] = [];
-                const remainder = n - (rows - 1) * bestCols;
-                for (let r = 0; r < rows; r++) {
-                    perRow.push(r === 0 ? remainder : bestCols);
-                }
-
-                const startY = blockH * 0.5 - ((rows - 1) * spacing) / 2;
-                let placed = 0;
-                for (let r = 0; r < rows; r++) {
-                    const inThisRow = perRow[r];
-                    // Every line is centred on its own count, so a short one sits over the middle.
-                    const startX = blockW * 0.5 - ((inThisRow - 1) * spacing) / 2;
-                    for (let c = 0; c < inThisRow; c++) {
-                        const chip = chips[placed++];
-                        chip.layout(iconSide);
-                        chip.position.set(startX + c * spacing, startY + r * spacing);
+            if (this.isListExpanded) {
+                // Start immediately after the L1–L4 rail. The frame's right edge is trimmed to this content
+                // width above, so the roster has no large empty field on either side.
+                const originX = expandedLayout.padding + expandedLayout.cardWidth * 0.5;
+                const originY = expandedLayout.padding + expandedLayout.cardHeight * 0.5;
+                let index = 0;
+                for (const bucketCont of rowCont.children as Container[]) {
+                    bucketCont.position.set(0, 0);
+                    for (const chip of bucketCont.children as UnitChip[]) {
+                        const column = index % expandedLayout.columns;
+                        const row = Math.floor(index / expandedLayout.columns);
+                        chip.layout(expandedLayout.cardWidth, expandedLayout.cardHeight);
+                        chip.position.set(
+                            originX + column * (expandedLayout.cardWidth + expandedLayout.gap),
+                            originY + row * (expandedLayout.cardHeight + expandedLayout.gap),
+                        );
+                        index++;
                     }
+                }
+            } else {
+                let bucketX = rowStartX;
+                let visibleBucketsPlaced = 0;
+                for (let f = 0; f < this.factions.length; f++) {
+                    const bucketCont = rowCont.children[f] as Container;
+                    const chips = bucketCont.children as unknown as UnitChip[];
+                    const n = chips.length;
+                    if (!n) continue;
+
+                    if (visibleBucketsPlaced > 0) bucketX += factionGap;
+                    bucketCont.position.set(bucketX, 0);
+                    const spacing = cardWidth + cardGap;
+                    for (let c = 0; c < n; c++) {
+                        const chip = chips[c];
+                        chip.layout(cardWidth, cardHeight);
+                        chip.position.set(cardWidth * 0.5 + c * spacing, viewportH * 0.5);
+                    }
+                    bucketX += bucketWidths[f];
+                    visibleBucketsPlaced++;
                 }
             }
         }
+        this.rowsContainer.y = gridY;
+        this.setScrollX(this.scrollX);
 
         // --- Toggle Button ---
-        // Head of the left rail (btnY was computed with the rail above); the overlay may not spill past the
-        // 4-cell strip the board allots it, so nothing sits above y=0.
+        // Head of the left rail (btnY was computed with the rail above); the overlay stays inside the fitted
+        // wall/fireplace band, so nothing leaks down onto the playable field.
         this.toggleBtn.position.set(railCentreX, btnY);
         this.btnRadius = toggleSize * 0.5;
 
         this.updateButtonVisuals(false);
 
-        // Radial, matching the disc that is drawn: a square hit area would have caught clicks on the panel
-        // corners outside the medallion.
-        this.toggleBtn.hitArea = new Circle(0, 0, this.btnRadius);
+        // Match the new square control instead of retaining the former circular hit target.
+        this.toggleBtn.hitArea = new Rectangle(-this.btnRadius, -this.btnRadius, toggleSize, toggleSize);
 
         this.content.x = this.isOpen ? 0 : -this.overlayW;
         this.content.alpha = this.isOpen ? 1 : 0;
-
-        // 3. Rotated logic flipped: 0 if Open (Left), Math.PI if Closed (Right)
-        // Only the chevron turns — the frame is a disc, so spinning it would be a no-op that merely
-        // re-rasterised the rings.
-        const rot = this.isOpen ? 0 : Math.PI;
-        this.toggleArrow.rotation = rot;
     }
     public toggle(): void {
         this.animateTo(!this.isOpen, 350);
     }
     public hitToggle(globalX: number, globalY: number): boolean {
         const local = this.toggleBtn.toLocal({ x: globalX, y: globalY });
-        return local.x * local.x + local.y * local.y <= this.btnRadius * this.btnRadius;
+        return Math.abs(local.x) <= this.btnRadius && Math.abs(local.y) <= this.btnRadius;
     }
     private animateTo(open: boolean, durationMs: number): void {
         if (this.tweenCancel) {
@@ -823,8 +1051,7 @@ export class UnitsOverlay {
             this.tweenCancel = undefined;
         }
 
-        // Repaint the medallion straight away: green->red (or back) should land with the click, not 350ms
-        // later when the slide finishes and `isOpen` finally catches up.
+        // Mirror the authored image straight away so the chevron follows the target panel direction.
         this.openTarget = open;
         this.updateButtonVisuals(false);
 
@@ -832,10 +1059,6 @@ export class UnitsOverlay {
         const startA = this.content.alpha;
         const endX = open ? 0 : -this.overlayW;
         const endA = open ? 1 : 0;
-
-        const startRot = this.toggleArrow.rotation;
-        // Logic flipped here too
-        const endRot = open ? 0 : Math.PI;
 
         const start = performance.now();
         const ticker = this.app.ticker as Ticker;
@@ -848,9 +1071,6 @@ export class UnitsOverlay {
 
             this.content.x = startX + (endX - startX) * e;
             this.content.alpha = startA + (endA - startA) * e;
-
-            const curRot = startRot + (endRot - startRot) * e;
-            this.toggleArrow.rotation = curRot;
 
             if (p >= 1) {
                 ticker.remove(step);
@@ -867,6 +1087,9 @@ export class UnitsOverlay {
     }
     public destroy(): void {
         if (this.tweenCancel) this.tweenCancel();
+        this.app.stage.off("pointermove", this.onScrollbarPointerMove);
+        this.app.stage.off("pointerup", this.stopScrollbarDrag);
+        this.app.stage.off("pointerupoutside", this.stopScrollbarDrag);
         if (this.toggleGlowStep) {
             this.app.ticker.remove(this.toggleGlowStep);
             this.toggleGlowStep = undefined;

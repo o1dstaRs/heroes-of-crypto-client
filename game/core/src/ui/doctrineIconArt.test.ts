@@ -8,8 +8,8 @@ import { getDoctrineIconImage } from "./doctrineCopy";
 /**
  * Every selectable doctrine must resolve to art that actually ships.
  *
- * DoctrineProperties.imageKey used to be built as `perk_<slug>_256` — perk_three_reveals_256,
- * perk_see_all_256, perk_see_none_256 — while the art has always shipped as doctrine_scout,
+ * DoctrineProperties.imageKey used to be built as `doctrine_<slug>_256` — doctrine_three_reveals_256,
+ * doctrine_see_all_256, doctrine_see_none_256 — while the art has always shipped as doctrine_scout,
  * doctrine_spymaster and doctrine_blind_fury. Not one of those keys resolved to anything, and nothing
  * failed: the icon just silently rendered nothing.
  */

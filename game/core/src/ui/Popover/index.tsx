@@ -179,12 +179,18 @@ const unitAttackElement = (hoverInfo: IHoverInfo): React.JSX.Element => {
     const attackString = toAttackString(hoverInfo);
 
     return (
-        <>
+        <span
+            style={{
+                display: "inline-block",
+                fontSize: "50%",
+                lineHeight: 1.1,
+            }}
+        >
             {rangeDivisorString}
             {rangeDivisorString && attackString && <br />}
-            {toAttackString(hoverInfo)}
+            {attackString}
             <br /> {toKillsString(hoverInfo)}
-        </>
+        </span>
     );
 };
 

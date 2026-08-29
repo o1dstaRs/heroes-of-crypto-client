@@ -61,22 +61,12 @@ export const TurnTimerBar: React.FC<TurnTimerBarProps> = ({
 
     const gapPx = Math.round(metrics.gapPx * 0.7);
     const secondsWidth = Math.round(24 * metrics.fontScale);
-    // The row's height comes from the lap medallion, which is a good deal taller than the groove and is
-    // centred against it — so the row's bottom edge sits this far below the groove's. The footer is a
-    // sibling of that row, so without pulling it back up by the same amount it would open a gap the size of
-    // the medallion's overhang, whatever margin it was given.
-    const medallionOverhangPx = Math.round((medallion - grooveHeight) / 2);
     // Drawn a touch narrower than the groove on each side rather than flush with it: matching the groove
     // exactly made the two edges fight, the pill's round end against the bar's square one.
     const footerInsetPx = 8;
-    // A seam between the groove and the control under it, about a third of that control's own height. It is
-    // expressed off the groove rather than measured off the button: the button's height comes from its font
-    // and padding, both of which already scale with the sidebar, and so does the groove — so one third of
-    // the groove tracks one third of the button at every size, without having to read the DOM for it.
-    const footerGapPx = Math.round(grooveHeight / 3);
 
     return (
-        <Box sx={{ width: "100%", my: "2px" }}>
+        <Box sx={{ width: "100%", my: "2px", position: "relative" }}>
             {heading && (
                 <Box
                     sx={{
@@ -209,38 +199,40 @@ export const TurnTimerBar: React.FC<TurnTimerBarProps> = ({
                 </Typography>
             </Box>
 
-            {/* The timer's second line, hard against the groove and inset to exactly its span — past the lap
-                medallion on one side, past the seconds on the other. The 1px is the seam, not a gap: any
-                more and the two stop reading as one gauge. It sits OUTSIDE the row above rather than inside the
-                groove's column, so the medallion and the seconds stay centred on the groove itself instead
-                of drifting down to the middle of groove-plus-footer. */}
-            {footer && (
+            {/* Compact overlay inside the timer's existing footprint. Because it is absolute, using or
+                hiding additional time never changes this component's measured height and therefore cannot
+                rescale the portrait, stats or effect icons above it. */}
+            {(footer || footerIndicator) && (
                 <Box
                     sx={{
-                        // `flex`, not the default block: an inline child leaves a few pixels of line-height
-                        // under it, which is exactly the seam this is trying to close.
                         display: "flex",
-                        position: "relative",
+                        position: "absolute",
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        zIndex: 2,
+                        height: `${Math.round(12 * metrics.fontScale)}px`,
                         pl: `${medallion + gapPx + footerInsetPx}px`,
                         pr: `${secondsWidth + gapPx + footerInsetPx}px`,
                         justifyContent: "center",
-                        mt: `${footerGapPx - medallionOverhangPx}px`,
-                        // Keep a visible seam of background between the timer and the smaller action.
-                        transform: `translateY(${Math.round(4 * metrics.fontScale)}px)`,
+                        // Drop into the card's lower breathing room: clear of the progress groove, but
+                        // still above the card edge and the Up Next heading beneath it.
+                        transform: `translateY(${Math.round(10 * metrics.fontScale)}px)`,
                     }}
                 >
-                    <Box
-                        sx={{
-                            display: "flex",
-                            // Wide enough for the enlarged heroic label at narrow fullscreen widths while
-                            // still leaving clear air at both ends of the timer groove.
-                            flex: "0 0 78%",
-                            maxWidth: "78%",
-                            "& > *": { flex: 1, whiteSpace: "nowrap" },
-                        }}
-                    >
-                        {footer}
-                    </Box>
+                    {footer && (
+                        <Box
+                            sx={{
+                                display: "flex",
+                                flex: "0 0 56%",
+                                maxWidth: "56%",
+                                alignItems: "center",
+                                "& > *": { flex: 1, whiteSpace: "nowrap" },
+                            }}
+                        >
+                            {footer}
+                        </Box>
+                    )}
                     {footerIndicator && (
                         <Box
                             sx={{

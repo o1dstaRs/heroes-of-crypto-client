@@ -13,6 +13,7 @@ import {
     GridConstants,
     GridMath,
     GridVals,
+    SCATTERED_MOUNTAIN_VARIANTS,
     scatteredMountainsForSeed,
     synergyVariantsForSeed,
     HoCConfig,
@@ -61,6 +62,9 @@ import type { AuthoritativeSnapshotOptions } from "../pixi/PixiScene";
 import { TextureType, unitToTextureName } from "../pixi/PixiUnitsFactory";
 import { reconcileRankedTransientTerrain } from "./rankedTransientTerrain";
 import { syncPlacementSynergyUnitCounts } from "../ui/rankedSynergySync";
+import { projectBattlefieldPoint } from "./sandbox/BattlefieldVisualGrid";
+import { clearPersonalArmyTint, setPersonalArmyTint } from "./personalArmyTint";
+import { isGreenTeam } from "./teamColors";
 
 export const isRankedAuthoritativeRecordAlreadyApplied = (
     lastAppliedSequence: number,
@@ -89,6 +93,41 @@ export const rankedSystemMoveSceneLogLine = (
     return `${unitName} moved by ${reason} to(${cell.x}, ${cell.y})`;
 };
 
+/**
+ * Unit ids whose wire footprint has already been reported as disagreeing with the local creature config.
+ * The snapshot arrives about once a second, so without this the first divergence would bury the console.
+ */
+const warnedFootprintMismatchUnitIds = new Set<string>();
+
+/**
+ * A footprint disagreement between client and server is a HARD desync, unlike a stat disagreement: the two
+ * sides then believe the unit stands on different cells, and every move, attack and placement the client
+ * offers is one the server refuses.
+ *
+ * The server's value is the one applied (see the spread in getUnitPropertiesFromAuthoritativeState); this
+ * warning exists because a disagreement still means the two bundles ship different creature data, which is a
+ * deployment problem worth seeing in the console even though the board itself stays consistent.
+ */
+const warnOnFootprintMismatch = (unitState: AuthoritativeUnitState, properties: UnitProperties): void => {
+    const wireWidth = unitState.footprintWidth;
+    const wireHeight = unitState.footprintHeight;
+    // An older server sends neither, which is not a disagreement — it is simply no opinion.
+    if (!wireWidth || !wireHeight) {
+        return;
+    }
+    if (wireWidth === properties.footprint_width && wireHeight === properties.footprint_height) {
+        return;
+    }
+    if (warnedFootprintMismatchUnitIds.has(unitState.id)) {
+        return;
+    }
+    warnedFootprintMismatchUnitIds.add(unitState.id);
+    console.warn(
+        `Footprint desync for ${properties.name} (${unitState.id}): server says ${wireWidth}x${wireHeight}, ` +
+            `local config says ${properties.footprint_width}x${properties.footprint_height}`,
+    );
+};
+
 export const authoritativeUnitToSandboxUnitState = (
     unitState: AuthoritativeUnitState,
     options?: { statsAuthoritative?: boolean },
@@ -97,6 +136,7 @@ export const authoritativeUnitToSandboxUnitState = (
     if (!properties) {
         return undefined;
     }
+    warnOnFootprintMismatch(unitState, properties);
 
     return {
         properties,
@@ -173,6 +213,85 @@ export const revealedOpponentRowY = (
 export const revealedOpponentRowScale = (total: number): number =>
     total <= 6 ? 0.85 : Math.max(0.55, (0.85 * 6) / total);
 
+/**
+ * One unit's board footprint in cells. The scalar `size` used to stand in for this, but it cannot tell a
+ * 2x1 from a 1x2 — the two extents have to travel separately or a rectangle is laid out as a square.
+ */
+export interface IPlacementFootprint {
+    width: number;
+    height: number;
+}
+
+/**
+ * Cell footprints for a centred default deployment line on the zone row nearest the battlefield.
+ * One-cell gaps are kept whenever the full roster fits; a creature wider than one cell consumes that many
+ * horizontal cells and every creature extends away from the battlefield, so all their front edges stay
+ * aligned. Cells are anchored on the MAX corner, the same anchor Unit.getBaseCell() reports.
+ */
+export const centeredPlacementLineCells = (
+    footprints: readonly IPlacementFootprint[],
+    minCellX: number,
+    maxCellX: number,
+    frontRowY: number,
+    isUpper: boolean,
+): HoCMath.XY[][] => {
+    const availableWidth = Math.max(0, maxCellX - minCellX + 1);
+    const occupiedWidth = footprints.reduce((sum, footprint) => sum + footprint.width, 0);
+    const gap = occupiedWidth + Math.max(0, footprints.length - 1) <= availableWidth ? 1 : 0;
+    const lineWidth = occupiedWidth + gap * Math.max(0, footprints.length - 1);
+    // The cursor walks the line's LEFT edge; the anchor is (width - 1) to the right of it.
+    let x = minCellX + Math.max(0, Math.floor((availableWidth - lineWidth) / 2));
+
+    return footprints.map(({ width, height }) => {
+        // The body always grows away from the battlefield: upward from the front row for the upper team,
+        // downward for the lower one. Since the footprint hangs DOWN-left of its anchor, growing upward
+        // means lifting the anchor by (height - 1) and growing downward means leaving it on the front row.
+        const y = isUpper ? frontRowY + height - 1 : frontRowY;
+        const cells = GridMath.getFootprintCellsForAnchor({ x: x + width - 1, y }, width, height);
+        x += width + gap;
+        return cells;
+    });
+};
+
+/**
+ * Vertical twin of centeredPlacementLineCells for the live left/right rectangular deployment zones.
+ * The red baseline zone is a narrow strip on the board's right edge, so its roster must run along Y;
+ * trying to fit six stacks across the strip's three X columns silently discarded half of the army.
+ * Creatures taller than one cell occupy that many rows, and every creature extends away from the
+ * battlefield into the zone's deeper columns.
+ */
+export const centeredPlacementColumnCells = (
+    footprints: readonly IPlacementFootprint[],
+    minCellY: number,
+    maxCellY: number,
+    frontColumnX: number,
+    isRight: boolean,
+): HoCMath.XY[][] => {
+    const availableHeight = Math.max(0, maxCellY - minCellY + 1);
+    const occupiedHeight = footprints.reduce((sum, footprint) => sum + footprint.height, 0);
+    const gap = occupiedHeight + Math.max(0, footprints.length - 1) <= availableHeight ? 1 : 0;
+    const columnHeight = occupiedHeight + gap * Math.max(0, footprints.length - 1);
+    // The cursor walks the column's BOTTOM edge; the anchor is (height - 1) above it.
+    let y = minCellY + Math.max(0, Math.floor((availableHeight - columnHeight) / 2));
+
+    return footprints.map(({ width, height }) => {
+        // Mirror of the line layout on the other axis: the body grows to the right of the front column for
+        // the right-hand team and to its left for the left-hand one, and the anchor is the max corner.
+        const x = isRight ? frontColumnX + width - 1 : frontColumnX;
+        const cells = GridMath.getFootprintCellsForAnchor({ x, y: y + height - 1 }, width, height);
+        y += height + gap;
+        return cells;
+    });
+};
+
+/** The board footprint the client's local creature config gives a unit; `size` is not a shape. */
+export const placementFootprintOfUnitState = (unitState: {
+    properties: Pick<UnitProperties, "size" | "footprint_width" | "footprint_height">;
+}): IPlacementFootprint => ({
+    width: GridMath.normalizeFootprintSide(unitState.properties.footprint_width, unitState.properties.size),
+    height: GridMath.normalizeFootprintSide(unitState.properties.footprint_height, unitState.properties.size),
+});
+
 /** Minimal grid surface the occupancy audit needs (see reconcileRankedGridOccupancy). */
 export interface IOccupancyAuditGrid {
     getRegisteredCells(unitId: string): HoCMath.XY[];
@@ -189,11 +308,11 @@ export interface IOccupancyAuditGrid {
 }
 
 export const rankedUnitCellsMatchAuthoritative = (
-    actual: readonly HoCMath.XY[],
+    registered: readonly HoCMath.XY[],
     authoritative: readonly HoCMath.XY[],
 ): boolean =>
-    actual.length === authoritative.length &&
-    authoritative.every((cell) => actual.some((candidate) => candidate.x === cell.x && candidate.y === cell.y));
+    registered.length === authoritative.length &&
+    authoritative.every((cell) => registered.some((candidate) => candidate.x === cell.x && candidate.y === cell.y));
 
 /**
  * Audit the client grid's occupancy against the authoritative snapshot and re-register any unit whose
@@ -221,9 +340,13 @@ export const reconcileRankedGridOccupancy = (
         if (inSync) {
             continue;
         }
-        grid.cleanupAll(id, unitState.properties.attack_range, unitState.properties.size === 1);
+        // isSmallUnit decides which aggro stamp cleanupAll removes, so it has to describe the BODY: a
+        // one-cell body, not a `size` of 1. A rectangle carries the `size` of the square it is half of, so
+        // reading the scalar here would leave a two-cell unit's aggro behind on every re-registration.
+        const footprint = placementFootprintOfUnitState(unitState);
+        grid.cleanupAll(id, unitState.properties.attack_range, footprint.width === 1 && footprint.height === 1);
         // Trust the authoritative cells incl. lava/water standing — same reasoning as hydrateSceneState.
-        grid.occupyCells(
+        const occupied = grid.occupyCells(
             unitState.cells.map((cell) => ({ ...cell })),
             id,
             unitState.team,
@@ -231,7 +354,12 @@ export const reconcileRankedGridOccupancy = (
             true,
             true,
         );
-        fixed.push(id);
+        // Only report a unit as fixed once the grid actually took it. A refused re-registration leaves the
+        // unit with NO cells at all, and calling that "fixed" is worse than the divergence this heals: the
+        // caller would stop looking, and the board would stay silently empty under that unit forever.
+        if (occupied) {
+            fixed.push(id);
+        }
     }
     return fixed;
 };
@@ -244,10 +372,12 @@ const shouldHidePreFightOpponentUnit = (
     // Roster privacy is an explicit server policy, not an inherent property of Setup: public/reusable
     // matches keep the opponent visible by default. A private Setup suppresses opponent renderables even
     // if an over-broad snapshot carries them. An observer has no own team, so it suppresses every unit.
+    // Privacy applies to Setup (stage 0) ONLY — written as `=== 0`, not `!== 1`, so any later
+    // board sub-stage keeps the opponent visible (same fail-open rule as isRankedBoardPlacementStage).
     const isPrivateSplitSetup =
         snapshot.hideOpponentRosterDuringSetup === true &&
         snapshot.placementSplit === true &&
-        snapshot.placementStage !== 1;
+        snapshot.placementStage === 0;
     if (!options.hideOpponentPlacements || snapshot.fightStarted || snapshot.fightFinished) {
         return false;
     }
@@ -286,12 +416,35 @@ export const planScatteredMountainSync = (
         return undefined;
     }
     const standingKeys = new Set(scatteredStandingCells ?? []);
+    const derived = scatteredMountainsForSeed(gameId);
+    const variantByKey = new Map<number, number>();
+    for (const rock of derived) {
+        variantByKey.set(rock.cell.x * GridConstants.GRID_SIZE + rock.cell.y, rock.variant);
+    }
+
+    // Walk the SERVER's stones, not our own derivation. The board is the server's: it computes knownPaths
+    // and legality from its own matrix, so a stone it holds that we never derived is an invisible wall —
+    // we would offer moves through it and draw a clear lane the server refuses. Iterating our own layout
+    // and using the server's list as a mere filter silently dropped exactly those stones.
+    //
+    // That was harmless while the barrel count was a compile-time 9 in every bundle: the two sides could
+    // not disagree about how many stones exist. The count is now ROLLED per game (9-12), and client and
+    // server pin common independently and deploy separately, so a bundle from before the roll derives 9
+    // against a server board of 10-12 — and ~75% of game ids roll above 9. Deriving art locally is still
+    // right (it never affects legality); deriving OCCUPANCY locally is not.
     const standing: { x: number; y: number; variant: number }[] = [];
+    for (const key of standingKeys) {
+        const x = Math.floor(key / GridConstants.GRID_SIZE);
+        const y = key % GridConstants.GRID_SIZE;
+        // A stone outside our derivation still has to be drawn. Key its art off the cell so both seats
+        // and every reload agree on it, rather than leaving the sprite missing.
+        standing.push({ x, y, variant: variantByKey.get(key) ?? key % SCATTERED_MOUNTAIN_VARIANTS });
+    }
+    // Destroyed = stones we know about that the server no longer lists, which is what drives the collapse
+    // VFX. A stone we never derived cannot have a local collapse to play.
     const destroyed: HoCMath.XY[] = [];
-    for (const rock of scatteredMountainsForSeed(gameId)) {
-        if (standingKeys.has(rock.cell.x * GridConstants.GRID_SIZE + rock.cell.y)) {
-            standing.push({ x: rock.cell.x, y: rock.cell.y, variant: rock.variant });
-        } else {
+    for (const rock of derived) {
+        if (!standingKeys.has(rock.cell.x * GridConstants.GRID_SIZE + rock.cell.y)) {
             destroyed.push({ x: rock.cell.x, y: rock.cell.y });
         }
     }
@@ -727,6 +880,17 @@ const getUnitPropertiesFromAuthoritativeState = (
             return {
                 ...baseProperties,
                 ...abilityOverride,
+                // The SERVER's footprint wins. Geometry is not a stat: if the two sides disagree about which
+                // cells a unit stands on, every move, attack and placement the client offers is one the
+                // server refuses, and the board silently diverges. The wire pair is absent from an older
+                // server (and 0 is not a legal side), in which case the local creature config is the only
+                // opinion available and is used unchanged.
+                ...(unitState.footprintWidth && unitState.footprintHeight
+                    ? {
+                          footprint_width: unitState.footprintWidth,
+                          footprint_height: unitState.footprintHeight,
+                      }
+                    : {}),
                 // Unit normally synthesizes the one initial charge for a direct-cast ability while building a
                 // fresh creature. A ranked snapshot's explicit spell-entry marker makes even an empty list
                 // authoritative, so reconnecting a Queen must not recreate a spent stolen spell.
@@ -1176,6 +1340,9 @@ export class RankedPlayScene extends Sandbox {
      * replay-only view) — distinct from the shared replayPlaybackActive, which single-record replays
      * of live actions also set. Gates live snapshot applies out of the playback entirely. */
     private fullReplayPlaybackActive = false;
+    /** Latched by the replay-snapshot entry, whose only caller is the replay view. A replay shows the match
+     *  as it was — green against red — so the personal army tint stays off for the rest of this scene. */
+    private replayViewingActive = false;
     private lastPlacementUnitIdsKey = "";
     private readonly lastPlacementStateByUnitId = new Map<string, string>();
     private readonly playedAuthoritativeActionSequences = new Set<number>();
@@ -1278,33 +1445,85 @@ export class RankedPlayScene extends Sandbox {
                 this.applyAuthoritativeSecondaryVfx(event.attackerId, event.damage);
                 if (this.applyAuthoritativeSplashVfx(event.attackerId, event.damage)) continue;
                 if (!event.damage?.render) continue;
-                const target = this.unitsHolder.getAllUnits().get(event.targetId) as RenderableUnit | undefined;
-                const pos = target?.getPosition() ?? event.damage?.unitPosition ?? { x: 0, y: 0 };
-                const dir = this.getAttackDirection(event.attackerId, event.targetId);
+                const damagedUnitId = event.damage.unitId ?? event.targetId;
+                const target = this.unitsHolder.getAllUnits().get(damagedUnitId) as RenderableUnit | undefined;
+                const gs = this.sc_sceneSettings.getGridSettings();
+                const logicalFallback = event.damage?.unitPosition ?? { x: 0, y: 0 };
+                const pos = target?.getVisualCenter(gs) ?? projectBattlefieldPoint(logicalFallback, gs);
+                const flagAnchor = target?.getDamagePredictionAnchor(gs);
+                const dir = this.getAttackDirection(event.attackerId, damagedUnitId);
                 if (event.damage.hits?.length) {
                     for (const hit of event.damage.hits) {
-                        this.combatVisuals?.showFloatingDamage(pos, hit.amount, dir, hit.unitsDied);
+                        this.combatVisuals?.showFloatingDamage(
+                            pos,
+                            hit.amount,
+                            dir,
+                            hit.unitsDied,
+                            undefined,
+                            undefined,
+                            flagAnchor,
+                        );
                     }
                 } else if (event.damage.amount > 0) {
-                    this.combatVisuals?.showFloatingDamage(pos, event.damage.amount, dir);
+                    this.combatVisuals?.showFloatingDamage(
+                        pos,
+                        event.damage.amount,
+                        dir,
+                        undefined,
+                        undefined,
+                        undefined,
+                        flagAnchor,
+                    );
                 }
             } else if (event.type === "area_attacked") {
                 this.noteDeathBlowsFromAttackEvent(event);
                 this.applyAuthoritativeSecondaryVfx(event.attackerId, event.damage);
                 if (this.applyAuthoritativeSplashVfx(event.attackerId, event.damage)) continue;
                 if (!event.damage?.render) continue;
-                const centerPos = event.damage?.unitPosition ?? event.targetPosition ?? { x: 0, y: 0 };
+                const gs = this.sc_sceneSettings.getGridSettings();
+                const centerPos = projectBattlefieldPoint(
+                    event.damage?.unitPosition ?? event.targetPosition ?? { x: 0, y: 0 },
+                    gs,
+                );
+                const target = event.damage.unitId
+                    ? (this.unitsHolder.getAllUnits().get(event.damage.unitId) as RenderableUnit | undefined)
+                    : undefined;
+                const flagAnchor = target?.getDamagePredictionAnchor(gs);
                 if (event.damage.hits?.length) {
                     for (const hit of event.damage.hits) {
-                        this.combatVisuals?.showFloatingDamage(centerPos, hit.amount, undefined, hit.unitsDied);
+                        this.combatVisuals?.showFloatingDamage(
+                            centerPos,
+                            hit.amount,
+                            undefined,
+                            hit.unitsDied,
+                            undefined,
+                            undefined,
+                            flagAnchor,
+                        );
                     }
                 } else if (event.damage.amount > 0) {
-                    this.combatVisuals?.showFloatingDamage(centerPos, event.damage.amount);
+                    this.combatVisuals?.showFloatingDamage(
+                        centerPos,
+                        event.damage.amount,
+                        undefined,
+                        undefined,
+                        undefined,
+                        undefined,
+                        flagAnchor,
+                    );
                 }
             } else if (event.type === "armageddon_applied") {
                 const u = this.unitsHolder.getAllUnits().get(event.unitId) as RenderableUnit | undefined;
                 if (u)
-                    this.combatVisuals?.showFloatingDamage(u.getPosition(), event.damage, undefined, event.unitsDied);
+                    this.combatVisuals?.showFloatingDamage(
+                        u.getVisualCenter(this.sc_sceneSettings.getGridSettings()),
+                        event.damage,
+                        undefined,
+                        event.unitsDied,
+                        undefined,
+                        undefined,
+                        u.getDamagePredictionAnchor(this.sc_sceneSettings.getGridSettings()),
+                    );
                 this.triggerScreenShake(12 + event.wave * 3, 0.5);
             } else if (event.type === "unit_destroyed" || event.type === "unit_deleted") {
                 const u = this.unitsHolder.getAllUnits().get(event.unitId) as RenderableUnit | undefined;
@@ -1317,8 +1536,11 @@ export class RankedPlayScene extends Sandbox {
         const a = this.unitsHolder.getAllUnits().get(attackerId) as RenderableUnit | undefined;
         const t = this.unitsHolder.getAllUnits().get(targetId) as RenderableUnit | undefined;
         if (!a || !t) return undefined;
-        const dx = t.getPosition().x - a.getPosition().x;
-        const dy = t.getPosition().y - a.getPosition().y;
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const aCenter = a.getVisualCenter(gs);
+        const tCenter = t.getVisualCenter(gs);
+        const dx = tCenter.x - aCenter.x;
+        const dy = tCenter.y - aCenter.y;
         const len = Math.hypot(dx, dy);
         return len < 0.001 ? undefined : { x: dx / len, y: dy / len };
     }
@@ -1342,7 +1564,7 @@ export class RankedPlayScene extends Sandbox {
         const attackerPos = attacker?.getVisualCenter(gs);
         for (const entry of splash) {
             const unit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
-            const pos = unit?.getVisualCenter(gs) ?? entry.position;
+            const pos = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs);
             let dir: HoCMath.XY | undefined;
             if (attackerPos) {
                 const dx = pos.x - attackerPos.x;
@@ -1356,7 +1578,15 @@ export class RankedPlayScene extends Sandbox {
                 this.combatVisuals?.showMissLabel(pos, dir);
                 continue;
             }
-            this.combatVisuals?.showFloatingDamage(pos, entry.amount, dir, entry.unitsDied);
+            this.combatVisuals?.showFloatingDamage(
+                pos,
+                entry.amount,
+                dir,
+                entry.unitsDied,
+                undefined,
+                undefined,
+                unit?.getDamagePredictionAnchor(gs),
+            );
         }
         return true;
     }
@@ -1387,11 +1617,11 @@ export class RankedPlayScene extends Sandbox {
         if (chainEntries.length && attackerPos) {
             const points: HoCMath.XY[] = [attackerPos];
             if (damage?.unitPosition) {
-                points.push(damage.unitPosition);
+                points.push(projectBattlefieldPoint(damage.unitPosition, gs));
             }
             for (const entry of chainEntries) {
                 const bounced = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
-                points.push(bounced?.getVisualCenter(gs) ?? entry.position);
+                points.push(bounced?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs));
             }
             this.combatVisuals?.spawnChainLightning(points, gs.getCellSize());
         }
@@ -1401,7 +1631,7 @@ export class RankedPlayScene extends Sandbox {
             if (entry.source === "flesh_shield" || entry.source === "devour_essence") continue;
             if (entry.amount <= 0 && entry.unitsDied <= 0) continue;
             const unit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
-            const pos = unit?.getVisualCenter(gs) ?? entry.position;
+            const pos = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs);
             let dir: HoCMath.XY | undefined;
             if (attackerPos) {
                 const dx = pos.x - attackerPos.x;
@@ -1413,7 +1643,15 @@ export class RankedPlayScene extends Sandbox {
             // through the SAME table the sandbox uses. Ranked drew every secondary hit in the default red, so
             // a Thunderbird's bounces were indistinguishable from ordinary damage.
             const { fill, stroke } = this.getSecondaryDamageStyle(entry.source);
-            this.combatVisuals?.showFloatingDamage(pos, entry.amount, dir, entry.unitsDied, fill, stroke);
+            this.combatVisuals?.showFloatingDamage(
+                pos,
+                entry.amount,
+                dir,
+                entry.unitsDied,
+                fill,
+                stroke,
+                unit?.getDamagePredictionAnchor(gs),
+            );
         }
     }
     protected override getUpNextUnitIds(): string[] | undefined {
@@ -1510,10 +1748,14 @@ export class RankedPlayScene extends Sandbox {
             // reachability consumes the new multiplier even when no unit/board field changed.
             this.refreshUnits();
         }
-        // The seat drives OWNERSHIP (whose turn, which units this viewer may drive, which placement zone is
-        // theirs) — never colour. Board colours are team-fixed (LOWER green/bottom, UPPER red/top) for every
-        // seat, so an UPPER player plays the red army at the top and is not recoloured green.
+        // viewerTeam answers OWNERSHIP only — whose turn it is, which units this seat may drive, which
+        // placement zone is its own. It must never reach the colour helpers: board colours are team-fixed
+        // (LOWER green / UPPER red) on every screen, so both players see the same match the same way.
         this.viewerTeam = snapshot.viewerTeam === undefined ? undefined : (snapshot.viewerTeam as TeamType);
+        // A player may tint their OWN army (settings menu). Armed only here, for a live authoritative
+        // fight this client is playing: replays and the sandbox clear it, so a recorded match is always
+        // watched in its true team colours. Team identity is untouched either way.
+        setPersonalArmyTint(this.viewerTeam, !this.replayViewingActive && !this.fullReplayPlaybackActive);
         this.setLocalModelTeamOverride(
             snapshot.localModelTeam === undefined ? undefined : (snapshot.localModelTeam as TeamType),
         );
@@ -1746,6 +1988,9 @@ export class RankedPlayScene extends Sandbox {
         // (which assumes "same server board => client already in sync") must NOT fire — fall through
         // to the full hydrate below to rebuild from authoritative truth.
         if (boardSignature === this.lastBoardSignature && !forceRebuild) {
+            if (this.syncRankedUnitMechanicalEffects(state.units)) {
+                this.unitsHolder.refreshStackPowerForAllUnits();
+            }
             // Scattered stones the server mined between snapshots must fall BEFORE activation paths the
             // board (same reasoning as the occupancy audit below).
             this.applyScatteredMountainsFromSnapshot(snapshot);
@@ -1753,11 +1998,10 @@ export class RankedPlayScene extends Sandbox {
             // grid registration (a missed move) otherwise survives here forever — the signature matches
             // precisely because the SERVER board didn't change, saying nothing about ours being right.
             this.healRankedGridOccupancy(state.units);
-            // Install display statuses and their mechanics together BEFORE activation rebuilds paths. Installing
-            // Aggr's target before its display row lets refresh clear it; installing it after activation caches
-            // an unforced path until another snapshot. applyRankedUnitStats performs stats -> mechanics -> refresh.
-            this.applyRankedUnitStats(state.units);
+            // Break must be mechanical before activating the authoritative unit: activation refreshes stats,
+            // movement paths and buttons synchronously, so syncing it afterward leaves a stale Host preview.
             this.syncRankedVisibleTurnState(snapshot);
+            this.applyRankedUnitStats(state.units);
             this.reconcileAuraEffectsFromSnapshot(snapshot);
             this.applyRankedFightStats(snapshot, state.units);
             return;
@@ -1773,6 +2017,13 @@ export class RankedPlayScene extends Sandbox {
             !forceRebuild && !!options?.skipBoardRebuild && snapshot.fightStarted && !snapshot.fightFinished;
         if (skipBoardRebuild) {
             this.lastBoardSignature = boardSignature;
+            // See the same-signature path above: apply Break before turn activation/path generation.
+            this.syncRankedUnitMechanicalEffects(state.units);
+            this.syncRankedVisibleTurnState(snapshot);
+            if (this.sc_visibleState) {
+                this.sc_visibleState.lapNumber = Math.max(snapshot.currentLap || 0, 0);
+                this.sc_visibleStateUpdateNeeded = true;
+            }
             // A skip-rebuild snapshot updates stats but never tears down units the server has dropped
             // (a kill conveyed by snapshot rather than a replayed event), so they linger as "ghosts" the
             // AI then targets — which the server rejects as unit_not_found. Remove them here.
@@ -1787,13 +2038,6 @@ export class RankedPlayScene extends Sandbox {
             // the authoritative remaining amounts/hp here so attack and retaliation damage actually
             // updates each unit's stack on the board (otherwise it stays frozen at the pre-hit count).
             this.applyRankedUnitStats(state.units);
-            // See the same-signature path above: coherent statuses + mechanics must exist before activation
-            // regenerates targeting paths and buttons.
-            this.syncRankedVisibleTurnState(snapshot);
-            if (this.sc_visibleState) {
-                this.sc_visibleState.lapNumber = Math.max(snapshot.currentLap || 0, 0);
-                this.sc_visibleStateUpdateNeeded = true;
-            }
             // Re-run synergies + POSITION-DEPENDENT auras so the AI/targeting agree with the server on
             // targetability. A skip-rebuild snapshot moves units (animated) but never re-runs the aura
             // pass, so e.g. White Tiger's Disguise Aura (which Hides it when no enemy is within range,
@@ -1952,41 +2196,49 @@ export class RankedPlayScene extends Sandbox {
             this.refreshGridMatrices();
         }
     }
-    /**
-     * Self-heal grid occupancy and renderable-unit geometry from the authoritative snapshot. The grid can be
-     * correct while a replayed sprite still has a stale logical position; tactical candidates read Unit cells,
-     * not grid occupancy, so snap either mismatch before the next movement preview or AI decision.
-     */
+    /** Self-heal both grid occupancy and stale renderable geometry from the authoritative snapshot. */
     private healRankedGridOccupancy(units: SandboxSceneUnitState[]): void {
         const fixed = reconcileRankedGridOccupancy(this.grid, units);
         const occupancyFixed = new Set(fixed);
         let geometryFixed = false;
         for (const unitState of units) {
-            if (unitState.dead || !unitState.cells.length) {
-                continue;
-            }
+            if (unitState.dead || !unitState.cells.length) continue;
             const id = unitState.properties.id;
             const unit = this.unitsHolder.getAllUnits().get(id) as RenderableUnit | undefined;
-            if (!unit || unit.isDead()) {
+            if (!unit || unit.isDead()) continue;
+            if (!occupancyFixed.has(id) && rankedUnitCellsMatchAuthoritative(unit.getCells(), unitState.cells))
                 continue;
-            }
-            if (!occupancyFixed.has(id) && rankedUnitCellsMatchAuthoritative(unit.getCells(), unitState.cells)) {
-                continue;
-            }
+            // Any axis-aligned rectangle resolves to a centre, so an undefined answer means the snapshot's
+            // cell list is not a footprint at all (a truncated or interleaved cell array). Silently
+            // skipping it is what let a drifted unit stay drifted forever, so say so.
             const position = GridMath.getPositionForCells(this.sc_sceneSettings.getGridSettings(), unitState.cells);
             if (position) {
                 unit.setPosition(position.x, position.y);
                 unit.syncVisual(this.drawer.getUnitsContainer(), this.sc_sceneSettings.getGridSettings());
                 geometryFixed = true;
+            } else {
+                console.warn(
+                    `Ranked heal skipped ${unitState.properties.name}: cells are not a rectangle`,
+                    unitState.cells,
+                );
             }
         }
-        if (!fixed.length && !geometryFixed) {
-            return;
-        }
+        if (!fixed.length && !geometryFixed) return;
         this.refreshGridMatrices();
         this.unitsHolder.refreshStackPowerForAllUnits();
     }
+    private syncRankedUnitMechanicalEffects(units: SandboxSceneUnitState[]): boolean {
+        let changed = false;
+        for (const state of units) {
+            const live = this.unitsHolder.getAllUnits().get(state.properties.id) as RenderableUnit | undefined;
+            if (live && !live.isDead()) {
+                changed = applyRankedUnitMechanicalEffects(live, state) || changed;
+            }
+        }
+        return changed;
+    }
     public override applyAuthoritativeReplaySnapshot(snapshot: AuthoritativeGameSnapshot): void {
+        this.replayViewingActive = true;
         this.lastAuthoritativeSequence = snapshot.latestSequence - 1;
         this.lastBoardSignature = "";
         this.lastPlacementUnitIdsKey = "";
@@ -2023,6 +2275,7 @@ export class RankedPlayScene extends Sandbox {
      * dropped for its whole duration — see the guard at the top of applyAuthoritativeSnapshot. */
     public override async playSandboxReplay(replay: SandboxReplay, throughSequence?: number): Promise<boolean> {
         this.fullReplayPlaybackActive = true;
+        clearPersonalArmyTint();
         try {
             return await (throughSequence === undefined
                 ? super.playSandboxReplay(replay)
@@ -2069,8 +2322,8 @@ export class RankedPlayScene extends Sandbox {
     }
     /**
      * During placement the opponent's placement zone is never drawn (see getPlacementDrawTeam). Instead,
-     * lay the opponent's revealed roster out in a centered horizontal row INSIDE the footprint of their
-     * placement zone, so the units sit where the opponent's army will actually deploy. The zone geometry
+     * lay the opponent's revealed roster out in a centered vertical column INSIDE the footprint of their
+     * left/right placement zone, so the units sit where the opponent's army will actually deploy. The geometry
      * comes from the client-side PlacementManager, which during ranked placement always holds the
      * opponent's BASELINE (LEVEL_1) zone — their real Placement augment is sanitized to 0 by the server
      * until fight start. These are synthetic display positions — the opponent's real placement cells
@@ -2099,8 +2352,6 @@ export class RankedPlayScene extends Sandbox {
         }
 
         const gs = this.sc_sceneSettings.getGridSettings();
-        const total = revealedUnits.length;
-
         // Bound the opponent zone from the cells it may place on (covers both the single RECTANGLE zone
         // and the two-square corner layout, whichever the fight uses). possibleCellPositions returns CELL
         // INDICES, not world coordinates — the previous layout fed them straight into unit positions,
@@ -2110,38 +2361,77 @@ export class RankedPlayScene extends Sandbox {
         for (const placementIndex of [0, 1]) {
             const placement = this.placementManager.getPlacement(opponentTeam, placementIndex);
             if (placement) {
+                // possibleCellPositions(true) is the ONE-CELL anchor set, i.e. every cell of the zone —
+                // which is exactly what this needs: the bounds below and the per-cell guard further down
+                // both ask "is this cell inside the opponent's zone", not "may a body be anchored here".
                 zoneCells.push(...placement.possibleCellPositions(true));
             }
         }
         const isOpponentUpper = opponentTeam === TeamVals.UPPER;
-        const edgeY = isOpponentUpper ? gs.getMaxY() : gs.getMinY();
-        let zoneOuterEdgeY = edgeY;
-        if (zoneCells.length) {
-            // The zone's outer boundary: half a step past the center of the outermost row it can use.
-            const outermostCenterY = zoneCells.reduce(
-                (best, cell) => {
-                    const centerY = GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep()).y;
-                    return isOpponentUpper ? Math.max(best, centerY) : Math.min(best, centerY);
-                },
-                isOpponentUpper ? -Infinity : Infinity,
-            );
-            zoneOuterEdgeY = outermostCenterY + (isOpponentUpper ? gs.getHalfStep() : -gs.getHalfStep());
+        if (!zoneCells.length) {
+            return positions;
         }
-
-        const rowY = revealedOpponentRowY(edgeY, zoneOuterEdgeY, gs.getStep(), isOpponentUpper);
+        const uniqueXs = new Set(zoneCells.map((cell) => cell.x));
+        const uniqueYs = new Set(zoneCells.map((cell) => cell.y));
+        // Rectangle placement zones are vertical strips: green on the left, red on the right. Use the
+        // inner/front column and spread all six silhouettes along its full height. The former horizontal
+        // layout saw only three cells across the baseline red zone and dropped every footprint that did
+        // not fit, which is why only part of the opponent army appeared near the bottom-right corner.
+        // Two-corner square zones are wider than they are tall, so retain their horizontal formation.
+        let footprints: HoCMath.XY[][];
+        if (uniqueYs.size >= uniqueXs.size) {
+            const frontColumnX = zoneCells.reduce(
+                (front, cell) => (isOpponentUpper ? Math.min(front, cell.x) : Math.max(front, cell.x)),
+                isOpponentUpper ? Infinity : -Infinity,
+            );
+            const frontColumnYs = zoneCells.filter((cell) => cell.x === frontColumnX).map((cell) => cell.y);
+            if (!frontColumnYs.length) {
+                return positions;
+            }
+            footprints = centeredPlacementColumnCells(
+                revealedUnits.map(placementFootprintOfUnitState),
+                Math.min(...frontColumnYs),
+                Math.max(...frontColumnYs),
+                frontColumnX,
+                isOpponentUpper,
+            );
+        } else {
+            const frontRowY = zoneCells.reduce(
+                (front, cell) => (isOpponentUpper ? Math.min(front, cell.y) : Math.max(front, cell.y)),
+                isOpponentUpper ? Infinity : -Infinity,
+            );
+            const frontRowXs = zoneCells.filter((cell) => cell.y === frontRowY).map((cell) => cell.x);
+            if (!frontRowXs.length) {
+                return positions;
+            }
+            footprints = centeredPlacementLineCells(
+                revealedUnits.map(placementFootprintOfUnitState),
+                Math.min(...frontRowXs),
+                Math.max(...frontRowXs),
+                frontRowY,
+                isOpponentUpper,
+            );
+        }
+        const allowed = new Set(zoneCells.map((cell) => `${cell.x}:${cell.y}`));
         revealedUnits.forEach((unit, index) => {
-            positions.set(unit.properties.id, {
-                x: revealedOpponentRowX(index, total, gs.getMinX(), gs.getMaxX()),
-                y: rowY,
-            });
+            const footprint = footprints[index];
+            if (!footprint?.length || !footprint.every((cell) => allowed.has(`${cell.x}:${cell.y}`))) {
+                return;
+            }
+            const position = GridMath.getPositionForCells(gs, footprint);
+            if (position) {
+                positions.set(unit.properties.id, position);
+            }
         });
         return positions;
     }
     protected override getRevealedOpponentUnitScale(total: number): number {
         return revealedOpponentRowScale(total);
     }
-    protected override shouldRenderUnplacedUnitBench(unitState: SandboxSceneUnitState): boolean {
-        return this.viewerTeam !== undefined && unitState.team === this.viewerTeam;
+    protected override shouldRenderUnplacedUnitBench(_unitState: SandboxSceneUnitState): boolean {
+        // Ranked board placement starts with the full army already deployed. There is no intermediate
+        // centre-board bench: hiding unplaced remnants also guarantees its backdrop is never drawn.
+        return false;
     }
     /**
      * Spread the placement roster evenly across the full board width (like the sandbox
@@ -2172,7 +2462,9 @@ export class RankedPlayScene extends Sandbox {
         return this.viewerTeam !== undefined && unitState.team !== this.viewerTeam;
     }
     protected override shouldShowPlacementBenchToggle(): boolean {
-        return this.viewerTeam !== undefined;
+        // With no placement bench there is nothing to collapse or restore, so the centre arrow control
+        // must not be created either.
+        return false;
     }
     protected override shouldGhostCurrentPlacementBenchUnit(unit: Unit): boolean {
         return this.viewerTeam !== undefined && unit.getTeam() !== this.viewerTeam;
@@ -2810,7 +3102,7 @@ export class RankedPlayScene extends Sandbox {
     protected override resolveSceneLogTeamFlag(): string {
         return "";
     }
-    /** Green/red marker for the acting unit's team (LOWER = green, UPPER = red). */
+    /** Green/red marker for the acting unit's team (LOWER = green, UPPER = red), the same on every screen. */
     private logTeamFlag(unitId: string): string {
         // Prefer the team captured from authoritative snapshots; fall back to the live units holder so
         // units that never appear in a snapshot (a local-model opponent's units, units summoned
@@ -2820,13 +3112,7 @@ export class RankedPlayScene extends Sandbox {
     }
     /** Green/red marker straight from a team value (for team-scoped lines with no acting unit). */
     private teamFlag(team: number | undefined): string {
-        if (team === TeamVals.LOWER) {
-            return "🟢";
-        }
-        if (team === TeamVals.UPPER) {
-            return "🔴";
-        }
-        return "";
+        return team === TeamVals.LOWER || team === TeamVals.UPPER ? (isGreenTeam(team as TeamType) ? "🟢" : "🔴") : "";
     }
     private parseJournalEvents(entry: AuthoritativeJournalEntry): GameEvent[] {
         if (!entry.eventsJson.trim()) {
@@ -3162,7 +3448,15 @@ export class RankedPlayScene extends Sandbox {
                 const unit = this.unitsHolder.getAllUnits().get(event.unitId) as RenderableUnit | undefined;
                 const pos = unit?.getVisualCenter(gs);
                 if (pos && (event.damage > 0 || event.unitsDied > 0)) {
-                    this.combatVisuals?.showFloatingDamage(pos, event.damage, undefined, event.unitsDied);
+                    this.combatVisuals?.showFloatingDamage(
+                        pos,
+                        event.damage,
+                        undefined,
+                        event.unitsDied,
+                        undefined,
+                        undefined,
+                        unit?.getDamagePredictionAnchor(gs),
+                    );
                 }
                 if (!shakenWaves.has(event.wave)) {
                     shakenWaves.add(event.wave);
@@ -3199,6 +3493,9 @@ export class RankedPlayScene extends Sandbox {
             if (!shatterInfo) {
                 continue;
             }
+            if (this.playCustomDeathAnimation(renderable)) {
+                continue;
+            }
             this.combatVisuals?.spawnDeathVfx(shatterInfo, renderable.getId(), renderable.hasStatusEffect("Freeze"));
             // Drop the dead unit's visuals now so the imminent rebuild/skip doesn't leave it on the board,
             // and so a repeated snapshot can't shatter it twice (getShatterInfo is null after this).
@@ -3223,9 +3520,6 @@ export class RankedPlayScene extends Sandbox {
                 continue;
             }
             changed = applyRankedUnitSnapshotStats(unit, u.properties) || changed;
-            // Stats first installs the authoritative display-only Aggr row. Then install its mechanical
-            // target before refreshUnits so Unit.adjustBaseStats can preserve it through the refresh.
-            changed = applyRankedUnitMechanicalEffects(unit, u) || changed;
         }
         if (changed) {
             this.refreshUnits();

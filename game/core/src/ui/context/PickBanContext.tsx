@@ -1,12 +1,29 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { TeamType } from "@heroesofcrypto/common";
-import { CustomEventSource } from "@heroesofcrypto/common";
+import { CustomEventSource, PickPhaseVals, TeamType, TeamVals } from "@heroesofcrypto/common";
 import { IS_PROD } from "../env";
 import { tokenExpSafe } from "../auth/context/auth_utils";
 import { IPickPhaseEventData, pickPhaseIdentity, PickBanContext } from "./PickBanContextDefs";
 
 export { usePickBanEvents } from "./PickBanContextDefs";
 export type { IPickPhaseEventData };
+
+/**
+ * Whether this viewer still has an action to submit for the current pick frame.
+ *
+ * Tier-2 artifacts are simultaneous. Some in-flight server frames can expose an actor list that no
+ * longer contains this seat even though that seat has not committed its artifact yet. The viewer's own
+ * persisted Tier-2 choice is the authoritative completion marker for that phase: no choice means the
+ * button must remain actionable; a choice means it should wait for the opponent.
+ */
+export const canViewerActOnPickFrame = (event: IPickPhaseEventData, userTeam: TeamType): boolean => {
+    if (userTeam !== TeamVals.LOWER && userTeam !== TeamVals.UPPER) {
+        return false;
+    }
+    if (event.pp === PickPhaseVals.ARTIFACT_2) {
+        return !(event.art ?? []).some(([tier]) => tier === 2);
+    }
+    return event.a.includes(userTeam);
+};
 
 export const PickBanEventProvider: React.FC<{
     children: React.ReactNode;
@@ -88,7 +105,7 @@ export const PickBanEventProvider: React.FC<{
             setWatchedSlots(event.ws ?? []);
             setPickPhase(event.pp);
             setPhaseIdentity(pickPhaseIdentity(event));
-            setIsYourTurn(event.a.includes(userTeam));
+            setIsYourTurn(canViewerActOnPickFrame(event, userTeam));
             setIsAbandoned(event.ia);
             setSecondsRemaining(Math.ceil(event.t / 1000));
             setRevealsRemaining(event.r);

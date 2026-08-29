@@ -1,6 +1,6 @@
-import { animationAtlases, AnimationUnitName, AnimationStateName } from "../generated/animation_atlases";
+import type { AnimationAtlasMeta } from "../generated/animation_atlases";
 
-export type AtlasMeta = (typeof animationAtlases)[AnimationUnitName][AnimationStateName];
+export type AtlasMeta = AnimationAtlasMeta;
 
 export interface AtlasPingPongTiming {
     frameCount: number;

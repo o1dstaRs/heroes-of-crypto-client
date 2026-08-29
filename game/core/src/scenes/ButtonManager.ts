@@ -6,7 +6,6 @@ import {
     HoCMath,
     AttackVals,
     Unit,
-    GridMath,
     GridSettings,
     SpellHelper,
 } from "@heroesofcrypto/common";
@@ -291,10 +290,8 @@ export class ButtonManager {
                         default:
                             state = VisibleButtonState.FIRST;
                             // Side effect: recalc path if switching back to melee
-                            const currentCell = GridMath.getCellForPosition(
-                                this.context.getGridSettings(),
-                                active.getPosition(),
-                            );
+                            // updateCurrentMovePath keys on the footprint ANCHOR.
+                            const currentCell = active.getBaseCell();
                             if (currentCell) {
                                 this.context.updateCurrentMovePath(currentCell);
                             }

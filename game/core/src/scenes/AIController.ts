@@ -1039,8 +1039,9 @@ export class AIController {
         wasAIActive: boolean,
     ): Promise<boolean> {
         const target = this.context.getUnitsHolder().getAllUnits().get(action.targetId);
-        const gs = this.context.getSceneSettings().getGridSettings();
-        const attackFrom = GridMath.getCellForPosition(gs, currentUnit.getPosition());
+        // executeAttackSequence reads this as the shooter's ANCHOR, and a unit's position is its
+        // footprint CENTRE — the two only coincide while both sides are at most 2.
+        const attackFrom = currentUnit.getBaseCell();
         if (!target || !attackFrom) {
             return false;
         }
@@ -1226,6 +1227,8 @@ export class AIController {
                     caster.isSmallSize(),
                     caster.canTraverseLava(),
                     caster.hasAbilityActive("In Its Own World"),
+                    caster.getFootprintWidth(),
+                    caster.getFootprintHeight(),
                 )
                 .cells.map((c) => (c.x << 4) | c.y),
         );
@@ -1290,8 +1293,15 @@ export class AIController {
             // Summon (e.g. RANDOM_CLOSE_TO_CASTER): spawn allies near the caster.
             if (spell.isSummon() && tt === SpellTargetType.RANDOM_CLOSE_TO_CASTER) {
                 const amount = Math.floor(caster.getAmountAlive() * spell.getPower());
-                const cell = GridMath.getRandomGridCellAroundPosition(gs, gridMatrix, team, caster.getPosition());
-                if (amount > 0 && cell && SpellHelper.canCastSummon(spell, gridMatrix, cell)) {
+                // The summoned creature's real body decides this, not the 1x1 default — see
+                // SpellHelper.resolveSummonAnchor. The random draw wins whenever it can seat the body.
+                const cell = SpellHelper.resolveSummonAnchor(
+                    spell,
+                    gridMatrix,
+                    GridMath.getCellsAroundFootprint(gs, caster.getCells()),
+                    GridMath.getRandomGridCellAroundPosition(gs, gridMatrix, team, caster.getPosition()),
+                );
+                if (amount > 0 && cell) {
                     consider(amount * 8, { spellName: name, targetCell: cell });
                 }
                 continue;
@@ -1699,8 +1709,7 @@ export class AIController {
 
         if (action.type === "range_attack") {
             const target = this.context.getUnitsHolder().getAllUnits().get(action.targetId);
-            const gs = this.context.getSceneSettings().getGridSettings();
-            const attackFrom = GridMath.getCellForPosition(gs, currentUnit.getPosition());
+            const attackFrom = currentUnit.getBaseCell();
             if (!target || !attackFrom) {
                 this.recordLocalModelResult(currentUnit, legalAction, decisionId, false, "missing_range_target");
                 return false;
@@ -1819,7 +1828,16 @@ export class AIController {
         // the target (target unreachable this turn) yet still emit a move+attack, leaving attackFrom not
         // actually adjacent to the target — which the engine rejects (attack_not_available). Detect that
         // and just advance to the reachable cell this turn; the strike lands once the unit is adjacent.
-        if (route && !this.context.getGrid().areCellsAdjacent([attackFromCell], unitToAttack.getCells())) {
+        // The test has to be the engine's own (AttackHandler: getFootprintCellsForAnchor(attackFrom) vs
+        // the target's cells), because a body reaches from EVERY cell it covers, not just its anchor.
+        // Asking only about the anchor is strictly stricter than the engine and downgrades legal strikes
+        // to moves whenever the target sits beside one of the attacker's other cells.
+        if (
+            route &&
+            !this.context
+                .getGrid()
+                .areCellsAdjacent(currentUnit.getFootprintCellsForAnchor(attackFromCell), unitToAttack.getCells())
+        ) {
             return this.handleMoveOnly(currentUnit, action, wasAIActive, attackFromCell);
         }
         const authoritativeAction = this.modelAction(currentUnit, {
@@ -1847,16 +1865,31 @@ export class AIController {
         const gs = this.context.getSceneSettings().getGridSettings();
         const attackFromPos = GridMath.getPositionForCell(attackFromCell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
 
-        // For large (2x2) units the AI emits the top-right anchor cell and the stored position is
-        // the 2x2 center (anchor - halfStep). Build the occupied footprint from that center and
-        // hand it to executeMoveSequence so the unit lands exactly where the silhouette shows;
-        // otherwise the move fallback mis-anchors it by one cell diagonally (wrong stand/attack pos).
+        // For any body bigger than one cell the AI emits a single ANCHOR cell — the footprint's top-right —
+        // and the unit's stored position is the block's CENTRE, not that cell's centre. Expand the body from
+        // the anchor and re-centre the position on it, so the unit lands exactly where the silhouette shows.
+        //
+        // Routing through the anchor cell's own centre (what this did) is off by one for a square body: at a
+        // cell centre the surrounding-cells expansion returns the block that starts at the anchor and grows
+        // up-and-right, while the anchor's real body grows down-and-left. A 2x2 therefore claimed
+        // {x..x+1} x {y..y+1} where the engine occupies {x-1..x} x {y-1..y}, and the move was refused or
+        // silently mis-placed. Rectangles were unaffected only because a 2x1 and a 1x2 happen to land on the
+        // same cells either way, which is exactly why this survived until a square was checked.
         let moveFootprint: HoCMath.XY[] | undefined;
         if (attackFromPos) {
             if (!currentUnit.isSmallSize()) {
-                attackFromPos.x -= gs.getHalfStep();
-                attackFromPos.y -= gs.getHalfStep();
-                moveFootprint = GridMath.getCellsAroundPosition(gs, attackFromPos);
+                moveFootprint = GridMath.getFootprintCellsForAnchor(
+                    attackFromCell,
+                    currentUnit.getFootprintWidth(),
+                    currentUnit.getFootprintHeight(),
+                );
+                const center = GridMath.getPositionForFootprintAnchor(
+                    gs,
+                    attackFromCell,
+                    currentUnit.getFootprintWidth(),
+                    currentUnit.getFootprintHeight(),
+                );
+                Object.assign(attackFromPos, center);
             }
             this.context.getHoverManager().showSilhouetteForUnit(currentUnit.getUnitProperties(), attackFromPos);
         }
@@ -1993,8 +2026,7 @@ export class AIController {
         this.context.setCurrentActiveKnownPaths(action.currentActiveKnownPaths());
 
         const cellToAttack = action.cellToAttack();
-        const gs = this.context.getSceneSettings().getGridSettings();
-        const attackFromCell = action.cellToMove() || GridMath.getCellForPosition(gs, currentUnit.getPosition());
+        const attackFromCell = action.cellToMove() || currentUnit.getBaseCell();
 
         if (!cellToAttack || !attackFromCell) return false;
 
@@ -2008,7 +2040,12 @@ export class AIController {
         // still label it MELEE_ATTACK with a moved attack-from cell — leaving attackFrom reachable but
         // NOT adjacent to the target, which the engine rejects (attack_not_available). Detect that and
         // just advance to the (reachable) cell this turn; the strike lands once the unit is adjacent.
-        if (!this.context.getGrid().areCellsAdjacent([attackFromCell], targetUnit.getCells())) {
+        // Mirrors the engine's own test on the attacker's whole body (see handleMoveAndMeleeAttack).
+        if (
+            !this.context
+                .getGrid()
+                .areCellsAdjacent(currentUnit.getFootprintCellsForAnchor(attackFromCell), targetUnit.getCells())
+        ) {
             return this.handleMoveOnly(currentUnit, action, wasAIActive, attackFromCell);
         }
 
@@ -2036,8 +2073,7 @@ export class AIController {
         this.context.setCurrentActiveKnownPaths(action.currentActiveKnownPaths());
 
         const cellToAttack = action.cellToAttack();
-        const gs = this.context.getSceneSettings().getGridSettings();
-        const attackFromCell = GridMath.getCellForPosition(gs, currentUnit.getPosition());
+        const attackFromCell = currentUnit.getBaseCell();
 
         if (!cellToAttack || !attackFromCell) return false;
 
@@ -2171,14 +2207,31 @@ export class AIController {
         const gs = this.context.getSceneSettings().getGridSettings();
         const moveToPos = GridMath.getPositionForCell(cellToMove, gs.getMinX(), gs.getStep(), gs.getHalfStep());
 
-        // Same 2x2 footprint correction as handleMoveAndMeleeAttack: land the large unit where the
+        // Same footprint correction as handleMoveAndMeleeAttack: land a multi-cell body where the
         // silhouette shows instead of letting the move fallback mis-anchor it by one cell diagonally.
         // (Always computed — it feeds the action's targetCells regardless of whether we draw a silhouette.)
+        //
+        // `cellToMove` is an ANCHOR out of the pather, so the body hangs off it towards -x / -y. Expanding
+        // from the anchor CELL'S CENTRE instead returns the block growing up-and-right, which for a square
+        // body is a different block entirely: at the board's far edge that names an off-board column and the
+        // engine rejects the move outright (the AI then re-proposes it every trigger), and in the interior it
+        // passes validation while standing the unit one cell diagonally off where the pather put it.
         let moveFootprint: HoCMath.XY[] | undefined;
         if (moveToPos && !currentUnit.isSmallSize()) {
-            moveToPos.x -= gs.getHalfStep();
-            moveToPos.y -= gs.getHalfStep();
-            moveFootprint = GridMath.getCellsAroundPosition(gs, moveToPos);
+            moveFootprint = GridMath.getFootprintCellsForAnchor(
+                cellToMove,
+                currentUnit.getFootprintWidth(),
+                currentUnit.getFootprintHeight(),
+            );
+            Object.assign(
+                moveToPos,
+                GridMath.getPositionForFootprintAnchor(
+                    gs,
+                    cellToMove,
+                    currentUnit.getFootprintWidth(),
+                    currentUnit.getFootprintHeight(),
+                ),
+            );
         }
 
         const moveAction = this.modelAction(currentUnit, {

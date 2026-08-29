@@ -10,6 +10,7 @@ import Box from "@mui/joy/Box";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { images } from "../../generated/image_imports";
 import UnitInputAndActions from "./UnitInputAndActions";
+import UnitSplitter from "./UnitSplitter";
 import Toggler from "../Toggler";
 import MapSettingsRadioButtons from "./MapSettingsRadioButtons";
 // Sandbox has its own picker. SideToggleContainer is the ranked draft's layout: every augment card is
@@ -20,7 +21,7 @@ import MapSettingsRadioButtons from "./MapSettingsRadioButtons";
 // hold them.
 import SandboxToggleContainer from "./SandboxToggleContainer";
 import { SynergySlots } from "./SynergySlots";
-import UnitSplitter from "./UnitSplitter";
+import { FIGHT_LOG_SCROLLBAR_LANE_WIDTH_PX, ImageScrollbar } from "./FightLog";
 import {
     hocColors,
     hocDisplayFontFamily,
@@ -49,7 +50,6 @@ const sectionIconSx = {
     filter: "sepia(.18) saturate(.88) drop-shadow(0 2px 2px rgba(0,0,0,.8))",
 } as const;
 
-// Compact team pennants leave one uninterrupted row for all eight synergy seals.
 const teamFlagSx = {
     width: "41.4px",
     height: "48.3px",
@@ -60,18 +60,19 @@ const teamFlagSx = {
 } as const;
 
 const teamTitleSlotSx = {
-    flex: "0 0 72px",
-    width: "72px",
+    flex: "1 1 auto",
     minWidth: 0,
 } as const;
 
-const teamSynergySlotSx = {
-    flex: "1 1 auto",
-    minWidth: 0,
+const expandedTeamSynergyRowSx = {
+    width: "100%",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    overflow: "hidden",
+    px: 1.25,
+    pt: 0.75,
+    pb: 0.9,
+    borderBottom: "1px solid rgba(112, 75, 42, .42)",
 } as const;
 
 const chevronSx = (open: boolean) => ({
@@ -81,9 +82,21 @@ const chevronSx = (open: boolean) => ({
     filter: "sepia(1) saturate(.55) brightness(1.18)",
 });
 
-const FightControlToggler: React.FC = () => {
+const SANDBOX_SCROLLBAR_FRAME_GAP_PX = 4;
+// Preserve the exact card width from the previous native-scrollbar layout. The picture-backed overlay
+// no longer consumes this gutter, but the cards must not grow into the released six pixels.
+const SANDBOX_LEGACY_SCROLLBAR_GUTTER_PX = 6;
+
+const FightControlToggler: React.FC<{ scrollRailInsetPx: number }> = ({ scrollRailInsetPx }) => {
     const [unitProperties, setUnitProperties] = useState({} as UnitProperties);
     const manager = usePixiManager();
+    const scrollViewportRef = useRef<HTMLDivElement>(null);
+    // The parent reserves this inset for the ornamental right rail. Extend only the scrolling shell into
+    // that empty strip; the section cards below retain their original width.
+    const scrollRailExtensionPx = Math.max(
+        FIGHT_LOG_SCROLLBAR_LANE_WIDTH_PX,
+        scrollRailInsetPx - SANDBOX_SCROLLBAR_FRAME_GAP_PX,
+    );
 
     // References to setOpen functions for each toggler
     const setOpenRefs = useRef<{
@@ -125,257 +138,274 @@ const FightControlToggler: React.FC = () => {
     };
 
     return (
-        /* @ts-ignore: style params */
-        <ListItem
-            data-sandbox-scroll-region="true"
-            style={{ "--List-nestedInsetStart": "0px" }}
-            nested
+        <Box
             sx={{
+                position: "relative",
                 display: "flex",
-                flexDirection: "column",
                 flex: "1 1 auto",
                 minHeight: 0,
-                overflowY: "auto",
-                overflowX: "hidden",
-                overscrollBehavior: "contain",
-                scrollbarWidth: "thin",
-                scrollbarColor: "rgba(255, 143, 0, 0.35) transparent",
-                "&::-webkit-scrollbar": { width: "6px" },
-                "&::-webkit-scrollbar-track": { background: "transparent" },
-                "&::-webkit-scrollbar-thumb": {
-                    backgroundColor: "rgba(255, 143, 0, 0.32)",
-                    borderRadius: "3px",
-                },
-                // Let the active framed section keep its natural content height. Otherwise flexbox shrinks
-                // the frame itself, whose overflow:hidden then clips the bottom before this parent can
-                // expose a scrollbar or make the both-panels fit decision.
-                "& > *": { flexShrink: 0 },
-                gap: 1.5,
-                "@media (max-height: 800px)": {
-                    gap: 0.5,
-                },
-                // Keep the image-backed button edges and the section frame fully inside the sidebar.
-                width: "98%",
-                ml: "2%",
-                mr: 0,
-                p: 0,
-                fontFamily: hocFontFamily,
-                fontWeight: 460,
-                fontSynthesis: "weight",
-                "& .MuiTypography-root, & input, & label": {
-                    fontWeight: 460,
-                    fontSynthesis: "weight",
-                },
+                width: "100%",
             }}
         >
-            <Box sx={hocSidebarSectionSx("army")}>
-                <Toggler
-                    defaultExpanded={true}
-                    renderToggle={({ open, setOpen }) => {
-                        setOpenRefs.current.army = setOpen;
-                        return (
-                            <ListItemButton
-                                onClick={() => {
-                                    if (!open) {
-                                        closeAllExcept("army");
-                                    }
-                                    setOpen(!open);
-                                }}
-                                sx={{
-                                    ...hocSidebarSectionHeaderSx,
-                                    px: 1.25,
-                                    backgroundColor: "transparent",
-                                    transform: open ? "scale(1.012)" : "scale(1)",
-                                }}
-                            >
-                                <Box
-                                    component="img"
-                                    src={images.army_icon}
-                                    sx={{ ...sectionIconSx, ml: "-4px", mr: "4px", opacity: open ? 1 : 0.72 }}
-                                />
-                                <ListItemContent>
-                                    <Typography
-                                        level="title-sm"
-                                        sx={{ ...sectionTitleSx, color: open ? hocColors.gold : sectionTitleSx.color }}
-                                    >
-                                        Army
-                                    </Typography>
-                                </ListItemContent>
-                                <Box component="img" src={images.tr_up} sx={chevronSx(open)} />
-                            </ListItemButton>
-                        );
-                    }}
-                >
-                    <List>
-                        <UnitInputAndActions
-                            selectedUnitCount={unitProperties.amount_alive || 0}
-                            selectedTeamType={unitProperties.team}
-                        />
-                        <UnitSplitter totalUnits={unitProperties.amount_alive || 0} onSplit={handleSplit} />
-                    </List>
-                </Toggler>
-            </Box>
-
-            <Box sx={hocSidebarSectionSx("board")}>
-                <Toggler
-                    defaultExpanded={false}
-                    renderToggle={({ open, setOpen }) => {
-                        setOpenRefs.current.map = setOpen;
-                        return (
-                            <ListItemButton
-                                onClick={() => {
-                                    if (!open) {
-                                        closeAllExcept("map");
-                                    }
-                                    setOpen(!open);
-                                }}
-                                sx={{
-                                    ...hocSidebarSectionHeaderSx,
-                                    px: 1.25,
-                                    backgroundColor: "transparent",
-                                    transform: open ? "scale(1.012)" : "scale(1)",
-                                }}
-                            >
-                                <Box
-                                    component="img"
-                                    src={images.board_icon}
-                                    sx={{ ...sectionIconSx, ml: "-4px", mr: "4px", opacity: open ? 1 : 0.72 }}
-                                />
-                                <ListItemContent>
-                                    <Typography
-                                        level="title-sm"
-                                        sx={{ ...sectionTitleSx, color: open ? hocColors.gold : sectionTitleSx.color }}
-                                    >
-                                        Board
-                                    </Typography>
-                                </ListItemContent>
-                                <Box component="img" src={images.tr_up} sx={chevronSx(open)} />
-                            </ListItemButton>
-                        );
-                    }}
-                >
-                    <List>
-                        <MapSettingsRadioButtons />
-                    </List>
-                </Toggler>
-            </Box>
-
-            <Box sx={hocSidebarSectionSx("team")}>
-                <Toggler
-                    defaultExpanded={false}
-                    renderToggle={({ open, setOpen }) => {
-                        setOpenRefs.current.red = setOpen;
-                        return (
-                            <ListItemButton
-                                onClick={() => {
-                                    if (!open) {
-                                        closeAllExcept("red");
-                                    }
-                                    setOpen(!open);
-                                }}
-                                sx={{
-                                    ...hocSidebarSectionHeaderSx,
-                                    px: 1.25,
-                                    columnGap: "6px",
-                                    backgroundColor: "transparent",
-                                    transform: open ? "scale(1.012)" : "scale(1)",
-                                }}
-                            >
-                                <Box
-                                    component="img"
-                                    src={images.flag_red_icon}
-                                    sx={{
-                                        ...teamFlagSx,
-                                        filter: "saturate(1.38) brightness(1.28) contrast(1.06)",
-                                        // The flag IS the team colour — it is what tells Reds from Greens at a
-                                        // glance. Graying it while the section is closed (which the Army and
-                                        // Board icons do, where colour carries nothing) left both sections
-                                        // reading as the same slate flag. Only the dimming is kept.
-                                        opacity: open ? 1 : teamFlagSx.opacity,
+            {/* @ts-ignore: style params */}
+            <ListItem
+                ref={scrollViewportRef}
+                data-sandbox-scroll-region="true"
+                style={{ "--List-nestedInsetStart": "0px" }}
+                nested
+                sx={{
+                    display: "flex",
+                    flexDirection: "column",
+                    flex: "1 1 auto",
+                    minHeight: 0,
+                    overflowY: "auto",
+                    overflowX: "hidden",
+                    overscrollBehavior: "contain",
+                    scrollbarWidth: "none",
+                    "&::-webkit-scrollbar": { display: "none", width: 0, height: 0 },
+                    // Let the active framed section keep its natural content height. Otherwise flexbox shrinks
+                    // the frame itself, whose overflow:hidden then clips the bottom before this parent can
+                    // expose a scrollbar or make the both-panels fit decision.
+                    "& > *": {
+                        flexShrink: 0,
+                        width: `calc(100% - ${scrollRailExtensionPx - SANDBOX_LEGACY_SCROLLBAR_GUTTER_PX}px)`,
+                    },
+                    gap: 1.5,
+                    "@media (max-height: 800px)": {
+                        gap: 0.5,
+                    },
+                    width: `calc(98% + ${scrollRailExtensionPx}px)`,
+                    ml: "2%",
+                    mr: 0,
+                    p: 0,
+                    fontFamily: hocFontFamily,
+                    fontWeight: 460,
+                    fontSynthesis: "weight",
+                    "& .MuiTypography-root, & input, & label": {
+                        fontWeight: 460,
+                        fontSynthesis: "weight",
+                    },
+                }}
+            >
+                <Box sx={hocSidebarSectionSx("army")}>
+                    <Toggler
+                        defaultExpanded={true}
+                        renderToggle={({ open, setOpen }) => {
+                            setOpenRefs.current.army = setOpen;
+                            return (
+                                <ListItemButton
+                                    onClick={() => {
+                                        if (!open) {
+                                            closeAllExcept("army");
+                                        }
+                                        setOpen(!open);
                                     }}
-                                />
-                                <ListItemContent sx={teamTitleSlotSx}>
-                                    <Typography
-                                        level="title-sm"
-                                        sx={{ ...sectionTitleSx, color: open ? "#dc9a78" : sectionTitleSx.color }}
-                                    >
-                                        Red
-                                    </Typography>
-                                </ListItemContent>
-                                {/* The four racial synergies, right of the flag: visible whether the section is open
-                                or shut, because they are army state rather than a setting inside it. */}
-                                <Box sx={teamSynergySlotSx}>
-                                    <SynergySlots teamType={TeamVals.UPPER} size="clamp(16px, 1.35vw, 28px)" />
-                                </Box>
-                                <Box component="img" src={images.tr_up} sx={chevronSx(open)} />
-                            </ListItemButton>
-                        );
-                    }}
-                >
-                    <List>
-                        <SandboxToggleContainer side="red" teamType={TeamVals.UPPER} />
-                    </List>
-                </Toggler>
-            </Box>
-
-            <Box sx={hocSidebarSectionSx("team")}>
-                <Toggler
-                    defaultExpanded={false}
-                    renderToggle={({ open, setOpen }) => {
-                        setOpenRefs.current.green = setOpen;
-                        return (
-                            <ListItemButton
-                                onClick={() => {
-                                    if (!open) {
-                                        closeAllExcept("green");
-                                    }
-                                    setOpen(!open);
-                                }}
-                                sx={{
-                                    ...hocSidebarSectionHeaderSx,
-                                    px: 1.25,
-                                    columnGap: "6px",
-                                    backgroundColor: "transparent",
-                                    transform: open ? "scale(1.012)" : "scale(1)",
-                                }}
-                            >
-                                <Box
-                                    component="img"
-                                    src={images.flag_green_icon}
                                     sx={{
-                                        ...teamFlagSx,
-                                        filter: "saturate(1.48) brightness(1.35) contrast(1.04)",
-                                        // The flag IS the team colour — it is what tells Reds from Greens at a
-                                        // glance. Graying it while the section is closed (which the Army and
-                                        // Board icons do, where colour carries nothing) left both sections
-                                        // reading as the same slate flag. Only the dimming is kept.
-                                        opacity: open ? 1 : teamFlagSx.opacity,
+                                        ...hocSidebarSectionHeaderSx,
+                                        px: 1.25,
+                                        backgroundColor: "transparent",
+                                        transform: open ? "scale(1.012)" : "scale(1)",
                                     }}
-                                />
-                                <ListItemContent sx={teamTitleSlotSx}>
-                                    <Typography
-                                        level="title-sm"
-                                        sx={{ ...sectionTitleSx, color: open ? "#9fc487" : sectionTitleSx.color }}
-                                    >
-                                        Green
-                                    </Typography>
-                                </ListItemContent>
-                                {/* The four racial synergies, right of the flag: visible whether the section is open
-                                or shut, because they are army state rather than a setting inside it. */}
-                                <Box sx={teamSynergySlotSx}>
-                                    <SynergySlots teamType={TeamVals.LOWER} size="clamp(16px, 1.35vw, 28px)" />
-                                </Box>
-                                <Box component="img" src={images.tr_up} sx={chevronSx(open)} />
-                            </ListItemButton>
-                        );
-                    }}
-                >
-                    <List>
-                        <SandboxToggleContainer side="green" teamType={TeamVals.LOWER} />
-                    </List>
-                </Toggler>
-            </Box>
-        </ListItem>
+                                >
+                                    <Box
+                                        component="img"
+                                        src={images.army_icon}
+                                        sx={{ ...sectionIconSx, ml: "-4px", mr: "4px", opacity: open ? 1 : 0.72 }}
+                                    />
+                                    <ListItemContent>
+                                        <Typography
+                                            level="title-sm"
+                                            sx={{
+                                                ...sectionTitleSx,
+                                                color: open ? hocColors.gold : sectionTitleSx.color,
+                                            }}
+                                        >
+                                            Army
+                                        </Typography>
+                                    </ListItemContent>
+                                    <Box component="img" src={images.tr_up} sx={chevronSx(open)} />
+                                </ListItemButton>
+                            );
+                        }}
+                    >
+                        <List>
+                            <UnitInputAndActions
+                                selectedUnitCount={unitProperties.amount_alive || 0}
+                                selectedTeamType={unitProperties.team}
+                            />
+                            <UnitSplitter totalUnits={unitProperties.amount_alive || 0} onSplit={handleSplit} />
+                        </List>
+                    </Toggler>
+                </Box>
+
+                <Box sx={hocSidebarSectionSx("board")}>
+                    <Toggler
+                        defaultExpanded={false}
+                        renderToggle={({ open, setOpen }) => {
+                            setOpenRefs.current.map = setOpen;
+                            return (
+                                <ListItemButton
+                                    onClick={() => {
+                                        if (!open) {
+                                            closeAllExcept("map");
+                                        }
+                                        setOpen(!open);
+                                    }}
+                                    sx={{
+                                        ...hocSidebarSectionHeaderSx,
+                                        px: 1.25,
+                                        backgroundColor: "transparent",
+                                        transform: open ? "scale(1.012)" : "scale(1)",
+                                    }}
+                                >
+                                    <Box
+                                        component="img"
+                                        src={images.board_icon}
+                                        sx={{ ...sectionIconSx, ml: "-4px", mr: "4px", opacity: open ? 1 : 0.72 }}
+                                    />
+                                    <ListItemContent>
+                                        <Typography
+                                            level="title-sm"
+                                            sx={{
+                                                ...sectionTitleSx,
+                                                color: open ? hocColors.gold : sectionTitleSx.color,
+                                            }}
+                                        >
+                                            Board
+                                        </Typography>
+                                    </ListItemContent>
+                                    <Box component="img" src={images.tr_up} sx={chevronSx(open)} />
+                                </ListItemButton>
+                            );
+                        }}
+                    >
+                        <List>
+                            <MapSettingsRadioButtons />
+                        </List>
+                    </Toggler>
+                </Box>
+
+                <Box sx={hocSidebarSectionSx("team")}>
+                    <Toggler
+                        defaultExpanded={false}
+                        renderToggle={({ open, setOpen }) => {
+                            setOpenRefs.current.red = setOpen;
+                            return (
+                                <ListItemButton
+                                    onClick={() => {
+                                        if (!open) {
+                                            closeAllExcept("red");
+                                        }
+                                        setOpen(!open);
+                                    }}
+                                    sx={{
+                                        ...hocSidebarSectionHeaderSx,
+                                        px: 1.25,
+                                        columnGap: "6px",
+                                        backgroundColor: "transparent",
+                                        transform: open ? "scale(1.012)" : "scale(1)",
+                                    }}
+                                >
+                                    <Box
+                                        component="img"
+                                        src={images.flag_red_icon}
+                                        sx={{
+                                            ...teamFlagSx,
+                                            filter: "saturate(1.38) brightness(1.28) contrast(1.06)",
+                                            // The flag IS the team colour — it is what tells Reds from Greens at a
+                                            // glance. Graying it while the section is closed (which the Army and
+                                            // Board icons do, where colour carries nothing) left both sections
+                                            // reading as the same slate flag. Only the dimming is kept.
+                                            opacity: open ? 1 : teamFlagSx.opacity,
+                                        }}
+                                    />
+                                    <ListItemContent sx={teamTitleSlotSx}>
+                                        <Typography
+                                            level="title-sm"
+                                            sx={{ ...sectionTitleSx, color: open ? "#dc9a78" : sectionTitleSx.color }}
+                                        >
+                                            Red
+                                        </Typography>
+                                    </ListItemContent>
+                                    <Box component="img" src={images.tr_up} sx={chevronSx(open)} />
+                                </ListItemButton>
+                            );
+                        }}
+                    >
+                        <List>
+                            <Box sx={expandedTeamSynergyRowSx}>
+                                <SynergySlots teamType={TeamVals.UPPER} size="clamp(22px, 1.75vw, 34px)" />
+                            </Box>
+                            <SandboxToggleContainer side="red" teamType={TeamVals.UPPER} />
+                        </List>
+                    </Toggler>
+                </Box>
+
+                <Box sx={hocSidebarSectionSx("team")}>
+                    <Toggler
+                        defaultExpanded={false}
+                        renderToggle={({ open, setOpen }) => {
+                            setOpenRefs.current.green = setOpen;
+                            return (
+                                <ListItemButton
+                                    onClick={() => {
+                                        if (!open) {
+                                            closeAllExcept("green");
+                                        }
+                                        setOpen(!open);
+                                    }}
+                                    sx={{
+                                        ...hocSidebarSectionHeaderSx,
+                                        px: 1.25,
+                                        columnGap: "6px",
+                                        backgroundColor: "transparent",
+                                        transform: open ? "scale(1.012)" : "scale(1)",
+                                    }}
+                                >
+                                    <Box
+                                        component="img"
+                                        src={images.flag_green_icon}
+                                        sx={{
+                                            ...teamFlagSx,
+                                            filter: "saturate(1.48) brightness(1.35) contrast(1.04)",
+                                            // The flag IS the team colour — it is what tells Reds from Greens at a
+                                            // glance. Graying it while the section is closed (which the Army and
+                                            // Board icons do, where colour carries nothing) left both sections
+                                            // reading as the same slate flag. Only the dimming is kept.
+                                            opacity: open ? 1 : teamFlagSx.opacity,
+                                        }}
+                                    />
+                                    <ListItemContent sx={teamTitleSlotSx}>
+                                        <Typography
+                                            level="title-sm"
+                                            sx={{ ...sectionTitleSx, color: open ? "#9fc487" : sectionTitleSx.color }}
+                                        >
+                                            Green
+                                        </Typography>
+                                    </ListItemContent>
+                                    <Box component="img" src={images.tr_up} sx={chevronSx(open)} />
+                                </ListItemButton>
+                            );
+                        }}
+                    >
+                        <List>
+                            <Box sx={expandedTeamSynergyRowSx}>
+                                <SynergySlots teamType={TeamVals.LOWER} size="clamp(22px, 1.75vw, 34px)" />
+                            </Box>
+                            <SandboxToggleContainer side="green" teamType={TeamVals.LOWER} />
+                        </List>
+                    </Toggler>
+                </Box>
+            </ListItem>
+            <ImageScrollbar
+                viewportRef={scrollViewportRef}
+                top="0px"
+                right={`-${scrollRailExtensionPx}px`}
+                bottom="0px"
+                thumbCenterPercent={23}
+                thumbWidthPx={7.74}
+            />
+        </Box>
     );
 };
 

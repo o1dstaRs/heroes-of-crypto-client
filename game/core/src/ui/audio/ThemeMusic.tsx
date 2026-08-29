@@ -1,13 +1,15 @@
-import VolumeOffRoundedIcon from "@mui/icons-material/VolumeOffRounded";
-import VolumeUpRoundedIcon from "@mui/icons-material/VolumeUpRounded";
 import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { useLocation } from "react-router";
 
-import { t, useTranslation } from "../../i18n/i18n";
+import { images as rawImages } from "../../generated/image_imports";
 import { isPrefightMusicActive, subscribePrefightMusic } from "./prefightMusic";
 import { createThemeMusicPlayer, type ThemeMusicPlayer } from "./themeMusicPlayer";
 import { getVolumeSlot, getVolumeSlotServerSnapshot, subscribeVolumeSlot } from "./volumeSlot";
+
+const images = rawImages as Record<string, string>;
+const musicMutedControlImage = images.ui_control_music_muted_forged_bronze_v1;
+const musicOnControlImage = images.ui_control_music_on_forged_bronze_v1;
 
 /**
  * The menu theme ("The Last Stand") and the volume control that governs it.
@@ -26,29 +28,7 @@ import { getVolumeSlot, getVolumeSlotServerSnapshot, subscribeVolumeSlot } from 
  */
 const VOLUME_KEY = "hoc:themeVolume";
 const MUTED_KEY = "hoc:themeMuted";
-/**
- * Which generation of DEFAULT_VOLUME a browser has already adopted.
- *
- * The stored volume is written on FIRST LOAD, before the player has touched anything (see the persist
- * effect below), so the default of the day gets burned into every browser that ever opened the game.
- * Lowering DEFAULT_VOLUME therefore reached nobody who had visited before: they kept opening at the old
- * 0.5 and had no idea it was a stale default rather than a choice they had made.
- *
- * Bump this whenever DEFAULT_VOLUME changes and existing browsers should be pulled to the new value.
- * It resets a deliberately-chosen volume once, which is the price of fixing the far more common case of
- * a value nobody ever chose.
- */
-const VOLUME_REVISION_KEY = "hoc:themeVolumeRev";
-const VOLUME_REVISION = "2";
-// 10% (owner call, down from a "medium" 0.5, and re-confirmed 2026-08-16): the menu theme opened far
-// louder than most players wanted on first load, so it starts quiet and is turned UP by anyone who wants
-// it. This is the FIRST-LOAD value only — readInitialSettings prefers a stored hoc:themeVolume, so
-// lowering it changes nothing for anyone who has already touched the slider.
-//
-// The marketing site used to carry its own copy that had to be kept in step; its background music was
-// removed (site commit e71d0b7) and the game client is now the only thing that sings, so there is no
-// longer a second origin to match.
-const DEFAULT_VOLUME = 0.1;
+const DEFAULT_VOLUME = 0.5; // "medium"
 const FADE_MS = 900;
 
 /**
@@ -94,11 +74,7 @@ const readInitialSettings = (): { volume: number; muted: boolean } => {
     let muted = false;
     try {
         const storedVolume = window.localStorage.getItem(VOLUME_KEY);
-        // A browser that has not adopted this revision keeps whatever default was current when it first
-        // loaded — take DEFAULT_VOLUME instead of that stale value. The persist effect writes the new
-        // revision alongside the volume, so this happens exactly once per browser.
-        const adopted = window.localStorage.getItem(VOLUME_REVISION_KEY) === VOLUME_REVISION;
-        if (adopted && storedVolume !== null && Number.isFinite(Number(storedVolume))) {
+        if (storedVolume !== null && Number.isFinite(Number(storedVolume))) {
             volume = clamp01(Number(storedVolume));
         }
         muted = window.localStorage.getItem(MUTED_KEY) === "1";
@@ -119,7 +95,6 @@ const readInitialSettings = (): { volume: number; muted: boolean } => {
 };
 
 export const ThemeMusic: React.FC = () => {
-    useTranslation();
     const { pathname } = useLocation();
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const webmSourceRef = useRef<HTMLSourceElement | null>(null);
@@ -133,9 +108,32 @@ export const ThemeMusic: React.FC = () => {
     const [muted, setMuted] = useState(initial.current.muted);
     const [prefight, setPrefight] = useState(false);
     const [needsUnlock, setNeedsUnlock] = useState(true);
+    const volumeCollapseTimerRef = useRef<number | null>(null);
     // Rendered into the sidebar's footer when there is one, beside the fullscreen toggle; otherwise it
     // floats in the bottom-right corner as before.
     const dockSlot = useSyncExternalStore(subscribeVolumeSlot, getVolumeSlot, getVolumeSlotServerSnapshot);
+
+    const cancelVolumeCollapse = useCallback(() => {
+        if (volumeCollapseTimerRef.current !== null) {
+            window.clearTimeout(volumeCollapseTimerRef.current);
+            volumeCollapseTimerRef.current = null;
+        }
+    }, []);
+
+    const showVolumeControl = useCallback(() => {
+        cancelVolumeCollapse();
+        setVolumeExpanded(true);
+    }, [cancelVolumeCollapse]);
+
+    const scheduleVolumeCollapse = useCallback(() => {
+        cancelVolumeCollapse();
+        volumeCollapseTimerRef.current = window.setTimeout(() => {
+            setVolumeExpanded(false);
+            volumeCollapseTimerRef.current = null;
+        }, 260);
+    }, [cancelVolumeCollapse]);
+
+    useEffect(() => cancelVolumeCollapse, [cancelVolumeCollapse]);
 
     useEffect(() => subscribePrefightMusic(setPrefight), []);
 
@@ -289,104 +287,45 @@ export const ThemeMusic: React.FC = () => {
         try {
             window.localStorage.setItem(VOLUME_KEY, String(volume));
             window.localStorage.setItem(MUTED_KEY, muted ? "1" : "0");
-            // Stamped with the volume it belongs to, so a browser is only pulled to a new default once.
-            window.localStorage.setItem(VOLUME_REVISION_KEY, VOLUME_REVISION);
         } catch {
             // The choice just will not outlive the session.
         }
     }, [volume, muted]);
 
     const silent = muted || volume === 0;
-    const socialDockControl = dockSlot?.dataset.volumeControl === "social-dock";
-    const compactSocialDockControl = socialDockControl && dockSlot?.dataset.volumeSize === "compact";
-    const medallionControl = socialDockControl || !dockSlot;
-    const medallionSize = compactSocialDockControl ? 38 : 46;
-    const medallionButtonSize = medallionSize - 2;
-    const medallionIconSize = compactSocialDockControl ? 20 : 23;
 
-    // The social row and standalone fallback use the same coloured medallion as their neighbouring controls.
-    // Inside the fight sidebar the speaker remains bare so it still matches the fullscreen toggle opposite it.
+    // The forged medallion stays the same size in both placements. Docking only changes who owns the
+    // positioning, while the floating fallback keeps its fixed bottom-corner anchor.
     const containerStyle: React.CSSProperties = dockSlot
-        ? socialDockControl
-            ? {
-                  position: "relative",
-                  display: "flex",
-                  alignItems: "center",
-                  boxSizing: "border-box",
-                  width: volumeExpanded ? "auto" : medallionSize,
-                  height: medallionSize,
-                  gap: volumeExpanded ? "0.5rem" : 0,
-                  padding: volumeExpanded ? "0 0.65rem 0 0" : 0,
-                  overflow: "hidden",
-                  borderRadius: "999px",
-                  background: volumeExpanded ? "rgba(38, 48, 25, 0.98)" : "rgba(31, 40, 22, 0.94)",
-                  border: `1px solid ${silent ? "rgba(145, 173, 112, 0.2)" : "rgba(145, 173, 112, 0.36)"}`,
-                  boxShadow: volumeExpanded
-                      ? "inset 0 1px 0 rgba(255,255,255,0.08), 0 0 0 1px rgba(145,173,112,0.08), 0 6px 18px rgba(0,0,0,0.5)"
-                      : "inset 0 1px 0 rgba(255,255,255,0.05), 0 5px 14px rgba(0,0,0,0.42)",
-                  color: silent ? "rgba(145, 173, 112, 0.42)" : "#91ad70",
-                  transition:
-                      "width 140ms ease, padding 140ms ease, background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease",
-              }
-            : {
-                  position: "absolute",
-                  right: 0,
-                  bottom: 0,
-                  zIndex: 2,
-                  display: "flex",
-                  flexDirection: "row-reverse",
-                  alignItems: "center",
-                  boxSizing: "border-box",
-                  width: volumeExpanded ? "8.5rem" : 32,
-                  height: 32,
-                  gap: volumeExpanded ? "0.5rem" : 0,
-                  padding: volumeExpanded ? "0 0.25rem" : 0,
-                  overflow: "hidden",
-                  borderRadius: "999px",
-                  background: volumeExpanded ? "rgba(12, 9, 6, 0.96)" : "transparent",
-                  border: volumeExpanded ? "1px solid rgba(220, 177, 88, 0.28)" : "1px solid transparent",
-                  boxShadow: volumeExpanded ? "0 6px 18px rgba(0,0,0,0.55)" : "none",
-                  color: silent ? "rgba(220, 177, 88, 0.45)" : "#dcb158",
-                  transition:
-                      "width 140ms ease, padding 140ms ease, background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease",
-              }
+        ? {
+              position: "relative",
+              width: 32,
+              height: 32,
+              flex: "0 0 32px",
+              color: "#dcb158",
+          }
         : {
               position: "fixed",
               right: "1rem",
               bottom: "1rem",
               zIndex: 60,
-              display: "flex",
-              alignItems: "center",
-              boxSizing: "border-box",
-              width: volumeExpanded ? "auto" : 46,
-              height: 46,
-              gap: volumeExpanded ? "0.5rem" : 0,
-              padding: volumeExpanded ? "0 0.65rem 0 0" : 0,
-              overflow: "hidden",
-              borderRadius: "999px",
-              background: volumeExpanded ? "rgba(38, 48, 25, 0.98)" : "rgba(31, 40, 22, 0.94)",
-              border: `1px solid ${silent ? "rgba(145, 173, 112, 0.2)" : "rgba(145, 173, 112, 0.36)"}`,
-              boxShadow: volumeExpanded
-                  ? "inset 0 1px 0 rgba(255,255,255,0.08), 0 0 0 1px rgba(145,173,112,0.08), 0 6px 18px rgba(0,0,0,0.5)"
-                  : "inset 0 1px 0 rgba(255,255,255,0.05), 0 5px 14px rgba(0,0,0,0.42)",
-              backdropFilter: "blur(6px)",
-              color: silent ? "rgba(145, 173, 112, 0.42)" : "#91ad70",
-              transition:
-                  "width 140ms ease, padding 140ms ease, background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease",
+              width: 32,
+              height: 32,
+              color: "#e8e2d4",
           };
 
     const control = (
         <div
-            onMouseEnter={() => setVolumeExpanded(true)}
-            onMouseLeave={() => setVolumeExpanded(false)}
-            onFocus={() => setVolumeExpanded(true)}
+            onMouseEnter={showVolumeControl}
+            onMouseLeave={scheduleVolumeCollapse}
+            onFocus={showVolumeControl}
+            onBlur={scheduleVolumeCollapse}
             style={containerStyle}
         >
             <button
                 type="button"
                 aria-pressed={silent}
-                aria-label={t("Toggle music")}
-                title={t("Music volume")}
+                aria-label="Toggle music"
                 onClick={() => {
                     const nextMuted = !muted;
                     setMuted(nextMuted);
@@ -410,84 +349,87 @@ export const ThemeMusic: React.FC = () => {
                 style={{
                     display: "grid",
                     placeItems: "center",
-                    width: medallionControl ? medallionButtonSize : 32,
-                    height: medallionControl ? medallionButtonSize : 32,
+                    width: 32,
+                    height: 32,
                     flex: "0 0 auto",
                     padding: 0,
-                    // The fight sidebar keeps a bare glyph; floating and social controls use the medallion.
+                    // Artwork supplies both the circular frame and its pictogram; the button retains the
+                    // interaction and the slider remains a separate layer above it.
                     borderRadius: 0,
                     border: "none",
-                    background: "transparent",
-                    color: medallionControl
-                        ? silent
-                            ? "rgba(145, 173, 112, 0.42)"
-                            : "#91ad70"
-                        : silent
-                          ? "rgba(220, 177, 88, 0.45)"
-                          : "#dcb158",
+                    backgroundColor: "transparent",
+                    backgroundImage: `url(${silent ? musicMutedControlImage : musicOnControlImage})`,
+                    backgroundPosition: "center",
+                    backgroundRepeat: "no-repeat",
+                    backgroundSize: "contain",
+                    color: "inherit",
                     cursor: "pointer",
-                }}
-            >
-                {silent ? (
-                    <VolumeOffRoundedIcon
-                        aria-hidden="true"
-                        sx={{
-                            fontSize: medallionControl ? medallionIconSize : 18,
-                            filter: "drop-shadow(0 0 3px rgba(145,173,112,0.1))",
-                        }}
-                    />
-                ) : (
-                    <VolumeUpRoundedIcon
-                        aria-hidden="true"
-                        sx={{
-                            fontSize: medallionControl ? medallionIconSize : 18,
-                            filter: "drop-shadow(0 0 3px rgba(145,173,112,0.12))",
-                        }}
-                    />
-                )}
-            </button>
-            <input
-                type="range"
-                min={0}
-                max={100}
-                step={1}
-                value={Math.round(volume * 100)}
-                aria-label={t("Music volume")}
-                onChange={(event) => {
-                    const next = clamp01(Number(event.target.value) / 100);
-                    setVolume(next);
-                    if (next > 0) {
-                        setMuted(false);
-                    }
-                    const audio = audioRef.current;
-                    const player = playerRef.current;
-                    const nextTarget = singing ? next : 0;
-                    player?.setTargetVolume(nextTarget);
-                    if (audio) {
-                        // Dragging is continuous, so track it directly rather than fading to each step.
-                        stopFade();
-                        if (nextTarget === 0) {
-                            audio.volume = 0;
-                            audio.pause();
-                        } else if (player && (audio.paused || !player.hasStarted())) {
-                            void player.start(nextTarget, true);
-                        } else {
-                            audio.volume = nextTarget;
-                        }
-                    }
-                }}
-                style={{
-                    width: volumeExpanded ? "5.5rem" : 0,
-                    opacity: volumeExpanded ? 1 : 0,
-                    // Collapsed it must take NO room at all, so the control is exactly the 32px speaker.
-                    margin: 0,
-                    minWidth: 0,
-                    overflow: "hidden",
-                    transition: "width 140ms ease, opacity 140ms ease",
-                    accentColor: medallionControl ? "#91ad70" : "#dcb158",
-                    cursor: "pointer",
+                    transition: "filter 140ms ease, transform 140ms ease",
                 }}
             />
+            <div
+                style={{
+                    position: "absolute",
+                    left: "50%",
+                    bottom: "100%",
+                    width: 32,
+                    height: 94,
+                    transform: "translateX(-50%)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    opacity: volumeExpanded ? 1 : 0,
+                    pointerEvents: volumeExpanded ? "auto" : "none",
+                    transition: "opacity 140ms ease",
+                }}
+                onMouseEnter={showVolumeControl}
+                onMouseLeave={scheduleVolumeCollapse}
+            >
+                <div
+                    className="hoc-volume-slider-shell"
+                    style={
+                        {
+                            // The visible fill ends at the centre of the 12px thumb while respecting the
+                            // range input's six-pixel end stops. Keep the thumb itself exactly the same size.
+                            "--hoc-volume-level": `${Math.round(4 + volume * 78)}px`,
+                        } as React.CSSProperties
+                    }
+                >
+                    <input
+                        type="range"
+                        className="hoc-volume-slider"
+                        min={0}
+                        max={100}
+                        step={1}
+                        value={Math.round(volume * 100)}
+                        aria-label="Music volume"
+                        aria-orientation="vertical"
+                        onChange={(event) => {
+                            const next = clamp01(Number(event.target.value) / 100);
+                            setVolume(next);
+                            if (next > 0) {
+                                setMuted(false);
+                            }
+                            const audio = audioRef.current;
+                            const player = playerRef.current;
+                            const nextTarget = singing ? next : 0;
+                            player?.setTargetVolume(nextTarget);
+                            if (audio) {
+                                // Dragging is continuous, so track it directly rather than fading to each step.
+                                stopFade();
+                                if (nextTarget === 0) {
+                                    audio.volume = 0;
+                                    audio.pause();
+                                } else if (player && (audio.paused || !player.hasStarted())) {
+                                    void player.start(nextTarget, true);
+                                } else {
+                                    audio.volume = nextTarget;
+                                }
+                            }
+                        }}
+                    />
+                </div>
+            </div>
         </div>
     );
 

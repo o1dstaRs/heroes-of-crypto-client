@@ -1,12 +1,12 @@
+import { resolveImagesLocation } from "../src/assetLocations";
 import { findGameImageAssetViolations, MAX_STATIC_GAME_IMAGE_BYTES } from "../src/gameImageAssetPolicy";
 
 if (import.meta.main) {
-    const imageDirectory = process.argv[2] || process.env.HOC_IMAGES_LOC;
-
-    if (!imageDirectory) {
-        console.error("Set HOC_IMAGES_LOC or pass the canonical game-image directory as the first argument.");
-        process.exit(2);
-    }
+    // Resolve through the shared helper rather than reading the variable here: it is the one place that
+    // states "the art source is always the environment, never a guessed default", trims a copy-pasted
+    // path, and refuses a blank one. The merge that brought main's simpler inline check left this file
+    // importing the resolver without using it.
+    const imageDirectory = resolveImagesLocation(process.env, process.argv[2]);
 
     const violations = await findGameImageAssetViolations(imageDirectory);
     if (violations.length > 0) {

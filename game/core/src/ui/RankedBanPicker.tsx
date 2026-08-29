@@ -1,22 +1,13 @@
-import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import { Box, Button, Input, Modal, ModalDialog, Sheet, Stack, Typography } from "@mui/joy";
 import React, { useEffect, useMemo, useState } from "react";
 
-import { getCreatureLevel, getFactionOf, ToFactionName, type CreatureId } from "@heroesofcrypto/common";
+import { getFactionOf, getLevelOf, ToFactionName, type CreatureId } from "@heroesofcrypto/common";
 
 import { fetchRankedBan, setRankedBan } from "../api/social_client";
-import { t, useTranslation } from "../i18n/i18n";
-import {
-    hocActionSoftButtonSx,
-    hocColors,
-    hocDisplayFontFamily,
-    hocInputSx,
-    hocPanelSx,
-    hocPrimaryButtonSx,
-    hocSoftButtonSx,
-} from "./hocTheme";
+import { CreaturePortraitImage } from "./CreaturePortraitImage";
+import { CREATURE_PORTRAIT_ASPECT } from "./creaturePortraitVisual";
+import { hocColors, hocInputSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
 import { UNIT_ID_TO_NAME } from "./unit_ui_constants";
-import { resolveUnitImage } from "./unitImage";
 
 /**
  * Pre-game ranked ban: the ONE unit this player never wants to see offered in their ranked drafts.
@@ -25,21 +16,32 @@ import { resolveUnitImage } from "./unitImage";
  * banned creature per game on top of the automatic bans.
  */
 
+/**
+ * Portrait sizes for the two ban surfaces.
+ *
+ * Both used to be SQUARES (26x26 and 52x52), and a square is the one shape a creature portrait cannot
+ * be: every per-creature crop, scale and offset in the framing editor was reviewed against the approved
+ * 190x256 pick-card frame, with scales up to ~3x and downward offsets up to +100%. Forcing that into a
+ * square keeps the offsets but changes the visible window, so heads ride up out of the crop — the
+ * off-centre portraits on the ban row. Deriving the height from the shared aspect is what UpNext,
+ * UpNextOverlay and UnitStatsListItem already do; this was the odd surface out.
+ */
+const BAN_CHIP_PORTRAIT_WIDTH = 26;
+const BAN_GRID_PORTRAIT_WIDTH = 52;
+const banPortraitHeight = (width: number): number => Math.round(width / CREATURE_PORTRAIT_ASPECT);
+
 const ALL_CREATURES = Object.entries(UNIT_ID_TO_NAME)
     .map(([id, name]) => ({ id: Number(id), name, faction: ToFactionName[getFactionOf(Number(id) as CreatureId)] }))
-    // Only draftable creatures (level >= 1). This drops NO_CREATURE and internal summons like Arachna
-    // Spider — a level-0 Predatory Assimilation spawn that is never offered in drafts, so banning it is a
-    // no-op that only clutters the picker.
-    .filter(
-        (creature) =>
-            creature.id > 0 && creature.name !== "Unknown" && getCreatureLevel(creature.id as CreatureId) >= 1,
-    )
+    // Draft level >= 1 keeps the list to creatures a draft can actually offer: summon-only units
+    // (Arachna Spider sits in the NO_LEVEL bucket) can never appear in a draft, so banning one
+    // would silently waste the player's single ban.
+    .filter((creature) => creature.id > 0 && creature.name !== "Unknown" && getLevelOf(creature.id as CreatureId) >= 1)
     .sort((a, b) => a.name.localeCompare(b.name));
 
-// One column per faction (owner call). Alphabetical across all 63 creatures made the list a wall of names
-// you had to read; by faction you can go straight to the roster you actually play against. Order matches the
-// draft's own, with Death last since it is the smallest and never appears in the draft pool.
-const FACTION_ORDER = ["Life", "Nature", "Chaos", "Might", "Death"] as const;
+// One column per faction (owner call). Alphabetical across all the creatures made the list a wall of names
+// you had to read; by faction you can go straight to the roster you actually play against. Order matches
+// the draft's own.
+const FACTION_ORDER = ["Life", "Nature", "Chaos", "Might"] as const;
 
 const FACTION_COLOR: Record<string, string> = {
     Life: "#e0d3b0",
@@ -50,7 +52,6 @@ const FACTION_COLOR: Record<string, string> = {
 };
 
 export const RankedBanPicker: React.FC = () => {
-    useTranslation();
     const [creatureId, setCreatureId] = useState(0);
     const [creatureName, setCreatureName] = useState("");
     const [open, setOpen] = useState(false);
@@ -100,129 +101,79 @@ export const RankedBanPicker: React.FC = () => {
 
     return (
         <>
-            <Sheet
-                variant="plain"
-                sx={{
-                    alignSelf: "stretch",
-                    px: { xs: 1.25, sm: 1.5 },
-                    py: { xs: 1.1, sm: 1.25 },
-                    border: "none",
-                    boxShadow: "none",
-                    background: "transparent",
-                }}
+            <Stack
+                direction="row"
+                spacing={1}
+                alignItems="center"
+                justifyContent="center"
+                sx={{ width: "100%", maxWidth: 650, mt: 1.25 }}
             >
-                <Stack
-                    direction={{ xs: "column", sm: "row" }}
-                    spacing={{ xs: 1, sm: 1.5 }}
-                    alignItems={{ xs: "stretch", sm: "center" }}
-                    justifyContent="space-between"
-                >
-                    <Typography
-                        level="title-sm"
+                <Typography level="body-sm" sx={{ color: hocColors.muted }}>
+                    Ban a unit from your drafts:
+                </Typography>
+                {creatureId > 0 ? (
+                    <Sheet
+                        variant="outlined"
                         sx={{
-                            color: hocColors.sidebarTitle,
-                            fontFamily: hocDisplayFontFamily,
-                            fontWeight: 400,
-                            letterSpacing: "0.08em",
-                            textAlign: "left",
-                            textTransform: "uppercase",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 0.75,
+                            px: 1,
+                            py: 0.4,
+                            borderRadius: "md",
+                            borderColor: "rgba(255,90,63,0.55)",
+                            bgcolor: "rgba(255,90,63,0.12)",
                         }}
                     >
-                        {t("Ban a unit from your drafts:")}
+                        <CreaturePortraitImage
+                            creatureId={creatureId}
+                            alt=""
+                            sx={{
+                                width: BAN_CHIP_PORTRAIT_WIDTH,
+                                height: banPortraitHeight(BAN_CHIP_PORTRAIT_WIDTH),
+                                borderRadius: 4,
+                                // The chip is a flex row; without this the name beside it can squeeze the
+                                // portrait narrower than its box and skew the crop again.
+                                flexShrink: 0,
+                            }}
+                        />
+                        <Typography level="body-sm" sx={{ color: hocColors.parchment }}>
+                            {creatureName}
+                        </Typography>
+                    </Sheet>
+                ) : (
+                    <Typography level="body-sm" sx={{ color: hocColors.parchment, opacity: 0.7 }}>
+                        none
                     </Typography>
-                    <Stack
-                        direction="row"
-                        spacing={0.75}
-                        alignItems="center"
-                        justifyContent={{ xs: "stretch", sm: "flex-end" }}
-                        sx={{ minWidth: 0 }}
+                )}
+                <Button size="sm" variant="outlined" sx={hocSoftButtonSx} onClick={() => setOpen(true)}>
+                    {creatureId > 0 ? "Change" : "Choose"}
+                </Button>
+                {creatureId > 0 ? (
+                    <Button
+                        size="sm"
+                        variant="plain"
+                        sx={{ color: hocColors.muted }}
+                        disabled={busy}
+                        onClick={() => void choose(0)}
                     >
-                        {creatureId > 0 ? (
-                            <Button
-                                size="sm"
-                                variant="outlined"
-                                aria-label={`${t("Change")}: ${creatureName}`}
-                                startDecorator={
-                                    <img
-                                        src={resolveUnitImage(undefined, creatureName)}
-                                        alt=""
-                                        width={30}
-                                        height={30}
-                                        style={{ borderRadius: 2, objectFit: "cover" }}
-                                    />
-                                }
-                                endDecorator={<EditRoundedIcon sx={{ fontSize: 16 }} />}
-                                onClick={() => setOpen(true)}
-                                sx={{
-                                    minWidth: 0,
-                                    minHeight: 38,
-                                    px: 0.9,
-                                    borderRadius: "2px",
-                                    borderColor: "rgba(255,90,63,0.5)",
-                                    bgcolor: "rgba(76,19,12,0.34)",
-                                    color: hocColors.parchment,
-                                    fontFamily: hocDisplayFontFamily,
-                                    fontWeight: 400,
-                                    textTransform: "none",
-                                    "&:hover": {
-                                        borderColor: "rgba(255,90,63,0.76)",
-                                        bgcolor: "rgba(95,25,15,0.46)",
-                                    },
-                                }}
-                            >
-                                {creatureName}
-                            </Button>
-                        ) : (
-                            <Button
-                                size="sm"
-                                variant="outlined"
-                                sx={{
-                                    ...hocActionSoftButtonSx,
-                                    minHeight: 38,
-                                    flex: { xs: 1, sm: "0 0 auto" },
-                                    fontFamily: hocDisplayFontFamily,
-                                }}
-                                onClick={() => setOpen(true)}
-                            >
-                                {t("Choose")}
-                            </Button>
-                        )}
-                        {creatureId > 0 ? (
-                            <Button
-                                size="sm"
-                                variant="plain"
-                                sx={{
-                                    minHeight: 38,
-                                    color: hocColors.muted,
-                                    fontFamily: hocDisplayFontFamily,
-                                    "&:hover": {
-                                        color: hocColors.danger,
-                                        bgcolor: "rgba(255,90,63,0.1)",
-                                    },
-                                }}
-                                disabled={busy}
-                                onClick={() => void choose(0)}
-                            >
-                                {t("Clear")}
-                            </Button>
-                        ) : null}
-                    </Stack>
-                </Stack>
-            </Sheet>
+                        Clear
+                    </Button>
+                ) : null}
+            </Stack>
 
             <Modal open={open} onClose={() => setOpen(false)}>
                 <ModalDialog variant="outlined" sx={{ ...hocPanelSx, width: 880, maxWidth: "96vw" }}>
                     <Typography level="title-lg" sx={{ color: hocColors.gold }}>
-                        {t("Ban one unit")}
+                        Ban one unit
                     </Typography>
                     <Typography level="body-xs" sx={{ color: hocColors.muted }}>
-                        {t(
-                            "It will never be offered in your ranked drafts. If your opponent bans a different unit, one of the two is chosen 50/50 — only one extra ban applies per game.",
-                        )}
+                        It will never be offered in your ranked drafts. If your opponent bans a different unit, one of
+                        the two is chosen 50/50 — only one extra ban applies per game.
                     </Typography>
                     <Input
                         size="sm"
-                        placeholder={t("Search units…")}
+                        placeholder="Search units…"
                         value={query}
                         onChange={(event) => setQuery(event.target.value)}
                         sx={{ ...hocInputSx, mt: 0.5 }}
@@ -258,7 +209,7 @@ export const RankedBanPicker: React.FC = () => {
                                         zIndex: 1,
                                     }}
                                 >
-                                    {t(faction)}
+                                    {faction}
                                 </Typography>
                                 {creatures.map((creature) => (
                                     <Sheet
@@ -283,13 +234,14 @@ export const RankedBanPicker: React.FC = () => {
                                             },
                                         }}
                                     >
-                                        <img
-                                            src={resolveUnitImage(undefined, creature.name)}
+                                        <CreaturePortraitImage
+                                            creatureId={creature.id}
                                             alt=""
-                                            width={52}
-                                            height={52}
-                                            style={{ borderRadius: 6, objectFit: "cover" }}
-                                            loading="lazy"
+                                            sx={{
+                                                width: BAN_GRID_PORTRAIT_WIDTH,
+                                                height: banPortraitHeight(BAN_GRID_PORTRAIT_WIDTH),
+                                                borderRadius: 6,
+                                            }}
                                         />
                                         <Typography
                                             level="body-xs"
@@ -304,7 +256,7 @@ export const RankedBanPicker: React.FC = () => {
                     </Box>
                     <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
                         <Button variant="outlined" sx={hocSoftButtonSx} onClick={() => setOpen(false)}>
-                            {t("Close")}
+                            Close
                         </Button>
                         {creatureId > 0 ? (
                             <Button
@@ -313,7 +265,7 @@ export const RankedBanPicker: React.FC = () => {
                                 disabled={busy}
                                 onClick={() => void choose(0)}
                             >
-                                {t("Remove my ban")}
+                                Remove my ban
                             </Button>
                         ) : null}
                     </Stack>

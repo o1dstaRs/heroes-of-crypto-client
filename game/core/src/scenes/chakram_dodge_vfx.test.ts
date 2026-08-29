@@ -27,6 +27,8 @@ const unitStub = (id: string) => ({
     getId: () => id,
     getName: () => id,
     getVisualCenter: () => ({ x: 0, y: 0 }),
+    getDamagePredictionAnchor: () => ({ x: 0, y: 0 }),
+    getRangedProjectileOrigin: () => ({ x: 0, y: 0 }),
     getPosition: () => ({ x: 0, y: 0 }),
     getBaseCell: () => ({ x: 5, y: 5 }),
     isDead: () => false,

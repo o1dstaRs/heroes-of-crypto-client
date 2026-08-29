@@ -29,6 +29,15 @@ describe("indexUnitTeam", () => {
     });
 });
 
+describe("scene log flags follow the team, not the viewer", () => {
+    test("LOWER is always green and UPPER always red, whichever seat is reading", () => {
+        // The viewer-relative flip made this pair swap per seat; team-fixed means one answer for everyone.
+        const m = indexed(["Ally", TeamVals.UPPER], ["Enemy", TeamVals.LOWER]);
+        expect(resolveLineTeamFlag("Ally moved", m)).toBe("🔴");
+        expect(resolveLineTeamFlag("Enemy moved", m)).toBe("🟢");
+    });
+});
+
 describe("resolveLineTeamFlag", () => {
     test("flags a line by the unit it leads with (LOWER=green, UPPER=red)", () => {
         const m = indexed(["Berserker", GREEN], ["Troglodyte", RED]);

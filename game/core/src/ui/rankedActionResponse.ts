@@ -1,9 +1,18 @@
-import type { TeamType } from "@heroesofcrypto/common";
+import type { GameAction, TeamType } from "@heroesofcrypto/common";
 
 import { GridConstants } from "@heroesofcrypto/common";
 
 import { PlayActionType, PlayPhase, type PlayAction, type PlaySnapshot } from "../api/play_protocol";
 import type { LocalModelOpponentConfig } from "../scenes/LocalModelOpponent";
+
+export const isPlacementMutationAction = (action: Pick<GameAction, "type">): boolean =>
+    action.type === "place_unit" || action.type === "delete_unit" || action.type === "split_unit";
+
+// Placement mutations are already applied optimistically by the scene. Replaying their journal record
+// through the combat animation queue adds no visual value and can deadlock that queue while a placement
+// snapshot is rebuilding. Reconcile them directly from the authoritative response/SSE snapshot instead.
+export const shouldPlayAuthoritativeAction = (action: Pick<GameAction, "type">): boolean =>
+    !isPlacementMutationAction(action);
 
 // Never submit an action carrying an off-grid / non-integer cell: the server rejects it as
 // invalid_cell (validateActionShape) and a jammed unit that keeps retrying storms the player with

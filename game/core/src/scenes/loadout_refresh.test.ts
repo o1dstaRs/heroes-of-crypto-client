@@ -15,7 +15,7 @@
  */
 import { describe, expect, test } from "bun:test";
 
-import { GridConstants, GridSettings } from "@heroesofcrypto/common";
+import { GridConstants, GridMath, GridSettings } from "@heroesofcrypto/common";
 
 import { Sandbox } from "./Sandbox";
 
@@ -38,6 +38,8 @@ const makeScene = (
         activeUnitPosition?: { x: number; y: number };
         rangeShotDistance?: number;
         unitSize?: number;
+        footprintWidth?: number;
+        footprintHeight?: number;
         selectedUnitId?: string;
         liveProperties?: Record<string, unknown>;
     } = {},
@@ -69,6 +71,17 @@ const makeScene = (
                   getPosition: () => overrides.activeUnitPosition,
                   getRangeShotDistance: () => overrides.rangeShotDistance ?? 0,
                   getSize: () => overrides.unitSize ?? 1,
+                  getFootprintWidth: () => overrides.footprintWidth ?? overrides.unitSize ?? 1,
+                  getFootprintHeight: () => overrides.footprintHeight ?? overrides.unitSize ?? 1,
+                  // Derived exactly as the real Unit does, so the stand-in cannot disagree with the engine
+                  // about which cell a body of a given shape is anchored on.
+                  getBaseCell: () =>
+                      GridMath.getFootprintAnchorForPosition(
+                          gridSettings,
+                          overrides.activeUnitPosition!,
+                          overrides.footprintWidth ?? overrides.unitSize ?? 1,
+                          overrides.footprintHeight ?? overrides.unitSize ?? 1,
+                      ),
               }
             : undefined,
         updateCurrentMovePath: (cell: { x: number; y: number }) => {
@@ -125,16 +138,74 @@ describe("refreshing after an augment, artifact or synergy pick", () => {
         expect(movePathCells).toHaveLength(1);
     });
 
-    test("recomputes the shot square, so a Sniper pick shows up at once", () => {
-        const { scene } = makeScene({ activeUnitPosition: { x: 100, y: 100 }, rangeShotDistance: 4.5 });
+    /**
+     * The reach is keyed off the unit's ANCHOR, because that is what getMovePath looks up. Asserting only
+     * that ONE cell was handed over cannot tell the anchor from the cell the body's centre happens to fall
+     * in — for every shape that ships today those are the same cell, so the distinction is invisible until
+     * a body is three deep.
+     *
+     * A 1x3 on column 8, rows 0..2, has its centre at the MIDDLE cell's centre: {64, 192} names cell (8,1)
+     * while the anchor — the top-right cell, and the only one that is a key in knownPaths — is (8,2).
+     */
+    test("keys the reach off the ANCHOR, not the cell the body's centre lands in", () => {
+        const { scene, movePathCells } = makeScene({
+            activeUnitPosition: { x: 64, y: 192 },
+            footprintWidth: 1,
+            footprintHeight: 3,
+        });
 
         runRefresh(scene);
 
-        // Half-width of the full-damage SQUARE, not a circle radius: the fractional stat floors to four
-        // whole cells, plus the half cell that carries the edge out to the cell border.
+        expect(movePathCells).toEqual([{ x: 8, y: 2 }]);
+    });
+
+    test("recomputes the shot square through the outer edges of every full-damage cell", () => {
+        const { scene } = makeScene({ activeUnitPosition: { x: 100, y: 100 }, rangeShotDistance: 5 });
+
+        runRefresh(scene);
+
+        // Five cells are measured centre-to-centre. The visible boundary needs another half cell to reach
+        // the far seam of the fifth cell; using 5 * STEP stopped through the middle of that outer row.
+        // Equal square extents use the compact scalar representation consumed by the live overlay.
         expect(scene.sc_currentActiveShotRange).toEqual({
             xy: { x: 100, y: 100 },
-            distance: 4.5 * GridConstants.STEP,
+            distance: 5.5 * GridConstants.STEP,
+        });
+    });
+
+    test("includes the full footprint of a 2x2 shooter", () => {
+        const { scene } = makeScene({
+            activeUnitPosition: { x: 100, y: 100 },
+            rangeShotDistance: 5,
+            unitSize: 2,
+        });
+
+        runRefresh(scene);
+
+        expect(scene.sc_currentActiveShotRange).toEqual({
+            xy: { x: 100, y: 100 },
+            distance: 6 * GridConstants.STEP,
+        });
+    });
+
+    // A body that is not square does not cover a square: the band reaches the same whole cells out from the
+    // BODY on both axes, so a 2x1 shooter's full-damage area is half a cell wider than it is tall. Collapsing
+    // that to one number painted the overlay past the band the engine enforces on the thin axis.
+    test("a 2x1 shooter's full-damage square is wider than it is tall", () => {
+        const { scene } = makeScene({
+            activeUnitPosition: { x: 100, y: 100 },
+            rangeShotDistance: 5,
+            unitSize: 2,
+            footprintWidth: 2,
+            footprintHeight: 1,
+        });
+
+        runRefresh(scene);
+
+        expect(scene.sc_currentActiveShotRange).toEqual({
+            xy: { x: 100, y: 100 },
+            distance: 6 * GridConstants.STEP,
+            verticalDistance: 5.5 * GridConstants.STEP,
         });
     });
 

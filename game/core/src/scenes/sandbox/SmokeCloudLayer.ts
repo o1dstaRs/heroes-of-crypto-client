@@ -3,7 +3,7 @@ import { Container, Graphics, Filter } from "pixi.js";
 import type { HoCMath } from "@heroesofcrypto/common";
 
 /**
- * Ground smoke laid down by the Smoke spell (Ash Moth's Book of Chaos).
+ * Ground smoke laid down by the Smoke spell (Wandering Mage's Book of Chaos).
  *
  * Deliberately its OWN layer, not a reuse of SmokeLayer: that one is kicked-up movement DUST — thin,
  * short-lived, tied to a fading track. This is a persistent tactical object that sits on a cell for
@@ -175,6 +175,7 @@ interface ITrackedCloud {
     cell: HoCMath.XY;
     x: number;
     y: number;
+    cellSize: number;
     /** Stable per-cell seed so a cloud's shape never flickers between frames. */
     seed: number;
     lapsRemaining: number;
@@ -267,11 +268,13 @@ export class SmokeCloudLayer {
                 existing.lapsRemaining = c.l;
                 existing.x = world.x;
                 existing.y = world.y;
+                existing.cellSize = world.cellSize ?? cellSize;
             } else {
                 this.clouds.set(key, {
                     cell: { x: c.x, y: c.y },
                     x: world.x,
                     y: world.y,
+                    cellSize: world.cellSize ?? cellSize,
                     // Mixing both axes keeps neighbouring cells from sharing a shape.
                     seed: Math.abs(Math.sin(c.x * 127.1 + c.y * 311.7) * 43758.5453) % 1000,
                     lapsRemaining: c.l,
@@ -294,7 +297,7 @@ export class SmokeCloudLayer {
 
         this.draw(cellSize);
     }
-    private draw(cellSize: number): void {
+    private draw(_cellSize: number): void {
         const g = this.graphics;
         if (!this.clouds.size) {
             if (this.hasGeometry) {
@@ -332,7 +335,7 @@ export class SmokeCloudLayer {
             // Two passes: a wide, dark UNDERBELLY that grounds the cloud, then a tighter, brighter CORE on
             // top. One flat ring of equal puffs reads as a smudge; layering gives it depth and volume.
             const puffs = 9 + Math.floor(rnd(seed, 0) * 4);
-            const baseR = cellSize * 0.5;
+            const baseR = cloud.cellSize * 0.5;
 
             // Underbelly: wide, dark, slow — the part that looks like it has weight.
             for (let i = 0; i < 5; i++) {
@@ -393,4 +396,4 @@ export class SmokeCloudLayer {
 }
 
 /** Resolve a board cell to its world centre; returns undefined for a cell that is off-grid. */
-export type ToWorld = (cell: HoCMath.XY) => HoCMath.XY | undefined;
+export type ToWorld = (cell: HoCMath.XY) => (HoCMath.XY & { cellSize?: number }) | undefined;

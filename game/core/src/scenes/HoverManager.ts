@@ -1,4 +1,4 @@
-import { Assets, Sprite, Graphics, BlurFilter, Texture, Text } from "pixi.js";
+import { Assets, Sprite, Graphics, Matrix, Texture, Text, ColorMatrixFilter } from "pixi.js";
 import {
     FightStateManager,
     IPlacement,
@@ -13,15 +13,270 @@ import {
     UnitProperties,
     GridMath,
     HoCLib,
-    GridConstants,
+    type IWeightedRoute,
 } from "@heroesofcrypto/common";
 import { SceneSettings } from "./SceneSettings";
 import { PlacementManager } from "./PlacementManager";
 import { TextureType, unitToTextureName } from "@/pixi/PixiUnitsFactory";
 import { HOC_NUMERIC_ARIAL_FONT_FAMILY } from "../fontFamilies";
 import { images } from "../generated/image_imports";
+import { placementFootprintCandidates } from "./placementFootprintCandidates";
+import { projectBattlefieldPoint, projectedPolyline, projectedRectPoints } from "./sandbox/BattlefieldVisualGrid";
+import { placementFacingDirectionForTeam, previewPlacementFacing, type BattlefieldUnitPreview } from "./RenderableUnit";
+import { rangeTargetEdgeMarkerAngle } from "./rangeTargetEdges";
+import { getShotTrajectoryStyle } from "./shotTrajectoryStyle";
+import { tunedCellFillPolygon } from "./movementAreaVisual";
+import { placementZonePolygon } from "../pixi/PixiDrawablePlacement";
+
+export interface RangeTargetEdgeVisual {
+    from: HoCMath.XY;
+    to: HoCMath.XY;
+    markerCenter: HoCMath.XY;
+    cell: HoCMath.XY;
+    side: GridMath.RangeAttackCellSide;
+    notchTip: HoCMath.XY;
+    shootable: boolean;
+    rangeDivisor: number;
+    aimPosition: HoCMath.XY;
+    markerScale: number;
+}
 
 const MELEE_SWORD_ANGLE_STEP = Math.PI / 4;
+/** Ranged aim paints the approved moving gold-casing trajectory from shooter to selected target edge. */
+export const RANGED_ATTACK_TRAJECTORY_VISIBLE = true;
+export const BASE_SHOT_CASING_SPACING = 38;
+export const SHOT_CASING_SPACING_SCALE = 1.3;
+export const SHOT_CASING_SPACING = BASE_SHOT_CASING_SPACING * SHOT_CASING_SPACING_SCALE;
+/** Reduce only the casing artwork dimensions by seven percent; trajectory spacing stays unchanged. */
+export const SHOT_CASING_SIZE_SCALE = 0.93;
+/** Keeping scale fixed prevents the terminal arrow jumping while the optimal edge is recomputed. */
+export const RANGE_TARGET_EDGE_SELECTED_SCALE = 1;
+/** The furthest painted row is ten percent smaller; the nearest row keeps the approved current size. */
+export const RANGE_TARGET_EDGE_TOP_ROW_SCALE = 0.9;
+export const rangeTargetEdgeMarkerRowScale = (markerCellY: number, gridSize: number): number => {
+    const topRow = Math.max(1, gridSize - 1);
+    const rowProgress = Math.max(0, Math.min(1, markerCellY / topRow));
+    return 1 + (RANGE_TARGET_EDGE_TOP_ROW_SCALE - 1) * rowProgress;
+};
+/** Shorten only the arrow artwork's long axis; its readable authored thickness stays unchanged. */
+export const RANGE_TARGET_EDGE_LENGTH_SCALE = 0.8 * 0.85;
+/** Move every target-edge arrow 50% of a cell inward, along the direction its point faces. */
+export const RANGE_TARGET_EDGE_INWARD_OFFSET_FRACTION = 0.5;
+
+export const rangeTargetEdgeMarkerPosition = (
+    cellCenter: HoCMath.XY,
+    cellSize: number,
+    side: GridMath.RangeAttackCellSide,
+): HoCMath.XY => {
+    const offset = cellSize * RANGE_TARGET_EDGE_INWARD_OFFSET_FRACTION;
+    switch (side) {
+        case GridMath.RangeAttackCellSide.LEFT:
+            return { x: cellCenter.x + offset, y: cellCenter.y };
+        case GridMath.RangeAttackCellSide.RIGHT:
+            return { x: cellCenter.x - offset, y: cellCenter.y };
+        case GridMath.RangeAttackCellSide.DOWN:
+            return { x: cellCenter.x, y: cellCenter.y + offset };
+        case GridMath.RangeAttackCellSide.UP:
+        default:
+            return { x: cellCenter.x, y: cellCenter.y - offset };
+    }
+};
+
+/** Authored long-axis size shared by rendering and the trajectory-to-marker join. */
+export const rangeTargetEdgeMarkerDisplayLength = (cellSize: number): number =>
+    Math.min(56, Math.max(42, cellSize * 0.52)) * 1.35;
+
+/** V7 keeps the original 128-unit arrow in place and adds 57.5 units only behind its fixed head. */
+const RANGE_TARGET_EDGE_ART_BASE_WIDTH = 128;
+const RANGE_TARGET_EDGE_ART_WIDTH = 185.5;
+const RANGE_TARGET_EDGE_ART_HEIGHT = 47;
+const RANGE_TARGET_EDGE_ART_ANCHOR_X = 121.5;
+const RANGE_TARGET_EDGE_NECK_X = 139.5;
+
+const rangeTargetEdgeWideArtX = (originalX: number): number => {
+    if (originalX <= 45) return originalX;
+    if (originalX >= 68) return originalX + (RANGE_TARGET_EDGE_ART_WIDTH - RANGE_TARGET_EDGE_ART_BASE_WIDTH);
+    const shaftProgress = (originalX - 45) / (68 - 45);
+    return 45 + shaftProgress * (68 - 45 + RANGE_TARGET_EDGE_ART_WIDTH - RANGE_TARGET_EDGE_ART_BASE_WIDTH);
+};
+
+type RangeTargetEdgeArtPoint = readonly [x: number, y: number];
+
+/** Coarse outer alpha contour of the approved cutout; transparent corners remain non-blocking. */
+const RANGE_TARGET_EDGE_BASE_ART_POLYGONS: readonly (readonly RangeTargetEdgeArtPoint[])[] = [
+    [
+        [2, 3],
+        [25, 3],
+        [32, 12],
+        [42, 12],
+        [45, 15],
+        [68, 15],
+        [70, 12],
+        [77, 12],
+        [80, 15],
+        [81, 2],
+        [84, 2],
+        [126, 23],
+        [84, 44],
+        [81, 44],
+        [80, 30],
+        [77, 32],
+        [70, 32],
+        [68, 30],
+        [45, 30],
+        [42, 32],
+        [32, 32],
+        [25, 41],
+        [2, 41],
+        [7, 23],
+    ],
+];
+const RANGE_TARGET_EDGE_ART_POLYGONS: readonly (readonly RangeTargetEdgeArtPoint[])[] =
+    RANGE_TARGET_EDGE_BASE_ART_POLYGONS.map((polygon) =>
+        polygon.map(([x, y]) => [rangeTargetEdgeWideArtX(x), y] as const),
+    );
+
+const firstSegmentPolygonIntersection = (
+    from: HoCMath.XY,
+    to: HoCMath.XY,
+    polygon: readonly HoCMath.XY[],
+): { point: HoCMath.XY; fraction: number } | undefined => {
+    const ray = { x: to.x - from.x, y: to.y - from.y };
+    const cross = (a: HoCMath.XY, b: HoCMath.XY): number => a.x * b.y - a.y * b.x;
+    let first: { point: HoCMath.XY; fraction: number } | undefined;
+
+    for (let index = 0; index < polygon.length; index += 1) {
+        const edgeFrom = polygon[index];
+        const edgeTo = polygon[(index + 1) % polygon.length];
+        const edge = { x: edgeTo.x - edgeFrom.x, y: edgeTo.y - edgeFrom.y };
+        const denominator = cross(ray, edge);
+        if (Math.abs(denominator) <= Number.EPSILON) continue;
+        const offset = { x: edgeFrom.x - from.x, y: edgeFrom.y - from.y };
+        const fraction = cross(offset, edge) / denominator;
+        const edgeFraction = cross(offset, ray) / denominator;
+        if (fraction < 0 || fraction > 1 || edgeFraction < 0 || edgeFraction > 1) continue;
+        if (first && first.fraction <= fraction) continue;
+        first = {
+            point: { x: from.x + ray.x * fraction, y: from.y + ray.y * fraction },
+            fraction,
+        };
+    }
+    return first;
+};
+
+const rangeTargetEdgeArtToWorld = (
+    artPoint: RangeTargetEdgeArtPoint,
+    edgeCenter: HoCMath.XY,
+    side: GridMath.RangeAttackCellSide,
+    cellSize: number,
+    cameraScale: HoCMath.XY,
+    trajectoryFrom?: HoCMath.XY,
+    markerScale = 1,
+): HoCMath.XY => {
+    // `edgeCenter` is already shifted inward in logical board space and then projected onto the painted
+    // grid. Applying the inward offset here in projected X/Y would pull top/bottom arrows off the centreline
+    // of perspective cells.
+    const position = edgeCenter;
+    const angle = trajectoryFrom
+        ? Math.atan2(edgeCenter.y - trajectoryFrom.y, edgeCenter.x - trajectoryFrom.x)
+        : rangeTargetEdgeMarkerAngle(side);
+    const zoomX = Math.abs(cameraScale.x) || 1;
+    const zoomY = Math.abs(cameraScale.y) || zoomX;
+    const screenAngle = Math.atan2(-Math.sin(angle) * zoomY, Math.cos(angle) * zoomX);
+    const cos = Math.cos(screenAngle);
+    const sin = Math.sin(screenAngle);
+    // Match the existing marker's screen size: its authored world scale was multiplied by camera X.
+    // The generalized transform below then cancels only the camera's non-uniform distortion.
+    const artScale = (rangeTargetEdgeMarkerDisplayLength(cellSize) * zoomX) / RANGE_TARGET_EDGE_ART_BASE_WIDTH;
+    const localX =
+        (artPoint[0] - RANGE_TARGET_EDGE_ART_ANCHOR_X) * artScale * RANGE_TARGET_EDGE_LENGTH_SCALE * markerScale;
+    const localY = (artPoint[1] - RANGE_TARGET_EDGE_ART_HEIGHT / 2) * artScale * markerScale;
+    return {
+        x: position.x + (localX * cos - localY * sin) / zoomX,
+        y: position.y + (-localX * sin - localY * cos) / zoomY,
+    };
+};
+
+/** The blue-marked point where the broad arrowhead joins its shaft. */
+export const rangeTargetEdgeMarkerNeckPoint = (
+    edgeCenter: HoCMath.XY,
+    side: GridMath.RangeAttackCellSide,
+    cellSize: number,
+    cameraScale: HoCMath.XY,
+): HoCMath.XY =>
+    rangeTargetEdgeArtToWorld(
+        [RANGE_TARGET_EDGE_NECK_X, RANGE_TARGET_EDGE_ART_HEIGHT / 2],
+        edgeCenter,
+        side,
+        cellSize,
+        cameraScale,
+    );
+
+/**
+ * Aim for the arrowhead/shaft join, but stop at the first opaque part of the marker encountered earlier.
+ * This keeps a diagonal casing rail from painting across the head, shaft or fletching on its way there.
+ */
+export const rangeTargetEdgeTrajectoryEndpoint = (
+    trajectoryFrom: HoCMath.XY,
+    edgeCenter: HoCMath.XY,
+    side: GridMath.RangeAttackCellSide,
+    cellSize: number,
+    cameraScale: HoCMath.XY,
+    markerScale = 1,
+): HoCMath.XY => {
+    const neckPoint = rangeTargetEdgeArtToWorld(
+        [RANGE_TARGET_EDGE_NECK_X, RANGE_TARGET_EDGE_ART_HEIGHT / 2],
+        edgeCenter,
+        side,
+        cellSize,
+        cameraScale,
+        trajectoryFrom,
+        markerScale,
+    );
+    let firstContact: { point: HoCMath.XY; fraction: number } | undefined;
+    for (const artPolygon of RANGE_TARGET_EDGE_ART_POLYGONS) {
+        const worldPolygon = artPolygon.map((point) =>
+            rangeTargetEdgeArtToWorld(point, edgeCenter, side, cellSize, cameraScale, trajectoryFrom, markerScale),
+        );
+        const contact = firstSegmentPolygonIntersection(trajectoryFrom, neckPoint, worldPolygon);
+        if (!contact || (firstContact && firstContact.fraction <= contact.fraction)) continue;
+        firstContact = contact;
+    }
+    return firstContact?.point ?? neckPoint;
+};
+
+export interface CameraCompensatedSpriteTransform {
+    a: number;
+    b: number;
+    c: number;
+    d: number;
+    tx: number;
+    ty: number;
+}
+
+/**
+ * Local sprite matrix whose final on-screen transform is an undistorted rotation + uniform scale.
+ * This cancels the battlefield camera's deliberately different X/Y zoom without changing world position.
+ */
+export const cameraCompensatedSpriteTransform = (
+    worldPosition: HoCMath.XY,
+    screenAngle: number,
+    screenScale: number,
+    cameraScale: HoCMath.XY,
+): CameraCompensatedSpriteTransform => {
+    const zoomX = Math.abs(cameraScale.x) || 1;
+    const zoomY = Math.abs(cameraScale.y) || zoomX;
+    const cos = Math.cos(screenAngle);
+    const sin = Math.sin(screenAngle);
+    return {
+        a: (screenScale * cos) / zoomX,
+        b: (-screenScale * sin) / zoomY,
+        c: (-screenScale * sin) / zoomX,
+        d: (-screenScale * cos) / zoomY,
+        tx: worldPosition.x,
+        ty: worldPosition.y,
+    };
+};
 // The visible blade-to-pommel diagonal inside the 20x24 cursor artwork.
 const MELEE_SWORD_ART_LENGTH = 29;
 // The source is 20x24, so its painted blade is not geometrically aligned to a perfect 45-degree
@@ -29,31 +284,141 @@ const MELEE_SWORD_ART_LENGTH = 29;
 // horizontal/vertical marker visibly lean by several degrees.
 const MELEE_SWORD_NATIVE_WORLD_ANGLE = Math.atan2(23, -18);
 
+// Keep the whole prediction group (damage, losses and skull) at one fixed visual size for every creature.
+// The target point is the top of the creature's stack flag, so the group is shifted upward far enough for
+// its bottom edge to clear the flag instead of covering either the banner or the creature artwork.
+const DAMAGE_PREDICTION_SCALE = 1.3;
+const DAMAGE_PREDICTION_FONT_SIZE = 24;
+const DAMAGE_PREDICTION_STROKE_WIDTH = 4;
+const DAMAGE_PREDICTION_ROW_SPACING = 28;
+const DAMAGE_PREDICTION_GROUND_GAP = 6;
+const DAMAGE_PREDICTION_KILL_ICON_SCALE = 1.3;
+const DAMAGE_PREDICTION_RANGE_ICON_SCALE = 1.45;
+// Damage forecasts are pointer UI, not world scenery. Parenting the whole block to the camera's final
+// sibling makes the foreground guarantee structural: no depth-sorted barrel, unit or target silhouette can
+// cover the numbers or either icon.
+const DAMAGE_PREDICTION_OVERLAY_Z_INDEX = 100;
+
+export const damagePredictionVerticalScaleCompensation = (cameraScale: HoCMath.XY): number => {
+    const zoomX = Math.abs(cameraScale.x) || 1;
+    const zoomY = Math.abs(cameraScale.y) || zoomX;
+    return zoomX / zoomY;
+};
+
+export const damagePredictionLayout = (
+    _isLargeTarget: boolean,
+    hasKills: boolean,
+    verticalScaleCompensation = 1,
+): { scale: number; verticalScale: number; centerOffsetY: number } => {
+    const scale = DAMAGE_PREDICTION_SCALE;
+    const verticalScale = scale * verticalScaleCompensation;
+    const rowHeight = (DAMAGE_PREDICTION_FONT_SIZE + DAMAGE_PREDICTION_STROKE_WIDTH) * verticalScale;
+    const blockHeight = rowHeight + (hasKills ? DAMAGE_PREDICTION_ROW_SPACING * verticalScale : 0);
+    return {
+        scale,
+        verticalScale,
+        // Battlefield coordinates are Y-up, therefore a positive offset places the label above the flag.
+        centerOffsetY: blockHeight / 2 + DAMAGE_PREDICTION_GROUND_GAP,
+    };
+};
+
+export interface DamagePredictionAnchorState {
+    targetKey: string;
+    position: HoCMath.XY;
+}
+
+/** Keep a prediction motionless while the pointer remains on the same target. */
+export const pinnedDamagePredictionAnchor = (
+    current: DamagePredictionAnchorState | undefined,
+    targetKey: string,
+    position: HoCMath.XY,
+): DamagePredictionAnchorState =>
+    current?.targetKey === targetKey ? current : { targetKey, position: { x: position.x, y: position.y } };
+
+const THIEF_PREVIEW_VISIBLE_HEIGHT_RATIO = 186 / 192;
+
+const usesTallThiefPreview = (props: UnitProperties): boolean =>
+    props.size === 1 && (props.name === "Thief" || props.name === "Scavenger");
+
+/**
+ * Footprint sides read straight off raw properties. Unit.getFootprintWidth() is not available here: the
+ * hover surfaces preview bench selections, relayed opponent intents and snapshot payloads, any of which
+ * can be a plain UnitProperties bag that predates footprints and carries only `size`.
+ */
+export const footprintWidthOf = (props: UnitProperties): number =>
+    GridMath.normalizeFootprintSide(props.footprint_width, GridMath.normalizeFootprintSide(props.size));
+
+export const footprintHeightOf = (props: UnitProperties): number =>
+    GridMath.normalizeFootprintSide(props.footprint_height, GridMath.normalizeFootprintSide(props.size));
+
+/** Whether these properties describe a body that covers more than its anchor cell. */
+const occupiesManyCells = (props: UnitProperties): boolean =>
+    footprintWidthOf(props) > 1 || footprintHeightOf(props) > 1;
+
+const unitPreviewScale = (props: UnitProperties, texture: Texture, cellSize: number): number => {
+    if (usesTallThiefPreview(props)) {
+        return (cellSize * 1.5) / (Math.max(1, texture.height) * THIEF_PREVIEW_VISIBLE_HEIGHT_RATIO);
+    }
+    // 128 authored pixels is one cell of board art, so a ghost spans as many of them as its footprint is
+    // WIDE — 128 for a 1x1 and 256 for a 2x2, the two numbers this used to hard-code off `size`. Height
+    // deliberately follows the texture's own aspect: the art tiers are square (_128 / _256) and none of
+    // them is rectangular yet, so a wide creature's vertical framing stays RenderableUnit's authored
+    // profile rather than a stretch applied here.
+    return (128 * footprintWidthOf(props)) / Math.max(1, texture.width);
+};
+
+const unitPreviewY = (props: UnitProperties, centerY: number, cellSize: number): number =>
+    usesTallThiefPreview(props) ? centerY + cellSize * 0.5 : centerY;
+
+/** Cells occupied by a unit whose battlefield anchor is the top-right cell of its footprint. */
+export const combatFootprintCellsForBase = (base: HoCMath.XY, width: number, height = width): HoCMath.XY[] => {
+    const cells: HoCMath.XY[] = [];
+    for (let dy = 0; dy < height; dy++) {
+        for (let dx = 0; dx < width; dx++) cells.push({ x: base.x - dx, y: base.y - dy });
+    }
+    return cells;
+};
+
 export const snapMeleeSwordAngle = (angle: number): number =>
     Math.round(angle / MELEE_SWORD_ANGLE_STEP) * MELEE_SWORD_ANGLE_STEP;
 
-export const meleeSwordDisplayLength = (segmentLength: number, snappedAngle: number): number => {
-    const facing = Math.round(snappedAngle / MELEE_SWORD_ANGLE_STEP);
-    const isDiagonal = Math.abs(facing) % 2 === 1;
-    return isDiagonal ? segmentLength / Math.SQRT2 : segmentLength;
-};
+/** Compact original cursor: half a cell, regardless of side, projection, or attacker offset. */
+export const meleeSwordDisplayLength = (cellSize: number): number => cellSize * 0.5;
+
+/** Resolve the eight-way facing from logical cells, never from an authored sprite's shifted foot anchor. */
+export const meleeSwordFacingAngle = (landingCenter: HoCMath.XY, targetCenter: HoCMath.XY): number =>
+    snapMeleeSwordAngle(Math.atan2(targetCenter.y - landingCenter.y, targetCenter.x - landingCenter.x));
+
+/** Keep the blade tip on the target anchor while the sword body stays outside the target footprint. */
+export const meleeSwordSpriteCenter = (
+    targetAnchor: HoCMath.XY,
+    snappedAngle: number,
+    displayLength: number,
+): HoCMath.XY => ({
+    x: targetAnchor.x - Math.cos(snappedAngle) * (displayLength / 2),
+    y: targetAnchor.y - Math.sin(snappedAngle) * (displayLength / 2),
+});
 
 /**
- * Intersection of the landing-cell -> target-centre ray with the target's square footprint.
+ * Intersection of the landing-cell -> target-centre ray with the target's footprint rectangle.
  * Cardinal landings meet the middle of an edge; diagonal landings meet the corresponding corner.
+ *
+ * The two half-extents are separate because a rectangular body reaches further on its long axis; they
+ * are equal for every square shape, which is why the callers used to pass a single number.
  */
 export const meleeSwordTargetPoint = (
     landingCenter: HoCMath.XY,
     targetCenter: HoCMath.XY,
-    targetHalfExtent: number,
+    targetHalfExtentX: number,
+    targetHalfExtentY: number = targetHalfExtentX,
 ): HoCMath.XY => {
     const dx = landingCenter.x - targetCenter.x;
     const dy = landingCenter.y - targetCenter.y;
     const maxAxis = Math.max(Math.abs(dx), Math.abs(dy));
     if (maxAxis === 0) return { ...targetCenter };
     return {
-        x: targetCenter.x + (dx / maxAxis) * targetHalfExtent,
-        y: targetCenter.y + (dy / maxAxis) * targetHalfExtent,
+        x: targetCenter.x + (dx / maxAxis) * targetHalfExtentX,
+        y: targetCenter.y + (dy / maxAxis) * targetHalfExtentY,
     };
 };
 
@@ -68,15 +433,19 @@ export interface ISandboxHoverContext {
     // Callbacks
     texAny(name: string): Texture | undefined;
     attachToWorldRoot(obj: Sprite | Graphics | Text, zIndex: number): void;
+    attachToCursorOverlay(obj: Sprite | Text, zIndex?: number): void;
     getPlacement(teamType: TeamType, placementIndex: number): IPlacement | undefined;
     // Wait, IPlacement IS imported in Sandbox.ts from common.
 
     // State access
     getMouseWorld(): HoCMath.XY;
+    getCameraScale(): HoCMath.XY;
     getCurrentActiveUnit(): Unit | undefined;
     getCurrentActivePathHashes(): Set<number> | undefined;
+    getCurrentActiveKnownPaths(): Map<number, IWeightedRoute[]> | undefined;
     getDraggingUnitId(): string | undefined;
     getDraggingUnitTeam(): TeamType | undefined;
+    getPlacementPreviewUnit(): Unit | undefined;
     getSelectedUnitProperties(): UnitProperties | undefined;
     hasActiveSelection(): boolean;
 }
@@ -88,6 +457,7 @@ export class HoverManager {
     public hoverPlacementCellTeam?: TeamType = undefined;
     public hoverSelectedCells?: HoCMath.XY[];
     public hoverSelectedCellsSwitchToRed = false;
+    public hoverBattlefieldFootprintCells?: HoCMath.XY[];
     // AI Support
     public hoverAttackUnits?: Unit[][];
     public hoverAttackFromCell?: HoCMath.XY = undefined;
@@ -98,6 +468,7 @@ export class HoverManager {
     private hoverSilhouette?: Sprite;
     private hoverSilhouetteOutline?: Sprite;
     private hoverSilhouetteKey?: string;
+    private phantomGrayscaleFilter?: ColorMatrixFilter;
     // Dedicated sprites for the opponent's relayed move aim. Kept separate from the local
     // hover silhouette so the two never clobber each other's visibility/position.
     private opponentIntentSilhouette?: Sprite;
@@ -119,6 +490,8 @@ export class HoverManager {
     private auraGraphics: Graphics;
     private aoeGraphics: Graphics;
     private hoverAttackSwordTexture?: Texture;
+    private hoverRangeTargetEdgeTexture?: Texture;
+    private hoverShotHammeredBronzeCasingTexture?: Texture;
     public constructor(context: ISandboxHoverContext) {
         this.context = context;
         this.auraGraphics = new Graphics();
@@ -126,11 +499,37 @@ export class HoverManager {
         // Pixi v8's Texture.from(string) only resolves textures already present in its cache. The cursor
         // artwork comes from the Google Drive-backed generated image set; load it explicitly so the melee
         // geometry never starts with Texture.EMPTY.
-        void Assets.load<Texture>(images.cursor_melee).then((texture) => {
+        //
+        // Both loads are best-effort. They are cursor decoration — the sword and the terminal target arrow
+        // — and every geometry decision in this class works without them. Pixi's asset
+        // pipeline reaches for `document` while resolving a URL, so it throws outright wherever there is no
+        // DOM, and an unguarded load took the whole HoverManager down with it rather than costing a cursor
+        // ornament.
+        this.loadCursorTexture(images.cursor_melee, (texture) => {
             // Keep the tiny pixel-art sword crisp when it is enlarged to span a grid-cell segment.
-            texture.source.scaleMode = "nearest";
             this.hoverAttackSwordTexture = texture;
         });
+        this.loadCursorTexture(images.range_target_arrow_v7_gold_wide_crisp, (texture) => {
+            // The high-resolution source carries its final gold/bronze palette; never recolor it at runtime.
+            texture.source.scaleMode = "linear";
+            this.hoverRangeTargetEdgeTexture = texture;
+        });
+        this.loadCursorTexture(images.shot_trajectory_hammered_bronze_casing_sprite_v4, (texture) => {
+            this.hoverShotHammeredBronzeCasingTexture = texture;
+        });
+    }
+    /** Best-effort cursor art: never let a decoration failure break hover construction. */
+    private loadCursorTexture(asset: string, apply: (texture: Texture) => void): void {
+        try {
+            void Assets.load<Texture>(asset)
+                .then((texture) => {
+                    texture.source.scaleMode = "nearest";
+                    apply(texture);
+                })
+                .catch(() => undefined);
+        } catch {
+            // No asset pipeline here (headless, or a environment without a DOM). Geometry is unaffected.
+        }
     }
     private isGraphicsUsable(graphics?: Graphics): graphics is Graphics {
         const state = graphics as (Graphics & { destroyed?: boolean; context?: unknown }) | undefined;
@@ -157,6 +556,75 @@ export class HoverManager {
         } catch {
             return false;
         }
+    }
+    private getLiveUnitPreview(
+        props: UnitProperties,
+        logicalPosition: HoCMath.XY,
+        preferredUnit?: Unit,
+    ): BattlefieldUnitPreview | undefined {
+        const active = (preferredUnit ?? this.context.getCurrentActiveUnit()) as
+            | (Unit & {
+                  getBattlefieldPreviewAt?: (
+                      position: HoCMath.XY,
+                      gridSettings: ReturnType<SceneSettings["getGridSettings"]>,
+                  ) => BattlefieldUnitPreview | undefined;
+              })
+            | undefined;
+        if (!active?.getBattlefieldPreviewAt) return undefined;
+        const activeProps = active.getUnitProperties();
+        // The live frame may only be cloned onto a preview that stands on the same rectangle. Comparing
+        // `size` collapsed 2x1 and 2x2 onto the same number, so a stack of one shape could borrow the
+        // other's transform.
+        if (
+            activeProps.name !== props.name ||
+            footprintWidthOf(activeProps) !== footprintWidthOf(props) ||
+            footprintHeightOf(activeProps) !== footprintHeightOf(props)
+        ) {
+            return undefined;
+        }
+        return active.getBattlefieldPreviewAt(logicalPosition, this.context.sceneSettings.getGridSettings());
+    }
+    private applyLiveUnitPreview(
+        sprite: Sprite,
+        outline: Sprite,
+        preview: BattlefieldUnitPreview,
+        outlineGrowth = 1.06,
+    ): void {
+        sprite.texture = preview.texture;
+        outline.texture = preview.texture;
+        sprite.anchor.set(preview.anchorX, preview.anchorY);
+        outline.anchor.set(preview.anchorX, preview.anchorY);
+        sprite.scale.set(preview.scaleX, preview.scaleY);
+        outline.scale.set(preview.scaleX * outlineGrowth, preview.scaleY * outlineGrowth);
+        sprite.position.set(preview.x, preview.y);
+        outline.position.set(preview.x, preview.y);
+        sprite.rotation = preview.rotation;
+        outline.rotation = preview.rotation;
+    }
+    /** Render a preview as the untouched source cutout with grayscale as its only visual change. */
+    private applyPhantomAppearance(sprite: Sprite, legacyBacking: Sprite): void {
+        if (!this.phantomGrayscaleFilter) {
+            this.phantomGrayscaleFilter = new ColorMatrixFilter();
+            this.phantomGrayscaleFilter.desaturate();
+        }
+        sprite.filters = [this.phantomGrayscaleFilter];
+        sprite.tint = 0xffffff;
+        sprite.alpha = 1;
+        sprite.visible = true;
+
+        // Older previews used a second enlarged white sprite as an outline/backing. Besides changing the
+        // creature's contour, that layer exposed rectangular matte pixels in otherwise transparent art.
+        legacyBacking.visible = false;
+        legacyBacking.filters = null;
+    }
+    /** Placement carries the real creature onto the board: full colour, full opacity, no phantom layers. */
+    private applyPlacementAppearance(sprite: Sprite, legacyBacking: Sprite): void {
+        sprite.filters = null;
+        sprite.tint = 0xffffff;
+        sprite.alpha = 1;
+        sprite.visible = true;
+        legacyBacking.visible = false;
+        legacyBacking.filters = null;
     }
     private ensureAuraGraphics(): Graphics | undefined {
         if (this.isGraphicsUsable(this.auraGraphics)) {
@@ -222,7 +690,7 @@ export class HoverManager {
         }
         if (!Number.isFinite(minX)) return;
         aoeGraphics
-            .rect(minX + 1, minY + 1, maxX - minX - 2, maxY - minY - 2)
+            .poly(projectedRectPoints(minX + 1, minY + 1, maxX - 1, maxY - 1, gs))
             .fill({ color: 0xff3333, alpha: 0.18 })
             .stroke({ width: 2, color: 0xff6666, alpha: 0.85 });
     }
@@ -231,6 +699,7 @@ export class HoverManager {
         this.hoverAttackFromCell = undefined;
         this.hoverPlacementCell = undefined;
         this.hoverSelectedCells = undefined;
+        this.hoverBattlefieldFootprintCells = undefined;
         this.hoverSpellCell = undefined;
         this.hoverAbilityCell = undefined;
         this.hoverAttackTargetUnit = undefined;
@@ -242,7 +711,8 @@ export class HoverManager {
         center: HoCMath.XY,
         radius: number,
         isBuff: boolean,
-        isSmallUnit: boolean,
+        footprintWidth: number,
+        footprintHeight = footprintWidth,
         alphaMultiplier = 1.0,
     ): void {
         // Aesthetic Configuration
@@ -253,13 +723,18 @@ export class HoverManager {
         const strokeWidth = 2;
 
         const gs = this.context.sceneSettings.getGridSettings();
-        const halfSize = isSmallUnit ? gs.getHalfStep() : gs.getStep();
-        const extent = radius + halfSize; // Total distance from center to edge of aura square
+        // The aura reaches `radius` out from the BODY, so each axis is widened by that axis' own half
+        // footprint: half a cell for a side of 1, a whole cell for a side of 2 — the previous
+        // isSmallUnit branch, once per axis instead of once for both.
+        const extentX = radius + GridMath.normalizeFootprintSide(footprintWidth) * gs.getHalfStep();
+        const extentY = radius + GridMath.normalizeFootprintSide(footprintHeight) * gs.getHalfStep();
 
         const auraGraphics = this.ensureAuraGraphics();
         if (!auraGraphics) return;
         auraGraphics
-            .rect(center.x - extent, center.y - extent, extent * 2, extent * 2)
+            .poly(
+                projectedRectPoints(center.x - extentX, center.y - extentY, center.x + extentX, center.y + extentY, gs),
+            )
             .fill({ color: fillColor, alpha: fillAlpha })
             .stroke({ width: strokeWidth, color: color, alpha: strokeAlpha });
     }
@@ -270,7 +745,17 @@ export class HoverManager {
 
         const auraGraphics = this.ensureAuraGraphics();
         if (!auraGraphics) return;
-        auraGraphics.circle(center.x, center.y, radius).stroke({ width: width, color: color, alpha: alpha });
+        const points: HoCMath.XY[] = [];
+        const segments = 96;
+        for (let i = 0; i <= segments; i++) {
+            const angle = (i / segments) * Math.PI * 2;
+            points.push({ x: center.x + Math.cos(angle) * radius, y: center.y + Math.sin(angle) * radius });
+        }
+        auraGraphics.poly(projectedPolyline(points, this.context.sceneSettings.getGridSettings())).stroke({
+            width,
+            color,
+            alpha,
+        });
     }
     public update(dt: number): void {
         this.hoverGlowPhase += dt * (5 / 3);
@@ -309,38 +794,37 @@ export class HoverManager {
             this.updateBoardHoverSilhouette(this.boardHoverProps, this.boardHoverCenter);
         }
     }
+    private drawFootprintCells(gfx: Graphics, cells: HoCMath.XY[], invalid: boolean): void {
+        const gs = this.context.sceneSettings.getGridSettings();
+        const size = gs.getCellSize();
+        const inset = Math.max(2, size * 0.055);
+        const pulse = (Math.sin(this.hoverGlowPhase * 1.2) + 1) / 2;
+        const strokeColor = invalid ? 0xff5555 : 0xffe2a0;
+        const fillColor = invalid ? 0xff3333 : 0xffc85a;
+        const fillAlpha = invalid ? 0.25 : 0.16 + pulse * 0.06;
+        const strokeAlpha = invalid ? 1 : 0.82 + pulse * 0.18;
+
+        // Multi-cell creatures need one readable footprint, not a separate framed tile under every body
+        // section. Picking only the four outer corners removes the internal 2x1 / 2x2 seams while retaining
+        // the same visual inset as the established 1x1 support-cell treatment.
+        const polygon =
+            cells.length === 1 ? tunedCellFillPolygon(cells[0], gs, inset / size) : placementZonePolygon(cells, gs);
+        gfx.poly(polygon)
+            .fill({ color: fillColor, alpha: fillAlpha })
+            .stroke({ width: Math.max(2, size * 0.035), color: strokeColor, alpha: strokeAlpha });
+    }
     public drawHoverPlacementCell(gfx: Graphics): void {
         const cells = this.hoverSelectedCells;
         if (!cells || cells.length === 0) return;
-        // The placement silhouette already previews a valid drop, so we only draw a square to flag an
-        // INVALID position (red). No white square for valid cells — it's redundant clutter.
-        if (!this.hoverSelectedCellsSwitchToRed) return;
-        const gs = this.context.sceneSettings.getGridSettings();
-        const size = gs.getCellSize();
-        const half = size / 2;
-        const strokeColor = 0xff5555;
-        const fillColor = 0xff3333;
-        const fillAlpha = 0.25;
-        let minX = Number.POSITIVE_INFINITY;
-        let maxX = Number.NEGATIVE_INFINITY;
-        let minY = Number.POSITIVE_INFINITY;
-        let maxY = Number.NEGATIVE_INFINITY;
-        for (const c of cells) {
-            const pos = GridMath.getPositionForCell(c, gs.getMinX(), gs.getStep(), gs.getHalfStep());
-            const left = pos.x - half;
-            const right = pos.x + half;
-            const bottom = pos.y - half;
-            const top = pos.y + half;
-            if (left < minX) minX = left;
-            if (right > maxX) maxX = right;
-            if (bottom < minY) minY = bottom;
-            if (top > maxY) maxY = top;
-        }
-        const w = maxX - minX - 2;
-        const h = maxY - minY - 2;
-        gfx.rect(minX + 1, minY + 1, w, h)
-            .stroke({ width: 2, color: strokeColor, alpha: 1 })
-            .fill({ color: fillColor, alpha: fillAlpha });
+        // The phantom shows the artwork, while these cells show the exact board footprint that will be
+        // occupied after the click. Keep them visible for valid placement too — especially for 2x1 and 2x2
+        // creatures whose support cells cannot be inferred reliably from the tall rendered silhouette.
+        this.drawFootprintCells(gfx, cells, this.hoverSelectedCellsSwitchToRed);
+    }
+    public drawHoverBattlefieldFootprint(gfx: Graphics): void {
+        const cells = this.hoverBattlefieldFootprintCells;
+        if (!cells || cells.length === 0) return;
+        this.drawFootprintCells(gfx, cells, false);
     }
     public isCellReachableForActiveUnit(cell: HoCMath.XY): boolean {
         const currentActiveUnit = this.context.getCurrentActiveUnit();
@@ -349,78 +833,58 @@ export class HoverManager {
         if (!currentActiveUnit) return false;
         if (!currentActivePathHashes || !currentActivePathHashes.size) return false;
 
+        if (!GridMath.isCellWithinGrid(this.context.sceneSettings.getGridSettings(), cell)) return false;
+
         const props = currentActiveUnit.getUnitProperties();
         const hash = (x: number, y: number) => (x << 4) | y;
 
-        // Size-1 units: simple membership check
-        if (props.size === 1) {
+        // A one-cell body is reachable exactly when its own cell is in the path set; anything larger has to
+        // find a whole footprint that fits, which is what the candidate finder answers.
+        if (!occupiesManyCells(props)) {
             return currentActivePathHashes.has(hash(cell.x, cell.y));
         }
 
-        // Size-2 units: cell is reachable only if there is a valid 2×2 footprint
-        // fully contained in `currentActivePathHashes`.
         return this.findLargeUnitMoveCandidate(cell) !== null;
     }
     // Copied from Sandbox (assumed private there)
     public findLargeUnitMoveCandidate(cell: HoCMath.XY): HoCMath.XY[] | null {
         const currentActiveUnit = this.context.getCurrentActiveUnit();
         const currentActivePathHashes = this.context.getCurrentActivePathHashes();
+        const currentActiveKnownPaths = this.context.getCurrentActiveKnownPaths();
         if (!currentActiveUnit || !currentActivePathHashes) return null;
 
         const hash = (x: number, y: number) => (x << 4) | y;
-        const size = GridConstants.GRID_SIZE;
-        const inBounds = (c: HoCMath.XY) => c.x >= 0 && c.y >= 0 && c.x < size && c.y < size;
+        const gs = this.context.sceneSettings.getGridSettings();
 
-        // If you want explicit bounds safety, uncomment this and use `inBounds` below
-        // const gs = this.context.sceneSettings.getGridSettings();
-        // const minX = 0;
-        // const minY = 0;
-        // const maxX = GridConstants.GRID_SIZE - 1;
-        // const maxY = GridConstants.GRID_SIZE - 1;
-        // const inBounds = (c: HoCMath.XY) =>
-        //     c.x >= minX && c.x <= maxX && c.y >= minY && c.y <= maxY;
+        const props = currentActiveUnit.getUnitProperties();
+        const width = footprintWidthOf(props);
+        const height = footprintHeightOf(props);
 
-        // 4 possible 2×2 footprints where `cell` is one of the tiles
-        const footprints: HoCMath.XY[][] = [
-            // anchor at (x, y)
-            [
-                { x: cell.x, y: cell.y },
-                { x: cell.x + 1, y: cell.y },
-                { x: cell.x, y: cell.y + 1 },
-                { x: cell.x + 1, y: cell.y + 1 },
-            ],
-            // anchor at (x-1, y)
-            [
-                { x: cell.x - 1, y: cell.y },
-                { x: cell.x, y: cell.y },
-                { x: cell.x - 1, y: cell.y + 1 },
-                { x: cell.x, y: cell.y + 1 },
-            ],
-            // anchor at (x, y-1)
-            [
-                { x: cell.x, y: cell.y - 1 },
-                { x: cell.x + 1, y: cell.y - 1 },
-                { x: cell.x, y: cell.y },
-                { x: cell.x + 1, y: cell.y },
-            ],
-            // anchor at (x-1, y-1)
-            [
-                { x: cell.x - 1, y: cell.y - 1 },
-                { x: cell.x, y: cell.y - 1 },
-                { x: cell.x - 1, y: cell.y },
-                { x: cell.x, y: cell.y },
-            ],
-        ];
+        // Every footprint that COVERS the hovered cell is a candidate landing: the cursor may sit on any
+        // of the body's W*H cells. The candidate order decides which landing wins when several are legal,
+        // so it is kept exactly as it was — cursor cell as the block's minimum corner first, then the
+        // block sliding down and left over it — which is also the order the placement ghost enumerates.
+        for (let cursorDx = 0; cursorDx < width; cursorDx++) {
+            for (let cursorDy = 0; cursorDy < height; cursorDy++) {
+                const anchor = { x: cell.x - cursorDx + width - 1, y: cell.y - cursorDy + height - 1 };
+                // Reject the whole block before any of its cells is hashed: an off-board cell packs into
+                // (x << 4) | y as a key that collides with a real one ((-1 << 4) | y === -1 for every y).
+                if (!GridMath.isFootprintWithinGrid(gs, anchor, width, height)) continue;
 
-        for (const footprint of footprints) {
-            // If you want explicit grid-bounds checking:
-            // if (!footprint.every(inBounds)) continue;
+                // Ascending from the minimum corner, so the LAST cell is the anchor. Callers hand this
+                // list straight to executeMoveSequence as the move path, which keys the route metadata off
+                // its final cell — and only the anchor is a key in knownPaths.
+                const footprint: HoCMath.XY[] = [];
+                for (let dx = 0; dx < width; dx++) {
+                    for (let dy = 0; dy < height; dy++) {
+                        footprint.push({ x: anchor.x - width + 1 + dx, y: anchor.y - height + 1 + dy });
+                    }
+                }
+                if (!footprint.every((c) => currentActivePathHashes.has(hash(c.x, c.y)))) continue;
+                if (!currentActiveKnownPaths?.has(hash(anchor.x, anchor.y))) continue;
 
-            // ✅ Only accept this footprint if *all* 4 cells are in the path hash set
-            const allInPath = footprint.every((c) => inBounds(c) && currentActivePathHashes.has(hash(c.x, c.y)));
-            if (!allInPath) continue;
-
-            return footprint;
+                return footprint;
+            }
         }
 
         return null;
@@ -520,19 +984,18 @@ export class HoverManager {
         this.hoveredUnitId = unit.getId();
     }
     public getHighlightRectForUnit(unit: Unit): { x: number; y: number; w: number; h: number } | undefined {
-        // Use the exact world position of the unit (center of mass/sprite)
+        // Use the exact world position of the unit, which is the CENTRE of its whole footprint.
         const pos = unit.getPosition();
         const gs = this.context.sceneSettings.getGridSettings();
-        const size = unit.getSize();
         const cellSize = gs.getCellSize();
 
-        // Calculate dimensions based on unit size
-        // Size 1 = 32x32, Size 2 = 64x64
-        const w = cellSize * size;
-        const h = cellSize * size;
+        // The rect is the body's own cells: one cell per footprint side. `size` gave the same answer for
+        // 1x1 and 2x2 and a square for everything else, which both over-covered the short axis (hovering
+        // empty board lit the unit) and under-covered the long one (half the body was not hoverable).
+        const w = cellSize * unit.getFootprintWidth();
+        const h = cellSize * unit.getFootprintHeight();
 
-        // Calculate Top-Left corner relative to the center position
-        // pos.x is center, so x = pos.x - width/2
+        // Top-left corner relative to that centre.
         const x = pos.x - w / 2;
         const y = pos.y - h / 2;
 
@@ -557,6 +1020,8 @@ export class HoverManager {
         this.clearAOEArea();
     }
     public hoverAttackArrow?: Graphics;
+    private hoverRangeTargetEdgeSprites: Sprite[] = [];
+    private hoverShotCasingSprites: Sprite[] = [];
     private animatedRangeArrow?: {
         from: HoCMath.XY;
         to: HoCMath.XY;
@@ -591,6 +1056,7 @@ export class HoverManager {
         }
         this.animatedRangeArrow = undefined;
         if (this.hoverAttackSword) this.hoverAttackSword.visible = false;
+        this.hoverBattlefieldFootprintCells = undefined;
         this.hoverAttackFromCell = undefined;
         this.hoverAttackTargetUnit = undefined;
     }
@@ -611,22 +1077,39 @@ export class HoverManager {
             this.hoverAttackArrow.visible = false;
         }
         if (this.hoverAttackSword) this.hoverAttackSword.visible = false;
+        this.hoverBattlefieldFootprintCells = undefined;
     }
     private hoverDamageText?: Text;
     private hoverKillText?: Text;
     private hoverDamageIcon?: Sprite;
+    private hoverRangeModifierIcon?: Sprite;
+    private hoverDamageAnchor?: DamagePredictionAnchorState;
+    private attachDamagePredictionObject(obj: Sprite | Text): void {
+        this.context.attachToCursorOverlay(obj, DAMAGE_PREDICTION_OVERLAY_Z_INDEX);
+    }
     public drawDamagePrediction(
         damageStr: string,
         killStr: string | undefined, // undefined if 0 kills
         position: HoCMath.XY,
         isLargeTarget: boolean,
-        iconPath?: string,
+        killIconPath?: string,
+        rangeModifierIconPath?: string,
+        targetKey?: string,
     ): void {
-        const scale = isLargeTarget ? 2 : 1;
+        if (targetKey) {
+            this.hoverDamageAnchor = pinnedDamagePredictionAnchor(this.hoverDamageAnchor, targetKey, position);
+            position = this.hoverDamageAnchor.position;
+        }
         const hasKills = !!killStr;
-        const hasIcon = !!iconPath && hasKills; // Only show icon if there's a kill string? Or always if passed?
-        // User request: "possible units killed... on top of"
-        // Usually icon goes with kills.
+        const verticalScaleCompensation = damagePredictionVerticalScaleCompensation(this.context.getCameraScale());
+        const { scale, verticalScale, centerOffsetY } = damagePredictionLayout(
+            isLargeTarget,
+            hasKills,
+            verticalScaleCompensation,
+        );
+        const centerY = position.y + centerOffsetY;
+        const hasKillIcon = !!killIconPath && hasKills;
+        const hasRangeModifierIcon = !!rangeModifierIconPath;
 
         // 1. Setup Damage Text (Top Row)
         if (!this.hoverDamageText) {
@@ -634,21 +1117,56 @@ export class HoverManager {
                 text: damageStr,
                 style: {
                     fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
-                    fontSize: 24,
-                    fill: 0xffffff,
-                    stroke: { color: 0x000000, width: 4, join: "round" },
+                    fontSize: DAMAGE_PREDICTION_FONT_SIZE,
+                    fill: 0xff3333,
+                    stroke: { color: 0x000000, width: DAMAGE_PREDICTION_STROKE_WIDTH, join: "round" },
                     align: "center",
                     fontWeight: "bold",
                 },
             });
-            this.context.attachToWorldRoot(this.hoverDamageText, 2201);
         } else {
             this.hoverDamageText.text = damageStr;
         }
 
         // 3. Visibility & Scaling
-        this.hoverDamageText.visible = true;
-        this.hoverDamageText.scale.set(scale, -scale);
+        const damageText = this.hoverDamageText!;
+        // Reassert the foreground parent on every draw. This also repairs an existing object after HMR or
+        // a camera/container rebuild instead of trusting the parent it received when first constructed.
+        this.attachDamagePredictionObject(damageText);
+        damageText.visible = true;
+        // The battlefield camera deliberately has different X/Y zoom. Counter-scale Y so glyphs and
+        // square icons remain undistorted on screen while their world-space anchor still follows the unit.
+        damageText.scale.set(scale, -verticalScale);
+
+        const positionDamageRow = (rowY: number): void => {
+            if (hasRangeModifierIcon) {
+                const texture = this.context.texAny(rangeModifierIconPath!) || Texture.from(rangeModifierIconPath!);
+                if (!this.hoverRangeModifierIcon) {
+                    this.hoverRangeModifierIcon = new Sprite(texture);
+                } else {
+                    this.hoverRangeModifierIcon.texture = texture;
+                }
+                this.attachDamagePredictionObject(this.hoverRangeModifierIcon);
+
+                const iconWidth = DAMAGE_PREDICTION_FONT_SIZE * scale * DAMAGE_PREDICTION_RANGE_ICON_SCALE;
+                const iconHeight = DAMAGE_PREDICTION_FONT_SIZE * verticalScale * DAMAGE_PREDICTION_RANGE_ICON_SCALE;
+                const padding = 4 * scale;
+                const startX = position.x - (iconWidth + padding + damageText.width) / 2;
+                this.hoverRangeModifierIcon.visible = true;
+                this.hoverRangeModifierIcon.anchor.set(0, 0.5);
+                this.hoverRangeModifierIcon.width = iconWidth;
+                this.hoverRangeModifierIcon.height = iconHeight;
+                this.hoverRangeModifierIcon.scale.y = -Math.abs(this.hoverRangeModifierIcon.scale.y);
+                this.hoverRangeModifierIcon.position.set(startX, rowY);
+                damageText.anchor.set(0, 0.5);
+                damageText.position.set(startX + iconWidth + padding, rowY);
+                return;
+            }
+
+            if (this.hoverRangeModifierIcon) this.hoverRangeModifierIcon.visible = false;
+            damageText.anchor.set(0.5, 0.5);
+            damageText.position.set(position.x, rowY);
+        };
 
         if (hasKills) {
             if (this.hoverKillText) {
@@ -658,78 +1176,79 @@ export class HoverManager {
                     text: killStr || "0",
                     style: {
                         fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
-                        fontSize: 24,
-                        fill: 0xff3333,
-                        stroke: { color: 0x000000, width: 4, join: "round" },
+                        fontSize: DAMAGE_PREDICTION_FONT_SIZE,
+                        fill: 0xffffff,
+                        stroke: { color: 0x000000, width: DAMAGE_PREDICTION_STROKE_WIDTH, join: "round" },
                         align: "center",
                         fontWeight: "bold",
                     },
                 });
-                this.context.attachToWorldRoot(this.hoverKillText, 2201);
             }
+            this.attachDamagePredictionObject(this.hoverKillText);
             this.hoverKillText.visible = true;
-            this.hoverKillText.scale.set(scale, -scale);
+            this.hoverKillText.scale.set(scale, -verticalScale);
 
             // Icon Init
-            if (hasIcon) {
+            if (hasKillIcon) {
                 if (!this.hoverDamageIcon) {
-                    this.hoverDamageIcon = new Sprite(this.context.texAny(iconPath!) || Texture.from(iconPath!)); // Use context if possible or raw path
-                    // Actually logic was just Texture.from
-                    this.hoverDamageIcon = new Sprite(Texture.from(iconPath!));
+                    this.hoverDamageIcon = new Sprite(
+                        this.context.texAny(killIconPath!) || Texture.from(killIconPath!),
+                    );
                     this.hoverDamageIcon.anchor.set(0.5);
-                    this.context.attachToWorldRoot(this.hoverDamageIcon, 2201);
                 } else {
-                    this.hoverDamageIcon.texture = Texture.from(iconPath!);
+                    this.hoverDamageIcon.texture = this.context.texAny(killIconPath!) || Texture.from(killIconPath!);
                 }
+                this.attachDamagePredictionObject(this.hoverDamageIcon);
                 this.hoverDamageIcon.visible = true;
             } else if (this.hoverDamageIcon) {
                 this.hoverDamageIcon.visible = false;
             }
 
             // Layout: Stacked Centered
-            const spacing = 28 * scale;
+            const spacing = DAMAGE_PREDICTION_ROW_SPACING * verticalScale;
 
-            this.hoverDamageText.anchor.set(0.5, 0.5);
-            this.hoverDamageText.position.set(position.x, position.y + spacing / 2);
+            positionDamageRow(centerY + spacing / 2);
 
             // Icon placement
-            if (hasIcon && this.hoverDamageIcon) {
+            if (hasKillIcon && this.hoverDamageIcon) {
                 this.hoverDamageIcon.visible = true;
-                this.hoverDamageIcon.scale.set(scale, -scale);
-                const iconSize = 24 * scale;
-                this.hoverDamageIcon.width = iconSize;
-                this.hoverDamageIcon.height = iconSize;
+                const iconWidth = DAMAGE_PREDICTION_FONT_SIZE * scale * DAMAGE_PREDICTION_KILL_ICON_SCALE;
+                const iconHeight = DAMAGE_PREDICTION_FONT_SIZE * verticalScale * DAMAGE_PREDICTION_KILL_ICON_SCALE;
+                this.hoverDamageIcon.width = iconWidth;
+                this.hoverDamageIcon.height = iconHeight;
+                this.hoverDamageIcon.scale.y = -Math.abs(this.hoverDamageIcon.scale.y);
 
                 // Align icon to left of Kill Text
                 const padding = 5 * scale;
-                const totalW = iconSize + padding + this.hoverKillText.width;
+                const totalW = iconWidth + padding + this.hoverKillText.width;
                 const startX = position.x - totalW / 2;
 
                 this.hoverDamageIcon.anchor.set(0, 0.5);
-                this.hoverDamageIcon.position.set(startX, position.y - spacing / 2);
+                this.hoverDamageIcon.position.set(startX, centerY - spacing / 2);
 
                 this.hoverKillText.anchor.set(0, 0.5);
-                this.hoverKillText.position.set(startX + iconSize + padding, position.y - spacing / 2);
+                this.hoverKillText.position.set(startX + iconWidth + padding, centerY - spacing / 2);
             } else {
                 this.hoverKillText.anchor.set(0.5, 0.5);
-                this.hoverKillText.position.set(position.x, position.y - spacing / 2);
+                this.hoverKillText.position.set(position.x, centerY - spacing / 2);
             }
         } else {
-            // Text only (Centered) - Match ORIGINAL EXACTLY
+            // A damage-only prediction is one centered row below the creature.
             if (this.hoverDamageIcon) this.hoverDamageIcon.visible = false;
             if (this.hoverKillText) this.hoverKillText.visible = false;
 
-            this.hoverDamageText.anchor.set(0.5, 0.5);
-            this.hoverDamageText.position.set(position.x, position.y);
+            positionDamageRow(centerY);
         }
     }
-    public clearAttackVisuals(): void {
+    public clearAttackVisuals(preserveDamagePredictionAnchor = false): void {
         if (this.hoverAttackArrow) {
             this.hoverAttackArrow.clear();
         }
         this.animatedRangeArrow = undefined;
         if (this.hoverAttackSword) this.hoverAttackSword.visible = false;
         this.clearObstacleHighlight();
+        for (const sprite of this.hoverRangeTargetEdgeSprites) sprite.visible = false;
+        for (const sprite of this.hoverShotCasingSprites) sprite.visible = false;
 
         // 1. Restore stack visibility for ALL highlighted units
         for (const unit of this.highlightedUnits) {
@@ -766,13 +1285,71 @@ export class HoverManager {
         if (this.hoverDamageIcon) {
             this.hoverDamageIcon.visible = false;
         }
+        if (this.hoverRangeModifierIcon) {
+            this.hoverRangeModifierIcon.visible = false;
+        }
+        if (!preserveDamagePredictionAnchor) this.hoverDamageAnchor = undefined;
         this.clearSpellPreview();
         this.hoverAttackTargetUnit = undefined;
+    }
+    /** Paint the one optimal arrow as the terminal continuation of the casing trajectory. */
+    public drawRangeTargetEdge(edge: RangeTargetEdgeVisual, trajectoryFrom: HoCMath.XY): void {
+        const texture =
+            this.hoverRangeTargetEdgeTexture ?? this.context.texAny("range_target_arrow_v7_gold_wide_crisp");
+        for (const sprite of this.hoverRangeTargetEdgeSprites) sprite.visible = false;
+        if (!texture) return;
+
+        // Keep the approved head size and inward/outward contact point. The rear extension grows away from
+        // the creature, and the whole marker follows the exact casing rail instead of a cardinal direction.
+        const gridSettings = this.context.sceneSettings.getGridSettings();
+        const displayLength = rangeTargetEdgeMarkerDisplayLength(gridSettings.getCellSize());
+        const cameraScale = this.context.getCameraScale();
+        const zoomX = Math.abs(cameraScale.x) || 1;
+        const zoomY = Math.abs(cameraScale.y) || zoomX;
+        const worldAngle = Math.atan2(edge.markerCenter.y - trajectoryFrom.y, edge.markerCenter.x - trajectoryFrom.x);
+        const screenAngle = Math.atan2(-Math.sin(worldAngle) * zoomY, Math.cos(worldAngle) * zoomX);
+        const markerScreenScale = (displayLength * zoomX * RANGE_TARGET_EDGE_SELECTED_SCALE * edge.markerScale) / 512;
+
+        let marker = this.hoverRangeTargetEdgeSprites[0];
+        if (!marker || marker.destroyed) {
+            marker = new Sprite(texture);
+            // The head occupies exactly the old V6 coordinates. Moving the anchor right by the new rear
+            // extension pins that head in place while every added pixel grows away from the target creature.
+            marker.anchor.set(486 / 742, 0.5);
+            marker.eventMode = "none";
+            // Attaching sets zIndex on a sortable world container. Doing it on every pointer move
+            // dirtied Pixi's full child order and made ranged hover appear to freeze; attach once.
+            this.context.attachToWorldRoot(marker, 5601);
+            this.hoverRangeTargetEdgeSprites[0] = marker;
+        } else if (marker.texture !== texture) {
+            marker.texture = texture;
+        }
+        const transform = cameraCompensatedSpriteTransform(
+            edge.markerCenter,
+            screenAngle,
+            markerScreenScale,
+            cameraScale,
+        );
+        marker.setFromMatrix(
+            new Matrix(
+                transform.a * RANGE_TARGET_EDGE_LENGTH_SCALE,
+                transform.b * RANGE_TARGET_EDGE_LENGTH_SCALE,
+                transform.c,
+                transform.d,
+                transform.tx,
+                transform.ty,
+            ),
+        );
+        marker.visible = true;
+        marker.roundPixels = false;
+        marker.tint = 0xffffff;
+        marker.alpha = 1;
+        marker.filters = null;
     }
     private hoverTargetSilhouettes: Sprite[] = [];
     private silhouettePool: Sprite[] = [];
     private highlightedUnits: Unit[] = [];
-    public addTargetHighlight(targetUnit: Unit, tint: number = 0xaa0000): void {
+    public addTargetHighlight(targetUnit: Unit, tint: number = 0xff3030): void {
         this.hoverAttackTargetUnit = targetUnit; // Keep referring to last added (primary usually added first, but overwritten here is fine for now as long as we track all in highlightedUnits)
         this.highlightedUnits.push(targetUnit);
 
@@ -783,12 +1360,18 @@ export class HoverManager {
             rUnit.setStackVisibility(false);
         }
 
+        const targetProps = targetUnit.getUnitProperties();
+        const livePreview = this.getLiveUnitPreview(targetProps, targetUnit.getPosition(), targetUnit);
+        // Board art, never the _512 card portrait, and the REAL shape: passing `size` as both axes
+        // collapsed the rectangular texture tiers, so the ghost picked a different texture (and a
+        // different normalized scale) than the live sprite.
         const texName = unitToTextureName(
             targetUnit.getName(),
-            targetUnit.getSize() === 2 ? TextureType.LARGE : TextureType.SMALL,
-            targetUnit.getSize(),
+            TextureType.SMALL,
+            targetUnit.getFootprintWidth(),
+            targetUnit.getFootprintHeight(),
         );
-        const tex = this.context.texAny(texName);
+        const tex = livePreview?.texture ?? this.context.texAny(texName);
         if (!tex) return;
 
         let silhouette: Sprite;
@@ -800,24 +1383,33 @@ export class HoverManager {
             silhouette.anchor.set(0.5);
             this.context.attachToWorldRoot(silhouette, 2100); // Above units (Z=1000)
             silhouette.scale.y = -1;
-            // Static blur as requested (set once if creating)
-            silhouette.filters = [new BlurFilter({ strength: 4 })];
         }
+        // The old blurred legacy portrait produced an amorphous red spot. Use the current authored
+        // frame and exact live transform so the creature itself is what turns red.
+        silhouette.filters = [];
 
-        // Use new helper on RenderableUnit if available, else fallback
-        let centerPos = targetUnit.getPosition();
-        if (typeof rUnit.getVisualCenter === "function") {
-            centerPos = rUnit.getVisualCenter(this.context.sceneSettings.getGridSettings());
+        if (livePreview) {
+            silhouette.texture = livePreview.texture;
+            silhouette.anchor.set(livePreview.anchorX, livePreview.anchorY);
+            silhouette.scale.set(livePreview.scaleX, livePreview.scaleY);
+            silhouette.position.set(livePreview.x, livePreview.y);
+            silhouette.rotation = livePreview.rotation;
+        } else {
+            let centerPos = targetUnit.getPosition();
+            if (typeof rUnit.getVisualCenter === "function") {
+                centerPos = rUnit.getVisualCenter(this.context.sceneSettings.getGridSettings());
+            }
+            const baseWidth = tex.width || 1;
+            // Same authored-pixels-per-cell rule as the hover ghost (unitPreviewScale): the overlay is as
+            // wide as the body it covers, so it never overhangs a narrow creature.
+            const scale = (128 * targetUnit.getFootprintWidth()) / baseWidth;
+            silhouette.anchor.set(0.5);
+            silhouette.scale.set(scale, -scale);
+            silhouette.position.set(centerPos.x, centerPos.y);
+            silhouette.rotation = 0;
         }
-
-        const baseWidth = tex.width || 1;
-        const targetSize = targetUnit.getSize() === 2 ? 256 : 128; // Standard sizes
-        const scale = targetSize / baseWidth;
-
-        silhouette.scale.set(scale, -scale);
-        silhouette.position.set(centerPos.x, centerPos.y);
         silhouette.visible = true;
-        silhouette.alpha = 0.8;
+        silhouette.alpha = 0.72;
         // Caller-chosen tint: dark red for harmful targets, green for buff/heal spell targets.
         silhouette.tint = tint;
 
@@ -851,10 +1443,10 @@ export class HoverManager {
                 },
             });
             label.anchor.set(0.5, 0.5);
-            // Above the translucent 3x3 AOE fill (drawAOEArea attaches at z 4500) so the numbers sit on top of
-            // it rather than under its red wash — and above units/silhouettes/arrow like the single-target text.
-            this.context.attachToWorldRoot(label, 4600);
         }
+        // The same structural foreground guarantee as the single-target forecast: the label is a camera
+        // sibling after the full battlefield, not another participant in world depth sorting.
+        this.attachDamagePredictionObject(label);
         label.visible = true;
         // The world root is Y-inverted (see drawDamagePrediction / the silhouettes) — a negative Y scale
         // keeps the number upright instead of mirrored.
@@ -876,7 +1468,20 @@ export class HoverManager {
         smokeFrom?: HoCMath.XY,
         marker: "arrow" | "melee" = "arrow",
         rememberAnimation = true,
+        meleeFacingAngle?: number,
     ): void {
+        for (const sprite of this.hoverShotCasingSprites) sprite.visible = false;
+        // The feature flag remains explicit so dev builds can isolate target-edge marker behavior without
+        // deleting the authoritative trajectory implementation.
+        if (marker === "arrow" && !RANGED_ATTACK_TRAJECTORY_VISIBLE) {
+            this.animatedRangeArrow = undefined;
+            if (this.hoverAttackArrow) {
+                this.hoverAttackArrow.clear();
+                this.hoverAttackArrow.visible = false;
+            }
+            if (this.hoverAttackSword) this.hoverAttackSword.visible = false;
+            return;
+        }
         // If attacking from same position (Stand Ground), don't draw arrow
         const dist = Math.sqrt(Math.pow(to.x - from.x, 2) + Math.pow(to.y - from.y, 2));
         if (dist < 10) {
@@ -893,28 +1498,30 @@ export class HoverManager {
             if (!this.hoverAttackSword || this.hoverAttackSword.destroyed) {
                 this.hoverAttackSword = new Sprite(this.hoverAttackSwordTexture);
                 this.hoverAttackSword.anchor.set(0.5);
-                // The marker crosses the unit portrait by design. Keep it above units and their hover
-                // silhouettes; at the old arrow layer the compact sprite disappeared underneath them.
-                this.context.attachToWorldRoot(this.hoverAttackSword, 5600);
             }
             const sword = this.hoverAttackSword;
+            // Reassert the foreground parent on every draw. HMR and scene/container rebuilds can leave an
+            // already-created sword attached to an obsolete world layer; that made only some attack angles
+            // appear behind the target. The cursor overlay is a camera sibling rendered after the full world.
+            this.context.attachToCursorOverlay(sword);
             sword.visible = true;
             // Melee landings occupy the eight cells around a target. Snap to those eight 45-degree
             // facings so the marker never wobbles with tiny pointer movements inside the same cell.
-            // A diagonal cell is farther away by sqrt(2), but the icon must not grow with that distance:
-            // normalize it back to the cardinal length and keep its blade pinned to the target edge.
-            const snappedAngle = snapMeleeSwordAngle(angle);
-            const displayLength = meleeSwordDisplayLength(dist, snappedAngle);
+            // Projection and authored foot anchors make the measured segment differ by side. Resolve the
+            // eight-way melee facing from logical cells when supplied, while keeping the cursor compact.
+            const snappedAngle = snapMeleeSwordAngle(meleeFacingAngle ?? angle);
+            const displayLength = meleeSwordDisplayLength(this.context.sceneSettings.getGridSettings().getCellSize());
             const swordScale = displayLength / MELEE_SWORD_ART_LENGTH;
             sword.scale.set(swordScale, -swordScale);
             // Negative Y keeps the PNG upright inside the inverted world. Rotate from the artwork's
             // measured axis rather than assuming its non-square 20x24 canvas has a perfect 45° diagonal.
             sword.rotation = snappedAngle - MELEE_SWORD_NATIVE_WORLD_ANGLE;
             sword.roundPixels = true;
-            sword.position.set(
-                to.x - Math.cos(snappedAngle) * (displayLength / 2),
-                to.y - Math.sin(snappedAngle) * (displayLength / 2),
-            );
+            // `to` is one of the eight projected edge/corner anchors around the target. It marks the
+            // BLADE TIP from the user's sketch, not the sprite centre: keep the whole sword on the
+            // attacker's side instead of letting half of it cross the target figure.
+            const swordCenter = meleeSwordSpriteCenter(to, snappedAngle, displayLength);
+            sword.position.set(swordCenter.x, swordCenter.y);
             return;
         }
         if (rememberAnimation) {
@@ -947,8 +1554,8 @@ export class HoverManager {
 
         if (arrowLen <= 0) return;
 
-        // Animated broken trajectory: compact ivory strokes flow toward the target over a warm glow.
-        // The gaps leave the board readable even for a shot crossing most of the map.
+        // Four selectable straight-line treatments share the exact authoritative ray and arrow endpoint.
+        // Only the ornament changes, so no preview can imply a curved path around an obstacle.
         const dashLength = 18;
         const dashGap = 11;
         const dashCycle = dashLength + dashGap;
@@ -963,20 +1570,162 @@ export class HoverManager {
                     .stroke({ width, color, alpha, cap: "round" });
             }
         };
-        drawDashes(0, arrowLen, 16, 0xff4028, 0.28);
-        drawDashes(0, arrowLen, 7, 0xffa13d, 0.58);
-        drawDashes(0, arrowLen, 2.5, 0xfff4dc, 0.98);
-
-        // A bright travelling bead makes the direction unmistakably animated even on dark or busy tiles.
-        const flightPulse = (this.hoverGlowPhase * 92) % Math.max(arrowLen, 1);
-        const pulseX = from.x + Math.cos(angle) * flightPulse;
-        const pulseY = from.y + Math.sin(angle) * flightPulse;
-        g.circle(pulseX, pulseY, 11).fill({ color: 0xff542e, alpha: 0.2 });
-        g.circle(pulseX, pulseY, 5).fill({ color: 0xffbc58, alpha: 0.62 });
-        g.circle(pulseX, pulseY, 2).fill({ color: 0xffffee, alpha: 1 });
-
+        const nx = -Math.sin(angle);
+        const ny = Math.cos(angle);
         const endX = from.x + Math.cos(angle) * arrowLen;
         const endY = from.y + Math.sin(angle) * arrowLen;
+        const trajectoryStyle = getShotTrajectoryStyle();
+        switch (trajectoryStyle) {
+            case "solid-gold":
+                g.moveTo(from.x, from.y).lineTo(endX, endY).stroke({
+                    width: 13,
+                    color: 0xff5428,
+                    alpha: 0.2,
+                    cap: "round",
+                });
+                g.moveTo(from.x, from.y).lineTo(endX, endY).stroke({
+                    width: 4,
+                    color: 0xffd27a,
+                    alpha: 0.92,
+                    cap: "round",
+                });
+                break;
+            case "twin-tracer":
+                for (const offset of [-5, 5]) {
+                    g.moveTo(from.x + nx * offset, from.y + ny * offset)
+                        .lineTo(endX + nx * offset, endY + ny * offset)
+                        .stroke({ width: 3, color: 0xffb24d, alpha: 0.78, cap: "round" });
+                }
+                drawDashes(0, arrowLen, 1.5, 0xffffe9, 0.9);
+                break;
+            case "gold-casings": {
+                const ux = Math.cos(angle);
+                const uy = Math.sin(angle);
+                const casingLength = 22 * 1.25 * 1.15 * SHOT_CASING_SIZE_SCALE;
+                const casingSpacing = SHOT_CASING_SPACING;
+                const casingPhase = (this.hoverGlowPhase * 36) % casingSpacing;
+                const texture =
+                    this.hoverShotHammeredBronzeCasingTexture ??
+                    this.context.texAny("shot_trajectory_hammered_bronze_casing_sprite_v4");
+                if (!texture) break;
+                const cameraScale = this.context.getCameraScale();
+                const zoomX = Math.abs(cameraScale.x) || 1;
+                const zoomY = Math.abs(cameraScale.y) || zoomX;
+                const screenAngle = Math.atan2(-uy * zoomY, ux * zoomX);
+                const casingScreenScale = (casingLength * zoomX) / Math.max(1, texture.width);
+                let casingIndex = 0;
+                for (let d = casingPhase - casingSpacing; d < arrowLen + casingSpacing; d += casingSpacing) {
+                    if (d < casingLength * 0.5 || d > arrowLen - casingLength * 0.5) continue;
+                    let casing = this.hoverShotCasingSprites[casingIndex];
+                    if (!casing || casing.destroyed) {
+                        casing = new Sprite(texture);
+                        casing.anchor.set(0.5);
+                        casing.eventMode = "none";
+                        this.context.attachToWorldRoot(casing, 2201);
+                        this.hoverShotCasingSprites[casingIndex] = casing;
+                    } else if (casing.texture !== texture) {
+                        casing.texture = texture;
+                    }
+                    casing.visible = true;
+                    const position = { x: from.x + ux * d, y: from.y + uy * d };
+                    const transform = cameraCompensatedSpriteTransform(
+                        position,
+                        screenAngle,
+                        casingScreenScale,
+                        cameraScale,
+                    );
+                    casing.setFromMatrix(
+                        new Matrix(transform.a, transform.b, transform.c, transform.d, transform.tx, transform.ty),
+                    );
+                    casing.roundPixels = true;
+                    casing.tint = 0xffffff;
+                    casing.alpha = 1;
+                    casingIndex += 1;
+                }
+                break;
+            }
+            case "marching-chevrons":
+            case "double-chevron-pulses":
+            case "forged-double-chevrons":
+            case "ember-double-chevrons": {
+                const isDouble = trajectoryStyle !== "marching-chevrons";
+                const isForged = trajectoryStyle === "forged-double-chevrons";
+                const isEmber = trajectoryStyle === "ember-double-chevrons";
+                // Keep a persistent aiming rail beneath the moving ornaments. The forged treatment used
+                // to contain only widely spaced chevrons, so at some animation phases the whole trajectory
+                // appeared to vanish even though the target-edge arrows remained visible.
+                if (isForged) {
+                    drawDashes(0, arrowLen, 3.2, 0xe2ad58, 0.82);
+                    drawDashes(0, arrowLen, 1.15, 0xffffd8, 0.92);
+                } else {
+                    g.moveTo(from.x, from.y)
+                        .lineTo(endX, endY)
+                        .stroke({
+                            width: isEmber ? 7 : 2,
+                            color: isEmber ? 0xff4d22 : 0xffb45b,
+                            alpha: isEmber ? 0.25 : 0.4,
+                            cap: "round",
+                        });
+                }
+                const spacing = isForged ? 50 : isDouble ? 43 : 28;
+                const chevronPhase = (this.hoverGlowPhase * 50) % spacing;
+                const drawChevron = (d: number, scale = 1) => {
+                    const depth = 9 * scale;
+                    const halfWidth = 5 * scale;
+                    const tipX = from.x + Math.cos(angle) * (d + depth);
+                    const tipY = from.y + Math.sin(angle) * (d + depth);
+                    const backX = from.x + Math.cos(angle) * d;
+                    const backY = from.y + Math.sin(angle) * d;
+                    if (isEmber) {
+                        g.circle(tipX, tipY, 10 * scale).fill({ color: 0xff3219, alpha: 0.2 });
+                    }
+                    if (isForged || isEmber) {
+                        g.moveTo(backX + nx * halfWidth, backY + ny * halfWidth)
+                            .lineTo(tipX, tipY)
+                            .lineTo(backX - nx * halfWidth, backY - ny * halfWidth)
+                            .stroke({
+                                width: isForged ? 6.5 : 7,
+                                color: isForged ? 0x2a180f : 0x5b1d12,
+                                alpha: 0.9,
+                                cap: "round",
+                                join: "round",
+                            });
+                    }
+                    g.moveTo(backX + nx * halfWidth, backY + ny * halfWidth)
+                        .lineTo(tipX, tipY)
+                        .lineTo(backX - nx * halfWidth, backY - ny * halfWidth)
+                        .stroke({
+                            width: isEmber ? 3.5 : isForged ? 2.8 : 2.4,
+                            color: isEmber ? 0xffa53e : isForged ? 0xe2ad58 : 0xffffdf,
+                            alpha: 0.95,
+                            cap: "round",
+                            join: "round",
+                        });
+                };
+                for (let d = chevronPhase; d < arrowLen - 12; d += spacing) {
+                    drawChevron(d);
+                    if (isDouble && d + 16 < arrowLen - 12) drawChevron(d + 13, 0.86);
+                }
+                break;
+            }
+            case "ember-dashes":
+            default:
+                drawDashes(0, arrowLen, 16, 0xff4028, 0.28);
+                drawDashes(0, arrowLen, 7, 0xffa13d, 0.58);
+                drawDashes(0, arrowLen, 2.5, 0xfff4dc, 0.98);
+                break;
+        }
+
+        // The forged version stays 1:1 with its approved preview: only paired chevrons and their rivets.
+        // Other treatments retain the travelling bead that was part of their original animation.
+        if (trajectoryStyle !== "forged-double-chevrons" && trajectoryStyle !== "gold-casings") {
+            const flightPulse = (this.hoverGlowPhase * 92) % Math.max(arrowLen, 1);
+            const pulseX = from.x + Math.cos(angle) * flightPulse;
+            const pulseY = from.y + Math.sin(angle) * flightPulse;
+            g.circle(pulseX, pulseY, 11).fill({ color: 0xff542e, alpha: 0.2 });
+            g.circle(pulseX, pulseY, 5).fill({ color: 0xffbc58, alpha: 0.62 });
+            g.circle(pulseX, pulseY, 2).fill({ color: 0xffffee, alpha: 1 });
+        }
 
         // SMOKED SEGMENT: from where the ray enters smoke to the tip, overdrawn thick and red so the
         // halved stretch of the flight is unmistakable against the plain white core above. Clamped to the
@@ -1003,35 +1752,6 @@ export class HoverManager {
                 .lineTo(sx + nx * 11, sy + ny * 11)
                 .stroke({ width: 4, color: 0xff8a8a, alpha: 0.95 });
         }
-
-        // Filled triangular arrowhead. Its actual geometry breathes, so the pulse remains visible rather
-        // than being a tiny alpha change that disappears against a bright unit portrait.
-        const headPulse = (Math.sin(this.hoverGlowPhase * 6) + 1) / 2;
-        const headLen = 22 + headPulse * 7;
-        const headHalfWidth = 8 + headPulse * 4;
-        const nx = Math.cos(angle + Math.PI / 2);
-        const ny = Math.sin(angle + Math.PI / 2);
-        const baseX = endX - Math.cos(angle) * headLen;
-        const baseY = endY - Math.sin(angle) * headLen;
-        const glowWidth = headHalfWidth + 6;
-        g.poly([
-            endX + Math.cos(angle) * 3,
-            endY + Math.sin(angle) * 3,
-            baseX + nx * glowWidth,
-            baseY + ny * glowWidth,
-            baseX - nx * glowWidth,
-            baseY - ny * glowWidth,
-        ]).fill({ color: 0xff3b24, alpha: 0.22 + headPulse * 0.12 });
-        g.poly([
-            endX,
-            endY,
-            baseX + nx * headHalfWidth,
-            baseY + ny * headHalfWidth,
-            baseX - nx * headHalfWidth,
-            baseY - ny * headHalfWidth,
-        ])
-            .fill({ color: 0xffd28a, alpha: 0.96 })
-            .stroke({ width: 2, color: 0xffffed, alpha: 1, join: "round" });
 
         // Optional faint dashed continuation PAST the arrow tip. Used when a ranged shot is stopped by a
         // mountain: the arrow ends at the rock, then this thin dotted line traces where the shot WOULD
@@ -1084,28 +1804,40 @@ export class HoverManager {
             // the art. A soft outer trace breathes around a crisp inner rim, so crossed obstacles read
             // as interactive trajectory hits rather than enemy targets or selected board cells.
             for (const position of positions) {
-                g.roundRect(
+                const points = projectedRectPoints(
                     position.x - cellSize * 0.5 + inset,
                     position.y - cellSize * 0.5 + inset,
-                    cellSize - inset * 2,
-                    cellSize - inset * 2,
-                    cellSize * 0.12,
-                ).stroke({ width: 5 + pulse * 2, color: 0xffffff, alpha: 0.08 + pulse * 0.12 });
-                g.roundRect(
-                    position.x - cellSize * 0.5 + inset,
-                    position.y - cellSize * 0.5 + inset,
-                    cellSize - inset * 2,
-                    cellSize - inset * 2,
-                    cellSize * 0.12,
-                ).stroke({ width: 1.5 + pulse * 0.7, color: 0xffffff, alpha: 0.72 + pulse * 0.25 });
+                    position.x + cellSize * 0.5 - inset,
+                    position.y + cellSize * 0.5 - inset,
+                    this.context.sceneSettings.getGridSettings(),
+                );
+                g.poly(points).stroke({ width: 5 + pulse * 2, color: 0xffffff, alpha: 0.08 + pulse * 0.12 });
+                g.poly(points).stroke({
+                    width: 1.5 + pulse * 0.7,
+                    color: 0xffffff,
+                    alpha: 0.72 + pulse * 0.25,
+                });
             }
             return;
         }
-        const r = cellSize * 0.72;
         for (const position of positions) {
-            g.circle(position.x, position.y, r * 1.25).fill({ color: 0xaa0000, alpha: 0.22 });
-            g.circle(position.x, position.y, r).fill({ color: 0xff2a2a, alpha: 0.3 });
-            g.circle(position.x, position.y, r).stroke({ width: 3, color: 0xff4444, alpha: 0.85 });
+            const outer = projectedRectPoints(
+                position.x - cellSize * 0.48,
+                position.y - cellSize * 0.48,
+                position.x + cellSize * 0.48,
+                position.y + cellSize * 0.48,
+                this.context.sceneSettings.getGridSettings(),
+            );
+            const inner = projectedRectPoints(
+                position.x - cellSize * 0.42,
+                position.y - cellSize * 0.42,
+                position.x + cellSize * 0.42,
+                position.y + cellSize * 0.42,
+                this.context.sceneSettings.getGridSettings(),
+            );
+            g.poly(outer).fill({ color: 0xaa0000, alpha: 0.22 });
+            g.poly(inner).fill({ color: 0xff2a2a, alpha: 0.3 });
+            g.poly(inner).stroke({ width: 3, color: 0xff4444, alpha: 0.85 });
         }
     }
     public clearObstacleHighlight(): void {
@@ -1286,10 +2018,19 @@ export class HoverManager {
 
         // 1. If we have an attack-from cell, we behave differently:
         if (this.hoverAttackFromCell && selected) {
-            // We force red tint for attack
-            this.ensureHoverSilhouetteParams(selected, boundsCenter, true);
+            this.hoverBattlefieldFootprintCells = combatFootprintCellsForBase(
+                this.hoverAttackFromCell,
+                footprintWidthOf(selected),
+                footprintHeightOf(selected),
+            );
+            // The landing footprint is the useful attack-position information. A full creature ghost
+            // obscures those cells and nearby units, so attack hover intentionally keeps only the cells.
+            if (this.hoverSilhouette) this.hoverSilhouette.visible = false;
+            if (this.hoverSilhouetteOutline) this.hoverSilhouetteOutline.visible = false;
             return;
         }
+
+        this.hoverBattlefieldFootprintCells = undefined;
 
         if (!selected || this.hoverSelectedCellsSwitchToRed || !this.hoverSelectedCells?.length) {
             this.clearHoverSilhouette();
@@ -1298,9 +2039,47 @@ export class HoverManager {
 
         this.ensureHoverSilhouetteParams(selected, boundsCenter, false);
     }
-    private ensureHoverSilhouetteParams(selected: UnitProperties, boundsCenter: HoCMath.XY, isAttack: boolean): void {
-        const texName = unitToTextureName(selected.name, TextureType.SMALL, selected.size);
-        const tex = this.context.texAny(texName);
+    /**
+     * Placement is a face-off: both armies look at the battlefield centre, so a preview's horizontal
+     * mirroring is a function of its TEAM and nothing else — the same rule Sandbox re-asserts on every
+     * placed unit every frame. Applied to whichever branch produced the sprite, because the two branches
+     * disagree by construction: the texture branch has no facing of its own, and the live branch inherits
+     * the source's, which before the fight can be any direction the source last happened to hold.
+     *
+     * During the fight this must NOT run: facing there follows the direction a unit walked or the target it
+     * is striking, and forcing the team direction would spin previews back to a deployment pose.
+     */
+    private applyPlacementFacing(
+        sprite: Sprite,
+        outline: Sprite,
+        selected: UnitProperties,
+        boundsCenter: HoCMath.XY,
+    ): void {
+        if (FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
+            return;
+        }
+        // The overlay picker's chips are team-less (NO_TEAM until the drop assigns a side), so a
+        // teamless preview takes its facing from the hovered board half instead of defaulting right.
+        const facing = previewPlacementFacing(selected.team, boundsCenter.x);
+        sprite.scale.x = Math.abs(sprite.scale.x) * facing;
+        outline.scale.x = Math.abs(outline.scale.x) * facing;
+    }
+    private ensureHoverSilhouetteParams(
+        selected: UnitProperties,
+        boundsCenter: HoCMath.XY,
+        _isAttack: boolean,
+        previewUnit?: Unit,
+        exactPlacementCopy = false,
+    ): void {
+        const outlineGrowth = exactPlacementCopy ? 1 : 1.06;
+        const livePreview = this.getLiveUnitPreview(selected, boundsCenter, previewUnit);
+        const texName = unitToTextureName(
+            selected.name,
+            TextureType.SMALL,
+            footprintWidthOf(selected),
+            footprintHeightOf(selected),
+        );
+        const tex = livePreview?.texture ?? this.context.texAny(texName);
         if (!tex) {
             this.clearHoverSilhouette();
             return;
@@ -1324,47 +2103,58 @@ export class HoverManager {
         this.hoverSilhouetteKey = texName;
         const sprite = this.hoverSilhouette;
         const outline = this.hoverSilhouetteOutline;
-        const targetSize = selected.size === 2 ? 256 : 128;
-        const baseWidth = tex.width || 1;
-        const scale = targetSize / baseWidth;
-        const outlineScale = scale * 1.06;
-        sprite.scale.set(scale, -scale);
-        outline.scale.set(outlineScale, -outlineScale);
-        sprite.x = boundsCenter.x;
-        sprite.y = boundsCenter.y;
-        outline.x = boundsCenter.x;
-        outline.y = boundsCenter.y;
-        outline.visible = true;
-        outline.alpha = 0.9;
-        outline.tint = 0xffffff;
-        sprite.visible = true;
-        sprite.alpha = 0.8;
-
-        if (isAttack) {
-            // User requested standard silhouette for attacker, so no red tint here.
-            sprite.tint = 0x000000;
-            outline.tint = 0xffffff;
+        const cellSize = this.context.sceneSettings.getGridSettings().getCellSize();
+        if (livePreview) {
+            this.applyLiveUnitPreview(sprite, outline, livePreview, outlineGrowth);
+            // The live branch inherits the SOURCE sprite's facing, which is right during the fight (facing
+            // there follows movement) but only accidentally right before it. Placement has one rule and the
+            // board asserts it on every unit every frame: red/UPPER faces left, green/LOWER faces right. The
+            // preview of a placement must obey the rule it is previewing, whichever source it was cloned
+            // from — otherwise the ghost points one way and the unit turns the other the moment it lands.
+            this.applyPlacementFacing(sprite, outline, selected, boundsCenter);
         } else {
-            sprite.tint = 0x000000;
-            outline.tint = 0xffffff;
+            const projectedCenter = projectBattlefieldPoint(boundsCenter, this.context.sceneSettings.getGridSettings());
+            const scale = unitPreviewScale(selected, tex, cellSize);
+            const outlineScale = scale * outlineGrowth;
+            sprite.anchor.set(0.5);
+            outline.anchor.set(0.5);
+            sprite.scale.set(scale, -scale);
+            outline.scale.set(outlineScale, -outlineScale);
+            this.applyPlacementFacing(sprite, outline, selected, boundsCenter);
+            sprite.x = projectedCenter.x;
+            sprite.y = unitPreviewY(selected, projectedCenter.y, cellSize);
+            outline.x = projectedCenter.x;
+            outline.y = sprite.y;
+            sprite.rotation = 0;
+            outline.rotation = 0;
+        }
+        if (exactPlacementCopy) {
+            this.applyPlacementAppearance(sprite, outline);
+        } else {
+            this.applyPhantomAppearance(sprite, outline);
         }
     }
     /**
      * Show silhouette for a unit at a specific position - used for AI moves/attacks
-     * Uses the same styling as normal hover silhouettes (black sprite + white outline)
+     * Uses the exact original cutout with only a black-and-white filter.
      */
     public showSilhouetteForUnit(unitProps: UnitProperties, position: HoCMath.XY): void {
         this.ensureHoverSilhouetteParams(unitProps, position, false);
     }
     /**
      * Render a ghost of the opponent's active unit at the cell they are currently aiming
-     * at during their turn in ranked play. Uses its own sprites (and a slightly more
-     * transparent look) so it reads as a live "intent" preview without disturbing the
-     * local player's own hover silhouette.
+     * at during their turn in ranked play. Uses its own sprite so the live "intent" preview
+     * does not disturb the local player's hover silhouette; both use the same exact B&W treatment.
      */
     public showOpponentIntentSilhouette(props: UnitProperties, position: HoCMath.XY): void {
-        const texName = unitToTextureName(props.name, TextureType.SMALL, props.size);
-        const tex = this.context.texAny(texName);
+        const livePreview = this.getLiveUnitPreview(props, position);
+        const texName = unitToTextureName(
+            props.name,
+            TextureType.SMALL,
+            footprintWidthOf(props),
+            footprintHeightOf(props),
+        );
+        const tex = livePreview?.texture ?? this.context.texAny(texName);
         if (!tex) {
             this.clearOpponentIntentSilhouette();
             return;
@@ -1388,22 +2178,26 @@ export class HoverManager {
         this.opponentIntentKey = texName;
         const sprite = this.opponentIntentSilhouette;
         const outline = this.opponentIntentOutline;
-        const targetSize = props.size === 2 ? 256 : 128;
-        const baseWidth = tex.width || 1;
-        const scale = targetSize / baseWidth;
-        const outlineScale = scale * 1.06;
-        sprite.scale.set(scale, -scale);
-        outline.scale.set(outlineScale, -outlineScale);
-        sprite.x = position.x;
-        sprite.y = position.y;
-        outline.x = position.x;
-        outline.y = position.y;
-        outline.visible = true;
-        outline.alpha = 0.7;
-        outline.tint = 0xffffff;
-        sprite.visible = true;
-        sprite.alpha = 0.55;
-        sprite.tint = 0x000000;
+        const cellSize = this.context.sceneSettings.getGridSettings().getCellSize();
+        if (livePreview) {
+            this.applyLiveUnitPreview(sprite, outline, livePreview);
+        } else {
+            const projectedCenter = projectBattlefieldPoint(position, this.context.sceneSettings.getGridSettings());
+            const scale = unitPreviewScale(props, tex, cellSize);
+            const outlineScale = scale * 1.06;
+            const intentFacing = placementFacingDirectionForTeam(props.team);
+            sprite.anchor.set(0.5);
+            outline.anchor.set(0.5);
+            sprite.scale.set(scale * intentFacing, -scale);
+            outline.scale.set(outlineScale * intentFacing, -outlineScale);
+            sprite.x = projectedCenter.x;
+            sprite.y = unitPreviewY(props, projectedCenter.y, cellSize);
+            outline.x = projectedCenter.x;
+            outline.y = sprite.y;
+            sprite.rotation = 0;
+            outline.rotation = 0;
+        }
+        this.applyPhantomAppearance(sprite, outline);
     }
     public clearOpponentIntentSilhouette(): void {
         if (this.opponentIntentSilhouette) {
@@ -1414,7 +2208,12 @@ export class HoverManager {
         }
     }
     public updateBoardHoverSilhouette(props: UnitProperties, center: HoCMath.XY): void {
-        const texName = unitToTextureName(props.name, TextureType.SMALL, props.size);
+        const texName = unitToTextureName(
+            props.name,
+            TextureType.SMALL,
+            footprintWidthOf(props),
+            footprintHeightOf(props),
+        );
         const tex = this.context.texAny(texName);
         if (!tex) {
             this.clearHoverSilhouette();
@@ -1439,24 +2238,22 @@ export class HoverManager {
         this.hoverSilhouetteKey = texName;
         const sprite = this.hoverSilhouette;
         const outline = this.hoverSilhouetteOutline;
-        const targetSize = props.size === 2 ? 256 : 128;
-        const baseWidth = tex.width || 1;
-        const baseScale = targetSize / baseWidth;
+        const cellSize = this.context.sceneSettings.getGridSettings().getCellSize();
+        const baseScale = unitPreviewScale(props, tex, cellSize);
         const scale = baseScale * this.boardHoverScale;
         const outlineScale = scale * 1.08;
-        const y = center.y + this.boardHoverYOffset;
+        const y = unitPreviewY(props, center.y, cellSize) + this.boardHoverYOffset;
         sprite.scale.set(scale, -scale);
         outline.scale.set(outlineScale, -outlineScale);
+        // Same placement rule as every other preview. This path is currently unreachable — nothing assigns
+        // `boardHoverProps` — but it is a public entry point, and leaving the one silhouette renderer
+        // without a facing is how this bug would come back the day someone wires it up.
+        this.applyPlacementFacing(sprite, outline, props, center);
         sprite.x = center.x;
         sprite.y = y;
         outline.x = center.x;
         outline.y = y;
-        outline.visible = true;
-        outline.alpha = 0.35;
-        outline.tint = 0xffffff;
-        sprite.visible = true;
-        sprite.alpha = 1.0;
-        sprite.tint = 0xffffff;
+        this.applyPhantomAppearance(sprite, outline);
     }
     public updateActiveMoveSilhouetteForCell(cell: HoCMath.XY): void {
         if (this.silhouetteLocked) return;
@@ -1470,83 +2267,41 @@ export class HoverManager {
         const gs = this.context.sceneSettings.getGridSettings();
         const props = currentActiveUnit.getUnitProperties();
 
-        let centerPos: HoCMath.XY | undefined;
+        let centerPos: HoCMath.XY;
+        let footprintCells: HoCMath.XY[];
 
-        if (props.size === 2) {
+        if (occupiesManyCells(props)) {
             const candidate = this.findLargeUnitMoveCandidate(cell);
             if (!candidate) {
                 this.clearHoverSilhouette();
                 return;
             }
-            // candidate is HoCMath.XY[] (footprint)
-            // We need center.
-            centerPos = GridMath.getPositionForCells(gs, candidate);
+            // The ghost stands on the centre of the landing rectangle. Any rectangle resolves, so there is
+            // no shape here that can leave the preview without a position.
+            footprintCells = candidate;
+            centerPos = GridMath.getPositionForFootprintAnchor(
+                gs,
+                GridMath.getFootprintAnchorForCells(candidate) ?? cell,
+                footprintWidthOf(props),
+                footprintHeightOf(props),
+            );
         } else {
             if (!this.isCellReachableForActiveUnit(cell)) {
                 this.clearHoverSilhouette();
                 return;
             }
+            footprintCells = [cell];
             centerPos = GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
         }
 
-        if (!centerPos) {
-            this.clearHoverSilhouette();
-            return;
-        }
-
-        const texName = unitToTextureName(props.name, TextureType.SMALL, props.size);
-        const tex = this.context.texAny(texName);
-        if (!tex) {
-            this.clearHoverSilhouette();
-            return;
-        }
-
-        if (!this.hoverSilhouette) {
-            this.hoverSilhouette = new Sprite(tex);
-            this.hoverSilhouette.anchor.set(0.5);
-            this.context.attachToWorldRoot(this.hoverSilhouette, 110);
-            this.hoverSilhouette.scale.y = -1;
-        } else if (this.hoverSilhouetteKey !== texName) {
-            this.hoverSilhouette.texture = tex;
-        }
-
-        if (!this.hoverSilhouetteOutline) {
-            this.hoverSilhouetteOutline = new Sprite(tex);
-            this.hoverSilhouetteOutline.anchor.set(0.5);
-            this.context.attachToWorldRoot(this.hoverSilhouetteOutline, 109);
-            this.hoverSilhouetteOutline.scale.y = -1;
-        } else if (this.hoverSilhouetteKey !== texName) {
-            this.hoverSilhouetteOutline.texture = tex;
-        }
-
-        this.hoverSilhouetteKey = texName;
-
-        const sprite = this.hoverSilhouette;
-        const outline = this.hoverSilhouetteOutline;
-
-        const targetSize = props.size === 2 ? 256 : 128;
-        const baseWidth = tex.width || 1;
-        const scale = targetSize / baseWidth;
-        const outlineScale = scale * 1.06;
-
-        sprite.scale.set(scale, -scale);
-        outline.scale.set(outlineScale, -outlineScale);
-
-        sprite.x = centerPos.x;
-        sprite.y = centerPos.y;
-        outline.x = centerPos.x;
-        outline.y = centerPos.y;
-
-        outline.visible = true;
-        outline.alpha = 0.9;
-        outline.tint = 0xffffff;
-
-        sprite.visible = true;
-        sprite.alpha = 0.8;
-        sprite.tint = 0x000000;
+        this.hoverBattlefieldFootprintCells = footprintCells;
+        this.ensureHoverSilhouetteParams(props, centerPos, false);
     }
     public updateHoverPlacementCell(worldPos: HoCMath.XY): void {
         const gs = this.context.sceneSettings.getGridSettings();
+        // Sandbox stores the pointer in logical board coordinates. Re-unprojecting an already logical
+        // point shifts the chosen cell a second time and makes the ghost land beside the cursor.
+        const logicalWorldPos = worldPos;
         const selected = this.context.getSelectedUnitProperties();
         const fightProps = FightStateManager.getInstance().getFightProperties();
 
@@ -1564,14 +2319,18 @@ export class HoverManager {
             return;
         }
 
-        const cell = GridMath.getCellForPosition(gs, worldPos);
+        const cell = GridMath.getCellForPosition(gs, logicalWorldPos);
         this.clearAuraVisuals();
-        if (!cell) {
+        // A pointer OFF the board still produces a cell — getCellForPosition is an unclamped floor-divide.
+        // The 4-bits-per-axis cell hash then ALIASES rather than missing: y = 16 sets the low bit of x, so
+        // `(x << 4) | 16` is the key of the real cell (x | 1, 0), and an off-board cursor would light up a
+        // placement silhouette on row 0.
+        if (!cell || !GridMath.isCellWithinGrid(gs, cell)) {
             this.clearHoverSilhouette();
             return;
         }
 
-        const isLarge = selected.size === 2;
+        const isLarge = occupiesManyCells(selected);
         const cellHash = (cell.x << 4) | cell.y;
 
         let teamFromPlacement: TeamType | undefined;
@@ -1614,15 +2373,41 @@ export class HoverManager {
             const allowedForPath =
                 this.context.placementManager.getAllowedPlacementCellHashesForTeam(targetTeamForPath);
 
+            // Let the square finder skip terrain and other stacks while still allowing a dragged 2x2
+            // creature to overlap its own current footprint. Previously this list was always empty, so
+            // hovering beside lava/another unit selected the blocked square first and made otherwise
+            // available placement cells impossible to use.
+            const draggedUnit = draggingUnitId ? this.context.unitsHolder.getAllUnits().get(draggingUnitId) : undefined;
+            const ownCells = draggedUnit?.getCells();
             const occupiedKeys: string[] = [];
+            for (let x = 0; x < gs.getGridSize(); x += 1) {
+                for (let y = 0; y < gs.getGridSize(); y += 1) {
+                    const occupantId = this.context.grid.getOccupantUnitId({ x, y });
+                    if (occupantId && occupantId !== draggingUnitId) occupiedKeys.push(`${x}:${y}`);
+                }
+            }
+            const ownKeys = new Set(ownCells?.map((own) => `${own.x}:${own.y}`) ?? []);
+            const blocked = new Set(occupiedKeys);
+            const width = footprintWidthOf(selected);
+            const height = footprintHeightOf(selected);
+            // Every W x H block covering the cursor, best first — and crucially, a unit being REPOSITIONED
+            // prefers the block it already stands on, so picking it up does not slide the proposed drop a
+            // cell away while the mouse is still. See placementFootprintCandidates.
+            const footprints = placementFootprintCandidates(
+                cell,
+                width,
+                height,
+                (anchor) => GridMath.isFootprintWithinGrid(gs, anchor, width, height),
+                ownCells,
+            );
             candidateCells =
-                this.context.pathHelper.getClosestSquareCellIndices(
-                    this.context.getMouseWorld(),
-                    allowedForPath,
-                    occupiedKeys,
-                    undefined,
-                    undefined,
-                    undefined,
+                footprints.find((footprint) =>
+                    footprint.every(
+                        (candidate) =>
+                            allowedForPath?.has((candidate.x << 4) | candidate.y) &&
+                            (!blocked.has(`${candidate.x}:${candidate.y}`) ||
+                                ownKeys.has(`${candidate.x}:${candidate.y}`)),
+                    ),
                 ) ?? [];
 
             // Fallback if pathing fails (e.g. void): just use the cell under mouse
@@ -1637,7 +2422,8 @@ export class HoverManager {
         // Selecting a unit for placement (sandbox UnitsOverlay / ranked bench) used to project its
         // aura square + range circle at the candidate drop cell via a mock unit. Range visuals are
         // now reserved for units actually PLACED on the board (hovered/selected board units); the
-        // cursor-following placement preview shows only the silhouette + placement square.
+        // cursor-following valid placement preview shows only the B&W creature; invalid placement keeps
+        // the red footprint as its error feedback.
 
         // --- 3. Validation & Interaction Highlight ---
 
@@ -1670,9 +2456,13 @@ export class HoverManager {
 
         // Check 2: Large Unit Shape
         if (!invalid && isLarge) {
-            if (candidateCells.length !== 4) {
-                invalid = true; // Should ideally limit to valid cells, but if we can't find 4, it's invalid
-            } else if (!this.context.pathHelper.areCellsFormingSquare(candidateCells)) {
+            const width = footprintWidthOf(selected);
+            const height = footprintHeightOf(selected);
+            if (candidateCells.length !== width * height) {
+                // The fallback above degrades to the single cell under the cursor when no whole block
+                // fits, and a partial body is never placeable.
+                invalid = true;
+            } else if (!this.context.pathHelper.areCellsFormingFootprint(candidateCells, width, height)) {
                 invalid = true;
             }
         }
@@ -1688,15 +2478,15 @@ export class HoverManager {
             }
         }
 
-        // Check 4: Occupied by other unit (that isn't self)
+        // Check 4: Occupied by another stack or terrain (that isn't the dragged unit itself).
+        // The old check ignored terrain ids such as lava/water/mountains because they aren't in
+        // UnitsHolder. That painted a green valid preview which the grid then rejected on click.
         if (!invalid) {
             for (const c of candidateCells) {
                 const occId = this.context.grid.getOccupantUnitId(c);
-                if (occId && this.context.unitsHolder.getAllUnits().has(occId)) {
-                    if (!(draggingUnitId && occId === draggingUnitId)) {
-                        invalid = true;
-                        break;
-                    }
+                if (occId && occId !== draggingUnitId) {
+                    invalid = true;
+                    break;
                 }
             }
         }
@@ -1743,33 +2533,20 @@ export class HoverManager {
         // Success case used generic drawHoverPlacementCell in SandboxDrawer?
         // No, SandboxDrawer draws hoverPlacementCell.
         if (!invalid && candidateCells.length > 0) {
-            const size = gs.getCellSize();
-            const half = size / 2;
-
-            let minX = Number.POSITIVE_INFINITY;
-            let maxX = Number.NEGATIVE_INFINITY;
-            let minY = Number.POSITIVE_INFINITY;
-            let maxY = Number.NEGATIVE_INFINITY;
-
-            for (const c of candidateCells) {
-                const pos = GridMath.getPositionForCell(c, gs.getMinX(), gs.getStep(), gs.getHalfStep());
-                if (pos) {
-                    const left = pos.x - half;
-                    const right = pos.x + half;
-                    const bottom = pos.y - half;
-                    const top = pos.y + half;
-
-                    if (left < minX) minX = left;
-                    if (right > maxX) maxX = right;
-                    if (bottom < minY) minY = bottom;
-                    if (top > maxY) maxY = top;
-                }
+            const logicalCenter = GridMath.getPositionForCells(gs, candidateCells);
+            if (logicalCenter) {
+                // Placement has no combat-active unit. Use the actual selected board/bench instance so
+                // the preview clones its refreshed idle frame and framing instead of the legacy portrait.
+                this.ensureHoverSilhouetteParams(
+                    selected,
+                    logicalCenter,
+                    false,
+                    this.context.getPlacementPreviewUnit(),
+                    // Placement is a literal copy of the live creature. The legacy backing is hidden, but
+                    // keeping its dormant transform exact also prevents a one-frame HMR flash at old scale.
+                    true,
+                );
             }
-
-            const centerX = (minX + maxX) * 0.5;
-            const centerY = (minY + maxY) * 0.5;
-
-            this.updateHoverSilhouette({ x: centerX, y: centerY });
         } else {
             this.clearHoverSilhouette();
         }

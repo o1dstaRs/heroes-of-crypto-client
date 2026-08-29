@@ -136,3 +136,15 @@ export const RefreshNavIcon = createSvgIcon(
     </>,
     "RefreshNav",
 );
+
+export const SettingsNavIcon = createSvgIcon(
+    <>
+        <path d="M4 7h6M14 7h6M4 12h10M18 12h2M4 17h3M11 17h9" {...iconStroke} />
+        <path
+            d="M12 7a2 2 0 1 0 0-.01ZM16 12a2 2 0 1 0 0-.01ZM9 17a2 2 0 1 0 0-.01Z"
+            fill="currentColor"
+            opacity="0.9"
+        />
+    </>,
+    "SettingsNav",
+);

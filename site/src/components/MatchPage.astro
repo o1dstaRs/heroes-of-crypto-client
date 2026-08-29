@@ -234,7 +234,7 @@ const copy = isRu
     const doctrineName = (id: number): string => {
         const fallback = getDoctrineProperties(id as Doctrine).name;
         if (language !== "ru") return fallback;
-        return ({ Scout: "Разведчик", Spymaster: "Шпион", "Blind Fury": "Слепая ярость", None: "Нет" } as Record<
+        return ({ Scout: "Разведчик", Spymaster: "Шпион", "Battle Trance": "Боевой транс", None: "Нет" } as Record<
             string,
             string
         >)[fallback] ?? fallback;

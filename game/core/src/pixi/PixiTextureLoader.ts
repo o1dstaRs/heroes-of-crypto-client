@@ -1,13 +1,11 @@
 import { Assets, Texture, loadTextures } from "pixi.js";
-import { isUnitAnimationAtlasKey } from "./unitAtlasKeys";
-import { images as rawImages } from "../generated/image_imports";
+import { images as rawImages } from "../imageAssets";
 
 // Decode textures via <img> instead of createImageBitmap. Chrome intermittently throws
 // "InvalidStateError: The source image could not be decoded" from createImageBitmap when many large
-// WebP atlases decode concurrently — a single flaky decode aborts the whole bundle (historically the
-// core bundle carried every `_atlas_quarter`; today the supplementary bundle still decodes hundreds of
-// atlases at once). The <img> path (img.decode()) is a hair slower but reliable and still off the main
-// thread, with no createImageBitmap/worker concurrency flake.
+// WebP atlases decode concurrently — and our core bundle preloads every `_atlas_quarter` at once, so a
+// single flaky decode aborts the whole bundle and blocks init. The <img> path (img.decode()) is a hair
+// slower but reliable and still off the main thread, with no createImageBitmap/worker concurrency flake.
 if (loadTextures.config) {
     loadTextures.config.preferWorkers = false;
     loadTextures.config.preferCreateImageBitmap = false;
@@ -55,7 +53,19 @@ export type PreloadedPixiTextures = { [K in keyof ImagesMap]: Texture };
 let loadedTextures: Partial<PreloadedPixiTextures> = {};
 const registeredBundlesKey = "__hocPixiTextureLoaderRegisteredBundles";
 const coreBundleName = "hoc_core";
+const idleAtlasesBundleName = "hoc_idle_atlases";
 const animationsBundleName = "hoc_animations";
+
+// The board draws every creature's PERMANENT art from its idle/default atlas (quarter for 1x1, half
+// for 2x2). Those are ~5% of the animation payload (~33MB of ~700MB), yet they used to ride in the
+// same single Tier-2 bundle as every walk/attack/VFX atlas — so on a fresh cache the whole board sat
+// on the old static tokens until hundreds of MB finished. They get their own bundle, loaded FIRST.
+export function isIdleAtlasKey(key: string): boolean {
+    return (
+        (key.includes("_idle") || key.includes("_default")) &&
+        (key.endsWith("_atlas_quarter") || key.endsWith("_atlas_half"))
+    );
+}
 
 function getRegisteredBundles(): Set<string> {
     const globalState = globalThis as Record<string, unknown>;
@@ -79,24 +89,28 @@ function addBundleOnce(bundleName: string, bundle: Record<string, { src: string 
     registeredBundles.add(bundleName);
 }
 
-function getSplitBundles() {
+export function getSplitBundles() {
     const core: Record<string, { src: string }> = {};
+    const idleAtlases: Record<string, { src: string }> = {};
     const animations: Record<string, { src: string }> = {};
 
     for (const [k, v] of Object.entries(rawImages)) {
         const src = normalizeUrl(v, k);
-        // Tier 2 (supplementary): every UNIT animation atlas, ALL size variants — the fight plays
-        // fine without them, so none of them belongs behind the loading screen. Terrain atlases and
-        // everything else are Tier 1: the board wants those at first paint. See unitAtlasKeys for
-        // why the split keys off the generated atlas index rather than a name suffix.
-        if (isUnitAnimationAtlasKey(k)) {
-            animations[k] = { src };
+        // Tier 2: every atlas, including the quarter/half variants actually used by battlefield
+        // walk/hit/attack states and the unsuffixed VFX atlases used by the scene. The idle/default
+        // atlases split into their own Tier-2a bundle so the board's permanent art lands first.
+        if (k.includes("_atlas")) {
+            if (isIdleAtlasKey(k)) {
+                idleAtlases[k] = { src };
+            } else {
+                animations[k] = { src };
+            }
         } else {
             // Tier 1: Core
             core[k] = { src };
         }
     }
-    return { core, animations };
+    return { core, idleAtlases, animations };
 }
 
 export async function preloadCoreAssets(onProgress?: (p: number) => void): Promise<Partial<PreloadedPixiTextures>> {
@@ -109,6 +123,20 @@ export async function preloadCoreAssets(onProgress?: (p: number) => void): Promi
     return loadedTextures;
 }
 
+/** Tier 2a: the idle/default board atlases only — small, and every visible creature needs one. */
+export async function preloadIdleAtlasAssets(
+    onProgress?: (p: number) => void,
+): Promise<Partial<PreloadedPixiTextures>> {
+    const { idleAtlases } = getSplitBundles();
+    if (Object.keys(idleAtlases).length === 0) return loadedTextures;
+
+    addBundleOnce(idleAtlasesBundleName, idleAtlases);
+    const loaded = await Assets.loadBundle(idleAtlasesBundleName, onProgress);
+    loadedTextures = { ...loadedTextures, ...loaded };
+    return loadedTextures;
+}
+
+/** Tier 2b: the remaining walk/attack/VFX atlases. */
 export async function preloadAnimationAssets(
     onProgress?: (p: number) => void,
 ): Promise<Partial<PreloadedPixiTextures>> {
@@ -124,7 +152,8 @@ export async function preloadAnimationAssets(
 /** Legacy: Loads everything (Tier 1 + Tier 2) - Kept for compatibility if needed, but we should switch */
 export async function preloadPixiTextures(onProgress?: (p: number) => void): Promise<PreloadedPixiTextures> {
     await preloadCoreAssets((p) => onProgress?.(p * 0.5));
-    await preloadAnimationAssets((p) => onProgress?.(0.5 + p * 0.5));
+    await preloadIdleAtlasAssets((p) => onProgress?.(0.5 + p * 0.1));
+    await preloadAnimationAssets((p) => onProgress?.(0.6 + p * 0.4));
     return loadedTextures as PreloadedPixiTextures;
 }
 

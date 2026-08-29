@@ -7,11 +7,11 @@
         "dist"
     ],
     "scripts": {
-        "build": "rimraf .parcel-cache && bun run build:images && rimraf dist && tsc && vite build",
+        "build": "rimraf .parcel-cache && bun run build:images && rimraf dist && tsc && bun scripts/vite_build.js production",
         "build:docs": "rimraf ../../.parcel-cache && rimraf ../../docs/dist && dotenv -e .env.production parcel build --no-optimize src/ui/index.html --public-url . --no-source-maps && cpy dist ../../docs",
-        "build:images": "bun run check:image-assets && rimraf images && bun run copy:images && npm run generate:animations && npm run generate:images",
-        "build:skip": "rimraf .parcel-cache && rimraf dist && tsc && vite build",
-        "build:test": "rimraf .parcel-cache && bun run build:images && rimraf dist && tsc && vite build --mode test",
+        "build:images": "bun scripts/require_asset_location.ts images && bun scripts/require_asset_location.ts animations && bun run check:image-assets && rimraf images && bun run copy:images && npm run generate:animations && npm run generate:images",
+        "build:skip": "rimraf .parcel-cache && rimraf dist && tsc && bun scripts/vite_build.js production",
+        "build:test": "rimraf .parcel-cache && bun run build:images && rimraf dist && tsc && bun scripts/vite_build.js test",
         "check:image-assets": "bun scripts/check_image_asset_policy.ts",
         "copy:images": "cpy \"$HOC_IMAGES_LOC\" ./",
         "generate:animations": "bun scripts/generate_animation_atlases.js",

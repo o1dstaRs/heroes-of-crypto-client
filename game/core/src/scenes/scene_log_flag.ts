@@ -10,6 +10,7 @@
  */
 
 import { TeamVals } from "@heroesofcrypto/common";
+import { isGreenTeam } from "./teamColors";
 
 export type TeamOrAmbiguous = number | "ambiguous";
 
@@ -77,11 +78,8 @@ export function resolveLineTeamFlag(
         }
     }
 
-    if (team === TeamVals.LOWER) {
-        return "🟢";
-    }
-    if (team === TeamVals.UPPER) {
-        return "🔴";
+    if (team === TeamVals.LOWER || team === TeamVals.UPPER) {
+        return isGreenTeam(team) ? "🟢" : "🔴";
     }
     return "";
 }

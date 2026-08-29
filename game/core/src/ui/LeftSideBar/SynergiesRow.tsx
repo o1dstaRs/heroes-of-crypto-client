@@ -31,6 +31,12 @@ const SynergiesRow = ({
     inline?: boolean;
 }) => {
     const metrics = useSidebarMetrics();
+    // In the Buffs well `size` is the common authored image edge used by an ordinary effect tile beside
+    // it. Level pips overlay the lower edge instead of reserving a separate band, so they do not enlarge
+    // the synergy badge's layout footprint.
+    const overlayLevelIndicator = inline && size !== undefined;
+    const badgeSize = size ?? (wrap ? 36 : metrics.synergyIcon);
+    const iconSize = badgeSize;
     const sortedSynergies = useMemo(
         () =>
             [...synergies].sort((a, b) => {
@@ -79,7 +85,16 @@ const SynergiesRow = ({
                 }
 
                 return (
-                    <Box key={synergyKey} sx={{ textAlign: "center" }}>
+                    <Box
+                        key={synergyKey}
+                        sx={{
+                            width: inline && size !== undefined ? `${badgeSize}px` : "auto",
+                            height: inline && size !== undefined ? `${badgeSize}px` : "auto",
+                            position: overlayLevelIndicator ? "relative" : "static",
+                            textAlign: "center",
+                            flex: "none",
+                        }}
+                    >
                         <Tooltip
                             title={`Level ${level}: ${(
                                 SYNERGY_NAME_TO_DESCRIPTION[synergyKey as keyof typeof SYNERGY_NAME_TO_DESCRIPTION] ||
@@ -94,8 +109,9 @@ const SynergiesRow = ({
                                 component="img"
                                 src={SYNERGY_KEY_TO_IMAGE[synergyKey as keyof typeof SYNERGY_KEY_TO_IMAGE]}
                                 sx={{
-                                    width: `${size ?? (wrap ? 36 : metrics.synergyIcon)}px`,
-                                    height: `${size ?? (wrap ? 36 : metrics.synergyIcon)}px`,
+                                    width: `${iconSize}px`,
+                                    height: `${iconSize}px`,
+                                    mx: "auto",
                                     display: "block", // Prevents any extra space from inline display
                                     imageRendering: "auto",
                                     transform: "translateZ(0)",
@@ -104,7 +120,23 @@ const SynergiesRow = ({
                                 }}
                             />
                         </Tooltip>
-                        <Box sx={{ display: "flex", justifyContent: "center", mt: size ? 0.25 : 0.5 }}>
+                        <Box
+                            sx={{
+                                display: "flex",
+                                justifyContent: "center",
+                                ...(overlayLevelIndicator
+                                    ? {
+                                          position: "absolute",
+                                          zIndex: 2,
+                                          right: 0,
+                                          bottom: "2px",
+                                          left: 0,
+                                          height: "4px",
+                                          marginTop: 0,
+                                      }
+                                    : { height: "auto", mt: size ? 0.25 : 0.5 }),
+                            }}
+                        >
                             {Array.from({ length: level }, (_, dotIndex) => (
                                 <Box
                                     key={dotIndex}

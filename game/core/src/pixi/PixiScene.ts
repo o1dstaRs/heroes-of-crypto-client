@@ -22,7 +22,6 @@ import {
     AbilityHelper,
     Artifact,
     GridSettings,
-    SpellElement,
     type GameAction,
     type GameEvent,
 } from "@heroesofcrypto/common";
@@ -49,7 +48,8 @@ import { PixiApp } from "./PixiApp";
 import { PixiDrawer } from "./PixiDrawer";
 import { SimplePhysicsManager } from "./SimplePhysicsManager";
 import { PreloadedPixiTextures } from "./PixiTextureLoader";
-import { images as rawImageUrls } from "../generated/image_imports";
+import { boardFitHeight, boardFitWidth } from "./boardFit";
+import { images as rawImageUrls } from "../imageAssets";
 import { UnitsOverlay } from "../scenes/UnitsOverlay";
 
 export interface AuthoritativeSnapshotOptions {
@@ -147,17 +147,13 @@ export abstract class PixiScene {
     public readonly sc_maxProfile = { step: 0, collide: 0, solve: 0 }; // parity with old UI
     public readonly sc_totalProfile = { step: 0, collide: 0, solve: 0 }; // parity with old UI
     public readonly sc_sceneSettings: SceneSettings;
-    public sc_currentActiveShotRange?: { xy: HoCMath.XY; distance: number };
+    public sc_currentActiveShotRange?: { xy: HoCMath.XY; distance: number; verticalDistance?: number };
     public sc_currentActiveAuraRanges: IAuraOnMap[] = [];
     public sc_unitInfoLines: Array<[string, string]> = [];
     public sc_attackDamageSpreadStr = "";
     public sc_attackRangeDamageDivisorStr = "";
     public sc_attackKillSpreadStr = "";
     public sc_hoverInfoArr: string[] = [];
-    // The element of the spell currently hovered in the book, so the card can mark it in that element's
-    // own colour. Carried as its own field rather than another line of body text because the card's
-    // descriptions already contain the phrase "Fire magic:", which string-matching would collide with.
-    public sc_hoverSpellElement: SpellElement = SpellElement.NO_ELEMENT;
     public sc_hoverUnitNameStr = "";
     public sc_hoverUnitLevel = 0;
     public sc_hoverUnitMovementType = MovementVals.NO_MOVEMENT;
@@ -425,6 +421,11 @@ export abstract class PixiScene {
     protected hover(): void {}
     /** Optional hook for scenes to react to background asset loading progress (Tier 2) */
     public onBackgroundAssetLoad?(progress: number): void;
+    /**
+     * Optional hook fired after a background texture bundle merges into the SHARED textures map.
+     * Scenes re-resolve any visuals that fell back to static art while the atlases were missing.
+     */
+    public onSupplementaryTexturesLoaded?(): void;
     public MouseUp(): void {
         this.sc_mouseTracing = false;
         this.sc_calculatingPlacement = true;
@@ -484,7 +485,6 @@ export abstract class PixiScene {
         this.sc_attackRangeDamageDivisorStr = "";
         this.sc_hoverUnitNameStr = "";
         this.sc_hoverInfoArr = [];
-        this.sc_hoverSpellElement = SpellElement.NO_ELEMENT;
         this.sc_selectedAttackType = AttackVals.NO_ATTACK;
         this.sc_attackKillSpreadStr = "";
         this.sc_hoverUnitLevel = 0;
@@ -715,27 +715,15 @@ export abstract class PixiScene {
         const { width, height } = this.getViewportSize(); // CSS pixels
         const worldW = Math.max(1, maxX - minX);
         const worldH = Math.max(1, maxY - minY);
-        const viewW = Math.max(1, width - padding * 2);
-        const viewH = Math.max(1, height - padding * 2);
+        const viewW = Math.max(1, boardFitWidth(width, height) - padding * 2);
+        const viewH = Math.max(1, boardFitHeight(width, height) - padding * 2);
 
-        const zoom = Math.min(viewW / worldW, viewH / worldH);
+        const zoomX = viewW / worldW;
+        const zoomY = viewH / worldH;
         const cx = (minX + maxX) * 0.5;
         const cy = (minY + maxY) * 0.5;
 
-        // Use direct cam control if possible or via PixiSceneManager?
-        // Original code used this.pixiApp.setCameraZoom/Position
-        // PixiSceneManager delegates to PixiApp? Or usage changed?
-        // Using this.pixiSceneManager as it exposes setCamera methods in HomeCamera example
-        this.pixiApp.setCameraZoom(zoom);
-        // y-up: flip Y via scale if needed, but setCameraZoom handles generic zoom.
-        this.pixiApp.setCameraZoom(zoom);
-        // y-up: flip Y via scale if needed, but setCameraZoom handles generic zoom.
-        // If we need manual root manipulation:
-        this.pixiApp.getCamera(); // Assuming this exists or use pixiApp.getCamera()
-        // Wait, fitWorldToViewport logic in broken file lines 567 used this.pixiApp.getCamera()
-        // Let's use logic consistent with HomeCamera (lines 540 in clean file uses pixiSceneManager)
-        // But logic in broken file lines 569 changed scale.set(zoom, -zoom).
-        // Let's assume standard setCameraZoom is safer.
+        this.pixiApp.setCameraScale(zoomX, zoomY);
         this.pixiApp.setCameraPosition(cx, cy);
     }
     public getViewportSize(): { width: number; height: number } {
@@ -802,19 +790,7 @@ export abstract class PixiScene {
             maxX = 1024;
         const minY = 0,
             maxY = 2048;
-
-        const worldW = maxX - minX; // 2048
-        const worldH = maxY - minY; // 2048
-
-        // read renderer size (you locked to 2048×2048, but this is general)
-        const { width: viewW, height: viewH } = this.getViewportSize();
-
-        const z = Math.min(viewW / worldW, viewH / worldH); // fit
-        const cx = (minX + maxX) * 0.5; // 0
-        const cy = (minY + maxY) * 0.5; // 1024
-
-        this.pixiApp.setCameraZoom(z);
-        this.pixiApp.setCameraPosition(cx, cy);
+        this.fitWorldToViewport(minX, minY, maxX, maxY);
     }
     public getCenter(): HoCMath.XY {
         return { x: 0, y: 1024 };

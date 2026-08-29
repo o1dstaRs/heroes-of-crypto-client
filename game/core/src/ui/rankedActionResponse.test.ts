@@ -5,9 +5,11 @@ import { PlayActionType, PlayPhase, type PlaySnapshot } from "../api/play_protoc
 import type { LocalModelOpponentConfig } from "../scenes/LocalModelOpponent";
 import {
     hasOffGridSubmitCell,
+    isPlacementMutationAction,
     rejectionErrorFromPlayEvent,
     resolveEffectiveLocalModelOpponentConfig,
     shouldApplyActionResponseSnapshotToViewer,
+    shouldPlayAuthoritativeAction,
     shouldRecoverRejectedMoveFollowUp,
 } from "./rankedActionResponse";
 
@@ -42,6 +44,15 @@ const snapshot = (overrides: Partial<PlaySnapshot>): PlaySnapshot => ({
 });
 
 describe("ranked action response snapshots", () => {
+    test("reconciles placement mutations from snapshots instead of replaying them through the animation queue", () => {
+        for (const type of ["place_unit", "delete_unit", "split_unit"] as const) {
+            expect(isPlacementMutationAction({ type })).toBe(true);
+            expect(shouldPlayAuthoritativeAction({ type })).toBe(false);
+        }
+        expect(isPlacementMutationAction({ type: "move_unit" })).toBe(false);
+        expect(shouldPlayAuthoritativeAction({ type: "move_unit" })).toBe(true);
+    });
+
     test("never surfaces a bare informational message (e.g. ACTION_ACCEPTED's raw action-type name) as an error", () => {
         expect(rejectionErrorFromPlayEvent({ rejectionReason: "", message: "RANGE_ATTACK" })).toBe("");
         expect(rejectionErrorFromPlayEvent({ rejectionReason: "", message: "END_TURN" })).toBe("");

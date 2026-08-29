@@ -14,9 +14,9 @@ import React, { useEffect, useState, useCallback, useMemo, useLayoutEffect } fro
 
 import { MessageBox } from "./MessageBox";
 import { images } from "../../generated/image_imports";
-import { t, useTranslation } from "../../i18n/i18n";
+import { battleSidebarWidth } from "../../pixi/boardFit";
 import { usePixiManager } from "../../pixi/PixiGameManager";
-import { SidebarFrame } from "../SidebarFrame";
+import { upNextSmokyChainsBackgroundLayer } from "../upNextBackground";
 // Black under everything. The hide is laid over it at partial opacity, so this is what mutes it — and what
 // shows on its own for the moment before the texture arrives.
 export const SIDEBAR_BG = "#000000";
@@ -58,19 +58,34 @@ export const SIDEBAR_BG = "#000000";
  * red channel would need a negative wash to cancel, since red is where the hide is warmest. 0.15 sits just
  * under it and leaves about +/-1.7 levels of texture, which is faint but not flat.
  */
-/** The chosen pair deliberately gives the two command decks different materials while keeping the same
- * near-black value range: ember-specked hammered stone on the unit panel, engraved hide on the controls. */
-export const LEFT_SIDEBAR_BG_IMAGE = `linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.2)), url(${images.ui_sidebar_bg_left_emberstone})`;
-export const RIGHT_SIDEBAR_BG_IMAGE = `linear-gradient(rgba(0,0,0,.08), rgba(0,0,0,.16)), url(${images.ui_sidebar_bg_right_runic})`;
-export const SIDEBAR_BG_IMAGE = RIGHT_SIDEBAR_BG_IMAGE;
-export const SIDEBAR_BG_SIZE = "auto, cover";
-export const SIDEBAR_BG_REPEAT = "no-repeat, no-repeat";
+/** Nine-slice-style sidebar backgrounds. The outside ornament is split into aspect-preserving top and
+ * bottom pieces. A quiet center texture grows between them as the viewport gets taller, while separate
+ * outside and board-facing rails keep the frame continuous without stretching either ornament. */
+const SIDEBAR_BG_TINT = "linear-gradient(rgba(0,0,0,.04), rgba(0,0,0,.1))";
+export const LEFT_SIDEBAR_BG_IMAGE = `${SIDEBAR_BG_TINT}, url(${images.ui_sidebar_bg_left_smoked_bronze_outer_top_v12}), url(${images.ui_sidebar_bg_left_smoked_bronze_outer_bottom_v12}), url(${images.ui_sidebar_bg_left_smoked_bronze_outer_rail_v12}), url(${images.ui_sidebar_bg_left_smoked_bronze_inner_v11}), url(${images.ui_sidebar_bg_left_smoked_bronze_center_v11})`;
+export const RIGHT_SIDEBAR_BG_IMAGE = `${SIDEBAR_BG_TINT}, url(${images.ui_sidebar_bg_right_smoked_bronze_outer_top_v12}), url(${images.ui_sidebar_bg_right_smoked_bronze_outer_bottom_v12}), url(${images.ui_sidebar_bg_right_smoked_bronze_outer_rail_v12}), url(${images.ui_sidebar_bg_right_smoked_bronze_inner_v11}), url(${images.ui_sidebar_bg_right_smoked_bronze_center_v11})`;
+export const LEFT_SIDEBAR_BG_POSITION = "center, left top, left bottom, left center, right center, center";
+export const RIGHT_SIDEBAR_BG_POSITION = "center, right top, right bottom, right center, left center, center";
+export const SIDEBAR_BG_REPEAT = "no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat";
+
+// Slim both full-height rails by 30%. The space is returned to the content column instead of shrinking
+// the complete left sidebar.
+export const sidebarVerticalRailWidth = (barSize: number): number =>
+    Math.max(4, Math.min(13, Math.round(barSize * 0.03 * 0.7)));
+
+/** The ornament used to occupy 41.9% of the bar after the 103% overscan. 27.2% is 35% narrower.
+ * Cap it so ultrawide layouts add quiet stone instead of enlarging the ornament again. */
+export const sidebarBackgroundSize = (barSize: number): string => {
+    const ornamentWidth = Math.max(40, Math.min(150, Math.round(barSize * 0.272)));
+    const outerRailWidth = sidebarVerticalRailWidth(barSize);
+    const innerRailWidth = sidebarVerticalRailWidth(barSize);
+    return `100% 100%, ${ornamentWidth}px auto, ${ornamentWidth}px auto, ${outerRailWidth}px 103%, ${innerRailWidth}px 103%, 100% 103%`;
+};
 
 import { UnitStatsListItem } from "./UnitStatsListItem";
 import { UpNext } from "./UpNext";
 import {
-    computeSidebarMetrics,
-    SIDEBAR_FRAME_LEFT_BORDER_PX,
+    computeBattleSidebarMetrics,
     SIDEBAR_FRAME_RIGHT_INSET_PX,
     SidebarMetricsContext,
     sidebarFrameBottomInsetPx,
@@ -90,8 +105,8 @@ type SidebarSelectionState = {
 const emptyUnit = {} as UnitProperties;
 const emptyImpact = {} as IVisibleOverallImpact;
 
-// Floor for the unit card. Past this the sidebar as a whole starts scrolling rather than squeezing the
-// card into nothing — the point where the screen is simply too short for the panel.
+// Floor for the unit card. Below this the portrait may rise over the upper sidebar content instead of
+// collapsing into an unreadable strip.
 const MIN_CARD_HEIGHT = 140;
 
 type LeftSideBarProps = {
@@ -100,7 +115,6 @@ type LeftSideBarProps = {
 };
 
 export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProps) {
-    useTranslation();
     const [barSize, setBarSize] = useState(280);
     // Height actually left for the unit card once the turn panel and the up-next queue have taken theirs.
     // Measured rather than derived, because those blocks resize with the content.
@@ -123,13 +137,7 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
     const manager = usePixiManager();
 
     const adjustBarSize = useCallback(() => {
-        const additionalBoardPixels = 0;
-        const widthRatio = windowSize.width / (2048 + additionalBoardPixels);
-        const heightRatio = windowSize.height / 2048;
-        const scaleRatio = Math.min(widthRatio, heightRatio);
-        const scaledBoardSize = (2048 + additionalBoardPixels) * scaleRatio;
-        const rightBarEndAtBoard = (windowSize.width - scaledBoardSize) / 2;
-        const nextBarSize = Math.max(0, Math.round(rightBarEndAtBoard));
+        const nextBarSize = battleSidebarWidth(windowSize.width, windowSize.height);
         setBarSize((currentBarSize) => (currentBarSize === nextBarSize ? currentBarSize : nextBarSize));
     }, [windowSize.width, windowSize.height]);
 
@@ -185,22 +193,26 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
         };
     }, [selection.overallImpact]);
 
-    const metrics = useMemo(
-        () => computeSidebarMetrics(barSize, cardHeight, contentLoad),
-        [barSize, cardHeight, contentLoad],
-    );
+    const metrics = useMemo(() => {
+        return computeBattleSidebarMetrics(barSize, windowSize.width, windowSize.height, cardHeight, contentLoad);
+    }, [barSize, cardHeight, contentLoad, windowSize.width, windowSize.height]);
 
     const unitProperties = selection.unit || ({} as UnitProperties);
     // Keep the usable width unchanged while centring the whole inner column between the two outer rails.
     // The left side includes a real border, so its CSS padding must be that border narrower than the right.
-    const balancedOuterInset = Math.round(
-        (sidebarFrameSideInsetPx(barSize) + SIDEBAR_FRAME_LEFT_BORDER_PX + SIDEBAR_FRAME_RIGHT_INSET_PX) / 2,
-    );
-    const balancedLeftPadding = Math.max(0, balancedOuterInset - SIDEBAR_FRAME_LEFT_BORDER_PX);
+    const balancedOuterInset = Math.round((sidebarFrameSideInsetPx(barSize) + SIDEBAR_FRAME_RIGHT_INSET_PX) / 2);
+    const balancedLeftPadding = balancedOuterInset;
+    const selectedCardTopInset = Math.max(8, Math.round(sidebarFrameTopInsetPx(windowSize.height) * 0.45));
+    const unitDetailsShellPadding = Math.max(2, Math.round(metrics.padPx * 0.16));
+    const verticalRailWidth = sidebarVerticalRailWidth(barSize);
+    // Move the complete combat footer as one piece: the timer's lower edge, the queue background/rule and
+    // the creature cards keep their exact internal spacing. At the annotated browser zoom this is the
+    // shared ~46px move from both current edges to the two blue guide lines.
+    const combatFooterShiftPx = Math.round(metrics.gapPx * 2.6);
 
     // The card is the only elastic block: everything else is pinned, so it both reports its own height
     // (feeding the metrics above) and scales itself down if its content still cannot fit.
-    const { setViewport, setContent, scale, scrollable, naturalHeight } = useFitScale();
+    const { setViewport, setContent, scale } = useFitScale();
     const [cardViewport, setCardViewport] = useState<HTMLElement | null>(null);
     const attachViewport = useCallback(
         (node: HTMLElement | null) => {
@@ -230,45 +242,78 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
                     width: `${barSize}px`,
                     top: 0,
                     left: 0,
-                    // Equal visible margins on both sides. The left padding is smaller only because the
-                    // five-pixel border beside it is part of that same visible outer gap.
+                    // Equal visible margins on both sides; the texture itself now supplies the outer rail.
                     pl: `${balancedLeftPadding}px`,
                     pr: `${balancedOuterInset}px`,
-                    pt: `${sidebarFrameTopInsetPx(windowSize.height)}px`,
+                    pt: `${selectedCardTopInset}px`,
                     pb: `${sidebarFrameBottomInsetPx(windowSize.height)}px`,
-                    // The banner consumes this inset itself so its top rail reaches the inner edge of the
-                    // outer frame while the rest of the card keeps the normal safe content padding.
-                    "--sidebar-card-top-extension": `${sidebarFrameTopInsetPx(windowSize.height)}px`,
+                    // Expose the exact inset so the selected creature heading can meet the same top rail
+                    // as the roster collapse control instead of estimating it from responsive metrics.
+                    "--sidebar-card-top-inset": `${selectedCardTopInset}px`,
+                    // Let the complete selected card reach the physical edges of the left viewport. These
+                    // values include the card shell's own horizontal padding, not only the sidebar padding.
+                    "--sidebar-card-left-bleed": `${balancedLeftPadding + unitDetailsShellPadding}px`,
+                    "--sidebar-card-right-bleed": `${balancedOuterInset + unitDetailsShellPadding}px`,
+                    // Cancel the last fractional layout gap above the name flow. The extra 2px deliberately
+                    // overdraws past y=0, preventing a hairline seam at non-integer responsive scales.
+                    "--sidebar-card-frame-top-gap": `${unitDetailsShellPadding + 2}px`,
+                    // The selected art rises out of the content inset into the unused upper sidebar area.
+                    "--sidebar-card-top-extension": `${Math.max(
+                        8,
+                        Math.round(sidebarFrameTopInsetPx(windowSize.height) * 1.45),
+                    )}px`,
                     display: "flex",
                     flexDirection: "column",
                     gap: `${metrics.gapPx}px`,
-                    // The board-facing edge is left to the gold trim, which is painted over exactly this
-                    // strip from a layer above (see boardEdgeTrim). The border is widened to the trim's own
-                    // width and the background is clipped to the padding box, so the leather stops before
-                    // the trim rather than running under it and on into the board's edge column of cells.
-                    // Should the trim ever not be drawn, what shows here is a dark rule, not hide.
-                    borderLeft: "5px solid #100c09",
-                    borderTop: "5px solid #100c09",
-                    borderBottom: "5px solid #100c09",
                     boxSizing: "border-box",
-                    backgroundClip: "padding-box",
-                    // Do not use a four-sided bronze inset here: its right side duplicated the board edge
-                    // and appeared as the stray orange vertical line. The authored outer frame supplies
-                    // the remaining rails; this keeps only depth and the shadow cast toward the board.
-                    boxShadow: "inset 0 0 22px rgba(0,0,0,.82), 6px 0 18px rgba(0,0,0,.76)",
-                    // Everything below sizes itself to the bar, and the card scales down when its content
-                    // cannot fit, so a scrollbar only ever appears on a screen too short for the pinned
-                    // turn panel and queue alone.
-                    overflowY: "auto",
-                    overflowX: "hidden",
+                    // The active texture now owns the complete outer frame. Do not add a second border,
+                    // inset rail or frame overlay around the sidebar container.
+                    // The selected portrait is deliberately allowed to extend into the free space above
+                    // the card. Clipping either axis makes CSS turn the other `visible` axis into `auto`,
+                    // which is what produced the unwanted full-card scrollbar.
+                    overflow: "visible",
                     transition: "width 180ms ease-out",
                     willChange: "width",
                     backgroundColor: SIDEBAR_BG,
                     backgroundImage: LEFT_SIDEBAR_BG_IMAGE,
-                    backgroundSize: SIDEBAR_BG_SIZE,
+                    backgroundSize: sidebarBackgroundSize(barSize),
                     backgroundRepeat: SIDEBAR_BG_REPEAT,
-                    // The two bars take opposite ends of the same hide, so they are never a mirrored pair.
-                    backgroundPosition: "left center",
+                    backgroundPosition: LEFT_SIDEBAR_BG_POSITION,
+                    // The same two authored rails already used in the sidebar background are repeated as
+                    // the top HUD layer. They now stay continuous from bottom to top and paint over the
+                    // selected portrait, stat plate, section tiles and turn controls instead of disappearing
+                    // behind whichever child happens to create the next stacking context.
+                    "&::before": {
+                        content: '""',
+                        position: "absolute",
+                        top: 0,
+                        bottom: 0,
+                        left: 0,
+                        width: `${verticalRailWidth}px`,
+                        zIndex: 30,
+                        pointerEvents: "none",
+                        // Mirror the same straight profile used by the lower highlighted section. This
+                        // covers the old decorative upper rail with one continuous quiet edge.
+                        backgroundImage: `url(${images.ui_sidebar_bg_left_smoked_bronze_inner_v11})`,
+                        backgroundRepeat: "no-repeat",
+                        backgroundPosition: "center",
+                        backgroundSize: "100% 103%",
+                        transform: "scaleX(-1)",
+                    },
+                    "&::after": {
+                        content: '""',
+                        position: "absolute",
+                        top: 0,
+                        right: 0,
+                        bottom: 0,
+                        width: `${verticalRailWidth}px`,
+                        zIndex: 30,
+                        pointerEvents: "none",
+                        backgroundImage: `url(${images.ui_sidebar_bg_left_smoked_bronze_inner_v11})`,
+                        backgroundRepeat: "no-repeat",
+                        backgroundPosition: "center",
+                        backgroundSize: "100% 103%",
+                    },
                 }}
             >
                 {/* The team colour is no longer a cloth banner across the bar — it is a fire-like aura
@@ -279,26 +324,26 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
                         minHeight: `${MIN_CARD_HEIGHT}px`,
                         flex: "1 1 0",
                         position: "relative",
-                        // Clipped rather than spilling: whatever the card cannot show must not paint over
-                        // the turn panel pinned below it. On a screen too short even for the shrunk card
-                        // this becomes the one scrollbar in the sidebar.
-                        overflowY: scrollable ? "auto" : "hidden",
-                        overflowX: "hidden",
+                        zIndex: 2,
+                        // The portrait already grows upward using --sidebar-card-top-extension. Let that
+                        // authored overhang paint above the viewport instead of converting it into scroll.
+                        overflow: "visible",
                     }}
                 >
                     <Box
                         ref={setContent}
                         className="SidebarCard"
                         sx={{
-                            height: scrollable ? "auto" : "100%",
+                            height: "100%",
                             width: "100%",
+                            // The selected portrait card cancels only this horizontal part of the emergency
+                            // fit scale, so it can still meet the sidebar rails while its vertical layout
+                            // continues to shrink enough to fit the available height.
+                            "--sidebar-card-fit-scale": `${scale}`,
+                            "--sidebar-card-inverse-fit-scale": `${1 / scale}`,
                             transform: scale === 1 ? "none" : `scale(${scale})`,
                             transformOrigin: "top center",
                             transition: "transform 160ms ease-out",
-                            // A CSS transform does not shrink the layout box, so a scrolling card would
-                            // otherwise get scroll range for its full unscaled height and end in a long
-                            // stretch of nothing. Pull the surplus back off the bottom.
-                            marginBottom: scrollable ? `${-Math.round(naturalHeight * (1 - scale))}px` : 0,
                         }}
                     >
                         <List
@@ -343,7 +388,7 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
                                             <ListItemButton selected>
                                                 <DashboardRoundedIcon />
                                                 <Box sx={{ marginLeft: 2 }}>
-                                                    <Typography level="title-sm">{t("Fight")}</Typography>
+                                                    <Typography level="title-sm">Fight</Typography>
                                                 </Box>
                                             </ListItemButton>
                                         </ListItem>
@@ -361,18 +406,40 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
                     </Box>
                 </Box>
 
-                {/* Turn panel and queue are pinned to the bottom: they are the two blocks a player must be
-                    able to read at any moment, so they never take part in the shrinking above. */}
-                <Box sx={{ flexShrink: 0 }}>
-                    <MessageBox gameStarted={gameStarted} />
+                {/* Before the fight, the Start panel keeps its normal place in the column. Once combat
+                    begins, the timer and queue become one bottom overlay instead of taking height away
+                    from the selected card. This deliberately exposes the exact overlap with the unchanged
+                    pre-fight card at every viewport size. */}
+                <Box
+                    sx={
+                        gameStarted
+                            ? {
+                                  position: "absolute",
+                                  zIndex: 31,
+                                  left: `${balancedLeftPadding}px`,
+                                  right: `${balancedOuterInset}px`,
+                                  bottom: 0,
+                                  transform: `translateY(${combatFooterShiftPx}px)`,
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  gap: `${metrics.gapPx}px`,
+                                  boxSizing: "border-box",
+                                  paddingBottom: `${sidebarFrameBottomInsetPx(windowSize.height)}px`,
+                                  borderRadius: `${Math.max(4, Math.round(metrics.gapPx * 0.7))}px ${Math.max(
+                                      4,
+                                      Math.round(metrics.gapPx * 0.7),
+                                  )}px 0 0`,
+                                  // Do not darken the newly exposed band above the timer. Only the lower
+                                  // queue edge keeps its inset shade; the top now blends into the unit area.
+                                  boxShadow: "inset 0 -18px 28px rgba(0,0,0,.32)",
+                                  ...upNextSmokyChainsBackgroundLayer,
+                              }
+                            : { flexShrink: 0, position: "relative", zIndex: 1 }
+                    }
+                >
+                    <MessageBox gameStarted={gameStarted} windowSize={windowSize} />
+                    {gameStarted && <UpNext />}
                 </Box>
-
-                {gameStarted && (
-                    <Box sx={{ flexShrink: 0 }}>
-                        <UpNext />
-                    </Box>
-                )}
-                <SidebarFrame side="left" width={barSize} height={windowSize.height} />
             </Sheet>
         </SidebarMetricsContext.Provider>
     );

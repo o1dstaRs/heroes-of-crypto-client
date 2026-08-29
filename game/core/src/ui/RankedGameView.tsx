@@ -1,6 +1,5 @@
 import {
     Artifact,
-    AttackVals,
     Augment,
     FightStateManager,
     Doctrine,
@@ -28,7 +27,7 @@ import { useLocation, useNavigate } from "react-router";
 import { v4 as uuidv4 } from "uuid";
 
 import { createPlayActionFromGameAction } from "../api/game_action_play_codec";
-import { isPreviewPlayGame } from "../api/previewPlayGate";
+import { isPreviewPlayGame } from "../api/previewPlaySession";
 import { createVsAiGame } from "../api/vs_ai_client";
 import {
     fetchRankedPlayReplay,
@@ -41,13 +40,13 @@ import {
     toAuthoritativeGameSnapshot,
 } from "../api/ranked_play_client";
 import { PlayActionType, PlayEventKind, PlayPhase, PLAY_MOVE_CONTINUE_TURN_REASON } from "../api/play_protocol";
+import { createInitialPlayerPlacementActions, createModelPlacementActions } from "./rankedPlacementGeometry";
 import { setPrefightMusicActive } from "./audio/prefightMusic";
 import type { PlayAction, PlaySnapshot, PlayUnitState } from "../api/play_protocol";
 import type { SceneGameActionTransport, SceneGameActionTransportOptions } from "../game_action_transport";
 import { axiosMMInstance, endpoints } from "../api/axios";
 import { images } from "../generated/image_imports";
-import { t, tf, useTranslation } from "../i18n/i18n";
-import { standingLabel } from "../i18n/standing";
+import { t, useTranslation } from "../i18n/i18n";
 import { usePixiManager } from "../pixi/PixiGameManager";
 import type { SceneEntry } from "../pixi/PixiScene";
 import {
@@ -64,6 +63,7 @@ import { FightFinishedOverlay } from "./FightFinishedOverlay";
 import LeftSideBar from "./LeftSideBar";
 import SynergiesRow from "./LeftSideBar/SynergiesRow";
 import { Main } from "./Main";
+import { LoadingFullscreenToggle } from "./LoadingFullscreenToggle";
 import Popover from "./Popover";
 import RightSideBar from "./RightSideBar";
 import { MapBadge } from "./PickAndBan/MapReveal";
@@ -72,6 +72,7 @@ import {
     DRAFT_HEADER_HEIGHT,
     DRAFT_ZONE_GAP,
     DraftBottomControls,
+    CreatureDetailPanel,
     draftBoardSx,
     draftShellSx,
     DraftTitle,
@@ -81,16 +82,19 @@ import {
     PickCommitButton,
     useDraftScale,
 } from "./PickAndBan";
+import { PickLanternFire } from "./PickAndBan/PickLanternFire";
 import SandboxToggleContainer from "./RightSideBar/SandboxToggleContainer";
 import SideToggleContainer from "./RightSideBar/SideToggleContainer";
 import { UpNextOverlay } from "./UpNextOverlay";
 import { AiControlBadge, aiBadgeLeft } from "./AiControlBadge";
 import { NextLapHazardBadge } from "./NextLapHazardBadge";
 import { ExitReplayBadge } from "./ExitReplayBadge";
-import { RankedFinishedActions } from "./RankedFinishedActions";
-import { LeagueTransitionReveal } from "./LeagueTransitionReveal";
-import { UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "./unit_ui_constants";
+import { setBattleSystemControlsActive } from "./social/systemControlsMode";
+import { CreaturePortraitImage } from "./CreaturePortraitImage";
+import { UNIT_ID_TO_NAME } from "./unit_ui_constants";
 import { ButtonProvider } from "./context/ButtonContext";
+import { exitFightButtonSx } from "./exitFightButtonSx";
+import { useFullscreenActive } from "./useFullscreenActive";
 import { ViewerTeamContext } from "./context/ViewerTeamContext";
 import {
     hocColors,
@@ -98,8 +102,10 @@ import {
     hocDisplayFontFamily,
     hocDisplayLetterSpacing,
     hocPanelSx,
+    hocSidebarImageButtonSx,
     hocSidebarSectionSx,
     hocSoftButtonSx,
+    hocSplitterSliderSx,
     hocSpinnerSx,
 } from "./hocTheme";
 import {
@@ -107,11 +113,14 @@ import {
     rejectionErrorFromPlayEvent,
     resolveEffectiveLocalModelOpponentConfig,
     shouldApplyActionResponseSnapshotToViewer,
+    shouldPlayAuthoritativeAction,
     shouldRecoverRejectedMoveFollowUp,
 } from "./rankedActionResponse";
 import {
+    isRankedBoardPlacementStage,
     rankedPlacementLockActionType,
     shouldHideRankedSetupOpponentRoster,
+    shouldShowRankedAugmentPicker,
     shouldShowRankedPlacementRosters,
 } from "./rankedPlacementStage";
 import { syncRankedSnapshotSynergies } from "./rankedSynergySync";
@@ -126,7 +135,6 @@ import {
     vsAiDifficultyLabel,
     type VsAiDifficulty,
 } from "../utils/aiOpponent";
-import { siteUrl } from "../api/site_origin";
 
 export { fetchRankedPlaySnapshot } from "../api/ranked_play_client";
 
@@ -145,11 +153,11 @@ const isGameGoneError = (err: unknown): boolean => {
 };
 
 const phaseLabel = (phase: number): string => {
-    if (phase === PlayPhase.PLACEMENT) return t("Pre-fight placement");
-    if (phase === PlayPhase.PLAY) return t("Fight");
-    if (phase === PlayPhase.FINISHED) return t("Finished");
-    if (phase === PlayPhase.ABANDONED) return t("Abandoned");
-    return t("Loading");
+    if (phase === PlayPhase.PLACEMENT) return "Pre-fight placement";
+    if (phase === PlayPhase.PLAY) return "Fight";
+    if (phase === PlayPhase.FINISHED) return "Finished";
+    if (phase === PlayPhase.ABANDONED) return "Abandoned";
+    return "Loading";
 };
 
 // The header no longer carries a status chip, so connection state only surfaces when something is off:
@@ -159,9 +167,9 @@ const phaseLabel = (phase: number): string => {
 const HEALTHY_STATUSES = new Set(["Connected", "Loading replay", "Preparing replay", "Replaying", "Replay complete"]);
 
 const teamLabel = (team: number): string => {
-    if (team === TeamVals.LOWER) return t("Green");
-    if (team === TeamVals.UPPER) return t("Red");
-    return t("Neutral");
+    if (team === TeamVals.LOWER) return "Green";
+    if (team === TeamVals.UPPER) return "Red";
+    return "Neutral";
 };
 
 const controlledUnitIdForAction = (action: GameAction): string | undefined => {
@@ -232,105 +240,6 @@ const canPlayAuthoritativeRecord = (action: GameAction, snapshot: PlaySnapshot |
     }
 };
 
-const isRangedSnapshotUnit = (unit: PlayUnitState): boolean => unit.attackType === AttackVals.RANGE;
-
-const cellsForSnapshotUnitAt = (unit: PlayUnitState, cell: { x: number; y: number }): { x: number; y: number }[] => {
-    if (unit.size <= 1) {
-        return [{ x: cell.x, y: cell.y }];
-    }
-    return [
-        { x: cell.x, y: cell.y },
-        { x: cell.x + 1, y: cell.y },
-        { x: cell.x, y: cell.y + 1 },
-        { x: cell.x + 1, y: cell.y + 1 },
-    ];
-};
-
-const cellKey = (cell: { x: number; y: number }): string => `${cell.x}:${cell.y}`;
-
-const isDefaultPlacementCell = (cell: { x: number; y: number }, team: TeamType): boolean => {
-    const inX = cell.x >= 1 && cell.x <= 14;
-    const inY = team === TeamVals.UPPER ? cell.y >= 12 && cell.y <= 14 : cell.y >= 1 && cell.y <= 3;
-    return inX && inY;
-};
-
-const fallbackPlacementAnchors = (team: TeamType, large: boolean, ranged: boolean): Array<{ x: number; y: number }> => {
-    const xs = large ? [7, 5, 9, 3, 11, 1, 13] : [7, 8, 6, 9, 5, 10, 4, 11, 3, 12, 2, 13, 1, 14];
-    const ys =
-        team === TeamVals.UPPER
-            ? large
-                ? ranged
-                    ? [13, 12]
-                    : [12, 13]
-                : ranged
-                  ? [14, 13, 12]
-                  : [12, 13, 14]
-            : large
-              ? ranged
-                  ? [1, 2]
-                  : [2, 1]
-              : ranged
-                ? [1, 2, 3]
-                : [3, 2, 1];
-
-    return ys.flatMap((y) => xs.map((x) => ({ x, y })));
-};
-
-const modelPlacementAnchors = (unit: PlayUnitState, team: TeamType): { x: number; y: number }[] => {
-    const ranged = isRangedSnapshotUnit(unit);
-    const large = unit.size > 1;
-    return fallbackPlacementAnchors(team, large, ranged);
-};
-
-const createModelPlacementActions = (snapshot: PlaySnapshot, team: TeamType): Partial<PlayAction>[] => {
-    const occupied = new Set<string>();
-    for (const unit of snapshot.units) {
-        if (!unit.placed) {
-            continue;
-        }
-        for (const cell of unit.cells) {
-            occupied.add(cellKey(cell));
-        }
-    }
-
-    const unplaced = snapshot.units
-        .filter((unit) => unit.team === team && !unit.dead && (!unit.placed || !unit.cells.length))
-        .sort((a, b) => {
-            if (a.size !== b.size) return b.size - a.size;
-            if (isRangedSnapshotUnit(a) !== isRangedSnapshotUnit(b)) return isRangedSnapshotUnit(a) ? 1 : -1;
-            return b.initiative - a.initiative;
-        });
-
-    const actions: Partial<PlayAction>[] = [];
-    for (const unit of unplaced) {
-        for (const anchor of modelPlacementAnchors(unit, team)) {
-            const cells = cellsForSnapshotUnitAt(unit, anchor);
-            if (
-                cells.every(
-                    (cell) =>
-                        isDefaultPlacementCell(cell, team) &&
-                        !occupied.has(cellKey(cell)) &&
-                        Number.isInteger(cell.x) &&
-                        Number.isInteger(cell.y),
-                )
-            ) {
-                for (const cell of cells) {
-                    occupied.add(cellKey(cell));
-                }
-                actions.push({
-                    type: PlayActionType.PLACE_UNIT,
-                    unitId: unit.id,
-                    team,
-                    unitName: unit.name,
-                    cells,
-                });
-                break;
-            }
-        }
-    }
-    return actions;
-};
-
 type Props = {
     gameId: string;
     userTeam: TeamType;
@@ -361,9 +270,6 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     const [busy, setBusy] = useState(false);
     const [status, setStatus] = useState(replayOnly ? "Loading replay" : "Connecting");
     const [error, setError] = useState("");
-    // Top-left "Play another" post-match action state (see RankedFinishedActions).
-    const [playAnotherBusy, setPlayAnotherBusy] = useState(false);
-    const [playAnotherError, setPlayAnotherError] = useState("");
     // The game no longer exists on the server (cleaned up on restart, or a DB lookup failed → the API
     // returns "Game not found"). We render a plain "not available" screen instead of the stale board.
     const [gameUnavailable, setGameUnavailable] = useState(false);
@@ -518,6 +424,9 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     const playAuthoritativeRecordData = useCallback(
         async (record: RankedReplayActionRecord, stateAfterSnapshot?: PlaySnapshot): Promise<boolean> => {
             if (!pixiReady) {
+                return false;
+            }
+            if (!shouldPlayAuthoritativeAction(record.action)) {
                 return false;
             }
             // Already animated by the other delivery channel. An own action is delivered TWICE — once
@@ -867,7 +776,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             if (cameFromLobby) {
                 navigate(observerOrigin?.lobbyId ? `/lobby/${observerOrigin.lobbyId}` : "/lobbies");
             } else {
-                window.location.assign(siteUrl("/"));
+                window.location.assign("https://heroesofcrypto.io");
             }
             return;
         }
@@ -904,27 +813,6 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
         }
         throw lastError instanceof Error ? lastError : new Error("Unable to start an AI match");
     }, [navigate]);
-    // Top-left "Play another": start a fresh ranked game. A vs-AI match starts another default-AI game;
-    // a human match has no instant rematch, so route to the game-type selection (/play) where
-    // Find Opponent / Play vs AI live.
-    const handlePlayAnother = useCallback(async () => {
-        if (playAnotherBusy) {
-            return;
-        }
-        setPlayAnotherError("");
-        if (!isVsAiMatch) {
-            navigate("/play");
-            return;
-        }
-        setPlayAnotherBusy(true);
-        try {
-            await handlePlayAgainVsAi();
-        } catch (err) {
-            // On success handlePlayAgainVsAi navigates away; only a failure lands here.
-            setPlayAnotherBusy(false);
-            setPlayAnotherError(err instanceof Error ? t(err.message) : t("Unable to start another match"));
-        }
-    }, [handlePlayAgainVsAi, isVsAiMatch, navigate, playAnotherBusy]);
     const selectedUnit = useMemo(
         () => snapshot?.units.find((unit) => unit.id === selectedUnitId),
         [selectedUnitId, snapshot],
@@ -936,6 +824,14 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     const gameStarted =
         !!snapshot &&
         (snapshot.fightStarted || snapshot.phase === PlayPhase.PLAY || snapshot.phase === PlayPhase.FINISHED);
+
+    // Placement and combat share the compact top-right system-controls medallion. Publishing the whole
+    // ranked-board lifetime (rather than only the first combat turn) removes the three loose bottom-right
+    // social buttons during placement too.
+    useEffect(() => {
+        setBattleSystemControlsActive(true);
+        return () => setBattleSystemControlsActive(false);
+    }, []);
 
     // "Iron and Silk" runs from the match being found until the first turn. The route hands the flag over
     // once the board is up; from here it is simply "we have a board and the fight has not started", which is
@@ -1171,18 +1067,12 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     }, []);
 
     const submitProtocolActionForTeam = useCallback(
-        async (
-            action: Partial<PlayAction>,
-            team: TeamType,
-            authorization?: string,
-            options?: { silent?: boolean },
-        ): Promise<boolean> => {
-            let accepted = false;
+        async (action: Partial<PlayAction>, team: TeamType, authorization?: string, options?: { silent?: boolean }) => {
             await queueActionSubmission(async () => {
                 const envelope = buildActionEnvelope(team);
                 if (!envelope) return;
 
-                accepted = await sendPlayAction(
+                await sendPlayAction(
                     {
                         ...envelope,
                         type: PlayActionType.UNKNOWN,
@@ -1191,14 +1081,13 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                     { authorization, silent: options?.silent },
                 );
             });
-            return accepted;
         },
         [buildActionEnvelope, queueActionSubmission, sendPlayAction],
     );
 
     const submitProtocolAction = useCallback(
         async (action: Partial<PlayAction>) => {
-            return submitProtocolActionForTeam(action, userTeam);
+            await submitProtocolActionForTeam(action, userTeam);
         },
         [submitProtocolActionForTeam, userTeam],
     );
@@ -1345,6 +1234,15 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                 pendingTurnResolutionRef.current = true;
                 pendingTurnResolutionSinceRef.current = Date.now();
             }
+            // No in-flight gate on placement drags. Refusing a second drag while the first is airborne
+            // dropped it silently on any real latency — the scene skips its local apply when completed is
+            // false, and Sandbox then clears the selection, so a click within one round trip did nothing at
+            // all and deselected the stack. Ordering was never the exposure: queueActionSubmission
+            // serializes submissions and builds each envelope INSIDE the queued closure off a freshly read
+            // sequence, and the server deliberately exempts place/split/delete from the placement sequence
+            // gate ("your units, your zone, no cross-team ordering dependency"). Stale optimistic state is
+            // repaired by reconciling from the authoritative snapshot — see shouldPlayAuthoritativeAction —
+            // not by throwing the player's input away.
             void submitGameAction(action, transportOptions);
             return { handled: true, completed: true };
         },
@@ -1551,6 +1449,34 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     }, [manager, gameId, isObserver, userTeam]);
 
     const modelPlacementRunKeyRef = useRef("");
+    const playerInitialPlacementRunKeyRef = useRef("");
+    useEffect(() => {
+        if (
+            replayOnly ||
+            isObserver ||
+            !snapshot ||
+            snapshot.phase !== PlayPhase.PLACEMENT ||
+            (snapshot.placementSplit && snapshot.placementStage !== 1)
+        ) {
+            return;
+        }
+        const player = snapshot.players.find((candidate) => candidate.team === userTeam);
+        if (!player || snapshot.readyPlayerIds.includes(player.playerId)) {
+            return;
+        }
+        const runKey = `${snapshot.gameId}:${player.playerId}:${snapshot.placementSplit ? snapshot.placementStage : "legacy"}`;
+        if (playerInitialPlacementRunKeyRef.current === runKey) {
+            return;
+        }
+        playerInitialPlacementRunKeyRef.current = runKey;
+
+        void (async () => {
+            for (const action of createInitialPlayerPlacementActions(snapshot, userTeam)) {
+                await submitProtocolAction(action);
+            }
+        })();
+    }, [isObserver, replayOnly, snapshot, submitProtocolAction, userTeam]);
+
     useEffect(() => {
         if (
             !effectiveLocalModelConfig.enabled ||
@@ -1597,7 +1523,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                 }
 
                 const runSetup = !latestSnapshot.placementSplit || latestSnapshot.placementStage === 0;
-                const runBoard = !latestSnapshot.placementSplit || latestSnapshot.placementStage === 1;
+                const runBoard = isRankedBoardPlacementStage(latestSnapshot);
                 if (!runSetup && !runBoard) {
                     return;
                 }
@@ -1675,18 +1601,16 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             >
                 <Stack spacing={1.5} alignItems="center" sx={{ textAlign: "center", maxWidth: 460 }}>
                     <Typography sx={{ color: "#f6d87c", fontWeight: 800, fontSize: "1.5rem" }}>
-                        {replayOnly ? t("Replay unavailable") : t("Game is not available")}
+                        {replayOnly ? "Replay unavailable" : "Game is not available"}
                     </Typography>
                     <Typography sx={{ opacity: 0.75 }}>
                         {replayOnly
-                            ? t("This older match does not have a complete stored replay.")
-                            : t(
-                                  "This match has ended or is no longer on the server. It may have been cleaned up or the server was restarted.",
-                              )}
+                            ? "This older match does not have a complete stored replay."
+                            : "This match has ended or is no longer on the server. It may have been cleaned up or the server was restarted."}
                     </Typography>
                     {replayOnly && (
                         <Button variant="soft" sx={hocSoftButtonSx} onClick={() => navigate("/portal")}>
-                            {t("Back to match history")}
+                            Back to match history
                         </Button>
                     )}
                 </Stack>
@@ -1711,10 +1635,10 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             >
                 <Stack spacing={2} alignItems="center">
                     <CircularProgress sx={hocSpinnerSx} />
-                    <Typography sx={{ color: hocColors.parchment }}>{t("Loading ranked fight")}</Typography>
+                    <Typography sx={{ color: hocColors.parchment }}>Loading ranked fight</Typography>
                     {error && (
                         <Alert variant="soft" sx={hocDangerAlertSx}>
-                            {t(error)}
+                            {error}
                         </Alert>
                     )}
                 </Stack>
@@ -1729,6 +1653,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             currentUnit={currentUnit}
             embedded
             error={error}
+            gameId={gameId}
             gameStarted={gameStarted}
             ready={ready}
             selectedUnit={selectedUnit}
@@ -1740,6 +1665,15 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             isObserver={isObserver}
         />
     );
+    const rankedFooter =
+        snapshot.phase === PlayPhase.PLACEMENT && !isObserver && isRankedBoardPlacementStage(snapshot) ? (
+            <RankedReadyPlacementButton
+                canSubmit={canSubmit}
+                ready={ready}
+                snapshot={snapshot}
+                submitProtocolAction={submitProtocolAction}
+            />
+        ) : undefined;
 
     return (
         <ButtonProvider>
@@ -1756,6 +1690,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             >
                 <CssVarsProvider>
                     <CssBaseline />
+                    {!pixiReady && <LoadingFullscreenToggle />}
                     {/* The gold rule closing the gap between the board and each bar. It was mounted only in
                         the sandbox and on the pick screen, so a ranked fight — which builds its own layout
                         around the same two sidebars — never drew it and the board simply ran into the
@@ -1767,15 +1702,18 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                         </ViewerTeamContext.Provider>
                     )}
                     {pixiReady && (
-                        <RightSideBar gameStarted={gameStarted} windowSize={windowSize} rankedPanel={rankedPanel} />
+                        <RightSideBar
+                            gameStarted={gameStarted}
+                            windowSize={windowSize}
+                            rankedPanel={rankedPanel}
+                            rankedFooter={rankedFooter}
+                        />
                     )}
                     {pixiReady && gameStarted && <UpNextOverlay />}
                     {pixiReady && gameStarted && <NextLapHazardBadge />}
-                    {pixiReady &&
-                        gameStarted &&
-                        (aiToggleOn || !!myPlayer?.aiControlled) &&
-                        !replayOnly &&
-                        !replayPlaybackActive && <AiControlBadge left={aiBadgeLeft(windowSize)} />}
+                    {pixiReady && gameStarted && (aiToggleOn || !!myPlayer?.aiControlled) && (
+                        <AiControlBadge left={aiBadgeLeft(windowSize)} />
+                    )}
                     {pixiReady && (replayOnly || replayPlaybackActive) && (
                         // Ranked: leaving the replay returns to the account / game-selection screen.
                         <ExitReplayBadge
@@ -1787,7 +1725,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                         <FightFinishedOverlay
                             backLabel={
                                 replayOnly
-                                    ? t("Match History")
+                                    ? "Match History"
                                     : isObserver
                                       ? cameFromLobby
                                           ? t("Back to lobby")
@@ -1802,28 +1740,6 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                             onBackToLobby={handleBackToLobby}
                         />
                     )}
-                    {pixiReady && gameStarted && (
-                        <LeagueTransitionReveal
-                            active={snapshot.phase === PlayPhase.FINISHED || snapshot.fightFinished}
-                            enabled={!isObserver && !replayOnly && !replayPlaybackActive}
-                            gameId={gameId}
-                        />
-                    )}
-                    {/* Persistent top-left post-match actions for the participant: quick access after the
-                        results overlay is dismissed. Not shown to observers/replay (ExitReplayBadge covers those). */}
-                    {pixiReady &&
-                        gameStarted &&
-                        !isObserver &&
-                        !replayPlaybackActive &&
-                        (snapshot.phase === PlayPhase.FINISHED || snapshot.fightFinished) && (
-                            <RankedFinishedActions
-                                left={aiBadgeLeft(windowSize)}
-                                playAnotherBusy={playAnotherBusy}
-                                error={playAnotherError}
-                                onPlayAnother={handlePlayAnother}
-                                onHome={() => navigate("/play")}
-                            />
-                        )}
                 </CssVarsProvider>
                 <Main entry={RANKED_SCENE_ENTRY} />
                 <Popover />
@@ -1838,13 +1754,14 @@ interface RankedOverlayProps {
     currentUnit?: PlayUnitState;
     embedded?: boolean;
     error: string;
+    gameId: string;
     gameStarted: boolean;
     ready: boolean;
     selectedUnit?: PlayUnitState;
     snapshot: PlaySnapshot;
     status: string;
     submitGameAction: (action: GameAction) => Promise<void>;
-    submitProtocolAction: (action: Partial<PlayAction>) => Promise<boolean>;
+    submitProtocolAction: (action: Partial<PlayAction>) => Promise<void>;
     userTeam: TeamType;
     isObserver: boolean;
 }
@@ -1854,7 +1771,6 @@ interface RankedPlacementStackActionsProps {
     selectedUnit: PlayUnitState;
     snapshot: PlaySnapshot;
     submitGameAction: (action: GameAction) => Promise<void>;
-    submitProtocolAction: (action: Partial<PlayAction>) => Promise<boolean>;
     userTeam: TeamType;
 }
 
@@ -1863,11 +1779,24 @@ const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = 
     selectedUnit,
     snapshot,
     submitGameAction,
-    submitProtocolAction,
     userTeam,
 }) => {
     const amountAlive = Math.max(0, Math.floor(selectedUnit.amountAlive));
     const maxSplitAmount = Math.max(0, amountAlive - 1);
+    // Delete permanently destroys the stack — no bench, no undo — so one stray click must not be
+    // enough. The first press arms the button; only a second press on the SAME unit commits, and
+    // the armed state falls back to normal after a few seconds or when the selection changes.
+    const [deleteArmed, setDeleteArmed] = useState(false);
+    useEffect(() => {
+        setDeleteArmed(false);
+    }, [selectedUnit.id]);
+    useEffect(() => {
+        if (!deleteArmed) {
+            return undefined;
+        }
+        const disarm = window.setTimeout(() => setDeleteArmed(false), 4000);
+        return () => window.clearTimeout(disarm);
+    }, [deleteArmed]);
     // Default to peeling a single off (1 / N-1), not a 50/50 split — the common ranked use is splitting a
     // lone unit to screen/body-block or bait a spell, so 1 is the far more frequent starting point.
     const [splitAmount, setSplitAmount] = useState(1);
@@ -1883,70 +1812,121 @@ const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = 
         setSplitAmount(1);
     }, [amountAlive, selectedUnit.id]);
 
+    // A 1-unit stack cannot split, but it can still be DELETED — with auto-deploy there is no
+    // bench, so hiding the whole panel here removed the only way to act on single-unit screens.
+    const canShowSplit = maxSplitAmount >= 1;
+
     return (
-        <Stack spacing={0.75}>
-            {maxSplitAmount >= 1 && (
-                <Sheet
-                    variant="soft"
+        <Box
+            sx={{
+                width: "100%",
+                mx: "auto",
+                mt: "auto !important",
+                mb: 0.25,
+                px: 0.75,
+                pt: 1,
+                pb: 0.75,
+                border: "1px solid rgba(222,176,91,.58)",
+                borderRadius: "8px",
+                background: "linear-gradient(180deg, rgba(52,37,19,.13), rgba(5,5,5,.12))",
+                boxShadow:
+                    "inset 0 0 0 1px rgba(13,9,6,.96), inset 0 0 0 3px rgba(134,91,49,.34), inset 0 0 14px rgba(221,166,75,.05), 0 2px 7px rgba(0,0,0,.5)",
+            }}
+        >
+            <Stack
+                spacing={1.25}
+                alignItems="center"
+                sx={{
+                    px: "16px",
+                    "& .MuiTypography-root": {
+                        color: "rgba(216,194,156,.7)",
+                        fontFamily: hocDisplayFontFamily,
+                        fontSynthesis: "none",
+                        transition: "color .2s ease",
+                    },
+                    "&:hover .MuiTypography-root": { color: hocColors.orange },
+                }}
+            >
+                {canShowSplit && (
+                    <Box sx={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
+                        <Typography level="body-sm">{sliderValue}</Typography>
+                        <Typography level="body-sm">{amountAlive - sliderValue}</Typography>
+                    </Box>
+                )}
+                {canShowSplit && (
+                    <Slider
+                        sx={hocSplitterSliderSx}
+                        min={1}
+                        max={Math.max(1, maxSplitAmount)}
+                        value={sliderValue}
+                        disabled={!canSplit}
+                        step={1}
+                        aria-label="Ranked unit split slider"
+                        onChange={(_, value) => setSplitAmount(Array.isArray(value) ? value[0] : value)}
+                    />
+                )}
+            </Stack>
+            <Stack direction="row" spacing={2} sx={{ width: "93%", mx: "auto", mt: 1.5 }}>
+                {canShowSplit && (
+                    <Button
+                        variant="plain"
+                        size="sm"
+                        disabled={!canSplit}
+                        onClick={() =>
+                            void submitGameAction({
+                                type: "split_unit",
+                                unitId: selectedUnit.id,
+                                amount: sliderValue,
+                            })
+                        }
+                        sx={{
+                            ...hocSidebarImageButtonSx("neutral"),
+                            flex: 1,
+                            minWidth: 0,
+                            height: "29.25px",
+                            minHeight: "29.25px",
+                            maxHeight: "29.25px",
+                            py: 0,
+                        }}
+                    >
+                        Split
+                    </Button>
+                )}
+                <Button
+                    variant="plain"
+                    size="sm"
+                    disabled={!canSubmit}
+                    onClick={() => {
+                        if (!deleteArmed) {
+                            setDeleteArmed(true);
+                            return;
+                        }
+                        setDeleteArmed(false);
+                        void submitGameAction({
+                            type: "delete_unit",
+                            unitId: selectedUnit.id,
+                        });
+                    }}
                     sx={{
-                        p: 1,
-                        borderRadius: 6,
-                        bgcolor: "rgba(255,255,255,0.05)",
-                        border: "1px solid rgba(255,255,255,0.1)",
+                        ...hocSidebarImageButtonSx("danger"),
+                        flex: 1,
+                        minWidth: 0,
+                        height: "29.25px",
+                        minHeight: "29.25px",
+                        maxHeight: "29.25px",
+                        py: 0,
+                        ...(deleteArmed ? { fontWeight: "lg", textDecoration: "underline" } : {}),
                     }}
                 >
-                    <Stack spacing={0.5}>
-                        <Stack direction="row" justifyContent="space-between" alignItems="center">
-                            <Typography level="body-sm" textColor={hocColors.parchment}>
-                                {t("Split stack")}
-                            </Typography>
-                            <Typography level="body-sm" textColor={hocColors.mutedStrong}>
-                                {sliderValue} / {amountAlive - sliderValue}
-                            </Typography>
-                        </Stack>
-                        <Slider
-                            size="sm"
-                            min={1}
-                            max={Math.max(1, maxSplitAmount)}
-                            value={sliderValue}
-                            disabled={!canSplit}
-                            onChange={(_, value) => setSplitAmount(Array.isArray(value) ? value[0] : value)}
-                        />
-                        <Button
-                            variant="soft"
-                            disabled={!canSplit}
-                            onClick={() =>
-                                void submitGameAction({
-                                    type: "split_unit",
-                                    unitId: selectedUnit.id,
-                                    amount: sliderValue,
-                                })
-                            }
-                        >
-                            {t("Split Selected")}
-                        </Button>
-                        {!hasStackCapacity && maxUnits > 0 && (
-                            <Typography level="body-xs" textColor={hocColors.muted}>
-                                {tf("Board stack limit reached ({count}/{max})", {
-                                    count: teamUnitCount,
-                                    max: maxUnits,
-                                })}
-                            </Typography>
-                        )}
-                    </Stack>
-                </Sheet>
+                    {deleteArmed ? "Sure?" : "Delete"}
+                </Button>
+            </Stack>
+            {!hasStackCapacity && maxUnits > 0 && (
+                <Typography level="body-xs" sx={{ mt: 0.75, px: 1.5, textAlign: "center", color: hocColors.muted }}>
+                    Board stack limit reached ({teamUnitCount}/{maxUnits})
+                </Typography>
             )}
-            <Button
-                variant="soft"
-                color="danger"
-                disabled={!canSubmit}
-                onClick={() =>
-                    void submitProtocolAction({ type: PlayActionType.UNPLACE_UNIT, unitId: selectedUnit.id })
-                }
-            >
-                {t("Remove Selected")}
-            </Button>
-        </Stack>
+        </Box>
     );
 };
 
@@ -1964,7 +1944,7 @@ const ArtifactTierIcons: React.FC<{ tier1Id: number; tier2Id: number }> = ({ tie
         <Box sx={{ display: "flex", gap: 0.6 }}>
             {entries.map(({ key, art }) => {
                 const src = art ? artifactImageFor(art.imageKey) : undefined;
-                const tierLabel = key === "t1" ? t("Tier 1") : t("Tier 2");
+                const tierLabel = key === "t1" ? "Tier 1" : "Tier 2";
                 // Rich hover: name + tier + the effect text with its real numbers substituted in
                 // (art.description keeps {}/[]/<> placeholders — formatArtifactDescription fills them).
                 const tip = art ? (
@@ -1973,14 +1953,14 @@ const ArtifactTierIcons: React.FC<{ tier1Id: number; tier2Id: number }> = ({ tie
                             {art.name}
                         </Typography>
                         <Typography level="body-xs" textColor={hocColors.muted} sx={{ mb: 0.5 }}>
-                            {tf("{tier} artifact", { tier: tierLabel })}
+                            {tierLabel} artifact
                         </Typography>
                         <Typography level="body-xs" textColor={hocColors.parchment}>
                             {Artifact.formatArtifactDescription(art)}
                         </Typography>
                     </Box>
                 ) : (
-                    tf("No {tier} artifact", { tier: tierLabel })
+                    `No ${tierLabel} artifact`
                 );
                 return (
                     <Tooltip
@@ -2043,13 +2023,13 @@ const RankedArtifactsPanel: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamTyp
     return (
         <Stack spacing={0.5}>
             <Typography level="body-sm" textColor={hocColors.parchment}>
-                {t("Artifacts")}
+                Artifacts
             </Typography>
             <Stack direction="row" spacing={1.5} flexWrap="wrap">
                 {hasYours && (
                     <Stack spacing={0.25}>
                         <Typography level="body-xs" textColor={hocColors.muted}>
-                            {t("Yours")}
+                            Yours
                         </Typography>
                         <ArtifactTierIcons tier1Id={yours.tier1} tier2Id={yours.tier2} />
                     </Stack>
@@ -2057,7 +2037,7 @@ const RankedArtifactsPanel: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamTyp
                 {hasTheirs && (
                     <Stack spacing={0.25}>
                         <Typography level="body-xs" textColor={hocColors.muted}>
-                            {t("Opponent")}
+                            Opponent
                         </Typography>
                         <ArtifactTierIcons tier1Id={theirs.tier1} tier2Id={theirs.tier2} />
                     </Stack>
@@ -2073,18 +2053,14 @@ const RankedArtifactsPanel: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamTyp
 // server reveals them (opponent artifacts at fight start, synergies once the fight begins).
 const observerDoctrineName = (doctrineId?: number): string => {
     if (!doctrineId) {
-        return t("None");
+        return "None";
     }
     const raw = (Doctrine.Doctrine as unknown as Record<number, string>)[doctrineId] ?? `#${doctrineId}`;
     const pretty = raw.replaceAll("_", " ").toLowerCase();
     return pretty.charAt(0).toUpperCase() + pretty.slice(1);
 };
 
-const observerSynergyLabel = (key: string): string =>
-    key
-        .split(":")
-        .map((part, index) => (index === 0 ? t(part) : part))
-        .join(" · ");
+const observerSynergyLabel = (key: string): string => key.replaceAll(":", " · ");
 
 const ObserverTeamSetup: React.FC<{
     label: string;
@@ -2128,7 +2104,7 @@ const ObserverTeamSetup: React.FC<{
                 </Typography>
             )}
             <Typography level="body-xs" textColor={hocColors.mutedStrong}>
-                {tf("Doctrine: {name}", { name: t(observerDoctrineName(doctrineId)) })}
+                {`Doctrine: ${observerDoctrineName(doctrineId)}`}
             </Typography>
             {(tier1 > 0 || tier2 > 0) && <ArtifactTierIcons tier1Id={tier1} tier2Id={tier2} />}
             {augments.length > 0 && (
@@ -2147,7 +2123,7 @@ const ObserverTeamSetup: React.FC<{
                                     />
                                 )}
                                 <Typography level="body-xs" textColor={hocColors.mutedStrong}>
-                                    {`${t(category)} ${level}`}
+                                    {`${category} ${level}`}
                                 </Typography>
                             </Stack>
                         );
@@ -2156,9 +2132,7 @@ const ObserverTeamSetup: React.FC<{
             )}
             {synergies.length > 0 && (
                 <Typography level="body-xs" textColor={hocColors.muted}>
-                    {tf("Synergies: {list}", {
-                        list: synergies.map((synergy) => t(observerSynergyLabel(synergy))).join(", "),
-                    })}
+                    {`Synergies: ${synergies.map(observerSynergyLabel).join(", ")}`}
                 </Typography>
             )}
         </Stack>
@@ -2173,9 +2147,6 @@ interface IObserverIdentity {
     username: string;
     mmr: number;
     leagueName: string;
-    /** Gold third inside that league (0 while calibrating — no cohort, so no wealth standing). */
-    wealth: number;
-    wealthName: string;
     placed: boolean;
 }
 
@@ -2198,8 +2169,6 @@ const useObserverIdentities = (snapshot: PlaySnapshot): Record<string, IObserver
                         username?: string;
                         mmr?: number;
                         leagueName?: string;
-                        wealth?: number;
-                        wealthName?: string;
                         state?: string;
                     };
                     setIdentities((current) => ({
@@ -2208,9 +2177,6 @@ const useObserverIdentities = (snapshot: PlaySnapshot): Record<string, IObserver
                             username: data.username ?? "",
                             mmr: data.mmr ?? 0,
                             leagueName: data.leagueName ?? "",
-                            // Their gold third within that league, absent while calibrating.
-                            wealth: data.wealth ?? 0,
-                            wealthName: data.wealthName ?? "",
                             placed: data.state === "placed",
                         },
                     }));
@@ -2229,7 +2195,7 @@ const observerIdentityLine = (identity: IObserverIdentity | undefined): string =
         return "";
     }
     return identity.placed
-        ? `${identity.username} · ${identity.mmr} ${t("MMR")} (${standingLabel(identity.wealth, identity.wealthName, identity.leagueName)})`
+        ? `${identity.username} · ${identity.mmr} MMR (${identity.leagueName})`
         : `${identity.username} · ${t("Calibrating")}`;
 };
 
@@ -2242,7 +2208,7 @@ const ObserverSetupPanel: React.FC<{ snapshot: PlaySnapshot }> = ({ snapshot }) 
     return (
         <Stack spacing={0.5}>
             <Typography level="body-sm" textColor={hocColors.parchment}>
-                {t("Army setups")}
+                Army setups
             </Typography>
             <Stack direction="row" spacing={2} flexWrap="wrap">
                 <ObserverTeamSetup
@@ -2278,106 +2244,24 @@ const AUGMENT_SIDEBAR_IMAGES: Record<string, keyof typeof images> = {
 const augmentEffectText = (label: string, level: number): string => {
     switch (label) {
         case "Placement":
-            return t(["Height 3 partial", "Height 4 full", "Height 6 full + edge line"][level] ?? "Height 3 partial");
+            return ["Height 3 partial", "Height 4 full", "Height 6 full + edge line"][level] ?? "Height 3 partial";
         case "Armor":
-            return tf("+{amount}% Armor, +{amount} Magic Armor", {
-                amount: Augment.getArmorPower(level as Augment.ArmorAugment),
-            });
+            return `+${Augment.getArmorPower(level as Augment.ArmorAugment)}% Armor, +${Augment.getArmorPower(
+                level as Augment.ArmorAugment,
+            )} Magic Armor`;
         case "Might":
-            return tf("+{amount}% Melee attack", {
-                amount: Augment.getMightPower(level as Augment.MightAugment),
-            });
+            return `+${Augment.getMightPower(level as Augment.MightAugment)}% Melee attack`;
         case "Empower":
-            return tf("+{amount}% Magic damage", {
-                amount: Augment.getEmpowerPower(level as Augment.EmpowerAugment),
-            });
+            return `+${Augment.getEmpowerPower(level as Augment.EmpowerAugment)}% Magic damage`;
         case "Sniper": {
             const [attack, distance] = Augment.getSniperPower(level as Augment.SniperAugment);
-            return tf("+{attack}% attack/+{distance}% distance", { attack, distance });
+            return `+${attack}% attack/+${distance}% distance`;
         }
         case "Movement":
-            return tf("+{amount} Movement steps", {
-                amount: Augment.getMovementPower(level as Augment.MovementAugment),
-            });
+            return `+${Augment.getMovementPower(level as Augment.MovementAugment)} Movement steps`;
         default:
             return "";
     }
-};
-
-/**
- * Sidebar augments during placement: the read-only recap, plus — while the board stage is live and
- * this player has not board-readied — an expandable editor built from the SAME sandbox picker used
- * in the Setup screen (SideToggleContainer). Every click routes through
- * RankedPlayScene.propagateAugmentation (the AUGMENT play-action): the server re-validates the
- * budget, reconciles the placement zones/cap, and the snapshot rebroadcast re-renders unit stats,
- * movement and shot ranges everywhere (hydration -> refreshUnits).
- */
-const RankedAugmentPanel: React.FC<{
-    snapshot: PlaySnapshot;
-    userTeam: TeamType;
-    budget: number;
-    canEdit: boolean;
-}> = ({ snapshot, userTeam, budget, canEdit }) => {
-    const [editing, setEditing] = useState(false);
-    useEffect(() => {
-        if (!canEdit && editing) {
-            setEditing(false);
-        }
-    }, [canEdit, editing]);
-    const isLower = userTeam === TeamVals.LOWER;
-    return (
-        <Stack spacing={0.75}>
-            <RankedAugmentSummary snapshot={snapshot} userTeam={userTeam} budget={budget} />
-            {canEdit && (
-                <Button
-                    size="md"
-                    variant={editing ? "solid" : "outlined"}
-                    color="neutral"
-                    onClick={() => setEditing((value) => !value)}
-                    sx={{
-                        alignSelf: "stretch",
-                        minHeight: 40,
-                        py: 1,
-                        px: 2,
-                        fontSize: "0.95rem",
-                        fontWeight: 800,
-                        letterSpacing: "0.02em",
-                        color: editing ? "#201505" : hocColors.gold,
-                        bgcolor: editing ? hocColors.gold : "rgba(245,158,11,0.07)",
-                        borderColor: "rgba(245,158,11,0.55)",
-                        "&:hover": { bgcolor: editing ? hocColors.gold : "rgba(245,158,11,0.16)" },
-                    }}
-                >
-                    {editing ? t("Done editing") : `⚔️ ${t("Edit augments")}`}
-                </Button>
-            )}
-            {canEdit && editing && (
-                <Box
-                    sx={{
-                        border: "1px solid rgba(245,158,11,0.25)",
-                        borderRadius: 8,
-                        p: 0.75,
-                        bgcolor: "rgba(245,158,11,0.05)",
-                    }}
-                >
-                    <SandboxToggleContainer
-                        side={isLower ? "green" : "red"}
-                        teamType={userTeam}
-                        showArtifactPicker={false}
-                        budgetPoints={budget}
-                        authoritativeSelections={{
-                            placement: (isLower ? snapshot.lowerAugmentPlacement : snapshot.upperAugmentPlacement) ?? 0,
-                            armor: (isLower ? snapshot.lowerAugmentArmor : snapshot.upperAugmentArmor) ?? 0,
-                            might: (isLower ? snapshot.lowerAugmentMight : snapshot.upperAugmentMight) ?? 0,
-                            empower: (isLower ? snapshot.lowerAugmentEmpower : snapshot.upperAugmentEmpower) ?? 0,
-                            sniper: (isLower ? snapshot.lowerAugmentSniper : snapshot.upperAugmentSniper) ?? 0,
-                            movement: (isLower ? snapshot.lowerAugmentMovement : snapshot.upperAugmentMovement) ?? 0,
-                        }}
-                    />
-                </Box>
-            )}
-        </Stack>
-    );
 };
 
 // Read-only recap of the augments/synergies chosen in the placement overlay, shown in the sidebar
@@ -2408,12 +2292,12 @@ const RankedAugmentSummary: React.FC<{
     return (
         <Stack spacing={0.5}>
             <Typography level="body-sm" textColor={hocColors.parchment}>
-                {tf("Augments ({spent}/{budget} pts)", { spent, budget })}
+                Augments ({spent}/{budget} pts)
             </Typography>
             <Stack direction="row" spacing={0.6} flexWrap="wrap" useFlexGap>
                 {chosen.length === 0 ? (
                     <Typography level="body-xs" textColor={hocColors.muted}>
-                        {t("No augments chosen yet")}
+                        No augments chosen yet
                     </Typography>
                 ) : (
                     chosen.map((r) => {
@@ -2425,10 +2309,7 @@ const RankedAugmentSummary: React.FC<{
                                 title={
                                     <Box sx={{ maxWidth: 240, py: 0.5 }}>
                                         <Typography level="title-sm" textColor={hocColors.gold}>
-                                            {tf("{name} augment — level {level}", {
-                                                name: t(r.label),
-                                                level: displayLevel,
-                                            })}
+                                            {r.label} augment — level {displayLevel}
                                         </Typography>
                                         <Typography level="body-xs" textColor={hocColors.parchment}>
                                             {augmentEffectText(r.label, r.level)}
@@ -2458,7 +2339,7 @@ const RankedAugmentSummary: React.FC<{
                                     <Box
                                         component="img"
                                         src={images[AUGMENT_SIDEBAR_IMAGES[r.label]]}
-                                        alt={tf("{name} augment", { name: t(r.label) })}
+                                        alt={`${r.label} augment`}
                                         sx={{ width: 36, height: 36, objectFit: "contain", borderRadius: 4 }}
                                     />
                                     <Box
@@ -2492,13 +2373,13 @@ const RankedAugmentSummary: React.FC<{
             {/* Selected synergies read as their own block under augments, at the same tile size as augments
                 and artifacts. */}
             <Typography level="body-sm" textColor={hocColors.parchment} sx={{ mt: 0.75 }}>
-                {t("Synergies")}
+                Synergies
             </Typography>
             {synergies.length ? (
                 <SynergiesRow synergies={synergies} size={36} />
             ) : (
                 <Typography level="body-xs" textColor={hocColors.muted}>
-                    {t("None yet — field two units of a faction, then choose one bonus")}
+                    None yet — field two units of a faction, then choose one bonus
                 </Typography>
             )}
         </Stack>
@@ -2525,24 +2406,28 @@ const RankedRosterRow: React.FC<{
             {title}
         </Typography>
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
-            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, flex: "1 1 auto", minWidth: 0 }}>
+            <Box
+                sx={{
+                    display: "flex",
+                    flexWrap: "nowrap",
+                    gap: 0.375,
+                    flex: "1 1 auto",
+                    minWidth: 0,
+                }}
+            >
                 {ROSTER_LEVEL_SLOTS.map((level, index) => {
                     const creatureId = creatureIds[index] ?? 0;
-                    const src = creatureId ? UNIT_ID_TO_IMAGE[creatureId] : undefined;
                     const name = creatureId
                         ? (UNIT_ID_TO_NAME[creatureId] ?? `Creature ${creatureId}`)
-                        : t("Not revealed");
+                        : "Not revealed";
                     return (
-                        <Tooltip
-                            key={`${title}-slot-${index}`}
-                            title={`${name} · ${tf("Lvl {level}", { level })}`}
-                            variant="soft"
-                        >
+                        <Tooltip key={`${title}-slot-${index}`} title={`${name} · Lvl ${level}`} variant="soft">
                             <Box
                                 sx={{
                                     width: 38,
-                                    height: 38,
-                                    borderRadius: "8px",
+                                    height: "auto",
+                                    aspectRatio: "190 / 256",
+                                    borderRadius: "9px",
                                     overflow: "hidden",
                                     border: `1px solid ${borderColor}`,
                                     display: "flex",
@@ -2554,12 +2439,11 @@ const RankedRosterRow: React.FC<{
                                     fontWeight: 700,
                                 }}
                             >
-                                {src ? (
-                                    <Box
-                                        component="img"
-                                        src={src}
+                                {creatureId ? (
+                                    <CreaturePortraitImage
+                                        creatureId={creatureId}
                                         alt={name}
-                                        sx={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                        sx={{ width: "100%", height: "100%" }}
                                     />
                                 ) : (
                                     "?"
@@ -2630,10 +2514,10 @@ const RankedOpponentArmyPrivacyCard: React.FC = () => (
             }}
         >
             <Typography level="title-sm" sx={{ color: "#ffb0b0", fontWeight: 700 }}>
-                {t("Opponent army")}
+                Opponent army
             </Typography>
             <Typography level="body-xs" sx={{ color: "rgba(240,231,233,0.64)" }}>
-                {t("Revealed during board placement")}
+                Revealed during board placement
             </Typography>
         </Sheet>
     </Box>
@@ -2653,7 +2537,7 @@ const RankedPlacementRosters: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamT
     return (
         <Stack spacing={1.1}>
             <RankedRosterRow
-                title={t("Opponent")}
+                title="Opponent"
                 accent="#ff9d9d"
                 borderColor="rgba(138,43,43,0.6)"
                 bgcolor="#241416"
@@ -2661,80 +2545,53 @@ const RankedPlacementRosters: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamT
             />
             <RankedRosterDivider />
             <RankedRosterRow
-                title={t("Your army")}
-                accent="#dcb158"
-                borderColor="rgba(255,255,255,0.12)"
-                bgcolor="#171a23"
+                title="Your army"
+                accent="#8ce99a"
+                borderColor="rgba(55,178,88,0.52)"
+                bgcolor="#132018"
                 creatureIds={myIds}
             />
         </Stack>
     );
 };
 
-// The compact stone READY plate requested for ranked placement. Its 9-slice keeps the authored corners
-// sharp at the sidebar's full width; the right-hand clock uses the same rigid divider and urgent blink as
-// the bundle-pick action bar without replacing this plate's established look.
+// The READY action occupies the same bottom-centre footer slot as EXIT FIGHT. Unlike the compact exit
+// control it stretches across the complete centre column, while the green halo makes the positive lock-in
+// action unmistakable against the dark sidebar material.
 const rankedReadyPlacementButtonSx = {
-    position: "relative",
-    zIndex: 4,
-    // A further two per cent over the previous 105% footprint: 1.05 * 1.02 = 1.071.
-    width: "calc(107.1% - 12.852px)",
-    height: "clamp(3rem, 13.8cqw, 4.3rem)",
-    minHeight: "clamp(3rem, 13.8cqw, 4.3rem)",
-    maxHeight: "clamp(3rem, 13.8cqw, 4.3rem)",
-    mx: "auto",
-    alignSelf: "center",
+    ...hocSidebarImageButtonSx("neutral"),
+    width: "100%",
+    minWidth: 0,
+    height: "39.48px",
+    minHeight: "39.48px",
+    maxHeight: "39.48px",
+    justifySelf: "center",
     py: 0,
     px: 0,
-    boxSizing: "border-box",
-    overflow: "visible !important",
-    borderStyle: "solid",
-    borderColor: "transparent",
-    borderWidth: "3.69px",
-    borderRadius: 0,
-    borderImageSource: `url(${images.ui_start_button_plate_gray_50})`,
-    // One real 9-slice surface: only its continuous centre band expands, while the authored orange
-    // corners and rails remain at their original proportions. This avoids the visible copied squares
-    // produced by `round` repetition.
-    borderImageSlice: "64 120 fill",
-    borderImageWidth: "3.69px",
-    borderImageOutset: 0,
-    borderImageRepeat: "stretch",
-    background: "transparent",
-    opacity: 1,
-    color: "#cda078",
-    fontFamily: hocDisplayFontFamily,
-    fontSize: "clamp(.64rem, 6.15cqw, 1.722rem)",
-    fontStyle: "normal",
-    fontWeight: 800,
-    fontSynthesis: "weight",
-    letterSpacing: hocDisplayLetterSpacing,
-    textTransform: "uppercase",
+    fontSize: "clamp(.72rem, 4.65cqw, 1.08rem)",
+    fontWeight: 880,
     whiteSpace: "nowrap",
-    lineHeight: 1,
     display: "flex",
     alignItems: "stretch",
-    justifyContent: "center",
     gap: 0,
-    WebkitTextStroke: "0.045em rgba(43,25,15,.96)",
-    paintOrder: "stroke fill",
-    textShadow: "0 .075em 0 #070504, 0 -.022em 0 rgba(255,222,178,.24), 0 .12em .08em rgba(0,0,0,.82)",
-    boxShadow: "none",
-    filter: "brightness(.92) saturate(.9)",
-    transition: "filter 140ms ease, transform 80ms ease",
-    marginTop: "auto !important",
+    backgroundImage: `linear-gradient(rgba(24,92,39,.46),rgba(24,92,39,.46)), url(${images.ui_start_button_plate_trimmed})`,
+    backgroundBlendMode: "color, normal",
+    boxShadow: "inset 0 0 0 1px rgba(0,0,0,.52), 0 3px 8px rgba(0,0,0,.42)",
+    filter: "brightness(.96) saturate(.94)",
+    transition: "filter 140ms ease, transform 80ms ease, box-shadow 160ms ease",
     "&:hover:not(:disabled)": {
-        background: "transparent",
+        backgroundColor: "transparent",
         color: "#d8ab80",
-        filter: "brightness(1.09) contrast(1.04) drop-shadow(0 0 7px rgba(224,83,34,.38))",
+        filter: "brightness(1.1) contrast(1.04) drop-shadow(0 0 8px rgba(70,209,96,.58))",
+        boxShadow: "0 0 0 1px rgba(70,209,96,.72), 0 0 17px rgba(70,209,96,.62), 0 0 32px rgba(70,209,96,.24)",
         transform: "translateY(-1px)",
     },
     "&:active": { transform: "translateY(1px)" },
     "&.Mui-disabled": {
-        opacity: 1,
-        color: "#c69a72",
-        background: "transparent",
-        filter: "brightness(.7) saturate(.72)",
+        opacity: 0.68,
+        color: "rgba(232,211,173,.72)",
+        filter: "grayscale(.3) brightness(.82)",
+        boxShadow: "inset 0 0 0 1px rgba(0,0,0,.48), 0 2px 6px rgba(0,0,0,.38)",
     },
     "@keyframes hocRankedPlacementTimerBlink": {
         "0%, 100%": { opacity: 1 },
@@ -2742,12 +2599,83 @@ const rankedReadyPlacementButtonSx = {
     },
 } as const;
 
+const RankedReadyPlacementButton: React.FC<{
+    canSubmit: boolean;
+    ready: boolean;
+    snapshot: PlaySnapshot;
+    submitProtocolAction: (action: Partial<PlayAction>) => Promise<void>;
+}> = ({ canSubmit, ready, snapshot, submitProtocolAction }) => {
+    const [nowMs, setNowMs] = useState(Date.now());
+    useEffect(() => {
+        const timer = window.setInterval(() => setNowMs(Date.now()), 1000);
+        return () => window.clearInterval(timer);
+    }, []);
+    const secondsLeft =
+        snapshot.placementDeadlineMs > 0 ? Math.max(0, Math.ceil((snapshot.placementDeadlineMs - nowMs) / 1000)) : -1;
+
+    return (
+        <Button
+            variant="plain"
+            disabled={!canSubmit || ready}
+            onClick={() => void submitProtocolAction({ type: PlayActionType.READY_PLACEMENT })}
+            sx={rankedReadyPlacementButtonSx}
+        >
+            <Box
+                component="span"
+                sx={{
+                    flex: "1 1 auto",
+                    display: "grid",
+                    alignItems: "center",
+                    justifyItems: "center",
+                    textAlign: "center",
+                    minWidth: 0,
+                    overflow: "hidden",
+                    fontSize: "93%",
+                    transform: "translateX(2%)",
+                }}
+            >
+                {ready ? "READY" : "READY PLACEMENT"}
+            </Box>
+            {secondsLeft >= 0 && (
+                <Box
+                    component="span"
+                    sx={{
+                        position: "relative",
+                        width: "22%",
+                        minWidth: 0,
+                        flex: "0 0 22%",
+                        display: "grid",
+                        alignItems: "center",
+                        justifyItems: "center",
+                        fontVariantNumeric: "tabular-nums",
+                        color: secondsLeft <= 15 ? "#ff3b2f" : "#c0b7a6",
+                        textShadow: secondsLeft <= 15 ? "0 0 12px rgba(255,59,47,.75)" : "none",
+                        animation: secondsLeft <= 15 ? "hocRankedPlacementTimerBlink 1s ease-in-out infinite" : "none",
+                        "&::before": {
+                            content: '\"\"',
+                            position: "absolute",
+                            left: 0,
+                            top: "10%",
+                            bottom: "10%",
+                            width: "1px",
+                            background: "rgba(121, 91, 65, .82)",
+                        },
+                    }}
+                >
+                    {`${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, "0")}`}
+                </Box>
+            )}
+        </Button>
+    );
+};
+
 const RankedOverlay: React.FC<RankedOverlayProps> = ({
     busy,
     canSubmit,
     currentUnit,
     embedded = false,
     error,
+    gameId,
     gameStarted,
     ready,
     selectedUnit,
@@ -2758,8 +2686,10 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     userTeam,
     isObserver,
 }) => {
+    const isFullscreen = useFullscreenActive();
     const navigate = useNavigate();
     const [confirmExitOpen, setConfirmExitOpen] = useState(false);
+    const [augmentInspectedCreatureId, setAugmentInspectedCreatureId] = useState(0);
     // The doctrine sets the upgrade-point budget (5/6/7 via getUpgradePoints).
     const userDoctrineId = ((userTeam === TeamVals.LOWER ? snapshot?.lowerDoctrine : snapshot?.upperDoctrine) ||
         Doctrine.Doctrine.NO_DOCTRINE) as Doctrine.Doctrine;
@@ -2773,7 +2703,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     // window). During the split Setup stage the picker is forced open and the board is locked; during the
     // split Board stage the picker is locked shut (augments committed) and the board opens.
     const inSetupStage = snapshot.placementSplit && snapshot.placementStage === 0;
-    const inBoardStage = !snapshot.placementSplit || snapshot.placementStage === 1;
+    const inBoardStage = isRankedBoardPlacementStage(snapshot);
     // The augment step is its own screen again (owner request): forced open through the whole split Setup
     // stage, and in the legacy combined window it opens once and closes on lock-in.
     const augmentOverlayOpen = inSetupStage
@@ -2802,19 +2732,87 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
         pointsRemaining: 1,
         allSynergiesSelected: false,
     });
+    // The committed augment build, straight from the authoritative snapshot. Shared by the Setup step's
+    // full-screen picker and the sidebar picker below so the two can never describe different builds.
+    const augmentAuthoritativeSelections = useMemo(
+        () => ({
+            placement:
+                (userTeam === TeamVals.LOWER ? snapshot.lowerAugmentPlacement : snapshot.upperAugmentPlacement) ?? 0,
+            armor: (userTeam === TeamVals.LOWER ? snapshot.lowerAugmentArmor : snapshot.upperAugmentArmor) ?? 0,
+            might: (userTeam === TeamVals.LOWER ? snapshot.lowerAugmentMight : snapshot.upperAugmentMight) ?? 0,
+            empower: (userTeam === TeamVals.LOWER ? snapshot.lowerAugmentEmpower : snapshot.upperAugmentEmpower) ?? 0,
+            sniper: (userTeam === TeamVals.LOWER ? snapshot.lowerAugmentSniper : snapshot.upperAugmentSniper) ?? 0,
+            movement:
+                (userTeam === TeamVals.LOWER ? snapshot.lowerAugmentMovement : snapshot.upperAugmentMovement) ?? 0,
+        }),
+        [
+            userTeam,
+            snapshot.lowerAugmentPlacement,
+            snapshot.upperAugmentPlacement,
+            snapshot.lowerAugmentArmor,
+            snapshot.upperAugmentArmor,
+            snapshot.lowerAugmentMight,
+            snapshot.upperAugmentMight,
+            snapshot.lowerAugmentEmpower,
+            snapshot.upperAugmentEmpower,
+            snapshot.lowerAugmentSniper,
+            snapshot.upperAugmentSniper,
+            snapshot.lowerAugmentMovement,
+            snapshot.upperAugmentMovement,
+        ],
+    );
+    /**
+     * Augments stay adjustable in the sidebar while you position the board.
+     *
+     * The SERVER has always allowed this — validateAction gates AUGMENT only on team ownership, and
+     * play_session says so outright: "Setup choices (augments/synergies) stay EDITABLE through the board
+     * stage — a player may re-spend their points while positioning, right up until their own board-ready",
+     * noting that "the client hides those controls after ready, so only the UI was holding the rule up".
+     * When the augment step became its own screen the sidebar was left with a read-only recap, which took
+     * that ability away for no reason on the server's side. This puts the picker back beside the board.
+     *
+     * Not shown while the Setup step's own full-screen picker is up (that would be two live pickers on one
+     * build), and it collapses to the read-only recap once you lock in — which is exactly where the server
+     * stops accepting changes.
+     */
+    const augmentsEditableInSidebar = shouldShowRankedAugmentPicker(snapshot, augmentOverlayOpen, isObserver, ready);
     const setupComplete = augmentReady.pointsRemaining <= 0 && augmentReady.allSynergiesSelected;
+    const augmentInspectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const cancelAugmentInspectEnd = useCallback(() => {
+        if (augmentInspectTimer.current) {
+            clearTimeout(augmentInspectTimer.current);
+            augmentInspectTimer.current = null;
+        }
+    }, []);
+    const beginAugmentInspect = useCallback(
+        (creatureId: number) => {
+            cancelAugmentInspectEnd();
+            setAugmentInspectedCreatureId(creatureId);
+        },
+        [cancelAugmentInspectEnd],
+    );
+    const endAugmentInspect = useCallback(() => {
+        cancelAugmentInspectEnd();
+        augmentInspectTimer.current = setTimeout(() => setAugmentInspectedCreatureId(0), 90);
+    }, [cancelAugmentInspectEnd]);
+    useEffect(() => cancelAugmentInspectEnd, [cancelAugmentInspectEnd]);
+    useEffect(() => {
+        if (!augmentOverlayOpen) {
+            cancelAugmentInspectEnd();
+            setAugmentInspectedCreatureId(0);
+        }
+    }, [augmentOverlayOpen, cancelAugmentInspectEnd]);
 
     const confirmExitModal = (
         <Modal open={confirmExitOpen} onClose={() => !busy && setConfirmExitOpen(false)}>
             <ModalDialog sx={hocPanelSx}>
                 <Typography level="h4" sx={{ color: hocColors.parchment }}>
-                    {t("Exit the fight?")}
+                    Exit the fight?
                 </Typography>
                 <Stack spacing={2} sx={{ mt: 1, minWidth: 300, maxWidth: 360 }}>
                     <Typography level="body-sm" textColor={hocColors.mutedStrong}>
-                        {t(
-                            "This forfeits the fight — your opponent is declared the winner immediately and it counts as a loss for you. This cannot be undone.",
-                        )}
+                        This forfeits the fight — your opponent is declared the winner immediately and it counts as a
+                        loss for you. This cannot be undone.
                     </Typography>
                     <Stack direction="row" spacing={1} justifyContent="flex-end">
                         <Button
@@ -2823,7 +2821,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                             onClick={() => setConfirmExitOpen(false)}
                             sx={hocSoftButtonSx}
                         >
-                            {t("Cancel")}
+                            Cancel
                         </Button>
                         <Button
                             variant="solid"
@@ -2837,7 +2835,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                 navigate("/play");
                             }}
                         >
-                            {t("Forfeit")}
+                            Forfeit
                         </Button>
                     </Stack>
                 </Stack>
@@ -2856,9 +2854,9 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                     color="danger"
                     disabled={busy}
                     onClick={() => setConfirmExitOpen(true)}
-                    sx={{ width: "100%" }}
+                    sx={exitFightButtonSx(isFullscreen)}
                 >
-                    {t("EXIT FIGHT")}
+                    EXIT FIGHT
                 </Button>
                 {confirmExitModal}
             </>
@@ -2956,17 +2954,27 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                             RankedPlayScene.propagateAugmentation (the AUGMENT play-action); artifacts are
                             drafted in pick/ban (read-only above), so the sandbox-only artifact picker
                             stays hidden. */}
-                        {/* Augments are chosen on their own screen during Setup; once the BOARD stage
-                            opens they stay RE-SPENDABLE from this sidebar until this player's own
-                            board-ready — the summary grows an expandable sandbox-style editor. The
-                            server reconciles a live Placement re-spend (units relocate or fold back,
-                            never destroyed) and force-spends whatever is left at fight start. */}
-                        <RankedAugmentPanel
-                            snapshot={snapshot}
-                            userTeam={userTeam}
-                            budget={augmentBudget}
-                            canEdit={inBoardStage && !ready && !isObserver}
-                        />
+                        {/* The Setup step picks augments on its own screen, but they stay EDITABLE while you
+                            position — so the sidebar carries the live picker until you lock in, then the
+                            read-only recap. See augmentsEditableInSidebar for why the server allows it. */}
+                        {augmentsEditableInSidebar ? (
+                            // The SIDEBAR uses the compact sandbox shape: one row of augment icons with only
+                            // the chosen augment's options underneath. SideToggleContainer expands every
+                            // augment card at once, which is right on the full-screen Setup step but in this
+                            // narrow column stacks three tall radio groups and pushes the artifacts and the
+                            // rest of the panel off the bottom. Same picker underneath — both route their
+                            // choice through the pixi manager — so this is layout only.
+                            <SandboxToggleContainer
+                                side={userTeam === TeamVals.LOWER ? "green" : "red"}
+                                teamType={userTeam}
+                                showArtifactPicker={false}
+                                budgetPoints={augmentBudget}
+                                authoritativeSelections={augmentAuthoritativeSelections}
+                                onReadyChange={setAugmentReady}
+                            />
+                        ) : (
+                            <RankedAugmentSummary snapshot={snapshot} userTeam={userTeam} budget={augmentBudget} />
+                        )}
                         {/* The augment step is its own full screen, built like every draft phase before it:
                             same gradient, same 1340px column, army rails on top and the progress rail at the
                             bottom — not a dialog floating over the placement board. */}
@@ -2984,9 +2992,11 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                 variant="plain"
                                 sx={{ ...draftShellSx, height: "100%", border: "none" }}
                             >
+                                <PickLanternFire slot={0} />
+                                <PickLanternFire slot={1} />
                                 {/* The same fixed 1340x800 board every draft phase uses, so this step is
                                     pixel-identical to the ones before it and only scales with the window. */}
-                                <Box sx={draftBoardSx(draftScale)}>
+                                <Box sx={draftBoardSx(draftScale)} onMouseLeave={endAugmentInspect}>
                                     {/* Show the shared placement countdown INSIDE the pop-up — the header chip is
                                     hidden behind this modal while the player picks augments/synergies. */}
                                     <Box
@@ -3001,8 +3011,14 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                             justifyContent: "center",
                                             overflow: "hidden",
                                         }}
+                                        onMouseEnter={cancelAugmentInspectEnd}
+                                        onMouseLeave={endAugmentInspect}
                                     >
-                                        <DraftTitle>{t("Choose your augments")}</DraftTitle>
+                                        {augmentInspectedCreatureId ? (
+                                            <CreatureDetailPanel creatureId={augmentInspectedCreatureId} />
+                                        ) : (
+                                            <DraftTitle>{t("Choose your augments")}</DraftTitle>
+                                        )}
                                     </Box>
                                     {/* Setup always recaps the player's draft. Opponent visibility follows the
                                     snapshot's explicit policy: normal rail by default, privacy card when set. */}
@@ -3039,6 +3055,9 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                                     ? snapshot.lowerArtifactTier2
                                                     : snapshot.upperArtifactTier2) ?? 0
                                             }
+                                            onInspect={beginAugmentInspect}
+                                            onInspectEnd={endAugmentInspect}
+                                            gameId={gameId}
                                         />
                                         {/* Same centred map sign the pick phases show between the armies. */}
                                         <Box sx={{ flex: "0 0 auto", display: "flex", alignItems: "center" }}>
@@ -3056,6 +3075,9 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                                     .map((unit) => unit.creatureId)}
                                                 opponentLabel={t("Opponent")}
                                                 watchedSlots={[0, 1, 2, 3, 4, 5]}
+                                                onInspect={beginAugmentInspect}
+                                                onInspectEnd={endAugmentInspect}
+                                                gameId={gameId}
                                             />
                                         )}
                                     </Stack>
@@ -3098,36 +3120,11 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                                     }}
                                                 >
                                                     <SideToggleContainer
-                                                        side={userTeam === TeamVals.LOWER ? "green" : "red"}
+                                                        side="green"
                                                         teamType={userTeam}
                                                         showArtifactPicker={false}
                                                         budgetPoints={augmentBudget}
-                                                        authoritativeSelections={{
-                                                            placement:
-                                                                (userTeam === TeamVals.LOWER
-                                                                    ? snapshot.lowerAugmentPlacement
-                                                                    : snapshot.upperAugmentPlacement) ?? 0,
-                                                            armor:
-                                                                (userTeam === TeamVals.LOWER
-                                                                    ? snapshot.lowerAugmentArmor
-                                                                    : snapshot.upperAugmentArmor) ?? 0,
-                                                            might:
-                                                                (userTeam === TeamVals.LOWER
-                                                                    ? snapshot.lowerAugmentMight
-                                                                    : snapshot.upperAugmentMight) ?? 0,
-                                                            empower:
-                                                                (userTeam === TeamVals.LOWER
-                                                                    ? snapshot.lowerAugmentEmpower
-                                                                    : snapshot.upperAugmentEmpower) ?? 0,
-                                                            sniper:
-                                                                (userTeam === TeamVals.LOWER
-                                                                    ? snapshot.lowerAugmentSniper
-                                                                    : snapshot.upperAugmentSniper) ?? 0,
-                                                            movement:
-                                                                (userTeam === TeamVals.LOWER
-                                                                    ? snapshot.lowerAugmentMovement
-                                                                    : snapshot.upperAugmentMovement) ?? 0,
-                                                        }}
+                                                        authoritativeSelections={augmentAuthoritativeSelections}
                                                         onReadyChange={setAugmentReady}
                                                     />
                                                 </Box>
@@ -3142,11 +3139,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                         {/* One bar carries the action, the budget and the clock: gold while points are
                                     still unspent, green once the build is complete. */}
                                         <PickCommitButton
-                                            label={
-                                                inSetupStage && ready
-                                                    ? t("Waiting for opponent…")
-                                                    : t("Lock in augments")
-                                            }
+                                            label={inSetupStage && ready ? "Waiting for opponent…" : "Lock in augments"}
                                             armed={
                                                 !((!ready && !setupComplete) || (inSetupStage && (!canSubmit || ready)))
                                             }
@@ -3154,24 +3147,20 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                             tone={setupComplete ? "green" : "gold"}
                                             blockedHint={
                                                 augmentReady.pointsRemaining > 0
-                                                    ? tf(
-                                                          augmentReady.pointsRemaining === 1
-                                                              ? "You still have {count} upgrade point to spend — pick augments until the budget is empty."
-                                                              : "You still have {count} upgrade points to spend — pick augments until the budget is empty.",
-                                                          { count: augmentReady.pointsRemaining },
-                                                      )
+                                                    ? `You still have ${augmentReady.pointsRemaining} upgrade point${
+                                                          augmentReady.pointsRemaining === 1 ? "" : "s"
+                                                      } to spend — pick augments until the budget is empty.`
                                                     : undefined
                                             }
                                             seconds={augmentSecondsLeft}
                                             extra={`${augmentBudget - augmentReady.pointsRemaining} / ${augmentBudget}`}
                                             onCommit={() => {
                                                 if (inSetupStage) {
-                                                    return submitProtocolAction({
+                                                    void submitProtocolAction({
                                                         type: rankedPlacementLockActionType(snapshot),
                                                     });
                                                 } else {
                                                     setAugmentOverlayOpen(false);
-                                                    return true;
                                                 }
                                             }}
                                         />
@@ -3192,79 +3181,15 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                 selectedUnit={selectedUnit}
                                 snapshot={snapshot}
                                 submitGameAction={submitGameAction}
-                                submitProtocolAction={submitProtocolAction}
                                 userTeam={userTeam}
                             />
-                        )}
-                        {inBoardStage && (
-                            <Button
-                                variant="plain"
-                                disabled={!canSubmit || ready}
-                                onClick={() => void submitProtocolAction({ type: PlayActionType.READY_PLACEMENT })}
-                                sx={rankedReadyPlacementButtonSx}
-                            >
-                                <Box
-                                    component="span"
-                                    sx={{
-                                        flex: "1 1 auto",
-                                        display: "grid",
-                                        alignItems: "center",
-                                        justifyItems: "center",
-                                        textAlign: "center",
-                                        px: 0,
-                                        minWidth: 0,
-                                        overflow: "hidden",
-                                    }}
-                                >
-                                    {ready ? t("READY") : t("READY PLACEMENT")}
-                                </Box>
-                                {augmentSecondsLeft >= 0 && (
-                                    <Box
-                                        component="span"
-                                        sx={{
-                                            position: "relative",
-                                            width: "22%",
-                                            minWidth: 0,
-                                            flex: "0 0 22%",
-                                            display: "grid",
-                                            alignItems: "center",
-                                            justifyItems: "center",
-                                            ml: 0,
-                                            pl: 0,
-                                            pr: 0,
-                                            borderLeft: 0,
-                                            boxShadow: "none",
-                                            fontVariantNumeric: "tabular-nums",
-                                            color: augmentSecondsLeft <= 15 ? "#ff3b2f" : "#c0b7a6",
-                                            textShadow:
-                                                augmentSecondsLeft <= 15 ? "0 0 12px rgba(255,59,47,.75)" : "none",
-                                            animation:
-                                                augmentSecondsLeft <= 15
-                                                    ? "hocRankedPlacementTimerBlink 1s ease-in-out infinite"
-                                                    : "none",
-                                            "&::before": {
-                                                content: '\"\"',
-                                                position: "absolute",
-                                                left: 0,
-                                                top: "10%",
-                                                bottom: "10%",
-                                                width: "1px",
-                                                background: "rgba(121, 91, 65, .82)",
-                                                boxShadow: "none",
-                                            },
-                                        }}
-                                    >
-                                        {`${Math.floor(augmentSecondsLeft / 60)}:${String(augmentSecondsLeft % 60).padStart(2, "0")}`}
-                                    </Box>
-                                )}
-                            </Button>
                         )}
                     </Stack>
                 )}
 
                 {isObserver && (
                     <Typography level="body-xs" textColor={hocColors.muted}>
-                        {t("Live observer mode. Controls are disabled; replay is available after the fight ends.")}
+                        Live observer mode. Controls are disabled; replay is available after the fight ends.
                     </Typography>
                 )}
                 {isObserver && <ObserverSetupPanel snapshot={snapshot} />}
@@ -3273,13 +3198,13 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                     <Stack direction="row" spacing={1} alignItems="center">
                         <CircularProgress size="sm" sx={hocSpinnerSx} />
                         <Typography level="body-sm" textColor={hocColors.mutedStrong}>
-                            {t("Submitting")}
+                            Submitting
                         </Typography>
                     </Stack>
                 )}
                 {error && (
                     <Alert variant="soft" sx={hocDangerAlertSx}>
-                        {t(error)}
+                        {error}
                     </Alert>
                 )}
 

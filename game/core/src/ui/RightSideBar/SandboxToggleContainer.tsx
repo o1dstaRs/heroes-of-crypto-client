@@ -7,21 +7,19 @@
  * though nothing in Sandbox asked for it - the two screens shared one component and only ranked wanted the
  * new shape. Splitting them keeps Sandbox stable while the pick UI keeps moving.
  */
-import { AugmentSelections, remainingAugmentPoints } from "./augmentSelectionState";
 import { Augment, HoCConstants, TeamType } from "@heroesofcrypto/common";
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Box, FormControl, FormLabel, IconButton, Radio, RadioGroup, Sheet, Tooltip, Typography } from "@mui/joy";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { images } from "../../generated/image_imports";
-import { t, tf, useTranslation } from "../../i18n/i18n";
 import { hocColors, hocDisplayFontFamily, hocFantasyRadioSx } from "../hocTheme";
 import { ArtifactToggler } from "./ArtifactToggler";
+import { AugmentSelections, remainingAugmentPoints } from "./augmentSelectionState";
 import { armorAugmentLabel } from "./augmentLabels";
 import {
     DEFAULT_SANDBOX_PANEL_EXPANSION,
     SandboxPanel,
     SandboxPanelExpansion,
-    fitSandboxPanelExpansion,
     toggleSandboxPanel,
 } from "./sandboxPanelExpansion";
 
@@ -42,12 +40,12 @@ const AUGMENT_BUTTONS: ReadonlyArray<{
     alt: string;
     img: string;
 }> = [
-    { kind: "Placement", title: "Augment board placements", alt: "Placement Icon", img: augmentIcon(augmentBoardImg) },
-    { kind: "Armor", title: "Augment armor", alt: "Armor Icon", img: augmentIcon(augmentArmorImg) },
-    { kind: "Might", title: "Augment melee attack", alt: "Might Icon", img: augmentIcon(augmentMightImg) },
-    { kind: "Empower", title: "Augment magic damage", alt: "Empower Icon", img: augmentIcon(augmentEmpowerImg) },
-    { kind: "Sniper", title: "Augment ranged attack", alt: "Sniper Icon", img: augmentIcon(augmentSniperImg) },
-    { kind: "Movement", title: "Augment movement", alt: "Movement Icon", img: augmentIcon(augmentMovementImg) },
+    { kind: "Placement", title: "Board Placement", alt: "Placement Icon", img: augmentIcon(augmentBoardImg) },
+    { kind: "Armor", title: "Armor", alt: "Armor Icon", img: augmentIcon(augmentArmorImg) },
+    { kind: "Might", title: "Might", alt: "Might Icon", img: augmentIcon(augmentMightImg) },
+    { kind: "Empower", title: "Empower", alt: "Empower Icon", img: augmentIcon(augmentEmpowerImg) },
+    { kind: "Sniper", title: "Sniper", alt: "Sniper Icon", img: augmentIcon(augmentSniperImg) },
+    { kind: "Movement", title: "Movement", alt: "Movement Icon", img: augmentIcon(augmentMovementImg) },
 ];
 
 // Above the board's gold edge trim (zIndex 2) and the sidebars (zIndex 1). At the old zIndex 1 the label
@@ -118,7 +116,7 @@ const PlacementToggler = ({
         <Box sx={{ width: "100%", mx: "auto", marginBottom: 0 }}>
             <Sheet variant="outlined" sx={compactAugmentSheetSx}>
                 <FormControl>
-                    <FormLabel>{t("Augment Board Placement")}</FormLabel>
+                    <FormLabel>Board Placement</FormLabel>
                     <RadioGroup
                         name={`${title}-placement-type`}
                         onChange={handleSelectionChange}
@@ -126,7 +124,7 @@ const PlacementToggler = ({
                     >
                         <Radio
                             value={Augment.PlacementAugment.LEVEL_1}
-                            label={t("Height 3 partial")}
+                            label="Height 3 partial"
                             disabled={
                                 totalPoints + (currentSelection ?? 0) < Augment.PlacementAugment.LEVEL_1 &&
                                 currentSelection !== Augment.PlacementAugment.LEVEL_1
@@ -134,7 +132,7 @@ const PlacementToggler = ({
                         />
                         <Radio
                             value={Augment.PlacementAugment.LEVEL_2}
-                            label={t("Height 4 full")}
+                            label="Height 4 full"
                             disabled={
                                 totalPoints + (currentSelection ?? 0) < Augment.PlacementAugment.LEVEL_2 &&
                                 currentSelection !== Augment.PlacementAugment.LEVEL_2
@@ -142,7 +140,7 @@ const PlacementToggler = ({
                         />
                         <Radio
                             value={Augment.PlacementAugment.LEVEL_3}
-                            label={t("Height 6 full + edge line")}
+                            label="Height 6 full + edge line"
                             disabled={
                                 totalPoints + (currentSelection ?? 0) < Augment.PlacementAugment.LEVEL_3 &&
                                 currentSelection !== Augment.PlacementAugment.LEVEL_3
@@ -183,16 +181,16 @@ const ArmorToggler = ({
             {/* The Toggler Sheet */}
             <Sheet variant="outlined" sx={compactAugmentSheetSx}>
                 <FormControl>
-                    <FormLabel>{t("Augment Armor")}</FormLabel>
+                    <FormLabel>Armor</FormLabel>
                     <RadioGroup
                         name={`${title}-armor-type`}
                         onChange={handleSelectionChange}
                         value={currentSelection ?? Augment.ArmorAugment.NO_AUGMENT}
                     >
-                        <Radio value={Augment.ArmorAugment.NO_AUGMENT} label={t("No Augment")} />
+                        <Radio value={Augment.ArmorAugment.NO_AUGMENT} label="None" />
                         <Radio
                             value={Augment.ArmorAugment.LEVEL_1}
-                            label={t(armorAugmentLabel(Augment.ArmorAugment.LEVEL_1))}
+                            label={armorAugmentLabel(Augment.ArmorAugment.LEVEL_1)}
                             disabled={
                                 totalPoints + (currentSelection ?? 0) < Augment.ArmorAugment.LEVEL_1 &&
                                 currentSelection !== Augment.ArmorAugment.LEVEL_1
@@ -200,7 +198,7 @@ const ArmorToggler = ({
                         />
                         <Radio
                             value={Augment.ArmorAugment.LEVEL_2}
-                            label={t(armorAugmentLabel(Augment.ArmorAugment.LEVEL_2))}
+                            label={armorAugmentLabel(Augment.ArmorAugment.LEVEL_2)}
                             disabled={
                                 totalPoints + (currentSelection ?? 0) < Augment.ArmorAugment.LEVEL_2 &&
                                 currentSelection !== Augment.ArmorAugment.LEVEL_2
@@ -208,7 +206,7 @@ const ArmorToggler = ({
                         />
                         <Radio
                             value={Augment.ArmorAugment.LEVEL_3}
-                            label={t(armorAugmentLabel(Augment.ArmorAugment.LEVEL_3))}
+                            label={armorAugmentLabel(Augment.ArmorAugment.LEVEL_3)}
                             disabled={
                                 totalPoints + (currentSelection ?? 0) < Augment.ArmorAugment.LEVEL_3 &&
                                 currentSelection !== Augment.ArmorAugment.LEVEL_3
@@ -249,18 +247,16 @@ const MightToggler = ({
             {/* The Toggler Sheet */}
             <Sheet variant="outlined" sx={compactAugmentSheetSx}>
                 <FormControl>
-                    <FormLabel>{t("Augment Might")}</FormLabel>
+                    <FormLabel>Might</FormLabel>
                     <RadioGroup
                         name={`${title}-might-type`}
                         onChange={handleSelectionChange}
                         value={currentSelection ?? Augment.MightAugment.NO_AUGMENT}
                     >
-                        <Radio value={Augment.MightAugment.NO_AUGMENT} label={t("No Augment")} />
+                        <Radio value={Augment.MightAugment.NO_AUGMENT} label="None" />
                         <Radio
                             value={Augment.MightAugment.LEVEL_1}
-                            label={tf("+{amount}% Melee attack", {
-                                amount: Augment.getMightPower(Augment.MightAugment.LEVEL_1),
-                            })}
+                            label={`+${Augment.getMightPower(Augment.MightAugment.LEVEL_1)}% Melee attack`}
                             disabled={
                                 totalPoints + (currentSelection ?? 0) < Augment.MightAugment.LEVEL_1 &&
                                 currentSelection !== Augment.MightAugment.LEVEL_1
@@ -268,9 +264,7 @@ const MightToggler = ({
                         />
                         <Radio
                             value={Augment.MightAugment.LEVEL_2}
-                            label={tf("+{amount}% Melee attack", {
-                                amount: Augment.getMightPower(Augment.MightAugment.LEVEL_2),
-                            })}
+                            label={`+${Augment.getMightPower(Augment.MightAugment.LEVEL_2)}% Melee attack`}
                             disabled={
                                 totalPoints + (currentSelection ?? 0) < Augment.MightAugment.LEVEL_2 &&
                                 currentSelection !== Augment.MightAugment.LEVEL_2
@@ -278,9 +272,7 @@ const MightToggler = ({
                         />
                         <Radio
                             value={Augment.MightAugment.LEVEL_3}
-                            label={tf("+{amount}% Melee attack", {
-                                amount: Augment.getMightPower(Augment.MightAugment.LEVEL_3),
-                            })}
+                            label={`+${Augment.getMightPower(Augment.MightAugment.LEVEL_3)}% Melee attack`}
                             disabled={
                                 totalPoints + (currentSelection ?? 0) < Augment.MightAugment.LEVEL_3 &&
                                 currentSelection !== Augment.MightAugment.LEVEL_3
@@ -321,18 +313,16 @@ const EmpowerToggler = ({
             {/* The Toggler Sheet */}
             <Sheet variant="outlined" sx={compactAugmentSheetSx}>
                 <FormControl>
-                    <FormLabel>{t("Augment Empower")}</FormLabel>
+                    <FormLabel>Empower</FormLabel>
                     <RadioGroup
                         name={`${title}-empower-type`}
                         onChange={handleSelectionChange}
                         value={currentSelection ?? Augment.EmpowerAugment.NO_AUGMENT}
                     >
-                        <Radio value={Augment.EmpowerAugment.NO_AUGMENT} label={t("No Augment")} />
+                        <Radio value={Augment.EmpowerAugment.NO_AUGMENT} label="None" />
                         <Radio
                             value={Augment.EmpowerAugment.LEVEL_1}
-                            label={tf("+{amount}% Magic damage", {
-                                amount: Augment.getEmpowerPower(Augment.EmpowerAugment.LEVEL_1),
-                            })}
+                            label={`+${Augment.getEmpowerPower(Augment.EmpowerAugment.LEVEL_1)}% Magic damage`}
                             disabled={
                                 totalPoints + (currentSelection ?? 0) < Augment.EmpowerAugment.LEVEL_1 &&
                                 currentSelection !== Augment.EmpowerAugment.LEVEL_1
@@ -340,9 +330,7 @@ const EmpowerToggler = ({
                         />
                         <Radio
                             value={Augment.EmpowerAugment.LEVEL_2}
-                            label={tf("+{amount}% Magic damage", {
-                                amount: Augment.getEmpowerPower(Augment.EmpowerAugment.LEVEL_2),
-                            })}
+                            label={`+${Augment.getEmpowerPower(Augment.EmpowerAugment.LEVEL_2)}% Magic damage`}
                             disabled={
                                 totalPoints + (currentSelection ?? 0) < Augment.EmpowerAugment.LEVEL_2 &&
                                 currentSelection !== Augment.EmpowerAugment.LEVEL_2
@@ -350,9 +338,7 @@ const EmpowerToggler = ({
                         />
                         <Radio
                             value={Augment.EmpowerAugment.LEVEL_3}
-                            label={tf("+{amount}% Magic damage", {
-                                amount: Augment.getEmpowerPower(Augment.EmpowerAugment.LEVEL_3),
-                            })}
+                            label={`+${Augment.getEmpowerPower(Augment.EmpowerAugment.LEVEL_3)}% Magic damage`}
                             disabled={
                                 totalPoints + (currentSelection ?? 0) < Augment.EmpowerAugment.LEVEL_3 &&
                                 currentSelection !== Augment.EmpowerAugment.LEVEL_3
@@ -391,19 +377,18 @@ const SniperToggler = ({
         <Box sx={{ width: "100%", mx: "auto", marginBottom: 0 }}>
             <Sheet variant="outlined" sx={compactAugmentSheetSx}>
                 <FormControl>
-                    <FormLabel>{t("Augment Sniper")}</FormLabel>
+                    <FormLabel>Sniper</FormLabel>
                     <RadioGroup
                         name={`${title}-sniper-type`}
                         onChange={handleSelectionChange}
                         value={currentSelection ?? Augment.SniperAugment.NO_AUGMENT}
                     >
-                        <Radio value={Augment.SniperAugment.NO_AUGMENT} label={t("No Augment")} />
+                        <Radio value={Augment.SniperAugment.NO_AUGMENT} label="None" />
                         <Radio
                             value={Augment.SniperAugment.LEVEL_1}
-                            label={tf("+{attack}% attack/+{distance}% distance", {
-                                attack: Augment.getSniperPower(Augment.SniperAugment.LEVEL_1)[0],
-                                distance: Augment.getSniperPower(Augment.SniperAugment.LEVEL_1)[1],
-                            })}
+                            label={`+${Augment.getSniperPower(Augment.SniperAugment.LEVEL_1)[0]}% attack/+${
+                                Augment.getSniperPower(Augment.SniperAugment.LEVEL_1)[1]
+                            }% distance`}
                             disabled={
                                 totalPoints + (currentSelection ?? 0) < Augment.SniperAugment.LEVEL_1 &&
                                 currentSelection !== Augment.SniperAugment.LEVEL_1
@@ -411,10 +396,9 @@ const SniperToggler = ({
                         />
                         <Radio
                             value={Augment.SniperAugment.LEVEL_2}
-                            label={tf("+{attack}% attack/+{distance}% distance", {
-                                attack: Augment.getSniperPower(Augment.SniperAugment.LEVEL_2)[0],
-                                distance: Augment.getSniperPower(Augment.SniperAugment.LEVEL_2)[1],
-                            })}
+                            label={`+${Augment.getSniperPower(Augment.SniperAugment.LEVEL_2)[0]}% attack/+${
+                                Augment.getSniperPower(Augment.SniperAugment.LEVEL_2)[1]
+                            }% distance`}
                             disabled={
                                 totalPoints + (currentSelection ?? 0) < Augment.SniperAugment.LEVEL_2 &&
                                 currentSelection !== Augment.SniperAugment.LEVEL_2
@@ -422,10 +406,9 @@ const SniperToggler = ({
                         />
                         <Radio
                             value={Augment.SniperAugment.LEVEL_3}
-                            label={tf("+{attack}% attack/+{distance}% distance", {
-                                attack: Augment.getSniperPower(Augment.SniperAugment.LEVEL_3)[0],
-                                distance: Augment.getSniperPower(Augment.SniperAugment.LEVEL_3)[1],
-                            })}
+                            label={`+${Augment.getSniperPower(Augment.SniperAugment.LEVEL_3)[0]}% attack/+${
+                                Augment.getSniperPower(Augment.SniperAugment.LEVEL_3)[1]
+                            }% distance`}
                             disabled={
                                 totalPoints + (currentSelection ?? 0) < Augment.SniperAugment.LEVEL_3 &&
                                 currentSelection !== Augment.SniperAugment.LEVEL_3
@@ -464,18 +447,16 @@ const MovementToggler = ({
         <Box sx={{ width: "100%", mx: "auto", marginBottom: 0 }}>
             <Sheet variant="outlined" sx={compactAugmentSheetSx}>
                 <FormControl>
-                    <FormLabel>{t("Augment Movement")}</FormLabel>
+                    <FormLabel>Movement</FormLabel>
                     <RadioGroup
                         name={`${title}-movement-type`}
                         onChange={handleSelectionChange}
                         value={currentSelection ?? Augment.MovementAugment.NO_AUGMENT}
                     >
-                        <Radio value={Augment.MovementAugment.NO_AUGMENT} label={t("No Augment")} />
+                        <Radio value={Augment.MovementAugment.NO_AUGMENT} label="None" />
                         <Radio
                             value={Augment.MovementAugment.LEVEL_1}
-                            label={tf("+{amount} Movement steps", {
-                                amount: Augment.getMovementPower(Augment.MovementAugment.LEVEL_1),
-                            })}
+                            label={`+${Augment.getMovementPower(Augment.MovementAugment.LEVEL_1)} Movement steps`}
                             disabled={
                                 totalPoints + (currentSelection ?? 0) < Augment.MovementAugment.LEVEL_1 &&
                                 currentSelection !== Augment.MovementAugment.LEVEL_1
@@ -483,9 +464,7 @@ const MovementToggler = ({
                         />
                         <Radio
                             value={Augment.MovementAugment.LEVEL_2}
-                            label={tf("+{amount} Movement steps", {
-                                amount: Augment.getMovementPower(Augment.MovementAugment.LEVEL_2),
-                            })}
+                            label={`+${Augment.getMovementPower(Augment.MovementAugment.LEVEL_2)} Movement steps`}
                             disabled={
                                 totalPoints + (currentSelection ?? 0) < Augment.MovementAugment.LEVEL_2 &&
                                 currentSelection !== Augment.MovementAugment.LEVEL_2
@@ -508,106 +487,96 @@ const SandboxToggleContainer = ({
     // Upgrade-point budget for augments. In ranked this is the doctrine's allotment (5/6/7 via
     // getUpgradePoints); Sandbox omits it and gets the full MAX_AUGMENT_POINTS default.
     budgetPoints = HoCConstants.MAX_AUGMENT_POINTS,
-    // Ranked embeds this picker over a server-authoritative build: seed (and keep re-syncing) the
-    // selections from the snapshot so a remount mid-game never shows a blank picker with a full
-    // budget while the server is still enforcing the already-spent points. Sandbox omits it.
+    // Ranked reads this to gate its commit button: fires whenever the remaining augment points change.
+    // Sandbox omits it.
+    onReadyChange,
+    // Ranked snapshots own the committed build. Rehydrate from it so a refresh/remount does not show a
+    // blank picker with a full budget while the server is still enforcing the already-spent points.
     authoritativeSelections,
 }: {
     side: string;
     teamType: TeamType;
     showArtifactPicker?: boolean;
     budgetPoints?: number;
+    onReadyChange?: (state: { pointsRemaining: number; allSynergiesSelected: boolean }) => void;
     authoritativeSelections?: AugmentSelections;
 }) => {
-    useTranslation();
-    const [totalPoints, setTotalPoints] = useState(
+    const authoritativePlacement = authoritativeSelections?.placement;
+    const authoritativeArmor = authoritativeSelections?.armor;
+    const authoritativeMight = authoritativeSelections?.might;
+    const authoritativeEmpower = authoritativeSelections?.empower;
+    const authoritativeSniper = authoritativeSelections?.sniper;
+    const authoritativeMovement = authoritativeSelections?.movement;
+    const [totalPoints, setTotalPoints] = useState(() =>
         authoritativeSelections ? remainingAugmentPoints(budgetPoints, authoritativeSelections) : budgetPoints,
     );
-    const [placementSelection, setPlacementSelection] = useState<number | null>(
-        authoritativeSelections?.placement ?? null,
-    );
-    const [armorSelection, setArmorSelection] = useState<number | null>(authoritativeSelections?.armor ?? null);
-    const [mightSelection, setMightSelection] = useState<number | null>(authoritativeSelections?.might ?? null);
-    const [empowerSelection, setEmpowerSelection] = useState<number | null>(authoritativeSelections?.empower ?? null);
-    const [sniperSelection, setSniperSelection] = useState<number | null>(authoritativeSelections?.sniper ?? null);
-    const [movementSelection, setMovementSelection] = useState<number | null>(
-        authoritativeSelections?.movement ?? null,
-    );
+    const [placementSelection, setPlacementSelection] = useState<number | null>(authoritativePlacement ?? null);
+    const [armorSelection, setArmorSelection] = useState<number | null>(authoritativeArmor ?? null);
+    const [mightSelection, setMightSelection] = useState<number | null>(authoritativeMight ?? null);
+    const [empowerSelection, setEmpowerSelection] = useState<number | null>(authoritativeEmpower ?? null);
+    const [sniperSelection, setSniperSelection] = useState<number | null>(authoritativeSniper ?? null);
+    const [movementSelection, setMovementSelection] = useState<number | null>(authoritativeMovement ?? null);
 
+    // Re-seed when the server's committed build changes under us (a snapshot after our own AUGMENT lands,
+    // or a remount mid-placement). Only when the whole build is present, so a partial payload cannot blank
+    // a selection the player has already made.
     useEffect(() => {
-        if (!authoritativeSelections) {
+        if (
+            authoritativePlacement === undefined ||
+            authoritativeArmor === undefined ||
+            authoritativeMight === undefined ||
+            authoritativeEmpower === undefined ||
+            authoritativeSniper === undefined ||
+            authoritativeMovement === undefined
+        ) {
             return;
         }
-        setPlacementSelection(authoritativeSelections.placement);
-        setArmorSelection(authoritativeSelections.armor);
-        setMightSelection(authoritativeSelections.might);
-        setEmpowerSelection(authoritativeSelections.empower);
-        setSniperSelection(authoritativeSelections.sniper);
-        setMovementSelection(authoritativeSelections.movement);
-        setTotalPoints(remainingAugmentPoints(budgetPoints, authoritativeSelections));
-    }, [authoritativeSelections, budgetPoints]);
+        setPlacementSelection(authoritativePlacement);
+        setArmorSelection(authoritativeArmor);
+        setMightSelection(authoritativeMight);
+        setEmpowerSelection(authoritativeEmpower);
+        setSniperSelection(authoritativeSniper);
+        setMovementSelection(authoritativeMovement);
+        setTotalPoints(
+            remainingAugmentPoints(budgetPoints, {
+                placement: authoritativePlacement,
+                armor: authoritativeArmor,
+                might: authoritativeMight,
+                empower: authoritativeEmpower,
+                sniper: authoritativeSniper,
+                movement: authoritativeMovement,
+            }),
+        );
+    }, [
+        budgetPoints,
+        authoritativePlacement,
+        authoritativeArmor,
+        authoritativeMight,
+        authoritativeEmpower,
+        authoritativeSniper,
+        authoritativeMovement,
+    ]);
+
+    // Report readiness up to ranked. Synergies are drawn per game and level from the drafted factions, so
+    // there is nothing here for the player to complete — same contract SideToggleContainer reports.
+    useEffect(() => {
+        onReadyChange?.({ pointsRemaining: totalPoints, allSynergiesSelected: true });
+    }, [onReadyChange, totalPoints]);
     // Opening a team lands on Augments with Board Placement already showing — the first thing you set for a
     // side — instead of a bar of shut headers you have to click twice to get anywhere.
     const [togglerType, setTogglerType] = useState<
         "Placement" | "Armor" | "Might" | "Empower" | "Sniper" | "Movement" | "Synergy" | "None"
     >("Placement");
 
-    // Both tools are useful side by side and no longer form a radio-style accordion. Start with both open,
-    // then use the browser's actual wrapped layout to close Artifacts only when the active team drawer would
-    // overflow vertically. Once the player changes either header, their choice wins over auto-fit.
+    // Land directly on the compact state that fits the sidebar: Augments open, Artifacts folded. Previously
+    // both mounted open and a delayed layout measurement folded Artifacts 240ms later, so the first team click
+    // briefly showed a scrollbar and then looked as if the panel had reset itself.
     const [panelExpansion, setPanelExpansion] = useState<SandboxPanelExpansion>(() => ({
         ...DEFAULT_SANDBOX_PANEL_EXPANSION,
     }));
-    const panelContainerRef = useRef<HTMLDivElement>(null);
-    const userSetPanelExpansion = useRef(false);
-    const autoFitResolved = useRef(false);
     const { artifactsOpen, augmentsOpen } = panelExpansion;
 
-    useLayoutEffect(() => {
-        if (!showArtifactPicker || autoFitResolved.current) return;
-
-        const container = panelContainerRef.current;
-        const togglerBody = container?.closest<HTMLElement>('[data-hoc-toggler-body="true"]');
-        const scrollRegion = container?.closest<HTMLElement>('[data-sandbox-scroll-region="true"]');
-        if (!container || !togglerBody || !scrollRegion) return;
-
-        // The parent team drawer animates for 200ms. Debounce its ResizeObserver notifications so the fit
-        // decision sees the final open drawer after the previously open Army/Board drawer has closed.
-        let settleTimer: number | undefined;
-        const measureSettledLayout = () => {
-            settleTimer = undefined;
-            if (autoFitResolved.current || userSetPanelExpansion.current || togglerBody.dataset.open !== "true") {
-                return;
-            }
-
-            autoFitResolved.current = true;
-            setPanelExpansion((current) => fitSandboxPanelExpansion(current, scrollRegion));
-        };
-        const scheduleMeasurement = () => {
-            if (autoFitResolved.current || userSetPanelExpansion.current) return;
-            if (settleTimer !== undefined) window.clearTimeout(settleTimer);
-            settleTimer = window.setTimeout(measureSettledLayout, 240);
-        };
-
-        const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(scheduleMeasurement);
-        observer?.observe(togglerBody);
-        observer?.observe(container);
-        observer?.observe(scrollRegion);
-        togglerBody.addEventListener("transitionend", scheduleMeasurement);
-        window.addEventListener("resize", scheduleMeasurement);
-        scheduleMeasurement();
-
-        return () => {
-            observer?.disconnect();
-            togglerBody.removeEventListener("transitionend", scheduleMeasurement);
-            window.removeEventListener("resize", scheduleMeasurement);
-            if (settleTimer !== undefined) window.clearTimeout(settleTimer);
-        };
-    }, [showArtifactPicker]);
-
     const handlePanelToggle = (panel: SandboxPanel) => {
-        userSetPanelExpansion.current = true;
-        autoFitResolved.current = true;
         setPanelExpansion((current) => toggleSandboxPanel(current, panel));
     };
     // All six categories are on screen at once (the pre-#129 sidebar the owner asked back), so the
@@ -632,7 +601,6 @@ const SandboxToggleContainer = ({
 
     return (
         <Box
-            ref={panelContainerRef}
             sx={{
                 display: "flex",
                 flexDirection: "column",
@@ -674,7 +642,7 @@ const SandboxToggleContainer = ({
                     level="title-sm"
                     sx={{ color: "inherit", fontSize: "1.1rem", letterSpacing: "0.06em", lineHeight: 1.25 }}
                 >
-                    {t("Augments")}
+                    Augments
                 </Typography>
                 <Box
                     component="img"
@@ -709,12 +677,7 @@ const SandboxToggleContainer = ({
                         {AUGMENT_BUTTONS.map(({ kind, title, alt, img }) => {
                             const selected = togglerType === kind;
                             return (
-                                <Tooltip
-                                    key={kind}
-                                    title={t(title)}
-                                    placement="right"
-                                    sx={{ zIndex: AUGMENT_TOOLTIP_Z }}
-                                >
+                                <Tooltip key={kind} title={title} placement="right" sx={{ zIndex: AUGMENT_TOOLTIP_Z }}>
                                     <IconButton
                                         sx={{
                                             px: 0.25,
@@ -767,11 +730,11 @@ const SandboxToggleContainer = ({
                                             "&:hover img": { transform: "scale(1.15)" },
                                         }}
                                         onClick={() => handleAugmentClick(kind)}
-                                        title={t(title)}
+                                        title={title}
                                     >
                                         <img
                                             src={img}
-                                            alt={t(alt)}
+                                            alt={alt}
                                             style={{
                                                 filter: selected ? "brightness(1.2)" : "brightness(0.6)",
                                                 width: "100%",
@@ -794,7 +757,7 @@ const SandboxToggleContainer = ({
                             paddingTop: 0,
                         }}
                     >
-                        {tf("Remaining Points: {count}", { count: totalPoints })}
+                        Remaining Points: {totalPoints}
                     </Typography>
                     {togglerType === "Placement" && (
                         <PlacementToggler

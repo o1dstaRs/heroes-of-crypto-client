@@ -343,6 +343,26 @@ const CompactStatRow: React.FC<{
     );
 };
 
+/** Portrait tile edge, per breakpoint. */
+export const PLAYER_PORTAL_STRATEGY_TILE_SIZE = { xs: 46, sm: 54 } as const;
+
+/**
+ * How far each portrait slides under the one after it.
+ *
+ * The tiles overlap so a trio reads as one line-up instead of three loose icons, but the overlap has to
+ * stay small. Each tile is painted over by the next, so every portrait except the last is reduced to its
+ * left-hand strip — and a creature portrait is framed centrally, so a narrow left strip is mostly
+ * backdrop. At the original 24-of-54px the middle creature was unrecognisable (owner report 2026-08-28:
+ * "cant see second unit behind third"): the first tile still read because it keeps its left edge, the
+ * last because nothing covers it, and the one in between showed neither face nor silhouette.
+ */
+export const PLAYER_PORTAL_STRATEGY_TILE_OVERLAP = { xs: 9, sm: 10 } as const;
+
+/** Share of a covered portrait that stays visible. Pinned in PlayerPortalPage.test.tsx. */
+export const playerPortalStrategyVisibleShare = (breakpoint: "xs" | "sm"): number =>
+    (PLAYER_PORTAL_STRATEGY_TILE_SIZE[breakpoint] - PLAYER_PORTAL_STRATEGY_TILE_OVERLAP[breakpoint]) /
+    PLAYER_PORTAL_STRATEGY_TILE_SIZE[breakpoint];
+
 const CreatureStrategyArtwork: React.FC<{ creatureIds: readonly number[] }> = ({ creatureIds }) => {
     const uniqueIds = [...new Set(creatureIds)];
     return (
@@ -350,19 +370,28 @@ const CreatureStrategyArtwork: React.FC<{ creatureIds: readonly number[] }> = ({
             sx={{
                 display: "flex",
                 alignItems: "center",
-                minWidth: { xs: 46, sm: 54 },
-                "& .MuiAvatar-root": { width: { xs: 46, sm: 54 }, height: { xs: 46, sm: 54 } },
+                minWidth: PLAYER_PORTAL_STRATEGY_TILE_SIZE,
+                "& .MuiAvatar-root": {
+                    width: PLAYER_PORTAL_STRATEGY_TILE_SIZE,
+                    height: PLAYER_PORTAL_STRATEGY_TILE_SIZE,
+                },
             }}
         >
             {uniqueIds.map((id, index) => (
                 <Box
                     key={id}
                     sx={{
-                        ml: index === 0 ? 0 : { xs: "-27px", sm: "-24px" },
+                        ml:
+                            index === 0
+                                ? 0
+                                : {
+                                      xs: `-${PLAYER_PORTAL_STRATEGY_TILE_OVERLAP.xs}px`,
+                                      sm: `-${PLAYER_PORTAL_STRATEGY_TILE_OVERLAP.sm}px`,
+                                  },
                         filter: index === 0 ? "none" : "drop-shadow(-4px 0 5px rgba(0,0,0,0.58))",
                     }}
                 >
-                    <CreatureIcon creatureId={id} size={54} />
+                    <CreatureIcon creatureId={id} size={PLAYER_PORTAL_STRATEGY_TILE_SIZE.sm} />
                 </Box>
             ))}
         </Box>

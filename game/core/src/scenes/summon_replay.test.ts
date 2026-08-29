@@ -84,7 +84,9 @@ describe("authoritative summon replay", () => {
         const attackBody = sliceFrom(source, "private async playReplayAttackRecord(", 18_000);
         const applyBody = sliceFrom(source, "protected applyReplayEvents(", 1_000);
         const materializer = sliceFrom(source, "private materializeReplaySummons(", 3_000);
-        const syncBody = sliceFrom(source, "private syncSummonedUnit(", 2_000);
+        // The whole of syncSummonedUnit: it grew when the authoritative occupy stopped discarding a
+        // refusal, and every assertion below has to see the tail of the function.
+        const syncBody = sliceFrom(source, "private syncSummonedUnit(", 2_600);
 
         expect(attackBody).toContain("this.applyReplayEvents(replayEvents, record.stateAfter)");
         expect(applyBody.indexOf("this.materializeReplaySummons(visibleEvents, stateAfter)")).toBeGreaterThan(-1);

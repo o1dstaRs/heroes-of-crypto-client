@@ -1,10 +1,14 @@
 import { IDamageStatistic } from "@heroesofcrypto/common";
 import { setVolumeSlot } from "../audio/volumeSlot";
-import { setSocialDockSlot } from "../social/socialDockSlot";
-import { FightLog } from "./FightLog";
+import { FightLog, FIGHT_LOG_SURFACE_BACKGROUND } from "./FightLog";
 import DraggableToolbar, { toolbarColumnHeightPx } from "../DraggableToolbar";
-import { RIGHT_SIDEBAR_BG_IMAGE, SIDEBAR_BG, SIDEBAR_BG_REPEAT, SIDEBAR_BG_SIZE } from "../LeftSideBar";
-import { SidebarFrame } from "../SidebarFrame";
+import {
+    RIGHT_SIDEBAR_BG_IMAGE,
+    RIGHT_SIDEBAR_BG_POSITION,
+    SIDEBAR_BG,
+    SIDEBAR_BG_REPEAT,
+    sidebarBackgroundSize,
+} from "../LeftSideBar";
 import Divider from "@mui/joy/Divider";
 import Box from "@mui/joy/Box";
 import List from "@mui/joy/List";
@@ -15,14 +19,16 @@ import Button from "@mui/joy/Button";
 import { useNavigate } from "react-router";
 import { useAuthContext } from "../auth/context/auth_context";
 import { usePixiManager } from "../../pixi/PixiGameManager";
+import { battleSidebarWidth } from "../../pixi/boardFit";
 import { images } from "../../generated/image_imports";
-import { hocColors, hocDisplayFontFamily, hocSidebarImageButtonSx, hocSidebarSectionSx } from "../hocTheme";
+import { hocColors, hocDisplayFontFamily, hocSidebarSectionSx } from "../hocTheme";
 import FightControlToggler from "./FightControlToggler";
 import { FullscreenToggle } from "./FullscreenToggle";
 import { WalletLinker } from "../WalletLinker";
 import { IWindowSize } from "../../scenes/VisibleState";
 import { sidebarPlainFrameSideInsetPx, sidebarPlainFrameVerticalInsetPx } from "../LeftSideBar/sidebarMetrics";
-import { t, useTranslation } from "../../i18n/i18n";
+import { exitFightButtonSx } from "../exitFightButtonSx";
+import { useFullscreenActive } from "../useFullscreenActive";
 
 // Floor for the fight log. Below this the bar as a whole scrolls rather than squeezing the log to nothing.
 const LOG_MIN_HEIGHT_PX = 168;
@@ -44,25 +50,24 @@ const hocBronzeScrollSx = {
 } as const;
 
 const damageIcon = images.damage_analytics_icon;
-// Ranked placement uses the exact left-deck stone, physically mirrored once in the asset. This layer is
-// intentionally opaque: the translucent command sheet and READY plate reveal this texture, never the
-// board canvas, smoke layer or the page's black fallback.
-const RANKED_PLACEMENT_MIRRORED_BG_IMAGE = `linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.2)), url(${images.ui_sidebar_bg_left_emberstone_mirrored})`;
-
 export default function RightSideBar({
     gameStarted,
     windowSize,
     rankedPanel,
+    rankedFooter,
     showWallet = false,
+    onClose,
 }: {
     gameStarted: boolean;
     windowSize: IWindowSize;
     rankedPanel?: React.ReactNode;
+    rankedFooter?: React.ReactNode;
     showWallet?: boolean;
+    onClose?: () => void;
 }) {
-    useTranslation();
     const navigate = useNavigate();
     const { authenticated } = useAuthContext();
+    const isFullscreen = useFullscreenActive();
     const [unitDamageStatistics, setUnitDamageStatistics] = useState([] as IDamageStatistic[]);
 
     // See the note at the log itself: its height is measured on the first layout and then held, so nothing
@@ -72,19 +77,9 @@ export default function RightSideBar({
     // publishes WHERE it should appear, and ThemeMusic portals it in. See ui/audio/volumeSlot.
     const volumeSlotRef = useRef<HTMLDivElement>(null);
     useLayoutEffect(() => {
-        // Signed-in players get sound as the fourth uniform SocialDock control. Anonymous sandbox play
-        // has no SocialDock, so it keeps this footer fallback.
-        if (authenticated) {
-            return undefined;
-        }
         setVolumeSlot(volumeSlotRef.current);
         return () => setVolumeSlot(null);
-    }, [authenticated]);
-    const socialDockSlotRef = useRef<HTMLDivElement>(null);
-    useLayoutEffect(() => {
-        setSocialDockSlot(gameStarted ? socialDockSlotRef.current : null);
-        return () => setSocialDockSlot(null);
-    }, [gameStarted]);
+    }, []);
 
     const logBoxRef = useRef<HTMLDivElement>(null);
     const [frozenLogHeight, setFrozenLogHeight] = useState<number | null>(null);
@@ -133,18 +128,7 @@ export default function RightSideBar({
     const [barSize, setBarSize] = useState(280);
 
     const adjustBarSize = useCallback(() => {
-        const additionalBoardPixels = 0;
-        const widthRatio = windowSize.width / (2048 + additionalBoardPixels);
-        const heightRatio = windowSize.height / 2048;
-
-        const scaleRatio = Math.min(widthRatio, heightRatio);
-        const scaledBoardSize = (2048 + additionalBoardPixels) * scaleRatio;
-
-        const rightBarEndAtBoard = (windowSize.width - scaledBoardSize) / 2;
-        // Rounded exactly as the left bar rounds it (LeftSideBar.adjustBarSize). Left with a fraction here,
-        // the two bars could resolve to different widths and the board would sit a pixel off centre between
-        // them even though it is centred in the window.
-        setBarSize(Math.max(0, Math.round(rightBarEndAtBoard)));
+        setBarSize(battleSidebarWidth(windowSize.width, windowSize.height));
     }, [windowSize]);
 
     useEffect(() => {
@@ -281,36 +265,92 @@ export default function RightSideBar({
                         : gameStarted
                           ? 0
                           : `${sidebarPlainFrameSideInsetPx(barSize)}px`,
-                pt: `${sidebarPlainFrameVerticalInsetPx(windowSize.height)}px`,
+                // Joy's small List adds another 4px above its first item. Include that fixed inset in the
+                // calculation so the complete visible gap above Damage is exactly halved in combat.
+                // The released space is absorbed by the flexible log; setup keeps its original framing.
+                pt: `${gameStarted ? Math.max(0, Math.round((sidebarPlainFrameVerticalInsetPx(windowSize.height) - 4) / 2)) : sidebarPlainFrameVerticalInsetPx(windowSize.height)}px`,
                 pb: `${sidebarPlainFrameVerticalInsetPx(windowSize.height)}px`,
                 // flexShrink: 0,
                 display: "flex",
                 flexDirection: "column",
                 gap: 2,
-                // Board-facing edge, mirrored from LeftSideBar: widened to the gold trim's width and the
-                // background clipped to the padding box, so the leather ends where the trim begins.
-                backgroundClip: "padding-box",
-                boxShadow: "inset 1px 0 0 rgba(120,104,80,.22), -6px 0 18px rgba(0,0,0,.7)",
+                // The background image includes the complete frame; keep the root free of a second rail,
+                // shadow frame or 9-slice overlay.
                 // Keep the Sandbox shell and its footer fixed; FightControlToggler owns the localized scroll
                 // fallback when a player deliberately opens more setup tools than the viewport can hold.
                 // Combat/ranked screens can still scroll here when their server-provided panels exceed it.
-                overflowY: !gameStarted && !rankedPanel ? "hidden" : "auto",
+                overflowY: !gameStarted ? "hidden" : "auto",
                 overflowX: "hidden", // Prevent horizontal scrolling
                 // Reserve the scrollbar lane even while the short/collapsed layout does not need it.
                 // Otherwise opening an augment makes the scrollbar appear, steals width, and visibly
                 // jerks every 9-slice container frame and its right rail to the left.
-                scrollbarGutter: !gameStarted && !rankedPanel ? "auto" : "stable",
+                scrollbarGutter: !gameStarted ? "auto" : "stable",
                 // Same ground as the left bar.
                 // The base remains fully opaque. Only the brown inner sheet and READY plate above it are
                 // translucent, so they reveal the mirrored left-deck stone rather than map fog/blackness.
                 backgroundColor: SIDEBAR_BG,
-                backgroundImage:
-                    rankedPanel && !gameStarted ? RANKED_PLACEMENT_MIRRORED_BG_IMAGE : RIGHT_SIDEBAR_BG_IMAGE,
-                backgroundSize: SIDEBAR_BG_SIZE,
+                backgroundImage: RIGHT_SIDEBAR_BG_IMAGE,
+                backgroundSize: sidebarBackgroundSize(barSize),
                 backgroundRepeat: SIDEBAR_BG_REPEAT,
-                backgroundPosition: "right center",
+                backgroundPosition: RIGHT_SIDEBAR_BG_POSITION,
             }}
         >
+            {onClose && (
+                <Box
+                    component="button"
+                    type="button"
+                    aria-label="Close sandbox"
+                    title="Back"
+                    onClick={onClose}
+                    sx={{
+                        position: "absolute",
+                        top: `${Math.max(10, sidebarPlainFrameVerticalInsetPx(windowSize.height) - 4)}px`,
+                        right: `${Math.max(10, sidebarPlainFrameSideInsetPx(barSize) - 4)}px`,
+                        width: "clamp(28px, 2.1vw, 38px)",
+                        height: "clamp(28px, 2.1vw, 38px)",
+                        p: 0,
+                        border: 0,
+                        borderRadius: 0,
+                        backgroundColor: "transparent",
+                        backgroundImage: `url(${images.ui_close_button_square_gothic_frame_v1})`,
+                        // The picture-backed frame is exactly 7% smaller than the old button footprint.
+                        // The X remains a separate image layer so its scale and plate-relative centre stay independent.
+                        backgroundSize: "93% 93%",
+                        backgroundPosition: "center",
+                        backgroundRepeat: "no-repeat",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        cursor: "var(--hoc-cursor-interactive), pointer",
+                        zIndex: 4,
+                        filter: "drop-shadow(0 2px 4px rgba(0, 0, 0, .82))",
+                        transition: "transform .14s ease, filter .14s ease",
+                        "&:hover": {
+                            transform: "scale(1.06)",
+                            filter: "brightness(1.08) drop-shadow(0 2px 4px rgba(0, 0, 0, .82)) drop-shadow(0 0 5px rgba(205, 91, 33, .48))",
+                        },
+                        "&:active": { transform: "scale(.97)" },
+                    }}
+                >
+                    <Box
+                        component="img"
+                        src={images.ui_close_button_sidebar_title_x_v2}
+                        aria-hidden="true"
+                        sx={{
+                            position: "absolute",
+                            left: "50%",
+                            // The lower gothic point is outside the square plate. Its visual centre is at
+                            // about 43% of the complete frame height, rather than the image's 50% midpoint.
+                            top: "43%",
+                            width: "41.4%",
+                            height: "41.4%",
+                            objectFit: "contain",
+                            transform: "translate(-50%, -50%)",
+                            pointerEvents: "none",
+                        }}
+                    />
+                </Box>
+            )}
             <Box
                 sx={{
                     minHeight: 0,
@@ -337,7 +377,9 @@ export default function RightSideBar({
                     {rankedPanel && !gameStarted && (
                         <Box sx={{ flex: "1 1 0", minHeight: 0, display: "flex", width: "100%" }}>{rankedPanel}</Box>
                     )}
-                    {!gameStarted && !rankedPanel && <FightControlToggler />}
+                    {!gameStarted && !rankedPanel && (
+                        <FightControlToggler scrollRailInsetPx={sidebarPlainFrameSideInsetPx(barSize)} />
+                    )}
                     {/* Turn actions live here rather than floating over the board — those cells have to stay
                         clickable to move and attack. The buttons keep their own narrow column and the damage
                         table takes the rest of the width beside them. */}
@@ -392,7 +434,7 @@ export default function RightSideBar({
                                         borderBottom: "1px solid rgba(112,75,42,.48)",
                                     }}
                                 >
-                                    <Box component="img" src={damageIcon} sx={{ width: 43, height: 43 }} />
+                                    <Box component="img" src={damageIcon} sx={{ width: 38.7, height: 38.7 }} />
                                     <Typography
                                         sx={{
                                             flex: 1,
@@ -410,7 +452,7 @@ export default function RightSideBar({
                                             color: hocColors.gold,
                                         }}
                                     >
-                                        {t("DAMAGE")}
+                                        DAMAGE
                                     </Typography>
                                 </Box>
                                 <Box ref={damageListSpaceRef} sx={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
@@ -450,62 +492,38 @@ export default function RightSideBar({
                                 flexDirection: "column",
                                 minHeight: `${LOG_MIN_HEIGHT_PX}px`,
                                 ...hocSidebarSectionSx("team"),
+                                // Let the log's scroll rail occupy the empty corridor to the right of the
+                                // frame. Vertical overflow remains contained by the dedicated scroll well.
+                                overflow: "visible",
+                                // Paint one uninterrupted log material underneath the transparent parts of
+                                // every 9-slice rail, all the way out to the frame's exterior boundaries.
+                                background: FIGHT_LOG_SURFACE_BACKGROUND,
+                                // Gradients normally position from the padding box even when they are clipped
+                                // to the border box. Anchor them to the exterior box as well, so the stripes
+                                // and base fill meet every rail without an unpainted top/side/bottom band.
+                                backgroundOrigin: "border-box",
+                                backgroundClip: "border-box",
+                                // Only the exterior cast shadow stays separate. The vignette is in the
+                                // border-box background stack above, while border-image remains foreground.
+                                boxShadow: "0 7px 16px rgba(0,0,0,.72)",
                                 p: 0,
                                 ...(frozenLogHeight === null
                                     ? { flex: "1 1 auto" }
                                     : { flex: "0 0 auto", height: `${frozenLogHeight}px` }),
                             }}
                         >
-                            <Box
-                                sx={{
-                                    flex: "0 0 34px",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    px: "8px",
-                                    borderBottom: "1px solid rgba(112,75,42,.48)",
-                                }}
-                            >
-                                <Typography
-                                    sx={{
-                                        textAlign: "center",
-                                        fontFamily: hocDisplayFontFamily,
-                                        fontSize: "0.989rem",
-                                        fontWeight: 500,
-                                        letterSpacing: "0.13em",
-                                        color: hocColors.gold,
-                                    }}
-                                >
-                                    {t("BATTLE LOG")}
-                                </Typography>
-                            </Box>
                             <Box sx={{ flex: 1, minHeight: 0, display: "flex" }}>
                                 <FightLog text={attackText} />
                             </Box>
                         </Box>
                     )}
-                    {rankedPanel && gameStarted && <Box sx={{ mt: 1 }}>{rankedPanel}</Box>}
-                    {!rankedPanel && <Divider />}
+                    {/* Combat's former divider is now the log's own lower frame: removing the extra item
+                        lets the flexible log grow exactly into its old position. Setup keeps its separator. */}
+                    {!rankedPanel && !gameStarted && <Divider />}
                     {showWallet && <WalletLinker />}
-                    {/* SocialDock is mounted above the router, but its three fight launchers belong here:
-                        centred at the bottom of the right sidebar and outside the battle-log scroller. The
-                        slot collapses completely for anonymous sandbox play, where SocialDock renders
-                        nothing, so it never steals height from the log. */}
-                    <Box
-                        ref={socialDockSlotRef}
-                        sx={{
-                            width: "100%",
-                            minHeight: 0,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            flexShrink: 0,
-                            "&:not(:empty)": { minHeight: "40px", mt: 0.25 },
-                        }}
-                    />
-                    {/* Compact footer: fullscreen and music stay on the edges, while sandbox's exit action
-                        occupies the centre instead of consuming a separate row above. The fight log receives
-                        all of the height released by removing that row. */}
+                    {/* Compact footer: fullscreen and music stay on the edges. Once combat starts, the exit
+                        action occupies the centre. Before combat, the top-right close button returns to the
+                        screen that opened the sandbox. */}
                     <Box
                         sx={{
                             width: "100%",
@@ -523,83 +541,38 @@ export default function RightSideBar({
                         }}
                     >
                         <FullscreenToggle />
-                        {!rankedPanel && gameStarted ? (
-                            <Box
-                                sx={{
-                                    justifySelf: "center",
-                                    width: "min(100%, 209px)",
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    gap: 0.5,
+                        {rankedFooter ? (
+                            rankedFooter
+                        ) : rankedPanel && gameStarted ? (
+                            rankedPanel
+                        ) : !rankedPanel && gameStarted ? (
+                            <Button
+                                variant="soft"
+                                color="danger"
+                                // Sandbox exit: an anonymous player has nothing behind /play but the login
+                                // gate, so leaving the fight just resets the sandbox to a fresh placement
+                                // (start over). A signed-in player keeps the trip to the play hub.
+                                onClick={() => {
+                                    if (authenticated) {
+                                        navigate("/play");
+                                    } else {
+                                        manager.StartOver();
+                                    }
                                 }}
+                                sx={exitFightButtonSx(isFullscreen)}
                             >
-                                <Button
-                                    variant="soft"
-                                    color="success"
-                                    // Same reset the fight-finished overlay's "+ NEW BATTLE" runs, but
-                                    // available MID-FIGHT: wipe the board state and rebuild the sandbox
-                                    // back at a fresh placement.
-                                    onClick={() => manager.StartOver()}
-                                    sx={{
-                                        ...hocSidebarImageButtonSx("primary"),
-                                        width: "100%",
-                                        height: "35.2px",
-                                        minHeight: "35.2px",
-                                        px: 1,
-                                        backgroundSize: "100% 100%",
-                                        fontSize: "0.924rem",
-                                        fontWeight: 880,
-                                    }}
-                                >
-                                    {t("NEW BATTLE")}
-                                </Button>
-                                <Button
-                                    variant="soft"
-                                    color="danger"
-                                    // Sandbox exit: an anonymous player has nothing behind /play but the login
-                                    // gate, so leaving the fight just resets the sandbox to a fresh placement
-                                    // (start over). A signed-in player keeps the trip to the play hub.
-                                    onClick={() => {
-                                        if (authenticated) {
-                                            navigate("/play");
-                                        } else {
-                                            manager.StartOver();
-                                        }
-                                    }}
-                                    sx={{
-                                        ...hocSidebarImageButtonSx("danger"),
-                                        width: "100%",
-                                        height: "35.2px",
-                                        minHeight: "35.2px",
-                                        px: 1,
-                                        backgroundSize: "100% 100%",
-                                        fontSize: "0.924rem",
-                                        fontWeight: 880,
-                                    }}
-                                >
-                                    {t("EXIT FIGHT")}
-                                </Button>
-                            </Box>
+                                EXIT FIGHT
+                            </Button>
                         ) : (
                             <Box />
                         )}
                         <Box
-                            ref={authenticated ? undefined : volumeSlotRef}
-                            sx={{
-                                position: "relative",
-                                width: 32,
-                                height: 32,
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "flex-end",
-                                minWidth: 0,
-                                overflow: "visible",
-                            }}
+                            ref={volumeSlotRef}
+                            sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end", minWidth: 0 }}
                         />
                     </Box>
                 </List>
             </Box>
-            <SidebarFrame side="right" width={barSize} height={windowSize.height} />
         </Sheet>
     );
 }
