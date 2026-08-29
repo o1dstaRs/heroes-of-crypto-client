@@ -12445,7 +12445,7 @@ export class Sandbox extends PixiScene {
                                 // fire_breath_ability ~86: the breath's own multiplier, then the victim's MAGIC
                                 // resistance and Heavy Armor coefficient inside one floor, then its Broken
                                 // Aegis. Magic resistance is the whole point of this branch — Wardguard, Magic
-                                // Shield, Warding Mane Aura and Arcane Ward Blessing all compose into it, and the
+                                // Shield, Warding Mane Blessing and Arcane Ward Blessing all compose into it, and the
                                 // hover applied none of them (it showed 400 against a hit that landed for 200).
                                 const fireBreathAbility = this.currentActiveUnit.getAbility("Fire Breath");
                                 const band = projectAttackDamageBand({

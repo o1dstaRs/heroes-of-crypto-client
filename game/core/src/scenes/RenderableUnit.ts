@@ -5867,20 +5867,16 @@ export class RenderableUnit extends Unit {
             }
         }
 
-        // Warding Mane Aura — stack-scaled and luck-moved like the other percentage auras, so the card has
-        // to print the value this Manticore actually projects rather than the card's raw power.
-        const wardingManeAuraAbility = this.getAbility("Warding Mane Aura");
-        if (wardingManeAuraAbility) {
-            const auraEffect = this.effectFactory.makeAuraEffect("Warding Mane");
-            if (auraEffect) {
-                this.refreshAbiltyDescription(
-                    wardingManeAuraAbility.getName(),
-                    wardingManeAuraAbility
-                        .getDesc()
-                        .join("\n")
-                        .replace(/\{\}/g, this.calculateAuraPower(auraEffect, _synergyAbilityPowerIncrease).toString()),
-                );
-            }
+        // Warding Mane Blessing — board-wide at 5/10/15/20/25 by stack, plus the Manticore's Luck.
+        const wardingManeBlessingAbility = this.getAbility("Warding Mane Blessing");
+        if (wardingManeBlessingAbility) {
+            this.refreshAbiltyDescription(
+                wardingManeBlessingAbility.getName(),
+                wardingManeBlessingAbility
+                    .getDesc()
+                    .join("\n")
+                    .replace(/\{\}/g, this.calculateWardingManeBlessingPower().toString()),
+            );
         }
 
         // Arcane Ward Blessing (Squire) — board-wide and flat at 10 + the source's Luck.
