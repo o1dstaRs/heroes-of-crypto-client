@@ -1,4 +1,9 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
+
+import { TeamVals } from "@heroesofcrypto/common";
+
+import { clearPersonalArmyTint, setPersonalArmyTint } from "../scenes/personalArmyTint";
+import { ARMY_COLOR_PRESETS, TEAM_DEFAULT_ARMY_COLOR_ID, writePlayerArmyColorId } from "../settings/playerArmyColor";
 
 import { GridConstants, GridMath, GridSettings, PlacementPositionType } from "@heroesofcrypto/common";
 import { projectedCellPoints } from "../scenes/sandbox/BattlefieldVisualGrid";
@@ -43,6 +48,7 @@ import {
     placementTilePolygon,
     placementUsesEnemyMovementWash,
     placementWashCellPolygon,
+    placementWashColor,
     placementWashTopExtensionPolygon,
     placementZonePolygon,
     placementVerticalBoundarySpan,
@@ -427,5 +433,65 @@ describe("placement tile highlight", () => {
             start: 0,
             end: 1,
         });
+    });
+});
+
+describe("personal army tint on the placement wash", () => {
+    const store = new Map<string, string>();
+    (globalThis as { localStorage?: unknown }).localStorage = {
+        getItem: (key: string) => store.get(key) ?? null,
+        setItem: (key: string, value: string) => {
+            store.set(key, value);
+        },
+    };
+    const AMETHYST = ARMY_COLOR_PRESETS[0];
+
+    afterEach(() => {
+        clearPersonalArmyTint();
+        writePlayerArmyColorId(TEAM_DEFAULT_ARMY_COLOR_ID);
+    });
+
+    test("both zones keep their authored wash when no colour is chosen", () => {
+        setPersonalArmyTint(TeamVals.LOWER, true);
+
+        expect(placementWashColor(PlacementPositionType.LOWER_RIGHT, "deep", GREEN_PLACEMENT_HIGHLIGHT_COLOR)).toBe(
+            GREEN_PLACEMENT_HIGHLIGHT_COLOR,
+        );
+        expect(placementWashColor(PlacementPositionType.UPPER_LEFT, "bright", ENEMY_MOVEMENT_HIGHLIGHT_COLOR)).toBe(
+            ENEMY_MOVEMENT_HIGHLIGHT_COLOR,
+        );
+    });
+
+    test("only the player's own zone is tinted", () => {
+        writePlayerArmyColorId(AMETHYST.id);
+        setPersonalArmyTint(TeamVals.LOWER, true);
+
+        expect(placementWashColor(PlacementPositionType.LOWER_RIGHT, "deep", GREEN_PLACEMENT_HIGHLIGHT_COLOR)).toBe(
+            AMETHYST.gradient[1],
+        );
+        // The opponent's zone is untouched, so the two sides stay tellable apart.
+        expect(placementWashColor(PlacementPositionType.UPPER_LEFT, "bright", ENEMY_MOVEMENT_HIGHLIGHT_COLOR)).toBe(
+            ENEMY_MOVEMENT_HIGHLIGHT_COLOR,
+        );
+    });
+
+    test("each side gets the tone its opacity was tuned for", () => {
+        writePlayerArmyColorId(AMETHYST.id);
+        setPersonalArmyTint(TeamVals.UPPER, true);
+
+        // The red wash is bright and drawn plainly; the green one is near-black with its opacity scaled up.
+        expect(placementWashColor(PlacementPositionType.UPPER_LEFT, "bright", ENEMY_MOVEMENT_HIGHLIGHT_COLOR)).toBe(
+            AMETHYST.color,
+        );
+        expect(AMETHYST.gradient[1]).not.toBe(AMETHYST.color);
+    });
+
+    test("a replay is washed in the true side colours", () => {
+        writePlayerArmyColorId(AMETHYST.id);
+        setPersonalArmyTint(TeamVals.LOWER, false);
+
+        expect(placementWashColor(PlacementPositionType.LOWER_RIGHT, "deep", GREEN_PLACEMENT_HIGHLIGHT_COLOR)).toBe(
+            GREEN_PLACEMENT_HIGHLIGHT_COLOR,
+        );
     });
 });

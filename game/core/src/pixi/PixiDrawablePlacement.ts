@@ -20,6 +20,7 @@ import {
     tunedCellFillPolygon,
 } from "../scenes/movementAreaVisual";
 import { images } from "../generated/image_imports";
+import { personalArmyPresetFor } from "../scenes/personalArmyTint";
 import { isGreenTeam } from "../scenes/teamColors";
 
 export interface IDrawablePlacement extends IPlacement {
@@ -942,6 +943,29 @@ const placementTeam = (position: PlacementPositionType): TeamType =>
 export const placementUsesEnemyMovementWash = (position: PlacementPositionType): boolean =>
     !isGreenTeam(placementTeam(position));
 
+/**
+ * The wash colour for a placement zone: the side's own green or red, unless the player at this keyboard has
+ * chosen a personal army colour and this is THEIR zone. Only the colour is swapped — each side keeps its own
+ * wash geometry and its opacity, so the board reads exactly as it did before.
+ *
+ * The two authored washes are at opposite ends of the tonal range, and each side's opacity is tuned for its
+ * own: the red one is bright and drawn plainly, the green one is nearly black and has its opacity scaled up
+ * to compensate. A preset therefore contributes its bright `color` where red sits and its deep banner stop
+ * where green does — dropping one flat tint into both slots would blow out the green side.
+ */
+export const placementWashColor = (
+    position: PlacementPositionType,
+    tone: "bright" | "deep",
+    teamWashColor: number,
+): number => {
+    const preset = personalArmyPresetFor(placementTeam(position));
+    if (!preset) {
+        return teamWashColor;
+    }
+
+    return tone === "bright" ? preset.color : preset.gradient[1];
+};
+
 export class DrawableSquarePlacement extends SquarePlacement implements IDrawablePlacement {
     private readonly visualGridSettings: GridSettings;
     public constructor(gs: GridSettings, pos: PlacementPositionType, size = 3) {
@@ -973,7 +997,7 @@ export class DrawableRectanglePlacement extends SideRectanglePlacement implement
                 gfx,
                 cells,
                 this.visualGridSettings,
-                ENEMY_MOVEMENT_HIGHLIGHT_COLOR,
+                placementWashColor(this.placementPositionType, "bright", ENEMY_MOVEMENT_HIGHLIGHT_COLOR),
                 enemyMovementPhase,
                 1,
                 RED_PLACEMENT_WASH_TOP_OPACITY_MULTIPLIER,
@@ -993,7 +1017,7 @@ export class DrawableRectanglePlacement extends SideRectanglePlacement implement
                 gfx,
                 cells,
                 this.visualGridSettings,
-                GREEN_PLACEMENT_HIGHLIGHT_COLOR,
+                placementWashColor(this.placementPositionType, "deep", GREEN_PLACEMENT_HIGHLIGHT_COLOR),
                 enemyMovementPhase,
                 GREEN_PLACEMENT_OPACITY_SCALE,
             );

@@ -34,6 +34,7 @@ import { legacyBoardChildScaleCompensation } from "@/pixi/boardFit";
 import { animationAtlases, AnimationUnitName, type AnimationAtlasMeta } from "../generated/animation_atlases";
 import { images, type ImageKey } from "../imageAssets";
 import { buildAtlasPingPongTiming, AtlasPingPongTiming } from "./atlasAnimationTiming";
+import { personalArmyFlagGradient, personalArmyPresetFor } from "./personalArmyTint";
 import { TEAM_COLOR_GREEN, TEAM_COLOR_RED, teamColor as resolveTeamColor } from "./teamColors";
 import { HOC_NUMERIC_FONT_FAMILY } from "../fontFamilies";
 import { projectBattlefieldPoint, projectedRectPoints } from "./sandbox/BattlefieldVisualGrid";
@@ -4099,7 +4100,11 @@ export class RenderableUnit extends Unit {
         const footprintHeight = this.getFootprintHeight();
         const captionGap = cell * 0.3;
         const fontSize = Math.max(9, Math.round(cell * 0.15));
-        const teamColor = props.team === TeamVals.NO_TEAM ? NO_TEAM_ROSTER_COLOR : resolveTeamColor(props.team);
+        const teamColor =
+            props.team === TeamVals.NO_TEAM
+                ? NO_TEAM_ROSTER_COLOR
+                : // A player may tint their OWN army; the opponent always keeps its team colour.
+                  (personalArmyPresetFor(props.team)?.color ?? resolveTeamColor(props.team));
         const previousDrawState = this.rosterCardDrawState;
         const needsRedraw =
             !previousDrawState ||
@@ -4245,12 +4250,16 @@ export class RenderableUnit extends Unit {
 
         flag.clear();
         trace(flag);
+        // A personal tint brings its own three stops, so a chosen banner keeps the cloth shading the two
+        // authored ones have instead of falling back to the flat fill below.
+        const personalGradient = personalArmyFlagGradient(teamColor);
         const teamGradient =
-            teamColor === TEAM_COLOR_GREEN
+            personalGradient ??
+            (teamColor === TEAM_COLOR_GREEN
                 ? GREEN_ARMY_FLAG_GRADIENT
                 : teamColor === TEAM_COLOR_RED
                   ? RED_ARMY_FLAG_GRADIENT
-                  : undefined;
+                  : undefined);
         flag.fill(teamGradient ?? { color: teamColor, alpha: 1 });
 
         // Ten-percent shade under the digits increases local contrast without looking like a separate badge
@@ -4490,7 +4499,11 @@ export class RenderableUnit extends Unit {
         // team-colored, with "?" standing in for the hidden stack size.
         const isRevealed = this.visualMode === "revealed";
         const label = isRevealed && amount <= 0 ? "?" : String(amount);
-        const teamColor = props.team === TeamVals.NO_TEAM ? NO_TEAM_ROSTER_COLOR : resolveTeamColor(props.team);
+        const teamColor =
+            props.team === TeamVals.NO_TEAM
+                ? NO_TEAM_ROSTER_COLOR
+                : // A player may tint their OWN army; the opponent always keeps its team colour.
+                  (personalArmyPresetFor(props.team)?.color ?? resolveTeamColor(props.team));
         const parentScale = inheritedAbsoluteScale(worldRoot);
         // The board camera is deliberately flatter on Y than X. Compensate the ribbon's height so it keeps
         // the intended horizontal Heroes-IV proportions on screen.
@@ -5262,7 +5275,11 @@ export class RenderableUnit extends Unit {
         // placement-preview/gameplay consumers, but never allocate or show the former detached pip bar.
         const power = this.projectedStackPower ?? this.getStackPower();
         const cellSize = gs.getCellSize() * this.visualScaleMultiplier;
-        const teamColor = props.team === TeamVals.NO_TEAM ? NO_TEAM_ROSTER_COLOR : resolveTeamColor(props.team);
+        const teamColor =
+            props.team === TeamVals.NO_TEAM
+                ? NO_TEAM_ROSTER_COLOR
+                : // A player may tint their OWN army; the opponent always keeps its team colour.
+                  (personalArmyPresetFor(props.team)?.color ?? resolveTeamColor(props.team));
         this.stackPowerDrawState = {
             power,
             cellSize,

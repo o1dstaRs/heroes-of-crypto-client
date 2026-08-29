@@ -63,6 +63,7 @@ import { TextureType, unitToTextureName } from "../pixi/PixiUnitsFactory";
 import { reconcileRankedTransientTerrain } from "./rankedTransientTerrain";
 import { syncPlacementSynergyUnitCounts } from "../ui/rankedSynergySync";
 import { projectBattlefieldPoint } from "./sandbox/BattlefieldVisualGrid";
+import { clearPersonalArmyTint, setPersonalArmyTint } from "./personalArmyTint";
 import { isGreenTeam } from "./teamColors";
 
 export const isRankedAuthoritativeRecordAlreadyApplied = (
@@ -1339,6 +1340,9 @@ export class RankedPlayScene extends Sandbox {
      * replay-only view) — distinct from the shared replayPlaybackActive, which single-record replays
      * of live actions also set. Gates live snapshot applies out of the playback entirely. */
     private fullReplayPlaybackActive = false;
+    /** Latched by the replay-snapshot entry, whose only caller is the replay view. A replay shows the match
+     *  as it was — green against red — so the personal army tint stays off for the rest of this scene. */
+    private replayViewingActive = false;
     private lastPlacementUnitIdsKey = "";
     private readonly lastPlacementStateByUnitId = new Map<string, string>();
     private readonly playedAuthoritativeActionSequences = new Set<number>();
@@ -1748,6 +1752,10 @@ export class RankedPlayScene extends Sandbox {
         // placement zone is its own. It must never reach the colour helpers: board colours are team-fixed
         // (LOWER green / UPPER red) on every screen, so both players see the same match the same way.
         this.viewerTeam = snapshot.viewerTeam === undefined ? undefined : (snapshot.viewerTeam as TeamType);
+        // A player may tint their OWN army (settings menu). Armed only here, for a live authoritative
+        // fight this client is playing: replays and the sandbox clear it, so a recorded match is always
+        // watched in its true team colours. Team identity is untouched either way.
+        setPersonalArmyTint(this.viewerTeam, !this.replayViewingActive && !this.fullReplayPlaybackActive);
         this.setLocalModelTeamOverride(
             snapshot.localModelTeam === undefined ? undefined : (snapshot.localModelTeam as TeamType),
         );
@@ -2230,6 +2238,7 @@ export class RankedPlayScene extends Sandbox {
         return changed;
     }
     public override applyAuthoritativeReplaySnapshot(snapshot: AuthoritativeGameSnapshot): void {
+        this.replayViewingActive = true;
         this.lastAuthoritativeSequence = snapshot.latestSequence - 1;
         this.lastBoardSignature = "";
         this.lastPlacementUnitIdsKey = "";
@@ -2266,6 +2275,7 @@ export class RankedPlayScene extends Sandbox {
      * dropped for its whole duration — see the guard at the top of applyAuthoritativeSnapshot. */
     public override async playSandboxReplay(replay: SandboxReplay, throughSequence?: number): Promise<boolean> {
         this.fullReplayPlaybackActive = true;
+        clearPersonalArmyTint();
         try {
             return await (throughSequence === undefined
                 ? super.playSandboxReplay(replay)

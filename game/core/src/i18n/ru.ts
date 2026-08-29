@@ -799,6 +799,22 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     Forfeit: "Сдаться",
     "EXIT FIGHT": "ВЫЙТИ ИЗ БОЯ",
     "Exit Replay": "Выйти из повтора",
+    // Arena settings menu — the personal army-colour picker. The preset names are looked up through a
+    // variable, so they are pinned by the data-driven i18n test rather than the literal scan.
+    Settings: "Настройки",
+    "Your army colour": "Цвет вашей армии",
+    "Only you see this. Replays keep the true team colours.":
+        "Видно только вам. В повторах остаются настоящие цвета сторон.",
+    "Team colours": "Цвета сторон",
+    Amethyst: "Аметист",
+    Azure: "Лазурь",
+    Cyan: "Бирюза",
+    Amber: "Янтарь",
+    Magenta: "Пурпур",
+    Violet: "Фиалка",
+    Teal: "Морская волна",
+    Slate: "Сланец",
+    Bone: "Кость",
     "Exit replay": "Выйти из повтора",
     Abandoned: "Покинуто",
     "Snapshot failed": "Не удалось загрузить состояние",

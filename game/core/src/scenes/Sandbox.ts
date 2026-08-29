@@ -88,6 +88,7 @@ import {
     doubleShotAbility,
     type IAttackDamageProjection,
 } from "@heroesofcrypto/common";
+import { clearPersonalArmyTint } from "./personalArmyTint";
 import { UnitsOverlay } from "./UnitsOverlay";
 import { DamageStatisticHolder } from "./DamageStats";
 import { FightStatsTracker } from "./FightStatsTracker";
@@ -3001,6 +3002,9 @@ export class Sandbox extends PixiScene {
         this.replayRecordingSuspended = true;
         this.pendingReplayRecords = [];
         try {
+            // A replay shows the match as it WAS: green against red. Whatever personal tint the person
+            // watching prefers is dropped for the duration.
+            clearPersonalArmyTint();
             this.hydrateSceneState(cloneReplayData(replay.initialState));
             this.sc_sceneLog.clear();
             if (sequence <= 0) {
