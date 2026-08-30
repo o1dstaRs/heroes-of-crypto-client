@@ -1,4 +1,4 @@
-import { TeamVals, type TeamType } from "@heroesofcrypto/common";
+import { type TeamType } from "@heroesofcrypto/common";
 import Box from "@mui/joy/Box";
 import Typography from "@mui/joy/Typography";
 import React, { useEffect, useMemo, useState } from "react";
@@ -6,15 +6,10 @@ import React, { useEffect, useMemo, useState } from "react";
 import { fetchPickObserveSnapshot } from "../api/ranked_play_client";
 import { fetchPublicPlayerStats, type PublicPlayerStats } from "../api/social_client";
 import { battleSidebarWidth } from "../pixi/boardFit";
+import { readPlayerArmyColorId } from "../settings/playerArmyColor";
 import { hocDisplayFontFamily } from "./hocTheme";
+import { MATCHUP_LOWER_TEAM, MATCHUP_UPPER_TEAM, matchupTeamTone, type MatchupTeamTone } from "./matchupOverlayTone";
 import { LeagueEmblem } from "./PlayerPortal/LeagueEmblem";
-
-// The checked-out common package is currently migrating LEFT/RIGHT to LOWER/UPPER without changing the
-// wire values (lower/left = 2, upper/right = 1). Keep this small HUD compatible with both names so its
-// standalone previews remain useful while the shared client migration lands.
-const teamValues = TeamVals as unknown as Record<string, number>;
-const LOWER_TEAM = (teamValues.LEFT ?? teamValues.LOWER ?? 2) as TeamType;
-const UPPER_TEAM = (teamValues.RIGHT ?? teamValues.UPPER ?? 1) as TeamType;
 
 export type MatchupPlayer = Readonly<{
     playerId?: string;
@@ -32,6 +27,8 @@ type MatchupOverlayProps = Readonly<{
     /** The draft's current phase / the battle's current lap; intentionally one small contextual line. */
     status?: string;
     windowSize?: { width: number; height: number };
+    /** The locally-controlled seat. Undefined for observers/replays, which retain canonical team colours. */
+    viewerTeam?: TeamType;
 }>;
 
 type MatchupProfile = Readonly<{
@@ -40,21 +37,8 @@ type MatchupProfile = Readonly<{
     winRate: string;
 }>;
 
-const teamTone = (team: TeamType) =>
-    team === LOWER_TEAM
-        ? {
-              bright: "#8fd69b",
-              edge: "#356d52",
-              face: "linear-gradient(135deg, rgba(44,112,80,.96), rgba(12,36,29,.98))",
-          }
-        : {
-              bright: "#ee9a90",
-              edge: "#813c41",
-              face: "linear-gradient(135deg, rgba(122,48,53,.98), rgba(44,17,22,.99))",
-          };
-
 const fallbackProfile = (player: MatchupPlayer): MatchupProfile => ({
-    username: player.label || (player.isAi ? "AI" : player.team === LOWER_TEAM ? "Green" : "Red"),
+    username: player.label || (player.isAi ? "AI" : player.team === MATCHUP_LOWER_TEAM ? "Green" : "Red"),
     rank: player.isAi ? "AI" : "Ranked",
     winRate: "— W",
 });
@@ -92,8 +76,7 @@ export const fightMatchupOverlayPosition = (windowSize: { width: number; height:
     };
 };
 
-const Crest: React.FC<{ team: TeamType }> = ({ team }) => {
-    const tone = teamTone(team);
+const Crest: React.FC<{ team: TeamType; tone: MatchupTeamTone }> = ({ team, tone }) => {
     return (
         <Box
             aria-hidden="true"
@@ -115,7 +98,7 @@ const Crest: React.FC<{ team: TeamType }> = ({ team }) => {
                     background: tone.face,
                 },
                 "&::after": {
-                    content: team === LOWER_TEAM ? '\"✦\"' : '\"☾\"',
+                    content: team === MATCHUP_LOWER_TEAM ? '\"✦\"' : '\"☾\"',
                     gridArea: "1 / 1",
                     color: "#fff2cb",
                     fontFamily: "Georgia, serif",
@@ -129,12 +112,12 @@ const Crest: React.FC<{ team: TeamType }> = ({ team }) => {
     );
 };
 
-const Side: React.FC<{ player: MatchupPlayer; profile?: PublicPlayerStats; reversed?: boolean }> = ({
-    player,
-    profile,
-    reversed = false,
-}) => {
-    const tone = teamTone(player.team);
+const Side: React.FC<{
+    player: MatchupPlayer;
+    tone: MatchupTeamTone;
+    profile?: PublicPlayerStats;
+    reversed?: boolean;
+}> = ({ player, tone, profile, reversed = false }) => {
     const text = profileFor(player, profile);
     return (
         <Box
@@ -155,7 +138,7 @@ const Side: React.FC<{ player: MatchupPlayer; profile?: PublicPlayerStats; rever
                     size={31}
                 />
             ) : (
-                <Crest team={player.team} />
+                <Crest team={player.team} tone={tone} />
             )}
             <Box sx={{ minWidth: 0, flex: "1 1 auto" }}>
                 <Typography
@@ -212,7 +195,13 @@ const Side: React.FC<{ player: MatchupPlayer; profile?: PublicPlayerStats; rever
  * Compact, non-interactive matchup strip shared by ranked drafting and battle. Player identity is public
  * ranked data; until it arrives (or for an AI/unranked player) the panel remains stable with honest fallbacks.
  */
-export const MatchupOverlay: React.FC<MatchupOverlayProps> = ({ players, placement, status, windowSize }) => {
+export const MatchupOverlay: React.FC<MatchupOverlayProps> = ({
+    players,
+    placement,
+    status,
+    windowSize,
+    viewerTeam,
+}) => {
     const [profiles, setProfiles] = useState<Record<string, PublicPlayerStats>>({});
     const playerKey = players
         .map((player) => `${player.team}:${player.playerId ?? ""}:${player.isAi ? "ai" : "human"}`)
@@ -251,13 +240,16 @@ export const MatchupOverlay: React.FC<MatchupOverlayProps> = ({ players, placeme
 
     const ordered = useMemo(
         () => [
-            players.find((player) => player.team === LOWER_TEAM),
-            players.find((player) => player.team === UPPER_TEAM),
+            players.find((player) => player.team === MATCHUP_LOWER_TEAM),
+            players.find((player) => player.team === MATCHUP_UPPER_TEAM),
         ],
         [players],
     );
-    const left = ordered[0] ?? { team: LOWER_TEAM, label: "Green" };
-    const right = ordered[1] ?? { team: UPPER_TEAM, label: "Red" };
+    const left = ordered[0] ?? { team: MATCHUP_LOWER_TEAM, label: "Green" };
+    const right = ordered[1] ?? { team: MATCHUP_UPPER_TEAM, label: "Red" };
+    const presetId = readPlayerArmyColorId();
+    const leftTone = matchupTeamTone(left.team, viewerTeam, presetId);
+    const rightTone = matchupTeamTone(right.team, viewerTeam, presetId);
     const fightPosition = placement === "fight" && windowSize ? fightMatchupOverlayPosition(windowSize) : undefined;
 
     return (
@@ -284,8 +276,7 @@ export const MatchupOverlay: React.FC<MatchupOverlayProps> = ({ players, placeme
                 border: "1px solid rgba(211,173,92,.62)",
                 borderBottom: "2px solid rgba(180,140,67,.92)",
                 clipPath: "polygon(0 0, 5% 0, 7% 7%, 93% 7%, 95% 0, 100% 0, 100% 88%, 97% 100%, 3% 100%, 0 88%)",
-                background:
-                    "linear-gradient(90deg, rgba(20,80,61,.96), rgba(13,18,16,.97) 39%, rgba(30,19,18,.97) 61%, rgba(102,35,43,.96))",
+                background: `linear-gradient(90deg, ${leftTone.panel}, rgba(13,18,16,.97) 39%, rgba(30,19,18,.97) 61%, ${rightTone.panel})`,
                 boxShadow: "0 9px 22px rgba(0,0,0,.62), inset 0 1px rgba(255,238,189,.16)",
                 "&::before": {
                     content: '\"\"',
@@ -299,6 +290,7 @@ export const MatchupOverlay: React.FC<MatchupOverlayProps> = ({ players, placeme
         >
             <Side
                 player={left}
+                tone={leftTone}
                 profile={(left.playerId ? profiles[left.playerId] : undefined) ?? left.previewProfile}
             />
             <Box
@@ -347,6 +339,7 @@ export const MatchupOverlay: React.FC<MatchupOverlayProps> = ({ players, placeme
             </Box>
             <Side
                 player={right}
+                tone={rightTone}
                 profile={(right.playerId ? profiles[right.playerId] : undefined) ?? right.previewProfile}
                 reversed
             />
@@ -365,7 +358,7 @@ export const PickMatchupOverlay: React.FC<{
     // Older preview callers currently pass TeamVals.LEFT, which becomes undefined while their local common
     // checkout exposes only LOWER/UPPER. A participant draft can only be one of the two real seats; default
     // an unknown preview value to lower so the mock still shows one player on each side.
-    const normalizedUserTeam = userTeam === UPPER_TEAM ? UPPER_TEAM : LOWER_TEAM;
+    const normalizedUserTeam = userTeam === MATCHUP_UPPER_TEAM ? MATCHUP_UPPER_TEAM : MATCHUP_LOWER_TEAM;
     const fallbackPlayers = useMemo<readonly MatchupPlayer[]>(
         () => [
             {
@@ -384,7 +377,7 @@ export const PickMatchupOverlay: React.FC<{
                     : undefined,
             },
             {
-                team: normalizedUserTeam === LOWER_TEAM ? UPPER_TEAM : LOWER_TEAM,
+                team: normalizedUserTeam === MATCHUP_LOWER_TEAM ? MATCHUP_UPPER_TEAM : MATCHUP_LOWER_TEAM,
                 label: isBackendFreePreview ? "Dreadwolf" : opponentLabel,
                 isAi: !isBackendFreePreview && /^AI(?:\s|$)/i.test(opponentLabel),
                 previewProfile: isBackendFreePreview
@@ -417,7 +410,7 @@ export const PickMatchupOverlay: React.FC<{
                 }
                 setPlayers(
                     snapshot.teams.map((team) => ({
-                        team: team.team === "lower" ? LOWER_TEAM : UPPER_TEAM,
+                        team: team.team === "lower" ? MATCHUP_LOWER_TEAM : MATCHUP_UPPER_TEAM,
                         playerId: team.playerId,
                         label: team.username || (team.isBot ? "AI" : undefined),
                         isAi: team.isBot,
@@ -430,5 +423,5 @@ export const PickMatchupOverlay: React.FC<{
         };
     }, [fallbackPlayers, gameId]);
 
-    return <MatchupOverlay players={players} placement="pick" status={status} />;
+    return <MatchupOverlay players={players} placement="pick" status={status} viewerTeam={normalizedUserTeam} />;
 };

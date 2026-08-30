@@ -294,6 +294,7 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
                             placement="fight"
                             status="Lap 3"
                             windowSize={windowSize}
+                            viewerTeam={2 as TeamType}
                         />
                     )}
                     <FightFinishedOverlay />

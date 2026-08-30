@@ -1729,6 +1729,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                             placement="fight"
                             status={snapshot.currentLap > 0 ? `Lap ${snapshot.currentLap}` : "Battle"}
                             windowSize={windowSize}
+                            viewerTeam={viewerTeam}
                         />
                     )}
                     {pixiReady && gameStarted && <NextLapHazardBadge />}
