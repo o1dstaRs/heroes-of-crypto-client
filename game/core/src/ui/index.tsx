@@ -41,6 +41,7 @@ import { NextLapHazardBadge } from "./NextLapHazardBadge";
 import { ExitReplayBadge } from "./ExitReplayBadge";
 import { PlayRankedBadge } from "./PlayRankedBadge";
 import { LoadingFullscreenToggle } from "./LoadingFullscreenToggle";
+import { MatchupOverlay, type MatchupPlayer } from "./MatchupOverlay";
 import { useGameCursor } from "./cursor/useGameCursor";
 import { IWindowSize } from "../scenes/VisibleState";
 import StainedGlassWindow from "./PickAndBan";
@@ -180,10 +181,43 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
 }) => {
     const manager = usePixiManager();
     const navigate = useNavigate();
-    const [started, setStarted] = useState(false);
+    const showFightMatchupPreview =
+        Boolean(import.meta.env.DEV) && new URLSearchParams(window.location.search).get("matchupPreview") === "fight";
+    const [started, setStarted] = useState(showFightMatchupPreview);
     const [isLoading, setIsLoading] = useState(manager.isLoading);
     const [aiToggleOn, setAiToggleOn] = useState(false);
     const [replayPlaybackActive, setReplayPlaybackActive] = useState(false);
+    const fightMatchupPreviewPlayers = useMemo<readonly MatchupPlayer[]>(
+        () => [
+            {
+                team: 2 as TeamType,
+                label: "Valeria",
+                previewProfile: {
+                    playerId: "preview-valeria",
+                    username: "Valeria",
+                    state: "placed",
+                    league: 2,
+                    leagueName: "Vanguard",
+                    wealth: 2,
+                    winRatePct: 64,
+                },
+            },
+            {
+                team: 1 as TeamType,
+                label: "Dreadwolf",
+                previewProfile: {
+                    playerId: "preview-dreadwolf",
+                    username: "Dreadwolf",
+                    state: "placed",
+                    league: 3,
+                    leagueName: "Marshal",
+                    wealth: 3,
+                    winRatePct: 58,
+                },
+            },
+        ],
+        [],
+    );
 
     // OWNER CALL: a logged-in player keeps the full four-button dock in the BOTTOM-RIGHT corner here —
     // bets, friends, notifications and sound — exactly as on every non-battle screen. The sandbox used to
@@ -253,6 +287,14 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
                         />
                     )}
                     <UpNextOverlay />
+                    {!isLoading && started && showFightMatchupPreview && (
+                        <MatchupOverlay
+                            players={fightMatchupPreviewPlayers}
+                            placement="fight"
+                            status="Lap 3"
+                            windowSize={windowSize}
+                        />
+                    )}
                     <FightFinishedOverlay />
                     {!isLoading && started && aiToggleOn && <AiControlBadge left={aiBadgeLeft(windowSize)} />}
                     {!isLoading && started && <NextLapHazardBadge />}

@@ -64,6 +64,7 @@ import LeftSideBar from "./LeftSideBar";
 import SynergiesRow from "./LeftSideBar/SynergiesRow";
 import { Main } from "./Main";
 import { LoadingFullscreenToggle } from "./LoadingFullscreenToggle";
+import { MatchupOverlay, type MatchupPlayer } from "./MatchupOverlay";
 import Popover from "./Popover";
 import RightSideBar from "./RightSideBar";
 import { MapBadge } from "./PickAndBan/MapReveal";
@@ -824,6 +825,18 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     const gameStarted =
         !!snapshot &&
         (snapshot.fightStarted || snapshot.phase === PlayPhase.PLAY || snapshot.phase === PlayPhase.FINISHED);
+    const battleMatchupPlayers = useMemo<readonly MatchupPlayer[]>(
+        () =>
+            snapshot?.players.map((player) => ({
+                playerId: player.playerId,
+                team: player.team as TeamType,
+                // A bot seat has no public ranked profile; preserve its difficulty/version label instead of
+                // making the strip wait on a request that will correctly return 404.
+                label: player.playerId === aiSeatPlayerId ? vsAiOpponentLabel : undefined,
+                isAi: player.playerId === aiSeatPlayerId,
+            })) ?? [],
+        [aiSeatPlayerId, snapshot, vsAiOpponentLabel],
+    );
 
     // Placement and combat share the compact top-right system-controls medallion. Publishing the whole
     // ranked-board lifetime (rather than only the first combat turn) removes the three loose bottom-right
@@ -1710,6 +1723,14 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                         />
                     )}
                     {pixiReady && gameStarted && <UpNextOverlay />}
+                    {pixiReady && snapshot.phase === PlayPhase.PLAY && (
+                        <MatchupOverlay
+                            players={battleMatchupPlayers}
+                            placement="fight"
+                            status={snapshot.currentLap > 0 ? `Lap ${snapshot.currentLap}` : "Battle"}
+                            windowSize={windowSize}
+                        />
+                    )}
                     {pixiReady && gameStarted && <NextLapHazardBadge />}
                     {pixiReady && gameStarted && (aiToggleOn || !!myPlayer?.aiControlled) && (
                         <AiControlBadge left={aiBadgeLeft(windowSize)} />

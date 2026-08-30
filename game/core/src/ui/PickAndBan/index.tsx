@@ -43,6 +43,7 @@ import { DoctrineIcon } from "../DoctrineIcon";
 import { UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "../unit_ui_constants";
 import { getDoctrineCopy } from "../doctrineCopy";
 import { MapBadge, MapRevealModal } from "./MapReveal";
+import { PickMatchupOverlay } from "../MatchupOverlay";
 import { PickLanternFire } from "./PickLanternFire";
 import { Timer } from "./Timer";
 import { draftAttackIconKind } from "./attackTypeIcon";
@@ -3101,6 +3102,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
         <Sheet variant="solid" sx={draftShellSx}>
             <PickLanternFire slot={0} />
             <PickLanternFire slot={1} />
+            <PickMatchupOverlay gameId={gameId} userTeam={userTeam} opponentLabel={opponentLabel} />
             {/* One fixed-size board. The shell around it only paints background, so enlarging the window
                 (or going fullscreen) adds empty background around this box and never reflows it. */}
             <Box sx={draftBoardSx(draftScale)} onMouseLeave={endInspect}>

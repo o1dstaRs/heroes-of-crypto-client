@@ -15840,6 +15840,7 @@ export class Sandbox extends PixiScene {
         }
     }
     private assetsLoadedLogged = false;
+    private lastAssetLoadProgressPctLogged = -1;
     public override onBackgroundAssetLoad(progress: number): void {
         // Simple visual feedback: show a small progress bar in bottom right corner
         // or just log to console if UI is too complex.
@@ -15858,8 +15859,9 @@ export class Sandbox extends PixiScene {
         // Use Scene Log for non-intrusive feedback
         // "Loading Animations: 45%"
         const pct = Math.floor(progress * 100);
-        if (pct % 10 === 0) {
+        if (pct % 10 === 0 && pct !== this.lastAssetLoadProgressPctLogged) {
             this.sc_sceneLog.updateLog(`Loading Animations... ${pct}%`);
+            this.lastAssetLoadProgressPctLogged = pct;
         }
     }
     protected verifyButtonsTrigger(): void {}
