@@ -953,7 +953,13 @@ export const SocialDock: React.FC = () => {
                 ref={floatingVolumeSlotRef}
                 data-volume-control="social-dock"
                 data-volume-size={inGame ? "compact" : "default"}
-                sx={{ display: "flex", alignItems: "center", flexShrink: 0 }}
+                sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    width: 32,
+                    height: 32,
+                    flex: "0 0 32px",
+                }}
             />
         </Stack>
     );

@@ -11,7 +11,7 @@ const isRu = lang === "ru";
 const profilePath = isRu ? "/ru/profile/" : "/profile/";
 const loginHref = `${isRu ? "/ru" : ""}/auth/login/?redirect=${encodeURIComponent(profilePath)}`;
 const arenaHref = isRu ? "/ru/#arena" : "/#arena";
-const arenaLabel = isRu ? "Арена командиров" : "Commander Arena";
+const arenaLabel = isRu ? "Назад" : "Back";
 // The ranked redirect page (/play/ranked) forwards into the game app; reuse it for the "play" CTAs.
 const rankedApp = links.rankedApp;
 ---
@@ -72,7 +72,7 @@ const rankedApp = links.rankedApp;
                     <div class="ranked-standing" data-profile-standing></div>
                 </section>
 
-                <section class="profile-section" data-profile-seasons-section hidden>
+                <section class="profile-section profile-section--seasons" data-profile-seasons-section hidden>
                     <h2>{copy.publicSeasonsTitle}</h2>
                     <div class="season-history" data-profile-seasons></div>
                 </section>
@@ -1165,7 +1165,10 @@ const rankedApp = links.rankedApp;
 
     function configureSelfMode(): void {
         if (eyebrowEl) eyebrowEl.textContent = copy.title;
-        if (subtitleEl) subtitleEl.textContent = copy.subtitle;
+        if (subtitleEl) {
+            subtitleEl.textContent = copy.subtitle;
+            subtitleEl.hidden = false;
+        }
         if (loadingEl) loadingEl.textContent = copy.loading;
         if (errorTitleEl) errorTitleEl.textContent = copy.errorTitle;
         if (errorBodyEl) errorBodyEl.textContent = copy.errorBody;
@@ -1179,7 +1182,7 @@ const rankedApp = links.rankedApp;
 
     function configurePublicMode(): void {
         if (eyebrowEl) eyebrowEl.textContent = copy.publicEyebrow;
-        if (subtitleEl) subtitleEl.textContent = copy.publicSubtitle;
+        if (subtitleEl) subtitleEl.hidden = true;
         if (loadingEl) loadingEl.textContent = copy.publicLoading;
         if (errorTitleEl) errorTitleEl.textContent = copy.publicErrorTitle;
         if (errorBodyEl) errorBodyEl.textContent = copy.publicErrorBody;
@@ -1878,15 +1881,15 @@ const rankedApp = links.rankedApp;
     .profile-head-emblem {
         display: grid;
         place-items: center;
-        width: 58px;
-        height: 58px;
+        width: 94px;
+        height: 94px;
         border-radius: 50%;
         filter: drop-shadow(0 0 10px rgba(255, 143, 0, 0.33));
     }
 
     .profile-head-emblem img {
-        width: 56px;
-        height: 56px;
+        width: 92px;
+        height: 92px;
     }
 
     .profile-head-copy {
@@ -2332,63 +2335,93 @@ const rankedApp = links.rankedApp;
         }
     }
 
-    .season-row {
+    .profile-section.profile-section--seasons {
+        padding: 12px 14px;
+    }
+
+    .profile-section.profile-section--seasons h2 {
+        margin-bottom: 8px;
+        font-size: 0.86rem;
+    }
+
+    .season-history {
+        gap: 4px;
+    }
+
+    .season-history :global(.season-row) {
         display: grid;
         grid-template-columns:
             minmax(0, 1.5fr) minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 0.9fr) minmax(0, 0.9fr) minmax(0, 0.6fr)
             minmax(0, 0.8fr);
-        gap: 10px;
+        gap: 8px;
         align-items: center;
-        padding: 10px 14px;
+        padding: 7px 10px;
         border: 1px solid rgba(220, 177, 88, 0.22);
-        border-radius: 10px;
+        border-radius: 8px;
         background: rgba(0, 0, 0, 0.24);
-        font-size: 0.86rem;
+        font-size: 0.76rem;
+        line-height: 1.15;
     }
 
     /* Each field is a single value (a name, a record, a percentage…), never meant to break mid-word —
        a narrow grid track wrapping "1 games" into "1" / "games" on two lines is the bug this guards
        against. min-width: 0 lets a grid item shrink below its text's intrinsic width so the ellipsis can
        actually take over instead of the row blowing out or wrapping. */
-    .season-row > span {
+    .season-history :global(.season-row > span) {
         min-width: 0;
         overflow: hidden;
         white-space: nowrap;
         text-overflow: ellipsis;
     }
 
-    .season-row .season-name {
+    .season-history :global(.season-name) {
         color: var(--gold, #dcb158);
         font-weight: 600;
     }
 
-    .season-row .season-standing {
+    .season-history :global(.season-standing) {
         color: rgba(251, 244, 232, 0.86);
     }
 
-    .season-row .season-mmr,
-    .season-row .season-record,
-    .season-row .season-rate {
+    .season-history :global(.season-mmr),
+    .season-history :global(.season-record),
+    .season-history :global(.season-rate) {
         color: rgba(251, 244, 232, 0.66);
     }
 
-    .season-row .season-gold,
+    .season-history :global(.season-gold),
     .match-gold {
         color: #f2c75d;
         white-space: nowrap;
     }
 
-    .season-row .season-games {
+    .season-history :global(.season-gold) {
+        display: flex;
+        align-items: center;
+    }
+
+    .season-history :global(.season-gold .currency-amount) {
+        gap: 0.28em;
+        align-items: center;
+        line-height: 1;
+    }
+
+    .season-history :global(.season-gold .currency-icon) {
+        width: 1.1em;
+        height: 1.1em;
+    }
+
+    .season-history :global(.season-games) {
         color: rgba(251, 244, 232, 0.45);
         text-align: right;
     }
 
     @media (max-width: 720px) {
-        .season-row {
+        .season-history :global(.season-row) {
             grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
         }
 
-        .season-row .season-games {
+        .season-history :global(.season-games) {
             text-align: left;
         }
     }
@@ -3149,13 +3182,13 @@ const rankedApp = links.rankedApp;
         }
 
         .profile-head-emblem {
-            width: 54px;
-            height: 54px;
+            width: 72px;
+            height: 72px;
         }
 
         .profile-head-emblem img {
-            width: 44px;
-            height: 44px;
+            width: 70px;
+            height: 70px;
         }
 
         .profile-name {

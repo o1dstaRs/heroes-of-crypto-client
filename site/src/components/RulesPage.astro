@@ -15,6 +15,7 @@ import {
     SniperAugment,
 } from "@heroesofcrypto/common/src/augments/augment_properties";
 import { PlacementType } from "@heroesofcrypto/common/src/grid/placement_properties";
+import { NatureSynergy, SynergyKeysToPower } from "@heroesofcrypto/common/src/synergies/synergy_properties";
 
 import { knowledgePath } from "../lib/knowledge-base";
 import { links, type Language } from "../lib/site-data";
@@ -196,6 +197,10 @@ const placementDepths = [PlacementAugment.LEVEL_1, PlacementAugment.LEVEL_2, Pla
     (level) =>
         getPlacementSizes(PlacementType.RECTANGLE, level, DefaultPlacementLevel1.THREE_BY_THREE)[0],
 );
+const flyingArmorTiers = [1, 2, 3]
+    .map((level) => SynergyKeysToPower[`Nature:${NatureSynergy.PLUS_FLY_ARMOR}:${level}`]?.[0] ?? 0)
+    .map((power) => `+${power}%`)
+    .join(" / ");
 const placementZoneVisuals = [
     {
         tier: isRu ? "Бесплатно" : "Free",
@@ -462,7 +467,7 @@ const copy = isRu
               {
                   faction: "Nature",
                   icon: "/assets/images/units/factions/nature_128.webp",
-                  options: ["Юниты на поле: +2 / +3 / +4 выставленных стека", "Броня летающих юнитов: +15% / +30% / +50%"],
+                  options: ["Юниты на поле: +2 / +3 / +4 выставленных стека", `Броня летающих юнитов: ${flyingArmorTiers}`],
               },
           ],
           placementTitle: "Расстановка: бой часто выигрывается до первого удара",
@@ -764,7 +769,7 @@ const copy = isRu
               {
                   faction: "Nature",
                   icon: "/assets/images/units/factions/nature_128.webp",
-                  options: ["Board units: +2 / +3 / +4 fielded stacks", "Flying armor: +15% / +30% / +50%"],
+                  options: ["Board units: +2 / +3 / +4 fielded stacks", `Flying armor: ${flyingArmorTiers}`],
               },
           ],
           placementTitle: "Placement: many fights are won before the first hit",
@@ -1207,8 +1212,8 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
                     </div>
                     <p>
                         {isRu
-                            ? "Показаны точные разрешённые клетки нижнего/зелёного игрока. Красная сторона зеркально получает ту же геометрию справа."
-                            : "These are the Lower/green player's exact legal cells. The Upper/red player receives the same geometry mirrored on the right."}
+                            ? "Показаны точные разрешённые клетки левого/зелёного игрока. Правый/красный игрок зеркально получает ту же геометрию."
+                            : "These are the Left/green player's exact legal cells. The Right/red player receives the same geometry mirrored on the right."}
                     </p>
                 </header>
                 <div class="rules-placement-compare-grid">
@@ -1220,7 +1225,7 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
                                     <polygon class="rules-placement-zone-wash" points={variant.points} />
                                     <polygon class="rules-placement-zone-edge" points={variant.points} />
                                 </svg>
-                                <span class="rules-placement-side">{isRu ? "ЗЕЛЁНЫЙ · НИЖНИЙ" : "GREEN · LOWER"}</span>
+                                <span class="rules-placement-side">{isRu ? "ЗЕЛЁНЫЙ · СЛЕВА" : "GREEN · LEFT"}</span>
                                 <span class="rules-placement-tier-number">0{index + 1}</span>
                             </div>
                             <figcaption>

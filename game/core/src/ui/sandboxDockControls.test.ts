@@ -59,4 +59,16 @@ describe("the sandbox keeps the bottom-right dock", () => {
         // The only thing that may hide the dock is an inactive/logged-out account.
         expect(withoutComments(dock)).toContain("const active = authenticated && user?.is_active !== false");
     });
+
+    test("the dock reserves the speaker footprint while the game footer owns the live control", () => {
+        const dock = read("social/SocialDock.tsx");
+        const slotStart = dock.indexOf('data-volume-control="social-dock"');
+        const slotEnd = dock.indexOf("/>", slotStart);
+        const slot = dock.slice(slotStart, slotEnd);
+
+        expect(slotStart).toBeGreaterThan(-1);
+        expect(slot).toContain("width: 32");
+        expect(slot).toContain("height: 32");
+        expect(slot).toContain('flex: "0 0 32px"');
+    });
 });

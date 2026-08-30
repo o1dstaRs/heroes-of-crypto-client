@@ -125,10 +125,10 @@ export const content = {
         profile: {
             title: "Your profile",
             subtitle: "Ranked record, favourite armies, and recent matches.",
-            publicEyebrow: "Ranked commander",
+            publicEyebrow: "Ranked player",
             publicSubtitle: "Public league standing, ranked record, and recent battles.",
             publicLoading: "Loading ranked profile…",
-            publicErrorTitle: "Couldn't load this commander",
+            publicErrorTitle: "Couldn't load this player",
             publicErrorBody: "This ranked profile is unavailable right now. Please try again.",
             publicSummaryNotice: "Showing the latest leaderboard summary while detailed profile data is unavailable.",
             publicDetailsUnavailable: "Detailed ranked match history is temporarily unavailable.",
@@ -839,10 +839,10 @@ export const content = {
         profile: {
             title: "Ваш профиль",
             subtitle: "Рейтинговая статистика, любимые армии и недавние матчи.",
-            publicEyebrow: "Рейтинговый командир",
+            publicEyebrow: "Рейтинговый игрок",
             publicSubtitle: "Публичное место в лиге, рейтинговая статистика и недавние бои.",
             publicLoading: "Загрузка рейтингового профиля…",
-            publicErrorTitle: "Не удалось загрузить командира",
+            publicErrorTitle: "Не удалось загрузить игрока",
             publicErrorBody: "Этот рейтинговый профиль сейчас недоступен. Попробуйте ещё раз.",
             publicSummaryNotice:
                 "Показана последняя сводка таблицы лидеров; подробные данные профиля сейчас недоступны.",
