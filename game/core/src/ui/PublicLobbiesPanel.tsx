@@ -12,7 +12,7 @@ import {
     Switch,
     Typography,
 } from "@mui/joy";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 
 import {
@@ -21,10 +21,14 @@ import {
     fetchPublicLobbies,
     type LobbyPriceBreakdown,
 } from "../api/lobby_client";
-import { socialErrorMessage } from "../api/social_client";
+import { fetchFriends, fetchPublicPlayerStats, socialErrorMessage, type PublicPlayerStats } from "../api/social_client";
 import { t, tf, useTranslation } from "../i18n/i18n";
-import { arenaBadgeSx } from "./arenaBackdrop";
+import { useAuthContext } from "./auth/context/auth_context";
 import { hocColors, hocDangerAlertSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
+import { LobbyDiscoveryCard } from "./LobbyDiscoveryCard";
+import { prioritizeLobbies } from "./lobbyDiscovery";
+import { buildMockLobbies, MOCK_FRIEND_PLAYER_IDS, MOCK_LOBBY_HOST_STATS } from "./mockLobbyDiscovery";
+import { isMockPortalEnabled } from "./PlayerPortal/mockPortal";
 import { useRankedStanding } from "./PlayerPortal/useRankedStanding";
 import { LobbyNavIcon } from "./svg/navigation";
 
@@ -87,7 +91,12 @@ export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({
     hideCreate = false,
 }) => {
     const navigate = useNavigate();
+    const { authenticated } = useAuthContext();
     useTranslation();
+    const mockPreview =
+        isMockPortalEnabled() &&
+        typeof window !== "undefined" &&
+        new URL(window.location.href).searchParams.get("mockLobbies") === "1";
     // The purse, so the button can refuse before the server has to. Null while it loads (or if the
     // call fails), which simply means no client-side guard — the server still rejects with its price.
     const purse = useRankedStanding()?.gold;
@@ -95,6 +104,12 @@ export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [quote, setQuote] = useState<LobbyPriceBreakdown | undefined>(undefined);
+    const [friendPlayerIds, setFriendPlayerIds] = useState<Set<string>>(
+        () => new Set(mockPreview ? MOCK_FRIEND_PLAYER_IDS : []),
+    );
+    const [hostStats, setHostStats] = useState<Record<string, PublicPlayerStats>>(() =>
+        mockPreview ? { ...MOCK_LOBBY_HOST_STATS } : {},
+    );
 
     const [createOpen, setCreateOpen] = useState(false);
     const [name, setName] = useState("");
@@ -103,8 +118,15 @@ export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({
     const [creating, setCreating] = useState(false);
 
     const mountedRef = useRef(true);
+    const profileAttemptsRef = useRef<Set<string>>(new Set());
 
     const refresh = useCallback(async () => {
+        if (mockPreview) {
+            setLobbies(buildMockLobbies());
+            setLoading(false);
+            setError("");
+            return;
+        }
         try {
             const list = await fetchPublicLobbies();
             if (mountedRef.current) {
@@ -120,11 +142,15 @@ export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({
                 setLoading(false);
             }
         }
-    }, []);
+    }, [mockPreview]);
 
     // The price moves with the whole season's gold, not with this screen, so it is read once on mount
     // and again after a successful create (the fee just burned, shrinking the pool it is derived from).
     const refreshPrice = useCallback(async () => {
+        if (mockPreview) {
+            setQuote({ price: 12, seasonGold: 131_000, calibratedPlayers: 1_092, perCalibratedPlayer: 10 });
+            return;
+        }
         try {
             const next = await fetchLobbyPriceBreakdown();
             if (mountedRef.current) {
@@ -133,7 +159,75 @@ export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({
         } catch {
             // Leave it undefined: the dialog then simply omits the quote rather than claiming "free".
         }
-    }, []);
+    }, [mockPreview]);
+
+    useEffect(() => {
+        if (mockPreview) {
+            setFriendPlayerIds(new Set(MOCK_FRIEND_PLAYER_IDS));
+            return;
+        }
+        if (!authenticated) {
+            setFriendPlayerIds(new Set());
+            return;
+        }
+        let active = true;
+        void fetchFriends()
+            .then((overview) => {
+                if (active) {
+                    setFriendPlayerIds(new Set(overview.friends.map((friend) => friend.playerId)));
+                }
+            })
+            .catch(() => undefined);
+        return () => {
+            active = false;
+        };
+    }, [authenticated, mockPreview]);
+
+    useEffect(() => {
+        if (mockPreview) {
+            setHostStats({ ...MOCK_LOBBY_HOST_STATS });
+            return;
+        }
+        const missingIds = Array.from(
+            new Set(
+                lobbies
+                    .map((lobby) => lobby.host?.player_id ?? "")
+                    .filter((playerId) => playerId && !profileAttemptsRef.current.has(playerId)),
+            ),
+        );
+        if (!missingIds.length) {
+            return;
+        }
+        for (const playerId of missingIds) {
+            profileAttemptsRef.current.add(playerId);
+        }
+        let active = true;
+        void Promise.all(
+            missingIds.map(async (playerId) => {
+                try {
+                    return await fetchPublicPlayerStats(playerId);
+                } catch {
+                    return null;
+                }
+            }),
+        ).then((profiles) => {
+            if (!active) {
+                return;
+            }
+            setHostStats((current) => {
+                const next = { ...current };
+                for (const profile of profiles) {
+                    if (profile) {
+                        next[profile.playerId] = profile;
+                    }
+                }
+                return next;
+            });
+        });
+        return () => {
+            active = false;
+        };
+    }, [lobbies, mockPreview]);
 
     useEffect(() => {
         mountedRef.current = true;
@@ -194,6 +288,25 @@ export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({
             : price <= 0
               ? t("Free while the season has minted no gold")
               : `${price} G · ${t("non-refundable")}`;
+
+    const prioritized = useMemo(() => prioritizeLobbies(lobbies, friendPlayerIds), [friendPlayerIds, lobbies]);
+    const friendLobbies = prioritized.filter((entry) => entry.isFriendLobby);
+    const publicLobbies = prioritized.filter((entry) => !entry.isFriendLobby);
+
+    const renderLobbyCards = (entries: typeof prioritized) => (
+        <Stack spacing={dense ? 0.75 : 1}>
+            {entries.map(({ lobby, isFriendLobby }) => (
+                <LobbyDiscoveryCard
+                    key={lobby.id}
+                    dense={dense}
+                    isFriendLobby={isFriendLobby}
+                    lobby={lobby}
+                    stats={lobby.host?.player_id ? hostStats[lobby.host.player_id] : undefined}
+                    onJoin={() => navigate(`/lobby/${lobby.id}`)}
+                />
+            ))}
+        </Stack>
+    );
 
     // Nothing to show and the caller does not want the empty state: disappear entirely, including the
     // box. Deliberately NOT hidden while still loading or after an error — flashing in on every poll,
@@ -284,79 +397,55 @@ export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({
                     </Typography>
                 </Box>
             ) : (
-                <Stack spacing={dense ? 0.75 : 2} sx={dense ? { maxHeight: 260, overflowY: "auto", pr: 0.5 } : {}}>
-                    {lobbies.map((lobby) => (
-                        <Sheet
-                            key={lobby.id}
-                            sx={{
-                                ...hocPanelSx,
-                                p: dense ? 1 : 2,
-                                borderRadius: "8px",
-                                // Inside the dense arena box these rows are already nested two deep;
-                                // a drop shadow per row turns a list into a stack of cards.
-                                ...(dense
-                                    ? { boxShadow: "none", bgcolor: "rgba(255,255,255,0.035)" }
-                                    : {
-                                          transition: "border-color 160ms ease, transform 160ms ease",
-                                          "&:hover": {
-                                              borderColor: hocColors.orange,
-                                              transform: "translateY(-1px)",
-                                          },
-                                      }),
-                            }}
-                        >
-                            <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
-                                <Box sx={{ minWidth: 0 }}>
-                                    <Typography
-                                        level={dense ? "body-sm" : "title-md"}
-                                        noWrap
-                                        sx={{ color: hocColors.parchment }}
-                                    >
-                                        {lobby.name || `${lobby.host?.username ?? t("Player")}'s lobby`}
-                                    </Typography>
-                                    <Typography level="body-xs" noWrap sx={{ color: hocColors.muted }}>
-                                        {dense
-                                            ? `${lobby.host?.username ?? t("Player")} · ${
-                                                  lobby.host?.league ?? "Unranked"
-                                              } · ${lobbyStatusLabel(lobby.status)}`
-                                            : `${lobby.host?.username ?? t("Player")} · ${
-                                                  lobby.host?.league ?? "Unranked"
-                                              }`}
-                                    </Typography>
-                                </Box>
-                                <Stack direction="row" spacing={1.25} alignItems="center" sx={{ flexShrink: 0 }}>
-                                    {dense ? null : (
+                <Stack spacing={dense ? 0.75 : 1.75} sx={dense ? { maxHeight: 280, overflowY: "auto", pr: 0.5 } : {}}>
+                    {dense ? (
+                        renderLobbyCards(prioritized)
+                    ) : (
+                        <>
+                            {friendLobbies.length ? (
+                                <Stack spacing={0.75}>
+                                    <Stack direction="row" justifyContent="space-between" alignItems="center">
                                         <Typography
                                             level="body-xs"
                                             sx={{
-                                                ...arenaBadgeSx,
-                                                display: "flex",
-                                                alignItems: "center",
-                                                minHeight: 30,
+                                                color: hocColors.green,
                                                 fontWeight: 800,
-                                                letterSpacing: "0.08em",
+                                                letterSpacing: "0.12em",
                                                 textTransform: "uppercase",
-                                                color:
-                                                    lobby.status === LobbyStatus.LOBBY_OPEN
-                                                        ? hocColors.green
-                                                        : hocColors.muted,
                                             }}
                                         >
-                                            {lobbyStatusLabel(lobby.status)}
+                                            {t("Friends are waiting")}
                                         </Typography>
-                                    )}
-                                    <Button
-                                        size="sm"
-                                        sx={{ ...hocSoftButtonSx, flexShrink: 0 }}
-                                        disabled={lobby.status !== LobbyStatus.LOBBY_OPEN}
-                                        onClick={() => navigate(`/lobby/${lobby.id}`)}
-                                    >
-                                        {t("Join")}
-                                    </Button>
+                                        <Typography level="body-xs" sx={{ color: hocColors.muted }}>
+                                            {friendLobbies.length}
+                                        </Typography>
+                                    </Stack>
+                                    {renderLobbyCards(friendLobbies)}
                                 </Stack>
-                            </Stack>
-                        </Sheet>
-                    ))}
+                            ) : null}
+                            {publicLobbies.length ? (
+                                <Stack spacing={0.75}>
+                                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                        <Typography
+                                            level="body-xs"
+                                            sx={{
+                                                color: hocColors.gold,
+                                                fontWeight: 800,
+                                                letterSpacing: "0.12em",
+                                                textTransform: "uppercase",
+                                            }}
+                                        >
+                                            {t("Open to everyone")}
+                                        </Typography>
+                                        <Typography level="body-xs" sx={{ color: hocColors.muted }}>
+                                            {publicLobbies.length}
+                                        </Typography>
+                                    </Stack>
+                                    {renderLobbyCards(publicLobbies)}
+                                </Stack>
+                            ) : null}
+                        </>
+                    )}
                 </Stack>
             )}
 

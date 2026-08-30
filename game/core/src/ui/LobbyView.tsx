@@ -1,49 +1,130 @@
 import { LobbyStatus, type LobbyObject, type LobbyPlayerObject } from "@heroesofcrypto/common";
+import CampaignRoundedIcon from "@mui/icons-material/CampaignRounded";
+import ContentCopyRoundedIcon from "@mui/icons-material/ContentCopyRounded";
 import { Alert, Box, Button, Chip, CircularProgress, Input, Sheet, Stack, Typography } from "@mui/joy";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 
 import {
     fetchLobby,
+    fetchLobbyShoutStatus,
     joinLobby,
     leaveLobby,
     openLobbyEventStream,
     setLobbyReady,
+    shoutLobbyToArena,
     startLobby,
+    type LobbyShoutStatus,
 } from "../api/lobby_client";
+import { fetchPublicPlayerStats, socialErrorMessage, type PublicPlayerStats } from "../api/social_client";
+import { t } from "../i18n/i18n";
+import { standingLabel } from "../i18n/standing";
 import { useAuthContext } from "./auth/context/auth_context";
 import { ArenaNavBar } from "./ArenaNavBar";
 import { ARENA_COLUMN_WIDTH, arenaCardSx, arenaScreenSx, arenaTitleSx, arenaWashSx } from "./arenaBackdrop";
+import { CurrencyIcon } from "./GoldCurrencyIcon";
 import { hocColors, hocDangerAlertSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
+import { lobbyShoutCooldownLabel } from "./lobbyShout";
+import { LeagueEmblem } from "./PlayerPortal/LeagueEmblem";
 import { useCurrentLobby } from "./social/CurrentLobbyContext";
+import { useRankedSeason } from "./useRankedSeason";
 
-const PlayerCard: React.FC<{ player?: LobbyPlayerObject; placeholder: string; isYou: boolean }> = ({
-    player,
-    placeholder,
-    isYou,
-}) => (
-    <Sheet sx={{ ...hocPanelSx, p: 2, flex: 1, minHeight: 132 }}>
-        {player ? (
-            <Stack spacing={1}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
-                    <Typography level="title-md" sx={{ color: hocColors.parchment }}>
-                        {player.username || "Player"} {isYou ? "(you)" : ""}
+const whole = (value: number | undefined): number => Math.max(0, Math.trunc(Number(value) || 0));
+
+const PlayerCard: React.FC<{
+    isYou: boolean;
+    placeholder: string;
+    player?: LobbyPlayerObject;
+    stats?: PublicPlayerStats;
+}> = ({ player, placeholder, isYou, stats }) => {
+    const { currency } = useRankedSeason();
+    if (!player) {
+        return (
+            <Sheet
+                sx={{
+                    minHeight: 152,
+                    flex: 1,
+                    display: "grid",
+                    placeItems: "center",
+                    border: "1px dashed rgba(220,177,88,0.24)",
+                    borderRadius: "14px",
+                    bgcolor: "rgba(0,0,0,0.2)",
+                }}
+            >
+                <Stack alignItems="center" spacing={0.5}>
+                    <Typography level="title-md" sx={{ color: hocColors.muted }}>
+                        {placeholder}
                     </Typography>
-                    <Chip color={player.ready ? "success" : "neutral"} variant={player.ready ? "solid" : "soft"}>
-                        {player.ready ? "Ready" : "Not ready"}
-                    </Chip>
+                    <Typography level="body-xs" sx={{ color: "rgba(239,228,204,0.38)" }}>
+                        {t("Share the room or invite a friend")}
+                    </Typography>
                 </Stack>
-                <Typography level="body-sm" sx={{ color: hocColors.muted }}>
-                    {player.league || "Unranked"} · Rating {player.rating ?? 0}
-                </Typography>
+            </Sheet>
+        );
+    }
+
+    const placed = stats?.state === "placed";
+    const league = placed ? whole(stats.league) : 0;
+    const wealth = placed ? whole(stats.wealth) : 0;
+    const standing = placed
+        ? standingLabel(wealth, stats?.wealthName ?? "", stats?.leagueName ?? stats?.standingTitle ?? "")
+        : player.league || t("Unranked");
+
+    return (
+        <Sheet
+            sx={{
+                flex: 1,
+                minHeight: 152,
+                p: { xs: 1.4, sm: 1.75 },
+                borderRadius: "14px",
+                border: `1px solid ${player.ready ? "rgba(85,216,120,0.36)" : "rgba(220,177,88,0.2)"}`,
+                background: player.ready
+                    ? "linear-gradient(120deg, rgba(20,54,30,0.72), rgba(8,7,6,0.94) 54%)"
+                    : "linear-gradient(120deg, rgba(50,32,10,0.58), rgba(8,7,6,0.94) 54%)",
+            }}
+        >
+            <Stack direction="row" spacing={1.25} alignItems="center">
+                <LeagueEmblem league={league} wealth={wealth} label={standing} size={72} />
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Stack direction="row" spacing={0.65} alignItems="center">
+                        <Typography level="title-lg" noWrap sx={{ minWidth: 0, color: hocColors.parchment }}>
+                            {player.username || t("Player")}
+                        </Typography>
+                        {isYou ? (
+                            <Typography level="body-xs" sx={{ color: hocColors.gold, fontWeight: 800 }}>
+                                {t("YOU")}
+                            </Typography>
+                        ) : null}
+                    </Stack>
+                    <Typography level="body-sm" sx={{ color: hocColors.gold, fontWeight: 700 }}>
+                        {standing}
+                    </Typography>
+                    {stats ? (
+                        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.6 }}>
+                            <Typography level="body-xs" sx={{ color: hocColors.muted }}>
+                                {whole(stats.mmr).toLocaleString()} MMR
+                            </Typography>
+                            <Stack direction="row" spacing={0.3} alignItems="center">
+                                <CurrencyIcon iconSvg={currency.iconSvg} size={13} />
+                                <Typography level="body-xs" sx={{ color: hocColors.gold, fontWeight: 800 }}>
+                                    {whole(stats.gold).toLocaleString()} {currency.symbol}
+                                </Typography>
+                            </Stack>
+                        </Stack>
+                    ) : null}
+                </Box>
+                <Chip
+                    size="sm"
+                    color={player.ready ? "success" : "neutral"}
+                    variant={player.ready ? "solid" : "soft"}
+                    sx={{ flexShrink: 0 }}
+                >
+                    {player.ready ? t("Ready") : t("Not ready")}
+                </Chip>
             </Stack>
-        ) : (
-            <Stack alignItems="center" justifyContent="center" sx={{ height: "100%" }}>
-                <Typography sx={{ color: hocColors.muted }}>{placeholder}</Typography>
-            </Stack>
-        )}
-    </Sheet>
-);
+        </Sheet>
+    );
+};
 
 export const LobbyView: React.FC = () => {
     const { lobbyId } = useParams<{ lobbyId: string }>();
@@ -56,6 +137,11 @@ export const LobbyView: React.FC = () => {
     const [pin, setPin] = useState("");
     const [busy, setBusy] = useState(false);
     const [nowMs, setNowMs] = useState(() => Date.now());
+    const [playerStats, setPlayerStats] = useState<Record<string, PublicPlayerStats>>({});
+    const [shoutStatus, setShoutStatus] = useState<LobbyShoutStatus | null>(null);
+    const [shouting, setShouting] = useState(false);
+    const [shoutNotice, setShoutNotice] = useState("");
+    const [shoutFailed, setShoutFailed] = useState(false);
     const autoJoinedRef = useRef(false);
     const navigatedRef = useRef(false);
     const { setLobbyId } = useCurrentLobby();
@@ -103,6 +189,63 @@ export const LobbyView: React.FC = () => {
     const bothReady = !!lobby?.host?.ready && !!lobby?.guest?.ready;
     const status = lobby?.status ?? LobbyStatus.LOBBY_OPEN;
 
+    useEffect(() => {
+        const playerIds = Array.from(
+            new Set([lobby?.host?.player_id ?? "", lobby?.guest?.player_id ?? ""].filter(Boolean)),
+        );
+        if (!playerIds.length) {
+            return;
+        }
+        let active = true;
+        void Promise.all(
+            playerIds.map(async (playerId) => {
+                try {
+                    return await fetchPublicPlayerStats(playerId);
+                } catch {
+                    return null;
+                }
+            }),
+        ).then((profiles) => {
+            if (!active) {
+                return;
+            }
+            setPlayerStats((current) => {
+                const next = { ...current };
+                for (const profile of profiles) {
+                    if (profile) {
+                        next[profile.playerId] = profile;
+                    }
+                }
+                return next;
+            });
+        });
+        return () => {
+            active = false;
+        };
+    }, [lobby?.guest?.player_id, lobby?.host?.player_id]);
+
+    useEffect(() => {
+        if (!lobbyId || !isHost || lobby?.is_private || status !== LobbyStatus.LOBBY_OPEN) {
+            setShoutStatus(null);
+            return;
+        }
+        let active = true;
+        void fetchLobbyShoutStatus(lobbyId)
+            .then((next) => {
+                if (active) {
+                    setShoutStatus(next);
+                }
+            })
+            .catch(() => {
+                if (active) {
+                    setShoutStatus({ canShout: false, nextAllowedAt: 0 });
+                }
+            });
+        return () => {
+            active = false;
+        };
+    }, [isHost, lobby?.is_private, lobbyId, status]);
+
     // Carry the two PLAYERS into their game the moment the server creates it. A non-member watcher is
     // deliberately NOT auto-navigated — they get an explicit "Spectate" button below so opening a shared
     // link to a running game doesn't yank them straight into a fight they only meant to watch.
@@ -134,14 +277,17 @@ export const LobbyView: React.FC = () => {
         }
     }, [lobbyId, lobby, isMember, status]);
 
-    // Countdown ticker while starting.
+    // Countdown ticker while starting or while the chat-shout cooldown is visible.
     useEffect(() => {
-        if (status !== LobbyStatus.LOBBY_STARTING) {
+        if (status !== LobbyStatus.LOBBY_STARTING && (shoutStatus?.nextAllowedAt ?? 0) <= Date.now()) {
             return;
         }
-        const handle = window.setInterval(() => setNowMs(Date.now()), 250);
+        const handle = window.setInterval(
+            () => setNowMs(Date.now()),
+            status === LobbyStatus.LOBBY_STARTING ? 250 : 1000,
+        );
         return () => window.clearInterval(handle);
-    }, [status]);
+    }, [shoutStatus?.nextAllowedAt, status]);
 
     const handleJoinPrivate = useCallback(async () => {
         if (!lobbyId) {
@@ -196,6 +342,29 @@ export const LobbyView: React.FC = () => {
         navigate("/lobbies");
     }, [lobbyId, navigate]);
 
+    const handleShout = useCallback(async () => {
+        if (!lobbyId) {
+            return;
+        }
+        setShouting(true);
+        setShoutNotice("");
+        setShoutFailed(false);
+        try {
+            const next = await shoutLobbyToArena(lobbyId);
+            setShoutStatus(next);
+            setNowMs(Date.now());
+            setShoutNotice(t("Lobby shared to Arena Chat — anyone can join from the link."));
+        } catch (err) {
+            setShoutFailed(true);
+            setShoutNotice(socialErrorMessage(err, t("Could not share this lobby to Arena Chat")));
+            void fetchLobbyShoutStatus(lobbyId)
+                .then(setShoutStatus)
+                .catch(() => undefined);
+        } finally {
+            setShouting(false);
+        }
+    }, [lobbyId]);
+
     const shareLink = useMemo(
         () => (lobbyId && typeof window !== "undefined" ? `${window.location.origin}/lobby/${lobbyId}` : ""),
         [lobbyId],
@@ -204,6 +373,11 @@ export const LobbyView: React.FC = () => {
         status === LobbyStatus.LOBBY_STARTING && lobby?.start_at_ms
             ? Math.max(0, Math.ceil((lobby.start_at_ms - nowMs) / 1000))
             : 0;
+    const shoutCooldown = lobbyShoutCooldownLabel(shoutStatus?.nextAllowedAt ?? 0, nowMs);
+    const canShout =
+        !!shoutStatus &&
+        !shoutCooldown &&
+        (shoutStatus.canShout || (shoutStatus.nextAllowedAt > 0 && nowMs >= shoutStatus.nextAllowedAt));
 
     if (!lobby) {
         return (
@@ -246,15 +420,23 @@ export const LobbyView: React.FC = () => {
                     position: "relative",
                     zIndex: 1,
                     width: ARENA_COLUMN_WIDTH,
-                    maxWidth: 720,
+                    maxWidth: 920,
                     mx: "auto",
                     py: { xs: 2, md: 3 },
                 }}
             >
-                <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
-                    <Typography level="h2" noWrap sx={{ ...arenaTitleSx, minWidth: 0 }}>
-                        {lobby.name || "Lobby"} {lobby.is_private ? "🔒" : ""}
-                    </Typography>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1.5}>
+                    <Box sx={{ minWidth: 0 }}>
+                        <Typography
+                            level="body-xs"
+                            sx={{ color: hocColors.gold, fontWeight: 800, letterSpacing: "0.14em" }}
+                        >
+                            {lobby.is_private ? t("PRIVATE LOBBY") : t("OPEN LOBBY")}
+                        </Typography>
+                        <Typography level="h2" noWrap sx={{ ...arenaTitleSx, minWidth: 0, mt: 0.2 }}>
+                            {lobby.name || t("Lobby")}
+                        </Typography>
+                    </Box>
                     <Button
                         variant="plain"
                         sx={{ ...hocSoftButtonSx, flexShrink: 0 }}
@@ -267,22 +449,84 @@ export const LobbyView: React.FC = () => {
                 {error ? <Alert sx={hocDangerAlertSx}>{error}</Alert> : null}
 
                 {shareLink ? (
-                    <Sheet sx={{ ...hocPanelSx, p: 2 }}>
-                        <Typography level="body-sm" sx={{ color: hocColors.muted, mb: 1 }}>
-                            Invite a friend with this link{lobby.is_private ? " (they'll also need the PIN)" : ""}:
-                        </Typography>
-                        <Stack direction="row" spacing={1}>
-                            <Input value={shareLink} readOnly sx={{ flex: 1 }} />
-                            <Button sx={hocSoftButtonSx} onClick={() => void navigator.clipboard?.writeText(shareLink)}>
-                                Copy
-                            </Button>
+                    <Sheet
+                        sx={{
+                            p: { xs: 1.5, sm: 2 },
+                            borderRadius: "14px",
+                            border: "1px solid rgba(220,177,88,0.2)",
+                            background:
+                                "linear-gradient(110deg, rgba(49,32,10,0.54), rgba(8,7,6,0.94) 54%, rgba(18,12,7,0.88))",
+                        }}
+                    >
+                        <Stack
+                            direction={{ xs: "column", sm: "row" }}
+                            spacing={1.5}
+                            alignItems={{ xs: "stretch", sm: "center" }}
+                        >
+                            <Box sx={{ minWidth: 0, flex: 1 }}>
+                                <Typography level="title-sm" sx={{ color: hocColors.parchment }}>
+                                    {t("Bring in an opponent")}
+                                </Typography>
+                                <Typography level="body-xs" sx={{ color: hocColors.muted, mt: 0.25 }}>
+                                    {lobby.is_private
+                                        ? t("Share the link and PIN with the player you want to invite.")
+                                        : t(
+                                              "Copy the link for a friend, or announce this room to everyone in Arena Chat.",
+                                          )}
+                                </Typography>
+                            </Box>
+                            <Stack direction="row" spacing={0.75} sx={{ flexShrink: 0 }}>
+                                <Button
+                                    size="sm"
+                                    startDecorator={<ContentCopyRoundedIcon />}
+                                    sx={hocSoftButtonSx}
+                                    onClick={() => void navigator.clipboard?.writeText(shareLink)}
+                                >
+                                    {t("Copy link")}
+                                </Button>
+                                {isHost && !lobby.is_private && status === LobbyStatus.LOBBY_OPEN ? (
+                                    <Button
+                                        size="sm"
+                                        startDecorator={<CampaignRoundedIcon />}
+                                        sx={{ ...hocPrimaryButtonSx, minWidth: 156 }}
+                                        loading={shouting}
+                                        disabled={!canShout || shouting}
+                                        title={
+                                            shoutCooldown
+                                                ? `${t("Available again in")} ${shoutCooldown}`
+                                                : t("Post a public join link to Arena Chat")
+                                        }
+                                        onClick={() => void handleShout()}
+                                    >
+                                        {shoutCooldown ? `${t("Shout again")} · ${shoutCooldown}` : t("Shout to chat")}
+                                    </Button>
+                                ) : null}
+                            </Stack>
                         </Stack>
+                        {shoutNotice ? (
+                            <Typography
+                                level="body-xs"
+                                sx={{ mt: 1, color: shoutFailed ? hocColors.danger : hocColors.green }}
+                            >
+                                {shoutNotice}
+                            </Typography>
+                        ) : null}
                     </Sheet>
                 ) : null}
 
                 <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                    <PlayerCard player={lobby.host} placeholder="Waiting for host…" isYou={isHost} />
-                    <PlayerCard player={lobby.guest} placeholder="Waiting for an opponent…" isYou={isGuest} />
+                    <PlayerCard
+                        player={lobby.host}
+                        stats={lobby.host?.player_id ? playerStats[lobby.host.player_id] : undefined}
+                        placeholder={t("Waiting for host…")}
+                        isYou={isHost}
+                    />
+                    <PlayerCard
+                        player={lobby.guest}
+                        stats={lobby.guest?.player_id ? playerStats[lobby.guest.player_id] : undefined}
+                        placeholder={t("Waiting for an opponent…")}
+                        isYou={isGuest}
+                    />
                 </Stack>
 
                 {needsPin ? (

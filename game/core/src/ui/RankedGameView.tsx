@@ -1727,7 +1727,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                         <MatchupOverlay
                             players={battleMatchupPlayers}
                             placement="fight"
-                            status={snapshot.currentLap > 0 ? `Lap ${snapshot.currentLap}` : "Battle"}
+                            fightStarted={snapshot.fightStarted}
                             windowSize={windowSize}
                             viewerTeam={viewerTeam}
                         />

@@ -142,6 +142,9 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     Games: "Партии",
     "Recent form": "Последние результаты",
     "No result": "Нет результата",
+    "Current rank": "Текущий ранг",
+    "Loading rank…": "Загрузка ранга…",
+    "Rank unavailable": "Ранг недоступен",
     "Gold balance": "Золото",
     Gold: "Золото",
     "Current streak": "Текущая серия",
@@ -894,6 +897,8 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "PLAY A FRIEND": "ИГРА С ДРУГОМ",
     "Open a room, send a friend the link, and play outside the ranked queue.":
         "Откройте комнату, отправьте другу ссылку и играйте вне рейтингового поиска.",
+    "Friends' rooms appear first. Join an open table, or create one and call for a challenger.":
+        "Комнаты друзей показываются первыми. Войдите в открытую игру или создайте свою и позовите соперника.",
     "Open lobbies": "Открытые лобби",
     "No open lobbies right now.": "Открытых лобби сейчас нет.",
     "No open lobbies right now": "Открытых лобби сейчас нет",
@@ -922,6 +927,31 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Opening a lobby costs {price} G.": "Открытие лобби стоит {price} G.",
     "Opening a lobby costs {price} G — your purse holds {purse} G":
         "Открытие лобби стоит {price} G — в вашем кошельке {purse} G",
+    Friend: "Друг",
+    "Hosted by": "Создатель:",
+    ago: "назад",
+    "Friends are waiting": "Друзья ждут соперника",
+    "Open to everyone": "Открыты для всех",
+    "Share the room or invite a friend": "Поделитесь комнатой или пригласите друга",
+    YOU: "ВЫ",
+    "Not ready": "Не готов",
+    "PRIVATE LOBBY": "ПРИВАТНОЕ ЛОББИ",
+    "OPEN LOBBY": "ОТКРЫТОЕ ЛОББИ",
+    "Bring in an opponent": "Пригласите соперника",
+    "Share the link and PIN with the player you want to invite.":
+        "Отправьте ссылку и PIN игроку, которого хотите пригласить.",
+    "Copy the link for a friend, or announce this room to everyone in Arena Chat.":
+        "Скопируйте ссылку для друга или объявите о комнате всем в чате арены.",
+    "Copy link": "Копировать ссылку",
+    "Available again in": "Снова доступно через",
+    "Post a public join link to Arena Chat": "Опубликовать открытую ссылку в чате арены",
+    "Shout again": "Позвать снова",
+    "Shout to chat": "Позвать в чат",
+    "Lobby shared to Arena Chat — anyone can join from the link.":
+        "Лобби опубликовано в чате арены — любой может войти по ссылке.",
+    "Could not share this lobby to Arena Chat": "Не удалось опубликовать лобби в чате арены",
+    "Waiting for host…": "Ожидание создателя…",
+    "Waiting for an opponent…": "Ожидание соперника…",
 
     // ~~~ Arena chat ~~~
     "Arena chat": "Чат арены",

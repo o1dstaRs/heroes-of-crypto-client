@@ -36,6 +36,33 @@ const exampleUnits = pickUnits(["Medusa", "Arbalester", "Hydra", "Thunderbird", 
 const unitsHref = knowledgePath(lang, { section: "units" });
 const playHref = isRu ? "/ru/play/" : links.play;
 const factionLabel = (faction: string) => localizedFactionName(lang, faction);
+const rulesCombatImage = "/assets/images/knowledge-base/rules-live-combat.webp";
+const rulesPlacementImage = "/assets/images/knowledge-base/rules-live-placement.webp";
+const rulesEmptyBoardImage = "/assets/images/knowledge-base/rules-board-empty.webp";
+const rulesPlacementZonesImage = "/assets/images/knowledge-base/rules-placement-zones-base.webp";
+const rulesVisuals = isRu
+    ? {
+          liveBadge: "Снято в игре",
+          combatAlt:
+              "Настоящий бой Heroes of Crypto: армии на каменном поле, карточка активного юнита, очередь ходов и журнал боя.",
+          combatCaption:
+              "Живой бой в песочнице: поле, стеки, очередь, способности и журнал — интерфейс самой игры.",
+          placementAlt:
+              "Настоящая расстановка Heroes of Crypto: по шесть стеков в зеленой и красной зонах поля.",
+          placementCaption:
+              "Фактическая расстановка 6 на 6. Цветные зоны и размер каждой фигуры совпадают с полем, на котором вы играете.",
+      }
+    : {
+          liveBadge: "Captured in game",
+          combatAlt:
+              "A real Heroes of Crypto fight with both armies on the stone board, the active unit card, turn queue, and battle log.",
+          combatCaption:
+              "Live sandbox combat: the board, stacks, turn queue, abilities, and battle log are all the game's own interface.",
+          placementAlt:
+              "A real Heroes of Crypto placement screen with six stacks deployed in each green and red board zone.",
+          placementCaption:
+              "An actual 6-versus-6 deployment. The colored zones and every unit footprint match the board you play on.",
+      };
 
 const attackLabels = isRu
     ? {
@@ -82,17 +109,17 @@ const quickFacts = [
     },
     {
         value: "8",
-        label: isRu ? "макс. стеков в армии" : "max stacks per army",
+        label: isRu ? "базовый максимум стеков" : "baseline stack cap",
         tip: isRu
-            ? "На поле помещается максимум 8 стеков (отрядов). Больше стеков — больше действий за круг и контроль доски."
-            : "You can field at most 8 stacks (unit groups). More stacks means more actions per lap and board control.",
+            ? "Апгрейд расстановки поднимает базовый предел с 6 до 7 или 8 стеков. Синергия Природы «Юниты на поле» добавляет ещё 2/3/4, поэтому абсолютный максимум — 12."
+            : "The Placement augment raises the baseline cap from 6 to 7 or 8 stacks. Nature's Board Units synergy adds another 2/3/4, so the absolute cap is 12.",
     },
     {
         value: "2 / 2 / 1 / 1",
         label: isRu ? "драфт по уровням 1–4" : "draft by level 1–4",
         tip: isRu
-            ? "За матч вы берёте 2 юнита 1 уровня, 2 — 2-го, 1 — 3-го и 1 — 4-го. Старшие уровни сильнее, но их всего по одному."
-            : "Each match you draft two level-1 units, two level-2, one level-3 and one level-4. Higher levels are stronger, but you get only one each.",
+            ? "За матч вы берёте 2 юнита 1 уровня, 2 — 2-го, 1 — 3-го и 1 — 4-го. Старшие существа сильнее поштучно, но размер каждого стека компенсирует ценность существа."
+            : "Each match you draft two level-1 units, two level-2, one level-3 and one level-4. Senior creatures are stronger individually, but each stack's amount compensates for creature value.",
     },
     {
         value: "5–7",
@@ -105,8 +132,8 @@ const quickFacts = [
         value: "−20 … +20",
         label: isRu ? "диапазон морали" : "morale range",
         tip: isRu
-            ? "Мораль задаёт темп: при высокой юнит может сходить лишний раз (и чуть сильнее), при низкой — пропустить ход. Растёт от наступления и убийств, падает от отхода и потерь."
-            : "Morale drives tempo: high morale can grant an extra turn (and a small boost); low morale can make a unit skip. Built by advancing and killing, lost by retreating and losing stacks.",
+            ? "В начале круга юнит с положительной моралью может получить приоритет и 1,25× к атаке на круг; с отрицательной — уйти в конец очереди и пропустить ход с 0,8× к атаке. Дополнительного хода мораль не даёт."
+            : "At lap start, positive morale can grant priority and 1.25× attack for that lap; negative morale can move the unit to the back, skip its turn, and set 0.8× attack. Morale does not grant an extra action.",
     },
     {
         value: "−10 … +10",
@@ -119,8 +146,8 @@ const quickFacts = [
         value: "1 – 5",
         label: isRu ? "сила стека" : "stack power",
         tip: isRu
-            ? "Оценка 1–5 ценности стека на доске (ценность юнита × число живых, относительно крупнейшего стека). Чем выше, тем сильнее его способности."
-            : "A 1–5 rating of how valuable a stack is (unit value × living count vs the biggest stack). Higher stack power scales its abilities.",
+            ? "Оценка 1–5 ценности стека на доске (опыт юнита × число живых, относительно крупнейшего стека). Она усиливает только способности и заклинания, помеченные как зависящие от силы стека."
+            : "A 1–5 rating of a stack's board value (unit experience × living count vs the biggest stack). It scales only abilities and spells marked as stack-powered.",
     },
     {
         value: isRu ? "кажд. 3–4 круга" : "every 3–4 laps",
@@ -133,15 +160,15 @@ const quickFacts = [
         value: isRu ? "круг 12 · 4" : "lap 12 · 4",
         label: isRu ? "Армагеддон, волн" : "Armageddon, waves",
         tip: isRu
-            ? "Если бой тянется до 12-го круга, начинается Армагеддон: 4 нарастающие волны урона по всем, пока кто-то не победит. Затягивать бесконечно нельзя."
-            : "If the fight drags to lap 12, Armageddon begins: 4 escalating damage waves hit everything until someone wins. Fights can't stall forever.",
+            ? "В начале 12-го круга запускается первая из 4 нарастающих волн Армагеддона. Четвёртая волна может уничтожить обе армии одновременно — тогда результатом будет ничья."
+            : "At the start of lap 12, the first of 4 escalating Armageddon waves hits every stack. The fourth can wipe both armies simultaneously, producing a draw.",
     },
     {
         value: isRu ? "12–60 сек" : "12–60 s",
         label: isRu ? "время на ход" : "per-turn timer",
         tip: isRu
-            ? "На ход даётся 12–60 секунд (в рамках общего бюджета ~4 минуты). Не успели — ход пропускается, и юнит теряет мораль."
-            : "Each turn gives 12–60 seconds to act (within a ~4-minute total budget). Run out and the turn is skipped — and the unit loses morale.",
+            ? "Движок распределяет 12–60 секунд на ход из 4-минутного бюджета каждой команды на круг. В рейтинге первый пропуск таймера страхуется Hourglass/Luck Shield; затем ход играет ИИ, а два пропуска подряд включают управление ИИ."
+            : "The engine allocates 12–60 seconds per turn from each team's 4-minute budget for that lap. In ranked, the first missed deadline is protected by Hourglass/Luck Shield; later misses are played by AI, and two consecutive misses enable AI control.",
     },
     {
         value: "×8",
@@ -169,6 +196,35 @@ const placementDepths = [PlacementAugment.LEVEL_1, PlacementAugment.LEVEL_2, Pla
     (level) =>
         getPlacementSizes(PlacementType.RECTANGLE, level, DefaultPlacementLevel1.THREE_BY_THREE)[0],
 );
+const placementZoneVisuals = [
+    {
+        tier: isRu ? "Бесплатно" : "Free",
+        cost: isRu ? "уровень 1 · до 6 стеков" : "tier 1 · up to 6 stacks",
+        title: isRu ? `${placementDepths[0]} клетки вглубь · частично` : `${placementDepths[0]} cells deep · partial`,
+        detail: isRu
+            ? "Крайняя боковая колонка и верхний/нижний торцы закрыты."
+            : "The outer side column and the top/bottom ends stay closed.",
+        points: "295,349 495,349 434,1244 171,1244",
+    },
+    {
+        tier: isRu ? "1 очко" : "1 point",
+        cost: isRu ? "уровень 2 · до 7 стеков" : "tier 2 · up to 7 stacks",
+        title: isRu ? `${placementDepths[1]} клетки вглубь · полная высота` : `${placementDepths[1]} cells deep · full height`,
+        detail: isRu
+            ? "Зона доходит до верхнего и нижнего края, но боковая кромка ещё закрыта."
+            : "The zone reaches both ends of the board, but the side-edge column stays closed.",
+        points: "301,310 563,310 518,1342 157,1342",
+    },
+    {
+        tier: isRu ? "2 очка" : "2 points",
+        cost: isRu ? "уровень 3 · до 8 стеков" : "tier 3 · up to 8 stacks",
+        title: isRu ? `${placementDepths[2]} клеток вглубь · с краем` : `${placementDepths[2]} cells deep · edge open`,
+        detail: isRu
+            ? "Самая глубокая зона: вся высота поля и крайняя боковая колонка открыты."
+            : "The deepest zone opens the full board height and the outermost side column.",
+        points: "235,310 628,310 608,1342 67,1342",
+    },
+];
 const augmentTable = [
     {
         icon: "/assets/images/units/abilities/armor_augment_256.webp",
@@ -208,16 +264,16 @@ const augmentTable = [
         name: isRu ? "Расстановка" : "Placement",
         tiers: isRu
             ? [
-                  `бесплатно · ${placementDepths[0]} ряда, частично`,
-                  `1 очко · ${placementDepths[1]} ряда, полностью`,
-                  `2 очка · ${placementDepths[2]} рядов + край`,
+                  `бесплатно · ${placementDepths[0]} клетки вглубь, частично`,
+                  `1 очко · ${placementDepths[1]} клетки, полная высота`,
+                  `2 очка · ${placementDepths[2]} клеток + боковой край`,
               ]
             : [
-                  `free · ${placementDepths[0]} rows, partial`,
-                  `1 point · ${placementDepths[1]} rows, full`,
-                  `2 points · ${placementDepths[2]} rows + edge`,
+                  `free · ${placementDepths[0]} cells deep, partial`,
+                  `1 point · ${placementDepths[1]} cells, full height`,
+                  `2 points · ${placementDepths[2]} cells + side edge`,
               ],
-        note: isRu ? "стоимость · глубина и заполнение" : "cost · deployment depth and coverage",
+        note: isRu ? "стоимость · глубина от своей стороны" : "cost · depth from your side",
     },
 ];
 
@@ -249,17 +305,17 @@ const copy = isRu
               },
               {
                   title: "3. Расстановка",
-                  text: "Вы выставляете стеки в своей зоне. Большие существа занимают 2x2 клетки, дальники хотят линии огня, а ауры работают только там, где их зона реально достает.",
+                  text: "Вы выставляете стеки в своей зоне. След крупного существа может быть 2x1 или 2x2, дальники хотят линии огня, а ауры работают только там, где их зона реально достаёт.",
               },
               {
                   title: "4. Бой",
-                  text: "Активный юнит двигается, атакует, применяет заклинание, ждет через Hourglass или заканчивает ход. После действия движок выбирает следующего юнита.",
+                  text: "Активный юнит может сначала переместиться, а затем атаковать или применить заклинание; также он может ждать через Hourglass или закончить ход. После завершающего действия движок выбирает следующего юнита.",
               },
           ],
           winTitle: "Цель простая: оставить на доске свою армию",
           winParagraphs: [
               "Каждый юнит на поле - это стек, а не один солдат. Урон снимает здоровье текущей фигуры внутри стека, затем убивает следующую. Когда живых существ в стеке не остается, стек исчезает с доски.",
-              "Вы выигрываете, когда у соперника не осталось живых стеков. Если обе стороны тянут время, игра давит сама: карта сужается, крайние клетки превращаются в провалы, а после 12-го круга начинается Армагеддон.",
+              "Вы выигрываете, когда у соперника не осталось живых стеков. Если обе армии уничтожены одним событием — например, одной волной Армагеддона, — бой заканчивается ничьей. При затягивании карта сужается, а первая волна Армагеддона приходит в начале 12-го круга.",
           ],
           readBoard: [
               "Смотрите на очередь ходов, а не только на активного юнита.",
@@ -268,15 +324,15 @@ const copy = isRu
           ],
           draftTitle: "Драфт: выбирайте план, а не красивые портреты",
           draftParagraphs: [
-              "По задумке каждый юнит вносит в армию примерно одинаковый вес: более слабое существо просто приходит большим стеком, поэтому «плохих» юнитов нет. Побеждают не голые характеристики и громкие способности, а ваш план и то, как юниты работают в связке.",
+              "Размер исходного стека рассчитывается из общего бюджета опыта: чем меньше опыт одного существа, тем больше существ приходит в стек. Поэтому сравнивайте не одну фигуру, а весь стек, его способности и роль в составе.",
               "Уровень юнита важен, но это не единственный критерий. В Heroes of Crypto слабый на вид юнит может включить нужную синергию, закрыть ауру, дать контроль или принести книгу заклинаний в отряд.",
-              "Публичный список сейчас сфокусирован на четырех игровых фракциях: Хаос, Жизнь, Сила и Природа. Внутри них есть ближние бойцы, стрелки, маги, летающие юниты, крупные 2x2 существа и утилити-юниты с аурами.",
-              "В живом драфте семь этапов до подготовки: Доктрина + необязательная заявка на бан, Бандл, пики уровней 1, 2 и 3, артефакт 2 тира и пик уровня 4. После этого вы тратите очки на апгрейды и переходите к расстановке. Итоговый состав всё так же имеет схему 2/2/1/1.",
+              "Публичный список сейчас сфокусирован на четырёх игровых фракциях: Хаос, Жизнь, Сила и Природа. Внутри них есть ближние бойцы, стрелки, маги, летающие юниты, крупные существа со следом 2x1 или 2x2 и утилити-юниты с аурами.",
+              "В живом драфте семь этапов до подготовки: Доктрина, Бандл, пики уровней 1, 2 и 3, артефакт 2 тира и пик уровня 4. Бан выбирается заранее в рейтинговом лобби и разрешается при создании матча, а не во время этапа Доктрины. После драфта вы тратите очки на апгрейды и переходите к расстановке состава 2/2/1/1.",
           ],
           draftSteps: [
               {
-                  title: "1. Доктрина и заявка на бан",
-                  text: "Оба игрока действуют одновременно. Выбираете разведку на весь драфт и до её фиксации можете тайно предложить одного допустимого юнита для бана. Одна заявка срабатывает напрямую; одинаковые заявки гарантируют этот бан; из двух разных игра выбирает одну 50/50. Заявка заменяет автобан того же уровня, а не добавляет ещё один.",
+                  title: "До драфта: бан · 1. Доктрина",
+                  text: "В рейтинговом лобби каждый игрок может сохранить одного нежелательного юнита. При создании матча одна указанная сторона гарантирует этот дополнительный бан, одинаковые предпочтения гарантируют общий бан, а из двух разных выбирается одно детерминированным 50/50 по ID матча. Затем оба игрока одновременно фиксируют доктрину разведки.",
               },
               {
                   title: "2. Бандл",
@@ -296,10 +352,10 @@ const copy = isRu
               },
           ],
           draftNotes: [
-              "Базовый пул драфта по уровням: 2/2/1/1 — бандл уже закрывает одно существо 1 уровня и одно 2 уровня.",
-              "Игра случайно убирает 6 существ 1 уровня, 6 — 2 уровня, 3 — 3 уровня и 5 — 4 уровня. Заявка игрока может заменить один автобан на выбранного юнита того же уровня; она не увеличивает общее число банов. То, что предложено в бандлах, банить нельзя.",
-              "Бан по уровню возможен только если в пуле остается достаточно вариантов на все пики обеих команд.",
-              "Что вы видите, решает только доктрина. Scout заранее открывает один слот уровня 1, один слот уровня 2 и один из слотов уровня 3 или 4; заявка на бан соперника его намерения не раскрывает.",
+              "Квота состава по уровням — 2/2/1/1; выбранный бандл уже закрывает одно существо 1 уровня и одно 2 уровня.",
+              "Игра автоматически убирает 6 существ 1 уровня, 6 — 2 уровня, 3 — 3 уровня и 5 — 4 уровня. Рейтинговое предпочтение добавляет сверху не более одного общего бана на матч; оно не заменяет автобан.",
+              "Дополнительный бан применяется только к драфтовому юниту и только если после него на этом уровне остаётся минимум два доступных небандловых варианта. Если выбранный юнит попал в сгенерированный бандл, сервер перегенерирует предложения.",
+              "Доктрина заранее отмечает видимые слоты. Scout открывает один слот уровня 1, один уровня 2 и один из слотов уровня 3 или 4. Независимо от доктрины, попытка взять скрытый пик соперника раскрывает этот конфликт.",
           ],
           unitsTitle: "Как читать юнита",
           unitStats: [
@@ -314,21 +370,21 @@ const copy = isRu
               },
               {
                   label: "Статус-сопротивление",
-                  text: "снижает шанс, что Оглушение и Паралич сработают (например, от Amulet of Resolve); не защищает от магии",
+                  text: "снижает шанс Оглушения и Паралича и физический урон по площади (Amulet of Resolve); магический урон по площади по-прежнему проходит через магическое сопротивление",
               },
               {
                   label: "Сопротивление разуму",
-                  text: "полная невосприимчивость к эффектам разума (Blindness, Aggravating, Boar Saliva, Petrifying Gaze). Даётся только способностями Madness/Mechanism, не артефактами",
+                  text: "снижает шанс эффектов разума — Blindness, Aggr, Boar Saliva, Terrifying/Petrifying Gaze — и даётся артефактом Helm of Focus. Madness и Mechanism вместо этого дают полный иммунитет к атакам разума",
               },
           ],
           upgradesTitle: "Апгрейды команды: 5-7 очков, настоящие компромиссы",
           upgradesIntro:
-              "Апгрейды не являются косметикой. Они меняют размер зоны расстановки, живучесть армии, дальнюю игру, ближний урон и темп перемещения. Бюджет — это то, что дал ваш доктрина: 5 очков за «Шпиона», 6 за «Разведчика», 7 за «Слепую ярость». Чем меньше видите драфт соперника, тем сильнее армия.",
+              "Апгрейды не являются косметикой. Они меняют размер зоны расстановки, живучесть армии, дальнюю игру, ближний урон и темп перемещения. Бюджет задаёт доктрина: 5 очков за Spymaster, 6 за Scout, 7 за Battle Trance. Чем меньше видите в драфте соперника, тем больше очков получаете.",
           upgrades: [
               {
                   icon: "/assets/images/units/abilities/board_augment_256.webp",
                   title: "Расстановка",
-                  text: `Бесплатный вариант даёт частичную зону глубиной ${placementDepths[0]} ряда и до 6 стеков. За 1 очко открывается полная зона глубиной ${placementDepths[1]} ряда и 7 стеков. Второй платный вариант, за 2 очка, открывает ${placementDepths[2]} полных рядов с краевой линией и базовый потолок в 8 стеков до бонусов Природы.`,
+                  text: `На рейтинговом поле зона идёт от своей боковой стороны. Бесплатный вариант даёт частичную глубину ${placementDepths[0]} клетки и до 6 стеков. За 1 очко открывается полная по высоте зона глубиной ${placementDepths[1]} клетки и 7 стеков. За 2 очка открываются ${placementDepths[2]} клеток вместе с боковым краем и базовый потолок в 8 стеков до бонусов Природы.`,
               },
               {
                   icon: "/assets/images/units/abilities/armor_augment_256.webp",
@@ -358,7 +414,7 @@ const copy = isRu
           ],
           doctrinesTitle: "Доктрины: обзор стоит очков",
           doctrinesIntro:
-              "Доктрина — самый первый выбор в драфте, и он действует весь драфт. Он определяет, какую часть состава противника вы видите, и платит вам за неведение: чем меньше видите, тем больше бюджет апгрейдов. Четвёртого доктрины нет, и поменять доктрина позже нельзя.",
+              "Доктрина — самый первый выбор в драфте, и она действует весь драфт. Она определяет, какую часть состава противника вы видите, и платит вам за неведение: чем меньше видите, тем больше бюджет апгрейдов. Четвёртой доктрины нет, и поменять её позже нельзя.",
           doctrinesTableCaption: "Доктрины: обзор против очков апгрейдов",
           doctrinesColumns: ["Доктрина", "Что вы видите", "Очки апгрейдов"],
           doctrines: [
@@ -376,16 +432,16 @@ const copy = isRu
               },
               {
                   name: "Battle Trance",
-                  sees: "Ничего. Состав противника скрыт до самого боя.",
+                  sees: "Не отмечает ни одного слота заранее. Столкновение со скрытым пиком всё равно раскрывает именно этот слот.",
                   points: 7,
                   note: "Драфт вслепую — зато самая сильная армия.",
               },
           ],
           doctrinesOutro:
-              "Эти очки и есть весь бюджет апгрейдов, который вы тратите до расстановки, поэтому доктрина — решение не только про информацию, но и про размер армии. Если вы выберете существо, которое противник уже забрал, вас просто вернут к выбору — если только ваш доктрина не раскрывал этот слот.",
+              "Эти очки и есть весь бюджет апгрейдов, который вы тратите до расстановки, поэтому доктрина — решение не только про информацию, но и про размер армии. Если вы выберете скрытое существо, которое противник уже забрал, сервер раскроет конфликт и вернёт вас к выбору; уже видимый дубликат выбрать нельзя.",
           synergiesTitle: "Синергии фракций: 2, 4 и 6 юнитов",
           synergiesIntro:
-              "Когда в армии есть 2/4/6 юнитов одной фракции, открывается уровень синергии 1/2/3. У каждой фракции два возможных бонуса, и выбирать не нужно: какой из них действует в матче, определяется по идентификатору игры — ровно 50/50 для каждой фракции, независимо друг от друга, одинаково для вас и противника, и видно на панелях с первого экрана драфта.",
+              "Когда вы задрафтили 2/4/6 разных юнитов одной фракции, эта фракция получает уровень синергии 1/2/3; разделение одного юнита на несколько стеков счётчик не увеличивает. У каждой фракции есть пара возможных бонусов, а ID матча детерминированно выбирает один вариант из каждой пары. Набор вариантов одинаков для обеих сторон и виден с первого экрана драфта.",
           synergyLevels: "Уровни силы",
           synergies: [
               {
@@ -411,27 +467,27 @@ const copy = isRu
           ],
           placementTitle: "Расстановка: бой часто выигрывается до первого удара",
           placementParagraphs: [
-              "Вы выбираете юнита из списка, задаете количество существ в стеке и ставите его в разрешенную зону. Можно двигать уже поставленные стеки, клонировать выбранный стек, удалять его и подгонять финальную формацию перед стартом.",
-              "Большие юниты занимают 2x2 клетки. Это сильные фигуры, но они требуют места: их сложнее протащить через узкий центр и тяжелее спасти при сужении карты.",
+              "Вы выбираете юнита из списка, задаёте количество существ в стеке и ставите его в разрешённую зону. Задрафтованный отряд можно разделить на несколько стеков без создания новых существ, а затем двигать, перераспределять или убирать эти стеки до фиксации расстановки.",
+              "Размер следа зависит от юнита: обычные фигуры занимают 1x1, крупные могут быть 2x1 или 2x2. Большому следу нужно больше свободных клеток для маршрута и спасения при сужении.",
               "Перед стартом проверьте три вещи: кто получает ауру, кого можно достать первым ходом, и где окажутся ваши стрелки, если враг ворвется в ближний бой.",
           ],
-          turnsTitle: "Ход: одно решение, потом очередь идет дальше",
+          turnsTitle: "Ход: переместитесь, затем завершите действие",
           turnActions: [
               {
                   title: "Движение",
-                  text: "Путь должен быть легальным и помещаться в запас шагов юнита. Движение к ближайшему врагу повышает мораль; отход может ее снизить.",
+                  text: "Путь должен быть легальным и помещаться в запас шагов юнита. После обычного перемещения юнит остаётся активным и может атаковать, применить доступное действие или завершить ход. Приближение к центру вражеской армии даёт +3 морали, удаление — −3, боковой ход не меняет мораль.",
               },
               {
                   title: "Ближняя атака",
-                  text: "Юнит должен оказаться рядом с целью. Стрелок, вынужденный бить в ближнем бою, наносит меньше урона, если у него нет подходящей способности.",
+                  text: "Юнит должен уже стоять рядом с целью или иметь путь до допустимой соседней клетки в пределах Шагов — тогда движок сначала подведёт его и нанесёт удар. Стрелок без Handyman в ближнем бою наносит половину урона.",
               },
               {
                   title: "Дальняя атака",
-                  text: "Нужны выстрелы, линия атаки и отсутствие ближней угрозы. Дальние выстрелы режутся делителем до x8, если способность Sniper не снимает это ограничение.",
+                  text: "Нужны выстрелы, допустимая линия атаки и отсутствие ближней блокировки. Встроенная способность Sniper полностью отменяет спад дальнего урона; командный апгрейд «Стрельба / Sniper» лишь увеличивает атаку и дистанцию полного урона, а делитель всё равно может дойти до x8.",
               },
               {
                   title: "Книга заклинаний",
-                  text: "Маги и юниты с книгой заклинаний применяют баффы, дебаффы, лечение, массовые эффекты, призыв и позиционные трюки. Есть три разных сопротивления: магическое (магический урон + дебаффы заклинаний), статус (шанс Оглушения/Паралича) и ментальное (полный иммунитет к эффектам разума).",
+                  text: "Маги и юниты с книгой заклинаний применяют баффы, дебаффы, лечение, массовые эффекты, призыв и позиционные трюки. Магическое сопротивление режет магический урон и шанс дебаффов заклинаний; статус-сопротивление снижает шанс Оглушения/Паралича и физический урон по площади; сопротивление разуму снижает шанс ментальных эффектов.",
               },
               {
                   title: "Hourglass",
@@ -439,35 +495,35 @@ const copy = isRu
               },
               {
                   title: "Luck Shield / пропуск",
-                  text: "Luck Shield (защита) убирает случайный сдвиг удачи этого хода и завершает ход за небольшую цену в мораль. Принудительный пропуск тоже завершает ход и стоит морали; обычное завершение хода после действия не стоит ничего.",
+                  text: "Luck Shield (защита) заменяет случайный модификатор удачи текущего круга на +3 (с учётом потолка +10), отнимает 2 морали и завершает ход. Пропуск без действия или по эффекту отнимает 1 мораль; завершение после движения или другого действия штрафа не даёт.",
               },
           ],
           combatTitle: "Как считается бой без формул",
           combatParagraphs: [
               "Урон зависит от атаки, количества живых существ в стеке, брони цели, удачи, дальности выстрела, выбранного типа атаки и активных способностей. Поэтому один и тот же юнит может ударить совсем по-разному в разных позициях.",
-              "Ответный удар существует. Ближние и дальние юниты могут отвечать, если не потратили ответ, не заблокированы эффектом и действительно могут достать атакующего.",
+              "Ответный удар возможен один раз за круг, если защитник может атаковать нужным типом, не оглушён/ослеплён/заморожен, не ограничен целью и действительно достаёт атакующего. Некоторые способности и типы атак прямо запрещают ответ.",
               "Способности добавляют характер: Lucky Strike может резко поднять урон, Stun и Blindness ломают темп, Petrifying Gaze может добить, Fire Shield возвращает урон, Range Null Field выключает стрельбу вокруг себя.",
           ],
           moraleTitle: "Мораль, удача и сила стека",
           moraleItems: [
-              "Мораль - от -20 до +20. Каждый круг юнит с шансом примерно в свою мораль в процентах ходит лишний раз (при плюсовой морали) или пропускает ход (при минусовой). Высокая мораль также немного увеличивает дальность хода и усиливает атаку, когда срабатывает; низкая - наоборот.",
-              "Чтобы поднять мораль, двигайтесь к вражеской армии (+3 за ход) и убивайте вражеские стеки (большой толчок атакующему). Отход снижает мораль (-3), а когда гибнет ваш стек, остальные ваши стеки того же юнита тоже теряют мораль.",
-              "Удача - от -10 до +10 и в основном защитная: удачливый стек получает меньше урона, неудачливый - больше (примерно 1% за единицу). Ваша удача также усиливает ваши способности и повышает шанс их срабатывания. Каждый круг удача получает небольшой случайный сдвиг; Luck Shield (защита) убирает этот сдвиг за небольшую цену в мораль.",
-              "Сила стека пересчитывается от ценности стека на доске: опыт юнита умножается на количество живых существ и сравнивается с крупнейшим стеком. Диапазон - от 1 до 5.",
+              "Мораль ограничена диапазоном −20…+20. В начале каждого круга движок бросает шанс, равный модулю морали. Положительное срабатывание ставит юнита в приоритетную очередь и даёт 1,25× к атаке на круг; отрицательное отправляет его в конец, даёт 0,8× к атаке и пропускает его ход. Дополнительного действия нет.",
+              "Чтобы поднять мораль, двигайтесь ближе к геометрическому центру вражеской армии (+3 за перемещение) и уничтожайте вражеские стеки (+4 атакующему). Движение от этого центра снижает мораль на 3, а гибель стека отнимает 4 у остальных ваших стеков того же юнита.",
+              "Удача ограничена диапазоном −10…+10 и защищает от обычного урона примерно на 1% за единицу; отрицательная удача увеличивает входящий урон. Она также меняет силу или шанс многих, но не всех, способностей. В начале круга каждый стек получает случайный модификатор от −3 до +3; Luck Shield заменяет его на +3 до конца круга.",
+              "Сила стека пересчитывается от ценности стека на доске: опыт юнита умножается на количество живых существ и сравнивается с крупнейшим стеком. Диапазон — от 1 до 5, и показатель влияет только на механики, отмеченные как зависящие от силы стека.",
           ],
           moraleBreakdownTitle: "Точные изменения морали",
           moraleBreakdown: [
-              { change: "+3", text: "Ход к ближайшему врагу" },
+              { change: "+3", text: "Перемещение ближе к центру вражеской армии" },
               { change: "+4", text: "Убийство вражеского стека (получает атакующий стек)" },
-              { change: "-3", text: "Отход от ближайшего врага" },
+              { change: "-3", text: "Перемещение дальше от центра вражеской армии" },
               { change: "-4", text: "Каждый ваш уцелевший стек того же юнита, чей стек погиб" },
               { change: "-3", text: "Hourglass (ожидание) — походить позже в очереди" },
               { change: "-2", text: "Защита (Luck Shield)" },
-              { change: "-1", text: "Пропуск хода или истёкший таймер хода" },
+              { change: "-1", text: "Фактический пропуск хода, включая тайм-аут, переданный движку как пропуск" },
               { change: "±20", text: "Жёсткий предел — мораль не выходит за эти границы" },
           ],
           moraleBreakdownNote:
-              "Обычное завершение хода после действия ничего не стоит. Каждый круг юнит с шансом примерно в свою мораль в процентах ходит лишний раз (при плюсе — ещё и бьёт чуть сильнее) или пропускает ход (при минусе).",
+              "Обычное завершение хода после движения или другого действия ничего не стоит. В начале круга шанс срабатывания точно равен модулю морали в процентах: плюс даёт приоритет и 1,25× к атаке на круг, минус — поздний пропущенный ход и 0,8× к атаке.",
           mapTitle: "Карта не ждет вечно",
           mapParagraphs: [
               "Поле — сетка 16x16. В рейтинге карта выпадает одна из трёх в момент создания драфта — все три равновероятны, шанс один к трём — и показывается обоим игрокам по ходу драфта. Бой затем идёт именно на ней: перед началом боя карта не перевыбирается.",
@@ -489,7 +545,7 @@ const copy = isRu
               },
               {
                   name: "Cemetery",
-                  center: "От 9 до 12 надгробий, случайно разбросанных по четырём центральным рядам — их число тоже разыгрывается для каждой партии, единого блока в центре нет.",
+                  center: "Ровно 12 надгробий, детерминированно разбросанных по четырём центральным колонкам из ID матча; единого блока в центре нет.",
                   narrows: "каждые 4 круга",
                   chance: "1 из 3",
               },
@@ -500,7 +556,7 @@ const copy = isRu
           mapMechanics: [
               {
                   title: "По лаве по умолчанию не ходят",
-                  text: "Сам по себе в центральную лаву не зайдёт никто. Артефакт 2-го уровня Lava Striders меняет это для всей вашей армии: юниты могут проходить по лаве и стоять в ней, а стоя в центральной лаве получают Made of Fire — +10% ко всем характеристикам, включая способности. На карте Lava это превращает опасность в землю, которой пользуетесь только вы.",
+                  text: "Обычные юниты не могут проходить по центральной лаве или заканчивать на ней ход; врождённая Made of Fire это разрешает. Артефакт 2-го тира Lava Striders даёт такое право всей армии. Пока допустимый юнит касается центральной лавы, он получает Made of Fire — +10% ко всем характеристикам и способностям.",
               },
               {
                   title: "Стрельба сквозь Cemetery",
@@ -508,7 +564,7 @@ const copy = isRu
               },
           ],
           mapArmageddon:
-              "После 12-го круга начинается Армагеддон: четыре нарастающие волны урона постепенно превращают затянутый бой в финал.",
+              "В начале 12-го круга приходит первая из четырёх нарастающих волн Армагеддона. Четвёртая наносит каждому стеку урон, равный полному здоровью его исходного состава; если обе армии погибают одновременно, результат — ничья.",
           examplesTitle: "Мини-шпаргалка по ролям",
           examples: [
               "Black Dragon и Angel показывают силу крупных летающих финишеров, но им нужно место для 2x2 тела.",
@@ -551,17 +607,17 @@ const copy = isRu
               },
               {
                   title: "3. Place",
-                  text: "Put stacks inside your deployment zone. Large creatures need a 2x2 footprint, ranged units need lanes, and aura units need friends inside their real range.",
+                  text: "Put stacks inside your deployment zone. A large creature may use a 2x1 or 2x2 footprint, ranged units need lanes, and aura units need friends inside their real range.",
               },
               {
                   title: "4. Fight",
-                  text: "The active unit moves, attacks, casts, waits on Hourglass, or ends its turn. After the action resolves, the engine selects the next unit.",
+                  text: "The active unit can move before attacking or casting; it may also wait on Hourglass or end its turn. After a turn-ending action resolves, the engine selects the next unit.",
               },
           ],
           winTitle: "The goal is simple: keep your army on the board",
           winParagraphs: [
               "Each unit on the board is a stack, not a single model. Damage burns through the current body in that stack, then starts killing the next one. When the stack has no living bodies left, it shatters off the board.",
-              "You win when the enemy has no living stacks. If both sides stall, the game applies pressure by narrowing the map, turning outer cells into holes, and eventually starting Armageddon after lap 12.",
+              "You win when the enemy has no living stacks. If one event destroys both armies—an Armageddon wave, for example—the fight is a draw. Stalls trigger map narrowing, and the first Armageddon wave arrives at the start of lap 12.",
           ],
           readBoard: [
               "Watch the turn queue, not only the active unit.",
@@ -570,15 +626,15 @@ const copy = isRu
           ],
           draftTitle: "Draft: pick a plan, not just portraits",
           draftParagraphs: [
-              "Conceptually every unit pulls roughly the same weight in your army: a weaker creature simply arrives as a bigger stack, so no single unit is just 'better' than another. Fights are won by your plan and how your units synergize — not by raw stats or flashy abilities.",
+              "Starting stack amounts come from a shared experience budget: a creature with lower experience value arrives in a larger amount. Compare the whole stack, its abilities, and its role—not one body in isolation.",
               "Unit level matters, but it is not the whole game. A low-level unit can unlock the right synergy, carry an aura, bring control, or give your army a spellbook.",
-              "The public roster is currently focused on four playable factions: Chaos, Life, Might, and Nature. Across them you get melee fighters, ranged units, spellcasters, flyers, large 2x2 creatures, and utility pieces with auras.",
-              "The live draft has seven stages before setup: Doctrine + optional ban proposal, Bundle, Level 1, Level 2, Level 3, Tier-2 artifact, and Level 4. You then spend augment points and place the same 2/2/1/1 roster — the order is what makes it a read on your opponent.",
+              "The public roster is currently focused on four playable factions: Chaos, Life, Might, and Nature. Across them you get melee fighters, ranged units, spellcasters, flyers, large creatures with 2x1 or 2x2 footprints, and utility pieces with auras.",
+              "The live draft has seven stages before setup: Doctrine, Bundle, Level 1, Level 2, Level 3, Tier-2 artifact, and Level 4. Your ban is saved beforehand in the ranked lobby and resolved when the match is created—not during Doctrine. You then spend augment points and place the completed 2/2/1/1 roster.",
           ],
           draftSteps: [
               {
-                  title: "1. Doctrine and ban proposal",
-                  text: "Both players act simultaneously. Choose your scouting stance and, before locking it, optionally nominate one eligible creature for a private ban. One nomination wins directly; matching nominations guarantee that ban; two different nominations are resolved 50/50. It replaces an auto-ban at that level rather than adding another.",
+                  title: "Before draft: ban · 1. Doctrine",
+                  text: "In the ranked lobby, each player may save one unwanted unit. At match creation, one preference guarantees that extra ban, matching preferences guarantee their shared ban, and two different preferences resolve by a deterministic 50/50 choice from the match ID. Both players then lock their scouting doctrine simultaneously.",
               },
               {
                   title: "2. Bundle",
@@ -598,10 +654,10 @@ const copy = isRu
               },
           ],
           draftNotes: [
-              "The baseline draft pool by level is 2/2/1/1 — the bundle already covers one level-1 and one level-2.",
-              "The game removes 6 level-1, 6 level-2, 3 level-3, and 5 level-4 creatures. A player nomination can replace one auto-ban with the nominated creature at the same level; it does not increase the total. Bundle offers are never eligible.",
-              "A level can only be banned if enough units of that level remain available for every pick both teams are owed.",
-              "Only your doctrine controls vision. Scout preselects one level-1 slot, one level-2 slot, and either the level-3 or level-4 slot; the opponent's private ban nomination reveals no intent.",
+              "The roster quota by level is 2/2/1/1; your selected bundle already supplies one level-1 and one level-2 creature.",
+              "The game automatically removes 6 level-1, 6 level-2, 3 level-3, and 5 level-4 creatures. Ranked ban preferences add at most one shared extra ban per match; they do not replace an auto-ban.",
+              "The extra ban applies only to a draftable unit and only when at least two non-bundle choices remain at its level. If that unit appears in a generated bundle, the server rerolls the draft offers.",
+              "Your doctrine preselects watched slots. Scout marks one level-1 slot, one level-2 slot, and either the level-3 or level-4 slot. Under any doctrine, attempting an opponent's hidden pick reveals that collision.",
           ],
           unitsTitle: "How to read a unit",
           unitStats: [
@@ -616,11 +672,11 @@ const copy = isRu
               },
               {
                   label: "Status resist",
-                  text: "lowers the chance Stun and Paralysis land (e.g. from Amulet of Resolve); it does not reduce magic",
+                  text: "lowers the chance Stun and Paralysis land and reduces physical area damage (Amulet of Resolve); magical area damage still uses magic resist",
               },
               {
                   label: "Mind resist",
-                  text: "full immunity to mind effects (Blindness, Aggravating, Boar Saliva, Petrifying Gaze). Comes only from the Madness/Mechanism abilities, never from an artifact",
+                  text: "lowers the chance of mind effects—Blindness, Aggr, Boar Saliva, Terrifying/Petrifying Gaze—and comes from Helm of Focus. Madness and Mechanism instead grant full mind-attack immunity",
               },
           ],
           upgradesTitle: "Team upgrades: 5-7 points, real tradeoffs",
@@ -630,7 +686,7 @@ const copy = isRu
               {
                   icon: "/assets/images/units/abilities/board_augment_256.webp",
                   title: "Placement",
-                  text: `The free option gives a partial ${placementDepths[0]}-row zone and up to 6 stacks. Spending 1 point gives a full ${placementDepths[1]}-row zone and 7 stacks. The second paid option costs 2 points and opens ${placementDepths[2]} full rows including the board edge, plus the baseline cap of 8 stacks before Nature bonuses.`,
+                  text: `On the ranked board, deployment extends inward from your side. The free option gives a partial zone ${placementDepths[0]} cells deep and up to 6 stacks. Spending 1 point gives a full-height zone ${placementDepths[1]} cells deep and 7 stacks. Spending 2 points opens ${placementDepths[2]} cells including the side edge, plus the baseline cap of 8 stacks before Nature bonuses.`,
               },
               {
                   icon: "/assets/images/units/abilities/armor_augment_256.webp",
@@ -678,16 +734,16 @@ const copy = isRu
               },
               {
                   name: "Battle Trance",
-                  sees: "Nothing. The opponent's roster stays hidden until the fight.",
+                  sees: "No slots are watched in advance. Colliding with a hidden opponent pick still reveals that specific slot.",
                   points: 7,
                   note: "Draft blind, field the strongest army.",
               },
           ],
           doctrinesOutro:
-              "Those points are the whole augment budget you spend before placement, so the doctrine is an army-size decision as much as an information one. Picking a creature the opponent already took simply sends you back to pick again — unless your doctrine revealed that slot.",
+              "Those points are the whole augment budget you spend before placement, so doctrine is an army-size decision as much as an information one. If you select a hidden creature already taken by the opponent, the server reveals the collision and sends you back; a duplicate in an already watched slot is unavailable up front.",
           synergiesTitle: "Faction synergies: 2, 4, and 6 units",
           synergiesIntro:
-              "When you field 2/4/6 units from the same faction, that faction reaches synergy level 1/2/3. Each faction has two possible bonuses, and there is nothing to pick: which one a match fields is drawn from the game id — an even 50/50 per faction, drawn independently, identical for you and your opponent, and shown on the rails from the first screen of the draft.",
+              "Drafting 2/4/6 distinct roster units from one faction gives that faction synergy level 1/2/3; splitting one unit into several stacks does not raise the count. Each faction has a pair of possible bonuses, and the match ID deterministically selects one from every pair. Both sides get the same variant set, visible from the first draft screen.",
           synergyLevels: "Power by level",
           synergies: [
               {
@@ -713,27 +769,27 @@ const copy = isRu
           ],
           placementTitle: "Placement: many fights are won before the first hit",
           placementParagraphs: [
-              "Choose a unit from the roster, set the stack amount, and place it in your allowed deployment zone. You can move placed stacks, clone the selected stack, delete it, and tune the final shape before starting the fight.",
-              "Large units occupy 2x2 cells. They are powerful pieces, but they ask for space: harder to route through a crowded center and harder to save when narrowing starts.",
+              "Choose a roster unit, set its stack amount, and place it in your deployment zone. A drafted unit may be split into several stacks without creating extra bodies; you can then move, rebalance, or remove those stacks before locking placement.",
+              "Footprints are unit-specific: ordinary pieces use 1x1, while large creatures can use 2x1 or 2x2. Larger footprints need more legal cells for routing and for escaping a narrowing edge.",
               "Before pressing start, check three things: who is inside your auras, who can be reached on the first turn, and where your ranged units will stand if the enemy dives them.",
           ],
-          turnsTitle: "Turns: one decision, then the queue moves",
+          turnsTitle: "Turns: move, then complete the action",
           turnActions: [
               {
                   title: "Move",
-                  text: "The path must be legal and fit inside the unit's Steps. Moving closer to the nearest enemy raises morale; backing away can lower it.",
+                  text: "The path must be legal and fit inside the unit's Steps. After an ordinary move, the unit stays active and may attack, use an available action, or end its turn. Moving toward the enemy army's centroid gives +3 morale, moving away gives −3, and a lateral move changes nothing.",
               },
               {
                   title: "Melee attack",
-                  text: "The unit must stand next to the target. A ranged unit forced into melee hits at reduced damage unless an ability covers it.",
+                  text: "The unit must already be adjacent or have a legal path to an adjacent attack cell within its Steps; the engine then moves it in and strikes. A ranged unit without Handyman deals half damage in melee.",
               },
               {
                   title: "Ranged attack",
-                  text: "You need shots, a valid line, and no melee lock. Long shots are reduced by a range divisor up to x8 unless Sniper avoids the penalty.",
+                  text: "You need shots, a valid line, and no melee lock. The built-in Sniper ability removes falloff entirely; the team Sniper augment only raises attack and full-damage distance, so its range divisor can still reach x8.",
               },
               {
                   title: "Spellbook",
-                  text: "Spellbook units cast buffs, debuffs, healing, mass effects, summons, and position tricks. Three separate resistances gate effects: magic resist (magic damage + spell debuffs), status resist (Stun/Paralysis chance), and mind resist (full immunity to mind effects).",
+                  text: "Spellbook units cast buffs, debuffs, healing, mass effects, summons, and position tricks. Magic resist cuts magic damage and spell-debuff chance; status resist lowers Stun/Paralysis chance and physical area damage; mind resist lowers the chance of mind effects.",
               },
               {
                   title: "Hourglass",
@@ -741,35 +797,35 @@ const copy = isRu
               },
               {
                   title: "Luck Shield / Skip",
-                  text: "Luck Shield (defend) clears this turn's random luck swing and ends the turn, for a small morale cost. A forced skip also ends the turn and costs morale; ending your turn normally after acting costs nothing.",
+                  text: "Luck Shield replaces this lap's random luck modifier with +3 (capped at +10), costs 2 morale, and ends the turn. Ending without acting or being forced to skip costs 1 morale; ending after moving or another action has no morale penalty.",
               },
           ],
           combatTitle: "Combat, without the formula sheet",
           combatParagraphs: [
               "Damage depends on attack, living bodies in the stack, target armor, luck, range distance, selected attack type, and active abilities. That is why the same unit can hit very differently from two different board states.",
-              "Responses exist. Melee and ranged units can answer an attack if they have not already replied, are not blocked by an effect, and can actually reach the attacker.",
+              "A unit may respond once per lap when it can use the required attack type, is not Stunned/Blinded/Frozen or target-locked, and can actually reach the attacker. Some abilities and attack forms explicitly prevent responses.",
               "Abilities give fights their character: Lucky Strike can spike damage, Stun and Blindness break tempo, Petrifying Gaze can finish a target, Fire Shield returns damage, and Range Null Field shuts down shooting around it.",
           ],
           moraleTitle: "Morale, luck, and stack power",
           moraleItems: [
-              "Morale runs from -20 to +20. Each lap a unit rolls about its morale value in percent to act an extra time (positive morale) or be skipped (negative morale). High morale also nudges movement range and, when it procs, boosts attack; low morale does the opposite.",
-              "To build morale, advance toward the enemy army (+3 per move) and kill enemy stacks (a big push for the attacker). Retreating costs morale (-3), and when one of your stacks dies, your other stacks of that same unit lose morale too.",
-              "Luck runs from -10 to +10 and is mostly defensive: a lucky stack takes less damage, an unlucky one takes more (about 1% per point). Your own luck also makes your abilities stronger and more likely to fire. Luck gets a small random swing each lap; Luck Shield (defend) clears that swing for a small morale cost.",
-              "Stack power is recalculated from a stack's board value: unit experience times living amount, compared with the largest stack present. It ranges from 1 to 5.",
+              "Morale is capped at −20…+20. At the start of each lap, the engine rolls a chance equal to its absolute morale. A positive proc puts the unit in the priority queue and gives it 1.25× attack for the lap; a negative proc sends it to the back, sets 0.8× attack, and skips its turn. It does not grant an extra action.",
+              "Build morale by moving toward the enemy army's geometric centroid (+3 per move) and destroying enemy stacks (+4 to the attacker). Moving away costs 3, and losing a stack costs 4 morale for your other surviving stacks of that same unit.",
+              "Luck is capped at −10…+10 and changes ordinary incoming damage by about 1% per point; negative luck increases it. Luck also changes the power or proc chance of many—but not all—abilities. At lap start, every stack gets a random modifier from −3 to +3; Luck Shield replaces it with +3 for the rest of that lap.",
+              "Stack power is recalculated from board value: unit experience times living amount, compared with the largest stack present. It ranges from 1 to 5 and affects only mechanics marked as stack-powered.",
           ],
           moraleBreakdownTitle: "Exact morale changes",
           moraleBreakdown: [
-              { change: "+3", text: "Move toward the nearest enemy" },
+              { change: "+3", text: "Move closer to the enemy army's centroid" },
               { change: "+4", text: "Kill an enemy stack (goes to the attacking stack)" },
-              { change: "-3", text: "Move away from the nearest enemy" },
+              { change: "-3", text: "Move farther from the enemy army's centroid" },
               { change: "-4", text: "Each surviving stack of yours of a unit whose stack was wiped out" },
               { change: "-3", text: "Hourglass (Wait) to act later in the queue" },
               { change: "-2", text: "Defend (Luck Shield)" },
-              { change: "-1", text: "Skip the turn, or let the turn timer run out" },
+              { change: "-1", text: "An actual skipped turn, including a timeout passed to the engine as a skip" },
               { change: "±20", text: "Hard cap — morale never leaves this range" },
           ],
           moraleBreakdownNote:
-              "Ending your turn normally after acting costs nothing. Each lap a unit rolls about its morale value in percent: a positive hit lets it act an extra time (and hit a little harder), a negative hit gets it skipped.",
+              "Ending after moving or another action costs nothing. At lap start, the proc chance is exactly the absolute morale percentage: positive grants priority and 1.25× attack for the lap; negative produces a late skipped turn and 0.8× attack.",
           mapTitle: "The map does not wait forever",
           mapParagraphs: [
               "The board is a 16x16 grid. Ranked rolls one of three maps the moment the draft is created — each equally likely, one chance in three — and reveals it to both players mid-draft. The fight is then played on exactly that map; it is never re-rolled at the start of combat.",
@@ -791,7 +847,7 @@ const copy = isRu
               },
               {
                   name: "Cemetery",
-                  center: "9 to 12 tombstones scattered at random across the middle four rows — the count is rolled per match too, and there is no single central block.",
+                  center: "Exactly 12 tombstones, deterministically scattered from the match ID across the four central columns; there is no single central block.",
                   narrows: "every 4 laps",
                   chance: "1 in 3",
               },
@@ -802,7 +858,7 @@ const copy = isRu
           mapMechanics: [
               {
                   title: "Lava is not walkable by default",
-                  text: "Nothing may enter the central lava on its own. The Tier-2 artifact Lava Striders changes that for your entire army: your units may move over and stand in lava, and while they stand in central lava they gain Made of Fire — +10% to all stats, abilities included. On a Lava map that turns the hazard into ground only you can use.",
+                  text: "Ordinary units cannot cross or finish on central lava; an innate Made of Fire ability allows it. The Tier-2 Lava Striders artifact grants that access to the whole army. While an eligible unit's footprint touches central lava, it gains Made of Fire: +10% to all stats and abilities.",
               },
               {
                   title: "Shooting through the Cemetery",
@@ -810,7 +866,7 @@ const copy = isRu
               },
           ],
           mapArmageddon:
-              "After lap 12, Armageddon starts: four escalating damage waves gradually force a stalled fight to end.",
+              "At the start of lap 12, the first of four escalating Armageddon waves lands. The fourth deals every stack its full original-stack HP; if both armies die together, the result is a draw.",
           examplesTitle: "Role cheat sheet",
           examples: [
               "Black Dragon and Angel show what large flying finishers can do, but both need room for a 2x2 body.",
@@ -907,7 +963,7 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
 ---
 
 {!embedded && <section class="rules-hero">
-    <img class="rules-hero-bg" src="/assets/images/preview_game.webp" alt="" width="1200" height="630" />
+    <img class="rules-hero-bg" src={rulesCombatImage} alt="" width="1920" height="947" />
     <div class="rules-hero-shade"></div>
     <div class="page-shell rules-hero-shell">
         <div class="rules-hero-copy">
@@ -924,29 +980,13 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
         </div>
 
         <div class="rules-showcase" aria-label={copy.heroLabel}>
-            <div class="rules-board-shot rules-hero-board" aria-hidden="true">
-                <div class="rules-hero-board-grid">
-                    {
-                        Array.from({ length: 64 }).map((_, i) => (
-                            <span
-                                class:list={[
-                                    {
-                                        "is-deploy-left": i % 8 < 2,
-                                        "is-deploy-right": i % 8 > 5,
-                                        "is-center": i === 27 || i === 28 || i === 35 || i === 36,
-                                        "is-hole": i < 8 || i > 55,
-                                    },
-                                ]}
-                            />
-                        ))
-                    }
-                </div>
-                <img class="rules-hero-piece dragon" src="/assets/images/units/units/black_dragon_512.webp" alt="" width="512" height="512" loading="eager" />
-                <img class="rules-hero-piece angel" src="/assets/images/units/units/angel_512.webp" alt="" width="512" height="512" loading="eager" />
-                <img class="rules-hero-piece arbalester" src="/assets/images/units/units/arbalester_512.webp" alt="" width="512" height="512" loading="eager" />
-                <img class="rules-hero-piece pegasus" src="/assets/images/units/units/pegasus_512.webp" alt="" width="512" height="512" loading="eager" />
-                <img class="rules-hero-piece medusa" src="/assets/images/units/units/medusa_512.webp" alt="" width="512" height="512" loading="eager" />
-            </div>
+            <figure class="rules-board-shot rules-hero-board">
+                <img src={rulesCombatImage} alt={rulesVisuals.combatAlt} width="1920" height="947" loading="eager" />
+                <figcaption class="rules-capture-caption">
+                    <span class="rules-capture-kicker"><i aria-hidden="true"></i>{rulesVisuals.liveBadge}</span>
+                    <span>{rulesVisuals.combatCaption}</span>
+                </figcaption>
+            </figure>
             <div class="rules-unit-line">
                 {
                     heroUnits.map((unit) => (
@@ -1000,6 +1040,13 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
                 <SectionTitle class="rules-section-title">{copy.loopTitle}</SectionTitle>
                 <p>{copy.loopIntro}</p>
             </div>
+            {embedded && <figure class="rules-game-capture rules-game-capture-wide">
+                <img src={rulesCombatImage} alt={rulesVisuals.combatAlt} width="1920" height="947" loading="eager" />
+                <figcaption class="rules-capture-caption">
+                    <span class="rules-capture-kicker"><i aria-hidden="true"></i>{rulesVisuals.liveBadge}</span>
+                    <span>{rulesVisuals.combatCaption}</span>
+                </figcaption>
+            </figure>}
             <ol class="rules-phase-grid">
                 {copy.phases.map((phase, index) => (
                     <li class="rules-card rules-step">
@@ -1150,6 +1197,41 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
                 <SectionTitle class="rules-section-title">{copy.upgradesTitle}</SectionTitle>
                 <p>{copy.upgradesIntro}</p>
             </div>
+            <section class="rules-placement-compare" aria-labelledby="rules-placement-compare-title">
+                <header class="rules-placement-compare-head">
+                    <div>
+                        <p class="eyebrow">{isRu ? "Зона зелёной стороны" : "Green-side deployment"}</p>
+                        <ItemTitle id="rules-placement-compare-title">
+                            {isRu ? "Три варианта апгрейда на настоящем поле" : "All three Placement tiers on the real board"}
+                        </ItemTitle>
+                    </div>
+                    <p>
+                        {isRu
+                            ? "Показаны точные разрешённые клетки нижнего/зелёного игрока. Красная сторона зеркально получает ту же геометрию справа."
+                            : "These are the Lower/green player's exact legal cells. The Upper/red player receives the same geometry mirrored on the right."}
+                    </p>
+                </header>
+                <div class="rules-placement-compare-grid">
+                    {placementZoneVisuals.map((variant, index) => (
+                        <figure class="rules-placement-variant">
+                            <div class="rules-placement-board">
+                                <svg viewBox="0 0 1576 1378" role="img" aria-label={`${variant.tier}: ${variant.title}`}>
+                                    <image href={rulesPlacementZonesImage} x="0" y="0" width="1576" height="1378" />
+                                    <polygon class="rules-placement-zone-wash" points={variant.points} />
+                                    <polygon class="rules-placement-zone-edge" points={variant.points} />
+                                </svg>
+                                <span class="rules-placement-side">{isRu ? "ЗЕЛЁНЫЙ · НИЖНИЙ" : "GREEN · LOWER"}</span>
+                                <span class="rules-placement-tier-number">0{index + 1}</span>
+                            </div>
+                            <figcaption>
+                                <span><strong>{variant.tier}</strong><em>{variant.cost}</em></span>
+                                <b>{variant.title}</b>
+                                <p>{variant.detail}</p>
+                            </figcaption>
+                        </figure>
+                    ))}
+                </div>
+            </section>
             <div class="rules-table-scroll" role="region" aria-labelledby="rules-augment-table-title" tabindex="0">
                 <table class="rules-aug-table">
                     <caption id="rules-augment-table-title">{isRu ? "Эффекты апгрейдов по уровням" : "Augment effects by tier"}</caption>
@@ -1247,14 +1329,13 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
                 <SectionTitle class="rules-section-title">{copy.placementTitle}</SectionTitle>
                 {copy.placementParagraphs.map((paragraph) => <p>{paragraph}</p>)}
             </div>
-            <div class="rules-board-diagram" aria-hidden="true">
-                <div class="rules-board-grid">
-                    {Array.from({ length: 64 }).map((_, i) => <span class:list={[{ "is-hole": i < 8 || i > 55, "is-center": i === 27 || i === 28 || i === 35 || i === 36 }]}></span>)}
-                </div>
-                <img class="rules-board-unit one" src="/assets/images/units/units/black_dragon_512.webp" alt="" width="512" height="512" loading="lazy" />
-                <img class="rules-board-unit two" src="/assets/images/units/units/arbalester_512.webp" alt="" width="512" height="512" loading="lazy" />
-                <img class="rules-board-unit three" src="/assets/images/units/units/pegasus_512.webp" alt="" width="512" height="512" loading="lazy" />
-            </div>
+            <figure class="rules-game-capture rules-placement-capture">
+                <img src={rulesPlacementImage} alt={rulesVisuals.placementAlt} width="1920" height="947" loading="lazy" />
+                <figcaption class="rules-capture-caption">
+                    <span class="rules-capture-kicker"><i aria-hidden="true"></i>{rulesVisuals.liveBadge}</span>
+                    <span>{rulesVisuals.placementCaption}</span>
+                </figcaption>
+            </figure>
         </div>
     </section>
 
@@ -1326,14 +1407,8 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
                 {copy.mapParagraphs.map((paragraph) => <p>{paragraph}</p>)}
             </div>
             <div class="rules-map-visual" aria-hidden="true">
-                <div class="rules-map-grid">
-                    {Array.from({ length: 64 }).map((_, index) => {
-                        const row = Math.floor(index / 8);
-                        const column = index % 8;
-                        const edgeDistance = Math.min(row, column, 7 - row, 7 - column);
-                        return <span class:list={{ "is-outer": edgeDistance === 0, "is-next": edgeDistance === 1, "is-core": edgeDistance >= 3 }}></span>;
-                    })}
-                </div>
+                <img src={rulesEmptyBoardImage} alt="" width="1470" height="940" loading="lazy" />
+                <span class="rules-map-vignette"></span>
                 <span class="map-ring one"></span>
                 <span class="map-ring two"></span>
                 <span class="map-ring three"></span>
@@ -1463,90 +1538,16 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
         box-shadow: var(--shadow);
     }
 
-    .rules-board-shot > img:not(.rules-hero-piece) {
+    .rules-board-shot > img {
+        display: block;
         width: 100%;
-        aspect-ratio: 16 / 9;
+        height: auto;
+        aspect-ratio: 1920 / 947;
         object-fit: cover;
     }
 
     .rules-hero-board {
-        position: relative;
-        min-height: 344px;
-        aspect-ratio: 16 / 10;
-        background:
-            linear-gradient(135deg, rgba(103, 174, 246, 0.08), rgba(99, 210, 138, 0.12)),
-            #080b0d;
-    }
-
-    .rules-hero-board-grid {
-        position: absolute;
-        inset: 6% 7%;
-        display: grid;
-        grid-template-columns: repeat(8, minmax(0, 1fr));
-        gap: 5px;
-        transform: perspective(980px) rotateX(50deg) rotateZ(-38deg) translate(-2%, 6%);
-        transform-origin: center;
-    }
-
-    .rules-hero-board-grid span {
-        aspect-ratio: 1 / 1;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        background:
-            linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.025)),
-            #11181b;
-        box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.34);
-    }
-
-    .rules-hero-board-grid span.is-deploy-left {
-        background: rgba(103, 174, 246, 0.18);
-    }
-
-    .rules-hero-board-grid span.is-deploy-right {
-        background: rgba(239, 74, 63, 0.2);
-    }
-
-    .rules-hero-board-grid span.is-center {
-        background: rgba(242, 199, 93, 0.28);
-    }
-
-    .rules-hero-board-grid span.is-hole {
-        background: rgba(5, 6, 6, 0.72);
-    }
-
-    .rules-hero-piece {
-        position: absolute;
-        width: clamp(86px, 19%, 142px);
-        height: auto;
-        filter: drop-shadow(0 18px 20px rgba(0, 0, 0, 0.62));
-        pointer-events: none;
-    }
-
-    .rules-hero-piece.dragon {
-        right: 12%;
-        bottom: 13%;
-        width: clamp(130px, 28%, 210px);
-    }
-
-    .rules-hero-piece.angel {
-        left: 41%;
-        top: 8%;
-    }
-
-    .rules-hero-piece.arbalester {
-        left: 12%;
-        bottom: 17%;
-        width: clamp(76px, 16%, 118px);
-    }
-
-    .rules-hero-piece.pegasus {
-        left: 24%;
-        top: 20%;
-    }
-
-    .rules-hero-piece.medusa {
-        right: 33%;
-        bottom: 9%;
-        width: clamp(82px, 17%, 126px);
+        margin: 0;
     }
 
     .rules-unit-line {
@@ -1744,6 +1745,239 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
     .rules-copy-block p {
         color: rgba(251, 244, 232, 0.78);
         font-size: 1rem;
+    }
+
+    .rules-game-capture {
+        position: relative;
+        min-width: 0;
+        margin: 0;
+        overflow: hidden;
+        border: 1px solid rgba(220, 177, 88, 0.44);
+        border-radius: 6px;
+        background: #050708;
+        box-shadow: 0 24px 54px rgba(0, 0, 0, 0.34);
+    }
+
+    .rules-game-capture::before,
+    .rules-game-capture::after {
+        position: absolute;
+        z-index: 1;
+        width: 54px;
+        height: 54px;
+        content: "";
+        pointer-events: none;
+    }
+
+    .rules-game-capture::before {
+        top: 9px;
+        left: 9px;
+        border-top: 1px solid rgba(242, 199, 93, 0.8);
+        border-left: 1px solid rgba(242, 199, 93, 0.8);
+    }
+
+    .rules-game-capture::after {
+        right: 9px;
+        bottom: 68px;
+        border-right: 1px solid rgba(242, 199, 93, 0.8);
+        border-bottom: 1px solid rgba(242, 199, 93, 0.8);
+    }
+
+    .rules-game-capture > img {
+        display: block;
+        width: 100%;
+        height: auto;
+        aspect-ratio: 1920 / 947;
+        object-fit: cover;
+        object-position: center;
+    }
+
+    .rules-game-capture-wide {
+        margin: -4px 0 24px;
+    }
+
+    .rules-capture-caption {
+        display: grid;
+        grid-template-columns: max-content minmax(0, 1fr);
+        gap: 15px;
+        align-items: center;
+        margin: 0;
+        padding: 12px 16px;
+        color: rgba(251, 244, 232, 0.72);
+        border-top: 1px solid rgba(220, 177, 88, 0.24);
+        background:
+            linear-gradient(90deg, rgba(220, 177, 88, 0.12), transparent 42%),
+            #090d10;
+        font-size: 0.78rem;
+        line-height: 1.45;
+    }
+
+    .rules-capture-kicker {
+        display: inline-flex;
+        gap: 7px;
+        align-items: center;
+        color: var(--gold-soft);
+        font-family: var(--font-display);
+        font-size: 0.7rem;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+
+    .rules-capture-kicker i {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #6fd186;
+        box-shadow: 0 0 12px rgba(111, 209, 134, 0.75);
+    }
+
+    .rules-placement-compare {
+        margin: -2px 0 26px;
+        padding: clamp(18px, 3cqi, 28px);
+        border: 1px solid rgba(220, 177, 88, 0.25);
+        border-radius: 7px;
+        background:
+            radial-gradient(circle at 14% 0%, rgba(62, 170, 101, 0.1), transparent 34%),
+            #070b0e;
+        box-shadow: 0 22px 42px rgba(0, 0, 0, 0.22);
+    }
+
+    .rules-placement-compare-head {
+        display: grid;
+        grid-template-columns: minmax(0, 1.08fr) minmax(250px, 0.92fr);
+        gap: clamp(18px, 4cqi, 38px);
+        align-items: end;
+        margin-bottom: 20px;
+    }
+
+    .rules-placement-compare-head h3,
+    .rules-placement-compare-head h4 {
+        margin: 4px 0 0;
+        color: var(--gold-soft);
+        font-size: clamp(1.2rem, 3.2cqi, 1.65rem);
+        line-height: 1.16;
+    }
+
+    .rules-placement-compare-head > p {
+        margin: 0;
+        color: rgba(251, 244, 232, 0.68);
+        font-size: 0.86rem;
+        line-height: 1.55;
+    }
+
+    .rules-placement-compare-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .rules-placement-variant {
+        min-width: 0;
+        margin: 0;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.085);
+        border-radius: 5px;
+        background: #0c1216;
+    }
+
+    .rules-placement-board {
+        position: relative;
+        overflow: hidden;
+        border-bottom: 1px solid rgba(220, 177, 88, 0.2);
+        background: #030506;
+    }
+
+    .rules-placement-board::after {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, transparent 62%, rgba(0, 0, 0, 0.48));
+        content: "";
+        pointer-events: none;
+    }
+
+    .rules-placement-board svg {
+        display: block;
+        width: 100%;
+        height: auto;
+    }
+
+    .rules-placement-zone-wash {
+        fill: rgba(41, 176, 91, 0.34);
+        filter: drop-shadow(0 0 18px rgba(61, 211, 117, 0.34));
+    }
+
+    .rules-placement-zone-edge {
+        fill: none;
+        stroke: rgba(102, 225, 145, 0.96);
+        stroke-linejoin: round;
+        stroke-width: 6;
+        vector-effect: non-scaling-stroke;
+    }
+
+    .rules-placement-side,
+    .rules-placement-tier-number {
+        position: absolute;
+        z-index: 1;
+        font-family: var(--font-display);
+        letter-spacing: 0.11em;
+    }
+
+    .rules-placement-side {
+        bottom: 10px;
+        left: 11px;
+        color: #a6efbd;
+        font-size: 0.62rem;
+        text-shadow: 0 1px 5px #000;
+    }
+
+    .rules-placement-tier-number {
+        top: 9px;
+        right: 10px;
+        color: rgba(251, 244, 232, 0.66);
+        font-size: 0.68rem;
+    }
+
+    .rules-placement-variant figcaption {
+        display: grid;
+        gap: 8px;
+        padding: 13px 14px 15px;
+    }
+
+    .rules-placement-variant figcaption > span {
+        display: flex;
+        gap: 8px;
+        align-items: baseline;
+        justify-content: space-between;
+    }
+
+    .rules-placement-variant figcaption strong {
+        color: var(--gold-soft);
+        font-family: var(--font-display);
+        font-size: 0.88rem;
+        font-weight: 500;
+    }
+
+    .rules-placement-variant figcaption em {
+        color: rgba(166, 239, 189, 0.68);
+        font-size: 0.62rem;
+        font-style: normal;
+        letter-spacing: 0.04em;
+        text-align: right;
+        text-transform: uppercase;
+    }
+
+    .rules-placement-variant figcaption b {
+        color: rgba(251, 244, 232, 0.9);
+        font-size: 0.78rem;
+        font-weight: 650;
+        line-height: 1.35;
+    }
+
+    .rules-placement-variant figcaption p {
+        margin: 0;
+        color: rgba(251, 244, 232, 0.61);
+        font-size: 0.72rem;
+        line-height: 1.45;
     }
 
     .rules-phase-grid,
@@ -2248,65 +2482,6 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
         padding-left: 18px;
     }
 
-    .rules-board-diagram {
-        position: relative;
-        min-height: 400px;
-        overflow: hidden;
-        border: 1px solid rgba(220, 177, 88, 0.25);
-        border-radius: 6px;
-        background:
-            linear-gradient(135deg, rgba(103, 174, 246, 0.12), rgba(99, 210, 138, 0.1)),
-            #090b0d;
-    }
-
-    .rules-board-grid {
-        position: absolute;
-        inset: 22px;
-        display: grid;
-        grid-template-columns: repeat(8, minmax(0, 1fr));
-        gap: 4px;
-        transform: perspective(900px) rotateX(52deg) rotateZ(-38deg) translate(-18px, 36px);
-        transform-origin: center;
-    }
-
-    .rules-board-grid span {
-        aspect-ratio: 1 / 1;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        background: rgba(251, 244, 232, 0.08);
-    }
-
-    .rules-board-grid span.is-hole {
-        background: rgba(239, 74, 63, 0.36);
-    }
-
-    .rules-board-grid span.is-center {
-        background: rgba(242, 199, 93, 0.34);
-    }
-
-    .rules-board-unit {
-        position: absolute;
-        width: 38%;
-        max-width: 210px;
-        filter: drop-shadow(0 24px 26px rgba(0, 0, 0, 0.55));
-    }
-
-    .rules-board-unit.one {
-        right: 8%;
-        bottom: 16%;
-    }
-
-    .rules-board-unit.two {
-        bottom: 22%;
-        left: 10%;
-        width: 30%;
-    }
-
-    .rules-board-unit.three {
-        top: 6%;
-        left: 36%;
-        width: 34%;
-    }
-
     .rules-mechanics-block + .rules-mechanics-block {
         margin-top: 34px;
         padding-top: 28px;
@@ -2357,35 +2532,23 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
         background: #060708;
     }
 
-    .rules-map-grid {
+    .rules-map-visual > img,
+    .rules-map-vignette {
         position: absolute;
-        inset: 7%;
-        display: grid;
-        grid-template-columns: repeat(8, minmax(0, 1fr));
-        gap: 3px;
-        padding: 6%;
+        inset: 0;
+    }
+
+    .rules-map-visual > img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .rules-map-vignette {
         background:
-            radial-gradient(circle at center, rgba(99, 210, 138, 0.16), transparent 42%),
-            linear-gradient(135deg, rgba(103, 174, 246, 0.08), rgba(220, 177, 88, 0.08));
-        transform: perspective(900px) rotateX(46deg) rotateZ(-10deg);
-    }
-
-    .rules-map-grid span {
-        aspect-ratio: 1;
-        border: 1px solid rgba(251, 244, 232, 0.13);
-        background: rgba(251, 244, 232, 0.08);
-    }
-
-    .rules-map-grid span.is-outer {
-        background: rgba(239, 74, 63, 0.22);
-    }
-
-    .rules-map-grid span.is-next {
-        background: rgba(242, 199, 93, 0.16);
-    }
-
-    .rules-map-grid span.is-core {
-        background: rgba(99, 210, 138, 0.18);
+            radial-gradient(circle at center, rgba(99, 210, 138, 0.08), transparent 31%),
+            linear-gradient(135deg, rgba(239, 74, 63, 0.13), transparent 36%, rgba(242, 199, 93, 0.08));
+        box-shadow: inset 0 0 44px rgba(0, 0, 0, 0.58);
     }
 
     .map-ring {
@@ -2441,7 +2604,12 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
     @container rules-guide (max-width: 760px) {
         .rules-guide-nav-layout,
         .rules-draft-reference,
-        .rules-morale-layout {
+        .rules-morale-layout,
+        .rules-placement-compare-head {
+            grid-template-columns: 1fr;
+        }
+
+        .rules-placement-compare-grid {
             grid-template-columns: 1fr;
         }
 
@@ -2481,13 +2649,9 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
             grid-column: auto;
         }
 
-        .rules-board-diagram {
-            min-height: 300px;
-        }
-
-        .rules-board-grid {
-            inset: 16px;
-            transform: perspective(800px) rotateX(52deg) rotateZ(-38deg) translate(-10px, 28px);
+        .rules-capture-caption {
+            grid-template-columns: 1fr;
+            gap: 5px;
         }
     }
 
@@ -2523,8 +2687,5 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
             text-align: left;
         }
 
-        .rules-hero-board {
-            min-height: 260px;
-        }
     }
 </style>

@@ -69,7 +69,9 @@ export const LobbiesBrowse: React.FC = () => {
                             level="body-sm"
                             sx={{ color: hocColors.muted, maxWidth: 620, mt: 1.1, lineHeight: 1.5 }}
                         >
-                            {t("Open a room, send a friend the link, and play outside the ranked queue.")}
+                            {t(
+                                "Friends' rooms appear first. Join an open table, or create one and call for a challenger.",
+                            )}
                         </Typography>
                     </Box>
 

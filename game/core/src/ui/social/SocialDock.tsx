@@ -32,6 +32,7 @@ import {
     getBattleSystemControlsServerSnapshot,
     shouldShowSystemMenuLabel,
     subscribeBattleSystemControls,
+    SYSTEM_MENU_ITEM_OFFSETS,
 } from "./systemControlsMode";
 import {
     blockPlayer,
@@ -963,8 +964,7 @@ export const SocialDock: React.FC = () => {
             label: "Bets and predictions",
             image: dockButtonImages.predictions,
             active: predictionsOpen,
-            x: -56,
-            y: 4,
+            ...SYSTEM_MENU_ITEM_OFFSETS.predictions,
             delay: 0,
             onClick: () => setPredictionsOpen((wasOpen) => !wasOpen),
         },
@@ -973,8 +973,7 @@ export const SocialDock: React.FC = () => {
             label: "Friends",
             image: dockButtonImages.friends,
             active: friendsOpen,
-            x: -48,
-            y: 46,
+            ...SYSTEM_MENU_ITEM_OFFSETS.friends,
             delay: 35,
             onClick: () => {
                 social.requestNotificationPermission();
@@ -986,8 +985,7 @@ export const SocialDock: React.FC = () => {
             label: "Notifications",
             image: dockButtonImages.notifications,
             active: trayOpen,
-            x: -8,
-            y: 62,
+            ...SYSTEM_MENU_ITEM_OFFSETS.notifications,
             delay: 70,
             onClick: () => {
                 social.requestNotificationPermission();

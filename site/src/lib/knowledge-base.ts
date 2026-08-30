@@ -117,13 +117,13 @@ const rulesEntries = (language: Language): KnowledgeEntry[] => {
               ["Цикл матча", "Драфт, апгрейды, расстановка и бой — четыре этапа матча.", "rules-loop", "фазы начало"],
               [
                   "Как победить",
-                  "Уничтожьте все вражеские стеки до сужения карты и Армагеддона.",
+                  "Уничтожьте все вражеские стеки; сужение и Армагеддон разрешают затяжной бой, а одновременная гибель обеих армий даёт ничью.",
                   "rules-victory",
                   "победа цель",
               ],
               [
                   "Драфт",
-                  "Перк, бандлы, баны, порядок пиков и состав 2/2/1/1 по уровням.",
+                  "Доктрина, заранее сохранённый рейтинговый бан, бандлы, порядок пиков и состав 2/2/1/1 по уровням.",
                   "rules-draft",
                   "выбор пики уровни",
               ],
@@ -135,7 +135,7 @@ const rulesEntries = (language: Language): KnowledgeEntry[] => {
               ],
               [
                   "Апгрейды",
-                  "Семь очков на расстановку, броню, ближний бой, магию, стрельбу и движение.",
+                  "От пяти до семи очков доктрины на расстановку, броню, ближний бой, магию, стрельбу и движение.",
                   "rules-augments",
                   "усиления улучшения",
               ],
@@ -147,13 +147,13 @@ const rulesEntries = (language: Language): KnowledgeEntry[] => {
               ],
               [
                   "Синергии",
-                  "Бонусы фракций за 2, 4 и 6 юнитов Жизни, Хаоса, Силы или Природы — и как разыгрывается вариант.",
+                  "Бонусы фракций за 2, 4 и 6 разных юнитов в выбранном составе Жизни, Хаоса, Силы или Природы — и как определяется вариант.",
                   "rules-synergies",
                   "фракции бонусы проценты",
               ],
               [
                   "Расстановка",
-                  "Зоны старта, стеки 2x2, линии огня, ауры и подготовка формации.",
+                  "Зоны старта, разделение стеков, следы 1x1/2x1/2x2, линии огня, ауры и подготовка формации.",
                   "rules-placement",
                   "позиционирование поле",
               ],
@@ -165,7 +165,7 @@ const rulesEntries = (language: Language): KnowledgeEntry[] => {
               ],
               [
                   "Мораль и удача",
-                  "Темп ходов, дополнительные действия, пропуски, защита и сила стека.",
+                  "Приоритет и пропуски ходов, модификаторы атаки, удача, защита и сила стека.",
                   "rules-morale",
                   "темп luck morale",
               ],
@@ -185,13 +185,13 @@ const rulesEntries = (language: Language): KnowledgeEntry[] => {
               ],
               [
                   "How to win",
-                  "Remove every enemy stack before map narrowing and Armageddon decide the fight.",
+                  "Remove every enemy stack; narrowing and Armageddon resolve stalls, while a simultaneous wipe is a draw.",
                   "rules-victory",
                   "victory objective",
               ],
               [
                   "Draft",
-                  "Doctrine, bundles, bans, pick order, and the 2/2/1/1 roster by unit level.",
+                  "Doctrine, the pre-saved ranked ban, bundles, pick order, and the 2/2/1/1 roster by unit level.",
                   "rules-draft",
                   "selection picks tiers",
               ],
@@ -203,7 +203,7 @@ const rulesEntries = (language: Language): KnowledgeEntry[] => {
               ],
               [
                   "Augments",
-                  "Spend seven points across placement, armor, melee, magic, ranged, and movement.",
+                  "Spend the doctrine's five-to-seven points across placement, armor, melee, magic, ranged, and movement.",
                   "rules-augments",
                   "upgrades points",
               ],
@@ -215,13 +215,13 @@ const rulesEntries = (language: Language): KnowledgeEntry[] => {
               ],
               [
                   "Faction synergies",
-                  "Bonuses unlocked by fielding 2, 4, or 6 Life, Chaos, Might, or Nature units — and how the variant is drawn.",
+                  "Bonuses unlocked by drafting 2, 4, or 6 distinct Life, Chaos, Might, or Nature units—and how the variant is determined.",
                   "rules-synergies",
                   "factions bonuses percentages",
               ],
               [
                   "Placement",
-                  "Deployment zones, 2x2 stacks, firing lanes, aura coverage, and formation planning.",
+                  "Deployment zones, stack splitting, 1x1/2x1/2x2 footprints, firing lanes, auras, and formation planning.",
                   "rules-placement",
                   "positioning board",
               ],
@@ -233,7 +233,7 @@ const rulesEntries = (language: Language): KnowledgeEntry[] => {
               ],
               [
                   "Morale and luck",
-                  "Turn tempo, extra actions, skipped turns, defense, and stack power.",
+                  "Turn priority and skips, attack modifiers, luck, defense, and stack power.",
                   "rules-morale",
                   "tempo",
               ],
@@ -251,7 +251,7 @@ const rulesEntries = (language: Language): KnowledgeEntry[] => {
         name,
         description,
         meta: isRu ? "Правила игры" : "Game rules",
-        image: "/assets/images/preview_game.webp",
+        image: "/assets/images/knowledge-base/rules-live-combat.webp",
         target,
         searchText: `${name} ${description} ${keywords}`,
     }));

@@ -220,7 +220,9 @@ export const MatchmakingRoute: React.FC = () => {
     const [state, setState] = useState<MatchmakingState>(
         mockMatchPreview ? (mockMatchAccepted ? "accepted" : "confirming") : "idle",
     );
-    const [profileSummaryOpen, setProfileSummaryOpen] = useState(false);
+    // The backend-free preview should land on the thing it exists to demonstrate. Live players keep
+    // the compact arena default and opt into this panel with the stats toggle as before.
+    const [profileSummaryOpen, setProfileSummaryOpen] = useState(() => isMockPortalEnabled());
     // Commanders currently on the arena (queue + live games) — polled from the public mm endpoint.
     const [onlineNow, setOnlineNow] = useState<{ searching: number; playing: number; online: number }>();
     const { currency, snapshot: seasonSnapshot } = useRankedSeason();

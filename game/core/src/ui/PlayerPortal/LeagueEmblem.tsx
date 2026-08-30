@@ -81,11 +81,19 @@ export interface LeagueEmblemProps {
     league: number;
     /** A plain px size, or the breakpoint map the avatar slots on the profile surfaces use. */
     size?: number | Record<string, number>;
+    /** Tighter shadows keep the 512px portrait crisp when it is reduced to a small HUD avatar. */
+    variant?: "default" | "compact";
     wealth?: number;
 }
 
 /** A player's wealth portrait inside its league frame. League 0 is calibration. */
-export const LeagueEmblem: React.FC<LeagueEmblemProps> = ({ label, league, size = 72, wealth = 0 }) => (
+export const LeagueEmblem: React.FC<LeagueEmblemProps> = ({
+    label,
+    league,
+    size = 72,
+    variant = "default",
+    wealth = 0,
+}) => (
     <Box
         component="img"
         src={leagueEmblemSource(league, wealth)}
@@ -98,7 +106,11 @@ export const LeagueEmblem: React.FC<LeagueEmblemProps> = ({ label, league, size 
             height: size,
             flexShrink: 0,
             objectFit: "contain",
-            filter: `drop-shadow(0 8px 13px rgba(0,0,0,0.58)) drop-shadow(0 0 9px ${leagueEmblemGlow(league)})`,
+            imageRendering: "auto",
+            filter:
+                variant === "compact"
+                    ? `drop-shadow(0 2px 3px rgba(0,0,0,0.68)) drop-shadow(0 0 2px ${leagueEmblemGlow(league)})`
+                    : `drop-shadow(0 8px 13px rgba(0,0,0,0.58)) drop-shadow(0 0 9px ${leagueEmblemGlow(league)})`,
             userSelect: "none",
         }}
     />

@@ -55,6 +55,19 @@ const OPPONENTS = [
     "VoidPilgrim",
 ];
 
+const OPPONENT_STANDINGS = [
+    { mmr: 1718, standingTitle: "Stacked Marshal", leaderboardRank: 38 },
+    { mmr: 1386, standingTitle: "Whale Vanguard", leaderboardRank: 74 },
+    { mmr: 2041, standingTitle: "Ragged Overlord", leaderboardRank: 14 },
+    { mmr: 1124, standingTitle: "Stacked Vanguard", leaderboardRank: 109 },
+    { mmr: 1879, standingTitle: "Whale Marshal", leaderboardRank: 25 },
+    { mmr: 948, standingTitle: "Whale Aspirant", leaderboardRank: 163 },
+    { mmr: 1532, standingTitle: "Ragged Marshal", leaderboardRank: 56 },
+    { mmr: 1265, standingTitle: "Ragged Vanguard", leaderboardRank: 91 },
+    { mmr: 2196, standingTitle: "Stacked Overlord", leaderboardRank: 7 },
+    { mmr: 1042, standingTitle: "Whale Aspirant", leaderboardRank: 137 },
+] as const;
+
 const SETUP_PRESETS: PortalMatchSetupData[] = [
     {
         artifact_tier_1: Artifact.Tier1Artifact.IRON_PLATE,
@@ -175,7 +188,9 @@ export const buildMockPortal = (): ResponsePlayerPortalObject => {
             i % 7 === 6 ? PortalMatchKind.LOBBY : i % 5 === 0 ? PortalMatchKind.CALIBRATION : PortalMatchKind.RANKED;
         const mmrBefore = matchKind === PortalMatchKind.LOBBY ? 0 : 790 + ((i * 19) % 240);
         const mmrDelta = matchKind === PortalMatchKind.LOBBY || draw ? 0 : won ? 15 + (i % 22) : -(14 + (i % 19));
-        const opponentUsername = OPPONENTS[Math.floor(rng() * OPPONENTS.length)];
+        const opponentIndex = Math.floor(rng() * OPPONENTS.length);
+        const opponentUsername = OPPONENTS[opponentIndex];
+        const opponentStanding = OPPONENT_STANDINGS[opponentIndex];
 
         matches.push({
             game_id: `mock-${i}`,
@@ -201,6 +216,9 @@ export const buildMockPortal = (): ResponsePlayerPortalObject => {
             mmr_after: mmrBefore + mmrDelta,
             mmr_delta: mmrDelta,
             gold_earned: matchKind !== PortalMatchKind.LOBBY && won ? 12 + (i % 11) : 0,
+            opponent_mmr: opponentStanding.mmr,
+            opponent_standing_title: opponentStanding.standingTitle,
+            opponent_leaderboard_rank: opponentStanding.leaderboardRank,
             // Exercise both partial historical setup and matches that predate setup tracking entirely.
             player_setup: i % 12 === 11 ? undefined : i % 8 === 7 ? historicalSetupPreset(i) : setupPreset(i),
             opponent_setup: i % 12 === 11 ? undefined : i % 8 === 7 ? historicalSetupPreset(i + 1) : setupPreset(i + 1),

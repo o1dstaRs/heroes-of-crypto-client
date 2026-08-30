@@ -8,6 +8,7 @@ import React from "react";
 import { useNavigate } from "react-router";
 
 import { rankedSeasonCurrencyAt } from "../../api/ranked_season_client";
+import { fetchPublicPlayerStats, type PublicPlayerStats } from "../../api/social_client";
 import { t, tf, useTranslation } from "../../i18n/i18n";
 import { useAuthContext } from "../auth/context/auth_context";
 import { CurrencyIcon } from "../GoldCurrencyIcon";
@@ -63,22 +64,183 @@ const playerInitials = (username: string): string => {
     return username.slice(0, 2).toUpperCase() || "HC";
 };
 
-type RecentFormMatch = { draw?: boolean; won?: boolean };
 type RecentFormResult = "draw" | "empty" | "loss" | "win";
 
-const SidebarRecentForm: React.FC<{ matches: readonly RecentFormMatch[] }> = ({ matches }) => {
+const opponentStatsCache = new Map<string, PublicPlayerStats | null>();
+const opponentStatsRequests = new Map<string, Promise<PublicPlayerStats | null>>();
+
+const cachedOpponentStats = (playerId: string): Promise<PublicPlayerStats | null> => {
+    if (opponentStatsCache.has(playerId)) {
+        return Promise.resolve(opponentStatsCache.get(playerId) ?? null);
+    }
+    const pending = opponentStatsRequests.get(playerId);
+    if (pending) {
+        return pending;
+    }
+    const request = fetchPublicPlayerStats(playerId)
+        .then((stats) => {
+            opponentStatsCache.set(playerId, stats);
+            return stats;
+        })
+        .catch(() => {
+            opponentStatsCache.set(playerId, null);
+            return null;
+        })
+        .finally(() => opponentStatsRequests.delete(playerId));
+    opponentStatsRequests.set(playerId, request);
+    return request;
+};
+
+const matchPreviewStats = (match: PortalMatchData): PublicPlayerStats | null =>
+    match.opponent_standing_title || match.opponent_mmr || match.opponent_leaderboard_rank
+        ? {
+              playerId: match.opponent_player_id ?? "",
+              username: match.opponent_username ?? t("Unknown rival"),
+              state: "placed",
+              mmr: match.opponent_mmr,
+              standingTitle: match.opponent_standing_title,
+              leaderboardRank: match.opponent_leaderboard_rank,
+          }
+        : null;
+
+const SidebarRecentFormDot: React.FC<{
+    color: { background: string; border: string; shadow?: string };
+    match: PortalMatchData;
+}> = ({ color, match }) => {
+    const { language } = useTranslation();
+    const playerId = match.opponent_player_id?.trim() ?? "";
+    const previewStats = matchPreviewStats(match);
+    const cachedStats = playerId && opponentStatsCache.has(playerId) ? opponentStatsCache.get(playerId) : undefined;
+    const [stats, setStats] = React.useState<PublicPlayerStats | null>(previewStats ?? cachedStats ?? null);
+    const [rankState, setRankState] = React.useState<"idle" | "loading" | "resolved">(
+        previewStats || cachedStats !== undefined || !playerId ? "resolved" : "idle",
+    );
+    const result = matchResultPresentation(match);
+    const resultLabel = t(result.label);
+    const opponentName = match.opponent_username || t("Unknown rival");
+    const finishedAt = match.finished_time
+        ? new Intl.DateTimeFormat(language === "ru" ? "ru-RU" : "en-US", {
+              dateStyle: "medium",
+              timeStyle: "short",
+          }).format(new Date(match.finished_time))
+        : t("Recently");
+
+    const loadRank = React.useCallback(() => {
+        if (!playerId || rankState !== "idle") {
+            return;
+        }
+        setRankState("loading");
+        void cachedOpponentStats(playerId).then((loaded) => {
+            setStats(loaded);
+            setRankState("resolved");
+        });
+    }, [playerId, rankState]);
+
+    const rankParts = [
+        stats?.standingTitle,
+        (stats?.leaderboardRank ?? 0) > 0 ? `#${stats?.leaderboardRank}` : "",
+        (stats?.mmr ?? 0) > 0 ? `${stats?.mmr} ${t("MMR")}` : "",
+    ].filter(Boolean);
+    const rankLabel =
+        rankState === "loading"
+            ? t("Loading rank…")
+            : rankParts.length > 0
+              ? rankParts.join(" · ")
+              : stats?.state === "calibration" || stats?.state === "recalibration"
+                ? t("Calibration")
+                : t("Rank unavailable");
+
+    return (
+        <Tooltip
+            arrow
+            enterDelay={120}
+            placement="bottom"
+            variant="soft"
+            sx={{
+                bgcolor: "rgba(20,12,6,0.98)",
+                border: "1px solid rgba(220,177,88,0.42)",
+                color: hocColors.parchment,
+                boxShadow: "0 12px 34px rgba(0,0,0,0.58)",
+            }}
+            title={
+                <Box sx={{ minWidth: 210, p: 0.35 }}>
+                    <Typography level="body-sm" sx={{ color: hocColors.parchment, fontWeight: 800 }}>
+                        <Box component="span" sx={{ color: color.background }}>
+                            {resultLabel}
+                        </Box>{" "}
+                        <Box component="span" sx={{ color: hocColors.muted, fontWeight: 500 }}>
+                            {t("vs")}
+                        </Box>{" "}
+                        {opponentName}
+                    </Typography>
+                    {result.detail ? (
+                        <Typography level="body-xs" sx={{ color: color.background, mt: 0.2 }}>
+                            {t(result.detail)}
+                        </Typography>
+                    ) : null}
+                    <Typography level="body-xs" sx={{ color: hocColors.muted, mt: 0.45 }}>
+                        {finishedAt}
+                    </Typography>
+                    <Typography level="body-xs" sx={{ color: hocColors.gold, mt: 0.2 }}>
+                        {t("Current rank")}: {rankLabel}
+                    </Typography>
+                </Box>
+            }
+        >
+            <Box
+                component="button"
+                type="button"
+                aria-label={`${resultLabel} ${t("vs")} ${opponentName}, ${finishedAt}. ${t("Current rank")}: ${rankLabel}`}
+                onMouseEnter={loadRank}
+                onFocus={loadRank}
+                sx={{
+                    display: "grid",
+                    width: 14,
+                    height: 14,
+                    p: 0,
+                    placeItems: "center",
+                    flexShrink: 0,
+                    border: 0,
+                    borderRadius: "50%",
+                    bgcolor: "transparent",
+                    cursor: "help",
+                    "&::after": {
+                        content: '""',
+                        display: "block",
+                        width: 10,
+                        height: 10,
+                        border: `1px solid ${color.border}`,
+                        borderRadius: "50%",
+                        bgcolor: color.background,
+                        boxShadow: color.shadow ?? "inset 0 0 0 2px rgba(0,0,0,0.18)",
+                    },
+                    "&:focus-visible": {
+                        outline: `2px solid ${hocColors.gold}`,
+                        outlineOffset: 2,
+                    },
+                }}
+            />
+        </Tooltip>
+    );
+};
+
+const SidebarRecentForm: React.FC<{ matches: readonly PortalMatchData[] }> = ({ matches }) => {
     // Portal history is newest-first. Reverse the ten real results so the latest sits at the right,
     // with empty positions padded on the left for commanders who have played fewer than ten games.
-    const results: RecentFormResult[] = matches
-        .map((match) => (match.draw ? "draw" : match.won ? "win" : "loss"))
+    const results = matches
+        .slice(0, 10)
+        .map((match) => ({
+            match,
+            result: match.draw ? ("draw" as const) : match.won ? ("win" as const) : ("loss" as const),
+        }))
         .reverse();
-    const padded: RecentFormResult[] = [
-        ...Array<RecentFormResult>(Math.max(0, 10 - results.length)).fill("empty"),
+    const padded: Array<{ match?: PortalMatchData; result: RecentFormResult }> = [
+        ...Array.from({ length: Math.max(0, 10 - results.length) }, () => ({ result: "empty" as const })),
         ...results,
     ];
-    const wins = results.filter((result) => result === "win").length;
-    const draws = results.filter((result) => result === "draw").length;
-    const losses = results.filter((result) => result === "loss").length;
+    const wins = results.filter(({ result }) => result === "win").length;
+    const draws = results.filter(({ result }) => result === "draw").length;
+    const losses = results.filter(({ result }) => result === "loss").length;
     const labels: Record<RecentFormResult, string> = {
         draw: t("Draw"),
         empty: t("No result"),
@@ -94,9 +256,6 @@ const SidebarRecentForm: React.FC<{ matches: readonly RecentFormMatch[] }> = ({ 
 
     return (
         <Box sx={{ mt: 0.55, minWidth: 0 }}>
-            <Typography level="body-xs" sx={{ color: hocColors.muted }}>
-                {t("Recent form")}
-            </Typography>
             <Stack
                 component="span"
                 role="img"
@@ -104,26 +263,34 @@ const SidebarRecentForm: React.FC<{ matches: readonly RecentFormMatch[] }> = ({ 
                 direction="row"
                 spacing={0.45}
                 alignItems="center"
-                sx={{ minHeight: 18, mt: 0.15 }}
+                sx={{ minHeight: 18 }}
             >
-                {padded.map((result, index) => (
-                    <Box
-                        component="i"
-                        key={`${index}:${result}`}
-                        title={labels[result]}
-                        aria-hidden="true"
-                        sx={{
-                            display: "block",
-                            width: 10,
-                            height: 10,
-                            flexShrink: 0,
-                            border: `1px solid ${colors[result].border}`,
-                            borderRadius: "50%",
-                            bgcolor: colors[result].background,
-                            boxShadow: colors[result].shadow ?? "inset 0 0 0 2px rgba(0,0,0,0.18)",
-                        }}
-                    />
-                ))}
+                {padded.map(({ match, result }, index) =>
+                    match ? (
+                        <SidebarRecentFormDot
+                            key={match.game_id || `${index}:${result}`}
+                            color={colors[result]}
+                            match={match}
+                        />
+                    ) : (
+                        <Box
+                            component="i"
+                            key={`${index}:${result}`}
+                            title={labels[result]}
+                            aria-hidden="true"
+                            sx={{
+                                display: "block",
+                                width: 10,
+                                height: 10,
+                                flexShrink: 0,
+                                border: `1px solid ${colors[result].border}`,
+                                borderRadius: "50%",
+                                bgcolor: colors[result].background,
+                                boxShadow: colors[result].shadow ?? "inset 0 0 0 2px rgba(0,0,0,0.18)",
+                            }}
+                        />
+                    ),
+                )}
             </Stack>
         </Box>
     );
@@ -343,13 +510,13 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
                             said "player" twice. Initials stand in only while the standing call is in
                             flight, or if it failed — it never blocks matchmaking. */}
                         {standing ? (
-                            <LeagueEmblem {...standingEmblem(standing)} size={predictionsVisible ? 46 : 54} />
+                            <LeagueEmblem {...standingEmblem(standing)} size={predictionsVisible ? 58 : 72} />
                         ) : (
                             <Avatar
                                 variant="soft"
                                 sx={{
-                                    width: predictionsVisible ? 46 : 54,
-                                    height: predictionsVisible ? 46 : 54,
+                                    width: predictionsVisible ? 58 : 72,
+                                    height: predictionsVisible ? 58 : 72,
                                     flexShrink: 0,
                                     color: hocColors.gold,
                                     bgcolor: "rgba(0,0,0,0.36)",

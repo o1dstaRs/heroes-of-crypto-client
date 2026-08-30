@@ -24,6 +24,8 @@ export type MatchupPlayer = Readonly<{
 type MatchupOverlayProps = Readonly<{
     players: readonly MatchupPlayer[];
     placement: "pick" | "fight";
+    /** Fight screens centre the strip only after the unit roster has cleared for live combat. */
+    fightStarted?: boolean;
     /** The draft's current phase / the battle's current lap; intentionally one small contextual line. */
     status?: string;
     windowSize?: { width: number; height: number };
@@ -34,14 +36,37 @@ type MatchupOverlayProps = Readonly<{
 type MatchupProfile = Readonly<{
     username: string;
     rank: string;
+    record: string;
     winRate: string;
 }>;
 
 const fallbackProfile = (player: MatchupPlayer): MatchupProfile => ({
     username: player.label || (player.isAi ? "AI" : player.team === MATCHUP_LOWER_TEAM ? "Green" : "Red"),
     rank: player.isAi ? "AI" : "Ranked",
-    winRate: "— W",
+    record: "W— T— L—",
+    winRate: "—%",
 });
+
+const wholeStat = (value: number | undefined): string =>
+    typeof value === "number" && Number.isFinite(value) ? String(Math.max(0, Math.trunc(value))) : "—";
+
+const MATCHUP_COLLAPSED_STORAGE_KEY = "hoc.matchupOverlay.collapsed";
+
+const readMatchupCollapsed = (): boolean => {
+    try {
+        return globalThis.localStorage?.getItem(MATCHUP_COLLAPSED_STORAGE_KEY) === "1";
+    } catch {
+        return false;
+    }
+};
+
+const writeMatchupCollapsed = (collapsed: boolean): void => {
+    try {
+        globalThis.localStorage?.setItem(MATCHUP_COLLAPSED_STORAGE_KEY, collapsed ? "1" : "0");
+    } catch {
+        // A cosmetic preference must never prevent the HUD from opening.
+    }
+};
 
 const profileFor = (player: MatchupPlayer, publicProfile?: PublicPlayerStats): MatchupProfile => {
     if (!publicProfile) {
@@ -53,11 +78,12 @@ const profileFor = (player: MatchupPlayer, publicProfile?: PublicPlayerStats): M
         publicProfile.state === "placed"
             ? publicProfile.leagueName || publicProfile.standingTitle || publicProfile.wealthName || "Ranked"
             : "Calibrating";
+    const record = `W${wholeStat(publicProfile.wins)} T${wholeStat(publicProfile.draws)} L${wholeStat(publicProfile.losses)}`;
     const winRate =
         typeof publicProfile.winRatePct === "number" && Number.isFinite(publicProfile.winRatePct)
-            ? `${Math.round(publicProfile.winRatePct)}% W`
-            : "— W";
-    return { username, rank, winRate };
+            ? `${Math.round(publicProfile.winRatePct)}%`
+            : "—%";
+    return { username, rank, record, winRate };
 };
 
 /**
@@ -81,8 +107,8 @@ const Crest: React.FC<{ team: TeamType; tone: MatchupTeamTone }> = ({ team, tone
         <Box
             aria-hidden="true"
             sx={{
-                width: 31,
-                height: 35,
+                width: 35,
+                height: 39,
                 flex: "0 0 auto",
                 display: "grid",
                 placeItems: "center",
@@ -135,7 +161,8 @@ const Side: React.FC<{
                     label={`${text.username} — ${text.rank}`}
                     league={profile.league ?? 0}
                     wealth={profile.wealth ?? 0}
-                    size={31}
+                    size={35}
+                    variant="compact"
                 />
             ) : (
                 <Crest team={player.team} tone={tone} />
@@ -165,23 +192,22 @@ const Side: React.FC<{
                         minWidth: 0,
                         alignItems: "center",
                         justifyContent: reversed ? "flex-end" : "flex-start",
-                        gap: 0.5,
+                        gap: 0.35,
                         color: "#c4b8a0",
-                        fontSize: "0.57rem",
+                        fontSize: "0.5rem",
                         fontWeight: 800,
-                        letterSpacing: "0.055em",
+                        letterSpacing: "0.02em",
                         lineHeight: 1,
                         textTransform: "uppercase",
                         whiteSpace: "nowrap",
                     }}
                 >
                     <Box component="span" sx={{ overflow: "hidden", textOverflow: "ellipsis", color: tone.bright }}>
-                        ◆ {text.rank}
+                        {text.record}
                     </Box>
-                    <Box
-                        component="span"
-                        sx={{ width: 3, height: 3, flex: "0 0 auto", bgcolor: "#8b7960", transform: "rotate(45deg)" }}
-                    />
+                    <Box component="span" sx={{ flex: "0 0 auto", color: "#8b7960" }}>
+                        ·
+                    </Box>
                     <Box component="span" sx={{ overflow: "hidden", textOverflow: "ellipsis" }}>
                         {text.winRate}
                     </Box>
@@ -191,18 +217,72 @@ const Side: React.FC<{
     );
 };
 
+const MatchupToggle: React.FC<{ collapsed: boolean; onClick: () => void }> = ({ collapsed, onClick }) => (
+    <Box
+        component="button"
+        type="button"
+        aria-expanded={!collapsed}
+        aria-label={collapsed ? "Show matchup" : "Hide matchup"}
+        title={collapsed ? "Show matchup" : "Hide matchup"}
+        onClick={onClick}
+        sx={{
+            position: "absolute",
+            zIndex: 2,
+            top: collapsed ? 0 : 16,
+            right: collapsed ? 0 : -7,
+            width: collapsed ? 36 : 16,
+            height: collapsed ? 30 : 21,
+            p: 0,
+            pointerEvents: "auto",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "1px",
+            border: "1px solid rgba(208,173,101,.4)",
+            borderLeftColor: "rgba(255,226,158,.3)",
+            borderRadius: collapsed ? "4px 2px 4px 2px" : "2px 4px 4px 2px",
+            color: "rgba(241,213,138,.72)",
+            background: "linear-gradient(180deg, rgba(53,41,25,.86), rgba(16,13,10,.9) 58%, rgba(37,27,18,.88))",
+            boxShadow: "0 2px 6px rgba(0,0,0,.46), inset 0 1px rgba(255,235,183,.08)",
+            fontFamily: hocDisplayFontFamily,
+            fontSize: collapsed ? "0.52rem" : "0.78rem",
+            fontWeight: 700,
+            lineHeight: 1,
+            letterSpacing: collapsed ? "0.04em" : 0,
+            opacity: collapsed ? 0.82 : 0.62,
+            cursor: "var(--hoc-cursor-interactive), pointer",
+            transition: "filter 140ms ease, opacity 140ms ease, transform 140ms ease",
+            "&:hover": {
+                filter: "brightness(1.12)",
+                opacity: 1,
+                transform: "translateY(-1px)",
+            },
+            "&:active": { transform: "translateY(1px)" },
+        }}
+    >
+        {collapsed ? "VS" : "›"}
+        {collapsed && (
+            <Box component="span" aria-hidden="true" sx={{ fontSize: "0.62rem", color: "rgba(185,154,88,.7)" }}>
+                ‹
+            </Box>
+        )}
+    </Box>
+);
+
 /**
- * Compact, non-interactive matchup strip shared by ranked drafting and battle. Player identity is public
- * ranked data; until it arrives (or for an AI/unranked player) the panel remains stable with honest fallbacks.
+ * Compact matchup strip shared by ranked drafting and battle. Player identity is public ranked data; until
+ * it arrives (or for an AI/unranked player) the panel remains stable with honest fallbacks.
  */
 export const MatchupOverlay: React.FC<MatchupOverlayProps> = ({
     players,
     placement,
+    fightStarted = false,
     status,
     windowSize,
     viewerTeam,
 }) => {
     const [profiles, setProfiles] = useState<Record<string, PublicPlayerStats>>({});
+    const [collapsed, setCollapsed] = useState(readMatchupCollapsed);
     const playerKey = players
         .map((player) => `${player.team}:${player.playerId ?? ""}:${player.isAi ? "ai" : "human"}`)
         .sort()
@@ -251,6 +331,15 @@ export const MatchupOverlay: React.FC<MatchupOverlayProps> = ({
     const leftTone = matchupTeamTone(left.team, viewerTeam, presetId);
     const rightTone = matchupTeamTone(right.team, viewerTeam, presetId);
     const fightPosition = placement === "fight" && windowSize ? fightMatchupOverlayPosition(windowSize) : undefined;
+    const centred = placement === "pick" || (placement === "fight" && fightStarted);
+    const fightRightEdge = fightPosition?.right ?? 16;
+    const toggleCollapsed = (): void => {
+        setCollapsed((current) => {
+            const next = !current;
+            writeMatchupCollapsed(next);
+            return next;
+        });
+    };
 
     return (
         <Box
@@ -260,89 +349,101 @@ export const MatchupOverlay: React.FC<MatchupOverlayProps> = ({
                 zIndex: placement === "fight" ? 7000 : 65,
                 pointerEvents: "none",
                 top: placement === "fight" ? `${fightPosition?.top ?? 16}px` : 0,
-                left: placement === "pick" ? "50%" : undefined,
-                right: placement === "fight" ? `${fightPosition?.right ?? 16}px` : undefined,
-                transform: placement === "pick" ? "translateX(-50%)" : undefined,
-                width: "min(298px, calc(100vw - 24px))",
-                maxWidth: placement === "fight" ? `${fightPosition?.maxWidth ?? 298}px` : undefined,
-                display: "grid",
-                gridTemplateColumns: "minmax(0, 1fr) 38px minmax(0, 1fr)",
-                alignItems: "center",
-                gap: 0.5,
-                minHeight: 54,
-                px: 1,
-                py: 0.75,
-                overflow: "hidden",
-                border: "1px solid rgba(211,173,92,.62)",
-                borderBottom: "2px solid rgba(180,140,67,.92)",
-                clipPath: "polygon(0 0, 5% 0, 7% 7%, 93% 7%, 95% 0, 100% 0, 100% 88%, 97% 100%, 3% 100%, 0 88%)",
-                background: `linear-gradient(90deg, ${leftTone.panel}, rgba(13,18,16,.97) 39%, rgba(30,19,18,.97) 61%, ${rightTone.panel})`,
-                boxShadow: "0 9px 22px rgba(0,0,0,.62), inset 0 1px rgba(255,238,189,.16)",
-                "&::before": {
-                    content: '\"\"',
-                    position: "absolute",
-                    inset: "3px",
-                    pointerEvents: "none",
-                    border: "1px solid rgba(255,232,174,.09)",
-                    clipPath: "inherit",
-                },
+                left: centred ? "50%" : `calc(100% - ${fightRightEdge}px)`,
+                transform: centred ? "translateX(-50%)" : "translateX(-100%)",
+                width: collapsed ? 36 : "min(298px, calc(100vw - 24px))",
+                height: collapsed ? 30 : 54,
+                maxWidth: placement === "fight" && !collapsed ? `${fightPosition?.maxWidth ?? 298}px` : undefined,
+                transition: "left 260ms ease, transform 260ms ease, width 180ms ease, height 180ms ease",
             }}
         >
-            <Side
-                player={left}
-                tone={leftTone}
-                profile={(left.playerId ? profiles[left.playerId] : undefined) ?? left.previewProfile}
-            />
-            <Box
-                sx={{
-                    minWidth: 0,
-                    height: 34,
-                    display: "grid",
-                    placeItems: "center",
-                    borderLeft: "1px solid rgba(234,204,133,.17)",
-                    borderRight: "1px solid rgba(234,204,133,.17)",
-                    color: "#e9c976",
-                    textAlign: "center",
-                }}
-            >
-                <Box>
-                    <Typography
+            {!collapsed && (
+                <Box
+                    sx={{
+                        position: "relative",
+                        width: "100%",
+                        height: "100%",
+                        px: 1,
+                        py: 0.75,
+                        overflow: "hidden",
+                        display: "grid",
+                        gridTemplateColumns: "minmax(0, 1fr) 38px minmax(0, 1fr)",
+                        alignItems: "center",
+                        gap: 0.5,
+                        border: "1px solid rgba(211,173,92,.62)",
+                        borderBottom: "2px solid rgba(180,140,67,.92)",
+                        clipPath:
+                            "polygon(0 0, 5% 0, 7% 7%, 93% 7%, 95% 0, 100% 0, 100% 88%, 97% 100%, 3% 100%, 0 88%)",
+                        background: `linear-gradient(90deg, ${leftTone.panel}, rgba(13,18,16,.97) 39%, rgba(30,19,18,.97) 61%, ${rightTone.panel})`,
+                        boxShadow: "0 9px 22px rgba(0,0,0,.62), inset 0 1px rgba(255,238,189,.16)",
+                        "&::before": {
+                            content: '\"\"',
+                            position: "absolute",
+                            inset: "3px",
+                            pointerEvents: "none",
+                            border: "1px solid rgba(255,232,174,.09)",
+                            clipPath: "inherit",
+                        },
+                    }}
+                >
+                    <Side
+                        player={left}
+                        tone={leftTone}
+                        profile={(left.playerId ? profiles[left.playerId] : undefined) ?? left.previewProfile}
+                    />
+                    <Box
                         sx={{
-                            color: "inherit",
-                            fontFamily: hocDisplayFontFamily,
-                            fontSize: "0.72rem",
-                            fontWeight: 800,
-                            letterSpacing: "0.1em",
-                            lineHeight: 1,
+                            minWidth: 0,
+                            height: 34,
+                            display: "grid",
+                            placeItems: "center",
+                            borderLeft: "1px solid rgba(234,204,133,.17)",
+                            borderRight: "1px solid rgba(234,204,133,.17)",
+                            color: "#e9c976",
+                            textAlign: "center",
                         }}
                     >
-                        VS
-                    </Typography>
-                    {status && (
-                        <Typography
-                            sx={{
-                                mt: "3px",
-                                color: "#a89b82",
-                                fontFamily: hocDisplayFontFamily,
-                                fontSize: "0.42rem",
-                                fontWeight: 800,
-                                letterSpacing: "0.09em",
-                                lineHeight: 1,
-                                textTransform: "uppercase",
-                                whiteSpace: "nowrap",
-                            }}
-                        >
-                            {status}
-                        </Typography>
-                    )}
+                        <Box>
+                            <Typography
+                                sx={{
+                                    color: "inherit",
+                                    fontFamily: hocDisplayFontFamily,
+                                    fontSize: "0.72rem",
+                                    fontWeight: 800,
+                                    letterSpacing: "0.1em",
+                                    lineHeight: 1,
+                                }}
+                            >
+                                VS
+                            </Typography>
+                            {status && (
+                                <Typography
+                                    sx={{
+                                        mt: "3px",
+                                        color: "#a89b82",
+                                        fontFamily: hocDisplayFontFamily,
+                                        fontSize: "0.42rem",
+                                        fontWeight: 800,
+                                        letterSpacing: "0.09em",
+                                        lineHeight: 1,
+                                        textTransform: "uppercase",
+                                        whiteSpace: "nowrap",
+                                    }}
+                                >
+                                    {status}
+                                </Typography>
+                            )}
+                        </Box>
+                    </Box>
+                    <Side
+                        player={right}
+                        tone={rightTone}
+                        profile={(right.playerId ? profiles[right.playerId] : undefined) ?? right.previewProfile}
+                        reversed
+                    />
                 </Box>
-            </Box>
-            <Side
-                player={right}
-                tone={rightTone}
-                profile={(right.playerId ? profiles[right.playerId] : undefined) ?? right.previewProfile}
-                reversed
-            />
+            )}
+            <MatchupToggle collapsed={collapsed} onClick={toggleCollapsed} />
         </Box>
     );
 };
@@ -372,6 +473,9 @@ export const PickMatchupOverlay: React.FC<{
                           league: 2,
                           leagueName: "Vanguard",
                           wealth: 2,
+                          wins: 142,
+                          draws: 6,
+                          losses: 74,
                           winRatePct: 64,
                       }
                     : undefined,
@@ -388,6 +492,9 @@ export const PickMatchupOverlay: React.FC<{
                           league: 3,
                           leagueName: "Marshal",
                           wealth: 3,
+                          wins: 98,
+                          draws: 7,
+                          losses: 64,
                           winRatePct: 58,
                       }
                     : undefined,

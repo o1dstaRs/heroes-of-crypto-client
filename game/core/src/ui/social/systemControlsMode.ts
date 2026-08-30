@@ -8,6 +8,17 @@
 
 type Listener = () => void;
 
+/**
+ * Ranked battle controls open in one clean row to the left of the master medallion. These offsets are
+ * deliberately spaced by the 34px child diameter plus an 8px gap; keeping them outside the component
+ * makes the no-overlap geometry testable without mounting the full authenticated social stack.
+ */
+export const SYSTEM_MENU_ITEM_OFFSETS = Object.freeze({
+    predictions: Object.freeze({ x: -138, y: 2 }),
+    friends: Object.freeze({ x: -96, y: 2 }),
+    notifications: Object.freeze({ x: -54, y: 2 }),
+});
+
 let active = false;
 const listeners = new Set<Listener>();
 

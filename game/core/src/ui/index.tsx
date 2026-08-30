@@ -72,6 +72,8 @@ import { RankedGameView } from "./RankedGameView";
 import { getMarkedVsAiDifficulty, isMarkedVsAiGame, vsAiDifficultyLabel } from "../utils/aiOpponent";
 import { PickExitFightControl } from "./PickExitFightControl";
 
+const fightMatchupPreviewTransport: SceneGameActionTransport = () => ({ handled: false });
+
 const LoadingScreenFireEditor = React.lazy(() => import("./LoadingScreenFireEditor"));
 // Every dev editor is lazy so the production entry chunk never carries them: their routes below are
 // mounted only under import.meta.env.DEV, and a literal DEV guard + dynamic import lets Rollup drop
@@ -200,6 +202,9 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
                     league: 2,
                     leagueName: "Vanguard",
                     wealth: 2,
+                    wins: 142,
+                    draws: 6,
+                    losses: 74,
                     winRatePct: 64,
                 },
             },
@@ -213,6 +218,9 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
                     league: 3,
                     leagueName: "Marshal",
                     wealth: 3,
+                    wins: 98,
+                    draws: 7,
+                    losses: 64,
                     winRatePct: 58,
                 },
             },
@@ -240,11 +248,15 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
     useGameCursor();
 
     useEffect(() => {
-        manager.SetGameActionTransport(gameActionTransport);
+        // The fight matchup preview represents the post-start battlefield. Giving that visual-only route a
+        // transport makes the sandbox hide its placement roster exactly as the real ranked scene does.
+        manager.SetGameActionTransport(
+            gameActionTransport ?? (showFightMatchupPreview ? fightMatchupPreviewTransport : undefined),
+        );
         return () => {
             manager.SetGameActionTransport(undefined);
         };
-    }, [gameActionTransport, manager]);
+    }, [gameActionTransport, manager, showFightMatchupPreview]);
 
     useEffect(() => {
         const connection = manager.onVisibleStateUpdated.connect((state) => {
@@ -292,7 +304,7 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
                         <MatchupOverlay
                             players={fightMatchupPreviewPlayers}
                             placement="fight"
-                            status="Lap 3"
+                            fightStarted={started}
                             windowSize={windowSize}
                             viewerTeam={2 as TeamType}
                         />

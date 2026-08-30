@@ -62,6 +62,10 @@ export type PortalMatchData = PortalMatchBase & {
     gold_earned?: number;
     opponent_player_id?: string;
     outcome_reason?: string;
+    /** Dev-preview enrichment; live history resolves the opponent's current public standing on demand. */
+    opponent_mmr?: number;
+    opponent_standing_title?: string;
+    opponent_leaderboard_rank?: number;
 };
 
 export type MatchHistoryFilter = "all" | "wins" | "losses";

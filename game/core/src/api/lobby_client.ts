@@ -130,6 +130,33 @@ export const leaveLobby = async (lobbyId: string): Promise<void> => {
     });
 };
 
+export interface LobbyShoutStatus {
+    canShout: boolean;
+    nextAllowedAt: number;
+}
+
+export const fetchLobbyShoutStatus = async (lobbyId: string): Promise<LobbyShoutStatus> => {
+    const response = await axiosMMInstance.get(appendEncodedPath(endpoints.mm.lobbyShout, lobbyId), {
+        headers: authHeaders(),
+    });
+    const body = (response.data ?? {}) as Partial<LobbyShoutStatus>;
+    return {
+        canShout: body.canShout === true,
+        nextAllowedAt: nonNegativeInt(body.nextAllowedAt),
+    };
+};
+
+export const shoutLobbyToArena = async (lobbyId: string): Promise<LobbyShoutStatus> => {
+    const response = await axiosMMInstance.post(appendEncodedPath(endpoints.mm.lobbyShout, lobbyId), new Uint8Array(), {
+        headers: authHeaders(),
+    });
+    const body = (response.data ?? {}) as Partial<LobbyShoutStatus>;
+    return {
+        canShout: false,
+        nextAllowedAt: nonNegativeInt(body.nextAllowedAt),
+    };
+};
+
 const base64ToBytes = (b64: string): Uint8Array => {
     const binary = atob(b64.trim());
     const bytes = new Uint8Array(binary.length);

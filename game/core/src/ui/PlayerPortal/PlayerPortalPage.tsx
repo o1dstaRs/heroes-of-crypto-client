@@ -141,42 +141,32 @@ const RecentForm: React.FC<{ matches: readonly RecentFormMatch[] }> = ({ matches
 
     return (
         <Stack
-            direction={{ xs: "column", sm: "row" }}
-            spacing={{ xs: 0.25, sm: 0.85 }}
-            alignItems={{ xs: "flex-start", sm: "center" }}
-            sx={{ mt: 0.7, minWidth: 0 }}
+            component="span"
+            role="img"
+            aria-label={`${t("Recent form")}: ${wins} ${t("Wins")}, ${draws} ${t("Draw")}, ${losses} ${t("Losses")}`}
+            direction="row"
+            spacing={0.65}
+            alignItems="center"
+            sx={{ minHeight: 22, mt: 0.7, minWidth: 0 }}
         >
-            <Typography level="body-xs" textColor={hocColors.muted} sx={{ flexShrink: 0 }}>
-                {t("Recent form")}
-            </Typography>
-            <Stack
-                component="span"
-                role="img"
-                aria-label={`${t("Recent form")}: ${wins} ${t("Wins")}, ${draws} ${t("Draw")}, ${losses} ${t("Losses")}`}
-                direction="row"
-                spacing={0.65}
-                alignItems="center"
-                sx={{ minHeight: 22 }}
-            >
-                {padded.map((result, index) => (
-                    <Box
-                        component="i"
-                        key={`${index}:${result}`}
-                        title={labels[result]}
-                        aria-hidden="true"
-                        sx={{
-                            display: "block",
-                            width: 12,
-                            height: 12,
-                            flexShrink: 0,
-                            border: `1px solid ${colors[result].border}`,
-                            borderRadius: "50%",
-                            bgcolor: colors[result].background,
-                            boxShadow: colors[result].shadow ?? "inset 0 0 0 2px rgba(0,0,0,0.18)",
-                        }}
-                    />
-                ))}
-            </Stack>
+            {padded.map((result, index) => (
+                <Box
+                    component="i"
+                    key={`${index}:${result}`}
+                    title={labels[result]}
+                    aria-hidden="true"
+                    sx={{
+                        display: "block",
+                        width: 12,
+                        height: 12,
+                        flexShrink: 0,
+                        border: `1px solid ${colors[result].border}`,
+                        borderRadius: "50%",
+                        bgcolor: colors[result].background,
+                        boxShadow: colors[result].shadow ?? "inset 0 0 0 2px rgba(0,0,0,0.18)",
+                    }}
+                />
+            ))}
         </Stack>
     );
 };
@@ -620,12 +610,6 @@ export const PlayerPortalPage: React.FC = () => {
                                 />
                             )}
                             <Box sx={{ minWidth: 0 }}>
-                                <Typography
-                                    level="body-xs"
-                                    sx={{ color: hocColors.gold, fontWeight: 800, letterSpacing: "0.16em" }}
-                                >
-                                    {t("COMMANDER PROFILE")}
-                                </Typography>
                                 <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: "wrap" }}>
                                     <Typography
                                         level="h2"
