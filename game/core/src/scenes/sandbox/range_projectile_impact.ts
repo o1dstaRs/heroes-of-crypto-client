@@ -29,6 +29,26 @@ const clonePosition = (position?: HoCMath.XY): HoCMath.XY | undefined =>
 const samePosition = (left: HoCMath.XY | undefined, right: HoCMath.XY): boolean =>
     !!left && Math.abs(left.x - right.x) < 0.01 && Math.abs(left.y - right.y) < 0.01;
 
+/**
+ * The counter-shot's animation entry in a range attack, or undefined when the defender did not shoot back.
+ *
+ * Identified by its ORIGIN, not its victim. Every outgoing volley leaves the attacker, so the one entry
+ * whose `fromPosition` is somewhere else is the response — the same discriminator the impact plan below
+ * already uses to exclude it from the outgoing shots.
+ *
+ * The obvious-looking test, "an animation naming the attacker", is wrong and was the bug: the engine
+ * stamps `affectedUnit` with the counter's FIRST VICTIM, and the counter's ray stops on the first ENEMY
+ * it meets — which, fired back down the lane, is whatever stack of the attacker's own army is screening
+ * it. Measured over 20-40 v0.8 matches, that is about a third of all counter-shots, and in every one of
+ * those the victim was on the attacker's team. Asking about the victim therefore silently dropped the
+ * whole retaliation (projectile, lunge, damage number and log line) for a routine formation.
+ */
+export const findRangeResponseAnimation = (
+    attackEvent: UnitAttackedEvent,
+    attackerPosition: HoCMath.XY,
+): UnitAttackedEvent["animations"][number] | undefined =>
+    attackEvent.animations.find((animation) => !samePosition(animation.fromPosition, attackerPosition));
+
 const hasLegacyDoubleShotEvidence = (
     attackEvent: UnitAttackedEvent,
     requestedTargetId: string,
