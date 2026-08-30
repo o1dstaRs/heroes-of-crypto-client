@@ -250,8 +250,13 @@ const MatchupToggle: React.FC<{ collapsed: boolean; onClick: () => void }> = ({ 
             lineHeight: 1,
             letterSpacing: collapsed ? "0.04em" : 0,
             opacity: collapsed ? 0.82 : 0.62,
+            outline: "none",
             cursor: "var(--hoc-cursor-interactive), pointer",
             transition: "filter 140ms ease, opacity 140ms ease, transform 140ms ease",
+            "&:focus-visible": {
+                outline: "1px solid rgba(218,182,106,.52)",
+                outlineOffset: "1px",
+            },
             "&:hover": {
                 filter: "brightness(1.12)",
                 opacity: 1,
