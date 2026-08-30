@@ -1,15 +1,15 @@
-import { Box, Button, CircularProgress, Option, Select, Sheet, Stack, Typography } from "@mui/joy";
+import { Box, Button, CircularProgress, Sheet, Stack, Typography } from "@mui/joy";
 import { Artifact } from "@heroesofcrypto/common";
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 
-import { SUPPORTED_LANGUAGES, setLanguage, t, tf, useTranslation } from "../../i18n/i18n";
+import { t, tf, useTranslation } from "../../i18n/i18n";
 
 import { images } from "../../generated/image_imports";
 import { CurrencyIcon } from "../GoldCurrencyIcon";
 import { hocColors, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "../hocTheme";
 import { LeagueTransitionReveal } from "../LeagueTransitionReveal";
-import { LanguageNavIcon, RankedNavIcon, RefreshNavIcon, SettingsNavIcon } from "../svg/navigation";
+import { RankedNavIcon, RefreshNavIcon, SettingsNavIcon } from "../svg/navigation";
 import { PlayerSettingsPanel } from "../PlayerSettingsPanel";
 import { useRankedSeason } from "../useRankedSeason";
 import { MatchHistory } from "./MatchHistory";
@@ -604,15 +604,15 @@ export const PlayerPortalPage: React.FC = () => {
                                 empty bar. The logo stays as the fallback while the standing call is in
                                 flight, or if it failed — that call never blocks this page. */}
                             {standing ? (
-                                <LeagueEmblem {...standingEmblem(standing)} size={{ xs: 54, sm: 66 }} />
+                                <LeagueEmblem {...standingEmblem(standing)} size={{ xs: 84, sm: 96 }} />
                             ) : (
                                 <Box
                                     component="img"
                                     src={logoUrl}
                                     alt="Heroes of Crypto"
                                     sx={{
-                                        width: { xs: 46, sm: 56 },
-                                        height: { xs: 46, sm: 56 },
+                                        width: { xs: 84, sm: 96 },
+                                        height: { xs: 84, sm: 96 },
                                         flexShrink: 0,
                                         objectFit: "contain",
                                         filter: "drop-shadow(0 0 10px #ff8f0055)",
@@ -675,26 +675,6 @@ export const PlayerPortalPage: React.FC = () => {
                             spacing={1}
                             sx={{ alignSelf: { xs: "stretch", sm: "center" } }}
                         >
-                            {/* Language of preference (owner 2026-08-06): applies immediately to this
-                                profile, the pick phase and the in-game chrome; persisted per browser. */}
-                            <Select
-                                value={language}
-                                onChange={(_event, code) => {
-                                    if (code) {
-                                        setLanguage(code);
-                                    }
-                                }}
-                                variant="soft"
-                                startDecorator={<LanguageNavIcon sx={{ fontSize: 22 }} />}
-                                aria-label={t("Language")}
-                                sx={{ ...hocSoftButtonSx, minWidth: { sm: 140 }, whiteSpace: "nowrap" }}
-                            >
-                                {SUPPORTED_LANGUAGES.map(({ code, label }) => (
-                                    <Option key={code} value={code}>
-                                        {label}
-                                    </Option>
-                                ))}
-                            </Select>
                             <Button
                                 fullWidth
                                 variant="soft"

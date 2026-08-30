@@ -82,7 +82,7 @@ describe("tf interpolation", () => {
 });
 
 describe("player portal localization", () => {
-    // The portal hosts the language picker, so an untranslated key there reads as "the switch is broken".
+    // The shared settings panel hosts the language picker, so a portal key must repaint immediately.
     it("has a Russian entry for every literal key the portal renders", () => {
         const keys = literalKeysUnder(join(import.meta.dir, "..", "ui", "PlayerPortal"));
         expect(keys.length).toBeGreaterThan(50);

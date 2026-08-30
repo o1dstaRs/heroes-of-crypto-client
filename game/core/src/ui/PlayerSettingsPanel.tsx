@@ -11,13 +11,26 @@
 
 import VolumeOffRoundedIcon from "@mui/icons-material/VolumeOffRounded";
 import VolumeUpRoundedIcon from "@mui/icons-material/VolumeUpRounded";
-import { Box, Divider, IconButton, Modal, ModalClose, ModalDialog, Slider, Stack, Typography } from "@mui/joy";
+import {
+    Box,
+    Divider,
+    IconButton,
+    Modal,
+    ModalClose,
+    ModalDialog,
+    Option,
+    Select,
+    Slider,
+    Stack,
+    Typography,
+} from "@mui/joy";
 import React, { useCallback, useState, useSyncExternalStore } from "react";
 
-import { t, useTranslation } from "../i18n/i18n";
+import { SUPPORTED_LANGUAGES, setLanguage, t, useTranslation } from "../i18n/i18n";
 import { hocColors, hocPanelSx, hocSplitterSliderSx } from "./hocTheme";
 import { TEAM_COLOR_GREEN, TEAM_COLOR_RED } from "../scenes/teamColors";
 import { playCallSound } from "./audio/chipSounds";
+import { LanguageNavIcon } from "./svg/navigation";
 import {
     getAudioLevels,
     getAudioLevelsServerSnapshot,
@@ -46,8 +59,8 @@ const SWATCH_SIDE = 38;
  * them. Everything here is local to this browser — nothing reaches the server, nothing reaches the
  * opponent.
  *
- * Sectioned so later settings have somewhere to land. Only Appearance has one today; the others say so
- * rather than showing controls that do nothing.
+ * Sectioned so later settings have somewhere to land and every out-of-fight screen can expose the same
+ * preferences without growing its own controls.
  */
 const SectionHeading: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     <Typography
@@ -72,6 +85,35 @@ const EmptySection: React.FC<{ title: string }> = ({ title }) => (
         </Typography>
     </Box>
 );
+
+/** Locale is a player preference, so it lives with the other device-local settings on every arena page. */
+const LanguageSetting: React.FC = () => {
+    const { language } = useTranslation();
+
+    return (
+        <Box>
+            <SectionHeading>{t("Language")}</SectionHeading>
+            <Select
+                value={language}
+                onChange={(_event, code) => {
+                    if (code) {
+                        setLanguage(code);
+                    }
+                }}
+                variant="soft"
+                startDecorator={<LanguageNavIcon sx={{ fontSize: 22 }} />}
+                aria-label={t("Language")}
+                sx={{ mt: 0.8, width: "100%" }}
+            >
+                {SUPPORTED_LANGUAGES.map(({ code, label }) => (
+                    <Option key={code} value={code}>
+                        {label}
+                    </Option>
+                ))}
+            </Select>
+        </Box>
+    );
+};
 
 /** One selectable tile. `background` carries the swatch's fill — a flat colour or the team split. */
 const ColorTile: React.FC<{
@@ -294,7 +336,16 @@ export const PlayerSettingsPanel: React.FC<{ open: boolean; onClose: () => void 
 
     return (
         <Modal open={open} onClose={onClose}>
-            <ModalDialog sx={{ ...hocPanelSx, minWidth: 360, maxWidth: 420, gap: 0 }}>
+            <ModalDialog
+                sx={{
+                    ...hocPanelSx,
+                    width: "min(420px, calc(100vw - 32px))",
+                    minWidth: 0,
+                    maxHeight: "calc(100vh - 32px)",
+                    overflowY: "auto",
+                    gap: 0,
+                }}
+            >
                 <ModalClose sx={{ color: hocColors.parchment }} />
                 <Typography level="h4" sx={{ color: hocColors.parchment }}>
                     {t("Player settings")}
@@ -303,6 +354,7 @@ export const PlayerSettingsPanel: React.FC<{ open: boolean; onClose: () => void 
                     {t("Saved on this device only.")}
                 </Typography>
                 <Stack spacing={1.8} divider={<Divider sx={{ bgcolor: "rgba(220,177,88,0.18)" }} />} sx={{ pb: 0.5 }}>
+                    <LanguageSetting />
                     <ArmyColorSetting />
                     <AudioSettings />
                     <EmptySection title={t("Gameplay")} />
