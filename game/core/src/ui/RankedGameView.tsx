@@ -1733,8 +1733,15 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                                       : undefined
                             }
                             canReplay={snapshot.phase === PlayPhase.FINISHED || snapshot.fightFinished}
+                            gameId={gameId}
                             mode="ranked"
-                            opponentLabel={vsAiOpponentLabel}
+                            players={snapshot.players.map((player) => ({
+                                playerId: player.playerId,
+                                team: player.team as TeamType,
+                                label: player.playerId === aiSeatPlayerId ? vsAiOpponentLabel : undefined,
+                                isAi: player.playerId === aiSeatPlayerId,
+                            }))}
+                            viewerPlayerId={myPlayer?.playerId}
                             onReplay={replayRankedFight}
                             onPlayAgainVsAi={isVsAiMatch && !isObserver ? handlePlayAgainVsAi : undefined}
                             onBackToLobby={handleBackToLobby}

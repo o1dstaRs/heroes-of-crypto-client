@@ -15,9 +15,12 @@ export const GOLD = "#dcb158";
 export const PARCHMENT = "#efe4cc";
 export const WOOD_DARK = "#1c0d03";
 
+const teamValues = TeamVals as unknown as Record<string, number>;
+const LOWER_TEAM = (teamValues.LEFT ?? teamValues.LOWER ?? 2) as TeamType;
+
 export const imgSrc = (name: string): string | undefined => (images as Record<string, string>)[name];
-export const teamColor = (team: TeamType): string => (team === TeamVals.LEFT ? GREEN : RED);
-export const teamName = (team: TeamType): string => t(team === TeamVals.LEFT ? "Green" : "Red");
+export const teamColor = (team: TeamType): string => (team === LOWER_TEAM ? GREEN : RED);
+export const teamName = (team: TeamType): string => t(team === LOWER_TEAM ? "Green" : "Red");
 
 const DEFAULT_CHART_W = 600;
 const DEFAULT_CHART_H = 264;
@@ -193,8 +196,8 @@ export const CasualtyPercents: React.FC<{
 }> = ({ leftKilledPct, rightKilledPct }) => {
     useTranslation();
     const rows: { team: TeamType; pct: number }[] = [
-        { team: TeamVals.LEFT as TeamType, pct: leftKilledPct },
-        { team: TeamVals.RIGHT as TeamType, pct: rightKilledPct },
+        { team: LOWER_TEAM, pct: leftKilledPct },
+        { team: (teamValues.RIGHT ?? teamValues.UPPER ?? 1) as TeamType, pct: rightKilledPct },
     ];
     return (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75, width: "100%" }}>

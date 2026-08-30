@@ -1,7 +1,5 @@
 import { TeamVals, TeamType } from "@heroesofcrypto/common";
 
-import HourglassTopRoundedIcon from "@mui/icons-material/HourglassTopRounded";
-import ShieldRoundedIcon from "@mui/icons-material/ShieldRounded";
 import Avatar from "@mui/joy/Avatar";
 import Box from "@mui/joy/Box";
 import Stack from "@mui/joy/Stack";
@@ -10,14 +8,23 @@ import Typography from "@mui/joy/Typography";
 import { motion } from "framer-motion";
 import React, { useEffect, useRef, useState } from "react";
 
+import { fetchPublicRankedMatch, type PublicRankedMatch } from "../../api/ranked_match_client";
+import { fetchPublicPlayerStats, type PublicPlayerStats } from "../../api/social_client";
 import { HOC_GAME_FONT_FAMILY } from "../../fontFamilies";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { IFightDeathEntry, IFightStatsReport, IVisibleState } from "../../scenes/VisibleState";
 import { CreaturePortraitImage } from "../CreaturePortraitImage";
+import { LeagueEmblem } from "../PlayerPortal/LeagueEmblem";
 import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
 import { GOLD, PARCHMENT, WOOD_DARK, imgSrc, teamColor, teamName } from "../FightStats/CasualtyChart";
 import { CasualtyChartPanel } from "../FightStats/CasualtyChartPanel";
 import { DamageBreakdown } from "../FightStats/DamageBreakdown";
+
+// Shared logic is migrating LEFT/RIGHT to LOWER/UPPER without changing the numeric wire values.
+// Keep the results preview and live overlay compatible with either checked-out common revision.
+const teamValues = TeamVals as unknown as Record<string, number>;
+const LOWER_TEAM = (teamValues.LEFT ?? teamValues.LOWER ?? 2) as TeamType;
+const UPPER_TEAM = (teamValues.RIGHT ?? teamValues.UPPER ?? 1) as TeamType;
 
 const RESULTS_PREVIEW_STATE: IVisibleState = {
     canBeStarted: false,
@@ -31,9 +38,9 @@ const RESULTS_PREVIEW_STATE: IVisibleState = {
     canRequestAdditionalTime: false,
     upNext: [],
     lapsNarrowed: 0,
-    teamWin: TeamVals.RIGHT,
+    teamWin: UPPER_TEAM,
     fightStats: {
-        winner: TeamVals.RIGHT,
+        winner: UPPER_TEAM,
         series: [
             { lap: 1, leftKilled: 0, rightKilled: 0, leftKilledPct: 0, rightKilledPct: 0 },
             { lap: 2, leftKilled: 74, rightKilled: 80, leftKilledPct: 37, rightKilledPct: 40 },
@@ -41,25 +48,77 @@ const RESULTS_PREVIEW_STATE: IVisibleState = {
             { lap: 4, leftKilled: 160, rightKilled: 152, leftKilledPct: 80, rightKilledPct: 76 },
             { lap: 5, leftKilled: 171, rightKilled: 200, leftKilledPct: 86, rightKilledPct: 100 },
         ],
-        leftDeaths: [{ name: "Peasant", smallTextureName: "peasant_512", died: 200, start: 200, team: TeamVals.LEFT }],
-        rightDeaths: [
-            { name: "Peasant", smallTextureName: "peasant_512", died: 171, start: 200, team: TeamVals.RIGHT },
-        ],
+        leftDeaths: [{ name: "Peasant", smallTextureName: "peasant_512", died: 200, start: 200, team: LOWER_TEAM }],
+        rightDeaths: [{ name: "Peasant", smallTextureName: "peasant_512", died: 171, start: 200, team: UPPER_TEAM }],
         damageByUnit: [
-            { name: "Peasant", smallTextureName: "peasant_512", damage: 1600, team: TeamVals.RIGHT },
-            { name: "Squire", smallTextureName: "squire_512", damage: 1315, team: TeamVals.RIGHT },
-            { name: "Arbalester", smallTextureName: "arbalester_512", damage: 1080, team: TeamVals.RIGHT },
-            { name: "Blacksmith", smallTextureName: "blacksmith_512", damage: 760, team: TeamVals.RIGHT },
-            { name: "Peasant", smallTextureName: "peasant_512", damage: 1370, team: TeamVals.LEFT },
-            { name: "Squire", smallTextureName: "squire_512", damage: 1160, team: TeamVals.LEFT },
-            { name: "Arbalester", smallTextureName: "arbalester_512", damage: 920, team: TeamVals.LEFT },
-            { name: "Blacksmith", smallTextureName: "blacksmith_512", damage: 610, team: TeamVals.LEFT },
+            { name: "Peasant", smallTextureName: "peasant_512", damage: 1600, team: UPPER_TEAM },
+            { name: "Squire", smallTextureName: "squire_512", damage: 1315, team: UPPER_TEAM },
+            { name: "Arbalester", smallTextureName: "arbalester_512", damage: 1080, team: UPPER_TEAM },
+            { name: "Blacksmith", smallTextureName: "blacksmith_512", damage: 760, team: UPPER_TEAM },
+            { name: "Peasant", smallTextureName: "peasant_512", damage: 1370, team: LOWER_TEAM },
+            { name: "Squire", smallTextureName: "squire_512", damage: 1160, team: LOWER_TEAM },
+            { name: "Arbalester", smallTextureName: "arbalester_512", damage: 920, team: LOWER_TEAM },
+            { name: "Blacksmith", smallTextureName: "blacksmith_512", damage: 610, team: LOWER_TEAM },
         ],
         leftStartTotal: 200,
         rightStartTotal: 200,
         leftKilledTotal: 200,
         rightKilledTotal: 171,
         totalLaps: 5,
+    },
+};
+
+const RESULTS_PREVIEW_MATCH: PublicRankedMatch = {
+    gameId: "fight-results-preview",
+    winnerPlayerId: "preview-upper",
+    players: [
+        {
+            playerId: "preview-lower",
+            username: "RuneWarden",
+            side: "lower",
+            result: "loss",
+            calibration: false,
+            mmrBefore: 1838,
+            mmrAfter: 1816,
+            delta: -22,
+            goldEarned: 0,
+        },
+        {
+            playerId: "preview-upper",
+            username: "VoidSeraph",
+            side: "upper",
+            result: "win",
+            calibration: false,
+            mmrBefore: 1818,
+            mmrAfter: 1840,
+            delta: 22,
+            goldEarned: 22,
+        },
+    ],
+};
+
+const RESULTS_PREVIEW_PROFILES: Record<string, PublicPlayerStats> = {
+    "preview-lower": {
+        playerId: "preview-lower",
+        username: "RuneWarden",
+        state: "placed",
+        mmr: 1816,
+        league: 3,
+        leagueName: "Marshal",
+        wealth: 2,
+        wealthName: "Stacked",
+        standingTitle: "Stacked Marshal",
+    },
+    "preview-upper": {
+        playerId: "preview-upper",
+        username: "VoidSeraph",
+        state: "placed",
+        mmr: 1840,
+        league: 4,
+        leagueName: "Overlord",
+        wealth: 1,
+        wealthName: "Ragged",
+        standingTitle: "Ragged Overlord",
     },
 };
 
@@ -500,64 +559,284 @@ const ResultsSectionPlaque: React.FC<{ label: string }> = ({ label }) => (
     </Stack>
 );
 
-const SummaryStatCard: React.FC<{
-    icon: React.ReactNode;
-    label: string;
-    value: string;
-    valueColor: string;
-}> = ({ icon, label, value, valueColor }) => (
+type ResultParticipant = Readonly<{
+    team: TeamType;
+    playerId?: string;
+    username: string;
+    isAi: boolean;
+    calibration: boolean;
+    mmrAfter?: number;
+    mmrDelta?: number;
+    goldEarned?: number;
+    showRewards: boolean;
+    settled: boolean;
+    result: "win" | "loss" | "draw";
+    profile?: PublicPlayerStats;
+}>;
+
+const signedResult = (value: number): string => `${value > 0 ? "+" : ""}${Math.round(value).toLocaleString("en-US")}`;
+
+const participantStanding = (participant: ResultParticipant): string => {
+    if (participant.isAi) return "AI COMMANDER";
+    if (participant.calibration || participant.profile?.state === "calibration") return "CALIBRATING";
+    return (
+        participant.profile?.standingTitle ||
+        participant.profile?.leagueName ||
+        participant.profile?.wealthName ||
+        "RANKED COMMANDER"
+    );
+};
+
+const ResultParticipantCard: React.FC<{
+    participant: ResultParticipant;
+    reversed?: boolean;
+    viewerPlayerId?: string;
+}> = ({ participant, reversed = false, viewerPlayerId }) => {
+    const color = teamColor(participant.team);
+    const won = participant.result === "win";
+    const resultLabel = participant.result === "draw" ? "DRAW" : won ? "WINNER" : "DEFEATED";
+    const visibleMmr = participant.calibration
+        ? undefined
+        : Number.isFinite(participant.mmrAfter)
+          ? participant.mmrAfter
+          : participant.profile?.mmr;
+    const mmrDelta = Number.isFinite(participant.mmrDelta) ? Number(participant.mmrDelta) : 0;
+    const goldEarned = Number.isFinite(participant.goldEarned) ? Math.max(0, Number(participant.goldEarned)) : 0;
+    const isViewer = !!viewerPlayerId && participant.playerId === viewerPlayerId;
+    const avatar = participant.profile ? (
+        <LeagueEmblem
+            label={`${participant.username} — ${participantStanding(participant)}`}
+            league={participant.profile.league ?? 0}
+            wealth={participant.profile.wealth ?? 0}
+            size={76}
+        />
+    ) : (
+        <Avatar
+            variant="solid"
+            sx={{
+                width: 68,
+                height: 68,
+                color: "#fff2cb",
+                bgcolor: `${color}38`,
+                border: `2px solid ${color}b8`,
+                boxShadow: `0 0 16px ${color}35, inset 0 0 13px rgba(0,0,0,.58)`,
+                fontFamily: HOC_GAME_FONT_FAMILY,
+                fontSize: participant.isAi ? "1.75rem" : "1.45rem",
+            }}
+        >
+            {participant.isAi ? "⚙" : participant.username.trim().slice(0, 1).toUpperCase() || "?"}
+        </Avatar>
+    );
+
+    return (
+        <Box
+            sx={{
+                position: "relative",
+                flex: "1 1 0",
+                minWidth: 0,
+                height: 118,
+                px: 1.5,
+                display: "flex",
+                flexDirection: reversed ? "row-reverse" : "row",
+                alignItems: "center",
+                gap: 1.25,
+                overflow: "hidden",
+                borderRadius: "10px",
+                border: `1px solid ${won ? `${color}bc` : "rgba(61,59,55,.94)"}`,
+                background: reversed
+                    ? `linear-gradient(270deg, ${color}2c, rgba(12,11,10,.94) 56%)`
+                    : `linear-gradient(90deg, ${color}2c, rgba(12,11,10,.94) 56%)`,
+                boxShadow: won
+                    ? `inset 0 0 0 2px rgba(0,0,0,.72), 0 0 15px ${color}2c, 0 4px 10px rgba(0,0,0,.72)`
+                    : "inset 0 0 0 2px rgba(0,0,0,.72), 0 4px 10px rgba(0,0,0,.7)",
+                "&::after": {
+                    content: '""',
+                    position: "absolute",
+                    inset: 4,
+                    border: "1px solid rgba(255,238,194,.055)",
+                    borderRadius: "6px",
+                    pointerEvents: "none",
+                },
+            }}
+        >
+            <Box sx={{ flexShrink: 0, filter: won ? "none" : "saturate(.72) brightness(.82)" }}>{avatar}</Box>
+            <Box sx={{ minWidth: 0, flex: 1, textAlign: reversed ? "right" : "left", zIndex: 1 }}>
+                <Stack
+                    direction={reversed ? "row-reverse" : "row"}
+                    spacing={0.6}
+                    sx={{ alignItems: "center", mb: 0.15, minWidth: 0 }}
+                >
+                    <Typography
+                        sx={{
+                            minWidth: 0,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            color: PARCHMENT,
+                            fontFamily: HOC_GAME_FONT_FAMILY,
+                            fontSize: "1rem",
+                            fontWeight: 800,
+                            letterSpacing: ".035em",
+                            lineHeight: 1.1,
+                        }}
+                    >
+                        {participant.username}
+                    </Typography>
+                    {isViewer && (
+                        <Box
+                            component="span"
+                            sx={{
+                                px: 0.55,
+                                py: 0.15,
+                                borderRadius: "4px",
+                                border: `1px solid ${color}82`,
+                                color,
+                                fontSize: "0.54rem",
+                                fontWeight: 900,
+                                letterSpacing: ".08em",
+                                lineHeight: 1.2,
+                            }}
+                        >
+                            YOU
+                        </Box>
+                    )}
+                </Stack>
+                <Typography
+                    sx={{
+                        color,
+                        opacity: 0.92,
+                        fontFamily: HOC_GAME_FONT_FAMILY,
+                        fontSize: "0.64rem",
+                        fontWeight: 800,
+                        letterSpacing: ".065em",
+                        lineHeight: 1.15,
+                    }}
+                >
+                    {participantStanding(participant)}
+                </Typography>
+                <Typography
+                    sx={{
+                        mt: 0.45,
+                        color: "#e4d4b2",
+                        fontFamily: HOC_GAME_FONT_FAMILY,
+                        fontSize: "0.88rem",
+                        fontWeight: 800,
+                        lineHeight: 1,
+                    }}
+                >
+                    {participant.isAi
+                        ? "RATING —"
+                        : participant.calibration
+                          ? "MMR HIDDEN"
+                          : visibleMmr !== undefined
+                            ? `${Math.round(visibleMmr).toLocaleString("en-US")} MMR`
+                            : "MMR —"}
+                </Typography>
+                <Stack
+                    direction={reversed ? "row-reverse" : "row"}
+                    spacing={0.55}
+                    sx={{ mt: 0.65, alignItems: "center", minHeight: 20 }}
+                >
+                    {!participant.showRewards ? (
+                        <Typography sx={{ color: "#9d927e", fontSize: "0.61rem", fontWeight: 800 }}>
+                            {teamName(participant.team).toUpperCase()} ARMY
+                        </Typography>
+                    ) : participant.settled ? (
+                        <>
+                            {!participant.calibration && !participant.isAi && (
+                                <Box
+                                    sx={{
+                                        px: 0.75,
+                                        py: 0.35,
+                                        borderRadius: "5px",
+                                        bgcolor: mmrDelta >= 0 ? "rgba(92,156,111,.15)" : "rgba(176,72,76,.14)",
+                                        border: `1px solid ${mmrDelta >= 0 ? "rgba(116,201,138,.35)" : "rgba(223,100,105,.32)"}`,
+                                        color: mmrDelta >= 0 ? "#94d9a5" : "#ee9a90",
+                                        fontSize: "0.64rem",
+                                        fontWeight: 900,
+                                        lineHeight: 1,
+                                        whiteSpace: "nowrap",
+                                    }}
+                                >
+                                    {signedResult(mmrDelta)} MMR
+                                </Box>
+                            )}
+                            {!participant.isAi && (
+                                <Box
+                                    sx={{
+                                        px: 0.75,
+                                        py: 0.35,
+                                        borderRadius: "5px",
+                                        bgcolor: "rgba(197,145,45,.12)",
+                                        border: "1px solid rgba(225,178,82,.3)",
+                                        color: "#f1cc76",
+                                        fontSize: "0.64rem",
+                                        fontWeight: 900,
+                                        lineHeight: 1,
+                                        whiteSpace: "nowrap",
+                                    }}
+                                >
+                                    +{Math.round(goldEarned).toLocaleString("en-US")} GOLD
+                                </Box>
+                            )}
+                        </>
+                    ) : (
+                        <Typography sx={{ color: "#9d927e", fontSize: "0.61rem", fontWeight: 800 }}>
+                            FINAL REWARDS PENDING…
+                        </Typography>
+                    )}
+                </Stack>
+            </Box>
+            <Box
+                sx={{
+                    position: "absolute",
+                    top: 7,
+                    ...(reversed ? { left: 8 } : { right: 8 }),
+                    color: won ? color : "rgba(207,196,174,.55)",
+                    fontFamily: HOC_GAME_FONT_FAMILY,
+                    fontSize: "0.55rem",
+                    fontWeight: 900,
+                    letterSpacing: ".1em",
+                    lineHeight: 1,
+                }}
+            >
+                {resultLabel}
+            </Box>
+        </Box>
+    );
+};
+
+const CompactBattleStat: React.FC<{ label: string; value: string; valueColor?: string }> = ({
+    label,
+    value,
+    valueColor = "#d8bd83",
+}) => (
     <Box
         sx={{
             position: "relative",
             flex: 1,
             minWidth: 0,
-            height: 104,
-            px: 1,
-            py: 1.1,
+            height: 35,
+            px: 1.1,
             display: "flex",
-            flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
+            gap: 0.55,
             textAlign: "center",
-            borderRadius: "9px",
+            borderRadius: "7px",
             border: "1px solid rgba(53,51,48,.86)",
-            backgroundColor: "transparent",
-            isolation: "isolate",
-            boxShadow: "inset 0 0 0 2px rgba(0,0,0,.82), inset 0 0 0 3px rgba(82,72,62,.1), 0 3px 8px rgba(0,0,0,.68)",
-            "&::before": {
-                content: '\"\"',
-                position: "absolute",
-                inset: 0,
-                zIndex: -1,
-                borderRadius: "inherit",
-                opacity: 0.9,
-                backgroundImage: `linear-gradient(180deg, rgba(17,17,16,.82), rgba(7,7,7,.94)), url(${imgSrc(
-                    "fight_results_dragonfire_panel_texture",
-                )})`,
-                backgroundRepeat: "no-repeat, repeat",
-                backgroundSize: "cover, 160px 80px",
-                pointerEvents: "none",
-            },
-            "&::after": {
-                content: '\"\"',
-                position: "absolute",
-                inset: 4,
-                zIndex: 1,
-                border: "1px solid rgba(45,44,42,.62)",
-                borderRadius: "6px",
-                pointerEvents: "none",
-            },
+            background: "linear-gradient(180deg, rgba(17,17,16,.88), rgba(7,7,7,.94))",
+            boxShadow: "inset 0 0 0 1px rgba(0,0,0,.82), 0 3px 7px rgba(0,0,0,.62)",
         }}
     >
-        <Box sx={{ height: 30, display: "flex", alignItems: "center", justifyContent: "center", mb: 0.15 }}>{icon}</Box>
         <Typography
             sx={{
                 color: "#bfa56f",
                 fontFamily: HOC_GAME_FONT_FAMILY,
-                fontSize: "0.67rem",
-                fontWeight: 700,
+                fontSize: "0.6rem",
+                fontWeight: 800,
                 letterSpacing: "0.035em",
-                lineHeight: 1.15,
+                lineHeight: 1,
                 whiteSpace: "nowrap",
             }}
         >
@@ -565,14 +844,13 @@ const SummaryStatCard: React.FC<{
         </Typography>
         <Typography
             sx={{
-                mt: 0.35,
                 color: valueColor,
                 fontFamily: HOC_GAME_FONT_FAMILY,
-                fontSize: "1.42rem",
-                fontWeight: 500,
+                fontSize: "0.8rem",
+                fontWeight: 900,
                 letterSpacing: "0.025em",
                 lineHeight: 1,
-                textShadow: `0 0 9px ${valueColor}40, 0 2px 2px #000`,
+                textShadow: `0 0 8px ${valueColor}35, 0 1px 2px #000`,
                 whiteSpace: "nowrap",
             }}
         >
@@ -584,11 +862,22 @@ const SummaryStatCard: React.FC<{
 const fellPercentage = (killedTotal: number, startTotal: number, fallbackPct: number): number =>
     Math.round(Math.min(100, Math.max(0, startTotal > 0 ? (killedTotal / startTotal) * 100 : fallbackPct)));
 
+interface FightResultPlayerRef {
+    playerId?: string;
+    team: TeamType;
+    label?: string;
+    isAi?: boolean;
+}
+
 interface FightFinishedOverlayProps {
     mode?: "sandbox" | "ranked";
     canReplay?: boolean;
-    /** Set for vs-AI matches: the tiered bot identity ("AI — Hard (v0.7)"), shown under the banner. */
-    opponentLabel?: string;
+    /** Ranked game id used to load the authoritative post-match MMR and gold settlement. */
+    gameId?: string;
+    /** The two seats already known by the ranked board; profiles fill in asynchronously. */
+    players?: readonly FightResultPlayerRef[];
+    /** Marks the signed-in participant without exposing observer-only assumptions. */
+    viewerPlayerId?: string;
     onReplay?: () => void | Promise<void>;
     backLabel?: string;
     // Ranked-only post-match actions. Both are optional so the overlay degrades to the old bare
@@ -602,8 +891,10 @@ interface FightFinishedOverlayProps {
 // =============================================================================
 export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
     canReplay: canReplayOverride,
+    gameId,
     mode = "sandbox",
-    opponentLabel,
+    players = [],
+    viewerPlayerId,
     onReplay,
     backLabel = "Back to Lobby",
     onPlayAgainVsAi,
@@ -620,6 +911,8 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
     const [replayResult, setReplayResult] = useState(false);
     const [playAgainBusy, setPlayAgainBusy] = useState(false);
     const [playAgainError, setPlayAgainError] = useState("");
+    const [rankedMatch, setRankedMatch] = useState<PublicRankedMatch | null>(null);
+    const [profiles, setProfiles] = useState<Record<string, PublicPlayerStats>>({});
     const replayInProgress = useRef(false);
     const replayTimers = useRef<number[]>([]);
 
@@ -646,6 +939,73 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
 
     const renderedState = previewMode ? RESULTS_PREVIEW_STATE : visibleState;
     const stats: IFightStatsReport | undefined = renderedState.fightStats;
+
+    useEffect(() => {
+        if (previewMode || mode !== "ranked" || !gameId || !renderedState.hasFinished) {
+            return undefined;
+        }
+        let cancelled = false;
+        let retryTimer: number | undefined;
+        const load = async (attempt: number): Promise<void> => {
+            try {
+                const result = await fetchPublicRankedMatch(gameId);
+                if (!cancelled) setRankedMatch(result);
+            } catch {
+                // Settlement is intentionally written after combat completion. A short retry window keeps
+                // the overlay from flashing empty rewards during that normal handoff.
+                if (!cancelled && attempt < 7) {
+                    retryTimer = window.setTimeout(() => void load(attempt + 1), Math.min(400 * attempt, 1600));
+                }
+            }
+        };
+        setRankedMatch(null);
+        void load(1);
+        return () => {
+            cancelled = true;
+            if (retryTimer !== undefined) window.clearTimeout(retryTimer);
+        };
+    }, [gameId, mode, previewMode, renderedState.hasFinished]);
+
+    const activeMatch = previewMode ? RESULTS_PREVIEW_MATCH : rankedMatch;
+    const profileCandidates = activeMatch
+        ? activeMatch.players.map((player) => ({
+              playerId: player.playerId,
+              isAi: players.some((candidate) => candidate.playerId === player.playerId && candidate.isAi),
+          }))
+        : players.map((player) => ({ playerId: player.playerId, isAi: player.isAi }));
+    const profileKey = profileCandidates
+        .map((player) => `${player.playerId ?? ""}:${player.isAi ? "ai" : "human"}`)
+        .sort()
+        .join("|");
+
+    useEffect(() => {
+        if (previewMode) {
+            setProfiles(RESULTS_PREVIEW_PROFILES);
+            return undefined;
+        }
+        let cancelled = false;
+        const ids = profileCandidates
+            .filter((player) => player.playerId && !player.isAi)
+            .map((player) => player.playerId as string);
+        if (ids.length === 0) return undefined;
+        void Promise.all(
+            ids.map(async (playerId) => {
+                try {
+                    return [playerId, await fetchPublicPlayerStats(playerId)] as const;
+                } catch {
+                    return undefined;
+                }
+            }),
+        ).then((results) => {
+            if (cancelled) return;
+            const resolved = results.filter((result): result is readonly [string, PublicPlayerStats] => !!result);
+            if (resolved.length > 0) setProfiles((current) => ({ ...current, ...Object.fromEntries(resolved) }));
+        });
+        return () => {
+            cancelled = true;
+        };
+        // profileKey represents the stable seat identities; profileCandidates itself is rebuilt while rendering.
+    }, [previewMode, profileKey]);
 
     // A finished fight shows this overlay — for BOTH players, and when a completed game is (re)loaded.
     // teamWin === TeamVals.NO_TEAM is a genuine DRAW (e.g. armageddon wiping both sides on the same lap),
@@ -680,6 +1040,31 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
         finalSample?.rightKilledPct ?? 0,
     );
     const topDamage = Math.max(0, ...(stats.damageByUnit ?? []).map((entry) => entry.damage));
+    const resultParticipants = ([LOWER_TEAM, UPPER_TEAM] as TeamType[]).map((team): ResultParticipant => {
+        const side = team === LOWER_TEAM ? "lower" : "upper";
+        const settlement = activeMatch?.players.find((player) => player.side === side);
+        const seat = players.find(
+            (player) => player.team === team || (!!settlement?.playerId && player.playerId === settlement.playerId),
+        );
+        const playerId = settlement?.playerId ?? seat?.playerId;
+        const profile = playerId ? profiles[playerId] : undefined;
+        const fallbackResult = isDraw ? "draw" : stats.winner === team ? "win" : "loss";
+        const fallbackName = seat?.label || (team === LOWER_TEAM ? "Green Commander" : "Red Commander");
+        return {
+            team,
+            playerId,
+            username: settlement?.username || profile?.username || fallbackName,
+            isAi: !!seat?.isAi,
+            calibration: settlement?.calibration ?? profile?.state === "calibration",
+            mmrAfter: settlement?.mmrAfter ?? profile?.mmr,
+            mmrDelta: settlement?.delta,
+            goldEarned: settlement?.goldEarned,
+            showRewards: previewMode || mode === "ranked",
+            settled: !!settlement,
+            result: settlement?.result ?? fallbackResult,
+            profile,
+        };
+    });
     const resultsBackground = previewBackground ?? imgSrc("fight_results_moonlit_castle_background");
     const splitBackgroundImage = previewBackground
         ? `url(${resultsBackground})`
@@ -863,126 +1248,96 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     ×
                 </Box>
 
-                {/* Trophy medallion overlaps a restrained metal title plate, matching the compact
-                    forged header in the selected results-screen direction. */}
-                <Box sx={{ height: 76, flexShrink: 0, display: "flex", justifyContent: "center", mb: 1.1 }}>
-                    <Box sx={{ position: "relative", width: "68%", minWidth: 520, maxWidth: 650, height: 72 }}>
+                {/* The fight is framed as two commanders, not two abstract team colours. Rank emblems
+                    double as avatars; exact settlement numbers arrive from the public ranked result. */}
+                <Stack direction="row" spacing={0.9} sx={{ flexShrink: 0, mb: 0.8, px: 0.25 }}>
+                    <ResultParticipantCard participant={resultParticipants[0]} viewerPlayerId={viewerPlayerId} />
+                    <Box
+                        sx={{
+                            width: 126,
+                            height: 118,
+                            flexShrink: 0,
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            borderRadius: "10px",
+                            border: "1px solid rgba(65,61,56,.94)",
+                            background: "radial-gradient(circle at 50% 34%, rgba(96,69,34,.32), rgba(10,9,8,.96) 68%)",
+                            boxShadow: "inset 0 0 0 2px rgba(0,0,0,.76), 0 4px 10px rgba(0,0,0,.72)",
+                        }}
+                    >
                         <Box
                             sx={{
-                                position: "absolute",
-                                inset: "6px 0 4px 54px",
-                                display: "flex",
-                                flexDirection: "column",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                pl: 2.5,
-                                border: "1px solid rgba(48,47,44,.78)",
-                                backgroundColor: "transparent",
-                                isolation: "isolate",
-                                boxShadow:
-                                    "inset 0 0 0 2px rgba(0,0,0,.84), inset 0 0 0 3px rgba(82,72,62,.08), 0 5px 12px rgba(0,0,0,.62)",
-                                "&::before": {
-                                    content: '\"\"',
-                                    position: "absolute",
-                                    inset: 0,
-                                    zIndex: -1,
-                                    opacity: 0.9,
-                                    backgroundImage: `linear-gradient(180deg, rgba(18,18,17,.91), rgba(8,8,8,.96)), url(${imgSrc(
-                                        "fight_results_dragonfire_panel_texture",
-                                    )})`,
-                                    backgroundRepeat: "no-repeat, repeat",
-                                    backgroundSize: "cover, 160px 80px",
-                                    pointerEvents: "none",
-                                },
-                            }}
-                        >
-                            <Typography
-                                sx={{
-                                    color: winnerColor,
-                                    fontWeight: 600,
-                                    fontFamily: HOC_GAME_FONT_FAMILY,
-                                    letterSpacing: "0.075em",
-                                    fontSize: "clamp(1.65rem, 4vw, 2.25rem)",
-                                    lineHeight: 1,
-                                    textShadow: `0 0 14px ${winnerColor}72, 0 2px 2px #000`,
-                                    whiteSpace: "nowrap",
-                                }}
-                            >
-                                {isDraw ? "DRAW" : `${teamName(stats.winner).toUpperCase()} TEAM WINS`}
-                            </Typography>
-                            {opponentLabel && (
-                                <Typography
-                                    sx={{ color: GOLD, opacity: 0.82, fontSize: "0.67rem", fontWeight: 700, mt: 0.35 }}
-                                >
-                                    vs {opponentLabel}
-                                </Typography>
-                            )}
-                        </Box>
-
-                        <Box
-                            sx={{
-                                position: "absolute",
-                                left: 0,
-                                top: -2,
-                                width: 78,
-                                height: 78,
+                                width: 62,
+                                height: 62,
+                                mb: 0.2,
                                 borderRadius: "50%",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                background:
-                                    "radial-gradient(circle at 48% 38%, rgba(57,48,39,.96), rgba(9,9,9,.98) 68%)",
-                                border: "2px solid rgba(59,55,50,.9)",
-                                boxShadow:
-                                    "inset 0 0 0 3px rgba(0,0,0,.88), inset 0 0 0 5px rgba(88,72,57,.1), 0 5px 12px rgba(0,0,0,.8)",
-                                zIndex: 2,
+                                display: "grid",
+                                placeItems: "center",
+                                border: `2px solid ${winnerColor}8f`,
+                                background: "radial-gradient(circle at 48% 38%, #3a3026, #090909 70%)",
+                                boxShadow: `inset 0 0 0 3px rgba(0,0,0,.84), 0 0 13px ${winnerColor}35`,
                             }}
                         >
                             {isDraw ? (
-                                <Typography sx={{ color: GOLD, fontSize: "2rem", lineHeight: 1 }}>⚖</Typography>
+                                <Typography sx={{ color: GOLD, fontSize: "1.7rem", lineHeight: 1 }}>⚖</Typography>
                             ) : (
                                 <Box
                                     component="img"
                                     src={imgSrc("fight_results_trophy_v1")}
                                     alt="Victory trophy"
-                                    sx={{ width: 55, height: 55, objectFit: "contain" }}
+                                    sx={{ width: 45, height: 45, objectFit: "contain" }}
                                 />
                             )}
                         </Box>
+                        <Typography
+                            sx={{
+                                color: winnerColor,
+                                fontFamily: HOC_GAME_FONT_FAMILY,
+                                fontSize: "0.74rem",
+                                fontWeight: 900,
+                                letterSpacing: ".075em",
+                                lineHeight: 1.05,
+                                textAlign: "center",
+                                textShadow: `0 0 9px ${winnerColor}45, 0 2px 2px #000`,
+                            }}
+                        >
+                            {isDraw ? "DRAW" : "VICTORY"}
+                        </Typography>
+                        <Typography
+                            sx={{
+                                mt: 0.28,
+                                color: "#a99878",
+                                fontSize: "0.54rem",
+                                fontWeight: 800,
+                                letterSpacing: ".055em",
+                                lineHeight: 1,
+                            }}
+                        >
+                            {mode === "ranked" || previewMode ? "RANKED" : "BATTLE"} · {Math.max(0, stats.totalLaps)}{" "}
+                            LAPS
+                        </Typography>
                     </Box>
-                </Box>
+                    <ResultParticipantCard
+                        participant={resultParticipants[1]}
+                        reversed
+                        viewerPlayerId={viewerPlayerId}
+                    />
+                </Stack>
 
-                <Stack direction="row" spacing={1.25} sx={{ flexShrink: 0, mb: 1.5, px: 0.25 }}>
-                    <SummaryStatCard
-                        label="BATTLE LENGTH"
-                        value={`L${Math.max(0, stats.totalLaps)}`}
-                        valueColor="#d8bd83"
-                        icon={<HourglassTopRoundedIcon sx={{ color: "#b69254", fontSize: 29 }} />}
+                <Stack direction="row" spacing={0.75} sx={{ flexShrink: 0, mb: 1.25, px: 0.25 }}>
+                    <CompactBattleStat label="LENGTH" value={`${Math.max(0, stats.totalLaps)} LAPS`} />
+                    <CompactBattleStat
+                        label="GREEN LOST"
+                        value={`${leftFellPct}%`}
+                        valueColor={teamColor(LOWER_TEAM)}
                     />
-                    <SummaryStatCard
-                        label={`${teamName(TeamVals.LEFT as TeamType).toUpperCase()} LOSSES`}
-                        value={`${leftFellPct}% FELL`}
-                        valueColor={teamColor(TeamVals.LEFT as TeamType)}
-                        icon={<ShieldRoundedIcon sx={{ color: teamColor(TeamVals.LEFT as TeamType), fontSize: 30 }} />}
-                    />
-                    <SummaryStatCard
-                        label={`${teamName(TeamVals.RIGHT as TeamType).toUpperCase()} LOSSES`}
-                        value={`${rightFellPct}% FELL`}
-                        valueColor={teamColor(TeamVals.RIGHT as TeamType)}
-                        icon={<ShieldRoundedIcon sx={{ color: teamColor(TeamVals.RIGHT as TeamType), fontSize: 30 }} />}
-                    />
-                    <SummaryStatCard
+                    <CompactBattleStat label="RED LOST" value={`${rightFellPct}%`} valueColor={teamColor(UPPER_TEAM)} />
+                    <CompactBattleStat
                         label="TOP DAMAGE"
                         value={Math.round(topDamage).toLocaleString("en-US")}
                         valueColor="#d5ad61"
-                        icon={
-                            <Typography
-                                aria-hidden
-                                sx={{ color: "#b69254", fontFamily: HOC_GAME_FONT_FAMILY, fontSize: 27, lineHeight: 1 }}
-                            >
-                                ⚔
-                            </Typography>
-                        }
                     />
                 </Stack>
 
@@ -1032,14 +1387,14 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                         <Box sx={{ flexShrink: 0 }}>
                             <Stack direction="row" spacing={3} sx={{ px: 1, pt: 2 }}>
                                 <CasualtyColumn
-                                    team={TeamVals.LEFT as TeamType}
+                                    team={LOWER_TEAM}
                                     deaths={stats.leftDeaths}
                                     killedTotal={stats.leftKilledTotal}
                                     startTotal={stats.leftStartTotal}
                                     fallbackPct={stats.series.at(-1)?.leftKilledPct ?? 0}
                                 />
                                 <CasualtyColumn
-                                    team={TeamVals.RIGHT as TeamType}
+                                    team={UPPER_TEAM}
                                     deaths={stats.rightDeaths}
                                     killedTotal={stats.rightKilledTotal}
                                     startTotal={stats.rightStartTotal}

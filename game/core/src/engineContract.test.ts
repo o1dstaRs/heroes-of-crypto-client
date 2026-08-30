@@ -14,7 +14,7 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
 
-import { HoCConfig } from "@heroesofcrypto/common";
+import { AttackVals, GridVals, HoCConfig, MovementVals, PlacementPositionType, TeamVals } from "@heroesofcrypto/common";
 
 /**
  * Every ability the client asks for by name must exist in the engine it is PINNED to.
@@ -88,5 +88,61 @@ describe("the client only asks the pinned engine for abilities it has", () => {
         // Listing them keeps the failure self-explaining: the message names the ability AND the file,
         // so the reader can tell a typo from a submodule pin that needs advancing.
         expect(unresolved).toEqual([]);
+    });
+});
+
+/**
+ * The same drift, one level nastier: ENUM MEMBERS.
+ *
+ * A missing ability name merely fails to resolve. A missing enum member evaluates to `undefined`, and
+ * `undefined === undefined` is TRUE — so a stale engine does not break loudly, it makes unrelated branches
+ * agree. When TeamVals lost LEFT/RIGHT to a stale submodule, `placementTeam()` returned `TeamVals.RIGHT`
+ * (undefined), `isGreenTeam()` compared undefined to undefined and answered "green" for BOTH zones, and the
+ * red placement simply stopped being drawn. Nothing threw, nothing failed to compile, and the ability scan
+ * above stayed green throughout.
+ *
+ * These run against the engine the working tree actually resolves, so a locally stale submodule fails here
+ * while CI — which checks out the recorded pin — stays green. That difference is the point.
+ */
+describe("the client only reads engine enum members that exist", () => {
+    const ENGINE_ENUMS: Record<string, Record<string, unknown>> = {
+        TeamVals,
+        AttackVals,
+        GridVals,
+        MovementVals,
+        PlacementPositionType,
+    };
+
+    const referenced = new Map<string, Set<string>>();
+    for (const file of sourceFiles(CLIENT_SOURCE_ROOT)) {
+        const code = withoutComments(readFileSync(file, "utf8"));
+        for (const enumName of Object.keys(ENGINE_ENUMS)) {
+            // SCREAMING_CASE only — that is how the generated enums spell their members, and it keeps
+            // helper methods and namespaced re-exports out of the scan.
+            const pattern = new RegExp(`\\b${enumName}\\.([A-Z][A-Z0-9_]*)\\b`, "g");
+            for (const match of code.matchAll(pattern)) {
+                const member = match[1];
+                if (!member) continue;
+                if (!referenced.has(enumName)) referenced.set(enumName, new Set());
+                referenced.get(enumName)!.add(member);
+            }
+        }
+    }
+
+    test("the scan actually finds the enum members it is guarding", () => {
+        expect(referenced.get("TeamVals")?.size ?? 0).toBeGreaterThan(1);
+        expect(referenced.get("PlacementPositionType")?.size ?? 0).toBeGreaterThan(1);
+    });
+
+    test("every referenced enum member is defined in the pinned common", () => {
+        const missing: string[] = [];
+        for (const [enumName, members] of referenced) {
+            for (const member of [...members].sort()) {
+                if (ENGINE_ENUMS[enumName]?.[member] === undefined) missing.push(`${enumName}.${member}`);
+            }
+        }
+        // A non-empty list almost always means the submodule pin is stale — `ignore = all` hides that from
+        // git status, so this is the only place it surfaces.
+        expect(missing).toEqual([]);
     });
 });

@@ -212,6 +212,8 @@ export const endpoints = {
         seasonCurrent: IS_PROD ? "/v1/season-current" : "/v1/mm/season-current",
         // Public ranked profile (username, placed MMR, league) — the observer HUD names each side.
         rankedProfile: IS_PROD ? "/v1/ranked-profile" : "/v1/mm/ranked-profile",
+        // Public settled result: both seats' names, visible MMR movement and gold earned.
+        rankedMatch: IS_PROD ? "/v1/ranked-match" : "/v1/mm/ranked-match",
     },
     // Authenticated social layer: notifications tray, friends/blocks, presence heartbeat.
     social: {

@@ -120,6 +120,7 @@ export const cemeteryObstacleShadowScaleY = (projectedHeight: number): number =>
 const CEMETERY_EDGE_VERTEX = /* glsl */ `
 in vec2 aPosition;
 out vec2 vTextureCoord;
+out vec2 vTexelSize;
 
 uniform vec4 uInputSize;
 uniform vec4 uOutputFrame;
@@ -139,15 +140,22 @@ vec2 filterTextureCoord(void) {
 void main(void) {
     gl_Position = filterVertexPosition();
     vTextureCoord = filterTextureCoord();
+    vTexelSize = uInputSize.zw;
 }
 `;
 
+// The texel size is carried from the vertex as a varying rather than read from uInputSize here. Declaring
+// uInputSize in BOTH stages is what broke this pass: a vertex float defaults to highp while pixi injects a
+// mediump default into the fragment, so the two declarations disagree and the program fails to LINK —
+// "Precisions of uniform 'uInputSize' differ between VERTEX and FRAGMENT shaders", then "Could not
+// initialize shader" and an endless "useProgram: program not valid" once per frame. Same shape as the
+// Battlefield alpha-hole and contour filters, which pass vTexelSize for exactly this reason.
 const CEMETERY_EDGE_FRAGMENT = /* glsl */ `
 in vec2 vTextureCoord;
+in vec2 vTexelSize;
 out vec4 finalColor;
 
 uniform sampler2D uTexture;
-uniform vec4 uInputSize;
 
 void main(void) {
     vec4 color = texture(uTexture, vTextureCoord);
@@ -156,7 +164,7 @@ void main(void) {
         return;
     }
 
-    vec2 px = uInputSize.zw;
+    vec2 px = vTexelSize;
     float nearestAlpha = 1.0;
     nearestAlpha = min(nearestAlpha, texture(uTexture, vTextureCoord + vec2( px.x, 0.0)).a);
     nearestAlpha = min(nearestAlpha, texture(uTexture, vTextureCoord + vec2(-px.x, 0.0)).a);
