@@ -184,6 +184,7 @@ const rankedApp = links.rankedApp;
     import { fetchPlayerPortal, PortalAuthError } from "../lib/portal-client";
     import { gameClientRoot } from "../lib/ranked-arena-client";
     import { rankedArenaCopy } from "../lib/ranked-arena-copy";
+    import { matchIsRated, matchShowsMmr } from "../lib/match-rating-visibility";
     import { TOP_WEALTH } from "../lib/ranked-arena-data";
     import { leagueEmblemPath } from "../lib/league-emblems";
     import {
@@ -755,7 +756,9 @@ const rankedApp = links.rankedApp;
         const currency = portalMatchCurrency(match);
         const gameId = typeof match.game_id === "string" ? match.game_id : "";
         const mode = portalMatchMode(match);
-        const ratedMode = mode === "ranked" || mode === "calibration";
+        const ratedMode = matchIsRated(mode);
+        // Calibration rows carry gold but never an MMR delta — see match-rating-visibility.
+        const showsMmr = matchShowsMmr(mode);
         const duration = formatDuration(match.duration_ms);
         const laps = Math.max(0, num(match.total_laps));
         const delta = num(match.mmr_delta ?? match.mmrDelta ?? match.delta);
@@ -765,8 +768,9 @@ const rankedApp = links.rankedApp;
         const replay = gameId && match.replay_available === true
             ? `<a class="match-replay" href="${escapeHtml(`${gameClientRoot}/game/${encodeURIComponent(gameId)}/replay`)}">↻ ${escapeHtml(copy.matchReplay)}</a>`
             : "";
-        const rewards = ratedMode && (hasDelta || hasGold)
-            ? `<div class="match-rewards">${hasDelta ? `<span class="match-delta ${delta > 0 ? "positive" : delta < 0 ? "negative" : ""}">${delta > 0 ? "+" : ""}${numberFormatter.format(delta)} MMR</span>` : ""}${hasGold ? `<span class="match-gold">${currencyMarkup(gold, "+", currency)}</span>` : ""}</div>`
+        const showsDelta = showsMmr && hasDelta;
+        const rewards = ratedMode && (showsDelta || hasGold)
+            ? `<div class="match-rewards">${showsDelta ? `<span class="match-delta ${delta > 0 ? "positive" : delta < 0 ? "negative" : ""}">${delta > 0 ? "+" : ""}${numberFormatter.format(delta)} MMR</span>` : ""}${hasGold ? `<span class="match-gold">${currencyMarkup(gold, "+", currency)}</span>` : ""}</div>`
             : "";
         return `
             <article class="match-row match-card--expandable ${resultClass}" aria-label="${escapeHtml(matchContext)}">
@@ -1014,8 +1018,9 @@ const rankedApp = links.rankedApp;
             side === "lower" ? (stats?.upperPerformers ?? []) : (stats?.lowerPerformers ?? []),
         );
         const signedDelta = `${viewer.delta > 0 ? "+" : ""}${numberFormatter.format(viewer.delta)}`;
+        // Calibration rows state that the rating did not move rather than printing the provisional delta.
         const mmr = viewer.calibration
-            ? `<span class="${viewer.delta > 0 ? "positive" : viewer.delta < 0 ? "negative" : ""}">${signedDelta} MMR</span>`
+            ? escapeHtml(copy.matchMmrCalibration)
             : `${numberFormatter.format(viewer.mmrBefore)} → ${numberFormatter.format(viewer.mmrAfter)} <span class="${viewer.delta > 0 ? "positive" : viewer.delta < 0 ? "negative" : ""}">(${signedDelta})</span>`;
         const playerSetup = stats
             ? publicSetup(side === "lower" ? stats.lowerSetup : stats.upperSetup, stats.setupRecorded)
@@ -1045,7 +1050,7 @@ const rankedApp = links.rankedApp;
             ? match.opponent_username
             : "—";
         const mode = portalMatchMode(match);
-        const ratedMode = mode === "ranked" || mode === "calibration";
+        const ratedMode = matchIsRated(mode);
         const currency = portalMatchCurrency(match);
         const duration = formatDuration(match.duration_ms);
         const laps = Math.max(0, num(match.total_laps));
@@ -1055,7 +1060,7 @@ const rankedApp = links.rankedApp;
         const before = num(match.mmr_before ?? match.mmrBefore);
         const after = num(match.mmr_after ?? match.mmrAfter);
         const hasRating =
-            ratedMode &&
+            matchShowsMmr(mode) &&
             (match.mmr_delta !== undefined ||
                 match.mmrDelta !== undefined ||
                 match.delta !== undefined ||
