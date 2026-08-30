@@ -4,6 +4,7 @@ import type { GameEvent, HoCMath } from "@heroesofcrypto/common";
 
 import {
     type IRangeProjectileImpact,
+    findRangeResponseAnimation,
     resolveLiveRangeProjectileTracePosition,
     resolveRangeProjectileImpactPlan,
     resolveRangeProjectilePlaybackPosition,
@@ -379,5 +380,47 @@ describe("authoritative ranged projectile plan", () => {
                 intercepted: true,
             },
         ]);
+    });
+});
+
+/**
+ * The counter-shot is the one animation that does not START at the attacker.
+ *
+ * It cannot be found by its victim: the engine stamps the entry with the counter's FIRST VICTIM, and a
+ * counter fired back down the lane stops on the first enemy it meets — routinely one of the attacker's
+ * OWN stacks, screening them. Measured over full v0.8 matches that is roughly a third of all counters,
+ * and every one of those had the victim on the attacker's team. The old victim-based test therefore
+ * dropped the entire retaliation — projectile, lunge, damage number and log line — for a normal formation.
+ */
+describe("finding the counter-shot animation", () => {
+    const outgoing = { fromPosition: ATTACKER_POSITION, toPosition: AIM_POSITION, affectedUnitId: "victim" };
+
+    it("returns nothing when the defender did not shoot back", () => {
+        expect(findRangeResponseAnimation(event({ animations: [outgoing] }), ATTACKER_POSITION)).toBeUndefined();
+    });
+
+    it("finds the counter even when it struck the attacker's own screening stack", () => {
+        const response = { fromPosition: AIM_POSITION, toPosition: ATTACKER_POSITION, affectedUnitId: "our-screen" };
+
+        const found = findRangeResponseAnimation(event({ animations: [outgoing, response] }), ATTACKER_POSITION);
+
+        // Named by the SCREEN, not the attacker — the case the old check missed entirely.
+        expect(found?.affectedUnitId).toBe("our-screen");
+    });
+
+    it("finds the counter in the ordinary case where it struck the attacker", () => {
+        const response = { fromPosition: AIM_POSITION, toPosition: ATTACKER_POSITION, affectedUnitId: "attacker" };
+
+        expect(
+            findRangeResponseAnimation(event({ animations: [outgoing, response] }), ATTACKER_POSITION)?.affectedUnitId,
+        ).toBe("attacker");
+    });
+
+    it("does not mistake a second outgoing volley for a counter", () => {
+        const secondVolley = { fromPosition: ATTACKER_POSITION, toPosition: AIM_POSITION, affectedUnitId: "victim-2" };
+
+        expect(
+            findRangeResponseAnimation(event({ animations: [outgoing, secondVolley] }), ATTACKER_POSITION),
+        ).toBeUndefined();
     });
 });

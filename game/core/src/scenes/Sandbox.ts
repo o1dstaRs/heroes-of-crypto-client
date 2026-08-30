@@ -160,6 +160,7 @@ import {
 import {
     type IRangeProjectileImpact,
     resolveLiveRangeProjectileTracePosition,
+    findRangeResponseAnimation,
     resolveRangeProjectileImpactPlan,
     resolveRangeProjectilePlaybackPosition,
 } from "./sandbox/range_projectile_impact";
@@ -4751,19 +4752,29 @@ export class Sandbox extends PixiScene {
         if (attacker.isDead() || target.isDead()) {
             return undefined;
         }
-        // A ranged response always produces an authoritative animation aimed back at the attacker.
-        if (
-            attackEvent.attackType === "range" &&
-            !attackEvent.animations.some((animation) => animation.affectedUnitId === attacker.getId())
-        ) {
+        // A ranged response leaves an authoritative animation that STARTS somewhere other than the
+        // attacker. Identify it by that origin, never by its victim: the engine stamps the entry with the
+        // counter's first victim, and a counter fired back down the lane stops on the first ENEMY it
+        // meets — which is whatever stack of the attacker's own army is screening it. About a third of
+        // counter-shots land that way, and asking "does an animation name the attacker" silently dropped
+        // the entire retaliation for all of them.
+        const responseAnimation =
+            attackEvent.attackType === "range"
+                ? findRangeResponseAnimation(attackEvent, attacker.getPosition())
+                : undefined;
+        if (attackEvent.attackType === "range" && !responseAnimation) {
             return undefined;
         }
-        const totalResponseDamage = this.getReplayUnitDamage(record, attacker.getId());
+        // Bill the counter's damage to whoever it actually hit. For an intercepted counter that is the
+        // screening ally, whose HP moved — the attacker's did not, so reading the attacker here reported
+        // zero and dropped the retaliation a second time, after the gate above already let it through.
+        const responseVictimId = responseAnimation?.affectedUnitId ?? attacker.getId();
+        const totalResponseDamage = this.getReplayUnitDamage(record, responseVictimId);
         // The state diff includes every HP loss suffered by the initiating attacker. Every secondary
         // entry is rendered with the primary exchange, so remove those exact chunks before deciding
         // whether a real retaliation remains.
         const secondaryOnAttacker = (attackEvent.damage.secondary ?? [])
-            .filter((entry) => entry.unitId === attacker.getId())
+            .filter((entry) => entry.unitId === responseVictimId)
             .reduce(
                 (total, entry) => ({
                     amount: total.amount + entry.amount,
@@ -4803,10 +4814,20 @@ export class Sandbox extends PixiScene {
         await this.playDirectionalAttackOneShot(target, attacker, 360, attackEvent.attackType === "melee");
 
         if (attackEvent.attackType === "range") {
+            // The counter flies to whoever it HIT, which is not always the attacker: fired back down the
+            // lane it stops on the first enemy it meets, i.e. any stack of the attacker's own army that
+            // is screening it. Drawing it at the attacker regardless made the arrow pass straight through
+            // the ally that actually took the damage.
+            const responseAnimation = findRangeResponseAnimation(attackEvent, attacker.getPosition());
+            const responseVictim =
+                (responseAnimation?.affectedUnitId
+                    ? (this.unitsHolder.getAllUnits().get(responseAnimation.affectedUnitId) as
+                          RenderableUnit | undefined)
+                    : undefined) ?? attacker;
             // Retaliation is not cursor aiming: land the return projectile in the visual centre of the
-            // attacking figure. The recorded edge is a logical combat coordinate and made counters dive
+            // struck figure. The recorded edge is a logical combat coordinate and made counters dive
             // toward the bottom of large sprites when reused as a rendered endpoint.
-            await this.playReplayProjectile(target, attacker);
+            await this.playReplayProjectile(target, responseVictim);
         } else {
             this.applyReplayLunge(target, attacker);
             await this.delayReplay(Sandbox.REPLAY_CONTROL_HOLD_MS);
@@ -10036,19 +10057,25 @@ export class Sandbox extends PixiScene {
                 }
             }
 
-            // Ranged counter: when the defender shoots back, the engine records a response shot as an
-            // animation targeting the attacker (only the ranged-response branch emits one for a
-            // range_attack). Live play otherwise just floats the counter's damage number (section 2
-            // below) — fire the return projectile so the exchange reads the same as ranked's replay
-            // path (playReplayRetaliation), which uses this exact signal.
-            if (
-                liveAttackEvent &&
-                target instanceof RenderableUnit &&
-                liveAttackEvent.animations.some((animation) => animation.affectedUnitId === attacker.getId())
-            ) {
-                target.playOneShotAnimation(this.prepareDirectionalAttackState(target, attacker, false));
+            // Ranged counter: when the defender shoots back, the engine records the response as the one
+            // animation that does NOT start at the attacker. Live play otherwise just floats the counter's
+            // damage number (section 2 below) — fire the return projectile so the exchange reads the same
+            // as ranked's replay path (playReplayRetaliation), which uses this exact signal.
+            const liveResponseAnimation = liveAttackEvent
+                ? findRangeResponseAnimation(liveAttackEvent, attacker.getPosition())
+                : undefined;
+            if (liveResponseAnimation && target instanceof RenderableUnit) {
+                // Whoever the counter actually struck — the attacker, or the ally of theirs that screened
+                // it. Matching on the victim's id here (rather than assuming the attacker) is what keeps
+                // the arrow from flying through the stack that took the damage.
+                const liveResponseVictim =
+                    (liveResponseAnimation.affectedUnitId
+                        ? (this.unitsHolder.getAllUnits().get(liveResponseAnimation.affectedUnitId) as
+                              RenderableUnit | undefined)
+                        : undefined) ?? attacker;
+                target.playOneShotAnimation(this.prepareDirectionalAttackState(target, liveResponseVictim, false));
                 // Retaliation has no live cursor-owned edge: always land it at the figure's visual center.
-                const responseTarget = attacker.getVisualCenter(gs);
+                const responseTarget = liveResponseVictim.getVisualCenter(gs);
                 const responseMuzzle = target.getRangedProjectileOrigin(responseTarget, gs);
                 const bigResponse = BIG_PROJECTILE_UNITS.has(target.getName().toLowerCase());
                 // The RESPONDER throws its own weapon: a counter-shooting Zena sends the chakram back, not a
