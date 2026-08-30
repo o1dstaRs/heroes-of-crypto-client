@@ -54,11 +54,11 @@ const response = {
     stats: {
         totalLaps: 7,
         gridType: 4,
-        leftDamage: 940,
-        rightDamage: 710,
+        lowerDamage: 940,
+        upperDamage: 710,
         lowerCreatureIds: [4, 5, 0, -1],
         upperCreatureIds: [8, 9],
-        leftPerformers: [
+        lowerPerformers: [
             { creatureId: 5, damageDealt: 100 },
             { creatureId: 4, damageDealt: 500 },
             { creatureId: 6, damageDealt: 450 },
@@ -66,9 +66,9 @@ const response = {
             { creatureId: 8, damageDealt: 200 },
             { creatureId: 9, damageDealt: 50 },
         ],
-        rightPerformers: [{ creatureId: 8, damageDealt: 320 }],
-        leftSetup: { artifactTier1: 1, artifactTier2: 2, doctrine: 3, synergies: ["Life:1:2"] },
-        rightSetup: { artifactTier1: 3, artifactTier2: 4, doctrine: 1, synergies: ["Chaos:2:1"] },
+        upperPerformers: [{ creatureId: 8, damageDealt: 320 }],
+        lowerSetup: { artifactTier1: 1, artifactTier2: 2, doctrine: 3, synergies: ["Life:1:2"] },
+        upperSetup: { artifactTier1: 3, artifactTier2: 4, doctrine: 1, synergies: ["Chaos:2:1"] },
         setupRecorded: true,
         replayAvailable: true,
     },
@@ -84,7 +84,7 @@ describe("public ranked match normalization", () => {
         expect(match?.upperCreatureIds).toEqual([3, 4]);
         expect(match?.stats?.lowerCreatureIds).toEqual([4, 5]);
         expect(match?.stats?.upperCreatureIds).toEqual([8, 9]);
-        expect(match?.stats?.leftPerformers).toEqual([
+        expect(match?.stats?.lowerPerformers).toEqual([
             { creatureId: 4, damageDealt: 500 },
             { creatureId: 6, damageDealt: 450 },
             { creatureId: 7, damageDealt: 300 },
@@ -92,7 +92,7 @@ describe("public ranked match normalization", () => {
             { creatureId: 5, damageDealt: 100 },
             { creatureId: 9, damageDealt: 50 },
         ]);
-        expect(match?.stats?.leftSetup.augmentArmor).toBe(0);
+        expect(match?.stats?.lowerSetup.augmentArmor).toBe(0);
         expect(match?.season).toEqual({
             sequence: 3,
             name: "Ashfall",
@@ -127,6 +127,23 @@ describe("public ranked match normalization", () => {
     test("rejects malformed game identities and incomplete seat pairs", () => {
         expect(normalizePublicRankedMatch({ ...response, gameId: "bad" })).toBeNull();
         expect(normalizePublicRankedMatch({ ...response, players: [response.players[0]] })).toBeNull();
+    });
+
+    /**
+     * The stats keys are a WIRE contract, not prose. Renaming them to left/right (as the LEFT/RIGHT seat pass
+     * briefly did) reads nothing off a real response, so every figure silently became 0/[] and the profile's
+     * detail panel threw on the missing setup object — surfacing as "Match details are unavailable right now".
+     * These assertions read the values, not just the shape, so a zeroed parse cannot pass again.
+     */
+    test("reads the damage, performers and setup the API actually sends", () => {
+        const match = normalizePublicRankedMatch(response);
+        expect(match?.stats?.lowerDamage).toBe(940);
+        expect(match?.stats?.upperDamage).toBe(710);
+        expect(match?.stats?.lowerPerformers.length).toBeGreaterThan(0);
+        expect(match?.stats?.upperPerformers).toEqual([{ creatureId: 8, damageDealt: 320 }]);
+        expect(match?.stats?.lowerSetup.artifactTier1).toBe(1);
+        expect(match?.stats?.upperSetup.artifactTier2).toBe(4);
+        expect(match?.stats?.lowerSetup.synergies).toEqual(["Life:1:2"]);
     });
 });
 

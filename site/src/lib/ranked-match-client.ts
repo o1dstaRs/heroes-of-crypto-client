@@ -36,14 +36,17 @@ export interface RankedMatchTeamSetup {
 export interface PublicRankedMatchStats {
     totalLaps: number;
     gridType: number;
-    leftDamage: number;
-    rightDamage: number;
+    // These mirror the ranked-match wire payload verbatim. The seats are called LEFT/RIGHT in prose and UI,
+    // but the API keys stay lower/upper — the server kept every stored key through that rename, so renaming
+    // them here would both read nothing off the response and hand consumers fields they do not ask for.
+    lowerDamage: number;
+    upperDamage: number;
     lowerCreatureIds: number[];
     upperCreatureIds: number[];
-    leftPerformers: RankedMatchUnitPerformance[];
-    rightPerformers: RankedMatchUnitPerformance[];
-    leftSetup: RankedMatchTeamSetup;
-    rightSetup: RankedMatchTeamSetup;
+    lowerPerformers: RankedMatchUnitPerformance[];
+    upperPerformers: RankedMatchUnitPerformance[];
+    lowerSetup: RankedMatchTeamSetup;
+    upperSetup: RankedMatchTeamSetup;
     setupRecorded: boolean;
     replayAvailable: boolean;
 }
@@ -164,14 +167,14 @@ const normalizeStats = (value: unknown): PublicRankedMatchStats | null => {
     return {
         totalLaps: nonNegativeInteger(row.totalLaps),
         gridType: nonNegativeInteger(row.gridType),
-        leftDamage: nonNegativeInteger(row.leftDamage),
-        rightDamage: nonNegativeInteger(row.rightDamage),
+        lowerDamage: nonNegativeInteger(row.lowerDamage),
+        upperDamage: nonNegativeInteger(row.upperDamage),
         lowerCreatureIds: normalizeCreatureIds(row.lowerCreatureIds),
         upperCreatureIds: normalizeCreatureIds(row.upperCreatureIds),
-        leftPerformers: performances(row.leftPerformers),
-        rightPerformers: performances(row.rightPerformers),
-        leftSetup: normalizeSetup(row.leftSetup),
-        rightSetup: normalizeSetup(row.rightSetup),
+        lowerPerformers: performances(row.lowerPerformers),
+        upperPerformers: performances(row.upperPerformers),
+        lowerSetup: normalizeSetup(row.lowerSetup),
+        upperSetup: normalizeSetup(row.upperSetup),
         setupRecorded: row.setupRecorded === true,
         replayAvailable: row.replayAvailable === true,
     };
