@@ -30,7 +30,6 @@ import React, { useEffect, useState } from "react";
 
 import { images as rawImages } from "../../generated/image_imports";
 import { t, useTranslation } from "../../i18n/i18n";
-import { isFullscreenActive, onFullscreenChange, toggleFullscreen } from "../fullscreen";
 import { getPreGameDoctrine } from "../../utils/preGameDoctrine";
 import { runDraftSubmission, type DraftCommit } from "./draftSubmission";
 import { usePickBanEvents } from "../context/PickBanContext";
@@ -49,12 +48,13 @@ import { Timer } from "./Timer";
 import { draftAttackIconKind } from "./attackTypeIcon";
 import { boardFootprintLabel } from "./boardFootprintLabel";
 import { isAugmentHandoffPhase, shouldShowOpponentDraftRail } from "./draftPhaseVisibility";
+import { GameSystemControls } from "../GameSystemControls";
+import { VOLUME_SLOT_PRIORITY } from "../audio/volumeSlot";
 
 const images = rawImages as Record<string, string>;
 const watchedEyeImage = images.pick_phase_watched_eye;
 const draftBackgroundImage = images.pick_phase_heroic_hearth_tavern_background_v10;
 const pickCommitTextureImage = images.ui_draft_action_stone_texture_v1;
-const fullscreenControlImage = images.ui_control_fullscreen_forged_bronze_v1;
 const OPPONENT_ARMY_BACKGROUND = "linear-gradient(90deg, rgba(31,5,8,.65), rgba(68,8,13,.55) 50%, rgba(31,5,8,.65))";
 const OPPONENT_ARMY_TEXT_COLOR = "#f0e7e9";
 
@@ -532,17 +532,6 @@ export const draftShellSx = {
     },
 } as const;
 
-/** True while the page is in fullscreen — the toggle button reads this to expand or collapse. */
-export const useIsFullscreen = (): boolean => {
-    const [isFullscreen, setIsFullscreen] = useState(false);
-    useEffect(() => {
-        const sync = () => setIsFullscreen(isFullscreenActive());
-        sync();
-        return onFullscreenChange(sync);
-    }, []);
-    return isFullscreen;
-};
-
 /** The factor the fixed board is drawn at: 1.05 whenever it fits, less on windows too small to hold it. */
 export const useDraftScale = (): number => {
     const [scale, setScale] = useState(DRAFT_MAX_SCALE);
@@ -903,17 +892,15 @@ export const DraftBottomControls: React.FC<{
     step: number;
     userTeam?: TeamType;
     draftScale: number;
-}> = ({ step, userTeam, draftScale }) => {
-    const isFullscreen = useIsFullscreen();
-    const fullscreenLabel = isFullscreen ? t("Exit fullscreen") : t("Fullscreen");
-
+    centerControl?: React.ReactNode;
+}> = ({ step, userTeam, draftScale, centerControl }) => {
     return (
         <>
             <Box
                 sx={{
                     position: "fixed",
                     left: "50%",
-                    bottom: "1rem",
+                    bottom: "4.25rem",
                     zIndex: 55,
                     width: "1040px",
                     height: "46px",
@@ -927,38 +914,7 @@ export const DraftBottomControls: React.FC<{
             >
                 <DraftStepper step={step} userTeam={userTeam} />
             </Box>
-            <Tooltip title={fullscreenLabel} variant="soft" placement="top">
-                <Box
-                    component="button"
-                    type="button"
-                    aria-label={fullscreenLabel}
-                    onClick={toggleFullscreen}
-                    sx={{
-                        position: "fixed",
-                        left: "1rem",
-                        bottom: "1rem",
-                        zIndex: 60,
-                        width: 32,
-                        height: 32,
-                        borderRadius: "50%",
-                        display: "grid",
-                        placeItems: "center",
-                        cursor: "pointer",
-                        bgcolor: "transparent",
-                        backgroundImage: `url(${fullscreenControlImage})`,
-                        backgroundPosition: "center",
-                        backgroundRepeat: "no-repeat",
-                        backgroundSize: "contain",
-                        border: 0,
-                        transition: "filter 140ms ease, transform 140ms ease",
-                        "&:hover": {
-                            bgcolor: "transparent",
-                            filter: "brightness(1.12)",
-                            transform: "scale(1.06)",
-                        },
-                    }}
-                />
-            </Tooltip>
+            <GameSystemControls center={centerControl} priority={VOLUME_SLOT_PRIORITY.draftControls} zIndex={1400} />
         </>
     );
 };
@@ -2602,6 +2558,8 @@ interface StainedGlassProps {
     height?: number;
     /** Ranked/private games hide the opponent rail while the final augment event hands off to Setup. */
     showOpponentRosterDuringAugmentHandoff?: boolean;
+    /** Optional pick-phase action occupying the same bottom-centre slot as combat's EXIT FIGHT. */
+    systemControl?: React.ReactNode;
 }
 
 // The opponent's army rendered as EXACTLY 6 fixed level-ordered slots [L1,L1,L2,L2,L3,L4]. Each slot shows one
@@ -2778,6 +2736,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
     gameId,
     opponentLabel = t("Opponent"),
     showOpponentRosterDuringAugmentHandoff = true,
+    systemControl,
 }) => {
     // Re-renders the whole draft when the profile's language changes; children use the module t().
     useTranslation();
@@ -3351,13 +3310,13 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                 {/* Fires once, right before the L3 picks, the moment the server reveals the map type. */}
                 <MapRevealModal mapType={mapType} />
             </Box>
-            {/* Keep draft progress out of the fixed board. It now shares the bottom control line with the
-                fullscreen button and ThemeMusic's floating volume control, so the choice area gets the full
-                board height and the rail remains anchored regardless of the active phase. */}
+            {/* Keep draft progress out of the fixed board and just above the shared system-control row, so
+                the rail and fullscreen / exit / sound controls remain anchored throughout every phase. */}
             <DraftBottomControls
                 step={currentStep(pickPhase, requiredLevel)}
                 userTeam={userTeam}
                 draftScale={draftScale}
+                centerControl={systemControl}
             />
             <Tooltip title={t("Open the full How-to-Play guide in a new tab")} variant="soft" placement="left">
                 <Typography

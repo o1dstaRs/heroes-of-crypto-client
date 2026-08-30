@@ -70,6 +70,7 @@ import { PlayerPortalPage } from "./PlayerPortal/PlayerPortalPage";
 import { isMockPortalEnabled } from "./PlayerPortal/mockPortal";
 import { RankedGameView } from "./RankedGameView";
 import { getMarkedVsAiDifficulty, isMarkedVsAiGame, vsAiDifficultyLabel } from "../utils/aiOpponent";
+import { PickExitFightControl } from "./PickExitFightControl";
 
 const LoadingScreenFireEditor = React.lazy(() => import("./LoadingScreenFireEditor"));
 // Every dev editor is lazy so the production entry chunk never carries them: their routes below are
@@ -367,6 +368,7 @@ const BundlePickPreview: React.FC = () => {
                     gameId="bundle-pick-preview"
                     opponentLabel="Opponent"
                     showOpponentRosterDuringAugmentHandoff={false}
+                    systemControl={<PickExitFightControl gameId="bundle-pick-preview" />}
                 />
             </div>
         </PickBanContext.Provider>
@@ -394,6 +396,7 @@ const LevelOnePickPreview: React.FC = () => (
                 gameId="level-one-pick-preview"
                 opponentLabel="Opponent"
                 showOpponentRosterDuringAugmentHandoff={false}
+                systemControl={<PickExitFightControl gameId="level-one-pick-preview" />}
             />
         </div>
     </PickBanContext.Provider>
@@ -743,12 +746,15 @@ const PickAndBanView: React.FC<{
                 <CssVarsProvider>
                     <CssBaseline />
                     {!isLoading && <LeftSideBar gameStarted={started} windowSize={windowSize} />}
-                    {!isLoading && <RightSideBar gameStarted={started} windowSize={windowSize} />}
+                    {!isLoading && (
+                        <RightSideBar gameStarted={started} windowSize={windowSize} showSystemControls={false} />
+                    )}
                 </CssVarsProvider>
                 <StainedGlassWindow
                     userTeam={userTeam}
                     gameId={gameId}
                     showOpponentRosterDuringAugmentHandoff={false}
+                    systemControl={<PickExitFightControl gameId={gameId} />}
                     opponentLabel={
                         isMarkedVsAiGame(gameId)
                             ? (() => {

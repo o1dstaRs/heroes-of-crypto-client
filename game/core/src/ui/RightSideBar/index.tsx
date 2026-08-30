@@ -1,5 +1,4 @@
 import { IDamageStatistic } from "@heroesofcrypto/common";
-import { registerVolumeSlot, VOLUME_SLOT_PRIORITY } from "../audio/volumeSlot";
 import { FightLog, FIGHT_LOG_SURFACE_BACKGROUND } from "./FightLog";
 import DraggableToolbar, { toolbarColumnHeightPx } from "../DraggableToolbar";
 import {
@@ -23,12 +22,12 @@ import { battleSidebarWidth } from "../../pixi/boardFit";
 import { images } from "../../generated/image_imports";
 import { hocColors, hocDisplayFontFamily, hocSidebarSectionSx } from "../hocTheme";
 import FightControlToggler from "./FightControlToggler";
-import { FullscreenToggle } from "./FullscreenToggle";
 import { WalletLinker } from "../WalletLinker";
 import { IWindowSize } from "../../scenes/VisibleState";
 import { sidebarPlainFrameSideInsetPx, sidebarPlainFrameVerticalInsetPx } from "../LeftSideBar/sidebarMetrics";
 import { exitFightButtonSx } from "../exitFightButtonSx";
 import { useFullscreenActive } from "../useFullscreenActive";
+import { GameSystemControls } from "../GameSystemControls";
 
 // Floor for the fight log. Below this the bar as a whole scrolls rather than squeezing the log to nothing.
 const LOG_MIN_HEIGHT_PX = 168;
@@ -56,6 +55,7 @@ export default function RightSideBar({
     rankedPanel,
     rankedFooter,
     showWallet = false,
+    showSystemControls = true,
     onClose,
 }: {
     gameStarted: boolean;
@@ -63,6 +63,7 @@ export default function RightSideBar({
     rankedPanel?: React.ReactNode;
     rankedFooter?: React.ReactNode;
     showWallet?: boolean;
+    showSystemControls?: boolean;
     onClose?: () => void;
 }) {
     const navigate = useNavigate();
@@ -73,11 +74,6 @@ export default function RightSideBar({
     // See the note at the log itself: its height is measured on the first layout and then held, so nothing
     // that happens later in the fight can re-deal it. The window size and leaving the fight are the only
     // things that release it — both change what "the spare height" even means.
-    // The music control lives at the app root so the theme survives changing screens; this footer only
-    // publishes WHERE it should appear, and ThemeMusic portals it in. See ui/audio/volumeSlot.
-    const volumeSlotRef = useRef<HTMLDivElement>(null);
-    useLayoutEffect(() => registerVolumeSlot(volumeSlotRef.current, VOLUME_SLOT_PRIORITY.sidebarFooter), []);
-
     const logBoxRef = useRef<HTMLDivElement>(null);
     const [frozenLogHeight, setFrozenLogHeight] = useState<number | null>(null);
     const damageListSpaceRef = useRef<HTMLDivElement>(null);
@@ -518,27 +514,15 @@ export default function RightSideBar({
                         lets the flexible log grow exactly into its old position. Setup keeps its separator. */}
                     {!rankedPanel && !gameStarted && <Divider />}
                     {showWallet && <WalletLinker />}
-                    {/* Compact footer: fullscreen and music stay on the edges. Once combat starts, the exit
-                        action occupies the centre. Before combat, the top-right close button returns to the
-                        screen that opened the sandbox. */}
-                    <Box
-                        sx={{
-                            width: "100%",
-                            pl:
-                                rankedPanel || gameStarted
-                                    ? 0
-                                    : `${Math.max(0, sidebarPlainFrameSideInsetPx(barSize) - 6)}px`,
-                            display: "grid",
-                            gridTemplateColumns: "32px minmax(0, 1fr) 32px",
-                            alignItems: "center",
-                            // Pushed to the very bottom of the bar: with the log hidden before the fight the
-                            // strip used to float mid-panel, right under the ready button.
-                            mt: "auto",
-                            pt: 0.5,
-                        }}
-                    >
-                        <FullscreenToggle />
-                        {rankedFooter ? (
+                </List>
+            </Box>
+            {/* These controls belong to the viewport, not the sidebar. Keeping one shared row here makes
+                their positions identical in placement and combat; pick/ban mounts the same row over its
+                full-screen draft and asks this hidden sidebar not to publish a duplicate. */}
+            {showSystemControls && (
+                <GameSystemControls
+                    center={
+                        rankedFooter ? (
                             rankedFooter
                         ) : rankedPanel && gameStarted ? (
                             rankedPanel
@@ -560,16 +544,10 @@ export default function RightSideBar({
                             >
                                 EXIT FIGHT
                             </Button>
-                        ) : (
-                            <Box />
-                        )}
-                        <Box
-                            ref={volumeSlotRef}
-                            sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end", minWidth: 0 }}
-                        />
-                    </Box>
-                </List>
-            </Box>
+                        ) : undefined
+                    }
+                />
+            )}
         </Sheet>
     );
 }
