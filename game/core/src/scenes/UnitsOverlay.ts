@@ -709,20 +709,21 @@ export class UnitsOverlay {
                     // Fall back only for an unknown/unregistered creature. The normal sandbox roster uses
                     // the exact source, faction background and crop already approved for the pick cards.
                     const fallbackTexture = this.getTex(unitToTextureName(unitName, TextureType.LARGE, sizeFlag));
-                    const portrait =
-                        portraitVisual && portraitTexture
-                            ? {
-                                  texture: portraitTexture,
-                                  backgroundTexture,
-                                  backgroundOpacity: portraitVisual.backgroundOpacity,
-                                  backgroundShadeAlpha: portraitVisual.backgroundShadeAlpha,
-                                  framing: portraitVisual.framing,
-                                  mirrorX:
-                                      (faction.type === FactionVals.NATURE &&
-                                          !UNMIRRORED_NATURE_ROSTER_PORTRAIT_NAMES.has(unitName)) ||
-                                      MIRRORED_ROSTER_PORTRAIT_NAMES.has(unitName),
-                              }
-                            : undefined;
+                    const portrait = portraitVisual
+                        ? {
+                              texture: portraitTexture ?? Texture.EMPTY,
+                              backgroundTexture: portraitVisual.background
+                                  ? (backgroundTexture ?? Texture.EMPTY)
+                                  : undefined,
+                              backgroundOpacity: portraitVisual.backgroundOpacity,
+                              backgroundShadeAlpha: portraitVisual.backgroundShadeAlpha,
+                              framing: portraitVisual.framing,
+                              mirrorX:
+                                  (faction.type === FactionVals.NATURE &&
+                                      !UNMIRRORED_NATURE_ROSTER_PORTRAIT_NAMES.has(unitName)) ||
+                                  MIRRORED_ROSTER_PORTRAIT_NAMES.has(unitName),
+                          }
+                        : undefined;
 
                     const chip = new UnitChip({
                         unitName,
@@ -749,6 +750,22 @@ export class UnitsOverlay {
 
         this.onResize(this.app.renderer.width, this.app.renderer.height);
         this.container.sortChildren();
+    }
+    /** Fill any roster cards whose on-demand portrait/background has just entered Pixi's cache. */
+    public refreshLazyTextures(): void {
+        if (this.container.destroyed) return;
+        for (const chip of this.allChips) {
+            const creatureId = UNIT_NAME_TO_ID[chip.nameKey];
+            const visual = creatureId === undefined ? undefined : resolveCreaturePortraitVisual(creatureId);
+            if (!visual) continue;
+
+            const textureKey = IMAGE_URL_TO_KEY.get(visual.source);
+            const texture = textureKey ? this.getTex(textureKey) : undefined;
+            if (!texture) continue;
+            const backgroundKey = visual.background ? IMAGE_URL_TO_KEY.get(visual.background) : undefined;
+            const backgroundTexture = backgroundKey ? this.getTex(backgroundKey) : undefined;
+            chip.setPortraitTextures(texture, backgroundTexture);
+        }
     }
     private setScrollX(value: number): void {
         this.scrollX = Math.max(0, Math.min(this.maxScrollX, Number.isFinite(value) ? value : 0));

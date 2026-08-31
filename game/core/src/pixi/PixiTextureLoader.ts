@@ -83,6 +83,98 @@ export function isRedundantFullResolutionUnitAtlasKey(key: string): boolean {
     return isUnitAnimationAtlasKey(key) && key.endsWith("_atlas");
 }
 
+/**
+ * Sidebar portraits and draft-screen backdrops are rendered by React as ordinary images, never by the
+ * Pixi scene. The `_pick_sandbox_x2` portraits and silver pick icons deliberately stay in core because
+ * Pixi's expandable Units overlay shares that art.
+ */
+export function isDeferredReactUiAssetKey(key: string): boolean {
+    return (
+        key.startsWith("pick_phase_") ||
+        key.startsWith("pick_bundle_") ||
+        key.startsWith("pick_l2_legacy_") ||
+        key.startsWith("fight_results_") ||
+        key.startsWith("left_sidebar_") ||
+        key.startsWith("ui_sidebar_") ||
+        key.startsWith("ui_up_next_") ||
+        key.startsWith("sidebar_") ||
+        key.endsWith("_left_screen_x2") ||
+        key.endsWith("_portrait_full")
+    );
+}
+
+const LIVE_ENVIRONMENT_ASSETS = new Set([
+    "ambient_fire_video_torch_left_natural_v4_64_atlas",
+    "ambient_fire_video_torch_right_natural_v4_64_atlas",
+    "background_stone_tiles_sinister_16x16_original_restored",
+]);
+
+/**
+ * Large environment exports kept for art comparison must not all become live GPU textures. The active
+ * fire-pit overlay is also omitted here because DungeonVisuals already loads it lazily only for lava maps.
+ */
+export function isDeferredEnvironmentAssetKey(key: string): boolean {
+    if (LIVE_ENVIRONMENT_ASSETS.has(key)) return false;
+    if (
+        key === "active_turn_blue_fire_atlas" ||
+        key === "cemetery_obstacles_9x_256_atlas" ||
+        key === "dungeon_god_rays_v2" ||
+        key === "dungeon_volumetric_fog_v2" ||
+        key === "lava_center_anim_atlas"
+    ) {
+        return true;
+    }
+    if (key.startsWith("fire_pit_") && (key.endsWith("_atlas") || key.endsWith("_atlas_half"))) return true;
+    if (key.startsWith("ambient_fire_video_torch_") && key.endsWith("_atlas")) return true;
+    if (key.startsWith("background_test_abyss_")) return true;
+    return key.startsWith("background_stone_tiles") && key !== "background_new";
+}
+
+const LIVE_PLACEMENT_CARPET = /^placement_carpet_green_uniform_gold_aaa_[345]col_v16$/;
+const LIVE_PLACEMENT_BORDER = /^placement_gold_outer_border_green_continuous_[3456]col_(?:14|16)row_v23$/;
+
+/** Only the eleven keys returned by PixiDrawablePlacement's runtime selectors belong in core. */
+export function isDeferredPlacementAssetKey(key: string): boolean {
+    return key.startsWith("placement_") && !LIVE_PLACEMENT_CARPET.test(key) && !LIVE_PLACEMENT_BORDER.test(key);
+}
+
+/** Superseded creature exports; the board's approved files all end in `_battlefield_side_right_final_v1`. */
+export function isDeferredLegacyCreatureAssetKey(key: string): boolean {
+    if (key.endsWith("_final")) return true;
+    if (/_portrait_full_v\d+$/.test(key)) return true;
+    return key.includes("_battlefield_side_right_") && !key.endsWith("_battlefield_side_right_final_v1");
+}
+
+/** Approved full-resolution board figures load per creature present in the current match. */
+export function isLazyBattlefieldCreatureAssetKey(key: string): boolean {
+    return key.endsWith("_battlefield_side_right_final_v1");
+}
+
+const LAZY_PROJECTILE_ASSETS = new Set([
+    "armor_piercing_bolt",
+    "orc_throwing_axe",
+    "arbalester_cyan_bolt",
+    "centaur_spear_variant_4",
+    "dryad_thorn_dart",
+    "beholder_purple_eye_orb",
+    "elf_emerald_arrow",
+    "medusa_spectral_serpent",
+    "cyclops_heavy_boulder",
+    "monk_solar_orb",
+    "tsar_cannon_molten_ball",
+    "gargantuan_root_boulder",
+]);
+
+/** Large projectile cutouts load for the first matching shot instead of every fight. */
+export function isLazyProjectileAssetKey(key: string): boolean {
+    return LAZY_PROJECTILE_ASSETS.has(key);
+}
+
+/** Sandbox roster portraits are needed only before combat and are released when the fight starts. */
+export function isLazyRosterAssetKey(key: string): boolean {
+    return key.endsWith("_pick_sandbox_x2") || key.includes("_portrait_bg_");
+}
+
 function getRegisteredBundles(): Set<string> {
     const globalState = globalThis as Record<string, unknown>;
     const registeredBundles = globalState[registeredBundlesKey];
@@ -111,6 +203,13 @@ export function getSplitBundles(options: SplitBundleOptions = {}) {
     const idleAtlases: Record<string, { src: string }> = {};
     const animations: Record<string, { src: string }> = {};
     const deferredUnitAtlases: Record<string, { src: string }> = {};
+    const deferredReactUiAssets: Record<string, { src: string }> = {};
+    const deferredEnvironmentAssets: Record<string, { src: string }> = {};
+    const deferredPlacementAssets: Record<string, { src: string }> = {};
+    const deferredLegacyCreatureAssets: Record<string, { src: string }> = {};
+    const lazyBattlefieldCreatureAssets: Record<string, { src: string }> = {};
+    const lazyProjectileAssets: Record<string, { src: string }> = {};
+    const lazyRosterAssets: Record<string, { src: string }> = {};
     const excludedFullResolutionUnitAtlases: Record<string, { src: string }> = {};
 
     for (const [k, v] of Object.entries(rawImages)) {
@@ -128,12 +227,49 @@ export function getSplitBundles(options: SplitBundleOptions = {}) {
             } else {
                 animations[k] = { src };
             }
+        } else if (isDeferredReactUiAssetKey(k)) {
+            deferredReactUiAssets[k] = { src };
+        } else if (isDeferredEnvironmentAssetKey(k)) {
+            deferredEnvironmentAssets[k] = { src };
+        } else if (isDeferredPlacementAssetKey(k)) {
+            deferredPlacementAssets[k] = { src };
+        } else if (isDeferredLegacyCreatureAssetKey(k)) {
+            deferredLegacyCreatureAssets[k] = { src };
+        } else if (isLazyBattlefieldCreatureAssetKey(k)) {
+            lazyBattlefieldCreatureAssets[k] = { src };
+        } else if (isLazyProjectileAssetKey(k)) {
+            lazyProjectileAssets[k] = { src };
+        } else if (isLazyRosterAssetKey(k)) {
+            lazyRosterAssets[k] = { src };
         } else {
             // Tier 1: Core
             core[k] = { src };
         }
     }
-    return { core, idleAtlases, animations, deferredUnitAtlases, excludedFullResolutionUnitAtlases };
+    return {
+        core,
+        idleAtlases,
+        animations,
+        deferredUnitAtlases,
+        deferredReactUiAssets,
+        deferredEnvironmentAssets,
+        deferredPlacementAssets,
+        deferredLegacyCreatureAssets,
+        lazyBattlefieldCreatureAssets,
+        lazyProjectileAssets,
+        lazyRosterAssets,
+        excludedFullResolutionUnitAtlases,
+    };
+}
+
+/** Drop pre-fight roster textures after their overlay is destroyed; a rematch loads them again on demand. */
+export async function unloadRosterAssets(): Promise<void> {
+    const { lazyRosterAssets } = getSplitBundles();
+    const loadedEntries = Object.entries(lazyRosterAssets).filter(([, asset]) => Assets.cache.has(asset.src));
+    await Promise.allSettled(loadedEntries.map(([, asset]) => Assets.unload(asset.src)));
+    for (const [key] of loadedEntries) {
+        delete (loadedTextures as Record<string, Texture | undefined>)[key];
+    }
 }
 
 export async function preloadCoreAssets(onProgress?: (p: number) => void): Promise<Partial<PreloadedPixiTextures>> {

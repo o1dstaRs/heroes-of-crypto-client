@@ -1,5 +1,5 @@
 // game/core/src/pixi/PixiScene.ts
-import { Texture } from "pixi.js";
+import { Assets, Texture } from "pixi.js";
 import { Signal } from "typed-signals";
 import {
     HoCConstants,
@@ -70,6 +70,7 @@ export interface AuthoritativeSnapshotOptions {
 }
 
 const STEPS_BETWEEN_MOUSE_ACTIONS_MIN = 2;
+const lazyTextureLoads = new Map<string, Promise<Texture>>();
 
 /** Minimal shape of objects your scene selects / manipulates. */
 export interface BodyLike {
@@ -348,11 +349,28 @@ export abstract class PixiScene {
         if (!url) {
             return undefined;
         }
-        try {
-            return Texture.from(url);
-        } catch {
-            return undefined;
+        if (Assets.cache.has(url)) {
+            const cached = Assets.cache.get<Texture>(url);
+            (this.textures as unknown as Record<string, Texture>)[key] = cached;
+            return cached;
         }
+
+        // Large optional families (notably the approved 768px battlefield figures) stay out of the
+        // all-assets core bundle. Load the exact requested key once, then repaint live units when it lands.
+        // Returning undefined meanwhile lets callers keep their existing static/vector fallback.
+        let pending = lazyTextureLoads.get(url);
+        if (!pending) {
+            pending = Assets.load<Texture>(url);
+            lazyTextureLoads.set(url, pending);
+            void pending
+                .then((texture) => {
+                    (this.textures as unknown as Record<string, Texture>)[key] = texture;
+                    this.onSupplementaryTexturesLoaded?.();
+                })
+                .catch(() => undefined)
+                .then(() => lazyTextureLoads.delete(url));
+        }
+        return undefined;
     };
     public getBaseHotkeys(): HotKey[] {
         return [];

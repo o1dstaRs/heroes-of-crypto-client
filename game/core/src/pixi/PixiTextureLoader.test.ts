@@ -1,7 +1,18 @@
 import { describe, expect, test } from "bun:test";
 
 import { images } from "../imageAssets";
-import { getSplitBundles, isIdleAtlasKey, isRedundantFullResolutionUnitAtlasKey } from "./PixiTextureLoader";
+import {
+    getSplitBundles,
+    isDeferredEnvironmentAssetKey,
+    isDeferredLegacyCreatureAssetKey,
+    isDeferredPlacementAssetKey,
+    isDeferredReactUiAssetKey,
+    isIdleAtlasKey,
+    isLazyBattlefieldCreatureAssetKey,
+    isLazyProjectileAssetKey,
+    isLazyRosterAssetKey,
+    isRedundantFullResolutionUnitAtlasKey,
+} from "./PixiTextureLoader";
 import { isUnitAnimationAtlasKey } from "./unitAtlasKeys";
 
 // The board renders every creature's PERMANENT art from its idle/default atlas. If those keys ride
@@ -27,14 +38,33 @@ describe("pixi texture bundle split", () => {
     });
 
     test("classifies every manifest key into one loaded bundle or the excluded source sheets", () => {
-        const { core, idleAtlases, animations, deferredUnitAtlases, excludedFullResolutionUnitAtlases } =
-            getSplitBundles();
+        const {
+            core,
+            idleAtlases,
+            animations,
+            deferredUnitAtlases,
+            deferredReactUiAssets,
+            deferredEnvironmentAssets,
+            deferredPlacementAssets,
+            deferredLegacyCreatureAssets,
+            lazyBattlefieldCreatureAssets,
+            lazyProjectileAssets,
+            lazyRosterAssets,
+            excludedFullResolutionUnitAtlases,
+        } = getSplitBundles();
         const allKeys = Object.keys(images);
         const split = [
             ...Object.keys(core),
             ...Object.keys(idleAtlases),
             ...Object.keys(animations),
             ...Object.keys(deferredUnitAtlases),
+            ...Object.keys(deferredReactUiAssets),
+            ...Object.keys(deferredEnvironmentAssets),
+            ...Object.keys(deferredPlacementAssets),
+            ...Object.keys(deferredLegacyCreatureAssets),
+            ...Object.keys(lazyBattlefieldCreatureAssets),
+            ...Object.keys(lazyProjectileAssets),
+            ...Object.keys(lazyRosterAssets),
             ...Object.keys(excludedFullResolutionUnitAtlases),
         ];
 
@@ -53,17 +83,40 @@ describe("pixi texture bundle split", () => {
         for (const key of Object.keys(deferredUnitAtlases)) {
             expect(`${key}: ${isUnitAnimationAtlasKey(key)}`).toBe(`${key}: true`);
         }
+        for (const key of Object.keys(deferredReactUiAssets)) {
+            expect(`${key}: ${isDeferredReactUiAssetKey(key)}`).toBe(`${key}: true`);
+        }
+        for (const key of Object.keys(deferredEnvironmentAssets)) {
+            expect(`${key}: ${isDeferredEnvironmentAssetKey(key)}`).toBe(`${key}: true`);
+        }
+        for (const key of Object.keys(deferredPlacementAssets)) {
+            expect(`${key}: ${isDeferredPlacementAssetKey(key)}`).toBe(`${key}: true`);
+        }
+        for (const key of Object.keys(deferredLegacyCreatureAssets)) {
+            expect(`${key}: ${isDeferredLegacyCreatureAssetKey(key)}`).toBe(`${key}: true`);
+        }
+        for (const key of Object.keys(lazyBattlefieldCreatureAssets)) {
+            expect(`${key}: ${isLazyBattlefieldCreatureAssetKey(key)}`).toBe(`${key}: true`);
+        }
+        for (const key of Object.keys(lazyProjectileAssets)) {
+            expect(`${key}: ${isLazyProjectileAssetKey(key)}`).toBe(`${key}: true`);
+        }
+        for (const key of Object.keys(lazyRosterAssets)) {
+            expect(`${key}: ${isLazyRosterAssetKey(key)}`).toBe(`${key}: true`);
+        }
         for (const key of Object.keys(excludedFullResolutionUnitAtlases)) {
             expect(`${key}: ${isRedundantFullResolutionUnitAtlasKey(key)}`).toBe(`${key}: true`);
         }
     });
 
-    test("keeps board atlases but never loads full-resolution unit source sheets", () => {
-        const { core, animations, excludedFullResolutionUnitAtlases } = getSplitBundles({
+    test("keeps live board atlases but never loads full-resolution unit source sheets", () => {
+        const { core, animations, deferredEnvironmentAssets, excludedFullResolutionUnitAtlases } = getSplitBundles({
             animationsEnabled: true,
         });
 
-        expect(core.lava_center_anim_atlas).toBeDefined();
+        // The current fire-pit still always wins before this legacy lava fallback is consulted.
+        expect(deferredEnvironmentAssets.lava_center_anim_atlas).toBeDefined();
+        expect(core.lava_center_anim_atlas).toBeUndefined();
         expect(animations.wolf_walk_atlas_quarter).toBeDefined();
         expect(excludedFullResolutionUnitAtlases.wolf_walk_atlas).toBeDefined();
         expect(core.wolf_walk_atlas).toBeUndefined();
@@ -94,5 +147,157 @@ describe("pixi texture bundle split", () => {
         expect(Object.keys(animations)).toEqual(["peasant_walk_atlas_quarter"]);
         expect(deferredUnitAtlases.wolf_idle_atlas_quarter).toBeDefined();
         expect(deferredUnitAtlases.wolf_attack_atlas_quarter).toBeDefined();
+    });
+
+    test("leaves React-only draft and portrait art out of Pixi's texture cache", () => {
+        const { core, deferredReactUiAssets } = getSplitBundles({ animationsEnabled: false });
+
+        for (const key of [
+            "wolf_left_screen_x2",
+            "black_dragon_portrait_full",
+            "pick_phase_heroic_hearth_tavern_background_v10",
+            "pick_phase_floor_fog_atlas",
+            "pick_bundle_background_guardians_v1",
+            "pick_l2_legacy_beholder_512",
+            "fight_results_moonlit_fire_overlay_v9",
+            "left_sidebar_arachna_queen",
+            "ui_sidebar_bg_left_smoked_bronze_inner_v11",
+            "ui_up_next_smoky_chains_bg_wide_73pct_v4",
+            "sidebar_overlay",
+        ]) {
+            expect(isDeferredReactUiAssetKey(key)).toBe(true);
+            expect(deferredReactUiAssets[key]).toBeDefined();
+            expect(core[key]).toBeUndefined();
+        }
+
+        expect(isDeferredReactUiAssetKey("wolf_final")).toBe(false);
+        expect(isDeferredReactUiAssetKey("wolf_pick_sandbox_x2")).toBe(false);
+        expect(isDeferredReactUiAssetKey("pick_attack_melee_silver")).toBe(false);
+        expect(isDeferredReactUiAssetKey("pick_movement_walk_silver")).toBe(false);
+        expect(isDeferredReactUiAssetKey("background_stone_tiles_sinister")).toBe(false);
+    });
+
+    test("keeps only live environment variants in core and lets the fire pit load on demand", () => {
+        const { core, deferredEnvironmentAssets } = getSplitBundles({ animationsEnabled: false });
+        const deferred = [
+            "fire_pit_variant_1_low_front_fire_overlay_seamless_v2_64_atlas",
+            "fire_pit_variant_1_low_front_fire_overlay_seamless_v2_64_atlas_half",
+            "fire_pit_high_fire_overlay_smooth_64_atlas",
+            "ambient_fire_video_torch_left_64_atlas",
+            "background_test_abyss_underlay_v4",
+            "background_stone_tiles_sinister_16x16_curbfix_v6",
+            "active_turn_blue_fire_atlas",
+            "cemetery_obstacles_9x_256_atlas",
+            "dungeon_god_rays_v2",
+            "dungeon_volumetric_fog_v2",
+            "lava_center_anim_atlas",
+        ];
+
+        for (const key of deferred) {
+            expect(isDeferredEnvironmentAssetKey(key)).toBe(true);
+            expect(deferredEnvironmentAssets[key]).toBeDefined();
+            expect(core[key]).toBeUndefined();
+        }
+
+        for (const key of [
+            "ambient_fire_video_torch_left_natural_v4_64_atlas",
+            "ambient_fire_video_torch_right_natural_v4_64_atlas",
+            "background_stone_tiles_sinister_16x16_original_restored",
+        ]) {
+            expect(isDeferredEnvironmentAssetKey(key)).toBe(false);
+            expect(core[key]).toBeDefined();
+        }
+        expect(isDeferredEnvironmentAssetKey("background_new")).toBe(false);
+    });
+
+    test("preloads only placement assets reachable through the runtime selectors", () => {
+        const { core, deferredPlacementAssets } = getSplitBundles({ animationsEnabled: false });
+
+        for (const key of [
+            "placement_carpet_green_worn_grid_5col_v9",
+            "placement_gold_outer_border_gapped_5col_16row_v19",
+            "placement_gold_outer_border_green_gapped_6col_14row_v22",
+            "placement_red_flag_folds_v1",
+        ]) {
+            expect(isDeferredPlacementAssetKey(key)).toBe(true);
+            expect(deferredPlacementAssets[key]).toBeDefined();
+            expect(core[key]).toBeUndefined();
+        }
+
+        for (const key of [
+            "placement_carpet_green_uniform_gold_aaa_3col_v16",
+            "placement_carpet_green_uniform_gold_aaa_4col_v16",
+            "placement_carpet_green_uniform_gold_aaa_5col_v16",
+            "placement_gold_outer_border_green_continuous_3col_14row_v23",
+            "placement_gold_outer_border_green_continuous_6col_16row_v23",
+        ]) {
+            expect(isDeferredPlacementAssetKey(key)).toBe(false);
+            expect(core[key]).toBeDefined();
+        }
+    });
+
+    test("keeps approved battlefield figures and defers their superseded exports", () => {
+        const { core, deferredLegacyCreatureAssets, lazyBattlefieldCreatureAssets } = getSplitBundles({
+            animationsEnabled: false,
+        });
+
+        for (const key of [
+            "zena_final",
+            "zena_battlefield_side_right_v3",
+            "efreet_battlefield_side_right_v7",
+            "thunderbird_portrait_full_v2",
+        ]) {
+            expect(isDeferredLegacyCreatureAssetKey(key)).toBe(true);
+            expect(deferredLegacyCreatureAssets[key]).toBeDefined();
+            expect(core[key]).toBeUndefined();
+        }
+
+        for (const key of [
+            "zena_battlefield_side_right_final_v1",
+            "efreet_battlefield_side_right_final_v1",
+            "thunderbird_battlefield_side_right_final_v1",
+        ]) {
+            expect(isDeferredLegacyCreatureAssetKey(key)).toBe(false);
+            expect(isLazyBattlefieldCreatureAssetKey(key)).toBe(true);
+            expect(lazyBattlefieldCreatureAssets[key]).toBeDefined();
+            expect(core[key]).toBeUndefined();
+        }
+    });
+
+    test("loads large projectile art only when its matching shot is fired", () => {
+        const { core, lazyProjectileAssets } = getSplitBundles({ animationsEnabled: false });
+
+        for (const key of [
+            "armor_piercing_bolt",
+            "orc_throwing_axe",
+            "arbalester_cyan_bolt",
+            "centaur_spear_variant_4",
+            "dryad_thorn_dart",
+            "beholder_purple_eye_orb",
+            "elf_emerald_arrow",
+            "medusa_spectral_serpent",
+            "cyclops_heavy_boulder",
+            "monk_solar_orb",
+            "tsar_cannon_molten_ball",
+            "gargantuan_root_boulder",
+        ]) {
+            expect(isLazyProjectileAssetKey(key)).toBe(true);
+            expect(lazyProjectileAssets[key]).toBeDefined();
+            expect(core[key]).toBeUndefined();
+        }
+    });
+
+    test("loads sandbox roster art only while the pre-fight overlay exists", () => {
+        const { core, lazyRosterAssets } = getSplitBundles({ animationsEnabled: false });
+
+        for (const key of [
+            "wolf_pick_sandbox_x2",
+            "life_portrait_bg_golden_dawn_four_corner_haze_v1",
+            "nature_portrait_bg_tier_1_2",
+        ]) {
+            expect(isLazyRosterAssetKey(key)).toBe(true);
+            expect(lazyRosterAssets[key]).toBeDefined();
+            expect(core[key]).toBeUndefined();
+        }
     });
 });

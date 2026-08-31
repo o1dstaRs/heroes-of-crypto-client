@@ -612,9 +612,11 @@ export class DungeonVisuals {
     private static readonly FIRE_PIT_KEY = "fire_pit_center_clean_fire_v2_512";
     private static readonly FIRE_PIT_EDITOR_BOWL_KEY = "fire_pit_center_clean_fire_v2_512";
     private static readonly FIRE_PIT_EDITOR_GRATE_KEY = "fire_pit_grate_foreground_static_v7_512";
-    private static readonly FIRE_PIT_ANIM_KEY = "fire_pit_variant_1_low_front_fire_overlay_seamless_v2_64_atlas";
-    private static readonly FIRE_PIT_EDITOR_ANIM_KEY = "fire_pit_variant_1_low_front_fire_overlay_seamless_v2_64_atlas";
-    private static readonly FIRE_PIT_ANIM_FRAME_PX = 512;
+    private static readonly FIRE_PIT_ANIM_KEY = "fire_pit_variant_1_low_front_fire_overlay_seamless_v2_64_atlas_half";
+    private static readonly FIRE_PIT_EDITOR_ANIM_KEY =
+        "fire_pit_variant_1_low_front_fire_overlay_seamless_v2_64_atlas_half";
+    /** The overlay displays below 512px, so 256px frames keep detail without a 64 MiB GPU texture. */
+    private static readonly FIRE_PIT_ANIM_FRAME_PX = 256;
     private static readonly FIRE_PIT_ANIM_COLS = 8;
     private static readonly FIRE_PIT_ANIM_FRAMES = 64;
     private lavaAnimFrames?: Texture[];

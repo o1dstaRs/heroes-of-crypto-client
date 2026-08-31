@@ -345,6 +345,21 @@ export class UnitChip extends Container {
     public setTicker(ticker: Ticker): void {
         this.ticker = ticker;
     }
+    /** Replace the temporary roster fallback as soon as its approved portrait finishes loading. */
+    public setPortraitTextures(texture: Texture, backgroundTexture?: Texture): void {
+        if (!this.portraitFraming || texture === Texture.EMPTY) return;
+
+        if (this.idleTexture !== texture) {
+            this.idleTexture = texture;
+            if (!this.animationStepFn) this.sprite.texture = texture;
+        }
+        if (backgroundTexture && backgroundTexture !== Texture.EMPTY && this.portraitBackground) {
+            this.portraitBackground.texture = backgroundTexture;
+        }
+        if (this.lastCardWidth > 0 && this.lastCardHeight > 0) {
+            this.layout(this.lastCardWidth, this.lastCardHeight);
+        }
+    }
     /** Call whenever the grid lays out to size the chip nicely. */
     public layout(cardWidth: number, cardHeight: number = cardWidth) {
         this.lastCardWidth = cardWidth;

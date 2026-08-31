@@ -96,6 +96,7 @@ import { VisibleButtonState, IVisibleUnit } from "./VisibleState";
 import { images } from "../generated/image_imports";
 import { SceneSettings } from "./SceneSettings";
 import { PixiScene, PixiSceneContext, registerScene } from "../pixi/PixiScene";
+import { unloadRosterAssets } from "../pixi/PixiTextureLoader";
 import { setSpawnFlowPhase } from "../pixi/PixiDrawablePlacement";
 import { isBattlefieldShadowEditorActive } from "../ui/battlefieldShadowTuning";
 import { PlacementManager } from "./PlacementManager";
@@ -1162,8 +1163,10 @@ export class Sandbox extends PixiScene {
                 return p ? p.amount_alive : 99;
             },
         );
-        this.unitsOverlay.build();
-        if (this.sc_gameActionTransport) {
+        const fightAlreadyStarted = FightStateManager.getInstance().getFightProperties().hasFightStarted();
+        if (!this.sc_gameActionTransport && !fightAlreadyStarted) {
+            this.unitsOverlay.build();
+        } else {
             this.unitsOverlay.setVisible(false);
         }
 
@@ -5379,7 +5382,10 @@ export class Sandbox extends PixiScene {
             this.attachToWorldRoot(this.placementFrameContainer, 100.1);
         } else if (fightStarted && this.unitsOverlay) {
             // Make sure it’s gone once fight has started
-            this.unitsOverlay.destroy();
+            if (!this.unitsOverlay.container.destroyed) {
+                this.unitsOverlay.destroy();
+                void unloadRosterAssets();
+            }
         }
         // 4) Anything that lives in world space and might have been attached.
         // Placement zones must stay below unit sprites; otherwise placed units show badges/stack
@@ -13649,7 +13655,10 @@ export class Sandbox extends PixiScene {
         if (fightStarted) {
             // Both are static placement-only layers. Destroy/hide them once instead of invalidating their
             // graphics buffers on every simulation tick for the entire fight.
-            if (!this.unitsOverlay.container.destroyed) this.unitsOverlay.destroy();
+            if (!this.unitsOverlay.container.destroyed) {
+                this.unitsOverlay.destroy();
+                void unloadRosterAssets();
+            }
             if (this.placementGraphics?.visible) {
                 this.placementGraphics.clear();
                 this.placementGraphics.visible = false;
@@ -15864,6 +15873,13 @@ export class Sandbox extends PixiScene {
             if (unit instanceof RenderableUnit && !unit.isDead()) {
                 unit.ensureVisual(unitsContainer, gs);
             }
+        }
+        if (this.unitsOverlay?.container.destroyed) {
+            // A player can start combat while a final portrait request is still decoding. Release that
+            // late arrival too, otherwise it escapes the fight-start unload and stays resident all match.
+            void unloadRosterAssets();
+        } else {
+            this.unitsOverlay?.refreshLazyTextures();
         }
     }
     private assetsLoadedLogged = false;

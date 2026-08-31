@@ -165,54 +165,90 @@ export class RangedProjectiles {
     private gargantuanRootBoulderTexture?: Texture;
     public constructor(context: IRangedProjectilesContext) {
         this.context = context;
-        void Assets.load<Texture>(images.armor_piercing_bolt).then((texture) => {
+    }
+    private async ensureProjectileTexture(opts: IFireProjectileOptions): Promise<void> {
+        const request = opts.orcAxe
+            ? {
+                  current: this.orcThrowingAxeTexture,
+                  url: images.orc_throwing_axe,
+                  assign: (texture: Texture) => (this.orcThrowingAxeTexture = texture),
+              }
+            : opts.arbalesterBolt
+              ? {
+                    current: this.arbalesterCyanBoltTexture,
+                    url: images.arbalester_cyan_bolt,
+                    assign: (texture: Texture) => (this.arbalesterCyanBoltTexture = texture),
+                }
+              : opts.centaurSpear
+                ? {
+                      current: this.centaurSpearTexture,
+                      url: images.centaur_spear_variant_4,
+                      assign: (texture: Texture) => (this.centaurSpearTexture = texture),
+                  }
+                : opts.dryadDart
+                  ? {
+                        current: this.dryadThornDartTexture,
+                        url: images.dryad_thorn_dart,
+                        assign: (texture: Texture) => (this.dryadThornDartTexture = texture),
+                    }
+                  : opts.beholderEye
+                    ? {
+                          current: this.beholderPurpleEyeTexture,
+                          url: images.beholder_purple_eye_orb,
+                          assign: (texture: Texture) => (this.beholderPurpleEyeTexture = texture),
+                      }
+                    : opts.elfArrow
+                      ? {
+                            current: this.elfEmeraldArrowTexture,
+                            url: images.elf_emerald_arrow,
+                            assign: (texture: Texture) => (this.elfEmeraldArrowTexture = texture),
+                        }
+                      : opts.medusaSerpent
+                        ? {
+                              current: this.medusaSpectralSerpentTexture,
+                              url: images.medusa_spectral_serpent,
+                              assign: (texture: Texture) => (this.medusaSpectralSerpentTexture = texture),
+                          }
+                        : opts.cyclopsRock
+                          ? {
+                                current: this.cyclopsHeavyBoulderTexture,
+                                url: images.cyclops_heavy_boulder,
+                                assign: (texture: Texture) => (this.cyclopsHeavyBoulderTexture = texture),
+                            }
+                          : opts.monkOrb
+                            ? {
+                                  current: this.monkSolarOrbTexture,
+                                  url: images.monk_solar_orb,
+                                  assign: (texture: Texture) => (this.monkSolarOrbTexture = texture),
+                              }
+                            : opts.tsarCannonball
+                              ? {
+                                    current: this.tsarCannonMoltenBallTexture,
+                                    url: images.tsar_cannon_molten_ball,
+                                    assign: (texture: Texture) => (this.tsarCannonMoltenBallTexture = texture),
+                                }
+                              : opts.gargantuanRock
+                                ? {
+                                      current: this.gargantuanRootBoulderTexture,
+                                      url: images.gargantuan_root_boulder,
+                                      assign: (texture: Texture) => (this.gargantuanRootBoulderTexture = texture),
+                                  }
+                                : !opts.big && !opts.chakram && !opts.vine
+                                  ? {
+                                        current: this.armorPiercingBoltTexture,
+                                        url: images.armor_piercing_bolt,
+                                        assign: (texture: Texture) => (this.armorPiercingBoltTexture = texture),
+                                    }
+                                  : undefined;
+        if (!request || request.current) return;
+
+        try {
+            const texture = await Assets.load<Texture>(request.url);
             texture.source.scaleMode = "linear";
-            this.armorPiercingBoltTexture = texture;
-        });
-        void Assets.load<Texture>(images.orc_throwing_axe).then((texture) => {
-            texture.source.scaleMode = "linear";
-            this.orcThrowingAxeTexture = texture;
-        });
-        void Assets.load<Texture>(images.arbalester_cyan_bolt).then((texture) => {
-            texture.source.scaleMode = "linear";
-            this.arbalesterCyanBoltTexture = texture;
-        });
-        void Assets.load<Texture>(images.centaur_spear_variant_4).then((texture) => {
-            texture.source.scaleMode = "linear";
-            this.centaurSpearTexture = texture;
-        });
-        void Assets.load<Texture>(images.dryad_thorn_dart).then((texture) => {
-            texture.source.scaleMode = "linear";
-            this.dryadThornDartTexture = texture;
-        });
-        void Assets.load<Texture>(images.beholder_purple_eye_orb).then((texture) => {
-            texture.source.scaleMode = "linear";
-            this.beholderPurpleEyeTexture = texture;
-        });
-        void Assets.load<Texture>(images.elf_emerald_arrow).then((texture) => {
-            texture.source.scaleMode = "linear";
-            this.elfEmeraldArrowTexture = texture;
-        });
-        void Assets.load<Texture>(images.medusa_spectral_serpent).then((texture) => {
-            texture.source.scaleMode = "linear";
-            this.medusaSpectralSerpentTexture = texture;
-        });
-        void Assets.load<Texture>(images.cyclops_heavy_boulder).then((texture) => {
-            texture.source.scaleMode = "linear";
-            this.cyclopsHeavyBoulderTexture = texture;
-        });
-        void Assets.load<Texture>(images.monk_solar_orb).then((texture) => {
-            texture.source.scaleMode = "linear";
-            this.monkSolarOrbTexture = texture;
-        });
-        void Assets.load<Texture>(images.tsar_cannon_molten_ball).then((texture) => {
-            texture.source.scaleMode = "linear";
-            this.tsarCannonMoltenBallTexture = texture;
-        });
-        void Assets.load<Texture>(images.gargantuan_root_boulder).then((texture) => {
-            texture.source.scaleMode = "linear";
-            this.gargantuanRootBoulderTexture = texture;
-        });
+            request.assign(texture);
+        } catch {
+            // The existing vector fallbacks keep combat moving if an optional projectile image fails.
+        }
     }
     public hasActive(): boolean {
         return this.projectiles.length > 0;
@@ -228,7 +264,8 @@ export class RangedProjectiles {
             await this.fire({ ...opts, from: points[leg - 1], to: points[leg] });
         }
     }
-    public fire(opts: IFireProjectileOptions): Promise<void> {
+    public async fire(opts: IFireProjectileOptions): Promise<void> {
+        await this.ensureProjectileTexture(opts);
         this.context.onProjectileFired?.();
         const cell = this.context.getGridSettings().getCellSize();
         const from = { x: opts.from.x, y: opts.from.y };
