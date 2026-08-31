@@ -41,6 +41,13 @@ describe("unit animation atlas key split", () => {
         expect(isUnitAnimationAtlasKey("tombstone_tiles_256_atlas")).toBe(false);
     });
 
+    test("hand-authored creature strips stay with generated unit atlases", () => {
+        expect(isUnitAnimationAtlasKey("orc_idle_axe_twirl_atlas_quarter")).toBe(true);
+        expect(isUnitAnimationAtlasKey("thief_idle_battle_cry_atlas_quarter")).toBe(true);
+        expect(isUnitAnimationAtlasKey("ash_moth_walk_left_atlas")).toBe(true);
+        expect(isUnitAnimationAtlasKey("ash_moth_walk_left_atlas_quarter")).toBe(true);
+    });
+
     test("ordinary image keys stay core", () => {
         expect(isUnitAnimationAtlasKey("abomination_128")).toBe(false);
         expect(isUnitAnimationAtlasKey("ui_banner_green_soft_wide")).toBe(false);

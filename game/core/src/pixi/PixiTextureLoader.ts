@@ -1,5 +1,7 @@
 import { Assets, Texture, loadTextures } from "pixi.js";
 import { images as rawImages } from "../imageAssets";
+import { CREATURE_SPRITE_ANIMATION_SETTINGS, shouldPreloadUnitAnimationAtlas } from "./creatureAnimationSettings";
+import { isUnitAnimationAtlasKey } from "./unitAtlasKeys";
 
 // Decode textures via <img> instead of createImageBitmap. Chrome intermittently throws
 // "InvalidStateError: The source image could not be decoded" from createImageBitmap when many large
@@ -56,15 +58,29 @@ const coreBundleName = "hoc_core";
 const idleAtlasesBundleName = "hoc_idle_atlases";
 const animationsBundleName = "hoc_animations";
 
+interface SplitBundleOptions {
+    animationsEnabled?: boolean;
+}
+
 // The board draws every creature's PERMANENT art from its idle/default atlas (quarter for 1x1, half
 // for 2x2). Those are ~5% of the animation payload (~33MB of ~700MB), yet they used to ride in the
 // same single Tier-2 bundle as every walk/attack/VFX atlas — so on a fresh cache the whole board sat
 // on the old static tokens until hundreds of MB finished. They get their own bundle, loaded FIRST.
 export function isIdleAtlasKey(key: string): boolean {
     return (
+        isUnitAnimationAtlasKey(key) &&
         (key.includes("_idle") || key.includes("_default")) &&
         (key.endsWith("_atlas_quarter") || key.endsWith("_atlas_half"))
     );
+}
+
+/**
+ * Runtime unit rendering resolves only `_atlas_quarter` and `_atlas_half`. The unsuffixed source
+ * sheets are authoring/export inputs (often 4K x 5K) and can never be selected by
+ * atlasImageKeyFromUnitAndState, so decoding them wastes several GiB without changing a pixel.
+ */
+export function isRedundantFullResolutionUnitAtlasKey(key: string): boolean {
+    return isUnitAnimationAtlasKey(key) && key.endsWith("_atlas");
 }
 
 function getRegisteredBundles(): Set<string> {
@@ -89,18 +105,25 @@ function addBundleOnce(bundleName: string, bundle: Record<string, { src: string 
     registeredBundles.add(bundleName);
 }
 
-export function getSplitBundles() {
+export function getSplitBundles(options: SplitBundleOptions = {}) {
+    const animationsEnabled = options.animationsEnabled ?? CREATURE_SPRITE_ANIMATION_SETTINGS.enabled;
     const core: Record<string, { src: string }> = {};
     const idleAtlases: Record<string, { src: string }> = {};
     const animations: Record<string, { src: string }> = {};
+    const deferredUnitAtlases: Record<string, { src: string }> = {};
+    const excludedFullResolutionUnitAtlases: Record<string, { src: string }> = {};
 
     for (const [k, v] of Object.entries(rawImages)) {
         const src = normalizeUrl(v, k);
-        // Tier 2: every atlas, including the quarter/half variants actually used by battlefield
-        // walk/hit/attack states and the unsuffixed VFX atlases used by the scene. The idle/default
-        // atlases split into their own Tier-2a bundle so the board's permanent art lands first.
-        if (k.includes("_atlas")) {
-            if (isIdleAtlasKey(k)) {
+        // Only per-unit atlases are supplementary. Terrain and VFX atlases belong to core because the
+        // board uses them at first paint. Unit source-resolution sheets are authoring duplicates: the
+        // renderer exclusively asks for their quarter/half variants, so never decode those originals.
+        if (isRedundantFullResolutionUnitAtlasKey(k)) {
+            excludedFullResolutionUnitAtlases[k] = { src };
+        } else if (isUnitAnimationAtlasKey(k)) {
+            if (!shouldPreloadUnitAnimationAtlas(k, animationsEnabled)) {
+                deferredUnitAtlases[k] = { src };
+            } else if (isIdleAtlasKey(k)) {
                 idleAtlases[k] = { src };
             } else {
                 animations[k] = { src };
@@ -110,7 +133,7 @@ export function getSplitBundles() {
             core[k] = { src };
         }
     }
-    return { core, idleAtlases, animations };
+    return { core, idleAtlases, animations, deferredUnitAtlases, excludedFullResolutionUnitAtlases };
 }
 
 export async function preloadCoreAssets(onProgress?: (p: number) => void): Promise<Partial<PreloadedPixiTextures>> {
@@ -130,8 +153,9 @@ export async function preloadIdleAtlasAssets(
     const { idleAtlases } = getSplitBundles();
     if (Object.keys(idleAtlases).length === 0) return loadedTextures;
 
-    addBundleOnce(idleAtlasesBundleName, idleAtlases);
-    const loaded = await Assets.loadBundle(idleAtlasesBundleName, onProgress);
+    const bundleName = `${idleAtlasesBundleName}_${CREATURE_SPRITE_ANIMATION_SETTINGS.enabled ? "full" : "static"}`;
+    addBundleOnce(bundleName, idleAtlases);
+    const loaded = await Assets.loadBundle(bundleName, onProgress);
     loadedTextures = { ...loadedTextures, ...loaded };
     return loadedTextures;
 }
@@ -143,8 +167,9 @@ export async function preloadAnimationAssets(
     const { animations } = getSplitBundles();
     if (Object.keys(animations).length === 0) return loadedTextures;
 
-    addBundleOnce(animationsBundleName, animations);
-    const loaded = await Assets.loadBundle(animationsBundleName, onProgress);
+    const bundleName = `${animationsBundleName}_${CREATURE_SPRITE_ANIMATION_SETTINGS.enabled ? "full" : "static"}`;
+    addBundleOnce(bundleName, animations);
+    const loaded = await Assets.loadBundle(bundleName, onProgress);
     loadedTextures = { ...loadedTextures, ...loaded };
     return loadedTextures;
 }

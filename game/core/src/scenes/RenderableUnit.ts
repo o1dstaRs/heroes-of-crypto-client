@@ -31,6 +31,7 @@ import {
 import { PixiRenderableSpell } from "./RenderableSpell";
 import { staticBattlefieldTextureNameForUnit, TextureType, unitToTextureName } from "@/pixi/PixiUnitsFactory";
 import { legacyBoardChildScaleCompensation } from "@/pixi/boardFit";
+import { CREATURE_SPRITE_ANIMATION_SETTINGS } from "@/pixi/creatureAnimationSettings";
 import { animationAtlases, AnimationUnitName, type AnimationAtlasMeta } from "../generated/animation_atlases";
 import { images, type ImageKey } from "../imageAssets";
 import { buildAtlasPingPongTiming, AtlasPingPongTiming } from "./atlasAnimationTiming";
@@ -455,7 +456,7 @@ const SCAVENGER_DEATH_ADDITIONAL_SPEED_MULTIPLIER = 1.12;
 // Temporary art-direction switch: keep every creature on the first authored frame. Board interpolation,
 // facing and gameplay VFX remain active, but no creature sprite-sheet frames (idle, walk, action or special)
 // advance until this is switched back on.
-export const CREATURE_SPRITE_ANIMATION_SETTINGS = { enabled: false };
+export { CREATURE_SPRITE_ANIMATION_SETTINGS } from "@/pixi/creatureAnimationSettings";
 
 /** Keep the newly approved Peasant walk active while the global creature-animation freeze remains in place. */
 export function creatureWalkAnimationEnabledForUnit(unitName: string): boolean {

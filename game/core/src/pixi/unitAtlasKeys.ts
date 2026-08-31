@@ -30,4 +30,17 @@ export function buildUnitAnimationAtlasKeyClassifier(atlases: AnimationAtlasInde
  * every `_atlas_quarter`/`_atlas_half` (~89 MB) in the BLOCKING bundle while pushing the terrain the
  * board actually needs into the background.
  */
-export const isUnitAnimationAtlasKey = buildUnitAnimationAtlasKeyClassifier(animationAtlases);
+const generatedUnitAnimationAtlasKey = buildUnitAnimationAtlasKeyClassifier(animationAtlases);
+
+// Hand-authored unit strips that intentionally live outside generated/animation_atlases.ts. Keep this
+// list beside the generated classifier so bundle routing does not mistake them for terrain/VFX.
+const specialUnitAnimationAtlasBases = new Set([
+    "ash_moth_walk_left_atlas",
+    "orc_idle_axe_twirl_atlas",
+    "orc_idle_battle_cry_atlas",
+    "thief_idle_blade_twirl_atlas",
+    "thief_idle_battle_cry_atlas",
+]);
+
+export const isUnitAnimationAtlasKey = (key: string): boolean =>
+    generatedUnitAnimationAtlasKey(key) || specialUnitAnimationAtlasBases.has(key.replace(/_(?:quarter|half)$/, ""));
