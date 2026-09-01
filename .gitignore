@@ -10,3 +10,5 @@ docs/
 .parcel-cache/
 .bin
 
+# Generated self-contained AI meta reports can be tens of megabytes.
+ai-meta*report*.html
