@@ -1,6 +1,6 @@
 import { IDamageStatistic } from "@heroesofcrypto/common";
 import { FightLog, FIGHT_LOG_SURFACE_BACKGROUND } from "./FightLog";
-import DraggableToolbar, { toolbarColumnHeightPx } from "../DraggableToolbar";
+import { toolbarColumnHeightPx } from "../DraggableToolbar/toolbarMetrics";
 import {
     RIGHT_SIDEBAR_BG_IMAGE,
     RIGHT_SIDEBAR_BG_POSITION,
@@ -28,6 +28,8 @@ import { sidebarPlainFrameSideInsetPx, sidebarPlainFrameVerticalInsetPx } from "
 import { exitFightButtonSx } from "../exitFightButtonSx";
 import { useFullscreenActive } from "../useFullscreenActive";
 import { GameSystemControls } from "../GameSystemControls";
+
+const DraggableToolbar = React.lazy(() => import("../DraggableToolbar"));
 
 // Floor for the fight log. Below this the bar as a whole scrolls rather than squeezing the log to nothing.
 const LOG_MIN_HEIGHT_PX = 168;
@@ -398,7 +400,9 @@ export default function RightSideBar({
                                 gap: "6px",
                             }}
                         >
-                            <DraggableToolbar />
+                            <React.Suspense fallback={null}>
+                                <DraggableToolbar />
+                            </React.Suspense>
                             {/* Shown from the first turn, not from the first hit: the table keeps its place
                                 and simply lists nothing until damage is dealt, instead of appearing out of
                                 nowhere mid-fight and pushing everything below it. */}

@@ -4,6 +4,7 @@ import { styled } from "@mui/system";
 
 import { images } from "../../generated/image_imports";
 import { TRIM_WIDTH_PX as BOARD_EDGE_TRIM_WIDTH_PX } from "../boardEdgeTrim";
+export { toolbarColumnHeightPx } from "./toolbarMetrics";
 
 const spellbookIconImage = images.combat_toolbar_ember_spellbook;
 const hourglassIconImage = images.combat_toolbar_ember_hourglass;
@@ -53,24 +54,6 @@ const ICON_IMAGE_NEED_ROTATE: Record<string, boolean> = {
 // left in its own colour rather than warmed to ember — the old sepia/saturate pass existed to push pale
 // glyphs into gold on the obsidian disc, and running already-gold art through it just oversaturated the
 // bezel. Only the shadow is kept, to hold the medallion off the panel behind it.
-/**
- * The height the sidebar reserves for the button column.
- *
- * Six slots — the whole roster is Spellbook, Hourglass, AttackType, AI, Next and LuckShield. It is a
- * RESERVATION, not a measurement: buttons come and go as the turn changes
- * (none of them apply on the opponent's turn, and the column hides itself entirely), and a row sized to
- * whatever happens to be visible would drag the damage table and the fight log up and down all fight. What
- * stays fixed is the vertical space reserved for the complete set of medallions.
- */
-export const toolbarColumnHeightPx = (): number => {
-    const screenRatio = Math.min(window.innerWidth / 1366, window.innerHeight / 768);
-    const slots = 6;
-    const gap = 8; // the column's `gap: 1`
-    // Only the circular medallions remain; there is no surrounding panel or frame padding.
-    const cellSize = 57;
-    return Math.round(cellSize * screenRatio * slots + gap * (slots - 1));
-};
-
 const GLYPH_FILTER = "drop-shadow(0 2px 3px rgba(0,0,0,.85))";
 const ACTIVE_ICON_FILTER = "brightness(1.15)";
 const ACTIVE_ICON_FILTER_BRIGHT = "brightness(1.27) drop-shadow(0 2px 5px rgba(243,212,136,.35))";
