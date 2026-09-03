@@ -118,6 +118,25 @@ describe("floating received damage", () => {
     });
 });
 
+describe("idle combat visual stepping", () => {
+    test("skips every effect updater when no visual is alive", () => {
+        const { visuals } = makeVisuals();
+        const state = visuals as unknown as {
+            shatterGroups: unknown[];
+            stepShatters(dt: number): void;
+        };
+        let calls = 0;
+        state.stepShatters = () => calls++;
+
+        visuals.update(1 / 60);
+        expect(calls).toBe(0);
+
+        state.shatterGroups.push({});
+        visuals.update(1 / 60);
+        expect(calls).toBe(1);
+    });
+});
+
 describe("spawnDeathVfx kill-specific death animations", () => {
     test("no recorded blow -> the classic mirror shatter, even when the roll favors the new animations", () => {
         Math.random = () => 0.25; // < 0.5 would pick a blow-specific animation IF a blow were recorded

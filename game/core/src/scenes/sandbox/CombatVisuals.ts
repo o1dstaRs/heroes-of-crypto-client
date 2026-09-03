@@ -1591,6 +1591,31 @@ export class CombatVisuals {
         this.lightTexture = undefined;
     }
     public update(dt: number) {
+        if (
+            this.floatingTexts.length === 0 &&
+            this.debuffPops.length === 0 &&
+            this.shatterGroups.length === 0 &&
+            this.iceBreaks.length === 0 &&
+            this.cleaveDeaths.length === 0 &&
+            this.dissolveDeaths.length === 0 &&
+            this.fireSweeps.length === 0 &&
+            this.fireBurns.length === 0 &&
+            this.poisonClouds.length === 0 &&
+            this.healBursts.length === 0 &&
+            this.areaImpacts.length === 0 &&
+            this.resurrectBursts.length === 0 &&
+            this.chainLightnings.length === 0 &&
+            this.mirrorRebounds.length === 0 &&
+            this.windSpears.length === 0 &&
+            this.abilitySteals.length === 0 &&
+            this.slashes.length === 0 &&
+            this.bloodSprays.length === 0 &&
+            this.clawSlashes.length === 0 &&
+            this.craftForges.length === 0 &&
+            this.enchants.length === 0
+        ) {
+            return;
+        }
         for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
             const ft = this.floatingTexts[i];
             ft.age += dt;
