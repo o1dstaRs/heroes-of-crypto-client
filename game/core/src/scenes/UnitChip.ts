@@ -712,6 +712,17 @@ export class UnitChip extends Container {
         // If we are already tweening, restart from current transform
         this.currentScale = this.content.scale.x;
         this.currentY = this.content.y;
+        if (
+            !this.isTweening &&
+            Math.abs(this.currentScale - this.targetScale) < 0.0001 &&
+            Math.abs(this.currentY - this.targetY) < 0.0001
+        ) {
+            // Initial and responsive layouts normally leave an idle chip exactly where it already is.
+            // Avoid registering a quarter-second ticker for every visible card when there is no motion.
+            this.content.scale.set(this.targetScale);
+            this.content.y = this.targetY;
+            return;
+        }
         this.tweenStartTime = performance.now();
 
         if (!this.isTweening) {

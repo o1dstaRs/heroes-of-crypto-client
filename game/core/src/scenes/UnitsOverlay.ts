@@ -292,6 +292,7 @@ export class UnitsOverlay {
     private toggleBtn = new Container();
     private toggleGlowPhase = 0;
     private toggleGlowStep?: (ticker: Ticker) => void;
+    private toggleGlowRegistered = false;
     /** Production PNG contains the complete frame, metal treatment and chevron. */
     private toggleButtonSprite = new Sprite(Texture.EMPTY);
     /**
@@ -420,6 +421,7 @@ export class UnitsOverlay {
             }
         };
         this.app.ticker.add(this.toggleGlowStep);
+        this.toggleGlowRegistered = true;
 
         // Hover effects
         this.toggleBtn.on("pointerenter", () => {
@@ -1112,16 +1114,25 @@ export class UnitsOverlay {
     }
     public setVisible(v: boolean): void {
         this.container.visible = v;
+        if (!this.toggleGlowStep) return;
+        if (v && !this.toggleGlowRegistered) {
+            this.app.ticker.add(this.toggleGlowStep);
+            this.toggleGlowRegistered = true;
+        } else if (!v && this.toggleGlowRegistered) {
+            this.app.ticker.remove(this.toggleGlowStep);
+            this.toggleGlowRegistered = false;
+        }
     }
     public destroy(): void {
         if (this.tweenCancel) this.tweenCancel();
         this.app.stage.off("pointermove", this.onScrollbarPointerMove);
         this.app.stage.off("pointerup", this.stopScrollbarDrag);
         this.app.stage.off("pointerupoutside", this.stopScrollbarDrag);
-        if (this.toggleGlowStep) {
+        if (this.toggleGlowStep && this.toggleGlowRegistered) {
             this.app.ticker.remove(this.toggleGlowStep);
-            this.toggleGlowStep = undefined;
         }
+        this.toggleGlowRegistered = false;
+        this.toggleGlowStep = undefined;
         this.container.destroy({ children: true });
         this.allChips.length = 0;
     }

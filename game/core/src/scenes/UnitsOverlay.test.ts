@@ -62,6 +62,32 @@ describe("UnitsOverlay chip visibility", () => {
         overlay.destroy();
     });
 
+    test("pauses the roster glow ticker while the overlay is hidden", () => {
+        const registered = new Set<unknown>();
+        const app = {
+            renderer: { height: 900, width: 1600 },
+            stage: new Container(),
+            ticker: {
+                add: (step: unknown) => registered.add(step),
+                remove: (step: unknown) => registered.delete(step),
+            },
+        } as unknown as ConstructorParameters<typeof UnitsOverlay>[0];
+        const overlay = new UnitsOverlay(app, () => Texture.EMPTY);
+        overlay.build();
+        const glowStep = (overlay as unknown as { toggleGlowStep: unknown }).toggleGlowStep;
+
+        expect(registered.has(glowStep)).toBe(true);
+        overlay.setVisible(false);
+        overlay.setVisible(false);
+        expect(registered.has(glowStep)).toBe(false);
+        overlay.setVisible(true);
+        overlay.setVisible(true);
+        expect(registered.has(glowStep)).toBe(true);
+
+        overlay.destroy();
+        expect(registered.has(glowStep)).toBe(false);
+    });
+
     test("uses the exact 190:256 pick-card aspect ratio", () => {
         expect(PICK_CARD_ASPECT).toBeCloseTo(190 / 256);
     });
@@ -75,6 +101,23 @@ describe("UnitsOverlay chip visibility", () => {
         chip.layout(96, 130);
 
         expect(badgeText.style).toBe(originalStyle);
+        chip.destroy();
+    });
+
+    test("does not schedule a tween when an idle chip layout is already settled", () => {
+        let tickerAdds = 0;
+        const chip = new UnitChip({ unitName: "Peasant", texture: Texture.EMPTY });
+        chip.setTicker({
+            add: () => tickerAdds++,
+            remove: () => undefined,
+        } as unknown as Parameters<UnitChip["setTicker"]>[0]);
+
+        chip.layout(80, 108);
+        chip.layout(96, 130);
+        expect(tickerAdds).toBe(0);
+
+        chip.setHovered(true);
+        expect(tickerAdds).toBe(1);
         chip.destroy();
     });
 
