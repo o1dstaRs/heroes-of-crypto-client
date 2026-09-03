@@ -4,7 +4,13 @@ import { Container, Graphics, Sprite, Texture, type ColorMatrixFilter } from "pi
 import { GridConstants, GridSettings } from "@heroesofcrypto/common";
 
 import { DungeonVisuals } from "./DungeonVisuals";
-import { DEFAULT_LAVA_ANIMATION_TUNING, type LavaAnimationTuning } from "./lavaAnimationTuning";
+import { AMBIENT_FIRE_DEFINITIONS, resolveAmbientFireTuning } from "./ambientFireTuning";
+import {
+    DEFAULT_LAVA_ANIMATION_TUNING,
+    resolveLavaAnimationTuning,
+    setLavaAnimationEditorActive,
+    type LavaAnimationTuning,
+} from "./lavaAnimationTuning";
 
 if (!("document" in globalThis)) {
     (globalThis as { document?: unknown }).document = {
@@ -14,6 +20,52 @@ if (!("document" in globalThis)) {
 }
 
 describe("dungeon visual allocation", () => {
+    test("reuses steady tuning values between render steps", () => {
+        expect(resolveLavaAnimationTuning()).toBe(resolveLavaAnimationTuning());
+        expect(resolveAmbientFireTuning(AMBIENT_FIRE_DEFINITIONS[0])).toBe(
+            resolveAmbientFireTuning(AMBIENT_FIRE_DEFINITIONS[0]),
+        );
+    });
+
+    test("does not allocate the lava editor outline during normal play", () => {
+        const gridSettings = new GridSettings(
+            GridConstants.GRID_SIZE,
+            GridConstants.MAX_Y,
+            GridConstants.MIN_Y,
+            GridConstants.MAX_X,
+            GridConstants.MIN_X,
+            GridConstants.MOVEMENT_DELTA,
+            GridConstants.UNIT_SIZE_DELTA,
+        );
+        const visuals = new DungeonVisuals({
+            getStage: () => new Container(),
+            getWorldRoot: () => new Container(),
+            getViewportSize: () => ({ width: 1000, height: 1000 }),
+            getGridSettings: () => gridSettings,
+            texAny: () => Texture.WHITE,
+            attachToWorldRoot: () => undefined,
+        });
+        const internals = visuals as unknown as {
+            lavaEditorOutline?: Graphics;
+            updateLavaEditorOutline(
+                tuning: LavaAnimationTuning,
+                centerX: number,
+                centerY: number,
+                width: number,
+                height: number,
+            ): void;
+        };
+
+        setLavaAnimationEditorActive(false);
+        internals.updateLavaEditorOutline(DEFAULT_LAVA_ANIMATION_TUNING, 100, 100, 200, 200);
+        expect(internals.lavaEditorOutline).toBeUndefined();
+        setLavaAnimationEditorActive(true);
+        internals.updateLavaEditorOutline(DEFAULT_LAVA_ANIMATION_TUNING, 100, 100, 200, 200);
+        expect(internals.lavaEditorOutline).toBeInstanceOf(Graphics);
+        setLavaAnimationEditorActive(false);
+        visuals.destroy();
+    });
+
     test("retains steady lava filter arrays and matrices between frames", () => {
         const gridSettings = new GridSettings(
             GridConstants.GRID_SIZE,

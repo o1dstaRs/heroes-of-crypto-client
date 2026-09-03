@@ -1154,6 +1154,14 @@ export class DungeonVisuals {
         width: number,
         height: number,
     ): void {
+        const shouldShow = !!tuning && isLavaAnimationEditorActive();
+        if (!shouldShow) {
+            if (this.lavaEditorOutline?.visible) {
+                this.lavaEditorOutline.clear();
+                this.lavaEditorOutline.visible = false;
+            }
+            return;
+        }
         if (!this.lavaEditorOutline) {
             const outline = new Graphics();
             outline.eventMode = "none";
@@ -1162,8 +1170,7 @@ export class DungeonVisuals {
         }
         const outline = this.lavaEditorOutline;
         outline.clear();
-        outline.visible = !!tuning && isLavaAnimationEditorActive();
-        if (!outline.visible) return;
+        outline.visible = true;
         const left = centerX - width * 0.5;
         const bottom = centerY - height * 0.5;
         const handleRadius = Math.max(3, Math.min(width, height) * 0.012);
@@ -2439,13 +2446,8 @@ export class DungeonVisuals {
             this.ambientFireGlowSprites.set(definition.key, glowSprite);
             this.ambientFireLayer.addChild(sprite, glowSprite);
         }
-        if (!this.ambientFireEditorOutline) {
-            const outline = new Graphics();
-            outline.eventMode = "none";
-            this.ambientFireEditorOutline = outline;
-        }
         // Re-adding an existing child moves it above sprites that may have finished decoding later.
-        this.ambientFireLayer.addChild(this.ambientFireEditorOutline);
+        if (this.ambientFireEditorOutline) this.ambientFireLayer.addChild(this.ambientFireEditorOutline);
     }
     private updateAmbientFireSprites(nowSeconds: number): void {
         for (const definition of AMBIENT_FIRE_DEFINITIONS) {
@@ -2683,9 +2685,16 @@ export class DungeonVisuals {
             }
             const selectedKey = getAmbientFireEditorSelection();
             const selectedDefinition = AMBIENT_FIRE_DEFINITIONS.find((definition) => definition.key === selectedKey);
-            const outline = this.ambientFireEditorOutline;
-            outline?.clear();
-            if (outline && selectedDefinition) {
+            if (selectedDefinition) {
+                if (!this.ambientFireEditorOutline) {
+                    const outline = new Graphics();
+                    outline.eventMode = "none";
+                    this.ambientFireEditorOutline = outline;
+                    this.ambientFireLayer.addChild(outline);
+                }
+                const outline = this.ambientFireEditorOutline;
+                outline.clear();
+                outline.visible = true;
                 const tuning = resolveAmbientFireTuning(selectedDefinition);
                 const fireX = artworkLeft + tuning.sourceX * sourceScaleX;
                 const fireY = artworkTop + tuning.sourceY * sourceScaleY;
@@ -2699,6 +2708,9 @@ export class DungeonVisuals {
                     .circle(fireX, fireY, 3.5)
                     .fill({ color: 0x63e6e2, alpha: 0.95 })
                     .stroke({ color: 0x081411, alpha: 0.9, width: 1 });
+            } else if (this.ambientFireEditorOutline?.visible) {
+                this.ambientFireEditorOutline.clear();
+                this.ambientFireEditorOutline.visible = false;
             }
         }
 

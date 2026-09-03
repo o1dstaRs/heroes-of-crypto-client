@@ -145,6 +145,9 @@ export const normalizeAmbientFireTuning = (
 });
 
 const definitionByKey = new Map(AMBIENT_FIRE_DEFINITIONS.map((definition) => [definition.key, definition]));
+const baseTuningByKey = new Map(
+    AMBIENT_FIRE_DEFINITIONS.map((definition) => [definition.key, baseAmbientFireTuning(definition)]),
+);
 let storedCache: Record<string, AmbientFireTuning> | undefined;
 let selectedEditorFireKey: string | undefined;
 
@@ -196,7 +199,9 @@ export const writeStoredAmbientFireTuning = (tuning: Record<string, AmbientFireT
 };
 
 export const resolveAmbientFireTuning = (definition: AmbientFireDefinition): AmbientFireTuning => {
-    const baseline = baseAmbientFireTuning(definition);
+    // All shipped definitions are module constants. Reuse their normalized render value instead of
+    // allocating the same seven-property object for every flame on every simulation step.
+    const baseline = baseTuningByKey.get(definition.key) ?? baseAmbientFireTuning(definition);
     if (import.meta.env.PROD || import.meta.env.VITE_IS_PROD === "true") return baseline;
     if (!storedCache) readStoredAmbientFireTuning();
     return storedCache?.[definition.key] ?? baseline;

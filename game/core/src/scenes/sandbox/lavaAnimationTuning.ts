@@ -272,7 +272,10 @@ export const resolveLavaAnimationTuning = (): LavaAnimationTuning => {
     if (import.meta.env.PROD || import.meta.env.VITE_IS_PROD === "true") {
         return DEFAULT_LAVA_ANIMATION_TUNING;
     }
-    return readStoredLavaAnimationTuning();
+    // Render code asks for this several times per simulation step. Public reads still return a defensive
+    // copy for editor state, but the renderer only consumes the value and can share the immutable cache.
+    if (!storedCache) readStoredLavaAnimationTuning();
+    return storedCache ?? DEFAULT_LAVA_ANIMATION_TUNING;
 };
 
 export const setLavaAnimationEditorActive = (active: boolean): void => {
