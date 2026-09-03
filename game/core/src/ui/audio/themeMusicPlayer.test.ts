@@ -6,6 +6,7 @@ class FakeAudio extends EventTarget {
     public volume = 1;
     public paused = true;
     public loadCalls = 0;
+    public pauseCalls = 0;
     public playCalls = 0;
     public readonly volumesAtPlay: number[] = [];
     public readonly playResults: Array<boolean | Promise<void>> = [];
@@ -26,6 +27,10 @@ class FakeAudio extends EventTarget {
     }
     public load(): void {
         this.loadCalls += 1;
+        this.paused = true;
+    }
+    public pause(): void {
+        this.pauseCalls += 1;
         this.paused = true;
     }
 }
@@ -132,5 +137,35 @@ describe("client theme music player", () => {
         expect(blocked).toBe(1);
         expect(started).toBe(1);
         expect(audio.playCalls).toBe(2);
+    });
+
+    test("releases silent media and restores the current track on resume", async () => {
+        const audio = new FakeAudio();
+        const webmSource: { src: string } = { src: playlist[0].webm };
+        const mp3Source: { src: string } = { src: playlist[0].mp3 };
+        const player = createThemeMusicPlayer({
+            audio,
+            webmSource,
+            mp3Source,
+            playlist,
+            getTargetVolume: () => 0.5,
+            fadeTo: () => undefined,
+            onPlaybackBlocked: () => undefined,
+            onPlaybackStarted: () => undefined,
+        });
+
+        expect(await player.start()).toBe(true);
+        player.releaseMedia();
+        expect(audio.pauseCalls).toBe(1);
+        expect(audio.loadCalls).toBe(1);
+        expect(webmSource.src).toBe("");
+        expect(mp3Source.src).toBe("");
+
+        expect(await player.start()).toBe(true);
+        expect(webmSource.src).toBe(playlist[0].webm);
+        expect(mp3Source.src).toBe(playlist[0].mp3);
+        expect(audio.loadCalls).toBe(2);
+        expect(audio.playCalls).toBe(2);
+        expect(audio.paused).toBe(false);
     });
 });

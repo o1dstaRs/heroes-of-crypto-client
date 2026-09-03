@@ -162,9 +162,10 @@ export const ThemeMusic: React.FC = () => {
                     fadeRef.current = requestAnimationFrame(step);
                 } else {
                     fadeRef.current = null;
-                    // Pause once silent so a muted tab is not decoding audio for nothing.
+                    // Detach the sources once silent so fight screens do not retain encoded or decoded
+                    // menu music. The player restores the current track when music is wanted again.
                     if (clampedTarget === 0) {
-                        audio.pause();
+                        playerRef.current?.releaseMedia();
                     }
                 }
             };
@@ -402,7 +403,7 @@ export const ThemeMusic: React.FC = () => {
                                 stopFade();
                                 if (nextTarget === 0) {
                                     audio.volume = 0;
-                                    audio.pause();
+                                    player?.releaseMedia();
                                 } else if (player && (audio.paused || !player.hasStarted())) {
                                     void player.start(nextTarget, true);
                                 } else {

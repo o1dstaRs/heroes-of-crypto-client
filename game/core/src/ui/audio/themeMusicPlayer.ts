@@ -7,6 +7,7 @@ interface ThemeAudio {
     volume: number;
     readonly paused: boolean;
     play(): Promise<void>;
+    pause(): void;
     load(): void;
     addEventListener(type: "ended", listener: EventListener): void;
     removeEventListener(type: "ended", listener: EventListener): void;
@@ -14,6 +15,7 @@ interface ThemeAudio {
 
 interface ThemeSource {
     src: string;
+    removeAttribute?(qualifiedName: string): void;
 }
 
 interface ThemeMusicPlayerOptions {
@@ -30,6 +32,7 @@ interface ThemeMusicPlayerOptions {
 export interface ThemeMusicPlayer {
     start(targetVolume?: number, forceRetry?: boolean): Promise<boolean>;
     setTargetVolume(targetVolume: number): void;
+    releaseMedia(): void;
     advance(): Promise<boolean>;
     playSingle(track: ThemeTrack, autoplay?: boolean): Promise<boolean>;
     resumePlaylist(autoplay?: boolean): Promise<boolean>;
@@ -67,7 +70,27 @@ export const createThemeMusicPlayer = ({
     let desiredTargetVolume = clamp01(getTargetVolume());
     let attemptGeneration = 0;
     let currentAttempt: Promise<boolean> | null = null;
+    let mediaReleased = false;
     let destroyed = false;
+
+    const clearSource = (source: ThemeSource): void => {
+        if (source.removeAttribute) {
+            source.removeAttribute("src");
+        } else {
+            source.src = "";
+        }
+    };
+
+    const restoreCurrentTrack = (): void => {
+        webmSource.src = currentTrack.webm;
+        mp3Source.src = currentTrack.mp3;
+        mediaReleased = false;
+
+        // Reloading sources aborts any older play promise, including one that may settle on the next tick.
+        ++attemptGeneration;
+        currentAttempt = null;
+        audio.load();
+    };
 
     const setTargetVolume = (targetVolume: number): void => {
         desiredTargetVolume = clamp01(targetVolume);
@@ -89,6 +112,10 @@ export const createThemeMusicPlayer = ({
         if (desiredTargetVolume === 0 || destroyed) {
             audio.volume = 0;
             return Promise.resolve(false);
+        }
+
+        if (mediaReleased) {
+            restoreCurrentTrack();
         }
 
         if (currentAttempt && !forceRetry) {
@@ -149,13 +176,7 @@ export const createThemeMusicPlayer = ({
         const shouldAutoplay = autoplay;
         currentTrack = track;
         playlistMode = nextPlaylistMode;
-        webmSource.src = track.webm;
-        mp3Source.src = track.mp3;
-
-        // load() aborts any pending promise for the old source. Invalidate it before that rejection arrives.
-        ++attemptGeneration;
-        currentAttempt = null;
-        audio.load();
+        restoreCurrentTrack();
 
         if (!shouldAutoplay) {
             audio.volume = 0;
@@ -173,6 +194,23 @@ export const createThemeMusicPlayer = ({
 
     const resumePlaylist = (autoplay?: boolean): Promise<boolean> => loadTrack(playlist[trackIndex], true, autoplay);
 
+    const releaseMedia = (): void => {
+        if (destroyed || mediaReleased) {
+            return;
+        }
+
+        // pause() alone leaves the encoded response and often its decoded media buffers resident. Detaching
+        // both sources and reloading the element gives the browser permission to reclaim them during fights.
+        ++attemptGeneration;
+        currentAttempt = null;
+        audio.volume = 0;
+        audio.pause();
+        clearSource(webmSource);
+        clearSource(mp3Source);
+        mediaReleased = true;
+        audio.load();
+    };
+
     const onEnded: EventListener = () => {
         if (playlistMode) {
             void advance();
@@ -186,11 +224,13 @@ export const createThemeMusicPlayer = ({
     return {
         start: (targetVolume, forceRetry) => startPlayback(targetVolume, forceRetry, true),
         setTargetVolume,
+        releaseMedia,
         advance,
         playSingle,
         resumePlaylist,
         hasStarted: () => playbackHasStarted,
         destroy: () => {
+            releaseMedia();
             destroyed = true;
             ++attemptGeneration;
             currentAttempt = null;
