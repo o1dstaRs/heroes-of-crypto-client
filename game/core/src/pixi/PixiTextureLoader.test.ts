@@ -313,12 +313,14 @@ describe("pixi texture bundle split", () => {
         }
     });
 
-    test("loads the smoky movement atlas only when a unit first moves", () => {
+    test("loads large optional fight art only when its surface first appears", () => {
         const { core, lazyCombatEffectAssets } = getSplitBundles({ animationsEnabled: false });
 
-        expect(isLazyCombatEffectAssetKey("vfx_dust_smoky_ash_atlas")).toBe(true);
-        expect(lazyCombatEffectAssets.vfx_dust_smoky_ash_atlas).toBeDefined();
-        expect(core.vfx_dust_smoky_ash_atlas).toBeUndefined();
+        for (const key of ["book_1024_clean_pages_v1", "vfx_dust_smoky_ash_atlas"]) {
+            expect(isLazyCombatEffectAssetKey(key)).toBe(true);
+            expect(lazyCombatEffectAssets[key]).toBeDefined();
+            expect(core[key]).toBeUndefined();
+        }
     });
 
     test("loads sandbox roster art only while the pre-fight overlay exists", () => {

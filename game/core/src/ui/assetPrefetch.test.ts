@@ -46,6 +46,7 @@ describe("what gets prefetched", () => {
         expect(urls.some((url) => url.includes("combat_toolbar_"))).toBe(false);
         expect(urls.some((url) => url.includes("pick_ban_slash_variant2_atlas"))).toBe(false);
         expect(urls.some((url) => url.includes("vfx_dust_smoky_ash_atlas"))).toBe(false);
+        expect(urls.some((url) => url.includes("book_1024_clean_pages_v1"))).toBe(false);
     });
 
     test("every entry is a real URL, never a bare key", () => {

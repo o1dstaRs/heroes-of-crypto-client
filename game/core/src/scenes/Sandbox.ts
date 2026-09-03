@@ -1,4 +1,4 @@
-import { Sprite, Graphics, Container, Texture, BlurFilter, RenderTexture, Text, TextStyle } from "pixi.js";
+import { Assets, Sprite, Graphics, Container, Texture, BlurFilter, RenderTexture, Text, TextStyle } from "pixi.js";
 import { PixiDrawer } from "../pixi/PixiDrawer";
 import {
     SandboxDrawer,
@@ -950,6 +950,8 @@ export class Sandbox extends PixiScene {
     private spellBookContainer: Container;
     private spellBookBackdrop: Graphics;
     private spellBookOverlay?: SpellBookOverlay;
+    private spellBookBackground?: Sprite;
+    private spellBookBackgroundLoad?: Promise<Texture>;
     /** Reused while the book opens and closes; released once with the scene. */
     private spellBookBlurFilter?: BlurFilter;
     private digitTextures?: Map<number, Texture>;
@@ -1117,15 +1119,6 @@ export class Sandbox extends PixiScene {
         this.spellBookBackdrop = new Graphics();
         this.spellBookBackdrop.zIndex = -1;
         this.spellBookContainer.addChild(this.spellBookBackdrop);
-        // Add Book Background Graphic
-        const bookTex = this.texAny("book_1024_clean_pages_v1");
-        if (bookTex) {
-            const bookSprite = new Sprite(bookTex);
-            bookSprite.anchor.set(0.5);
-            bookSprite.position.set(0, 0);
-            bookSprite.zIndex = 0;
-            this.spellBookContainer.addChild(bookSprite);
-        }
         const { width, height } = context.pixiApp.getApplication().screen;
         this.layoutSpellBook(width, height);
 
@@ -1271,6 +1264,7 @@ export class Sandbox extends PixiScene {
                 setSpellBookOverlay: (active) => {
                     this.sc_renderSpellBookOverlay = active;
                     this.spellBookOverlay?.setOpen(active);
+                    if (active) this.ensureSpellBookBackground();
                     this.setSpellBookWorldBlur(active);
                 },
             },
@@ -7246,6 +7240,41 @@ export class Sandbox extends PixiScene {
         worldRoot.filters = (worldRoot.filters ?? []).filter((installed) => installed !== filter);
         filter.destroy();
         this.spellBookBlurFilter = undefined;
+    }
+    private ensureSpellBookBackground(): void {
+        if (this.spellBookBackground || this.spellBookBackgroundLoad) return;
+        const url = images.book_1024_clean_pages_v1;
+        const load = Assets.load<Texture>(url);
+        this.spellBookBackgroundLoad = load;
+        void load.then(
+            (texture) => {
+                if (this.spellBookBackgroundLoad !== load) {
+                    void Assets.unload(url).catch(() => undefined);
+                    return;
+                }
+                this.spellBookBackgroundLoad = undefined;
+                if (this.spellBookContainer.destroyed) {
+                    void Assets.unload(url).catch(() => undefined);
+                    return;
+                }
+                const bookSprite = new Sprite(texture);
+                bookSprite.anchor.set(0.5);
+                bookSprite.position.set(0, 0);
+                bookSprite.zIndex = 0;
+                this.spellBookBackground = bookSprite;
+                this.spellBookContainer.addChildAt(bookSprite, Math.min(1, this.spellBookContainer.children.length));
+            },
+            () => {
+                if (this.spellBookBackgroundLoad === load) this.spellBookBackgroundLoad = undefined;
+            },
+        );
+    }
+    private releaseSpellBookBackground(): void {
+        const hadRequest = !!this.spellBookBackground || !!this.spellBookBackgroundLoad;
+        this.spellBookBackground?.destroy();
+        this.spellBookBackground = undefined;
+        this.spellBookBackgroundLoad = undefined;
+        if (hadRequest) void Assets.unload(images.book_1024_clean_pages_v1).catch(() => undefined);
     }
     private setHoveredSpell(spell: PixiRenderableSpell | undefined, caster?: RenderableUnit): void {
         if (this.hoveredSpell !== spell) {
@@ -13576,6 +13605,7 @@ export class Sandbox extends PixiScene {
         // narrowing holes, terrain, or screen-space floor.
         this.aiController.destroy();
         this.dungeonVisuals?.destroy();
+        this.releaseSpellBookBackground();
         this.releaseSpellBookBlurFilter();
         super.Destroy();
         // Floating damage numbers are parented to the shared worldRoot; destroy them so
@@ -13948,6 +13978,7 @@ export class Sandbox extends PixiScene {
             // Re-fit on the closed -> open transition: the canvas can still be settling into its final
             // size when the scene is constructed, and no resize necessarily fires before the first open.
             if (showSpellBook && !this.spellBookContainer.visible) {
+                this.ensureSpellBookBackground();
                 const screen = this.pixiApp.getApplication().screen;
                 this.layoutSpellBook(screen.width, screen.height);
             }

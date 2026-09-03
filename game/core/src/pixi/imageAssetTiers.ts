@@ -128,7 +128,7 @@ export function isLazyProjectileAssetKey(key: string): boolean {
     return LAZY_PROJECTILE_ASSETS.has(key);
 }
 
-const LAZY_COMBAT_EFFECT_ASSETS = new Set(["vfx_dust_smoky_ash_atlas"]);
+const LAZY_COMBAT_EFFECT_ASSETS = new Set(["book_1024_clean_pages_v1", "vfx_dust_smoky_ash_atlas"]);
 
 /** Large battle VFX loaded and released by their owning layer only after the effect first appears. */
 export function isLazyCombatEffectAssetKey(key: string): boolean {

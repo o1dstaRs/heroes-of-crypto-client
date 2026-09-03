@@ -38,4 +38,24 @@ describe("Sandbox lifecycle", () => {
         expect(destroy).toContain("this.releaseSpellBookBlurFilter()");
         expect(source).not.toContain("active ? [new BlurFilter");
     });
+
+    test("loads the spellbook background only when opened and releases it with the scene", () => {
+        const constructor = source.slice(
+            source.indexOf("public constructor("),
+            source.indexOf("protected updateVisibleTurnTimer("),
+        );
+        const backgroundLifecycle = source.slice(
+            source.indexOf("private ensureSpellBookBackground("),
+            source.indexOf("private setHoveredSpell("),
+        );
+        const destroy = source.slice(
+            source.indexOf("public override Destroy()"),
+            source.indexOf("private handleKeyDown"),
+        );
+
+        expect(constructor).not.toContain('this.texAny("book_1024_clean_pages_v1")');
+        expect(backgroundLifecycle).toContain("Assets.load<Texture>(url)");
+        expect(backgroundLifecycle).toContain("Assets.unload(images.book_1024_clean_pages_v1)");
+        expect(destroy).toContain("this.releaseSpellBookBackground()");
+    });
 });
