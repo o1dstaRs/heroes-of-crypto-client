@@ -20,6 +20,39 @@ if (!("document" in globalThis)) {
 }
 
 describe("dungeon visual allocation", () => {
+    test("reuses the static battlefield layout until the viewport changes", () => {
+        const gridSettings = new GridSettings(
+            GridConstants.GRID_SIZE,
+            GridConstants.MAX_Y,
+            GridConstants.MIN_Y,
+            GridConstants.MAX_X,
+            GridConstants.MIN_X,
+            GridConstants.MOVEMENT_DELTA,
+            GridConstants.UNIT_SIZE_DELTA,
+        );
+        const viewport = { width: 1000, height: 1000 };
+        const visuals = new DungeonVisuals({
+            getStage: () => new Container(),
+            getWorldRoot: () => new Container(),
+            getViewportSize: () => viewport,
+            getGridSettings: () => gridSettings,
+            texAny: () => Texture.WHITE,
+            attachToWorldRoot: () => undefined,
+        });
+        const internals = visuals as unknown as { backgroundLayout?: object };
+
+        visuals.ensureBackgroundSprite();
+        visuals.layoutBackgroundSquare(1);
+        const firstLayout = internals.backgroundLayout;
+        visuals.layoutBackgroundSquare(1);
+        expect(internals.backgroundLayout).toBe(firstLayout);
+
+        viewport.width = 900;
+        visuals.layoutBackgroundSquare(1);
+        expect(internals.backgroundLayout).not.toBe(firstLayout);
+        visuals.destroy();
+    });
+
     test("reuses steady tuning values between render steps", () => {
         expect(resolveLavaAnimationTuning()).toBe(resolveLavaAnimationTuning());
         expect(resolveAmbientFireTuning(AMBIENT_FIRE_DEFINITIONS[0])).toBe(

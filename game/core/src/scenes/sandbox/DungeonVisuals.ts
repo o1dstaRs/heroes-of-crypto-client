@@ -31,7 +31,12 @@ import {
     projectedCellPoints,
 } from "./BattlefieldVisualGrid";
 import { createDungeonLightFilter, updateDungeonLightUniforms } from "./DungeonLightFilter";
-import { AMBIENT_FIRE_DEFINITIONS, getAmbientFireEditorSelection, resolveAmbientFireTuning } from "./ambientFireTuning";
+import {
+    AMBIENT_FIRE_DEFINITIONS,
+    getAmbientFireEditorSelection,
+    resolveAmbientFireTuning,
+    type AmbientFireTuning,
+} from "./ambientFireTuning";
 import {
     isLavaAnimationEditorActive,
     lavaAnimationFrameAtTime,
@@ -502,6 +507,20 @@ export class DungeonVisuals {
     private ambientFireAtlases = new Map<string, Texture>();
     private ambientFireAtlasLoads = new Set<string>();
     private ambientFireEditorOutline?: Graphics;
+    /** Static screen-space fire layout is recalculated only after a resize, tuning edit, or decoded atlas. */
+    private ambientFireLayoutDirty = true;
+    private ambientFireLayoutTunings = new Map<string, AmbientFireTuning>();
+    private ambientFireBaseScaleX = new Map<string, number>();
+    private ambientFireGlowBaseScaleX = new Map<string, number>();
+    private ambientFireEditorSelection?: string;
+    private backgroundLayout?: {
+        viewportWidth: number;
+        viewportHeight: number;
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+    };
     private lavaColorFilter?: ColorMatrixFilter;
     private lavaFireColorFilter?: ColorMatrixFilter;
     private lavaFire2ColorFilter?: ColorMatrixFilter;
@@ -2277,7 +2296,10 @@ export class DungeonVisuals {
     private useLegacyBackground = false;
     /** Switch the floor painting. The next layoutBackgroundSquare re-reads the key and swaps the texture. */
     public setLegacyBackground(enabled: boolean): void {
-        this.useLegacyBackground = enabled;
+        if (this.useLegacyBackground !== enabled) {
+            this.useLegacyBackground = enabled;
+            this.ambientFireLayoutDirty = true;
+        }
         this.clearExperimentalBackgroundFilters();
     }
     public isLegacyBackground(): boolean {
@@ -2424,6 +2446,7 @@ export class DungeonVisuals {
             this.ambientFireSprites.set(definition.key, sprite);
             this.ambientFireGlowSprites.set(definition.key, glowSprite);
             this.ambientFireLayer.addChild(sprite, glowSprite);
+            this.ambientFireLayoutDirty = true;
         }
         // Re-adding an existing child moves it above sprites that may have finished decoding later.
         if (this.ambientFireEditorOutline) this.ambientFireLayer.addChild(this.ambientFireEditorOutline);
@@ -2460,8 +2483,11 @@ export class DungeonVisuals {
                     Math.sin(localTime * 8.9 + definition.phaseSeconds * 4.1) * 0.35) *
                 definition.motionAmount *
                 0.42;
-            sprite.scale.x *= lateralBreath;
-            glowSprite.scale.x *= lateralBreath;
+            // Layout records the resting scale. Assign from it instead of multiplying the preceding frame,
+            // which lets static geometry stay cached without the flame slowly widening over time.
+            sprite.scale.x = (this.ambientFireBaseScaleX.get(definition.key) ?? sprite.scale.x) * lateralBreath;
+            glowSprite.scale.x =
+                (this.ambientFireGlowBaseScaleX.get(definition.key) ?? glowSprite.scale.x) * lateralBreath;
             sprite.skew.x = curl;
             glowSprite.skew.x = curl;
             sprite.alpha = tuning.alpha * breath;
@@ -2522,84 +2548,115 @@ export class DungeonVisuals {
     public layoutBackgroundSquare(alpha: number): void {
         if (!this.bgSprite) return;
         const { width: vw, height: vh } = this.context.getViewportSize();
-        // Fit the authored FIELD quad, not the bitmap rectangle, to the unchanged logical board. The art has
-        // walls above and outside the 16x16 floor; treating those decorations as board space used to shift and
-        // resize every painted cell relative to the combat coordinates.
-        const boardWidth = (boardFitWidth(vw, vh) * DungeonVisuals.FLOOR_TILES_ACROSS) / GridConstants.GRID_SIZE;
-        const floorHeight = (boardFitHeight(vw, vh) * DungeonVisuals.FLOOR_TILES_ACROSS) / GridConstants.GRID_SIZE;
-        const artwork = battlefieldArtworkLayout(vw, vh, boardWidth, floorHeight);
-        const x = artwork.x;
-        const artworkY = artwork.y;
-        if (this.bgSprite.x !== x || this.bgSprite.y !== artworkY) {
-            this.bgSprite.position.set(x, artworkY);
-        }
-        if (this.bgSprite.width !== artwork.width || this.bgSprite.height !== artwork.height) {
-            this.bgSprite.width = artwork.width;
-            this.bgSprite.height = artwork.height;
-        }
         const wantKey = this.backgroundKey();
         const wantTex = this.context.texAny(wantKey) ?? this.backgroundTexture();
-
+        let textureChanged = false;
         if (wantTex && this.bgSprite.texture !== wantTex) {
             this.bgSprite.texture = wantTex;
+            textureChanged = true;
+        }
+
+        let layout = this.backgroundLayout;
+        const viewportChanged = !layout || layout.viewportWidth !== vw || layout.viewportHeight !== vh;
+        if (viewportChanged) {
+            // Fit the authored FIELD quad, not the bitmap rectangle, to the unchanged logical board. The art
+            // has walls above and outside the 16x16 floor; decorations are not part of combat coordinates.
+            const boardWidth = (boardFitWidth(vw, vh) * DungeonVisuals.FLOOR_TILES_ACROSS) / GridConstants.GRID_SIZE;
+            const floorHeight = (boardFitHeight(vw, vh) * DungeonVisuals.FLOOR_TILES_ACROSS) / GridConstants.GRID_SIZE;
+            const artwork = battlefieldArtworkLayout(vw, vh, boardWidth, floorHeight);
+            layout = {
+                viewportWidth: vw,
+                viewportHeight: vh,
+                x: artwork.x,
+                y: artwork.y,
+                width: artwork.width,
+                height: artwork.height,
+            };
+            this.backgroundLayout = layout;
+        }
+        if (!layout) return;
+        if (viewportChanged || textureChanged) {
+            this.bgSprite.position.set(layout.x, layout.y);
+            this.bgSprite.width = layout.width;
+            this.bgSprite.height = layout.height;
         }
 
         if (this.ambientFireLayer) {
             this.ambientFireLayer.visible = !this.useLegacyBackground;
-            const artworkLeft = x - artwork.width * 0.5;
-            const artworkTop = artworkY - artwork.height * 0.5;
-            const sourceScaleX = artwork.width / BATTLEFIELD_ARTWORK.width;
-            const sourceScaleY = artwork.height / BATTLEFIELD_ARTWORK.height;
+            let tuningChanged = false;
             for (const definition of AMBIENT_FIRE_DEFINITIONS) {
-                const sprite = this.ambientFireSprites.get(definition.key);
-                const glowSprite = this.ambientFireGlowSprites.get(definition.key);
-                if (!sprite || !glowSprite) continue;
                 const tuning = resolveAmbientFireTuning(definition);
-                const contactGlow = this.ambientFireContactGlows.get(definition.key);
-                const fireX = artworkLeft + tuning.sourceX * sourceScaleX;
-                const fireY = artworkTop + tuning.sourceY * sourceScaleY;
-                sprite.position.set(fireX, fireY);
-                sprite.width = tuning.sourceWidth * sourceScaleX;
-                sprite.height = tuning.sourceHeight * sourceScaleY;
-                glowSprite.position.set(fireX, fireY);
-                glowSprite.width = sprite.width;
-                glowSprite.height = sprite.height;
-                if (contactGlow) {
-                    contactGlow.position.set(fireX, fireY);
-                    contactGlow.scale.set(
-                        sourceScaleX * (tuning.sourceWidth / definition.sourceWidth),
-                        sourceScaleY * (tuning.sourceHeight / definition.sourceHeight),
-                    );
+                if (this.ambientFireLayoutTunings.get(definition.key) !== tuning) {
+                    this.ambientFireLayoutTunings.set(definition.key, tuning);
+                    tuningChanged = true;
                 }
             }
             const selectedKey = getAmbientFireEditorSelection();
-            const selectedDefinition = AMBIENT_FIRE_DEFINITIONS.find((definition) => definition.key === selectedKey);
-            if (selectedDefinition) {
-                if (!this.ambientFireEditorOutline) {
-                    const outline = new Graphics();
-                    outline.eventMode = "none";
-                    this.ambientFireEditorOutline = outline;
-                    this.ambientFireLayer.addChild(outline);
+            const editorSelectionChanged = selectedKey !== this.ambientFireEditorSelection;
+            const needsLayout = viewportChanged || this.ambientFireLayoutDirty || tuningChanged;
+            if (needsLayout) {
+                const artworkLeft = layout.x - layout.width * 0.5;
+                const artworkTop = layout.y - layout.height * 0.5;
+                const sourceScaleX = layout.width / BATTLEFIELD_ARTWORK.width;
+                const sourceScaleY = layout.height / BATTLEFIELD_ARTWORK.height;
+                for (const definition of AMBIENT_FIRE_DEFINITIONS) {
+                    const sprite = this.ambientFireSprites.get(definition.key);
+                    const glowSprite = this.ambientFireGlowSprites.get(definition.key);
+                    if (!sprite || !glowSprite) continue;
+                    const tuning = this.ambientFireLayoutTunings.get(definition.key)!;
+                    const contactGlow = this.ambientFireContactGlows.get(definition.key);
+                    const fireX = artworkLeft + tuning.sourceX * sourceScaleX;
+                    const fireY = artworkTop + tuning.sourceY * sourceScaleY;
+                    sprite.position.set(fireX, fireY);
+                    sprite.width = tuning.sourceWidth * sourceScaleX;
+                    sprite.height = tuning.sourceHeight * sourceScaleY;
+                    glowSprite.position.set(fireX, fireY);
+                    glowSprite.width = sprite.width;
+                    glowSprite.height = sprite.height;
+                    this.ambientFireBaseScaleX.set(definition.key, sprite.scale.x);
+                    this.ambientFireGlowBaseScaleX.set(definition.key, glowSprite.scale.x);
+                    if (contactGlow) {
+                        contactGlow.position.set(fireX, fireY);
+                        contactGlow.scale.set(
+                            sourceScaleX * (tuning.sourceWidth / definition.sourceWidth),
+                            sourceScaleY * (tuning.sourceHeight / definition.sourceHeight),
+                        );
+                    }
                 }
-                const outline = this.ambientFireEditorOutline;
-                outline.clear();
-                outline.visible = true;
-                const tuning = resolveAmbientFireTuning(selectedDefinition);
-                const fireX = artworkLeft + tuning.sourceX * sourceScaleX;
-                const fireY = artworkTop + tuning.sourceY * sourceScaleY;
-                const width = tuning.sourceWidth * sourceScaleX;
-                const height = tuning.sourceHeight * sourceScaleY;
-                outline
-                    .roundRect(fireX - width * 0.5, fireY - height, width, height, 4)
-                    .fill({ color: 0xffc83d, alpha: 0.055 })
-                    .stroke({ color: 0xffd45b, alpha: 0.95, width: 1.5 });
-                outline
-                    .circle(fireX, fireY, 3.5)
-                    .fill({ color: 0x63e6e2, alpha: 0.95 })
-                    .stroke({ color: 0x081411, alpha: 0.9, width: 1 });
-            } else if (this.ambientFireEditorOutline?.visible) {
-                this.ambientFireEditorOutline.clear();
-                this.ambientFireEditorOutline.visible = false;
+                this.ambientFireLayoutDirty = false;
+            }
+            if (needsLayout || editorSelectionChanged) {
+                const selectedDefinition = AMBIENT_FIRE_DEFINITIONS.find(
+                    (definition) => definition.key === selectedKey,
+                );
+                if (selectedDefinition) {
+                    if (!this.ambientFireEditorOutline) {
+                        const outline = new Graphics();
+                        outline.eventMode = "none";
+                        this.ambientFireEditorOutline = outline;
+                        this.ambientFireLayer.addChild(outline);
+                    }
+                    const tuning = this.ambientFireLayoutTunings.get(selectedDefinition.key)!;
+                    const sourceScaleX = layout.width / BATTLEFIELD_ARTWORK.width;
+                    const sourceScaleY = layout.height / BATTLEFIELD_ARTWORK.height;
+                    const fireX = layout.x - layout.width * 0.5 + tuning.sourceX * sourceScaleX;
+                    const fireY = layout.y - layout.height * 0.5 + tuning.sourceY * sourceScaleY;
+                    const width = tuning.sourceWidth * sourceScaleX;
+                    const height = tuning.sourceHeight * sourceScaleY;
+                    this.ambientFireEditorOutline
+                        .clear()
+                        .roundRect(fireX - width * 0.5, fireY - height, width, height, 4)
+                        .fill({ color: 0xffc83d, alpha: 0.055 })
+                        .stroke({ color: 0xffd45b, alpha: 0.95, width: 1.5 })
+                        .circle(fireX, fireY, 3.5)
+                        .fill({ color: 0x63e6e2, alpha: 0.95 })
+                        .stroke({ color: 0x081411, alpha: 0.9, width: 1 });
+                    this.ambientFireEditorOutline.visible = true;
+                } else if (this.ambientFireEditorOutline?.visible) {
+                    this.ambientFireEditorOutline.clear();
+                    this.ambientFireEditorOutline.visible = false;
+                }
+                this.ambientFireEditorSelection = selectedKey;
             }
         }
 
@@ -2679,6 +2736,10 @@ export class DungeonVisuals {
         this.ambientFireFrames.clear();
         this.ambientFireAtlases.clear();
         this.ambientFireAtlasLoads.clear();
+        this.ambientFireLayoutTunings.clear();
+        this.ambientFireBaseScaleX.clear();
+        this.ambientFireGlowBaseScaleX.clear();
+        this.backgroundLayout = undefined;
         this.lavaAnimFrames = undefined;
         this.firePitOverlayFrames = undefined;
         this.firePitOverlayAtlas = undefined;
