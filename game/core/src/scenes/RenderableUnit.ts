@@ -2473,7 +2473,7 @@ export class RenderableUnit extends Unit {
         // --- revealed-roster card (plate + name), drawn under the sprite ---
         this.ensureRosterCard(worldRoot, gs, props, logicalPos);
         // --- badge ---
-        this.ensureBadge(worldRoot, gs, props, pos, inheritedScale);
+        this.ensureBadge(worldRoot, gs, props, pos, inheritedScale, now);
         // --- stack power indicator ---
         this.ensureStackPowerIndicator(worldRoot, gs, props, pos);
         // --- turn status indicators: grouped immediately left of the amount flag ---
@@ -4490,7 +4490,13 @@ export class RenderableUnit extends Unit {
      * The battlefield root is y-up, so the arrow tip sits at local y=0 while the body extends toward
      * positive y. On screen this becomes the requested downward arrow, positioned above the flag.
      */
-    private drawActiveTurnPointer(pointer: Graphics, glow: Graphics, geometry: BadgeFlagGeometry): void {
+    private drawActiveTurnPointer(
+        pointer: Graphics,
+        glow: Graphics,
+        geometry: BadgeFlagGeometry,
+        redrawGeometry: boolean,
+        nowMs: number,
+    ): void {
         if (
             !this.isActiveTurn ||
             this.activeTurnPointerSuppressed ||
@@ -4507,45 +4513,49 @@ export class RenderableUnit extends Unit {
         const shaftHalfWidth = arrowHalfWidth * 0.42;
         const headHeight = arrowHeight * 0.47;
         const flagGap = activeTurnPointerGap(geometry.flagHeight, geometry.headerWidth);
-        const timeSeconds = performance.now() / 1000;
+        const timeSeconds = nowMs / 1000;
         const activeGlow = activeFlagGlowAlphaForTime(timeSeconds);
         const pointerScale = activeFlagScaleForTime(timeSeconds);
 
         const pointerY = geometry.bannerBottom + flagGap;
-        glow.clear();
-        traceActiveTurnPointer(glow, shaftHalfWidth, arrowHalfWidth, arrowHeight, headHeight);
-        glow.stroke({
-            width: Math.max(4, geometry.flagHeight * 0.34),
-            color: ACTIVE_FLAG_GLOW_COLOR,
-            alpha: activeGlow * 0.16,
-            join: "round",
-        });
-        traceActiveTurnPointer(glow, shaftHalfWidth, arrowHalfWidth, arrowHeight, headHeight);
-        glow.stroke({
-            width: Math.max(2, geometry.flagHeight * 0.16),
-            color: ACTIVE_FLAG_GLOW_COLOR,
-            alpha: activeGlow * 0.36,
-            join: "round",
-        });
-        glow.position.set(0, pointerY);
+        if (redrawGeometry) {
+            glow.clear();
+            traceActiveTurnPointer(glow, shaftHalfWidth, arrowHalfWidth, arrowHeight, headHeight);
+            glow.stroke({
+                width: Math.max(4, geometry.flagHeight * 0.34),
+                color: ACTIVE_FLAG_GLOW_COLOR,
+                alpha: 0.16,
+                join: "round",
+            });
+            traceActiveTurnPointer(glow, shaftHalfWidth, arrowHalfWidth, arrowHeight, headHeight);
+            glow.stroke({
+                width: Math.max(2, geometry.flagHeight * 0.16),
+                color: ACTIVE_FLAG_GLOW_COLOR,
+                alpha: 0.36,
+                join: "round",
+            });
+
+            pointer.clear();
+            traceActiveTurnPointer(pointer, shaftHalfWidth, arrowHalfWidth, arrowHeight, headHeight);
+            pointer.fill({ color: 0xffc83d, alpha: 1 });
+            traceActiveTurnPointer(pointer, shaftHalfWidth, arrowHalfWidth, arrowHeight, headHeight);
+            pointer.stroke({
+                width: 1,
+                color: 0x100d08,
+                alpha: 1,
+                join: "miter",
+                pixelLine: true,
+            });
+        }
+        if (glow.x !== 0 || glow.y !== pointerY) glow.position.set(0, pointerY);
         glow.scale.set(pointerScale);
-        glow.visible = true;
+        if (glow.alpha !== activeGlow) glow.alpha = activeGlow;
+        if (!glow.visible) glow.visible = true;
         if (this.badgeFlagGlowBlurFilter) {
             this.badgeFlagGlowBlurFilter.strength = 1.6 + activeGlow * 1.4;
         }
 
-        pointer.clear();
-        traceActiveTurnPointer(pointer, shaftHalfWidth, arrowHalfWidth, arrowHeight, headHeight);
-        pointer.fill({ color: 0xffc83d, alpha: 1 });
-        traceActiveTurnPointer(pointer, shaftHalfWidth, arrowHalfWidth, arrowHeight, headHeight);
-        pointer.stroke({
-            width: 1,
-            color: 0x100d08,
-            alpha: 1,
-            join: "miter",
-            pixelLine: true,
-        });
-        pointer.position.set(0, pointerY);
+        if (pointer.x !== 0 || pointer.y !== pointerY) pointer.position.set(0, pointerY);
         pointer.scale.set(pointerScale);
         if (!pointer.visible) pointer.visible = true;
     }
@@ -4578,6 +4588,7 @@ export class RenderableUnit extends Unit {
         props: UnitProperties,
         pos: HoCMath.XY,
         parentScale: HoCMath.XY,
+        now: number,
     ): void {
         if (!SHOW_BOARD_STACK_DECORATIONS) {
             if (this.badgeContainer?.visible) this.badgeContainer.visible = false;
@@ -4673,8 +4684,10 @@ export class RenderableUnit extends Unit {
         const container = this.badgeContainer!;
         // The selected Heroes-IV-style treatment is a single horizontal count ribbon. Clear and hide the
         // former rigid header so hot reload also removes the old stack-layout graphics immediately.
-        header.clear();
-        if (header.visible) header.visible = false;
+        if (header.visible) {
+            header.clear();
+            header.visible = false;
+        }
         if (!flag.visible) flag.visible = true;
         // Revealed opponents (ranked placement) carry a sanitized stack of 0 — the flag still shows,
         // team-colored, with "?" standing in for the hidden stack size.
@@ -4767,7 +4780,7 @@ export class RenderableUnit extends Unit {
         if (needsRedraw || !this.isActiveTurn) {
             this.drawBadgeFlag(flag, flagGlow, geometry, teamColor, stackPower);
         }
-        this.drawActiveTurnPointer(activeTurnPointer, flagGlow, geometry);
+        this.drawActiveTurnPointer(activeTurnPointer, flagGlow, geometry, needsRedraw, now);
         // The flag stays static during the active turn; only authored preview emphasis may resize it.
         const renderedBadgeScale = this.badgeEmphasisScale;
         // Centre the ribbon above the actual rendered creature image rather than above its logical cell.
@@ -5485,13 +5498,23 @@ export class RenderableUnit extends Unit {
                 ? NO_TEAM_ROSTER_COLOR
                 : // A player may repaint the armies: their OWN in a chosen colour, the enemy in red.
                   (personalArmyPresetFor(props.team)?.color ?? resolveTeamColor(props.team));
-        this.stackPowerDrawState = {
-            power,
-            cellSize,
-            footprintWidthInCells: this.getFootprintWidth(),
-            footprintHeightInCells: this.getFootprintHeight(),
-            teamColor,
-        };
+        const footprintWidthInCells = this.getFootprintWidth();
+        const footprintHeightInCells = this.getFootprintHeight();
+        if (this.stackPowerDrawState) {
+            this.stackPowerDrawState.power = power;
+            this.stackPowerDrawState.cellSize = cellSize;
+            this.stackPowerDrawState.footprintWidthInCells = footprintWidthInCells;
+            this.stackPowerDrawState.footprintHeightInCells = footprintHeightInCells;
+            this.stackPowerDrawState.teamColor = teamColor;
+        } else {
+            this.stackPowerDrawState = {
+                power,
+                cellSize,
+                footprintWidthInCells,
+                footprintHeightInCells,
+                teamColor,
+            };
+        }
         if (this.stackPowerContainer?.visible) this.stackPowerContainer.visible = false;
     }
     protected override refreshAbilitiesDescriptions(_synergyAbilityPowerIncrease: number): void {

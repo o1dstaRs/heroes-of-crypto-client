@@ -2223,7 +2223,10 @@ describe("RenderableUnit revealed roster card", () => {
 describe("RenderableUnit steady-state overlays", () => {
     type OverlayInternals = {
         badgeContainer?: Container;
+        badgeHeader?: Graphics;
         badgeFlag?: Graphics;
+        badgeFlagGlow?: Graphics;
+        activeTurnPointer?: Graphics;
         stackPowerPips: Graphics[];
         stackPowerDrawState?: { power: number };
         hourglassContainer?: Container;
@@ -2275,25 +2278,44 @@ describe("RenderableUnit steady-state overlays", () => {
         expect((unit as unknown as OverlayInternals).stackPowerDrawState?.power).toBe(5);
     });
 
-    test("does not rebuild the active unit's rigid flag on steady frames", () => {
+    test("does not rebuild the active unit's rigid flag or pointer on steady frames", () => {
         const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
         unit.setPosition(0, 1024);
         unit.setActiveTurn(true);
         const worldRoot = new Container();
         unit.ensureVisual(worldRoot, gridSettings);
 
-        const flag = (unit as unknown as OverlayInternals).badgeFlag!;
+        const internals = unit as unknown as OverlayInternals;
+        const flag = internals.badgeFlag!;
+        const header = internals.badgeHeader!;
+        const glow = internals.badgeFlagGlow!;
+        const pointer = internals.activeTurnPointer!;
         const originalClear = flag.clear.bind(flag);
-        let clearCount = 0;
+        const originalHeaderClear = header.clear.bind(header);
+        const originalGlowClear = glow.clear.bind(glow);
+        const originalPointerClear = pointer.clear.bind(pointer);
+        const clearCounts = { flag: 0, header: 0, glow: 0, pointer: 0 };
         flag.clear = () => {
-            clearCount++;
+            clearCounts.flag++;
             return originalClear();
+        };
+        header.clear = () => {
+            clearCounts.header++;
+            return originalHeaderClear();
+        };
+        glow.clear = () => {
+            clearCounts.glow++;
+            return originalGlowClear();
+        };
+        pointer.clear = () => {
+            clearCounts.pointer++;
+            return originalPointerClear();
         };
 
         unit.ensureVisual(worldRoot, gridSettings);
         unit.ensureVisual(worldRoot, gridSettings);
 
-        expect(clearCount).toBe(0);
+        expect(clearCounts).toEqual({ flag: 0, header: 0, glow: 0, pointer: 0 });
     });
 
     test("shows Whirlpool from both the Sandbox debuff object and Ranked's authoritative display status", () => {
