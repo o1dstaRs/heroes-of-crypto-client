@@ -74,7 +74,9 @@ export const getBattlefieldAlphaHoleFillFilter = (): Filter | undefined => {
     if (sharedFilter !== undefined) return sharedFilter ?? undefined;
     try {
         sharedFilter = Filter.from({ gl: { vertex: VERTEX, fragment: FRAGMENT }, resources: {} });
-        sharedFilter.resolution = Math.min(globalThis.devicePixelRatio || 1, 2);
+        // Match the renderer's capped resolution instead of allocating a 2x intermediate surface for
+        // every repaired creature on large Retina displays.
+        sharedFilter.resolution = "inherit";
         sharedFilter.padding = 1;
     } catch {
         sharedFilter = null;

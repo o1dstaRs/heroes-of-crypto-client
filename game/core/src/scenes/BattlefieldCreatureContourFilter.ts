@@ -120,7 +120,10 @@ export function getBattlefieldCreatureContourFilter(contourOpacity = 1): Filter 
             gl: { vertex: VERTEX, fragment: fragmentForOpacity(safeOpacity) },
             resources: {},
         });
-        filter.resolution = Math.min(globalThis.devicePixelRatio || 1, 2);
+        // Follow Pixi's renderer resolution. Large Retina displays deliberately cap their complete
+        // framebuffer, so a raw devicePixelRatio here would make every outlined unit render into a
+        // denser offscreen surface than the canvas can display.
+        filter.resolution = "inherit";
         filter.padding = 3;
         contourCompileFailures.delete(safeOpacity);
         sharedContourFilters.set(safeOpacity, filter);

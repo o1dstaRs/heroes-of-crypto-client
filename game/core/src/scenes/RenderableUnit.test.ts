@@ -352,6 +352,7 @@ describe("full-body model ground line", () => {
                 silhouetteShadow?: { filters: unknown[] | null };
             };
             if (alphaRepairFilter) {
+                expect(alphaRepairFilter.resolution).toBe("inherit");
                 expect(internals.sprite?.filters).toContain(alphaRepairFilter);
                 if (name === "Peasant") {
                     expect(internals.silhouetteShadow?.filters ?? []).not.toContain(alphaRepairFilter);

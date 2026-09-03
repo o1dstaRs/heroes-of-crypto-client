@@ -36,6 +36,7 @@ describe("battlefield creature contour filter", () => {
         const b = getBattlefieldCreatureContourFilter(0.5);
         expect(a).toBeDefined();
         expect(b).toBe(a);
+        expect(a?.resolution).toBe("inherit");
     });
 
     test("opacity is clamped, so out-of-range requests reuse the endpoint filters", () => {
