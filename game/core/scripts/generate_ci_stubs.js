@@ -54,6 +54,42 @@ for (const name of [
 ]) {
     imageKeys.add(`${name.toLowerCase().replaceAll(" ", "_")}_portrait_full`);
 }
+
+// The runtime builds these keys from creature names, animation states, board dimensions, or constants
+// before indexing `images[key]`. The source scanner above can only see direct `images.foo` accesses,
+// but the texture-bundle contract tests must exercise the same dynamic entries in CI that production
+// receives from the complete generated manifest.
+for (const key of [
+    "background_stone_tiles_sinister_16x16_original_restored",
+    "efreet_battlefield_side_right_final_v1",
+    "efreet_battlefield_side_right_v7",
+    "lava_center_anim_atlas",
+    "nature_portrait_bg_tier_1_2",
+    "peasant_512",
+    "peasant_walk_atlas_quarter",
+    "scavenger_512",
+    "thief_model_full",
+    "thunderbird_512_v2",
+    "thunderbird_battlefield_side_right_final_v1",
+    "thunderbird_portrait_full_v2",
+    "wolf_attack_atlas_quarter",
+    "wolf_idle_atlas_quarter",
+    "wolf_walk_atlas",
+    "wolf_walk_atlas_quarter",
+    "zena_battlefield_side_right_final_v1",
+    "zena_battlefield_side_right_v3",
+    "zena_final",
+]) {
+    imageKeys.add(key);
+}
+for (const columns of [3, 4, 5]) {
+    imageKeys.add(`placement_carpet_green_uniform_gold_aaa_${columns}col_v16`);
+}
+for (const columns of [3, 4, 5, 6]) {
+    for (const rows of [14, 16]) {
+        imageKeys.add(`placement_gold_outer_border_green_continuous_${columns}col_${rows}row_v23`);
+    }
+}
 const knownImageKeys = [...imageKeys].sort();
 
 const imageImportsStub = `/* CI stub — replaced locally by scripts/generate_image_imports.js */

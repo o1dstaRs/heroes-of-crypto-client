@@ -227,7 +227,7 @@ describe("pixi texture bundle split", () => {
     });
 
     test("loads the matching placement carpet/border on demand instead of preloading every size", () => {
-        const { core } = getSplitBundles({ animationsEnabled: false });
+        const { core, deferredPlacementAssets } = getSplitBundles({ animationsEnabled: false });
 
         for (const key of [
             "placement_carpet_green_worn_grid_5col_v9",
@@ -250,6 +250,7 @@ describe("pixi texture bundle split", () => {
             expect(isDeferredPlacementAssetKey(key)).toBe(true);
             expect(isLivePlacementAssetKey(key)).toBe(true);
             expect(isProductionOmittedAssetKey(key)).toBe(false);
+            expect(deferredPlacementAssets[key]).toBeDefined();
             expect(core[key]).toBeUndefined();
         }
     });

@@ -1,6 +1,12 @@
 import React from "react";
 import Box from "@mui/joy/Box";
 
+export const shouldRenderTogglerChildren = (
+    deferChildrenUntilExpanded: boolean,
+    open: boolean,
+    hasExpanded: boolean,
+): boolean => !deferChildrenUntilExpanded || open || hasExpanded;
+
 export default function Toggler({
     defaultExpanded = true,
     expanded,
@@ -26,7 +32,7 @@ export default function Toggler({
         if (open) setHasExpanded(true);
     }, [open]);
 
-    const renderChildren = !deferChildrenUntilExpanded || open || hasExpanded;
+    const renderChildren = shouldRenderTogglerChildren(deferChildrenUntilExpanded, open, hasExpanded);
 
     return (
         <>
