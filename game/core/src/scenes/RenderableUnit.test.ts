@@ -2573,6 +2573,35 @@ describe("RenderableUnit filter lifecycle", () => {
 
         expect(destroyCalls).toEqual([1, 1, 0, 1, 1]);
     });
+
+    test("releases unit-owned filters when the shared battlefield container destroys its sprite", () => {
+        const unit = createRenderableUnit(TeamVals.RIGHT, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
+        const world = new Container();
+        unit.ensureVisual(world, gridSettings);
+        const destroyCalls = [0, 0, 0, 0];
+        const filters = destroyCalls.map((_, index) => ({ destroy: () => destroyCalls[index]++ }));
+        const internals = unit as unknown as {
+            sprite: { destroy(): void };
+            isDestroyed: boolean;
+            motionBlurFilter?: (typeof filters)[number];
+            dodgeBlurFilter?: (typeof filters)[number];
+            battlefieldStyleFilter?: (typeof filters)[number];
+            silhouetteShadowBlurFilter?: (typeof filters)[number];
+        };
+        [
+            internals.motionBlurFilter,
+            internals.dodgeBlurFilter,
+            internals.battlefieldStyleFilter,
+            internals.silhouetteShadowBlurFilter,
+        ] = filters;
+
+        internals.sprite.destroy();
+        unit.destroyVisuals();
+
+        expect(internals.isDestroyed).toBe(true);
+        expect(destroyCalls).toEqual([1, 1, 1, 1]);
+        world.destroy({ children: true });
+    });
 });
 
 /**

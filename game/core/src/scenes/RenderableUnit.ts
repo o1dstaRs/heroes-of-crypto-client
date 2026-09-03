@@ -2017,6 +2017,10 @@ export class RenderableUnit extends Unit {
         if (!this.sprite) {
             // first time: use base texture
             this.sprite = new Sprite(baseTex);
+            // PixiDrawer owns the shared units container and destroys its children directly when the
+            // entire scene is replaced. Observe that path too: Container.destroy() detaches filters but
+            // does not destroy the unit-owned filter resources held below.
+            this.sprite.once("destroyed", () => this.handlePrimarySpriteDestroyed());
             this.selectionAnimationStartedAtMs = now;
             this.sprite.anchor.set(0.5);
             this.sprite.scale.y = -1; // y-up world → flip in Pixi
@@ -4118,7 +4122,8 @@ export class RenderableUnit extends Unit {
             }
         }
     }
-    public destroyVisuals(): void {
+    /** Release non-display resources whether the unit or its parent container initiates teardown. */
+    private releaseVisualLifecycleResources(): void {
         if (this.battlefieldFramingChangeListener && typeof window !== "undefined") {
             window.removeEventListener(
                 BATTLEFIELD_CREATURE_FRAMING_CHANGE_EVENT,
@@ -4128,7 +4133,6 @@ export class RenderableUnit extends Unit {
         this.battlefieldFramingChangeListener = undefined;
         this.battlefieldFramingWorldRoot = undefined;
         this.battlefieldFramingGridSettings = undefined;
-        this.isDestroyed = true;
         if (this.respondFeedbackTimer !== undefined) {
             clearTimeout(this.respondFeedbackTimer);
             this.respondFeedbackTimer = undefined;
@@ -4150,6 +4154,16 @@ export class RenderableUnit extends Unit {
         this.desaturateFilter = undefined;
         this.battlefieldStyleFilter = undefined;
         this.silhouetteShadowBlurFilter = undefined;
+    }
+    private handlePrimarySpriteDestroyed(): void {
+        if (this.isDestroyed) return;
+        this.isDestroyed = true;
+        this.releaseVisualLifecycleResources();
+    }
+    public destroyVisuals(): void {
+        if (this.isDestroyed) return;
+        this.isDestroyed = true;
+        this.releaseVisualLifecycleResources();
 
         if (this.dodgeAnim) {
             for (const ghost of this.dodgeAnim.ghosts) {
