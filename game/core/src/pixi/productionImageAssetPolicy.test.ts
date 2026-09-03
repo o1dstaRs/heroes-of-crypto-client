@@ -33,6 +33,11 @@ describe("production environment image policy", () => {
             "fire_pit_variant_1_low_front_fire_overlay_seamless_v2_64_atlas_half",
             "ambient_fire_video_torch_left_natural_v4_64_atlas",
             "ambient_fire_video_torch_right_natural_v4_64_atlas",
+            "lava_256",
+            "lava_frozen_256",
+            "mountain_432_412",
+            "water_256",
+            "water_dry_256",
         ]) {
             expect(isProductionOmittedEnvironmentAssetKey(key)).toBe(false);
         }

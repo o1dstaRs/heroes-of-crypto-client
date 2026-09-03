@@ -1512,6 +1512,7 @@ export class DungeonVisuals {
         );
     }
     private syncScatteredMountainTextures(fightStarted: boolean): void {
+        if (!this.scatteredMountains.length) return;
         const tiles = this.mountainTiles(fightStarted);
         if (!tiles?.length) return;
         if (
@@ -1633,9 +1634,11 @@ export class DungeonVisuals {
         const loadedFireOverlayB = liveLava && lavaTuning?.fire2Enabled ? this.firePitOverlayTexture(true) : undefined;
         const loadedGrateOverlay = liveLava ? this.context.texAny(DungeonVisuals.FIRE_PIT_EDITOR_GRATE_KEY) : undefined;
         const layeredPitReady = !!loadedFireOverlay && !!loadedGrateOverlay;
-        const firePitStill = this.context.texAny(
-            layeredPitReady ? DungeonVisuals.FIRE_PIT_EDITOR_BOWL_KEY : DungeonVisuals.FIRE_PIT_KEY,
-        );
+        const firePitStill = liveLava
+            ? this.context.texAny(
+                  layeredPitReady ? DungeonVisuals.FIRE_PIT_EDITOR_BOWL_KEY : DungeonVisuals.FIRE_PIT_KEY,
+              )
+            : undefined;
         const animated = liveLava ? (firePitStill ?? this.lavaAnimTexture()) : undefined;
         const tex = animated ?? this.context.texAny(texKey);
         if (!tex) {

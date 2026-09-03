@@ -74,7 +74,18 @@ export function isTransientLoadingScreenAssetKey(key: string): boolean {
 }
 
 const LIVE_ENVIRONMENT_ASSETS = new Set(["background_stone_tiles_sinister_16x16_original_restored"]);
-const LAZY_MAP_TEXTURE_ASSETS = new Set(["cemetery_obstacles_9x_256", "cemetery_obstacles_9x_256_hp"]);
+const LAZY_MAP_TEXTURE_ASSETS = new Set([
+    "cemetery_obstacles_9x_256",
+    "cemetery_obstacles_9x_256_hp",
+    "fire_pit_center_clean_fire_v2_512",
+    "fire_pit_grate_foreground_static_v7_512",
+    "lava_256",
+    "lava_center_anim_atlas",
+    "lava_frozen_256",
+    "mountain_432_412",
+    "water_256",
+    "water_dry_256",
+]);
 
 /** Map-specific source sheets retained only while a scene actually uses that map. */
 export function isLazyMapTextureAssetKey(key: string): boolean {

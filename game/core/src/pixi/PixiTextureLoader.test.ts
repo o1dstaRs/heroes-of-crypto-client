@@ -235,6 +235,13 @@ describe("pixi texture bundle split", () => {
             "ambient_fire_video_torch_right_natural_v4_64_atlas",
             "cemetery_obstacles_9x_256",
             "cemetery_obstacles_9x_256_hp",
+            "fire_pit_center_clean_fire_v2_512",
+            "fire_pit_grate_foreground_static_v7_512",
+            "lava_256",
+            "lava_frozen_256",
+            "mountain_432_412",
+            "water_256",
+            "water_dry_256",
         ];
 
         for (const key of deferred) {

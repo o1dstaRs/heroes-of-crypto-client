@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Assets, Container, Graphics, Texture } from "pixi.js";
 
-import { GridSettings } from "@heroesofcrypto/common";
+import { FightStateManager, GridSettings, GridVals } from "@heroesofcrypto/common";
 
 import {
     CEMETERY_OBSTACLE_SHADOW_LENGTH_CELLS,
@@ -173,6 +173,33 @@ describe("DungeonVisuals lifecycle", () => {
         visuals.setScatteredMountains([{ x: 3, y: 4, variant: 0 }], true);
         expect(requested).toEqual(["cemetery_obstacles_9x_256", "cemetery_obstacles_9x_256_hp"]);
         visuals.destroy();
+    });
+
+    test("does not request lava-pit art while drawing a water map", () => {
+        const fightState = FightStateManager.getInstance();
+        const previousFight = fightState.getFightProperties();
+        fightState.reset();
+        fightState.getFightProperties().setGridType(GridVals.WATER_CENTER);
+        const requested: string[] = [];
+        const visuals = new DungeonVisuals({
+            getStage: () => new Container(),
+            getWorldRoot: () => new Container(),
+            getViewportSize: () => ({ width: 1024, height: 1024 }),
+            getGridSettings: () => new GridSettings(16, 1024, 0, 1024, 0, 64, 32),
+            texAny: (key) => {
+                requested.push(key);
+                return undefined;
+            },
+            attachToWorldRoot: () => undefined,
+        });
+
+        try {
+            visuals.ensureCenterTerrainSprite();
+            expect(requested).toEqual(["water_256"]);
+        } finally {
+            visuals.destroy();
+            fightState.setFightProperties(previousFight);
+        }
     });
 
     test("evicts a large deferred fire atlas that finishes decoding after teardown", async () => {
