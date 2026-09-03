@@ -8,6 +8,8 @@ describe("production environment image policy", () => {
     test("keeps every environment atlas used by the live dungeon", () => {
         for (const key of [
             "lava_center_anim_atlas",
+            "fire_pit_center_clean_fire_v2_512",
+            "fire_pit_grate_foreground_static_v7_512",
             "fire_pit_variant_1_low_front_fire_overlay_seamless_v2_64_atlas_half",
             "ambient_fire_video_torch_left_natural_v4_64_atlas",
             "ambient_fire_video_torch_right_natural_v4_64_atlas",
@@ -20,6 +22,9 @@ describe("production environment image policy", () => {
         for (const key of [
             "fire_pit_unified_front_wide_48_atlas",
             "fire_pit_high_fire_overlay_smooth_64_atlas",
+            "fire_pit_dark_bowl_v1_512",
+            "fire_pit_extinguished_bronze_curb_v4_512",
+            "fire_pit_grate_overlay_v1_512",
             "ambient_fire_video_torch_left_seamless_v2_64_atlas",
             "background_stone_tiles_sinister_16x16_curbfix_v6",
             "background_test_abyss_underlay_v4",
@@ -45,6 +50,12 @@ describe("production environment image policy", () => {
             "book_1024_previous",
             "ui_banner_green_soft_wide",
             "ui_banner_red_soft_wide",
+            "ui_sidebar_bg_left_emberstone_mirrored",
+            "ui_start_button_plate_gray_50",
+            "deployment_perimeter_spectral_fire",
+            "combat_toolbar_button",
+            "stat_health_gold_v1",
+            "stat_health_silver_v1",
         ]) {
             expect(isProductionOmittedLegacyUiAssetKey(key)).toBe(true);
         }
@@ -54,6 +65,9 @@ describe("production environment image policy", () => {
             "ui_container_frame_1_9slice",
             "ui_container_frame_2_9slice",
             "ui_outer_frame_3_9slice",
+            "ui_start_button_plate_trimmed",
+            "combat_toolbar_ember_sword",
+            "stat_health_gold_v2",
         ]) {
             expect(isProductionOmittedLegacyUiAssetKey(key)).toBe(false);
         }
@@ -80,6 +94,13 @@ describe("production environment image policy", () => {
             "ui_social_notifications_redrawn_complete_frame_v2",
             "ui_up_next_smoky_chains_bg_85pct_v5",
             "ui_up_next_smoky_chains_bg_wide_73pct_v4",
+            "life_portrait_bg_golden_dawn_four_corner_haze_v1",
+            "nature_portrait_bg_xray_leaf_corner_glow_v2_soft",
+            "chaos_portrait_bg_obsidian_fissure_corner_fire_v1",
+            "might_portrait_bg_blood_claw_strong_red_corners_v1",
+            "map_badge_normal_4x4_actual_style_v4",
+            "map_badge_lava_frameless_v2",
+            "map_badge_barrels_frameless_v2",
         ]) {
             expect(isProductionOmittedLegacyUiAssetKey(key)).toBe(false);
         }
@@ -100,6 +121,12 @@ describe("production environment image policy", () => {
             "ui_social_friends_forged_bronze_v1",
             "ui_up_next_smoky_chains_bg_wide_80pct_v3",
             "ui_up_next_turn_order_bottom_chain_redrawn_crisp_v6",
+            "life_portrait_bg_crowned_shield_v1",
+            "nature_portrait_bg_claw_scratch_v1",
+            "chaos_portrait_bg_obsidian_fissure_v1",
+            "might_portrait_bg_shattered_fortress_v1",
+            "map_badge_normal_medallion_v1",
+            "map_badge_lava_medallion_v1",
         ]) {
             expect(isProductionOmittedLegacyUiAssetKey(key)).toBe(true);
         }

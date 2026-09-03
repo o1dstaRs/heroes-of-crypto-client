@@ -7,17 +7,31 @@ import { isDeferredEnvironmentAssetKey } from "./imageAssetTiers";
  */
 const LIVE_PRODUCTION_ENVIRONMENT_ASSETS = new Set([
     "lava_center_anim_atlas",
+    "fire_pit_center_clean_fire_v2_512",
+    "fire_pit_grate_foreground_static_v7_512",
     "fire_pit_variant_1_low_front_fire_overlay_seamless_v2_64_atlas_half",
     "ambient_fire_video_torch_left_natural_v4_64_atlas",
     "ambient_fire_video_torch_right_natural_v4_64_atlas",
 ]);
 
 const UNUSED_PRODUCTION_LEGACY_UI_ASSETS = new Set([
+    "combat_toolbar_button",
+    "combat_toolbar_hourglass",
+    "combat_toolbar_panel",
+    "deployment_perimeter_spectral_fire",
+    "deployment_perimeter_spectral_fire_red",
     "book_1024",
     "book_1024_pre",
     "book_1024_previous",
     "ui_banner_green_soft_wide",
     "ui_banner_red_soft_wide",
+    "ui_more_time_button_forged_exact",
+    "ui_selected_creature_frame_1_9slice_v1",
+    "ui_sidebar_bg_left_emberstone",
+    "ui_sidebar_bg_left_emberstone_mirrored",
+    "ui_sidebar_bg_right_runic",
+    "ui_start_button_plate_gray_50",
+    "stat_shot_range_gold_v2",
 ]);
 
 const LIVE_PRODUCTION_VERSIONED_UI_ASSETS = new Set([
@@ -44,6 +58,15 @@ const LIVE_PRODUCTION_VERSIONED_UI_ASSETS = new Set([
     "ui_social_system_menu_redrawn_complete_frame_v3",
     "ui_up_next_smoky_chains_bg_85pct_v5",
     "ui_up_next_smoky_chains_bg_wide_73pct_v4",
+    // Current creature-card environments.
+    "chaos_portrait_bg_obsidian_fissure_corner_fire_v1",
+    "life_portrait_bg_golden_dawn_four_corner_haze_v1",
+    "might_portrait_bg_blood_claw_strong_red_corners_v1",
+    "nature_portrait_bg_xray_leaf_corner_glow_v2_soft",
+    // Current map-selection thumbnails.
+    "map_badge_barrels_frameless_v2",
+    "map_badge_lava_frameless_v2",
+    "map_badge_normal_4x4_actual_style_v4",
 ]);
 
 const RETIRED_VERSIONED_UI_PREFIXES = [
@@ -54,9 +77,15 @@ const RETIRED_VERSIONED_UI_PREFIXES = [
     "shot_trajectory_",
     "ui_social_",
     "ui_up_next_",
+    "chaos_portrait_bg_",
+    "life_portrait_bg_",
+    "might_portrait_bg_",
+    "nature_portrait_bg_",
+    "map_badge_",
 ];
 
 export function isProductionOmittedEnvironmentAssetKey(key: string): boolean {
+    if (key.startsWith("fire_pit_")) return !LIVE_PRODUCTION_ENVIRONMENT_ASSETS.has(key);
     return isDeferredEnvironmentAssetKey(key) && !LIVE_PRODUCTION_ENVIRONMENT_ASSETS.has(key);
 }
 
@@ -65,7 +94,13 @@ export function isProductionOmittedLegacyUiAssetKey(key: string): boolean {
     if (UNUSED_PRODUCTION_LEGACY_UI_ASSETS.has(key)) return true;
     // Both families were superseded by the generated `*_left_screen_x2` portraits used by every
     // creature surface. They remain in Drive for comparison/editing but have no production selector.
-    if (key.startsWith("left_sidebar_") || key.startsWith("pick_l2_legacy_") || key.startsWith("pick_bundle_")) {
+    if (
+        key.startsWith("left_sidebar_") ||
+        key.startsWith("pick_l2_legacy_") ||
+        key.startsWith("pick_bundle_") ||
+        key.startsWith("sidebar_") ||
+        /^stat_.*_(?:gold_v1|silver_v1)$/.test(key)
+    ) {
         return true;
     }
     return (
