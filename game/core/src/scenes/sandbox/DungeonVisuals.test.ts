@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { Container, Graphics, Texture } from "pixi.js";
+import { Assets, Container, Graphics, Texture } from "pixi.js";
 
 import { GridSettings } from "@heroesofcrypto/common";
 
@@ -14,6 +14,7 @@ import {
     DungeonVisuals,
     lavaSplashOriginWithinGrateOpening,
 } from "./DungeonVisuals";
+import { images } from "../../generated/image_imports";
 
 describe("Cemetery obstacle perspective", () => {
     test("keeps the bottom-row editor size and reaches exactly -10% at the top row", () => {
@@ -147,5 +148,45 @@ describe("DungeonVisuals lifecycle", () => {
 
         expect(holes.destroyed).toBe(true);
         expect(worldRoot.children).not.toContain(holes);
+    });
+
+    test("evicts a large deferred fire atlas that finishes decoding after teardown", async () => {
+        const stage = new Container();
+        const worldRoot = new Container();
+        const gridSettings = new GridSettings(16, 1024, 0, 1024, 0, 64, 32);
+        const visuals = new DungeonVisuals({
+            getStage: () => stage,
+            getWorldRoot: () => worldRoot,
+            getViewportSize: () => ({ width: 1024, height: 1024 }),
+            getGridSettings: () => gridSettings,
+            texAny: () => undefined,
+            attachToWorldRoot: () => undefined,
+        });
+        const internals = visuals as unknown as { firePitOverlayTexture(): Texture | undefined };
+        const mutableAssets = Assets as unknown as {
+            load: typeof Assets.load;
+            unload: typeof Assets.unload;
+        };
+        const originalLoad = mutableAssets.load;
+        const originalUnload = mutableAssets.unload;
+        let finishLoad!: (texture: Texture) => void;
+        const unloaded: string[] = [];
+        mutableAssets.load = (() => new Promise<Texture>((resolve) => (finishLoad = resolve))) as typeof Assets.load;
+        mutableAssets.unload = (async (url: string) => {
+            unloaded.push(url);
+        }) as typeof Assets.unload;
+
+        try {
+            expect(internals.firePitOverlayTexture()).toBeUndefined();
+            visuals.destroy();
+            finishLoad(Texture.WHITE);
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(unloaded).toEqual([images.fire_pit_variant_1_low_front_fire_overlay_seamless_v2_64_atlas_half]);
+        } finally {
+            mutableAssets.load = originalLoad;
+            mutableAssets.unload = originalUnload;
+        }
     });
 });

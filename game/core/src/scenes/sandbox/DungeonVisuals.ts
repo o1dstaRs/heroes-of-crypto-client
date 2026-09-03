@@ -480,6 +480,9 @@ export const getScatteredMountainHitBarLayout = (cellSize: number): IMountainHit
 
 export class DungeonVisuals {
     private context: IDungeonVisualsContext;
+    private destroyed = false;
+    /** Large map-only atlases decoded by this scene and safe to evict between battles. */
+    private loadedMapAtlasUrls = new Set<string>();
     // State
     private atmosphereAlpha = 0;
     /** GLSL "wall-sconce" lighting applied over the board square; replaces the old circle fills. */
@@ -835,8 +838,15 @@ export class DungeonVisuals {
                     this.firePitOverlayLoadStarted = true;
                     void Assets.load<Texture>(atlasUrl)
                         .then((loaded) => {
+                            if (this.destroyed) {
+                                void Assets.unload(atlasUrl).catch(() => undefined);
+                                return;
+                            }
                             if (this.firePitOverlayAtlasKey === requestedAtlasKey) {
+                                this.loadedMapAtlasUrls.add(atlasUrl);
                                 this.firePitOverlayAtlas = loaded;
+                            } else {
+                                void Assets.unload(atlasUrl).catch(() => undefined);
                             }
                         })
                         .catch(() => {
@@ -2396,7 +2406,9 @@ export class DungeonVisuals {
                 if (atlasUrl && !this.ambientFireAtlasLoads.has(textureKey)) {
                     this.ambientFireAtlasLoads.add(textureKey);
                     void Assets.load<Texture>(atlasUrl)
-                        .then((loaded) => this.ambientFireAtlases.set(textureKey, loaded))
+                        .then((loaded) => {
+                            if (!this.destroyed) this.ambientFireAtlases.set(textureKey, loaded);
+                        })
                         .catch(() => this.ambientFireAtlasLoads.delete(textureKey));
                 }
                 continue;
@@ -2722,6 +2734,8 @@ export class DungeonVisuals {
      * same scene lifetime.
      */
     public destroy(): void {
+        if (this.destroyed) return;
+        this.destroyed = true;
         this.clearHoleLayers();
         this.holeContainer.destroy({ children: true });
 
@@ -2808,6 +2822,10 @@ export class DungeonVisuals {
         this.mountainHitPointTileTextures = undefined;
         this.mountainQuarterTextures = undefined;
         this.narrowingLayers = 0;
+        for (const url of this.loadedMapAtlasUrls) {
+            void Assets.unload(url).catch(() => undefined);
+        }
+        this.loadedMapAtlasUrls.clear();
     }
     public attachCenterTerrainSprite(): void {
         if (this.lavaTerrainMesh) {
