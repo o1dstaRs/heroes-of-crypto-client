@@ -2407,7 +2407,12 @@ export class DungeonVisuals {
                     this.ambientFireAtlasLoads.add(textureKey);
                     void Assets.load<Texture>(atlasUrl)
                         .then((loaded) => {
-                            if (!this.destroyed) this.ambientFireAtlases.set(textureKey, loaded);
+                            if (this.destroyed) {
+                                void Assets.unload(atlasUrl).catch(() => undefined);
+                                return;
+                            }
+                            this.loadedMapAtlasUrls.add(atlasUrl);
+                            this.ambientFireAtlases.set(textureKey, loaded);
                         })
                         .catch(() => this.ambientFireAtlasLoads.delete(textureKey));
                 }
