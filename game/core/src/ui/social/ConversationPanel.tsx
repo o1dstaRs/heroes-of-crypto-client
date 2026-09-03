@@ -21,6 +21,7 @@ import {
     hocSoftButtonSx,
     hocSpinnerSx,
 } from "../hocTheme";
+import { startVisibleInterval } from "../visibleInterval";
 
 interface ConversationPanelProps {
     friend: FriendEntry | null;
@@ -106,9 +107,11 @@ export const ConversationPanel: React.FC<ConversationPanelProps> = ({ friend, on
         setConversation(null);
         setDraft("");
         setError("");
-        void loadLatest(true);
-        const handle = window.setInterval(() => void loadLatest(false), 5_000);
-        return () => window.clearInterval(handle);
+        let initial = true;
+        return startVisibleInterval(() => {
+            void loadLatest(initial);
+            initial = false;
+        }, 5_000);
     }, [friend?.playerId, loadLatest]);
 
     const loadOlder = async (): Promise<void> => {

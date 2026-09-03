@@ -2,6 +2,7 @@ import { Box } from "@mui/joy";
 import React, { useEffect, useRef } from "react";
 
 import { images as rawImages } from "../../generated/image_imports";
+import { startVisibleInterval } from "../visibleInterval";
 import { readPickLanternFireTuning, type PickLanternFireSlot } from "./pickLanternFireTuning";
 
 const images = rawImages as Record<string, string>;
@@ -26,11 +27,10 @@ export const PickLanternFire: React.FC<{ slot: PickLanternFireSlot; active?: boo
     useEffect(() => {
         if (!active || !tuning.enabled) return undefined;
         let frame = firstFrame;
-        const interval = window.setInterval(() => {
-            frame = (frame + 1) % ATLAS_FRAMES;
+        return startVisibleInterval(() => {
             if (flameRef.current) flameRef.current.style.backgroundPosition = FRAME_POSITIONS[frame];
+            frame = (frame + 1) % ATLAS_FRAMES;
         }, 1000 / tuning.fps);
-        return () => window.clearInterval(interval);
     }, [active, firstFrame, tuning.enabled, tuning.fps]);
 
     if (!active || !tuning.enabled) return null;

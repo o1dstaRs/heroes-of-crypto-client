@@ -11,5 +11,7 @@ describe("pick lantern animation", () => {
         expect(source).toContain("flameRef.current.style.backgroundPosition");
         expect(source).toContain("if (!active || !tuning.enabled) return null");
         expect(source).toContain("const FRAME_POSITIONS = Array.from");
+        expect(source).toContain("startVisibleInterval");
+        expect(source).not.toContain("window.setInterval");
     });
 });
