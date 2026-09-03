@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { AttackVals, MovementVals } from "@heroesofcrypto/common";
 
 import { HOC_GAME_FONT_FAMILY } from "../../fontFamilies";
@@ -196,7 +196,7 @@ const unitAttackElement = (hoverInfo: IHoverInfo): React.JSX.Element => {
 
 const Popover: React.FC = () => {
     const [positionPopover, setPositionPopover] = useState({ x: 0, y: 0 });
-    const [visiblePopover, setVisiblePopover] = useState(true);
+    const pointerPositionRef = useRef({ x: 0, y: 0 });
 
     const [hoverInfo, setHoverInfo] = useState({} as IHoverInfo);
 
@@ -207,32 +207,7 @@ const Popover: React.FC = () => {
         return () => {
             connection.disconnect();
         };
-    });
-
-    const handleMouseMove = (event: MouseEvent) => {
-        setPositionPopover({
-            x: event.clientX,
-            y: event.clientY,
-        });
-    };
-
-    const handleMouseLeave = () => {
-        setVisiblePopover(false);
-    };
-
-    if (Object.keys(hoverInfo).length === 0 && visiblePopover) {
-        setVisiblePopover(false);
-    }
-
-    useEffect(() => {
-        window.addEventListener("mousemove", handleMouseMove);
-        window.addEventListener("mouseleave", handleMouseLeave);
-
-        return () => {
-            window.removeEventListener("mousemove", handleMouseMove);
-            window.removeEventListener("mouseleave", handleMouseLeave);
-        };
-    }, []);
+    }, [manager]);
 
     // Show the box ONLY when it actually has something to render. The scene emits a fully-keyed hover object
     // (~9 keys) the instant the sword/attack cursor engages — purely to drive that cursor — but with every
@@ -243,6 +218,34 @@ const Popover: React.FC = () => {
         !!hoverInfo.information?.length ||
         !!(hoverInfo.unitName && hoverInfo.attackType) ||
         !!(hoverInfo.attackType && (hoverInfo.damageSpread || hoverInfo.damageRangeDivisor));
+
+    useEffect(() => {
+        let frameId = 0;
+        const handleMouseMove = (event: MouseEvent) => {
+            const position = { x: event.clientX, y: event.clientY };
+            pointerPositionRef.current = position;
+            // Keep the last pointer coordinates cheaply while hidden, but only schedule React work
+            // while there is an actual tooltip following the pointer. Gaming mice can emit far more
+            // events than the display can paint, so coalesce the visible updates to one per frame.
+            if (!hasPopoverContent || frameId) return;
+            frameId = window.requestAnimationFrame(() => {
+                frameId = 0;
+                setPositionPopover(pointerPositionRef.current);
+            });
+        };
+
+        window.addEventListener("mousemove", handleMouseMove);
+        return () => {
+            window.removeEventListener("mousemove", handleMouseMove);
+            if (frameId) window.cancelAnimationFrame(frameId);
+        };
+    }, [hasPopoverContent]);
+
+    useEffect(() => {
+        if (hasPopoverContent) {
+            setPositionPopover(pointerPositionRef.current);
+        }
+    }, [hasPopoverContent]);
 
     return (
         <div

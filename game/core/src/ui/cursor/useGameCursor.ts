@@ -57,20 +57,24 @@ export function cursorCss(mode: CursorMode): string {
  */
 export function useGameCursor(): void {
     const manager = usePixiManager();
-    const [hoverInfo, setHoverInfo] = useState<IHoverInfo | undefined>(undefined);
+    const [mode, setMode] = useState<CursorMode>("default");
 
     useEffect(() => {
-        const connection = manager.onHoverInfoUpdated.connect(setHoverInfo);
+        const connection = manager.onHoverInfoUpdated.connect((hoverInfo) => {
+            const nextMode = resolveCursorMode(hoverInfo);
+            // Hover payloads change far more often than the cursor itself. Avoid rerendering this
+            // app-root hook for every pointer move when the resolved cursor remains identical.
+            setMode((currentMode) => (currentMode === nextMode ? currentMode : nextMode));
+        });
         return () => {
             connection.disconnect();
         };
-    });
+    }, [manager]);
 
     useEffect(() => {
-        const mode = resolveCursorMode(hoverInfo);
         document.body.style.cursor = cursorCss(mode);
         return () => {
             document.body.style.cursor = "";
         };
-    }, [hoverInfo]);
+    }, [mode]);
 }
