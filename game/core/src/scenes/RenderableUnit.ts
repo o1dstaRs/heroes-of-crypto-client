@@ -2522,7 +2522,7 @@ export class RenderableUnit extends Unit {
         // --- stack power indicator ---
         this.ensureStackPowerIndicator(worldRoot, gs, props, pos);
         // --- turn status indicators: grouped immediately left of the amount flag ---
-        this.ensureFlagStatusIndicators();
+        this.ensureFlagStatusIndicators(now);
         return scaleY;
     }
     public setSpriteRotation(rotation: number) {
@@ -4906,7 +4906,7 @@ export class RenderableUnit extends Unit {
         }
     }
     /** Keep turn-state badges attached on the left and the spent-response crossed swords behind the count flag. */
-    private ensureFlagStatusIndicators(): void {
+    private ensureFlagStatusIndicators(now?: number): void {
         const badge = this.badgeContainer;
         const geometry = this.badgeDrawState?.geometry;
         const canRender =
@@ -4916,7 +4916,7 @@ export class RenderableUnit extends Unit {
 
         this.syncFlagStatusIcon("hourglass", "hourglass", canRender && this.shouldShowHourglassIndicator(), badge);
         this.syncFlagStatusIcon("stun", "stun_hand_forged", canRender && this.shouldShowStunIndicator(), badge);
-        this.syncFlagStatusIcon("respond", "tag", canRender && this.shouldShowRespondTag(), badge);
+        this.syncFlagStatusIcon("respond", "tag", canRender && this.shouldShowRespondTag(now), badge);
 
         const hourglassContainer = this.hourglassContainer;
         const hourglassSprite = this.hourglassSprite;
@@ -4987,7 +4987,7 @@ export class RenderableUnit extends Unit {
      * except Unicorn's "One in the Field", which responds infinitely and always shows. (In ranked the
      * per-lap replied state isn't synced to the client, so there it reflects shots/eligibility only.)
      */
-    private shouldShowRespondTag(): boolean {
+    private shouldShowRespondTag(now?: number): boolean {
         // The tag is a "HAS already retaliated this lap" marker — NOT a "can still respond" capability
         // hint. It was inverted before (showing on any ranged unit that COULD return fire), which is why
         // e.g. a Medusa that had not yet retaliated wrongly showed it. Read the authoritative per-lap
@@ -5000,7 +5000,7 @@ export class RenderableUnit extends Unit {
         return (
             this.responded ||
             FightStateManager.getInstance().getFightProperties().hasAlreadyRepliedAttack(this.getId()) ||
-            performance.now() < this.respondFeedbackUntilMs
+            (now ?? performance.now()) < this.respondFeedbackUntilMs
         );
     }
     /** Build/reveal the response layer in the same tick the combat engine records a retaliation. */
