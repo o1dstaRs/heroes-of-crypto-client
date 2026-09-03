@@ -904,6 +904,14 @@ export function tallBoardModelFootAnchorY(
 }
 // --- Atlas helpers (same logic as UnitChip) ---
 type AtlasMeta = AnimationAtlasMeta;
+interface UnitAtlasConfig {
+    meta: AtlasMeta;
+    imageSrc: string;
+    imageKey: ImageKey;
+    cacheKey: string;
+    /** Animation bundles are process-owned; lazy battlefield cutouts belong only to their live scene. */
+    cacheAcrossScenes: boolean;
+}
 const STATIC_BATTLEFIELD_IDLE_META: AtlasMeta = {
     frameWidth: 768,
     frameHeight: 768,
@@ -1022,7 +1030,7 @@ function getStaticBattlefieldIdleConfig(
     unitName: string,
     footprintWidth: number,
     footprintHeight: number,
-): { meta: AtlasMeta; imageSrc: string; imageKey: ImageKey; cacheKey: string } | null {
+): UnitAtlasConfig | null {
     // The explicit animation switch is also the authored-atlas test/dev switch. Production keeps it
     // off and uses the approved static battlefield cutouts; when enabled, do not let those cutouts
     // shadow every idle/walk/action atlas.
@@ -1036,6 +1044,7 @@ function getStaticBattlefieldIdleConfig(
         imageSrc: images[imageKey],
         imageKey,
         cacheKey: `${unitName}::${textureName}`,
+        cacheAcrossScenes: false,
     };
 }
 
@@ -1043,7 +1052,7 @@ function getDefaultAnimationConfig(
     unitName: string,
     footprintWidth: number,
     footprintHeight = footprintWidth,
-): { meta: AtlasMeta; imageSrc: string; imageKey: ImageKey; cacheKey: string } | null {
+): UnitAtlasConfig | null {
     const staticBattlefieldIdle = getStaticBattlefieldIdleConfig(unitName, footprintWidth, footprintHeight);
     if (staticBattlefieldIdle) return staticBattlefieldIdle;
     if (unitName === EFREET_UNIT_NAME && footprintWidth === 1 && footprintHeight === 1) {
@@ -1052,6 +1061,7 @@ function getDefaultAnimationConfig(
             imageSrc: images[EFREET_FIRE_IDLE_IMAGE_KEY],
             imageKey: EFREET_FIRE_IDLE_IMAGE_KEY,
             cacheKey: `${EFREET_UNIT_NAME}::fire_idle`,
+            cacheAcrossScenes: true,
         };
     }
     const normalized = normalizeUnitNameForAtlas(unitName);
@@ -1072,7 +1082,7 @@ function getDefaultAnimationConfig(
     const imageSrc = images[imageKey];
     if (!imageSrc) return null;
     const cacheKey = `${normalized}::${preferredState}`;
-    return { meta, imageSrc, imageKey, cacheKey };
+    return { meta, imageSrc, imageKey, cacheKey, cacheAcrossScenes: true };
 }
 
 function getAnimationStateConfig(
@@ -1080,7 +1090,7 @@ function getAnimationStateConfig(
     state: string,
     footprintWidth: number,
     footprintHeight = footprintWidth,
-): { meta: AtlasMeta; imageSrc: string; imageKey: ImageKey; cacheKey: string } | null {
+): UnitAtlasConfig | null {
     const staticBattlefieldIdle = getStaticBattlefieldIdleConfig(unitName, footprintWidth, footprintHeight);
     if (staticBattlefieldIdle) {
         if (state === "idle") return staticBattlefieldIdle;
@@ -1094,6 +1104,7 @@ function getAnimationStateConfig(
             imageSrc: images[EFREET_FIRE_IDLE_IMAGE_KEY],
             imageKey: EFREET_FIRE_IDLE_IMAGE_KEY,
             cacheKey: `${EFREET_UNIT_NAME}::fire_idle`,
+            cacheAcrossScenes: true,
         };
     }
     const normalized = normalizeUnitNameForAtlas(unitName);
@@ -1106,7 +1117,13 @@ function getAnimationStateConfig(
     if (!imageKey) return null;
     const imageSrc = images[imageKey];
     if (!imageSrc) return null;
-    return { meta, imageSrc, imageKey, cacheKey: `${normalized}::${resolvedState}` };
+    return {
+        meta,
+        imageSrc,
+        imageKey,
+        cacheKey: `${normalized}::${resolvedState}`,
+        cacheAcrossScenes: true,
+    };
 }
 // Cache textures per atlas to avoid rebuilding frames
 const atlasFramesCache = new Map<string, Texture[]>();
@@ -1191,6 +1208,27 @@ function buildAtlasFrames(meta: AtlasMeta, imageSrc: string, imageKey: string, r
             index++;
         }
     }
+    return frames;
+}
+
+/**
+ * Reuse true animation sheets across scenes, but never pin a lazy battlefield cutout in the module cache.
+ * PixiScene lease-counts those large static textures and unloads them after the last scene releases them.
+ */
+function framesForAtlasConfig(config: UnitAtlasConfig, texResolver: TexResolver): Texture[] {
+    if (config.cacheAcrossScenes) {
+        const cached = atlasFramesCache.get(config.cacheKey);
+        if (cached) return cached;
+    }
+
+    const resolvedTexture = texResolver(config.imageKey);
+    // Static battlefield art is already one complete frame. Reuse the scene-leased texture itself rather
+    // than creating a wrapper that can outlive the lease and keep the decoded source resident.
+    const frames =
+        !config.cacheAcrossScenes && resolvedTexture
+            ? [resolvedTexture]
+            : buildAtlasFrames(config.meta, config.imageSrc, config.imageKey, resolvedTexture);
+    if (frames.length && config.cacheAcrossScenes) atlasFramesCache.set(config.cacheKey, frames);
     return frames;
 }
 interface SpawnAnimState {
@@ -3405,13 +3443,8 @@ export class RenderableUnit extends Unit {
         const props = this.getUnitProperties();
         const config = getDefaultAnimationConfig(props.name, this.getFootprintWidth(), this.getFootprintHeight());
         if (!config) return;
-        const { meta, imageSrc, imageKey, cacheKey } = config;
-        let frames = atlasFramesCache.get(cacheKey);
-        if (!frames) {
-            frames = buildAtlasFrames(meta, imageSrc, imageKey, this.texResolver(imageKey));
-            // Do not cache the temporary empty fallback: ensureVisual retries after background loading.
-            if (frames.length) atlasFramesCache.set(cacheKey, frames);
-        }
+        const { meta } = config;
+        const frames = framesForAtlasConfig(config, this.texResolver);
         if (!frames.length) return;
         this.selectionAnimFrames = frames;
         this.selectionAnimTiming = buildAtlasPingPongTiming(meta);
@@ -3580,11 +3613,7 @@ export class RenderableUnit extends Unit {
         }
         const config = getAnimationStateConfig(props.name, "walk", this.getFootprintWidth(), this.getFootprintHeight());
         if (!config) return;
-        let frames = atlasFramesCache.get(config.cacheKey);
-        if (!frames) {
-            frames = buildAtlasFrames(config.meta, config.imageSrc, config.imageKey, this.texResolver(config.imageKey));
-            atlasFramesCache.set(config.cacheKey, frames);
-        }
+        const frames = framesForAtlasConfig(config, this.texResolver);
         if (!frames.length) return;
         const hasThiefTransitions = props.name === THIEF_UNIT_NAME || props.name === SCAVENGER_UNIT_NAME;
         const hasAuthoredTurnInAndOut =
@@ -4083,12 +4112,8 @@ export class RenderableUnit extends Unit {
             if (onComplete) onComplete();
             return false;
         }
-        const { meta, imageSrc, imageKey, cacheKey } = config;
-        let frames = atlasFramesCache.get(cacheKey);
-        if (!frames) {
-            frames = buildAtlasFrames(meta, imageSrc, imageKey, this.texResolver(imageKey));
-            atlasFramesCache.set(cacheKey, frames);
-        }
+        const { meta } = config;
+        const frames = framesForAtlasConfig(config, this.texResolver);
         if (!frames.length) {
             if (onComplete) onComplete();
             return false;
@@ -5412,11 +5437,7 @@ export class RenderableUnit extends Unit {
         if (!config) {
             return undefined;
         }
-        let frames = atlasFramesCache.get(config.cacheKey);
-        if (!frames) {
-            frames = buildAtlasFrames(config.meta, config.imageSrc, config.imageKey, this.texResolver(config.imageKey));
-            atlasFramesCache.set(config.cacheKey, frames);
-        }
+        const frames = framesForAtlasConfig(config, this.texResolver);
         return frames[0];
     }
     /**

@@ -2548,6 +2548,30 @@ describe("RenderableUnit dodge animation", () => {
 });
 
 describe("RenderableUnit filter lifecycle", () => {
+    test("does not retain scene-leased static battlefield frames across scene replacements", () => {
+        CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
+        const makeTexture = () =>
+            new Texture({
+                source: new BufferImageSource({ resource: new Uint8Array(4), width: 768, height: 768 }),
+            });
+        const firstTexture = makeTexture();
+        const secondTexture = makeTexture();
+        const first = createRenderableUnit(TeamVals.RIGHT, "Nature", "Satyr", "satyr_512", () => firstTexture);
+        first.setPosition(0, 1024);
+        first.ensureVisual(new Container(), gridSettings);
+        expect((first as unknown as { selectionAnimFrames?: Texture[] }).selectionAnimFrames?.[0]).toBe(firstTexture);
+        first.destroyVisuals();
+
+        const second = createRenderableUnit(TeamVals.RIGHT, "Nature", "Satyr", "satyr_512", () => secondTexture);
+        second.setPosition(0, 1024);
+        second.ensureVisual(new Container(), gridSettings);
+        expect((second as unknown as { selectionAnimFrames?: Texture[] }).selectionAnimFrames?.[0]).toBe(secondTexture);
+        second.destroyVisuals();
+
+        firstTexture.destroy(true);
+        secondTexture.destroy(true);
+    });
+
     test("keeps the installed dodge-filter array stable between animation frames", () => {
         const unit = createRenderableUnit(TeamVals.RIGHT, "Nature", "Satyr", "satyr_512");
         const blur = {};
