@@ -23,8 +23,17 @@ export class PlacementManager {
     public constructor(private readonly gridSettings: GridSettings) {
         this.rebuildFromFightProps();
     }
+    public releaseVisuals(): void {
+        for (const placement of [...this.leftPlacements, ...this.rightPlacements]) {
+            placement?.releaseVisuals();
+        }
+    }
     /** Rebuild placements + allowed hashes from current FightProperties */
     public rebuildFromFightProps(): void {
+        // Placement upgrades replace these objects. Their derived PerspectiveMesh geometry and framed
+        // Texture wrappers are GPU resources, so dropping the old arrays without teardown grows memory
+        // every time a player changes placement depth or a snapshot rebuilds the zone.
+        this.releaseVisuals();
         this.leftPlacements = [];
         this.rightPlacements = [];
 

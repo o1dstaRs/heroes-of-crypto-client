@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { Container, Graphics, PerspectiveMesh, Texture } from "pixi.js";
 
 import { TeamVals } from "@heroesofcrypto/common";
 
@@ -72,6 +73,53 @@ const settings = () =>
     );
 
 describe("placement tile highlight", () => {
+    test("releases derived border and carpet GPU resources idempotently", () => {
+        const placement = new DrawableRectanglePlacement(settings(), PlacementPositionType.LEFT_BOTTOM, 3);
+        const makeCell = () => {
+            const texture = new Texture({ source: Texture.WHITE.source });
+            const mesh = new PerspectiveMesh({ texture, verticesX: 2, verticesY: 2 });
+            return { texture, mesh };
+        };
+        const carpetCell = makeCell();
+        const borderCell = makeCell();
+        const carpetLayer = new Container();
+        const borderLayer = new Container();
+        const seams = new Graphics();
+        carpetLayer.addChild(carpetCell.mesh, seams);
+        borderLayer.addChild(borderCell.mesh);
+
+        const internals = placement as unknown as {
+            carpetVisual?: unknown;
+            goldBorderVisual?: unknown;
+        };
+        internals.carpetVisual = {
+            source: Texture.WHITE,
+            layoutKey: "carpet",
+            cells: new Map([["cell", carpetCell]]),
+            layer: carpetLayer,
+            seams,
+        };
+        internals.goldBorderVisual = {
+            source: Texture.WHITE,
+            layoutKey: "border",
+            cells: new Map([["edge", borderCell]]),
+            layer: borderLayer,
+        };
+
+        placement.releaseVisuals();
+        placement.releaseVisuals();
+
+        expect(carpetCell.mesh.destroyed).toBe(true);
+        expect(carpetCell.texture.destroyed).toBe(true);
+        expect(borderCell.mesh.destroyed).toBe(true);
+        expect(borderCell.texture.destroyed).toBe(true);
+        expect(seams.destroyed).toBe(true);
+        expect(carpetLayer.destroyed).toBe(true);
+        expect(borderLayer.destroyed).toBe(true);
+        expect(internals.carpetVisual).toBeUndefined();
+        expect(internals.goldBorderVisual).toBeUndefined();
+    });
+
     test("keeps separately redrawn green carpet textures for every upgraded width", () => {
         expect(placementGreenCarpetTextureKey()).toBe("placement_carpet_green_uniform_gold_aaa_3col_v16");
         expect(placementGreenCarpetTextureKey(4)).toBe("placement_carpet_green_uniform_gold_aaa_4col_v16");

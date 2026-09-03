@@ -5399,9 +5399,7 @@ export class Sandbox extends PixiScene {
                 void unloadRosterAssets();
             }
             if (this.placementFrameContainer?.children.length) {
-                for (const child of this.placementFrameContainer.removeChildren()) {
-                    child.destroy({ children: true });
-                }
+                this.placementManager.releaseVisuals();
                 void unloadPlacementAssets();
             }
         }
@@ -13595,6 +13593,7 @@ export class Sandbox extends PixiScene {
         // DungeonVisuals owns stage/world-root children that sit outside PixiDrawer's containers.
         // Dispose them before replacing the scene so a New Battle cannot inherit the prior board's
         // narrowing holes, terrain, or screen-space floor.
+        this.placementManager.releaseVisuals();
         this.aiController.destroy();
         this.dungeonVisuals?.destroy();
         this.releaseSpellBookBackground();
@@ -13732,9 +13731,7 @@ export class Sandbox extends PixiScene {
                 this.placementGraphics.visible = false;
             }
             if (this.placementFrameContainer?.visible) {
-                for (const child of this.placementFrameContainer.removeChildren()) {
-                    child.destroy({ children: true });
-                }
+                this.placementManager.releaseVisuals();
                 this.placementFrameContainer.visible = false;
                 void unloadPlacementAssets();
             }

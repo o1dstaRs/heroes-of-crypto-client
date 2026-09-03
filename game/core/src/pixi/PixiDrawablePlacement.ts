@@ -25,6 +25,7 @@ import { isGreenTeam } from "../scenes/teamColors";
 
 export interface IDrawablePlacement extends IPlacement {
     draw(gfx: Graphics, frameContainer: Container): void;
+    releaseVisuals(): void;
 }
 
 /**
@@ -477,6 +478,29 @@ interface PlacementBorderVisual {
     layer: Container;
 }
 
+function destroyPlacementCellVisuals(cells: Map<string, PlacementCarpetCellVisual>): void {
+    for (const { mesh, texture } of cells.values()) {
+        mesh.removeFromParent();
+        if (!mesh.destroyed) mesh.destroy();
+        if (!texture.destroyed) texture.destroy(false);
+    }
+    cells.clear();
+}
+
+function destroyPlacementCarpetVisual(visual: PlacementCarpetVisual): void {
+    visual.layer.removeFromParent();
+    destroyPlacementCellVisuals(visual.cells);
+    visual.seams.removeFromParent();
+    if (!visual.seams.destroyed) visual.seams.destroy();
+    if (!visual.layer.destroyed) visual.layer.destroy();
+}
+
+function destroyPlacementBorderVisual(visual: PlacementBorderVisual): void {
+    visual.layer.removeFromParent();
+    destroyPlacementCellVisuals(visual.cells);
+    if (!visual.layer.destroyed) visual.layer.destroy();
+}
+
 export interface PlacementCarpetTextureFrame {
     x: number;
     y: number;
@@ -714,15 +738,7 @@ function drawPlacementCarpet(
     const layoutKey = `green-carpet:${minX}:${maxX}:${minY}:${maxY}:${source.width}:${source.height}`;
     const canReuse = existing?.source === source && existing.layoutKey === layoutKey && existing.layer;
     if (!canReuse && existing) {
-        existing.layer?.removeFromParent();
-        for (const { mesh, texture } of existing.cells.values()) {
-            mesh.removeFromParent();
-            mesh.destroy();
-            texture.destroy(false);
-        }
-        existing.seams.removeFromParent();
-        existing.seams.destroy();
-        existing.layer.destroy();
+        destroyPlacementCarpetVisual(existing);
     }
 
     const visual: PlacementCarpetVisual = canReuse
@@ -825,13 +841,7 @@ function drawPlacementGoldBorder(
     const layoutKey = `gold-border-zone-v25:${continuous ? "red-segmented" : "green"}:${minX}:${maxX}:${minY}:${maxY}:${source.width}:${source.height}`;
     const canReuse = existing?.source === source && existing.layoutKey === layoutKey && existing.layer;
     if (!canReuse && existing) {
-        existing.layer.removeFromParent();
-        for (const { mesh, texture } of existing.cells.values()) {
-            mesh.removeFromParent();
-            mesh.destroy();
-            texture.destroy(false);
-        }
-        existing.layer.destroy();
+        destroyPlacementBorderVisual(existing);
     }
 
     const visual: PlacementBorderVisual = canReuse
@@ -1003,6 +1013,7 @@ export class DrawableSquarePlacement extends SquarePlacement implements IDrawabl
             drawSpawnTiles(gfx, this.visualGridSettings, cells, SPAWN_COLOR_GREEN);
         }
     }
+    public releaseVisuals(): void {}
 }
 
 export class DrawableRectanglePlacement extends SideRectanglePlacement implements IDrawablePlacement {
@@ -1053,5 +1064,11 @@ export class DrawableRectanglePlacement extends SideRectanglePlacement implement
                 this.goldBorderVisual,
             );
         }
+    }
+    public releaseVisuals(): void {
+        if (this.carpetVisual) destroyPlacementCarpetVisual(this.carpetVisual);
+        if (this.goldBorderVisual) destroyPlacementBorderVisual(this.goldBorderVisual);
+        this.carpetVisual = undefined;
+        this.goldBorderVisual = undefined;
     }
 }
