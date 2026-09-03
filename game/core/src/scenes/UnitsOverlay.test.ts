@@ -66,6 +66,18 @@ describe("UnitsOverlay chip visibility", () => {
         expect(PICK_CARD_ASPECT).toBeCloseTo(190 / 256);
     });
 
+    test("reuses badge text styles while responsive layout changes", () => {
+        const chip = new UnitChip({ unitName: "Peasant", texture: Texture.EMPTY });
+        const badgeText = (chip as unknown as { badgeText: { style: object } }).badgeText;
+        const originalStyle = badgeText.style;
+
+        chip.layout(80, 108);
+        chip.layout(96, 130);
+
+        expect(badgeText.style).toBe(originalStyle);
+        chip.destroy();
+    });
+
     test("shows draft attack and movement pictograms only on the hovered sandbox roster card", () => {
         const requestedTextures = new Set<string>();
         const app = {

@@ -384,7 +384,7 @@ export class UnitChip extends Container {
         // stretched it and left the notch and the pole too small to read — it came out looking like a plain
         // rectangle. This is the board's ratio, so the roster flag now has the board flag's proportions.
         const fs = Math.max(10, Math.floor(cardWidth * 0.18));
-        this.badgeText.style = new TextStyle({ fill: 0x000000, fontSize: fs, fontWeight: "700" });
+        this.badgeText.style.fontSize = fs;
         this.badgeCont.position.set(cardWidth * 0.35, -cardHeight * 0.38);
         this.drawBadgeFlag(cardWidth, fs);
 

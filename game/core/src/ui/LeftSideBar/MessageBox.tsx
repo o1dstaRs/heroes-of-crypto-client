@@ -254,6 +254,13 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
             }
             setCountdown(null);
         }
+
+        return () => {
+            if (countdownInterval.current) {
+                clearInterval(countdownInterval.current);
+                countdownInterval.current = null;
+            }
+        };
     }, [visibleState.secondsRemaining]);
 
     const hasTimer =
