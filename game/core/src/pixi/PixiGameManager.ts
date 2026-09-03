@@ -79,6 +79,10 @@ export class PixiGameManager {
     private sceneConstructor: SceneConstructor | null = null;
     private sceneTitle = "Heroes";
     public readonly onHasStarted = new Signal<(started: boolean) => void>();
+    // Scenes receive a scoped signal rather than the public, manager-lifetime signal. A Sandbox scene
+    // subscribes to its own start events, so handing it the public signal retained every replaced scene
+    // forever. Public listeners are forwarded through the non-public bridge and keep their normal lifetime.
+    private readonly onSceneHasStarted = new Signal<(started: boolean) => void>();
     public readonly onHasButtonsGroupUpdate = new Signal<(buttons: IVisibleButton[]) => void>();
     public readonly onPlacementChanged = new Signal<(changed: boolean) => void>();
     public readonly onAugmentChanged = new Signal<(changed: boolean) => void>();
@@ -126,6 +130,16 @@ export class PixiGameManager {
     private initEventCleanups: Array<() => void> = [];
     private static readonly OVERLAY_MOUSE_SUPPRESSION_MS = 350;
     private static readonly OVERLAY_MOUSE_SUPPRESSION_DISTANCE_PX = 8;
+    public constructor() {
+        this.onSceneHasStarted.connect((started) => this.onHasStarted.emit(started), { isPublic: false });
+    }
+    private emitHasStarted(started: boolean): void {
+        this.onSceneHasStarted.emit(started);
+    }
+    private disconnectSceneStartListeners(): void {
+        // disconnectAll removes public scene subscriptions while preserving the manager's private bridge.
+        this.onSceneHasStarted.disconnectAll();
+    }
     /** Throwing getters to keep TypeScript happy without ‘never’ intersections */
     private get _pixiApp(): PixiApp {
         if (!this.pixiApp) throw new Error("PixiGameManager: pixiApp not initialized yet");
@@ -525,7 +539,7 @@ export class PixiGameManager {
         this.m_scene?.applyAuthoritativeSnapshot(snapshot, options);
         const wasStarted = this.started;
         this.started = snapshot.fightStarted && !snapshot.fightFinished;
-        this.onHasStarted.emit(this.started);
+        this.emitHasStarted(this.started);
         if (this.shouldFitAuthoritativeSnapshot(snapshot, wasStarted)) {
             this.fitViewToWindow();
         }
@@ -539,7 +553,7 @@ export class PixiGameManager {
         this.m_scene?.applyAuthoritativeReplaySnapshot(snapshot);
         const wasStarted = this.started;
         this.started = snapshot.fightStarted && !snapshot.fightFinished;
-        this.onHasStarted.emit(this.started);
+        this.emitHasStarted(this.started);
         if (this.shouldFitAuthoritativeSnapshot(snapshot, wasStarted)) {
             this.fitViewToWindow();
         }
@@ -686,7 +700,7 @@ export class PixiGameManager {
     }
     public StartGame(): void {
         if (this.m_scene && this.m_scene.startScene()) this.started = true;
-        this.onHasStarted.emit(this.started);
+        this.emitHasStarted(this.started);
         this.fitViewToWindow(); // keep neutral after start too
     }
     /** Sandbox: hand a whole team to the AI (green = LEFT, red = RIGHT). */
@@ -708,7 +722,7 @@ export class PixiGameManager {
     public Rematch(): void {
         console.log("[Rematch] manager.Rematch; m_scene =", !!this.m_scene);
         if (this.m_scene && this.m_scene.rematchLastFight()) this.started = true;
-        this.onHasStarted.emit(this.started);
+        this.emitHasStarted(this.started);
         this.fitViewToWindow();
     }
     public GetCurrentSandboxReplay(): SandboxReplay | undefined {
@@ -731,7 +745,7 @@ export class PixiGameManager {
                     ? replay.initialState
                     : replay.actions[Math.min(sequence, replay.actions.length) - 1]?.stateAfter;
             this.started = state ? state.fightStarted && !state.fightFinished : false;
-            this.onHasStarted.emit(this.started);
+            this.emitHasStarted(this.started);
             this.fitViewToWindow();
             this.UpdateHoverInfo();
         }
@@ -741,12 +755,13 @@ export class PixiGameManager {
     public StartOver(): void {
         FightStateManager.getInstance().reset();
         this.LoadGame(true); // destroys the scene, rebuilds it fresh, sets started = false
-        this.onHasStarted.emit(false);
+        this.emitHasStarted(false);
         this.fitViewToWindow();
     }
     public Uninitialize(): void {
         this.lifecycleId++;
         this.removeInitEventListeners();
+        this.disconnectSceneStartListeners();
         if (this.overlayDebugCanvas && this.forwardOverlayInteraction) {
             this.overlayDebugCanvas.removeEventListener("pointerdown", this.forwardOverlayInteraction);
         }
@@ -802,6 +817,7 @@ export class PixiGameManager {
         const SceneClass = this.sceneConstructor;
         if (!SceneClass) return;
 
+        this.disconnectSceneStartListeners();
         this.m_scene?.Destroy();
         this.started = false;
         this.lastAuthoritativeViewportKey = "";
@@ -819,7 +835,7 @@ export class PixiGameManager {
             pixiApp: this._pixiApp,
             textures: this._textures,
             gridSettings: gridSettings,
-            onHasStarted: this.onHasStarted,
+            onHasStarted: this.onSceneHasStarted,
             gameActionTransport: this.gameActionTransport,
         };
         this.m_scene = new SceneClass(context);
