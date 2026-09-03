@@ -524,11 +524,21 @@ export class DungeonVisuals {
     private lavaColorFilter?: ColorMatrixFilter;
     private lavaFireColorFilter?: ColorMatrixFilter;
     private lavaFire2ColorFilter?: ColorMatrixFilter;
-    /** Last material state written to the stable lava meshes; avoids rebuilding matrices every frame. */
-    private lavaColorTuningSignature = "";
+    /** Last material inputs written to stable lava meshes; avoids even signature allocation on steady frames. */
+    private lastLavaColorTuning?: LavaAnimationTuning;
+    private lastLavaColorCenter?: Sprite;
+    private lastLavaColorTerrain?: PerspectiveMesh;
+    private lastLavaColorGrate?: PerspectiveMesh;
+    private lastLavaColorFire?: PerspectiveMesh;
+    private lastLavaColorFire2?: PerspectiveMesh;
     /** Editor-only warm spill clipped to the static pit, below fire and grate. */
     private lavaPitLight?: Graphics;
-    private lavaPitLightGeometrySignature = "";
+    private lavaPitLightGeometry?: {
+        tuning: LavaAnimationTuning;
+        fireX: number;
+        fireY: number;
+        corners: readonly number[];
+    };
     private lavaSplashGraphics?: Graphics;
     private lavaEditorOutline?: Graphics;
     /** Perspective-warped live lava, pinned to the four exact outer seams of its 4x4 footprint. */
@@ -539,7 +549,12 @@ export class DungeonVisuals {
     private lavaFireOverlayMeshB?: PerspectiveMesh;
     /** Shared editable clip shape for both fire layers. */
     private lavaFireMask?: Graphics;
-    private lavaFireMaskSignature = "";
+    private lavaFireMaskGeometry?: {
+        tuning: LavaAnimationTuning;
+        x: number;
+        y: number;
+        cellSize: number;
+    };
     /** Guarantees local draw order: both fires first, immutable grate last. */
     private lavaPitForegroundContainer?: Container;
     /** Immutable editor-only grate, always drawn above the low fire ring. */
@@ -851,32 +866,28 @@ export class DungeonVisuals {
         return this.firePitOverlayFrames[(rawFrame + frameOffset) % DungeonVisuals.FIRE_PIT_ANIM_FRAMES];
     }
     private applyLavaColorTuning(tuning: LavaAnimationTuning | undefined): void {
+        if (
+            tuning === this.lastLavaColorTuning &&
+            this.centerTerrainSprite === this.lastLavaColorCenter &&
+            this.lavaTerrainMesh === this.lastLavaColorTerrain &&
+            this.lavaGrateOverlayMesh === this.lastLavaColorGrate &&
+            this.lavaFireOverlayMesh === this.lastLavaColorFire &&
+            this.lavaFireOverlayMeshB === this.lastLavaColorFire2
+        ) {
+            return;
+        }
+        this.lastLavaColorTuning = tuning;
+        this.lastLavaColorCenter = this.centerTerrainSprite;
+        this.lastLavaColorTerrain = this.lavaTerrainMesh;
+        this.lastLavaColorGrate = this.lavaGrateOverlayMesh;
+        this.lastLavaColorFire = this.lavaFireOverlayMesh;
+        this.lastLavaColorFire2 = this.lavaFireOverlayMeshB;
         const baseTargets = [this.centerTerrainSprite, this.lavaTerrainMesh, this.lavaGrateOverlayMesh].filter(
             (target): target is Sprite | PerspectiveMesh => !!target,
         );
         const fireTarget = this.lavaFireOverlayMesh;
         const fire2Target = this.lavaFireOverlayMeshB;
         if (!baseTargets.length && !fireTarget && !fire2Target) return;
-        const targetShape = `${this.centerTerrainSprite ? 1 : 0}:${this.lavaTerrainMesh ? 1 : 0}:${this.lavaGrateOverlayMesh ? 1 : 0}:${fireTarget ? 1 : 0}:${fire2Target ? 1 : 0}`;
-        const signature = tuning
-            ? [
-                  targetShape,
-                  tuning.alpha,
-                  tuning.brightness,
-                  tuning.saturation,
-                  tuning.contrast,
-                  tuning.fireAlpha,
-                  tuning.fireBrightness,
-                  tuning.fireSaturation,
-                  tuning.fireContrast,
-                  tuning.fire2Alpha,
-                  tuning.fire2Brightness,
-                  tuning.fire2Saturation,
-                  tuning.fire2Contrast,
-              ].join(":")
-            : `${targetShape}:off`;
-        if (signature === this.lavaColorTuningSignature) return;
-        this.lavaColorTuningSignature = signature;
         if (!tuning) {
             for (const target of [...baseTargets, fireTarget, fire2Target].filter(
                 (candidate): candidate is Sprite | PerspectiveMesh => !!candidate,
@@ -968,19 +979,16 @@ export class DungeonVisuals {
         }
         this.lavaFireMask.zIndex = 0;
         this.lavaFireMask.visible = true;
-        const signature = [
-            logicalTarget.x,
-            logicalTarget.y,
-            cellSize,
-            tuning.fireMaskShape,
-            tuning.fireMaskWidthCells,
-            tuning.fireMaskHeightCells,
-            tuning.fireMaskShiftXCells,
-            tuning.fireMaskShiftYCells,
-            tuning.fireMaskRotationDeg,
-        ].join(":");
-        if (signature === this.lavaFireMaskSignature) return;
-        this.lavaFireMaskSignature = signature;
+        const previousGeometry = this.lavaFireMaskGeometry;
+        if (
+            previousGeometry?.tuning === tuning &&
+            previousGeometry.x === logicalTarget.x &&
+            previousGeometry.y === logicalTarget.y &&
+            previousGeometry.cellSize === cellSize
+        ) {
+            return;
+        }
+        this.lavaFireMaskGeometry = { tuning, x: logicalTarget.x, y: logicalTarget.y, cellSize };
 
         const center = {
             x: logicalTarget.x + tuning.fireMaskShiftXCells * cellSize,
@@ -1055,15 +1063,28 @@ export class DungeonVisuals {
         // The pulse changes only opacity. Keep the ten polygon meshes intact until their actual geometry
         // or warmth changes instead of clearing and tessellating all of them on every animation frame.
         light.alpha = Math.min(1, intensity / 2);
-        const geometrySignature = [
-            fireCenter.x,
-            fireCenter.y,
-            tuning.pitLightRadius,
-            tuning.pitLightWarmth,
-            ...corners.flatMap((corner) => [corner.x, corner.y]),
-        ].join(":");
-        if (geometrySignature === this.lavaPitLightGeometrySignature) return;
-        this.lavaPitLightGeometrySignature = geometrySignature;
+        const previousGeometry = this.lavaPitLightGeometry;
+        if (
+            previousGeometry?.tuning === tuning &&
+            previousGeometry.fireX === fireCenter.x &&
+            previousGeometry.fireY === fireCenter.y &&
+            previousGeometry.corners[0] === corners[0].x &&
+            previousGeometry.corners[1] === corners[0].y &&
+            previousGeometry.corners[2] === corners[1].x &&
+            previousGeometry.corners[3] === corners[1].y &&
+            previousGeometry.corners[4] === corners[2].x &&
+            previousGeometry.corners[5] === corners[2].y &&
+            previousGeometry.corners[6] === corners[3].x &&
+            previousGeometry.corners[7] === corners[3].y
+        ) {
+            return;
+        }
+        this.lavaPitLightGeometry = {
+            tuning,
+            fireX: fireCenter.x,
+            fireY: fireCenter.y,
+            corners: corners.flatMap((corner) => [corner.x, corner.y]),
+        };
         light.clear();
 
         const layers = 10;
@@ -2757,6 +2778,14 @@ export class DungeonVisuals {
         this.lavaColorFilter = undefined;
         this.lavaFireColorFilter = undefined;
         this.lavaFire2ColorFilter = undefined;
+        this.lastLavaColorTuning = undefined;
+        this.lastLavaColorCenter = undefined;
+        this.lastLavaColorTerrain = undefined;
+        this.lastLavaColorGrate = undefined;
+        this.lastLavaColorFire = undefined;
+        this.lastLavaColorFire2 = undefined;
+        this.lavaFireMaskGeometry = undefined;
+        this.lavaPitLightGeometry = undefined;
         this.mountainTileTextures = undefined;
         this.mountainHitPointTileTextures = undefined;
         this.mountainQuarterTextures = undefined;
