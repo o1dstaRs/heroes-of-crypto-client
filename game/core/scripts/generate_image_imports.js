@@ -9,6 +9,7 @@ const outputFile = path.join(generatedDir, "image_imports.ts");
 const productionBuild = process.env.NODE_ENV === "production";
 const { isProductionOmittedAssetKey } = require("../src/pixi/imageAssetTiers.ts");
 const {
+    isProductionOmittedDisabledUnitAnimationAssetKey,
     isProductionOmittedEnvironmentAssetKey,
     isProductionOmittedLegacyUiAssetKey,
 } = require("../src/pixi/productionImageAssetPolicy.ts");
@@ -58,6 +59,7 @@ for (const file of files) {
             productionOmitted:
                 productionBuild &&
                 (isProductionOmittedAssetKey(key) ||
+                    isProductionOmittedDisabledUnitAnimationAssetKey(key) ||
                     isProductionOmittedEnvironmentAssetKey(key) ||
                     isProductionOmittedLegacyUiAssetKey(key)),
         });

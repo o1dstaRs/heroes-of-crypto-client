@@ -1,4 +1,6 @@
 import { isDeferredEnvironmentAssetKey } from "./imageAssetTiers";
+import { CREATURE_SPRITE_ANIMATION_SETTINGS, shouldPreloadUnitAnimationAtlas } from "./creatureAnimationSettings";
+import { isUnitAnimationAtlasKey } from "./unitAtlasKeys";
 
 /**
  * Environment atlases that production requests lazily. Other deferred environment files are editor
@@ -83,6 +85,17 @@ const RETIRED_VERSIONED_UI_PREFIXES = [
     "nature_portrait_bg_",
     "map_badge_",
 ];
+
+// Creature animation is an explicit compile-time art-direction switch. While it is off, the battlefield
+// resolves approved static cutouts and the loader permits only Peasant's separately approved walk. Orc's
+// idle quarter-sheet remains live in the React sidebar (Orc is the one legacy portrait that still uses it).
+const LIVE_UNIT_ATLASES_WHILE_ANIMATION_IS_DISABLED = new Set(["orc_idle_atlas_quarter", "peasant_walk_atlas_quarter"]);
+
+/** Animation sheets that no compiled production path can request under the current art-direction switch. */
+export function isProductionOmittedDisabledUnitAnimationAssetKey(key: string): boolean {
+    if (CREATURE_SPRITE_ANIMATION_SETTINGS.enabled || !isUnitAnimationAtlasKey(key)) return false;
+    return !shouldPreloadUnitAnimationAtlas(key, false) && !LIVE_UNIT_ATLASES_WHILE_ANIMATION_IS_DISABLED.has(key);
+}
 
 export function isProductionOmittedEnvironmentAssetKey(key: string): boolean {
     if (key.startsWith("fire_pit_")) return !LIVE_PRODUCTION_ENVIRONMENT_ASSETS.has(key);

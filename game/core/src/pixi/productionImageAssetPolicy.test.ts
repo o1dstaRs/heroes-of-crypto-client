@@ -1,8 +1,25 @@
 import { describe, expect, test } from "bun:test";
 import {
+    isProductionOmittedDisabledUnitAnimationAssetKey,
     isProductionOmittedEnvironmentAssetKey,
     isProductionOmittedLegacyUiAssetKey,
 } from "./productionImageAssetPolicy";
+
+describe("production creature animation policy", () => {
+    test("omits disabled creature sheets while keeping the two live exceptions", () => {
+        expect(isProductionOmittedDisabledUnitAnimationAssetKey("wolf_idle_atlas_quarter")).toBe(true);
+        expect(isProductionOmittedDisabledUnitAnimationAssetKey("behemoth_default_atlas_half")).toBe(true);
+        expect(isProductionOmittedDisabledUnitAnimationAssetKey("orc_attack_atlas_quarter")).toBe(true);
+
+        expect(isProductionOmittedDisabledUnitAnimationAssetKey("peasant_walk_atlas_quarter")).toBe(false);
+        expect(isProductionOmittedDisabledUnitAnimationAssetKey("orc_idle_atlas_quarter")).toBe(false);
+    });
+
+    test("does not classify terrain and UI atlases as creature animation", () => {
+        expect(isProductionOmittedDisabledUnitAnimationAssetKey("lava_center_anim_atlas")).toBe(false);
+        expect(isProductionOmittedDisabledUnitAnimationAssetKey("pick_ban_slash_variant2_atlas")).toBe(false);
+    });
+});
 
 describe("production environment image policy", () => {
     test("keeps every environment atlas used by the live dungeon", () => {
