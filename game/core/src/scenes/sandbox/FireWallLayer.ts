@@ -47,6 +47,11 @@ const EMBERS = 3;
 
 interface IFireVisual {
     cell: HoCMath.XY;
+    x: number;
+    y: number;
+    cellSize: number;
+    /** Base grid size used when the cached world projection was resolved. */
+    projectionCellSize: number;
     /** 0..1 catch-fire / burn-down progress. */
     life: number;
     /** True while the authoritative store reports this cell during the current reconciliation. */
@@ -105,9 +110,26 @@ export class FireWallLayer {
                 existing.alive = true;
                 existing.dying = false;
                 existing.lapsRemaining = cell.l;
+                if (existing.projectionCellSize !== cellSize) {
+                    const world = toWorld(cell);
+                    if (world) {
+                        existing.x = world.x;
+                        existing.y = world.y;
+                        existing.cellSize = world.cellSize ?? cellSize;
+                        existing.projectionCellSize = cellSize;
+                    }
+                }
             } else {
+                const world = toWorld(cell);
+                if (!world) {
+                    continue;
+                }
                 this.visuals.set(key, {
                     cell: { x: cell.x, y: cell.y },
+                    x: world.x,
+                    y: world.y,
+                    cellSize: world.cellSize ?? cellSize,
+                    projectionCellSize: cellSize,
                     life: 0,
                     alive: true,
                     dying: false,
@@ -128,9 +150,9 @@ export class FireWallLayer {
             }
         }
 
-        this.redraw(cellSize, toWorld);
+        this.redraw();
     }
-    private redraw(cellSize: number, toWorld: ToWorld): void {
+    private redraw(): void {
         const glow = this.glow;
         const flames = this.flames;
         if (!this.visuals.size) {
@@ -146,12 +168,8 @@ export class FireWallLayer {
         this.hasGeometry = true;
 
         for (const [key, visual] of this.visuals) {
-            const pos = toWorld(visual.cell);
-            if (!pos) {
-                continue;
-            }
-
-            const localCellSize = pos.cellSize ?? cellSize;
+            const pos = visual;
+            const localCellSize = visual.cellSize;
             const isLastLap = visual.lapsRemaining <= 1;
             const half = localCellSize * 0.5;
             const life = visual.life;

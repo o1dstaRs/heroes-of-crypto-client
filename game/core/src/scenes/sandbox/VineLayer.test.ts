@@ -70,4 +70,22 @@ describe("VineLayer", () => {
 
         layer.destroy();
     });
+
+    test("reuses stable cell projections between animation frames", () => {
+        const layer = new VineLayer();
+        let projectionCalls = 0;
+        const project = ({ x, y }: { x: number; y: number }) => {
+            projectionCalls += 1;
+            return { x: x * 32, y: y * 32 };
+        };
+        const cells = [{ x: 4, y: 4, l: 2 }];
+
+        layer.update(1 / 60, cells, 32, project);
+        layer.update(1 / 60, cells, 32, project);
+        expect(projectionCalls).toBe(1);
+
+        layer.update(1 / 60, cells, 40, project);
+        expect(projectionCalls).toBe(2);
+        layer.destroy();
+    });
 });

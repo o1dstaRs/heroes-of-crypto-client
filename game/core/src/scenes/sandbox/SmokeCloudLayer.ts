@@ -182,6 +182,8 @@ interface ITrackedCloud {
     x: number;
     y: number;
     cellSize: number;
+    /** Base grid size used when the cached world projection was resolved. */
+    projectionCellSize: number;
     /** Stable per-cell seed so a cloud's shape never flickers between frames. */
     seed: number;
     lapsRemaining: number;
@@ -279,23 +281,33 @@ export class SmokeCloudLayer {
         }
         for (const c of cells) {
             const key = (c.x << 8) | (c.y & 0xff);
-            const world = toWorld(c);
-            if (!world) {
-                continue;
-            }
             const existing = this.clouds.get(key);
             if (existing) {
                 existing.alive = true;
                 existing.lapsRemaining = c.l;
-                existing.x = world.x;
-                existing.y = world.y;
-                existing.cellSize = world.cellSize ?? cellSize;
+                // Board-space projection is stable between resizes. Re-projecting every authoritative
+                // cell every animation frame allocated a metrics object (and projected polygon in the
+                // scene callback) even though only the cloud's shader/time changes.
+                if (existing.projectionCellSize !== cellSize) {
+                    const world = toWorld(c);
+                    if (world) {
+                        existing.x = world.x;
+                        existing.y = world.y;
+                        existing.cellSize = world.cellSize ?? cellSize;
+                        existing.projectionCellSize = cellSize;
+                    }
+                }
             } else {
+                const world = toWorld(c);
+                if (!world) {
+                    continue;
+                }
                 this.clouds.set(key, {
                     cell: { x: c.x, y: c.y },
                     x: world.x,
                     y: world.y,
                     cellSize: world.cellSize ?? cellSize,
+                    projectionCellSize: cellSize,
                     // Mixing both axes keeps neighbouring cells from sharing a shape.
                     seed: Math.abs(Math.sin(c.x * 127.1 + c.y * 311.7) * 43758.5453) % 1000,
                     lapsRemaining: c.l,

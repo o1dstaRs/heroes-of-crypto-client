@@ -75,6 +75,8 @@ interface ITrackedVine {
     x: number;
     y: number;
     cellSize: number;
+    /** Base grid size used when the cached world projection was resolved. */
+    projectionCellSize: number;
     cellPoints?: number[];
     /** Stable per-cell seed so a vine's wobble and thorns never flicker between frames. */
     seed: number;
@@ -164,23 +166,29 @@ export class VineLayer {
         let arrivalsThisFrame = 0;
         for (let index = 0; index < cells.length; index++) {
             const c = cells[index];
-            const world = toWorld(c);
-            if (!world) {
-                continue;
-            }
             const key = VineLayer.key(c);
             const existing = this.vines.get(key);
             if (existing) {
                 existing.alive = true;
                 existing.lapsRemaining = c.l;
-                existing.x = world.x;
-                existing.y = world.y;
-                existing.cellSize = world.cellSize ?? cellSize;
-                existing.cellPoints = world.cellPoints;
+                if (existing.projectionCellSize !== cellSize) {
+                    const world = toWorld(c);
+                    if (world) {
+                        existing.x = world.x;
+                        existing.y = world.y;
+                        existing.cellSize = world.cellSize ?? cellSize;
+                        existing.cellPoints = world.cellPoints;
+                        existing.projectionCellSize = cellSize;
+                    }
+                }
                 if (existing.order !== index) {
                     existing.order = index;
                     this.topologyDirty = true;
                 }
+                continue;
+            }
+            const world = toWorld(c);
+            if (!world) {
                 continue;
             }
             this.vines.set(key, {
@@ -188,6 +196,7 @@ export class VineLayer {
                 x: world.x,
                 y: world.y,
                 cellSize: world.cellSize ?? cellSize,
+                projectionCellSize: cellSize,
                 cellPoints: world.cellPoints,
                 // Mixing both axes keeps neighbouring cells from sharing a shape.
                 seed: Math.abs(hash(c.x * 1.7, c.y * 2.3)) * 1000,
