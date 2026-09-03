@@ -29,6 +29,20 @@ describe("visibleAuraRanges", () => {
             { range: 1, isBuff: true },
         ]);
     });
+
+    test("reuses and truncates a caller-owned hot-path buffer", () => {
+        const target = [
+            { range: 99, isBuff: false },
+            { range: 98, isBuff: false },
+        ];
+        const firstEntry = target[0];
+
+        expect(visibleAuraRanges([2], [true], 1, target)).toBe(target);
+        expect(target).toEqual([{ range: 3, isBuff: true }]);
+        expect(target[0]).toBe(firstEntry);
+        expect(visibleAuraRanges([0], [true], 1, target)).toBe(target);
+        expect(target).toEqual([]);
+    });
 });
 
 describe("movementCellsOutsideUnitFootprint", () => {
@@ -45,5 +59,18 @@ describe("movementCellsOutsideUnitFootprint", () => {
                 { x: 2, y: 1 },
             ]),
         ).toEqual([{ x: 3, y: 1 }]);
+    });
+
+    test("reuses and clears a caller-owned destination buffer", () => {
+        const target = [{ x: 99, y: 99 }];
+        const reachable = [
+            { x: 1, y: 1 },
+            { x: 2, y: 1 },
+        ];
+
+        expect(movementCellsOutsideUnitFootprint(reachable, [{ x: 1, y: 1 }], target)).toBe(target);
+        expect(target).toEqual([{ x: 2, y: 1 }]);
+        expect(movementCellsOutsideUnitFootprint([], [], target)).toBe(target);
+        expect(target).toEqual([]);
     });
 });

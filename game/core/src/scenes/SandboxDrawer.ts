@@ -12,18 +12,20 @@ export const visibleAuraRanges = (
     ranges: readonly number[] | undefined,
     isBuff: readonly boolean[] | undefined,
     bonus: number,
+    target: { range: number; isBuff: boolean }[] = [],
 ): { range: number; isBuff: boolean }[] => {
     const configuredRanges = ranges ?? [];
-    const visible: { range: number; isBuff: boolean }[] = [];
+    let visibleCount = 0;
     for (let index = 0; index < configuredRanges.length; index += 1) {
         const range = configuredRanges[index];
         if (range <= 0) continue;
-        visible.push({
-            range: range + bonus,
-            isBuff: isBuff && index < isBuff.length ? isBuff[index] : true,
-        });
+        const visible = (target[visibleCount] ??= { range: 0, isBuff: true });
+        visible.range = range + bonus;
+        visible.isBuff = isBuff && index < isBuff.length ? isBuff[index] : true;
+        visibleCount += 1;
     }
-    return visible;
+    target.length = visibleCount;
+    return target;
 };
 import { HoverManager } from "./HoverManager";
 import { PlacementManager } from "./PlacementManager";
@@ -72,14 +74,21 @@ const movementCellKey = (cell: HoCMath.XY): number => (cell.x << 8) | cell.y;
 export const movementCellsOutsideUnitFootprint = (
     reachable: readonly HoCMath.XY[],
     occupied: readonly HoCMath.XY[],
+    target: HoCMath.XY[] = [],
 ): HoCMath.XY[] => {
-    if (!occupied.length) return [...reachable];
-    const occupiedKeys = occupied.map(movementCellKey);
-    const destinations: HoCMath.XY[] = [];
+    target.length = 0;
     for (const cell of reachable) {
-        if (!occupiedKeys.includes(movementCellKey(cell))) destinations.push(cell);
+        const key = movementCellKey(cell);
+        let isOccupied = false;
+        for (const occupiedCell of occupied) {
+            if (movementCellKey(occupiedCell) === key) {
+                isOccupied = true;
+                break;
+            }
+        }
+        if (!isOccupied) target.push(cell);
     }
-    return destinations;
+    return target;
 };
 
 export interface ShotRangeBounds {
@@ -283,6 +292,9 @@ export interface IGameplayDrawContext {
     /** High-resolution relationship-coloured corners; these are already authored in their final hue. */
     shotRangeCornerFriendlyTexture?: Texture;
     shotRangeCornerEnemyTexture?: Texture;
+    /** Scene-owned buffers keep animated range redraws from producing garbage every frame. */
+    activeAuraRangesScratch?: { range: number; isBuff: boolean }[];
+    movementCellsScratch?: HoCMath.XY[];
 }
 
 export interface IPlacementDrawContext {
@@ -373,6 +385,7 @@ export class SandboxDrawer {
                 FightStateManager.getInstance()
                     .getFightProperties()
                     .getAdditionalAuraRangePerTeam(currentActiveUnit.getTeam()),
+                ctx.activeAuraRangesScratch,
             );
             if (auraRanges.length > 0) {
                 // The range drawer performs the battlefield projection itself. Passing the sprite's
@@ -478,7 +491,11 @@ export class SandboxDrawer {
         if (currentActivePath && currentActiveUnit && !sc_isAnimating) {
             drawMovementArea(
                 movementGraphics,
-                movementCellsOutsideUnitFootprint(currentActivePath, currentActiveUnit.getCells()),
+                movementCellsOutsideUnitFootprint(
+                    currentActivePath,
+                    currentActiveUnit.getCells(),
+                    ctx.movementCellsScratch,
+                ),
                 gs,
                 movementColor,
                 hoverGlowPhase,

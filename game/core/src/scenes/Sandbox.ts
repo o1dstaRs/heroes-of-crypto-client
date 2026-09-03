@@ -817,6 +817,10 @@ export class Sandbox extends PixiScene {
     /** Reused by the 240 Hz depth pass to avoid fresh arrays and map/filter intermediates every tick. */
     private readonly depthSortableUnitsScratch: RenderableUnit[] = [];
     private readonly depthSortCandidatesScratch: CreatureDepthSortCandidate[] = [];
+    /** Reused by animated board-range rendering so a selected unit does not create garbage every frame. */
+    private readonly sidebarAuraRangesScratch: { range: number; isBuff: boolean }[] = [];
+    private readonly activeAuraRangesScratch: { range: number; isBuff: boolean }[] = [];
+    private readonly activeMovementCellsScratch: HoCMath.XY[] = [];
     // The unit whose turn header is currently open in the scene log (sandbox text channel only;
     // ranked builds its headers from the journal). Cleared by that unit's turn_completed.
     private sandboxTurnLogHeaderUnitId?: string;
@@ -14118,6 +14122,7 @@ export class Sandbox extends PixiScene {
                     u.getAuraRanges(),
                     u.getAuraIsBuff(),
                     FightStateManager.getInstance().getFightProperties().getAdditionalAuraRangePerTeam(u.getTeam()),
+                    this.sidebarAuraRangesScratch,
                 );
 
                 sidebarUnitRanges = {
@@ -14203,6 +14208,8 @@ export class Sandbox extends PixiScene {
             shotRangeCornerTexture: this.texAny("shot_range_corner_aaa_v1"),
             shotRangeCornerFriendlyTexture: this.texAny("shot_range_corner_aaa_v4_green"),
             shotRangeCornerEnemyTexture: this.texAny("shot_range_corner_aaa_v4_red"),
+            activeAuraRangesScratch: this.activeAuraRangesScratch,
+            movementCellsScratch: this.activeMovementCellsScratch,
         });
         for (let index = this.shotRangeCornerPool.used; index < this.shotRangeCornerPool.sprites.length; index += 1) {
             this.shotRangeCornerPool.sprites[index].visible = false;
