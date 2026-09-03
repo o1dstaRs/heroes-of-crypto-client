@@ -47,7 +47,7 @@ export class PixiApp {
             width,
             height,
             resolution: DPR,
-            antialias: shouldUseRenderAntialias(DPR),
+            antialias: shouldUseRenderAntialias(DPR, width, height),
             background: 0x000000,
         });
 

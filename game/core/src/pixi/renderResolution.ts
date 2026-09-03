@@ -1,10 +1,12 @@
-/** A 4K backing buffer is already sharper than the game art and bounds every full-screen render target. */
-export const MAX_RENDER_PIXELS = 3840 * 2160;
+/** A 1440p backing buffer remains sharper than the board art and bounds every full-screen render target. */
+export const MAX_RENDER_PIXELS = 2560 * 1440;
+/** At native 1080p and above, physical pixel density already keeps geometry edges clean without MSAA. */
+export const MAX_MSAA_RENDER_PIXELS = 1920 * 1080;
 
 /**
- * Keep ordinary Retina viewports at 2x while preventing very large/high-DPI displays from allocating
- * multi-4K color, depth, antialias, and filter buffers. Pixi accepts fractional resolutions and keeps the
- * canvas at its CSS size, so the cap reduces GPU pixels without changing layout or gameplay coordinates.
+ * Keep small Retina viewports at 2x while preventing large/high-DPI displays from allocating multi-4K
+ * color, depth and filter buffers. Pixi accepts fractional resolutions and keeps the canvas at its CSS
+ * size, so the cap reduces GPU pixels without changing layout or gameplay coordinates.
  */
 export const renderResolutionForViewport = (width: number, height: number, devicePixelRatio: number): number => {
     const safeWidth = Math.max(1, Number.isFinite(width) ? width : 1);
@@ -16,9 +18,13 @@ export const renderResolutionForViewport = (width: number, height: number, devic
 };
 
 /**
- * Multisample antialiasing allocates another large color buffer. At Retina density the backing pixels
- * already smooth Pixi geometry when the browser composites the canvas, so MSAA costs memory for little
- * visible gain. Keep it for 1x / heavily capped layouts, where individual physical pixels are visible.
+ * Multisample antialiasing allocates another large color buffer. Retina density and large native canvases
+ * already give Pixi enough physical pixels for clean edges, so reserve MSAA for small 1x layouts where an
+ * individual pixel is visible and the extra buffer stays inexpensive.
  */
-export const shouldUseRenderAntialias = (resolution: number): boolean =>
-    !Number.isFinite(resolution) || resolution < 1.5;
+export const shouldUseRenderAntialias = (resolution: number, width = 1, height = 1): boolean => {
+    if (!Number.isFinite(resolution)) return true;
+    const safeWidth = Math.max(1, Number.isFinite(width) ? width : 1);
+    const safeHeight = Math.max(1, Number.isFinite(height) ? height : 1);
+    return resolution < 1.5 && safeWidth * resolution * safeHeight * resolution < MAX_MSAA_RENDER_PIXELS;
+};
