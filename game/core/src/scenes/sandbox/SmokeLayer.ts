@@ -127,6 +127,7 @@ export class SmokeLayer {
     private readonly graphics = new Graphics();
     private readonly spriteContainer = new Container();
     private readonly dustSprites = new Map<ILingeringTrack, Sprite>();
+    private readonly activeTracks = new Set<ILingeringTrack>();
     private dustFrames?: Texture[];
     private filter?: Filter;
     private time = 0;
@@ -143,6 +144,7 @@ export class SmokeLayer {
             for (const frame of this.dustFrames ?? []) frame.destroy(false);
             this.dustFrames = undefined;
             this.dustSprites.clear();
+            this.activeTracks.clear();
         });
 
         // The selected painted atlas is a 3x2 sheet of square frames. It replaces the generated blobs
@@ -212,7 +214,8 @@ export class SmokeLayer {
         const frames = this.dustFrames;
         if (!frames) return;
 
-        const activeTracks = new Set<ILingeringTrack>();
+        const activeTracks = this.activeTracks;
+        activeTracks.clear();
         for (const track of tracks) {
             if (track.flying) continue;
             activeTracks.add(track);

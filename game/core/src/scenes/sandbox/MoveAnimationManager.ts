@@ -224,15 +224,17 @@ export class MoveAnimationManager {
     }
     private updateAfterimages(dt: number): void {
         if (!this.afterimages.length) return;
-        this.afterimages = this.afterimages.filter((g) => {
-            g.life -= dt;
-            if (g.life <= 0) {
-                g.sprite.destroy();
-                return false;
+        let writeIndex = 0;
+        for (const ghost of this.afterimages) {
+            ghost.life -= dt;
+            if (ghost.life <= 0) {
+                ghost.sprite.destroy();
+                continue;
             }
-            g.sprite.alpha = 0.45 * (g.life / g.maxLife);
-            return true;
-        });
+            ghost.sprite.alpha = 0.45 * (ghost.life / ghost.maxLife);
+            this.afterimages[writeIndex++] = ghost;
+        }
+        this.afterimages.length = writeIndex;
     }
     private stepSwapAnimation(dt: number): void {
         const s = this.swapAnimation;
@@ -465,12 +467,14 @@ export class MoveAnimationManager {
     }
     private updateLingeringTracks(dt: number): void {
         if (!this.lingeringTracks.length) return;
-        this.lingeringTracks = this.lingeringTracks.filter((t) => {
-            t.life -= dt;
+        let writeIndex = 0;
+        for (const track of this.lingeringTracks) {
+            track.life -= dt;
             // NOTE: do NOT advance `phase` here — the drawer uses it as a *stable* per-track seed for
             // the dust puff's randomness; mutating it per frame makes the puff flicker.
-            return t.life > 0;
-        });
+            if (track.life > 0) this.lingeringTracks[writeIndex++] = track;
+        }
+        this.lingeringTracks.length = writeIndex;
     }
     private dropLargeUnitTrackAtPosition(
         unit: RenderableUnit,
