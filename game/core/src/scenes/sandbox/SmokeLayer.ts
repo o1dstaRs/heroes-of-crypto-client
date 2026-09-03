@@ -123,6 +123,7 @@ const dustTrailRotation = (dirX: number, dirY: number): number => {
 };
 
 const DUST_TINTS = [0xc6bfb0, 0xbbb4a5, 0xcec7b8] as const;
+const DUST_ATLAS_URL = images.vfx_dust_smoky_ash_atlas;
 
 const dustNoise = (a: number, b: number): number => {
     const value = Math.sin(a * 127.1 + b * 311.7) * 43758.5453;
@@ -136,6 +137,8 @@ export class SmokeLayer {
     private readonly dustSprites = new Map<ILingeringTrack, Sprite>();
     private readonly activeTracks = new Set<ILingeringTrack>();
     private dustFrames?: Texture[];
+    private dustAtlas?: Texture;
+    private atlasLoadStarted = false;
     private filter?: Filter;
     private time = 0;
     private atlasLoadFailed = false;
@@ -150,20 +153,31 @@ export class SmokeLayer {
             this.filter = undefined;
             for (const frame of this.dustFrames ?? []) frame.destroy(false);
             this.dustFrames = undefined;
+            if (this.dustAtlas) {
+                this.dustAtlas = undefined;
+                void Assets.unload(DUST_ATLAS_URL).catch(() => undefined);
+            }
             this.dustSprites.clear();
             this.activeTracks.clear();
         });
-
+    }
+    private ensureDustAtlasLoad(): void {
+        if (this.atlasLoadStarted || this.dustFrames || this.destroyed) return;
+        this.atlasLoadStarted = true;
         // The selected painted atlas is a 3x2 sheet of square frames. It replaces the generated blobs
         // during normal play, while the old shader remains below as a safe fallback for headless tests or
         // a missing image asset. Keeping square source frames gives the fine particles enough resolution;
         // the display scale deliberately compresses only Y so the result stays broad and ground-hugging.
-        // Animation atlases are loaded in Pixi's non-blocking tier after Sandbox has already been
-        // constructed. Texture.from() therefore permanently selected the procedural fallback whenever
-        // the scene opened before that tier finished. Load the selected atlas explicitly and keep this
-        // layer empty while it is pending: the old dust must never flash in place of the chosen artwork.
-        void Assets.load<Texture>(images.vfx_dust_smoky_ash_atlas)
+        // Wait for the first real ground track before fetching it: placement-only sessions and fights where
+        // no unit has moved should not retain a 1536x1024 texture. Keep the layer empty while it is pending,
+        // so the former procedural dust never flashes in place of the selected artwork.
+        void Assets.load<Texture>(DUST_ATLAS_URL)
             .then((atlas) => {
+                if (this.destroyed) {
+                    void Assets.unload(DUST_ATLAS_URL).catch(() => undefined);
+                    return;
+                }
+                this.dustAtlas = atlas;
                 this.installDustAtlas(atlas);
             })
             .catch(() => {
@@ -269,6 +283,14 @@ export class SmokeLayer {
     /** Advance the smoke and redraw the blobs for the current tracks. */
     public update(dt: number, tracks: readonly ILingeringTrack[]): void {
         if (!tracks.length && !this.dustSprites.size && !this.hasGeometry) return;
+        let hasGroundTrack = false;
+        for (const track of tracks) {
+            if (!track.flying) {
+                hasGroundTrack = true;
+                break;
+            }
+        }
+        if (hasGroundTrack && !this.dustFrames) this.ensureDustAtlasLoad();
         if (this.dustFrames) {
             this.updateSpriteDust(tracks);
             return;
@@ -287,13 +309,6 @@ export class SmokeLayer {
             }
         }
 
-        let hasGroundTrack = false;
-        for (const track of tracks) {
-            if (!track.flying) {
-                hasGroundTrack = true;
-                break;
-            }
-        }
         if (!hasGroundTrack) {
             if (this.hasGeometry) {
                 this.graphics.clear();

@@ -1455,9 +1455,9 @@ export class CombatVisuals {
             driftX: 0,
             driftY: 0,
         });
-        // Warm the Craft forge textures so the first cast's anvil/hammer don't pop in a frame late.
-        Texture.from(images.craft_anvil);
-        Texture.from(images.craft_hammer);
+        // Craft's large anvil/hammer bitmaps are intentionally not touched here. Texture.from() begins
+        // fetching URL-backed assets immediately, so warming a rare spell kept both images decoded for
+        // every battle. spawnCraftForge resolves them only when the spell is actually cast.
     }
     /**
      * Destroy all combat VFX immediately (e.g. on fight end / restart / scene teardown).
