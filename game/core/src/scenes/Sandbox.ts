@@ -950,7 +950,11 @@ export class Sandbox extends PixiScene {
     private spellBookContainer: Container;
     private spellBookBackdrop: Graphics;
     private spellBookOverlay?: SpellBookOverlay;
+    /** Reused while the book opens and closes; released once with the scene. */
+    private spellBookBlurFilter?: BlurFilter;
     private digitTextures?: Map<number, Texture>;
+    /** The Pixi ticker owns this cadence, so replacing a scene cannot leave a browser interval behind. */
+    private nextVisibleTurnTimerUpdateMs = 0;
     // [NEW] Sub-Managers
     // Protected: the ranked scene installs/clears the seeded scattered stones on it from snapshots.
     protected dungeonVisuals: DungeonVisuals;
@@ -1267,15 +1271,13 @@ export class Sandbox extends PixiScene {
                 setSpellBookOverlay: (active) => {
                     this.sc_renderSpellBookOverlay = active;
                     this.spellBookOverlay?.setOpen(active);
-                    this.pixiApp.getWorldRoot().filters = active ? [new BlurFilter({ strength: 8 })] : [];
+                    this.setSpellBookWorldBlur(active);
                 },
             },
             this.sc_isAIActive,
         );
 
         this.moveHandler = new MoveHandler(this.sc_sceneSettings.getGridSettings(), this.grid, this.unitsHolder);
-
-        HoCLib.interval(() => this.updateVisibleTurnTimer(), 500);
 
         // Initialize AI Controller with IAIContext implementation
         this.aiController = new AIController({
@@ -1530,6 +1532,12 @@ export class Sandbox extends PixiScene {
         this.sc_visibleState.secondsRemaining = remaining > 0 ? remaining : 0;
         this.syncAiToggleToVisibleState();
         this.sc_visibleStateUpdateNeeded = true;
+    }
+    private updateVisibleTurnTimerIfDue(): void {
+        const now = HoCLib.getTimeMillis();
+        if (now < this.nextVisibleTurnTimerUpdateMs) return;
+        this.nextVisibleTurnTimerUpdateMs = now + 500;
+        this.updateVisibleTurnTimer();
     }
     /**
      * Mirror the live AI toggle onto the visible state so the "AI on" badge tracks it. Extracted so the
@@ -7213,7 +7221,31 @@ export class Sandbox extends PixiScene {
         if (this.spellBookContainer) {
             this.spellBookContainer.visible = false;
         }
-        this.pixiApp.getWorldRoot().filters = [];
+        this.setSpellBookWorldBlur(false);
+    }
+    private setSpellBookWorldBlur(active: boolean): void {
+        const worldRoot = this.pixiApp.getWorldRoot();
+        const installed = worldRoot.filters ?? [];
+        if (!active) {
+            if (this.spellBookBlurFilter && installed.includes(this.spellBookBlurFilter)) {
+                worldRoot.filters = installed.filter((filter) => filter !== this.spellBookBlurFilter);
+            }
+            return;
+        }
+        if (!this.spellBookBlurFilter) {
+            this.spellBookBlurFilter = new BlurFilter({ strength: 8 });
+        }
+        if (!installed.includes(this.spellBookBlurFilter)) {
+            worldRoot.filters = [...installed, this.spellBookBlurFilter];
+        }
+    }
+    private releaseSpellBookBlurFilter(): void {
+        const filter = this.spellBookBlurFilter;
+        if (!filter) return;
+        const worldRoot = this.pixiApp.getWorldRoot();
+        worldRoot.filters = (worldRoot.filters ?? []).filter((installed) => installed !== filter);
+        filter.destroy();
+        this.spellBookBlurFilter = undefined;
     }
     private setHoveredSpell(spell: PixiRenderableSpell | undefined, caster?: RenderableUnit): void {
         if (this.hoveredSpell !== spell) {
@@ -13543,6 +13575,7 @@ export class Sandbox extends PixiScene {
         // Dispose them before replacing the scene so a New Battle cannot inherit the prior board's
         // narrowing holes, terrain, or screen-space floor.
         this.dungeonVisuals?.destroy();
+        this.releaseSpellBookBlurFilter();
         super.Destroy();
         // Floating damage numbers are parented to the shared worldRoot; destroy them so
         // they don't linger after the scene is replaced (e.g. on "New Battle").
@@ -13615,6 +13648,7 @@ export class Sandbox extends PixiScene {
         this.sc_onHasStarted.emit(false);
     }
     public override Step(timeStep: number): void {
+        this.updateVisibleTurnTimerIfDue();
         this.cleanupDeadUnits();
         if (timeStep > 0) this.sc_stepCount.increment();
         this.sc_isAnimating = this.isAnimating();
@@ -15780,7 +15814,7 @@ export class Sandbox extends PixiScene {
         this.sc_currentActiveShotRange = undefined;
         this.buttonManager.sc_renderSpellBookOverlay = false;
         this.spellBookOverlay?.setOpen(false);
-        this.pixiApp.getWorldRoot().filters = [];
+        this.setSpellBookWorldBlur(false);
         this.buttonManager.refreshButtons(true);
     }
     protected cleanupDeadUnits(): void {
