@@ -14,6 +14,8 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, test } from "bun:test";
 
+import { images } from "../generated/image_imports";
+import { isCoreTextureAssetKey } from "../pixi/imageAssetTiers";
 import {
     ASSET_PREFETCH_CONCURRENCY,
     coreAssetUrls,
@@ -28,12 +30,16 @@ afterEach(() => resetBackgroundAssetPrefetchForTests());
  * screen between the draft and the augment step.
  */
 describe("what gets prefetched", () => {
-    test("the core tier only — animation atlases are left to their own later tiers", () => {
+    test("uses the same lean core classification as the Pixi runtime", () => {
         const urls = coreAssetUrls();
-        expect(urls.length).toBeGreaterThan(100);
-        // PixiTextureLoader splits on "_atlas"; prefetching the ~700MB animation tier during a draft
-        // would compete with the pick phase's own requests for no gain.
-        expect(urls.some((url) => url.includes("_atlas"))).toBe(false);
+        const expected = Object.entries(images as Record<string, string>)
+            .filter(([key, url]) => isCoreTextureAssetKey(key) && typeof url === "string" && url.length > 0)
+            .map(([, url]) => url);
+
+        expect(urls).toEqual(expected);
+        expect(urls.some((url) => url.includes("wolf_walk_atlas"))).toBe(false);
+        expect(urls.some((url) => url.includes("wolf_pick_sandbox_x2"))).toBe(false);
+        expect(urls.some((url) => url.includes("wolf_battlefield_side_right_final_v1"))).toBe(false);
     });
 
     test("every entry is a real URL, never a bare key", () => {

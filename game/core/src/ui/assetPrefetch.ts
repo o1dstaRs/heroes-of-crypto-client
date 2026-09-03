@@ -10,6 +10,7 @@
  */
 
 import { images } from "../generated/image_imports";
+import { isCoreTextureAssetKey } from "../pixi/imageAssetTiers";
 
 /**
  * Warm the browser cache with the board's art while the player is busy drafting.
@@ -27,9 +28,6 @@ import { images } from "../generated/image_imports";
  * Everything here is best-effort. A failed prefetch costs nothing — the real load re-requests it.
  */
 
-/** Mirrors PixiTextureLoader's tiering: the core tier is everything that is not an animation atlas. */
-const isCoreAsset = (key: string): boolean => !key.includes("_atlas");
-
 /** How many requests to keep in flight. Low enough to leave room for the pick phase's own API traffic. */
 export const ASSET_PREFETCH_CONCURRENCY = 6;
 
@@ -37,7 +35,7 @@ let prefetchStarted = false;
 
 export const coreAssetUrls = (): string[] =>
     Object.entries(images as Record<string, string>)
-        .filter(([key, url]) => isCoreAsset(key) && typeof url === "string" && url.length > 0)
+        .filter(([key, url]) => isCoreTextureAssetKey(key) && typeof url === "string" && url.length > 0)
         .map(([, url]) => url);
 
 /**
