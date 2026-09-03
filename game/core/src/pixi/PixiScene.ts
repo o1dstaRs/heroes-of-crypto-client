@@ -136,6 +136,8 @@ export const shouldDisplayAppliedBuff = (buffName: string, activeAbilityNames: r
 export abstract class PixiScene {
     private sc_sceneStarted = false;
     private sc_destroyed = false;
+    /** Shared return object: the 240 Hz visual path reads viewport size without creating garbage. */
+    private readonly sc_viewportSize = { width: 0, height: 0 };
     private readonly sc_lazyBattlefieldTextureUrls = new Map<string, string>();
     private readonly sc_pendingLazyTextureKeys = new Set<string>();
     public readonly sc_debugLines: Array<[string, string]> = [];
@@ -818,10 +820,9 @@ export abstract class PixiScene {
     public getViewportSize(): { width: number; height: number } {
         const app = this.pixiApp.getApplication(); // Use pixiApp directly as restored
         const renderer = app.renderer as { width?: number; height?: number } | null | undefined;
-        if (renderer?.width && renderer?.height) {
-            return { width: renderer.width, height: renderer.height };
-        }
-        return { width: window.innerWidth || 2048, height: window.innerHeight || 2048 };
+        this.sc_viewportSize.width = renderer?.width || window.innerWidth || 2048;
+        this.sc_viewportSize.height = renderer?.height || window.innerHeight || 2048;
+        return this.sc_viewportSize;
     }
     // ------- Drawer delegates -------
     public drawPath(
