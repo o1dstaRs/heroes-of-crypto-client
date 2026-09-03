@@ -2646,6 +2646,39 @@ describe("RenderableUnit dodge animation", () => {
 });
 
 describe("RenderableUnit filter lifecycle", () => {
+    test("scopes cached animation frames to the live parent atlas texture", () => {
+        const makeTexture = () =>
+            new Texture({
+                source: new BufferImageSource({ resource: new Uint8Array(4), width: 8192, height: 8192 }),
+            });
+        const firstTexture = makeTexture();
+        const secondTexture = makeTexture();
+        const createSatyr = (texture: Texture) => {
+            const unit = createRenderableUnit(TeamVals.RIGHT, "Nature", "Satyr", "satyr_512", () => texture);
+            unit.setPosition(0, 1024);
+            unit.ensureVisual(new Container(), gridSettings);
+            return unit;
+        };
+
+        const first = createSatyr(firstTexture);
+        const firstFrames = (first as unknown as { selectionAnimFrames?: Texture[] }).selectionAnimFrames;
+        expect(firstFrames?.length).toBeGreaterThan(1);
+        expect(firstFrames?.[0].source).toBe(firstTexture.source);
+        first.destroyVisuals();
+
+        const second = createSatyr(secondTexture);
+        const secondFrames = (second as unknown as { selectionAnimFrames?: Texture[] }).selectionAnimFrames;
+        expect(secondFrames?.length).toBe(firstFrames?.length);
+        expect(secondFrames).not.toBe(firstFrames);
+        expect(secondFrames?.[0].source).toBe(secondTexture.source);
+        second.destroyVisuals();
+
+        for (const frame of firstFrames ?? []) frame.destroy(false);
+        for (const frame of secondFrames ?? []) frame.destroy(false);
+        firstTexture.destroy(true);
+        secondTexture.destroy(true);
+    });
+
     test("does not retain scene-leased static battlefield frames across scene replacements", () => {
         CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
         const makeTexture = () =>

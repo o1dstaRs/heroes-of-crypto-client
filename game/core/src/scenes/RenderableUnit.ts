@@ -1207,8 +1207,10 @@ function getAnimationStateConfig(
         cacheAcrossScenes: true,
     };
 }
-// Cache textures per atlas to avoid rebuilding frames
-const atlasFramesCache = new Map<string, Texture[]>();
+// Reuse frame wrappers while their parent atlas is live without pinning an unloaded atlas for the
+// lifetime of the tab. WeakMap ephemeron semantics also allow the value's frame sources to disappear
+// once Pixi releases the parent texture after a scene teardown.
+const atlasFramesCache = new WeakMap<Texture, Map<string, Texture[]>>();
 const ACTIVE_TURN_FIRE_FRAME_SIZE = 192;
 const ACTIVE_TURN_FIRE_COLS = 8;
 const ACTIVE_TURN_FIRE_FRAME_COUNT = 64;
@@ -1293,25 +1295,51 @@ function buildAtlasFrames(meta: AtlasMeta, imageSrc: string, imageKey: string, r
     return frames;
 }
 
+function cachedAtlasFrames(
+    cacheKey: string,
+    meta: AtlasMeta,
+    imageSrc: string,
+    imageKey: string,
+    resolvedTexture?: Texture,
+): Texture[] {
+    let parentTexture = resolvedTexture;
+    if (!parentTexture) {
+        try {
+            parentTexture = Texture.from(imageSrc);
+        } catch {
+            return [];
+        }
+    }
+    if (!parentTexture?.source) return [];
+
+    let framesByKey = atlasFramesCache.get(parentTexture);
+    const cached = framesByKey?.get(cacheKey);
+    if (cached) return cached;
+
+    const frames = buildAtlasFrames(meta, imageSrc, imageKey, parentTexture);
+    if (!frames.length) return frames;
+    if (!framesByKey) {
+        framesByKey = new Map<string, Texture[]>();
+        atlasFramesCache.set(parentTexture, framesByKey);
+    }
+    framesByKey.set(cacheKey, frames);
+    return frames;
+}
+
 /**
- * Reuse true animation sheets across scenes, but never pin a lazy battlefield cutout in the module cache.
- * PixiScene lease-counts those large static textures and unloads them after the last scene releases them.
+ * Reuse true animation sheets while their parent texture is live, but never pin a lazy battlefield cutout
+ * in the module cache. PixiScene lease-counts these textures and unloads them with the last owning scene.
  */
 function framesForAtlasConfig(config: UnitAtlasConfig, texResolver: TexResolver): Texture[] {
-    if (config.cacheAcrossScenes) {
-        const cached = atlasFramesCache.get(config.cacheKey);
-        if (cached) return cached;
-    }
-
     const resolvedTexture = texResolver(config.imageKey);
+    if (config.cacheAcrossScenes) {
+        return cachedAtlasFrames(config.cacheKey, config.meta, config.imageSrc, config.imageKey, resolvedTexture);
+    }
     // Static battlefield art is already one complete frame. Reuse the scene-leased texture itself rather
     // than creating a wrapper that can outlive the lease and keep the decoded source resident.
-    const frames =
-        !config.cacheAcrossScenes && resolvedTexture
-            ? [resolvedTexture]
-            : buildAtlasFrames(config.meta, config.imageSrc, config.imageKey, resolvedTexture);
-    if (frames.length && config.cacheAcrossScenes) atlasFramesCache.set(config.cacheKey, frames);
-    return frames;
+    return resolvedTexture
+        ? [resolvedTexture]
+        : buildAtlasFrames(config.meta, config.imageSrc, config.imageKey, resolvedTexture);
 }
 interface SpawnAnimState {
     startScaleX: number;
@@ -3593,60 +3621,48 @@ export class RenderableUnit extends Unit {
         this.selectionAnimFrameIndex = -1;
         if (props.name === ORC_UNIT_NAME) {
             const twirlCacheKey = `${ORC_UNIT_NAME}::idle_axe_twirl`;
-            let twirlFrames = atlasFramesCache.get(twirlCacheKey);
-            if (!twirlFrames) {
-                const imageSrc = images[ORC_IDLE_AXE_TWIRL_IMAGE_KEY];
-                twirlFrames = buildAtlasFrames(
-                    ORC_IDLE_AXE_TWIRL_META,
-                    imageSrc,
-                    ORC_IDLE_AXE_TWIRL_IMAGE_KEY,
-                    this.texResolver(ORC_IDLE_AXE_TWIRL_IMAGE_KEY),
-                );
-                atlasFramesCache.set(twirlCacheKey, twirlFrames);
-            }
+            const imageSrc = images[ORC_IDLE_AXE_TWIRL_IMAGE_KEY];
+            const twirlFrames = cachedAtlasFrames(
+                twirlCacheKey,
+                ORC_IDLE_AXE_TWIRL_META,
+                imageSrc,
+                ORC_IDLE_AXE_TWIRL_IMAGE_KEY,
+                this.texResolver(ORC_IDLE_AXE_TWIRL_IMAGE_KEY),
+            );
             this.orcIdleAxeTwirlFrames = twirlFrames;
 
             const battleCryCacheKey = `${ORC_UNIT_NAME}::active_battle_cry`;
-            let battleCryFrames = atlasFramesCache.get(battleCryCacheKey);
-            if (!battleCryFrames) {
-                const imageSrc = images[ORC_ACTIVE_BATTLE_CRY_IMAGE_KEY];
-                battleCryFrames = buildAtlasFrames(
-                    ORC_ACTIVE_BATTLE_CRY_META,
-                    imageSrc,
-                    ORC_ACTIVE_BATTLE_CRY_IMAGE_KEY,
-                    this.texResolver(ORC_ACTIVE_BATTLE_CRY_IMAGE_KEY),
-                );
-                atlasFramesCache.set(battleCryCacheKey, battleCryFrames);
-            }
+            const battleCryImageSrc = images[ORC_ACTIVE_BATTLE_CRY_IMAGE_KEY];
+            const battleCryFrames = cachedAtlasFrames(
+                battleCryCacheKey,
+                ORC_ACTIVE_BATTLE_CRY_META,
+                battleCryImageSrc,
+                ORC_ACTIVE_BATTLE_CRY_IMAGE_KEY,
+                this.texResolver(ORC_ACTIVE_BATTLE_CRY_IMAGE_KEY),
+            );
             this.orcActiveBattleCryFrames = battleCryFrames;
         }
         if (props.name === SCAVENGER_UNIT_NAME) {
             const bladeTwirlCacheKey = `${SCAVENGER_UNIT_NAME}::idle_blade_twirl`;
-            let bladeTwirlFrames = atlasFramesCache.get(bladeTwirlCacheKey);
-            if (!bladeTwirlFrames) {
-                const imageSrc = images[SCAVENGER_IDLE_BLADE_TWIRL_IMAGE_KEY];
-                bladeTwirlFrames = buildAtlasFrames(
-                    SCAVENGER_FLOURISH_META,
-                    imageSrc,
-                    SCAVENGER_IDLE_BLADE_TWIRL_IMAGE_KEY,
-                    this.texResolver(SCAVENGER_IDLE_BLADE_TWIRL_IMAGE_KEY),
-                );
-                atlasFramesCache.set(bladeTwirlCacheKey, bladeTwirlFrames);
-            }
+            const imageSrc = images[SCAVENGER_IDLE_BLADE_TWIRL_IMAGE_KEY];
+            const bladeTwirlFrames = cachedAtlasFrames(
+                bladeTwirlCacheKey,
+                SCAVENGER_FLOURISH_META,
+                imageSrc,
+                SCAVENGER_IDLE_BLADE_TWIRL_IMAGE_KEY,
+                this.texResolver(SCAVENGER_IDLE_BLADE_TWIRL_IMAGE_KEY),
+            );
             this.scavengerIdleBladeTwirlFrames = bladeTwirlFrames;
 
             const battleCryCacheKey = `${SCAVENGER_UNIT_NAME}::active_battle_cry`;
-            let battleCryFrames = atlasFramesCache.get(battleCryCacheKey);
-            if (!battleCryFrames) {
-                const imageSrc = images[SCAVENGER_ACTIVE_BATTLE_CRY_IMAGE_KEY];
-                battleCryFrames = buildAtlasFrames(
-                    SCAVENGER_FLOURISH_META,
-                    imageSrc,
-                    SCAVENGER_ACTIVE_BATTLE_CRY_IMAGE_KEY,
-                    this.texResolver(SCAVENGER_ACTIVE_BATTLE_CRY_IMAGE_KEY),
-                );
-                atlasFramesCache.set(battleCryCacheKey, battleCryFrames);
-            }
+            const battleCryImageSrc = images[SCAVENGER_ACTIVE_BATTLE_CRY_IMAGE_KEY];
+            const battleCryFrames = cachedAtlasFrames(
+                battleCryCacheKey,
+                SCAVENGER_FLOURISH_META,
+                battleCryImageSrc,
+                SCAVENGER_ACTIVE_BATTLE_CRY_IMAGE_KEY,
+                this.texResolver(SCAVENGER_ACTIVE_BATTLE_CRY_IMAGE_KEY),
+            );
             this.scavengerActiveBattleCryFrames = battleCryFrames;
         }
         // Render the in-phase frame immediately so the board lines up with the sidebar portrait

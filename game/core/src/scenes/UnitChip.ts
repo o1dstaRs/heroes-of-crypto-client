@@ -128,12 +128,11 @@ function getDefaultAnimationConfig(
     return { meta, imageSrc, cacheKey, divider: resolved.divider };
 }
 
-// Cache textures per atlas to avoid rebuilding frames
-const atlasFramesCache = new Map<string, Texture[]>();
+// Keep frame wrappers scoped to their Pixi parent. A module-wide string map kept every selected
+// creature's decoded atlas alive even after Assets unloaded it at the end of a match.
+const atlasFramesCache = new WeakMap<Texture, Map<string, Texture[]>>();
 
-function buildAtlasFrames(meta: AtlasMeta, imageSrc: string, divider: number): Texture[] {
-    // Parent texture for the whole atlas image (cached by Pixi for a given id/url)
-    const parentTexture = Texture.from(imageSrc);
+function buildAtlasFrames(meta: AtlasMeta, parentTexture: Texture, divider: number): Texture[] {
     const source = parentTexture.source; // ✅ v8 way, replaces deprecated baseTexture
 
     // meta.frameWidth/Height describe the FULL-res frame; the divider matches the atlas variant loaded.
@@ -160,6 +159,22 @@ function buildAtlasFrames(meta: AtlasMeta, imageSrc: string, divider: number): T
         }
     }
 
+    return frames;
+}
+
+function cachedAtlasFrames(cacheKey: string, meta: AtlasMeta, imageSrc: string, divider: number): Texture[] {
+    // Parent texture for the whole atlas image (cached by Pixi for a given id/url).
+    const parentTexture = Texture.from(imageSrc);
+    let framesByKey = atlasFramesCache.get(parentTexture);
+    const cached = framesByKey?.get(cacheKey);
+    if (cached) return cached;
+
+    const frames = buildAtlasFrames(meta, parentTexture, divider);
+    if (!framesByKey) {
+        framesByKey = new Map<string, Texture[]>();
+        atlasFramesCache.set(parentTexture, framesByKey);
+    }
+    framesByKey.set(cacheKey, frames);
     return frames;
 }
 
@@ -433,11 +448,7 @@ export class UnitChip extends Container {
 
         const { meta, imageSrc, cacheKey, divider } = config;
 
-        let frames = atlasFramesCache.get(cacheKey);
-        if (!frames) {
-            frames = buildAtlasFrames(meta, imageSrc, divider);
-            atlasFramesCache.set(cacheKey, frames);
-        }
+        const frames = cachedAtlasFrames(cacheKey, meta, imageSrc, divider);
 
         if (!frames.length) {
             this.sprite.texture = this.idleTexture;
