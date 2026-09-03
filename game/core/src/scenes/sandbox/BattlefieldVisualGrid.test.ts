@@ -92,6 +92,16 @@ describe("battlefield visual grid", () => {
         }
     });
 
+    test("writes projected coordinates into a caller-owned point", () => {
+        const gs = settings();
+        const logical = { x: 6.25, y: 9.75 };
+        const expected = projectBattlefieldPoint(logical, gs);
+        const reusable = { x: Number.NaN, y: Number.NaN };
+
+        expect(projectBattlefieldPoint(logical, gs, reusable)).toBe(reusable);
+        expect(reusable).toEqual(expected);
+    });
+
     test("reports local particle scale from the same painted cell geometry", () => {
         const gs = settings();
         for (const cell of [

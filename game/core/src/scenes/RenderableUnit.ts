@@ -672,24 +672,24 @@ export function ashMothIdleBreathScaleForElapsed(elapsedMs: number): number {
     return ashMothIdleBreathScalesForElapsed(elapsedMs).y;
 }
 
-export function ashMothIdleBreathScalesForElapsed(elapsedMs: number): { x: number; y: number } {
+export function ashMothIdleBreathScalesForElapsed(elapsedMs: number, out?: HoCMath.XY): HoCMath.XY {
     const breath = Math.sin((elapsedMs / WANDERING_MAGE_IDLE_BREATH_PERIOD_MS) * Math.PI * 2);
-    return {
-        x: 1 + Math.max(0, breath) * WANDERING_MAGE_IDLE_CHEST_EXPANSION_AMPLITUDE,
-        y: 1 + breath * WANDERING_MAGE_IDLE_BREATH_SCALE_AMPLITUDE,
-    };
+    const scales = out ?? { x: 1, y: 1 };
+    scales.x = 1 + Math.max(0, breath) * WANDERING_MAGE_IDLE_CHEST_EXPANSION_AMPLITUDE;
+    scales.y = 1 + breath * WANDERING_MAGE_IDLE_BREATH_SCALE_AMPLITUDE;
+    return scales;
 }
 
 export function thiefIdleBreathScaleForElapsed(elapsedMs: number): number {
     return thiefIdleBreathScalesForElapsed(elapsedMs).y;
 }
 
-export function thiefIdleBreathScalesForElapsed(elapsedMs: number): { x: number; y: number } {
+export function thiefIdleBreathScalesForElapsed(elapsedMs: number, out?: HoCMath.XY): HoCMath.XY {
     const breath = Math.sin((elapsedMs / THIEF_IDLE_BREATH_PERIOD_MS) * Math.PI * 2);
-    return {
-        x: 1 + Math.max(0, breath) * THIEF_IDLE_CHEST_EXPANSION_AMPLITUDE,
-        y: 1 + breath * THIEF_IDLE_BREATH_SCALE_AMPLITUDE,
-    };
+    const scales = out ?? { x: 1, y: 1 };
+    scales.x = 1 + Math.max(0, breath) * THIEF_IDLE_CHEST_EXPANSION_AMPLITUDE;
+    scales.y = 1 + breath * THIEF_IDLE_BREATH_SCALE_AMPLITUDE;
+    return scales;
 }
 
 /** The compact two-dagger flourish plays once after every four complete inactive breathing cycles. */
@@ -728,13 +728,13 @@ export function scavengerActiveBattleCryBreathElapsed(elapsedMs: number): number
     return Math.max(0, elapsedInSequence - SCAVENGER_ACTIVE_BATTLE_CRY_DURATION_MS);
 }
 
-export function orcIdleBreathScalesForElapsed(elapsedMs: number): { x: number; y: number } {
+export function orcIdleBreathScalesForElapsed(elapsedMs: number, out?: HoCMath.XY): HoCMath.XY {
     const breath = Math.sin((elapsedMs / ORC_IDLE_BREATH_PERIOD_MS) * Math.PI * 2);
-    return {
-        // Only the inhale broadens the chest. Exhaling returns to the authored width instead of pinching it.
-        x: 1 + Math.max(0, breath) * ORC_IDLE_CHEST_EXPANSION_AMPLITUDE,
-        y: 1 + breath * ORC_IDLE_BREATH_SCALE_AMPLITUDE,
-    };
+    const scales = out ?? { x: 1, y: 1 };
+    // Only the inhale broadens the chest. Exhaling returns to the authored width instead of pinching it.
+    scales.x = 1 + Math.max(0, breath) * ORC_IDLE_CHEST_EXPANSION_AMPLITUDE;
+    scales.y = 1 + breath * ORC_IDLE_BREATH_SCALE_AMPLITUDE;
+    return scales;
 }
 
 /** The approved axe flourish plays once after every four complete breathing cycles. */
@@ -1611,6 +1611,9 @@ export class RenderableUnit extends Unit {
     private depthSortBounds?: Bounds;
     private depthSortCandidate?: CreatureDepthSortCandidate;
     private inheritedScaleScratch?: HoCMath.XY;
+    private projectedPositionScratch?: HoCMath.XY;
+    private groundReferenceScratch?: HoCMath.XY;
+    private idleBreathScaleScratch?: HoCMath.XY;
     private badgeSpriteBounds?: Bounds;
     private badgeScreenAnchor?: Point;
     private badgeLocalAnchor?: Point;
@@ -1773,6 +1776,9 @@ export class RenderableUnit extends Unit {
         ru.depthSortBounds = undefined;
         ru.depthSortCandidate = undefined;
         ru.inheritedScaleScratch = undefined;
+        ru.projectedPositionScratch = undefined;
+        ru.groundReferenceScratch = undefined;
+        ru.idleBreathScaleScratch = undefined;
         ru.badgeSpriteBounds = undefined;
         ru.badgeScreenAnchor = undefined;
         ru.badgeLocalAnchor = undefined;
@@ -1953,7 +1959,9 @@ export class RenderableUnit extends Unit {
         const props = this.getUnitProperties();
         this.watchBattlefieldCreatureFramingChanges(worldRoot, gs, props.name);
         const logicalPos = this.getPosition();
-        const pos = this.useBattlefieldVisualProjection ? projectBattlefieldPoint(logicalPos, gs) : logicalPos;
+        const pos = this.useBattlefieldVisualProjection
+            ? projectBattlefieldPoint(logicalPos, gs, (this.projectedPositionScratch ??= { x: 0, y: 0 }))
+            : logicalPos;
         // Every draw decision below is taken from the unit's own footprint rather than its square `size`,
         // which is only the art tier. They agree for every shipped creature (all 1x1 or 2x2).
         const footprintWidth = this.getFootprintWidth();
@@ -1964,11 +1972,12 @@ export class RenderableUnit extends Unit {
         const refreshedFullBodyScale = usesRefreshedFullBodyScale(props, hasAuthoredIdle);
         const baseTex = this.texResolver(texName);
         if (!baseTex) return;
+        const now = performance.now();
         // --- sprite ---
         if (!this.sprite) {
             // first time: use base texture
             this.sprite = new Sprite(baseTex);
-            this.selectionAnimationStartedAtMs = performance.now();
+            this.selectionAnimationStartedAtMs = now;
             this.sprite.anchor.set(0.5);
             this.sprite.scale.y = -1; // y-up world → flip in Pixi
             if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
@@ -1996,7 +2005,7 @@ export class RenderableUnit extends Unit {
             this.startSelectionAnimationInternal();
         }
         // Select the current idle/special texture before measuring it and applying its authored anchor.
-        this.stepSelectionAnimation();
+        this.stepSelectionAnimation(now);
         const showingOrcBattleCry =
             props.name === ORC_UNIT_NAME && this.isShowingOrcBattleCryFrame && !this.walkAnim && !this.oneShotAnim;
         const showingScavengerFlourish =
@@ -2087,29 +2096,29 @@ export class RenderableUnit extends Unit {
         // The bottom anchor is the creature's foot line. Breathing stretches/compresses only the
         // vertical scale around that anchor, so the robe and torso rise while both feet stay planted.
         const orcIdleElapsedMs = this.isActiveTurn
-            ? orcActiveBattleCryBreathElapsed(performance.now() - this.activeTurnAnimationStartedAtMs)
-            : performance.now() - this.selectionAnimationStartedAtMs;
+            ? orcActiveBattleCryBreathElapsed(now - this.activeTurnAnimationStartedAtMs)
+            : now - this.selectionAnimationStartedAtMs;
         const idleOrcBreathScales =
             CREATURE_SPRITE_ANIMATION_SETTINGS.enabled &&
             !this.walkAnim &&
             !this.oneShotAnim &&
             props.name === ORC_UNIT_NAME
-                ? orcIdleBreathScalesForElapsed(orcIdleElapsedMs)
+                ? orcIdleBreathScalesForElapsed(orcIdleElapsedMs, (this.idleBreathScaleScratch ??= { x: 1, y: 1 }))
                 : undefined;
         const thiefIdleElapsedMs =
             props.name === SCAVENGER_UNIT_NAME && this.isActiveTurn
-                ? scavengerActiveBattleCryBreathElapsed(performance.now() - this.activeTurnAnimationStartedAtMs)
-                : performance.now() - this.selectionAnimationStartedAtMs;
+                ? scavengerActiveBattleCryBreathElapsed(now - this.activeTurnAnimationStartedAtMs)
+                : now - this.selectionAnimationStartedAtMs;
         const idleThiefBreathScales =
             CREATURE_SPRITE_ANIMATION_SETTINGS.enabled && !this.walkAnim && !this.oneShotAnim && usesThiefSilhouette
-                ? thiefIdleBreathScalesForElapsed(thiefIdleElapsedMs)
+                ? thiefIdleBreathScalesForElapsed(thiefIdleElapsedMs, (this.idleBreathScaleScratch ??= { x: 1, y: 1 }))
                 : undefined;
         const idleWanderingMageBreathScales =
             CREATURE_SPRITE_ANIMATION_SETTINGS.enabled &&
             !this.walkAnim &&
             !this.oneShotAnim &&
             props.name === WANDERING_MAGE_UNIT_NAME
-                ? ashMothIdleBreathScalesForElapsed(performance.now())
+                ? ashMothIdleBreathScalesForElapsed(now, (this.idleBreathScaleScratch ??= { x: 1, y: 1 }))
                 : undefined;
         const idleBreathScale =
             !this.walkAnim && !this.oneShotAnim
@@ -2142,7 +2151,7 @@ export class RenderableUnit extends Unit {
         if (this.sprite.scale.x !== directedScaleX || this.sprite.scale.y !== -renderedScaleY) {
             this.sprite.scale.set(directedScaleX, -renderedScaleY);
         }
-        this.updateCurrentRecoil();
+        this.updateCurrentRecoil(now);
         // The editor is authored on the lowest (maximum-size) row. Attenuate its cell-relative
         // placement by the same row factor as the silhouette, while the projected ground reference
         // below keeps the feet at the same proportional inset inside every painted cell.
@@ -2152,7 +2161,11 @@ export class RenderableUnit extends Unit {
               this.facingDirection *
               battlefieldPerspectiveScale
             : 0;
-        const projectedFootPosition = this.getBattlefieldGroundReference(logicalPos, gs);
+        const projectedFootPosition = this.getBattlefieldGroundReference(
+            logicalPos,
+            gs,
+            (this.groundReferenceScratch ??= { x: 0, y: 0 }),
+        );
         const spriteX =
             projectedFootPosition.x +
             authoredOffsetX +
@@ -2186,7 +2199,7 @@ export class RenderableUnit extends Unit {
         const spriteAlpha =
             this.visualMode === "ghost" ? 0.25 : this.visualMode === "revealed" ? 0.9 : normalSpriteAlpha;
         if (this.sprite.alpha !== spriteAlpha) this.sprite.alpha = spriteAlpha;
-        const spriteTint = this.currentEffectTint();
+        const spriteTint = this.currentEffectTint(now);
         if (this.sprite.tint !== spriteTint) this.sprite.tint = spriteTint;
         // "Revealed" mode (ranked placement: the opponent's known roster) draws the sprite in black &
         // white so it clearly reads as an enemy silhouette, not one of the viewer's own units.
@@ -2456,7 +2469,7 @@ export class RenderableUnit extends Unit {
         const shadowAlpha = this.visualMode === "ghost" ? 0.1 : normalShadowAlpha;
         if (this.shadow.alpha !== shadowAlpha) this.shadow.alpha = shadowAlpha;
         // --- bullet-time dodge (missed attack): offsets sprite+shadow, leans, trails ghosts ---
-        this.stepDodgeAnimation(worldRoot);
+        this.stepDodgeAnimation(worldRoot, now);
         // --- revealed-roster card (plate + name), drawn under the sprite ---
         this.ensureRosterCard(worldRoot, gs, props, logicalPos);
         // --- badge ---
@@ -2533,7 +2546,7 @@ export class RenderableUnit extends Unit {
         };
     }
     /** Exact ground reference used by both the live sprite and every movement/attack preview. */
-    private getBattlefieldGroundReference(logicalPosition: HoCMath.XY, gs: GridSettings): HoCMath.XY {
+    private getBattlefieldGroundReference(logicalPosition: HoCMath.XY, gs: GridSettings, out?: HoCMath.XY): HoCMath.XY {
         const props = this.getUnitProperties();
         const footprintWidth = this.getFootprintWidth();
         const footprintHeight = this.getFootprintHeight();
@@ -2541,17 +2554,17 @@ export class RenderableUnit extends Unit {
         const tallBoardModel = usesTallBoardModel(props, textureName, this.hasAnimationState("idle"));
         const visualProfile = refreshedBoardVisualProfileForUnit(props.name);
         if (!this.useBattlefieldVisualProjection) {
-            return {
-                x: logicalPosition.x,
-                y: tallBoardModel
-                    ? tallBoardModelFootLineY(
-                          logicalPosition.y,
-                          gs.getCellSize(),
-                          footprintHeight,
-                          visualProfile.footInsetRatio,
-                      )
-                    : logicalPosition.y,
-            };
+            const ground = out ?? { x: 0, y: 0 };
+            ground.x = logicalPosition.x;
+            ground.y = tallBoardModel
+                ? tallBoardModelFootLineY(
+                      logicalPosition.y,
+                      gs.getCellSize(),
+                      footprintHeight,
+                      visualProfile.footInsetRatio,
+                  )
+                : logicalPosition.y;
+            return ground;
         }
 
         // The foot line hangs below the footprint's centre by half the body's height, less the authored
@@ -2561,16 +2574,13 @@ export class RenderableUnit extends Unit {
         // A one-cell-tall creature always uses the same projected foot line. Historical per-creature Y
         // nudges made feet float on several different baselines; keep those profiles only for taller art.
         const authoredBattlefieldOffsetY = footprintHeight > 1 ? (visualProfile.offsetYCells ?? 0) : 0;
-        return projectBattlefieldPoint(
-            {
-                x: logicalPosition.x,
-                y:
-                    logicalPosition.y -
-                    gs.getCellSize() * battlefieldYOffsetRatio +
-                    gs.getCellSize() * authoredBattlefieldOffsetY,
-            },
-            gs,
-        );
+        const ground = out ?? { x: 0, y: 0 };
+        ground.x = logicalPosition.x;
+        ground.y =
+            logicalPosition.y -
+            gs.getCellSize() * battlefieldYOffsetRatio +
+            gs.getCellSize() * authoredBattlefieldOffsetY;
+        return projectBattlefieldPoint(ground, gs, ground);
     }
     /**
      * Apply (or clear, when strength <= 0) a light gaussian blur on the live sprite so a fast-charging
@@ -5159,10 +5169,9 @@ export class RenderableUnit extends Unit {
         const remaining = installed.filter((filter) => filter !== blur);
         sprite.filters = [blur, ...remaining];
     }
-    private stepDodgeAnimation(worldRoot: Container): void {
+    private stepDodgeAnimation(worldRoot: Container, now = performance.now()): void {
         const anim = this.dodgeAnim;
         if (!anim) return;
-        const now = performance.now();
         const t = (now - anim.startMs) / anim.durationMs;
 
         // Fade + expire the afterimage ghosts regardless of phase (they outlive the spring-back).
@@ -5261,13 +5270,13 @@ export class RenderableUnit extends Unit {
         this.recoilWindup = true;
         this.recoilDurationMs = 380;
     }
-    private updateCurrentRecoil(): void {
+    private updateCurrentRecoil(now = performance.now()): void {
         if (!this.recoilStartMs) {
             this.currentRecoilX = 0;
             this.currentRecoilY = 0;
             return;
         }
-        const t = (performance.now() - this.recoilStartMs) / this.recoilDurationMs;
+        const t = (now - this.recoilStartMs) / this.recoilDurationMs;
         if (t >= 1) {
             this.recoilStartMs = 0;
             this.currentRecoilX = 0;
@@ -5308,7 +5317,7 @@ export class RenderableUnit extends Unit {
         this.effectFlashStartMs = performance.now();
         this.effectFlashColor = 0xffd94d;
     }
-    private currentEffectTint(): number {
+    private currentEffectTint(now = performance.now()): number {
         // Frozen (Blacksmith's "Freeze" status): a persistent icy-blue cast so the unit visibly reads as
         // encased in ice, overriding any transient buff/debuff flash for as long as the freeze holds.
         if (this.hasStatusEffect("Freeze")) {
@@ -5316,7 +5325,7 @@ export class RenderableUnit extends Unit {
         }
         if (!this.effectFlashStartMs) return 0xffffff;
         const DURATION = 650;
-        const t = (performance.now() - this.effectFlashStartMs) / DURATION;
+        const t = (now - this.effectFlashStartMs) / DURATION;
         if (t >= 1) {
             this.effectFlashStartMs = 0;
             return 0xffffff;

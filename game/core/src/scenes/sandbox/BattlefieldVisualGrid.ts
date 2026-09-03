@@ -111,20 +111,6 @@ export function battlefieldVisualQuad(gs: GridSettings): Quad {
     };
 }
 
-function artworkPointToWorld(point: HoCMath.XY, gs: GridSettings): HoCMath.XY {
-    const field = BATTLEFIELD_ARTWORK.field;
-    const fieldWidth = field.bottomRight.x - field.bottomLeft.x;
-    const fieldHeight = field.bottomLeft.y - field.topLeft.y;
-    const bottomMidX = (field.bottomLeft.x + field.bottomRight.x) * 0.5;
-    const worldWidth = gs.getMaxX() - gs.getMinX();
-    const worldHeight = gs.getMaxY() - gs.getMinY();
-    const centerX = (gs.getMinX() + gs.getMaxX()) * 0.5 + worldWidth * BATTLEFIELD_HORIZONTAL_BIAS;
-    return {
-        x: centerX + ((point.x - bottomMidX) / fieldWidth) * worldWidth * BATTLEFIELD_HORIZONTAL_OVERSCAN,
-        y: gs.getMaxY() - ((point.y - field.topLeft.y) / fieldHeight) * worldHeight,
-    };
-}
-
 function worldPointToArtwork(point: HoCMath.XY, gs: GridSettings): HoCMath.XY {
     const field = BATTLEFIELD_ARTWORK.field;
     const fieldWidth = field.bottomRight.x - field.bottomLeft.x;
@@ -139,15 +125,11 @@ function worldPointToArtwork(point: HoCMath.XY, gs: GridSettings): HoCMath.XY {
     };
 }
 
-const gridSegment = (coordinate: number, count: number): { index: number; fraction: number } => {
-    if (coordinate <= 0) return { index: 0, fraction: coordinate };
-    if (coordinate >= count) return { index: count - 1, fraction: coordinate - (count - 1) };
-    const index = Math.floor(coordinate);
-    return { index, fraction: coordinate - index };
-};
-
-/** Project a square-mechanics point through the hand-traced grid painted into the floor texture. */
-export function projectBattlefieldPoint(point: HoCMath.XY, gs: GridSettings): HoCMath.XY {
+/**
+ * Project a square-mechanics point through the hand-traced grid painted into the floor texture.
+ * Callers in steady render loops may provide `out` to reuse their own point instead of allocating one.
+ */
+export function projectBattlefieldPoint(point: HoCMath.XY, gs: GridSettings, out?: HoCMath.XY): HoCMath.XY {
     const width = gs.getMaxX() - gs.getMinX();
     const height = gs.getMaxY() - gs.getMinY();
     const columnCount = BATTLEFIELD_GRID_ROWS[0].x.length - 1;
@@ -155,19 +137,28 @@ export function projectBattlefieldPoint(point: HoCMath.XY, gs: GridSettings): Ho
     const columnCoordinate = (width > 0 ? (point.x - gs.getMinX()) / width : 0) * columnCount;
     // Logical Y grows upward; artwork rows are stored downward from the top seam.
     const rowCoordinate = (1 - (height > 0 ? (point.y - gs.getMinY()) / height : 0)) * rowCount;
-    const column = gridSegment(columnCoordinate, columnCount);
-    const row = gridSegment(rowCoordinate, rowCount);
-    const right = BATTLEFIELD_GRID_ROWS[row.index];
-    const left = BATTLEFIELD_GRID_ROWS[row.index + 1];
-    const rightX = right.x[column.index] + (right.x[column.index + 1] - right.x[column.index]) * column.fraction;
-    const leftX = left.x[column.index] + (left.x[column.index + 1] - left.x[column.index]) * column.fraction;
-    return artworkPointToWorld(
-        {
-            x: rightX + (leftX - rightX) * row.fraction,
-            y: right.y + (left.y - right.y) * row.fraction,
-        },
-        gs,
-    );
+    const columnIndex =
+        columnCoordinate <= 0 ? 0 : columnCoordinate >= columnCount ? columnCount - 1 : Math.floor(columnCoordinate);
+    const columnFraction = columnCoordinate - columnIndex;
+    const rowIndex = rowCoordinate <= 0 ? 0 : rowCoordinate >= rowCount ? rowCount - 1 : Math.floor(rowCoordinate);
+    const rowFraction = rowCoordinate - rowIndex;
+    const right = BATTLEFIELD_GRID_ROWS[rowIndex];
+    const left = BATTLEFIELD_GRID_ROWS[rowIndex + 1];
+    const rightX = right.x[columnIndex] + (right.x[columnIndex + 1] - right.x[columnIndex]) * columnFraction;
+    const leftX = left.x[columnIndex] + (left.x[columnIndex + 1] - left.x[columnIndex]) * columnFraction;
+    const artworkX = rightX + (leftX - rightX) * rowFraction;
+    const artworkY = right.y + (left.y - right.y) * rowFraction;
+    const field = BATTLEFIELD_ARTWORK.field;
+    const fieldWidth = field.bottomRight.x - field.bottomLeft.x;
+    const fieldHeight = field.bottomLeft.y - field.topLeft.y;
+    const bottomMidX = (field.bottomLeft.x + field.bottomRight.x) * 0.5;
+    const worldWidth = width;
+    const worldHeight = height;
+    const centerX = (gs.getMinX() + gs.getMaxX()) * 0.5 + worldWidth * BATTLEFIELD_HORIZONTAL_BIAS;
+    const projected = out ?? { x: 0, y: 0 };
+    projected.x = centerX + ((artworkX - bottomMidX) / fieldWidth) * worldWidth * BATTLEFIELD_HORIZONTAL_OVERSCAN;
+    projected.y = gs.getMaxY() - ((artworkY - field.topLeft.y) / fieldHeight) * worldHeight;
+    return projected;
 }
 
 export type ProjectedBattlefieldMetrics = Readonly<{
