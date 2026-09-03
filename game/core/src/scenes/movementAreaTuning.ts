@@ -2,13 +2,13 @@ import { GridSettings, type HoCMath } from "@heroesofcrypto/common";
 
 export interface MovementAreaTuning {
     /** Raise only the painted top edge of the uppermost battlefield row, measured in logical cells. */
-    firstRowTopLiftCells: number;
+    readonly firstRowTopLiftCells: number;
     /** Move only the painted bottom edge of the uppermost battlefield row, measured in logical cells. */
-    firstRowBottomLiftCells: number;
+    readonly firstRowBottomLiftCells: number;
     /** Raise only the painted top edge of the second battlefield row, measured in logical cells. */
-    secondRowTopLiftCells: number;
+    readonly secondRowTopLiftCells: number;
     /** Development-only outline/fill showing the exact polygons produced by the two controls. */
-    guidesVisible: boolean;
+    readonly guidesVisible: boolean;
 }
 
 export const MOVEMENT_AREA_TUNING_STORAGE_KEY = "hoc-dev-movement-area-tuning-v2";
@@ -18,6 +18,10 @@ export const DEFAULT_MOVEMENT_AREA_TUNING: MovementAreaTuning = Object.freeze({
     firstRowBottomLiftCells: 0.04,
     secondRowTopLiftCells: 0.055,
     guidesVisible: true,
+});
+const PRODUCTION_MOVEMENT_AREA_TUNING: MovementAreaTuning = Object.freeze({
+    ...DEFAULT_MOVEMENT_AREA_TUNING,
+    guidesVisible: false,
 });
 
 const clamp = (value: unknown, fallback: number, min: number, max: number): number => {
@@ -48,6 +52,7 @@ export const normalizeMovementAreaTuning = (value?: Partial<MovementAreaTuning>)
 });
 
 let storedCache: MovementAreaTuning | undefined;
+let resolvedCache: MovementAreaTuning | undefined;
 let movementAreaEditorActive = false;
 
 export const readStoredMovementAreaTuning = (): MovementAreaTuning => {
@@ -69,6 +74,7 @@ export const readStoredMovementAreaTuning = (): MovementAreaTuning => {
 
 export const writeStoredMovementAreaTuning = (value: Partial<MovementAreaTuning>): MovementAreaTuning => {
     storedCache = normalizeMovementAreaTuning(value);
+    resolvedCache = undefined;
     if (typeof window !== "undefined" && typeof window.localStorage !== "undefined") {
         window.localStorage.setItem(MOVEMENT_AREA_TUNING_STORAGE_KEY, JSON.stringify(storedCache));
     }
@@ -77,6 +83,7 @@ export const writeStoredMovementAreaTuning = (value: Partial<MovementAreaTuning>
 
 export const resetStoredMovementAreaTuning = (): MovementAreaTuning => {
     storedCache = { ...DEFAULT_MOVEMENT_AREA_TUNING };
+    resolvedCache = undefined;
     if (typeof window !== "undefined" && typeof window.localStorage !== "undefined") {
         window.localStorage.removeItem(MOVEMENT_AREA_TUNING_STORAGE_KEY);
     }
@@ -86,9 +93,9 @@ export const resetStoredMovementAreaTuning = (): MovementAreaTuning => {
 /** Local calibration drafts must never change the production battlefield. */
 export const resolveMovementAreaTuning = (): MovementAreaTuning => {
     if (import.meta.env.PROD || import.meta.env.VITE_IS_PROD === "true") {
-        return { ...DEFAULT_MOVEMENT_AREA_TUNING, guidesVisible: false };
+        return PRODUCTION_MOVEMENT_AREA_TUNING;
     }
-    return readStoredMovementAreaTuning();
+    return (resolvedCache ??= Object.freeze(readStoredMovementAreaTuning()));
 };
 
 export const setMovementAreaEditorActive = (active: boolean): void => {

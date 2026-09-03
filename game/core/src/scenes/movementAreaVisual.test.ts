@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { GridConstants, GridSettings } from "@heroesofcrypto/common";
 
 import { projectedCellPoints } from "./sandbox/BattlefieldVisualGrid";
-import { MOVEMENT_TILE_INSET_CELLS, movementTilePolygon } from "./movementAreaVisual";
+import { MOVEMENT_TILE_INSET_CELLS, movementTilePolygon, tunedCellFillCornerPoints } from "./movementAreaVisual";
 import { normalizeMovementAreaTuning } from "./movementAreaTuning";
 
 const settings = () =>
@@ -25,6 +25,22 @@ describe("movement-area cell fill", () => {
         expect(MOVEMENT_TILE_INSET_CELLS).toBeGreaterThan(0);
         expect(movementTilePolygon(cell, gs)).toEqual(projectedCellPoints(cell, gs, MOVEMENT_TILE_INSET_CELLS));
         expect(movementTilePolygon(cell, gs)).not.toEqual(projectedCellPoints(cell, gs));
+    });
+
+    test("reuses tuned cell calculations without sharing mutable arrays", () => {
+        const gs = settings();
+        const tuning = normalizeMovementAreaTuning();
+        const first = movementTilePolygon({ x: 7, y: 8 }, gs, tuning);
+        const repeated = movementTilePolygon({ x: 7, y: 8 }, gs, tuning);
+        const corners = tunedCellFillCornerPoints({ x: 7, y: 8 }, gs, MOVEMENT_TILE_INSET_CELLS, tuning);
+        const repeatedCorners = tunedCellFillCornerPoints({ x: 7, y: 8 }, gs, MOVEMENT_TILE_INSET_CELLS, tuning);
+
+        expect(repeated).toEqual(first);
+        expect(repeated).not.toBe(first);
+        repeated[0] += 10;
+        expect(movementTilePolygon({ x: 7, y: 8 }, gs, tuning)).toEqual(first);
+        expect(repeatedCorners).toEqual(corners);
+        expect(repeatedCorners).not.toBe(corners);
     });
 
     test("raises only the top edge of either calibrated row", () => {

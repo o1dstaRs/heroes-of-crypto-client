@@ -23,6 +23,36 @@ export const movementFillAlphaForPhase = (phase: number): number => {
     return 0.065 + pulse * 0.015;
 };
 
+type TunedCellGeometryCache = {
+    readonly polygons: Map<string, number[]>;
+    readonly corners: Map<string, number[]>;
+};
+
+const MAX_CACHED_TUNED_CELLS = 1024;
+const tunedCellGeometryCaches = new WeakMap<GridSettings, WeakMap<MovementAreaTuning, TunedCellGeometryCache>>();
+
+const tunedCellGeometryCacheFor = (gs: GridSettings, tuning: MovementAreaTuning): TunedCellGeometryCache => {
+    let byTuning = tunedCellGeometryCaches.get(gs);
+    if (!byTuning) {
+        byTuning = new WeakMap();
+        tunedCellGeometryCaches.set(gs, byTuning);
+    }
+    let cache = byTuning.get(tuning);
+    if (!cache) {
+        cache = { polygons: new Map(), corners: new Map() };
+        byTuning.set(tuning, cache);
+    }
+    return cache;
+};
+
+const cacheTunedCellGeometry = (cache: Map<string, number[]>, key: string, value: number[]): void => {
+    if (cache.size >= MAX_CACHED_TUNED_CELLS) {
+        const oldest = cache.keys().next().value;
+        if (oldest !== undefined) cache.delete(oldest);
+    }
+    cache.set(key, value.slice());
+};
+
 /** The inset projected face used by every movement-range wash. */
 const tunedCellFillBounds = (
     cell: HoCMath.XY,
@@ -49,8 +79,14 @@ export function tunedCellFillPolygon(
     insetCells = 0,
     tuning: MovementAreaTuning = resolveMovementAreaTuning(),
 ): number[] {
+    const cache = tunedCellGeometryCacheFor(gs, tuning).polygons;
+    const cacheKey = `${cell.x},${cell.y},${insetCells}`;
+    const cached = cache.get(cacheKey);
+    if (cached) return cached.slice();
     const { left, bottom, right, top } = tunedCellFillBounds(cell, gs, insetCells, tuning);
-    return projectedRectPoints(left, bottom, right, top, gs);
+    const result = projectedRectPoints(left, bottom, right, top, gs);
+    cacheTunedCellGeometry(cache, cacheKey, result);
+    return result;
 }
 
 /** Stable four corners for meshes/boundary accents that cannot consume the polygon's projection samples. */
@@ -60,12 +96,16 @@ export function tunedCellFillCornerPoints(
     insetCells = 0,
     tuning: MovementAreaTuning = resolveMovementAreaTuning(),
 ): number[] {
+    const cache = tunedCellGeometryCacheFor(gs, tuning).corners;
+    const cacheKey = `${cell.x},${cell.y},${insetCells}`;
+    const cached = cache.get(cacheKey);
+    if (cached) return cached.slice();
     const { left, bottom, right, top } = tunedCellFillBounds(cell, gs, insetCells, tuning);
     const bottomLeft = projectBattlefieldPoint({ x: left, y: bottom }, gs);
     const bottomRight = projectBattlefieldPoint({ x: right, y: bottom }, gs);
     const topRight = projectBattlefieldPoint({ x: right, y: top }, gs);
     const topLeft = projectBattlefieldPoint({ x: left, y: top }, gs);
-    return [
+    const result = [
         bottomLeft.x,
         bottomLeft.y,
         bottomRight.x,
@@ -77,6 +117,8 @@ export function tunedCellFillCornerPoints(
         bottomLeft.x,
         bottomLeft.y,
     ];
+    cacheTunedCellGeometry(cache, cacheKey, result);
+    return result;
 }
 
 export function movementTilePolygon(

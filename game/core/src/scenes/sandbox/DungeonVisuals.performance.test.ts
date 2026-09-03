@@ -11,6 +11,7 @@ import {
     setLavaAnimationEditorActive,
     type LavaAnimationTuning,
 } from "./lavaAnimationTuning";
+import { resolveMovementAreaTuning } from "../movementAreaTuning";
 
 if (!("document" in globalThis)) {
     (globalThis as { document?: unknown }).document = {
@@ -87,6 +88,7 @@ describe("dungeon visual allocation", () => {
         expect(resolveAmbientFireTuning(AMBIENT_FIRE_DEFINITIONS[0])).toBe(
             resolveAmbientFireTuning(AMBIENT_FIRE_DEFINITIONS[0]),
         );
+        expect(resolveMovementAreaTuning()).toBe(resolveMovementAreaTuning());
     });
 
     test("does not allocate the lava editor outline during normal play", () => {
