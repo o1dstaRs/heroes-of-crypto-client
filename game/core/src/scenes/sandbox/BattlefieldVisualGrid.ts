@@ -287,6 +287,9 @@ export function unprojectBattlefieldPoint(point: HoCMath.XY, gs: GridSettings): 
     };
 }
 
+const MAX_CACHED_PROJECTED_RECTS = 512;
+const projectedRectCaches = new WeakMap<GridSettings, Map<string, number[]>>();
+
 export function projectedRectPoints(
     left: number,
     bottom: number,
@@ -294,7 +297,16 @@ export function projectedRectPoints(
     top: number,
     gs: GridSettings,
 ): number[] {
-    return projectedPolyline(
+    let cache = projectedRectCaches.get(gs);
+    if (!cache) {
+        cache = new Map();
+        projectedRectCaches.set(gs, cache);
+    }
+    const cacheKey = `${left},${bottom},${right},${top}`;
+    const cached = cache.get(cacheKey);
+    if (cached) return cached.slice();
+
+    const result = projectedPolyline(
         [
             { x: left, y: bottom },
             { x: right, y: bottom },
@@ -304,14 +316,38 @@ export function projectedRectPoints(
         ],
         gs,
     );
+    if (cache.size >= MAX_CACHED_PROJECTED_RECTS) {
+        const oldest = cache.keys().next().value;
+        if (oldest !== undefined) cache.delete(oldest);
+    }
+    cache.set(cacheKey, result.slice());
+    return result;
 }
 
+const MAX_CACHED_PROJECTED_CELLS = 1024;
+const projectedCellCaches = new WeakMap<GridSettings, Map<string, number[]>>();
+
 export function projectedCellPoints(cell: HoCMath.XY, gs: GridSettings, insetCells = 0): number[] {
+    let cache = projectedCellCaches.get(gs);
+    if (!cache) {
+        cache = new Map();
+        projectedCellCaches.set(gs, cache);
+    }
+    const cacheKey = `${cell.x},${cell.y},${insetCells}`;
+    const cached = cache.get(cacheKey);
+    if (cached) return cached.slice();
+
     const step = gs.getStep();
     const inset = Math.max(0, Math.min(0.49, insetCells)) * step;
     const left = gs.getMinX() + cell.x * step + inset;
     const bottom = gs.getMinY() + cell.y * step + inset;
-    return projectedRectPoints(left, bottom, left + step - inset * 2, bottom + step - inset * 2, gs);
+    const result = projectedRectPoints(left, bottom, left + step - inset * 2, bottom + step - inset * 2, gs);
+    if (cache.size >= MAX_CACHED_PROJECTED_CELLS) {
+        const oldest = cache.keys().next().value;
+        if (oldest !== undefined) cache.delete(oldest);
+    }
+    cache.set(cacheKey, result.slice());
+    return result;
 }
 
 type ProjectedPolylineCache = {

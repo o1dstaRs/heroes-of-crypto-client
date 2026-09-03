@@ -13,6 +13,7 @@ import {
     projectedBattlefieldMetricsAtPoint,
     projectedCellPoints,
     projectedPolyline,
+    projectedRectPoints,
     projectedRangeAttackCellSideCenter,
     rangeAttackCellSideCenter,
     unprojectBattlefieldPoint,
@@ -74,6 +75,28 @@ describe("battlefield visual grid", () => {
                 .flat()
                 .every((polygon) => polygon.length >= 10 && polygon.length % 2 === 0 && polygon.every(Number.isFinite)),
         ).toBe(true);
+    });
+
+    test("reuses projected cell calculations without sharing mutable arrays", () => {
+        const gs = settings();
+        const first = projectedCellPoints({ x: 5, y: 7 }, gs, 0.03);
+        const repeated = projectedCellPoints({ x: 5, y: 7 }, gs, 0.03);
+
+        expect(repeated).toEqual(first);
+        expect(repeated).not.toBe(first);
+        repeated[0] += 10;
+        expect(projectedCellPoints({ x: 5, y: 7 }, gs, 0.03)).toEqual(first);
+    });
+
+    test("reuses projected rectangle calculations without sharing mutable arrays", () => {
+        const gs = settings();
+        const first = projectedRectPoints(100, 200, 500, 600, gs);
+        const repeated = projectedRectPoints(100, 200, 500, 600, gs);
+
+        expect(repeated).toEqual(first);
+        expect(repeated).not.toBe(first);
+        repeated[0] += 10;
+        expect(projectedRectPoints(100, 200, 500, 600, gs)).toEqual(first);
     });
 
     test("maps every painted cell centre back to its logical placement cell", () => {
