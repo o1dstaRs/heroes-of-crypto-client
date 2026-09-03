@@ -2341,6 +2341,26 @@ describe("RenderableUnit steady-state overlays", () => {
         expect(clearCounts).toEqual({ flag: 0, header: 0, glow: 0, pointer: 0 });
     });
 
+    test("updates an inactive flag at its own lower visual cadence", () => {
+        const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
+        unit.setPosition(0, 1024);
+        const worldRoot = new Container();
+        unit.ensureVisual(worldRoot, gridSettings, 100);
+
+        const flag = (unit as unknown as OverlayInternals).badgeFlag!;
+        const originalClear = flag.clear.bind(flag);
+        let clearCount = 0;
+        flag.clear = () => {
+            clearCount++;
+            return originalClear();
+        };
+
+        unit.ensureVisual(worldRoot, gridSettings, 110);
+        expect(clearCount).toBe(0);
+        unit.ensureVisual(worldRoot, gridSettings, 151);
+        expect(clearCount).toBe(1);
+    });
+
     test("shows Whirlpool from both the Sandbox debuff object and Ranked's authoritative display status", () => {
         const sandboxUnit = createRenderableUnit(TeamVals.LEFT, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
         sandboxUnit.setPosition(0, 1024);

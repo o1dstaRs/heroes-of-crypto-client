@@ -1114,6 +1114,7 @@ const ACTIVE_TURN_FIRE_FRAME_SIZE = 192;
 const ACTIVE_TURN_FIRE_COLS = 8;
 const ACTIVE_TURN_FIRE_FRAME_COUNT = 64;
 const ACTIVE_TURN_FIRE_FRAME_MS = 1000 / 18;
+const BADGE_FLAG_WAVE_FRAME_MS = 1000 / 20;
 // OPTIONAL lookup on purpose: the effect below is disabled and its 500 KB atlas lives in the
 // review-source Google Drive staging area (over the 120 KB static-image ceiling), so the generated image
 // manifest does not carry the key. A typed property access here made the whole client build demand
@@ -1582,6 +1583,7 @@ export class RenderableUnit extends Unit {
     private badgeFlagXs?: number[];
     private badgeFlagTopY?: number[];
     private badgeFlagBottomY?: number[];
+    private badgeFlagWaveFrame = -1;
     private stackPowerContainer?: Container;
     private stackPowerPips: Graphics[] = [];
     private stackPowerDrawState?: StackPowerDrawState;
@@ -1765,6 +1767,7 @@ export class RenderableUnit extends Unit {
         ru.badgeFlagXs = undefined;
         ru.badgeFlagTopY = undefined;
         ru.badgeFlagBottomY = undefined;
+        ru.badgeFlagWaveFrame = -1;
         ru.battlefieldFramingChangeListener = undefined;
         ru.battlefieldFramingWorldRoot = undefined;
         ru.battlefieldFramingGridSettings = undefined;
@@ -4815,8 +4818,12 @@ export class RenderableUnit extends Unit {
         if (flag.rotation !== BATTLEFIELD_FLAG_ROTATION) flag.rotation = BATTLEFIELD_FLAG_ROTATION;
         const geometry = this.badgeDrawState!.geometry;
         if (flag.x !== 0 || flag.y !== 0) flag.position.set(0, 0);
-        if (needsRedraw || !this.isActiveTurn) {
+        const visible = this.visualMode !== "hidden" && (amount > 0 || isRevealed);
+        const waveFrame = Math.floor(now / BADGE_FLAG_WAVE_FRAME_MS);
+        const advanceFlagWave = visible && !this.isActiveTurn && waveFrame !== this.badgeFlagWaveFrame;
+        if (needsRedraw || advanceFlagWave) {
             this.drawBadgeFlag(flag, flagGlow, geometry, teamColor, stackPower, now);
+            this.badgeFlagWaveFrame = waveFrame;
         }
         this.drawActiveTurnPointer(activeTurnPointer, flagGlow, geometry, needsRedraw, now);
         // The flag stays static during the active turn; only authored preview emphasis may resize it.
@@ -4848,7 +4855,6 @@ export class RenderableUnit extends Unit {
         if (container.scale.x !== renderedBadgeScale || container.scale.y !== renderedBadgeScale) {
             container.scale.set(renderedBadgeScale, renderedBadgeScale);
         }
-        const visible = this.visualMode !== "hidden" && (amount > 0 || isRevealed);
         if (container.visible !== visible) container.visible = visible;
     }
     private syncFlagStatusIcon(
