@@ -17,9 +17,13 @@ import { appendBoundedDiagnosticLine } from "../utils/boundedDiagnosticLog";
 
 export type SceneLogTeamFlagResolver = (line: string) => string;
 
+export const MAX_SCENE_LOG_LINES = 5_000;
+
 export class SceneLog implements ISceneLog {
     protected log: Denque<string>;
     protected updated: boolean;
+    /** Monotonic append cursor; unlike retained length it keeps advancing after the bounded queue is full. */
+    private totalEntries = 0;
     private teamFlagResolver?: SceneLogTeamFlagResolver;
     // When true, updateLog() (the engine/replay text channel) is a no-op. Ranked sets this so the log is
     // driven ONLY by the authoritative journal (via pushLine, which bypasses it) — otherwise the engine's
@@ -37,8 +41,7 @@ export class SceneLog implements ISceneLog {
      * resolver. Used by ranked's journal-driven log, whose lines already carry their team flag.
      */
     public pushLine(line: string): void {
-        this.log.unshift(line);
-        this.updated = true;
+        this.prependLine(line);
         // DEV-only: mirror every scene-log line into a window buffer so headless harnesses can read the
         // ranked log (e.g. count "skips turn"). Same spirit as __hocActionLog. Zero effect in prod builds.
         if (import.meta.env?.DEV && typeof window !== "undefined") {
@@ -56,6 +59,7 @@ export class SceneLog implements ISceneLog {
     }
     public clear(): void {
         this.log.clear();
+        this.totalEntries = 0;
         this.updated = true;
     }
     public getLog(): string {
@@ -71,20 +75,27 @@ export class SceneLog implements ISceneLog {
         }
         if (_newLog && _newLog.constructor === String) {
             const flag = this.teamFlagResolver ? this.teamFlagResolver(_newLog) : "";
-            this.log.unshift(flag ? `${flag} ${_newLog}` : _newLog);
-            this.updated = true;
+            this.prependLine(flag ? `${flag} ${_newLog}` : _newLog);
         }
     }
     public hasBeenUpdated(): boolean {
         return this.updated;
     }
     public getLogSize(): number {
-        return this.log.length;
+        return this.totalEntries;
     }
-    /** Returns the entries added since the log had `previousSize` items (newest first). */
+    /** Returns the retained entries added since `previousSize` was captured (newest first). */
     public getEntriesSince(previousSize: number): string[] {
-        const added = this.log.length - previousSize;
+        const added = this.totalEntries - previousSize;
         if (added <= 0) return [];
-        return this.log.toArray().slice(0, added);
+        return this.log.toArray().slice(0, Math.min(added, this.log.length));
+    }
+    private prependLine(line: string): void {
+        this.log.unshift(line);
+        this.totalEntries += 1;
+        if (this.log.length > MAX_SCENE_LOG_LINES) {
+            this.log.pop();
+        }
+        this.updated = true;
     }
 }
