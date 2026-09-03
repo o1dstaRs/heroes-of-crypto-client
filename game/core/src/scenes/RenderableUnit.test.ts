@@ -193,6 +193,21 @@ describe("battlefield movement preview", () => {
         expect(preview?.y).toBeCloseTo(destinationSprite?.y ?? 0);
     });
 
+    assetTest("reuses its transient movement-preview geometry", () => {
+        const unit = createRenderableUnit(TeamVals.RIGHT, "Nature", "Wolf", "wolf_512", () => Texture.WHITE);
+        unit.setPosition(384, 640);
+        unit.setBattlefieldVisualProjection(true);
+        const root = new Container();
+        unit.ensureVisual(root, gridSettings);
+
+        const first = unit.getBattlefieldPreviewAt({ x: 640, y: 896 }, gridSettings);
+        const firstX = first?.x;
+        const second = unit.getBattlefieldPreviewAt({ x: 896, y: 1024 }, gridSettings);
+
+        expect(second).toBe(first);
+        expect(second?.x).not.toBe(firstX);
+    });
+
     assetTest("reuses depth-sort geometry while updating its live values", () => {
         const unit = createRenderableUnit(TeamVals.RIGHT, "Nature", "Wolf", "wolf_512", () => Texture.WHITE);
         unit.setPosition(384, 640);

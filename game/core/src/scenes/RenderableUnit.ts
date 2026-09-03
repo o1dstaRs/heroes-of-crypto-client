@@ -1767,6 +1767,9 @@ export class RenderableUnit extends Unit {
     private inheritedScaleScratch?: HoCMath.XY;
     private projectedPositionScratch?: HoCMath.XY;
     private groundReferenceScratch?: HoCMath.XY;
+    private previewCurrentGroundScratch?: HoCMath.XY;
+    private previewDestinationGroundScratch?: HoCMath.XY;
+    private battlefieldPreviewScratch?: BattlefieldUnitPreview;
     private idleBreathScaleScratch?: HoCMath.XY;
     private badgeScreenAnchor?: Point;
     private badgeLocalAnchor?: Point;
@@ -1946,6 +1949,9 @@ export class RenderableUnit extends Unit {
         ru.inheritedScaleScratch = undefined;
         ru.projectedPositionScratch = undefined;
         ru.groundReferenceScratch = undefined;
+        ru.previewCurrentGroundScratch = undefined;
+        ru.previewDestinationGroundScratch = undefined;
+        ru.battlefieldPreviewScratch = undefined;
         ru.idleBreathScaleScratch = undefined;
         ru.badgeScreenAnchor = undefined;
         ru.badgeLocalAnchor = undefined;
@@ -2702,15 +2708,24 @@ export class RenderableUnit extends Unit {
      * Snapshot the live battlefield figure at another logical grid position. Movement previews use this
      * instead of rebuilding a unit from the legacy static `*_128` portrait, so refreshed idle artwork,
      * authored foot anchors, framing overrides and rectangular-board compensation remain identical to the
-     * figure that will actually move. Only the projected cell-center delta changes.
+     * figure that will actually move. Only the projected cell-center delta changes. The returned record is
+     * borrowed scratch storage and is intentionally reused; preview renderers consume it synchronously.
      */
     public getBattlefieldPreviewAt(position: HoCMath.XY, gs: GridSettings): BattlefieldUnitPreview | undefined {
         const src = this.sprite;
         if (!src || !src.texture) return undefined;
 
         const logicalPosition = this.getPosition();
-        const currentGround = this.getBattlefieldGroundReference(logicalPosition, gs);
-        const previewGround = this.getBattlefieldGroundReference(position, gs);
+        const currentGround = this.getBattlefieldGroundReference(
+            logicalPosition,
+            gs,
+            (this.previewCurrentGroundScratch ??= { x: 0, y: 0 }),
+        );
+        const previewGround = this.getBattlefieldGroundReference(
+            position,
+            gs,
+            (this.previewDestinationGroundScratch ??= { x: 0, y: 0 }),
+        );
         const footprintHeight = this.getFootprintHeight();
         const currentPerspectiveScale = this.useBattlefieldVisualProjection
             ? battlefieldCreaturePerspectiveScale(logicalPosition.y, footprintHeight, gs)
@@ -2720,16 +2735,16 @@ export class RenderableUnit extends Unit {
             : 1;
         const perspectiveRatio = previewPerspectiveScale / Math.max(0.001, currentPerspectiveScale);
 
-        return {
-            texture: src.texture,
-            anchorX: src.anchor.x,
-            anchorY: src.anchor.y,
-            scaleX: src.scale.x * perspectiveRatio,
-            scaleY: src.scale.y * perspectiveRatio,
-            x: previewGround.x + (src.x - currentGround.x) * perspectiveRatio,
-            y: previewGround.y + (src.y - currentGround.y) * perspectiveRatio,
-            rotation: src.rotation,
-        };
+        const preview = (this.battlefieldPreviewScratch ??= {} as BattlefieldUnitPreview);
+        preview.texture = src.texture;
+        preview.anchorX = src.anchor.x;
+        preview.anchorY = src.anchor.y;
+        preview.scaleX = src.scale.x * perspectiveRatio;
+        preview.scaleY = src.scale.y * perspectiveRatio;
+        preview.x = previewGround.x + (src.x - currentGround.x) * perspectiveRatio;
+        preview.y = previewGround.y + (src.y - currentGround.y) * perspectiveRatio;
+        preview.rotation = src.rotation;
+        return preview;
     }
     /** Exact ground reference used by both the live sprite and every movement/attack preview. */
     private getBattlefieldGroundReference(logicalPosition: HoCMath.XY, gs: GridSettings, out?: HoCMath.XY): HoCMath.XY {
