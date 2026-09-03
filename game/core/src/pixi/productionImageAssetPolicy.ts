@@ -48,6 +48,7 @@ const UNUSED_PRODUCTION_ASSETS = new Set([
     "deployment_frame_reference_red",
     "deployment_grid_glow_master_16x6",
     "fight_log_scrollbar_rail_gothic_v1",
+    "healer_512_head_turn_v2",
     "nature_mage_male_1_128",
     "nature_mage_male_1_512",
     "nature_mage_male_2_128",

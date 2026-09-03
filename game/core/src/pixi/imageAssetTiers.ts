@@ -21,6 +21,7 @@ const DEFERRED_REACT_OR_LEGACY_UI_ASSETS = new Set([
     "book_1024_previous",
     "chaos_512",
     "death_512",
+    "fight_log_scrollbar_thumb_gothic_v1",
     "life_512",
     "might_512",
     "nature_512",
@@ -31,6 +32,7 @@ const DEFERRED_REACT_OR_LEGACY_UI_ASSETS = new Set([
     "ui_container_frame_1_9slice",
     "ui_container_frame_2_9slice",
     "ui_outer_frame_3_9slice",
+    "x_mark_2_512",
 ]);
 
 export function isDeferredReactUiAssetKey(key: string): boolean {

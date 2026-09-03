@@ -195,10 +195,12 @@ describe("pixi texture bundle split", () => {
             "doctrine_spymaster",
             "chaos_512",
             "death_512",
+            "fight_log_scrollbar_thumb_gothic_v1",
             "life_512",
             "might_512",
             "nature_512",
             "order_512",
+            "x_mark_2_512",
         ]) {
             expect(isDeferredReactUiAssetKey(key)).toBe(true);
             expect(core[key]).toBeUndefined();
