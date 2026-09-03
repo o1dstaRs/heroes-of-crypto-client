@@ -42,6 +42,10 @@ describe("Sandbox lifecycle", () => {
         expect(step).not.toContain("for (const dyingUnit of [...this.dyingVisualUnits])");
         expect(step).not.toContain(".map((unit, stableOrder)");
         expect(step).not.toContain("const terrainCellToWorld =");
+        expect(step.match(/this\.cleanupDeadUnits\(\)/g)).toHaveLength(1);
+        expect(source).toContain("let unitsToDestroy: RenderableUnit[] | undefined");
+        expect(source).toContain("(unitsToDestroy ??= []).push");
+        expect(source).toContain("private movementGraphicsHasGeometry = false");
     });
 
     test("reuses one spellbook blur filter and destroys it with the scene", () => {

@@ -941,6 +941,8 @@ export class Sandbox extends PixiScene {
     };
     /** Reachable-cell sheet below tall terrain; rings and targeting previews stay in gameplayGraphics above it. */
     private movementGraphics?: Graphics;
+    /** Prevents invalidating an already-empty movement Graphics buffer on every idle fight tick. */
+    private movementGraphicsHasGeometry = false;
     /** Everything this scene parented to the app-owned world root; released in Destroy. */
     private readonly worldRootAttachments = new Set<Container>();
     /** Tracks whether the dynamic board-overlay buffer needs one final clear after it becomes idle. */
@@ -13730,6 +13732,7 @@ export class Sandbox extends PixiScene {
         this.attachToWorldRoot(this.shotRangeCornerContainer, 55.1);
     }
     private clearShotRangeCornerSprites(): void {
+        if (this.shotRangeCornerPool.used === 0) return;
         this.shotRangeCornerPool.used = 0;
         for (const corner of this.shotRangeCornerPool.sprites) corner.visible = false;
     }
@@ -13862,7 +13865,6 @@ export class Sandbox extends PixiScene {
                 this.dungeonVisuals.updateAtmosphereFlicker(HoCLib.getTimeMillis() / 1000);
             }
 
-            this.cleanupDeadUnits();
             if (this.fightStatsTracker.sample(this.unitsHolder.getAllUnits().values(), fightProps.getCurrentLap())) {
                 this.updateLiveFightStats();
             }
@@ -14068,10 +14070,11 @@ export class Sandbox extends PixiScene {
         }
     }
     private drawGameplayVisuals(g: Graphics): void {
-        // Movement cells have their own lower layer and are rebuilt with the rest of the dynamic overlay.
-        this.movementGraphics?.clear();
-        this.shotRangeCornerPool.used = 0;
         if (!this.hasGameplayVisuals()) {
+            if (this.movementGraphicsHasGeometry) {
+                this.movementGraphics?.clear();
+                this.movementGraphicsHasGeometry = false;
+            }
             if (this.gameplayGraphicsHasGeometry) {
                 g.clear();
                 this.gameplayGraphicsHasGeometry = false;
@@ -14083,6 +14086,10 @@ export class Sandbox extends PixiScene {
             return;
         }
 
+        // Movement cells have their own lower layer and are rebuilt with the rest of the dynamic overlay.
+        this.movementGraphics?.clear();
+        this.movementGraphicsHasGeometry = true;
+        this.shotRangeCornerPool.used = 0;
         g.clear();
         this.gameplayGraphicsHasGeometry = true;
         let sidebarUnitRanges:
@@ -15928,13 +15935,13 @@ export class Sandbox extends PixiScene {
         this.buttonManager.refreshButtons(true);
     }
     protected cleanupDeadUnits(): void {
-        const unitsToDestroy: RenderableUnit[] = [];
+        let unitsToDestroy: RenderableUnit[] | undefined;
         for (const unit of this.unitsHolder.getAllUnits().values()) {
             if (unit.getAmountAlive() <= 0) {
-                unitsToDestroy.push(unit as RenderableUnit);
+                (unitsToDestroy ??= []).push(unit as RenderableUnit);
             }
         }
-        if (unitsToDestroy.length > 0) {
+        if (unitsToDestroy) {
             console.log(`Sandbox: cleanupDeadUnits found ${unitsToDestroy.length} dead units`);
             this.destroySpecificUnits(unitsToDestroy, true, true);
         }
