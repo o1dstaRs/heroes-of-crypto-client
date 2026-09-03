@@ -166,6 +166,10 @@ export class PixiApp {
         }
         this.destroyed = true;
         this.ticker?.stop();
+        // Filter render targets live in Pixi's process-wide pool, outside Application ownership. Clear
+        // the idle pool before losing this renderer so a later game mount cannot retain buffers from the
+        // previous WebGL context (including a former fullscreen bucket).
+        TexturePool.clear();
         // pixi's GlContextSystem.destroy() (run inside app.destroy below) unconditionally calls
         // WEBGL_lose_context.loseContext(), permanently disabling this canvas's WebGL context.
         // Record the context + restore handle FIRST, so a later PixiApp.init() against the same
