@@ -726,6 +726,10 @@ export abstract class PixiScene {
         // melee cursors and AOE labels placed inside it belong to this scene; merely replacing Sandbox does
         // not otherwise touch them, so every New Battle retained another complete set.
         destroyContainerChildren(this.pixiApp.getCursorOverlayRoot());
+        // Scene-owned screen-space layers live here too. Sandbox installs both the spellbook and its
+        // interaction blocker under this app-owned container; LoadGame reuses the app, so leaving its
+        // children attached retained the complete prior spellbook after every New Battle.
+        destroyContainerChildren(this.pixiApp.getUIContainer());
         if (this.drawer) this.drawer.destroy();
     }
     // ------- Delegates from Manager -------
