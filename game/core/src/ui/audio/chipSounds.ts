@@ -10,6 +10,7 @@
 import { effectsGain } from "../../settings/audioLevels";
 
 let context: AudioContext | null = null;
+let noiseBuffer: AudioBuffer | null = null;
 
 const audioContext = (): AudioContext | null => {
     if (typeof window === "undefined") {
@@ -28,19 +29,27 @@ const audioContext = (): AudioContext | null => {
     return context;
 };
 
+const getNoiseBuffer = (ctx: AudioContext): AudioBuffer => {
+    if (noiseBuffer) {
+        return noiseBuffer;
+    }
+
+    const noiseLength = Math.floor(ctx.sampleRate * 0.05);
+    noiseBuffer = ctx.createBuffer(1, noiseLength, ctx.sampleRate);
+    const data = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < noiseLength; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (noiseLength / 6));
+    }
+    return noiseBuffer;
+};
+
 /** One chip clack at `at` seconds from now. `pitch` shifts the body resonance (raises step up). */
 const clack = (ctx: AudioContext, at: number, pitch: number, gainScale: number): void => {
     const t = ctx.currentTime + at;
 
     // The "crack": a few ms of noise through a tight band-pass.
-    const noiseLength = Math.floor(ctx.sampleRate * 0.05);
-    const buffer = ctx.createBuffer(1, noiseLength, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < noiseLength; i++) {
-        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (noiseLength / 6));
-    }
     const noise = ctx.createBufferSource();
-    noise.buffer = buffer;
+    noise.buffer = getNoiseBuffer(ctx);
     const band = ctx.createBiquadFilter();
     band.type = "bandpass";
     band.frequency.value = 2600 * pitch;
@@ -63,6 +72,16 @@ const clack = (ctx: AudioContext, at: number, pitch: number, gainScale: number):
     noise.start(t);
     osc.start(t);
     osc.stop(t + 0.12);
+    osc.addEventListener(
+        "ended",
+        () => {
+            noise.disconnect();
+            band.disconnect();
+            osc.disconnect();
+            gain.disconnect();
+        },
+        { once: true },
+    );
 };
 
 /** CALL: one solid chip hitting the felt. */

@@ -209,15 +209,25 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
     }, [isHourglass, onClick]);
 
     useEffect(() => {
-        if (iconImage === spellbookIconImage && !isDisabled && !customSpriteName) {
-            const interval = setInterval(() => {
+        if (iconImage === spellbookIconImage && isVisible && !isDisabled && !customSpriteName) {
+            let resetTimer: number | undefined;
+            const interval = window.setInterval(() => {
                 setTransfusionEffect(true);
-                setTimeout(() => setTransfusionEffect(false), 1500);
+                resetTimer = window.setTimeout(() => {
+                    resetTimer = undefined;
+                    setTransfusionEffect(false);
+                }, 1500);
             }, 4000);
-            return () => clearInterval(interval);
+            return () => {
+                window.clearInterval(interval);
+                if (resetTimer !== undefined) {
+                    window.clearTimeout(resetTimer);
+                    setTransfusionEffect(false);
+                }
+            };
         }
         return undefined;
-    }, [iconImage, isDisabled, customSpriteName]);
+    }, [customSpriteName, iconImage, isDisabled, isVisible]);
 
     if (!isVisible) {
         return null;
