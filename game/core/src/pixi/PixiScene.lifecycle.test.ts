@@ -25,6 +25,17 @@ describe("PixiScene teardown", () => {
         expect(destroy.indexOf("getUIContainer()")).toBeLessThan(destroy.indexOf("this.drawer.destroy()"));
     });
 
+    test("cancels scene-owned delayed work before tearing down Pixi resources", () => {
+        const source = readFileSync(join(import.meta.dir, "PixiScene.ts"), "utf8");
+        const destroy = source.slice(source.indexOf("public Destroy()"), source.indexOf("// ------- Delegates"));
+
+        expect(source).toContain("private readonly sc_sceneTimeouts");
+        expect(source).toContain("protected scheduleSceneTimeout(");
+        expect(source).toContain("protected delayForScene(");
+        expect(destroy).toContain("this.cancelSceneTimeouts()");
+        expect(destroy.indexOf("cancelSceneTimeouts()")).toBeLessThan(destroy.indexOf("releaseLazyTextures()"));
+    });
+
     test("releases scene-leased creature, map, effect, ability, and spell textures before persistent roots are cleared", () => {
         const source = readFileSync(join(import.meta.dir, "PixiScene.ts"), "utf8");
         const destroy = source.slice(source.indexOf("public Destroy()"), source.indexOf("// ------- Delegates"));

@@ -142,6 +142,7 @@ export const shouldDisplayAppliedBuff = (buffName: string, activeAbilityNames: r
 export abstract class PixiScene {
     private sc_sceneStarted = false;
     private sc_destroyed = false;
+    private readonly sc_sceneTimeouts = new Map<ReturnType<typeof globalThis.setTimeout>, (() => void) | undefined>();
     /** Shared return object: the 240 Hz visual path reads viewport size without creating garbage. */
     private readonly sc_viewportSize = { width: 0, height: 0 };
     private readonly sc_lazyTextureUrls = new Map<string, string>();
@@ -794,6 +795,54 @@ export abstract class PixiScene {
     public addStatistic(label: string, value: string | number | boolean): void {
         this.sc_statisticLines.push([label, `${value}`]);
     }
+    /**
+     * Keep delayed scene work tied to the scene that scheduled it. Combat chains create many short timers;
+     * without a shared owner, replacing a fight leaves their closures retaining the old board and lets them
+     * mutate already-destroyed Pixi objects when they eventually fire.
+     */
+    protected scheduleSceneTimeout(
+        callback: () => void,
+        delayMs: number,
+        onCancel?: () => void,
+    ): ReturnType<typeof globalThis.setTimeout> | undefined {
+        if (this.sc_destroyed) {
+            onCancel?.();
+            return undefined;
+        }
+        const handle = globalThis.setTimeout(
+            () => {
+                this.sc_sceneTimeouts.delete(handle);
+                if (this.sc_destroyed) {
+                    onCancel?.();
+                    return;
+                }
+                callback();
+            },
+            Math.max(0, delayMs),
+        );
+        this.sc_sceneTimeouts.set(handle, onCancel);
+        return handle;
+    }
+    protected clearSceneTimeout(handle: ReturnType<typeof globalThis.setTimeout> | undefined): void {
+        if (handle === undefined) return;
+        const onCancel = this.sc_sceneTimeouts.get(handle);
+        if (!this.sc_sceneTimeouts.delete(handle)) return;
+        globalThis.clearTimeout(handle);
+        onCancel?.();
+    }
+    protected delayForScene(delayMs: number): Promise<void> {
+        return new Promise((resolve) => {
+            this.scheduleSceneTimeout(resolve, delayMs, resolve);
+        });
+    }
+    private cancelSceneTimeouts(): void {
+        const pending = [...this.sc_sceneTimeouts];
+        this.sc_sceneTimeouts.clear();
+        for (const [handle, onCancel] of pending) {
+            globalThis.clearTimeout(handle);
+            onCancel?.();
+        }
+    }
     /** Main per-frame scene update. */
     public Step(timeStep: number): void {
         if (timeStep > 0) this.sc_stepCount.increment();
@@ -810,6 +859,7 @@ export abstract class PixiScene {
     public Destroy() {
         if (this.sc_destroyed) return;
         this.sc_destroyed = true;
+        this.cancelSceneTimeouts();
         this.releaseLazyTextures();
         this.sc_pendingLazyTextureKeys.clear();
         // The camera and world root survive scene replacement. Their filters do not: Sandbox creates

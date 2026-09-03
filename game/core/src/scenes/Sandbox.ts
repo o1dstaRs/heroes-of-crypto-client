@@ -3114,14 +3114,18 @@ export class Sandbox extends PixiScene {
         let timedOut = false;
         let hangTimer: ReturnType<typeof setTimeout> | undefined;
         const timeout = new Promise<boolean>((resolve) => {
-            hangTimer = setTimeout(() => {
-                timedOut = true;
-                this.moveAnimManager.forceFinish();
-                this.sc_isAnimating = false;
-                this.onReplayHangRecovery();
-                console.warn("[replay-watchdog] forced recovery of a hung authoritative replay");
-                resolve(false);
-            }, Sandbox.REPLAY_HANG_WATCHDOG_MS);
+            hangTimer = this.scheduleSceneTimeout(
+                () => {
+                    timedOut = true;
+                    this.moveAnimManager.forceFinish();
+                    this.sc_isAnimating = false;
+                    this.onReplayHangRecovery();
+                    console.warn("[replay-watchdog] forced recovery of a hung authoritative replay");
+                    resolve(false);
+                },
+                Sandbox.REPLAY_HANG_WATCHDOG_MS,
+                () => resolve(false),
+            );
         });
         try {
             const played = await Promise.race([this.playSandboxReplayRecord(record), timeout]);
@@ -3131,7 +3135,7 @@ export class Sandbox extends PixiScene {
             return played;
         } finally {
             if (hangTimer !== undefined) {
-                clearTimeout(hangTimer);
+                this.clearSceneTimeout(hangTimer);
             }
             this.replayPlaybackActive = priorPlaybackActive;
         }
@@ -3144,9 +3148,7 @@ export class Sandbox extends PixiScene {
         // no-op in the base sandbox
     }
     private delayReplay(ms: number): Promise<void> {
-        return new Promise((resolve) => {
-            globalThis.setTimeout(resolve, ms);
-        });
+        return this.delayForScene(ms);
     }
     private isSandboxSceneState(value: unknown): value is SandboxSceneState {
         if (!value || typeof value !== "object") {
@@ -3697,7 +3699,7 @@ export class Sandbox extends PixiScene {
             const jx = (segdx / slen) * jmag;
             const jy = (segdy / slen) * jmag;
             const arrivalMs = total > 0 ? (acc / total) * travelMs : 0;
-            setTimeout(() => unit.applyRecoil(jx, jy), Math.max(0, arrivalMs));
+            this.scheduleSceneTimeout(() => unit.applyRecoil(jx, jy), Math.max(0, arrivalMs));
         }
 
         // Wind-up spear thrust on the attacker: pull back from the target, then lunge into it. Applied
@@ -3789,7 +3791,7 @@ export class Sandbox extends PixiScene {
                 this.combatVisuals?.spawnFireBurn(position, cellSize, burn.scale);
             };
             if (delayMs > 0) {
-                setTimeout(spawn, delayMs);
+                this.scheduleSceneTimeout(spawn, delayMs);
             } else {
                 spawn();
             }
@@ -4047,7 +4049,10 @@ export class Sandbox extends PixiScene {
             // The ranged counterpart already exists as the double-shot second projectile above.
             const landedHits = attackEvent.damage.hits?.length ?? 0;
             for (let hitIndex = 1; hitIndex < landedHits; hitIndex++) {
-                setTimeout(() => this.applyReplayLunge(attacker, target), hitIndex * ATTACK_HIT_STAGGER_MS);
+                this.scheduleSceneTimeout(
+                    () => this.applyReplayLunge(attacker, target),
+                    hitIndex * ATTACK_HIT_STAGGER_MS,
+                );
             }
         }
         // Pikeman Skewer Strike: light streak through the pierced units + a wind-up thrust on the
@@ -4197,15 +4202,21 @@ export class Sandbox extends PixiScene {
     private playReplayOneShot(unit: RenderableUnit, stateName: string, timeoutMs: number): Promise<void> {
         return new Promise((resolve) => {
             let done = false;
+            let timeout: ReturnType<typeof globalThis.setTimeout> | undefined;
             const finish = (): void => {
                 if (done) {
                     return;
                 }
                 done = true;
-                clearTimeout(timeout);
+                this.clearSceneTimeout(timeout);
                 resolve();
             };
-            const timeout = setTimeout(finish, timeoutMs);
+            const cancel = (): void => {
+                if (done) return;
+                done = true;
+                resolve();
+            };
+            timeout = this.scheduleSceneTimeout(finish, timeoutMs, cancel);
             unit.playOneShotAnimation(stateName, finish);
         });
     }
@@ -4300,7 +4311,7 @@ export class Sandbox extends PixiScene {
                 this.combatVisuals.showFloatingAbsorbed(pos, entry.amount, direction, entry.unitsDied);
             };
             if (delayMs > 0) {
-                setTimeout(show, delayMs);
+                this.scheduleSceneTimeout(show, delayMs);
             } else {
                 show();
             }
@@ -4329,7 +4340,7 @@ export class Sandbox extends PixiScene {
                 this.combatVisuals.showFloatingAbsorbed(pos, entry.amount, direction);
             };
             if (delayMs > 0) {
-                setTimeout(show, delayMs);
+                this.scheduleSceneTimeout(show, delayMs);
             } else {
                 show();
             }
@@ -4402,7 +4413,7 @@ export class Sandbox extends PixiScene {
                     flagAnchor,
                 );
             } else {
-                setTimeout(
+                this.scheduleSceneTimeout(
                     () =>
                         this.combatVisuals.showFloatingDamage(
                             pos,
@@ -4461,7 +4472,7 @@ export class Sandbox extends PixiScene {
                 const sPos = sUnit ? this.offsetReplayDamagePosition(sCenter, sUnit, sDir) : sCenter;
                 const flagAnchor = sUnit?.getDamagePredictionAnchor(gs);
                 const style = this.getSecondaryDamageStyle(entry.source);
-                setTimeout(
+                this.scheduleSceneTimeout(
                     () => {
                         if (entry.source === "petrifying_gaze" && sUnit) {
                             // "Yank" the petrified unit away from the attacker, then it springs back —
@@ -4581,7 +4592,7 @@ export class Sandbox extends PixiScene {
                     return;
                 }
                 const pos = { ...spawnPos };
-                setTimeout(() => {
+                this.scheduleSceneTimeout(() => {
                     this.combatVisuals.showFloatingDamage(
                         pos,
                         hit.amount,
@@ -5146,7 +5157,7 @@ export class Sandbox extends PixiScene {
             // The per-ally results the SERVER rolled, held until the forge finishes so they read as its
             // output. Safe from the replay precisely because they are stated on the record rather than
             // re-derived — re-running the roll locally would show each player a different craft.
-            setTimeout(() => this.renderCastOutcomes(record.events), forgeMs + 80);
+            this.scheduleSceneTimeout(() => this.renderCastOutcomes(record.events), forgeMs + 80);
         } else {
             // Rune success/failure and any other stated roll; no forge to wait on.
             this.renderCastOutcomes(record.events);
@@ -5639,7 +5650,7 @@ export class Sandbox extends PixiScene {
                 utd.playOneShotAnimation("death", () => {
                     // Enter ghost mode during the wait
                     utd.setVisualGhost(true);
-                    setTimeout(() => {
+                    this.scheduleSceneTimeout(() => {
                         const currentScale = utd.getCurrentVisualScale();
                         // Exit ghost mode and start spawn animation
                         utd.setVisualGhost(false);
@@ -7702,7 +7713,7 @@ export class Sandbox extends PixiScene {
                 this.combatVisuals?.spawnCraftForge(forgePos, this.sc_sceneSettings.getGridSettings().getCellSize()) ??
                 0;
             this.cleanupAfterSpell(result.events, unitSnapshot);
-            setTimeout(() => this.renderCastOutcomes(result.events), forgeMs + 80);
+            this.scheduleSceneTimeout(() => this.renderCastOutcomes(result.events), forgeMs + 80);
             return true;
         }
         this.cleanupAfterSpell(result.events, unitSnapshot);
@@ -8212,7 +8223,7 @@ export class Sandbox extends PixiScene {
                 await this.rangedProjectiles.fireAlongPath(points, { big, chakram: true });
                 lastDir = this.chakramWorldDir(points[points.length - 2], arrival);
             } else {
-                await new Promise((resolve) => setTimeout(resolve, CHAKRAM_FLIGHTLESS_HOP_MS));
+                await this.delayForScene(CHAKRAM_FLIGHTLESS_HOP_MS);
                 if (discEnd) {
                     lastDir = this.chakramWorldDir(discEnd, arrival);
                 }
@@ -8615,7 +8626,7 @@ export class Sandbox extends PixiScene {
             if (index === 0) {
                 pop();
             } else {
-                setTimeout(pop, index * ATTACK_HIT_STAGGER_MS);
+                this.scheduleSceneTimeout(pop, index * ATTACK_HIT_STAGGER_MS);
             }
         }
     }
@@ -9900,7 +9911,7 @@ export class Sandbox extends PixiScene {
         let attackCleanupWatchdog: ReturnType<typeof setTimeout> | undefined;
         const clearAttackCleanupWatchdog = (): void => {
             if (attackCleanupWatchdog !== undefined) {
-                clearTimeout(attackCleanupWatchdog);
+                this.clearSceneTimeout(attackCleanupWatchdog);
                 attackCleanupWatchdog = undefined;
             }
         };
@@ -9913,7 +9924,7 @@ export class Sandbox extends PixiScene {
         };
         const scheduleAttackCleanupWatchdog = (): void => {
             clearAttackCleanupWatchdog();
-            attackCleanupWatchdog = setTimeout(() => {
+            attackCleanupWatchdog = this.scheduleSceneTimeout(() => {
                 if (
                     attackTurnEventsApplied ||
                     !attackActionEvents ||
@@ -10223,7 +10234,10 @@ export class Sandbox extends PixiScene {
                     if (i === 0) {
                         attacker.applyRecoil(lungeX, lungeY);
                     } else {
-                        setTimeout(() => attacker.applyRecoil(lungeX, lungeY), i * ATTACK_HIT_STAGGER_MS);
+                        this.scheduleSceneTimeout(
+                            () => attacker.applyRecoil(lungeX, lungeY),
+                            i * ATTACK_HIT_STAGGER_MS,
+                        );
                     }
                 }
 
@@ -10409,7 +10423,7 @@ export class Sandbox extends PixiScene {
                             damageFlagAnchor,
                         );
                     } else {
-                        setTimeout(() => {
+                        this.scheduleSceneTimeout(() => {
                             this.combatVisuals.showFloatingDamage(
                                 pos,
                                 dmg.amount,
@@ -10543,7 +10557,7 @@ export class Sandbox extends PixiScene {
                 if (attackerFireShield > 0) {
                     const fsPos = { ...spawnPos };
                     const fireStyle = this.getSecondaryDamageStyle("fire_shield");
-                    setTimeout(() => {
+                    this.scheduleSceneTimeout(() => {
                         this.combatVisuals.showFloatingDamage(
                             fsPos,
                             attackerFireShield,
@@ -10717,7 +10731,7 @@ export class Sandbox extends PixiScene {
                 const flagAnchor = u instanceof RenderableUnit ? u.getDamagePredictionAnchor(gs) : undefined;
 
                 if (uId === primaryVictimId) {
-                    setTimeout(() => {
+                    this.scheduleSceneTimeout(() => {
                         this.combatVisuals.showFloatingDamage(
                             spawnPos,
                             unaccountedDiff,
@@ -10779,10 +10793,14 @@ export class Sandbox extends PixiScene {
 
         if (maxDelay > 0) {
             await new Promise<void>((resolve) => {
-                setTimeout(() => {
-                    performCleanup();
-                    resolve();
-                }, maxDelay);
+                this.scheduleSceneTimeout(
+                    () => {
+                        performCleanup();
+                        resolve();
+                    },
+                    maxDelay,
+                    resolve,
+                );
             });
         } else {
             performCleanup();
@@ -15289,7 +15307,7 @@ export class Sandbox extends PixiScene {
         this.renderResurrectionVfx(event.position, event.amount);
         unit.playOneShotAnimation("death", () => {
             unit.setVisualGhost(true);
-            setTimeout(() => {
+            this.scheduleSceneTimeout(() => {
                 const currentScale = unit.getCurrentVisualScale();
                 unit.setVisualGhost(false);
                 unit.startSpawnAnimation(currentScale);

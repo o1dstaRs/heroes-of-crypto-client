@@ -22,6 +22,14 @@ describe("Sandbox lifecycle", () => {
         expect(source).toContain("private nextVisibleTurnTimerUpdateMs = 0");
     });
 
+    test("routes delayed combat work through the scene-owned timeout registry", () => {
+        expect(source).not.toMatch(/\b(?:globalThis\.)?setTimeout\(/);
+        expect(source).not.toMatch(/\b(?:globalThis\.)?clearTimeout\(/);
+        expect(source).toContain("this.scheduleSceneTimeout(");
+        expect(source).toContain("this.delayForScene(");
+        expect(source).toContain("this.clearSceneTimeout(");
+    });
+
     test("reuses one spellbook blur filter and destroys it with the scene", () => {
         const blurLifecycle = source.slice(
             source.indexOf("private setSpellBookWorldBlur("),
