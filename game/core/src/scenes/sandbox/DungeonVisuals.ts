@@ -503,6 +503,7 @@ export class DungeonVisuals {
     private dungeonOverlay?: Container;
     private holeContainer: Container;
     private bgSprite?: Sprite;
+    private backgroundTextureKey?: string;
     /** Authored transparent fire atlases aligned to the background painting in source pixels. */
     private ambientFireLayer?: Container;
     private ambientFireSprites = new Map<string, Sprite>();
@@ -2362,19 +2363,27 @@ export class DungeonVisuals {
         return DungeonVisuals.BG_KEY_CURRENT;
     }
     /** A missing optional painting must never leave the battle board transparent over the black stage. */
-    private backgroundTexture(): Texture | undefined {
-        return (
-            this.context.texAny(this.backgroundKey()) ??
-            this.context.texAny(DungeonVisuals.BG_KEY_CURRENT) ??
-            this.context.texAny(DungeonVisuals.BG_KEY_LEGACY)
-        );
+    private resolveBackgroundTexture(
+        preferredKey = this.backgroundKey(),
+    ): { key: string; texture: Texture } | undefined {
+        const preferred = this.context.texAny(preferredKey);
+        if (preferred) return { key: preferredKey, texture: preferred };
+        if (preferredKey !== DungeonVisuals.BG_KEY_CURRENT) {
+            const current = this.context.texAny(DungeonVisuals.BG_KEY_CURRENT);
+            if (current) return { key: DungeonVisuals.BG_KEY_CURRENT, texture: current };
+        }
+        if (preferredKey !== DungeonVisuals.BG_KEY_LEGACY) {
+            const legacy = this.context.texAny(DungeonVisuals.BG_KEY_LEGACY);
+            if (legacy) return { key: DungeonVisuals.BG_KEY_LEGACY, texture: legacy };
+        }
+        return undefined;
     }
     public ensureBackgroundSprite(): void {
         if (!this.bgSprite) {
-            const tex = this.backgroundTexture();
-            if (!tex) return;
+            const resolved = this.resolveBackgroundTexture();
+            if (!resolved) return;
 
-            const bg = new Sprite(tex);
+            const bg = new Sprite(resolved.texture);
             bg.anchor.set(0.5);
             // Behind every floor-only light; all remain below the world/units (camera @0).
             const stage = this.context.getStage();
@@ -2382,6 +2391,7 @@ export class DungeonVisuals {
             bg.zIndex = -20;
             stage.addChild(bg);
             this.bgSprite = bg;
+            this.backgroundTextureKey = resolved.key;
         }
 
         // Optional VFX textures can finish decoding after the floor. Retry these independently instead of
@@ -2390,6 +2400,7 @@ export class DungeonVisuals {
         this.clearExperimentalBackgroundFilters();
     }
     private ensureAmbientFireSprites(): void {
+        if (this.ambientFireSprites.size === AMBIENT_FIRE_DEFINITIONS.length) return;
         if (!this.ambientFireLayer) {
             const layer = new Container();
             layer.eventMode = "none";
@@ -2613,11 +2624,16 @@ export class DungeonVisuals {
         if (!this.bgSprite) return;
         const { width: vw, height: vh } = this.context.getViewportSize();
         const wantKey = this.backgroundKey();
-        const wantTex = this.context.texAny(wantKey) ?? this.backgroundTexture();
         let textureChanged = false;
-        if (wantTex && this.bgSprite.texture !== wantTex) {
-            this.bgSprite.texture = wantTex;
-            textureChanged = true;
+        if (this.backgroundTextureKey !== wantKey) {
+            const resolved = this.resolveBackgroundTexture(wantKey);
+            if (resolved) {
+                this.backgroundTextureKey = resolved.key;
+                if (this.bgSprite.texture !== resolved.texture) {
+                    this.bgSprite.texture = resolved.texture;
+                    textureChanged = true;
+                }
+            }
         }
 
         let layout = this.backgroundLayout;
@@ -2808,6 +2824,7 @@ export class DungeonVisuals {
         this.ambientFireBaseScaleX.clear();
         this.ambientFireGlowBaseScaleX.clear();
         this.backgroundLayout = undefined;
+        this.backgroundTextureKey = undefined;
         this.lavaAnimFrames = undefined;
         this.firePitOverlayFrames = undefined;
         this.firePitOverlayAtlas = undefined;
