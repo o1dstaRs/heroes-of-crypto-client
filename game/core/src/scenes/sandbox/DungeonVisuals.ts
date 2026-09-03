@@ -520,6 +520,7 @@ export class DungeonVisuals {
     private lavaColorTuningSignature = "";
     /** Editor-only warm spill clipped to the static pit, below fire and grate. */
     private lavaPitLight?: Graphics;
+    private lavaPitLightGeometrySignature = "";
     private lavaSplashGraphics?: Graphics;
     private lavaEditorOutline?: Graphics;
     /** Perspective-warped live lava, pinned to the four exact outer seams of its 4x4 footprint. */
@@ -1040,10 +1041,22 @@ export class DungeonVisuals {
             this.lavaPitLight = light;
         }
         const light = this.lavaPitLight;
-        light.clear();
         const intensity = tuning ? lavaPitLightIntensityAtTime(tuning, performance.now() / 1000) : 0;
         light.visible = !!tuning && intensity > 0;
         if (!tuning || !light.visible || corners.length !== 4) return;
+        // The pulse changes only opacity. Keep the ten polygon meshes intact until their actual geometry
+        // or warmth changes instead of clearing and tessellating all of them on every animation frame.
+        light.alpha = Math.min(1, intensity / 2);
+        const geometrySignature = [
+            fireCenter.x,
+            fireCenter.y,
+            tuning.pitLightRadius,
+            tuning.pitLightWarmth,
+            ...corners.flatMap((corner) => [corner.x, corner.y]),
+        ].join(":");
+        if (geometrySignature === this.lavaPitLightGeometrySignature) return;
+        this.lavaPitLightGeometrySignature = geometrySignature;
+        light.clear();
 
         const layers = 10;
         const outerColor = DungeonVisuals.mixColor(0xff2c00, 0xff7418, tuning.pitLightWarmth);
@@ -1057,7 +1070,8 @@ export class DungeonVisuals {
             ]);
             light.poly(polygon).fill({
                 color: DungeonVisuals.mixColor(outerColor, innerColor, depth),
-                alpha: Math.min(0.08, intensity * (0.012 + depth * 0.006)),
+                // Root alpha carries intensity (0..2 mapped onto 0..1), preserving the previous product.
+                alpha: 2 * (0.012 + depth * 0.006),
             });
         }
     }

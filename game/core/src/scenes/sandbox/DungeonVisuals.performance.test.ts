@@ -98,4 +98,53 @@ describe("dungeon visual allocation", () => {
         expect(clearCalls).toBe(1);
         visuals.destroy();
     });
+
+    test("retessellates the lava-pit light only when its geometry changes", () => {
+        const gridSettings = new GridSettings(
+            GridConstants.GRID_SIZE,
+            GridConstants.MAX_Y,
+            GridConstants.MIN_Y,
+            GridConstants.MAX_X,
+            GridConstants.MIN_X,
+            GridConstants.MOVEMENT_DELTA,
+            GridConstants.UNIT_SIZE_DELTA,
+        );
+        const visuals = new DungeonVisuals({
+            getStage: () => new Container(),
+            getWorldRoot: () => new Container(),
+            getViewportSize: () => ({ width: 1000, height: 1000 }),
+            getGridSettings: () => gridSettings,
+            texAny: () => Texture.WHITE,
+            attachToWorldRoot: () => undefined,
+        });
+        const internals = visuals as unknown as {
+            lavaPitLight?: Graphics;
+            updateLavaPitLight(
+                tuning: LavaAnimationTuning,
+                corners: ReadonlyArray<{ x: number; y: number }>,
+                fireCenter: { x: number; y: number },
+            ): void;
+        };
+        const corners = [
+            { x: 0, y: 100 },
+            { x: 100, y: 100 },
+            { x: 100, y: 0 },
+            { x: 0, y: 0 },
+        ];
+        const center = { x: 50, y: 50 };
+        internals.updateLavaPitLight(DEFAULT_LAVA_ANIMATION_TUNING, corners, center);
+        const light = internals.lavaPitLight!;
+        const originalClear = light.clear;
+        let clearCalls = 0;
+        light.clear = () => {
+            clearCalls++;
+            return originalClear.call(light);
+        };
+
+        internals.updateLavaPitLight(DEFAULT_LAVA_ANIMATION_TUNING, corners, center);
+        expect(clearCalls).toBe(0);
+        internals.updateLavaPitLight(DEFAULT_LAVA_ANIMATION_TUNING, corners, { x: 51, y: 50 });
+        expect(clearCalls).toBe(1);
+        visuals.destroy();
+    });
 });
