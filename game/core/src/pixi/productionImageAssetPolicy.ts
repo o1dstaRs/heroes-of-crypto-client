@@ -36,6 +36,15 @@ const UNUSED_PRODUCTION_LEGACY_UI_ASSETS = new Set([
     "stat_shot_range_gold_v2",
 ]);
 
+/** Exact orphaned/source exports with no selector or direct runtime consumer. */
+const UNUSED_PRODUCTION_ASSETS = new Set([
+    "banner_border_round_c",
+    "banner_riveted_ornaments",
+    "deployment_grid_glow_master_16x6",
+    "orc_model_full",
+    "tombstone_tiles_256_atlas",
+]);
+
 const LIVE_PRODUCTION_VERSIONED_UI_ASSETS = new Set([
     // Ranked/sandbox battle results.
     "fight_results_burnished_bronze_panel_background_v1",
@@ -100,6 +109,10 @@ export function isProductionOmittedDisabledUnitAnimationAssetKey(key: string): b
 export function isProductionOmittedEnvironmentAssetKey(key: string): boolean {
     if (key.startsWith("fire_pit_")) return !LIVE_PRODUCTION_ENVIRONMENT_ASSETS.has(key);
     return isDeferredEnvironmentAssetKey(key) && !LIVE_PRODUCTION_ENVIRONMENT_ASSETS.has(key);
+}
+
+export function isProductionOmittedUnreferencedAssetKey(key: string): boolean {
+    return UNUSED_PRODUCTION_ASSETS.has(key);
 }
 
 /** Retired UI exports with no runtime consumer; their current replacements use distinct keys. */

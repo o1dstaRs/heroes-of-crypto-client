@@ -3,6 +3,7 @@ import {
     isProductionOmittedDisabledUnitAnimationAssetKey,
     isProductionOmittedEnvironmentAssetKey,
     isProductionOmittedLegacyUiAssetKey,
+    isProductionOmittedUnreferencedAssetKey,
 } from "./productionImageAssetPolicy";
 
 describe("production creature animation policy", () => {
@@ -150,6 +151,32 @@ describe("production environment image policy", () => {
             "map_badge_lava_medallion_v1",
         ]) {
             expect(isProductionOmittedLegacyUiAssetKey(key)).toBe(true);
+        }
+    });
+});
+
+describe("production unreferenced image policy", () => {
+    test("omits exact orphaned exports while preserving their live replacements", () => {
+        for (const key of [
+            "banner_border_round_c",
+            "banner_riveted_ornaments",
+            "deployment_grid_glow_master_16x6",
+            "orc_model_full",
+            "tombstone_tiles_256_atlas",
+        ]) {
+            expect(isProductionOmittedUnreferencedAssetKey(key)).toBe(true);
+        }
+
+        for (const key of [
+            "orc_128",
+            "orc_512",
+            "orc_battlefield_side_right_final_v1",
+            "thief_model_full",
+            "cemetery_obstacles_9x_256",
+            "cemetery_obstacles_9x_256_hp",
+            "deployment_frame_reference_red",
+        ]) {
+            expect(isProductionOmittedUnreferencedAssetKey(key)).toBe(false);
         }
     });
 });

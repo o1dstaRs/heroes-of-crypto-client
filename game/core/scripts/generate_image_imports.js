@@ -12,6 +12,7 @@ const {
     isProductionOmittedDisabledUnitAnimationAssetKey,
     isProductionOmittedEnvironmentAssetKey,
     isProductionOmittedLegacyUiAssetKey,
+    isProductionOmittedUnreferencedAssetKey,
 } = require("../src/pixi/productionImageAssetPolicy.ts");
 
 const SEGMENT_NAME_TO_IMPORT_NAME = {
@@ -61,7 +62,8 @@ for (const file of files) {
                 (isProductionOmittedAssetKey(key) ||
                     isProductionOmittedDisabledUnitAnimationAssetKey(key) ||
                     isProductionOmittedEnvironmentAssetKey(key) ||
-                    isProductionOmittedLegacyUiAssetKey(key)),
+                    isProductionOmittedLegacyUiAssetKey(key) ||
+                    isProductionOmittedUnreferencedAssetKey(key)),
         });
     }
 }
