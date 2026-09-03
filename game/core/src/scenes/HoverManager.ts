@@ -1,4 +1,4 @@
-import { Assets, Sprite, Graphics, Matrix, Texture, Text, ColorMatrixFilter } from "pixi.js";
+import { Sprite, Graphics, Matrix, Texture, Text, ColorMatrixFilter } from "pixi.js";
 import {
     FightStateManager,
     IPlacement,
@@ -19,7 +19,6 @@ import { SceneSettings } from "./SceneSettings";
 import { PlacementManager } from "./PlacementManager";
 import { TextureType, unitToTextureName } from "@/pixi/PixiUnitsFactory";
 import { HOC_NUMERIC_ARIAL_FONT_FAMILY } from "../fontFamilies";
-import { images } from "../generated/image_imports";
 import { placementFootprintCandidates } from "./placementFootprintCandidates";
 import { projectBattlefieldPoint, projectedPolyline, projectedRectPoints } from "./sandbox/BattlefieldVisualGrid";
 import { placementFacingDirectionForTeam, previewPlacementFacing, type BattlefieldUnitPreview } from "./RenderableUnit";
@@ -437,6 +436,7 @@ export interface ISandboxHoverContext {
 
     // Callbacks
     texAny(name: string): Texture | undefined;
+    waitForTexture?(name: string): Promise<Texture | undefined>;
     attachToWorldRoot(obj: Sprite | Graphics | Text, zIndex: number): void;
     attachToCursorOverlay(obj: Sprite | Text, zIndex?: number): void;
     getPlacement(teamType: TeamType, placementIndex: number): IPlacement | undefined;
@@ -523,34 +523,36 @@ export class HoverManager {
         // pipeline reaches for `document` while resolving a URL, so it throws outright wherever there is no
         // DOM, and an unguarded load took the whole HoverManager down with it rather than costing a cursor
         // ornament.
-        this.loadCursorTexture(images.cursor_melee, (texture) => {
+        this.loadCursorTexture("cursor_melee", (texture) => {
             // Keep the tiny pixel-art sword crisp when it is enlarged to span a grid-cell segment.
             this.hoverAttackSwordTexture = texture;
         });
-        this.loadCursorTexture(images.range_target_arrow_v7_gold_wide_crisp, (texture) => {
+        this.loadCursorTexture("range_target_arrow_v7_gold_wide_crisp", (texture) => {
             // The high-resolution source carries its final gold/bronze palette; never recolor it at runtime.
             texture.source.scaleMode = "linear";
             this.hoverRangeTargetEdgeTexture = texture;
         });
-        this.loadCursorTexture(images.shot_trajectory_hammered_bronze_casing_sprite_v4, (texture) => {
+        this.loadCursorTexture("shot_trajectory_hammered_bronze_casing_sprite_v4", (texture) => {
             this.hoverShotHammeredBronzeCasingTexture = texture;
         });
     }
     /** Best-effort cursor art: never let a decoration failure break hover construction. */
-    private loadCursorTexture(asset: string, apply: (texture: Texture) => void): void {
-        try {
-            void Assets.load<Texture>(asset)
-                .then((texture) => {
-                    // A scene can be replaced while this optional image is still decoding. Do not let that
-                    // completion retain or mutate the retired HoverManager after its persistent layer clears.
-                    if (this.destroyed) return;
-                    texture.source.scaleMode = "nearest";
-                    apply(texture);
-                })
-                .catch(() => undefined);
-        } catch {
-            // No asset pipeline here (headless, or a environment without a DOM). Geometry is unaffected.
+    private loadCursorTexture(key: string, apply: (texture: Texture) => void): void {
+        const immediate = this.context.texAny?.(key);
+        if (immediate) {
+            immediate.source.scaleMode = "nearest";
+            apply(immediate);
+            return;
         }
+        const pending = this.context.waitForTexture?.(key);
+        if (!pending) return;
+        void pending.then((texture) => {
+            // A scene can be replaced while this optional image is still decoding. The PixiScene lease
+            // tracker evicts that late arrival; do not let it mutate the retired HoverManager either.
+            if (this.destroyed || !texture) return;
+            texture.source.scaleMode = "nearest";
+            apply(texture);
+        });
     }
     private releaseOwnedResources(): void {
         if (this.destroyed) return;
@@ -559,6 +561,9 @@ export class HoverManager {
         // Filters are independent GPU resources and Container.destroy() only detaches them.
         this.phantomGrayscaleFilter?.destroy();
         this.phantomGrayscaleFilter = undefined;
+        this.hoverAttackSwordTexture = undefined;
+        this.hoverRangeTargetEdgeTexture = undefined;
+        this.hoverShotHammeredBronzeCasingTexture = undefined;
     }
     private isGraphicsUsable(graphics?: Graphics): graphics is Graphics {
         const state = graphics as (Graphics & { destroyed?: boolean; context?: unknown }) | undefined;

@@ -27,6 +27,41 @@ test("uses the persistent cursor layer as a scene-lifetime cleanup signal", () =
     expect(filterDestroyCalls).toBe(1);
 });
 
+test("loads hover artwork through the scene lease and drops references on teardown", async () => {
+    const cursorChildren: Array<Sprite | Text> = [];
+    const requestedKeys: string[] = [];
+    const hover = new HoverManager({
+        attachToCursorOverlay: (child: Sprite | Text) => cursorChildren.push(child),
+        attachToWorldRoot: () => undefined,
+        texAny: () => undefined,
+        waitForTexture: async (key: string) => {
+            requestedKeys.push(key);
+            return Texture.WHITE;
+        },
+        getCurrentActiveUnit: () => undefined,
+    } as unknown as ISandboxHoverContext);
+    const internals = hover as unknown as {
+        hoverAttackSwordTexture?: Texture;
+        hoverRangeTargetEdgeTexture?: Texture;
+        hoverShotHammeredBronzeCasingTexture?: Texture;
+    };
+
+    await Promise.resolve();
+    expect(requestedKeys).toEqual([
+        "cursor_melee",
+        "range_target_arrow_v7_gold_wide_crisp",
+        "shot_trajectory_hammered_bronze_casing_sprite_v4",
+    ]);
+    expect(internals.hoverAttackSwordTexture).toBe(Texture.WHITE);
+    expect(internals.hoverRangeTargetEdgeTexture).toBe(Texture.WHITE);
+    expect(internals.hoverShotHammeredBronzeCasingTexture).toBe(Texture.WHITE);
+
+    cursorChildren[0].destroy();
+    expect(internals.hoverAttackSwordTexture).toBeUndefined();
+    expect(internals.hoverRangeTargetEdgeTexture).toBeUndefined();
+    expect(internals.hoverShotHammeredBronzeCasingTexture).toBeUndefined();
+});
+
 test("ignores duplicate lifecycle teardown", () => {
     const cursorChildren: Array<Sprite | Text> = [];
     const hover = new HoverManager({

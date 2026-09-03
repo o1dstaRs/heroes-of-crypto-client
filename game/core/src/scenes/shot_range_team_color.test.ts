@@ -35,7 +35,7 @@ describe("shot trajectory style validation", () => {
         expect(source).toContain('case "gold-casings"');
         expect(SHOT_CASING_SIZE_SCALE).toBe(0.93);
         expect(source).toContain("const casingLength = 22 * 1.25 * 1.15 * SHOT_CASING_SIZE_SCALE");
-        expect(source).toContain("images.shot_trajectory_hammered_bronze_casing_sprite_v4");
+        expect(source).toContain('this.loadCursorTexture("shot_trajectory_hammered_bronze_casing_sprite_v4"');
         expect(source).not.toContain("images.shot_trajectory_engraved_bronze_casing_sprite_v3");
         expect(source).not.toContain("images.shot_trajectory_dark_iron_bands_casing_sprite_v5");
         expect(source).toContain("casing = new Sprite(texture)");

@@ -1192,6 +1192,7 @@ export class Sandbox extends PixiScene {
             placementManager: this.placementManager,
             abilityFactory: this.abilityFactory,
             texAny: (name) => this.texAny(name),
+            waitForTexture: (name) => this.waitForTexture(name),
             attachToWorldRoot: (obj, z) => this.attachToWorldRoot(obj, z),
             attachToCursorOverlay: (obj, zIndex = 0) => {
                 const cursorOverlayRoot = this.pixiApp.getCursorOverlayRoot();
