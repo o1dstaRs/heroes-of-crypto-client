@@ -3616,7 +3616,7 @@ export class RenderableUnit extends Unit {
             : authoredFrameDurationMs;
         this.selectionAnimFootAnchorY = tallBoardModelFootAnchorY(props.name, "idle", meta);
         this.selectionAnimFrameIndex = -1;
-        if (props.name === ORC_UNIT_NAME) {
+        if (CREATURE_SPRITE_ANIMATION_SETTINGS.enabled && props.name === ORC_UNIT_NAME) {
             const twirlCacheKey = `${ORC_UNIT_NAME}::idle_axe_twirl`;
             const imageSrc = images[ORC_IDLE_AXE_TWIRL_IMAGE_KEY];
             const twirlFrames = cachedAtlasFrames(
@@ -3639,7 +3639,7 @@ export class RenderableUnit extends Unit {
             );
             this.orcActiveBattleCryFrames = battleCryFrames;
         }
-        if (props.name === SCAVENGER_UNIT_NAME) {
+        if (CREATURE_SPRITE_ANIMATION_SETTINGS.enabled && props.name === SCAVENGER_UNIT_NAME) {
             const bladeTwirlCacheKey = `${SCAVENGER_UNIT_NAME}::idle_blade_twirl`;
             const imageSrc = images[SCAVENGER_IDLE_BLADE_TWIRL_IMAGE_KEY];
             const bladeTwirlFrames = cachedAtlasFrames(

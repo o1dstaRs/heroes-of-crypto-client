@@ -1885,6 +1885,21 @@ describe("refreshed idle cadence and quadruped scale", () => {
         expect(walk?.frameIndex).toBe(0);
         expect(walk?.completedCycles).toBe(1);
     });
+
+    test("does not request disabled Orc flourish sheets while rendering its static cutout", () => {
+        CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
+        const requestedKeys: string[] = [];
+        const unit = createRenderableUnit(TeamVals.LEFT, "Chaos", "Orc", "orc_512", (key) => {
+            requestedKeys.push(key);
+            return Texture.WHITE;
+        });
+        unit.setPosition(0, 1024);
+        unit.ensureVisual(new Container(), gridSettings);
+
+        expect(requestedKeys).not.toContain("orc_idle_axe_twirl_atlas_quarter");
+        expect(requestedKeys).not.toContain("orc_idle_battle_cry_atlas_quarter");
+        expect(requestedKeys).toContain("orc_battlefield_side_right_final_v1");
+    });
 });
 
 describe("Scavenger thief visual replacement", () => {
