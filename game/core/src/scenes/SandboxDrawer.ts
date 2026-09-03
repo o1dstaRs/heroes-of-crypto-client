@@ -12,11 +12,19 @@ export const visibleAuraRanges = (
     ranges: readonly number[] | undefined,
     isBuff: readonly boolean[] | undefined,
     bonus: number,
-): { range: number; isBuff: boolean }[] =>
-    (ranges ?? [])
-        .map((range, i) => ({ range, isBuff: isBuff && i < isBuff.length ? isBuff[i] : true }))
-        .filter((aura) => aura.range > 0)
-        .map((aura) => ({ range: aura.range + bonus, isBuff: aura.isBuff }));
+): { range: number; isBuff: boolean }[] => {
+    const configuredRanges = ranges ?? [];
+    const visible: { range: number; isBuff: boolean }[] = [];
+    for (let index = 0; index < configuredRanges.length; index += 1) {
+        const range = configuredRanges[index];
+        if (range <= 0) continue;
+        visible.push({
+            range: range + bonus,
+            isBuff: isBuff && index < isBuff.length ? isBuff[index] : true,
+        });
+    }
+    return visible;
+};
 import { HoverManager } from "./HoverManager";
 import { PlacementManager } from "./PlacementManager";
 import { RenderableUnit } from "./RenderableUnit";
@@ -47,8 +55,12 @@ export const movementCellsOutsideUnitFootprint = (
     occupied: readonly HoCMath.XY[],
 ): HoCMath.XY[] => {
     if (!occupied.length) return [...reachable];
-    const occupiedKeys = new Set(occupied.map(movementCellKey));
-    return reachable.filter((cell) => !occupiedKeys.has(movementCellKey(cell)));
+    const occupiedKeys = occupied.map(movementCellKey);
+    const destinations: HoCMath.XY[] = [];
+    for (const cell of reachable) {
+        if (!occupiedKeys.includes(movementCellKey(cell))) destinations.push(cell);
+    }
+    return destinations;
 };
 
 export interface ShotRangeBounds {

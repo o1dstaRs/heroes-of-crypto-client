@@ -45,12 +45,16 @@ const tunedCellGeometryCacheFor = (gs: GridSettings, tuning: MovementAreaTuning)
     return cache;
 };
 
-const cacheTunedCellGeometry = (cache: Map<string, number[]>, key: string, value: number[]): void => {
+const cacheTunedCellGeometry = (cache: Map<string, number[]>, key: string, value: number[]): number[] => {
     if (cache.size >= MAX_CACHED_TUNED_CELLS) {
         const oldest = cache.keys().next().value;
         if (oldest !== undefined) cache.delete(oldest);
     }
-    cache.set(key, value.slice());
+    // Keep the one private array in the cache. Public geometry helpers clone it for callers that may
+    // edit their result, while the hot Graphics path can consume the stable coordinates without
+    // allocating another array for every highlighted cell on every animation frame.
+    cache.set(key, value);
+    return value;
 };
 
 /** The inset projected face used by every movement-range wash. */
@@ -72,6 +76,21 @@ const tunedCellFillBounds = (
     return { left, bottom, right, top };
 };
 
+const cachedTunedCellFillPolygon = (
+    cell: HoCMath.XY,
+    gs: GridSettings,
+    insetCells = 0,
+    tuning: MovementAreaTuning = resolveMovementAreaTuning(),
+): number[] => {
+    const cache = tunedCellGeometryCacheFor(gs, tuning).polygons;
+    const cacheKey = `${cell.x},${cell.y},${insetCells}`;
+    const cached = cache.get(cacheKey);
+    if (cached) return cached;
+    const { left, bottom, right, top } = tunedCellFillBounds(cell, gs, insetCells, tuning);
+    const result = projectedRectPoints(left, bottom, right, top, gs);
+    return cacheTunedCellGeometry(cache, cacheKey, result);
+};
+
 /** Shared visual-fill geometry. It changes rendering only; grid mechanics keep their regular square cells. */
 export function tunedCellFillPolygon(
     cell: HoCMath.XY,
@@ -79,14 +98,7 @@ export function tunedCellFillPolygon(
     insetCells = 0,
     tuning: MovementAreaTuning = resolveMovementAreaTuning(),
 ): number[] {
-    const cache = tunedCellGeometryCacheFor(gs, tuning).polygons;
-    const cacheKey = `${cell.x},${cell.y},${insetCells}`;
-    const cached = cache.get(cacheKey);
-    if (cached) return cached.slice();
-    const { left, bottom, right, top } = tunedCellFillBounds(cell, gs, insetCells, tuning);
-    const result = projectedRectPoints(left, bottom, right, top, gs);
-    cacheTunedCellGeometry(cache, cacheKey, result);
-    return result;
+    return cachedTunedCellFillPolygon(cell, gs, insetCells, tuning).slice();
 }
 
 /** Stable four corners for meshes/boundary accents that cannot consume the polygon's projection samples. */
@@ -117,8 +129,7 @@ export function tunedCellFillCornerPoints(
         bottomLeft.x,
         bottomLeft.y,
     ];
-    cacheTunedCellGeometry(cache, cacheKey, result);
-    return result;
+    return cacheTunedCellGeometry(cache, cacheKey, result).slice();
 }
 
 export function movementTilePolygon(
@@ -140,9 +151,10 @@ export function drawMovementArea(
 ): void {
     if (!cells.length) return;
     const alpha = movementFillAlphaForPhase(phase) * opacityScale;
+    const tuning = resolveMovementAreaTuning();
 
     for (const cell of cells) {
-        g.poly(movementTilePolygon(cell, gs)).fill({ color, alpha });
+        g.poly(cachedTunedCellFillPolygon(cell, gs, MOVEMENT_TILE_INSET_CELLS, tuning)).fill({ color, alpha });
     }
 }
 
@@ -159,7 +171,7 @@ export function drawMovementAreaCalibration(g: Graphics, gs: GridSettings): void
 
     rows.forEach((y, rowIndex) => {
         for (let x = 0; x < columnCount; x += 1) {
-            g.poly(movementTilePolygon({ x, y }, gs, tuning))
+            g.poly(cachedTunedCellFillPolygon({ x, y }, gs, MOVEMENT_TILE_INSET_CELLS, tuning))
                 .fill({ color: colors[rowIndex], alpha: 0.13 })
                 .stroke({ color: colors[rowIndex], alpha: 0.95, width: 1.5 });
         }

@@ -1650,6 +1650,8 @@ export class RenderableUnit extends Unit {
     private badgeLocalAnchor?: Point;
     /** Immutable render identity resolved once in fromBase instead of reconstructed every frame. */
     private smallTextureName = "";
+    /** The stable fallback portrait/full-body texture; lazy assets are retained only after they resolve. */
+    private baseTexture?: Texture;
     private idleAnimationStateAvailable = false;
     // "Revealed" roster marker: a translucent red cell beneath the B&W silhouette plus its name caption,
     // so the opponent's known army reads as a roster line-up rather than units already standing on the board.
@@ -1816,6 +1818,7 @@ export class RenderableUnit extends Unit {
         ru.idleBreathScaleScratch = undefined;
         ru.badgeScreenAnchor = undefined;
         ru.badgeLocalAnchor = undefined;
+        ru.baseTexture = undefined;
         const unitProperties = ru.getUnitProperties();
         const footprintWidth = ru.getFootprintWidth();
         const footprintHeight = ru.getFootprintHeight();
@@ -1998,6 +2001,12 @@ export class RenderableUnit extends Unit {
         const local = sprite.toLocal(new Point(visualPoint.x, visualPoint.y), sprite.parent);
         return sprite.getLocalBounds().containsPoint(local.x, local.y) ? sprite.zIndex : undefined;
     }
+    private resolveBaseTexture(): Texture | undefined {
+        if (this.baseTexture && !this.baseTexture.destroyed) return this.baseTexture;
+        const texture = this.texResolver(this.smallTextureName);
+        if (texture) this.baseTexture = texture;
+        return texture;
+    }
     /** Ensure sprite + badge exist and are laid out for the current unit state. */
     public ensureVisual(worldRoot: Container, gs: GridSettings, now = performance.now()): number | undefined {
         if (this.isDestroyed) return;
@@ -2015,7 +2024,7 @@ export class RenderableUnit extends Unit {
         const hasAuthoredIdle = this.idleAnimationStateAvailable;
         const tallBoardModel = usesTallBoardModel(props, texName, hasAuthoredIdle);
         const refreshedFullBodyScale = usesRefreshedFullBodyScale(props, hasAuthoredIdle);
-        const baseTex = this.texResolver(texName);
+        const baseTex = this.resolveBaseTexture();
         if (!baseTex) return;
         // --- sprite ---
         if (!this.sprite) {
@@ -3915,14 +3924,7 @@ export class RenderableUnit extends Unit {
         this.isShowingScavengerFlourishFrame = false;
         // restore original small board texture
         if (this.sprite) {
-            const props = this.getUnitProperties();
-            const texName = unitToTextureName(
-                props.name,
-                TextureType.SMALL,
-                this.getFootprintWidth(),
-                this.getFootprintHeight(),
-            );
-            const tex = this.texResolver(texName);
+            const tex = this.resolveBaseTexture();
             if (tex) this.sprite.texture = tex;
         }
     }
@@ -4298,6 +4300,7 @@ export class RenderableUnit extends Unit {
         this.selectionAnimFrameIndex = -1;
         this.isShowingOrcBattleCryFrame = false;
         this.isShowingScavengerFlourishFrame = false;
+        this.baseTexture = undefined;
     }
     public setBadgeEmphasis(scale: number, amountOverride?: number): void {
         this.badgeEmphasisScale = scale;

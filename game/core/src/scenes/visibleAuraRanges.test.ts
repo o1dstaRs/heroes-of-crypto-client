@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { visibleAuraRanges } from "./SandboxDrawer";
+import { movementCellsOutsideUnitFootprint, visibleAuraRanges } from "./SandboxDrawer";
 
 // aura_ranges is ABILITY-aligned: non-aura abilities carry 0. The "+N aura range" Might synergy must
 // widen REAL auras only — adding the bonus before dropping the zeros painted a phantom aura ring on
@@ -28,5 +28,22 @@ describe("visibleAuraRanges", () => {
             { range: 1, isBuff: false },
             { range: 1, isBuff: true },
         ]);
+    });
+});
+
+describe("movementCellsOutsideUnitFootprint", () => {
+    test("keeps reachable order while removing every occupied footprint cell", () => {
+        const reachable = [
+            { x: 1, y: 1 },
+            { x: 2, y: 1 },
+            { x: 3, y: 1 },
+        ];
+
+        expect(
+            movementCellsOutsideUnitFootprint(reachable, [
+                { x: 1, y: 1 },
+                { x: 2, y: 1 },
+            ]),
+        ).toEqual([{ x: 3, y: 1 }]);
     });
 });

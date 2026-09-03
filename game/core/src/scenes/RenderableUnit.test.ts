@@ -2255,7 +2255,25 @@ describe("RenderableUnit steady-state overlays", () => {
         stunContainer?: Container;
         respondContainer?: Container;
         whirlpoolAura?: Graphics;
+        smallTextureName: string;
     };
+
+    test("resolves its stable base texture only once across steady visual frames", () => {
+        const resolutions = new Map<string, number>();
+        const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Satyr", "satyr_512", (name) => {
+            resolutions.set(name, (resolutions.get(name) ?? 0) + 1);
+            return Texture.WHITE;
+        });
+        unit.setPosition(0, 1024);
+        const worldRoot = new Container();
+
+        unit.ensureVisual(worldRoot, gridSettings);
+        unit.ensureVisual(worldRoot, gridSettings);
+        unit.ensureVisual(worldRoot, gridSettings);
+
+        const baseKey = (unit as unknown as OverlayInternals).smallTextureName;
+        expect(resolutions.get(baseKey)).toBe(1);
+    });
 
     test("keeps the compact amount ribbon hidden with the unit and leaves the old power rail disabled", () => {
         const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
