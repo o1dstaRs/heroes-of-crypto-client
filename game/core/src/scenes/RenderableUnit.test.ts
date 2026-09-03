@@ -960,6 +960,20 @@ assetTest("plays Dryad's reversed run between one-shot turn poses", () => {
     expect(internals.walkAnim).toBeUndefined();
 });
 
+assetTest("does not repeat the idle animation pass after visual synchronization", () => {
+    const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Dryad", "dryad_512", () => Texture.WHITE);
+    unit.setPosition(0, 1024);
+    unit.ensureVisual(new Container(), gridSettings, 100);
+
+    let idleSteps = 0;
+    unit.stepSelectionAnimation = () => {
+        idleSteps += 1;
+    };
+    unit.stepSpawnAnimation(1 / 60);
+
+    expect(idleSteps).toBe(0);
+});
+
 // The authored gait metadata is committed with the client, so these timings also exercise the CI stubs.
 assetTest("plays Wolf Rider's gait between one-shot turn poses", () => {
     const unit = createRenderableUnit(TeamVals.LEFT, "Might", "Wolf Rider", "wolf_rider_512", () => Texture.WHITE);

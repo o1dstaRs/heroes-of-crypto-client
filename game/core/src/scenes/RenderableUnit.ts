@@ -3881,8 +3881,9 @@ export class RenderableUnit extends Unit {
                 this.spawnAnim = undefined;
             }
         }
-        // --- Board selection animation (always tick; wall clock inside) ---
-        this.stepSelectionAnimation();
+        // ensureVisual() already advances the authored idle/selection frame immediately before this
+        // transient-animation pass in the scene loop. Repeating it here used to read the wall clock and
+        // resolve the same texture a second time for every creature on every rendered frame.
         // --- Wandering Mage movement animation (takes precedence over idle while active) ---
         this.stepBoardWalkAnimation(dt * 1000);
         // --- One Shot animation ---
