@@ -1,7 +1,12 @@
 import { describe, expect, test } from "bun:test";
 
 import { animationAtlases } from "../generated/animation_atlases";
-import { buildUnitAnimationAtlasKeyClassifier, isUnitAnimationAtlasKey, isUnitCardImageKey } from "./unitAtlasKeys";
+import {
+    buildUnitAnimationAtlasKeyClassifier,
+    isUnitAnimationAtlasKey,
+    isUnitBoardImageKey,
+    isUnitCardImageKey,
+} from "./unitAtlasKeys";
 
 /**
  * Pins the core-vs-supplementary texture split: every UNIT atlas (all size variants) is
@@ -74,5 +79,26 @@ describe("unit animation atlas key split", () => {
 
         expect(isUnitCardImageKey("fire_pit_center_512")).toBe(false);
         expect(isUnitCardImageKey("spider_512")).toBe(false);
+    });
+});
+
+describe("legacy unit board image classification", () => {
+    test("recognizes generated chips and compatibility-only board crops", () => {
+        for (const key of [
+            "orc_128",
+            "angel_256",
+            "arachna_queen_board_256",
+            "thief_board_128",
+            "thunderbird_256_v2",
+            "phoenix_256",
+        ]) {
+            expect(isUnitBoardImageKey(key)).toBe(true);
+        }
+    });
+
+    test("does not mistake faction, spell, or status icons for creature chips", () => {
+        for (const key of ["life_128", "poison_256", "fire_wall_256", "combat_kills_skull_icon_v1"]) {
+            expect(isUnitBoardImageKey(key)).toBe(false);
+        }
     });
 });

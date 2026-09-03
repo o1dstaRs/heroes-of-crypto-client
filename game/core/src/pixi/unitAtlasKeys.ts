@@ -40,6 +40,31 @@ const generatedUnitAnimationAtlasKey = buildUnitAnimationAtlasKeyClassifier(anim
 const generatedUnitCardImageKeys = new Set(
     Object.keys(animationAtlases).map((unitName) => `${unitName.toLowerCase().replace(/\s+/g, "_")}_512`),
 );
+const generatedUnitBoardImageKeys = new Set(
+    Object.keys(animationAtlases)
+        .filter((unitName) => !NON_UNIT_ATLAS_NAMES.has(unitName))
+        .flatMap((unitName) => {
+            const slug = unitName.toLowerCase().replace(/\s+/g, "_");
+            return [`${slug}_128`, `${slug}_256`];
+        }),
+);
+const specialUnitBoardImageKeys = new Set([
+    // Runtime fallbacks/summons without a matching generated animation family.
+    "dark_champion_256",
+    "faerie_dragon_256",
+    "imp_128",
+    "phoenix_256",
+    "skeleton_128",
+    "spider_128",
+    "spider_256",
+    "zombie_128",
+    // Historical board-specific crops retained for editor and compatibility paths.
+    "arachna_queen_board_256",
+    "thief_board_128",
+    "thunderbird_256_v2",
+    "troll_board_128",
+    "wandering_mage_board_128",
+]);
 const specialUnitCardImageKeys = new Set([
     // Summons and legacy units without authored animation metadata still use their 512px card in React UI.
     "dark_champion_512",
@@ -57,6 +82,10 @@ const specialUnitCardImageKeys = new Set([
 /** Card/sidebar portraits are URL-driven UI art, not permanent Pixi board textures. */
 export const isUnitCardImageKey = (key: string): boolean =>
     generatedUnitCardImageKeys.has(key) || specialUnitCardImageKeys.has(key);
+
+/** Old board chips remain valid fallbacks, but the live roster normally uses approved full-body cutouts. */
+export const isUnitBoardImageKey = (key: string): boolean =>
+    generatedUnitBoardImageKeys.has(key) || specialUnitBoardImageKeys.has(key);
 
 // Hand-authored unit strips that intentionally live outside generated/animation_atlases.ts. Keep this
 // list beside the generated classifier so bundle routing does not mistake them for terrain/VFX.

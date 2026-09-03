@@ -1,4 +1,4 @@
-import { isUnitAnimationAtlasKey, isUnitCardImageKey } from "./unitAtlasKeys";
+import { isUnitAnimationAtlasKey, isUnitBoardImageKey, isUnitCardImageKey } from "./unitAtlasKeys";
 
 // Keep asset routing free of Pixi imports so non-renderer surfaces (notably the ranked draft) can
 // reuse the exact runtime split without pulling Pixi into their entry bundle.
@@ -141,7 +141,7 @@ export function isDeferredUnitCardAssetKey(key: string): boolean {
 }
 
 export function isLazyBattlefieldCreatureAssetKey(key: string): boolean {
-    return key === "efreet_board_128" || key.endsWith("_battlefield_side_right_final_v1");
+    return key === "efreet_board_128" || key.endsWith("_battlefield_side_right_final_v1") || isUnitBoardImageKey(key);
 }
 
 const LAZY_PROJECTILE_ASSETS = new Set([
