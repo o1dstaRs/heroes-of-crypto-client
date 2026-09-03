@@ -10,6 +10,7 @@ import {
     BlurFilter,
     ColorMatrixFilter,
     FillGradient,
+    type Filter,
 } from "pixi.js";
 import {
     Unit,
@@ -61,6 +62,48 @@ import {
 import { stunBadgeLayout } from "../ui/stunBadgeTuning";
 import { creatureHeadPriorityZone, type CreatureDepthSortCandidate } from "./battlefieldCreatureDepthSort";
 export type TexResolver = (name: string) => Texture | undefined;
+
+/**
+ * Rebuild the sprite filter list only when one of this renderer's managed filters truly changed.
+ * `undefined` means the installed array already has the desired identity/order and can stay untouched.
+ */
+export const reconcileManagedSpriteFilters = <T>(
+    installed: readonly T[],
+    retiredStyle: T | undefined,
+    retiredAlphaFill: T | undefined,
+    retiredContour: T | undefined,
+    desaturate: T | undefined,
+    alphaFill: T | undefined,
+    contour: T | undefined,
+    includeDesaturate: boolean,
+): T[] | undefined => {
+    const isManaged = (filter: T): boolean =>
+        filter === retiredStyle || filter === retiredAlphaFill || filter === retiredContour || filter === desaturate;
+    let expectedIndex = 0;
+    let matches = true;
+    const expectNext = (filter: T | undefined): void => {
+        if (filter === undefined) return;
+        if (installed[expectedIndex] !== filter) matches = false;
+        expectedIndex++;
+    };
+
+    expectNext(alphaFill);
+    expectNext(contour);
+    for (const filter of installed) {
+        if (!isManaged(filter)) expectNext(filter);
+    }
+    if (includeDesaturate) expectNext(desaturate);
+    if (matches && expectedIndex === installed.length) return undefined;
+
+    const desired: T[] = [];
+    if (alphaFill !== undefined) desired.push(alphaFill);
+    if (contour !== undefined) desired.push(contour);
+    for (const filter of installed) {
+        if (!isManaged(filter)) desired.push(filter);
+    }
+    if (includeDesaturate && desaturate !== undefined) desired.push(desaturate);
+    return desired;
+};
 
 const battlefieldShadowSegmentTextureCache = new WeakMap<Texture, readonly Texture[]>();
 
@@ -2055,28 +2098,22 @@ export class RenderableUnit extends Unit {
                       battlefieldCreatureContourOpacity(logicalPos.y, footprintHeight, gs),
                   )
                 : undefined;
-        const unmanagedFilters = (this.sprite.filters ?? []).filter(
-            (filter) =>
-                filter !== retiredBattlefieldStyleFilter &&
-                filter !== retiredBattlefieldAlphaHoleFillFilter &&
-                filter !== retiredBattlefieldContourFilter &&
-                filter !== this.desaturateFilter,
+        const installedFilters = this.sprite.filters ?? [];
+        const desiredFilters = reconcileManagedSpriteFilters<Filter>(
+            installedFilters,
+            retiredBattlefieldStyleFilter,
+            retiredBattlefieldAlphaHoleFillFilter,
+            retiredBattlefieldContourFilter,
+            this.desaturateFilter,
+            runtimeAlphaHoleFillFilter,
+            runtimeContourFilter,
+            this.visualMode === "revealed",
         );
         this.battlefieldAlphaHoleFillFilter = runtimeAlphaHoleFillFilter;
         this.battlefieldContourFilter = runtimeContourFilter;
         this.battlefieldStyleFilter = undefined;
         this.battlefieldStyleSignature = "";
-        const desiredFilters = [
-            ...(runtimeAlphaHoleFillFilter ? [runtimeAlphaHoleFillFilter] : []),
-            ...(runtimeContourFilter ? [runtimeContourFilter] : []),
-            ...unmanagedFilters,
-            ...(this.visualMode === "revealed" && this.desaturateFilter ? [this.desaturateFilter] : []),
-        ];
-        const installedFilters = this.sprite.filters ?? [];
-        if (
-            desiredFilters.length !== installedFilters.length ||
-            desiredFilters.some((filter, index) => filter !== installedFilters[index])
-        ) {
+        if (desiredFilters) {
             this.sprite.filters = desiredFilters.length ? desiredFilters : null;
         }
 
