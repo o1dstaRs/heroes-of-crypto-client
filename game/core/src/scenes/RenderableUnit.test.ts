@@ -2246,6 +2246,7 @@ describe("RenderableUnit steady-state overlays", () => {
         const internals = unit as unknown as OverlayInternals;
         expect(internals.badgeFlag).toBeInstanceOf(Graphics);
         expect(internals.badgeContainer?.visible).toBe(false);
+        expect(internals.badgeFlagGlow?.filters ?? []).toHaveLength(0);
         expect(internals.stackPowerPips).toHaveLength(0);
         expect(internals.hourglassContainer).toBeUndefined();
         expect(internals.stunContainer).toBeUndefined();
@@ -2533,7 +2534,7 @@ describe("RenderableUnit filter lifecycle", () => {
 
     test("destroys every unit-owned filter when snapshot reconciliation removes the unit", () => {
         const unit = createRenderableUnit(TeamVals.RIGHT, "Nature", "Satyr", "satyr_512");
-        const destroyCalls = [0, 0, 0, 0, 0, 0];
+        const destroyCalls = [0, 0, 0, 0, 0];
         const filters = destroyCalls.map((_, index) => ({ destroy: () => destroyCalls[index]++ }));
         const internals = unit as unknown as {
             motionBlurFilter?: (typeof filters)[number];
@@ -2541,7 +2542,6 @@ describe("RenderableUnit filter lifecycle", () => {
             desaturateFilter?: (typeof filters)[number];
             battlefieldStyleFilter?: (typeof filters)[number];
             silhouetteShadowBlurFilter?: (typeof filters)[number];
-            badgeFlagGlowBlurFilter?: (typeof filters)[number];
         };
         [
             internals.motionBlurFilter,
@@ -2549,13 +2549,12 @@ describe("RenderableUnit filter lifecycle", () => {
             internals.desaturateFilter,
             internals.battlefieldStyleFilter,
             internals.silhouetteShadowBlurFilter,
-            internals.badgeFlagGlowBlurFilter,
         ] = filters;
 
         unit.destroyVisuals();
         unit.destroyVisuals();
 
-        expect(destroyCalls).toEqual([1, 1, 1, 1, 1, 1]);
+        expect(destroyCalls).toEqual([1, 1, 1, 1, 1]);
     });
 });
 

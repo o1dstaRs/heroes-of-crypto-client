@@ -1293,6 +1293,25 @@ export const ACTIVE_TURN_POINTER_SIZE_SCALE = 1.378;
 const ACTIVE_FLAG_GLOW_COLOR = 0xffd05a;
 /** Twice the previous cadence: one complete grow/shrink breath every 1.4 seconds. */
 const ACTIVE_FLAG_GLOW_SPEED = (Math.PI * 2) / 1.4;
+let sharedActiveTurnGlowBlurFilter: BlurFilter | null | undefined;
+
+/** One lazily compiled glow filter is enough because exactly one battlefield unit owns the active turn. */
+const activeTurnGlowBlurFilter = (): BlurFilter | undefined => {
+    if (sharedActiveTurnGlowBlurFilter !== undefined) return sharedActiveTurnGlowBlurFilter ?? undefined;
+    try {
+        sharedActiveTurnGlowBlurFilter = new BlurFilter({
+            strength: 2,
+            quality: 3,
+            kernelSize: 5,
+            resolution: "inherit",
+            antialias: "inherit",
+        });
+        sharedActiveTurnGlowBlurFilter.padding = 8;
+    } catch {
+        sharedActiveTurnGlowBlurFilter = null;
+    }
+    return sharedActiveTurnGlowBlurFilter ?? undefined;
+};
 /** Normalized 0..1 pulse shared by the active-turn pointer's glow and scale. */
 const activeFlagPulse = (timeSeconds: number): number => {
     const cosineBreath = 0.5 - Math.cos(timeSeconds * ACTIVE_FLAG_GLOW_SPEED) * 0.5;
@@ -1540,7 +1559,6 @@ export class RenderableUnit extends Unit {
     private badgeContainer?: Container;
     private badgeHeader?: Graphics;
     private badgeFlagGlow?: Graphics;
-    private badgeFlagGlowBlurFilter?: BlurFilter | null;
     private badgeFlag?: Graphics;
     private activeTurnPointer?: Graphics;
     private activeTurnPointerSuppressed = false;
@@ -1727,7 +1745,6 @@ export class RenderableUnit extends Unit {
         ru.badgeAmountOverride = undefined;
         ru.badgeHeader = undefined;
         ru.badgeFlagGlow = undefined;
-        ru.badgeFlagGlowBlurFilter = undefined;
         ru.activeTurnPointer = undefined;
         ru.activeTurnPointerSuppressed = false;
         ru.badgeDrawState = undefined;
@@ -4105,13 +4122,11 @@ export class RenderableUnit extends Unit {
         this.desaturateFilter?.destroy();
         this.battlefieldStyleFilter?.destroy();
         this.silhouetteShadowBlurFilter?.destroy();
-        this.badgeFlagGlowBlurFilter?.destroy();
         this.motionBlurFilter = undefined;
         this.dodgeBlurFilter = undefined;
         this.desaturateFilter = undefined;
         this.battlefieldStyleFilter = undefined;
         this.silhouetteShadowBlurFilter = undefined;
-        this.badgeFlagGlowBlurFilter = undefined;
 
         if (this.dodgeAnim) {
             for (const ghost of this.dodgeAnim.ghosts) {
@@ -4159,7 +4174,6 @@ export class RenderableUnit extends Unit {
             this.badgeContainer = undefined;
             this.badgeHeader = undefined;
             this.badgeFlagGlow = undefined;
-            this.badgeFlagGlowBlurFilter = undefined;
             this.badgeFlag = undefined;
             this.activeTurnPointer = undefined;
             this.badgeText = undefined;
@@ -4551,8 +4565,10 @@ export class RenderableUnit extends Unit {
         glow.scale.set(pointerScale);
         if (glow.alpha !== activeGlow) glow.alpha = activeGlow;
         if (!glow.visible) glow.visible = true;
-        if (this.badgeFlagGlowBlurFilter) {
-            this.badgeFlagGlowBlurFilter.strength = 1.6 + activeGlow * 1.4;
+        const blurFilter = activeTurnGlowBlurFilter();
+        if (blurFilter) {
+            if (glow.filters?.length !== 1 || glow.filters[0] !== blurFilter) glow.filters = [blurFilter];
+            blurFilter.strength = 1.6 + activeGlow * 1.4;
         }
 
         if (pointer.x !== 0 || pointer.y !== pointerY) pointer.position.set(0, pointerY);
@@ -4602,19 +4618,6 @@ export class RenderableUnit extends Unit {
             this.badgeHeader = new Graphics();
             this.badgeFlagGlow = new Graphics();
             this.badgeFlagGlow.blendMode = "add";
-            try {
-                this.badgeFlagGlowBlurFilter = new BlurFilter({
-                    strength: 2,
-                    quality: 3,
-                    kernelSize: 5,
-                    resolution: "inherit",
-                    antialias: "inherit",
-                });
-                this.badgeFlagGlowBlurFilter.padding = 8;
-                this.badgeFlagGlow.filters = [this.badgeFlagGlowBlurFilter];
-            } catch {
-                this.badgeFlagGlowBlurFilter = null;
-            }
             this.badgeFlag = new Graphics();
             this.activeTurnPointer = new Graphics();
             this.badgeText = new Text({
@@ -4651,19 +4654,6 @@ export class RenderableUnit extends Unit {
             this.badgeFlagGlow ??= new Graphics();
             this.activeTurnPointer ??= new Graphics();
             this.badgeFlagGlow.blendMode = "add";
-            try {
-                this.badgeFlagGlowBlurFilter = new BlurFilter({
-                    strength: 2,
-                    quality: 3,
-                    kernelSize: 5,
-                    resolution: "inherit",
-                    antialias: "inherit",
-                });
-                this.badgeFlagGlowBlurFilter.padding = 8;
-                this.badgeFlagGlow.filters = [this.badgeFlagGlowBlurFilter];
-            } catch {
-                this.badgeFlagGlowBlurFilter = null;
-            }
             this.badgeContainer.addChild(
                 this.badgeHeader,
                 this.badgeFlagGlow,
