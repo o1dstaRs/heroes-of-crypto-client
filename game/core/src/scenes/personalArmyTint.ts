@@ -11,7 +11,7 @@
 
 import { FillGradient } from "pixi.js";
 
-import { TeamType } from "@heroesofcrypto/common";
+import { TeamType, TeamVals } from "@heroesofcrypto/common";
 
 import {
     ARMY_COLOR_PRESETS,
@@ -38,9 +38,25 @@ interface IPersonalArmyTintState {
     viewerTeam: TeamType | undefined;
     presetId: string;
     live: boolean;
+    leftPreset: IArmyColorPreset | undefined;
+    rightPreset: IArmyColorPreset | undefined;
 }
 
 let state: IPersonalArmyTintState | undefined;
+
+const resolveTintState = (
+    viewerTeam: TeamType | undefined,
+    presetId: string,
+    live: boolean,
+): IPersonalArmyTintState => ({
+    viewerTeam,
+    presetId,
+    live,
+    // These results change only when the seat, mode, or setting changes. Cache both teams here instead of
+    // rebuilding a context object and searching the preset list several times per unit on every frame.
+    leftPreset: resolvePlayerArmyColor({ team: TeamVals.LEFT, viewerTeam, presetId, live }),
+    rightPreset: resolvePlayerArmyColor({ team: TeamVals.RIGHT, viewerTeam, presetId, live }),
+});
 
 /**
  * Whether a FillGradient can actually be built here.
@@ -57,7 +73,7 @@ export const CAN_RENDER_FLAG_GRADIENT =
     typeof document !== "undefined" && document.createElement("canvas").getContext("2d") !== null;
 
 export const setPersonalArmyTint = (viewerTeam: TeamType | undefined, live: boolean): void => {
-    state = { viewerTeam, presetId: readPlayerArmyColorId(), live };
+    state = resolveTintState(viewerTeam, readPlayerArmyColorId(), live);
 };
 
 export const clearPersonalArmyTint = (): void => {
@@ -67,7 +83,7 @@ export const clearPersonalArmyTint = (): void => {
 /** Re-read the stored preference so a change in the settings menu shows without reloading the page. */
 export const refreshPersonalArmyTint = (): void => {
     if (state) {
-        state = { ...state, presetId: readPlayerArmyColorId() };
+        state = resolveTintState(state.viewerTeam, readPlayerArmyColorId(), state.live);
     }
 };
 
@@ -84,15 +100,12 @@ export const personalArmyCssColor = (team: TeamType): string | undefined => {
 
 /** The preset to draw `team` with — the viewer's own choice, or the opponent's red — or undefined for the
  * canonical team colour. */
-export const personalArmyPresetFor = (team: TeamType): IArmyColorPreset | undefined =>
-    state === undefined
-        ? undefined
-        : resolvePlayerArmyColor({
-              team,
-              viewerTeam: state.viewerTeam,
-              presetId: state.presetId,
-              live: state.live,
-          });
+export const personalArmyPresetFor = (team: TeamType): IArmyColorPreset | undefined => {
+    if (!state) return undefined;
+    if (team === TeamVals.LEFT) return state.leftPreset;
+    if (team === TeamVals.RIGHT) return state.rightPreset;
+    return undefined;
+};
 
 /**
  * A Pixi gradient for a personally-tinted banner, cached per preset.
