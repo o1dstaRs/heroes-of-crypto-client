@@ -1981,7 +1981,7 @@ export class RenderableUnit extends Unit {
         return sprite.getLocalBounds().containsPoint(local.x, local.y) ? sprite.zIndex : undefined;
     }
     /** Ensure sprite + badge exist and are laid out for the current unit state. */
-    public ensureVisual(worldRoot: Container, gs: GridSettings): number | undefined {
+    public ensureVisual(worldRoot: Container, gs: GridSettings, now = performance.now()): number | undefined {
         if (this.isDestroyed) return;
         const props = this.getUnitProperties();
         this.watchBattlefieldCreatureFramingChanges(worldRoot, gs, props.name);
@@ -1999,7 +1999,6 @@ export class RenderableUnit extends Unit {
         const refreshedFullBodyScale = usesRefreshedFullBodyScale(props, hasAuthoredIdle);
         const baseTex = this.texResolver(texName);
         if (!baseTex) return;
-        const now = performance.now();
         // --- sprite ---
         if (!this.sprite) {
             // first time: use base texture
@@ -2817,8 +2816,13 @@ export class RenderableUnit extends Unit {
             if (this.whirlpoolAura) this.whirlpoolAura.visible = false;
             return;
         }
-        const pos = this.useBattlefieldVisualProjection ? projectBattlefieldPoint(logicalPos, gs) : logicalPos;
-        this.ensureVisual(worldRoot, gs);
+        // ensureVisual already projects this exact point for the sprite and badge. Reuse that result here
+        // instead of running the hand-traced grid projection a second time for every unit on every frame.
+        // The same timestamp also keeps every animated layer on this unit phase-locked without repeatedly
+        // consulting the browser clock.
+        const now = performance.now();
+        this.ensureVisual(worldRoot, gs, now);
+        const pos = this.useBattlefieldVisualProjection ? this.projectedPositionScratch! : logicalPos;
 
         // Update Z-Index for depth sorting
         if (this.sprite) {
@@ -2854,7 +2858,7 @@ export class RenderableUnit extends Unit {
         // SandboxDrawer range rings. Suppressed while moving/attacking so the action reads clearly.
         const showActiveAura = this.isHoverTurnAura;
         if (showActiveAura && !this.isDead()) {
-            this.updateActiveAura(worldRoot, gs, pos);
+            this.updateActiveAura(worldRoot, gs, pos, now);
         } else {
             if (this.activeAura) this.activeAura.visible = false;
             if (this.activeTurnFireSprite) this.activeTurnFireSprite.visible = false;
@@ -2870,7 +2874,7 @@ export class RenderableUnit extends Unit {
         // and completely invisible on the board. hasStatusBuff ORs both, so the ring follows the server.
         const waterShieldActive = !this.isDead() && this.hasStatusBuff("Water Shield");
         if (waterShieldActive) {
-            this.updateWaterShieldAura(worldRoot, gs, pos);
+            this.updateWaterShieldAura(worldRoot, gs, pos, now);
         } else if (this.waterShieldAura) {
             this.waterShieldAura.visible = false;
         }
@@ -2879,14 +2883,14 @@ export class RenderableUnit extends Unit {
         // authoritative status is applied, rather than guessing from a cast event that may predate a ranked
         // reconnect. hasStatusEffect reads the live object in Sandbox and applied_debuffs in Ranked.
         if (!this.isDead() && this.hasStatusEffect("Whirlpool")) {
-            this.updateWhirlpoolAura(worldRoot, gs, pos);
+            this.updateWhirlpoolAura(worldRoot, gs, pos, now);
         } else if (this.whirlpoolAura) {
             this.whirlpoolAura.visible = false;
         }
 
         // Freeze (Blacksmith's "Freeze" status): an ice crust encasing the unit, over the icy tint.
         if (!this.isDead() && this.hasStatusEffect("Freeze")) {
-            this.updateFreezeCrust(worldRoot, gs, pos);
+            this.updateFreezeCrust(worldRoot, gs, pos, now);
         } else {
             if (this.freezeCrust) this.freezeCrust.visible = false;
             if (this.freezeLight) this.freezeLight.visible = false;
@@ -2894,11 +2898,11 @@ export class RenderableUnit extends Unit {
         // The shield is permanent until it absorbs a hit, so a still-alive unit losing the buff means it
         // just broke — kick off the one-shot dissolve burst at that instant.
         if (this.waterShieldWasActive && !waterShieldActive && !this.isDead()) {
-            this.waterShieldBreakStartMs = performance.now();
+            this.waterShieldBreakStartMs = now;
         }
         this.waterShieldWasActive = waterShieldActive;
         if (this.waterShieldBreakStartMs !== undefined) {
-            this.updateWaterShieldBreak(worldRoot, gs, pos);
+            this.updateWaterShieldBreak(worldRoot, gs, pos, now);
         }
     }
     /**
@@ -2906,9 +2910,9 @@ export class RenderableUnit extends Unit {
      * light that radiate outward and fade — "waves of light" shining around it. Redrawn every
      * frame from a time-based phase so it stays smooth and never stutters.
      */
-    private updateActiveAura(worldRoot: Container, gs: GridSettings, pos: HoCMath.XY): void {
+    private updateActiveAura(worldRoot: Container, gs: GridSettings, pos: HoCMath.XY, nowMs: number): void {
         if (ACTIVE_TURN_FIRE_ENABLED) {
-            this.updateActiveTurnFire(worldRoot, gs, pos);
+            this.updateActiveTurnFire(worldRoot, gs, pos, nowMs);
         } else if (this.activeTurnFireSprite) {
             this.activeTurnFireSprite.visible = false;
         }
@@ -2933,7 +2937,7 @@ export class RenderableUnit extends Unit {
         // rectangular body: the shape follows the cells, never the creature.
         const baseRadiusX = cell * footprintEffectExtent(0.47, 0.86, footprintWidth);
         const baseRadiusY = cell * footprintEffectExtent(0.47, 0.86, footprintHeight);
-        const t = performance.now() / 1000;
+        const t = nowMs / 1000;
 
         const g = this.activeAura;
         g.clear();
@@ -2963,7 +2967,7 @@ export class RenderableUnit extends Unit {
         }
     }
     /** Lightweight transparent sprite-sheet glow for the unit whose turn is currently active. */
-    private updateActiveTurnFire(worldRoot: Container, gs: GridSettings, pos: HoCMath.XY): void {
+    private updateActiveTurnFire(worldRoot: Container, gs: GridSettings, pos: HoCMath.XY, nowMs: number): void {
         const frames = getActiveTurnFireFrames();
         if (!frames.length) return;
 
@@ -2978,7 +2982,7 @@ export class RenderableUnit extends Unit {
             worldRoot.addChild(this.activeTurnFireSprite);
         }
 
-        const frameIndex = activeTurnFireFrameForElapsed(performance.now());
+        const frameIndex = activeTurnFireFrameForElapsed(nowMs);
         if (frameIndex !== this.activeTurnFireFrameIndex) {
             this.activeTurnFireFrameIndex = frameIndex;
             this.activeTurnFireSprite.texture = frames[frameIndex];
@@ -2997,7 +3001,7 @@ export class RenderableUnit extends Unit {
      * phase. Drawn beneath the sprite like the active-turn aura; shown while the "Water Shield" buff is active
      * and hidden the moment it breaks.
      */
-    private updateWaterShieldAura(worldRoot: Container, gs: GridSettings, pos: HoCMath.XY): void {
+    private updateWaterShieldAura(worldRoot: Container, gs: GridSettings, pos: HoCMath.XY, nowMs: number): void {
         if (!this.waterShieldAura) {
             this.waterShieldAura = new Graphics();
             if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
@@ -3013,7 +3017,7 @@ export class RenderableUnit extends Unit {
         // One semi-axis per footprint side, so the ring circles the feet of a rectangular body too.
         const ringRadiusX = cell * footprintEffectExtent(0.52, 0.92, this.getFootprintWidth());
         const ringRadiusY = cell * footprintEffectExtent(0.52, 0.92, this.getFootprintHeight());
-        const t = performance.now() / 1000;
+        const t = nowMs / 1000;
         const color = 0x66ccff; // light blue
 
         const g = this.waterShieldAura;
@@ -3055,7 +3059,7 @@ export class RenderableUnit extends Unit {
      * trapped creature. Pure vector graphics keep it available in every client build without an atlas, and
      * the time-based redraw makes the water continuously churn until the authoritative debuff disappears.
      */
-    private updateWhirlpoolAura(worldRoot: Container, gs: GridSettings, pos: HoCMath.XY): void {
+    private updateWhirlpoolAura(worldRoot: Container, gs: GridSettings, pos: HoCMath.XY, nowMs: number): void {
         if (!this.whirlpoolAura) {
             this.whirlpoolAura = new Graphics();
             if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
@@ -3073,7 +3077,7 @@ export class RenderableUnit extends Unit {
         const radiusX = cell * footprintEffectExtent(0.66, 1.12, this.getFootprintWidth());
         const radiusY = cell * footprintEffectExtent(0.66, 1.12, this.getFootprintHeight());
         const squash = 0.42;
-        const time = performance.now() / 1000;
+        const time = nowMs / 1000;
         const pulse = 0.5 + 0.5 * Math.sin(time * 4.2);
         const g = this.whirlpoolAura;
         g.clear();
@@ -3127,7 +3131,7 @@ export class RenderableUnit extends Unit {
         }
     }
     /** An ice crust encasing a "Freeze"-status unit: a frosted pane with soft buildup and branching veins. */
-    private updateFreezeCrust(worldRoot: Container, gs: GridSettings, pos: HoCMath.XY): void {
+    private updateFreezeCrust(worldRoot: Container, gs: GridSettings, pos: HoCMath.XY, nowMs: number): void {
         if (!this.freezeCrust) {
             this.freezeCrust = new Graphics();
             if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
@@ -3146,7 +3150,7 @@ export class RenderableUnit extends Unit {
         const halfWidth = cell * footprintEffectExtent(0.56, 1.02, this.getFootprintWidth());
         const halfHeight = cell * footprintEffectExtent(0.56, 1.02, this.getFootprintHeight());
         const half = Math.min(halfWidth, halfHeight);
-        const t = performance.now() / 1000;
+        const t = nowMs / 1000;
         const shimmer = 0.5 + 0.5 * Math.sin(t * 1.6);
         const ice = 0xbfe8ff;
         const iceBright = 0xeaf7ff;
@@ -3286,10 +3290,10 @@ export class RenderableUnit extends Unit {
      * the ring snapping outward and thinning as it fades, and a spray of light-blue droplets flung away from
      * it. Pure vector draw driven by a time-based progress; self-clears after ~0.55s.
      */
-    private updateWaterShieldBreak(worldRoot: Container, gs: GridSettings, pos: HoCMath.XY): void {
+    private updateWaterShieldBreak(worldRoot: Container, gs: GridSettings, pos: HoCMath.XY, nowMs: number): void {
         if (this.waterShieldBreakStartMs === undefined) return;
         const DURATION_MS = 550;
-        const elapsed = performance.now() - this.waterShieldBreakStartMs;
+        const elapsed = nowMs - this.waterShieldBreakStartMs;
         if (elapsed >= DURATION_MS || this.isDead()) {
             if (this.waterShieldBreakGfx) this.waterShieldBreakGfx.visible = false;
             this.waterShieldBreakStartMs = undefined;
@@ -4428,8 +4432,9 @@ export class RenderableUnit extends Unit {
         g: BadgeFlagGeometry,
         teamColor: number,
         _stackPower: number,
+        nowMs: number,
     ): void {
-        const t = performance.now() / 1000;
+        const t = nowMs / 1000;
         const phase = this.badgeFlagPhase();
         const span = g.bannerRight - g.bannerLeft;
 
@@ -4774,7 +4779,7 @@ export class RenderableUnit extends Unit {
         const geometry = this.badgeDrawState!.geometry;
         if (flag.x !== 0 || flag.y !== 0) flag.position.set(0, 0);
         if (needsRedraw || !this.isActiveTurn) {
-            this.drawBadgeFlag(flag, flagGlow, geometry, teamColor, stackPower);
+            this.drawBadgeFlag(flag, flagGlow, geometry, teamColor, stackPower, now);
         }
         this.drawActiveTurnPointer(activeTurnPointer, flagGlow, geometry, needsRedraw, now);
         // The flag stays static during the active turn; only authored preview emphasis may resize it.
