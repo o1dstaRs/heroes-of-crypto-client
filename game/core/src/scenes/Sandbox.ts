@@ -7,6 +7,7 @@ import {
     movementCellsOutsideUnitFootprint,
     visibleAuraRanges,
     type IFootprintExtent,
+    type ShotRangeCornerSpritePool,
     type ShotRangeOverlay,
 } from "./SandboxDrawer";
 import {
@@ -931,6 +932,8 @@ export class Sandbox extends PixiScene {
     private gameplayGraphics?: Graphics;
     /** Authored bitmap corners for the shooting-range frame; kept separate from Pixi Graphics in v8. */
     private shotRangeCornerContainer?: Container;
+    /** At most three visible range frames × four corners; their sprites are reused across animation ticks. */
+    private readonly shotRangeCornerPool: ShotRangeCornerSpritePool = { sprites: [], used: 0 };
     /** Reachable-cell sheet below tall terrain; rings and targeting previews stay in gameplayGraphics above it. */
     private movementGraphics?: Graphics;
     /** Everything this scene parented to the app-owned world root; released in Destroy. */
@@ -13722,7 +13725,8 @@ export class Sandbox extends PixiScene {
         this.attachToWorldRoot(this.shotRangeCornerContainer, 55.1);
     }
     private clearShotRangeCornerSprites(): void {
-        for (const child of this.shotRangeCornerContainer?.removeChildren() ?? []) child.destroy();
+        this.shotRangeCornerPool.used = 0;
+        for (const corner of this.shotRangeCornerPool.sprites) corner.visible = false;
     }
     private hasAnySceneUnits(): boolean {
         return this.unitsHolder.getAllUnits().size > 0;
@@ -14061,7 +14065,7 @@ export class Sandbox extends PixiScene {
     private drawGameplayVisuals(g: Graphics): void {
         // Movement cells have their own lower layer and are rebuilt with the rest of the dynamic overlay.
         this.movementGraphics?.clear();
-        this.clearShotRangeCornerSprites();
+        this.shotRangeCornerPool.used = 0;
         if (!this.hasGameplayVisuals()) {
             if (this.gameplayGraphicsHasGeometry) {
                 g.clear();
@@ -14070,6 +14074,7 @@ export class Sandbox extends PixiScene {
             // This text is owned by the dynamic overlay lifecycle too; run its hide path even when
             // no geometry is necessary so a disarmed Fire Wall does not leave a stale instruction behind.
             this.updateFireWallRotateHint();
+            this.clearShotRangeCornerSprites();
             return;
         }
 
@@ -14182,10 +14187,14 @@ export class Sandbox extends PixiScene {
             enemyTurnView: this.isEnemyActiveTurn(),
             movementGraphics: this.movementGraphics,
             shotRangeCornerContainer: this.shotRangeCornerContainer,
+            shotRangeCornerPool: this.shotRangeCornerPool,
             shotRangeCornerTexture: this.texAny("shot_range_corner_aaa_v1"),
             shotRangeCornerFriendlyTexture: this.texAny("shot_range_corner_aaa_v4_green"),
             shotRangeCornerEnemyTexture: this.texAny("shot_range_corner_aaa_v4_red"),
         });
+        for (let index = this.shotRangeCornerPool.used; index < this.shotRangeCornerPool.sprites.length; index += 1) {
+            this.shotRangeCornerPool.sprites[index].visible = false;
+        }
 
         // Craft (ALLIES_AREA) aim preview: while armed, highlight the 2x2 that a click would craft.
         this.drawCraftAim(g);

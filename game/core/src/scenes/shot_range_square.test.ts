@@ -8,6 +8,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { GridConstants, GridMath, GridSettings } from "@heroesofcrypto/common";
+import { Container, Graphics, Texture } from "pixi.js";
 
 import {
     ALLY_HOVERED_SHOT_RANGE_COLOR,
@@ -254,6 +255,8 @@ describe("the full-damage shot square", () => {
         const source = readFileSync(join(import.meta.dir, "SandboxDrawer.ts"), "utf8");
         expect(source).toContain("new Sprite(cornerTexture)");
         expect(source).toContain("cornerContainer.addChild(corner)");
+        expect(source).toContain("cornerPool?.sprites[cornerIndex]");
+        expect(source).toContain("cornerPool.sprites[cornerIndex] = corner");
         expect(source).toContain("corner.setFromMatrix(shotRangeCornerSpriteMatrix");
         expect(source).toContain("corner.alpha = cornerAlpha");
         expect(source).toContain("const cornerAlpha = 0.85");
@@ -263,6 +266,41 @@ describe("the full-damage shot square", () => {
         const sandboxSource = readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
         expect(sandboxSource).toContain('this.texAny("shot_range_corner_aaa_v4_green")');
         expect(sandboxSource).toContain('this.texAny("shot_range_corner_aaa_v4_red")');
+        expect(sandboxSource).not.toContain("shotRangeCornerContainer?.removeChildren()");
+    });
+
+    test("reuses the same four ornament sprites across animated redraws", () => {
+        const graphics = new Graphics();
+        const cornerContainer = new Container();
+        const cornerPool = { sprites: [], used: 0 };
+        const context = {
+            fightProps: { hasFightStarted: () => true },
+            currentActiveShotRange: {
+                xy: cellCenter({ x: 5, y: 5 }),
+                distance: GridMath.getFullDamageSquareHalfExtent(3.5, 1, GridConstants.STEP),
+            },
+            isActiveUnitMoving: false,
+            gridSettings,
+            hoverManager: { drawHoverBattlefieldFootprint: () => undefined },
+            hoverGlowPhase: 0,
+            sc_isAnimating: false,
+            shotRangeCornerContainer: cornerContainer,
+            shotRangeCornerPool: cornerPool,
+            shotRangeCornerTexture: Texture.WHITE,
+        } as unknown as IGameplayDrawContext;
+
+        SandboxDrawer.drawGameplayVisuals(graphics, context);
+        const firstSprites = [...cornerPool.sprites];
+        expect(firstSprites).toHaveLength(4);
+        expect(cornerContainer.children).toHaveLength(4);
+
+        cornerPool.used = 0;
+        SandboxDrawer.drawGameplayVisuals(graphics, context);
+
+        expect(cornerPool.sprites).toEqual(firstSprites);
+        expect(cornerContainer.children).toHaveLength(4);
+        cornerContainer.destroy({ children: true });
+        graphics.destroy();
     });
 
     test("downsamples the detailed corner without camera shimmer", () => {

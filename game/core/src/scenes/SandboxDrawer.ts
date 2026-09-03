@@ -97,6 +97,12 @@ export interface ShotRangeCornerSpritePlacement {
     vertical: HoCMath.XY;
 }
 
+/** Scene-owned ornament pool reused while animated range frames repaint. */
+export interface ShotRangeCornerSpritePool {
+    sprites: Sprite[];
+    used: number;
+}
+
 /**
  * The source bitmap is authored as the bottom-left corner: its arms run up/right and its layered arrow
  * points into the advertised full-damage area. The direction vectors let the art follow the projected
@@ -223,6 +229,7 @@ export interface IGameplayDrawContext {
     movementGraphics?: Graphics;
     /** Bitmap ornaments live beside Graphics because Pixi v8 deprecates DisplayObject children on Graphics. */
     shotRangeCornerContainer?: Container;
+    shotRangeCornerPool?: ShotRangeCornerSpritePool;
     /** Legacy neutral-steel corner used only for neutral/shift-selected frames. */
     shotRangeCornerTexture?: Texture;
     /** High-resolution relationship-coloured corners; these are already authored in their final hue. */
@@ -274,6 +281,7 @@ export class SandboxDrawer {
             hoveredAuraRanges,
             hoveredUnitMoveRange,
             shotRangeCornerContainer,
+            shotRangeCornerPool,
             shotRangeCornerTexture,
             shotRangeCornerFriendlyTexture,
             shotRangeCornerEnemyTexture,
@@ -357,6 +365,7 @@ export class SandboxDrawer {
                 SHOT_RANGE_COLOR,
                 fightStarted,
                 shotRangeCornerContainer,
+                shotRangeCornerPool,
                 cornerTextureForColor(SHOT_RANGE_COLOR),
             );
         }
@@ -374,6 +383,7 @@ export class SandboxDrawer {
                 color,
                 fightStarted,
                 shotRangeCornerContainer,
+                shotRangeCornerPool,
                 cornerTextureForColor(color),
             );
         }
@@ -396,6 +406,7 @@ export class SandboxDrawer {
                 color,
                 fightStarted,
                 shotRangeCornerContainer,
+                shotRangeCornerPool,
                 cornerTextureForColor(color),
             );
         }
@@ -609,6 +620,7 @@ export class SandboxDrawer {
         color: number,
         _fightStarted: boolean,
         cornerContainer?: Container,
+        cornerPool?: ShotRangeCornerSpritePool,
         cornerTexture?: Texture,
     ): void {
         const bounds = SandboxDrawer.clampSquareToBoard(xy, horizontalHalfExtent, verticalHalfExtent, gs);
@@ -647,15 +659,24 @@ export class SandboxDrawer {
             const textureWidth = Math.max(1, cornerTexture.width);
             const scale = spriteSize / textureWidth;
             for (const placement of shotRangeCornerSpritePlacements(bounds)) {
-                const corner = new Sprite(cornerTexture);
-                corner.anchor.set(SHOT_RANGE_CORNER_SPRITE_ANCHOR.x, SHOT_RANGE_CORNER_SPRITE_ANCHOR.y);
+                const cornerIndex = cornerPool?.used ?? 0;
+                let corner = cornerPool?.sprites[cornerIndex];
+                if (!corner || corner.destroyed) {
+                    corner = new Sprite(cornerTexture);
+                    corner.anchor.set(SHOT_RANGE_CORNER_SPRITE_ANCHOR.x, SHOT_RANGE_CORNER_SPRITE_ANCHOR.y);
+                    corner.eventMode = "none";
+                    // The projected corners are rotated/sheared. Pixel snapping makes their vertices jump by a
+                    // whole screen pixel during small camera movements, which reads as a metallic shimmer.
+                    corner.roundPixels = false;
+                    if (cornerPool) cornerPool.sprites[cornerIndex] = corner;
+                    cornerContainer.addChild(corner);
+                } else {
+                    corner.texture = cornerTexture;
+                    corner.visible = true;
+                }
+                if (cornerPool) cornerPool.used += 1;
                 corner.setFromMatrix(shotRangeCornerSpriteMatrix(placement, scale, cellSize, gs));
                 corner.alpha = cornerAlpha;
-                corner.eventMode = "none";
-                // The projected corners are rotated/sheared. Pixel snapping makes their vertices jump by a
-                // whole screen pixel during small camera movements, which reads as a metallic shimmer.
-                corner.roundPixels = false;
-                cornerContainer.addChild(corner);
             }
         }
     }
