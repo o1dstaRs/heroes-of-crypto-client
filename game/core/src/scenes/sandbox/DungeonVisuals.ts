@@ -530,6 +530,7 @@ export class DungeonVisuals {
     private lavaFireOverlayMeshB?: PerspectiveMesh;
     /** Shared editable clip shape for both fire layers. */
     private lavaFireMask?: Graphics;
+    private lavaFireMaskSignature = "";
     /** Guarantees local draw order: both fires first, immutable grate last. */
     private lavaPitForegroundContainer?: Container;
     /** Immutable editor-only grate, always drawn above the low fire ring. */
@@ -957,6 +958,20 @@ export class DungeonVisuals {
             this.lavaPitForegroundContainer.addChild(this.lavaFireMask);
         }
         this.lavaFireMask.zIndex = 0;
+        this.lavaFireMask.visible = true;
+        const signature = [
+            logicalTarget.x,
+            logicalTarget.y,
+            cellSize,
+            tuning.fireMaskShape,
+            tuning.fireMaskWidthCells,
+            tuning.fireMaskHeightCells,
+            tuning.fireMaskShiftXCells,
+            tuning.fireMaskShiftYCells,
+            tuning.fireMaskRotationDeg,
+        ].join(":");
+        if (signature === this.lavaFireMaskSignature) return;
+        this.lavaFireMaskSignature = signature;
 
         const center = {
             x: logicalTarget.x + tuning.fireMaskShiftXCells * cellSize,
@@ -1002,7 +1017,6 @@ export class DungeonVisuals {
             .clear()
             .poly(projected.flatMap((point) => [point.x, point.y]))
             .fill({ color: 0xffffff });
-        this.lavaFireMask.visible = true;
     }
     private static mixColor(from: number, to: number, amount: number): number {
         const mix = (shift: number): number => {
