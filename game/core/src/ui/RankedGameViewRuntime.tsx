@@ -96,6 +96,7 @@ import { UNIT_ID_TO_NAME } from "./unit_ui_constants";
 import { ButtonProvider } from "./context/ButtonContext";
 import { exitFightButtonSx } from "./exitFightButtonSx";
 import { useFullscreenActive } from "./useFullscreenActive";
+import { startVisibleInterval } from "./visibleInterval";
 import { ViewerTeamContext } from "./context/ViewerTeamContext";
 import {
     hocColors,
@@ -1154,9 +1155,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                 { silent: true },
             );
         };
-        const timer = window.setInterval(pingModelPlayer, 8_000);
-        pingModelPlayer();
-        return () => window.clearInterval(timer);
+        return startVisibleInterval(pingModelPlayer, 8_000);
     }, [
         gameId,
         effectiveLocalModelConfig.authorization,
@@ -1175,9 +1174,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                 silent: true,
             });
         };
-        const timer = window.setInterval(pingHumanPlayer, 8_000);
-        pingHumanPlayer();
-        return () => window.clearInterval(timer);
+        return startVisibleInterval(pingHumanPlayer, 8_000);
     }, [gameId, hasSnapshot, isObserver, submitProtocolActionForTeam, userTeam]);
 
     const transport = useCallback<SceneGameActionTransport>(
@@ -2645,8 +2642,7 @@ const RankedReadyPlacementButton: React.FC<{
 }> = ({ canSubmit, ready, snapshot, submitProtocolAction }) => {
     const [nowMs, setNowMs] = useState(Date.now());
     useEffect(() => {
-        const timer = window.setInterval(() => setNowMs(Date.now()), 1000);
-        return () => window.clearInterval(timer);
+        return startVisibleInterval(() => setNowMs(Date.now()), 1000);
     }, []);
     const secondsLeft =
         snapshot.placementDeadlineMs > 0 ? Math.max(0, Math.ceil((snapshot.placementDeadlineMs - nowMs) / 1000)) : -1;
@@ -2757,9 +2753,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
         if (snapshot.phase !== PlayPhase.PLACEMENT || snapshot.placementDeadlineMs <= 0) {
             return undefined;
         }
-        setAugmentNowMs(Date.now());
-        const id = window.setInterval(() => setAugmentNowMs(Date.now()), 1000);
-        return () => window.clearInterval(id);
+        return startVisibleInterval(() => setAugmentNowMs(Date.now()), 1000);
     }, [snapshot.phase, snapshot.placementDeadlineMs]);
     const augmentSecondsLeft =
         snapshot.placementDeadlineMs > 0

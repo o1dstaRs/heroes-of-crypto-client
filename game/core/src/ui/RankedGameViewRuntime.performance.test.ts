@@ -21,4 +21,10 @@ describe("ranked background work", () => {
         expect(timer).toContain("snapshot.placementDeadlineMs <= 0");
         expect(timer).toContain("[snapshot.phase, snapshot.placementDeadlineMs]");
     });
+
+    test("fully disarms presence and countdown intervals while the tab is hidden", () => {
+        expect(source.match(/startVisibleInterval\(ping(?:Model|Human)Player, 8_000\)/g)).toHaveLength(2);
+        expect(source).toContain("startVisibleInterval(() => setNowMs(Date.now()), 1000)");
+        expect(source).toContain("startVisibleInterval(() => setAugmentNowMs(Date.now()), 1000)");
+    });
 });
