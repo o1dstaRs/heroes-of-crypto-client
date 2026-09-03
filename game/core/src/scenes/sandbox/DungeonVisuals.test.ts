@@ -13,7 +13,6 @@ import {
     cemeteryObstacleSpriteScale,
     DungeonVisuals,
     lavaSplashOriginWithinGrateOpening,
-    TOP_BLANK_BACKGROUND_Z_INDEX,
 } from "./DungeonVisuals";
 
 describe("Cemetery obstacle perspective", () => {
@@ -90,7 +89,7 @@ describe("Lava splash emission", () => {
 });
 
 describe("DungeonVisuals lifecycle", () => {
-    test("keeps the top blank band behind the camera so creatures and effects can overhang it", () => {
+    test("does not retain the retired empty top band or disabled floor halo", () => {
         const stage = new Container();
         const worldRoot = new Container();
         const camera = new Container();
@@ -112,11 +111,11 @@ describe("DungeonVisuals lifecycle", () => {
         visuals.ensureBackgroundSprite();
         visuals.layoutBackgroundSquare(1);
 
-        const topBlank = stage.children.find(
-            (child) => child instanceof Graphics && child.zIndex === TOP_BLANK_BACKGROUND_Z_INDEX,
-        );
-        expect(topBlank).toBeDefined();
-        expect(topBlank?.zIndex).toBeLessThan(camera.zIndex);
+        expect(stage.children.filter((child) => child instanceof Graphics)).toHaveLength(0);
+        expect(visuals.getFireLightDiagnostics()).toMatchObject({
+            lavaFireLightVisible: false,
+            lavaFireLightGroups: 0,
+        });
 
         visuals.destroy();
     });

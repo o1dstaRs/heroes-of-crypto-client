@@ -35,14 +35,10 @@ import { AMBIENT_FIRE_DEFINITIONS, getAmbientFireEditorSelection, resolveAmbient
 import {
     isLavaAnimationEditorActive,
     lavaAnimationFrameAtTime,
-    lavaFireLightEnvelopeAtTime,
     lavaPitLightIntensityAtTime,
     resolveLavaAnimationTuning,
     type LavaAnimationTuning,
 } from "./lavaAnimationTuning";
-
-/** Above screen-space floor/atmosphere, but below the camera so units and combat VFX may overhang it. */
-export const TOP_BLANK_BACKGROUND_Z_INDEX = -5;
 
 export interface IDungeonVisualsContext {
     getStage(): Container;
@@ -506,13 +502,6 @@ export class DungeonVisuals {
     private ambientFireAtlases = new Map<string, Texture>();
     private ambientFireAtlasLoads = new Set<string>();
     private ambientFireEditorOutline?: Graphics;
-    /** Legacy overlay kept for lifecycle compatibility; the current artwork fills the former top band. */
-    private topBlankMask?: Graphics;
-    /** Screen-space fire spill around the animated 4x4 lava pool; kept below the world and units. */
-    private lavaFireLight?: Container;
-    private lavaFireLightBase?: Graphics;
-    private lavaFireLightGroups: Graphics[] = [];
-    private lavaFireLightTimeSec = 0;
     private lavaColorFilter?: ColorMatrixFilter;
     private lavaFireColorFilter?: ColorMatrixFilter;
     private lavaFire2ColorFilter?: ColorMatrixFilter;
@@ -2279,9 +2268,6 @@ export class DungeonVisuals {
     // grid geometry, placement rules and combat coordinates remain unchanged.
     private static readonly BG_KEY_CURRENT = "background_stone_tiles_sinister_16x16_original_restored";
     private static readonly BG_KEY_LEGACY = "background_new";
-    /** The animated pool is 4x4; its warm spill reaches one more cell on every side, making a 6x6 area. */
-    private static readonly LAVA_LIGHT_AREA_CELLS = 6;
-    private static readonly FLOOR_SOURCE_TILE_PX = 128;
     /**
      * Squares painted across the current floor texture — exactly the board's own GRID_SIZE, so the map
      * shows 16x16 and nothing else. Keep this in step with the artwork: the sprite is sized from it, so one
@@ -2324,18 +2310,11 @@ export class DungeonVisuals {
             bg.zIndex = -20;
             stage.addChild(bg);
             this.bgSprite = bg;
-
-            const topBlankMask = new Graphics();
-            topBlankMask.eventMode = "none";
-            topBlankMask.zIndex = TOP_BLANK_BACKGROUND_Z_INDEX;
-            stage.addChild(topBlankMask);
-            this.topBlankMask = topBlankMask;
         }
 
         // Optional VFX textures can finish decoding after the floor. Retry these independently instead of
         // returning just because bgSprite already exists.
         this.ensureAmbientFireSprites();
-        this.ensureLavaFireLight();
         this.clearExperimentalBackgroundFilters();
     }
     private ensureAmbientFireSprites(): void {
@@ -2497,79 +2476,6 @@ export class DungeonVisuals {
             }
         }
     }
-    /**
-     * Build a smooth, shader-free fire spill. Many very translucent overlapping shapes produce a soft
-     * falloff without a BlurFilter, keeping this localized effect safe on the WebGL paths where full-floor
-     * filters previously rendered the board black.
-     */
-    private ensureLavaFireLight(): void {
-        if (this.lavaFireLight) return;
-
-        const root = new Container();
-        root.eventMode = "none";
-        root.visible = false;
-        root.zIndex = -18;
-
-        const tilePx = DungeonVisuals.FLOOR_SOURCE_TILE_PX;
-        const areaPx = DungeonVisuals.LAVA_LIGHT_AREA_CELLS * tilePx;
-        const spillPx = tilePx;
-        const base = new Graphics();
-        base.eventMode = "none";
-        base.blendMode = "add";
-
-        // Rounded-square distance-field approximation: the outer edge is deep ember, becoming amber where
-        // it touches the pool. Thirty-two sub-percent layers are visually continuous at any board scale.
-        const gradientLayers = 32;
-        for (let i = 0; i < gradientLayers; i++) {
-            const t = i / (gradientLayers - 1);
-            const inset = t * spillPx;
-            const side = areaPx - inset * 2;
-            const r = Math.round(0x66 + (0xff - 0x66) * t);
-            const g = Math.round(0x0d + (0x69 - 0x0d) * t);
-            const b = Math.round(0x02 + (0x12 - 0x02) * t);
-            const color = (r << 16) | (g << 8) | b;
-            const radius = (1 - t) * tilePx * 0.46 + t * tilePx * 0.12;
-            base.roundRect(inset, inset, side, side, radius).fill({
-                color,
-                alpha: 0.009 + t * 0.009,
-            });
-        }
-
-        const edgeGroups = Array.from({ length: 4 }, () => {
-            const group = new Graphics();
-            group.eventMode = "none";
-            group.blendMode = "add";
-            return group;
-        });
-        const innerEdge = tilePx;
-        const sourceOffsets = [1.5, 2.5, 3.5, 4.5].map((cell) => cell * tilePx);
-        const drawLobe = (gfx: Graphics, x: number, y: number, horizontal: boolean): void => {
-            const lobeLayers = 9;
-            for (let layer = 0; layer < lobeLayers; layer++) {
-                const t = layer / (lobeLayers - 1);
-                const longRadius = tilePx * (0.82 - t * 0.56);
-                const shortRadius = tilePx * (0.56 - t * 0.35);
-                gfx.ellipse(x, y, horizontal ? longRadius : shortRadius, horizontal ? shortRadius : longRadius).fill({
-                    color: t > 0.62 ? 0xff9a2a : 0xd73d08,
-                    alpha: 0.009 + t * 0.012,
-                });
-            }
-        };
-        for (const offset of sourceOffsets) {
-            drawLobe(edgeGroups[0], offset, innerEdge, true);
-            drawLobe(edgeGroups[1], offset, areaPx - innerEdge, true);
-            drawLobe(edgeGroups[2], innerEdge, offset, false);
-            drawLobe(edgeGroups[3], areaPx - innerEdge, offset, false);
-        }
-
-        root.addChild(base, ...edgeGroups);
-        const stage = this.context.getStage();
-        stage.sortableChildren = true;
-        stage.addChild(root);
-        this.lavaFireLight = root;
-        this.lavaFireLightBase = base;
-        this.lavaFireLightGroups = edgeGroups;
-    }
     /** Keep the floor free of the retired full-screen filters that could turn it black on WebGL. */
     private clearExperimentalBackgroundFilters(): void {
         const bg = this.bgSprite;
@@ -2591,13 +2497,13 @@ export class DungeonVisuals {
             filtersOnSprite: Array.isArray(sprite?.filters) ? sprite.filters.length : 0,
             filterAttached: false,
             legacyFloor: this.useLegacyBackground,
-            lavaFireLightVisible: !!this.lavaFireLight?.visible,
-            lavaFireLightGroups: this.lavaFireLightGroups.length,
-            clockSeconds: Number(this.lavaFireLightTimeSec.toFixed(2)),
+            lavaFireLightVisible: false,
+            lavaFireLightGroups: 0,
+            clockSeconds: 0,
         };
     }
     /**
-     * Advances the flame clock in REAL seconds, deliberately ignoring the simulation's step.
+     * Advances the ambient flame clock in REAL seconds, deliberately ignoring the simulation's step.
      *
      * The sim runs at 60 Hz but is handed a 1/240 step (see PixiGameManager.SIM_STEP), so game time passes
      * at a QUARTER of wall-clock — a deliberate choice there, to keep the legacy animation constants. Fed
@@ -2612,20 +2518,6 @@ export class DungeonVisuals {
     public updateFireLight(): void {
         const nowSeconds = performance.now() / 1000;
         this.updateAmbientFireSprites(nowSeconds);
-        const root = this.lavaFireLight;
-        const base = this.lavaFireLightBase;
-        if (!root || !base || !root.visible) return;
-
-        // Fire has a common body plus faster, slightly independent edge flicker. The source never blinks
-        // out and no single clean sine dominates, so the pool feels hot rather than electrically pulsed.
-        const tuning = resolveLavaAnimationTuning();
-        this.lavaFireLightTimeSec = nowSeconds * tuning.lightPulseSpeed;
-        const envelope = lavaFireLightEnvelopeAtTime(tuning, nowSeconds, this.lavaFireLightGroups.length);
-        root.alpha = envelope.rootAlpha;
-        base.alpha = envelope.baseAlpha;
-        for (let i = 0; i < this.lavaFireLightGroups.length; i++) {
-            this.lavaFireLightGroups[i].alpha = envelope.edgeAlphas[i] ?? envelope.baseAlpha;
-        }
     }
     public layoutBackgroundSquare(alpha: number): void {
         if (!this.bgSprite) return;
@@ -2644,9 +2536,6 @@ export class DungeonVisuals {
         if (this.bgSprite.width !== artwork.width || this.bgSprite.height !== artwork.height) {
             this.bgSprite.width = artwork.width;
             this.bgSprite.height = artwork.height;
-        }
-        if (this.topBlankMask) {
-            this.topBlankMask.clear();
         }
         const wantKey = this.backgroundKey();
         const wantTex = this.context.texAny(wantKey) ?? this.backgroundTexture();
@@ -2714,12 +2603,6 @@ export class DungeonVisuals {
             }
         }
 
-        // The floor halo around the pit is intentionally disabled. Fire may illuminate the recessed
-        // bowl through lavaPitLight, but it must not paint an orange rectangle across neighbouring cells.
-        if (this.lavaFireLight) {
-            this.lavaFireLight.visible = false;
-        }
-
         // Update overlay
         if (this.dungeonOverlay && this.dungeonOverlay.visible) {
             this.updateDungeonAtmosphere(true, alpha);
@@ -2752,8 +2635,6 @@ export class DungeonVisuals {
         this.dungeonOverlay?.destroy({ children: true });
         this.bgSprite?.destroy();
         this.ambientFireLayer?.destroy({ children: true });
-        this.topBlankMask?.destroy();
-        this.lavaFireLight?.destroy({ children: true });
         this.lavaPitLight?.destroy();
         this.lavaTerrainMesh?.destroy();
         this.lavaPitForegroundContainer?.destroy({ children: true });
