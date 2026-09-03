@@ -16,6 +16,7 @@ export interface CreatureDepthSortCandidate {
 const HEAD_ZONE_WIDTH_RATIO = 0.48;
 const HEAD_ZONE_HEIGHT_RATIO = 0.66;
 const DEPTH_EPSILON = 0.01;
+const EMPTY_DEPTHS: ReadonlyMap<string, number> = new Map();
 
 const rectArea = (rect: CreatureDepthRect): number =>
     Math.max(0, rect.right - rect.left) * Math.max(0, rect.bottom - rect.top);
@@ -60,24 +61,13 @@ const byNaturalDepth = (left: CreatureDepthSortCandidate, right: CreatureDepthSo
 export const resolveCreatureHeadPriorityDepths = (
     candidates: readonly CreatureDepthSortCandidate[],
 ): ReadonlyMap<string, number> => {
-    if (candidates.length < 2) return new Map();
+    if (candidates.length < 2) return EMPTY_DEPTHS;
 
-    const outgoing = new Map<string, Set<string>>();
-    const incomingCount = new Map<string, number>();
-    const byId = new Map(candidates.map((candidate) => [candidate.id, candidate]));
-    for (const candidate of candidates) {
-        outgoing.set(candidate.id, new Set());
-        incomingCount.set(candidate.id, 0);
-    }
-
-    let hasHeadPriority = false;
-    const addBackToFrontEdge = (behindId: string, frontId: string): void => {
-        const edges = outgoing.get(behindId);
-        if (!edges || edges.has(frontId)) return;
-        edges.add(frontId);
-        incomingCount.set(frontId, (incomingCount.get(frontId) ?? 0) + 1);
-        hasHeadPriority = true;
-    };
+    // Most frames have no face/body overlap. Build the graph lazily so that steady state returns a
+    // shared empty result without allocating maps, sets, arrays, or a helper closure every frame.
+    let outgoing: Map<string, Set<string>> | undefined;
+    let incomingCount: Map<string, number> | undefined;
+    let byId: Map<string, CreatureDepthSortCandidate> | undefined;
 
     for (let leftIndex = 0; leftIndex < candidates.length; leftIndex += 1) {
         const left = candidates[leftIndex];
@@ -88,15 +78,26 @@ export const resolveCreatureHeadPriorityDepths = (
 
             // When both head zones meet, neither face is uniquely threatened; preserve ground-line depth.
             if (leftHeadTouchesRight === rightHeadTouchesLeft) continue;
-            if (leftHeadTouchesRight) {
-                addBackToFrontEdge(right.id, left.id);
-            } else {
-                addBackToFrontEdge(left.id, right.id);
+            if (!outgoing || !incomingCount || !byId) {
+                outgoing = new Map();
+                incomingCount = new Map();
+                byId = new Map();
+                for (const candidate of candidates) {
+                    outgoing.set(candidate.id, new Set());
+                    incomingCount.set(candidate.id, 0);
+                    byId.set(candidate.id, candidate);
+                }
             }
+            const behindId = leftHeadTouchesRight ? right.id : left.id;
+            const frontId = leftHeadTouchesRight ? left.id : right.id;
+            const edges = outgoing.get(behindId);
+            if (!edges || edges.has(frontId)) continue;
+            edges.add(frontId);
+            incomingCount.set(frontId, (incomingCount.get(frontId) ?? 0) + 1);
         }
     }
 
-    if (!hasHeadPriority) return new Map();
+    if (!outgoing || !incomingCount || !byId) return EMPTY_DEPTHS;
 
     const remaining = new Set(candidates.map((candidate) => candidate.id));
     const ordered: CreatureDepthSortCandidate[] = [];

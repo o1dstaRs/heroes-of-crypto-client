@@ -60,7 +60,9 @@ describe("battlefield creature head-priority depth sorting", () => {
         const left = candidate("left", 3998, 0, rect(100, 20, 220, 180), -1);
         const right = candidate("right", 4000, 1, rect(180, 100, 300, 260), 1);
 
-        expect(resolveCreatureHeadPriorityDepths([left, right]).size).toBe(0);
+        const first = resolveCreatureHeadPriorityDepths([left, right]);
+        expect(first.size).toBe(0);
+        expect(resolveCreatureHeadPriorityDepths([left, right])).toBe(first);
     });
 
     test("keeps the natural sort when both creatures' head zones intersect", () => {
