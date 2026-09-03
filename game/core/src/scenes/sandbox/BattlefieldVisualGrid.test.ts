@@ -204,6 +204,27 @@ describe("battlefield visual grid", () => {
         expect(guide.every(Number.isFinite)).toBe(true);
     });
 
+    test("reuses projected layout calculations without sharing mutable results", () => {
+        const gs = settings();
+        const points = [
+            { x: gs.getMinX(), y: gs.getMinY() },
+            { x: gs.getMaxX(), y: gs.getMinY() },
+            { x: gs.getMaxX(), y: gs.getMaxY() },
+            { x: gs.getMinX(), y: gs.getMaxY() },
+        ];
+        const first = projectedPolyline(points, gs);
+
+        const repeated = projectedPolyline(
+            points.map((point) => ({ ...point })),
+            gs,
+        );
+        expect(repeated).toEqual(first);
+        expect(repeated).not.toBe(first);
+
+        points[1].x -= gs.getStep();
+        expect(projectedPolyline(points, gs)).not.toEqual(first);
+    });
+
     test("sizes and positions the bitmap from its painted field instead of its decorative bounds", () => {
         const layout = battlefieldArtworkLayout(1600, 1400, 1500, 1200);
         const field = BATTLEFIELD_ARTWORK.field;

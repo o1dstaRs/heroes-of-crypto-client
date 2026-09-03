@@ -314,6 +314,34 @@ export function projectedCellPoints(cell: HoCMath.XY, gs: GridSettings, insetCel
     return projectedRectPoints(left, bottom, left + step - inset * 2, bottom + step - inset * 2, gs);
 }
 
+type ProjectedPolylineCache = {
+    readonly xBoundaries: readonly number[];
+    readonly yBoundaries: readonly number[];
+    readonly paths: Map<string, number[]>;
+};
+
+const MAX_CACHED_PROJECTED_POLYLINES = 512;
+const projectedPolylineCaches = new WeakMap<GridSettings, ProjectedPolylineCache>();
+
+const projectedPolylineCacheFor = (gs: GridSettings): ProjectedPolylineCache => {
+    let cache = projectedPolylineCaches.get(gs);
+    if (cache) return cache;
+    const step = gs.getStep();
+    cache = {
+        xBoundaries: BATTLEFIELD_GRID_ROWS[0].x.map((_, index) => gs.getMinX() + index * step),
+        yBoundaries: BATTLEFIELD_GRID_ROWS.map((_, index) => gs.getMaxY() - index * step),
+        paths: new Map(),
+    };
+    projectedPolylineCaches.set(gs, cache);
+    return cache;
+};
+
+const projectedPolylineCacheKey = (points: readonly HoCMath.XY[]): string => {
+    let key = "";
+    for (const point of points) key += `${point.x},${point.y};`;
+    return key;
+};
+
 export function projectedPolyline(points: readonly HoCMath.XY[], gs: GridSettings): number[] {
     if (points.length === 0) return [];
     if (points.length === 1) {
@@ -321,10 +349,20 @@ export function projectedPolyline(points: readonly HoCMath.XY[], gs: GridSetting
         return [projected.x, projected.y];
     }
 
+    // Placement washes, borders and cell rectangles ask for the same long paths on every frame. Cache
+    // those value-identical shapes per immutable GridSettings instance so their seam subdivision and
+    // projection do not keep allocating arrays or feeding identical geometry back through Pixi. Two-point
+    // combat/hover guides can move continuously, so leave those uncached rather than filling the bound.
+    const cache = projectedPolylineCacheFor(gs);
+    const cacheKey = points.length >= 4 ? projectedPolylineCacheKey(points) : undefined;
+    if (cacheKey !== undefined) {
+        const cached = cache.paths.get(cacheKey);
+        // Existing geometry helpers adjust their returned arrays in place. Keep the cached canonical path
+        // private and hand callers a cheap copy so one border's trim cannot bleed into another shape.
+        if (cached) return cached.slice();
+    }
+
     const result: number[] = [];
-    const step = gs.getStep();
-    const xBoundaries = BATTLEFIELD_GRID_ROWS[0].x.map((_, index) => gs.getMinX() + index * step);
-    const yBoundaries = BATTLEFIELD_GRID_ROWS.map((_, index) => gs.getMaxY() - index * step);
     for (let segment = 0; segment < points.length - 1; segment++) {
         const from = points[segment];
         const to = points[segment + 1];
@@ -332,13 +370,13 @@ export function projectedPolyline(points: readonly HoCMath.XY[], gs: GridSetting
         const dy = to.y - from.y;
         const samples = [0, 1];
         if (Math.abs(dx) > 1e-9) {
-            for (const boundary of xBoundaries) {
+            for (const boundary of cache.xBoundaries) {
                 const t = (boundary - from.x) / dx;
                 if (t > 1e-9 && t < 1 - 1e-9) samples.push(t);
             }
         }
         if (Math.abs(dy) > 1e-9) {
-            for (const boundary of yBoundaries) {
+            for (const boundary of cache.yBoundaries) {
                 const t = (boundary - from.y) / dy;
                 if (t > 1e-9 && t < 1 - 1e-9) samples.push(t);
             }
@@ -350,6 +388,13 @@ export function projectedPolyline(points: readonly HoCMath.XY[], gs: GridSetting
             const projected = projectBattlefieldPoint({ x: from.x + dx * t, y: from.y + dy * t }, gs);
             result.push(projected.x, projected.y);
         }
+    }
+    if (cacheKey !== undefined) {
+        if (cache.paths.size >= MAX_CACHED_PROJECTED_POLYLINES) {
+            const oldest = cache.paths.keys().next().value;
+            if (oldest !== undefined) cache.paths.delete(oldest);
+        }
+        cache.paths.set(cacheKey, result.slice());
     }
     return result;
 }
