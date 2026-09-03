@@ -66,6 +66,37 @@ import { stunBadgeLayout } from "../ui/stunBadgeTuning";
 import { creatureHeadPriorityZone, type CreatureDepthSortCandidate } from "./battlefieldCreatureDepthSort";
 export type TexResolver = (name: string) => Texture | undefined;
 
+interface CreatureBoundsCacheState {
+    texture: Texture;
+    parent: Container;
+    spriteX: number;
+    spriteY: number;
+    spriteScaleX: number;
+    spriteScaleY: number;
+    spriteRotation: number;
+    spritePivotX: number;
+    spritePivotY: number;
+    spriteSkewX: number;
+    spriteSkewY: number;
+    spriteAnchorX: number;
+    spriteAnchorY: number;
+    parentX: number;
+    parentY: number;
+    parentScaleX: number;
+    parentScaleY: number;
+    parentRotation: number;
+    parentPivotX: number;
+    parentPivotY: number;
+    parentSkewX: number;
+    parentSkewY: number;
+    parentWorldA: number;
+    parentWorldB: number;
+    parentWorldC: number;
+    parentWorldD: number;
+    parentWorldTx: number;
+    parentWorldTy: number;
+}
+
 /**
  * Rebuild the sprite filter list only when one of this renderer's managed filters truly changed.
  * `undefined` means the installed array already has the desired identity/order and can stay untouched.
@@ -1679,6 +1710,8 @@ export class RenderableUnit extends Unit {
     private depthSortBounds?: Bounds;
     /** The badge already measures the live sprite before the scene's depth pass. */
     private depthSortBoundsAreCurrent = false;
+    /** Transform snapshot guarding reuse of the expensive world-space sprite bounds. */
+    private depthSortBoundsCacheState?: CreatureBoundsCacheState;
     private depthSortCandidate?: CreatureDepthSortCandidate;
     private inheritedScaleScratch?: HoCMath.XY;
     private projectedPositionScratch?: HoCMath.XY;
@@ -1849,6 +1882,7 @@ export class RenderableUnit extends Unit {
         ru.battlefieldStyleSignature = "";
         ru.depthSortBounds = undefined;
         ru.depthSortBoundsAreCurrent = false;
+        ru.depthSortBoundsCacheState = undefined;
         ru.depthSortCandidate = undefined;
         ru.inheritedScaleScratch = undefined;
         ru.projectedPositionScratch = undefined;
@@ -2834,10 +2868,8 @@ export class RenderableUnit extends Unit {
     public getCreatureDepthSortCandidate(stableOrder: number): CreatureDepthSortCandidate | undefined {
         const sprite = this.sprite;
         if (!this.useBattlefieldVisualProjection || this.visualMode !== "normal" || !sprite?.visible) return undefined;
-        const bounds = this.depthSortBoundsAreCurrent
-            ? this.depthSortBounds!
-            : sprite.getBounds(false, (this.depthSortBounds ??= new Bounds()));
-        this.depthSortBoundsAreCurrent = false;
+        const bounds = this.getCreatureBounds();
+        if (!bounds) return undefined;
         if (bounds.width <= 0 || bounds.height <= 0) return undefined;
         const candidate = (this.depthSortCandidate ??= {
             id: String(this.getId()),
@@ -2871,7 +2903,6 @@ export class RenderableUnit extends Unit {
     }
     public syncVisual(worldRoot: Container, gs: GridSettings): void {
         if (this.isDestroyed) return;
-        this.depthSortBoundsAreCurrent = false;
         const logicalPos = this.getPosition();
         const inGrid = GridMath.isPositionWithinGrid(gs, logicalPos);
         if (!inGrid) {
@@ -4858,8 +4889,7 @@ export class RenderableUnit extends Unit {
         const renderedBadgeScale = this.badgeEmphasisScale;
         // Centre the ribbon above the actual rendered creature image rather than above its logical cell.
         // This keeps the badge over the head for tall, short and multi-cell creatures alike.
-        const spriteBounds = this.sprite?.getBounds(false, (this.depthSortBounds ??= new Bounds()));
-        this.depthSortBoundsAreCurrent = !!spriteBounds && spriteBounds.width > 0 && spriteBounds.height > 0;
+        const spriteBounds = this.getCreatureBounds();
         const margin = Math.max(2, Math.floor(iconSide * 0.04));
         let x: number;
         let y: number;
@@ -4884,6 +4914,83 @@ export class RenderableUnit extends Unit {
             container.scale.set(renderedBadgeScale, renderedBadgeScale);
         }
         if (container.visible !== visible) container.visible = visible;
+    }
+    /**
+     * Pixi's world-space bounds walk the display tree. Most simulation steps leave both the creature and
+     * its units container unchanged, so retain that result until either local geometry or the parent camera
+     * transform changes. The badge and overlap sorter then share the same measurement across steady ticks.
+     */
+    private getCreatureBounds(): Bounds | undefined {
+        const sprite = this.sprite;
+        const parent = sprite?.parent;
+        if (!sprite || !parent) return undefined;
+        const state = this.depthSortBoundsCacheState;
+        const world = parent.worldTransform;
+        const unchanged =
+            this.depthSortBoundsAreCurrent &&
+            state?.texture === sprite.texture &&
+            state.parent === parent &&
+            state.spriteX === sprite.x &&
+            state.spriteY === sprite.y &&
+            state.spriteScaleX === sprite.scale.x &&
+            state.spriteScaleY === sprite.scale.y &&
+            state.spriteRotation === sprite.rotation &&
+            state.spritePivotX === sprite.pivot.x &&
+            state.spritePivotY === sprite.pivot.y &&
+            state.spriteSkewX === sprite.skew.x &&
+            state.spriteSkewY === sprite.skew.y &&
+            state.spriteAnchorX === sprite.anchor.x &&
+            state.spriteAnchorY === sprite.anchor.y &&
+            state.parentX === parent.x &&
+            state.parentY === parent.y &&
+            state.parentScaleX === parent.scale.x &&
+            state.parentScaleY === parent.scale.y &&
+            state.parentRotation === parent.rotation &&
+            state.parentPivotX === parent.pivot.x &&
+            state.parentPivotY === parent.pivot.y &&
+            state.parentSkewX === parent.skew.x &&
+            state.parentSkewY === parent.skew.y &&
+            state.parentWorldA === world.a &&
+            state.parentWorldB === world.b &&
+            state.parentWorldC === world.c &&
+            state.parentWorldD === world.d &&
+            state.parentWorldTx === world.tx &&
+            state.parentWorldTy === world.ty;
+        if (unchanged) return this.depthSortBounds;
+
+        const bounds = sprite.getBounds(false, (this.depthSortBounds ??= new Bounds()));
+        const updatedWorld = parent.worldTransform;
+        const updatedState = (this.depthSortBoundsCacheState ??= {} as CreatureBoundsCacheState);
+        updatedState.texture = sprite.texture;
+        updatedState.parent = parent;
+        updatedState.spriteX = sprite.x;
+        updatedState.spriteY = sprite.y;
+        updatedState.spriteScaleX = sprite.scale.x;
+        updatedState.spriteScaleY = sprite.scale.y;
+        updatedState.spriteRotation = sprite.rotation;
+        updatedState.spritePivotX = sprite.pivot.x;
+        updatedState.spritePivotY = sprite.pivot.y;
+        updatedState.spriteSkewX = sprite.skew.x;
+        updatedState.spriteSkewY = sprite.skew.y;
+        updatedState.spriteAnchorX = sprite.anchor.x;
+        updatedState.spriteAnchorY = sprite.anchor.y;
+        updatedState.parentX = parent.x;
+        updatedState.parentY = parent.y;
+        updatedState.parentScaleX = parent.scale.x;
+        updatedState.parentScaleY = parent.scale.y;
+        updatedState.parentRotation = parent.rotation;
+        updatedState.parentPivotX = parent.pivot.x;
+        updatedState.parentPivotY = parent.pivot.y;
+        updatedState.parentSkewX = parent.skew.x;
+        updatedState.parentSkewY = parent.skew.y;
+        updatedState.parentWorldA = updatedWorld.a;
+        updatedState.parentWorldB = updatedWorld.b;
+        updatedState.parentWorldC = updatedWorld.c;
+        updatedState.parentWorldD = updatedWorld.d;
+        updatedState.parentWorldTx = updatedWorld.tx;
+        updatedState.parentWorldTy = updatedWorld.ty;
+        this.depthSortBoundsAreCurrent = bounds.width > 0 && bounds.height > 0;
+        return bounds;
     }
     private syncFlagStatusIcon(
         kind: "hourglass" | "stun" | "respond",

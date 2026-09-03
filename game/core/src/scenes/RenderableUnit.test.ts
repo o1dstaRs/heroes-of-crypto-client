@@ -223,6 +223,32 @@ describe("battlefield movement preview", () => {
         expect(second?.bounds.left).not.toBe(firstLeft);
         expect(getBoundsCalls).toBe(1);
     });
+
+    assetTest("keeps stationary creature bounds across simulation ticks", () => {
+        const unit = createRenderableUnit(TeamVals.RIGHT, "Nature", "Wolf", "wolf_512", () => Texture.WHITE);
+        unit.setPosition(384, 640);
+        unit.setBattlefieldVisualProjection(true);
+        const root = new Container();
+        unit.ensureVisual(root, gridSettings, 1_000);
+        unit.getCreatureDepthSortCandidate(0);
+
+        const sprite = (unit as unknown as { sprite?: Sprite }).sprite!;
+        const originalGetBounds = sprite.getBounds.bind(sprite);
+        let getBoundsCalls = 0;
+        sprite.getBounds = ((...args: Parameters<Sprite["getBounds"]>) => {
+            getBoundsCalls += 1;
+            return originalGetBounds(...args);
+        }) as Sprite["getBounds"];
+
+        unit.ensureVisual(root, gridSettings, 1_000);
+        unit.getCreatureDepthSortCandidate(0);
+        expect(getBoundsCalls).toBe(0);
+
+        root.position.x += 10;
+        unit.ensureVisual(root, gridSettings, 1_000);
+        unit.getCreatureDepthSortCandidate(0);
+        expect(getBoundsCalls).toBe(1);
+    });
 });
 
 describe("attack animation vertical bands", () => {
