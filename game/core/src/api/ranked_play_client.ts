@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 
 import type { AuthoritativeGameSnapshot, SceneGameActionTransport } from "../game_action_transport";
 import { createRankedReplayFromPayload, type RankedReplay, type RankedReplayPayload } from "../replay/ranked_replay";
+import { appendBoundedDiagnosticLine } from "../utils/boundedDiagnosticLog";
 import { buildApiUrl, endpoints, HOST_GAME_API, axiosGameInstance } from "./axios";
 import { createPlayActionFromGameAction } from "./game_action_play_codec";
 import { isPreviewPlayGame } from "./previewPlayGate";
@@ -188,7 +189,7 @@ const recordActionLog = (line: string): void => {
 
     console.log(`[CLIENT-ACTION] ${stamped}`);
     const w = window as unknown as { __hocActionLog?: string[] };
-    (w.__hocActionLog ??= []).push(stamped);
+    appendBoundedDiagnosticLine((w.__hocActionLog ??= []), stamped);
 };
 
 export const sendRankedPlayAction = async (

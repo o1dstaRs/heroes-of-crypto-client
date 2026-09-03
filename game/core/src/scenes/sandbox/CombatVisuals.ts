@@ -4163,12 +4163,7 @@ export class CombatVisuals {
 
         for (const [id, oldState] of preState) {
             if (ignoredUnitIds && ignoredUnitIds.has(id)) {
-                console.log(`[DEBUG] showDamageVisualsFromDiff: Ignoring ${id}`);
                 continue;
-            } else if (ignoredUnitIds) {
-                console.log(
-                    `[DEBUG] showDamageVisualsFromDiff: Processing ${id} (Not in ignored: ${Array.from(ignoredUnitIds).join(",")})`,
-                );
             }
 
             const u = unitsHolder.getAllUnits().get(id);

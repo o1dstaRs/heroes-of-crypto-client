@@ -13,6 +13,8 @@ import { ISceneLog } from "@heroesofcrypto/common";
 
 import Denque from "denque";
 
+import { appendBoundedDiagnosticLine } from "../utils/boundedDiagnosticLog";
+
 export type SceneLogTeamFlagResolver = (line: string) => string;
 
 export class SceneLog implements ISceneLog {
@@ -41,7 +43,7 @@ export class SceneLog implements ISceneLog {
         // ranked log (e.g. count "skips turn"). Same spirit as __hocActionLog. Zero effect in prod builds.
         if (import.meta.env?.DEV && typeof window !== "undefined") {
             const w = window as unknown as { __hocSceneLog?: string[] };
-            (w.__hocSceneLog ??= []).push(line);
+            appendBoundedDiagnosticLine((w.__hocSceneLog ??= []), line);
         }
     }
     /**
