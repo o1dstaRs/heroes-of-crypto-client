@@ -157,7 +157,7 @@ describe("shouldShowRankedAugmentPicker", () => {
  * chosen augment's options underneath. Both drive the same picker underneath, so this is layout only.
  */
 describe("the ranked sidebar uses the compact augment picker", () => {
-    const source = readFileSync(join(import.meta.dir, "RankedGameView.tsx"), "utf8");
+    const source = readFileSync(join(import.meta.dir, "RankedGameViewRuntime.tsx"), "utf8");
 
     test("the sidebar mounts the compact container and the full-screen step keeps the expanded one", () => {
         const sidebar = source.slice(

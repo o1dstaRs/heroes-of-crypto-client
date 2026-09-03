@@ -40,7 +40,7 @@ describe("the sandbox keeps the bottom-right dock", () => {
     });
 
     test("ranked still collapses it — this is a sandbox-only rule, not a global one", () => {
-        const ranked = withoutComments(read("RankedGameView.tsx"));
+        const ranked = withoutComments(read("RankedGameViewRuntime.tsx"));
         expect(ranked).toContain("setBattleSystemControlsActive(true)");
         expect(ranked).toContain("setBattleSystemControlsActive(false)");
     });
