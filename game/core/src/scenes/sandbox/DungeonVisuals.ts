@@ -199,7 +199,7 @@ const createCemeteryEdgeDarkenFilter = (): Filter | undefined => {
             gl: { vertex: CEMETERY_EDGE_VERTEX, fragment: CEMETERY_EDGE_FRAGMENT },
             resources: {},
         });
-        filter.resolution = Math.min(window.devicePixelRatio || 1, 2);
+        filter.resolution = "inherit";
         filter.padding = 1;
         return filter;
     } catch {

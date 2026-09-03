@@ -117,9 +117,9 @@ export class WindLayer {
                     },
                 },
             });
-            // Render at display resolution; Filter.from defaults to resolution 1, which upscales the
-            // effect from a 1x texture on HiDPI/Retina screens and looks blocky.
-            this.filter.resolution = Math.min(window.devicePixelRatio || 1, 2);
+            // Match the renderer's capped resolution so this pass stays crisp without exceeding the
+            // battlefield framebuffer budget on large HiDPI displays.
+            this.filter.resolution = "inherit";
             this.filter.padding = 32;
             this.container.filters = [this.filter];
         } catch {

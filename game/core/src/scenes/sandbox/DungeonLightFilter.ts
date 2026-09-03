@@ -107,8 +107,9 @@ export function createDungeonLightFilter(): Filter | undefined {
                 },
             },
         });
-        // Render at display resolution; Filter.from defaults to 1x and looks blocky on HiDPI.
-        filter.resolution = Math.min(window.devicePixelRatio || 1, 2);
+        // Follow the renderer's capped resolution so the full-board lighting pass cannot silently
+        // allocate a larger framebuffer than the battlefield itself on big Retina displays.
+        filter.resolution = "inherit";
         // No bleed needed — the light is computed inside the quad — and a 0 pad keeps vTextureCoord
         // mapped exactly to the board square so the sconces land on the walls.
         filter.padding = 0;

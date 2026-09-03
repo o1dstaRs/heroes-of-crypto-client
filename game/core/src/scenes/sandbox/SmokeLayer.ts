@@ -195,7 +195,7 @@ export class SmokeLayer {
             });
             // Render at display resolution; Filter.from defaults to resolution 1, which upscales the
             // effect from a 1x texture on HiDPI/Retina screens and looks blocky.
-            this.filter.resolution = Math.min(window.devicePixelRatio || 1, 2);
+            this.filter.resolution = "inherit";
             // Allow the domain-warp to bleed past the blob bounds without getting clipped.
             this.filter.padding = 28;
             this.container.filters = [this.filter];

@@ -94,7 +94,8 @@ export function createMoonlightFilter(): Filter | undefined {
                 },
             },
         });
-        filter.resolution = Math.min(window.devicePixelRatio || 1, 2);
+        // Keep this full-sprite pass within the renderer's framebuffer budget on large HiDPI screens.
+        filter.resolution = "inherit";
         filter.padding = 0;
         return filter;
     } catch {

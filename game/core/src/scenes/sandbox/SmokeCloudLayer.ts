@@ -219,9 +219,9 @@ export class SmokeCloudLayer {
                     },
                 },
             });
-            // Render at display resolution; Filter.from defaults to 1, which upscales from a 1x texture on
-            // HiDPI screens and looks blocky.
-            this.filter.resolution = Math.min(window.devicePixelRatio || 1, 2);
+            // Match the renderer's capped resolution. A raw devicePixelRatio here can make the weather
+            // framebuffer much larger than the battlefield on big Retina displays.
+            this.filter.resolution = "inherit";
             // Generous padding: this warps harder than the dust layer, so give the wisps room to bleed
             // past the blob bounds instead of being clipped into straight edges.
             this.filter.padding = 44;

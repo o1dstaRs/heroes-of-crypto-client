@@ -214,8 +214,9 @@ export function createFireLightFilter(): Filter | undefined {
                 },
             },
         });
-        // Render at display resolution; Filter.from defaults to 1x and the noise looks chunky on HiDPI.
-        filter.resolution = Math.min(window.devicePixelRatio || 1, 2);
+        // Follow the renderer's capped resolution. Reading devicePixelRatio directly can make this
+        // offscreen pass larger than the renderer framebuffer on big Retina displays.
+        filter.resolution = "inherit";
         // Nothing is displaced, so the pass needs no bleed and vTextureCoord stays mapped to the sprite.
         filter.padding = 0;
         return filter;
