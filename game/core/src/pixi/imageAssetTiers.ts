@@ -46,6 +46,7 @@ export function isDeferredReactUiAssetKey(key: string): boolean {
         key.startsWith("left_sidebar_") ||
         key.startsWith("ui_") ||
         key.startsWith("sidebar_") ||
+        key.startsWith("stat_") ||
         key.startsWith("artifact_t1_") ||
         key.startsWith("artifact_t2_") ||
         key.startsWith("map_badge_") ||
@@ -53,6 +54,7 @@ export function isDeferredReactUiAssetKey(key: string): boolean {
         key.startsWith("league_") ||
         key.startsWith("wealth_") ||
         key.startsWith("doctrine_") ||
+        key.endsWith("_augment_256") ||
         key.endsWith("_left_screen_x2") ||
         key.endsWith("_portrait_full")
     );
