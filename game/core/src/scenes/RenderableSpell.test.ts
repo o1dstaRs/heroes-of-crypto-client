@@ -89,4 +89,40 @@ describe("PixiRenderableSpell card hit area", () => {
             layer.destroy();
         }
     });
+
+    test("reuses its amount text style and skips unchanged frame redraws", () => {
+        const layer = new Container();
+        const spell = new PixiRenderableSpell(
+            { spellProperties: HoCConfig.getSpellConfig("Nature", "Lightning Strike"), amount: 1 },
+            layer,
+            { spell_cell_260: Texture.WHITE },
+            Texture.WHITE,
+            new Map(),
+        );
+
+        try {
+            const amountText = (spell as unknown as { amountText: { style: object } }).amountText;
+            const renderAmountOwner = spell as unknown as {
+                renderAmount: (cellX: number, cellY: number, enabled: boolean) => void;
+            };
+            const renderAmount = renderAmountOwner.renderAmount.bind(spell);
+            let amountRenderCount = 0;
+            renderAmountOwner.renderAmount = (cellX, cellY, enabled) => {
+                amountRenderCount++;
+                renderAmount(cellX, cellY, enabled);
+            };
+            const style = amountText.style;
+            spell.renderOnPage(1, 5);
+            spell.renderOnPage(1, 5);
+            expect(amountText.style).toBe(style);
+            expect(amountRenderCount).toBe(1);
+
+            spell.syncAmount(2);
+            spell.renderOnPage(1, 5);
+            expect(amountRenderCount).toBe(2);
+        } finally {
+            spell.destroy();
+            layer.destroy();
+        }
+    });
 });

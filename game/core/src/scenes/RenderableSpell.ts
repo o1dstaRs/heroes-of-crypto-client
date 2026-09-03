@@ -122,7 +122,8 @@ export class PixiRenderableSpell extends Spell {
     private iconShadowGfx: Graphics;
     private amountText: Text;
     private highlighted = false;
-    private lastFrameRender?: { cellX: number; cellY: number; enabled: boolean };
+    private pageVisible = false;
+    private lastFrameRender?: { cellX: number; cellY: number; enabled: boolean; amountRemaining: number };
     /** Cached hover rect */
     private xMin = 0;
     private xMax = 0;
@@ -217,7 +218,12 @@ export class PixiRenderableSpell extends Spell {
         this.iconShadowGfx = new Graphics();
         this.amountText = new Text({
             text: "",
-            style: new TextStyle({ fill: 0xffffff, fontSize: 30, fontWeight: "700" }),
+            style: new TextStyle({
+                fill: 0xf1dfb5,
+                fontFamily: HOC_NUMERIC_GEORGIA_FONT_FAMILY,
+                fontSize: 25 * BOOK_AMOUNT_SEAL_SCALE,
+                fontWeight: "700",
+            }),
         });
         this.amountText.anchor.set(0.5);
         this.amountText.visible = false;
@@ -242,6 +248,8 @@ export class PixiRenderableSpell extends Spell {
         return this.iconSprite;
     }
     public cleanupPagePosition(): void {
+        if (!this.pageVisible) return;
+        this.pageVisible = false;
         this.xMin = this.xMax = this.yMin = this.yMax = 0;
         this.bgSprite.visible = false;
         this.iconSprite.visible = false;
@@ -433,6 +441,19 @@ export class PixiRenderableSpell extends Spell {
 
         const cellX = page === 1 ? BOOK_POSITION_LEFT_X : BOOK_POSITION_RIGHT_X;
         const cellY = BOOK_POSITION_TOP_Y + (pagePosition - 1) * BOOK_POSITION_ROW_STEP;
+        const hasScrolls = this.amountRemaining > 0;
+        const hasStackPower = ownerStackPower >= this.getMinimalCasterStackPower();
+        const enabled = hasScrolls && hasStackPower;
+        this.pageVisible = true;
+        const previousRender = this.lastFrameRender;
+        if (
+            previousRender?.cellX === cellX &&
+            previousRender.cellY === cellY &&
+            previousRender.enabled === enabled &&
+            previousRender.amountRemaining === this.amountRemaining
+        ) {
+            return;
+        }
         const iconX = cellX + BOOK_ICON_OFFSET_X;
         const iconY = cellY + BOOK_ICON_OFFSET_Y;
 
@@ -484,10 +505,6 @@ export class PixiRenderableSpell extends Spell {
         this.titleText.y = cellY + BOOK_CELL_SIZE - BOOK_TITLE_MARGIN_BOTTOM - titleHeight;
 
         // Visibility + alpha rules
-        const hasScrolls = this.amountRemaining > 0;
-        const hasStackPower = ownerStackPower >= this.getMinimalCasterStackPower();
-        const enabled = hasScrolls && hasStackPower;
-
         this.bgSprite.alpha = enabled ? 1 : 0.62;
         this.iconSprite.alpha = enabled ? 1 : 0.42;
         this.titleText.alpha = enabled ? 1 : 0.42;
@@ -495,12 +512,6 @@ export class PixiRenderableSpell extends Spell {
         this.bgSprite.tint = enabled ? (this.highlighted ? 0xfff1bf : 0xffffff) : 0x858585;
         this.iconSprite.tint = enabled ? (this.highlighted ? 0xfff7cc : AGED_ICON_TINT) : 0x7a6f55;
         // Recolour the ink itself; tinting would multiply the fill and mud the gold.
-        this.titleText.style.fill = enabled
-            ? this.highlighted
-                ? SPELL_TITLE_FILL_HOVER
-                : SPELL_TITLE_FILL
-            : SPELL_TITLE_FILL_DISABLED;
-
         // The scroll-like background plate under each spell is intentionally hidden — only the icon and
         // title show on the book page.
         this.bgSprite.visible = false;
@@ -548,12 +559,10 @@ export class PixiRenderableSpell extends Spell {
         }
 
         this.amountText.text = label;
-        this.amountText.style = new TextStyle({
-            fill: enabled ? 0xf1dfb5 : 0xb7a383,
-            fontFamily: HOC_NUMERIC_GEORGIA_FONT_FAMILY,
-            fontSize: (label.length > 2 ? 17 : 25) * BOOK_AMOUNT_SEAL_SCALE,
-            fontWeight: "700",
-        });
+        // This method runs every rendered frame while the book is open. Keep Pixi's existing style object
+        // and update the two live values rather than allocating (and invalidating) a TextStyle per spell.
+        this.amountText.style.fill = enabled ? 0xf1dfb5 : 0xb7a383;
+        this.amountText.style.fontSize = (label.length > 2 ? 17 : 25) * BOOK_AMOUNT_SEAL_SCALE;
         this.amountText.position.set(centerX, centerY + 1);
         this.amountText.alpha = enabled ? 0.93 : 0.63;
         this.amountText.visible = true;
@@ -613,7 +622,12 @@ export class PixiRenderableSpell extends Spell {
     }
     /** No permanent card frame: retain only a temporary hover affordance around the clickable card area. */
     private renderBaseCardFrame(cellX: number, cellY: number, enabled: boolean): void {
-        this.lastFrameRender = { cellX, cellY, enabled };
+        this.lastFrameRender = { cellX, cellY, enabled, amountRemaining: this.amountRemaining };
+        this.titleText.style.fill = enabled
+            ? this.highlighted
+                ? SPELL_TITLE_FILL_HOVER
+                : SPELL_TITLE_FILL
+            : SPELL_TITLE_FILL_DISABLED;
         const cardLeft = cellX - 5;
         const cardTop = cellY + CARD_FRAME_TOP_OFFSET;
         const cardWidth = BOOK_CELL_SIZE + HOVER_FRAME_EXTRA_RIGHT + 10;

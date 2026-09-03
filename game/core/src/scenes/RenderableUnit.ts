@@ -1711,24 +1711,24 @@ export class RenderableUnit extends Unit {
     public renderSpells(pageNumber: number): void {
         this.syncSpellAmountsFromProperties();
 
-        const windowLeft = (pageNumber - 1) * 6;
-        const windowRight = (pageNumber - 1) * 6 + 6;
+        const windowLeft = Math.min(this.pixiSpells.length, Math.max(0, (pageNumber - 1) * 6));
+        const windowRight = Math.min(this.pixiSpells.length, windowLeft + 6);
         let bookPosition = 1;
-        const rendered: number[] = [];
 
         for (let i = windowLeft; i < windowRight; i++) {
-            if (i < this.pixiSpells.length && this.pixiSpells[i]) {
+            if (this.pixiSpells[i]) {
                 // Ensure spell book layer visibility is managed by Overlay
                 this.pixiSpells[i].renderOnPage(bookPosition++, this.getStackPower());
-                rendered.push(i);
             }
         }
 
-        // Cleanup non-rendered spells
-        for (let i = 0; i < this.pixiSpells.length; i++) {
-            if (!rendered.includes(i)) {
-                this.pixiSpells[i].cleanupPagePosition();
-            }
+        // Pages are contiguous, so retire the two outside ranges directly instead of allocating a
+        // rendered-index list and scanning it with includes() on every open-book frame.
+        for (let i = 0; i < windowLeft; i++) {
+            this.pixiSpells[i].cleanupPagePosition();
+        }
+        for (let i = windowRight; i < this.pixiSpells.length; i++) {
+            this.pixiSpells[i].cleanupPagePosition();
         }
     }
     public hideSpells(): void {
