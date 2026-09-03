@@ -1645,6 +1645,9 @@ export class RenderableUnit extends Unit {
     private badgeSpriteBounds?: Bounds;
     private badgeScreenAnchor?: Point;
     private badgeLocalAnchor?: Point;
+    /** Immutable render identity resolved once in fromBase instead of reconstructed every frame. */
+    private smallTextureName = "";
+    private idleAnimationStateAvailable = false;
     // "Revealed" roster marker: a translucent red cell beneath the B&W silhouette plus its name caption,
     // so the opponent's known army reads as a roster line-up rather than units already standing on the board.
     private rosterCard?: Container;
@@ -1809,6 +1812,17 @@ export class RenderableUnit extends Unit {
         ru.badgeSpriteBounds = undefined;
         ru.badgeScreenAnchor = undefined;
         ru.badgeLocalAnchor = undefined;
+        const unitProperties = ru.getUnitProperties();
+        const footprintWidth = ru.getFootprintWidth();
+        const footprintHeight = ru.getFootprintHeight();
+        ru.smallTextureName = unitToTextureName(
+            unitProperties.name,
+            TextureType.SMALL,
+            footprintWidth,
+            footprintHeight,
+        );
+        ru.idleAnimationStateAvailable =
+            getAnimationStateConfig(unitProperties.name, "idle", footprintWidth, footprintHeight) !== null;
         ru.shadowDrawWidth = 0;
         ru.shadowDrawHeight = 0;
         // Without this, visualScaleMultiplier is `undefined` -> targetSize = 128 * undefined = NaN
@@ -1993,8 +2007,8 @@ export class RenderableUnit extends Unit {
         // which is only the art tier. They agree for every shipped creature (all 1x1 or 2x2).
         const footprintWidth = this.getFootprintWidth();
         const footprintHeight = this.getFootprintHeight();
-        const texName = unitToTextureName(props.name, TextureType.SMALL, footprintWidth, footprintHeight);
-        const hasAuthoredIdle = this.hasAnimationState("idle");
+        const texName = this.smallTextureName;
+        const hasAuthoredIdle = this.idleAnimationStateAvailable;
         const tallBoardModel = usesTallBoardModel(props, texName, hasAuthoredIdle);
         const refreshedFullBodyScale = usesRefreshedFullBodyScale(props, hasAuthoredIdle);
         const baseTex = this.texResolver(texName);
@@ -2571,10 +2585,8 @@ export class RenderableUnit extends Unit {
     /** Exact ground reference used by both the live sprite and every movement/attack preview. */
     private getBattlefieldGroundReference(logicalPosition: HoCMath.XY, gs: GridSettings, out?: HoCMath.XY): HoCMath.XY {
         const props = this.getUnitProperties();
-        const footprintWidth = this.getFootprintWidth();
         const footprintHeight = this.getFootprintHeight();
-        const textureName = unitToTextureName(props.name, TextureType.SMALL, footprintWidth, footprintHeight);
-        const tallBoardModel = usesTallBoardModel(props, textureName, this.hasAnimationState("idle"));
+        const tallBoardModel = usesTallBoardModel(props, this.smallTextureName, this.idleAnimationStateAvailable);
         const visualProfile = refreshedBoardVisualProfileForUnit(props.name);
         if (!this.useBattlefieldVisualProjection) {
             const ground = out ?? { x: 0, y: 0 };
@@ -4017,6 +4029,7 @@ export class RenderableUnit extends Unit {
     }
     private oneShotAnim?: OneShotAnimState;
     public hasAnimationState(stateName: string): boolean {
+        if (stateName === "idle") return this.idleAnimationStateAvailable;
         const props = this.getUnitProperties();
         return (
             getAnimationStateConfig(props.name, stateName, this.getFootprintWidth(), this.getFootprintHeight()) !== null
