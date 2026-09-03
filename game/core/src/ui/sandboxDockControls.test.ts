@@ -46,7 +46,7 @@ describe("the sandbox keeps the bottom-right dock", () => {
     });
 
     test("the dock still carries all four controls, gated only on being logged in", () => {
-        const dock = read("social/SocialDock.tsx");
+        const dock = read("social/SocialDockRuntime.tsx");
         for (const control of [
             'aria-label="Bets and predictions"',
             'aria-label="Friends"',
@@ -61,7 +61,7 @@ describe("the sandbox keeps the bottom-right dock", () => {
     });
 
     test("the dock reserves the speaker footprint while the game footer owns the live control", () => {
-        const dock = read("social/SocialDock.tsx");
+        const dock = read("social/SocialDockRuntime.tsx");
         const slotStart = dock.indexOf('data-volume-control="social-dock"');
         const slotEnd = dock.indexOf("/>", slotStart);
         const slot = dock.slice(slotStart, slotEnd);

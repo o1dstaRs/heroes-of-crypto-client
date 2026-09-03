@@ -15,7 +15,7 @@ import { describe, expect, test } from "bun:test";
  */
 const panelSource = (file: string): string => readFileSync(join(import.meta.dir, file), "utf8");
 
-const PANELS = ["SocialDock.tsx", "PredictionsPanel.tsx"];
+const PANELS = ["SocialDockRuntime.tsx", "PredictionsPanel.tsx"];
 
 describe("dock panels share one close button", () => {
     test("no panel hand-rolls its own Close button", () => {
