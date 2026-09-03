@@ -91,6 +91,28 @@ const createMoveAndAttackAction = (cellToMove: HoCMath.XY, cellToAttack: HoCMath
 };
 
 describe("AIController", () => {
+    it("cancels delayed AI work when its scene is destroyed", async () => {
+        const unit = createUnit();
+        const onComplete = mock(() => undefined);
+        const controller = new AIController({
+            getCurrentActiveUnit: () => unit,
+        } as unknown as IAIContext);
+        controller.isAIActive = true;
+
+        controller.triggerAIAction(15, onComplete);
+        expect(controller.performingAction).toBe(true);
+
+        controller.destroy();
+        controller.triggerAIAction(0, onComplete);
+        await new Promise((resolve) => setTimeout(resolve, 30));
+
+        expect(onComplete).not.toHaveBeenCalled();
+        expect(controller.performingAction).toBe(false);
+        expect(
+            (controller as unknown as { pendingTimeouts: Set<ReturnType<typeof setTimeout>> }).pendingTimeouts.size,
+        ).toBe(0);
+    });
+
     it("deep-copies shared decision paths at the mutable browser state boundary", () => {
         const source = createMoveAction({ x: 4, y: 5 }).currentActiveKnownPaths();
         const copy = cloneAIKnownPaths(source)!;

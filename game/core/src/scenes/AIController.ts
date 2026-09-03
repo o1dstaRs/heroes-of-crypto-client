@@ -206,6 +206,8 @@ export class AIController {
     // letting the escape-hatch force a bare "skips turn". Cleared alongside strategyRejectedUnitId.
     private strategyRejectedUnitId: string | undefined;
     private strategyRejectedCount = 0;
+    private readonly pendingTimeouts = new Set<ReturnType<typeof setTimeout>>();
+    private destroyed = false;
     // AI State
     public isAIActive = false;
     public performingAction = false;
@@ -215,6 +217,26 @@ export class AIController {
     public constructor(context: IAIContext) {
         this.context = context;
         this.localModelOpponent = getLocalModelOpponentConfig();
+    }
+    private scheduleTimeout(callback: () => void | Promise<void>, delayMs: number): ReturnType<typeof setTimeout> {
+        const handle = setTimeout(() => {
+            this.pendingTimeouts.delete(handle);
+            if (!this.destroyed) void callback();
+        }, delayMs);
+        this.pendingTimeouts.add(handle);
+        return handle;
+    }
+    private clearScheduledTimeout(handle: ReturnType<typeof setTimeout> | undefined): void {
+        if (handle === undefined) return;
+        clearTimeout(handle);
+        this.pendingTimeouts.delete(handle);
+    }
+    public destroy(): void {
+        this.destroyed = true;
+        for (const handle of this.pendingTimeouts) clearTimeout(handle);
+        this.pendingTimeouts.clear();
+        this.performingAction = false;
+        this.performingActionSinceMs = 0;
     }
     /**
      * Restore the AI toggle to the player's pre-auto-turn choice. AI-Driven units force AI on for
@@ -298,7 +320,7 @@ export class AIController {
         priorAIActive: boolean,
         onTimeout?: () => void,
     ): ReturnType<typeof setTimeout> {
-        return setTimeout(() => {
+        return this.scheduleTimeout(() => {
             if (!this.performingAction) {
                 return;
             }
@@ -318,6 +340,7 @@ export class AIController {
      * Check if AI should be triggered for the current turn.
      */
     public shouldTriggerAI(): boolean {
+        if (this.destroyed) return false;
         this.recoverIfActionStalled();
         const currentUnit = this.context.getCurrentActiveUnit();
         if (!currentUnit) return false;
@@ -404,7 +427,7 @@ export class AIController {
         this.performingActionSinceMs = HoCLib.getTimeMillis();
         const wasAIActive = this.isAIActive;
 
-        setTimeout(async () => {
+        this.scheduleTimeout(async () => {
             const currentUnit = this.context.getCurrentActiveUnit();
             // Re-validate before acting: during the trigger delay the player may have toggled AI off
             // (or the active unit may have changed). Without this, a queued action would run — and
@@ -442,6 +465,7 @@ export class AIController {
      * already in flight, so the caller can fall back to a plain skip.
      */
     public forceCurrentTurn(delayMs: number, onComplete?: () => void): boolean {
+        if (this.destroyed) return false;
         const currentUnit = this.context.getCurrentActiveUnit();
         if (!currentUnit || this.performingAction) {
             return false;
@@ -450,7 +474,7 @@ export class AIController {
         this.performingActionSinceMs = HoCLib.getTimeMillis();
         const wasAIActive = this.isAIActive;
 
-        setTimeout(async () => {
+        this.scheduleTimeout(async () => {
             const unit = this.context.getCurrentActiveUnit();
             if (!unit) {
                 this.performingAction = false;
@@ -770,12 +794,12 @@ export class AIController {
                     return;
                 }
                 settled = true;
-                clearTimeout(timer);
+                this.clearScheduledTimeout(timer);
                 resolve(ok);
             };
             // Mirrors scheduleMoveWatchdog's discipline: a stalled walk animation must not wedge
             // performingAction forever — time out and let the caller close the turn.
-            const timer = setTimeout(() => settle(false), AIController.MOVE_ACTION_TIMEOUT_MS);
+            const timer = this.scheduleTimeout(() => settle(false), AIController.MOVE_ACTION_TIMEOUT_MS);
             const started = this.context.executeMoveSequence(
                 currentUnit,
                 action.path,
@@ -890,7 +914,7 @@ export class AIController {
                 if (!watchdog) {
                     return;
                 }
-                clearTimeout(watchdog);
+                this.clearScheduledTimeout(watchdog);
                 this.endTurnIfStillActive(currentUnit);
                 this.finishAIAction(wasAIActive);
             },
@@ -898,7 +922,7 @@ export class AIController {
         );
         if (!moveStarted) {
             if (watchdog) {
-                clearTimeout(watchdog);
+                this.clearScheduledTimeout(watchdog);
             }
             this.endTurnIfStillActive(currentUnit);
             this.finishAIAction(wasAIActive);
@@ -982,7 +1006,7 @@ export class AIController {
                 action.path,
                 undefined,
                 async () => {
-                    clearTimeout(watchdog);
+                    this.clearScheduledTimeout(watchdog);
                     try {
                         const completed = await this.context.executeAttackSequence(
                             currentUnit,
@@ -1011,7 +1035,7 @@ export class AIController {
                 true, // rapidCharge — this AI walk feeds into a melee strike
             );
             if (!moveStarted) {
-                clearTimeout(watchdog);
+                this.clearScheduledTimeout(watchdog);
                 this.endTurnIfStillActive(currentUnit);
                 this.finishAIAction(wasAIActive);
             }
@@ -1086,13 +1110,13 @@ export class AIController {
             action.targetPosition,
             action.attackFrom,
             () => {
-                clearTimeout(watchdog);
+                this.clearScheduledTimeout(watchdog);
                 this.endTurnIfStillActive(currentUnit);
                 this.finishAIAction(wasAIActive);
             },
         );
         if (!started) {
-            clearTimeout(watchdog);
+            this.clearScheduledTimeout(watchdog);
             this.endTurnIfStillActive(currentUnit);
             this.finishAIAction(wasAIActive);
         }
@@ -1569,7 +1593,7 @@ export class AIController {
                     if (!watchdog) {
                         return;
                     }
-                    clearTimeout(watchdog);
+                    this.clearScheduledTimeout(watchdog);
                     this.endTurnIfStillActive(currentUnit);
                     this.recordLocalModelResult(currentUnit, legalAction, decisionId, true);
                     this.finishAIAction(wasAIActive);
@@ -1578,7 +1602,7 @@ export class AIController {
             );
             if (!started) {
                 if (watchdog) {
-                    clearTimeout(watchdog);
+                    this.clearScheduledTimeout(watchdog);
                 }
                 this.endTurnIfStillActive(currentUnit);
                 this.finishAIAction(wasAIActive);
@@ -1635,7 +1659,7 @@ export class AIController {
                     action.path,
                     undefined,
                     async () => {
-                        clearTimeout(watchdog);
+                        this.clearScheduledTimeout(watchdog);
                         try {
                             const completed = await this.context.executeAttackSequence(
                                 currentUnit,
@@ -1673,7 +1697,7 @@ export class AIController {
                     }),
                 );
                 if (!started) {
-                    clearTimeout(watchdog);
+                    this.clearScheduledTimeout(watchdog);
                     this.endTurnIfStillActive(currentUnit);
                     this.finishAIAction(wasAIActive);
                     this.recordLocalModelResult(
@@ -1906,7 +1930,7 @@ export class AIController {
                 route,
                 moveFootprint,
                 async () => {
-                    clearTimeout(watchdog);
+                    this.clearScheduledTimeout(watchdog);
                     try {
                         const attackCompleted = await this.context.executeAttackSequence(
                             currentUnit,
@@ -1933,7 +1957,7 @@ export class AIController {
                 true, // rapidCharge — this AI walk feeds into a melee strike
             );
             if (!moveStarted) {
-                clearTimeout(watchdog);
+                this.clearScheduledTimeout(watchdog);
                 this.endTurnIfStillActive(currentUnit);
                 this.finishAIAction(aiActive);
             }
@@ -1987,14 +2011,14 @@ export class AIController {
         const aiActive = wasAIActive;
         const watchdog = this.scheduleMoveWatchdog(currentUnit, aiActive);
         const started = this.context.executeObstacleAttackSequence(currentUnit, targetWorldPos, attackFromCell, () => {
-            clearTimeout(watchdog);
+            this.clearScheduledTimeout(watchdog);
             // A landed strike ends the unit's turn via the engine (active unit already advanced, so
             // this is a no-op); if it somehow didn't, end it so the AI loop can't stall.
             this.endTurnIfStillActive(currentUnit);
             this.finishAIAction(aiActive);
         });
         if (!started) {
-            clearTimeout(watchdog);
+            this.clearScheduledTimeout(watchdog);
             this.endTurnIfStillActive(currentUnit);
             this.finishAIAction(aiActive);
         }
@@ -2260,7 +2284,7 @@ export class AIController {
                 if (!watchdog) {
                     return;
                 }
-                clearTimeout(watchdog);
+                this.clearScheduledTimeout(watchdog);
                 this.endTurnIfStillActive(currentUnit);
                 this.finishAIAction(wasAIActive);
             },
@@ -2268,7 +2292,7 @@ export class AIController {
         );
         if (!moveStarted) {
             if (watchdog) {
-                clearTimeout(watchdog);
+                this.clearScheduledTimeout(watchdog);
             }
             this.endTurnIfStillActive(currentUnit);
             this.finishAIAction(wasAIActive);

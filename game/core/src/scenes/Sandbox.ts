@@ -13574,6 +13574,7 @@ export class Sandbox extends PixiScene {
         // DungeonVisuals owns stage/world-root children that sit outside PixiDrawer's containers.
         // Dispose them before replacing the scene so a New Battle cannot inherit the prior board's
         // narrowing holes, terrain, or screen-space floor.
+        this.aiController.destroy();
         this.dungeonVisuals?.destroy();
         this.releaseSpellBookBlurFilter();
         super.Destroy();

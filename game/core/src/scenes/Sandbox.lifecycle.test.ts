@@ -34,6 +34,7 @@ describe("Sandbox lifecycle", () => {
 
         expect(blurLifecycle.match(/new BlurFilter/g)).toHaveLength(1);
         expect(blurLifecycle).toContain("filter.destroy()");
+        expect(destroy).toContain("this.aiController.destroy()");
         expect(destroy).toContain("this.releaseSpellBookBlurFilter()");
         expect(source).not.toContain("active ? [new BlurFilter");
     });
