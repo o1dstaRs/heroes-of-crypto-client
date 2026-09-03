@@ -1,4 +1,8 @@
 // game/core/src/react/GameScreen.tsx
+// The scene registry belongs to the battle surface. Keeping this side effect behind Main's lazy boundary
+// prevents menu, login, lobby, and profile routes from evaluating every Pixi scene at startup.
+import "../../scenes";
+
 import React, { useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
 

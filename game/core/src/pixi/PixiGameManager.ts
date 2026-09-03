@@ -36,7 +36,6 @@ import { PixiApp } from "./PixiApp";
 import { PreloadedPixiTextures } from "./PixiTextureLoader";
 import { displayedLoadingProgress, MINIMUM_LOADING_SCREEN_DURATION_MS } from "./loadingProgress";
 
-import "../scenes";
 import type { PixiScene, PixiSceneContext, SceneConstructor, SceneEntry } from "./PixiScene";
 import type { AuthoritativeSnapshotOptions } from "./PixiScene";
 import type { LoadingScreen } from "../scenes/LoadingScreen";
@@ -71,8 +70,12 @@ export class PixiGameManager {
     private sceneHotKeys: HotKey[] = [];
     private allHotKeys: HotKey[] = [];
     private stepHotKeys: HotKey[] = [];
-    public readonly groupedScenes: { name: string; scenes: SceneEntry[] }[] = getScenesGrouped();
-    public readonly flatScenes: SceneEntry[] = [];
+    public get groupedScenes(): { name: string; scenes: SceneEntry[] }[] {
+        return getScenesGrouped();
+    }
+    public get flatScenes(): SceneEntry[] {
+        return this.groupedScenes.flatMap(({ scenes }) => scenes);
+    }
     private sceneConstructor: SceneConstructor | null = null;
     private sceneTitle = "Heroes";
     public readonly onHasStarted = new Signal<(started: boolean) => void>();
@@ -123,9 +126,6 @@ export class PixiGameManager {
     private initEventCleanups: Array<() => void> = [];
     private static readonly OVERLAY_MOUSE_SUPPRESSION_MS = 350;
     private static readonly OVERLAY_MOUSE_SUPPRESSION_DISTANCE_PX = 8;
-    public constructor() {
-        for (const { scenes } of this.groupedScenes) this.flatScenes.push(...scenes);
-    }
     /** Throwing getters to keep TypeScript happy without ‘never’ intersections */
     private get _pixiApp(): PixiApp {
         if (!this.pixiApp) throw new Error("PixiGameManager: pixiApp not initialized yet");
