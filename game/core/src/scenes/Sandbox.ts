@@ -8643,17 +8643,11 @@ export class Sandbox extends PixiScene {
         // is driven per-application off `damage.deepWounds` via spawnDeepWoundsClaws() on both the live and
         // replay attack paths. Only the effect ICON still pops here.
         const iconTextureName = SpellHelper.spellToTextureName(effectName);
-        const iconTexture = this.texAny(iconTextureName);
-        if (!iconTexture) {
-            return;
-        }
-        this.combatVisuals?.spawnDebuffPop(
-            unit.getVisualCenter(this.sc_sceneSettings.getGridSettings()),
-            iconTexture,
-            effectName,
-            stackIndex,
-            kind,
-        );
+        const position = unit.getVisualCenter(this.sc_sceneSettings.getGridSettings());
+        void this.waitForTexture(iconTextureName).then((iconTexture) => {
+            if (!iconTexture) return;
+            this.combatVisuals?.spawnDebuffPop(position, iconTexture, effectName, stackIndex, kind);
+        });
     }
     /** Hook fired whenever the manual AI toggle changes. Sandbox no-ops; ranked persists it. */
     protected onAiToggleChanged(_active: boolean): void {}
@@ -13976,6 +13970,9 @@ export class Sandbox extends PixiScene {
             // size when the scene is constructed, and no resize necessarily fires before the first open.
             if (showSpellBook && !this.spellBookContainer.visible) {
                 this.ensureSpellBookBackground();
+                if (this.currentActiveUnit && this.digitTextures) {
+                    this.currentActiveUnit.ensureSpellBookRendering(this.spellBookContainer, this.digitTextures);
+                }
                 const screen = this.pixiApp.getApplication().screen;
                 this.layoutSpellBook(screen.width, screen.height);
             }
@@ -15950,6 +15947,12 @@ export class Sandbox extends PixiScene {
             if (unit instanceof RenderableUnit && !unit.isDead()) {
                 unit.ensureVisual(unitsContainer, gs);
             }
+        }
+        if (this.sc_renderSpellBookOverlay && this.currentActiveUnit && this.digitTextures) {
+            // parseSpells may have skipped cards whose lazy icon was not decoded yet. Rebuild only the
+            // open, active book as supplementary icons arrive; closed/enemy books do no extra work.
+            this.setHoveredSpell(undefined);
+            this.currentActiveUnit.ensureSpellBookRendering(this.spellBookContainer, this.digitTextures);
         }
         if (this.unitsOverlay?.container.destroyed) {
             // A player can start combat while a final portrait request is still decoding. Release that

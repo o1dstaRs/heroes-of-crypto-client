@@ -2050,10 +2050,7 @@ export class RenderableUnit extends Unit {
                     : spellName === "Meteorite"
                       ? "meteorite_chaos_256_v1"
                       : undefined;
-            const iconTex = generatedIconKey
-                ? (this.texResolver(generatedIconKey) ??
-                  Texture.from((images as Record<string, string>)[generatedIconKey]))
-                : this.texResolver(SpellHelper.spellToTextureName(spellName));
+            const iconTex = this.texResolver(generatedIconKey ?? SpellHelper.spellToTextureName(spellName));
             const cellTex = this.texResolver("spell_cell_260");
             const scrollBadgeTex =
                 this.texResolver("spell_cast_wax_seal_blank_v1") ?? Texture.from(images.spell_cast_wax_seal_blank_v1);

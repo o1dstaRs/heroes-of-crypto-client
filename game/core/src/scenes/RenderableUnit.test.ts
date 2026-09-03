@@ -2109,6 +2109,27 @@ describe("RenderableUnit runtime spell synchronization", () => {
         expect(spellBookLayer.children.length).toBeGreaterThan(0);
         expect(spellBookLayer.children.some((child) => child.visible)).toBe(true);
     });
+
+    test("rebuilds a spellbook card after its on-demand icon arrives", () => {
+        let iconReady = false;
+        const requestedKeys: string[] = [];
+        const angel = createRenderableUnit(TeamVals.LEFT, "Life", "Angel", "angel_512", (key) => {
+            requestedKeys.push(key);
+            return key === "resurrection_256" && !iconReady ? undefined : Texture.WHITE;
+        });
+        const spellBookLayer = new Container();
+        const digits = new Map([[1, Texture.WHITE]]);
+
+        angel.setSpellBookLayer(spellBookLayer, digits);
+        expect(requestedKeys).toContain("resurrection_256");
+        expect(spellBookLayer.children).toHaveLength(0);
+
+        iconReady = true;
+        expect(angel.ensureSpellBookRendering(spellBookLayer, digits)).toBe(true);
+        angel.renderSpells(1);
+        expect(spellBookLayer.children.length).toBeGreaterThan(0);
+        expect(spellBookLayer.children.some((child) => child.visible)).toBe(true);
+    });
 });
 
 describe("RenderableUnit runtime aura and reflection descriptions", () => {

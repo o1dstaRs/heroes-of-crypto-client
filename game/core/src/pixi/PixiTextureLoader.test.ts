@@ -15,6 +15,7 @@ import {
     isLazyCombatEffectAssetKey,
     isLazyProjectileAssetKey,
     isLazyRosterAssetKey,
+    isLazySpellAssetKey,
     isLivePlacementAssetKey,
     isRedundantFullResolutionUnitAtlasKey,
     isProductionOmittedAssetKey,
@@ -62,6 +63,7 @@ describe("pixi texture bundle split", () => {
             lazyProjectileAssets,
             lazyRosterAssets,
             lazyAbilityAssets,
+            lazySpellAssets,
             excludedFullResolutionUnitAtlases,
         } = getSplitBundles();
         const allKeys = Object.keys(images);
@@ -81,6 +83,7 @@ describe("pixi texture bundle split", () => {
             ...Object.keys(lazyProjectileAssets),
             ...Object.keys(lazyRosterAssets),
             ...Object.keys(lazyAbilityAssets),
+            ...Object.keys(lazySpellAssets),
             ...Object.keys(excludedFullResolutionUnitAtlases),
         ];
 
@@ -131,6 +134,9 @@ describe("pixi texture bundle split", () => {
         }
         for (const key of Object.keys(lazyAbilityAssets)) {
             expect(`${key}: ${isLazyAbilityAssetKey(key)}`).toBe(`${key}: true`);
+        }
+        for (const key of Object.keys(lazySpellAssets)) {
+            expect(`${key}: ${isLazySpellAssetKey(key)}`).toBe(`${key}: true`);
         }
         for (const key of Object.keys(excludedFullResolutionUnitAtlases)) {
             expect(`${key}: ${isRedundantFullResolutionUnitAtlasKey(key)}`).toBe(`${key}: true`);
@@ -383,12 +389,25 @@ describe("pixi texture bundle split", () => {
             expect(core[key]).toBeUndefined();
         }
 
-        // These abilities are also castable spells, whose synchronous spellbook cells need the same art.
+        // These abilities are also castable spells and therefore belong to the spell-specific lazy bucket.
         for (const key of ["wild_regeneration_256", "resurrection_256", "water_shield_256"]) {
             expect(isLazyAbilityAssetKey(key)).toBe(false);
-            expect(core[key]).toBeDefined();
+            expect(isLazySpellAssetKey(key)).toBe(true);
+            expect(lazyAbilityAssets[key]).toBeUndefined();
+            expect(core[key]).toBeUndefined();
         }
         expect(Object.keys(lazyAbilityAssets)).toHaveLength(101);
+    });
+
+    test("loads spell and status cards only when the current scene requests them", () => {
+        const { core, lazySpellAssets } = getSplitBundles({ animationsEnabled: false });
+
+        for (const key of ["morale_256", "wild_regeneration_256", "fire_wall_256", "meteorite_chaos_256_v1"]) {
+            expect(isLazySpellAssetKey(key)).toBe(true);
+            expect(lazySpellAssets[key]).toBeDefined();
+            expect(core[key]).toBeUndefined();
+        }
+        expect(Object.keys(lazySpellAssets)).toHaveLength(50);
     });
 
     test("loads sandbox roster art only while the pre-fight overlay exists", () => {

@@ -297,6 +297,102 @@ export function isLazyAbilityAssetKey(key: string): boolean {
     return LAZY_ABILITY_ASSETS.has(key);
 }
 
+// Spell/status cards from common/configuration/spells.json. React surfaces already render these from
+// their URLs; Pixi asks for only the spells owned by units in the current scene and refreshes an open
+// spellbook when each requested icon arrives. Keep this explicit so new spells remain core by default.
+const LAZY_SPELL_ASSETS = new Set([
+    "morale_256",
+    "dismorale_256",
+    "dulling_defense_256",
+    "miner_256",
+    "wild_regeneration_256",
+    "wind_flow_256",
+    "vine_throw_256",
+    "battle_roar_256",
+    "castling_256",
+    "resurrection_256",
+    "armor_augment_256",
+    "might_augment_256",
+    "empower_augment_256",
+    "sniper_augment_256",
+    "movement_augment_256",
+    "veteran_helm_256",
+    "keen_blade_256",
+    "iron_plate_256",
+    "swift_boots_256",
+    "winged_boots_256",
+    "angelic_host_blessing_256",
+    "arcane_ward_blessing_256",
+    "arrows_wingshield_blessing_256",
+    "warding_mane_blessing_256",
+    "cursed_ward_256",
+    "hunters_longbow_256",
+    "helm_of_focus_256",
+    "amulet_of_resolve_256",
+    "warlords_edge_256",
+    "titan_plate_256",
+    "clover_of_fortune_256",
+    "crown_of_command_256",
+    "pendant_of_vitality_256",
+    "berserkers_bond_256",
+    "dual_strike_charm_256",
+    "wounding_charm_256",
+    "broken_aegis_256",
+    "holy_cross_256",
+    "giants_maul_256",
+    "farsight_quiver_256",
+    "tome_of_amplification_256",
+    "rime_charm_256",
+    "lava_striders_256",
+    "craft_256",
+    "armor_rune_256",
+    "weapon_rune_256",
+    "made_of_fire_256",
+    "water_shield_256",
+    "visible_256",
+    "hidden_256",
+    "mages_ring_256",
+    "archmages_ring_256",
+    "heal_256",
+    "spiritual_armor_256",
+    "blessing_256",
+    "helping_hand_256",
+    "courage_256",
+    "mass_heal_256",
+    "summon_wolves_256",
+    "whirlpool_256",
+    "lightning_strike_256",
+    "ring_of_fire_256",
+    "meteor_shower_256",
+    "riot_256",
+    "empower_256",
+    "mass_riot_256",
+    "magic_mirror_256",
+    "mass_magic_mirror_256",
+    "smoke_256",
+    "fireforged_sword_256",
+    "misfortune_256",
+    "fire_wall_256",
+    "fire_strike_256",
+    "meteorite_256",
+    "curse_256",
+    "sadness_256",
+    "quagmire_256",
+    "hamstrung_256",
+    "weakening_beam_256",
+    "weakness_256",
+    "rangebane_256",
+    "cowardice_256",
+    // Chaos variants selected directly instead of SpellHelper's generic key in the authored spellbook.
+    "fire_strike_chaos_256_v1",
+    "meteorite_chaos_256_v1",
+]);
+
+/** Spell and status cards are decoded only when a unit or combat effect requests the exact icon. */
+export function isLazySpellAssetKey(key: string): boolean {
+    return LAZY_SPELL_ASSETS.has(key);
+}
+
 /** True only for assets that PixiTextureLoader places in its blocking core bundle. */
 export function isCoreTextureAssetKey(key: string): boolean {
     return (
@@ -311,7 +407,8 @@ export function isCoreTextureAssetKey(key: string): boolean {
         !isLazyProjectileAssetKey(key) &&
         !isLazyCombatEffectAssetKey(key) &&
         !isLazyRosterAssetKey(key) &&
-        !isLazyAbilityAssetKey(key)
+        !isLazyAbilityAssetKey(key) &&
+        !isLazySpellAssetKey(key)
     );
 }
 

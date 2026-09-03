@@ -54,6 +54,7 @@ import {
     isLazyAbilityAssetKey,
     isLazyCombatEffectAssetKey,
     isLazyMapTextureAssetKey,
+    isLazySpellAssetKey,
 } from "./imageAssetTiers";
 import { images as rawImageUrls } from "../imageAssets";
 import { UnitsOverlay } from "../scenes/UnitsOverlay";
@@ -370,7 +371,8 @@ export abstract class PixiScene {
             isLazyBattlefieldCreatureAssetKey(key) ||
             isLazyCombatEffectAssetKey(key) ||
             isLazyMapTextureAssetKey(key) ||
-            isLazyAbilityAssetKey(key);
+            isLazyAbilityAssetKey(key) ||
+            isLazySpellAssetKey(key);
         const preloaded = (this.textures as unknown as Record<string, Texture>)[key];
         if (preloaded && !preloaded.destroyed) {
             if (isSceneLeasedTexture && url) this.retainLazyTexture(key, url);
