@@ -21,7 +21,8 @@ import MapSettingsRadioButtons from "./MapSettingsRadioButtons";
 // hold them.
 import SandboxToggleContainer from "./SandboxToggleContainer";
 import { SynergySlots } from "./SynergySlots";
-import { FIGHT_LOG_SCROLLBAR_LANE_WIDTH_PX, ImageScrollbar } from "./FightLog";
+import { ImageScrollbar } from "./ImageScrollbar";
+import { FIGHT_LOG_SCROLLBAR_LANE_WIDTH_PX } from "./fightLogLayout";
 import {
     hocColors,
     hocDisplayFontFamily,

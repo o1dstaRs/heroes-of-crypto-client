@@ -1,5 +1,5 @@
 import { IDamageStatistic } from "@heroesofcrypto/common";
-import { FightLog, FIGHT_LOG_SURFACE_BACKGROUND } from "./FightLog";
+import { FIGHT_LOG_SURFACE_BACKGROUND } from "./fightLogLayout";
 import { toolbarColumnHeightPx } from "../DraggableToolbar/toolbarMetrics";
 import {
     RIGHT_SIDEBAR_BG_IMAGE,
@@ -30,6 +30,7 @@ import { useFullscreenActive } from "../useFullscreenActive";
 import { GameSystemControls } from "../GameSystemControls";
 
 const DraggableToolbar = React.lazy(() => import("../DraggableToolbar"));
+const FightLog = React.lazy(() => import("./FightLog").then(({ FightLog }) => ({ default: FightLog })));
 
 // Floor for the fight log. Below this the bar as a whole scrolls rather than squeezing the log to nothing.
 const LOG_MIN_HEIGHT_PX = 168;
@@ -510,7 +511,9 @@ export default function RightSideBar({
                             }}
                         >
                             <Box sx={{ flex: 1, minHeight: 0, display: "flex" }}>
-                                <FightLog text={attackText} />
+                                <React.Suspense fallback={null}>
+                                    <FightLog text={attackText} />
+                                </React.Suspense>
                             </Box>
                         </Box>
                     )}
