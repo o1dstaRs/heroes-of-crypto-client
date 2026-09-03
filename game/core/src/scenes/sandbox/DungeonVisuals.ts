@@ -2559,7 +2559,9 @@ export class DungeonVisuals {
         }
         // Experimental full-floor light filters are intentionally disabled. One of them rendered the
         // background texture as solid black on a fresh WebGL scene even though overlays remained visible.
-        bg.filters = [];
+        // Avoid assigning a fresh array on every simulation step: Pixi treats that as a real filter-stack
+        // change and dirties render collection even though the normal steady state is already filter-free.
+        if (bg.filters?.length) bg.filters = [];
     }
     /**
      * Live state of the localized lava-light pass, for the dev console (window.__hocFloorLight).

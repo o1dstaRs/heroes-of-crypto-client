@@ -53,6 +53,35 @@ describe("dungeon visual allocation", () => {
         visuals.destroy();
     });
 
+    test("keeps the filter-free background state stable between render steps", () => {
+        const gridSettings = new GridSettings(
+            GridConstants.GRID_SIZE,
+            GridConstants.MAX_Y,
+            GridConstants.MIN_Y,
+            GridConstants.MAX_X,
+            GridConstants.MIN_X,
+            GridConstants.MOVEMENT_DELTA,
+            GridConstants.UNIT_SIZE_DELTA,
+        );
+        const stage = new Container();
+        const visuals = new DungeonVisuals({
+            getStage: () => stage,
+            getWorldRoot: () => new Container(),
+            getViewportSize: () => ({ width: 1000, height: 1000 }),
+            getGridSettings: () => gridSettings,
+            texAny: () => Texture.WHITE,
+            attachToWorldRoot: () => undefined,
+        });
+
+        visuals.ensureBackgroundSprite();
+        const background = stage.children.find((child) => child instanceof Sprite) as Sprite;
+        const filters = background.filters;
+        visuals.ensureBackgroundSprite();
+
+        expect(background.filters).toBe(filters);
+        visuals.destroy();
+    });
+
     test("reuses steady tuning values between render steps", () => {
         expect(resolveLavaAnimationTuning()).toBe(resolveLavaAnimationTuning());
         expect(resolveAmbientFireTuning(AMBIENT_FIRE_DEFINITIONS[0])).toBe(
