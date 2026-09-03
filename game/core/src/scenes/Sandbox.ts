@@ -3021,6 +3021,9 @@ export class Sandbox extends PixiScene {
         replay: SandboxReplay,
         throughSequence = replay.actions.length,
     ): Promise<boolean> {
+        if (this.isSceneDestroyed()) {
+            return false;
+        }
         const sequence = Math.max(0, Math.min(Math.floor(throughSequence), replay.actions.length));
         if (!replay.initialState) {
             return false;
@@ -3052,6 +3055,9 @@ export class Sandbox extends PixiScene {
             const startFightIndex = records.findIndex((record) => record.action.type === "start_fight");
 
             for (let index = 0; index < records.length; index += 1) {
+                if (this.isSceneDestroyed()) {
+                    return false;
+                }
                 const record = records[index];
                 const previousState = index > 0 ? records[index - 1]?.stateAfter : replay.initialState;
 
@@ -3065,6 +3071,9 @@ export class Sandbox extends PixiScene {
                 }
 
                 const played = await this.playSandboxReplayRecord(record);
+                if (this.isSceneDestroyed()) {
+                    return false;
+                }
                 if (!played) {
                     console.warn("Replay could not animate action", record.action.type, record.action);
                 }
@@ -3072,6 +3081,9 @@ export class Sandbox extends PixiScene {
                 await this.delayReplay(Sandbox.REPLAY_ACTION_GAP_MS);
             }
 
+            if (this.isSceneDestroyed()) {
+                return false;
+            }
             if (finalRecord?.stateAfter) {
                 this.hydrateSceneState(cloneReplayData(finalRecord.stateAfter));
                 if (finalRecord.stateAfter.fightFinished && finalWinner?.type === "fight_finished") {
@@ -3089,7 +3101,7 @@ export class Sandbox extends PixiScene {
         events: GameEvent[],
         stateAfter?: unknown,
     ): Promise<boolean> {
-        if (!events.length) {
+        if (!events.length || this.isSceneDestroyed()) {
             return false;
         }
 
@@ -3129,6 +3141,9 @@ export class Sandbox extends PixiScene {
         });
         try {
             const played = await Promise.race([this.playSandboxReplayRecord(record), timeout]);
+            if (this.isSceneDestroyed()) {
+                return false;
+            }
             if (!timedOut && !played) {
                 this.applyReplayEvents(record.events, record.stateAfter);
             }
@@ -3302,6 +3317,9 @@ export class Sandbox extends PixiScene {
         unit.setActiveTurn(true);
         unit.syncVisual(this.drawer.getUnitsContainer(), this.sc_sceneSettings.getGridSettings());
         return this.playRecordedMoveAnimation(unit, moveEvent).then((played) => {
+            if (!played || this.isSceneDestroyed()) {
+                return false;
+            }
             // The move animation only plays unit_moved. Apply the rest of the record's events the
             // same way the attack/control replays do, so map narrowing, the dried/cleared center,
             // Armageddon, and system pushes/deaths that ride on a lap-ending move actually render.
@@ -3314,6 +3332,9 @@ export class Sandbox extends PixiScene {
         moveEvent: Extract<GameEvent, { type: "unit_moved" }>,
         rapidCharge = false,
     ): Promise<boolean> {
+        if (this.isSceneDestroyed()) {
+            return Promise.resolve(false);
+        }
         const worldPath = this.createRecordedMoveWorldPath(unit, moveEvent);
         if (worldPath.length < 2) {
             unit.setPosition(moveEvent.to.x, moveEvent.to.y);
@@ -3350,6 +3371,12 @@ export class Sandbox extends PixiScene {
                     resolve(true);
                 },
                 rapidCharge,
+                () => {
+                    if (destinationSilhouetteShown) {
+                        this.setOpponentMoveIntent(undefined);
+                    }
+                    resolve(false);
+                },
             );
             this.isActiveUnitMoving = true;
             if (this.sc_visibleState) {
@@ -3993,7 +4020,10 @@ export class Sandbox extends PixiScene {
             // cell here before the strike — otherwise the unit hits from its old cell and the next
             // snapshot snaps it to where it actually moved.
             if (action.type === "melee_attack" && action.attackFrom) {
-                await this.replayMeleeApproach(attacker, action.attackFrom, action.path);
+                const approached = await this.replayMeleeApproach(attacker, action.attackFrom, action.path);
+                if (!approached || this.isSceneDestroyed()) {
+                    return false;
+                }
             }
             // Fire Breath is a WIND-UP effect: erupt it DURING the swing (before the one-shot) so it
             // doesn't trail the strike by a beat (the "delayed fire" bug). Melee-only, so gate here on
@@ -4156,7 +4186,7 @@ export class Sandbox extends PixiScene {
         attacker: RenderableUnit,
         attackFrom: HoCMath.XY,
         path?: HoCMath.XY[],
-    ): Promise<void> {
+    ): Promise<boolean> {
         const gs = this.sc_sceneSettings.getGridSettings();
         // A multi-cell attacker's anchor cell is NOT its visual center — the center is the middle of the
         // whole footprint, which extends down-left from the anchor. Using the single-cell center
@@ -4181,7 +4211,7 @@ export class Sandbox extends PixiScene {
                 : this.footprintCenterForAnchor(attacker, path[0]);
         }
         if (Math.abs(fromPos.x - toPos.x) < 0.1 && Math.abs(fromPos.y - toPos.y) < 0.1) {
-            return; // Already at the attack-from cell — stationary melee, nothing to walk.
+            return true; // Already at the attack-from cell — stationary melee, nothing to walk.
         }
         const meleeMove: Extract<GameEvent, { type: "unit_moved" }> = {
             type: "unit_moved",
@@ -4194,7 +4224,7 @@ export class Sandbox extends PixiScene {
             targetCells,
         };
         // This walk feeds straight into a melee strike → Rapid Charge dash (if the attacker has it).
-        await this.playRecordedMoveAnimation(attacker, meleeMove, true);
+        return this.playRecordedMoveAnimation(attacker, meleeMove, true);
     }
     protected shouldPlayReplayDoubleShotProjectile(): boolean {
         return true;
@@ -4928,11 +4958,18 @@ export class Sandbox extends PixiScene {
                         action.path!,
                         unit.isSmallSize() ? undefined : this.getLargeUnitObstacleFootprint(unit, action.attackFrom!),
                         resolve,
+                        undefined,
+                        false,
+                        false,
+                        resolve,
                     );
                     if (!started) {
                         resolve();
                     }
                 });
+                if (this.isSceneDestroyed()) {
+                    return false;
+                }
             }
         }
 
@@ -5064,7 +5101,7 @@ export class Sandbox extends PixiScene {
             const oldTargetPos = { ...target.getPosition() };
             this.sc_moveBlocked = true;
             const worldRoot = this.drawer.getUnitsContainer();
-            await new Promise<void>((resolve) => {
+            const completed = await new Promise<boolean>((resolve) => {
                 this.moveAnimManager.startSwapAnimation(
                     caster,
                     oldCasterPos,
@@ -5103,10 +5140,14 @@ export class Sandbox extends PixiScene {
                         target.syncVisual(worldRoot, gs);
                         this.sc_moveBlocked = false;
                         this.applyReplayEvents(record.events);
-                        resolve();
+                        resolve(true);
                     },
+                    () => resolve(false),
                 );
             });
+            if (!completed || this.isSceneDestroyed()) {
+                return false;
+            }
             await this.delayReplay(Sandbox.REPLAY_SPELL_HOLD_MS);
             return true;
         }
@@ -10830,7 +10871,12 @@ export class Sandbox extends PixiScene {
         replayAction?: Extract<GameAction, { type: "move_unit" }>,
         rapidCharge = false,
         continueTurn = false,
+        onCancel?: () => void,
     ): boolean {
+        if (this.isSceneDestroyed()) {
+            onCancel?.();
+            return false;
+        }
         if (!path || path.length === 0) return false;
         const gs = this.sc_sceneSettings.getGridSettings();
         const cellSize = gs.getCellSize();
@@ -11011,6 +11057,7 @@ export class Sandbox extends PixiScene {
             pathLooksLikeFootprintOnly ? undefined : path, // trackPath
             handleMoveComplete,
             rapidCharge,
+            onCancel,
         );
 
         this.isActiveUnitMoving = true;
@@ -13608,6 +13655,9 @@ export class Sandbox extends PixiScene {
         return false;
     }
     public override Destroy(): void {
+        // Movement callbacks can be awaited by replay playback. Cancel them before the ticker stops so
+        // retired scenes cannot remain retained behind a move/swap promise that will never finish.
+        this.moveAnimManager.cancel();
         // DungeonVisuals owns stage/world-root children that sit outside PixiDrawer's containers.
         // Dispose them before replacing the scene so a New Battle cannot inherit the prior board's
         // narrowing holes, terrain, or screen-space floor.

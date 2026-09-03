@@ -835,6 +835,9 @@ export abstract class PixiScene {
             this.scheduleSceneTimeout(resolve, delayMs, resolve);
         });
     }
+    protected isSceneDestroyed(): boolean {
+        return this.sc_destroyed;
+    }
     private cancelSceneTimeouts(): void {
         const pending = [...this.sc_sceneTimeouts];
         this.sc_sceneTimeouts.clear();

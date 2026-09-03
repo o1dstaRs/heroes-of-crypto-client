@@ -34,6 +34,7 @@ interface IMoveAnimationState {
     destCell: HoCMath.XY;
     lastTrackWorld: HoCMath.XY;
     onComplete?: () => void;
+    onCancel?: () => void;
     /** The route is an approach to a melee strike, so an authored flyer must land before releasing it. */
     chainsIntoMeleeAttack: boolean;
     waitingForLanding: boolean;
@@ -76,6 +77,7 @@ interface ISwapAnimState {
     elapsed: number;
     duration: number;
     onComplete?: () => void;
+    onCancel?: () => void;
 }
 
 export class MoveAnimationManager {
@@ -130,6 +132,37 @@ export class MoveAnimationManager {
             if (onComplete) onComplete();
         }
     }
+    /**
+     * Abandon scene-owned motion without committing its gameplay completion. Scene replacement stops
+     * driving update(), so leaving these callbacks pending would keep an awaiting replay (and therefore
+     * the complete retired Sandbox scene) reachable indefinitely.
+     */
+    public cancel(): void {
+        const move = this.moveAnimation;
+        const swap = this.swapAnimation;
+        this.moveAnimation = undefined;
+        this.swapAnimation = undefined;
+
+        if (move) {
+            move.unit.stopBoardWalkAnimation();
+            if (move.rapidCharge) move.unit.setMotionBlur(0);
+        }
+        for (const ghost of this.afterimages) {
+            if (!ghost.sprite.destroyed) ghost.sprite.destroy();
+        }
+        this.afterimages.length = 0;
+        this.lingeringTracks.length = 0;
+        this.moveTrackPath = undefined;
+        this.moveTrackProgress = 0;
+        this.lastTrackDropIndex = -1;
+
+        if (move || swap) {
+            this.isActiveUnitMoving = false;
+            this.context.setMoveBlocked(false);
+        }
+        move?.onCancel?.();
+        swap?.onCancel?.();
+    }
     public getMovingUnit(): RenderableUnit | undefined {
         return this.moveAnimation?.unit;
     }
@@ -141,6 +174,7 @@ export class MoveAnimationManager {
         moveTrackPath?: HoCMath.XY[],
         onComplete?: () => void,
         rapidCharge = false,
+        onCancel?: () => void,
     ) {
         this.isActiveUnitMoving = true;
         this.moveTrackPath = moveTrackPath;
@@ -182,6 +216,7 @@ export class MoveAnimationManager {
             destCell,
             lastTrackWorld: { x: start.x, y: start.y },
             onComplete,
+            onCancel,
             chainsIntoMeleeAttack: rapidCharge,
             waitingForLanding: false,
             rapidCharge: useRapidCharge,
@@ -197,6 +232,7 @@ export class MoveAnimationManager {
         fromB: HoCMath.XY,
         toB: HoCMath.XY,
         onComplete?: () => void,
+        onCancel?: () => void,
     ) {
         // Castling-style position swap: glide both units to each other's old cell along mirrored
         // arcs (quadratic Bézier whose control point bows perpendicular to the path) so they curve
@@ -228,6 +264,7 @@ export class MoveAnimationManager {
             elapsed: 0,
             duration: 0.45,
             onComplete,
+            onCancel,
         };
     }
     public update(dt: number) {
