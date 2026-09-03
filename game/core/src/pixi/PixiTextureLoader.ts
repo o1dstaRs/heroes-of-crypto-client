@@ -11,7 +11,6 @@ import {
     isLazyBattlefieldCreatureAssetKey,
     isLazyProjectileAssetKey,
     isLazyRosterAssetKey,
-    isProductionOmittedAssetKey,
     isRedundantFullResolutionUnitAtlasKey,
     isTransientLoadingScreenAssetKey,
 } from "./imageAssetTiers";
@@ -131,10 +130,7 @@ export function getSplitBundles(options: SplitBundleOptions = {}) {
     const excludedFullResolutionUnitAtlases: Record<string, { src: string }> = {};
 
     for (const [k, v] of Object.entries(rawImages)) {
-        // Production keeps omitted keys in the generated object's type shape, but assigns no URL so Vite
-        // does not publish hundreds of source/legacy files. These branches are never loaded; the empty src
-        // only lets the diagnostic split retain their keys without making initialization reject the map.
-        const src = isProductionOmittedAssetKey(k) && v == null ? "" : normalizeUrl(v, k);
+        const src = normalizeUrl(v, k);
         // Only per-unit atlases are supplementary. Terrain and VFX atlases belong to core because the
         // board uses them at first paint. Unit source-resolution sheets are authoring duplicates: the
         // renderer exclusively asks for their quarter/half variants, so never decode those originals.
