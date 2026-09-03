@@ -119,7 +119,7 @@ import {
     preservesFacingForPureVerticalSingleCellAttack,
     RenderableUnit,
 } from "./RenderableUnit";
-import { resolveCreatureHeadPriorityDepths } from "./battlefieldCreatureDepthSort";
+import { resolveCreatureHeadPriorityDepths, type CreatureDepthSortCandidate } from "./battlefieldCreatureDepthSort";
 import { projectPlacementSplitStackPowers } from "./placementSplitPower";
 import { PixiRenderableSpell } from "./RenderableSpell";
 import { indexUnitTeam, resolveLineTeamFlag } from "./scene_log_flag";
@@ -813,6 +813,9 @@ export class Sandbox extends PixiScene {
     // A dead stack leaves the simulation immediately, but its authored death atlas must keep ticking
     // until the final ember frame. These detached renderables are updated separately from UnitsHolder.
     private readonly dyingVisualUnits = new Set<RenderableUnit>();
+    /** Reused by the 240 Hz depth pass to avoid fresh arrays and map/filter intermediates every tick. */
+    private readonly depthSortableUnitsScratch: RenderableUnit[] = [];
+    private readonly depthSortCandidatesScratch: CreatureDepthSortCandidate[] = [];
     // The unit whose turn header is currently open in the scene log (sandbox text channel only;
     // ranked builds its headers from the journal). Cleared by that unit's turn_completed.
     private sandboxTurnLogHeaderUnitId?: string;
@@ -968,6 +971,17 @@ export class Sandbox extends PixiScene {
     private readonly vineSnapshotCache = new TerrainCellSnapshotCache<IVineCell>();
     private fireWallLayer?: FireWallLayer;
     private readonly fireWallSnapshotCache = new TerrainCellSnapshotCache<IFireWallCell>();
+    /** Stable callback shared by persistent terrain layers instead of allocating one closure per tick. */
+    private readonly terrainCellToWorld = (cell: HoCMath.XY) => {
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const logical = GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+        const metrics = projectedBattlefieldMetricsAtPoint(logical, gs);
+        return {
+            ...metrics.center,
+            cellSize: metrics.cellSize,
+            cellPoints: projectedCellPoints(cell, gs, 0.12),
+        };
+    };
     /**
      * Which way the armed Fire Wall will lie when the player clicks. Rotated by Shift while aiming (see
      * rotateFireWallAim); reset to the default horizontal lay every time a spell is armed, so the wall never
@@ -13901,20 +13915,6 @@ export class Sandbox extends PixiScene {
             this.smokeLayer?.update(timeStep, lingeringTracks);
             this.windLayer?.update(timeStep, lingeringTracks);
             const terrainGridSettings = this.sc_sceneSettings.getGridSettings();
-            const terrainCellToWorld = (cell: HoCMath.XY) => {
-                const logical = GridMath.getPositionForCell(
-                    cell,
-                    terrainGridSettings.getMinX(),
-                    terrainGridSettings.getStep(),
-                    terrainGridSettings.getHalfStep(),
-                );
-                const metrics = projectedBattlefieldMetricsAtPoint(logical, terrainGridSettings);
-                return {
-                    ...metrics.center,
-                    cellSize: metrics.cellSize,
-                    cellPoints: projectedCellPoints(cell, terrainGridSettings, 0.12),
-                };
-            };
             // Spell smoke is read straight from the authoritative store rather than from the
             // smoke_placed/dispel/expired events, so sandbox and ranked share one path: the ranked client
             // already carries smokeClouds on every snapshot, exactly like narrowing and terrain.
@@ -13924,7 +13924,7 @@ export class Sandbox extends PixiScene {
                     timeStep,
                     this.smokeCloudSnapshotCache.get(smokeClouds),
                     terrainGridSettings.getCellSize(),
-                    terrainCellToWorld,
+                    this.terrainCellToWorld,
                 );
             }
             // Vines, same authoritative-store pattern as the smoke above.
@@ -13934,7 +13934,7 @@ export class Sandbox extends PixiScene {
                     timeStep,
                     this.vineSnapshotCache.get(vines),
                     terrainGridSettings.getCellSize(),
-                    terrainCellToWorld,
+                    this.terrainCellToWorld,
                 );
             }
             // Fire walls, same authoritative-store pattern as the smoke and vines above.
@@ -13944,7 +13944,7 @@ export class Sandbox extends PixiScene {
                     timeStep,
                     this.fireWallSnapshotCache.get(fireWalls),
                     terrainGridSettings.getCellSize(),
-                    terrainCellToWorld,
+                    this.terrainCellToWorld,
                 );
             }
             this.lightingLayer?.update(timeStep);
@@ -13985,7 +13985,8 @@ export class Sandbox extends PixiScene {
             this.drawGameplayVisuals(this.gameplayGraphics);
         }
 
-        const depthSortableUnits: RenderableUnit[] = [];
+        const depthSortableUnits = this.depthSortableUnitsScratch;
+        depthSortableUnits.length = 0;
         for (const unit of this.unitsHolder.getAllUnits().values()) {
             const rUnit = unit as RenderableUnit;
             rUnit.setHoverTurnAura(!fightProps.hasFightStarted() && this.hoverManager.hoveredUnitId === rUnit.getId());
@@ -14009,7 +14010,7 @@ export class Sandbox extends PixiScene {
         }
         // Logical death removes a stack from UnitsHolder immediately. Keep only its detached authored
         // death atlas advancing until the final frame, with the same world anchor/scaling as live units.
-        for (const dyingUnit of [...this.dyingVisualUnits]) {
+        for (const dyingUnit of this.dyingVisualUnits) {
             if (this.unitsHolder.getAllUnits().get(dyingUnit.getId()) === dyingUnit) {
                 continue;
             }
@@ -14018,9 +14019,12 @@ export class Sandbox extends PixiScene {
             depthSortableUnits.push(dyingUnit);
         }
 
-        const depthCandidates = depthSortableUnits
-            .map((unit, stableOrder) => unit.getCreatureDepthSortCandidate(stableOrder))
-            .filter((candidate) => !!candidate);
+        const depthCandidates = this.depthSortCandidatesScratch;
+        depthCandidates.length = 0;
+        for (let stableOrder = 0; stableOrder < depthSortableUnits.length; stableOrder += 1) {
+            const candidate = depthSortableUnits[stableOrder].getCreatureDepthSortCandidate(stableOrder);
+            if (candidate) depthCandidates.push(candidate);
+        }
         const headPriorityDepths = resolveCreatureHeadPriorityDepths(depthCandidates);
         if (headPriorityDepths.size) {
             for (const unit of depthSortableUnits) {

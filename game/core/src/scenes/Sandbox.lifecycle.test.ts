@@ -30,6 +30,20 @@ describe("Sandbox lifecycle", () => {
         expect(source).toContain("this.clearSceneTimeout(");
     });
 
+    test("reuses depth-sort arrays and terrain callbacks in the high-frequency fight step", () => {
+        const step = source.slice(
+            source.indexOf("public override Step("),
+            source.indexOf("private drawGameplayVisuals("),
+        );
+
+        expect(step).toContain("this.depthSortableUnitsScratch");
+        expect(step).toContain("this.depthSortCandidatesScratch");
+        expect(step).toContain("this.terrainCellToWorld");
+        expect(step).not.toContain("for (const dyingUnit of [...this.dyingVisualUnits])");
+        expect(step).not.toContain(".map((unit, stableOrder)");
+        expect(step).not.toContain("const terrainCellToWorld =");
+    });
+
     test("reuses one spellbook blur filter and destroys it with the scene", () => {
         const blurLifecycle = source.slice(
             source.indexOf("private setSpellBookWorldBlur("),
