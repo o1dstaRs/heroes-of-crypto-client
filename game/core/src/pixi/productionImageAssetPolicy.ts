@@ -105,8 +105,14 @@ export function isProductionOmittedEnvironmentAssetKey(key: string): boolean {
 /** Retired UI exports with no runtime consumer; their current replacements use distinct keys. */
 export function isProductionOmittedLegacyUiAssetKey(key: string): boolean {
     if (UNUSED_PRODUCTION_LEGACY_UI_ASSETS.has(key)) return true;
-    // Both families were superseded by the generated `*_left_screen_x2` portraits used by every
-    // creature surface. They remain in Drive for comparison/editing but have no production selector.
+    // The old full-body exports were superseded by the approved `*_pick_sandbox_x2` portraits. The
+    // current fullBodyCreatureImage() selector deliberately aliases that same approved source, so no
+    // live surface can request an unversioned `*_portrait_full` file anymore. Keep those authoring
+    // references in Drive without copying ~20 MiB of compressed (and much more decoded) art into each
+    // release.
+    if (key.endsWith("_portrait_full")) return true;
+    // These named UI families were superseded by the generated `*_left_screen_x2` portraits or other
+    // current replacements. They remain in Drive for comparison/editing but have no production selector.
     if (
         key.startsWith("left_sidebar_") ||
         key.startsWith("pick_l2_legacy_") ||

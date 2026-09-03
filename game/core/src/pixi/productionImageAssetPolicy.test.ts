@@ -73,6 +73,8 @@ describe("production environment image policy", () => {
             "combat_toolbar_button",
             "stat_health_gold_v1",
             "stat_health_silver_v1",
+            "black_dragon_portrait_full",
+            "magic_dragon_portrait_full",
         ]) {
             expect(isProductionOmittedLegacyUiAssetKey(key)).toBe(true);
         }
@@ -85,6 +87,8 @@ describe("production environment image policy", () => {
             "ui_start_button_plate_trimmed",
             "combat_toolbar_ember_sword",
             "stat_health_gold_v2",
+            "black_dragon_pick_sandbox_x2",
+            "black_dragon_left_screen_x2",
         ]) {
             expect(isProductionOmittedLegacyUiAssetKey(key)).toBe(false);
         }
