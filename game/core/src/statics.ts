@@ -13,7 +13,9 @@ export const NO_VELOCITY = { x: 0, y: 0 };
 export const HP_BAR_DELTA = 0.09;
 
 // animation
-export const MAX_FPS = 120;
+// Game state advances at 60 Hz. Rendering faster only repeats unchanged frames while doubling the
+// renderer, filter and UI-ticker work on 120/144 Hz displays.
+export const MAX_FPS = 60;
 export const DAMAGE_ANIMATION_TICKS = 100;
 export const RESURRECTION_ANIMATION_TICKS = DAMAGE_ANIMATION_TICKS << 1;
 

@@ -7,6 +7,7 @@ import { Application, Container, Ticker } from "pixi.js";
 import { boardFitVerticalShift } from "./boardFit";
 import { renderResolutionForViewport, shouldUseRenderAntialias } from "./renderResolution";
 import { ensureCanvasContextUsable, recordContextAboutToBeLost } from "./webglContextGuard";
+import { MAX_FPS } from "../statics";
 
 export class PixiApp {
     private app!: Application;
@@ -81,6 +82,9 @@ export class PixiApp {
         this.stage.addChild(this.camera, this.uiContainer);
 
         this.ticker = this.app.ticker;
+        // The simulation advances at MAX_FPS too. ProMotion/high-refresh displays otherwise make Pixi
+        // draw the same state two or more times and run every filter again for no visible game update.
+        this.ticker.maxFPS = MAX_FPS;
 
         // Default camera: center world and fit bounds once caller sets zoom
         this.setupRendering(width, height);

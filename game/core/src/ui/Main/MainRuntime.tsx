@@ -60,25 +60,23 @@ const GameScreen: React.FC<SceneComponentProps> = ({ entry: { name, SceneClass }
         const debugCanvas = debugCanvasRef.current;
         const wrapper = wrapperRef.current;
         let cancelled = false;
-        let frameId = 0;
+        let detachSimulationLoop: (() => void) | undefined;
 
         if (glCanvas && debugCanvas && wrapper && !initializedRef.current) {
             initializedRef.current = true;
             manager.setScene(entryRef.current.name, entryRef.current.SceneClass);
 
-            const loop = (time: number) => {
+            const loop = () => {
                 if (cancelled) {
                     return;
                 }
                 try {
-                    manager.SimulationLoop(time);
+                    manager.SimulationLoop(performance.now());
                 } catch (e) {
                     // A transient error in one frame must NOT kill the loop — otherwise the game
                     // freezes for good ("no units selected / not playable"). Log and keep going;
                     // the per-frame logic (e.g. next-unit selection) recovers on the next frame.
                     console.error("Error during simulation loop", e);
-                } finally {
-                    frameId = window.requestAnimationFrame(loop);
                 }
             };
 
@@ -97,7 +95,11 @@ const GameScreen: React.FC<SceneComponentProps> = ({ entry: { name, SceneClass }
                     // stale local pixiApp if a newer init() call superseded it while we were awaiting.
                     return;
                 }
-                frameId = window.requestAnimationFrame(loop);
+                // Pixi already owns the render requestAnimationFrame. Drive game state from that same
+                // capped ticker instead of keeping a second browser loop alive beside it.
+                const ticker = manager.getApplication().ticker;
+                ticker.add(loop);
+                detachSimulationLoop = () => ticker.remove(loop);
             };
 
             void init().catch((e) => console.error("Initialization failed", e));
@@ -105,9 +107,7 @@ const GameScreen: React.FC<SceneComponentProps> = ({ entry: { name, SceneClass }
 
         return () => {
             cancelled = true;
-            if (frameId) {
-                window.cancelAnimationFrame(frameId);
-            }
+            detachSimulationLoop?.();
             initializedRef.current = false;
             manager.Uninitialize();
         };
