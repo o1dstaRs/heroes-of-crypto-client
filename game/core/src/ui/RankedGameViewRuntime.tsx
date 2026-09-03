@@ -82,7 +82,7 @@ import {
     PhasePanel,
     PickCommitButton,
     useDraftScale,
-} from "./PickAndBan";
+} from "./PickAndBan/runtime";
 import { PickLanternFire } from "./PickAndBan/PickLanternFire";
 import SandboxToggleContainer from "./RightSideBar/SandboxToggleContainer";
 import SideToggleContainer from "./RightSideBar/SideToggleContainer";
