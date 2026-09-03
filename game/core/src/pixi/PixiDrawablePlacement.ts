@@ -1,4 +1,4 @@
-import { Container, FillGradient, Graphics, PerspectiveMesh, Rectangle, Texture } from "pixi.js";
+import { Assets, Container, FillGradient, Graphics, PerspectiveMesh, Rectangle, Texture } from "pixi.js";
 import {
     GridSettings,
     GridMath,
@@ -140,6 +140,18 @@ export const placementGoldBorderTextureKey = (columns = 3, rows = 16, continuous
     if (columns === 4) return `placement_gold_outer_border_green_continuous_4col_${rowCount}row_v23`;
     return `placement_gold_outer_border_green_continuous_3col_${rowCount}row_v23`;
 };
+
+/** Decode the current grid's carpet/border only. Empty until that one file lands; the wash still paints. */
+function placementSourceTexture(key: keyof typeof images): Texture | undefined {
+    const url = images[key];
+    if (typeof url !== "string" || url.length === 0) return undefined;
+    if (Assets.cache.has(url)) {
+        const cached = Assets.cache.get<Texture>(url);
+        if (cached && cached !== Texture.EMPTY && cached.width > 1) return cached;
+    }
+    void Assets.load<Texture>(url).catch(() => undefined);
+    return undefined;
+}
 
 /** Build one world-space gradient for the whole field; local-space fills restart inside every tile. */
 const spawnGradient = (color: number, polygons: readonly number[][]): FillGradient | undefined => {
@@ -694,8 +706,11 @@ function drawPlacementCarpet(
     const minY = Math.min(...cells.map(({ y }) => y));
     const maxY = Math.max(...cells.map(({ y }) => y));
     const columns = maxX - minX + 1;
-    const sourceKey = placementGreenCarpetTextureKey(columns);
-    const source = Texture.from(images[sourceKey]);
+    const source = placementSourceTexture(placementGreenCarpetTextureKey(columns));
+    if (!source) {
+        if (existing) existing.layer.visible = false;
+        return existing;
+    }
     const layoutKey = `green-carpet:${minX}:${maxX}:${minY}:${maxY}:${source.width}:${source.height}`;
     const canReuse = existing?.source === source && existing.layoutKey === layoutKey && existing.layer;
     if (!canReuse && existing) {
@@ -728,6 +743,7 @@ function drawPlacementCarpet(
     // stays fully opaque, so only the green field's inner carpet becomes translucent.
     visual.layer.alpha = placementCarpetOpacityForPhase(enemyMovementPhase);
     visual.layer.eventMode = "none";
+    visual.layer.visible = true;
     if (visual.layer.parent !== frameContainer) frameContainer.addChild(visual.layer);
 
     for (const cell of cells) {
@@ -801,7 +817,11 @@ function drawPlacementGoldBorder(
     const maxY = Math.max(...cells.map(({ y }) => y));
     const columns = maxX - minX + 1;
     const rows = maxY - minY + 1;
-    const source = Texture.from(images[placementGoldBorderTextureKey(columns, rows, continuous)]);
+    const source = placementSourceTexture(placementGoldBorderTextureKey(columns, rows, continuous));
+    if (!source) {
+        if (existing) existing.layer.visible = false;
+        return existing;
+    }
     const layoutKey = `gold-border-zone-v25:${continuous ? "red-segmented" : "green"}:${minX}:${maxX}:${minY}:${maxY}:${source.width}:${source.height}`;
     const canReuse = existing?.source === source && existing.layoutKey === layoutKey && existing.layer;
     if (!canReuse && existing) {

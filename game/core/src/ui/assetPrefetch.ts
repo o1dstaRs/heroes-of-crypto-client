@@ -13,17 +13,17 @@ import { images } from "../generated/image_imports";
 import { isCoreTextureAssetKey } from "../pixi/imageAssetTiers";
 
 /**
- * Warm the browser cache with the board's art while the player is busy drafting.
+ * Warm the browser cache with the board's art while the player is still in the ranked arena (and, as a
+ * fallback, while they are drafting).
  *
- * The pick phase is pure React and takes tens of seconds of deliberate thinking; nothing is downloading
- * during it. The board then boots Pixi, which BLOCKS on preloadCoreAssets behind a loading screen — so
- * the whole core tier is fetched at the one moment the player is waiting to act, and a load screen sits
- * between the draft and choosing augments.
+ * Sitting on /play is minutes of idle network time before a match exists. The pick phase is more of the
+ * same. The board then boots Pixi, which BLOCKS on preloadCoreAssets behind a loading screen — so without
+ * this, the whole core tier is fetched at the one moment the player is waiting to act.
  *
  * This does not replace that load: it front-runs it. Fetching the same URLs here puts them in the HTTP
  * cache, so the later Assets.loadBundle resolves from cache and the blocking step passes through in a
- * blink. Deliberately a plain fetch rather than Pixi's Assets: this runs on a screen that has no
- * renderer and must not pull the Pixi runtime (or its GPU upload path) into the pick bundle.
+ * blink. Deliberately a plain fetch rather than Pixi's Assets: this runs on screens that have no
+ * renderer and must not pull the Pixi runtime (or its GPU upload path) into the arena/pick bundle.
  *
  * Everything here is best-effort. A failed prefetch costs nothing — the real load re-requests it.
  */
@@ -41,8 +41,9 @@ export const coreAssetUrls = (): string[] =>
 /**
  * Begin (once per session) fetching the core art in the background.
  *
- * @returns a function that stops any still-pending requests — call it when the screen unmounts so a
- *          player who leaves the draft is not still pulling megabytes.
+ * @returns a function that stops any still-pending requests. The draft route uses this so leaving a
+ *          direct-linked match aborts leftover work. The arena does not: hopping to the portal and
+ *          back must not drop the rest of the queue, and a later start() on pick is a no-op.
  */
 export const startBackgroundAssetPrefetch = (): (() => void) => {
     if (prefetchStarted || typeof fetch !== "function") {

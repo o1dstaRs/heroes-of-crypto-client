@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import type { IVisibleDamage } from "@heroesofcrypto/common";
 
-import { fireBurnTargets } from "./Sandbox";
+import { fireBurnTargets, secondaryDamageTextStyle } from "./Sandbox";
 
 const damage = (overrides: Partial<IVisibleDamage> = {}): IVisibleDamage => ({
     amount: 12,
@@ -121,5 +121,18 @@ describe("fire damage burn targets", () => {
         );
 
         expect(burns.map((burn) => burn.unitId)).toEqual(["attacker", "victim"]);
+    });
+});
+
+describe("fire damage text style", () => {
+    test("uses the same orange number for Fire Shield and Fire Breath", () => {
+        const orange = { fill: "#ffb13c", stroke: "#7a3800" };
+
+        expect(secondaryDamageTextStyle("fire_shield")).toEqual(orange);
+        expect(secondaryDamageTextStyle("fire_breath")).toEqual(orange);
+    });
+
+    test("does not turn ordinary secondary damage orange", () => {
+        expect(secondaryDamageTextStyle("magic_mirror")).toEqual({ fill: "#ff3333", stroke: "#4a0000" });
     });
 });

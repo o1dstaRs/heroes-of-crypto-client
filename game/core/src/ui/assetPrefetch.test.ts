@@ -26,8 +26,8 @@ import {
 afterEach(() => resetBackgroundAssetPrefetchForTests());
 
 /**
- * Drafting is dead network time; the board's art should arrive during it rather than behind a loading
- * screen between the draft and the augment step.
+ * Ranked-arena idle time (and the draft, as a fallback) should pull the board's art down before Pixi
+ * boots, so the blocking core load after pick/ban resolves from cache.
  */
 describe("what gets prefetched", () => {
     test("uses the same lean core classification as the Pixi runtime", () => {
@@ -40,6 +40,10 @@ describe("what gets prefetched", () => {
         expect(urls.some((url) => url.includes("wolf_walk_atlas"))).toBe(false);
         expect(urls.some((url) => url.includes("wolf_pick_sandbox_x2"))).toBe(false);
         expect(urls.some((url) => url.includes("wolf_battlefield_side_right_final_v1"))).toBe(false);
+        expect(urls.some((url) => url.includes("ambient_fire_video_torch_left_natural"))).toBe(false);
+        expect(urls.some((url) => url.includes("placement_carpet_green_uniform"))).toBe(false);
+        expect(urls.some((url) => url.includes("artifact_t1_"))).toBe(false);
+        expect(urls.some((url) => url.includes("combat_toolbar_"))).toBe(false);
     });
 
     test("every entry is a real URL, never a bare key", () => {
@@ -118,13 +122,20 @@ describe("running it", () => {
 });
 
 describe("where it is started", () => {
-    test("the draft route arms it, and disarms it on leaving", () => {
+    test("the ranked arena arms it and lets it keep running after leave", () => {
+        const source = readFileSync(join(import.meta.dir, "MatchmakingRoute.tsx"), "utf8");
+        expect(source).toContain("startBackgroundAssetPrefetch()");
+        // Arena mount is fire-and-forget: hopping to the portal must not abort leftover URLs.
+        expect(source).not.toContain("return startBackgroundAssetPrefetch()");
+    });
+
+    test("the draft route arms it as a fallback, and disarms it on leaving", () => {
         const source = readFileSync(join(import.meta.dir, "index.tsx"), "utf8");
         const route = source.slice(source.indexOf("const GameRoute:"), source.indexOf("const GameRoute:") + 4000);
         expect(route).toContain("startBackgroundAssetPrefetch()");
         // Gated on the pick screen: this must not fire on the play route, where Pixi is already loading.
         expect(route).toContain('routeMode !== "pick"');
-        // Returned from the effect so React tears it down.
+        // Returned from the effect so React tears it down for a bounced direct-link match.
         expect(route).toContain("return startBackgroundAssetPrefetch()");
     });
 });

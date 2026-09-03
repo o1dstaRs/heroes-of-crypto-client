@@ -210,19 +210,8 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
             },
             {
                 team: 1 as TeamType,
-                label: "Dreadwolf",
-                previewProfile: {
-                    playerId: "preview-dreadwolf",
-                    username: "Dreadwolf",
-                    state: "placed",
-                    league: 3,
-                    leagueName: "Marshal",
-                    wealth: 3,
-                    wins: 98,
-                    draws: 7,
-                    losses: 64,
-                    winRatePct: 58,
-                },
+                label: "AI (v0.8)",
+                isAi: true,
             },
         ],
         [],
@@ -857,11 +846,9 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
     }, [gameId, showOverlay, routeMode]);
     useEffect(() => () => setPrefightMusicActive(false), []);
 
-    // Drafting is the one stretch of this route where the player is thinking and the network is idle, so
-    // pull the board's art down now. Without it nothing downloads until RankedGameView boots Pixi, which
-    // BLOCKS on the core tier behind a loading screen — landing a load between the draft and choosing
-    // augments. Warming the HTTP cache here means that blocking step resolves from cache instead.
-    // Best-effort and abortable: leaving the draft stops it mid-flight.
+    // Fallback if this tab never visited the ranked arena: drafting is still idle network time, and
+    // without a warmup RankedGameView blocks on the core tier behind a loading screen. A no-op when
+    // the arena already started it. Abortable here so a bounced direct-link match stops leftover work.
     useEffect(() => {
         if (!gameId || routeMode !== "pick") {
             return undefined;

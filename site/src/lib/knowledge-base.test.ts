@@ -4,6 +4,7 @@ import { artifacts } from "./artifacts-data";
 import {
     buildKnowledgeEntries,
     isKnowledgeSection,
+    knowledgeAiSearchRank,
     knowledgeEntryId,
     knowledgeEntryMatches,
     knowledgePath,
@@ -38,6 +39,25 @@ describe("knowledge base index", () => {
         expect(knowledgeEntryMatches("Lightning Strike damage", "lightning buff")).toBe(false);
         expect(knowledgeSearchRank("Fire", "Fire damage", "fire")).toBeLessThan(
             knowledgeSearchRank("Fire Strike", "Fire Strike damage", "fire"),
+        );
+    });
+
+    test("AI search understands intent while keeping unrelated entries out", () => {
+        const resurrectionRank = knowledgeAiSearchRank(
+            "Resurrection",
+            "Resurrection revives a fallen ally",
+            "how do I bring a dead unit back",
+        );
+        const unrelatedRank = knowledgeAiSearchRank(
+            "Fire Strike",
+            "Fire Strike deals fire damage",
+            "how do I bring a dead unit back",
+        );
+
+        expect(Number.isFinite(resurrectionRank)).toBe(true);
+        expect(unrelatedRank).toBe(Number.POSITIVE_INFINITY);
+        expect(knowledgeAiSearchRank("Лечение", "Восстанавливает здоровье", "кто может лечить")).toBeLessThan(
+            Number.POSITIVE_INFINITY,
         );
     });
 });

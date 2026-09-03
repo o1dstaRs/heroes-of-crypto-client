@@ -1639,7 +1639,7 @@ export class RankedPlayScene extends Sandbox {
                 const len = Math.hypot(dx, dy);
                 if (len >= 0.001) dir = { x: dx / len, y: dy / len };
             }
-            // Colour it by what caused it — Chain Lightning purple, Petrifying Gaze grey, Fire Shield amber —
+            // Colour it by what caused it — Chain Lightning purple, Petrifying Gaze grey, fire damage orange —
             // through the SAME table the sandbox uses. Ranked drew every secondary hit in the default red, so
             // a Thunderbird's bounces were indistinguishable from ordinary damage.
             const { fill, stroke } = this.getSecondaryDamageStyle(entry.source);

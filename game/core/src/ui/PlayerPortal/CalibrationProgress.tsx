@@ -14,7 +14,7 @@ import type { RankedStanding } from "../../api/social_client";
  * as a row of pips, with the running W/D/L underneath and a plain sentence about what placement
  * will do. The provisional MMR is deliberately absent: it is hidden server-side too, and showing a
  * rating that is still swinging on a high K-factor invites people to read it as their real one.
- * Once placed, the same block shrinks to the single league + MMR line under the commander's name.
+ * Once placed, the same block shrinks to the single league + MMR line under the player's name.
  *
  * The crest is deliberately NOT drawn here. Both callers stand this block inside their identity
  * card and paint standingEmblem() into their own avatar slot, so a placed player reads as one

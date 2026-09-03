@@ -5,6 +5,7 @@ import React, { useEffect, useMemo, useState } from "react";
 
 import { fetchPickObserveSnapshot } from "../api/ranked_play_client";
 import { fetchPublicPlayerStats, type PublicPlayerStats } from "../api/social_client";
+import { images } from "../generated/image_imports";
 import { battleSidebarWidth } from "../pixi/boardFit";
 import { readPlayerArmyColorId } from "../settings/playerArmyColor";
 import { hocDisplayFontFamily } from "./hocTheme";
@@ -138,6 +139,22 @@ const Crest: React.FC<{ team: TeamType; tone: MatchupTeamTone }> = ({ team, tone
     );
 };
 
+const AiAvatar: React.FC<{ label: string }> = ({ label }) => (
+    <Box
+        component="img"
+        src={images.combat_toolbar_ember_ai}
+        alt={label}
+        sx={{
+            width: 37,
+            height: 37,
+            flex: "0 0 auto",
+            objectFit: "contain",
+            filter: "drop-shadow(0 2px 3px rgba(0,0,0,.72)) drop-shadow(0 0 3px rgba(211,173,92,.28))",
+            userSelect: "none",
+        }}
+    />
+);
+
 const Side: React.FC<{
     player: MatchupPlayer;
     tone: MatchupTeamTone;
@@ -164,6 +181,8 @@ const Side: React.FC<{
                     size={35}
                     variant="compact"
                 />
+            ) : player.isAi ? (
+                <AiAvatar label={`${text.username} — AI`} />
             ) : (
                 <Crest team={player.team} tone={tone} />
             )}

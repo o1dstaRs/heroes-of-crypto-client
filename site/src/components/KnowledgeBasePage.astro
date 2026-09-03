@@ -36,6 +36,8 @@ const copy = isRu
           searchLabel: "Поиск по базе знаний",
           searchPlaceholder: "Например: мораль, огонь, дракон, воскрешение...",
           searchHint: "Нажмите /, чтобы начать поиск. Можно вводить несколько слов в любом порядке.",
+          aiSearch: "AI-поиск",
+          aiSearchDescription: "Понимает смысл запроса и близкие игровые термины",
           clear: "Очистить поиск",
           overview: "Обзор",
           rules: "Правила",
@@ -85,6 +87,8 @@ const copy = isRu
           searchLabel: "Search the Knowledge Base",
           searchPlaceholder: "Try morale, fire, dragon, resurrection...",
           searchHint: "Press / to search. Use several words in any order to narrow the results.",
+          aiSearch: "AI Search",
+          aiSearchDescription: "Understands intent and related game terms",
           clear: "Clear search",
           overview: "Overview",
           rules: "Rules",
@@ -174,24 +178,41 @@ const sectionLabels: Record<KnowledgeSection, string> = {
     <div class="page-shell kb-search-shell">
         <section class="kb-search-card" id="kb-search" aria-labelledby="kb-search-label">
             <div class="kb-search-main">
-                <label id="kb-search-label" for="kb-search-input">{copy.searchLabel}</label>
-                <div class="kb-search-field">
-                    <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22">
-                        <circle cx="10.8" cy="10.8" r="6.8"></circle>
-                        <path d="m16 16 4.3 4.3"></path>
-                    </svg>
-                    <input
-                        id="kb-search-input"
-                        data-kb-search
-                        type="search"
-                        autocomplete="off"
-                        placeholder={copy.searchPlaceholder}
-                        aria-describedby="kb-search-hint kb-search-status"
-                    />
-                    <button class="kb-search-clear" data-kb-clear type="button" aria-label={copy.clear} hidden>×</button>
-                    <kbd aria-hidden="true">/</kbd>
+                <div class="kb-search-heading">
+                    <label id="kb-search-label" for="kb-search-input">{copy.searchLabel}</label>
+                    <p id="kb-search-hint" class="kb-search-hint">{copy.searchHint}</p>
                 </div>
-                <p id="kb-search-hint" class="kb-search-hint">{copy.searchHint}</p>
+                <div class="kb-search-controls">
+                    <div class="kb-search-field">
+                        <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22">
+                            <circle cx="10.8" cy="10.8" r="6.8"></circle>
+                            <path d="m16 16 4.3 4.3"></path>
+                        </svg>
+                        <input
+                            id="kb-search-input"
+                            data-kb-search
+                            type="search"
+                            autocomplete="off"
+                            placeholder={copy.searchPlaceholder}
+                            aria-describedby="kb-search-hint kb-search-status"
+                        />
+                        <button class="kb-search-clear" data-kb-clear type="button" aria-label={copy.clear} hidden>×</button>
+                        <kbd aria-hidden="true">/</kbd>
+                    </div>
+                    <button
+                        class="kb-ai-toggle"
+                        data-kb-ai-toggle
+                        type="button"
+                        role="switch"
+                        aria-checked="false"
+                        aria-label={copy.aiSearch}
+                        title={copy.aiSearchDescription}
+                    >
+                        <span class="kb-ai-spark" aria-hidden="true">✦</span>
+                        <span>{copy.aiSearch}</span>
+                        <span class="kb-ai-track" aria-hidden="true"><span></span></span>
+                    </button>
+                </div>
             </div>
 
             <p id="kb-search-status" class="sr-only" data-kb-status role="status" aria-live="polite"></p>
@@ -405,6 +426,7 @@ const sectionLabels: Record<KnowledgeSection, string> = {
 <script>
     import {
         isKnowledgeSection,
+        knowledgeAiSearchRank,
         knowledgeEntryMatches,
         knowledgeSearchRank,
         type KnowledgeSection,
@@ -418,12 +440,30 @@ const sectionLabels: Record<KnowledgeSection, string> = {
         const panels = Array.from(root.querySelectorAll<HTMLElement>("[data-kb-panel]"));
         const searchInput = root.querySelector<HTMLInputElement>("[data-kb-search]");
         const clearButton = root.querySelector<HTMLButtonElement>("[data-kb-clear]");
+        const aiToggle = root.querySelector<HTMLButtonElement>("[data-kb-ai-toggle]");
         const searchResults = root.querySelector<HTMLElement>("[data-kb-search-results]");
         const resultRows = Array.from(root.querySelectorAll<HTMLTableRowElement>("[data-kb-result]"));
         const status = root.querySelector<HTMLElement>("[data-kb-status]");
         const count = root.querySelector<HTMLElement>("[data-kb-visible-count]");
         const empty = root.querySelector<HTMLElement>("[data-kb-empty]");
         let activeSection: KnowledgeSection = "overview";
+        let aiSearchEnabled = false;
+
+        const setAiSearchEnabled = (enabled: boolean, syncUrl = true) => {
+            aiSearchEnabled = enabled;
+            root.dataset.aiSearch = enabled ? "true" : "false";
+            aiToggle?.setAttribute("aria-checked", enabled ? "true" : "false");
+            try {
+                window.localStorage.setItem("hoc.kb.aiSearch", enabled ? "1" : "0");
+            } catch {
+                // Search remains usable when storage is unavailable or blocked.
+            }
+            if (!syncUrl) return;
+            const url = new URL(window.location.href);
+            if (enabled) url.searchParams.set("ai", "1");
+            else url.searchParams.delete("ai");
+            window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+        };
 
         tablist?.setAttribute("role", "tablist");
         tabs.forEach((tab) => {
@@ -486,7 +526,13 @@ const sectionLabels: Record<KnowledgeSection, string> = {
             let visible = 0;
 
             resultRows.forEach((row) => {
-                const queryMatch = searching && knowledgeEntryMatches(row.dataset.search ?? "", query);
+                const queryMatch =
+                    searching &&
+                    (aiSearchEnabled
+                        ? Number.isFinite(
+                              knowledgeAiSearchRank(row.dataset.name ?? "", row.dataset.search ?? "", query),
+                          )
+                        : knowledgeEntryMatches(row.dataset.search ?? "", query));
                 const shown = queryMatch;
                 row.hidden = !shown;
                 if (shown) visible += 1;
@@ -497,8 +543,16 @@ const sectionLabels: Record<KnowledgeSection, string> = {
                 resultRows
                     .sort(
                         (a, b) =>
-                            knowledgeSearchRank(a.dataset.name ?? "", a.dataset.search ?? "", query) -
-                                knowledgeSearchRank(b.dataset.name ?? "", b.dataset.search ?? "", query) ||
+                            (aiSearchEnabled ? knowledgeAiSearchRank : knowledgeSearchRank)(
+                                a.dataset.name ?? "",
+                                a.dataset.search ?? "",
+                                query,
+                            ) -
+                                (aiSearchEnabled ? knowledgeAiSearchRank : knowledgeSearchRank)(
+                                    b.dataset.name ?? "",
+                                    b.dataset.search ?? "",
+                                    query,
+                                ) ||
                             (a.dataset.name ?? "").localeCompare(b.dataset.name ?? ""),
                     )
                     .forEach((row) => resultBody.append(row));
@@ -599,6 +653,11 @@ const sectionLabels: Record<KnowledgeSection, string> = {
         });
 
         searchInput?.addEventListener("input", () => applySearch());
+        aiToggle?.addEventListener("click", () => {
+            setAiSearchEnabled(!aiSearchEnabled);
+            applySearch(false);
+            searchInput?.focus();
+        });
         clearButton?.addEventListener("click", () => {
             if (searchInput) {
                 searchInput.value = "";
@@ -637,6 +696,13 @@ const sectionLabels: Record<KnowledgeSection, string> = {
         const syncFromLocation = () => {
             const params = new URLSearchParams(window.location.search);
             const query = params.get("q") ?? "";
+            let storedAiSearch = false;
+            try {
+                storedAiSearch = window.localStorage.getItem("hoc.kb.aiSearch") === "1";
+            } catch {
+                // Use the URL/default state if storage is unavailable or blocked.
+            }
+            setAiSearchEnabled(params.get("ai") === "1" || (!params.has("ai") && storedAiSearch), false);
             const section = sectionFromFragment(window.location.hash);
             activateSection(section);
             if (searchInput) searchInput.value = query;
@@ -657,6 +723,8 @@ const sectionLabels: Record<KnowledgeSection, string> = {
         --kb-surface-raised: #15100c;
         --kb-line: rgba(220, 177, 88, 0.2);
         --kb-muted: rgba(246, 241, 230, 0.64);
+        --kb-search-sticky-offset: 118px;
+        --kb-search-sticky-top: 68px;
         min-height: 100vh;
         background: linear-gradient(180deg, #080605, #100b08 46%, #080605);
     }
@@ -811,18 +879,33 @@ const sectionLabels: Record<KnowledgeSection, string> = {
     }
 
     .kb-search-shell {
-        position: relative;
-        z-index: 5;
+        position: sticky;
+        z-index: 24;
+        top: var(--kb-search-sticky-top);
         margin-top: -31px;
     }
 
     .kb-search-card {
-        padding: 22px 0 0;
+        padding: 12px;
+        border: 1px solid rgba(241, 200, 97, 0.2);
+        border-radius: 12px;
+        background:
+            linear-gradient(110deg, rgba(20, 14, 9, 0.98), rgba(9, 7, 6, 0.97)),
+            radial-gradient(circle at 82% 0, rgba(224, 184, 95, 0.12), transparent 38%);
+        box-shadow: 0 14px 36px rgba(0, 0, 0, 0.35);
+        backdrop-filter: blur(18px);
     }
 
-    .kb-search-main label {
-        display: block;
-        margin-bottom: 9px;
+    .kb-search-heading {
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+        align-items: baseline;
+        margin-bottom: 8px;
+    }
+
+    .kb-search-heading label {
+        flex: 0 0 auto;
         color: rgba(249, 246, 237, 0.88);
         font-size: 0.84rem;
         font-weight: 760;
@@ -830,9 +913,17 @@ const sectionLabels: Record<KnowledgeSection, string> = {
         text-transform: uppercase;
     }
 
+    .kb-search-controls {
+        display: flex;
+        gap: 9px;
+        align-items: stretch;
+    }
+
     .kb-search-field {
         display: flex;
+        flex: 1 1 auto;
         align-items: center;
+        min-width: 0;
         min-height: 56px;
         padding: 0 13px 0 16px;
         border: 1px solid rgba(241, 200, 97, 0.19);
@@ -870,6 +961,10 @@ const sectionLabels: Record<KnowledgeSection, string> = {
         color: rgba(247, 243, 233, 0.4);
     }
 
+    .kb-search-field input::-webkit-search-cancel-button {
+        display: none;
+    }
+
     .kb-search-clear {
         flex: 0 0 auto;
         width: 36px;
@@ -898,9 +993,92 @@ const sectionLabels: Record<KnowledgeSection, string> = {
     }
 
     .kb-search-hint {
-        margin: 8px 0 0;
+        margin: 0;
         color: var(--kb-muted);
         font-size: 0.82rem;
+        text-align: right;
+    }
+
+    .kb-ai-toggle {
+        display: inline-flex;
+        flex: 0 0 auto;
+        gap: 9px;
+        align-items: center;
+        justify-content: center;
+        min-width: 156px;
+        min-height: 56px;
+        padding: 0 13px;
+        color: rgba(247, 242, 230, 0.7);
+        border: 1px solid rgba(241, 200, 97, 0.17);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.025);
+        font: inherit;
+        font-size: 0.83rem;
+        font-weight: 720;
+        letter-spacing: 0.025em;
+        cursor: pointer;
+        transition: color 160ms ease, border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+    }
+
+    .kb-ai-toggle:hover {
+        color: #fff8e8;
+        border-color: rgba(241, 200, 97, 0.38);
+        background: rgba(241, 200, 97, 0.07);
+    }
+
+    .kb-ai-toggle:focus-visible {
+        outline: 3px solid rgba(242, 199, 93, 0.28);
+        outline-offset: 2px;
+    }
+
+    .kb-ai-toggle[aria-checked="true"] {
+        color: #fff4cc;
+        border-color: rgba(242, 199, 93, 0.55);
+        background: linear-gradient(110deg, rgba(242, 199, 93, 0.17), rgba(100, 179, 158, 0.1));
+        box-shadow: inset 0 0 20px rgba(242, 199, 93, 0.06);
+    }
+
+    .kb-ai-spark {
+        color: rgba(224, 184, 95, 0.62);
+        font-size: 0.9rem;
+        transition: color 160ms ease, text-shadow 160ms ease;
+    }
+
+    .kb-ai-toggle[aria-checked="true"] .kb-ai-spark {
+        color: #f2c75d;
+        text-shadow: 0 0 10px rgba(242, 199, 93, 0.55);
+    }
+
+    .kb-ai-track {
+        position: relative;
+        width: 32px;
+        height: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        transition: border-color 160ms ease, background 160ms ease;
+    }
+
+    .kb-ai-track > span {
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.58);
+        transition: transform 160ms ease, background 160ms ease, box-shadow 160ms ease;
+    }
+
+    .kb-ai-toggle[aria-checked="true"] .kb-ai-track {
+        border-color: rgba(242, 199, 93, 0.62);
+        background: rgba(242, 199, 93, 0.2);
+    }
+
+    .kb-ai-toggle[aria-checked="true"] .kb-ai-track > span {
+        background: #f2c75d;
+        box-shadow: 0 0 8px rgba(242, 199, 93, 0.5);
+        transform: translateX(14px);
     }
 
     .kb-section-nav::-webkit-scrollbar {
@@ -918,7 +1096,7 @@ const sectionLabels: Record<KnowledgeSection, string> = {
 
     .kb-section-nav {
         position: sticky;
-        top: 84px;
+        top: calc(var(--kb-search-sticky-top) + var(--kb-search-sticky-offset));
         display: grid;
         gap: 7px;
     }
@@ -994,7 +1172,7 @@ const sectionLabels: Record<KnowledgeSection, string> = {
 
     .kb-panel,
     .kb-search-results {
-        scroll-margin-top: 92px;
+        scroll-margin-top: calc(var(--kb-search-sticky-top) + var(--kb-search-sticky-offset));
         overflow: hidden;
         border: 1px solid var(--kb-line);
         border-radius: 16px;
@@ -1334,6 +1512,10 @@ const sectionLabels: Record<KnowledgeSection, string> = {
     }
 
     @media (max-width: 1060px) {
+        .knowledge-base {
+            --kb-search-sticky-top: 0px;
+        }
+
         .kb-hero-shell {
             grid-template-columns: 1fr;
             gap: 28px;
@@ -1349,7 +1531,7 @@ const sectionLabels: Record<KnowledgeSection, string> = {
 
         .kb-section-nav {
             z-index: 4;
-            top: 10px;
+            top: var(--kb-search-sticky-offset);
             display: flex;
             overflow-x: auto;
             scrollbar-width: none;
@@ -1363,6 +1545,10 @@ const sectionLabels: Record<KnowledgeSection, string> = {
     }
 
     @media (max-width: 760px) {
+        .knowledge-base {
+            --kb-search-sticky-offset: 110px;
+        }
+
         .kb-hero-image {
             background-position: 65% center;
             opacity: 0.5;
@@ -1398,7 +1584,15 @@ const sectionLabels: Record<KnowledgeSection, string> = {
         }
 
         .kb-search-card {
-            padding: 15px 0 0;
+            padding: 10px;
+        }
+
+        .kb-search-heading {
+            margin-bottom: 8px;
+        }
+
+        .kb-search-hint {
+            display: none;
         }
 
         .kb-search-field kbd {
@@ -1540,6 +1734,21 @@ const sectionLabels: Record<KnowledgeSection, string> = {
     }
 
     @media (max-width: 440px) {
+        .kb-ai-toggle {
+            min-width: 74px;
+            padding-inline: 9px;
+        }
+
+        .kb-ai-toggle > span:nth-child(2) {
+            position: absolute;
+            overflow: hidden;
+            width: 1px;
+            height: 1px;
+            clip: rect(0 0 0 0);
+            clip-path: inset(50%);
+            white-space: nowrap;
+        }
+
         .kb-hero-stats dt {
             font-size: 0.6rem;
         }
@@ -1558,7 +1767,11 @@ const sectionLabels: Record<KnowledgeSection, string> = {
 
     @media (prefers-reduced-motion: reduce) {
         .kb-category-card,
-        .kb-section-tab {
+        .kb-section-tab,
+        .kb-ai-toggle,
+        .kb-ai-spark,
+        .kb-ai-track,
+        .kb-ai-track > span {
             transition: none;
         }
 

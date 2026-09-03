@@ -257,7 +257,7 @@ export const buildMockPortal = (): ResponsePlayerPortalObject => {
     }
 
     return {
-        username: "PreviewCommander",
+        username: "PreviewPlayer",
         wins,
         losses,
         total_games_played: matches.length,

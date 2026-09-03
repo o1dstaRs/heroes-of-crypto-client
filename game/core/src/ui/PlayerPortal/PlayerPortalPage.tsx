@@ -589,7 +589,7 @@ export const PlayerPortalPage: React.FC = () => {
                         sx={{ minWidth: 0 }}
                     >
                         <Stack direction="row" spacing={1.35} alignItems="center" sx={{ minWidth: 0 }}>
-                            {/* The commander's own crest IS the avatar here. It used to sit in a second
+                            {/* The player's own crest IS the avatar here. It used to sit in a second
                                 card directly underneath, which left this one a generic logo and a mostly
                                 empty bar. The logo stays as the fallback while the standing call is in
                                 flight, or if it failed — that call never blocks this page. */}

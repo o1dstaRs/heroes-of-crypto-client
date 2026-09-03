@@ -41,6 +41,14 @@ const rulesCombatImage = "/assets/images/knowledge-base/rules-live-combat.webp";
 const rulesPlacementImage = "/assets/images/knowledge-base/rules-live-placement.webp";
 const rulesEmptyBoardImage = "/assets/images/knowledge-base/rules-board-empty.webp";
 const rulesPlacementZonesImage = "/assets/images/knowledge-base/rules-placement-zones-base.webp";
+// The map illustration is a perspective-projected 16x16 board, not a flat rectangle. These guides follow
+// the painted seams after 1, 3, and 5 narrowing layers instead of using percentage CSS insets that cut
+// diagonally across the tiles. Coordinates are in the source artwork's 1470x940 space.
+const mapNarrowingGuides = [
+    { layer: 1, className: "one", color: "#ef4a3f", points: "277,2 1178,2 1253,833 198,833" },
+    { layer: 3, className: "two", color: "#f2c75d", points: "399,100 1055,100 1092,679 360,679" },
+    { layer: 5, className: "three", color: "#63d28a", points: "526,197 928,197 941,543 512,543" },
+] as const;
 const rulesVisuals = isRu
     ? {
           liveBadge: "Снято в игре",
@@ -332,7 +340,7 @@ const copy = isRu
               "Размер исходного стека рассчитывается из общего бюджета опыта: чем меньше опыт одного существа, тем больше существ приходит в стек. Поэтому сравнивайте не одну фигуру, а весь стек, его способности и роль в составе.",
               "Уровень юнита важен, но это не единственный критерий. В Heroes of Crypto слабый на вид юнит может включить нужную синергию, закрыть ауру, дать контроль или принести книгу заклинаний в отряд.",
               "Публичный список сейчас сфокусирован на четырёх игровых фракциях: Хаос, Жизнь, Сила и Природа. Внутри них есть ближние бойцы, стрелки, маги, летающие юниты, крупные существа со следом 2x1 или 2x2 и утилити-юниты с аурами.",
-              "В живом драфте семь этапов до подготовки: Доктрина, Бандл, пики уровней 1, 2 и 3, артефакт 2 тира и пик уровня 4. Бан выбирается заранее в рейтинговом лобби и разрешается при создании матча, а не во время этапа Доктрины. После драфта вы тратите очки на апгрейды и переходите к расстановке состава 2/2/1/1.",
+              "В живом драфте семь этапов выбора и отдельное раскрытие карты перед пиком 3 уровня: Доктрина, Бандл, пики уровней 1, 2 и 3, артефакт 2 тира и пик уровня 4. Бан выбирается заранее в рейтинговом лобби и разрешается при создании матча, а не во время этапа Доктрины. После драфта вы тратите очки на апгрейды и переходите к расстановке состава 2/2/1/1.",
           ],
           draftSteps: [
               {
@@ -344,8 +352,16 @@ const copy = isRu
                   text: "Оба игрока одновременно выбирают один из двух бандлов. В каждом сразу существо 1 уровня, существо 2 уровня и свой артефакт 1 тира — два артефакта в предложении различаются, поэтому нужный артефакт может стоить вам нужного существа.",
               },
               {
-                  title: "3–5. Пики 1–3 уровней",
-                  text: "По одному существу на уровень. Нижний/зелёный игрок выбирает первым на уровнях 1 и 3, верхний/красный — на уровне 2. Серые портреты забанены. Если доктрина не вскрывает пик соперника, попытка взять уже занятого юнита раскрывает конфликт и возвращает вас к выбору.",
+                  title: "3–4. Пики 1–2 уровней",
+                  text: "По одному существу на уровень. Нижний/зелёный игрок выбирает первым на уровне 1, верхний/красный — на уровне 2. Серые портреты забанены. Если доктрина скрыла пик соперника, попытка взять того же юнита раскрывает конфликт и возвращает вас к выбору.",
+              },
+              {
+                  title: "Раскрытие карты · перед этапом 5",
+                  text: "Карта уже выбрана при создании драфта, но до этого момента скрыта. Сразу после завершения пиков 2 уровня сервер одновременно показывает её обоим игрокам; она не перевыбирается. Пик 3 уровня, артефакт 2 тира и пик 4 уровня делаются уже со знанием карты.",
+              },
+              {
+                  title: "5. Пик 3 уровня",
+                  text: "Нижний/зелёный игрок выбирает первым, верхний/красный — вторым. Теперь можно подобрать существо под открытую карту; правило раскрытия конфликта со скрытым пиком соперника продолжает действовать.",
               },
               {
                   title: "6. Артефакт 2 тира",
@@ -531,7 +547,7 @@ const copy = isRu
               "Обычное завершение хода после движения или другого действия ничего не стоит. В начале круга шанс срабатывания точно равен модулю морали в процентах: плюс даёт приоритет и 1,25× к атаке на круг, минус — поздний пропущенный ход и 0,8× к атаке.",
           mapTitle: "Карта не ждет вечно",
           mapParagraphs: [
-              "Поле — сетка 16x16. В рейтинге карта выпадает одна из трёх в момент создания драфта — все три равновероятны, шанс один к трём — и показывается обоим игрокам по ходу драфта. Бой затем идёт именно на ней: перед началом боя карта не перевыбирается.",
+              "Поле — сетка 16x16. В рейтинге карта выпадает одна из трёх в момент создания драфта — все три равновероятны, шанс один к трём — и одновременно показывается обоим игрокам сразу после пиков 2 уровня, перед пиком 3 уровня. Бой затем идёт именно на ней: карта не перевыбирается.",
           ],
           mapsTableCaption: "Три рейтинговые карты",
           mapsColumns: ["Карта", "Центр", "Сужение", "Шанс"],
@@ -634,7 +650,7 @@ const copy = isRu
               "Starting stack amounts come from a shared experience budget: a creature with lower experience value arrives in a larger amount. Compare the whole stack, its abilities, and its role—not one body in isolation.",
               "Unit level matters, but it is not the whole game. A low-level unit can unlock the right synergy, carry an aura, bring control, or give your army a spellbook.",
               "The public roster is currently focused on four playable factions: Chaos, Life, Might, and Nature. Across them you get melee fighters, ranged units, spellcasters, flyers, large creatures with 2x1 or 2x2 footprints, and utility pieces with auras.",
-              "The live draft has seven stages before setup: Doctrine, Bundle, Level 1, Level 2, Level 3, Tier-2 artifact, and Level 4. Your ban is saved beforehand in the ranked lobby and resolved when the match is created—not during Doctrine. You then spend augment points and place the completed 2/2/1/1 roster.",
+              "The live draft has seven player-choice stages plus a map reveal before the Level-3 pick: Doctrine, Bundle, Levels 1, 2 and 3, Tier-2 artifact, and Level 4. Your ban is saved beforehand in the ranked lobby and resolved when the match is created—not during Doctrine. You then spend augment points and place the completed 2/2/1/1 roster.",
           ],
           draftSteps: [
               {
@@ -646,8 +662,16 @@ const copy = isRu
                   text: "Both players simultaneously take one of two bundles. Each contains a level-1 creature, a level-2 creature, and its own Tier-1 artifact; the two offered artifacts are distinct, so the artifact you want may cost you the creature you wanted.",
               },
               {
-                  title: "3–5. Level 1–3 picks",
-                  text: "Take one creature at each level. The Lower/green seat picks first at levels 1 and 3; the Upper/red seat picks first at level 2. Greyed portraits are banned. If your doctrine hid an opponent pick, attempting the same creature reveals the collision and sends you back to choose again.",
+                  title: "3–4. Level 1–2 picks",
+                  text: "Take one creature at each level. The Lower/green seat picks first at Level 1; the Upper/red seat picks first at Level 2. Greyed portraits are banned. If your doctrine hid an opponent pick, attempting the same creature reveals the collision and sends you back to choose again.",
+              },
+              {
+                  title: "Map reveal · before stage 5",
+                  text: "The map was selected when the draft was created but remained hidden. Immediately after both Level-2 picks finish, the server reveals it to both players at once; it is not rerolled. Everyone makes the Level-3, Tier-2 artifact, and Level-4 choices knowing the map.",
+              },
+              {
+                  title: "5. Level-3 pick",
+                  text: "The Lower/green seat picks first and the Upper/red seat picks second. You can now fit this creature to the revealed map; hidden-pick collisions still reveal the occupied choice and send you back.",
               },
               {
                   title: "6. Tier-2 artifact",
@@ -833,7 +857,7 @@ const copy = isRu
               "Ending after moving or another action costs nothing. At lap start, the proc chance is exactly the absolute morale percentage: positive grants priority and 1.25× attack for the lap; negative produces a late skipped turn and 0.8× attack.",
           mapTitle: "The map does not wait forever",
           mapParagraphs: [
-              "The board is a 16x16 grid. Ranked rolls one of three maps the moment the draft is created — each equally likely, one chance in three — and reveals it to both players mid-draft. The fight is then played on exactly that map; it is never re-rolled at the start of combat.",
+              "The board is a 16x16 grid. Ranked rolls one of three maps the moment the draft is created—each equally likely, one chance in three—and reveals it to both players together immediately after the Level-2 picks, before Level 3. The fight is played on exactly that map; it is never rerolled.",
           ],
           mapsTableCaption: "The three ranked maps",
           mapsColumns: ["Map", "Center", "Narrows", "Chance"],
@@ -1100,8 +1124,13 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
                 {copy.draftParagraphs.map((paragraph) => <p>{paragraph}</p>)}
             </div>
             <ol class="rules-action-grid rules-draft-steps">
-                {copy.draftSteps.map((step) => (
-                    <li class="rules-card compact">
+                {copy.draftSteps.map((step, index) => (
+                    <li class:list={["rules-card", "compact", { "is-map-reveal": index === 3 }]}>
+                        {index === 3 && (
+                            <span class="rules-map-reveal-badge">
+                                {isRu ? "Одновременно для обеих сторон" : "Simultaneous for both sides"}
+                            </span>
+                        )}
                         <ItemTitle>{step.title}</ItemTitle>
                         <p>{step.text}</p>
                     </li>
@@ -1414,9 +1443,20 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
             <div class="rules-map-visual" aria-hidden="true">
                 <img src={rulesEmptyBoardImage} alt="" width="1470" height="940" loading="lazy" />
                 <span class="rules-map-vignette"></span>
-                <span class="map-ring one"></span>
-                <span class="map-ring two"></span>
-                <span class="map-ring three"></span>
+                <svg class="rules-map-guides" viewBox="0 0 1470 940" preserveAspectRatio="xMidYMid meet">
+                    {mapNarrowingGuides.map((guide) => (
+                        <polygon
+                            class:list={["map-ring", guide.className]}
+                            points={guide.points}
+                            data-narrowing-layer={guide.layer}
+                            fill="none"
+                            stroke={guide.color}
+                            stroke-opacity="0.76"
+                            stroke-width="2"
+                            vector-effect="non-scaling-stroke"
+                        />
+                    ))}
+                </svg>
             </div>
         </div>
         <div class="page-shell">
@@ -2007,6 +2047,22 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
         list-style: none;
     }
 
+    .rules-draft-steps .is-map-reveal {
+        border-left-color: rgba(104, 177, 224, 0.9);
+        background:
+            radial-gradient(circle at 100% 0%, rgba(104, 177, 224, 0.12), transparent 42%),
+            linear-gradient(90deg, rgba(104, 177, 224, 0.09), rgba(255, 255, 255, 0.02));
+    }
+
+    .rules-map-reveal-badge {
+        display: inline-flex;
+        margin-bottom: 9px;
+        color: rgba(154, 210, 246, 0.88);
+        font-size: 0.63rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+    }
+
     .rules-synergy-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -2533,12 +2589,13 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
         overflow: hidden;
         border: 1px solid rgba(220, 177, 88, 0.25);
         border-radius: 6px;
-        aspect-ratio: 16 / 10;
+        aspect-ratio: 147 / 94;
         background: #060708;
     }
 
     .rules-map-visual > img,
-    .rules-map-vignette {
+    .rules-map-vignette,
+    .rules-map-guides {
         position: absolute;
         inset: 0;
     }
@@ -2550,30 +2607,38 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
     }
 
     .rules-map-vignette {
+        z-index: 1;
         background:
             radial-gradient(circle at center, rgba(99, 210, 138, 0.08), transparent 31%),
             linear-gradient(135deg, rgba(239, 74, 63, 0.13), transparent 36%, rgba(242, 199, 93, 0.08));
         box-shadow: inset 0 0 44px rgba(0, 0, 0, 0.58);
     }
 
-    .map-ring {
-        position: absolute;
-        border: 2px solid rgba(239, 74, 63, 0.76);
-        box-shadow: inset 0 0 22px rgba(239, 74, 63, 0.16), 0 0 28px rgba(239, 74, 63, 0.22);
+    .rules-map-guides {
+        z-index: 2;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
     }
 
-    .map-ring.one {
-        inset: 8%;
+    .map-ring {
+        fill: rgba(239, 74, 63, 0.025);
+        stroke: rgba(239, 74, 63, 0.76);
+        stroke-width: 2;
+        stroke-linejoin: round;
+        filter: drop-shadow(0 0 12px rgba(239, 74, 63, 0.38));
     }
 
     .map-ring.two {
-        inset: 19%;
-        border-color: rgba(242, 199, 93, 0.7);
+        fill: rgba(242, 199, 93, 0.025);
+        stroke: rgba(242, 199, 93, 0.7);
+        filter: drop-shadow(0 0 12px rgba(242, 199, 93, 0.32));
     }
 
     .map-ring.three {
-        inset: 31%;
-        border-color: rgba(99, 210, 138, 0.7);
+        fill: rgba(99, 210, 138, 0.025);
+        stroke: rgba(99, 210, 138, 0.7);
+        filter: drop-shadow(0 0 12px rgba(99, 210, 138, 0.32));
     }
 
     .rules-final-list {

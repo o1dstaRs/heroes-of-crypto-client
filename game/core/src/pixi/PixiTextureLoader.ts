@@ -11,6 +11,7 @@ import {
     isLazyBattlefieldCreatureAssetKey,
     isLazyProjectileAssetKey,
     isLazyRosterAssetKey,
+    isLivePlacementAssetKey,
     isRedundantFullResolutionUnitAtlasKey,
     isTransientLoadingScreenAssetKey,
 } from "./imageAssetTiers";
@@ -26,6 +27,7 @@ export {
     isLazyBattlefieldCreatureAssetKey,
     isLazyProjectileAssetKey,
     isLazyRosterAssetKey,
+    isLivePlacementAssetKey,
     isProductionOmittedAssetKey,
     isRedundantFullResolutionUnitAtlasKey,
     isTransientLoadingScreenAssetKey,
@@ -185,14 +187,27 @@ export function getSplitBundles(options: SplitBundleOptions = {}) {
     };
 }
 
-/** Drop pre-fight roster textures after their overlay is destroyed; a rematch loads them again on demand. */
-export async function unloadRosterAssets(): Promise<void> {
-    const { lazyRosterAssets } = getSplitBundles();
-    const loadedEntries = Object.entries(lazyRosterAssets).filter(([, asset]) => Assets.cache.has(asset.src));
+async function unloadLoadedBundle(bundle: Record<string, { src: string }>): Promise<void> {
+    const loadedEntries = Object.entries(bundle).filter(([, asset]) => Assets.cache.has(asset.src));
     await Promise.allSettled(loadedEntries.map(([, asset]) => Assets.unload(asset.src)));
     for (const [key] of loadedEntries) {
         delete (loadedTextures as Record<string, Texture | undefined>)[key];
     }
+}
+
+/** Drop pre-fight roster textures after their overlay is destroyed; a rematch loads them again on demand. */
+export async function unloadRosterAssets(): Promise<void> {
+    const { lazyRosterAssets } = getSplitBundles();
+    await unloadLoadedBundle(lazyRosterAssets);
+}
+
+/** Drop the placement carpet/border that this fight actually decoded; the next match loads its size again. */
+export async function unloadPlacementAssets(): Promise<void> {
+    const { deferredPlacementAssets } = getSplitBundles();
+    const livePlacementAssets = Object.fromEntries(
+        Object.entries(deferredPlacementAssets).filter(([key]) => isLivePlacementAssetKey(key)),
+    );
+    await unloadLoadedBundle(livePlacementAssets);
 }
 
 export async function preloadCoreAssets(onProgress?: (p: number) => void): Promise<Partial<PreloadedPixiTextures>> {

@@ -91,15 +91,15 @@ describe("prediction history", () => {
             ],
         });
         const markets = [
-            market("viewer-current-game", "SomeoneElse", "AnotherCommander"),
-            market("viewer-by-name", "previewcommander", "ThirdCommander"),
+            market("viewer-current-game", "SomeoneElse", "AnotherPlayer"),
+            market("viewer-by-name", "previewplayer", "ThirdPlayer"),
             market("eligible-game", "IronWarden", "FrostQueen"),
         ];
 
         expect(
             eligiblePredictionMarkets(markets, {
                 gameId: "viewer-current-game",
-                username: "PreviewCommander",
+                username: "PreviewPlayer",
             }).map((candidate) => candidate.gameId),
         ).toEqual(["eligible-game"]);
     });

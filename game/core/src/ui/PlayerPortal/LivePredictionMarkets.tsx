@@ -45,7 +45,7 @@ const draftClock = (pickEndTime: number, now: number): string => {
     return `${minutes}:${String(remaining % 60).padStart(2, "0")}`;
 };
 
-/** Compact live-market surface mounted as its own card beneath the ranked commander profile. */
+/** Compact live-market surface mounted as its own card beneath the ranked player profile. */
 export const LivePredictionMarkets: React.FC<LivePredictionMarketsProps> = ({
     viewerUsername,
     viewerGameId,
@@ -142,7 +142,7 @@ export const LivePredictionMarkets: React.FC<LivePredictionMarketsProps> = ({
                     ...current,
                     {
                         gameId: market.gameId,
-                        playerId: "mock-preview-commander",
+                        playerId: "mock-preview-player",
                         predictedPlayerId: armedSide,
                         amount: stake,
                         placedAt: Date.now(),

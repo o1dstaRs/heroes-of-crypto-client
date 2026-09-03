@@ -38,6 +38,7 @@ import {
 import { DoctrineIcon } from "./DoctrineIcon";
 import { ArenaNavBar } from "./ArenaNavBar";
 import { ARENA_IDLE_WASH, arenaBackgroundUrl } from "./arenaBackdrop";
+import { startBackgroundAssetPrefetch } from "./assetPrefetch";
 import { getDoctrineCopy } from "./doctrineCopy";
 import { isMockPortalEnabled } from "./PlayerPortal/mockPortal";
 import { PlayerPortalSidebar } from "./PlayerPortal/PlayerPortalSidebar";
@@ -223,13 +224,20 @@ export const MatchmakingRoute: React.FC = () => {
     // The backend-free preview should land on the thing it exists to demonstrate. Live players keep
     // the compact arena default and opt into this panel with the stats toggle as before.
     const [profileSummaryOpen, setProfileSummaryOpen] = useState(() => isMockPortalEnabled());
-    // Commanders currently on the arena (queue + live games) — polled from the public mm endpoint.
+    // Players currently on the arena (queue + live games) — polled from the public mm endpoint.
     const [onlineNow, setOnlineNow] = useState<{ searching: number; playing: number; online: number }>();
     const { currency, snapshot: seasonSnapshot } = useRankedSeason();
-    // Only a PLACED commander may stake. Treated as "cannot" until the standing actually loads, so the
+    // Only a PLACED player may stake. Treated as "cannot" until the standing actually loads, so the
     // control never flashes into view for a calibrating player on a slow request.
     const rankedStanding = useRankedStanding();
     const canStake = rankedStanding?.state === "placed";
+
+    // Arena idle time is the cheapest place to pull board art: queue, chat, and browsing all happen
+    // before a match exists. Do not abort on leave — this is once per tab and low-priority, and aborting
+    // would also drop remaining URLs if the player hops to the portal then queues.
+    useEffect(() => {
+        startBackgroundAssetPrefetch();
+    }, []);
 
     useEffect(() => {
         if (isMockPortalEnabled()) {
@@ -836,8 +844,8 @@ export const MatchmakingRoute: React.FC = () => {
                 description: queueSize
                     ? tf(
                           queueSize === 1
-                              ? "{count} commander is currently in the queue."
-                              : "{count} commanders are currently in the queue.",
+                              ? "{count} player is currently in the queue."
+                              : "{count} players are currently in the queue.",
                           {
                               count: queueSize,
                           },
@@ -866,7 +874,7 @@ export const MatchmakingRoute: React.FC = () => {
                 accent: hocColors.gold,
                 eyebrow: t("PRACTICE ARENA"),
                 headline: t("Summoning a training opponent"),
-                description: t("Preparing a private match against the default AI commander."),
+                description: t("Preparing a private match against the default AI player."),
             };
         }
         if (state === "error") {
@@ -1076,7 +1084,7 @@ export const MatchmakingRoute: React.FC = () => {
                                             direction="row"
                                             spacing={0.7}
                                             alignItems="center"
-                                            aria-label={tf("{count} commanders online", { count: onlineNow.online })}
+                                            aria-label={tf("{count} players online", { count: onlineNow.online })}
                                             sx={{
                                                 minHeight: 38,
                                                 px: 1.15,

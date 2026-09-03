@@ -116,7 +116,7 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     Calibrating: "На калибровке",
 
     // ~~~ Player portal: header + shell ~~~
-    "COMMANDER PROFILE": "ПРОФИЛЬ КОМАНДИРА",
+    "PLAYER PROFILE": "ПРОФИЛЬ ИГРОКА",
     "Player Profile": "Профиль игрока",
     "Your Profile": "Ваш профиль",
     "Player profile summary": "Сводка профиля игрока",
@@ -364,7 +364,7 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     Sandbox: "Песочница",
     Profile: "Профиль",
     "Game navigation": "Навигация по игре",
-    "{count} commanders online": "командиров в сети: {count}",
+    "{count} players online": "игроков в сети: {count}",
     "{online} online · {searching} searching · {playing} in battle":
         "в сети: {online} · ищут игру: {searching} · в бою: {playing}",
     "Hide player stats": "Скрыть статистику игрока",
@@ -377,8 +377,8 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     MATCHMAKING: "ПОДБОР ИГРЫ",
     "Looking for opponent": "Поиск соперника",
     "Looking for opponent ({count} in queue)": "Поиск соперника (в очереди: {count})",
-    "{count} commander is currently in the queue.": "Сейчас в очереди {count} командир.",
-    "{count} commanders are currently in the queue.": "Сейчас в очереди командиров: {count}.",
+    "{count} player is currently in the queue.": "Сейчас в очереди {count} игрок.",
+    "{count} players are currently in the queue.": "Сейчас в очереди игроков: {count}.",
     "Scouting for a worthy rival": "Ищем достойного соперника",
     "Stay ready while we search the live ranked queue.": "Будьте готовы — идёт поиск в рейтинговой очереди.",
     "Leave ranked queue": "Покинуть рейтинговую очередь",
@@ -434,8 +434,8 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "PRACTICE ARENA": "ТРЕНИРОВОЧНАЯ АРЕНА",
     "Preparing AI match": "Подготовка матча с ИИ",
     "Summoning a training opponent": "Призываем тренировочного соперника",
-    "Preparing a private match against the default AI commander.":
-        "Подготовка закрытого матча против стандартного ИИ-командира.",
+    "Preparing a private match against the default AI player.":
+        "Подготовка закрытого матча против стандартного ИИ-игрока.",
     "CONNECTION ISSUE": "ОШИБКА СОЕДИНЕНИЯ",
     "Connection error": "Ошибка соединения",
     "The arena link was interrupted": "Связь с ареной прервана",

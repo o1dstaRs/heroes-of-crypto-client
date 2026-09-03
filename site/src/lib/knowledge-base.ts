@@ -44,6 +44,173 @@ export const knowledgeEntryMatches = (searchText: string, query: string): boolea
     return normalizedQuery.split(/\s+/).every((token) => haystack.includes(token));
 };
 
+const knowledgeAiStopWords = new Set([
+    "a",
+    "about",
+    "all",
+    "an",
+    "and",
+    "any",
+    "are",
+    "best",
+    "bring",
+    "can",
+    "could",
+    "do",
+    "does",
+    "find",
+    "for",
+    "from",
+    "give",
+    "how",
+    "i",
+    "in",
+    "is",
+    "me",
+    "of",
+    "on",
+    "show",
+    "that",
+    "the",
+    "to",
+    "unit",
+    "units",
+    "what",
+    "which",
+    "with",
+    "you",
+    "а",
+    "в",
+    "все",
+    "где",
+    "для",
+    "есть",
+    "и",
+    "из",
+    "как",
+    "какие",
+    "какой",
+    "который",
+    "мне",
+    "может",
+    "можно",
+    "на",
+    "найди",
+    "о",
+    "покажи",
+    "про",
+    "с",
+    "что",
+    "кто",
+    "это",
+    "юнит",
+    "юниты",
+]);
+
+const knowledgeAiConcepts = [
+    [
+        "heal",
+        "healer",
+        "healing",
+        "heals",
+        "regenerate",
+        "regeneration",
+        "restore",
+        "restoration",
+        "revive",
+        "resurrect",
+        "resurrection",
+        "лечит",
+        "лечить",
+        "лечение",
+        "регенерация",
+        "восстановление",
+        "возрождение",
+        "воскресить",
+        "воскрешение",
+    ],
+    [
+        "dead",
+        "death",
+        "die",
+        "fallen",
+        "kill",
+        "revive",
+        "resurrect",
+        "resurrection",
+        "смерть",
+        "погиб",
+        "убить",
+        "воскрешение",
+    ],
+    [
+        "armor",
+        "barrier",
+        "defence",
+        "defense",
+        "protect",
+        "protection",
+        "resist",
+        "resistance",
+        "shield",
+        "броня",
+        "защита",
+        "сопротивление",
+        "щит",
+    ],
+    ["attack", "damage", "hit", "power", "strike", "атака", "атаковать", "сила", "удар", "урон"],
+    ["fast", "initiative", "move", "movement", "quick", "speed", "быстрый", "движение", "инициатива", "скорость"],
+    ["fly", "flying", "flight", "airborne", "летающий", "летать", "полет"],
+    ["archer", "distance", "range", "ranged", "shoot", "shooter", "дальний", "дистанция", "стрелок", "стрельба"],
+    ["cast", "caster", "magic", "spell", "колдовство", "маг", "магия", "заклинание"],
+    ["burn", "fire", "flame", "ignite", "lava", "огонь", "ожог", "пламя", "поджог", "лава"],
+    ["poison", "toxic", "venom", "яд", "ядовитый", "отравление"],
+    ["control", "disable", "skip", "stun", "контроль", "оглушение", "пропуск"],
+    ["create", "spawn", "summon", "призвать", "призыв", "создать"],
+    ["critical", "crit", "luck", "крит", "критический", "удача"],
+    ["morale", "tempo", "turn", "мораль", "темп", "ход"],
+] as const;
+
+const knowledgeAiConceptByToken = new Map<string, readonly string[]>(
+    knowledgeAiConcepts.flatMap((concept) => concept.map((token) => [token, concept] as const)),
+);
+knowledgeAiConceptByToken.set("back", knowledgeAiConcepts[0]);
+
+const knowledgeAiQueryTokens = (query: string): string[] => {
+    const tokens = normalizeKnowledgeQuery(query).split(/\s+/).filter(Boolean);
+    const meaningfulTokens = tokens.filter((token) => !knowledgeAiStopWords.has(token));
+    return meaningfulTokens.length > 0 ? meaningfulTokens : tokens;
+};
+
+const knowledgeAiTermsForToken = (token: string): readonly string[] => knowledgeAiConceptByToken.get(token) ?? [token];
+
+/**
+ * A small deterministic semantic rank for the static Knowledge Base index.
+ * Exact lexical matches keep their normal rank; related gameplay terms are ranked after them.
+ */
+export function knowledgeAiSearchRank(name: string, searchText: string, query: string): number {
+    const normalizedQuery = normalizeKnowledgeQuery(query);
+    if (!normalizedQuery) return 100;
+    if (knowledgeEntryMatches(searchText, query)) return knowledgeSearchRank(name, searchText, query);
+
+    const normalizedName = normalizeKnowledgeQuery(name);
+    const haystack = normalizeKnowledgeQuery(searchText);
+    const nameWords = new Set(normalizedName.split(/\s+/));
+    const haystackWords = new Set(haystack.split(/\s+/));
+    const queryTokens = knowledgeAiQueryTokens(query);
+    let rank = 10;
+
+    for (const token of queryTokens) {
+        const terms = knowledgeAiTermsForToken(token);
+        const nameMatch = terms.some((term) => nameWords.has(term));
+        const textMatch = nameMatch || terms.some((term) => haystackWords.has(term));
+        if (!textMatch) return Number.POSITIVE_INFINITY;
+        rank += nameMatch ? 0 : 2;
+    }
+
+    return rank;
+}
+
 /** Lower scores sort closer to the top of search results. */
 export function knowledgeSearchRank(name: string, searchText: string, query: string): number {
     const normalizedName = normalizeKnowledgeQuery(name);

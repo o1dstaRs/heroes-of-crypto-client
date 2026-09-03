@@ -12,6 +12,7 @@ import {
     isLazyBattlefieldCreatureAssetKey,
     isLazyProjectileAssetKey,
     isLazyRosterAssetKey,
+    isLivePlacementAssetKey,
     isRedundantFullResolutionUnitAtlasKey,
     isProductionOmittedAssetKey,
     isTransientLoadingScreenAssetKey,
@@ -163,7 +164,7 @@ describe("pixi texture bundle split", () => {
     });
 
     test("leaves React-only draft and portrait art out of Pixi's texture cache", () => {
-        const { core, deferredReactUiAssets } = getSplitBundles({ animationsEnabled: false });
+        const { core } = getSplitBundles({ animationsEnabled: false });
 
         for (const key of [
             "wolf_left_screen_x2",
@@ -177,9 +178,16 @@ describe("pixi texture bundle split", () => {
             "ui_sidebar_bg_left_smoked_bronze_inner_v11",
             "ui_up_next_smoky_chains_bg_wide_73pct_v4",
             "sidebar_overlay",
+            "ui_start_button_plate_trimmed",
+            "artifact_t1_swift_boots_256",
+            "artifact_t2_crown_of_command_256",
+            "map_badge_normal_4x4_actual_style_v4",
+            "combat_toolbar_ember_sword",
+            "league_demigod_512",
+            "wealth_demigod_whale_512",
+            "doctrine_spymaster",
         ]) {
             expect(isDeferredReactUiAssetKey(key)).toBe(true);
-            expect(deferredReactUiAssets[key]).toBeDefined();
             expect(core[key]).toBeUndefined();
         }
 
@@ -191,7 +199,7 @@ describe("pixi texture bundle split", () => {
     });
 
     test("keeps only live environment variants in core and lets the fire pit load on demand", () => {
-        const { core, deferredEnvironmentAssets } = getSplitBundles({ animationsEnabled: false });
+        const { core } = getSplitBundles({ animationsEnabled: false });
         const deferred = [
             "fire_pit_variant_1_low_front_fire_overlay_seamless_v2_64_atlas",
             "fire_pit_variant_1_low_front_fire_overlay_seamless_v2_64_atlas_half",
@@ -204,27 +212,22 @@ describe("pixi texture bundle split", () => {
             "dungeon_god_rays_v2",
             "dungeon_volumetric_fog_v2",
             "lava_center_anim_atlas",
+            "ambient_fire_video_torch_left_natural_v4_64_atlas",
+            "ambient_fire_video_torch_right_natural_v4_64_atlas",
         ];
 
         for (const key of deferred) {
             expect(isDeferredEnvironmentAssetKey(key)).toBe(true);
-            expect(deferredEnvironmentAssets[key]).toBeDefined();
             expect(core[key]).toBeUndefined();
         }
 
-        for (const key of [
-            "ambient_fire_video_torch_left_natural_v4_64_atlas",
-            "ambient_fire_video_torch_right_natural_v4_64_atlas",
-            "background_stone_tiles_sinister_16x16_original_restored",
-        ]) {
-            expect(isDeferredEnvironmentAssetKey(key)).toBe(false);
-            expect(core[key]).toBeDefined();
-        }
+        expect(isDeferredEnvironmentAssetKey("background_stone_tiles_sinister_16x16_original_restored")).toBe(false);
+        expect(core.background_stone_tiles_sinister_16x16_original_restored).toBeDefined();
         expect(isDeferredEnvironmentAssetKey("background_new")).toBe(false);
     });
 
-    test("preloads only placement assets reachable through the runtime selectors", () => {
-        const { core, deferredPlacementAssets } = getSplitBundles({ animationsEnabled: false });
+    test("loads the matching placement carpet/border on demand instead of preloading every size", () => {
+        const { core } = getSplitBundles({ animationsEnabled: false });
 
         for (const key of [
             "placement_carpet_green_worn_grid_5col_v9",
@@ -233,7 +236,7 @@ describe("pixi texture bundle split", () => {
             "placement_red_flag_folds_v1",
         ]) {
             expect(isDeferredPlacementAssetKey(key)).toBe(true);
-            expect(deferredPlacementAssets[key]).toBeDefined();
+            expect(isLivePlacementAssetKey(key)).toBe(false);
             expect(core[key]).toBeUndefined();
         }
 
@@ -244,8 +247,10 @@ describe("pixi texture bundle split", () => {
             "placement_gold_outer_border_green_continuous_3col_14row_v23",
             "placement_gold_outer_border_green_continuous_6col_16row_v23",
         ]) {
-            expect(isDeferredPlacementAssetKey(key)).toBe(false);
-            expect(core[key]).toBeDefined();
+            expect(isDeferredPlacementAssetKey(key)).toBe(true);
+            expect(isLivePlacementAssetKey(key)).toBe(true);
+            expect(isProductionOmittedAssetKey(key)).toBe(false);
+            expect(core[key]).toBeUndefined();
         }
     });
 
@@ -361,6 +366,8 @@ describe("pixi texture bundle split", () => {
             "fire_pit_variant_1_low_front_fire_overlay_seamless_v2_64_atlas_half",
             "pick_ban_slash_variant2_atlas",
             "wolf_pick_sandbox_x2",
+            "placement_carpet_green_uniform_gold_aaa_3col_v16",
+            "ambient_fire_video_torch_left_natural_v4_64_atlas",
         ]) {
             expect(isProductionOmittedAssetKey(key)).toBe(false);
         }

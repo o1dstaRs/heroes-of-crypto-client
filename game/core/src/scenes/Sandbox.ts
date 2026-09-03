@@ -96,7 +96,7 @@ import { VisibleButtonState, IVisibleUnit } from "./VisibleState";
 import { images } from "../generated/image_imports";
 import { SceneSettings } from "./SceneSettings";
 import { PixiScene, PixiSceneContext, registerScene } from "../pixi/PixiScene";
-import { unloadRosterAssets } from "../pixi/PixiTextureLoader";
+import { unloadPlacementAssets, unloadRosterAssets } from "../pixi/PixiTextureLoader";
 import { setSpawnFlowPhase } from "../pixi/PixiDrawablePlacement";
 import { isBattlefieldShadowEditorActive } from "../ui/battlefieldShadowTuning";
 import { PlacementManager } from "./PlacementManager";
@@ -689,6 +689,23 @@ export const fireBurnTargets = (
         burns.push({ unitId: victimId, position: damage.unitPosition, scale: 1 });
     }
     return burns;
+};
+
+/** Floating-number colours for damage that rides an attack as a secondary ability hit. */
+export const secondaryDamageTextStyle = (source: string): { fill: string; stroke: string } => {
+    switch (source) {
+        case "petrifying_gaze":
+            return { fill: "#d8d8d8", stroke: "#5a5a5a" };
+        case "chain_lightning":
+            return { fill: "#b86bff", stroke: "#3b0a5c" };
+        case "fire_shield":
+        case "fire_breath":
+            return { fill: "#ffb13c", stroke: "#7a3800" };
+        case "flesh_shield":
+            return { fill: "#cdd34a", stroke: "#4a4a00" };
+        default:
+            return { fill: "#ff3333", stroke: "#4a0000" };
+    }
 };
 
 /**
@@ -4204,21 +4221,10 @@ export class Sandbox extends PixiScene {
     }
     /**
      * Floating-number colour for a secondary-damage source, matching the live sandbox styling:
-     * Petrifying Gaze grey, Chain Lightning purple, Fire Shield amber, everything else plain red.
+     * Petrifying Gaze grey, Chain Lightning purple, fire damage orange, everything else plain red.
      */
     protected getSecondaryDamageStyle(source: string): { fill: string; stroke: string } {
-        switch (source) {
-            case "petrifying_gaze":
-                return { fill: "#d8d8d8", stroke: "#5a5a5a" };
-            case "chain_lightning":
-                return { fill: "#b86bff", stroke: "#3b0a5c" };
-            case "fire_shield":
-                return { fill: "#ffb13c", stroke: "#7a3800" };
-            case "flesh_shield":
-                return { fill: "#cdd34a", stroke: "#4a4a00" };
-            default:
-                return { fill: "#ff3333", stroke: "#4a0000" };
-        }
+        return secondaryDamageTextStyle(source);
     }
     /**
      * Collapse Flesh Shield metadata to one display value per aura owner. The engine normally emits one
@@ -5385,6 +5391,12 @@ export class Sandbox extends PixiScene {
             if (!this.unitsOverlay.container.destroyed) {
                 this.unitsOverlay.destroy();
                 void unloadRosterAssets();
+            }
+            if (this.placementFrameContainer?.children.length) {
+                for (const child of this.placementFrameContainer.removeChildren()) {
+                    child.destroy({ children: true });
+                }
+                void unloadPlacementAssets();
             }
         }
         // 4) Anything that lives in world space and might have been attached.
@@ -10392,6 +10404,11 @@ export class Sandbox extends PixiScene {
                 .filter((entry) => entry.source === "chain_lightning")
                 .map((entry) => entry.unitId),
         );
+        const fireBreathUnitIds = new Set(
+            (damageForAnimation.secondary ?? [])
+                .filter((entry) => entry.source === "fire_breath")
+                .map((entry) => entry.unitId),
+        );
         for (const entry of this.sc_sceneLog.getEntriesSince(logSizeBeforeAttack)) {
             const fsMatch = entry.match(/^(.+?) received \((\d+)\) from Fire Shield/);
             if (fsMatch) {
@@ -10452,7 +10469,7 @@ export class Sandbox extends PixiScene {
                 }
 
                 // Split the attacker's HP loss into the pure (retaliation) hit and the Fire Shield
-                // burn, shown as two separate numbers (parity with the log). Fire Shield is amber and
+                // burn, shown as two separate numbers (parity with the log). Fire Shield is orange and
                 // staggered so it reads as its own distinct hit instead of a single summed number.
                 const attackerFireShield = fireShieldByName.get(attacker.getName()) ?? 0;
                 const attackerFleshShield = fleshShieldDamageByUnit.get(attacker.getId());
@@ -10474,14 +10491,15 @@ export class Sandbox extends PixiScene {
                 }
                 if (attackerFireShield > 0) {
                     const fsPos = { ...spawnPos };
+                    const fireStyle = this.getSecondaryDamageStyle("fire_shield");
                     setTimeout(() => {
                         this.combatVisuals.showFloatingDamage(
                             fsPos,
                             attackerFireShield,
                             dir,
                             pureDamage > 0 ? 0 : lossesNotAbsorbed,
-                            "#ffb13c",
-                            "#7a3800",
+                            fireStyle.fill,
+                            fireStyle.stroke,
                             attacker.getDamagePredictionAnchor(gs),
                         );
                     }, 280);
@@ -10611,7 +10629,7 @@ export class Sandbox extends PixiScene {
                 // a Fire Shield burn, etc. Stagger it a beat after the standard attack number so it
                 // reads as its own distinct hit instead of looking summed into the standard damage.
                 // Style by source: Petrifying Gaze (when it killed) → light grey + yank the target
-                // back along the attack direction; Fire Shield burn → amber; otherwise red.
+                // back along the attack direction; Fire Shield / Fire Breath → orange; otherwise red.
                 const uName = u?.getName();
                 const isPetrified = !!uName && petrifyKillsByName.has(uName);
                 // For Petrifying Gaze, show only the gaze's own kill count (parsed from the log),
@@ -10624,22 +10642,15 @@ export class Sandbox extends PixiScene {
                 const uFireShield = uName ? (fireShieldByName.get(uName) ?? 0) : 0;
                 const isFsBurn = uFireShield > 0 && Math.abs(unaccountedDiff - uFireShield) <= 2;
                 const isChainLightning = chainLightningUnitIds.has(uId);
-                // Source styling priority: Petrifying Gaze grey, Chain Lightning purple, Fire Shield
-                // amber, otherwise plain red.
-                const fsFill = isPetrified
-                    ? "#d8d8d8"
+                // Preserve the established priority when multiple secondary effects hit one unit.
+                const secondarySource = isPetrified
+                    ? "petrifying_gaze"
                     : isChainLightning
-                      ? "#b86bff"
-                      : isFsBurn
-                        ? "#ffb13c"
-                        : "#ff3333";
-                const fsStroke = isPetrified
-                    ? "#5a5a5a"
-                    : isChainLightning
-                      ? "#3b0a5c"
-                      : isFsBurn
-                        ? "#7a3800"
-                        : "#4a0000";
+                      ? "chain_lightning"
+                      : isFsBurn || fireBreathUnitIds.has(uId)
+                        ? "fire_breath"
+                        : "";
+                const { fill: fsFill, stroke: fsStroke } = this.getSecondaryDamageStyle(secondarySource);
 
                 if (isPetrified && u instanceof RenderableUnit && primaryAttackDir) {
                     // "Yank" the target away from the attacker (recoil), then it springs back.
@@ -13664,8 +13675,11 @@ export class Sandbox extends PixiScene {
                 this.placementGraphics.visible = false;
             }
             if (this.placementFrameContainer?.visible) {
-                this.placementFrameContainer.removeChildren();
+                for (const child of this.placementFrameContainer.removeChildren()) {
+                    child.destroy({ children: true });
+                }
                 this.placementFrameContainer.visible = false;
+                void unloadPlacementAssets();
             }
         }
 
@@ -15878,6 +15892,7 @@ export class Sandbox extends PixiScene {
             // A player can start combat while a final portrait request is still decoding. Release that
             // late arrival too, otherwise it escapes the fight-start unload and stays resident all match.
             void unloadRosterAssets();
+            void unloadPlacementAssets();
         } else {
             this.unitsOverlay?.refreshLazyTextures();
         }

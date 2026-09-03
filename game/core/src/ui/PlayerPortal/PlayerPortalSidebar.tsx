@@ -226,7 +226,7 @@ const SidebarRecentFormDot: React.FC<{
 
 const SidebarRecentForm: React.FC<{ matches: readonly PortalMatchData[] }> = ({ matches }) => {
     // Portal history is newest-first. Reverse the ten real results so the latest sits at the right,
-    // with empty positions padded on the left for commanders who have played fewer than ten games.
+    // with empty positions padded on the left for players who have played fewer than ten games.
     const results = matches
         .slice(0, 10)
         .map((match) => ({
@@ -505,7 +505,7 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
                     }}
                 >
                     <Stack direction="row" spacing={predictionsVisible ? 1 : 1.25} alignItems="center">
-                        {/* The commander's crest IS the avatar. It used to sit in a strip of its own
+                        {/* The player's crest IS the avatar. It used to sit in a strip of its own
                             below this row, which stacked a league portrait under an initials circle and
                             said "player" twice. Initials stand in only while the standing call is in
                             flight, or if it failed — it never blocks matchmaking. */}

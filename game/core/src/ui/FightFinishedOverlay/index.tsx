@@ -577,21 +577,22 @@ type ResultParticipant = Readonly<{
 const signedResult = (value: number): string => `${value > 0 ? "+" : ""}${Math.round(value).toLocaleString("en-US")}`;
 
 const participantStanding = (participant: ResultParticipant): string => {
-    if (participant.isAi) return "AI COMMANDER";
+    if (participant.isAi) return "AI PLAYER";
     if (participant.calibration || participant.profile?.state === "calibration") return "CALIBRATING";
     return (
         participant.profile?.standingTitle ||
         participant.profile?.leagueName ||
         participant.profile?.wealthName ||
-        "RANKED COMMANDER"
+        "RANKED PLAYER"
     );
 };
 
 const ResultParticipantCard: React.FC<{
     participant: ResultParticipant;
     reversed?: boolean;
+    showRankedDetails?: boolean;
     viewerPlayerId?: string;
-}> = ({ participant, reversed = false, viewerPlayerId }) => {
+}> = ({ participant, reversed = false, showRankedDetails = false, viewerPlayerId }) => {
     const color = teamColor(participant.team);
     const won = participant.result === "win";
     const resultLabel = participant.result === "draw" ? "DRAW" : won ? "WINNER" : "DEFEATED";
@@ -701,37 +702,41 @@ const ResultParticipantCard: React.FC<{
                         </Box>
                     )}
                 </Stack>
-                <Typography
-                    sx={{
-                        color,
-                        opacity: 0.92,
-                        fontFamily: HOC_GAME_FONT_FAMILY,
-                        fontSize: "0.64rem",
-                        fontWeight: 800,
-                        letterSpacing: ".065em",
-                        lineHeight: 1.15,
-                    }}
-                >
-                    {participantStanding(participant)}
-                </Typography>
-                <Typography
-                    sx={{
-                        mt: 0.45,
-                        color: "#e4d4b2",
-                        fontFamily: HOC_GAME_FONT_FAMILY,
-                        fontSize: "0.88rem",
-                        fontWeight: 800,
-                        lineHeight: 1,
-                    }}
-                >
-                    {participant.isAi
-                        ? "RATING —"
-                        : participant.calibration
-                          ? "MMR HIDDEN"
-                          : visibleMmr !== undefined
-                            ? `${Math.round(visibleMmr).toLocaleString("en-US")} MMR`
-                            : "MMR —"}
-                </Typography>
+                {showRankedDetails && (
+                    <>
+                        <Typography
+                            sx={{
+                                color,
+                                opacity: 0.92,
+                                fontFamily: HOC_GAME_FONT_FAMILY,
+                                fontSize: "0.64rem",
+                                fontWeight: 800,
+                                letterSpacing: ".065em",
+                                lineHeight: 1.15,
+                            }}
+                        >
+                            {participantStanding(participant)}
+                        </Typography>
+                        <Typography
+                            sx={{
+                                mt: 0.45,
+                                color: "#e4d4b2",
+                                fontFamily: HOC_GAME_FONT_FAMILY,
+                                fontSize: "0.88rem",
+                                fontWeight: 800,
+                                lineHeight: 1,
+                            }}
+                        >
+                            {participant.isAi
+                                ? "RATING —"
+                                : participant.calibration
+                                  ? "MMR HIDDEN"
+                                  : visibleMmr !== undefined
+                                    ? `${Math.round(visibleMmr).toLocaleString("en-US")} MMR`
+                                    : "MMR —"}
+                        </Typography>
+                    </>
+                )}
                 <Stack
                     direction={reversed ? "row-reverse" : "row"}
                     spacing={0.55}
@@ -983,6 +988,10 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
             setProfiles(RESULTS_PREVIEW_PROFILES);
             return undefined;
         }
+        if (mode !== "ranked") {
+            setProfiles({});
+            return undefined;
+        }
         let cancelled = false;
         const ids = profileCandidates
             .filter((player) => player.playerId && !player.isAi)
@@ -1005,7 +1014,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
             cancelled = true;
         };
         // profileKey represents the stable seat identities; profileCandidates itself is rebuilt while rendering.
-    }, [previewMode, profileKey]);
+    }, [mode, previewMode, profileKey]);
 
     // A finished fight shows this overlay — for BOTH players, and when a completed game is (re)loaded.
     // teamWin === TeamVals.NO_TEAM is a genuine DRAW (e.g. armageddon wiping both sides on the same lap),
@@ -1049,7 +1058,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
         const playerId = settlement?.playerId ?? seat?.playerId;
         const profile = playerId ? profiles[playerId] : undefined;
         const fallbackResult = isDraw ? "draw" : stats.winner === team ? "win" : "loss";
-        const fallbackName = seat?.label || (team === LOWER_TEAM ? "Green Commander" : "Red Commander");
+        const fallbackName = seat?.label || (team === LOWER_TEAM ? "Green Player" : "Red Player");
         return {
             team,
             playerId,
@@ -1248,10 +1257,14 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     ×
                 </Box>
 
-                {/* The fight is framed as two commanders, not two abstract team colours. Rank emblems
+                {/* The fight is framed as two players, not two abstract team colours. Rank emblems
                     double as avatars; exact settlement numbers arrive from the public ranked result. */}
                 <Stack direction="row" spacing={0.9} sx={{ flexShrink: 0, mb: 0.8, px: 0.25 }}>
-                    <ResultParticipantCard participant={resultParticipants[0]} viewerPlayerId={viewerPlayerId} />
+                    <ResultParticipantCard
+                        participant={resultParticipants[0]}
+                        showRankedDetails={mode === "ranked" || !!previewMode}
+                        viewerPlayerId={viewerPlayerId}
+                    />
                     <Box
                         sx={{
                             width: 126,
@@ -1322,6 +1335,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     <ResultParticipantCard
                         participant={resultParticipants[1]}
                         reversed
+                        showRankedDetails={mode === "ranked" || !!previewMode}
                         viewerPlayerId={viewerPlayerId}
                     />
                 </Stack>

@@ -35,9 +35,15 @@ export function isDeferredReactUiAssetKey(key: string): boolean {
         key.startsWith("pick_l2_legacy_") ||
         key.startsWith("fight_results_") ||
         key.startsWith("left_sidebar_") ||
-        key.startsWith("ui_sidebar_") ||
-        key.startsWith("ui_up_next_") ||
+        key.startsWith("ui_") ||
         key.startsWith("sidebar_") ||
+        key.startsWith("artifact_t1_") ||
+        key.startsWith("artifact_t2_") ||
+        key.startsWith("map_badge_") ||
+        key.startsWith("combat_toolbar_") ||
+        key.startsWith("league_") ||
+        key.startsWith("wealth_") ||
+        key.startsWith("doctrine_") ||
         key.endsWith("_left_screen_x2") ||
         key.endsWith("_portrait_full")
     );
@@ -56,11 +62,7 @@ export function isTransientLoadingScreenAssetKey(key: string): boolean {
     return TRANSIENT_LOADING_SCREEN_ASSETS.has(key);
 }
 
-const LIVE_ENVIRONMENT_ASSETS = new Set([
-    "ambient_fire_video_torch_left_natural_v4_64_atlas",
-    "ambient_fire_video_torch_right_natural_v4_64_atlas",
-    "background_stone_tiles_sinister_16x16_original_restored",
-]);
+const LIVE_ENVIRONMENT_ASSETS = new Set(["background_stone_tiles_sinister_16x16_original_restored"]);
 
 export function isDeferredEnvironmentAssetKey(key: string): boolean {
     if (LIVE_ENVIRONMENT_ASSETS.has(key)) return false;
@@ -82,8 +84,14 @@ export function isDeferredEnvironmentAssetKey(key: string): boolean {
 const LIVE_PLACEMENT_CARPET = /^placement_carpet_green_uniform_gold_aaa_[345]col_v16$/;
 const LIVE_PLACEMENT_BORDER = /^placement_gold_outer_border_green_continuous_[3456]col_(?:14|16)row_v23$/;
 
+/** Carpet/border variants the runtime selectors can still request. Everything else is authoring leftover. */
+export function isLivePlacementAssetKey(key: string): boolean {
+    return LIVE_PLACEMENT_CARPET.test(key) || LIVE_PLACEMENT_BORDER.test(key);
+}
+
+/** Placement art is never in the blocking core bundle; live variants load for the current grid then unload. */
 export function isDeferredPlacementAssetKey(key: string): boolean {
-    return key.startsWith("placement_") && !LIVE_PLACEMENT_CARPET.test(key) && !LIVE_PLACEMENT_BORDER.test(key);
+    return key.startsWith("placement_");
 }
 
 export function isDeferredLegacyCreatureAssetKey(key: string): boolean {
@@ -143,7 +151,7 @@ export function isCoreTextureAssetKey(key: string): boolean {
 export function isProductionOmittedAssetKey(key: string): boolean {
     return (
         isRedundantFullResolutionUnitAtlasKey(key) ||
-        isDeferredPlacementAssetKey(key) ||
+        (isDeferredPlacementAssetKey(key) && !isLivePlacementAssetKey(key)) ||
         isDeferredLegacyCreatureAssetKey(key)
     );
 }

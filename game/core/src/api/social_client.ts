@@ -240,7 +240,7 @@ export interface PredictionMarketViewer {
 
 /**
  * Markets a signed-in spectator may back. The server is still authoritative and rejects either
- * player at bet time; this keeps a commander's own draft out of the UI before they can click it.
+ * player at bet time; this keeps a player's own draft out of the UI before they can click it.
  * Username matching covers the current auth payload, which intentionally carries no player id.
  */
 export const eligiblePredictionMarkets = (
