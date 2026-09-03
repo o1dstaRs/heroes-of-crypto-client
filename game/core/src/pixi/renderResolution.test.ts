@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { MAX_RENDER_PIXELS, renderResolutionForViewport } from "./renderResolution";
+import { MAX_RENDER_PIXELS, renderResolutionForViewport, shouldUseRenderAntialias } from "./renderResolution";
 
 describe("renderResolutionForViewport", () => {
     test("keeps ordinary Retina viewports sharp and caps device pixel ratio at two", () => {
@@ -19,5 +19,18 @@ describe("renderResolutionForViewport", () => {
     test("handles invalid or zero dimensions without returning an unusable resolution", () => {
         expect(renderResolutionForViewport(0, 0, Number.NaN)).toBe(1);
         expect(renderResolutionForViewport(Number.NaN, Number.POSITIVE_INFINITY, 2)).toBe(2);
+    });
+});
+
+describe("shouldUseRenderAntialias", () => {
+    test("keeps MSAA where physical pixels are visible", () => {
+        expect(shouldUseRenderAntialias(1)).toBe(true);
+        expect(shouldUseRenderAntialias(1.49)).toBe(true);
+        expect(shouldUseRenderAntialias(Number.NaN)).toBe(true);
+    });
+
+    test("avoids the redundant multisample buffer at Retina density", () => {
+        expect(shouldUseRenderAntialias(1.5)).toBe(false);
+        expect(shouldUseRenderAntialias(2)).toBe(false);
     });
 });

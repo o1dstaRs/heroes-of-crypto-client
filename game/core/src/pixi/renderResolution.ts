@@ -14,3 +14,11 @@ export const renderResolutionForViewport = (width: number, height: number, devic
     const pixelBudgetResolution = Math.sqrt(MAX_RENDER_PIXELS / (safeWidth * safeHeight));
     return Math.max(1, Math.min(safeDevicePixelRatio, pixelBudgetResolution));
 };
+
+/**
+ * Multisample antialiasing allocates another large color buffer. At Retina density the backing pixels
+ * already smooth Pixi geometry when the browser composites the canvas, so MSAA costs memory for little
+ * visible gain. Keep it for 1x / heavily capped layouts, where individual physical pixels are visible.
+ */
+export const shouldUseRenderAntialias = (resolution: number): boolean =>
+    !Number.isFinite(resolution) || resolution < 1.5;

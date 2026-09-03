@@ -5,7 +5,7 @@ import "pixi.js/unsafe-eval";
 import { Application, Container, Ticker } from "pixi.js";
 
 import { boardFitVerticalShift } from "./boardFit";
-import { renderResolutionForViewport } from "./renderResolution";
+import { renderResolutionForViewport, shouldUseRenderAntialias } from "./renderResolution";
 import { ensureCanvasContextUsable, recordContextAboutToBeLost } from "./webglContextGuard";
 
 export class PixiApp {
@@ -46,7 +46,7 @@ export class PixiApp {
             width,
             height,
             resolution: DPR,
-            antialias: true,
+            antialias: shouldUseRenderAntialias(DPR),
             background: 0x000000,
         });
 
