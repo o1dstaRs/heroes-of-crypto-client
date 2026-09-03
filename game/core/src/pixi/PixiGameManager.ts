@@ -1,5 +1,5 @@
 // game/core/src/pixi/PixiGameManager.ts
-import { Application, Container } from "pixi.js";
+import type { Application, Container } from "pixi.js";
 import {
     UnitProperties,
     GridSettings,
@@ -31,9 +31,9 @@ import { boardFitPadding } from "./boardFit";
 import { FpsCalculator } from "./FpsCalculator";
 import { HotKey, hotKeyPress } from "../utils/hotkeys";
 import type { UnitsOverlay } from "../scenes/UnitsOverlay";
-import { PixiApp } from "./PixiApp";
+import type { PixiApp } from "./PixiApp";
 // import { PixiSceneManager } from "./PixiSceneManager"; // Deprecated
-import { PreloadedPixiTextures } from "./PixiTextureLoader";
+import type { PreloadedPixiTextures } from "./PixiTextureLoader";
 import { displayedLoadingProgress, MINIMUM_LOADING_SCREEN_DURATION_MS } from "./loadingProgress";
 
 import type { PixiScene, PixiSceneContext, SceneConstructor, SceneEntry } from "./PixiScene";
@@ -208,6 +208,12 @@ export class PixiGameManager {
         });
         this.addInitEventListener(debugCanvas, "mouseenter", () => (this.m_hoveringCanvas = true));
         this.addInitEventListener(debugCanvas, "mouseleave", () => (this.m_hoveringCanvas = false));
+
+        // Pull in Pixi's renderer only when a battlefield actually mounts. PixiGameManager is also
+        // imported by menu, login, lobby, and profile UI for its shared context; keeping PixiApp out of
+        // that eager graph avoids downloading and evaluating WebGL/WebGPU renderer code on those routes.
+        const { PixiApp } = await import("./PixiApp");
+        if (!isCurrentLifecycle()) return;
 
         // Init Pixi using wrapper size
         const pixiApp = new PixiApp(); // sync constructor
