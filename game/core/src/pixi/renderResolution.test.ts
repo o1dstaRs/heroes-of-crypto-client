@@ -4,6 +4,7 @@ import {
     MAX_MSAA_RENDER_PIXELS,
     MAX_RENDER_PIXELS,
     renderResolutionForViewport,
+    renderTexturePoolBucket,
     shouldUseRenderAntialias,
 } from "./renderResolution";
 
@@ -39,5 +40,22 @@ describe("shouldUseRenderAntialias", () => {
     test("avoids the redundant multisample buffer at Retina density", () => {
         expect(shouldUseRenderAntialias(1.5, 640, 480)).toBe(false);
         expect(shouldUseRenderAntialias(2, 390, 844)).toBe(false);
+    });
+});
+
+describe("renderTexturePoolBucket", () => {
+    test("groups nearby resizes that reuse the same physical filter textures", () => {
+        expect(renderTexturePoolBucket(900, 700, 1)).toEqual([1024, 1024]);
+        expect(renderTexturePoolBucket(1000, 720, 1)).toEqual([1024, 1024]);
+    });
+
+    test("changes only when a physical power-of-two boundary is crossed", () => {
+        expect(renderTexturePoolBucket(1024, 720, 1)).toEqual([1024, 1024]);
+        expect(renderTexturePoolBucket(1025, 720, 1)).toEqual([2048, 1024]);
+        expect(renderTexturePoolBucket(640, 480, 2)).toEqual([2048, 1024]);
+    });
+
+    test("normalizes invalid dimensions and resolution", () => {
+        expect(renderTexturePoolBucket(0, Number.NaN, Number.POSITIVE_INFINITY)).toEqual([1, 1]);
     });
 });

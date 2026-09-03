@@ -28,3 +28,28 @@ export const shouldUseRenderAntialias = (resolution: number, width = 1, height =
     const safeHeight = Math.max(1, Number.isFinite(height) ? height : 1);
     return resolution < 1.5 && safeWidth * resolution * safeHeight * resolution < MAX_MSAA_RENDER_PIXELS;
 };
+
+const nextPowerOfTwo = (value: number): number => {
+    let result = 1;
+    while (result < value) result *= 2;
+    return result;
+};
+
+/**
+ * Pixi's shared filter pool keys temporary render textures by power-of-two physical dimensions. A resize
+ * within the same bucket can safely reuse them; crossing a bucket leaves the old full-screen allocation in
+ * the global pool unless we explicitly release it.
+ */
+export const renderTexturePoolBucket = (
+    width: number,
+    height: number,
+    resolution: number,
+): readonly [number, number] => {
+    const safeWidth = Math.max(1, Number.isFinite(width) ? width : 1);
+    const safeHeight = Math.max(1, Number.isFinite(height) ? height : 1);
+    const safeResolution = Number.isFinite(resolution) && resolution > 0 ? resolution : 1;
+    return [
+        nextPowerOfTwo(Math.ceil(safeWidth * safeResolution)),
+        nextPowerOfTwo(Math.ceil(safeHeight * safeResolution)),
+    ];
+};

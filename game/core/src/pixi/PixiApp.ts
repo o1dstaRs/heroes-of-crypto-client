@@ -2,10 +2,10 @@
 // Side-effect import: patches PIXI's renderer to use eval-free polyfills for shader/UBO
 // codegen, so it works under a CSP without 'unsafe-eval'. MUST run before Application.init().
 import "pixi.js/unsafe-eval";
-import { Application, Container, Ticker } from "pixi.js";
+import { Application, Container, TexturePool, Ticker } from "pixi.js";
 
 import { boardFitVerticalShift } from "./boardFit";
-import { renderResolutionForViewport, shouldUseRenderAntialias } from "./renderResolution";
+import { renderResolutionForViewport, renderTexturePoolBucket, shouldUseRenderAntialias } from "./renderResolution";
 import { ensureCanvasContextUsable, recordContextAboutToBeLost } from "./webglContextGuard";
 import { MAX_FPS } from "../statics";
 
@@ -21,6 +21,7 @@ export class PixiApp {
     private unitsContainer!: Container;
     private effectsContainer!: Container;
     private uiContainer!: Container;
+    private renderTexturePoolBucket?: readonly [number, number];
     // Guards against a second destroy() on the same instance. pixi.js's Application.destroy() runs its
     // teardown plugins (ResizePlugin, TickerPlugin, ...) in a bare forEach with no per-plugin try/catch —
     // a plugin that already tore itself down (e.g. ResizePlugin nulling its own _cancelResize) throws on
@@ -36,7 +37,7 @@ export class PixiApp {
         // error. Restores the context when possible; throws (recoverable) when it can't.
         await ensureCanvasContextUsable(canvas);
 
-        // Preserve 2x on ordinary Retina layouts, but cap the complete backing store at 4K pixels.
+        // Preserve 2x on ordinary Retina layouts, but cap the complete backing store at 1440p pixels.
         // Full-screen filters allocate buffers at this size too, so pixel area—not DPR alone—is the
         // reliable bound for GPU memory on large/high-DPI displays.
         const DPR = renderResolutionForViewport(width, height, window.devicePixelRatio);
@@ -50,6 +51,7 @@ export class PixiApp {
             antialias: shouldUseRenderAntialias(DPR, width, height),
             background: 0x000000,
         });
+        this.renderTexturePoolBucket = renderTexturePoolBucket(width, height, DPR);
 
         // --- World containers ---
         this.camera = new Container(); // we pan/zoom this one
@@ -131,6 +133,18 @@ export class PixiApp {
     }
     public resize(width = 2048, height = 2048): void {
         const DPR = renderResolutionForViewport(width, height, window.devicePixelRatio);
+        const nextPoolBucket = renderTexturePoolBucket(width, height, DPR);
+        const previousPoolBucket = this.renderTexturePoolBucket;
+        if (
+            previousPoolBucket &&
+            (previousPoolBucket[0] !== nextPoolBucket[0] || previousPoolBucket[1] !== nextPoolBucket[1])
+        ) {
+            // Pixi's global filter pool otherwise retains the previous full-screen buffers forever. This
+            // runs between animation frames and only at a physical power-of-two boundary, avoiding churn
+            // during the many small resize events emitted while a window is dragged.
+            TexturePool.clear();
+        }
+        this.renderTexturePoolBucket = nextPoolBucket;
         this.app.renderer.resolution = DPR;
         this.app.renderer.resize(width, height);
         const c = this.app.canvas as HTMLCanvasElement;
