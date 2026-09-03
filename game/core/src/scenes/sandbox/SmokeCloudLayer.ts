@@ -169,6 +169,12 @@ export interface ISmokeCloudCell {
 /** Seconds a cloud takes to billow in when placed / fade out once the engine drops it. */
 const APPEAR_SECONDS = 0.55;
 const VANISH_SECONDS = 0.75;
+const CLOUD_TINTS = [0x5a5f6b, 0x6f7480, 0x7d8290, 0x8b90a0, 0x9aa0b2] as const;
+
+const cloudNoise = (a: number, b: number): number => {
+    const value = Math.sin(a * 127.1 + b * 311.7) * 43758.5453;
+    return value - Math.floor(value);
+};
 
 interface ITrackedCloud {
     /** Board cell, kept so we can re-resolve the world position if the grid is rebuilt. */
@@ -324,14 +330,9 @@ export class SmokeCloudLayer {
         g.clear();
         this.hasGeometry = true;
 
-        const rnd = (a: number, b: number): number => {
-            const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453;
-            return x - Math.floor(x);
-        };
         // Cool slate greys. Darker than the dust layer's warm tans so spell smoke never reads as a
         // movement track, and so it stays visible over both the lit and the darkened floor. Three depths:
         // a dark underbelly, the mid mass, and pale highlights that catch the light as the cloud turns.
-        const tints = [0x5a5f6b, 0x6f7480, 0x7d8290, 0x8b90a0, 0x9aa0b2];
 
         for (const cloud of this.clouds.values()) {
             const p = Math.max(0, Math.min(1, cloud.presence));
@@ -349,46 +350,49 @@ export class SmokeCloudLayer {
             // Enough puffs to fill a cell as one connected mass; the shader tears the outline apart.
             // Two passes: a wide, dark UNDERBELLY that grounds the cloud, then a tighter, brighter CORE on
             // top. One flat ring of equal puffs reads as a smudge; layering gives it depth and volume.
-            const puffs = 9 + Math.floor(rnd(seed, 0) * 4);
+            const puffs = 9 + Math.floor(cloudNoise(seed, 0) * 4);
             const baseR = cloud.cellSize * 0.5;
 
             // Underbelly: wide, dark, slow — the part that looks like it has weight.
             for (let i = 0; i < 5; i++) {
-                const ang = seed * 1.7 + (i * 2 * Math.PI) / 5 + (rnd(seed, i + 71) - 0.5) * 1.2;
-                const drift = this.time * (0.05 + rnd(seed, i + 83) * 0.04);
-                const spread = baseR * (0.24 + rnd(seed, i + 91) * 0.3) * eased;
+                const ang = seed * 1.7 + (i * 2 * Math.PI) / 5 + (cloudNoise(seed, i + 71) - 0.5) * 1.2;
+                const drift = this.time * (0.05 + cloudNoise(seed, i + 83) * 0.04);
+                const spread = baseR * (0.24 + cloudNoise(seed, i + 91) * 0.3) * eased;
                 // Heavier air hugs the ground: the underbelly leans downwind about half as far as the core.
                 const baseLean = baseR * 0.1 * Math.sin(this.time * 0.33 + i * 1.3);
                 const px = cloud.x + Math.cos(ang + drift) * spread + this.windX * baseLean;
                 const py = cloud.y + Math.sin(ang + drift) * spread * 0.55 + this.windY * baseLean;
-                const pr = baseR * (0.62 + 0.3 * rnd(seed, i + 97)) * (0.6 + 0.4 * eased);
+                const pr = baseR * (0.62 + 0.3 * cloudNoise(seed, i + 97)) * (0.6 + 0.4 * eased);
                 g.circle(px, py, pr).fill({ color: 0x4b505c, alpha: alpha * 0.55 });
             }
 
             for (let i = 0; i < puffs; i++) {
-                const ang = seed + (i * 2 * Math.PI) / puffs + (rnd(seed, i + 3) - 0.5) * 0.9;
+                const ang = seed + (i * 2 * Math.PI) / puffs + (cloudNoise(seed, i + 3) - 0.5) * 0.9;
                 // Slow per-puff orbit so the mass churns in place instead of sitting frozen between the
                 // shader's wisps — the cloud stays on its cell, which matters because the cell IS the rule.
-                const churn = this.time * (0.14 + rnd(seed, i + 41) * 0.11) + i;
+                const churn = this.time * (0.14 + cloudNoise(seed, i + 41) * 0.11) + i;
                 // Breathe each puff's orbit AND radius on its own phase, so the mass swells and settles
                 // unevenly instead of rotating as one rigid ring.
-                const breathe = 0.85 + 0.15 * Math.sin(this.time * (0.5 + rnd(seed, i + 57) * 0.4) + i * 1.7);
+                const breathe = 0.85 + 0.15 * Math.sin(this.time * (0.5 + cloudNoise(seed, i + 57) * 0.4) + i * 1.7);
                 // Wind sway: each puff leans downwind on its OWN phase and by its own amount, so the mass
                 // SHEARS as it blows rather than sliding rigidly. Bounded sine, so it always returns and
                 // the cloud stays on the cell that carries the rule.
-                const sway = Math.sin(this.time * (0.42 + rnd(seed, i + 61) * 0.3) + i * 0.9);
-                const lean = baseR * (0.14 + 0.16 * rnd(seed, i + 67)) * sway;
-                const spread = baseR * (0.16 + rnd(seed, i + 9) * 0.34) * eased * breathe;
+                const sway = Math.sin(this.time * (0.42 + cloudNoise(seed, i + 61) * 0.3) + i * 0.9);
+                const lean = baseR * (0.14 + 0.16 * cloudNoise(seed, i + 67)) * sway;
+                const spread = baseR * (0.16 + cloudNoise(seed, i + 9) * 0.34) * eased * breathe;
                 const px = cloud.x + Math.cos(ang + churn * 0.5) * spread + this.windX * lean;
                 const py = cloud.y + Math.sin(ang + churn * 0.5) * spread * 0.7 + this.windY * lean;
-                const pr = baseR * (0.42 + 0.34 * rnd(seed, i + 25)) * (0.55 + 0.45 * eased) * breathe;
-                g.circle(px, py, pr).fill({ color: tints[Math.floor(rnd(seed, i + 2) * tints.length)], alpha });
+                const pr = baseR * (0.42 + 0.34 * cloudNoise(seed, i + 25)) * (0.55 + 0.45 * eased) * breathe;
+                g.circle(px, py, pr).fill({
+                    color: CLOUD_TINTS[Math.floor(cloudNoise(seed, i + 2) * CLOUD_TINTS.length)],
+                    alpha,
+                });
             }
 
             // Ash flecks: a few tiny bright motes riding the churn. They catch the eye and sell the cloud
             // as something burning rather than a static grey shape — the Book of CHAOS, after all.
             for (let i = 0; i < 4; i++) {
-                const rise = (this.time * (0.22 + rnd(seed, i + 101) * 0.16) + rnd(seed, i + 103)) % 1;
+                const rise = (this.time * (0.22 + cloudNoise(seed, i + 101) * 0.16) + cloudNoise(seed, i + 103)) % 1;
                 const ang = seed * 2.3 + i * 1.9 + rise * 2.2;
                 const r = baseR * (0.2 + 0.55 * rise);
                 // Flecks are light, so the wind carries them furthest and they trail off downwind as they

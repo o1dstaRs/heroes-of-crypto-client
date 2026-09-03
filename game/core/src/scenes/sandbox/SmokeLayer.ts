@@ -122,6 +122,13 @@ const dustTrailRotation = (dirX: number, dirY: number): number => {
     return Math.sign(dirX * dirY) * (Math.PI / 4);
 };
 
+const DUST_TINTS = [0xc6bfb0, 0xbbb4a5, 0xcec7b8] as const;
+
+const dustNoise = (a: number, b: number): number => {
+    const value = Math.sin(a * 127.1 + b * 311.7) * 43758.5453;
+    return value - Math.floor(value);
+};
+
 export class SmokeLayer {
     private readonly container = new Container();
     private readonly graphics = new Graphics();
@@ -298,14 +305,7 @@ export class SmokeLayer {
         g.clear();
         this.hasGeometry = true;
 
-        // Stable per-(track, index) pseudo-random seeded by the track's phase, so each cell's puff
-        // differs but doesn't flicker frame to frame.
-        const rnd = (a: number, b: number): number => {
-            const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453;
-            return x - Math.floor(x);
-        };
         // Muted grey-browns, but light enough to read against the darkened dungeon floor.
-        const dustTints = [0xc6bfb0, 0xbbb4a5, 0xcec7b8];
 
         for (const t of tracks) {
             if (t.flying) continue;
@@ -313,19 +313,19 @@ export class SmokeLayer {
             const k = Math.max(0, t.life / t.maxLife); // 1 -> 0
             const fade = Math.min(1, k * 1.6); // hold then fall off
             const age = 1 - k; // 0 -> 1
-            const puffCount = 5 + Math.floor(rnd(seed, 0) * 3); // 5..7 smaller particles add detail
-            const scale = 0.8 + rnd(seed, 1) * 0.45;
-            const tint = dustTints[Math.floor(rnd(seed, 2) * dustTints.length)];
+            const puffCount = 5 + Math.floor(dustNoise(seed, 0) * 3); // 5..7 smaller particles add detail
+            const scale = 0.8 + dustNoise(seed, 1) * 0.45;
+            const tint = DUST_TINTS[Math.floor(dustNoise(seed, 2) * DUST_TINTS.length)];
             const visualRadius = t.radius * 0.72;
 
             // Small, translucent grains stay close to the boots. The shader connects and erodes
             // their overlap into a detailed puff without restoring the previous oversized cloud.
             for (let i = 0; i < puffCount; i++) {
-                const ang = seed + (i * 2 * Math.PI) / puffCount + (rnd(seed, i + 3) - 0.5) * 1.0 + age * 0.25;
-                const spread = visualRadius * scale * (0.08 + (0.34 + rnd(seed, i + 9) * 0.28) * age);
+                const ang = seed + (i * 2 * Math.PI) / puffCount + (dustNoise(seed, i + 3) - 0.5) * 1.0 + age * 0.25;
+                const spread = visualRadius * scale * (0.08 + (0.34 + dustNoise(seed, i + 9) * 0.28) * age);
                 const px = t.x + Math.cos(ang) * spread;
-                const py = t.y + Math.sin(ang) * spread + visualRadius * (0.16 + rnd(seed, i + 17) * 0.24) * age;
-                const pr = visualRadius * scale * (0.2 + 0.28 * age) * (0.68 + 0.52 * rnd(seed, i + 25));
+                const py = t.y + Math.sin(ang) * spread + visualRadius * (0.16 + dustNoise(seed, i + 17) * 0.24) * age;
+                const pr = visualRadius * scale * (0.2 + 0.28 * age) * (0.68 + 0.52 * dustNoise(seed, i + 25));
                 g.circle(px, py, pr).fill({ color: tint, alpha: 0.26 * fade });
             }
         }

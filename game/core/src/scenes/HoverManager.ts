@@ -28,6 +28,11 @@ import { getShotTrajectoryStyle } from "./shotTrajectoryStyle";
 import { tunedCellFillPolygon } from "./movementAreaVisual";
 import { placementZonePolygon } from "../pixi/PixiDrawablePlacement";
 
+const approachValue = (from: number, to: number, speed: number, dt: number): number => {
+    if (from === to) return from;
+    return from + (to - from) * Math.min(1, speed * dt);
+};
+
 export interface RangeTargetEdgeVisual {
     from: HoCMath.XY;
     to: HoCMath.XY;
@@ -806,13 +811,8 @@ export class HoverManager {
     }
     private updateBoardHoverTween(dt: number): void {
         if (!dt) return;
-        const lerp = (from: number, to: number, speed: number) => {
-            if (from === to) return from;
-            const step = Math.min(1, speed * dt);
-            return from + (to - from) * step;
-        };
-        this.boardHoverScale = lerp(this.boardHoverScale, this.boardHoverTargetScale, 8);
-        this.boardHoverYOffset = lerp(this.boardHoverYOffset, this.boardHoverTargetYOffset, 8);
+        this.boardHoverScale = approachValue(this.boardHoverScale, this.boardHoverTargetScale, 8, dt);
+        this.boardHoverYOffset = approachValue(this.boardHoverYOffset, this.boardHoverTargetYOffset, 8, dt);
 
         if (this.boardHoverProps && this.boardHoverCenter && !this.context.hasActiveSelection()) {
             this.updateBoardHoverSilhouette(this.boardHoverProps, this.boardHoverCenter);

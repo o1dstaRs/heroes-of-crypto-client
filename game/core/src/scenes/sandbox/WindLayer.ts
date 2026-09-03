@@ -95,6 +95,13 @@ void main(void) {
 }
 `;
 
+const WIND_TINTS = [0xe8f4ff, 0xd8ecff, 0xf2f8ff] as const;
+
+const windNoise = (a: number, b: number): number => {
+    const value = Math.sin(a * 127.1 + b * 311.7) * 43758.5453;
+    return value - Math.floor(value);
+};
+
 export class WindLayer {
     private readonly container = new Container();
     private readonly graphics = new Graphics();
@@ -165,21 +172,13 @@ export class WindLayer {
         g.clear();
         this.hasGeometry = true;
 
-        // Stable per-(track, index) pseudo-random seeded by the track's phase so each gust differs
-        // but doesn't flicker frame to frame.
-        const rnd = (a: number, b: number): number => {
-            const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453;
-            return x - Math.floor(x);
-        };
-        const windTints = [0xe8f4ff, 0xd8ecff, 0xf2f8ff];
-
         for (const t of tracks) {
             if (!t.flying) continue;
             const seed = t.phase;
             const k = Math.max(0, t.life / t.maxLife); // 1 -> 0
             const fade = Math.min(1, k * 1.6); // hold then fall off
             const age = 1 - k; // 0 -> 1
-            const tint = windTints[Math.floor(rnd(seed, 2) * windTints.length)];
+            const tint = WIND_TINTS[Math.floor(windNoise(seed, 2) * WIND_TINTS.length)];
 
             // Movement direction (falls back to a gentle upward drift when stationary).
             let dx = t.dirX;
@@ -200,8 +199,8 @@ export class WindLayer {
                 const sBase = seed + side * 37.1;
                 // Length is measured in CELLS (not the unit radius) so it's clearly multi-cell for
                 // small and large flyers alike — a long aeroplane-style trail.
-                const length = t.cellSize * (3.5 + rnd(sBase, 1) * 2.5) * (0.55 + 0.45 * age);
-                const bow = t.radius * (0.06 + rnd(sBase, 2) * 0.12); // gentle natural curve
+                const length = t.cellSize * (3.5 + windNoise(sBase, 1) * 2.5) * (0.55 + 0.45 * age);
+                const bow = t.radius * (0.06 + windNoise(sBase, 2) * 0.12); // gentle natural curve
                 const segs = 20;
                 // Draw as one continuous stroked, tapering line (so length never leaves gaps).
                 let prevX = 0;
