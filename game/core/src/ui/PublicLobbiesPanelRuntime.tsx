@@ -31,6 +31,7 @@ import { buildMockLobbies, MOCK_FRIEND_PLAYER_IDS, MOCK_LOBBY_HOST_STATS } from 
 import { isMockPortalEnabled } from "./PlayerPortal/mockPortal";
 import { useRankedStanding } from "./PlayerPortal/useRankedStanding";
 import { LobbyNavIcon } from "./svg/navigation";
+import { startVisibleInterval } from "./visibleInterval";
 
 const POLL_INTERVAL_MS = 3000;
 
@@ -218,12 +219,11 @@ export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({
 
     useEffect(() => {
         mountedRef.current = true;
-        void refresh();
         void refreshPrice();
-        const handle = window.setInterval(() => void refresh(), POLL_INTERVAL_MS);
+        const stopPolling = startVisibleInterval(() => void refresh(), POLL_INTERVAL_MS);
         return () => {
             mountedRef.current = false;
-            window.clearInterval(handle);
+            stopPolling();
         };
     }, [refresh, refreshPrice]);
 

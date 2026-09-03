@@ -21,6 +21,7 @@ import {
 import { siteUrlBase } from "../api/site_origin";
 import { t, tf, useTranslation } from "../i18n/i18n";
 import { hocColors, hocInputSx } from "./hocTheme";
+import { startVisibleInterval } from "./visibleInterval";
 
 const POLL_INTERVAL_MS = 4000;
 const MAX_LENGTH = 300;
@@ -130,18 +131,10 @@ export const ArenaChatPanel: React.FC<{ selfUsername?: string }> = ({ selfUserna
                 mountedRef.current = false;
             };
         }
-        const tick = () => {
-            if (!document.hidden) {
-                void refresh();
-            }
-        };
-        tick();
-        const handle = window.setInterval(tick, POLL_INTERVAL_MS);
-        document.addEventListener("visibilitychange", tick);
+        const stopPolling = startVisibleInterval(() => void refresh(), POLL_INTERVAL_MS);
         return () => {
             mountedRef.current = false;
-            window.clearInterval(handle);
-            document.removeEventListener("visibilitychange", tick);
+            stopPolling();
         };
     }, [refresh, open]);
 

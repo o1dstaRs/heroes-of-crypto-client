@@ -9,6 +9,7 @@ import { fetchPickObserveSnapshot, type PickObserveSnapshot, type PickObserveTea
 import { images as rawImages } from "../../generated/image_imports";
 import { CreaturePortraitImage } from "../CreaturePortraitImage";
 import { UNIT_ID_TO_NAME } from "../unit_ui_constants";
+import { startVisibleInterval } from "../visibleInterval";
 import { observedDraftArtifactSlots, type ObservedDraftArtifactSlot } from "./observerPickArtifacts";
 
 const images = rawImages as Record<string, string>;
@@ -249,17 +250,15 @@ export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onP
                 // Transient — keep the last snapshot and try again on the next tick.
             }
         };
-        void poll();
-        const pollId = window.setInterval(poll, POLL_MS);
+        const stopPolling = startVisibleInterval(() => void poll(), POLL_MS);
         return () => {
             cancelled = true;
-            window.clearInterval(pollId);
+            stopPolling();
         };
     }, [gameId, onPickPhaseChange]);
 
     useEffect(() => {
-        const tickId = window.setInterval(() => setNow(Date.now()), 500);
-        return () => window.clearInterval(tickId);
+        return startVisibleInterval(() => setNow(Date.now()), 500);
     }, []);
 
     const secondsLeft = useMemo(() => {

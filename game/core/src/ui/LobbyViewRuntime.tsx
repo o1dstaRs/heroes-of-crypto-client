@@ -27,6 +27,7 @@ import { hocColors, hocDangerAlertSx, hocPanelSx, hocPrimaryButtonSx, hocSoftBut
 import { lobbyShoutCooldownLabel } from "./lobbyShout";
 import { LeagueEmblem } from "./PlayerPortal/LeagueEmblem";
 import { useCurrentLobby } from "./social/CurrentLobbyContext";
+import { startVisibleInterval } from "./visibleInterval";
 import { useRankedSeason } from "./useRankedSeason";
 
 const whole = (value: number | undefined): number => Math.max(0, Math.trunc(Number(value) || 0));
@@ -282,11 +283,7 @@ export const LobbyView: React.FC = () => {
         if (status !== LobbyStatus.LOBBY_STARTING && (shoutStatus?.nextAllowedAt ?? 0) <= Date.now()) {
             return;
         }
-        const handle = window.setInterval(
-            () => setNowMs(Date.now()),
-            status === LobbyStatus.LOBBY_STARTING ? 250 : 1000,
-        );
-        return () => window.clearInterval(handle);
+        return startVisibleInterval(() => setNowMs(Date.now()), status === LobbyStatus.LOBBY_STARTING ? 250 : 1000);
     }, [shoutStatus?.nextAllowedAt, status]);
 
     const handleJoinPrivate = useCallback(async () => {
