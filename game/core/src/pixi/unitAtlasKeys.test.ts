@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { animationAtlases } from "../generated/animation_atlases";
-import { buildUnitAnimationAtlasKeyClassifier, isUnitAnimationAtlasKey } from "./unitAtlasKeys";
+import { buildUnitAnimationAtlasKeyClassifier, isUnitAnimationAtlasKey, isUnitCardImageKey } from "./unitAtlasKeys";
 
 /**
  * Pins the core-vs-supplementary texture split: every UNIT atlas (all size variants) is
@@ -57,5 +57,22 @@ describe("unit animation atlas key split", () => {
         expect(isUnitAnimationAtlasKey("abomination_128")).toBe(false);
         expect(isUnitAnimationAtlasKey("ui_banner_green_soft_wide")).toBe(false);
         expect(isUnitAnimationAtlasKey("frame_black_512")).toBe(false);
+    });
+
+    test("recognizes card art for units that do not have generated animation metadata", () => {
+        for (const key of [
+            "dark_champion_512",
+            "faerie_dragon_512",
+            "imp_512",
+            "phoenix_512",
+            "skeleton_512",
+            "unknown_creature_512",
+            "zombie_512",
+        ]) {
+            expect(isUnitCardImageKey(key)).toBe(true);
+        }
+
+        expect(isUnitCardImageKey("fire_pit_center_512")).toBe(false);
+        expect(isUnitCardImageKey("spider_512")).toBe(false);
     });
 });

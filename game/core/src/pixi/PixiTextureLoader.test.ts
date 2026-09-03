@@ -193,6 +193,12 @@ describe("pixi texture bundle split", () => {
             "league_demigod_512",
             "wealth_demigod_whale_512",
             "doctrine_spymaster",
+            "chaos_512",
+            "death_512",
+            "life_512",
+            "might_512",
+            "nature_512",
+            "order_512",
         ]) {
             expect(isDeferredReactUiAssetKey(key)).toBe(true);
             expect(core[key]).toBeUndefined();
@@ -340,7 +346,19 @@ describe("pixi texture bundle split", () => {
     test("keeps unit card portraits out of the permanent board texture cache", () => {
         const { core, deferredUnitCardAssets } = getSplitBundles({ animationsEnabled: false });
 
-        for (const key of ["peasant_512", "scavenger_512", "thief_model_full", "thunderbird_512_v2"]) {
+        for (const key of [
+            "dark_champion_512",
+            "faerie_dragon_512",
+            "imp_512",
+            "peasant_512",
+            "phoenix_512",
+            "scavenger_512",
+            "skeleton_512",
+            "thief_model_full",
+            "thunderbird_512_v2",
+            "unknown_creature_512",
+            "zombie_512",
+        ]) {
             expect(isDeferredUnitCardAssetKey(key)).toBe(true);
             expect(deferredUnitCardAssets[key]).toBeDefined();
             expect(core[key]).toBeUndefined();

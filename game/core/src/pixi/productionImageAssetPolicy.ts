@@ -38,11 +38,32 @@ const UNUSED_PRODUCTION_LEGACY_UI_ASSETS = new Set([
 
 /** Exact orphaned/source exports with no selector or direct runtime consumer. */
 const UNUSED_PRODUCTION_ASSETS = new Set([
+    "banner_green",
     "banner_border_round_c",
+    "banner_red",
     "banner_riveted_ornaments",
+    "deployment_frame_reference_green",
+    "deployment_frame_reference_red",
     "deployment_grid_glow_master_16x6",
+    "fight_log_scrollbar_rail_gothic_v1",
+    "nature_mage_male_1_128",
+    "nature_mage_male_1_512",
+    "nature_mage_male_2_128",
+    "nature_mage_male_2_512",
+    "nature_mage_male_3_128",
+    "nature_mage_male_3_512",
     "orc_model_full",
+    "perk_blind_fury",
+    "perk_scout",
+    "perk_spymaster",
+    "spell_cast_scroll_plain_v1",
+    "spell_cast_scroll_variant2",
+    "spell_corner_chaos_a",
+    "spell_corner_life_b",
+    "spell_corner_nature_b",
+    "spider_512",
     "tombstone_tiles_256_atlas",
+    "x_mark_1_512",
 ]);
 
 const LIVE_PRODUCTION_VERSIONED_UI_ASSETS = new Set([

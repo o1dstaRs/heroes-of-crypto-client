@@ -40,7 +40,19 @@ const generatedUnitAnimationAtlasKey = buildUnitAnimationAtlasKeyClassifier(anim
 const generatedUnitCardImageKeys = new Set(
     Object.keys(animationAtlases).map((unitName) => `${unitName.toLowerCase().replace(/\s+/g, "_")}_512`),
 );
-const specialUnitCardImageKeys = new Set(["wandering_mage_512", "thief_model_full", "thunderbird_512_v2"]);
+const specialUnitCardImageKeys = new Set([
+    // Summons and legacy units without authored animation metadata still use their 512px card in React UI.
+    "dark_champion_512",
+    "faerie_dragon_512",
+    "imp_512",
+    "phoenix_512",
+    "skeleton_512",
+    "unknown_creature_512",
+    "wandering_mage_512",
+    "thief_model_full",
+    "thunderbird_512_v2",
+    "zombie_512",
+]);
 
 /** Card/sidebar portraits are URL-driven UI art, not permanent Pixi board textures. */
 export const isUnitCardImageKey = (key: string): boolean =>

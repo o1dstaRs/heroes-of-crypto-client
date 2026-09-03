@@ -158,11 +158,32 @@ describe("production environment image policy", () => {
 describe("production unreferenced image policy", () => {
     test("omits exact orphaned exports while preserving their live replacements", () => {
         for (const key of [
+            "banner_green",
             "banner_border_round_c",
+            "banner_red",
             "banner_riveted_ornaments",
+            "deployment_frame_reference_green",
+            "deployment_frame_reference_red",
             "deployment_grid_glow_master_16x6",
+            "fight_log_scrollbar_rail_gothic_v1",
+            "nature_mage_male_1_128",
+            "nature_mage_male_1_512",
+            "nature_mage_male_2_128",
+            "nature_mage_male_2_512",
+            "nature_mage_male_3_128",
+            "nature_mage_male_3_512",
             "orc_model_full",
+            "perk_blind_fury",
+            "perk_scout",
+            "perk_spymaster",
+            "spell_cast_scroll_plain_v1",
+            "spell_cast_scroll_variant2",
+            "spell_corner_chaos_a",
+            "spell_corner_life_b",
+            "spell_corner_nature_b",
+            "spider_512",
             "tombstone_tiles_256_atlas",
+            "x_mark_1_512",
         ]) {
             expect(isProductionOmittedUnreferencedAssetKey(key)).toBe(true);
         }
@@ -174,7 +195,8 @@ describe("production unreferenced image policy", () => {
             "thief_model_full",
             "cemetery_obstacles_9x_256",
             "cemetery_obstacles_9x_256_hp",
-            "deployment_frame_reference_red",
+            "fight_log_scrollbar_thumb_gothic_v1",
+            "x_mark_2_512",
         ]) {
             expect(isProductionOmittedUnreferencedAssetKey(key)).toBe(false);
         }
