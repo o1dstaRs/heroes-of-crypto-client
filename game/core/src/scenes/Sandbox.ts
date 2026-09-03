@@ -3537,19 +3537,16 @@ export class Sandbox extends PixiScene {
                 continue;
             }
             victim.flashDebuffDarken();
-            const iconTexture = this.texAny(AbilityHelper.abilityToTextureName(event.abilityName));
-            this.combatVisuals.spawnAbilitySteal(
-                victim.getVisualCenter(gs),
-                thief.getVisualCenter(gs),
-                gs.getCellSize(),
-                event.abilityName,
-                iconTexture,
-                () => {
+            const from = victim.getVisualCenter(gs);
+            const to = thief.getVisualCenter(gs);
+            void this.waitForTexture(AbilityHelper.abilityToTextureName(event.abilityName)).then((iconTexture) => {
+                if (!iconTexture || !this.combatVisuals) return;
+                this.combatVisuals.spawnAbilitySteal(from, to, gs.getCellSize(), event.abilityName, iconTexture, () => {
                     if (!thief.isDead()) {
                         thief.flashBuffApplied();
                     }
-                },
-            );
+                });
+            });
         }
     }
     /**
@@ -3581,23 +3578,29 @@ export class Sandbox extends PixiScene {
                 if (!from || !to) {
                     continue;
                 }
-                const iconTexture = this.texAny(AbilityHelper.abilityToTextureName(transfer.abilityName));
-                this.combatVisuals.spawnAbilityGift(
-                    from.getVisualCenter(gs),
-                    to.getVisualCenter(gs),
-                    gs.getCellSize(),
-                    transfer.abilityName,
-                    transfer.mode,
-                    iconTexture,
-                    () => {
-                        // A ranked post-cast hydrate can replace every RenderableUnit while the card is
-                        // still flying. Resolve the current body by id on arrival instead of flashing the
-                        // captured (destroyed) pre-hydrate instance.
-                        const currentRecipient = this.unitsHolder.getAllUnits().get(transfer.toUnitId) as
-                            RenderableUnit | undefined;
-                        if (currentRecipient && !currentRecipient.isDead()) {
-                            currentRecipient.flashBuffApplied();
-                        }
+                const fromPosition = from.getVisualCenter(gs);
+                const toPosition = to.getVisualCenter(gs);
+                void this.waitForTexture(AbilityHelper.abilityToTextureName(transfer.abilityName)).then(
+                    (iconTexture) => {
+                        if (!iconTexture || !this.combatVisuals) return;
+                        this.combatVisuals.spawnAbilityGift(
+                            fromPosition,
+                            toPosition,
+                            gs.getCellSize(),
+                            transfer.abilityName,
+                            transfer.mode,
+                            iconTexture,
+                            () => {
+                                // A ranked post-cast hydrate can replace every RenderableUnit while the card is
+                                // still flying. Resolve the current body by id on arrival instead of flashing the
+                                // captured (destroyed) pre-hydrate instance.
+                                const currentRecipient = this.unitsHolder.getAllUnits().get(transfer.toUnitId) as
+                                    RenderableUnit | undefined;
+                                if (currentRecipient && !currentRecipient.isDead()) {
+                                    currentRecipient.flashBuffApplied();
+                                }
+                            },
+                        );
                     },
                 );
             }
@@ -8623,17 +8626,11 @@ export class Sandbox extends PixiScene {
      * table, not the spell one — SpellHelper.spellToTextureName finds nothing for these names.
      */
     protected popAbilityOnUnit(unit: RenderableUnit, abilityName: string, stackIndex: number): void {
-        const iconTexture = this.texAny(AbilityHelper.abilityToTextureName(abilityName));
-        if (!iconTexture) {
-            return;
-        }
-        this.combatVisuals?.spawnDebuffPop(
-            unit.getVisualCenter(this.sc_sceneSettings.getGridSettings()),
-            iconTexture,
-            abilityName,
-            stackIndex,
-            "buff",
-        );
+        const position = unit.getVisualCenter(this.sc_sceneSettings.getGridSettings());
+        void this.waitForTexture(AbilityHelper.abilityToTextureName(abilityName)).then((iconTexture) => {
+            if (!iconTexture) return;
+            this.combatVisuals?.spawnDebuffPop(position, iconTexture, abilityName, stackIndex, "buff");
+        });
     }
     protected popEffectOnUnit(
         unit: RenderableUnit,

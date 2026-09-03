@@ -8,6 +8,7 @@ import {
     isDeferredReactUiAssetKey,
     isDeferredUnitCardAssetKey,
     isIdleAtlasKey,
+    isLazyAbilityAssetKey,
     isLazyBattlefieldCreatureAssetKey,
     isLazyCombatEffectAssetKey,
     isLazyProjectileAssetKey,
@@ -25,6 +26,7 @@ export {
     isDeferredReactUiAssetKey,
     isDeferredUnitCardAssetKey,
     isIdleAtlasKey,
+    isLazyAbilityAssetKey,
     isLazyBattlefieldCreatureAssetKey,
     isLazyCombatEffectAssetKey,
     isLazyMapTextureAssetKey,
@@ -133,6 +135,7 @@ export function getSplitBundles(options: SplitBundleOptions = {}) {
     const lazyCombatEffectAssets: Record<string, { src: string }> = {};
     const lazyProjectileAssets: Record<string, { src: string }> = {};
     const lazyRosterAssets: Record<string, { src: string }> = {};
+    const lazyAbilityAssets: Record<string, { src: string }> = {};
     const excludedFullResolutionUnitAtlases: Record<string, { src: string }> = {};
 
     for (const [k, v] of Object.entries(rawImages)) {
@@ -170,6 +173,8 @@ export function getSplitBundles(options: SplitBundleOptions = {}) {
             lazyProjectileAssets[k] = { src };
         } else if (isLazyRosterAssetKey(k)) {
             lazyRosterAssets[k] = { src };
+        } else if (isLazyAbilityAssetKey(k)) {
+            lazyAbilityAssets[k] = { src };
         } else {
             // Tier 1: Core
             core[k] = { src };
@@ -190,6 +195,7 @@ export function getSplitBundles(options: SplitBundleOptions = {}) {
         lazyCombatEffectAssets,
         lazyProjectileAssets,
         lazyRosterAssets,
+        lazyAbilityAssets,
         excludedFullResolutionUnitAtlases,
     };
 }

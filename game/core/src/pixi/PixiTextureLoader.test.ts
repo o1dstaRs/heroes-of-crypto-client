@@ -9,6 +9,7 @@ import {
     isDeferredReactUiAssetKey,
     isDeferredUnitCardAssetKey,
     isIdleAtlasKey,
+    isLazyAbilityAssetKey,
     isLazyBattlefieldCreatureAssetKey,
     isLazyCombatEffectAssetKey,
     isLazyProjectileAssetKey,
@@ -58,6 +59,7 @@ describe("pixi texture bundle split", () => {
             lazyCombatEffectAssets,
             lazyProjectileAssets,
             lazyRosterAssets,
+            lazyAbilityAssets,
             excludedFullResolutionUnitAtlases,
         } = getSplitBundles();
         const allKeys = Object.keys(images);
@@ -76,6 +78,7 @@ describe("pixi texture bundle split", () => {
             ...Object.keys(lazyCombatEffectAssets),
             ...Object.keys(lazyProjectileAssets),
             ...Object.keys(lazyRosterAssets),
+            ...Object.keys(lazyAbilityAssets),
             ...Object.keys(excludedFullResolutionUnitAtlases),
         ];
 
@@ -123,6 +126,9 @@ describe("pixi texture bundle split", () => {
         }
         for (const key of Object.keys(lazyRosterAssets)) {
             expect(`${key}: ${isLazyRosterAssetKey(key)}`).toBe(`${key}: true`);
+        }
+        for (const key of Object.keys(lazyAbilityAssets)) {
+            expect(`${key}: ${isLazyAbilityAssetKey(key)}`).toBe(`${key}: true`);
         }
         for (const key of Object.keys(excludedFullResolutionUnitAtlases)) {
             expect(`${key}: ${isRedundantFullResolutionUnitAtlasKey(key)}`).toBe(`${key}: true`);
@@ -359,6 +365,28 @@ describe("pixi texture bundle split", () => {
             expect(lazyCombatEffectAssets[key]).toBeDefined();
             expect(core[key]).toBeUndefined();
         }
+    });
+
+    test("loads passive ability cards only when their Pixi combat effect appears", () => {
+        const { core, lazyAbilityAssets } = getSplitBundles({ animationsEnabled: false });
+
+        for (const key of [
+            "double_punch_256",
+            "fire_breath_256",
+            "predatory_assimilation_256",
+            "crafted_frozen_sword_256",
+        ]) {
+            expect(isLazyAbilityAssetKey(key)).toBe(true);
+            expect(lazyAbilityAssets[key]).toBeDefined();
+            expect(core[key]).toBeUndefined();
+        }
+
+        // These abilities are also castable spells, whose synchronous spellbook cells need the same art.
+        for (const key of ["wild_regeneration_256", "resurrection_256", "water_shield_256"]) {
+            expect(isLazyAbilityAssetKey(key)).toBe(false);
+            expect(core[key]).toBeDefined();
+        }
+        expect(Object.keys(lazyAbilityAssets)).toHaveLength(101);
     });
 
     test("loads sandbox roster art only while the pre-fight overlay exists", () => {

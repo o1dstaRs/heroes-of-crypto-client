@@ -25,7 +25,7 @@ describe("PixiScene teardown", () => {
         expect(destroy.indexOf("getUIContainer()")).toBeLessThan(destroy.indexOf("this.drawer.destroy()"));
     });
 
-    test("releases scene-leased creature, map, and effect textures before persistent roots are cleared", () => {
+    test("releases scene-leased creature, map, effect, and ability textures before persistent roots are cleared", () => {
         const source = readFileSync(join(import.meta.dir, "PixiScene.ts"), "utf8");
         const destroy = source.slice(source.indexOf("public Destroy()"), source.indexOf("// ------- Delegates"));
 
@@ -34,6 +34,7 @@ describe("PixiScene teardown", () => {
         expect(source).toContain("isLazyBattlefieldCreatureAssetKey(key)");
         expect(source).toContain("isLazyCombatEffectAssetKey(key)");
         expect(source).toContain("isLazyMapTextureAssetKey(key)");
+        expect(source).toContain("isLazyAbilityAssetKey(key)");
         expect(source).toContain("this.releaseLateUnclaimedTexture(key, url)");
     });
 });

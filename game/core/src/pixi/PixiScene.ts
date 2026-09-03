@@ -51,6 +51,7 @@ import { PreloadedPixiTextures } from "./PixiTextureLoader";
 import { boardFitHeight, boardFitWidth } from "./boardFit";
 import {
     isLazyBattlefieldCreatureAssetKey,
+    isLazyAbilityAssetKey,
     isLazyCombatEffectAssetKey,
     isLazyMapTextureAssetKey,
 } from "./imageAssetTiers";
@@ -366,7 +367,10 @@ export abstract class PixiScene {
         if (this.sc_destroyed) return undefined;
         const url = (rawImageUrls as unknown as Record<string, string>)[key];
         const isSceneLeasedTexture =
-            isLazyBattlefieldCreatureAssetKey(key) || isLazyCombatEffectAssetKey(key) || isLazyMapTextureAssetKey(key);
+            isLazyBattlefieldCreatureAssetKey(key) ||
+            isLazyCombatEffectAssetKey(key) ||
+            isLazyMapTextureAssetKey(key) ||
+            isLazyAbilityAssetKey(key);
         const preloaded = (this.textures as unknown as Record<string, Texture>)[key];
         if (preloaded && !preloaded.destroyed) {
             if (isSceneLeasedTexture && url) this.retainLazyTexture(key, url);
@@ -425,6 +429,21 @@ export abstract class PixiScene {
         }
         return undefined;
     };
+    /** Resolve an optional texture that texAny started loading, while respecting scene teardown. */
+    protected async waitForTexture(key: string): Promise<Texture | undefined> {
+        const immediate = this.texAny(key);
+        if (immediate || this.sc_destroyed) return immediate;
+
+        const url = (rawImageUrls as unknown as Record<string, string>)[key];
+        const pending = url ? lazyTextureLoads.get(url) : undefined;
+        if (!pending) return undefined;
+        try {
+            await pending;
+        } catch {
+            return undefined;
+        }
+        return this.sc_destroyed ? undefined : this.texAny(key);
+    }
     public getBaseHotkeys(): HotKey[] {
         return [];
     }

@@ -185,6 +185,118 @@ export function isLazyRosterAssetKey(key: string): boolean {
     );
 }
 
+// Ability-only cards from common/configuration/abilities.json. The eleven names that also exist as
+// castable spells deliberately stay out of this set because the synchronous Pixi spellbook uses them.
+// A newly-added ability is safe by default: it remains in core until its icon is explicitly classified.
+const LAZY_ABILITY_ASSETS = new Set([
+    "double_punch_256",
+    "backstab_256",
+    "handyman_256",
+    "double_shot_256",
+    "double_throw_256",
+    "crafted_double_shot_256",
+    "crafted_double_punch_256",
+    "crafted_frozen_bow_256",
+    "crafted_frozen_sword_256",
+    "blacksmith_tools_256",
+    "enchants_256",
+    "shadow_touch_256",
+    "one_in_the_field_256",
+    "endless_quiver_256",
+    "sniper_256",
+    "leather_armor_256",
+    "limited_supply_256",
+    "enchanted_skin_256",
+    "undead_256",
+    "lightning_spin_256",
+    "fire_breath_256",
+    "fire_element_256",
+    "fire_shield_256",
+    "water_element_256",
+    "earth_element_256",
+    "piercing_spear_256",
+    "boost_health_256",
+    "stun_256",
+    "blindness_256",
+    "heavy_armor_256",
+    "no_melee_256",
+    "sharpened_weapons_aura_256",
+    "range_null_field_aura_256",
+    "luck_aura_256",
+    "arrows_wingshield_aura_256",
+    "rallying_volley_aura_256",
+    "angelic_host_256",
+    "ai_driven_256",
+    "magic_shield_256",
+    "boar_saliva_256",
+    "dodge_256",
+    "small_specie_256",
+    "bitter_experience_256",
+    "absorb_penalties_aura_256",
+    "spit_ball_256",
+    "sylvan_focus_aura_256",
+    "guiding_winds_aura_256",
+    "venom_cloud_aura_256",
+    "hamstring_256",
+    "petrifying_gaze_256",
+    "wardguard_256",
+    "large_caliber_256",
+    "area_throw_256",
+    "chakram_256",
+    "through_shot_256",
+    "sky_runner_256",
+    "lucky_strike_256",
+    "in_its_own_world_256",
+    "basic_tome_of_battle_magic_256",
+    "forest_spellbook_256",
+    "tome_of_might_256",
+    "book_of_healing_256",
+    "book_of_chaos_256",
+    "book_of_nightmares_256",
+    "time_denial_256",
+    "tome_of_elements_256",
+    "magic_reflection_256",
+    "unyielding_power_256",
+    "shatter_armor_256",
+    "rapid_charge_256",
+    "wolf_trail_aura_256",
+    "penetrating_bite_256",
+    "pegasus_might_aura_256",
+    "pegasus_light_256",
+    "paralysis_256",
+    "deep_wounds_level_0_256",
+    "deep_wounds_level_1_256",
+    "deep_wounds_level_2_256",
+    "deep_wounds_level_3_256",
+    "madness_256",
+    "blind_fury_256",
+    "mechanism_256",
+    "aggr_256",
+    "skewer_strike_256",
+    "war_anger_aura_256",
+    "chain_lightning_256",
+    "wind_element_256",
+    "tie_up_the_horses_aura_256",
+    "crusade_256",
+    "disguise_aura_256",
+    "devour_essence_256",
+    "dense_flesh_256",
+    "flesh_shield_aura_256",
+    "stun_aura_256",
+    "web_aura_256",
+    "infest_256",
+    "predatory_assimilation_256",
+    "warding_mane_aura_256",
+    "terrifying_gaze_256",
+    "borrowed_grace_256",
+    "absolving_arrow_256",
+]);
+
+/** Passive ability cards are URL-driven in React; Pixi needs one only for the rare matching combat VFX. */
+export function isLazyAbilityAssetKey(key: string): boolean {
+    return LAZY_ABILITY_ASSETS.has(key);
+}
+
 /** True only for assets that PixiTextureLoader places in its blocking core bundle. */
 export function isCoreTextureAssetKey(key: string): boolean {
     return (
@@ -198,7 +310,8 @@ export function isCoreTextureAssetKey(key: string): boolean {
         !isLazyBattlefieldCreatureAssetKey(key) &&
         !isLazyProjectileAssetKey(key) &&
         !isLazyCombatEffectAssetKey(key) &&
-        !isLazyRosterAssetKey(key)
+        !isLazyRosterAssetKey(key) &&
+        !isLazyAbilityAssetKey(key)
     );
 }
 
