@@ -39,7 +39,7 @@ import { displayedLoadingProgress, MINIMUM_LOADING_SCREEN_DURATION_MS } from "./
 import type { PixiScene, PixiSceneContext, SceneConstructor, SceneEntry } from "./PixiScene";
 import type { AuthoritativeSnapshotOptions } from "./PixiScene";
 import type { LoadingScreen } from "../scenes/LoadingScreen";
-import { getScenesGrouped } from "./PixiScene";
+import { getScenesGrouped } from "./sceneRegistry";
 import type { AuthoritativeGameSnapshot, SceneGameActionTransport } from "../game_action_transport";
 import type { SandboxReplay } from "../replay/sandbox_replay";
 

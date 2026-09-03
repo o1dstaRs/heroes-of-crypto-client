@@ -53,6 +53,8 @@ import { images as rawImageUrls } from "../imageAssets";
 import { UnitsOverlay } from "../scenes/UnitsOverlay";
 import { destroyContainerChildren, destroyContainerFilters } from "./filterLifecycle";
 
+export { getScenesGrouped, registerScene } from "./sceneRegistry";
+
 export interface AuthoritativeSnapshotOptions {
     /**
      * Set when the caller already animated+applied this snapshot's board changes
@@ -99,27 +101,7 @@ export interface SceneEntry {
     SceneClass: SceneConstructor;
 }
 
-const sceneGroups = {
-    Heroes: [] as SceneEntry[],
-};
-export type SceneGroup = keyof typeof sceneGroups;
-
-export function registerScene(group: SceneGroup, name: string, constructor: SceneConstructor) {
-    sceneGroups[group].push({
-        group,
-        name,
-        SceneClass: constructor,
-    });
-}
-
-export function getScenesGrouped() {
-    return Object.keys(sceneGroups)
-        .sort()
-        .map((name) => {
-            const scenes = sceneGroups[name as SceneGroup].sort((a, b) => (a.name < b.name ? -1 : 1));
-            return { name, scenes };
-        });
-}
+export type SceneGroup = "Heroes";
 
 // Artifact buffs are applied as named "System" spells (e.g. "Veteran Helm"), but their icon lives under the
 // artifact image key (artifact_t{tier}_<slug>_256), not the generic "<name>_256" that abilityToTextureName
