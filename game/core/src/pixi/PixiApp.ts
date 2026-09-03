@@ -145,6 +145,15 @@ export class PixiApp {
             TexturePool.clear();
         }
         this.renderTexturePoolBucket = nextPoolBucket;
+        // Sandbox installs its camera-wide cinematic pass at the renderer resolution that existed when
+        // the scene was created. If a player later enters fullscreen, the canvas cap may lower DPR while
+        // that numeric filter resolution stays at (typically) 2x, silently recreating a multi-4K temporary
+        // target around the 1440p canvas. Treat display-matched camera filters as inherited from now on so
+        // they follow every capped resize; deliberately lower-resolution filters remain untouched.
+        const previousResolution = this.app.renderer.resolution;
+        for (const filter of this.camera?.filters ?? []) {
+            if (filter.resolution === previousResolution) filter.resolution = "inherit";
+        }
         this.app.renderer.resolution = DPR;
         this.app.renderer.resize(width, height);
         const c = this.app.canvas as HTMLCanvasElement;
