@@ -84,10 +84,13 @@ describe("mountain collapse animation", () => {
             .setObstacleHitsPerMountain(0, HoCConstants.HITS_PER_MOUNTAIN);
         visuals.ensureCenterTerrainSprite();
         expect(collapseCount()).toBe(1);
+        const internals = visuals as unknown as { activeCollapses: unknown[] };
+        const activeCollapses = internals.activeCollapses;
 
         // Re-render with unchanged hits must not re-fire.
         visuals.ensureCenterTerrainSprite();
         expect(collapseCount()).toBe(1);
+        expect(internals.activeCollapses).toBe(activeCollapses);
     });
 
     test("joining a game with an already-destroyed mountain stays silent", () => {

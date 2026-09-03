@@ -2147,11 +2147,12 @@ export class DungeonVisuals {
         }
         const now = performance.now();
         const cellSize = this.context.getGridSettings().getCellSize();
-        this.activeCollapses = this.activeCollapses.filter((collapse) => {
+        let writeIndex = 0;
+        for (const collapse of this.activeCollapses) {
             const t = now - collapse.startMs;
             if (t >= MC_TOTAL_MS) {
                 collapse.container.destroy({ children: true });
-                return false;
+                continue;
             }
             // Clamped so a hitched frame (tab switch) doesn't teleport chunks through the floor.
             const dt = Math.min(0.05, (now - collapse.lastStepMs) / 1000);
@@ -2170,44 +2171,44 @@ export class DungeonVisuals {
                     chunk.sprite.x = chunk.homeX + Math.sin(now * 0.09 + index * 1.7) * mag;
                     chunk.sprite.y = chunk.homeY + Math.sin(now * 0.11 + index * 2.3) * mag;
                 }
-                return true;
-            }
-
-            for (const chunk of collapse.chunks) {
-                if (t < shudderMs + (chunk.delayMs ?? 0)) {
-                    const mag = cellSize * 0.02;
-                    chunk.sprite.x = chunk.homeX + Math.sin(now * 0.08 + chunk.homeX) * mag;
-                    chunk.sprite.y = chunk.homeY + Math.sin(now * 0.1 + chunk.homeY) * mag;
-                    continue;
+            } else {
+                for (const chunk of collapse.chunks) {
+                    if (t < shudderMs + (chunk.delayMs ?? 0)) {
+                        const mag = cellSize * 0.02;
+                        chunk.sprite.x = chunk.homeX + Math.sin(now * 0.08 + chunk.homeX) * mag;
+                        chunk.sprite.y = chunk.homeY + Math.sin(now * 0.1 + chunk.homeY) * mag;
+                        continue;
+                    }
+                    chunk.vy += gravity * dt;
+                    chunk.sprite.x += chunk.vx * dt;
+                    chunk.sprite.y += chunk.vy * dt;
+                    chunk.sprite.rotation += chunk.spin * dt;
+                    // Crash onto the base line: bounce once with most energy lost, then grind to a stop.
+                    if (chunk.sprite.y < chunk.floorY && chunk.vy < 0) {
+                        chunk.sprite.y = chunk.floorY;
+                        chunk.vy = -chunk.vy * MC_BOUNCE;
+                        chunk.vx *= 0.55;
+                        chunk.spin *= 0.4;
+                    }
+                    chunk.sprite.alpha = fade;
                 }
-                chunk.vy += gravity * dt;
-                chunk.sprite.x += chunk.vx * dt;
-                chunk.sprite.y += chunk.vy * dt;
-                chunk.sprite.rotation += chunk.spin * dt;
-                // Crash onto the base line: bounce once with most energy lost, then grind to a stop.
-                if (chunk.sprite.y < chunk.floorY && chunk.vy < 0) {
-                    chunk.sprite.y = chunk.floorY;
-                    chunk.vy = -chunk.vy * MC_BOUNCE;
-                    chunk.vx *= 0.55;
-                    chunk.spin *= 0.4;
+                for (const puff of collapse.dust) {
+                    const age = now - puff.bornMs;
+                    if (age < 0 || age >= puff.lifeMs) {
+                        puff.gfx.alpha = 0;
+                        continue;
+                    }
+                    const life = age / puff.lifeMs;
+                    puff.gfx.x += puff.vx * dt;
+                    puff.gfx.y += puff.vy * dt;
+                    puff.vy *= 1 - 1.6 * dt; // dust decelerates as it billows
+                    puff.gfx.alpha = puff.baseAlpha * (1 - life) * fade;
+                    puff.gfx.scale.set(1 + life * 0.9); // billow outward as it fades
                 }
-                chunk.sprite.alpha = fade;
             }
-            for (const puff of collapse.dust) {
-                const age = now - puff.bornMs;
-                if (age < 0 || age >= puff.lifeMs) {
-                    puff.gfx.alpha = 0;
-                    continue;
-                }
-                const life = age / puff.lifeMs;
-                puff.gfx.x += puff.vx * dt;
-                puff.gfx.y += puff.vy * dt;
-                puff.vy *= 1 - 1.6 * dt; // dust decelerates as it billows
-                puff.gfx.alpha = puff.baseAlpha * (1 - life) * fade;
-                puff.gfx.scale.set(1 + life * 0.9); // billow outward as it fades
-            }
-            return true;
-        });
+            this.activeCollapses[writeIndex++] = collapse;
+        }
+        this.activeCollapses.length = writeIndex;
     }
     /**
      * The board's floor texture. Only the base painting is swappable — the dungeon lighting overlay, the
