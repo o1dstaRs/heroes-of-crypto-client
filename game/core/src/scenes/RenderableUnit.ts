@@ -126,6 +126,16 @@ export const reconcileManagedSpriteFilters = <T>(
 
 const EMPTY_FILTERS: readonly Filter[] = Object.freeze([]);
 
+let sharedRevealedRosterDesaturateFilter: ColorMatrixFilter | undefined;
+
+/** Every revealed opponent uses the same immutable grayscale matrix, so one filter serves the whole roster. */
+const revealedRosterDesaturateFilter = (): ColorMatrixFilter => {
+    if (sharedRevealedRosterDesaturateFilter) return sharedRevealedRosterDesaturateFilter;
+    sharedRevealedRosterDesaturateFilter = new ColorMatrixFilter();
+    sharedRevealedRosterDesaturateFilter.desaturate();
+    return sharedRevealedRosterDesaturateFilter;
+};
+
 const syncSingleSpriteFilter = (sprite: Sprite, desired: Filter | undefined): void => {
     const installed = sprite.filters;
     if (desired) {
@@ -1619,7 +1629,7 @@ export class RenderableUnit extends Unit {
     private badgeEmphasisScale = 1;
     private badgeAmountOverride?: number;
     // Grayscale filter for the "revealed" mode (ranked placement: opponent roster shown in B&W).
-    // Created lazily, reused for the unit's lifetime.
+    // Attached lazily from one immutable roster-wide instance.
     private desaturateFilter?: ColorMatrixFilter;
     private battlefieldAlphaHoleFillFilter?: ReturnType<typeof getBattlefieldAlphaHoleFillFilter>;
     private battlefieldContourFilter?: ReturnType<typeof getBattlefieldCreatureContourFilter>;
@@ -2221,10 +2231,7 @@ export class RenderableUnit extends Unit {
         // "Revealed" mode (ranked placement: the opponent's known roster) draws the sprite in black &
         // white so it clearly reads as an enemy silhouette, not one of the viewer's own units.
         if (this.visualMode === "revealed") {
-            if (!this.desaturateFilter) {
-                this.desaturateFilter = new ColorMatrixFilter();
-                this.desaturateFilter.desaturate();
-            }
+            this.desaturateFilter ??= revealedRosterDesaturateFilter();
         }
         // Retire the experimental shared colour grade. The purpose-built contour pass below is deliberately
         // edge-only: it leaves interior colour untouched while matching the approved level-three baked rim.
@@ -4119,7 +4126,6 @@ export class RenderableUnit extends Unit {
         if (this.badgeFlagGlow) this.badgeFlagGlow.filters = null;
         this.motionBlurFilter?.destroy();
         this.dodgeBlurFilter?.destroy();
-        this.desaturateFilter?.destroy();
         this.battlefieldStyleFilter?.destroy();
         this.silhouetteShadowBlurFilter?.destroy();
         this.motionBlurFilter = undefined;

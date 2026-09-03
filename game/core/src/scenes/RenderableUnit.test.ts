@@ -2532,7 +2532,24 @@ describe("RenderableUnit filter lifecycle", () => {
         expect(internals.motionBlurFilter).toBeUndefined();
     });
 
-    test("destroys every unit-owned filter when snapshot reconciliation removes the unit", () => {
+    test("shares one immutable grayscale filter across the revealed opponent roster", () => {
+        const first = createRenderableUnit(TeamVals.RIGHT, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
+        const second = createRenderableUnit(TeamVals.RIGHT, "Nature", "Wolf", "wolf_512", () => Texture.WHITE);
+        const root = new Container();
+        first.setVisualRevealed(true);
+        second.setVisualRevealed(true);
+        first.ensureVisual(root, gridSettings);
+        second.ensureVisual(root, gridSettings);
+
+        type RevealedInternals = { desaturateFilter?: object };
+        expect((first as unknown as RevealedInternals).desaturateFilter).toBe(
+            (second as unknown as RevealedInternals).desaturateFilter,
+        );
+        first.destroyVisuals();
+        second.destroyVisuals();
+    });
+
+    test("destroys every unit-owned filter without destroying the shared grayscale filter", () => {
         const unit = createRenderableUnit(TeamVals.RIGHT, "Nature", "Satyr", "satyr_512");
         const destroyCalls = [0, 0, 0, 0, 0];
         const filters = destroyCalls.map((_, index) => ({ destroy: () => destroyCalls[index]++ }));
@@ -2554,7 +2571,7 @@ describe("RenderableUnit filter lifecycle", () => {
         unit.destroyVisuals();
         unit.destroyVisuals();
 
-        expect(destroyCalls).toEqual([1, 1, 1, 1, 1]);
+        expect(destroyCalls).toEqual([1, 1, 0, 1, 1]);
     });
 });
 
