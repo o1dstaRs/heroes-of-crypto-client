@@ -57,8 +57,10 @@ import {
 import {
     BATTLEFIELD_SHADOW_SEGMENT_COUNT,
     DEFAULT_BATTLEFIELD_SHADOW_TUNING,
+    isBattlefieldShadowEditorActive,
     publishBattlefieldShadowVisualBounds,
     resolveBattlefieldShadowTuning,
+    type BattlefieldShadowTuning,
 } from "../ui/battlefieldShadowTuning";
 import { stunBadgeLayout } from "../ui/stunBadgeTuning";
 import { creatureHeadPriorityZone, type CreatureDepthSortCandidate } from "./battlefieldCreatureDepthSort";
@@ -78,32 +80,59 @@ export const reconcileManagedSpriteFilters = <T>(
     contour: T | undefined,
     includeDesaturate: boolean,
 ): T[] | undefined => {
-    const isManaged = (filter: T): boolean =>
-        filter === retiredStyle || filter === retiredAlphaFill || filter === retiredContour || filter === desaturate;
     let expectedIndex = 0;
     let matches = true;
-    const expectNext = (filter: T | undefined): void => {
-        if (filter === undefined) return;
-        if (installed[expectedIndex] !== filter) matches = false;
+    if (alphaFill !== undefined) {
+        if (installed[expectedIndex] !== alphaFill) matches = false;
         expectedIndex++;
-    };
-
-    expectNext(alphaFill);
-    expectNext(contour);
-    for (const filter of installed) {
-        if (!isManaged(filter)) expectNext(filter);
     }
-    if (includeDesaturate) expectNext(desaturate);
+    if (contour !== undefined) {
+        if (installed[expectedIndex] !== contour) matches = false;
+        expectedIndex++;
+    }
+    for (const filter of installed) {
+        if (
+            filter !== retiredStyle &&
+            filter !== retiredAlphaFill &&
+            filter !== retiredContour &&
+            filter !== desaturate
+        ) {
+            if (installed[expectedIndex] !== filter) matches = false;
+            expectedIndex++;
+        }
+    }
+    if (includeDesaturate && desaturate !== undefined) {
+        if (installed[expectedIndex] !== desaturate) matches = false;
+        expectedIndex++;
+    }
     if (matches && expectedIndex === installed.length) return undefined;
 
     const desired: T[] = [];
     if (alphaFill !== undefined) desired.push(alphaFill);
     if (contour !== undefined) desired.push(contour);
     for (const filter of installed) {
-        if (!isManaged(filter)) desired.push(filter);
+        if (
+            filter !== retiredStyle &&
+            filter !== retiredAlphaFill &&
+            filter !== retiredContour &&
+            filter !== desaturate
+        ) {
+            desired.push(filter);
+        }
     }
     if (includeDesaturate && desaturate !== undefined) desired.push(desaturate);
     return desired;
+};
+
+const EMPTY_FILTERS: readonly Filter[] = Object.freeze([]);
+
+const syncSingleSpriteFilter = (sprite: Sprite, desired: Filter | undefined): void => {
+    const installed = sprite.filters;
+    if (desired) {
+        if (installed?.length !== 1 || installed[0] !== desired) sprite.filters = [desired];
+    } else if (installed?.length) {
+        sprite.filters = null;
+    }
 };
 
 const battlefieldShadowSegmentTextureCache = new WeakMap<Texture, readonly Texture[]>();
@@ -295,6 +324,9 @@ const battlefieldCreatureRowProgress = (logicalY: number, footprintHeight: numbe
     return Math.max(0, Math.min(1, bottomRow / maximumBottomRow));
 };
 
+const interpolateBattlefieldShadowValue = (bottom: number, top: number, rowProgress: number): number =>
+    bottom + (top - bottom) * rowProgress;
+
 /**
  * The two rows nearest the wall furnaces soften their dark rim. A body two cells tall also softens one
  * anchor row earlier because its right half already occupies that furnace-adjacent two-row band — which
@@ -313,15 +345,31 @@ export function battlefieldCreatureShadowProjection(
     gs: GridSettings,
     unitName?: string,
 ): BattlefieldCreatureShadowProjection {
-    const rowProgress = battlefieldCreatureRowProgress(logicalY, footprintHeight, gs);
-    const tuning = resolveBattlefieldShadowTuning(unitName);
-    const interpolate = (bottom: number, top: number): number => bottom + (top - bottom) * rowProgress;
-    return {
-        lengthScale: interpolate(tuning.bottom.lengthScale, tuning.top.lengthScale),
-        widthScale: interpolate(tuning.bottom.widthScale, tuning.top.widthScale),
-        alpha: interpolate(tuning.bottom.alpha, tuning.top.alpha),
-    };
+    return writeBattlefieldCreatureShadowProjection(
+        resolveBattlefieldShadowTuning(unitName),
+        battlefieldCreatureRowProgress(logicalY, footprintHeight, gs),
+    );
 }
+
+const writeBattlefieldCreatureShadowProjection = (
+    tuning: BattlefieldShadowTuning,
+    rowProgress: number,
+    output?: BattlefieldCreatureShadowProjection,
+): BattlefieldCreatureShadowProjection => {
+    const projection = output ?? { lengthScale: 0, widthScale: 0, alpha: 0 };
+    projection.lengthScale = interpolateBattlefieldShadowValue(
+        tuning.bottom.lengthScale,
+        tuning.top.lengthScale,
+        rowProgress,
+    );
+    projection.widthScale = interpolateBattlefieldShadowValue(
+        tuning.bottom.widthScale,
+        tuning.top.widthScale,
+        rowProgress,
+    );
+    projection.alpha = interpolateBattlefieldShadowValue(tuning.bottom.alpha, tuning.top.alpha, rowProgress);
+    return projection;
+};
 
 /**
  * Continuous perspective attenuation for a placed battlefield figure.
@@ -1443,6 +1491,8 @@ export class RenderableUnit extends Unit {
     private silhouetteShadow?: Sprite;
     private silhouetteShadowSegments: Sprite[] = [];
     private silhouetteShadowSegmented = false;
+    private battlefieldShadowProjection?: BattlefieldCreatureShadowProjection;
+    private shadowSegmentLengthMultipliers?: number[];
     private groundCastShadow?: Sprite;
     private silhouetteShadowBlurFilter?: BlurFilter | null;
     private shadowDrawWidth = 0;
@@ -1571,6 +1621,8 @@ export class RenderableUnit extends Unit {
     // longer duration — used for Pikeman's Skewer Strike spear thrust. Otherwise a simple out-and-back.
     private recoilWindup = false;
     private recoilDurationMs = 220;
+    private currentRecoilX = 0;
+    private currentRecoilY = 0;
     // Brief colour wash over the sprite when an effect lands on this unit — dark violet for a debuff
     // (e.g. Spit Ball), green for a buff. Decays over ~650ms; syncVisual reads it each frame via
     // currentEffectTint().
@@ -1651,6 +1703,8 @@ export class RenderableUnit extends Unit {
         ru.recoilStartMs = 0;
         ru.recoilDx = 0;
         ru.recoilDy = 0;
+        ru.currentRecoilX = 0;
+        ru.currentRecoilY = 0;
         ru.effectFlashStartMs = 0;
         ru.effectFlashColor = 0x2a0a3a;
         ru.dodgeAnim = undefined;
@@ -1658,6 +1712,8 @@ export class RenderableUnit extends Unit {
         ru.silhouetteShadow = undefined;
         ru.silhouetteShadowSegments = [];
         ru.silhouetteShadowSegmented = false;
+        ru.battlefieldShadowProjection = undefined;
+        ru.shadowSegmentLengthMultipliers = undefined;
         ru.groundCastShadow = undefined;
         ru.silhouetteShadowBlurFilter = undefined;
         ru.battlefieldAlphaHoleFillFilter = undefined;
@@ -2031,7 +2087,7 @@ export class RenderableUnit extends Unit {
         if (this.sprite.scale.x !== directedScaleX || this.sprite.scale.y !== -renderedScaleY) {
             this.sprite.scale.set(directedScaleX, -renderedScaleY);
         }
-        const recoil = this.currentRecoil();
+        this.updateCurrentRecoil();
         // The editor is authored on the lowest (maximum-size) row. Attenuate its cell-relative
         // placement by the same row factor as the silhouette, while the projected ground reference
         // below keeps the feet at the same proportional inset inside every painted cell.
@@ -2045,13 +2101,13 @@ export class RenderableUnit extends Unit {
         const spriteX =
             projectedFootPosition.x +
             authoredOffsetX +
-            recoil.x +
+            this.currentRecoilX +
             gs.getCellSize() * editorFraming.offsetXCells * this.facingDirection * battlefieldPerspectiveScale;
         // Every full-body model uses one stable ground line in every state. The state-specific anchor above
         // points at the actual authored boot row, so transparent frame padding cannot move the creature.
         const spriteY =
             projectedFootPosition.y +
-            recoil.y -
+            this.currentRecoilY -
             gs.getCellSize() * editorFraming.offsetYCells * battlefieldPerspectiveScale;
         if (this.sprite.x !== spriteX || this.sprite.y !== spriteY) {
             this.sprite.position.set(spriteX, spriteY);
@@ -2104,7 +2160,7 @@ export class RenderableUnit extends Unit {
                       battlefieldCreatureContourOpacity(logicalPos.y, footprintHeight, gs),
                   )
                 : undefined;
-        const installedFilters = this.sprite.filters ?? [];
+        const installedFilters = this.sprite.filters ?? EMPTY_FILTERS;
         const desiredFilters = reconcileManagedSpriteFilters<Filter>(
             installedFilters,
             retiredBattlefieldStyleFilter,
@@ -2137,38 +2193,38 @@ export class RenderableUnit extends Unit {
         } else if (!this.silhouetteShadow.parent || this.silhouetteShadow.parent !== worldRoot) {
             worldRoot.addChild(this.silhouetteShadow);
         }
-        const shadowProjection = battlefieldCreatureShadowProjection(logicalPos.y, footprintHeight, gs, props.name);
         const shadowTuning = resolveBattlefieldShadowTuning(props.name);
+        const shadowRowProgress = battlefieldCreatureRowProgress(logicalPos.y, footprintHeight, gs);
+        const shadowProjection = writeBattlefieldCreatureShadowProjection(
+            shadowTuning,
+            shadowRowProgress,
+            this.battlefieldShadowProjection,
+        );
+        this.battlefieldShadowProjection = shadowProjection;
         if (this.silhouetteShadow.texture !== currentTexture) this.silhouetteShadow.texture = currentTexture;
         if (this.silhouetteShadow.anchor.x !== 0.5 || this.silhouetteShadow.anchor.y !== footAnchorY) {
             this.silhouetteShadow.anchor.set(0.5, footAnchorY);
         }
-        const shadowRowProgress = battlefieldCreatureRowProgress(logicalPos.y, footprintHeight, gs);
-        const interpolateShadowValue = (bottom: number, top: number): number =>
-            bottom + (top - bottom) * shadowRowProgress;
         // The editor authors the upper-row length directly. Perspective is divided out here so the lower
         // rows can receive their automatic 85% attenuation without swapping the two endpoint controls.
         // Keep Peasant's crack repair on the upright figure only. On its vertically flattened projection,
         // the bridge shader joins unrelated rows and makes the shadow read denser than every neighbouring
         // creature even though they share the same authored alpha.
-        const desiredShadowFilters =
-            runtimeAlphaHoleFillFilter && props.name !== PEASANT_UNIT_NAME ? [runtimeAlphaHoleFillFilter] : [];
-        const installedShadowFilters = this.silhouetteShadow.filters ?? [];
-        if (
-            desiredShadowFilters.length !== installedShadowFilters.length ||
-            desiredShadowFilters.some((filter, index) => filter !== installedShadowFilters[index])
-        ) {
-            this.silhouetteShadow.filters = desiredShadowFilters.length ? desiredShadowFilters : null;
+        const desiredShadowFilter =
+            runtimeAlphaHoleFillFilter && props.name !== PEASANT_UNIT_NAME ? runtimeAlphaHoleFillFilter : undefined;
+        syncSingleSpriteFilter(this.silhouetteShadow, desiredShadowFilter);
+        const segmentLengthMultipliers =
+            this.shadowSegmentLengthMultipliers ?? Array<number>(BATTLEFIELD_SHADOW_SEGMENT_COUNT);
+        this.shadowSegmentLengthMultipliers = segmentLengthMultipliers;
+        this.silhouetteShadowSegmented = false;
+        for (let index = 0; index < BATTLEFIELD_SHADOW_SEGMENT_COUNT; index++) {
+            const bottomMultiplier = shadowTuning.bottom.segmentLengthMultipliers[index] ?? 1;
+            const multiplier =
+                bottomMultiplier +
+                ((shadowTuning.top.segmentLengthMultipliers[index] ?? 1) - bottomMultiplier) * shadowRowProgress;
+            segmentLengthMultipliers[index] = multiplier;
+            if (Math.abs(multiplier - 1) > 0.001) this.silhouetteShadowSegmented = true;
         }
-        const segmentLengthMultipliers = Array.from({ length: BATTLEFIELD_SHADOW_SEGMENT_COUNT }, (_, index) =>
-            interpolateShadowValue(
-                shadowTuning.bottom.segmentLengthMultipliers[index] ?? 1,
-                shadowTuning.top.segmentLengthMultipliers[index] ?? 1,
-            ),
-        );
-        this.silhouetteShadowSegmented = segmentLengthMultipliers.some(
-            (multiplier) => Math.abs(multiplier - 1) > 0.001,
-        );
         if (this.silhouetteShadowSegmented && this.silhouetteShadowSegments.length === 0) {
             this.silhouetteShadowSegments = battlefieldShadowSegmentTextures(currentTexture).map((texture, index) => {
                 const segment = new Sprite(texture);
@@ -2194,19 +2250,32 @@ export class RenderableUnit extends Unit {
         const silhouetteX =
             spriteX +
             gs.getCellSize() *
-                interpolateShadowValue(shadowTuning.bottom.offsetXCells, shadowTuning.top.offsetXCells) *
+                interpolateBattlefieldShadowValue(
+                    shadowTuning.bottom.offsetXCells,
+                    shadowTuning.top.offsetXCells,
+                    shadowRowProgress,
+                ) *
                 battlefieldPerspectiveScale *
                 this.facingDirection;
         const silhouetteY =
             spriteY +
             gs.getCellSize() *
-                interpolateShadowValue(shadowTuning.bottom.offsetYCells, shadowTuning.top.offsetYCells) *
+                interpolateBattlefieldShadowValue(
+                    shadowTuning.bottom.offsetYCells,
+                    shadowTuning.top.offsetYCells,
+                    shadowRowProgress,
+                ) *
                 battlefieldPerspectiveScale;
         if (this.silhouetteShadow.x !== silhouetteX || this.silhouetteShadow.y !== silhouetteY) {
             this.silhouetteShadow.position.set(silhouetteX, silhouetteY);
         }
         const silhouetteRotation =
-            ((interpolateShadowValue(shadowTuning.bottom.rotationDegrees, shadowTuning.top.rotationDegrees) * Math.PI) /
+            ((interpolateBattlefieldShadowValue(
+                shadowTuning.bottom.rotationDegrees,
+                shadowTuning.top.rotationDegrees,
+                shadowRowProgress,
+            ) *
+                Math.PI) /
                 180) *
             this.facingDirection;
         if (this.silhouetteShadow.rotation !== silhouetteRotation) {
@@ -2230,13 +2299,7 @@ export class RenderableUnit extends Unit {
                 if (segment.anchor.x !== anchorX || segment.anchor.y !== footAnchorY) {
                     segment.anchor.set(anchorX, footAnchorY);
                 }
-                const installedSegmentFilters = segment.filters ?? [];
-                if (
-                    desiredShadowFilters.length !== installedSegmentFilters.length ||
-                    desiredShadowFilters.some((filter, filterIndex) => filter !== installedSegmentFilters[filterIndex])
-                ) {
-                    segment.filters = desiredShadowFilters.length ? desiredShadowFilters : null;
-                }
+                syncSingleSpriteFilter(segment, desiredShadowFilter);
                 const segmentScaleY = silhouetteScaleY * (segmentLengthMultipliers[index] ?? 1);
                 if (segment.scale.x !== silhouetteScaleX || segment.scale.y !== segmentScaleY) {
                     segment.scale.set(silhouetteScaleX, segmentScaleY);
@@ -2251,30 +2314,27 @@ export class RenderableUnit extends Unit {
             }
         }
 
-        const silhouetteBounds = (
-            this.silhouetteShadowSegmented ? this.silhouetteShadowSegments : [this.silhouetteShadow]
-        ).reduce(
-            (combined, displayObject) => {
-                const bounds = displayObject.getBounds();
-                return {
-                    left: Math.min(combined.left, bounds.x),
-                    top: Math.min(combined.top, bounds.y),
-                    right: Math.max(combined.right, bounds.x + bounds.width),
-                    bottom: Math.max(combined.bottom, bounds.y + bounds.height),
-                };
-            },
-            { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity },
-        );
-        publishBattlefieldShadowVisualBounds(props.name, {
-            bounds: {
-                x: silhouetteBounds.left,
-                y: silhouetteBounds.top,
-                width: silhouetteBounds.right - silhouetteBounds.left,
-                height: silhouetteBounds.bottom - silhouetteBounds.top,
-            },
-            cellWidth: gs.getCellSize() * inheritedScale.x,
-            cellHeight: gs.getCellSize() * inheritedScale.y,
-        });
+        if (isBattlefieldShadowEditorActive()) {
+            const shadowSprites = this.silhouetteShadowSegmented
+                ? this.silhouetteShadowSegments
+                : [this.silhouetteShadow];
+            let left = Infinity;
+            let top = Infinity;
+            let right = -Infinity;
+            let bottom = -Infinity;
+            for (const shadowSprite of shadowSprites) {
+                const bounds = shadowSprite.getBounds();
+                left = Math.min(left, bounds.x);
+                top = Math.min(top, bounds.y);
+                right = Math.max(right, bounds.x + bounds.width);
+                bottom = Math.max(bottom, bounds.y + bounds.height);
+            }
+            publishBattlefieldShadowVisualBounds(props.name, {
+                bounds: { x: left, y: top, width: right - left, height: bottom - top },
+                cellWidth: gs.getCellSize() * inheritedScale.x,
+                cellHeight: gs.getCellSize() * inheritedScale.y,
+            });
+        }
 
         // The second, independently blurred cast-shadow copy remains retired. One transparent flattened
         // silhouette plus the compact contact patch is cheaper and closer to Heroes IV's readable style.
@@ -5154,12 +5214,18 @@ export class RenderableUnit extends Unit {
         this.recoilWindup = true;
         this.recoilDurationMs = 380;
     }
-    private currentRecoil(): { x: number; y: number } {
-        if (!this.recoilStartMs) return { x: 0, y: 0 };
+    private updateCurrentRecoil(): void {
+        if (!this.recoilStartMs) {
+            this.currentRecoilX = 0;
+            this.currentRecoilY = 0;
+            return;
+        }
         const t = (performance.now() - this.recoilStartMs) / this.recoilDurationMs;
         if (t >= 1) {
             this.recoilStartMs = 0;
-            return { x: 0, y: 0 };
+            this.currentRecoilX = 0;
+            this.currentRecoilY = 0;
+            return;
         }
         // Wind-up: -sin(2πt) pulls back (away from target) over the first half, then thrusts forward
         // (toward target) over the second half, settling at 0. Plain hit: out-and-back sin(πt).
@@ -5173,7 +5239,8 @@ export class RenderableUnit extends Unit {
             x += (-this.recoilDy / len) * shake;
             y += (this.recoilDx / len) * shake;
         }
-        return { x, y };
+        this.currentRecoilX = x;
+        this.currentRecoilY = y;
     }
     /**
      * Briefly wash the unit toward a colour then back to normal — a "something just landed on me" cue

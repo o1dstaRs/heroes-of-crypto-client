@@ -311,9 +311,7 @@ export const BATTLEFIELD_SHADOW_TUNING_BY_CREATURE: Readonly<Record<string, Batt
 );
 
 const approvedBattlefieldShadowTuning = (unitName?: string): BattlefieldShadowTuning =>
-    normalizeBattlefieldShadowTuning(
-        unitName ? BATTLEFIELD_SHADOW_TUNING_BY_CREATURE[unitName] : DEFAULT_BATTLEFIELD_SHADOW_TUNING,
-    );
+    (unitName ? BATTLEFIELD_SHADOW_TUNING_BY_CREATURE[unitName] : undefined) ?? DEFAULT_BATTLEFIELD_SHADOW_TUNING;
 
 let battlefieldShadowEditorActive = false;
 const battlefieldShadowVisualBounds = new Map<string, BattlefieldShadowVisualBounds>();
@@ -367,7 +365,7 @@ const readStoredMap = (): Record<string, BattlefieldShadowTuning> => {
 export const readStoredBattlefieldShadowTuning = (unitName?: string): BattlefieldShadowTuning => {
     const values = readStoredMap();
     const stored = unitName ? values[unitName] : values["*"];
-    return stored ? normalizeBattlefieldShadowTuning(stored) : approvedBattlefieldShadowTuning(unitName);
+    return normalizeBattlefieldShadowTuning(stored ?? approvedBattlefieldShadowTuning(unitName));
 };
 
 export const writeStoredBattlefieldShadowTuning = (unitName: string, value: BattlefieldShadowTuning): void => {
@@ -393,5 +391,6 @@ export const resolveBattlefieldShadowTuning = (unitName?: string): BattlefieldSh
     if (import.meta.env.PROD || import.meta.env.VITE_IS_PROD === "true") {
         return approvedBattlefieldShadowTuning(unitName);
     }
-    return readStoredBattlefieldShadowTuning(unitName);
+    const values = readStoredMap();
+    return (unitName ? values[unitName] : values["*"]) ?? approvedBattlefieldShadowTuning(unitName);
 };

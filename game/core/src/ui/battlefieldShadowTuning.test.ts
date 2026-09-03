@@ -5,6 +5,7 @@ import {
     DEFAULT_BATTLEFIELD_SHADOW_TUNING,
     normalizeBattlefieldShadowTuning,
     readStoredBattlefieldShadowTuning,
+    resolveBattlefieldShadowTuning,
 } from "./battlefieldShadowTuning";
 
 describe("battlefield shadow tuning", () => {
@@ -234,5 +235,10 @@ describe("battlefield shadow tuning", () => {
         expect(tuning.top.alpha).toBe(0.45);
         expect(tuning.bottom.alpha).toBe(0.45);
         expect(tuning.bottomAlphaOverride).toBe(0.45);
+    });
+
+    test("reuses resolved runtime tuning while keeping editor reads defensive", () => {
+        expect(resolveBattlefieldShadowTuning("Orc")).toBe(resolveBattlefieldShadowTuning("Orc"));
+        expect(readStoredBattlefieldShadowTuning("Orc")).not.toBe(readStoredBattlefieldShadowTuning("Orc"));
     });
 });
