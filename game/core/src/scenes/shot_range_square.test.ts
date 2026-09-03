@@ -20,6 +20,7 @@ import {
     shotRangeCornerSpriteMatrix,
     shotRangeCornerSpritePlacements,
     type IGameplayDrawContext,
+    type ShotRangeCornerSpritePool,
 } from "./SandboxDrawer";
 import { projectedPolyline, projectedRectPoints } from "./sandbox/BattlefieldVisualGrid";
 
@@ -272,7 +273,7 @@ describe("the full-damage shot square", () => {
     test("reuses the same four ornament sprites across animated redraws", () => {
         const graphics = new Graphics();
         const cornerContainer = new Container();
-        const cornerPool = { sprites: [], used: 0 };
+        const cornerPool: ShotRangeCornerSpritePool = { sprites: [], matrices: [], placements: [], used: 0 };
         const context = {
             fightProps: { hasFightStarted: () => true },
             currentActiveShotRange: {
@@ -291,13 +292,19 @@ describe("the full-damage shot square", () => {
 
         SandboxDrawer.drawGameplayVisuals(graphics, context);
         const firstSprites = [...cornerPool.sprites];
+        const firstMatrices = [...cornerPool.matrices];
+        const firstPlacements = [...cornerPool.placements];
         expect(firstSprites).toHaveLength(4);
+        expect(firstMatrices).toHaveLength(4);
+        expect(firstPlacements).toHaveLength(4);
         expect(cornerContainer.children).toHaveLength(4);
 
         cornerPool.used = 0;
         SandboxDrawer.drawGameplayVisuals(graphics, context);
 
         expect(cornerPool.sprites).toEqual(firstSprites);
+        expect(cornerPool.matrices).toEqual(firstMatrices);
+        expect(cornerPool.placements).toEqual(firstPlacements);
         expect(cornerContainer.children).toHaveLength(4);
         cornerContainer.destroy({ children: true });
         graphics.destroy();

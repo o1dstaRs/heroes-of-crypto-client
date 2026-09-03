@@ -47,6 +47,25 @@ export const ENEMY_HOVERED_SHOT_RANGE_COLOR = 0xff3b3b;
 export const hoveredShotRangeColor = (isEnemy: boolean): number =>
     isEnemy ? ENEMY_HOVERED_SHOT_RANGE_COLOR : ALLY_HOVERED_SHOT_RANGE_COLOR;
 
+const shotRangeCornerTextureForColor = (
+    color: number,
+    neutral?: Texture,
+    friendly?: Texture,
+    enemy?: Texture,
+): Texture | undefined =>
+    color === ALLY_HOVERED_SHOT_RANGE_COLOR
+        ? (friendly ?? neutral)
+        : color === ENEMY_HOVERED_SHOT_RANGE_COLOR
+          ? (enemy ?? neutral)
+          : neutral;
+
+const sameShotRangeOverlay = (a: ShotRangeOverlay, b: ShotRangeOverlay): boolean =>
+    a.xy.x === b.xy.x &&
+    a.xy.y === b.xy.y &&
+    a.distance === b.distance &&
+    (a.verticalDistance ?? a.distance) === (b.verticalDistance ?? b.distance) &&
+    (a.color ?? SHOT_RANGE_COLOR) === (b.color ?? SHOT_RANGE_COLOR);
+
 const movementCellKey = (cell: HoCMath.XY): number => (cell.x << 8) | cell.y;
 
 /** Reachable destinations never repaint the cells already occupied by the creature whose turn it is. */
@@ -100,23 +119,51 @@ export interface ShotRangeCornerSpritePlacement {
 /** Scene-owned ornament pool reused while animated range frames repaint. */
 export interface ShotRangeCornerSpritePool {
     sprites: Sprite[];
+    matrices: Matrix[];
+    placements: ShotRangeCornerSpritePlacement[];
     used: number;
 }
+
+const setShotRangeCornerPlacement = (
+    target: ShotRangeCornerSpritePlacement[],
+    index: number,
+    x: number,
+    y: number,
+    horizontalX: number,
+    horizontalY: number,
+    verticalX: number,
+    verticalY: number,
+): void => {
+    const placement = (target[index] ??= {
+        xy: { x: 0, y: 0 },
+        horizontal: { x: 0, y: 0 },
+        vertical: { x: 0, y: 0 },
+    });
+    placement.xy.x = x;
+    placement.xy.y = y;
+    placement.horizontal.x = horizontalX;
+    placement.horizontal.y = horizontalY;
+    placement.vertical.x = verticalX;
+    placement.vertical.y = verticalY;
+};
 
 /**
  * The source bitmap is authored as the bottom-left corner: its arms run up/right and its layered arrow
  * points into the advertised full-damage area. The direction vectors let the art follow the projected
  * battlefield seams instead of assuming that every visible corner remains a perfect 90-degree angle.
  */
-export function shotRangeCornerSpritePlacements(bounds: ShotRangeBounds): ShotRangeCornerSpritePlacement[] {
+export function shotRangeCornerSpritePlacements(
+    bounds: ShotRangeBounds,
+    target: ShotRangeCornerSpritePlacement[] = [],
+): ShotRangeCornerSpritePlacement[] {
     const right = bounds.left + bounds.width;
     const top = bounds.bottom + bounds.height;
-    return [
-        { xy: { x: bounds.left, y: bounds.bottom }, horizontal: { x: 1, y: 0 }, vertical: { x: 0, y: 1 } },
-        { xy: { x: right, y: bounds.bottom }, horizontal: { x: -1, y: 0 }, vertical: { x: 0, y: 1 } },
-        { xy: { x: right, y: top }, horizontal: { x: -1, y: 0 }, vertical: { x: 0, y: -1 } },
-        { xy: { x: bounds.left, y: top }, horizontal: { x: 1, y: 0 }, vertical: { x: 0, y: -1 } },
-    ];
+    setShotRangeCornerPlacement(target, 0, bounds.left, bounds.bottom, 1, 0, 0, 1);
+    setShotRangeCornerPlacement(target, 1, right, bounds.bottom, -1, 0, 0, 1);
+    setShotRangeCornerPlacement(target, 2, right, top, -1, 0, 0, -1);
+    setShotRangeCornerPlacement(target, 3, bounds.left, top, 1, 0, 0, -1);
+    target.length = 4;
+    return target;
 }
 
 /**
@@ -128,6 +175,7 @@ export function shotRangeCornerSpriteMatrix(
     spriteScale: number,
     cellSize: number,
     gs: GridSettings,
+    target = new Matrix(),
 ): Matrix {
     const projectedDirection = (direction: HoCMath.XY): HoCMath.XY => {
         const points = projectedPolyline(
@@ -150,7 +198,7 @@ export function shotRangeCornerSpriteMatrix(
     const [x, y] = projectedPolyline([placement.xy], gs);
 
     // The authored vertical rail extends toward negative texture Y, hence the negated second basis column.
-    return new Matrix(
+    return target.set(
         horizontal.x * spriteScale,
         horizontal.y * spriteScale,
         -vertical.x * spriteScale,
@@ -291,19 +339,6 @@ export class SandboxDrawer {
         // The unit whose turn is active always receives a neutral white movement preview. Team colours are
         // reserved for placement zones and hovered-unit inspection, so overlapping aura/team overlays stay legible.
         const movementColor = 0xffffff;
-        const cornerTextureForColor = (color: number): Texture | undefined =>
-            color === ALLY_HOVERED_SHOT_RANGE_COLOR
-                ? (shotRangeCornerFriendlyTexture ?? shotRangeCornerTexture)
-                : color === ENEMY_HOVERED_SHOT_RANGE_COLOR
-                  ? (shotRangeCornerEnemyTexture ?? shotRangeCornerTexture)
-                  : shotRangeCornerTexture;
-        const sameShotRangeOverlay = (a: ShotRangeOverlay, b: ShotRangeOverlay): boolean =>
-            a.xy.x === b.xy.x &&
-            a.xy.y === b.xy.y &&
-            a.distance === b.distance &&
-            (a.verticalDistance ?? a.distance) === (b.verticalDistance ?? b.distance) &&
-            (a.color ?? SHOT_RANGE_COLOR) === (b.color ?? SHOT_RANGE_COLOR);
-
         // The board no longer gets a red frame on the enemy's turn — the turn card already says "Enemy
         // turn" in red, and the frame fought with the board art. The red movement highlight above still
         // carries the cue on the board itself.
@@ -366,7 +401,12 @@ export class SandboxDrawer {
                 fightStarted,
                 shotRangeCornerContainer,
                 shotRangeCornerPool,
-                cornerTextureForColor(SHOT_RANGE_COLOR),
+                shotRangeCornerTextureForColor(
+                    SHOT_RANGE_COLOR,
+                    shotRangeCornerTexture,
+                    shotRangeCornerFriendlyTexture,
+                    shotRangeCornerEnemyTexture,
+                ),
             );
         }
 
@@ -384,7 +424,12 @@ export class SandboxDrawer {
                 fightStarted,
                 shotRangeCornerContainer,
                 shotRangeCornerPool,
-                cornerTextureForColor(color),
+                shotRangeCornerTextureForColor(
+                    color,
+                    shotRangeCornerTexture,
+                    shotRangeCornerFriendlyTexture,
+                    shotRangeCornerEnemyTexture,
+                ),
             );
         }
 
@@ -407,7 +452,12 @@ export class SandboxDrawer {
                 fightStarted,
                 shotRangeCornerContainer,
                 shotRangeCornerPool,
-                cornerTextureForColor(color),
+                shotRangeCornerTextureForColor(
+                    color,
+                    shotRangeCornerTexture,
+                    shotRangeCornerFriendlyTexture,
+                    shotRangeCornerEnemyTexture,
+                ),
             );
         }
 
@@ -630,20 +680,16 @@ export class SandboxDrawer {
         const lineWidth = Math.max(1.15, cellSize * SHOT_RANGE_LINE_WIDTH_CELLS);
         const lineAlpha = 0.83;
         const cornerAlpha = 0.85;
-        const strokePath = (points: number[], close?: boolean): void => {
-            // A single opaque rail keeps all four sides pixel-identical. The former dark bed + bright
-            // highlight blended differently over light and dark floor tiles and read as dashes/tone shifts.
-            g.poly(points, close).stroke({
-                width: lineWidth,
-                color,
-                alpha: lineAlpha,
-                cap: "square",
-                join: "miter",
-            });
-        };
-
         // One unbroken perimeter follows the hand-painted perspective seams exactly.
-        strokePath(projectedRectPoints(left, bottom, left + width, bottom + height, gs));
+        // A single opaque rail keeps all four sides pixel-identical. The former dark bed + bright
+        // highlight blended differently over light and dark floor tiles and read as dashes/tone shifts.
+        g.poly(projectedRectPoints(left, bottom, left + width, bottom + height, gs)).stroke({
+            width: lineWidth,
+            color,
+            alpha: lineAlpha,
+            cap: "square",
+            join: "miter",
+        });
 
         if (cornerContainer && cornerTexture && cornerTexture !== Texture.EMPTY) {
             const source = cornerTexture.source;
@@ -658,7 +704,7 @@ export class SandboxDrawer {
             const spriteSize = cellSize * SHOT_RANGE_CORNER_SPRITE_SIZE_CELLS;
             const textureWidth = Math.max(1, cornerTexture.width);
             const scale = spriteSize / textureWidth;
-            for (const placement of shotRangeCornerSpritePlacements(bounds)) {
+            for (const placement of shotRangeCornerSpritePlacements(bounds, cornerPool?.placements)) {
                 const cornerIndex = cornerPool?.used ?? 0;
                 let corner = cornerPool?.sprites[cornerIndex];
                 if (!corner || corner.destroyed) {
@@ -675,7 +721,8 @@ export class SandboxDrawer {
                     corner.visible = true;
                 }
                 if (cornerPool) cornerPool.used += 1;
-                corner.setFromMatrix(shotRangeCornerSpriteMatrix(placement, scale, cellSize, gs));
+                const matrix = cornerPool ? (cornerPool.matrices[cornerIndex] ??= new Matrix()) : new Matrix();
+                corner.setFromMatrix(shotRangeCornerSpriteMatrix(placement, scale, cellSize, gs, matrix));
                 corner.alpha = cornerAlpha;
             }
         }

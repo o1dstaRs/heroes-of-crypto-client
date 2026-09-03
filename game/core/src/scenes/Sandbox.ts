@@ -933,7 +933,12 @@ export class Sandbox extends PixiScene {
     /** Authored bitmap corners for the shooting-range frame; kept separate from Pixi Graphics in v8. */
     private shotRangeCornerContainer?: Container;
     /** At most three visible range frames × four corners; their sprites are reused across animation ticks. */
-    private readonly shotRangeCornerPool: ShotRangeCornerSpritePool = { sprites: [], used: 0 };
+    private readonly shotRangeCornerPool: ShotRangeCornerSpritePool = {
+        sprites: [],
+        matrices: [],
+        placements: [],
+        used: 0,
+    };
     /** Reachable-cell sheet below tall terrain; rings and targeting previews stay in gameplayGraphics above it. */
     private movementGraphics?: Graphics;
     /** Everything this scene parented to the app-owned world root; released in Destroy. */
