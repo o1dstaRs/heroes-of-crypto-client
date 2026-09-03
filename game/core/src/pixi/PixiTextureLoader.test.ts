@@ -252,6 +252,7 @@ describe("pixi texture bundle split", () => {
             "dungeon_god_rays_v2",
             "dungeon_volumetric_fog_v2",
             "lava_center_anim_atlas",
+            "ambient_fire_left_furnace_atlas",
             "ambient_fire_video_torch_left_natural_v4_64_atlas",
             "ambient_fire_video_torch_right_natural_v4_64_atlas",
             "cemetery_obstacles_9x_256",
@@ -422,6 +423,11 @@ describe("pixi texture bundle split", () => {
             "life_portrait_bg_golden_dawn_four_corner_haze_v1",
             "nature_portrait_bg_tier_1_2",
             "units_overlay_toggle_square_v1",
+            "pick_attack_magic_silver",
+            "pick_attack_melee_silver",
+            "pick_attack_ranged_silver",
+            "pick_movement_fly_silver",
+            "pick_movement_walk_silver",
         ]) {
             expect(isLazyRosterAssetKey(key)).toBe(true);
             expect(lazyRosterAssets[key]).toBeDefined();
@@ -502,9 +508,11 @@ describe("pixi texture bundle split", () => {
             expect(core[key]).toBeUndefined();
         }
 
-        // The battlefield reuses the furnace atlas, so it remains a core texture.
+        // The battlefield reuses the furnace atlas, but DungeonVisuals owns and releases that texture
+        // with the scene; the blocking loader must not turn it back into a permanent core asset.
         expect(isTransientLoadingScreenAssetKey("ambient_fire_left_furnace_atlas")).toBe(false);
-        expect(core.ambient_fire_left_furnace_atlas).toBeDefined();
+        expect(isDeferredEnvironmentAssetKey("ambient_fire_left_furnace_atlas")).toBe(true);
+        expect(core.ambient_fire_left_furnace_atlas).toBeUndefined();
     });
 
     test("omits only authoring and superseded exports from production", () => {

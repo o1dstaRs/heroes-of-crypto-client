@@ -82,6 +82,7 @@ export function isTransientLoadingScreenAssetKey(key: string): boolean {
 
 const LIVE_ENVIRONMENT_ASSETS = new Set(["background_stone_tiles_sinister_16x16_original_restored"]);
 const LAZY_MAP_TEXTURE_ASSETS = new Set([
+    "ambient_fire_left_furnace_atlas",
     "cemetery_obstacles_9x_256",
     "cemetery_obstacles_9x_256_hp",
     "fire_pit_center_clean_fire_v2_512",
@@ -179,9 +180,20 @@ export function isLazyCombatEffectAssetKey(key: string): boolean {
     return LAZY_COMBAT_EFFECT_ASSETS.has(key);
 }
 
+const LAZY_ROSTER_TYPE_ASSETS = new Set([
+    "pick_attack_magic_silver",
+    "pick_attack_melee_silver",
+    "pick_attack_ranged_silver",
+    "pick_movement_fly_silver",
+    "pick_movement_walk_silver",
+]);
+
 export function isLazyRosterAssetKey(key: string): boolean {
     return (
-        key === "units_overlay_toggle_square_v1" || key.endsWith("_pick_sandbox_x2") || key.includes("_portrait_bg_")
+        key === "units_overlay_toggle_square_v1" ||
+        key.endsWith("_pick_sandbox_x2") ||
+        key.includes("_portrait_bg_") ||
+        LAZY_ROSTER_TYPE_ASSETS.has(key)
     );
 }
 
