@@ -1323,6 +1323,43 @@ function flagWaveOffset(u: number, t: number, phase: number, height: number): nu
     const amplitude = height * FLAG_WAVE_AMPLITUDE * Math.pow(u, 4);
     return amplitude * Math.sin(Math.PI * 2 * FLAG_WAVE_CYCLES * u - FLAG_WAVE_SPEED * t + phase);
 }
+
+const traceBadgeFlag = (
+    target: Graphics,
+    geometry: BadgeFlagGeometry,
+    xs: readonly number[],
+    topY: readonly number[],
+    bottomY: readonly number[],
+    notchTipY: number,
+): void => {
+    target.moveTo(xs[0], topY[0]);
+    for (let index = 1; index <= FLAG_WAVE_SEGMENTS; index++) {
+        target.lineTo(xs[index], topY[index]);
+    }
+    target.lineTo(geometry.bannerRight - geometry.notchDepth, notchTipY);
+    for (let index = FLAG_WAVE_SEGMENTS; index >= 0; index--) {
+        target.lineTo(xs[index], bottomY[index]);
+    }
+    target.closePath();
+};
+
+const traceActiveTurnPointer = (
+    target: Graphics,
+    shaftHalfWidth: number,
+    arrowHalfWidth: number,
+    arrowHeight: number,
+    headHeight: number,
+): void => {
+    target
+        .moveTo(-shaftHalfWidth, arrowHeight)
+        .lineTo(shaftHalfWidth, arrowHeight)
+        .lineTo(shaftHalfWidth, headHeight)
+        .lineTo(arrowHalfWidth, headHeight)
+        .lineTo(0, 0)
+        .lineTo(-arrowHalfWidth, headHeight)
+        .lineTo(-shaftHalfWidth, headHeight)
+        .closePath();
+};
 interface StackPowerDrawState {
     power: number;
     cellSize: number;
@@ -1511,6 +1548,9 @@ export class RenderableUnit extends Unit {
     private battlefieldFramingGridSettings?: GridSettings;
     /** Cached per-unit wave phase for the banner (see badgeFlagPhase). */
     private badgeFlagPhaseValue?: number;
+    private badgeFlagXs?: number[];
+    private badgeFlagTopY?: number[];
+    private badgeFlagBottomY?: number[];
     private stackPowerContainer?: Container;
     private stackPowerPips: Graphics[] = [];
     private stackPowerDrawState?: StackPowerDrawState;
@@ -1681,6 +1721,9 @@ export class RenderableUnit extends Unit {
         ru.activeTurnPointer = undefined;
         ru.activeTurnPointerSuppressed = false;
         ru.badgeDrawState = undefined;
+        ru.badgeFlagXs = undefined;
+        ru.badgeFlagTopY = undefined;
+        ru.badgeFlagBottomY = undefined;
         ru.battlefieldFramingChangeListener = undefined;
         ru.battlefieldFramingWorldRoot = undefined;
         ru.battlefieldFramingGridSettings = undefined;
@@ -4347,40 +4390,30 @@ export class RenderableUnit extends Unit {
         const phase = this.badgeFlagPhase();
         const span = g.bannerRight - g.bannerLeft;
 
-        const topY: number[] = [];
-        const bottomY: number[] = [];
-        const xs: number[] = [];
+        const pointCount = FLAG_WAVE_SEGMENTS + 1;
+        const topY = this.badgeFlagTopY ?? Array<number>(pointCount);
+        const bottomY = this.badgeFlagBottomY ?? Array<number>(pointCount);
+        const xs = this.badgeFlagXs ?? Array<number>(pointCount);
+        this.badgeFlagTopY = topY;
+        this.badgeFlagBottomY = bottomY;
+        this.badgeFlagXs = xs;
         for (let i = 0; i <= FLAG_WAVE_SEGMENTS; i++) {
             const u = i / FLAG_WAVE_SEGMENTS;
             // The acting unit's flag is deliberately rigid: all active-turn motion belongs to the pointer.
             const offset = this.isActiveTurn ? 0 : flagWaveOffset(u, t, phase, g.flagHeight);
-            xs.push(g.bannerLeft + span * u);
-            topY.push(g.bannerTop + offset * FLAG_WAVE_TOP_FACTOR);
-            bottomY.push(g.bannerBottom + offset);
+            xs[i] = g.bannerLeft + span * u;
+            topY[i] = g.bannerTop + offset * FLAG_WAVE_TOP_FACTOR;
+            bottomY[i] = g.bannerBottom + offset;
         }
         const last = FLAG_WAVE_SEGMENTS;
         // The swallowtail notch is cut into the free edge, so its tip rides whatever that edge is doing.
         const notchTipY = (topY[last] + bottomY[last]) * 0.5;
 
-        // Traced twice — once to fill, once to outline — because a Graphics path is consumed by the op
-        // that closes it.
-        const trace = (target: Graphics): void => {
-            target.moveTo(xs[0], topY[0]);
-            for (let i = 1; i <= last; i++) {
-                target.lineTo(xs[i], topY[i]);
-            }
-            target.lineTo(g.bannerRight - g.notchDepth, notchTipY);
-            for (let i = last; i >= 0; i--) {
-                target.lineTo(xs[i], bottomY[i]);
-            }
-            target.closePath();
-        };
-
         glow.clear();
         glow.visible = false;
 
         flag.clear();
-        trace(flag);
+        traceBadgeFlag(flag, g, xs, topY, bottomY, notchTipY);
         // A personal tint brings its own three stops, so a chosen banner keeps the cloth shading the two
         // authored ones have instead of falling back to the flat fill below.
         const personalGradient = personalArmyFlagGradient(teamColor);
@@ -4419,7 +4452,7 @@ export class RenderableUnit extends Unit {
         // at one physical screen pixel instead of letting the board/camera scale squeeze the 0.75-local-pixel
         // stroke onto changing sub-pixel coverage. The cloth still waves, but its gold edge no longer appears
         // to thicken, fade or "float" between animation frames.
-        trace(flag);
+        traceBadgeFlag(flag, g, xs, topY, bottomY, notchTipY);
         flag.stroke({
             width: g.borderWidth,
             color: g.borderColor,
@@ -4455,28 +4488,16 @@ export class RenderableUnit extends Unit {
         const activeGlow = activeFlagGlowAlphaForTime(timeSeconds);
         const pointerScale = activeFlagScaleForTime(timeSeconds);
 
-        const trace = (target: Graphics): void => {
-            target
-                .moveTo(-shaftHalfWidth, arrowHeight)
-                .lineTo(shaftHalfWidth, arrowHeight)
-                .lineTo(shaftHalfWidth, headHeight)
-                .lineTo(arrowHalfWidth, headHeight)
-                .lineTo(0, 0)
-                .lineTo(-arrowHalfWidth, headHeight)
-                .lineTo(-shaftHalfWidth, headHeight)
-                .closePath();
-        };
-
         const pointerY = geometry.bannerBottom + flagGap;
         glow.clear();
-        trace(glow);
+        traceActiveTurnPointer(glow, shaftHalfWidth, arrowHalfWidth, arrowHeight, headHeight);
         glow.stroke({
             width: Math.max(4, geometry.flagHeight * 0.34),
             color: ACTIVE_FLAG_GLOW_COLOR,
             alpha: activeGlow * 0.16,
             join: "round",
         });
-        trace(glow);
+        traceActiveTurnPointer(glow, shaftHalfWidth, arrowHalfWidth, arrowHeight, headHeight);
         glow.stroke({
             width: Math.max(2, geometry.flagHeight * 0.16),
             color: ACTIVE_FLAG_GLOW_COLOR,
@@ -4491,9 +4512,9 @@ export class RenderableUnit extends Unit {
         }
 
         pointer.clear();
-        trace(pointer);
+        traceActiveTurnPointer(pointer, shaftHalfWidth, arrowHalfWidth, arrowHeight, headHeight);
         pointer.fill({ color: 0xffc83d, alpha: 1 });
-        trace(pointer);
+        traceActiveTurnPointer(pointer, shaftHalfWidth, arrowHalfWidth, arrowHeight, headHeight);
         pointer.stroke({
             width: 1,
             color: 0x100d08,
@@ -4749,6 +4770,54 @@ export class RenderableUnit extends Unit {
         const visible = this.visualMode !== "hidden" && (amount > 0 || isRevealed);
         if (container.visible !== visible) container.visible = visible;
     }
+    private syncFlagStatusIcon(
+        kind: "hourglass" | "stun" | "respond",
+        texKey: string,
+        shouldRender: boolean,
+        badge: Container | undefined,
+    ): void {
+        let container =
+            kind === "hourglass"
+                ? this.hourglassContainer
+                : kind === "stun"
+                  ? this.stunContainer
+                  : this.respondContainer;
+        let sprite =
+            kind === "hourglass" ? this.hourglassSprite : kind === "stun" ? this.stunSprite : this.respondSprite;
+        if (!container && !shouldRender) return;
+        if (!shouldRender || !badge) {
+            if (container?.visible) container.visible = false;
+            return;
+        }
+
+        const tex = this.texResolver(texKey);
+        if (!tex) {
+            if (container?.visible) container.visible = false;
+            return;
+        }
+        if (!container) container = new Container();
+        if (!sprite) {
+            sprite = new Sprite(tex);
+            sprite.anchor.set(0.5);
+            container.addChild(sprite);
+        } else if (sprite.texture !== tex) {
+            sprite.texture = tex;
+        }
+        if (container.parent !== badge) badge.addChild(container);
+        if (!container.visible) container.visible = true;
+        if (!sprite.visible) sprite.visible = true;
+
+        if (kind === "hourglass") {
+            this.hourglassContainer = container;
+            this.hourglassSprite = sprite;
+        } else if (kind === "stun") {
+            this.stunContainer = container;
+            this.stunSprite = sprite;
+        } else {
+            this.respondContainer = container;
+            this.respondSprite = sprite;
+        }
+    }
     /** Keep turn-state badges attached on the left and the spent-response crossed swords behind the count flag. */
     private ensureFlagStatusIndicators(): void {
         const badge = this.badgeContainer;
@@ -4758,60 +4827,21 @@ export class RenderableUnit extends Unit {
             this.getAmountAlive() > 0 &&
             Boolean(badge?.visible && geometry);
 
-        const syncIcon = (
-            container: Container | undefined,
-            sprite: Sprite | undefined,
-            texKey: string,
-            shouldShow: boolean,
-        ): { container?: Container; sprite?: Sprite } => {
-            const shouldRender = canRender && shouldShow;
-            if (!container && !shouldRender) return { container, sprite };
-            if (!shouldRender || !badge) {
-                if (container?.visible) container.visible = false;
-                return { container, sprite };
-            }
+        this.syncFlagStatusIcon("hourglass", "hourglass", canRender && this.shouldShowHourglassIndicator(), badge);
+        this.syncFlagStatusIcon("stun", "stun_hand_forged", canRender && this.shouldShowStunIndicator(), badge);
+        this.syncFlagStatusIcon("respond", "tag", canRender && this.shouldShowRespondTag(), badge);
 
-            const tex = this.texResolver(texKey);
-            if (!tex) {
-                if (container?.visible) container.visible = false;
-                return { container, sprite };
-            }
-            if (!container) {
-                container = new Container();
-                sprite = new Sprite(tex);
-                sprite.anchor.set(0.5);
-                container.addChild(sprite);
-                badge.addChild(container);
-            } else if (container.parent !== badge) {
-                badge.addChild(container);
-            }
-            if (sprite!.texture !== tex) sprite!.texture = tex;
-            if (!container.visible) container.visible = true;
-            if (!sprite!.visible) sprite!.visible = true;
-            return { container, sprite };
-        };
-
-        const hourglass = syncIcon(
-            this.hourglassContainer,
-            this.hourglassSprite,
-            "hourglass",
-            this.shouldShowHourglassIndicator(),
-        );
-        this.hourglassContainer = hourglass.container;
-        this.hourglassSprite = hourglass.sprite;
-
-        const stun = syncIcon(this.stunContainer, this.stunSprite, "stun_hand_forged", this.shouldShowStunIndicator());
-        this.stunContainer = stun.container;
-        this.stunSprite = stun.sprite;
-
-        const respond = syncIcon(this.respondContainer, this.respondSprite, "tag", this.shouldShowRespondTag());
-        this.respondContainer = respond.container;
-        this.respondSprite = respond.sprite;
+        const hourglassContainer = this.hourglassContainer;
+        const hourglassSprite = this.hourglassSprite;
+        const stunContainer = this.stunContainer;
+        const stunSprite = this.stunSprite;
+        const respondContainer = this.respondContainer;
+        const respondSprite = this.respondSprite;
 
         // The count cloth hides the swords' central crossing; only blades and hilts protrude around it.
-        if (badge && respond.container?.parent === badge) {
-            if (respond.container.zIndex !== 0) respond.container.zIndex = 0;
-            if (badge.getChildIndex(respond.container) !== 0) badge.setChildIndex(respond.container, 0);
+        if (badge && respondContainer?.parent === badge) {
+            if (respondContainer.zIndex !== 0) respondContainer.zIndex = 0;
+            if (badge.getChildIndex(respondContainer) !== 0) badge.setChildIndex(respondContainer, 0);
         }
 
         if (!canRender || !geometry) return;
@@ -4819,37 +4849,35 @@ export class RenderableUnit extends Unit {
         // right side of its 64 px canvas; tuck that empty inset into the flag so the visible gold bar reads
         // as physically attached while its top and bottom remain perfectly level with the cloth.
         const iconSide = geometry.flagHeight;
-        if (hourglass.container?.visible && hourglass.sprite?.visible) {
-            const { container, sprite } = hourglass;
-            if (sprite.width !== iconSide) sprite.width = iconSide;
-            if (sprite.height !== iconSide) sprite.height = iconSide;
-            const flippedScaleY = -Math.abs(sprite.scale.y);
-            if (sprite.scale.y !== flippedScaleY) sprite.scale.y = flippedScaleY;
+        if (hourglassContainer?.visible && hourglassSprite?.visible) {
+            if (hourglassSprite.width !== iconSide) hourglassSprite.width = iconSide;
+            if (hourglassSprite.height !== iconSide) hourglassSprite.height = iconSide;
+            const flippedScaleY = -Math.abs(hourglassSprite.scale.y);
+            if (hourglassSprite.scale.y !== flippedScaleY) hourglassSprite.scale.y = flippedScaleY;
             const hourglassTransparentInset = iconSide * (9 / 64);
             const x = geometry.bannerLeft - iconSide * 0.5 + hourglassTransparentInset;
-            if (container.x !== x || container.y !== 0) container.position.set(x, 0);
+            if (hourglassContainer.x !== x || hourglassContainer.y !== 0) hourglassContainer.position.set(x, 0);
         }
 
-        if (stun.container?.visible && stun.sprite?.visible) {
-            const { container, sprite } = stun;
+        if (stunContainer?.visible && stunSprite?.visible) {
             const layout = stunBadgeLayout(iconSide, geometry.bannerLeft);
-            if (sprite.width !== layout.width) sprite.width = layout.width;
-            if (sprite.height !== layout.height) sprite.height = layout.height;
-            const flippedScaleY = -Math.abs(sprite.scale.y);
-            if (sprite.scale.y !== flippedScaleY) sprite.scale.y = flippedScaleY;
-            if (container.x !== layout.centerX || container.y !== 0) container.position.set(layout.centerX, 0);
+            if (stunSprite.width !== layout.width) stunSprite.width = layout.width;
+            if (stunSprite.height !== layout.height) stunSprite.height = layout.height;
+            const flippedScaleY = -Math.abs(stunSprite.scale.y);
+            if (stunSprite.scale.y !== flippedScaleY) stunSprite.scale.y = flippedScaleY;
+            if (stunContainer.x !== layout.centerX || stunContainer.y !== 0)
+                stunContainer.position.set(layout.centerX, 0);
         }
 
-        if (respond.container?.visible && respond.sprite?.visible) {
-            const { container, sprite } = respond;
+        if (respondContainer?.visible && respondSprite?.visible) {
             const emblemSide = geometry.headerWidth * RESPOND_EMBLEM_CANVAS_SCALE;
-            if (sprite.width !== emblemSide) sprite.width = emblemSide;
+            if (respondSprite.width !== emblemSide) respondSprite.width = emblemSide;
             const emblemHeight = emblemSide * RESPOND_EMBLEM_HEIGHT_SCALE;
-            if (sprite.height !== emblemHeight) sprite.height = emblemHeight;
-            const flippedScaleY = -Math.abs(sprite.scale.y);
-            if (sprite.scale.y !== flippedScaleY) sprite.scale.y = flippedScaleY;
+            if (respondSprite.height !== emblemHeight) respondSprite.height = emblemHeight;
+            const flippedScaleY = -Math.abs(respondSprite.scale.y);
+            if (respondSprite.scale.y !== flippedScaleY) respondSprite.scale.y = flippedScaleY;
             const x = (geometry.bannerLeft + geometry.bannerRight) * 0.5;
-            if (container.x !== x || container.y !== 0) container.position.set(x, 0);
+            if (respondContainer.x !== x || respondContainer.y !== 0) respondContainer.position.set(x, 0);
         }
     }
     private shouldShowHourglassIndicator(): boolean {
