@@ -45,6 +45,7 @@ const UNUSED_PRODUCTION_LEGACY_UI_ASSETS = new Set([
 
 /** Exact orphaned/source exports with no selector or direct runtime consumer. */
 const UNUSED_PRODUCTION_ASSETS = new Set([
+    "ambient_fire_right_brazier_atlas",
     "banner_green",
     "banner_border_round_c",
     "banner_red",
@@ -52,6 +53,11 @@ const UNUSED_PRODUCTION_ASSETS = new Set([
     "deployment_frame_reference_green",
     "deployment_frame_reference_red",
     "deployment_grid_glow_master_16x6",
+    "combat_damage_magic_icon_v1",
+    "combat_damage_melee_icon_v1",
+    "combat_damage_ranged_icon_v1",
+    "combat_heart_arrow_icon_v1",
+    "combat_heart_icon_v1",
     "fight_log_scrollbar_rail_gothic_v1",
     "healer_512_head_turn_v2",
     "nature_mage_male_1_128",
@@ -61,6 +67,7 @@ const UNUSED_PRODUCTION_ASSETS = new Set([
     "nature_mage_male_3_128",
     "nature_mage_male_3_512",
     "orc_model_full",
+    "panel_toggle_medallion",
     "perk_blind_fury",
     "perk_scout",
     "perk_spymaster",
@@ -70,6 +77,7 @@ const UNUSED_PRODUCTION_ASSETS = new Set([
     "spell_corner_life_b",
     "spell_corner_nature_b",
     "spider_512",
+    "stun_status_gold",
     "tombstone_tiles_256_atlas",
     "x_mark_1_512",
 ]);

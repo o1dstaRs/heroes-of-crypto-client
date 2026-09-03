@@ -165,6 +165,7 @@ describe("production environment image policy", () => {
 describe("production unreferenced image policy", () => {
     test("omits exact orphaned exports while preserving their live replacements", () => {
         for (const key of [
+            "ambient_fire_right_brazier_atlas",
             "banner_green",
             "banner_border_round_c",
             "banner_red",
@@ -172,6 +173,11 @@ describe("production unreferenced image policy", () => {
             "deployment_frame_reference_green",
             "deployment_frame_reference_red",
             "deployment_grid_glow_master_16x6",
+            "combat_damage_magic_icon_v1",
+            "combat_damage_melee_icon_v1",
+            "combat_damage_ranged_icon_v1",
+            "combat_heart_arrow_icon_v1",
+            "combat_heart_icon_v1",
             "fight_log_scrollbar_rail_gothic_v1",
             "healer_512_head_turn_v2",
             "nature_mage_male_1_128",
@@ -181,6 +187,7 @@ describe("production unreferenced image policy", () => {
             "nature_mage_male_3_128",
             "nature_mage_male_3_512",
             "orc_model_full",
+            "panel_toggle_medallion",
             "perk_blind_fury",
             "perk_scout",
             "perk_spymaster",
@@ -190,6 +197,7 @@ describe("production unreferenced image policy", () => {
             "spell_corner_life_b",
             "spell_corner_nature_b",
             "spider_512",
+            "stun_status_gold",
             "tombstone_tiles_256_atlas",
             "x_mark_1_512",
         ]) {
@@ -197,6 +205,8 @@ describe("production unreferenced image policy", () => {
         }
 
         for (const key of [
+            "combat_kills_skull_icon_v1",
+            "combat_range_full_arrow_icon_v1",
             "orc_128",
             "orc_512",
             "orc_battlefield_side_right_final_v1",
@@ -204,6 +214,8 @@ describe("production unreferenced image policy", () => {
             "cemetery_obstacles_9x_256",
             "cemetery_obstacles_9x_256_hp",
             "fight_log_scrollbar_thumb_gothic_v1",
+            "stop",
+            "units_overlay_toggle_square_v1",
             "x_mark_2_512",
         ]) {
             expect(isProductionOmittedUnreferencedAssetKey(key)).toBe(false);

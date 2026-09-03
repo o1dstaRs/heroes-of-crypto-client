@@ -173,6 +173,8 @@ describe("pixi texture bundle split", () => {
         const { core } = getSplitBundles({ animationsEnabled: false });
 
         for (const key of [
+            "army_icon",
+            "board_icon",
             "pick_ban_slash_variant2_atlas",
             "wolf_left_screen_x2",
             "black_dragon_portrait_full",
@@ -192,6 +194,7 @@ describe("pixi texture bundle split", () => {
             "artifact_t2_crown_of_command_256",
             "map_badge_normal_4x4_actual_style_v4",
             "combat_toolbar_ember_sword",
+            "damage_analytics_icon",
             "league_demigod_512",
             "wealth_demigod_whale_512",
             "doctrine_spymaster",
@@ -199,11 +202,15 @@ describe("pixi texture bundle split", () => {
             "movement_augment_256",
             "chaos_512",
             "death_512",
+            "flag_green_icon",
+            "flag_red_icon",
             "fight_log_scrollbar_thumb_gothic_v1",
             "life_512",
             "might_512",
             "nature_512",
             "order_512",
+            "logo_hoc",
+            "tr_up",
             "x_mark_2_512",
         ]) {
             expect(isDeferredReactUiAssetKey(key)).toBe(true);

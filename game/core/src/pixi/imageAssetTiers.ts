@@ -16,16 +16,23 @@ export function isRedundantFullResolutionUnitAtlasKey(key: string): boolean {
 }
 
 const DEFERRED_REACT_OR_LEGACY_UI_ASSETS = new Set([
+    "army_icon",
+    "board_icon",
     "book_1024",
     "book_1024_pre",
     "book_1024_previous",
     "chaos_512",
     "death_512",
+    "damage_analytics_icon",
     "fight_log_scrollbar_thumb_gothic_v1",
+    "flag_green_icon",
+    "flag_red_icon",
     "life_512",
     "might_512",
     "nature_512",
     "order_512",
+    "logo_hoc",
+    "tr_up",
     "ui_banner_green_soft_wide",
     "ui_banner_red_soft_wide",
     "ui_close_button_square_gothic_frame_v1",
