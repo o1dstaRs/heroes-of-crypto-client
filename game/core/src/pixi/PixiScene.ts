@@ -49,7 +49,11 @@ import { PixiDrawer } from "./PixiDrawer";
 import { SimplePhysicsManager } from "./SimplePhysicsManager";
 import { PreloadedPixiTextures } from "./PixiTextureLoader";
 import { boardFitHeight, boardFitWidth } from "./boardFit";
-import { isLazyBattlefieldCreatureAssetKey, isLazyMapTextureAssetKey } from "./imageAssetTiers";
+import {
+    isLazyBattlefieldCreatureAssetKey,
+    isLazyCombatEffectAssetKey,
+    isLazyMapTextureAssetKey,
+} from "./imageAssetTiers";
 import { images as rawImageUrls } from "../imageAssets";
 import { UnitsOverlay } from "../scenes/UnitsOverlay";
 import { destroyContainerChildren, destroyContainerFilters } from "./filterLifecycle";
@@ -361,7 +365,8 @@ export abstract class PixiScene {
     protected texAny = (key: string): Texture | undefined => {
         if (this.sc_destroyed) return undefined;
         const url = (rawImageUrls as unknown as Record<string, string>)[key];
-        const isSceneLeasedTexture = isLazyBattlefieldCreatureAssetKey(key) || isLazyMapTextureAssetKey(key);
+        const isSceneLeasedTexture =
+            isLazyBattlefieldCreatureAssetKey(key) || isLazyCombatEffectAssetKey(key) || isLazyMapTextureAssetKey(key);
         const preloaded = (this.textures as unknown as Record<string, Texture>)[key];
         if (preloaded && !preloaded.destroyed) {
             if (isSceneLeasedTexture && url) this.retainLazyTexture(key, url);

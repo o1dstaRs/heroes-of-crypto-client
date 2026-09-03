@@ -338,7 +338,16 @@ describe("pixi texture bundle split", () => {
     test("loads large optional fight art only when its surface first appears", () => {
         const { core, lazyCombatEffectAssets } = getSplitBundles({ animationsEnabled: false });
 
-        for (const key of ["book_1024_clean_pages_v1", "craft_anvil", "craft_hammer", "vfx_dust_smoky_ash_atlas"]) {
+        for (const key of [
+            "book_1024_clean_pages_v1",
+            "craft_anvil",
+            "craft_hammer",
+            "range_target_arrow_v7_gold_wide_crisp",
+            "shot_range_corner_aaa_v1",
+            "shot_range_corner_aaa_v4_green",
+            "shot_range_corner_aaa_v4_red",
+            "vfx_dust_smoky_ash_atlas",
+        ]) {
             expect(isLazyCombatEffectAssetKey(key)).toBe(true);
             expect(lazyCombatEffectAssets[key]).toBeDefined();
             expect(core[key]).toBeUndefined();
