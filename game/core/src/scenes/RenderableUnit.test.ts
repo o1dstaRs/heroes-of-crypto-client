@@ -2280,6 +2280,13 @@ describe("RenderableUnit steady-state overlays", () => {
         hourglassContainer?: Container;
         stunContainer?: Container;
         respondContainer?: Container;
+        activeAura?: Graphics;
+        updateActiveAura: (
+            worldRoot: Container,
+            gs: typeof gridSettings,
+            pos: { x: number; y: number },
+            nowMs: number,
+        ) => void;
         whirlpoolAura?: Graphics;
         smallTextureName: string;
     };
@@ -2403,6 +2410,29 @@ describe("RenderableUnit steady-state overlays", () => {
         expect(clearCount).toBe(0);
         unit.ensureVisual(worldRoot, gridSettings, 151);
         expect(clearCount).toBe(1);
+    });
+
+    test("coalesces active-aura redraws inside one rendered frame", () => {
+        const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
+        const worldRoot = new Container();
+        const internals = unit as unknown as OverlayInternals;
+        const pos = { x: 384, y: 640 };
+        internals.updateActiveAura(worldRoot, gridSettings, pos, 1_000);
+
+        const aura = internals.activeAura!;
+        const originalClear = aura.clear.bind(aura);
+        let clearCount = 0;
+        aura.clear = () => {
+            clearCount++;
+            return originalClear();
+        };
+
+        internals.updateActiveAura(worldRoot, gridSettings, pos, 1_001);
+        expect(clearCount).toBe(0);
+        internals.updateActiveAura(worldRoot, gridSettings, pos, 1_004);
+        expect(clearCount).toBe(1);
+        internals.updateActiveAura(worldRoot, gridSettings, { x: pos.x + 1, y: pos.y }, 1_005);
+        expect(clearCount).toBe(2);
     });
 
     test("shows Whirlpool from both the Sandbox debuff object and Ranked's authoritative display status", () => {

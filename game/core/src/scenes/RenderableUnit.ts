@@ -97,6 +97,16 @@ interface CreatureBoundsCacheState {
     parentWorldTy: number;
 }
 
+interface ContinuousEffectDrawState {
+    drawnAtMs: number;
+    x: number;
+    y: number;
+    cellSize: number;
+    footprintWidth: number;
+    footprintHeight: number;
+    color: number;
+}
+
 /**
  * Rebuild the sprite filter list only when one of this renderer's managed filters truly changed.
  * `undefined` means the installed array already has the desired identity/order and can stay untouched.
@@ -156,6 +166,7 @@ export const reconcileManagedSpriteFilters = <T>(
 };
 
 const EMPTY_FILTERS: readonly Filter[] = Object.freeze([]);
+const CONTINUOUS_EFFECT_SAME_FRAME_GUARD_MS = 4;
 
 let sharedRevealedRosterDesaturateFilter: ColorMatrixFilter | undefined;
 
@@ -1742,6 +1753,7 @@ export class RenderableUnit extends Unit {
     // Placement hover reuses the restrained active-turn light waves instead of the old stack of
     // opaque white circles drawn by HoverManager.
     private isHoverTurnAura = false;
+    private activeAuraDrawState?: ContinuousEffectDrawState;
     /** Transparent blue-fire atlas layered beneath the active unit and the existing light rings. */
     private activeTurnFireSprite?: Sprite;
     private activeTurnFireFrameIndex = -1;
@@ -1849,6 +1861,7 @@ export class RenderableUnit extends Unit {
         ru.rosterCardDrawState = undefined;
         ru.activeAura = undefined;
         ru.isHoverTurnAura = false;
+        ru.activeAuraDrawState = undefined;
         ru.activeTurnFireSprite = undefined;
         ru.activeTurnFireFrameIndex = -1;
         ru.activeAuraColor = 0xffffff;
@@ -3034,6 +3047,24 @@ export class RenderableUnit extends Unit {
         const cell = gs.getCellSize();
         const footprintWidth = this.getFootprintWidth();
         const footprintHeight = this.getFootprintHeight();
+        const drawState = this.activeAuraDrawState;
+        const sameGeometry =
+            drawState?.x === pos.x &&
+            drawState.y === pos.y &&
+            drawState.cellSize === cell &&
+            drawState.footprintWidth === footprintWidth &&
+            drawState.footprintHeight === footprintHeight &&
+            drawState.color === this.activeAuraColor;
+        const elapsedSinceDraw = nowMs - (drawState?.drawnAtMs ?? Number.NEGATIVE_INFINITY);
+        if (sameGeometry && elapsedSinceDraw >= 0 && elapsedSinceDraw < CONTINUOUS_EFFECT_SAME_FRAME_GUARD_MS) return;
+        const nextDrawState = (this.activeAuraDrawState ??= {} as ContinuousEffectDrawState);
+        nextDrawState.drawnAtMs = nowMs;
+        nextDrawState.x = pos.x;
+        nextDrawState.y = pos.y;
+        nextDrawState.cellSize = cell;
+        nextDrawState.footprintWidth = footprintWidth;
+        nextDrawState.footprintHeight = footprintHeight;
+        nextDrawState.color = this.activeAuraColor;
         const isMultiCell = footprintWidth > 1 || footprintHeight > 1;
         // Begin the turn waves on the portrait rim (slightly inside it), rather than in the empty
         // space above/outside the creature. This keeps the indicator visually attached to the cap.
