@@ -335,6 +335,8 @@ const MC_FADE_END_MS = 1350; // ...and are fully gone here
 const MC_GRAVITY_CELLS = 9; // world-units/s² pulling chunks down, in cell sizes
 const MC_BOUNCE = 0.35; // vertical velocity kept after crashing onto the base line
 const MC_DUST_COUNT = 12;
+/** Collapse the 240 Hz simulation's same-frame calls while preserving every rendered fire update. */
+const AMBIENT_FIRE_SAME_FRAME_GUARD_MS = 4;
 
 /**
  * Nine deliberately different silhouettes of motion, one per Cemetery obstacle atlas tile:
@@ -516,6 +518,7 @@ export class DungeonVisuals {
     private ambientFireBaseScaleX = new Map<string, number>();
     private ambientFireGlowBaseScaleX = new Map<string, number>();
     private ambientFireEditorSelection?: string;
+    private lastAmbientFireUpdateAtMs = Number.NEGATIVE_INFINITY;
     private backgroundLayout?: {
         viewportWidth: number;
         viewportHeight: number;
@@ -2597,9 +2600,14 @@ export class DungeonVisuals {
      * Called once per SIM step, so several times per rendered frame — taking real deltas (rather than one
      * stamp per frame) keeps that from multiplying the speed by the number of substeps.
      */
-    public updateFireLight(): void {
-        const nowSeconds = performance.now() / 1000;
-        this.updateAmbientFireSprites(nowSeconds);
+    public updateFireLight(nowMs = performance.now()): void {
+        // RunStep advances at 240 Hz while Pixi renders at <=60 Hz. Those simulation substeps execute
+        // synchronously inside one ticker callback, so recomputing five sets of frame/sine transforms for
+        // each substep cannot produce an intermediate visible result. A 4ms wall-clock guard collapses the
+        // burst without ever skipping the next rendered frame (normally 16.7ms later).
+        if (nowMs - this.lastAmbientFireUpdateAtMs < AMBIENT_FIRE_SAME_FRAME_GUARD_MS) return;
+        this.lastAmbientFireUpdateAtMs = nowMs;
+        this.updateAmbientFireSprites(nowMs / 1000);
     }
     public layoutBackgroundSquare(alpha: number): void {
         if (!this.bgSprite) return;

@@ -91,6 +91,39 @@ describe("dungeon visual allocation", () => {
         expect(resolveMovementAreaTuning()).toBe(resolveMovementAreaTuning());
     });
 
+    test("coalesces 240 Hz ambient-fire work within one rendered frame", () => {
+        const visuals = new DungeonVisuals({
+            getStage: () => new Container(),
+            getWorldRoot: () => new Container(),
+            getViewportSize: () => ({ width: 1000, height: 1000 }),
+            getGridSettings: () =>
+                new GridSettings(
+                    GridConstants.GRID_SIZE,
+                    GridConstants.MAX_Y,
+                    GridConstants.MIN_Y,
+                    GridConstants.MAX_X,
+                    GridConstants.MIN_X,
+                    GridConstants.MOVEMENT_DELTA,
+                    GridConstants.UNIT_SIZE_DELTA,
+                ),
+            texAny: () => Texture.WHITE,
+            attachToWorldRoot: () => undefined,
+        });
+        let updates = 0;
+        const internals = visuals as unknown as {
+            updateAmbientFireSprites(nowSeconds: number): void;
+        };
+        internals.updateAmbientFireSprites = () => updates++;
+
+        visuals.updateFireLight(100);
+        visuals.updateFireLight(101);
+        visuals.updateFireLight(103.99);
+        expect(updates).toBe(1);
+        visuals.updateFireLight(104);
+        expect(updates).toBe(2);
+        visuals.destroy();
+    });
+
     test("does not allocate the lava editor outline during normal play", () => {
         const gridSettings = new GridSettings(
             GridConstants.GRID_SIZE,
