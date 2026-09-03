@@ -620,6 +620,9 @@ export class DungeonVisuals {
     private cemeteryShadowBlurFilter?: BlurFilter;
     /** One single-pip HP rail per tombstone: every scattered stone takes exactly one hit. */
     private scatteredMountainHitBars: Graphics[] = [];
+    /** Mountain art changes only when its atlas resolves or combat begins. */
+    private lastScatteredMountainTextures?: Texture[];
+    private scatteredMountainAppearanceDirty = true;
     private narrowingLayers = 0;
     /**
      * The molten centre, animated: an 8x8 atlas of 256px frames, 60 of them, a 5s loop at 12fps.
@@ -1340,6 +1343,8 @@ export class DungeonVisuals {
         this.scatteredMountainDangerOverlays = [];
         this.scatteredMountainHitBars = [];
         this.scatteredMountainShadows = [];
+        this.lastScatteredMountainTextures = undefined;
+        this.scatteredMountainAppearanceDirty = true;
         const tiles = this.mountainTiles();
         const fightTiles = this.mountainTiles(true);
         if (!tiles?.length || !fightTiles?.length || !this.scatteredMountains.length) {
@@ -1492,6 +1497,12 @@ export class DungeonVisuals {
     private syncScatteredMountainTextures(fightStarted: boolean): void {
         const tiles = this.mountainTiles(fightStarted);
         if (!tiles?.length) return;
+        if (
+            tiles === this.lastScatteredMountainTextures &&
+            this.scatteredMountainSprites.length === this.scatteredMountains.length
+        ) {
+            return;
+        }
         this.scatteredMountains.forEach((mountain, index) => {
             const sprite = this.scatteredMountainSprites[index];
             if (!sprite) return;
@@ -1499,6 +1510,7 @@ export class DungeonVisuals {
             const target = tiles[tileIndex];
             if (sprite.texture !== target) sprite.texture = target;
         });
+        this.lastScatteredMountainTextures = tiles;
     }
     private syncScatteredMountainVisibility(): void {
         const fightStarted = FightStateManager.getInstance().getFightProperties().hasFightStarted();
@@ -1526,10 +1538,14 @@ export class DungeonVisuals {
             this.rebuildScatteredMountainSprites();
         }
         // Keep the source artwork ungraded; Cemetery barrels only receive their separate editor-style shadow.
-        this.scatteredMountainSprites.forEach((sprite) => {
-            sprite.tint = 0xffffff;
-            sprite.filters = null;
-        });
+        // This state is static after construction, so do not reinstall it on every simulation step.
+        if (this.scatteredMountainAppearanceDirty) {
+            this.scatteredMountainSprites.forEach((sprite) => {
+                sprite.tint = 0xffffff;
+                sprite.filters = null;
+            });
+            this.scatteredMountainAppearanceDirty = false;
+        }
         this.syncScatteredMountainTextures(FightStateManager.getInstance().getFightProperties().hasFightStarted());
         const gridType = FightStateManager.getInstance().getFightProperties().getGridType();
         const lavaTuning =
@@ -2750,6 +2766,8 @@ export class DungeonVisuals {
         this.scatteredMountainOutlines = [];
         this.scatteredMountainDangerOverlays = [];
         this.scatteredMountainHitBars = [];
+        this.lastScatteredMountainTextures = undefined;
+        this.scatteredMountainAppearanceDirty = true;
         this.activeCollapses = [];
         this.ambientFireSprites.clear();
         this.ambientFireGlowSprites.clear();
