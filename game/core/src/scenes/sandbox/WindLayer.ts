@@ -104,6 +104,10 @@ export class WindLayer {
     private hasGeometry = false;
     public constructor() {
         this.container.addChild(this.graphics);
+        this.container.once("destroyed", () => {
+            this.filter?.destroy();
+            this.filter = undefined;
+        });
         try {
             this.filter = Filter.from({
                 gl: { vertex: WIND_VERTEX, fragment: WIND_FRAGMENT },

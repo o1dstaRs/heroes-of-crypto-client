@@ -80,6 +80,11 @@ interface Brazier {
 export class LightingLayer {
     private readonly container = new Container();
     private readonly braziers: Brazier[] = [];
+    private readonly gridSettings: GridSettings;
+    private haloTexture?: Texture;
+    private coreTexture?: Texture;
+    private built = false;
+    private destroyed = false;
     private time = 0;
     /**
      * Build one additive light source: a soft warm pool with a hotter core on top. Shared by the corner
@@ -133,6 +138,18 @@ export class LightingLayer {
         });
     }
     public constructor(gs: GridSettings) {
+        this.gridSettings = gs;
+        // The current battlefield art owns its lighting, so Sandbox disables this legacy layer
+        // immediately. Keep the container empty until a future floor explicitly enables it instead of
+        // allocating two 512px canvas textures and eight sprites for every scene replacement.
+        this.container.visible = false;
+        this.container.once("destroyed", () => this.releaseOwnedTextures());
+    }
+    private ensureBuilt(): void {
+        if (this.built || this.destroyed) return;
+        this.built = true;
+
+        const gs = this.gridSettings;
         const minX = gs.getMinX();
         const maxX = gs.getMaxX();
         const minY = gs.getMinY();
@@ -152,6 +169,8 @@ export class LightingLayer {
         //    corners that used to sit pitch-dark now carry the fire.
         const haloTex = makeRadialTexture(false);
         const coreTex = makeRadialTexture(true);
+        this.haloTexture = haloTex;
+        this.coreTexture = coreTex;
         const radius = Math.max(w, h) * BRAZIER_RADIUS_FACTOR;
         const corners: HoCMath.XY[] = [
             { x: minX, y: minY },
@@ -171,7 +190,8 @@ export class LightingLayer {
      * instead. Nothing here is destroyed, so the look comes straight back when it is switched on again.
      */
     public setEnabled(enabled: boolean): void {
-        this.container.visible = enabled;
+        if (enabled) this.ensureBuilt();
+        this.container.visible = enabled && this.built;
     }
     public getContainer(): Container {
         return this.container;
@@ -198,5 +218,14 @@ export class LightingLayer {
     }
     public destroy(): void {
         this.container.destroy({ children: true });
+    }
+    private releaseOwnedTextures(): void {
+        if (this.destroyed) return;
+        this.destroyed = true;
+        if (this.haloTexture && this.haloTexture !== Texture.WHITE) this.haloTexture.destroy(true);
+        if (this.coreTexture && this.coreTexture !== Texture.WHITE) this.coreTexture.destroy(true);
+        this.haloTexture = undefined;
+        this.coreTexture = undefined;
+        this.braziers.length = 0;
     }
 }

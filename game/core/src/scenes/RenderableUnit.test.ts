@@ -2419,6 +2419,54 @@ describe("RenderableUnit dodge animation", () => {
     });
 });
 
+describe("RenderableUnit filter lifecycle", () => {
+    test("destroys a retired motion blur instead of retaining it for the tab lifetime", () => {
+        const unit = createRenderableUnit(TeamVals.RIGHT, "Nature", "Satyr", "satyr_512");
+        let destroyCalls = 0;
+        const filter = { destroy: () => destroyCalls++ };
+        const sprite = { filters: [filter] };
+        const internals = unit as unknown as {
+            sprite: { filters: Array<typeof filter> | null };
+            motionBlurFilter: typeof filter;
+        };
+        internals.sprite = sprite;
+        internals.motionBlurFilter = filter;
+
+        unit.setMotionBlur(0);
+
+        expect(destroyCalls).toBe(1);
+        expect(sprite.filters).toEqual([]);
+        expect(internals.motionBlurFilter).toBeUndefined();
+    });
+
+    test("destroys every unit-owned filter when snapshot reconciliation removes the unit", () => {
+        const unit = createRenderableUnit(TeamVals.RIGHT, "Nature", "Satyr", "satyr_512");
+        const destroyCalls = [0, 0, 0, 0, 0, 0];
+        const filters = destroyCalls.map((_, index) => ({ destroy: () => destroyCalls[index]++ }));
+        const internals = unit as unknown as {
+            motionBlurFilter?: (typeof filters)[number];
+            dodgeBlurFilter?: (typeof filters)[number];
+            desaturateFilter?: (typeof filters)[number];
+            battlefieldStyleFilter?: (typeof filters)[number];
+            silhouetteShadowBlurFilter?: (typeof filters)[number];
+            badgeFlagGlowBlurFilter?: (typeof filters)[number];
+        };
+        [
+            internals.motionBlurFilter,
+            internals.dodgeBlurFilter,
+            internals.desaturateFilter,
+            internals.battlefieldStyleFilter,
+            internals.silhouetteShadowBlurFilter,
+            internals.badgeFlagGlowBlurFilter,
+        ] = filters;
+
+        unit.destroyVisuals();
+        unit.destroyVisuals();
+
+        expect(destroyCalls).toEqual([1, 1, 1, 1, 1, 1]);
+    });
+});
+
 /**
  * Rectangular footprints (2x1, 1x2 — any WxH). No shipped creature declares one yet, so these build the
  * shape through the engine's QA override, which is the same lever a browser session uses. Every case here

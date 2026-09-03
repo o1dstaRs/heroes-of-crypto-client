@@ -131,10 +131,19 @@ export class SmokeLayer {
     private filter?: Filter;
     private time = 0;
     private atlasLoadFailed = false;
+    private destroyed = false;
     /** Whether the graphics currently contain dust that must be cleared when the last track expires. */
     private hasGeometry = false;
     public constructor() {
         this.container.addChild(this.graphics, this.spriteContainer);
+        this.container.once("destroyed", () => {
+            this.destroyed = true;
+            this.filter?.destroy();
+            this.filter = undefined;
+            for (const frame of this.dustFrames ?? []) frame.destroy(false);
+            this.dustFrames = undefined;
+            this.dustSprites.clear();
+        });
 
         // The selected painted atlas is a 3x2 sheet of square frames. It replaces the generated blobs
         // during normal play, while the old shader remains below as a safe fallback for headless tests or
@@ -154,6 +163,7 @@ export class SmokeLayer {
             });
     }
     private installDustAtlas(atlas: Texture): void {
+        if (this.destroyed) return;
         try {
             atlas.source.autoGenerateMipmaps = true;
             atlas.source.scaleMode = "linear";
@@ -173,7 +183,7 @@ export class SmokeLayer {
         }
     }
     private installProceduralFallback(): void {
-        if (this.filter) return;
+        if (this.destroyed || this.filter) return;
         try {
             this.filter = Filter.from({
                 gl: { vertex: SMOKE_VERTEX, fragment: SMOKE_FRAGMENT },

@@ -202,6 +202,13 @@ export class SmokeCloudLayer {
     private hasGeometry = false;
     public constructor() {
         this.container.addChild(this.graphics);
+        // Sandbox tears world-root attachments down through their containers. Pixi detaches filters in
+        // Container.destroy(), but does not destroy the filter's shader resources itself.
+        this.container.once("destroyed", () => {
+            this.filter?.destroy();
+            this.filter = undefined;
+            this.clouds.clear();
+        });
         try {
             this.filter = Filter.from({
                 gl: { vertex: CLOUD_VERTEX, fragment: CLOUD_FRAGMENT },

@@ -51,6 +51,7 @@ import { PreloadedPixiTextures } from "./PixiTextureLoader";
 import { boardFitHeight, boardFitWidth } from "./boardFit";
 import { images as rawImageUrls } from "../imageAssets";
 import { UnitsOverlay } from "../scenes/UnitsOverlay";
+import { destroyContainerFilters } from "./filterLifecycle";
 
 export interface AuthoritativeSnapshotOptions {
     /**
@@ -734,6 +735,11 @@ export abstract class PixiScene {
         }
     }
     public Destroy() {
+        // The camera and world root survive scene replacement. Their filters do not: Sandbox creates
+        // scene-owned cinematic/blur filters, and Container.destroy() only detaches filters without
+        // releasing their shader resources.
+        destroyContainerFilters(this.pixiApp.getCamera());
+        destroyContainerFilters(this.pixiApp.getWorldRoot());
         if (this.drawer) this.drawer.destroy();
     }
     // ------- Delegates from Manager -------

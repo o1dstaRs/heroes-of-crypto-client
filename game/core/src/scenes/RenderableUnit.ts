@@ -2423,8 +2423,10 @@ export class RenderableUnit extends Unit {
         if (!this.sprite) return;
         if (strength <= 0) {
             if (this.motionBlurFilter) {
-                this.sprite.filters = (this.sprite.filters ?? []).filter((filter) => filter !== this.motionBlurFilter);
+                const retiredFilter = this.motionBlurFilter;
+                this.sprite.filters = (this.sprite.filters ?? []).filter((filter) => filter !== retiredFilter);
                 this.motionBlurFilter = undefined;
+                retiredFilter.destroy();
             }
             return;
         }
@@ -3919,6 +3921,26 @@ export class RenderableUnit extends Unit {
             clearTimeout(this.respondFeedbackTimer);
             this.respondFeedbackTimer = undefined;
         }
+
+        // Pixi containers only detach filters when destroyed; they do not destroy the filters' shader
+        // resources. Ranked snapshot reconciliation replaces units repeatedly, so leaving these owned
+        // instances alive accumulates bind groups and uniforms for the lifetime of the tab.
+        if (this.sprite) this.sprite.filters = null;
+        if (this.silhouetteShadow) this.silhouetteShadow.filters = null;
+        for (const segment of this.silhouetteShadowSegments) segment.filters = null;
+        if (this.badgeFlagGlow) this.badgeFlagGlow.filters = null;
+        this.motionBlurFilter?.destroy();
+        this.dodgeBlurFilter?.destroy();
+        this.desaturateFilter?.destroy();
+        this.battlefieldStyleFilter?.destroy();
+        this.silhouetteShadowBlurFilter?.destroy();
+        this.badgeFlagGlowBlurFilter?.destroy();
+        this.motionBlurFilter = undefined;
+        this.dodgeBlurFilter = undefined;
+        this.desaturateFilter = undefined;
+        this.battlefieldStyleFilter = undefined;
+        this.silhouetteShadowBlurFilter = undefined;
+        this.badgeFlagGlowBlurFilter = undefined;
 
         if (this.dodgeAnim) {
             for (const ghost of this.dodgeAnim.ghosts) {
