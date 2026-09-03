@@ -1,9 +1,5 @@
-import { useConnectModal } from "@rainbow-me/rainbowkit";
-
 import { Alert, Box, Button, Divider, FormControl, FormLabel, Input, Sheet, Stack, Typography } from "@mui/joy";
-import React, { useEffect, useRef, useState } from "react";
-
-import { useAccount, useSignMessage } from "wagmi";
+import React, { useState } from "react";
 
 import { useAuthContext } from "../auth/context/auth_context";
 import { GoogleSignInButton } from "../auth/GoogleSignInButton";
@@ -11,14 +7,12 @@ import { hocColors, hocInputSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx 
 
 type Mode = "login" | "register" | "verify";
 
-const shortAddress = (address: string): string => `${address.slice(0, 6)}…${address.slice(-4)}`;
+const LoginWalletButton = React.lazy(() =>
+    import("./LoginWalletButton").then((module) => ({ default: module.LoginWalletButton })),
+);
 
 export const LoginScreen: React.FC = () => {
-    const { login, register, loginWithWallet, loginWithGoogle, confirmCode, requestCode, logout, user, authenticated } =
-        useAuthContext();
-    const { openConnectModal } = useConnectModal();
-    const { address, isConnected } = useAccount();
-    const { signMessageAsync } = useSignMessage();
+    const { login, register, loginWithGoogle, confirmCode, requestCode, logout, user } = useAuthContext();
 
     const [mode, setMode] = useState<Mode>("login");
     const [email, setEmail] = useState("");
@@ -28,8 +22,6 @@ export const LoginScreen: React.FC = () => {
     const [error, setError] = useState("");
     const [info, setInfo] = useState("");
     const [busy, setBusy] = useState(false);
-    const [userClickedConnect, setUserClickedConnect] = useState(false);
-    const attemptedRef = useRef<string | null>(null);
 
     // An authenticated-but-inactive account (registered by email, never verified) must complete
     // email verification before it can enter the app. Show the code-entry step for such an account,
@@ -37,24 +29,6 @@ export const LoginScreen: React.FC = () => {
     const mustVerify = user?.is_active === false;
     const showVerify = mustVerify || mode === "verify";
     const verifyEmail = email || user?.email || "";
-
-    const signInWithWallet = (walletAddress: string) => {
-        setError("");
-        setBusy(true);
-        loginWithWallet(walletAddress, (message) => signMessageAsync({ message }))
-            .catch((err: unknown) => setError((err as Error)?.message ?? "Wallet sign-in failed"))
-            .finally(() => setBusy(false));
-    };
-
-    const handleConnectClick = () => {
-        if (isConnected && address) {
-            attemptedRef.current = address;
-            signInWithWallet(address);
-            return;
-        }
-        setUserClickedConnect(true);
-        openConnectModal?.();
-    };
 
     const handleGoogleCredential = async (credential: string) => {
         setError("");
@@ -68,21 +42,6 @@ export const LoginScreen: React.FC = () => {
             setBusy(false);
         }
     };
-
-    useEffect(() => {
-        if (
-            isConnected &&
-            address &&
-            userClickedConnect &&
-            !busy &&
-            !authenticated &&
-            attemptedRef.current !== address
-        ) {
-            attemptedRef.current = address;
-            setUserClickedConnect(false);
-            signInWithWallet(address);
-        }
-    }, [isConnected, address, userClickedConnect, busy, authenticated]);
 
     const handleSubmit = async (event: React.FormEvent) => {
         event.preventDefault();
@@ -304,19 +263,15 @@ export const LoginScreen: React.FC = () => {
                                 or use a wallet
                             </Divider>
 
-                            <Button
-                                fullWidth
-                                variant="soft"
-                                disabled={busy}
-                                onClick={handleConnectClick}
-                                sx={hocSoftButtonSx}
+                            <React.Suspense
+                                fallback={
+                                    <Button fullWidth variant="soft" disabled sx={hocSoftButtonSx}>
+                                        Connect Wallet
+                                    </Button>
+                                }
                             >
-                                {busy
-                                    ? "Waiting for signature…"
-                                    : isConnected && address
-                                      ? `Sign in with ${shortAddress(address)}`
-                                      : "Connect Wallet"}
-                            </Button>
+                                <LoginWalletButton busy={busy} onBusyChange={setBusy} onError={setError} />
+                            </React.Suspense>
                         </>
                     )}
 
