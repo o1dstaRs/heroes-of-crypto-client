@@ -558,7 +558,7 @@ export function creatureWalkAnimationEnabledForUnit(unitName: string): boolean {
 // longer allocates a separate pip rail.
 const SHOW_BOARD_STACK_DECORATIONS = true;
 
-const inheritedAbsoluteScale = (container: Container): { x: number; y: number } => {
+const inheritedAbsoluteScale = (container: Container, output?: HoCMath.XY): HoCMath.XY => {
     let x = 1;
     let y = 1;
     let current: Container | null = container;
@@ -567,7 +567,10 @@ const inheritedAbsoluteScale = (container: Container): { x: number; y: number } 
         y *= Math.abs(current.scale.y);
         current = current.parent;
     }
-    return { x, y };
+    const scale = output ?? { x: 1, y: 1 };
+    scale.x = x;
+    scale.y = y;
+    return scale;
 };
 
 export function oneShotAnimationDurationMultiplier(unitName: string, stateName: string): number {
@@ -1607,6 +1610,10 @@ export class RenderableUnit extends Unit {
     /** Reused each frame so depth sorting does not allocate four geometry objects per visible unit. */
     private depthSortBounds?: Bounds;
     private depthSortCandidate?: CreatureDepthSortCandidate;
+    private inheritedScaleScratch?: HoCMath.XY;
+    private badgeSpriteBounds?: Bounds;
+    private badgeScreenAnchor?: Point;
+    private badgeLocalAnchor?: Point;
     // "Revealed" roster marker: a translucent red cell beneath the B&W silhouette plus its name caption,
     // so the opponent's known army reads as a roster line-up rather than units already standing on the board.
     private rosterCard?: Container;
@@ -1765,6 +1772,10 @@ export class RenderableUnit extends Unit {
         ru.battlefieldStyleSignature = "";
         ru.depthSortBounds = undefined;
         ru.depthSortCandidate = undefined;
+        ru.inheritedScaleScratch = undefined;
+        ru.badgeSpriteBounds = undefined;
+        ru.badgeScreenAnchor = undefined;
+        ru.badgeLocalAnchor = undefined;
         ru.shadowDrawWidth = 0;
         ru.shadowDrawHeight = 0;
         // Without this, visualScaleMultiplier is `undefined` -> targetSize = 128 * undefined = NaN
@@ -2023,7 +2034,8 @@ export class RenderableUnit extends Unit {
             visualFootprintSide * BATTLEFIELD_CHIP_CELL_PIXELS * this.visualScaleMultiplier * battlefieldCreatureScale;
         // The rectangular board fit intentionally scales cell positions differently on X and Y. Undo that
         // camera deformation on the artwork alone so creatures keep their original square-fit screen size.
-        const inheritedScale = inheritedAbsoluteScale(worldRoot);
+        const inheritedScale = inheritedAbsoluteScale(worldRoot, this.inheritedScaleScratch);
+        this.inheritedScaleScratch = inheritedScale;
         const screenSizeCompensation = legacyBoardChildScaleCompensation(inheritedScale.x, inheritedScale.y);
         const currentTexture = this.sprite.texture;
         const currentWidth = currentTexture && currentTexture.width > 1 ? currentTexture.width : baseTex.width || 1;
@@ -2448,7 +2460,7 @@ export class RenderableUnit extends Unit {
         // --- revealed-roster card (plate + name), drawn under the sprite ---
         this.ensureRosterCard(worldRoot, gs, props, logicalPos);
         // --- badge ---
-        this.ensureBadge(worldRoot, gs, props, pos);
+        this.ensureBadge(worldRoot, gs, props, pos, inheritedScale);
         // --- stack power indicator ---
         this.ensureStackPowerIndicator(worldRoot, gs, props, pos);
         // --- turn status indicators: grouped immediately left of the amount flag ---
@@ -3929,7 +3941,8 @@ export class RenderableUnit extends Unit {
         if (badge?.visible && worldRoot && geometry && sprite) {
             const spriteBounds = sprite.getBounds();
             if (spriteBounds.width > 0 && spriteBounds.height > 0) {
-                const parentScale = inheritedAbsoluteScale(worldRoot);
+                const parentScale = inheritedAbsoluteScale(worldRoot, this.inheritedScaleScratch);
+                this.inheritedScaleScratch = parentScale;
                 const margin = Math.max(2, Math.floor(this.badgeDrawState!.iconSide * 0.04));
                 const anchor = worldRoot.toLocal({
                     x: spriteBounds.x + spriteBounds.width * 0.5,
@@ -4549,7 +4562,13 @@ export class RenderableUnit extends Unit {
         };
         window.addEventListener(BATTLEFIELD_CREATURE_FRAMING_CHANGE_EVENT, this.battlefieldFramingChangeListener);
     }
-    private ensureBadge(worldRoot: Container, gs: GridSettings, props: UnitProperties, pos: HoCMath.XY): void {
+    private ensureBadge(
+        worldRoot: Container,
+        gs: GridSettings,
+        props: UnitProperties,
+        pos: HoCMath.XY,
+        parentScale: HoCMath.XY,
+    ): void {
         if (!SHOW_BOARD_STACK_DECORATIONS) {
             if (this.badgeContainer?.visible) this.badgeContainer.visible = false;
             return;
@@ -4656,7 +4675,6 @@ export class RenderableUnit extends Unit {
                 ? NO_TEAM_ROSTER_COLOR
                 : // A player may repaint the armies: their OWN in a chosen colour, the enemy in red.
                   (personalArmyPresetFor(props.team)?.color ?? resolveTeamColor(props.team));
-        const parentScale = inheritedAbsoluteScale(worldRoot);
         // The board camera is deliberately flatter on Y than X. Compensate the ribbon's height so it keeps
         // the intended horizontal Heroes-IV proportions on screen.
         const parentScaleRatio = Math.max(0.75, Math.min(2.5, parentScale.x / Math.max(0.01, parentScale.y)));
@@ -4742,16 +4760,15 @@ export class RenderableUnit extends Unit {
         const renderedBadgeScale = this.badgeEmphasisScale;
         // Centre the ribbon above the actual rendered creature image rather than above its logical cell.
         // This keeps the badge over the head for tall, short and multi-cell creatures alike.
-        const spriteBounds = this.sprite?.getBounds();
+        const spriteBounds = this.sprite?.getBounds(false, (this.badgeSpriteBounds ??= new Bounds()));
         const margin = Math.max(2, Math.floor(iconSide * 0.04));
         let x: number;
         let y: number;
         if (spriteBounds && spriteBounds.width > 0 && spriteBounds.height > 0) {
             const screenHalfHeight = geometry.flagHeight * parentScale.y * renderedBadgeScale * 0.5;
-            const aboveHead = worldRoot.toLocal({
-                x: spriteBounds.x + spriteBounds.width * 0.5,
-                y: spriteBounds.y - margin - screenHalfHeight,
-            });
+            const screenAnchor = (this.badgeScreenAnchor ??= new Point());
+            screenAnchor.set(spriteBounds.x + spriteBounds.width * 0.5, spriteBounds.y - margin - screenHalfHeight);
+            const aboveHead = worldRoot.toLocal(screenAnchor, undefined, (this.badgeLocalAnchor ??= new Point()), true);
             x = aboveHead.x;
             y = aboveHead.y;
         } else {
