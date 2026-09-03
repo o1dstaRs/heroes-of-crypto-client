@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { Assets } from "pixi.js";
 
 import { images } from "../imageAssets";
 import {
@@ -18,6 +19,7 @@ import {
     isRedundantFullResolutionUnitAtlasKey,
     isProductionOmittedAssetKey,
     isTransientLoadingScreenAssetKey,
+    unloadRosterAssets,
 } from "./PixiTextureLoader";
 import { isUnitAnimationAtlasKey } from "./unitAtlasKeys";
 
@@ -401,6 +403,40 @@ describe("pixi texture bundle split", () => {
             expect(isLazyRosterAssetKey(key)).toBe(true);
             expect(lazyRosterAssets[key]).toBeDefined();
             expect(core[key]).toBeUndefined();
+        }
+    });
+
+    test("coalesces concurrent releases of the same pre-fight texture", async () => {
+        const { lazyRosterAssets } = getSplitBundles({ animationsEnabled: false });
+        const target = lazyRosterAssets.units_overlay_toggle_square_v1?.src;
+        if (!target) return; // The compact CI manifest may omit non-literal generated keys.
+
+        const mutableCache = Assets.cache as unknown as { has: (url: string) => boolean };
+        const mutableAssets = Assets as unknown as { unload: (url: string) => Promise<void> };
+        const originalHas = mutableCache.has;
+        const originalUnload = mutableAssets.unload;
+        const unloaded: string[] = [];
+        let finishUnload: (() => void) | undefined;
+
+        mutableCache.has = (url) => url === target;
+        mutableAssets.unload = async (url) => {
+            unloaded.push(url);
+            await new Promise<void>((resolve) => {
+                finishUnload = resolve;
+            });
+        };
+
+        try {
+            const first = unloadRosterAssets();
+            const second = unloadRosterAssets();
+            await Promise.resolve();
+            expect(unloaded).toEqual([target]);
+            finishUnload?.();
+            await Promise.all([first, second]);
+        } finally {
+            mutableCache.has = originalHas;
+            mutableAssets.unload = originalUnload;
+            finishUnload?.();
         }
     });
 

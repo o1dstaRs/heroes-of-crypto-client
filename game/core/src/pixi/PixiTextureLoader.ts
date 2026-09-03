@@ -88,6 +88,7 @@ function normalizeUrl(v: unknown, key: string): string {
 export type PreloadedPixiTextures = { [K in keyof ImagesMap]: Texture };
 
 let loadedTextures: Partial<PreloadedPixiTextures> = {};
+const pendingTextureUnloads = new Map<string, Promise<void>>();
 const registeredBundlesKey = "__hocPixiTextureLoaderRegisteredBundles";
 const coreBundleName = "hoc_core";
 const idleAtlasesBundleName = "hoc_idle_atlases";
@@ -200,9 +201,28 @@ export function getSplitBundles(options: SplitBundleOptions = {}) {
     };
 }
 
+async function unloadCachedTexture(url: string): Promise<void> {
+    const pending = pendingTextureUnloads.get(url);
+    if (pending) return pending;
+    if (!Assets.cache.has(url)) return;
+
+    let unload: Promise<void>;
+    unload = Promise.resolve()
+        .then(async () => {
+            // Another owner may have released the same URL before this microtask ran.
+            if (Assets.cache.has(url)) await Assets.unload(url);
+        })
+        .catch(() => undefined)
+        .finally(() => {
+            if (pendingTextureUnloads.get(url) === unload) pendingTextureUnloads.delete(url);
+        });
+    pendingTextureUnloads.set(url, unload);
+    return unload;
+}
+
 async function unloadLoadedBundle(bundle: Record<string, { src: string }>): Promise<void> {
     const loadedEntries = Object.entries(bundle).filter(([, asset]) => Assets.cache.has(asset.src));
-    await Promise.allSettled(loadedEntries.map(([, asset]) => Assets.unload(asset.src)));
+    await Promise.all(loadedEntries.map(([, asset]) => unloadCachedTexture(asset.src)));
     for (const [key] of loadedEntries) {
         delete (loadedTextures as Record<string, Texture | undefined>)[key];
     }

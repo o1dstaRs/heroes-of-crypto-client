@@ -47,17 +47,24 @@ const contains = (bounds: { x: number; y: number; width: number; height: number 
 describe("UnitsOverlay chip visibility", () => {
     test("uses the chosen larger image-backed collapse control", () => {
         expect(TOGGLE_BUTTON_CELL_FRACTION).toBeCloseTo(0.88);
+        const requestedKeys: string[] = [];
         const app = {
             renderer: { height: 900, width: 1600 },
             stage: new Container(),
             ticker: { add: () => undefined, remove: () => undefined },
         } as unknown as ConstructorParameters<typeof UnitsOverlay>[0];
-        const overlay = new UnitsOverlay(app, () => Texture.EMPTY);
+        const overlay = new UnitsOverlay(app, (key) => {
+            requestedKeys.push(key);
+            return key === "units_overlay_toggle_square_v1" ? Texture.WHITE : Texture.EMPTY;
+        });
+        expect(requestedKeys).not.toContain("units_overlay_toggle_square_v1");
         overlay.build();
         const internals = overlay as unknown as OverlayInternals;
 
         expect(internals.toggleBtn.children).toHaveLength(1);
         expect(internals.toggleBtn.children[0]).toBeInstanceOf(Sprite);
+        expect((internals.toggleBtn.children[0] as Sprite).texture).toBe(Texture.WHITE);
+        expect(requestedKeys).toContain("units_overlay_toggle_square_v1");
 
         overlay.destroy();
     });

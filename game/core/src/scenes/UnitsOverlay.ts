@@ -395,15 +395,6 @@ export class UnitsOverlay {
         this.toggleBtn.eventMode = "static";
         this.toggleBtn.cursor = "pointer";
 
-        const preloadedToggleTexture = this.getTex("units_overlay_toggle_square_v1");
-        // A failed/unfinished Pixi preload can return the shared EMPTY texture. It is truthy, so `??`
-        // accepted it and left only the background's little square outline visible with no button art.
-        // Resolve the project-owned image directly in that case; this control is the only way to reopen
-        // the creature roster after it has slid off screen.
-        this.toggleButtonSprite.texture =
-            preloadedToggleTexture && preloadedToggleTexture !== Texture.EMPTY
-                ? preloadedToggleTexture
-                : Texture.from(images.units_overlay_toggle_square_v1);
         this.toggleButtonSprite.anchor.set(0.5);
         this.toggleBtn.addChild(this.toggleButtonSprite);
 
@@ -619,6 +610,9 @@ export class UnitsOverlay {
         );
     }
     public build(): void {
+        // Ranked fight hydration still constructs an invisible roster. Do not start this placement-only
+        // request until the overlay is actually built for placement.
+        this.refreshToggleTexture();
         this.levelRail.removeChildren();
         this.rowsContainer.removeChildren();
         this.allChips = [];
@@ -765,6 +759,7 @@ export class UnitsOverlay {
     /** Fill any roster cards whose on-demand portrait/background has just entered Pixi's cache. */
     public refreshLazyTextures(): void {
         if (this.container.destroyed) return;
+        this.refreshToggleTexture();
         for (const chip of this.allChips) {
             if (this.chipLevels.get(chip) !== this.selectedLevel) continue;
             const creatureId = UNIT_NAME_TO_ID[chip.nameKey];
@@ -778,6 +773,12 @@ export class UnitsOverlay {
             const backgroundTexture = backgroundKey ? this.getTex(backgroundKey) : undefined;
             chip.setPortraitTextures(texture, backgroundTexture);
         }
+    }
+    private refreshToggleTexture(): void {
+        const texture = this.getTex("units_overlay_toggle_square_v1");
+        if (!texture || texture === Texture.EMPTY || texture === this.toggleButtonSprite.texture) return;
+        this.toggleButtonSprite.texture = texture;
+        this.updateButtonVisuals(false);
     }
     private setScrollX(value: number): void {
         this.scrollX = Math.max(0, Math.min(this.maxScrollX, Number.isFinite(value) ? value : 0));
