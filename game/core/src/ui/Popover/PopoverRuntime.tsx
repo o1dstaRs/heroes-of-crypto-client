@@ -5,6 +5,7 @@ import { HOC_GAME_FONT_FAMILY } from "../../fontFamilies";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { IHoverInfo } from "../../scenes/VisibleState";
 import { spellElementStyle, type SpellElementStyle } from "../spellElementStyle";
+import { popoverPositionAtPointer } from "./popoverPosition";
 
 const getLevelEmoji = (hoverInfo: IHoverInfo): string => {
     let levelEmoji = "";
@@ -195,8 +196,8 @@ const unitAttackElement = (hoverInfo: IHoverInfo): React.JSX.Element => {
 };
 
 const Popover: React.FC = () => {
-    const [positionPopover, setPositionPopover] = useState({ x: 0, y: 0 });
     const pointerPositionRef = useRef({ x: 0, y: 0 });
+    const popoverRef = useRef<HTMLDivElement>(null);
 
     const [hoverInfo, setHoverInfo] = useState({} as IHoverInfo);
 
@@ -221,41 +222,37 @@ const Popover: React.FC = () => {
 
     useEffect(() => {
         let frameId = 0;
+        const paintPosition = () => {
+            frameId = 0;
+            const popover = popoverRef.current;
+            if (!popover) return;
+            const position = popoverPositionAtPointer(pointerPositionRef.current, window.innerHeight);
+            popover.style.transform = `translate3d(${position.x}px, ${position.y}px, 0)`;
+        };
         const handleMouseMove = (event: MouseEvent) => {
-            const position = { x: event.clientX, y: event.clientY };
-            pointerPositionRef.current = position;
-            // Keep the last pointer coordinates cheaply while hidden, but only schedule React work
-            // while there is an actual tooltip following the pointer. Gaming mice can emit far more
-            // events than the display can paint, so coalesce the visible updates to one per frame.
+            pointerPositionRef.current = { x: event.clientX, y: event.clientY };
+            // Keep the last pointer coordinates cheaply while hidden. Gaming mice can emit far more
+            // events than the display can paint, so coalesce direct style writes to one per frame.
             if (!hasPopoverContent || frameId) return;
-            frameId = window.requestAnimationFrame(() => {
-                frameId = 0;
-                setPositionPopover(pointerPositionRef.current);
-            });
+            frameId = window.requestAnimationFrame(paintPosition);
         };
 
         window.addEventListener("mousemove", handleMouseMove);
+        if (hasPopoverContent) paintPosition();
         return () => {
             window.removeEventListener("mousemove", handleMouseMove);
             if (frameId) window.cancelAnimationFrame(frameId);
         };
     }, [hasPopoverContent]);
 
-    useEffect(() => {
-        if (hasPopoverContent) {
-            setPositionPopover(pointerPositionRef.current);
-        }
-    }, [hasPopoverContent]);
-
     return (
         <div
+            ref={popoverRef}
             style={{
                 position: "fixed",
-                top:
-                    positionPopover.y >= window.innerHeight - window.innerHeight / 16
-                        ? positionPopover.y - 70
-                        : positionPopover.y + 10, // Offset to avoid overlapping with the cursor
-                left: positionPopover.x + 10,
+                top: 0,
+                left: 0,
+                transform: "translate3d(0, 0, 0)",
                 display: hasPopoverContent ? "block" : "none",
                 padding: "10px",
                 backgroundColor: "rgba(0, 0, 0, 0.75)",
