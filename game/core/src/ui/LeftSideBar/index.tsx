@@ -83,7 +83,6 @@ export const sidebarBackgroundSize = (barSize: number): string => {
 };
 
 import { DeferredUnitStatsListItem } from "./DeferredUnitStatsListItem";
-import { UpNext } from "./UpNext";
 import {
     computeBattleSidebarMetrics,
     SIDEBAR_FRAME_RIGHT_INSET_PX,
@@ -95,6 +94,8 @@ import {
 import type { IVisibleImpact } from "../../scenes/VisibleState";
 import { useFitScale } from "./useFitScale";
 import { IWindowSize, IVisibleOverallImpact } from "../../scenes/VisibleState";
+
+const UpNext = React.lazy(() => import("./UpNext").then(({ UpNext }) => ({ default: UpNext })));
 
 type SidebarSelectionState = {
     unit: UnitProperties;
@@ -438,7 +439,11 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
                     }
                 >
                     <MessageBox gameStarted={gameStarted} windowSize={windowSize} />
-                    {gameStarted && <UpNext />}
+                    {gameStarted && (
+                        <React.Suspense fallback={null}>
+                            <UpNext />
+                        </React.Suspense>
+                    )}
                 </Box>
             </Sheet>
         </SidebarMetricsContext.Provider>
