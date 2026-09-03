@@ -1473,7 +1473,7 @@ export class CombatVisuals {
         const keepDetachedOverlays = options?.keepDetachedOverlays ?? false;
         if (!keepDetachedOverlays) {
             for (const ft of this.floatingTexts) {
-                ft.container.destroy();
+                ft.container.destroy({ children: true });
             }
             this.floatingTexts.length = 0;
         }
@@ -1549,7 +1549,7 @@ export class CombatVisuals {
         this.chainLightnings.length = 0;
         if (!keepDetachedOverlays) {
             for (const dp of this.debuffPops) {
-                dp.container.destroy();
+                dp.container.destroy({ children: true });
             }
             this.debuffPops.length = 0;
         }
@@ -1621,7 +1621,7 @@ export class CombatVisuals {
             ft.age += dt;
             const t = ft.age / ft.life;
             if (t >= 1) {
-                ft.container.destroy();
+                ft.container.destroy({ children: true });
                 this.floatingTexts.splice(i, 1);
                 continue;
             }
@@ -1654,7 +1654,7 @@ export class CombatVisuals {
             dp.age += dt;
             const t = dp.age / dp.life;
             if (t >= 1) {
-                dp.container.destroy();
+                dp.container.destroy({ children: true });
                 this.debuffPops.splice(i, 1);
                 continue;
             }

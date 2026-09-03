@@ -116,6 +116,35 @@ describe("floating received damage", () => {
         // starts at the flag anchor, never down at the old impact position passed as the first argument.
         expect(floating.y).toBe(flagTop.y + 80 + 6);
     });
+
+    test("destroys text and icon children when a floating result expires", () => {
+        const { visuals } = makeVisuals();
+        const skullTexture = new Texture({ source: new TextureSource({ width: 256, height: 256 }) });
+        const textureFrom = spyOn(Texture, "from").mockReturnValue(skullTexture);
+        visuals.showFloatingDamage({ x: 100, y: 200 }, 140, undefined, 2);
+        textureFrom.mockRestore();
+
+        const floating = internals(visuals).floatingTexts[0].container;
+        const children = [...floating.children];
+        visuals.update(1);
+
+        expect(floating.destroyed).toBe(true);
+        expect(children.length).toBeGreaterThan(1);
+        expect(children.every((child) => child.destroyed)).toBe(true);
+    });
+
+    test("destroys floating text children during a full scene clear", () => {
+        const { visuals } = makeVisuals();
+        visuals.showResurrectedCount({ x: 100, y: 200 }, 3);
+
+        const floating = internals(visuals).floatingTexts[0].container;
+        const children = [...floating.children];
+        visuals.clear();
+
+        expect(floating.destroyed).toBe(true);
+        expect(children).toHaveLength(2);
+        expect(children.every((child) => child.destroyed)).toBe(true);
+    });
 });
 
 describe("idle combat visual stepping", () => {
