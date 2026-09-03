@@ -9,6 +9,7 @@ import {
     isDeferredUnitCardAssetKey,
     isIdleAtlasKey,
     isLazyBattlefieldCreatureAssetKey,
+    isLazyCombatEffectAssetKey,
     isLazyProjectileAssetKey,
     isLazyRosterAssetKey,
     isLivePlacementAssetKey,
@@ -25,6 +26,7 @@ export {
     isDeferredUnitCardAssetKey,
     isIdleAtlasKey,
     isLazyBattlefieldCreatureAssetKey,
+    isLazyCombatEffectAssetKey,
     isLazyProjectileAssetKey,
     isLazyRosterAssetKey,
     isLivePlacementAssetKey,
@@ -127,6 +129,7 @@ export function getSplitBundles(options: SplitBundleOptions = {}) {
     const deferredUnitCardAssets: Record<string, { src: string }> = {};
     const transientLoadingScreenAssets: Record<string, { src: string }> = {};
     const lazyBattlefieldCreatureAssets: Record<string, { src: string }> = {};
+    const lazyCombatEffectAssets: Record<string, { src: string }> = {};
     const lazyProjectileAssets: Record<string, { src: string }> = {};
     const lazyRosterAssets: Record<string, { src: string }> = {};
     const excludedFullResolutionUnitAtlases: Record<string, { src: string }> = {};
@@ -160,6 +163,8 @@ export function getSplitBundles(options: SplitBundleOptions = {}) {
             transientLoadingScreenAssets[k] = { src };
         } else if (isLazyBattlefieldCreatureAssetKey(k)) {
             lazyBattlefieldCreatureAssets[k] = { src };
+        } else if (isLazyCombatEffectAssetKey(k)) {
+            lazyCombatEffectAssets[k] = { src };
         } else if (isLazyProjectileAssetKey(k)) {
             lazyProjectileAssets[k] = { src };
         } else if (isLazyRosterAssetKey(k)) {
@@ -181,6 +186,7 @@ export function getSplitBundles(options: SplitBundleOptions = {}) {
         deferredUnitCardAssets,
         transientLoadingScreenAssets,
         lazyBattlefieldCreatureAssets,
+        lazyCombatEffectAssets,
         lazyProjectileAssets,
         lazyRosterAssets,
         excludedFullResolutionUnitAtlases,

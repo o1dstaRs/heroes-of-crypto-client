@@ -10,6 +10,7 @@ import {
     isDeferredUnitCardAssetKey,
     isIdleAtlasKey,
     isLazyBattlefieldCreatureAssetKey,
+    isLazyCombatEffectAssetKey,
     isLazyProjectileAssetKey,
     isLazyRosterAssetKey,
     isLivePlacementAssetKey,
@@ -54,6 +55,7 @@ describe("pixi texture bundle split", () => {
             deferredUnitCardAssets,
             transientLoadingScreenAssets,
             lazyBattlefieldCreatureAssets,
+            lazyCombatEffectAssets,
             lazyProjectileAssets,
             lazyRosterAssets,
             excludedFullResolutionUnitAtlases,
@@ -71,6 +73,7 @@ describe("pixi texture bundle split", () => {
             ...Object.keys(deferredUnitCardAssets),
             ...Object.keys(transientLoadingScreenAssets),
             ...Object.keys(lazyBattlefieldCreatureAssets),
+            ...Object.keys(lazyCombatEffectAssets),
             ...Object.keys(lazyProjectileAssets),
             ...Object.keys(lazyRosterAssets),
             ...Object.keys(excludedFullResolutionUnitAtlases),
@@ -111,6 +114,9 @@ describe("pixi texture bundle split", () => {
         }
         for (const key of Object.keys(lazyBattlefieldCreatureAssets)) {
             expect(`${key}: ${isLazyBattlefieldCreatureAssetKey(key)}`).toBe(`${key}: true`);
+        }
+        for (const key of Object.keys(lazyCombatEffectAssets)) {
+            expect(`${key}: ${isLazyCombatEffectAssetKey(key)}`).toBe(`${key}: true`);
         }
         for (const key of Object.keys(lazyProjectileAssets)) {
             expect(`${key}: ${isLazyProjectileAssetKey(key)}`).toBe(`${key}: true`);
@@ -167,6 +173,7 @@ describe("pixi texture bundle split", () => {
         const { core } = getSplitBundles({ animationsEnabled: false });
 
         for (const key of [
+            "pick_ban_slash_variant2_atlas",
             "wolf_left_screen_x2",
             "black_dragon_portrait_full",
             "pick_phase_heroic_hearth_tavern_background_v10",
@@ -304,6 +311,14 @@ describe("pixi texture bundle split", () => {
             expect(lazyProjectileAssets[key]).toBeDefined();
             expect(core[key]).toBeUndefined();
         }
+    });
+
+    test("loads the smoky movement atlas only when a unit first moves", () => {
+        const { core, lazyCombatEffectAssets } = getSplitBundles({ animationsEnabled: false });
+
+        expect(isLazyCombatEffectAssetKey("vfx_dust_smoky_ash_atlas")).toBe(true);
+        expect(lazyCombatEffectAssets.vfx_dust_smoky_ash_atlas).toBeDefined();
+        expect(core.vfx_dust_smoky_ash_atlas).toBeUndefined();
     });
 
     test("loads sandbox roster art only while the pre-fight overlay exists", () => {

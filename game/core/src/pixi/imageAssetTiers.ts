@@ -30,6 +30,7 @@ const DEFERRED_REACT_OR_LEGACY_UI_ASSETS = new Set([
 export function isDeferredReactUiAssetKey(key: string): boolean {
     if (DEFERRED_REACT_OR_LEGACY_UI_ASSETS.has(key)) return true;
     return (
+        key.startsWith("pick_ban_") ||
         key.startsWith("pick_phase_") ||
         key.startsWith("pick_bundle_") ||
         key.startsWith("pick_l2_legacy_") ||
@@ -127,6 +128,13 @@ export function isLazyProjectileAssetKey(key: string): boolean {
     return LAZY_PROJECTILE_ASSETS.has(key);
 }
 
+const LAZY_COMBAT_EFFECT_ASSETS = new Set(["vfx_dust_smoky_ash_atlas"]);
+
+/** Large battle VFX loaded and released by their owning layer only after the effect first appears. */
+export function isLazyCombatEffectAssetKey(key: string): boolean {
+    return LAZY_COMBAT_EFFECT_ASSETS.has(key);
+}
+
 export function isLazyRosterAssetKey(key: string): boolean {
     return key.endsWith("_pick_sandbox_x2") || key.includes("_portrait_bg_");
 }
@@ -143,6 +151,7 @@ export function isCoreTextureAssetKey(key: string): boolean {
         !isTransientLoadingScreenAssetKey(key) &&
         !isLazyBattlefieldCreatureAssetKey(key) &&
         !isLazyProjectileAssetKey(key) &&
+        !isLazyCombatEffectAssetKey(key) &&
         !isLazyRosterAssetKey(key)
     );
 }
