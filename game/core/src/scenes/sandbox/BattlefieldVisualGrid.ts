@@ -168,17 +168,52 @@ export type ProjectedBattlefieldMetrics = Readonly<{
     cellSize: number;
 }>;
 
+export type MutableProjectedBattlefieldMetrics = {
+    center: HoCMath.XY;
+    width: number;
+    height: number;
+    cellSize: number;
+};
+
+// Temporary side samples never escape this synchronous helper. Reusing them avoids eight tiny objects
+// for every dust, smoke, terrain and collapse measurement while preserving a fresh result by default.
+const metricsInputScratch: HoCMath.XY = { x: 0, y: 0 };
+const metricsLeftScratch: HoCMath.XY = { x: 0, y: 0 };
+const metricsRightScratch: HoCMath.XY = { x: 0, y: 0 };
+const metricsBottomScratch: HoCMath.XY = { x: 0, y: 0 };
+const metricsTopScratch: HoCMath.XY = { x: 0, y: 0 };
+
 /** Local painted cell dimensions around a logical point, for particles that cannot be polygon-shaped. */
-export function projectedBattlefieldMetricsAtPoint(point: HoCMath.XY, gs: GridSettings): ProjectedBattlefieldMetrics {
+export function projectedBattlefieldMetricsAtPoint(
+    point: HoCMath.XY,
+    gs: GridSettings,
+    out?: MutableProjectedBattlefieldMetrics,
+): ProjectedBattlefieldMetrics {
     const half = gs.getHalfStep();
-    const center = projectBattlefieldPoint(point, gs);
-    const left = projectBattlefieldPoint({ x: point.x - half, y: point.y }, gs);
-    const right = projectBattlefieldPoint({ x: point.x + half, y: point.y }, gs);
-    const bottom = projectBattlefieldPoint({ x: point.x, y: point.y - half }, gs);
-    const top = projectBattlefieldPoint({ x: point.x, y: point.y + half }, gs);
+    const metrics: MutableProjectedBattlefieldMetrics = out ?? {
+        center: { x: 0, y: 0 },
+        width: 0,
+        height: 0,
+        cellSize: 0,
+    };
+    projectBattlefieldPoint(point, gs, metrics.center);
+
+    metricsInputScratch.x = point.x - half;
+    metricsInputScratch.y = point.y;
+    const left = projectBattlefieldPoint(metricsInputScratch, gs, metricsLeftScratch);
+    metricsInputScratch.x = point.x + half;
+    const right = projectBattlefieldPoint(metricsInputScratch, gs, metricsRightScratch);
+    metricsInputScratch.x = point.x;
+    metricsInputScratch.y = point.y - half;
+    const bottom = projectBattlefieldPoint(metricsInputScratch, gs, metricsBottomScratch);
+    metricsInputScratch.y = point.y + half;
+    const top = projectBattlefieldPoint(metricsInputScratch, gs, metricsTopScratch);
     const width = Math.hypot(right.x - left.x, right.y - left.y);
     const height = Math.hypot(top.x - bottom.x, top.y - bottom.y);
-    return { center, width, height, cellSize: (width + height) * 0.5 };
+    metrics.width = width;
+    metrics.height = height;
+    metrics.cellSize = (width + height) * 0.5;
+    return metrics;
 }
 
 /**

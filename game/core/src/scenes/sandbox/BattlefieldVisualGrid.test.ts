@@ -126,6 +126,21 @@ describe("battlefield visual grid", () => {
         }
     });
 
+    test("writes particle metrics into caller-owned storage", () => {
+        const gs = settings();
+        const logical = GridMath.getPositionForCell({ x: 6, y: 9 }, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+        const expected = projectedBattlefieldMetricsAtPoint(logical, gs);
+        const reusable = {
+            center: { x: Number.NaN, y: Number.NaN },
+            width: Number.NaN,
+            height: Number.NaN,
+            cellSize: Number.NaN,
+        };
+
+        expect(projectedBattlefieldMetricsAtPoint(logical, gs, reusable)).toBe(reusable);
+        expect(reusable).toEqual(expected);
+    });
+
     test("pins ranged trajectories to the shooter centre and exact painted target-edge midpoints", () => {
         const gs = settings();
         const shooterCell = { x: 3, y: 2 };

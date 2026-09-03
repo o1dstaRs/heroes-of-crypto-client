@@ -2,7 +2,11 @@ import { RenderableUnit } from "../RenderableUnit";
 import { GridSettings, HoCMath, TeamType, GridMath } from "@heroesofcrypto/common";
 import { HoverManager } from "../HoverManager";
 import { Container, Sprite } from "pixi.js";
-import { projectBattlefieldPoint, projectedBattlefieldMetricsAtPoint } from "./BattlefieldVisualGrid";
+import {
+    projectBattlefieldPoint,
+    projectedBattlefieldMetricsAtPoint,
+    type MutableProjectedBattlefieldMetrics,
+} from "./BattlefieldVisualGrid";
 
 // Rapid Charge: a fast accelerating dash with a motion-blur streak instead of a flat-speed glide.
 const RC_MIN_SPEED_MULT = 0.7; // starts a touch slower than a normal move...
@@ -85,6 +89,16 @@ export class MoveAnimationManager {
     private afterimages: IAfterimage[] = [];
     private lastTrackDropIndex: number = -1;
     private isActiveUnitMoving = false;
+    private readonly projectedMetricsScratch: MutableProjectedBattlefieldMetrics = {
+        center: { x: 0, y: 0 },
+        width: 0,
+        height: 0,
+        cellSize: 0,
+    };
+    private readonly directionLogicalEndScratch: HoCMath.XY = { x: 0, y: 0 };
+    private readonly directionFromScratch: HoCMath.XY = { x: 0, y: 0 };
+    private readonly directionToScratch: HoCMath.XY = { x: 0, y: 0 };
+    private readonly directionResultScratch: HoCMath.XY = { x: 0, y: 0 };
     public constructor(context: IMoveAnimationContext) {
         this.context = context;
     }
@@ -380,7 +394,7 @@ export class MoveAnimationManager {
                     const cell = this.moveTrackPath[idx];
                     const pos = GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
                     if (pos) {
-                        const metrics = projectedBattlefieldMetricsAtPoint(pos, gs);
+                        const metrics = projectedBattlefieldMetricsAtPoint(pos, gs, this.projectedMetricsScratch);
                         const visualDirection = this.projectDirection(pos, dx / segLen, dy / segLen, gs);
                         this.lingeringTracks.push({
                             x: metrics.center.x,
@@ -483,7 +497,7 @@ export class MoveAnimationManager {
         dirX = 0,
         dirY = 0,
     ): void {
-        const metrics = projectedBattlefieldMetricsAtPoint(worldPos, gs);
+        const metrics = projectedBattlefieldMetricsAtPoint(worldPos, gs, this.projectedMetricsScratch);
         const visualDirection = this.projectDirection(worldPos, dirX, dirY, gs);
         // `worldPos` is already the large unit's visual (footprint) center, so drop one cohesive
         // puff right there — no grid round-trip, which only snapped the puff onto cell corners.
@@ -508,12 +522,22 @@ export class MoveAnimationManager {
         });
     }
     private projectDirection(point: HoCMath.XY, dirX: number, dirY: number, gs: GridSettings): HoCMath.XY {
-        if (Math.abs(dirX) + Math.abs(dirY) < 1e-9) return { x: 0, y: 0 };
-        const from = projectBattlefieldPoint(point, gs);
-        const to = projectBattlefieldPoint({ x: point.x + dirX * gs.getStep(), y: point.y + dirY * gs.getStep() }, gs);
+        const result = this.directionResultScratch;
+        if (Math.abs(dirX) + Math.abs(dirY) < 1e-9) {
+            result.x = 0;
+            result.y = 0;
+            return result;
+        }
+        const from = projectBattlefieldPoint(point, gs, this.directionFromScratch);
+        const logicalEnd = this.directionLogicalEndScratch;
+        logicalEnd.x = point.x + dirX * gs.getStep();
+        logicalEnd.y = point.y + dirY * gs.getStep();
+        const to = projectBattlefieldPoint(logicalEnd, gs, this.directionToScratch);
         const dx = to.x - from.x;
         const dy = to.y - from.y;
         const length = Math.hypot(dx, dy);
-        return length > 1e-9 ? { x: dx / length, y: dy / length } : { x: 0, y: 0 };
+        result.x = length > 1e-9 ? dx / length : 0;
+        result.y = length > 1e-9 ? dy / length : 0;
+        return result;
     }
 }
