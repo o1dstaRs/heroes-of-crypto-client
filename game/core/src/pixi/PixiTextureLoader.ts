@@ -6,11 +6,13 @@ import {
     isDeferredLegacyCreatureAssetKey,
     isDeferredPlacementAssetKey,
     isDeferredReactUiAssetKey,
+    isDeferredUnitCardAssetKey,
     isIdleAtlasKey,
     isLazyBattlefieldCreatureAssetKey,
     isLazyProjectileAssetKey,
     isLazyRosterAssetKey,
     isRedundantFullResolutionUnitAtlasKey,
+    isTransientLoadingScreenAssetKey,
 } from "./imageAssetTiers";
 import { isUnitAnimationAtlasKey } from "./unitAtlasKeys";
 
@@ -19,11 +21,13 @@ export {
     isDeferredLegacyCreatureAssetKey,
     isDeferredPlacementAssetKey,
     isDeferredReactUiAssetKey,
+    isDeferredUnitCardAssetKey,
     isIdleAtlasKey,
     isLazyBattlefieldCreatureAssetKey,
     isLazyProjectileAssetKey,
     isLazyRosterAssetKey,
     isRedundantFullResolutionUnitAtlasKey,
+    isTransientLoadingScreenAssetKey,
 } from "./imageAssetTiers";
 
 // Decode textures via <img> instead of createImageBitmap. Chrome intermittently throws
@@ -117,6 +121,8 @@ export function getSplitBundles(options: SplitBundleOptions = {}) {
     const deferredEnvironmentAssets: Record<string, { src: string }> = {};
     const deferredPlacementAssets: Record<string, { src: string }> = {};
     const deferredLegacyCreatureAssets: Record<string, { src: string }> = {};
+    const deferredUnitCardAssets: Record<string, { src: string }> = {};
+    const transientLoadingScreenAssets: Record<string, { src: string }> = {};
     const lazyBattlefieldCreatureAssets: Record<string, { src: string }> = {};
     const lazyProjectileAssets: Record<string, { src: string }> = {};
     const lazyRosterAssets: Record<string, { src: string }> = {};
@@ -145,6 +151,10 @@ export function getSplitBundles(options: SplitBundleOptions = {}) {
             deferredPlacementAssets[k] = { src };
         } else if (isDeferredLegacyCreatureAssetKey(k)) {
             deferredLegacyCreatureAssets[k] = { src };
+        } else if (isDeferredUnitCardAssetKey(k)) {
+            deferredUnitCardAssets[k] = { src };
+        } else if (isTransientLoadingScreenAssetKey(k)) {
+            transientLoadingScreenAssets[k] = { src };
         } else if (isLazyBattlefieldCreatureAssetKey(k)) {
             lazyBattlefieldCreatureAssets[k] = { src };
         } else if (isLazyProjectileAssetKey(k)) {
@@ -165,6 +175,8 @@ export function getSplitBundles(options: SplitBundleOptions = {}) {
         deferredEnvironmentAssets,
         deferredPlacementAssets,
         deferredLegacyCreatureAssets,
+        deferredUnitCardAssets,
+        transientLoadingScreenAssets,
         lazyBattlefieldCreatureAssets,
         lazyProjectileAssets,
         lazyRosterAssets,

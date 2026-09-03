@@ -106,6 +106,29 @@ describe("UnitsOverlay chip visibility", () => {
         overlay.destroy();
     });
 
+    test("requests portraits only for the visible level and loads a new level on selection", () => {
+        const requestedTextures = new Set<string>();
+        const app = {
+            renderer: { height: 900, width: 1600 },
+            stage: new Container(),
+            ticker: { add: () => undefined, remove: () => undefined },
+        } as unknown as ConstructorParameters<typeof UnitsOverlay>[0];
+        const overlay = new UnitsOverlay(app, (key) => {
+            requestedTextures.add(key);
+            return Texture.EMPTY;
+        });
+        overlay.build();
+
+        expect(requestedTextures).toContain("peasant_pick_sandbox_x2");
+        expect(requestedTextures).not.toContain("black_dragon_pick_sandbox_x2");
+        expect(requestedTextures).not.toContain("peasant_512");
+
+        (overlay as unknown as OverlayInternals).setSelectedLevel(4);
+        expect(requestedTextures).toContain("black_dragon_pick_sandbox_x2");
+
+        overlay.destroy();
+    });
+
     test("fits the roster into the clipped wall band above the battlefield", () => {
         const layout = unitsOverlayTopBandLayout(1600, 900);
         expect(layout.y).toBeGreaterThan(0);

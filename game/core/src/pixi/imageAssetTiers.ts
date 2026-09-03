@@ -1,4 +1,4 @@
-import { isUnitAnimationAtlasKey } from "./unitAtlasKeys";
+import { isUnitAnimationAtlasKey, isUnitCardImageKey } from "./unitAtlasKeys";
 
 // Keep asset routing free of Pixi imports so non-renderer surfaces (notably the ranked draft) can
 // reuse the exact runtime split without pulling Pixi into their entry bundle.
@@ -15,7 +15,20 @@ export function isRedundantFullResolutionUnitAtlasKey(key: string): boolean {
     return isUnitAnimationAtlasKey(key) && key.endsWith("_atlas");
 }
 
+const DEFERRED_REACT_OR_LEGACY_UI_ASSETS = new Set([
+    "book_1024",
+    "book_1024_pre",
+    "book_1024_previous",
+    "ui_banner_green_soft_wide",
+    "ui_banner_red_soft_wide",
+    "ui_close_button_square_gothic_frame_v1",
+    "ui_container_frame_1_9slice",
+    "ui_container_frame_2_9slice",
+    "ui_outer_frame_3_9slice",
+]);
+
 export function isDeferredReactUiAssetKey(key: string): boolean {
+    if (DEFERRED_REACT_OR_LEGACY_UI_ASSETS.has(key)) return true;
     return (
         key.startsWith("pick_phase_") ||
         key.startsWith("pick_bundle_") ||
@@ -28,6 +41,19 @@ export function isDeferredReactUiAssetKey(key: string): boolean {
         key.endsWith("_left_screen_x2") ||
         key.endsWith("_portrait_full")
     );
+}
+
+const TRANSIENT_LOADING_SCREEN_ASSETS = new Set([
+    "ambient_fire_left_brazier_atlas",
+    "loading_screen_dragon_medallion",
+    "loading_screen_forging_base",
+    "loading_screen_forging_exact_overlay",
+    "loading_screen_forging_lava_strip",
+]);
+
+/** Assets owned only by the blocking loading screen and released before the game scene starts. */
+export function isTransientLoadingScreenAssetKey(key: string): boolean {
+    return TRANSIENT_LOADING_SCREEN_ASSETS.has(key);
 }
 
 const LIVE_ENVIRONMENT_ASSETS = new Set([
@@ -66,6 +92,10 @@ export function isDeferredLegacyCreatureAssetKey(key: string): boolean {
     return key.includes("_battlefield_side_right_") && !key.endsWith("_battlefield_side_right_final_v1");
 }
 
+export function isDeferredUnitCardAssetKey(key: string): boolean {
+    return isUnitCardImageKey(key);
+}
+
 export function isLazyBattlefieldCreatureAssetKey(key: string): boolean {
     return key.endsWith("_battlefield_side_right_final_v1");
 }
@@ -101,6 +131,8 @@ export function isCoreTextureAssetKey(key: string): boolean {
         !isDeferredEnvironmentAssetKey(key) &&
         !isDeferredPlacementAssetKey(key) &&
         !isDeferredLegacyCreatureAssetKey(key) &&
+        !isDeferredUnitCardAssetKey(key) &&
+        !isTransientLoadingScreenAssetKey(key) &&
         !isLazyBattlefieldCreatureAssetKey(key) &&
         !isLazyProjectileAssetKey(key) &&
         !isLazyRosterAssetKey(key)

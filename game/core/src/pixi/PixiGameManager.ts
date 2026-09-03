@@ -226,6 +226,7 @@ export class PixiGameManager {
                 loadingScreen.removeFromParent();
                 loadingScreen.destroy();
             }
+            loadingScreen.releaseAssets();
             loadingScreen = undefined;
         };
 

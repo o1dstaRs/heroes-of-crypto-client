@@ -7,11 +7,13 @@ import {
     isDeferredLegacyCreatureAssetKey,
     isDeferredPlacementAssetKey,
     isDeferredReactUiAssetKey,
+    isDeferredUnitCardAssetKey,
     isIdleAtlasKey,
     isLazyBattlefieldCreatureAssetKey,
     isLazyProjectileAssetKey,
     isLazyRosterAssetKey,
     isRedundantFullResolutionUnitAtlasKey,
+    isTransientLoadingScreenAssetKey,
 } from "./PixiTextureLoader";
 import { isUnitAnimationAtlasKey } from "./unitAtlasKeys";
 
@@ -47,6 +49,8 @@ describe("pixi texture bundle split", () => {
             deferredEnvironmentAssets,
             deferredPlacementAssets,
             deferredLegacyCreatureAssets,
+            deferredUnitCardAssets,
+            transientLoadingScreenAssets,
             lazyBattlefieldCreatureAssets,
             lazyProjectileAssets,
             lazyRosterAssets,
@@ -62,6 +66,8 @@ describe("pixi texture bundle split", () => {
             ...Object.keys(deferredEnvironmentAssets),
             ...Object.keys(deferredPlacementAssets),
             ...Object.keys(deferredLegacyCreatureAssets),
+            ...Object.keys(deferredUnitCardAssets),
+            ...Object.keys(transientLoadingScreenAssets),
             ...Object.keys(lazyBattlefieldCreatureAssets),
             ...Object.keys(lazyProjectileAssets),
             ...Object.keys(lazyRosterAssets),
@@ -94,6 +100,12 @@ describe("pixi texture bundle split", () => {
         }
         for (const key of Object.keys(deferredLegacyCreatureAssets)) {
             expect(`${key}: ${isDeferredLegacyCreatureAssetKey(key)}`).toBe(`${key}: true`);
+        }
+        for (const key of Object.keys(deferredUnitCardAssets)) {
+            expect(`${key}: ${isDeferredUnitCardAssetKey(key)}`).toBe(`${key}: true`);
+        }
+        for (const key of Object.keys(transientLoadingScreenAssets)) {
+            expect(`${key}: ${isTransientLoadingScreenAssetKey(key)}`).toBe(`${key}: true`);
         }
         for (const key of Object.keys(lazyBattlefieldCreatureAssets)) {
             expect(`${key}: ${isLazyBattlefieldCreatureAssetKey(key)}`).toBe(`${key}: true`);
@@ -299,5 +311,37 @@ describe("pixi texture bundle split", () => {
             expect(lazyRosterAssets[key]).toBeDefined();
             expect(core[key]).toBeUndefined();
         }
+    });
+
+    test("keeps unit card portraits out of the permanent board texture cache", () => {
+        const { core, deferredUnitCardAssets } = getSplitBundles({ animationsEnabled: false });
+
+        for (const key of ["peasant_512", "scavenger_512", "thief_model_full", "thunderbird_512_v2"]) {
+            expect(isDeferredUnitCardAssetKey(key)).toBe(true);
+            expect(deferredUnitCardAssets[key]).toBeDefined();
+            expect(core[key]).toBeUndefined();
+        }
+
+        expect(isDeferredUnitCardAssetKey("fire_pit_center_512")).toBe(false);
+    });
+
+    test("does not retain loading-screen-only art for the lifetime of the fight", () => {
+        const { core, transientLoadingScreenAssets } = getSplitBundles({ animationsEnabled: false });
+
+        for (const key of [
+            "ambient_fire_left_brazier_atlas",
+            "loading_screen_dragon_medallion",
+            "loading_screen_forging_base",
+            "loading_screen_forging_exact_overlay",
+            "loading_screen_forging_lava_strip",
+        ]) {
+            expect(isTransientLoadingScreenAssetKey(key)).toBe(true);
+            expect(transientLoadingScreenAssets[key]).toBeDefined();
+            expect(core[key]).toBeUndefined();
+        }
+
+        // The battlefield reuses the furnace atlas, so it remains a core texture.
+        expect(isTransientLoadingScreenAssetKey("ambient_fire_left_furnace_atlas")).toBe(false);
+        expect(core.ambient_fire_left_furnace_atlas).toBeDefined();
     });
 });

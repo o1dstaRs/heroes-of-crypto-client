@@ -32,6 +32,15 @@ export function buildUnitAnimationAtlasKeyClassifier(atlases: AnimationAtlasInde
  */
 const generatedUnitAnimationAtlasKey = buildUnitAnimationAtlasKeyClassifier(animationAtlases);
 
+const generatedUnitCardImageKeys = new Set(
+    Object.keys(animationAtlases).map((unitName) => `${unitName.toLowerCase().replace(/\s+/g, "_")}_512`),
+);
+const specialUnitCardImageKeys = new Set(["wandering_mage_512", "thief_model_full", "thunderbird_512_v2"]);
+
+/** Card/sidebar portraits are URL-driven UI art, not permanent Pixi board textures. */
+export const isUnitCardImageKey = (key: string): boolean =>
+    generatedUnitCardImageKeys.has(key) || specialUnitCardImageKeys.has(key);
+
 // Hand-authored unit strips that intentionally live outside generated/animation_atlases.ts. Keep this
 // list beside the generated classifier so bundle routing does not mistake them for terrain/VFX.
 const specialUnitAnimationAtlasBases = new Set([

@@ -307,6 +307,7 @@ export class UnitsOverlay {
     private isOpen = true;
     private tweenCancel?: () => void;
     private allChips: UnitChip[] = [];
+    private chipLevels = new Map<UnitChip, UnitLevelId>();
     private levelTabs: LevelTab[] = [];
     /** Last board cell size. */
     private cellSize = 0;
@@ -619,6 +620,7 @@ export class UnitsOverlay {
         this.levelRail.removeChildren();
         this.rowsContainer.removeChildren();
         this.allChips = [];
+        this.chipLevels.clear();
         this.levelTabs = [];
         this.selectedName = null;
 
@@ -693,11 +695,14 @@ export class UnitsOverlay {
                     const portraitVisual =
                         creatureId === undefined ? undefined : resolveCreaturePortraitVisual(creatureId);
                     const portraitTextureKey = portraitVisual ? IMAGE_URL_TO_KEY.get(portraitVisual.source) : undefined;
-                    const portraitTexture = portraitTextureKey ? this.getTex(portraitTextureKey) : undefined;
+                    const loadPortraitNow = lvl === this.selectedLevel;
+                    const portraitTexture =
+                        loadPortraitNow && portraitTextureKey ? this.getTex(portraitTextureKey) : undefined;
                     const backgroundTextureKey = portraitVisual?.background
                         ? IMAGE_URL_TO_KEY.get(portraitVisual.background)
                         : undefined;
-                    const backgroundTexture = backgroundTextureKey ? this.getTex(backgroundTextureKey) : undefined;
+                    const backgroundTexture =
+                        loadPortraitNow && backgroundTextureKey ? this.getTex(backgroundTextureKey) : undefined;
                     const typePresentation = creatureTypePresentation(unitName);
                     const attackTypeIcon = typePresentation
                         ? this.getTex(ROSTER_ATTACK_TYPE_ICON_KEY[typePresentation.attack])
@@ -708,7 +713,10 @@ export class UnitsOverlay {
 
                     // Fall back only for an unknown/unregistered creature. The normal sandbox roster uses
                     // the exact source, faction background and crop already approved for the pick cards.
-                    const fallbackTexture = this.getTex(unitToTextureName(unitName, TextureType.LARGE, sizeFlag));
+                    const fallbackTexture =
+                        loadPortraitNow && !portraitVisual
+                            ? this.getTex(unitToTextureName(unitName, TextureType.LARGE, sizeFlag))
+                            : undefined;
                     const portrait = portraitVisual
                         ? {
                               texture: portraitTexture ?? Texture.EMPTY,
@@ -742,6 +750,7 @@ export class UnitsOverlay {
                     chip.setTicker(this.app.ticker);
                     bucketCont.addChild(chip);
                     this.allChips.push(chip);
+                    this.chipLevels.set(chip, lvl);
                 }
             }
         }
@@ -755,6 +764,7 @@ export class UnitsOverlay {
     public refreshLazyTextures(): void {
         if (this.container.destroyed) return;
         for (const chip of this.allChips) {
+            if (this.chipLevels.get(chip) !== this.selectedLevel) continue;
             const creatureId = UNIT_NAME_TO_ID[chip.nameKey];
             const visual = creatureId === undefined ? undefined : resolveCreaturePortraitVisual(creatureId);
             if (!visual) continue;
@@ -788,6 +798,7 @@ export class UnitsOverlay {
             tab.hoverLight.alpha = 0;
         }
         this.onResize(this.app.renderer.width, this.app.renderer.height);
+        this.refreshLazyTextures();
     }
     public onResize(stageW: number, stageH: number): void {
         if (stageW <= 0 || stageH <= 0) return;

@@ -26,6 +26,13 @@ const FORGING_LAVA_URL = images.loading_screen_forging_lava_strip;
 // browsers may otherwise cache that HTML response under this image URL long after the file is restored.
 const DRAGON_MEDALLION_URL = `${images.loading_screen_dragon_medallion}?v=20260825`;
 const FORGING_EXACT_OVERLAY_URL = images.loading_screen_forging_exact_overlay;
+const LOADING_SCREEN_ONLY_URLS = [
+    FORGING_BACKGROUND_URL,
+    FORGING_LAVA_URL,
+    DRAGON_MEDALLION_URL,
+    FORGING_EXACT_OVERLAY_URL,
+    images.ambient_fire_left_brazier_atlas,
+] as const;
 
 const FIRE_ATLAS_DEFINITIONS: Record<
     LoadingScreenFireType,
@@ -293,6 +300,12 @@ export class LoadingScreen extends Container {
             furnace: furnaceFire,
             brazier: brazierFire,
         });
+    }
+    /** Release art that no game scene uses once this screen has been removed. */
+    public releaseAssets(): void {
+        for (const url of LOADING_SCREEN_ONLY_URLS) {
+            void Assets.unload(url).catch(() => undefined);
+        }
     }
     private sliceFireAtlas(type: LoadingScreenFireType, atlas: Texture): Texture[] {
         const definition = FIRE_ATLAS_DEFINITIONS[type];
