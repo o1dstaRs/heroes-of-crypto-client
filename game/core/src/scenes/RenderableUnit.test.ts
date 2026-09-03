@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
-import { BufferImageSource, Container, Graphics, Text, Texture } from "pixi.js";
+import { BufferImageSource, Container, Graphics, Sprite, Text, Texture } from "pixi.js";
 
 import {
     AbilityFactory,
@@ -204,6 +204,13 @@ describe("battlefield movement preview", () => {
         const firstBounds = first?.bounds;
         const firstHeadZone = first?.headZone;
         const firstLeft = first?.bounds.left;
+        const sprite = (unit as unknown as { sprite?: Sprite }).sprite!;
+        const originalGetBounds = sprite.getBounds.bind(sprite);
+        let getBoundsCalls = 0;
+        sprite.getBounds = ((...args: Parameters<Sprite["getBounds"]>) => {
+            getBoundsCalls += 1;
+            return originalGetBounds(...args);
+        }) as Sprite["getBounds"];
         unit.setPosition(896, 1024);
         unit.ensureVisual(root, gridSettings);
         const second = unit.getCreatureDepthSortCandidate(3);
@@ -214,6 +221,7 @@ describe("battlefield movement preview", () => {
         expect(second?.headZone).toBe(firstHeadZone);
         expect(second?.stableOrder).toBe(3);
         expect(second?.bounds.left).not.toBe(firstLeft);
+        expect(getBoundsCalls).toBe(1);
     });
 });
 

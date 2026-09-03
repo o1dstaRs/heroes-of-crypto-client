@@ -1637,12 +1637,13 @@ export class RenderableUnit extends Unit {
     private battlefieldStyleSignature = "";
     /** Reused each frame so depth sorting does not allocate four geometry objects per visible unit. */
     private depthSortBounds?: Bounds;
+    /** The badge already measures the live sprite before the scene's depth pass. */
+    private depthSortBoundsAreCurrent = false;
     private depthSortCandidate?: CreatureDepthSortCandidate;
     private inheritedScaleScratch?: HoCMath.XY;
     private projectedPositionScratch?: HoCMath.XY;
     private groundReferenceScratch?: HoCMath.XY;
     private idleBreathScaleScratch?: HoCMath.XY;
-    private badgeSpriteBounds?: Bounds;
     private badgeScreenAnchor?: Point;
     private badgeLocalAnchor?: Point;
     /** Immutable render identity resolved once in fromBase instead of reconstructed every frame. */
@@ -1804,12 +1805,12 @@ export class RenderableUnit extends Unit {
         ru.battlefieldStyleFilter = undefined;
         ru.battlefieldStyleSignature = "";
         ru.depthSortBounds = undefined;
+        ru.depthSortBoundsAreCurrent = false;
         ru.depthSortCandidate = undefined;
         ru.inheritedScaleScratch = undefined;
         ru.projectedPositionScratch = undefined;
         ru.groundReferenceScratch = undefined;
         ru.idleBreathScaleScratch = undefined;
-        ru.badgeSpriteBounds = undefined;
         ru.badgeScreenAnchor = undefined;
         ru.badgeLocalAnchor = undefined;
         const unitProperties = ru.getUnitProperties();
@@ -2524,6 +2525,7 @@ export class RenderableUnit extends Unit {
     public setSpriteRotation(rotation: number) {
         if (this.sprite) {
             this.sprite.rotation = rotation;
+            this.depthSortBoundsAreCurrent = false;
         }
     }
     /**
@@ -2735,6 +2737,7 @@ export class RenderableUnit extends Unit {
     public applyMoveEffect(spawnPulsePhase: number): void {
         const sprite = this.sprite;
         if (!sprite) return;
+        this.depthSortBoundsAreCurrent = false;
         const walkAnim = this.walkAnim;
         const props = this.getUnitProperties();
         // Every authored walk atlas already contains the complete footwork, weight transfer and body
@@ -2781,7 +2784,10 @@ export class RenderableUnit extends Unit {
     public getCreatureDepthSortCandidate(stableOrder: number): CreatureDepthSortCandidate | undefined {
         const sprite = this.sprite;
         if (!this.useBattlefieldVisualProjection || this.visualMode !== "normal" || !sprite?.visible) return undefined;
-        const bounds = sprite.getBounds(false, (this.depthSortBounds ??= new Bounds()));
+        const bounds = this.depthSortBoundsAreCurrent
+            ? this.depthSortBounds!
+            : sprite.getBounds(false, (this.depthSortBounds ??= new Bounds()));
+        this.depthSortBoundsAreCurrent = false;
         if (bounds.width <= 0 || bounds.height <= 0) return undefined;
         const candidate = (this.depthSortCandidate ??= {
             id: String(this.getId()),
@@ -2815,6 +2821,7 @@ export class RenderableUnit extends Unit {
     }
     public syncVisual(worldRoot: Container, gs: GridSettings): void {
         if (this.isDestroyed) return;
+        this.depthSortBoundsAreCurrent = false;
         const logicalPos = this.getPosition();
         const inGrid = GridMath.isPositionWithinGrid(gs, logicalPos);
         if (!inGrid) {
@@ -3858,6 +3865,7 @@ export class RenderableUnit extends Unit {
         if (texture) this.sprite.texture = texture;
     }
     public stepSpawnAnimation(dt: number): void {
+        const mayChangeSpriteBounds = !!this.spawnAnim || !!this.walkAnim || !!this.oneShotAnim;
         // --- Spawn animation ---
         if (this.spawnAnim && this.sprite && this.shadow && this.sprite.parent && dt) {
             const anim = this.spawnAnim;
@@ -3888,6 +3896,7 @@ export class RenderableUnit extends Unit {
         this.stepBoardWalkAnimation(dt * 1000);
         // --- One Shot animation ---
         this.stepOneShotAnimation(dt * 1000);
+        if (mayChangeSpriteBounds) this.depthSortBoundsAreCurrent = false;
     }
     private stopSelectionAnimationInternal(): void {
         this.selectionAnimFrames = undefined;
@@ -4814,7 +4823,8 @@ export class RenderableUnit extends Unit {
         const renderedBadgeScale = this.badgeEmphasisScale;
         // Centre the ribbon above the actual rendered creature image rather than above its logical cell.
         // This keeps the badge over the head for tall, short and multi-cell creatures alike.
-        const spriteBounds = this.sprite?.getBounds(false, (this.badgeSpriteBounds ??= new Bounds()));
+        const spriteBounds = this.sprite?.getBounds(false, (this.depthSortBounds ??= new Bounds()));
+        this.depthSortBoundsAreCurrent = !!spriteBounds && spriteBounds.width > 0 && spriteBounds.height > 0;
         const margin = Math.max(2, Math.floor(iconSide * 0.04));
         let x: number;
         let y: number;
