@@ -8,6 +8,7 @@ const generatedDir = path.resolve(__dirname, "../src/generated");
 const outputFile = path.join(generatedDir, "image_imports.ts");
 const productionBuild = process.env.NODE_ENV === "production";
 const { isProductionOmittedAssetKey } = require("../src/pixi/imageAssetTiers.ts");
+const { isProductionOmittedEnvironmentAssetKey } = require("../src/pixi/productionImageAssetPolicy.ts");
 
 const SEGMENT_NAME_TO_IMPORT_NAME = {
     0: "zero",
@@ -48,7 +49,12 @@ for (const file of files) {
         const first = segs.shift();
         if (!first) continue;
         const key = [SEGMENT_NAME_TO_IMPORT_NAME[first] || first, ...segs].join("_");
-        entries.push({ key, file, productionOmitted: productionBuild && isProductionOmittedAssetKey(key) });
+        entries.push({
+            key,
+            file,
+            productionOmitted:
+                productionBuild && (isProductionOmittedAssetKey(key) || isProductionOmittedEnvironmentAssetKey(key)),
+        });
     }
 }
 
@@ -76,6 +82,6 @@ fs.writeFileSync(outputFile, lines.join("\n") + "\n");
 const omittedCount = entries.filter(({ productionOmitted }) => productionOmitted).length;
 console.log(
     productionBuild
-        ? `Image imports generated successfully (${omittedCount} authoring/legacy assets omitted entirely from production).`
+        ? `Image imports generated successfully (${omittedCount} unreachable assets omitted entirely from production).`
         : "Image imports generated successfully.",
 );
