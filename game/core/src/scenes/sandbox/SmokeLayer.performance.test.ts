@@ -8,6 +8,7 @@ import { SmokeLayer } from "./SmokeLayer";
 interface SmokeLayerInternals {
     activeTracks: Set<ILingeringTrack>;
     dustFrames: Texture[];
+    time: number;
 }
 
 const track = (flying: boolean): ILingeringTrack => ({
@@ -25,6 +26,16 @@ const track = (flying: boolean): ILingeringTrack => ({
 });
 
 describe("smoke trail allocation", () => {
+    test("does no animation work while no movement track exists", () => {
+        const layer = new SmokeLayer();
+        const internals = layer as unknown as SmokeLayerInternals;
+
+        layer.update(1 / 60, []);
+
+        expect(internals.time).toBe(0);
+        layer.destroy();
+    });
+
     test("reuses the active-track set across rendered frames", () => {
         const layer = new SmokeLayer();
         const internals = layer as unknown as SmokeLayerInternals;

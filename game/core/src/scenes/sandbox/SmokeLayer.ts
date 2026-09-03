@@ -268,6 +268,7 @@ export class SmokeLayer {
     }
     /** Advance the smoke and redraw the blobs for the current tracks. */
     public update(dt: number, tracks: readonly ILingeringTrack[]): void {
+        if (!tracks.length && !this.dustSprites.size && !this.hasGeometry) return;
         if (this.dustFrames) {
             this.updateSpriteDust(tracks);
             return;

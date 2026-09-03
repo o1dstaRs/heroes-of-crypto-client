@@ -148,6 +148,8 @@ export class VineLayer {
      * rather than vanishing on the spot.
      */
     public update(dt: number, cells: readonly IVineCell[], cellSize: number, toWorld: ToWorld): void {
+        // Vines are uncommon. Leave the idle layer completely dormant until one exists or is withering.
+        if (!cells.length && !this.vines.size) return;
         this.time += dt;
         const windAngle = Math.sin(this.time * 0.037) * 0.8 + Math.sin(this.time * 0.017 + 1.7) * 0.45;
         const windSpeed = 0.55 + 0.25 * Math.sin(this.time * 0.09 + 0.4);

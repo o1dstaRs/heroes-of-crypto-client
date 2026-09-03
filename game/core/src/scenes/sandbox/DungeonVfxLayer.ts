@@ -115,6 +115,7 @@ export class DungeonVfxLayer {
         this.fogContainer.visible = visible;
     }
     public update(): void {
+        if (!this.fogContainer.visible || !this.fogPlanes.length) return;
         const now = performance.now();
         if (!this.lastUpdateMs) this.lastUpdateMs = now;
         this.time += Math.min(0.05, Math.max(0, (now - this.lastUpdateMs) / 1000));

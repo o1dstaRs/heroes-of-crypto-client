@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { VineLayer } from "./VineLayer";
 
 type VineLayerInternals = {
+    time: number;
     chains: unknown[];
     sampleScratch: unknown[];
     grownScratch: unknown[];
@@ -12,6 +13,16 @@ type VineLayerInternals = {
 const toWorld = ({ x, y }: { x: number; y: number }) => ({ x: x * 32, y: y * 32 });
 
 describe("VineLayer", () => {
+    test("does no animation work while no vine exists", () => {
+        const layer = new VineLayer();
+        const internals = layer as unknown as VineLayerInternals;
+
+        layer.update(1 / 60, [], 32, toWorld);
+
+        expect(internals.time).toBe(0);
+        layer.destroy();
+    });
+
     test("rebuilds cached chain topology only when authoritative cells change", () => {
         const layer = new VineLayer();
         const internals = layer as unknown as VineLayerInternals;
