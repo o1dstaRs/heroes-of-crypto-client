@@ -1,4 +1,4 @@
-import { Container, Sprite, Text as PixiText, TextStyle, Texture, Rectangle, Graphics, Matrix } from "pixi.js";
+import { Assets, Container, Sprite, Text as PixiText, TextStyle, Texture, Rectangle, Graphics, Matrix } from "pixi.js";
 
 import { GridSettings, HoCMath, GridMath, UnitProperties, UnitsHolder } from "@heroesofcrypto/common";
 import { RenderableUnit } from "../RenderableUnit";
@@ -624,6 +624,8 @@ interface IResurrectBurst {
 }
 const ICE_BREAK_BURST_S = 0.085;
 const ICE_BREAK_COLORS = [0x91d8ff, 0xbdeaff, 0x6fc5f2, 0xd9f6ff] as const;
+const CRAFT_TEXTURE_URLS = [images.craft_anvil, images.craft_hammer] as const;
+let craftTextureLeaseCount = 0;
 
 const easeOutCubic = (t: number): number => 1 - Math.pow(1 - t, 3);
 const easeOutBack = (t: number): number => {
@@ -656,6 +658,9 @@ export class CombatVisuals {
     private clawSlashes: IClawSlash[] = [];
     private debuffPops: IDebuffPop[] = [];
     private craftForges: ICraftForge[] = [];
+    private craftTextureLoad?: Promise<readonly [Texture, Texture] | undefined>;
+    private craftTextureLeaseHeld = false;
+    private craftTextureGeneration = 0;
     private enchants: IEnchant[] = [];
     private abilitySteals: IAbilitySteal[] = [];
     private debuffStyle?: TextStyle;
@@ -1570,6 +1575,7 @@ export class CombatVisuals {
                 forge.container.destroy({ children: true });
             }
             this.craftForges.length = 0;
+            this.releaseCraftTextures();
         }
         for (const enchant of this.enchants) {
             enchant.container.destroy({ children: true });
@@ -2965,8 +2971,50 @@ export class CombatVisuals {
             }
         }
     }
+    private loadCraftTextures(): Promise<readonly [Texture, Texture] | undefined> {
+        if (this.craftTextureLoad) return this.craftTextureLoad;
+        if (!this.craftTextureLeaseHeld) {
+            this.craftTextureLeaseHeld = true;
+            craftTextureLeaseCount += 1;
+        }
+        const generation = this.craftTextureGeneration;
+        const load = Promise.all(CRAFT_TEXTURE_URLS.map((url) => Assets.load<Texture>(url))).then(
+            (textures) =>
+                this.craftTextureLeaseHeld && generation === this.craftTextureGeneration
+                    ? (textures as unknown as readonly [Texture, Texture])
+                    : undefined,
+            () => {
+                if (generation === this.craftTextureGeneration) this.releaseCraftTextures();
+                return undefined;
+            },
+        );
+        this.craftTextureLoad = load;
+        void load.then(() => {
+            if (this.craftTextureLoad === load) this.craftTextureLoad = undefined;
+        });
+        return load;
+    }
+    private releaseCraftTextures(): void {
+        if (!this.craftTextureLeaseHeld) return;
+        this.craftTextureLeaseHeld = false;
+        this.craftTextureGeneration += 1;
+        this.craftTextureLoad = undefined;
+        craftTextureLeaseCount = Math.max(0, craftTextureLeaseCount - 1);
+        queueMicrotask(() => {
+            if (craftTextureLeaseCount > 0) return;
+            for (const url of CRAFT_TEXTURE_URLS) {
+                void Assets.unload(url).catch(() => undefined);
+            }
+        });
+    }
     /** Blacksmith's Craft cast: an upright anvil and hammer centred over the selected 2x2 area. */
     public spawnCraftForge(center: HoCMath.XY, cellSize: number): number {
+        void this.loadCraftTextures().then((textures) => {
+            if (textures) this.createCraftForge(center, cellSize, textures);
+        });
+        return Math.round(CRAFT_FORGE_LIFE * 1000);
+    }
+    private createCraftForge(center: HoCMath.XY, cellSize: number, textures: readonly [Texture, Texture]): void {
         const container = new Container();
         // worldRoot is y-up. Counter-flip the forge art so both source images stay upright, then use ordinary
         // screen-style local coordinates (positive y is down) to keep the anvil below the swinging hammer.
@@ -2974,8 +3022,7 @@ export class CombatVisuals {
         container.position.set(center.x, center.y);
         this.context.attachToWorldRoot(container, CRAFT_Z);
 
-        const anvilTex = Texture.from(images.craft_anvil);
-        const hammerTex = Texture.from(images.craft_hammer);
+        const [anvilTex, hammerTex] = textures;
 
         // The anvil art carries transparent padding, so its visible top is about 27% down the source image.
         const anvil = new Sprite(anvilTex);
@@ -3024,7 +3071,6 @@ export class CombatVisuals {
             impactsDone: 0,
             impactFlash: 0,
         });
-        return Math.round(CRAFT_FORGE_LIFE * 1000);
     }
     private spawnForgeSparks(forge: ICraftForge): void {
         const count = 11;
@@ -3119,6 +3165,7 @@ export class CombatVisuals {
                 sp.gfx.alpha = 1 - sp.age / sp.life;
             }
         }
+        if (this.craftForges.length === 0) this.releaseCraftTextures();
     }
     /**
      * Blacksmith's Armor Rune / Weapon Rune result over the target: a short "trying" gather (a runic ring

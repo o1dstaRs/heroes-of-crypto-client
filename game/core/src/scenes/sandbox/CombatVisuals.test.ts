@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 
-import { Container, Sprite, Texture, TextureSource } from "pixi.js";
+import { Assets, Container, Sprite, Texture, TextureSource } from "pixi.js";
 import type { GridSettings, UnitsHolder } from "@heroesofcrypto/common";
 
 import { images } from "../../generated/image_imports";
@@ -565,15 +565,19 @@ describe("fire damage burst VFX", () => {
 });
 
 describe("Blacksmith Craft forge VFX", () => {
-    test("keeps the anvil upright and low while the hammer strikes through a circular arc", () => {
+    test("loads the exact forge art on first cast and preserves its authored proportions", async () => {
         const { visuals, attached } = makeVisuals();
         const forgeTexture = new Texture({ source: new TextureSource({ width: 128, height: 128 }) });
-        const textureFrom = spyOn(Texture, "from").mockReturnValue(forgeTexture);
+        const assetLoad = spyOn(Assets, "load").mockImplementation(() => Promise.resolve(forgeTexture));
+        const assetUnload = spyOn(Assets, "unload").mockImplementation(() => Promise.resolve());
         const durationMs = visuals.spawnCraftForge({ x: 100, y: 200 }, 80);
-        textureFrom.mockRestore();
+        await new Promise((resolve) => setTimeout(resolve, 0));
         const forge = internals(visuals).craftForges[0];
 
         expect(durationMs).toBe(900);
+        expect(assetLoad).toHaveBeenCalledTimes(2);
+        expect(assetLoad).toHaveBeenCalledWith(images.craft_anvil);
+        expect(assetLoad).toHaveBeenCalledWith(images.craft_hammer);
         expect(attached).toEqual([forge.container]);
         expect(forge.container.position.x).toBe(100);
         expect(forge.container.position.y).toBe(200);
@@ -591,14 +595,20 @@ describe("Blacksmith Craft forge VFX", () => {
         expect(forge.hammer.rotation).toBeLessThan(raisedRotation - 1);
         expect(forge.hammer.position).toMatchObject(pivot);
         expect(forge.sparks.length).toBeGreaterThan(0);
+        visuals.clear();
+        await Promise.resolve();
+        expect(assetUnload).toHaveBeenCalledTimes(2);
+        assetLoad.mockRestore();
+        assetUnload.mockRestore();
     });
 
-    test("survives a board rebuild's clear, then still tears itself down when it ends", () => {
+    test("survives a board rebuild, then releases its large textures when the forge ends", async () => {
         const { visuals } = makeVisuals();
         const forgeTexture = new Texture({ source: new TextureSource({ width: 128, height: 128 }) });
-        const textureFrom = spyOn(Texture, "from").mockReturnValue(forgeTexture);
+        const assetLoad = spyOn(Assets, "load").mockImplementation(() => Promise.resolve(forgeTexture));
+        const assetUnload = spyOn(Assets, "unload").mockImplementation(() => Promise.resolve());
         visuals.spawnCraftForge({ x: 100, y: 200 }, 80);
-        textureFrom.mockRestore();
+        await new Promise((resolve) => setTimeout(resolve, 0));
         const forge = internals(visuals).craftForges[0];
         visuals.update(0.15);
 
@@ -609,20 +619,51 @@ describe("Blacksmith Craft forge VFX", () => {
         expect(forge.container.destroyed).toBe(false);
 
         visuals.update(1.5);
+        await Promise.resolve();
         expect(internals(visuals).craftForges.length).toBe(0);
         expect(forge.container.destroyed).toBe(true);
+        expect(assetUnload).toHaveBeenCalledTimes(2);
+        assetLoad.mockRestore();
+        assetUnload.mockRestore();
     });
 
-    test("a full clear still drops an in-flight forge", () => {
+    test("a full clear drops an in-flight forge and releases its textures", async () => {
         const { visuals } = makeVisuals();
         const forgeTexture = new Texture({ source: new TextureSource({ width: 128, height: 128 }) });
-        const textureFrom = spyOn(Texture, "from").mockReturnValue(forgeTexture);
+        const assetLoad = spyOn(Assets, "load").mockImplementation(() => Promise.resolve(forgeTexture));
+        const assetUnload = spyOn(Assets, "unload").mockImplementation(() => Promise.resolve());
         visuals.spawnCraftForge({ x: 100, y: 200 }, 80);
-        textureFrom.mockRestore();
+        await new Promise((resolve) => setTimeout(resolve, 0));
         const forge = internals(visuals).craftForges[0];
 
         visuals.clear();
+        await Promise.resolve();
         expect(internals(visuals).craftForges.length).toBe(0);
         expect(forge.container.destroyed).toBe(true);
+        expect(assetUnload).toHaveBeenCalledTimes(2);
+        assetLoad.mockRestore();
+        assetUnload.mockRestore();
+    });
+
+    test("a full clear cancels a pending first load before it can attach a late forge", async () => {
+        const { visuals, attached } = makeVisuals();
+        const forgeTexture = new Texture({ source: new TextureSource({ width: 128, height: 128 }) });
+        let resolveLoad: ((texture: Texture) => void) | undefined;
+        const pending = new Promise<Texture>((resolve) => {
+            resolveLoad = resolve;
+        });
+        const assetLoad = spyOn(Assets, "load").mockImplementation(() => pending);
+        const assetUnload = spyOn(Assets, "unload").mockImplementation(() => Promise.resolve());
+
+        visuals.spawnCraftForge({ x: 100, y: 200 }, 80);
+        visuals.clear();
+        resolveLoad?.(forgeTexture);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(attached).toHaveLength(0);
+        expect(internals(visuals).craftForges).toHaveLength(0);
+        expect(assetUnload).toHaveBeenCalledTimes(2);
+        assetLoad.mockRestore();
+        assetUnload.mockRestore();
     });
 });
