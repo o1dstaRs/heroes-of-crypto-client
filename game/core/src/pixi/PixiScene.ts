@@ -51,7 +51,7 @@ import { PreloadedPixiTextures } from "./PixiTextureLoader";
 import { boardFitHeight, boardFitWidth } from "./boardFit";
 import { images as rawImageUrls } from "../imageAssets";
 import { UnitsOverlay } from "../scenes/UnitsOverlay";
-import { destroyContainerFilters } from "./filterLifecycle";
+import { destroyContainerChildren, destroyContainerFilters } from "./filterLifecycle";
 
 export interface AuthoritativeSnapshotOptions {
     /**
@@ -740,6 +740,10 @@ export abstract class PixiScene {
         // releasing their shader resources.
         destroyContainerFilters(this.pixiApp.getCamera());
         destroyContainerFilters(this.pixiApp.getWorldRoot());
+        // The cursor overlay is another app-owned, persistent camera child. Damage forecasts, kill icons,
+        // melee cursors and AOE labels placed inside it belong to this scene; merely replacing Sandbox does
+        // not otherwise touch them, so every New Battle retained another complete set.
+        destroyContainerChildren(this.pixiApp.getCursorOverlayRoot());
         if (this.drawer) this.drawer.destroy();
     }
     // ------- Delegates from Manager -------

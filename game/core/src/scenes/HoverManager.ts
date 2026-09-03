@@ -492,10 +492,23 @@ export class HoverManager {
     private hoverAttackSwordTexture?: Texture;
     private hoverRangeTargetEdgeTexture?: Texture;
     private hoverShotHammeredBronzeCasingTexture?: Texture;
+    /**
+     * Invisible child of the app-owned cursor overlay. PixiScene empties that persistent layer whenever a
+     * scene is replaced, so its destroyed event gives this helper a lifecycle signal without making the
+     * shared overlay itself scene-owned.
+     */
+    private readonly lifecycleMarker: Sprite;
+    private destroyed = false;
     public constructor(context: ISandboxHoverContext) {
         this.context = context;
         this.auraGraphics = new Graphics();
         this.aoeGraphics = new Graphics();
+        this.lifecycleMarker = new Sprite(Texture.EMPTY);
+        this.lifecycleMarker.visible = false;
+        this.lifecycleMarker.eventMode = "none";
+        this.lifecycleMarker.once("destroyed", () => this.releaseOwnedResources());
+        // Some headless geometry tests intentionally provide no render attachment surface.
+        this.context.attachToCursorOverlay?.(this.lifecycleMarker, Number.MIN_SAFE_INTEGER);
         // Pixi v8's Texture.from(string) only resolves textures already present in its cache. The cursor
         // artwork comes from the Google Drive-backed generated image set; load it explicitly so the melee
         // geometry never starts with Texture.EMPTY.
@@ -523,6 +536,9 @@ export class HoverManager {
         try {
             void Assets.load<Texture>(asset)
                 .then((texture) => {
+                    // A scene can be replaced while this optional image is still decoding. Do not let that
+                    // completion retain or mutate the retired HoverManager after its persistent layer clears.
+                    if (this.destroyed) return;
                     texture.source.scaleMode = "nearest";
                     apply(texture);
                 })
@@ -530,6 +546,14 @@ export class HoverManager {
         } catch {
             // No asset pipeline here (headless, or a environment without a DOM). Geometry is unaffected.
         }
+    }
+    private releaseOwnedResources(): void {
+        if (this.destroyed) return;
+        this.destroyed = true;
+        // Display objects on worldRoot are released by Sandbox and cursor-overlay objects by PixiScene.
+        // Filters are independent GPU resources and Container.destroy() only detaches them.
+        this.phantomGrayscaleFilter?.destroy();
+        this.phantomGrayscaleFilter = undefined;
     }
     private isGraphicsUsable(graphics?: Graphics): graphics is Graphics {
         const state = graphics as (Graphics & { destroyed?: boolean; context?: unknown }) | undefined;
