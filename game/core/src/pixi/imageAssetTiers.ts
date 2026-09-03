@@ -301,6 +301,20 @@ export function isLazyAbilityAssetKey(key: string): boolean {
 // their URLs; Pixi asks for only the spells owned by units in the current scene and refreshes an open
 // spellbook when each requested icon arrives. Keep this explicit so new spells remain core by default.
 const LAZY_SPELL_ASSETS = new Set([
+    // Runtime effect pops use the same scene-leased resolver as spell cards. These four icons are not
+    // present on every roster and should not stay decoded for an entire fight that never applies them.
+    "break_256",
+    "deep_wounds_256",
+    "freeze_256",
+    "poison_256",
+    // Spellbook furniture is requested only when a unit's book is opened. Keeping it in this family
+    // lets a closed book retain neither its cards nor its decorative cell/stack textures.
+    "spell_cell_260",
+    "spell_cast_wax_seal_blank_v1",
+    "spell_inner_frame_linework_v2",
+    "spell_stack_fill_green_variant2",
+    "spell_stack_fill_red_variant2",
+    "spell_stack_rail_variant2",
     "morale_256",
     "dismorale_256",
     "dulling_defense_256",

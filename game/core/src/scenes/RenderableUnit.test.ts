@@ -2125,21 +2125,31 @@ describe("RenderableUnit runtime spell synchronization", () => {
         expect(spellBookLayer.children.some((child) => child.visible)).toBe(true);
     });
 
-    test("rebuilds a spellbook card after its on-demand icon arrives", () => {
-        let iconReady = false;
+    test("rebuilds a spellbook card after its on-demand icon and furniture arrive", () => {
+        let spellbookArtReady = false;
         const requestedKeys: string[] = [];
         const angel = createRenderableUnit(TeamVals.LEFT, "Life", "Angel", "angel_512", (key) => {
             requestedKeys.push(key);
-            return key === "resurrection_256" && !iconReady ? undefined : Texture.WHITE;
+            return spellbookArtReady ? Texture.WHITE : undefined;
         });
         const spellBookLayer = new Container();
         const digits = new Map([[1, Texture.WHITE]]);
 
         angel.setSpellBookLayer(spellBookLayer, digits);
-        expect(requestedKeys).toContain("resurrection_256");
+        expect(requestedKeys).toEqual(
+            expect.arrayContaining([
+                "resurrection_256",
+                "spell_cell_260",
+                "spell_cast_wax_seal_blank_v1",
+                "spell_inner_frame_linework_v2",
+                "spell_stack_fill_green_variant2",
+                "spell_stack_fill_red_variant2",
+                "spell_stack_rail_variant2",
+            ]),
+        );
         expect(spellBookLayer.children).toHaveLength(0);
 
-        iconReady = true;
+        spellbookArtReady = true;
         expect(angel.ensureSpellBookRendering(spellBookLayer, digits)).toBe(true);
         angel.renderSpells(1);
         expect(spellBookLayer.children.length).toBeGreaterThan(0);

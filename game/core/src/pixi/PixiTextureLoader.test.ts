@@ -411,7 +411,7 @@ describe("pixi texture bundle split", () => {
             expect(lazySpellAssets[key]).toBeDefined();
             expect(core[key]).toBeUndefined();
         }
-        expect(Object.keys(lazySpellAssets)).toHaveLength(50);
+        expect(Object.keys(lazySpellAssets)).toHaveLength(60);
     });
 
     test("loads sandbox roster art only while the pre-fight overlay exists", () => {
@@ -526,6 +526,27 @@ describe("pixi texture bundle split", () => {
             "ambient_fire_video_torch_left_natural_v4_64_atlas",
         ]) {
             expect(isProductionOmittedAssetKey(key)).toBe(false);
+        }
+    });
+
+    test("loads effect icons and spellbook furniture only when requested", () => {
+        const { core, lazySpellAssets } = getSplitBundles({ animationsEnabled: false });
+
+        for (const key of [
+            "break_256",
+            "deep_wounds_256",
+            "freeze_256",
+            "poison_256",
+            "spell_cell_260",
+            "spell_cast_wax_seal_blank_v1",
+            "spell_inner_frame_linework_v2",
+            "spell_stack_fill_green_variant2",
+            "spell_stack_fill_red_variant2",
+            "spell_stack_rail_variant2",
+        ]) {
+            expect(isLazySpellAssetKey(key)).toBe(true);
+            expect(lazySpellAssets[key]).toBeDefined();
+            expect(core[key]).toBeUndefined();
         }
     });
 });

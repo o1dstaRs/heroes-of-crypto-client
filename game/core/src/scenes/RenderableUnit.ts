@@ -2052,17 +2052,11 @@ export class RenderableUnit extends Unit {
                       : undefined;
             const iconTex = this.texResolver(generatedIconKey ?? SpellHelper.spellToTextureName(spellName));
             const cellTex = this.texResolver("spell_cell_260");
-            const scrollBadgeTex =
-                this.texResolver("spell_cast_wax_seal_blank_v1") ?? Texture.from(images.spell_cast_wax_seal_blank_v1);
-            const stackRailTex =
-                this.texResolver("spell_stack_rail_variant2") ?? Texture.from(images.spell_stack_rail_variant2);
-            const stackFillGreenTex =
-                this.texResolver("spell_stack_fill_green_variant2") ??
-                Texture.from(images.spell_stack_fill_green_variant2);
-            const stackFillRedTex =
-                this.texResolver("spell_stack_fill_red_variant2") ?? Texture.from(images.spell_stack_fill_red_variant2);
-            const innerFrameTex =
-                this.texResolver("spell_inner_frame_linework_v2") ?? Texture.from(images.spell_inner_frame_linework_v2);
+            const scrollBadgeTex = this.texResolver("spell_cast_wax_seal_blank_v1");
+            const stackRailTex = this.texResolver("spell_stack_rail_variant2");
+            const stackFillGreenTex = this.texResolver("spell_stack_fill_green_variant2");
+            const stackFillRedTex = this.texResolver("spell_stack_fill_red_variant2");
+            const innerFrameTex = this.texResolver("spell_inner_frame_linework_v2");
 
             if (iconTex && cellTex) {
                 const newSpell = new PixiRenderableSpell(
