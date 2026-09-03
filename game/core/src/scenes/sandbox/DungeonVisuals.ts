@@ -516,6 +516,8 @@ export class DungeonVisuals {
     private lavaColorFilter?: ColorMatrixFilter;
     private lavaFireColorFilter?: ColorMatrixFilter;
     private lavaFire2ColorFilter?: ColorMatrixFilter;
+    /** Last material state written to the stable lava meshes; avoids rebuilding matrices every frame. */
+    private lavaColorTuningSignature = "";
     /** Editor-only warm spill clipped to the static pit, below fire and grate. */
     private lavaPitLight?: Graphics;
     private lavaSplashGraphics?: Graphics;
@@ -845,6 +847,26 @@ export class DungeonVisuals {
         const fireTarget = this.lavaFireOverlayMesh;
         const fire2Target = this.lavaFireOverlayMeshB;
         if (!baseTargets.length && !fireTarget && !fire2Target) return;
+        const targetShape = `${this.centerTerrainSprite ? 1 : 0}:${this.lavaTerrainMesh ? 1 : 0}:${this.lavaGrateOverlayMesh ? 1 : 0}:${fireTarget ? 1 : 0}:${fire2Target ? 1 : 0}`;
+        const signature = tuning
+            ? [
+                  targetShape,
+                  tuning.alpha,
+                  tuning.brightness,
+                  tuning.saturation,
+                  tuning.contrast,
+                  tuning.fireAlpha,
+                  tuning.fireBrightness,
+                  tuning.fireSaturation,
+                  tuning.fireContrast,
+                  tuning.fire2Alpha,
+                  tuning.fire2Brightness,
+                  tuning.fire2Saturation,
+                  tuning.fire2Contrast,
+              ].join(":")
+            : `${targetShape}:off`;
+        if (signature === this.lavaColorTuningSignature) return;
+        this.lavaColorTuningSignature = signature;
         if (!tuning) {
             for (const target of [...baseTargets, fireTarget, fire2Target].filter(
                 (candidate): candidate is Sprite | PerspectiveMesh => !!candidate,
