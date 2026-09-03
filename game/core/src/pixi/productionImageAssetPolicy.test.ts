@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { isProductionOmittedEnvironmentAssetKey } from "./productionImageAssetPolicy";
+import {
+    isProductionOmittedEnvironmentAssetKey,
+    isProductionOmittedLegacyUiAssetKey,
+} from "./productionImageAssetPolicy";
 
 describe("production environment image policy", () => {
     test("keeps every environment atlas used by the live dungeon", () => {
@@ -33,5 +36,26 @@ describe("production environment image policy", () => {
         expect(isProductionOmittedEnvironmentAssetKey("background_new")).toBe(false);
         expect(isProductionOmittedEnvironmentAssetKey("wolf_512")).toBe(false);
         expect(isProductionOmittedEnvironmentAssetKey("ui_banner_green_soft_wide")).toBe(false);
+    });
+
+    test("omits only replaced legacy UI exports", () => {
+        for (const key of [
+            "book_1024",
+            "book_1024_pre",
+            "book_1024_previous",
+            "ui_banner_green_soft_wide",
+            "ui_banner_red_soft_wide",
+        ]) {
+            expect(isProductionOmittedLegacyUiAssetKey(key)).toBe(true);
+        }
+        for (const key of [
+            "book_1024_clean_pages_v1",
+            "ui_close_button_square_gothic_frame_v1",
+            "ui_container_frame_1_9slice",
+            "ui_container_frame_2_9slice",
+            "ui_outer_frame_3_9slice",
+        ]) {
+            expect(isProductionOmittedLegacyUiAssetKey(key)).toBe(false);
+        }
     });
 });

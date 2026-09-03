@@ -8,7 +8,10 @@ const generatedDir = path.resolve(__dirname, "../src/generated");
 const outputFile = path.join(generatedDir, "image_imports.ts");
 const productionBuild = process.env.NODE_ENV === "production";
 const { isProductionOmittedAssetKey } = require("../src/pixi/imageAssetTiers.ts");
-const { isProductionOmittedEnvironmentAssetKey } = require("../src/pixi/productionImageAssetPolicy.ts");
+const {
+    isProductionOmittedEnvironmentAssetKey,
+    isProductionOmittedLegacyUiAssetKey,
+} = require("../src/pixi/productionImageAssetPolicy.ts");
 
 const SEGMENT_NAME_TO_IMPORT_NAME = {
     0: "zero",
@@ -53,7 +56,10 @@ for (const file of files) {
             key,
             file,
             productionOmitted:
-                productionBuild && (isProductionOmittedAssetKey(key) || isProductionOmittedEnvironmentAssetKey(key)),
+                productionBuild &&
+                (isProductionOmittedAssetKey(key) ||
+                    isProductionOmittedEnvironmentAssetKey(key) ||
+                    isProductionOmittedLegacyUiAssetKey(key)),
         });
     }
 }

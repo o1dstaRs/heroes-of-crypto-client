@@ -12,6 +12,19 @@ const LIVE_PRODUCTION_ENVIRONMENT_ASSETS = new Set([
     "ambient_fire_video_torch_right_natural_v4_64_atlas",
 ]);
 
+const UNUSED_PRODUCTION_LEGACY_UI_ASSETS = new Set([
+    "book_1024",
+    "book_1024_pre",
+    "book_1024_previous",
+    "ui_banner_green_soft_wide",
+    "ui_banner_red_soft_wide",
+]);
+
 export function isProductionOmittedEnvironmentAssetKey(key: string): boolean {
     return isDeferredEnvironmentAssetKey(key) && !LIVE_PRODUCTION_ENVIRONMENT_ASSETS.has(key);
+}
+
+/** Retired UI exports with no runtime consumer; their current replacements use distinct keys. */
+export function isProductionOmittedLegacyUiAssetKey(key: string): boolean {
+    return UNUSED_PRODUCTION_LEGACY_UI_ASSETS.has(key);
 }
