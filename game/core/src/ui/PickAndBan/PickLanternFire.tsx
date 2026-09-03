@@ -1,5 +1,5 @@
 import { Box } from "@mui/joy";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef } from "react";
 
 import { images as rawImages } from "../../generated/image_imports";
 import { readPickLanternFireTuning, type PickLanternFireSlot } from "./pickLanternFireTuning";
@@ -15,22 +15,25 @@ const framePosition = (frame: number): string => {
     const row = Math.floor(frame / ATLAS_COLUMNS);
     return `${(column / (ATLAS_COLUMNS - 1)) * 100}% ${(row / (ATLAS_ROWS - 1)) * 100}%`;
 };
+const FRAME_POSITIONS = Array.from({ length: ATLAS_FRAMES }, (_, frame) => framePosition(frame));
 
-export const PickLanternFire: React.FC<{ slot: PickLanternFireSlot }> = ({ slot }) => {
+export const PickLanternFire: React.FC<{ slot: PickLanternFireSlot; active?: boolean }> = ({ slot, active = true }) => {
     const tuning = readPickLanternFireTuning(slot);
-    const [frame, setFrame] = useState(slot * 29);
+    const firstFrame = (slot * 29) % ATLAS_FRAMES;
+    const flameRef = useRef<HTMLDivElement | null>(null);
     const cleanupFilterId = `pick-lantern-fire-dark-cleanup-${slot}`;
 
     useEffect(() => {
-        if (!tuning.enabled) return undefined;
-        const interval = window.setInterval(
-            () => setFrame((current) => (current + 1) % ATLAS_FRAMES),
-            1000 / tuning.fps,
-        );
+        if (!active || !tuning.enabled) return undefined;
+        let frame = firstFrame;
+        const interval = window.setInterval(() => {
+            frame = (frame + 1) % ATLAS_FRAMES;
+            if (flameRef.current) flameRef.current.style.backgroundPosition = FRAME_POSITIONS[frame];
+        }, 1000 / tuning.fps);
         return () => window.clearInterval(interval);
-    }, [tuning.enabled, tuning.fps]);
+    }, [active, firstFrame, tuning.enabled, tuning.fps]);
 
-    if (!tuning.enabled) return null;
+    if (!active || !tuning.enabled) return null;
 
     return (
         <Box
@@ -50,6 +53,7 @@ export const PickLanternFire: React.FC<{ slot: PickLanternFireSlot }> = ({ slot 
             }}
         >
             <Box
+                ref={flameRef}
                 sx={{
                     position: "absolute",
                     left: "50%",
@@ -108,7 +112,7 @@ export const PickLanternFire: React.FC<{ slot: PickLanternFireSlot }> = ({ slot 
                     backgroundImage: `url(${NATURAL_ATLAS})`,
                     backgroundRepeat: "no-repeat",
                     backgroundSize: `${ATLAS_COLUMNS * 100}% ${ATLAS_ROWS * 100}%`,
-                    backgroundPosition: framePosition(frame),
+                    backgroundPosition: FRAME_POSITIONS[firstFrame],
                     filter: `url(#${cleanupFilterId}) brightness(${tuning.brightness}) contrast(${tuning.contrast}) saturate(${tuning.saturation}) hue-rotate(${tuning.hue}deg)`,
                     transformOrigin: "50% 100%",
                     pointerEvents: "none",

@@ -614,8 +614,11 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
 
         // Periodic snapshot refresh as a fallback — keeps the board in sync even if SSE
         // drops or lags. Polls every 4 seconds; the snapshot endpoint is cheap.
-        const pollInterval = window.setInterval(() => {
+        const pollSnapshot = () => {
             if (cancelled) return;
+            // SSE remains authoritative while the tab is away. Skip the fallback request and its React
+            // update in background tabs; one immediate poll below catches up when the player returns.
+            if (document.hidden) return;
             refreshSnapshot()
                 .then(() => {
                     if (!cancelled) {
@@ -627,11 +630,17 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                         setGameUnavailable(true);
                     }
                 });
-        }, 4000);
+        };
+        const onVisibilityChange = () => {
+            if (!document.hidden) pollSnapshot();
+        };
+        const pollInterval = window.setInterval(pollSnapshot, 4000);
+        document.addEventListener("visibilitychange", onVisibilityChange);
 
         return () => {
             cancelled = true;
             window.clearInterval(pollInterval);
+            document.removeEventListener("visibilitychange", onVisibilityChange);
         };
     }, [refreshSnapshot, replayOnly]);
 
@@ -2745,9 +2754,13 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     // Placement countdown for the header chip.
     const [augmentNowMs, setAugmentNowMs] = useState(Date.now());
     useEffect(() => {
-        const id = setInterval(() => setAugmentNowMs(Date.now()), 1000);
-        return () => clearInterval(id);
-    }, []);
+        if (snapshot.phase !== PlayPhase.PLACEMENT || snapshot.placementDeadlineMs <= 0) {
+            return undefined;
+        }
+        setAugmentNowMs(Date.now());
+        const id = window.setInterval(() => setAugmentNowMs(Date.now()), 1000);
+        return () => window.clearInterval(id);
+    }, [snapshot.phase, snapshot.placementDeadlineMs]);
     const augmentSecondsLeft =
         snapshot.placementDeadlineMs > 0
             ? Math.max(0, Math.ceil((snapshot.placementDeadlineMs - augmentNowMs) / 1000))
@@ -3020,8 +3033,8 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                 variant="plain"
                                 sx={{ ...draftShellSx, height: "100%", border: "none" }}
                             >
-                                <PickLanternFire slot={0} />
-                                <PickLanternFire slot={1} />
+                                <PickLanternFire slot={0} active={augmentOverlayOpen} />
+                                <PickLanternFire slot={1} active={augmentOverlayOpen} />
                                 {/* The same fixed 1340x800 board every draft phase uses, so this step is
                                     pixel-identical to the ones before it and only scales with the window. */}
                                 <Box sx={draftBoardSx(draftScale)} onMouseLeave={endAugmentInspect}>
