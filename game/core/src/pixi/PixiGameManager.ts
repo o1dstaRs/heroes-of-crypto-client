@@ -232,7 +232,14 @@ export class PixiGameManager {
         // Init Pixi using wrapper size
         const pixiApp = new PixiApp(); // sync constructor
         this.pixiApp = pixiApp;
-        await pixiApp.init(glCanvas, 2048, 2048); // async init, safe to await here
+        // Start at the real viewport size. The old fixed 2048x2048 boot allocated a large throwaway
+        // Retina framebuffer before onResize immediately replaced it, causing an avoidable memory spike.
+        const initialRect = wrapper.getBoundingClientRect();
+        await pixiApp.init(
+            glCanvas,
+            Math.max(1, Math.floor(initialRect.width)),
+            Math.max(1, Math.floor(initialRect.height)),
+        ); // async init, safe to await here
         if (!isCurrentLifecycle()) {
             pixiApp.destroy();
             return;

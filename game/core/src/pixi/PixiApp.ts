@@ -5,6 +5,7 @@ import "pixi.js/unsafe-eval";
 import { Application, Container, Ticker } from "pixi.js";
 
 import { boardFitVerticalShift } from "./boardFit";
+import { renderResolutionForViewport } from "./renderResolution";
 import { ensureCanvasContextUsable, recordContextAboutToBeLost } from "./webglContextGuard";
 
 export class PixiApp {
@@ -34,9 +35,10 @@ export class PixiApp {
         // error. Restores the context when possible; throws (recoverable) when it can't.
         await ensureCanvasContextUsable(canvas);
 
-        // Cap render resolution at 2x: 3x (dense phone/tablet screens) costs ~2.25x the fragment
-        // work for no perceptible gain over retina-sharp 2x — a big, safe fps win on weak GPUs.
-        const DPR = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+        // Preserve 2x on ordinary Retina layouts, but cap the complete backing store at 4K pixels.
+        // Full-screen filters allocate buffers at this size too, so pixel area—not DPR alone—is the
+        // reliable bound for GPU memory on large/high-DPI displays.
+        const DPR = renderResolutionForViewport(width, height, window.devicePixelRatio);
 
         this.app = new Application();
         await this.app.init({
@@ -124,9 +126,7 @@ export class PixiApp {
         return this.effectsContainer;
     }
     public resize(width = 2048, height = 2048): void {
-        // Cap render resolution at 2x: 3x (dense phone/tablet screens) costs ~2.25x the fragment
-        // work for no perceptible gain over retina-sharp 2x — a big, safe fps win on weak GPUs.
-        const DPR = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+        const DPR = renderResolutionForViewport(width, height, window.devicePixelRatio);
         this.app.renderer.resolution = DPR;
         this.app.renderer.resize(width, height);
         const c = this.app.canvas as HTMLCanvasElement;
