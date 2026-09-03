@@ -36,6 +36,8 @@ export class PixiDrawer {
     private terrainObstacles: Obstacle[] = [];
     private animating = false;
     private flyingUnits: IFlyingUnit[] = [];
+    /** Reused by pointer-driven AOE previews rather than allocating a map for every hover update. */
+    private readonly drawableAOECells = new Map<number, HoCMath.XY>();
     private readonly COLOR = {
         ORANGE: 0xe84a34,
         YELLOW: 0xfff36d,
@@ -195,15 +197,16 @@ export class PixiDrawer {
         return this.animating;
     }
     public update(_deltaTime: number): void {
-        // Cull finished flying units
-        const stillFlying: IFlyingUnit[] = [];
+        // The legacy flying-unit renderer is disabled below. Preserve the array itself while clearing any
+        // stale entries: PixiScene.Step calls this on every frame, so replacing it with [] here produced a
+        // steady stream of short-lived allocations even in a completely idle fight.
         // for (const f of this.flyingUnits) {
-        // if (f.unit.isAnimatingMovement()) stillFlying.push(f);
+        // if (!f.unit.isAnimatingMovement()) ...remove it in place...
         // }
-        this.flyingUnits = stillFlying;
+        this.flyingUnits.length = 0;
 
         // Global animating flag
-        this.animating = this.flyingUnits.length > 0;
+        this.animating = false;
     }
     public drawPath(
         _color: number,
@@ -298,7 +301,8 @@ export class PixiDrawer {
         this.aoeGfx.clear();
         if (!hoverAOECells?.length) return;
 
-        const drawableCells = new Map<number, HoCMath.XY>();
+        const drawableCells = this.drawableAOECells;
+        drawableCells.clear();
 
         for (const c of hoverAOECells) {
             const key = (c.x << 4) | c.y;
@@ -419,11 +423,15 @@ export class PixiDrawer {
         this.unitsContainer.destroy({ children: true });
         this.terrainContainerFront.destroy({ children: true });
         this.overlayContainer.destroy({ children: true });
+        // This is a sibling of overlayContainer, not one of its children. Leaving it out retained the
+        // hover/attack/AOE graphics and one attached container after every scene replacement.
+        this.interactionContainer.destroy({ children: true });
 
         // Null out arrays
         this.holeLayersSprites.length = 0;
         this.terrainObstacles.length = 0;
         this.flyingUnits.length = 0;
+        this.drawableAOECells.clear();
         this.animating = false;
     }
 }
