@@ -168,6 +168,46 @@ export const reconcileManagedSpriteFilters = <T>(
 const EMPTY_FILTERS: readonly Filter[] = Object.freeze([]);
 const CONTINUOUS_EFFECT_SAME_FRAME_GUARD_MS = 4;
 
+const newContinuousEffectDrawState = (): ContinuousEffectDrawState => ({
+    drawnAtMs: Number.NEGATIVE_INFINITY,
+    x: Number.NaN,
+    y: Number.NaN,
+    cellSize: Number.NaN,
+    footprintWidth: 0,
+    footprintHeight: 0,
+    color: 0,
+});
+
+const shouldRedrawContinuousEffect = (
+    state: ContinuousEffectDrawState,
+    nowMs: number,
+    pos: HoCMath.XY,
+    cellSize: number,
+    footprintWidth: number,
+    footprintHeight: number,
+    color = 0,
+): boolean => {
+    const sameGeometry =
+        state.x === pos.x &&
+        state.y === pos.y &&
+        state.cellSize === cellSize &&
+        state.footprintWidth === footprintWidth &&
+        state.footprintHeight === footprintHeight &&
+        state.color === color;
+    const elapsedSinceDraw = nowMs - state.drawnAtMs;
+    if (sameGeometry && elapsedSinceDraw >= 0 && elapsedSinceDraw < CONTINUOUS_EFFECT_SAME_FRAME_GUARD_MS) {
+        return false;
+    }
+    state.drawnAtMs = nowMs;
+    state.x = pos.x;
+    state.y = pos.y;
+    state.cellSize = cellSize;
+    state.footprintWidth = footprintWidth;
+    state.footprintHeight = footprintHeight;
+    state.color = color;
+    return true;
+};
+
 let sharedRevealedRosterDesaturateFilter: ColorMatrixFilter | undefined;
 
 /** Every revealed opponent uses the same immutable grayscale matrix, so one filter serves the whole roster. */
@@ -1766,11 +1806,14 @@ export class RenderableUnit extends Unit {
     // Light-blue circulating ring + small orbiting dots shown around a unit while its Water Shield buff is
     // active (the once-per-battle absorb). Created lazily; hidden the frame the shield breaks.
     private waterShieldAura?: Graphics;
+    private waterShieldAuraDrawState?: ContinuousEffectDrawState;
     // Animated water vortex under a unit trapped by Whirlpool. It keys off the shared status predicate so
     // the live Sandbox debuff object and Ranked's authoritative applied_debuffs snapshot render identically.
     private whirlpoolAura?: Graphics;
+    private whirlpoolAuraDrawState?: ContinuousEffectDrawState;
     // Ice "crust" encasing a unit under the "Freeze" status (drawn over the sprite, above the icy tint).
     private freezeCrust?: Graphics;
+    private freezeCrustDrawState?: ContinuousEffectDrawState;
     // Additive light layer over the ice crust: a sheen raking across + caustic sparks drifting inside the
     // shell. Separate Graphics so the light blends additively (glows) while the frost stays normal-blend.
     private freezeLight?: Graphics;
@@ -1866,8 +1909,11 @@ export class RenderableUnit extends Unit {
         ru.activeTurnFireFrameIndex = -1;
         ru.activeAuraColor = 0xffffff;
         ru.waterShieldAura = undefined;
+        ru.waterShieldAuraDrawState = undefined;
         ru.whirlpoolAura = undefined;
+        ru.whirlpoolAuraDrawState = undefined;
         ru.freezeCrust = undefined;
+        ru.freezeCrustDrawState = undefined;
         ru.freezeLight = undefined;
         ru.waterShieldBreakGfx = undefined;
         ru.waterShieldBreakStartMs = undefined;
@@ -3047,24 +3093,20 @@ export class RenderableUnit extends Unit {
         const cell = gs.getCellSize();
         const footprintWidth = this.getFootprintWidth();
         const footprintHeight = this.getFootprintHeight();
-        const drawState = this.activeAuraDrawState;
-        const sameGeometry =
-            drawState?.x === pos.x &&
-            drawState.y === pos.y &&
-            drawState.cellSize === cell &&
-            drawState.footprintWidth === footprintWidth &&
-            drawState.footprintHeight === footprintHeight &&
-            drawState.color === this.activeAuraColor;
-        const elapsedSinceDraw = nowMs - (drawState?.drawnAtMs ?? Number.NEGATIVE_INFINITY);
-        if (sameGeometry && elapsedSinceDraw >= 0 && elapsedSinceDraw < CONTINUOUS_EFFECT_SAME_FRAME_GUARD_MS) return;
-        const nextDrawState = (this.activeAuraDrawState ??= {} as ContinuousEffectDrawState);
-        nextDrawState.drawnAtMs = nowMs;
-        nextDrawState.x = pos.x;
-        nextDrawState.y = pos.y;
-        nextDrawState.cellSize = cell;
-        nextDrawState.footprintWidth = footprintWidth;
-        nextDrawState.footprintHeight = footprintHeight;
-        nextDrawState.color = this.activeAuraColor;
+        const drawState = (this.activeAuraDrawState ??= newContinuousEffectDrawState());
+        if (
+            !shouldRedrawContinuousEffect(
+                drawState,
+                nowMs,
+                pos,
+                cell,
+                footprintWidth,
+                footprintHeight,
+                this.activeAuraColor,
+            )
+        ) {
+            return;
+        }
         const isMultiCell = footprintWidth > 1 || footprintHeight > 1;
         // Begin the turn waves on the portrait rim (slightly inside it), rather than in the empty
         // space above/outside the creature. This keeps the indicator visually attached to the cap.
@@ -3149,9 +3191,13 @@ export class RenderableUnit extends Unit {
         this.waterShieldAura.visible = true;
 
         const cell = gs.getCellSize();
+        const footprintWidth = this.getFootprintWidth();
+        const footprintHeight = this.getFootprintHeight();
+        const drawState = (this.waterShieldAuraDrawState ??= newContinuousEffectDrawState());
+        if (!shouldRedrawContinuousEffect(drawState, nowMs, pos, cell, footprintWidth, footprintHeight)) return;
         // One semi-axis per footprint side, so the ring circles the feet of a rectangular body too.
-        const ringRadiusX = cell * footprintEffectExtent(0.52, 0.92, this.getFootprintWidth());
-        const ringRadiusY = cell * footprintEffectExtent(0.52, 0.92, this.getFootprintHeight());
+        const ringRadiusX = cell * footprintEffectExtent(0.52, 0.92, footprintWidth);
+        const ringRadiusY = cell * footprintEffectExtent(0.52, 0.92, footprintHeight);
         const t = nowMs / 1000;
         const color = 0x66ccff; // light blue
 
@@ -3207,10 +3253,14 @@ export class RenderableUnit extends Unit {
         this.whirlpoolAura.visible = true;
 
         const cell = gs.getCellSize();
+        const footprintWidth = this.getFootprintWidth();
+        const footprintHeight = this.getFootprintHeight();
+        const drawState = (this.whirlpoolAuraDrawState ??= newContinuousEffectDrawState());
+        if (!shouldRedrawContinuousEffect(drawState, nowMs, pos, cell, footprintWidth, footprintHeight)) return;
         // The pool is already an ellipse (a circular funnel seen in perspective). Its horizontal extent now
         // follows the footprint's width and its depth the footprint's height, on top of that squash.
-        const radiusX = cell * footprintEffectExtent(0.66, 1.12, this.getFootprintWidth());
-        const radiusY = cell * footprintEffectExtent(0.66, 1.12, this.getFootprintHeight());
+        const radiusX = cell * footprintEffectExtent(0.66, 1.12, footprintWidth);
+        const radiusY = cell * footprintEffectExtent(0.66, 1.12, footprintHeight);
         const squash = 0.42;
         const time = nowMs / 1000;
         const pulse = 0.5 + 0.5 * Math.sin(time * 4.2);
@@ -3279,11 +3329,21 @@ export class RenderableUnit extends Unit {
         this.freezeCrust.visible = true;
 
         const cell = gs.getCellSize();
+        const footprintWidth = this.getFootprintWidth();
+        const footprintHeight = this.getFootprintHeight();
+        const drawState = (this.freezeCrustDrawState ??= newContinuousEffectDrawState());
+        if (!shouldRedrawContinuousEffect(drawState, nowMs, pos, cell, footprintWidth, footprintHeight)) {
+            if (this.freezeLight) {
+                this.freezeLight.zIndex = 4000 - pos.y + 0.55;
+                this.freezeLight.visible = true;
+            }
+            return;
+        }
         // The pane covers the body, so its two half-extents follow the two footprint sides. Everything the
         // frost DECORATES with (stroke widths, glint and spark sizes) keeps one scalar taken from the
         // shorter side: those are thicknesses, not extents, and must not stretch with the pane.
-        const halfWidth = cell * footprintEffectExtent(0.56, 1.02, this.getFootprintWidth());
-        const halfHeight = cell * footprintEffectExtent(0.56, 1.02, this.getFootprintHeight());
+        const halfWidth = cell * footprintEffectExtent(0.56, 1.02, footprintWidth);
+        const halfHeight = cell * footprintEffectExtent(0.56, 1.02, footprintHeight);
         const half = Math.min(halfWidth, halfHeight);
         const t = nowMs / 1000;
         const shimmer = 0.5 + 0.5 * Math.sin(t * 1.6);

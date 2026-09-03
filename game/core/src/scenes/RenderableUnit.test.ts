@@ -2288,6 +2288,12 @@ describe("RenderableUnit steady-state overlays", () => {
             nowMs: number,
         ) => void;
         whirlpoolAura?: Graphics;
+        updateWhirlpoolAura: (
+            worldRoot: Container,
+            gs: typeof gridSettings,
+            pos: { x: number; y: number },
+            nowMs: number,
+        ) => void;
         smallTextureName: string;
     };
 
@@ -2433,6 +2439,27 @@ describe("RenderableUnit steady-state overlays", () => {
         expect(clearCount).toBe(1);
         internals.updateActiveAura(worldRoot, gridSettings, { x: pos.x + 1, y: pos.y }, 1_005);
         expect(clearCount).toBe(2);
+    });
+
+    test("coalesces stationary status-effect redraws but follows movement immediately", () => {
+        const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
+        const worldRoot = new Container();
+        const internals = unit as unknown as OverlayInternals;
+        const pos = { x: 384, y: 640 };
+        internals.updateWhirlpoolAura(worldRoot, gridSettings, pos, 1_000);
+
+        const vortex = internals.whirlpoolAura!;
+        const originalClear = vortex.clear.bind(vortex);
+        let clearCount = 0;
+        vortex.clear = () => {
+            clearCount++;
+            return originalClear();
+        };
+
+        internals.updateWhirlpoolAura(worldRoot, gridSettings, pos, 1_001);
+        expect(clearCount).toBe(0);
+        internals.updateWhirlpoolAura(worldRoot, gridSettings, { x: pos.x + 1, y: pos.y }, 1_002);
+        expect(clearCount).toBe(1);
     });
 
     test("shows Whirlpool from both the Sandbox debuff object and Ranked's authoritative display status", () => {
