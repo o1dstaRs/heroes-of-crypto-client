@@ -209,6 +209,10 @@ export class SmokeCloudLayer {
             this.filter = undefined;
             this.clouds.clear();
         });
+    }
+    /** Compile the relatively heavy weather shader only once a smoke-cloud spell actually needs it. */
+    private ensureFilter(): void {
+        if (this.filter) return;
         try {
             this.filter = Filter.from({
                 gl: { vertex: CLOUD_VERTEX, fragment: CLOUD_FRAGMENT },
@@ -242,6 +246,10 @@ export class SmokeCloudLayer {
      * would read as a rendering glitch rather than as smoke being displaced.
      */
     public update(dt: number, cells: readonly ISmokeCloudCell[], cellSize: number, toWorld: ToWorld): void {
+        // Most fights never contain spell smoke. Keep the idle layer at two lightweight display objects and
+        // avoid compiling its six-octave shader or doing weather math until a cloud exists (including fadeout).
+        if (!cells.length && !this.clouds.size) return;
+        this.ensureFilter();
         this.time += dt;
         const windAngle = Math.sin(this.time * 0.055) * 0.9 + Math.sin(this.time * 0.021 + 2.1) * 0.5;
         const windSpeed = 0.75 + 0.35 * Math.sin(this.time * 0.13 + 0.7);

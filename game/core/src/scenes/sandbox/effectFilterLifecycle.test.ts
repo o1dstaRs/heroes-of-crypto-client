@@ -6,6 +6,17 @@ import { WindLayer } from "./WindLayer";
 test.each([
     ["smoke cloud", () => new SmokeCloudLayer()],
     ["wind", () => new WindLayer()],
+])("%s filter stays unallocated while the effect is idle", (_name, createLayer) => {
+    const layer = createLayer();
+    const internals = layer as unknown as { filter?: unknown };
+
+    expect(internals.filter).toBeUndefined();
+    layer.getContainer().destroy({ children: true });
+});
+
+test.each([
+    ["smoke cloud", () => new SmokeCloudLayer()],
+    ["wind", () => new WindLayer()],
 ])("%s filter is released when the scene destroys its container", (_name, createLayer) => {
     const layer = createLayer();
     const internals = layer as unknown as { filter?: { destroy(): void } };

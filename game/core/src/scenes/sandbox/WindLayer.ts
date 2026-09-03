@@ -108,6 +108,10 @@ export class WindLayer {
             this.filter?.destroy();
             this.filter = undefined;
         });
+    }
+    /** Compile the gust shader lazily; ground-only fights never need its program or filter resources. */
+    private ensureFilter(): void {
+        if (this.filter) return;
         try {
             this.filter = Filter.from({
                 gl: { vertex: WIND_VERTEX, fragment: WIND_FRAGMENT },
@@ -132,15 +136,6 @@ export class WindLayer {
     }
     /** Advance the wind and redraw the streaks for the current flying-unit tracks. */
     public update(dt: number, tracks: readonly ILingeringTrack[]): void {
-        this.time += dt;
-        if (this.filter) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const res = this.filter.resources as any;
-            if (res?.windUniforms?.uniforms) {
-                res.windUniforms.uniforms.uTime = this.time;
-            }
-        }
-
         let hasFlyingTrack = false;
         for (const track of tracks) {
             if (track.flying) {
@@ -154,6 +149,16 @@ export class WindLayer {
                 this.hasGeometry = false;
             }
             return;
+        }
+
+        this.ensureFilter();
+        this.time += dt;
+        if (this.filter) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const res = this.filter.resources as any;
+            if (res?.windUniforms?.uniforms) {
+                res.windUniforms.uniforms.uTime = this.time;
+            }
         }
 
         const g = this.graphics;
