@@ -22,7 +22,6 @@ import Tooltip from "@mui/joy/Tooltip";
 import Typography from "@mui/joy/Typography";
 import React, { useCallback, useEffect, useState } from "react";
 
-import { animationAtlases, AnimationUnitName, type AnimationAtlasMeta } from "../../generated/animation_atlases";
 import { images, type ImageKey } from "../../generated/image_imports";
 import { buildAtlasPingPongTiming } from "../../scenes/atlasAnimationTiming";
 import { IVisibleImpact } from "../../scenes/VisibleState";
@@ -50,6 +49,8 @@ import { formatSidebarStat, useSidebarMetrics, type ISidebarMetrics } from "./si
 
 import { commonTooltipSx } from "./tooltipStyles";
 import { areUnitStatsPropsEqual, type UnitStatsListItemProps } from "./unitStatsMemo";
+import { getDefaultAnimationConfig, isAtlasReady, type SidebarAtlasMeta, warmAtlas } from "./unitAtlas";
+import { stonePlateSx } from "./stonePlateStyles";
 import { hocDisplayFontFamily } from "../hocTheme";
 import { personalArmyCssColor } from "../../scenes/personalArmyTint";
 
@@ -111,150 +112,8 @@ function getSynergyTooltip(synergyKey: string, level: number): string {
         .replace(/\{\}/, SynergyKeysToPower[synergyKey]?.[1]?.toString() || "0")}`;
 }
 
-function normalizeUnitNameForAtlas(name?: string | null): AnimationUnitName | null {
-    if (!name) return null;
-    const trimmed = name.trim();
-    if (!trimmed) return null;
-    if (trimmed === "Scavenger") return "Thief" as AnimationUnitName;
-    if (trimmed === "Wandering Mage") return "Ash Moth" as AnimationUnitName;
-    if (trimmed in animationAtlases) return trimmed as AnimationUnitName;
-    return null;
-}
-
-function atlasImageKeyFromUnitAndState(unitName: string, state: string): ImageKey | null {
-    const base = unitName.toLowerCase().replace(/\s+/g, "_");
-    const stateLeft = state.toLowerCase();
-    // This portrait is only a few hundred CSS pixels tall. The quarter export is already sharp at
-    // Retina density and avoids decoding (and publishing) the multi-thousand-pixel authoring sheet.
-    const key = `${base}_${stateLeft}_atlas_quarter` as ImageKey;
-    if (key in images) return key;
-    return null;
-}
-
-type AtlasMeta = AnimationAtlasMeta;
-
-const FULL_BODY_PORTRAIT_UNITS = new Set([
-    "Abomination",
-    "Angel",
-    "Arachna Queen",
-    "Arachna Spider",
-    "Arbalester",
-    "Battle Mage",
-    "Behemoth",
-    "Beholder",
-    "Berserker",
-    "Black Dragon",
-    "Blacksmith",
-    "Centaur",
-    "Champion",
-    "Crusader",
-    "Cyclops",
-    "Dryad",
-    "Efreet",
-    "Elf",
-    "Fairy",
-    "Frenzied Boar",
-    "Gargantuan",
-    "Goblin Knight",
-    "Griffin",
-    "Harpy",
-    "Healer",
-    "Hydra",
-    "Hyena",
-    "Leprechaun",
-    "Magic Dragon",
-    "Manticore",
-    "Mantis",
-    "Medusa",
-    "Mermaid",
-    "Monk",
-    "Nightmare",
-    "Nomad",
-    "Ogre Mage",
-    "Peasant",
-    "Pegasus",
-    "Pikeman",
-    "Satyr",
-    "Squire",
-    "Thunderbird",
-    "Trent",
-    "Troglodyte",
-    "Troll",
-    "Tsar Cannon",
-    "Unicorn",
-    "Valkyrie",
-    "White Tiger",
-    "Wolf",
-    "Wolf Rider",
-    "Wyvern",
-    "Zena",
-    "Wandering Mage",
-]);
-
-function getDefaultAnimationConfig(unitName?: string | null): { meta: AtlasMeta; imageSrc: string } | null {
-    // Sidebar art is a portrait, not a distant full-body board pose. All creatures from the approved
-    // full-body refresh have a matching generated chest-to-head 512 image, so keep that crop here while
-    // the battlefield uses their authored idle/action atlases.
-    if (unitName && FULL_BODY_PORTRAIT_UNITS.has(unitName.trim())) return null;
-    const normalized = normalizeUnitNameForAtlas(unitName);
-    if (!normalized) return null;
-    const unitStates = animationAtlases[normalized] as unknown as Record<string, AtlasMeta>;
-    const stateNames = Object.keys(unitStates);
-    if (!stateNames.length) return null;
-    const preferredState = stateNames.includes("idle")
-        ? "idle"
-        : stateNames.includes("default")
-          ? "default"
-          : stateNames[0];
-    const meta = unitStates[preferredState];
-    const imageKey = atlasImageKeyFromUnitAndState(normalized, preferredState as string);
-    if (!imageKey) return null;
-    const imageSrc = images[imageKey];
-    if (!imageSrc) return null;
-    return { meta, imageSrc };
-}
-
-// Decode the atlas off-thread via HTMLImageElement.decode() and cache it per URL, so the first
-// selection stays responsive and repeat selections are instant. The cache also lets us prefetch the
-// up-next units' atlases in idle time.
-const decodedImageCache = new Map<string, Promise<void>>();
-// Srcs whose decoded image is already available. Lets the component mount showing the atlas's
-// first frame right away (no portrait fallback flash) when the atlas was prefetched/decoded.
-const readyAtlasSrcs = new Set<string>();
-
-function warmAtlas(src: string): Promise<void> {
-    let existing = decodedImageCache.get(src);
-    if (!existing) {
-        existing = new Promise<void>((resolve) => {
-            const img = new Image();
-            img.decoding = "async";
-            img.src = src;
-            // decode() resolves once the image is loaded AND decoded off the main thread. Resolve on
-            // either outcome so a broken URL still unblocks the UI (fallback stays in place).
-            img.decode().then(
-                () => resolve(),
-                () => resolve(),
-            );
-        });
-        decodedImageCache.set(src, existing);
-        existing.then(() => readyAtlasSrcs.add(src));
-    }
-    return existing;
-}
-
-/** True only if the decoded atlas is already in memory — i.e. frame 0 can render this tick. */
-function isAtlasReady(src: string): boolean {
-    return readyAtlasSrcs.has(src);
-}
-
-/** Pre-decode a unit's sidebar animation atlas so selecting it later is instant. */
-export function prefetchUnitAtlas(unitName?: string | null): void {
-    const config = getDefaultAnimationConfig(unitName);
-    if (config) void warmAtlas(config.imageSrc);
-}
-
 const AtlasAnimation: React.FC<{
-    meta: AtlasMeta;
+    meta: SidebarAtlasMeta;
     src: string;
     onLoaded: () => void;
     /** Ceiling for the rendered portrait; the frame keeps its aspect ratio and centres inside the slot. */
@@ -682,21 +541,6 @@ const StackCountBadge: React.FC<{ stacks?: number }> = ({ stacks }) => {
  * different looks and a 13%-wide icon that vanished on a narrow bar; a single row that wraps behaves the
  * same everywhere and costs one line when the unit only carries one or two effects.
  */
-// Carved stone panel from the fight-sidebar handoff. Wraps the stat grid (and the turn card) so the block
-// reads as an inset plate rather than icons floating on the bar.
-export const stonePlateSx = {
-    padding: "10px",
-    borderRadius: "3px",
-    // Neutral, not brown: the sidebars are now tinted to the board's stone (rgb 18,18,17), and a warm
-    // plate on a neutral bar reads as a leftover. Same luminance as before, warm bias removed.
-    background:
-        "repeating-linear-gradient(135deg, rgba(255,255,255,.012) 0 1px, transparent 1px 7px), linear-gradient(180deg, rgba(28,27,24,.96), rgba(9,9,8,.98))",
-    border: "2px solid #080706",
-    outline: "1px solid rgba(132,92,53,.34)",
-    outlineOffset: "-4px",
-    boxShadow: "inset 0 0 0 1px rgba(196,148,83,.16), inset 0 2px 12px rgba(0,0,0,.82), 0 3px 8px rgba(0,0,0,.68)",
-} as const;
-
 // Team colour lives only as a diffuse, fire-like aura behind the portrait — three blurred discs that
 // breathe and flicker. No cloth banner, and nothing clips the ring.
 

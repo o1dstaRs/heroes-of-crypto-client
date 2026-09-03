@@ -82,7 +82,7 @@ export const sidebarBackgroundSize = (barSize: number): string => {
     return `100% 100%, ${ornamentWidth}px auto, ${ornamentWidth}px auto, ${outerRailWidth}px 103%, ${innerRailWidth}px 103%, 100% 103%`;
 };
 
-import { UnitStatsListItem } from "./UnitStatsListItem";
+import { DeferredUnitStatsListItem } from "./DeferredUnitStatsListItem";
 import { UpNext } from "./UpNext";
 import {
     computeBattleSidebarMetrics,
@@ -397,7 +397,7 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
                             )}
 
                             {/* No rule above the unit name — the card is the first thing in the bar. */}
-                            <UnitStatsListItem
+                            <DeferredUnitStatsListItem
                                 unitProperties={unitProperties}
                                 overallImpact={selection.overallImpact}
                                 factionType={selection.factionType}

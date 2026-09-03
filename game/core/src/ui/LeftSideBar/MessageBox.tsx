@@ -31,7 +31,7 @@ import {
 import { CountdownFrameEditor } from "../CountdownFrameEditor";
 import { isFullscreenActive, onFullscreenChange } from "../fullscreen";
 import { TurnTimerBar } from "./TurnTimerBar";
-import { stonePlateSx } from "./UnitStatsListItem";
+import { stonePlateSx } from "./stonePlateStyles";
 import { useSidebarMetrics } from "./sidebarMetrics";
 
 import { commonTooltipSx } from "./tooltipStyles";

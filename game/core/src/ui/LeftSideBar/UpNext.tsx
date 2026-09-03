@@ -16,7 +16,7 @@ import { CreaturePortraitImage } from "../CreaturePortraitImage";
 import { CREATURE_PORTRAIT_ASPECT } from "../creaturePortraitVisual";
 import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
 import { resolveUnitImage } from "../unitImage";
-import { prefetchUnitAtlas } from "./UnitStatsListItem";
+import { prefetchUnitAtlas } from "./unitAtlas";
 import { useSidebarMetrics } from "./sidebarMetrics";
 
 import { commonTooltipSx } from "./tooltipStyles";
