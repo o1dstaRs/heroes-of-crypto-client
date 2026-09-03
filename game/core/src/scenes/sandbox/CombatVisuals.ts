@@ -1514,6 +1514,35 @@ export class CombatVisuals {
             burst.graphics.destroy();
         }
         this.healBursts.length = 0;
+        if (!keepDetachedOverlays) {
+            // These self-contained impact/attack overlays deliberately survive a ranked snapshot hydrate,
+            // but a rematch or scene replacement is a hard boundary. Leaving their arrays populated kept
+            // the old visuals updating over the next fight until each animation happened to expire.
+            for (const impact of this.areaImpacts) {
+                impact.graphics.destroy();
+            }
+            this.areaImpacts.length = 0;
+            for (const burst of this.resurrectBursts) {
+                burst.graphics.destroy();
+            }
+            this.resurrectBursts.length = 0;
+            for (const rebound of this.mirrorRebounds) {
+                rebound.container.destroy({ children: true });
+            }
+            this.mirrorRebounds.length = 0;
+            for (const spear of this.windSpears) {
+                spear.container.destroy({ children: true });
+            }
+            this.windSpears.length = 0;
+            for (const slash of this.slashes) {
+                slash.container.destroy({ children: true });
+            }
+            this.slashes.length = 0;
+            for (const spray of this.bloodSprays) {
+                spray.container.destroy({ children: true });
+            }
+            this.bloodSprays.length = 0;
+        }
         for (const chain of this.chainLightnings) {
             chain.container.destroy({ children: true });
         }
@@ -1546,6 +1575,20 @@ export class CombatVisuals {
             enchant.container.destroy({ children: true });
         }
         this.enchants.length = 0;
+        if (!keepDetachedOverlays) {
+            this.releaseOwnedTextures();
+        }
+    }
+    /** Release the small canvas-backed textures owned by this fight; they are recreated lazily if needed. */
+    private releaseOwnedTextures(): void {
+        for (const texture of [this.fireTexture, this.poisonTexture, this.lightTexture]) {
+            if (texture && texture !== Texture.WHITE && !texture.destroyed) {
+                texture.destroy(true);
+            }
+        }
+        this.fireTexture = undefined;
+        this.poisonTexture = undefined;
+        this.lightTexture = undefined;
     }
     public update(dt: number) {
         for (let i = this.floatingTexts.length - 1; i >= 0; i--) {

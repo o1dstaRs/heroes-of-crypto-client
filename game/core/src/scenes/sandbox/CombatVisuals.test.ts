@@ -76,6 +76,15 @@ type VisualsInternals = {
             riseY: number;
         }[];
     }[];
+    areaImpacts: { graphics: Container }[];
+    resurrectBursts: { graphics: Container }[];
+    mirrorRebounds: { container: Container }[];
+    windSpears: { container: Container }[];
+    slashes: { container: Container }[];
+    bloodSprays: { container: Container }[];
+    fireTexture?: Texture;
+    poisonTexture?: Texture;
+    lightTexture?: Texture;
 };
 const internals = (visuals: CombatVisuals): VisualsInternals => visuals as unknown as VisualsInternals;
 
@@ -275,6 +284,69 @@ describe("spawnDeathVfx kill-specific death animations", () => {
         visuals.spawnDeathVfx(makeInfo(), "u2");
         expect(internals(visuals).shatterGroups.length).toBe(1);
         expect(internals(visuals).dissolveDeaths.length).toBe(0);
+    });
+
+    test("a full clear tears down every detached combat overlay and its owned textures", () => {
+        const { visuals } = makeVisuals();
+        visuals.spawnMagicMirrorRebound({ x: 0, y: 0 }, { x: 100, y: 0 }, 80);
+        visuals.spawnWindSpear(
+            [
+                { x: 0, y: 0 },
+                { x: 100, y: 0 },
+            ],
+            80,
+        );
+        visuals.spawnSlash({ x: 50, y: 50 }, 80);
+        visuals.spawnBloodSpray({ x: 50, y: 50 }, 80, { x: 1, y: 0 });
+        visuals.spawnResurrectionBurst({ x: 50, y: 50 }, 80);
+        visuals.spawnAreaImpact({ x: 50, y: 50 }, 80);
+
+        const ownedTextures = [
+            new Texture({ source: new TextureSource({ width: 64, height: 64 }) }),
+            new Texture({ source: new TextureSource({ width: 64, height: 64 }) }),
+            new Texture({ source: new TextureSource({ width: 64, height: 64 }) }),
+        ];
+        const state = internals(visuals);
+        [state.fireTexture, state.poisonTexture, state.lightTexture] = ownedTextures;
+        const overlays = [
+            ...state.areaImpacts.map((effect) => effect.graphics),
+            ...state.resurrectBursts.map((effect) => effect.graphics),
+            ...state.mirrorRebounds.map((effect) => effect.container),
+            ...state.windSpears.map((effect) => effect.container),
+            ...state.slashes.map((effect) => effect.container),
+            ...state.bloodSprays.map((effect) => effect.container),
+        ];
+
+        visuals.clear();
+
+        expect(state.areaImpacts).toHaveLength(0);
+        expect(state.resurrectBursts).toHaveLength(0);
+        expect(state.mirrorRebounds).toHaveLength(0);
+        expect(state.windSpears).toHaveLength(0);
+        expect(state.slashes).toHaveLength(0);
+        expect(state.bloodSprays).toHaveLength(0);
+        expect(overlays.every((overlay) => overlay.destroyed)).toBe(true);
+        expect(ownedTextures.every((texture) => texture.destroyed)).toBe(true);
+        expect(state.fireTexture).toBeUndefined();
+        expect(state.poisonTexture).toBeUndefined();
+        expect(state.lightTexture).toBeUndefined();
+    });
+
+    test("a ranked hydrate keeps detached overlays and reusable textures alive", () => {
+        const { visuals } = makeVisuals();
+        visuals.spawnMagicMirrorRebound({ x: 0, y: 0 }, { x: 100, y: 0 }, 80);
+        visuals.spawnResurrectionBurst({ x: 50, y: 50 }, 80);
+        const fireTexture = new Texture({ source: new TextureSource({ width: 64, height: 64 }) });
+        const state = internals(visuals);
+        state.fireTexture = fireTexture;
+
+        visuals.clear({ keepDetachedOverlays: true });
+
+        expect(state.mirrorRebounds).toHaveLength(1);
+        expect(state.resurrectBursts).toHaveLength(1);
+        expect(state.fireTexture).toBe(fireTexture);
+        expect(fireTexture.destroyed).toBe(false);
+        visuals.clear();
     });
 });
 

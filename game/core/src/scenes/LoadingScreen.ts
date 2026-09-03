@@ -97,6 +97,7 @@ export class LoadingScreen extends Container {
     private readonly loadedBarMask = new Graphics();
     private readonly unloadedBarLayer = new Container();
     private readonly unloadedBarMask = new Graphics();
+    private readonly unloadedBarFilter: ColorMatrixFilter;
     private readonly progressGlow = new Graphics();
     private readonly lavaSprite: Sprite;
     private readonly lavaPocketSprite: Sprite;
@@ -108,6 +109,8 @@ export class LoadingScreen extends Container {
     private readonly secondaryFireZone: FireZoneRuntime;
     private readonly dragonMedallion: Sprite;
     private readonly loadingLabel: Text;
+    /** Frame/crop wrappers created by this screen. Their image sources remain owned by Pixi Assets. */
+    private readonly ownedTextures = new Set<Texture>();
     private fireTuning: LoadingScreenFireTuning;
     private firePlaybackPaused = false;
     private fireScrubFrame = 0;
@@ -181,6 +184,7 @@ export class LoadingScreen extends Container {
                 EXACT_OVERLAY_LABEL_CUTOUT_HEIGHT,
             ),
         });
+        this.ownedTextures.add(bakedLabelCoverTexture);
         const bakedLabelCoverSprite = new Sprite(bakedLabelCoverTexture);
         bakedLabelCoverSprite.position.set(EXACT_OVERLAY_LABEL_CUTOUT_X, EXACT_OVERLAY_LABEL_CUTOUT_Y);
         bakedLabelCoverSprite.eventMode = "none";
@@ -191,6 +195,7 @@ export class LoadingScreen extends Container {
             source: exactOverlay.source,
             frame: new Rectangle(MIRRORED_BAR_LEFT_X, MIRRORED_BAR_TOP, MIRRORED_BAR_HALF_WIDTH, MIRRORED_BAR_HEIGHT),
         });
+        this.ownedTextures.add(mirroredRightBarTexture);
         const loadedLeftBarSprite = new Sprite(mirroredRightBarTexture);
         loadedLeftBarSprite.position.set(MIRRORED_BAR_LEFT_X, MIRRORED_BAR_TOP);
         const loadedRightBarSprite = new Sprite(mirroredRightBarTexture);
@@ -209,10 +214,10 @@ export class LoadingScreen extends Container {
         const unloadedRightBarSprite = new Sprite(mirroredRightBarTexture);
         unloadedRightBarSprite.position.set(MIRRORED_BAR_RIGHT_X, MIRRORED_BAR_TOP);
         unloadedRightBarSprite.scale.x = -1;
-        const unloadedFilter = new ColorMatrixFilter();
-        unloadedFilter.desaturate();
+        this.unloadedBarFilter = new ColorMatrixFilter();
+        this.unloadedBarFilter.desaturate();
         this.unloadedBarLayer.addChild(unloadedLeftBarSprite, unloadedRightBarSprite);
-        this.unloadedBarLayer.filters = [unloadedFilter];
+        this.unloadedBarLayer.filters = [this.unloadedBarFilter];
         this.unloadedBarLayer.mask = this.unloadedBarMask;
         this.unloadedBarLayer.eventMode = "none";
         this.unloadedBarMask.eventMode = "none";
@@ -307,6 +312,19 @@ export class LoadingScreen extends Container {
             void Assets.unload(url).catch(() => undefined);
         }
     }
+    /** Stop animated children and release screen-owned GPU resources before the next battle loads. */
+    public override destroy(): void {
+        if (this.destroyed) return;
+        this.unloadedBarLayer.filters = null;
+        this.unloadedBarFilter.destroy();
+        // Container.destroy() does not recurse unless explicitly requested. The fire sprites are registered
+        // with Pixi's shared ticker while playing, so leaving them alive retained the whole loading screen.
+        super.destroy({ children: true });
+        for (const texture of this.ownedTextures) {
+            if (!texture.destroyed) texture.destroy();
+        }
+        this.ownedTextures.clear();
+    }
     private sliceFireAtlas(type: LoadingScreenFireType, atlas: Texture): Texture[] {
         const definition = FIRE_ATLAS_DEFINITIONS[type];
         const rows = Math.ceil(definition.frameCount / definition.columns);
@@ -318,7 +336,7 @@ export class LoadingScreen extends Container {
         }
         atlas.source.autoGenerateMipmaps = true;
         atlas.source.scaleMode = "linear";
-        return Array.from(
+        const frames = Array.from(
             { length: definition.frameCount },
             (_, index) =>
                 new Texture({
@@ -331,6 +349,8 @@ export class LoadingScreen extends Container {
                     ),
                 }),
         );
+        for (const frame of frames) this.ownedTextures.add(frame);
+        return frames;
     }
     private createFireZone(): FireZoneRuntime {
         const container = new Container();
