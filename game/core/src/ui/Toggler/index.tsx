@@ -4,11 +4,14 @@ import Box from "@mui/joy/Box";
 export default function Toggler({
     defaultExpanded = true,
     expanded,
+    deferChildrenUntilExpanded = false,
     renderToggle,
     children,
 }: {
     defaultExpanded?: boolean;
     expanded?: boolean;
+    /** Avoid mounting expensive hidden panels until the player opens them for the first time. */
+    deferChildrenUntilExpanded?: boolean;
     children: React.ReactNode;
     renderToggle: (params: {
         open: boolean;
@@ -17,6 +20,13 @@ export default function Toggler({
 }) {
     const [localOpen, setLocalOpen] = React.useState(defaultExpanded);
     const open = expanded !== undefined ? expanded : localOpen;
+    const [hasExpanded, setHasExpanded] = React.useState(open);
+
+    React.useEffect(() => {
+        if (open) setHasExpanded(true);
+    }, [open]);
+
+    const renderChildren = !deferChildrenUntilExpanded || open || hasExpanded;
 
     return (
         <>
@@ -36,7 +46,7 @@ export default function Toggler({
                     },
                 }}
             >
-                {children}
+                {renderChildren ? children : null}
             </Box>
         </>
     );

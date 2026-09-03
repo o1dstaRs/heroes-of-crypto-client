@@ -242,6 +242,7 @@ const FightControlToggler: React.FC<{ scrollRailInsetPx: number }> = ({ scrollRa
                 <Box sx={hocSidebarSectionSx("board")}>
                     <Toggler
                         defaultExpanded={false}
+                        deferChildrenUntilExpanded
                         renderToggle={({ open, setOpen }) => {
                             setOpenRefs.current.map = setOpen;
                             return (
@@ -289,6 +290,7 @@ const FightControlToggler: React.FC<{ scrollRailInsetPx: number }> = ({ scrollRa
                 <Box sx={hocSidebarSectionSx("team")}>
                     <Toggler
                         defaultExpanded={false}
+                        deferChildrenUntilExpanded
                         renderToggle={({ open, setOpen }) => {
                             setOpenRefs.current.red = setOpen;
                             return (
@@ -345,6 +347,7 @@ const FightControlToggler: React.FC<{ scrollRailInsetPx: number }> = ({ scrollRa
                 <Box sx={hocSidebarSectionSx("team")}>
                     <Toggler
                         defaultExpanded={false}
+                        deferChildrenUntilExpanded
                         renderToggle={({ open, setOpen }) => {
                             setOpenRefs.current.green = setOpen;
                             return (

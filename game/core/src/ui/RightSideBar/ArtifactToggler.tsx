@@ -141,6 +141,8 @@ const ArtifactRow: React.FC<ArtifactRowProps> = ({ title, artifacts, selectedId,
                                     component="img"
                                     src={src}
                                     alt={artifact.name}
+                                    loading="lazy"
+                                    decoding="async"
                                     sx={{
                                         width: 48,
                                         height: 48,
