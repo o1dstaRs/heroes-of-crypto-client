@@ -49,6 +49,7 @@ import { PixiDrawer } from "./PixiDrawer";
 import { SimplePhysicsManager } from "./SimplePhysicsManager";
 import { PreloadedPixiTextures } from "./PixiTextureLoader";
 import { boardFitHeight, boardFitWidth } from "./boardFit";
+import { isLazyBattlefieldCreatureAssetKey } from "./imageAssetTiers";
 import { images as rawImageUrls } from "../imageAssets";
 import { UnitsOverlay } from "../scenes/UnitsOverlay";
 import { destroyContainerChildren, destroyContainerFilters } from "./filterLifecycle";
@@ -74,6 +75,7 @@ export interface AuthoritativeSnapshotOptions {
 
 const STEPS_BETWEEN_MOUSE_ACTIONS_MIN = 2;
 const lazyTextureLoads = new Map<string, Promise<Texture>>();
+const lazyBattlefieldTextureLeaseCounts = new Map<string, number>();
 
 /** Minimal shape of objects your scene selects / manipulates. */
 export interface BodyLike {
@@ -133,6 +135,9 @@ export const shouldDisplayAppliedBuff = (buffName: string, activeAbilityNames: r
 
 export abstract class PixiScene {
     private sc_sceneStarted = false;
+    private sc_destroyed = false;
+    private readonly sc_lazyBattlefieldTextureUrls = new Map<string, string>();
+    private readonly sc_pendingLazyTextureKeys = new Set<string>();
     public readonly sc_debugLines: Array<[string, string]> = [];
     public readonly sc_statisticLines: Array<[string, string]> = [];
     public readonly sc_sceneLog = new SceneLog();
@@ -319,22 +324,63 @@ export abstract class PixiScene {
         this.sc_currentActiveShotRange = undefined;
         this.sc_currentActiveAuraRanges = [];
     }
+    private retainLazyBattlefieldTexture(key: string, url: string): void {
+        if (this.sc_lazyBattlefieldTextureUrls.has(key)) return;
+        this.sc_lazyBattlefieldTextureUrls.set(key, url);
+        lazyBattlefieldTextureLeaseCounts.set(url, (lazyBattlefieldTextureLeaseCounts.get(url) ?? 0) + 1);
+    }
+    private releaseLazyBattlefieldTextures(): void {
+        const textureRecord = this.textures as unknown as Record<string, Texture | undefined>;
+        for (const [key, url] of this.sc_lazyBattlefieldTextureUrls) {
+            const remaining = (lazyBattlefieldTextureLeaseCounts.get(url) ?? 1) - 1;
+            if (remaining > 0) {
+                lazyBattlefieldTextureLeaseCounts.set(url, remaining);
+                continue;
+            }
+            lazyBattlefieldTextureLeaseCounts.delete(url);
+            // LoadGame constructs the replacement scene synchronously after destroying this one. Give it
+            // the rest of the current task to claim the same creature before evicting the shared texture.
+            queueMicrotask(() => {
+                if ((lazyBattlefieldTextureLeaseCounts.get(url) ?? 0) > 0) return;
+                delete textureRecord[key];
+                void Assets.unload(url).catch(() => undefined);
+            });
+        }
+        this.sc_lazyBattlefieldTextureUrls.clear();
+    }
+    private releaseLateUnclaimedTexture(key: string, url: string): void {
+        const textureRecord = this.textures as unknown as Record<string, Texture | undefined>;
+        queueMicrotask(() => {
+            if (lazyTextureLoads.has(url) || (lazyBattlefieldTextureLeaseCounts.get(url) ?? 0) > 0) return;
+            delete textureRecord[key];
+            void Assets.unload(url).catch(() => undefined);
+        });
+    }
     protected texAny = (key: string): Texture | undefined => {
+        if (this.sc_destroyed) return undefined;
+        const url = (rawImageUrls as unknown as Record<string, string>)[key];
+        const isLazyBattlefieldTexture = isLazyBattlefieldCreatureAssetKey(key);
         const preloaded = (this.textures as unknown as Record<string, Texture>)[key];
-        if (preloaded) {
+        if (preloaded && !preloaded.destroyed) {
+            if (isLazyBattlefieldTexture && url) this.retainLazyBattlefieldTexture(key, url);
             return preloaded;
         }
         // Fallback: lazily build the texture straight from the raw image-URL map (the same path
         // UnitChip/Up-Next use successfully). The bundle preload can drop a key when a concurrent
         // WebP decode flakes out — notably unit `_128` board sprites in ranked, which then render
         // as bare team-colour markers. Resolving from the URL recovers them.
-        const url = (rawImageUrls as unknown as Record<string, string>)[key];
         if (!url) {
             return undefined;
         }
         if (Assets.cache.has(url)) {
             const cached = Assets.cache.get<Texture>(url);
+            if (cached.destroyed) {
+                delete (this.textures as unknown as Record<string, Texture | undefined>)[key];
+                void Assets.unload(url).catch(() => undefined);
+                return undefined;
+            }
             (this.textures as unknown as Record<string, Texture>)[key] = cached;
+            if (isLazyBattlefieldTexture) this.retainLazyBattlefieldTexture(key, url);
             return cached;
         }
 
@@ -345,13 +391,30 @@ export abstract class PixiScene {
         if (!pending) {
             pending = Assets.load<Texture>(url);
             lazyTextureLoads.set(url, pending);
-            void pending
-                .then((texture) => {
+            void pending.then(
+                () => lazyTextureLoads.delete(url),
+                () => lazyTextureLoads.delete(url),
+            );
+        }
+        // Every interested scene gets its own completion observer. This matters when New Battle replaces
+        // a scene while its first creature is still decoding: the retired scene drops out, while the new
+        // one can claim the shared in-flight request instead of receiving a texture that is immediately
+        // unloaded by its predecessor.
+        if (!this.sc_pendingLazyTextureKeys.has(key)) {
+            this.sc_pendingLazyTextureKeys.add(key);
+            void pending.then(
+                (texture) => {
+                    this.sc_pendingLazyTextureKeys.delete(key);
+                    if (this.sc_destroyed) {
+                        if (isLazyBattlefieldTexture) this.releaseLateUnclaimedTexture(key, url);
+                        return;
+                    }
                     (this.textures as unknown as Record<string, Texture>)[key] = texture;
+                    if (isLazyBattlefieldTexture) this.retainLazyBattlefieldTexture(key, url);
                     this.onSupplementaryTexturesLoaded?.();
-                })
-                .catch(() => undefined)
-                .then(() => lazyTextureLoads.delete(url));
+                },
+                () => this.sc_pendingLazyTextureKeys.delete(key),
+            );
         }
         return undefined;
     };
@@ -717,6 +780,10 @@ export abstract class PixiScene {
         }
     }
     public Destroy() {
+        if (this.sc_destroyed) return;
+        this.sc_destroyed = true;
+        this.releaseLazyBattlefieldTextures();
+        this.sc_pendingLazyTextureKeys.clear();
         // The camera and world root survive scene replacement. Their filters do not: Sandbox creates
         // scene-owned cinematic/blur filters, and Container.destroy() only detaches filters without
         // releasing their shader resources.
