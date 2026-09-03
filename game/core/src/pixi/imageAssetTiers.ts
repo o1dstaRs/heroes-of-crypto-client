@@ -138,3 +138,12 @@ export function isCoreTextureAssetKey(key: string): boolean {
         !isLazyRosterAssetKey(key)
     );
 }
+
+/** Authoring/superseded exports that no production path can request, even lazily. */
+export function isProductionOmittedAssetKey(key: string): boolean {
+    return (
+        isRedundantFullResolutionUnitAtlasKey(key) ||
+        isDeferredPlacementAssetKey(key) ||
+        isDeferredLegacyCreatureAssetKey(key)
+    );
+}

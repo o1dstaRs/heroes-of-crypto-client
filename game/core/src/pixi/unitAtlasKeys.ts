@@ -2,6 +2,10 @@ import { animationAtlases } from "../generated/animation_atlases";
 
 type AnimationAtlasIndex = Readonly<Record<string, Readonly<Record<string, unknown>>>>;
 
+// The generated atlas metadata also carries a small draft UI animation. It shares the same file
+// shape as creature atlases but must remain a normal React-owned asset, including in production.
+const NON_UNIT_ATLAS_NAMES = new Set(["Pick Ban Slash"]);
+
 /**
  * Every per-unit animation atlas image key BASE (`<unit>_<state>_atlas`), derived from the generated
  * atlas index so a new unit or state is classified correctly without touching this file.
@@ -9,6 +13,7 @@ type AnimationAtlasIndex = Readonly<Record<string, Readonly<Record<string, unkno
 export function buildUnitAnimationAtlasKeyClassifier(atlases: AnimationAtlasIndex): (key: string) => boolean {
     const bases = new Set<string>();
     for (const [unitName, states] of Object.entries(atlases)) {
+        if (NON_UNIT_ATLAS_NAMES.has(unitName)) continue;
         const unitBase = unitName.toLowerCase().replace(/\s+/g, "_");
         for (const state of Object.keys(states)) {
             bases.add(`${unitBase}_${state.toLowerCase()}_atlas`);

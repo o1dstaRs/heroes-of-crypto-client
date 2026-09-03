@@ -7,7 +7,7 @@
         "dist"
     ],
     "scripts": {
-        "build": "rimraf .parcel-cache && bun run build:images && rimraf dist && tsc && bun scripts/vite_build.js production",
+        "build": "rimraf .parcel-cache && cross-env NODE_ENV=production bun run build:images && rimraf dist && tsc && bun scripts/vite_build.js production",
         "build:docs": "rimraf ../../.parcel-cache && rimraf ../../docs/dist && dotenv -e .env.production parcel build --no-optimize src/ui/index.html --public-url . --no-source-maps && cpy dist ../../docs",
         "build:images": "bun scripts/require_asset_location.ts images && bun scripts/require_asset_location.ts animations && bun run check:image-assets && rimraf images && bun run copy:images && npm run generate:animations && npm run generate:images",
         "build:skip": "rimraf .parcel-cache && rimraf dist && tsc && bun scripts/vite_build.js production",

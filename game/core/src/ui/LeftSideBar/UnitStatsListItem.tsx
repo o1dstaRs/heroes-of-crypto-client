@@ -124,7 +124,9 @@ function normalizeUnitNameForAtlas(name?: string | null): AnimationUnitName | nu
 function atlasImageKeyFromUnitAndState(unitName: string, state: string): ImageKey | null {
     const base = unitName.toLowerCase().replace(/\s+/g, "_");
     const stateLeft = state.toLowerCase();
-    const key = `${base}_${stateLeft}_atlas` as ImageKey;
+    // This portrait is only a few hundred CSS pixels tall. The quarter export is already sharp at
+    // Retina density and avoids decoding (and publishing) the multi-thousand-pixel authoring sheet.
+    const key = `${base}_${stateLeft}_atlas_quarter` as ImageKey;
     if (key in images) return key;
     return null;
 }
@@ -208,13 +210,13 @@ function getDefaultAnimationConfig(unitName?: string | null): { meta: AtlasMeta;
     const imageKey = atlasImageKeyFromUnitAndState(normalized, preferredState as string);
     if (!imageKey) return null;
     const imageSrc = images[imageKey];
+    if (!imageSrc) return null;
     return { meta, imageSrc };
 }
 
-// Atlas WebP images are large (up to 4096x5120 ≈ 84MB decoded), and decoding on the main thread
-// is the main cause of selection jank. We decode them off-thread via HTMLImageElement.decode()
-// and cache the result per URL, so the first selection stays responsive and any repeat selection
-// is instant/zero-decode. The cache also lets us prefetch the up-next units' atlases in idle time.
+// Decode the atlas off-thread via HTMLImageElement.decode() and cache it per URL, so the first
+// selection stays responsive and repeat selections are instant. The cache also lets us prefetch the
+// up-next units' atlases in idle time.
 const decodedImageCache = new Map<string, Promise<void>>();
 // Srcs whose decoded image is already available. Lets the component mount showing the atlas's
 // first frame right away (no portrait fallback flash) when the atlas was prefetched/decoded.

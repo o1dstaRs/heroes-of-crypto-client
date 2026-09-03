@@ -83,15 +83,15 @@ function atlasImageKeyFromUnitAndState(unitName: string, state: string): { key: 
     const base = unitName.toLowerCase().replace(/\s+/g, "_");
     const stateLeft = state.toLowerCase();
 
-    // Full-resolution atlas first: the chips sit at ~90css px (180 device px on retina) and scale up
-    // further on hover, where the quarter frames read visibly mushy. The full atlas only decodes when a
-    // chip is actually hovered, and only for that unit, so the cost stays proportional to curiosity.
-    const fullKey = `${base}_${stateLeft}_atlas` as ImageKey;
-    if (fullKey in images) return { key: fullKey, divider: 1 };
+    // A roster card is roughly 90 CSS px (180 device px on Retina), so a quarter atlas already supplies
+    // enough source detail. Never select the multi-thousand-pixel authoring sheet: one hover used to make
+    // the browser decode tens of megabytes and forced every such source into the production deployment.
     const quarterKey = `${base}_${stateLeft}_atlas_quarter` as ImageKey;
     if (quarterKey in images) return { key: quarterKey, divider: 4 };
     if (process.env.NODE_ENV === "development") {
-        console.warn(`[atlas] Missing atlas image for unit "${unitName}", state "${state}". Expected key: ${fullKey}`);
+        console.warn(
+            `[atlas] Missing quarter atlas image for unit "${unitName}", state "${state}". Expected key: ${quarterKey}`,
+        );
     }
     return null;
 }

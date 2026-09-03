@@ -13,6 +13,7 @@ import {
     isLazyProjectileAssetKey,
     isLazyRosterAssetKey,
     isRedundantFullResolutionUnitAtlasKey,
+    isProductionOmittedAssetKey,
     isTransientLoadingScreenAssetKey,
 } from "./PixiTextureLoader";
 import { isUnitAnimationAtlasKey } from "./unitAtlasKeys";
@@ -343,5 +344,25 @@ describe("pixi texture bundle split", () => {
         // The battlefield reuses the furnace atlas, so it remains a core texture.
         expect(isTransientLoadingScreenAssetKey("ambient_fire_left_furnace_atlas")).toBe(false);
         expect(core.ambient_fire_left_furnace_atlas).toBeDefined();
+    });
+
+    test("omits only authoring and superseded exports from production", () => {
+        for (const key of [
+            "wolf_walk_atlas",
+            "placement_carpet_green_worn_grid_5col_v9",
+            "zena_battlefield_side_right_v3",
+        ]) {
+            expect(isProductionOmittedAssetKey(key)).toBe(true);
+        }
+
+        for (const key of [
+            "wolf_walk_atlas_quarter",
+            "zena_battlefield_side_right_final_v1",
+            "fire_pit_variant_1_low_front_fire_overlay_seamless_v2_64_atlas_half",
+            "pick_ban_slash_variant2_atlas",
+            "wolf_pick_sandbox_x2",
+        ]) {
+            expect(isProductionOmittedAssetKey(key)).toBe(false);
+        }
     });
 });

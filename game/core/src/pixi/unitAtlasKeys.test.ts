@@ -23,9 +23,10 @@ describe("unit animation atlas key split", () => {
         }
     });
 
-    test("every generated unit/state maps to supplementary in all three size variants", () => {
+    test("every generated creature state maps to supplementary in all three size variants", () => {
         const units = Object.entries(animationAtlases);
         for (const [unitName, states] of units) {
+            if (unitName === "Pick Ban Slash") continue;
             const base = unitName.toLowerCase().replace(/\s+/g, "_");
             for (const state of Object.keys(states)) {
                 const key = `${base}_${state.toLowerCase()}_atlas`;
@@ -39,6 +40,10 @@ describe("unit animation atlas key split", () => {
     test("terrain atlases the board draws at first paint stay core", () => {
         expect(isUnitAnimationAtlasKey("lava_center_anim_atlas")).toBe(false);
         expect(isUnitAnimationAtlasKey("tombstone_tiles_256_atlas")).toBe(false);
+    });
+
+    test("keeps the generated pick/ban slash classified as UI instead of a unit source sheet", () => {
+        expect(isUnitAnimationAtlasKey("pick_ban_slash_variant2_atlas")).toBe(false);
     });
 
     test("hand-authored creature strips stay with generated unit atlases", () => {
