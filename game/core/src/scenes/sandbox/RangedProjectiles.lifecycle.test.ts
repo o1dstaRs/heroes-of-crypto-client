@@ -1,8 +1,9 @@
 import { expect, test } from "bun:test";
-import { Container } from "pixi.js";
+import { Assets, BufferImageSource, Container, Texture } from "pixi.js";
 
 import { GridConstants, GridSettings } from "@heroesofcrypto/common";
 
+import { images } from "../../generated/image_imports";
 import { RangedProjectiles, type IRangedProjectilesContext } from "./RangedProjectiles";
 
 const gridSettings = new GridSettings(
@@ -53,4 +54,46 @@ test("a late shot cannot attach to a retired scene", async () => {
 
     expect(attachments).toHaveLength(1);
     expect(projectiles.hasActive()).toBe(false);
+});
+
+test("a projectile texture finishing after teardown is evicted from the global cache", async () => {
+    const mutableAssets = Assets as unknown as {
+        load: typeof Assets.load;
+        unload: typeof Assets.unload;
+    };
+    const originalLoad = mutableAssets.load;
+    const originalUnload = mutableAssets.unload;
+    const texture = new Texture({
+        source: new BufferImageSource({ resource: new Uint8Array(4), width: 1, height: 1 }),
+    });
+    let finishLoad!: (texture: Texture) => void;
+    const load = new Promise<Texture>((resolve) => {
+        finishLoad = resolve;
+    });
+    const unloaded: string[] = [];
+    mutableAssets.load = (() => load) as typeof Assets.load;
+    mutableAssets.unload = (async (url: string) => {
+        unloaded.push(url);
+    }) as typeof Assets.unload;
+
+    try {
+        const { attachments, projectiles } = setup();
+        const flight = projectiles.fire({
+            from: { x: 0, y: 0 },
+            to: { x: 100, y: 0 },
+            big: false,
+            orcAxe: true,
+        });
+        attachments[0].destroy();
+        finishLoad(texture);
+        await flight;
+
+        expect(unloaded).toEqual([images.orc_throwing_axe]);
+        expect(attachments).toHaveLength(1);
+        expect(projectiles.hasActive()).toBe(false);
+    } finally {
+        mutableAssets.load = originalLoad;
+        mutableAssets.unload = originalUnload;
+        texture.destroy(true);
+    }
 });

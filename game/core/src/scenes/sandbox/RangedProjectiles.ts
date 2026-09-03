@@ -170,6 +170,8 @@ export class RangedProjectiles {
     private monkSolarOrbTexture?: Texture;
     private tsarCannonMoltenBallTexture?: Texture;
     private gargantuanRootBoulderTexture?: Texture;
+    /** Optional projectile art decoded by this scene; release it at the scene boundary. */
+    private readonly loadedProjectileUrls = new Set<string>();
     public constructor(context: IRangedProjectilesContext) {
         this.context = context;
         this.lifecycleMarker = new Container();
@@ -256,7 +258,12 @@ export class RangedProjectiles {
 
         try {
             const texture = await Assets.load<Texture>(request.url);
-            if (this.destroyed) return;
+            if (this.destroyed) {
+                // A late decode must not remain stranded in Pixi's global cache after its scene is gone.
+                void Assets.unload(request.url).catch(() => undefined);
+                return;
+            }
+            this.loadedProjectileUrls.add(request.url);
             texture.source.scaleMode = "linear";
             request.assign(texture);
         } catch {
@@ -429,6 +436,10 @@ export class RangedProjectiles {
         this.monkSolarOrbTexture = undefined;
         this.tsarCannonMoltenBallTexture = undefined;
         this.gargantuanRootBoulderTexture = undefined;
+        for (const url of this.loadedProjectileUrls) {
+            void Assets.unload(url).catch(() => undefined);
+        }
+        this.loadedProjectileUrls.clear();
     }
     /** Redraw the projectile at world position (x, y) using absolute coordinates. */
     private draw(p: IProjectile, x: number, y: number): void {
