@@ -4754,7 +4754,9 @@ export class RenderableUnit extends Unit {
         if (flag.rotation !== BATTLEFIELD_FLAG_ROTATION) flag.rotation = BATTLEFIELD_FLAG_ROTATION;
         const geometry = this.badgeDrawState!.geometry;
         if (flag.x !== 0 || flag.y !== 0) flag.position.set(0, 0);
-        this.drawBadgeFlag(flag, flagGlow, geometry, teamColor, stackPower);
+        if (needsRedraw || !this.isActiveTurn) {
+            this.drawBadgeFlag(flag, flagGlow, geometry, teamColor, stackPower);
+        }
         this.drawActiveTurnPointer(activeTurnPointer, flagGlow, geometry);
         // The flag stays static during the active turn; only authored preview emphasis may resize it.
         const renderedBadgeScale = this.badgeEmphasisScale;
