@@ -148,6 +148,13 @@ const VINE_CAP = 0x5e2038;
 
 export class RangedProjectiles {
     private context: IRangedProjectilesContext;
+    /**
+     * Empty scene-owned attachment used as a cancellation signal. The world root survives New Battle, but
+     * Sandbox destroys every attachment it registered for the outgoing scene. Optional projectile textures
+     * can still be decoding at that moment, so this marker lets their continuations notice the teardown.
+     */
+    private readonly lifecycleMarker: Container;
+    private destroyed = false;
     private projectiles: IProjectile[] = [];
     private rockImpacts: IRockImpact[] = [];
     private cannonExplosions: ICannonExplosion[] = [];
@@ -165,6 +172,11 @@ export class RangedProjectiles {
     private gargantuanRootBoulderTexture?: Texture;
     public constructor(context: IRangedProjectilesContext) {
         this.context = context;
+        this.lifecycleMarker = new Container();
+        this.lifecycleMarker.visible = false;
+        this.lifecycleMarker.eventMode = "none";
+        this.lifecycleMarker.once("destroyed", () => this.releaseOwnedResources());
+        this.context.attachToWorldRoot(this.lifecycleMarker, PROJECTILE_Z);
     }
     private async ensureProjectileTexture(opts: IFireProjectileOptions): Promise<void> {
         const request = opts.orcAxe
@@ -244,6 +256,7 @@ export class RangedProjectiles {
 
         try {
             const texture = await Assets.load<Texture>(request.url);
+            if (this.destroyed) return;
             texture.source.scaleMode = "linear";
             request.assign(texture);
         } catch {
@@ -261,11 +274,16 @@ export class RangedProjectiles {
      */
     public async fireAlongPath(points: HoCMath.XY[], opts: Omit<IFireProjectileOptions, "from" | "to">): Promise<void> {
         for (let leg = 1; leg < points.length; leg += 1) {
+            if (this.destroyed) return;
             await this.fire({ ...opts, from: points[leg - 1], to: points[leg] });
         }
     }
     public async fire(opts: IFireProjectileOptions): Promise<void> {
+        if (this.destroyed) return;
         await this.ensureProjectileTexture(opts);
+        // New Battle may have destroyed the lifecycle marker while the optional art above was decoding.
+        // Never attach an orphaned projectile to the app-owned world root after that boundary.
+        if (this.destroyed) return;
         this.context.onProjectileFired?.();
         const cell = this.context.getGridSettings().getCellSize();
         const from = { x: opts.from.x, y: opts.from.y };
@@ -391,7 +409,26 @@ export class RangedProjectiles {
         this.cannonExplosions.length = 0;
     }
     public destroy(): void {
+        this.releaseOwnedResources();
+        if (!this.lifecycleMarker.destroyed) this.lifecycleMarker.destroy();
+    }
+    private releaseOwnedResources(): void {
+        if (this.destroyed) return;
+        this.destroyed = true;
         this.clear();
+        // These Texture objects belong to Pixi's global Assets cache; drop only this scene's references.
+        this.armorPiercingBoltTexture = undefined;
+        this.orcThrowingAxeTexture = undefined;
+        this.arbalesterCyanBoltTexture = undefined;
+        this.centaurSpearTexture = undefined;
+        this.dryadThornDartTexture = undefined;
+        this.beholderPurpleEyeTexture = undefined;
+        this.elfEmeraldArrowTexture = undefined;
+        this.medusaSpectralSerpentTexture = undefined;
+        this.cyclopsHeavyBoulderTexture = undefined;
+        this.monkSolarOrbTexture = undefined;
+        this.tsarCannonMoltenBallTexture = undefined;
+        this.gargantuanRootBoulderTexture = undefined;
     }
     /** Redraw the projectile at world position (x, y) using absolute coordinates. */
     private draw(p: IProjectile, x: number, y: number): void {
