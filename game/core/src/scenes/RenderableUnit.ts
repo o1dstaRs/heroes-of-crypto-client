@@ -5036,9 +5036,21 @@ export class RenderableUnit extends Unit {
     /** Take the dodge blur off the sprite while leaving the shared grade and other filters alone. */
     private removeDodgeBlur(): void {
         if (this.sprite && this.dodgeBlurFilter) {
-            const remaining = (this.sprite.filters ?? []).filter((filter) => filter !== this.dodgeBlurFilter);
+            const installed = this.sprite.filters;
+            if (!installed?.includes(this.dodgeBlurFilter)) return;
+            const remaining = installed.filter((filter) => filter !== this.dodgeBlurFilter);
             this.sprite.filters = remaining.length ? remaining : null;
         }
+    }
+    /** Put dodge blur first exactly once; subsequent animation frames retain the installed array. */
+    private installDodgeBlur(): void {
+        const sprite = this.sprite;
+        const blur = this.dodgeBlurFilter;
+        if (!sprite || !blur) return;
+        const installed = sprite.filters ?? [];
+        if (installed[0] === blur && installed.indexOf(blur, 1) === -1) return;
+        const remaining = installed.filter((filter) => filter !== blur);
+        sprite.filters = [blur, ...remaining];
     }
     private stepDodgeAnimation(worldRoot: Container): void {
         const anim = this.dodgeAnim;
@@ -5047,15 +5059,17 @@ export class RenderableUnit extends Unit {
         const t = (now - anim.startMs) / anim.durationMs;
 
         // Fade + expire the afterimage ghosts regardless of phase (they outlive the spring-back).
-        anim.ghosts = anim.ghosts.filter((ghost) => {
+        let liveGhostCount = 0;
+        for (const ghost of anim.ghosts) {
             const age = now - ghost.bornMs;
             if (age >= DODGE_GHOST_LIFE_MS || ghost.sprite.destroyed) {
                 if (!ghost.sprite.destroyed) ghost.sprite.destroy();
-                return false;
+                continue;
             }
             ghost.sprite.alpha = DODGE_GHOST_ALPHA * (1 - age / DODGE_GHOST_LIFE_MS);
-            return true;
-        });
+            anim.ghosts[liveGhostCount++] = ghost;
+        }
+        anim.ghosts.length = liveGhostCount;
 
         if (t >= 1) {
             if (this.sprite) {
@@ -5094,10 +5108,7 @@ export class RenderableUnit extends Unit {
                         this.dodgeBlurFilter = null;
                     }
                 }
-                if (this.dodgeBlurFilter) {
-                    const remaining = (this.sprite.filters ?? []).filter((filter) => filter !== this.dodgeBlurFilter);
-                    this.sprite.filters = [this.dodgeBlurFilter, ...remaining];
-                }
+                this.installDodgeBlur();
             } else {
                 this.removeDodgeBlur();
             }

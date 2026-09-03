@@ -2444,6 +2444,31 @@ describe("RenderableUnit dodge animation", () => {
 });
 
 describe("RenderableUnit filter lifecycle", () => {
+    test("keeps the installed dodge-filter array stable between animation frames", () => {
+        const unit = createRenderableUnit(TeamVals.RIGHT, "Nature", "Satyr", "satyr_512");
+        const blur = {};
+        const grade = {};
+        const installed = [blur, grade];
+        const sprite = { filters: installed as object[] | null };
+        const internals = unit as unknown as {
+            sprite: typeof sprite;
+            dodgeBlurFilter: object;
+            installDodgeBlur(): void;
+            removeDodgeBlur(): void;
+        };
+        internals.sprite = sprite;
+        internals.dodgeBlurFilter = blur;
+
+        internals.installDodgeBlur();
+        expect(sprite.filters).toBe(installed);
+
+        internals.removeDodgeBlur();
+        expect(sprite.filters).toEqual([grade]);
+        const withoutBlur = sprite.filters;
+        internals.removeDodgeBlur();
+        expect(sprite.filters).toBe(withoutBlur);
+    });
+
     test("destroys a retired motion blur instead of retaining it for the tab lifetime", () => {
         const unit = createRenderableUnit(TeamVals.RIGHT, "Nature", "Satyr", "satyr_512");
         let destroyCalls = 0;
