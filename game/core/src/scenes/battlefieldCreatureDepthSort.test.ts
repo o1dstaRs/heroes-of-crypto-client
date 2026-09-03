@@ -29,6 +29,15 @@ const candidate = (
 });
 
 describe("battlefield creature head-priority depth sorting", () => {
+    test("can update a reusable head-zone rectangle", () => {
+        const target = rect(0, 0, 0, 0);
+
+        expect(creatureHeadPriorityZone(rect(100, 20, 200, 120), 1, target)).toBe(target);
+        expect(target).toEqual(rect(152, 20, 200, 86));
+        expect(creatureHeadPriorityZone(rect(40, 10, 140, 210), -1, target)).toBe(target);
+        expect(target).toEqual(rect(40, 10, 88, 142));
+    });
+
     test("places a right-facing creature's intersecting head in front of its neighbour", () => {
         const dragon = candidate("dragon", 3998, 0, rect(100, 20, 260, 180), 1);
         const angel = candidate("angel", 4000, 1, rect(220, 10, 320, 190), 1);

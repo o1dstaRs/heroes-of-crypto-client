@@ -192,6 +192,29 @@ describe("battlefield movement preview", () => {
         expect(preview?.x).toBeCloseTo(destinationSprite?.x ?? 0);
         expect(preview?.y).toBeCloseTo(destinationSprite?.y ?? 0);
     });
+
+    assetTest("reuses depth-sort geometry while updating its live values", () => {
+        const unit = createRenderableUnit(TeamVals.RIGHT, "Nature", "Wolf", "wolf_512", () => Texture.WHITE);
+        unit.setPosition(384, 640);
+        unit.setBattlefieldVisualProjection(true);
+        const root = new Container();
+        unit.ensureVisual(root, gridSettings);
+
+        const first = unit.getCreatureDepthSortCandidate(0);
+        const firstBounds = first?.bounds;
+        const firstHeadZone = first?.headZone;
+        const firstLeft = first?.bounds.left;
+        unit.setPosition(896, 1024);
+        unit.ensureVisual(root, gridSettings);
+        const second = unit.getCreatureDepthSortCandidate(3);
+
+        expect(first).toBeDefined();
+        expect(second).toBe(first);
+        expect(second?.bounds).toBe(firstBounds);
+        expect(second?.headZone).toBe(firstHeadZone);
+        expect(second?.stableOrder).toBe(3);
+        expect(second?.bounds.left).not.toBe(firstLeft);
+    });
 });
 
 describe("attack animation vertical bands", () => {

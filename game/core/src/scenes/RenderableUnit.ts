@@ -10,6 +10,7 @@ import {
     BlurFilter,
     ColorMatrixFilter,
     FillGradient,
+    Bounds,
     type Filter,
 } from "pixi.js";
 import {
@@ -1513,6 +1514,9 @@ export class RenderableUnit extends Unit {
     private battlefieldContourFilter?: ReturnType<typeof getBattlefieldCreatureContourFilter>;
     private battlefieldStyleFilter?: ColorMatrixFilter;
     private battlefieldStyleSignature = "";
+    /** Reused each frame so depth sorting does not allocate four geometry objects per visible unit. */
+    private depthSortBounds?: Bounds;
+    private depthSortCandidate?: CreatureDepthSortCandidate;
     // "Revealed" roster marker: a translucent red cell beneath the B&W silhouette plus its name caption,
     // so the opponent's known army reads as a roster line-up rather than units already standing on the board.
     private rosterCard?: Container;
@@ -1660,6 +1664,8 @@ export class RenderableUnit extends Unit {
         ru.battlefieldContourFilter = undefined;
         ru.battlefieldStyleFilter = undefined;
         ru.battlefieldStyleSignature = "";
+        ru.depthSortBounds = undefined;
+        ru.depthSortCandidate = undefined;
         ru.shadowDrawWidth = 0;
         ru.shadowDrawHeight = 0;
         // Without this, visualScaleMultiplier is `undefined` -> targetSize = 128 * undefined = NaN
@@ -2611,21 +2617,23 @@ export class RenderableUnit extends Unit {
     public getCreatureDepthSortCandidate(stableOrder: number): CreatureDepthSortCandidate | undefined {
         const sprite = this.sprite;
         if (!this.useBattlefieldVisualProjection || this.visualMode !== "normal" || !sprite?.visible) return undefined;
-        const bounds = sprite.getBounds();
+        const bounds = sprite.getBounds(false, (this.depthSortBounds ??= new Bounds()));
         if (bounds.width <= 0 || bounds.height <= 0) return undefined;
-        const rect = {
-            left: bounds.x,
-            top: bounds.y,
-            right: bounds.x + bounds.width,
-            bottom: bounds.y + bounds.height,
-        };
-        return {
+        const candidate = (this.depthSortCandidate ??= {
             id: String(this.getId()),
             baseDepth: sprite.zIndex,
             stableOrder,
-            bounds: rect,
-            headZone: creatureHeadPriorityZone(rect, this.facingDirection),
-        };
+            bounds: { left: 0, top: 0, right: 0, bottom: 0 },
+            headZone: { left: 0, top: 0, right: 0, bottom: 0 },
+        });
+        candidate.baseDepth = sprite.zIndex;
+        candidate.stableOrder = stableOrder;
+        candidate.bounds.left = bounds.x;
+        candidate.bounds.top = bounds.y;
+        candidate.bounds.right = bounds.x + bounds.width;
+        candidate.bounds.bottom = bounds.y + bounds.height;
+        creatureHeadPriorityZone(candidate.bounds, this.facingDirection, candidate.headZone);
+        return candidate;
     }
     /** Raise the live figure and its foreground indicators without lifting its ground shadow/aura. */
     public applyCreatureHeadPriorityDepth(depth: number): void {

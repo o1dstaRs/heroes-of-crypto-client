@@ -34,17 +34,20 @@ const meaningfullyIntersects = (headZone: CreatureDepthRect, bodyBounds: Creatur
  * Approximate the face/head end of a side-facing battlefield cutout. The upper portion covers humanoid
  * heads while the generous vertical reach still catches long, low dragon and quadruped necks.
  */
-export const creatureHeadPriorityZone = (bounds: CreatureDepthRect, facingDirection: -1 | 1): CreatureDepthRect => {
+export const creatureHeadPriorityZone = (
+    bounds: CreatureDepthRect,
+    facingDirection: -1 | 1,
+    target: CreatureDepthRect = { left: 0, top: 0, right: 0, bottom: 0 },
+): CreatureDepthRect => {
     const width = Math.max(0, bounds.right - bounds.left);
     const height = Math.max(0, bounds.bottom - bounds.top);
     const headWidth = width * HEAD_ZONE_WIDTH_RATIO;
 
-    return {
-        left: facingDirection < 0 ? bounds.left : bounds.right - headWidth,
-        right: facingDirection < 0 ? bounds.left + headWidth : bounds.right,
-        top: bounds.top,
-        bottom: bounds.top + height * HEAD_ZONE_HEIGHT_RATIO,
-    };
+    target.left = facingDirection < 0 ? bounds.left : bounds.right - headWidth;
+    target.right = facingDirection < 0 ? bounds.left + headWidth : bounds.right;
+    target.top = bounds.top;
+    target.bottom = bounds.top + height * HEAD_ZONE_HEIGHT_RATIO;
+    return target;
 };
 
 const byNaturalDepth = (left: CreatureDepthSortCandidate, right: CreatureDepthSortCandidate): number =>
