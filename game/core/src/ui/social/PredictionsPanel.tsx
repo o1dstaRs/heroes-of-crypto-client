@@ -16,6 +16,7 @@ import { t, tf } from "../../i18n/i18n";
 import { CurrencyIcon } from "../GoldCurrencyIcon";
 import { hocColors, hocInputSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "../hocTheme";
 import { useRankedSeason } from "../useRankedSeason";
+import { startVisibleInterval } from "../visibleInterval";
 import { DockPanelCloseButton, DockPanelShell } from "./DockPanelShell";
 
 /**
@@ -74,10 +75,8 @@ export const PredictionsPanel: React.FC<PredictionsPanelProps> = ({ open, onClos
         if (!open) {
             return undefined;
         }
-        void reload();
         // Drafts are short; keep the offered markets honest while the panel sits open.
-        const timer = window.setInterval(() => void reload(), 10_000);
-        return () => window.clearInterval(timer);
+        return startVisibleInterval(() => void reload(), 10_000);
     }, [open, reload]);
 
     useEffect(() => {

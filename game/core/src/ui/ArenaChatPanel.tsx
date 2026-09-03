@@ -142,6 +142,8 @@ export const ArenaChatPanel: React.FC<{ selfUsername?: string }> = ({ selfUserna
         window.localStorage.setItem(COLLAPSE_KEY, open ? "1" : "0");
     }, [open]);
 
+    useEffect(() => () => window.clearTimeout(flashTimerRef.current), []);
+
     // Follow the tail only when the reader is already at it, so scrolling back through history is
     // not yanked away by an arriving line.
     useEffect(() => {

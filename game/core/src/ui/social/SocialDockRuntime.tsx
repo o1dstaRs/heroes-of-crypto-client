@@ -21,6 +21,7 @@ import { ARENA_CHAT_OPEN_KEY } from "../ArenaChatPanel";
 import { registerVolumeSlot, VOLUME_SLOT_PRIORITY } from "../audio/volumeSlot";
 import { CurrencyIcon } from "../GoldCurrencyIcon";
 import { useRankedSeason } from "../useRankedSeason";
+import { startVisibleInterval } from "../visibleInterval";
 import { ConversationPanel } from "./ConversationPanel";
 import { useCurrentLobby } from "./CurrentLobbyContext";
 import { DockPanelCloseButton, DockPanelShell } from "./DockPanelShell";
@@ -402,10 +403,17 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage })
         }
         setMessage(null);
         setLoading(true);
-        void reload().finally(() => setLoading(false));
+        let firstLoad = true;
+        const stopPolling = startVisibleInterval(() => {
+            void reload().finally(() => {
+                if (firstLoad) {
+                    firstLoad = false;
+                    setLoading(false);
+                }
+            });
+        }, 30_000);
         // Refresh online dots while the panel stays open.
-        const handle = window.setInterval(() => void reload(), 30_000);
-        return () => window.clearInterval(handle);
+        return stopPolling;
     }, [open, reload]);
 
     // The pending-request list can change from the popup/tray while we're open.

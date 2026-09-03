@@ -16,6 +16,7 @@ import { playCallSound, playLockSound, playRaiseSound } from "./audio/chipSounds
 import { CurrencyIcon } from "./GoldCurrencyIcon";
 import { hocColors, hocInputSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
 import { useRankedSeason } from "./useRankedSeason";
+import { startVisibleInterval } from "./visibleInterval";
 
 /**
  * The poker moment of a wagered match. Mounted over the draft; polls the wager (it forms a few
@@ -101,12 +102,11 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
         if (!active) {
             return undefined;
         }
-        void reload();
-        const poll = window.setInterval(() => void reload(), POLL_MS);
-        const tick = window.setInterval(() => setNowTick(Date.now()), 500);
+        const stopPolling = startVisibleInterval(() => void reload(), POLL_MS);
+        const stopTicking = startVisibleInterval(() => setNowTick(Date.now()), 500);
         return () => {
-            window.clearInterval(poll);
-            window.clearInterval(tick);
+            stopPolling();
+            stopTicking();
         };
     }, [active, reload]);
 
