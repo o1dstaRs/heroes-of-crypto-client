@@ -1,13 +1,8 @@
-import { RainbowKitProvider, darkTheme } from "@rainbow-me/rainbowkit";
-import "@rainbow-me/rainbowkit/styles.css";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React from "react";
 
-import { WagmiProvider } from "wagmi";
-
-import { wagmiConfig } from "./wagmiConfig";
-
-const queryClient = new QueryClient();
+const WalletRuntimeProvider = React.lazy(() =>
+    import("./WalletRuntimeProvider").then((module) => ({ default: module.WalletRuntimeProvider })),
+);
 
 type Props = {
     children: React.ReactNode;
@@ -15,19 +10,10 @@ type Props = {
 
 export const WalletProvider = ({ children }: Props) => {
     return (
-        <WagmiProvider config={wagmiConfig} reconnectOnMount={false}>
-            <QueryClientProvider client={queryClient}>
-                <RainbowKitProvider
-                    theme={darkTheme({
-                        accentColor: "#ff8f00",
-                        accentColorForeground: "#070504",
-                        borderRadius: "small",
-                        overlayBlur: "small",
-                    })}
-                >
-                    {children}
-                </RainbowKitProvider>
-            </QueryClientProvider>
-        </WagmiProvider>
+        // WalletConnect, RainbowKit, Wagmi, and their modal adapters are substantial. The offline
+        // sandbox never mounts this boundary, so keep that runtime out of its initial download.
+        <React.Suspense fallback={null}>
+            <WalletRuntimeProvider>{children}</WalletRuntimeProvider>
+        </React.Suspense>
     );
 };
