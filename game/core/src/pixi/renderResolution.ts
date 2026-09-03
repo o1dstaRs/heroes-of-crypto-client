@@ -1,5 +1,7 @@
 /** A 1440p backing buffer remains sharper than the board art and bounds every full-screen render target. */
 export const MAX_RENDER_PIXELS = 2560 * 1440;
+/** Do not downsample beyond half-resolution even on unusually large wall displays. */
+export const MIN_RENDER_RESOLUTION = 0.5;
 /** At native 1080p and above, physical pixel density already keeps geometry edges clean without MSAA. */
 export const MAX_MSAA_RENDER_PIXELS = 1920 * 1080;
 
@@ -14,7 +16,7 @@ export const renderResolutionForViewport = (width: number, height: number, devic
     const safeDevicePixelRatio =
         Number.isFinite(devicePixelRatio) && devicePixelRatio > 0 ? Math.min(devicePixelRatio, 2) : 1;
     const pixelBudgetResolution = Math.sqrt(MAX_RENDER_PIXELS / (safeWidth * safeHeight));
-    return Math.max(1, Math.min(safeDevicePixelRatio, pixelBudgetResolution));
+    return Math.max(MIN_RENDER_RESOLUTION, Math.min(safeDevicePixelRatio, pixelBudgetResolution));
 };
 
 /**

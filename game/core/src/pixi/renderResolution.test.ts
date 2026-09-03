@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
     MAX_MSAA_RENDER_PIXELS,
     MAX_RENDER_PIXELS,
+    MIN_RENDER_RESOLUTION,
     renderResolutionForViewport,
     renderTexturePoolBucket,
     shouldUseRenderAntialias,
@@ -19,7 +20,13 @@ describe("renderResolutionForViewport", () => {
         expect(laptopResolution).toBeGreaterThan(1.5);
         expect(1512 * laptopResolution * 982 * laptopResolution).toBeCloseTo(MAX_RENDER_PIXELS);
         expect(renderResolutionForViewport(2560, 1440, 2)).toBe(1);
-        expect(renderResolutionForViewport(3840, 2160, 2)).toBe(1);
+        const fourKResolution = renderResolutionForViewport(3840, 2160, 2);
+        expect(fourKResolution).toBeCloseTo(2 / 3);
+        expect(3840 * fourKResolution * 2160 * fourKResolution).toBeCloseTo(MAX_RENDER_PIXELS);
+    });
+
+    test("keeps a half-resolution floor for unusually large displays", () => {
+        expect(renderResolutionForViewport(7680, 4320, 2)).toBe(MIN_RENDER_RESOLUTION);
     });
 
     test("handles invalid or zero dimensions without returning an unusable resolution", () => {
