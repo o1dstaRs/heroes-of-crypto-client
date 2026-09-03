@@ -6,6 +6,7 @@ import { staticBattlefieldTextureNameForUnit } from "@/pixi/PixiUnitsFactory";
 export const BATTLEFIELD_CREATURE_CONTOUR_COLOR = 0x241f19;
 /** Furnace-adjacent rows render the rim at 60%, i.e. forty percent more transparent. */
 export const BATTLEFIELD_CREATURE_CONTOUR_FURNACE_OPACITY = 0.6;
+const runtimeContourDecisions = new Map<string, boolean>();
 
 /**
  * Level-three battlefield cutouts already contain the approved two-pixel outer rim. Every other field
@@ -17,10 +18,15 @@ export function shouldApplyRuntimeBattlefieldContour(
     footprintWidth: number,
     footprintHeight: number = footprintWidth,
 ): boolean {
+    const cacheKey = `${unitName}:${footprintWidth}x${footprintHeight}`;
+    const cached = runtimeContourDecisions.get(cacheKey);
+    if (cached !== undefined) return cached;
     // The footprint, not a scalar size: the approved cutout set is keyed by the ART TIER a body resolves to,
     // and a rectangle resolves to the two-cell tier on either axis. Passing one number would ask about a
     // square the unit is not, and silently double the rim on art that already bakes it.
-    return staticBattlefieldTextureNameForUnit(unitName, footprintWidth, footprintHeight) === undefined;
+    const shouldApply = staticBattlefieldTextureNameForUnit(unitName, footprintWidth, footprintHeight) === undefined;
+    runtimeContourDecisions.set(cacheKey, shouldApply);
+    return shouldApply;
 }
 
 const VERTEX = /* glsl */ `
