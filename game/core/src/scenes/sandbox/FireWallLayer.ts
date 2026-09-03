@@ -90,6 +90,9 @@ export class FireWallLayer {
      * engine owns lifetime — this layer never expires a wall on its own.
      */
     public update(dt: number, cells: readonly IFireWallCell[], cellSize: number, toWorld: ToWorld): void {
+        // Fire Wall is absent for most of a match. Leave its clock and both Graphics buffers completely
+        // dormant until an authoritative cell exists or an old wall is still burning out.
+        if (!cells.length && !this.visuals.size) return;
         this.time += dt;
 
         for (const visual of this.visuals.values()) {
