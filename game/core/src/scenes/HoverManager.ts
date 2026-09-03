@@ -787,13 +787,18 @@ export class HoverManager {
         });
     }
     public update(dt: number): void {
-        this.hoverGlowPhase += dt * (5 / 3);
+        const hasPulsingHover =
+            !!this.animatedRangeArrow ||
+            !!this.hoveredUnitHighlight ||
+            !!this.hoverSelectedCells?.length ||
+            !!this.hoverBattlefieldFootprintCells?.length;
+        if (hasPulsingHover) this.hoverGlowPhase += dt * (5 / 3);
         if (this.animatedRangeArrow) {
             const arrow = this.animatedRangeArrow;
             this.drawAttackArrow(arrow.from, arrow.to, arrow.continuationTo, arrow.smokeFrom, "arrow", false);
         }
-        this.updateBoardHoverTween(dt);
-        this.updatePlacementHoverRearm();
+        if (this.boardHoverProps && this.boardHoverCenter) this.updateBoardHoverTween(dt);
+        if (this.lastPlacementUnitId) this.updatePlacementHoverRearm();
     }
     public setLastPlacement(unitId: string | undefined) {
         this.lastPlacementUnitId = unitId;

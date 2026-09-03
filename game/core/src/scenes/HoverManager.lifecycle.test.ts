@@ -43,3 +43,18 @@ test("ignores duplicate lifecycle teardown", () => {
 
     expect(filterDestroyCalls).toBe(1);
 });
+
+test("keeps idle hover animation dormant between interactions", () => {
+    const hover = new HoverManager({} as unknown as ISandboxHoverContext);
+    const internals = hover as unknown as {
+        hoverGlowPhase: number;
+        hoverSelectedCells?: Array<{ x: number; y: number }>;
+    };
+
+    hover.update(1);
+    expect(internals.hoverGlowPhase).toBe(0);
+
+    internals.hoverSelectedCells = [{ x: 1, y: 1 }];
+    hover.update(1);
+    expect(internals.hoverGlowPhase).toBeCloseTo(5 / 3);
+});
