@@ -9,9 +9,9 @@ describe("ranked background work", () => {
     test("pauses fallback snapshots in hidden tabs and catches up on return", () => {
         const poll = source.slice(source.indexOf("const pollSnapshot ="), source.indexOf("}, [refreshSnapshot"));
 
-        expect(poll).toContain("if (document.hidden) return");
-        expect(poll).toContain('document.addEventListener("visibilitychange", onVisibilityChange)');
-        expect(poll).toContain('document.removeEventListener("visibilitychange", onVisibilityChange)');
+        expect(poll).toContain("startVisibleInterval(pollSnapshot, 4_000)");
+        expect(poll).not.toContain("window.setInterval(pollSnapshot");
+        expect(poll).toContain("stopPolling()");
     });
 
     test("runs the augment countdown only during a timed placement phase", () => {

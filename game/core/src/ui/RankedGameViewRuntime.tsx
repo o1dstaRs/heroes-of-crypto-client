@@ -596,52 +596,36 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             return undefined;
         }
         let cancelled = false;
-
-        refreshSnapshot()
-            .then(() => {
-                if (!cancelled) {
-                    setStatus("Connected");
-                    setError("");
-                    setGameUnavailable(false);
-                }
-            })
-            .catch((err: unknown) => {
-                if (!cancelled) {
-                    setStatus("Snapshot failed");
-                    setError((err as Error).message || "Unable to load play snapshot");
-                    setGameUnavailable(isGameGoneError(err));
-                }
-            });
+        let firstPoll = true;
 
         // Periodic snapshot refresh as a fallback — keeps the board in sync even if SSE
-        // drops or lags. Polls every 4 seconds; the snapshot endpoint is cheap.
+        // drops or lags. It is fully disarmed while the tab is hidden, then catches up immediately
+        // when the player returns instead of waking every four seconds just to branch out.
         const pollSnapshot = () => {
             if (cancelled) return;
-            // SSE remains authoritative while the tab is away. Skip the fallback request and its React
-            // update in background tabs; one immediate poll below catches up when the player returns.
-            if (document.hidden) return;
+            const initial = firstPoll;
+            firstPoll = false;
             refreshSnapshot()
                 .then(() => {
-                    if (!cancelled) {
-                        setGameUnavailable(false);
-                    }
+                    if (cancelled) return;
+                    setGameUnavailable(false);
+                    if (!initial) return;
+                    setStatus("Connected");
+                    setError("");
                 })
                 .catch((err: unknown) => {
-                    if (!cancelled && isGameGoneError(err)) {
-                        setGameUnavailable(true);
-                    }
+                    if (cancelled) return;
+                    if (isGameGoneError(err)) setGameUnavailable(true);
+                    if (!initial) return;
+                    setStatus("Snapshot failed");
+                    setError((err as Error).message || "Unable to load play snapshot");
                 });
         };
-        const onVisibilityChange = () => {
-            if (!document.hidden) pollSnapshot();
-        };
-        const pollInterval = window.setInterval(pollSnapshot, 4000);
-        document.addEventListener("visibilitychange", onVisibilityChange);
+        const stopPolling = startVisibleInterval(pollSnapshot, 4_000);
 
         return () => {
             cancelled = true;
-            window.clearInterval(pollInterval);
-            document.removeEventListener("visibilitychange", onVisibilityChange);
+            stopPolling();
         };
     }, [refreshSnapshot, replayOnly]);
 
