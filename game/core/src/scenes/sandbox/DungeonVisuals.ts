@@ -1359,9 +1359,12 @@ export class DungeonVisuals {
         this.scatteredMountainShadows = [];
         this.lastScatteredMountainTextures = undefined;
         this.scatteredMountainAppearanceDirty = true;
+        // Every non-Cemetery map calls this with an empty layout. Do not let that common path request the
+        // two 4 MiB Cemetery sheets merely to discover there is nothing to build.
+        if (!this.scatteredMountains.length) return;
         const tiles = this.mountainTiles();
         const fightTiles = this.mountainTiles(true);
-        if (!tiles?.length || !fightTiles?.length || !this.scatteredMountains.length) {
+        if (!tiles?.length || !fightTiles?.length) {
             return;
         }
         const fightStarted = FightStateManager.getInstance().getFightProperties().hasFightStarted();

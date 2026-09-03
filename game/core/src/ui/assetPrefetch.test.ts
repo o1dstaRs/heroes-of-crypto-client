@@ -49,6 +49,8 @@ describe("what gets prefetched", () => {
         expect(urls.some((url) => url.includes("book_1024_clean_pages_v1"))).toBe(false);
         expect(urls.some((url) => url.includes("craft_anvil"))).toBe(false);
         expect(urls.some((url) => url.includes("craft_hammer"))).toBe(false);
+        expect(urls.some((url) => url.includes("efreet_board_128"))).toBe(false);
+        expect(urls.some((url) => url.includes("units_overlay_toggle_square_v1"))).toBe(false);
     });
 
     test("every entry is a real URL, never a bare key", () => {

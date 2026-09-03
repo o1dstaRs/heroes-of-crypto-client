@@ -70,9 +70,16 @@ export function isTransientLoadingScreenAssetKey(key: string): boolean {
 }
 
 const LIVE_ENVIRONMENT_ASSETS = new Set(["background_stone_tiles_sinister_16x16_original_restored"]);
+const LAZY_MAP_TEXTURE_ASSETS = new Set(["cemetery_obstacles_9x_256", "cemetery_obstacles_9x_256_hp"]);
+
+/** Map-specific source sheets retained only while a scene actually uses that map. */
+export function isLazyMapTextureAssetKey(key: string): boolean {
+    return LAZY_MAP_TEXTURE_ASSETS.has(key);
+}
 
 export function isDeferredEnvironmentAssetKey(key: string): boolean {
     if (LIVE_ENVIRONMENT_ASSETS.has(key)) return false;
+    if (isLazyMapTextureAssetKey(key)) return true;
     if (
         key === "active_turn_blue_fire_atlas" ||
         key === "cemetery_obstacles_9x_256_atlas" ||
@@ -112,7 +119,7 @@ export function isDeferredUnitCardAssetKey(key: string): boolean {
 }
 
 export function isLazyBattlefieldCreatureAssetKey(key: string): boolean {
-    return key.endsWith("_battlefield_side_right_final_v1");
+    return key === "efreet_board_128" || key.endsWith("_battlefield_side_right_final_v1");
 }
 
 const LAZY_PROJECTILE_ASSETS = new Set([
@@ -147,7 +154,9 @@ export function isLazyCombatEffectAssetKey(key: string): boolean {
 }
 
 export function isLazyRosterAssetKey(key: string): boolean {
-    return key.endsWith("_pick_sandbox_x2") || key.includes("_portrait_bg_");
+    return (
+        key === "units_overlay_toggle_square_v1" || key.endsWith("_pick_sandbox_x2") || key.includes("_portrait_bg_")
+    );
 }
 
 /** True only for assets that PixiTextureLoader places in its blocking core bundle. */

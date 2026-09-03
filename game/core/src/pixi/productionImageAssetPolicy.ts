@@ -8,6 +8,8 @@ import { isUnitAnimationAtlasKey } from "./unitAtlasKeys";
  * source into a release even though no production path can request one.
  */
 const LIVE_PRODUCTION_ENVIRONMENT_ASSETS = new Set([
+    "cemetery_obstacles_9x_256",
+    "cemetery_obstacles_9x_256_hp",
     "lava_center_anim_atlas",
     "fire_pit_center_clean_fire_v2_512",
     "fire_pit_grate_foreground_static_v7_512",

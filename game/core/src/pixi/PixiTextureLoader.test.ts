@@ -227,6 +227,8 @@ describe("pixi texture bundle split", () => {
             "lava_center_anim_atlas",
             "ambient_fire_video_torch_left_natural_v4_64_atlas",
             "ambient_fire_video_torch_right_natural_v4_64_atlas",
+            "cemetery_obstacles_9x_256",
+            "cemetery_obstacles_9x_256_hp",
         ];
 
         for (const key of deferred) {
@@ -288,6 +290,7 @@ describe("pixi texture bundle split", () => {
             "zena_battlefield_side_right_final_v1",
             "efreet_battlefield_side_right_final_v1",
             "thunderbird_battlefield_side_right_final_v1",
+            "efreet_board_128",
         ]) {
             expect(isDeferredLegacyCreatureAssetKey(key)).toBe(false);
             expect(isLazyBattlefieldCreatureAssetKey(key)).toBe(true);
@@ -336,6 +339,7 @@ describe("pixi texture bundle split", () => {
             "wolf_pick_sandbox_x2",
             "life_portrait_bg_golden_dawn_four_corner_haze_v1",
             "nature_portrait_bg_tier_1_2",
+            "units_overlay_toggle_square_v1",
         ]) {
             expect(isLazyRosterAssetKey(key)).toBe(true);
             expect(lazyRosterAssets[key]).toBeDefined();

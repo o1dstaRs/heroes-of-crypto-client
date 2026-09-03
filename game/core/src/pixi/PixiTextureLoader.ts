@@ -27,6 +27,7 @@ export {
     isIdleAtlasKey,
     isLazyBattlefieldCreatureAssetKey,
     isLazyCombatEffectAssetKey,
+    isLazyMapTextureAssetKey,
     isLazyProjectileAssetKey,
     isLazyRosterAssetKey,
     isLivePlacementAssetKey,

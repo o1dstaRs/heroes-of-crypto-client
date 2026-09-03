@@ -25,6 +25,8 @@ describe("production creature animation policy", () => {
 describe("production environment image policy", () => {
     test("keeps every environment atlas used by the live dungeon", () => {
         for (const key of [
+            "cemetery_obstacles_9x_256",
+            "cemetery_obstacles_9x_256_hp",
             "lava_center_anim_atlas",
             "fire_pit_center_clean_fire_v2_512",
             "fire_pit_grate_foreground_static_v7_512",

@@ -25,15 +25,14 @@ describe("PixiScene teardown", () => {
         expect(destroy.indexOf("getUIContainer()")).toBeLessThan(destroy.indexOf("this.drawer.destroy()"));
     });
 
-    test("releases scene-leased battlefield creature textures before persistent roots are cleared", () => {
+    test("releases scene-leased creature and map textures before persistent roots are cleared", () => {
         const source = readFileSync(join(import.meta.dir, "PixiScene.ts"), "utf8");
         const destroy = source.slice(source.indexOf("public Destroy()"), source.indexOf("// ------- Delegates"));
 
-        expect(destroy).toContain("this.releaseLazyBattlefieldTextures()");
-        expect(destroy.indexOf("releaseLazyBattlefieldTextures()")).toBeLessThan(
-            destroy.indexOf("destroyContainerChildren"),
-        );
+        expect(destroy).toContain("this.releaseLazyTextures()");
+        expect(destroy.indexOf("releaseLazyTextures()")).toBeLessThan(destroy.indexOf("destroyContainerChildren"));
         expect(source).toContain("isLazyBattlefieldCreatureAssetKey(key)");
+        expect(source).toContain("isLazyMapTextureAssetKey(key)");
         expect(source).toContain("this.releaseLateUnclaimedTexture(key, url)");
     });
 });

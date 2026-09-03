@@ -150,6 +150,31 @@ describe("DungeonVisuals lifecycle", () => {
         expect(worldRoot.children).not.toContain(holes);
     });
 
+    test("requests Cemetery sheets only after a Cemetery layout actually exists", () => {
+        const stage = new Container();
+        const worldRoot = new Container();
+        const gridSettings = new GridSettings(16, 1024, 0, 1024, 0, 64, 32);
+        const requested: string[] = [];
+        const visuals = new DungeonVisuals({
+            getStage: () => stage,
+            getWorldRoot: () => worldRoot,
+            getViewportSize: () => ({ width: 1024, height: 1024 }),
+            getGridSettings: () => gridSettings,
+            texAny: (key) => {
+                requested.push(key);
+                return undefined;
+            },
+            attachToWorldRoot: () => undefined,
+        });
+
+        visuals.setScatteredMountains([], false);
+        expect(requested).toEqual([]);
+
+        visuals.setScatteredMountains([{ x: 3, y: 4, variant: 0 }], true);
+        expect(requested).toEqual(["cemetery_obstacles_9x_256", "cemetery_obstacles_9x_256_hp"]);
+        visuals.destroy();
+    });
+
     test("evicts a large deferred fire atlas that finishes decoding after teardown", async () => {
         const stage = new Container();
         const worldRoot = new Container();
