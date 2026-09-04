@@ -4,9 +4,9 @@
 /**
  * One atlas entry per unit per animation state. Typed as an EXPLICIT record on purpose:
  * the old `as const` + distributed-keyof types collapsed every indexed lookup to `never`
- * the moment the art in Dropbox went heterogeneous (a unit shipping only an "attack"
+ * the moment the external art set went heterogeneous (a unit shipping only an "attack"
  * atlas while the rest carry "default"), which broke the client build at deploy time
- * even though CI — with no Dropbox — stayed green. Consumers already resolve units and
+ * even though CI — with no external art drive — stayed green. Consumers already resolve units and
  * states at runtime (`name in animationAtlases`, `Object.keys(...)`), so string keys
  * with a strict value shape is the honest contract.
  */
@@ -20,10 +20,6 @@ export interface IAtlasAnimationMeta {
     frameDurationSec: number;
     frameDurationsMs?: number[];
     totalDurationSec: number;
-    /** Emitted by the local generator for authored idles; optional so hand-tuned entries still type-check. */
-    totalLoopDurationSec?: number;
-    sourceOrder?: number[];
-    uprightPauseMs?: number;
     layout: { cols: number; rows: number };
     footAnchorY?: number;
     geometry?: string;
@@ -35,6 +31,10 @@ export interface IAtlasAnimationMeta {
     };
     loopDurationMs: number;
     pauseMs: number;
+    /** Forward-compat: Google Drive art metadata evolves ahead of this generator (e.g. the
+     * multi-phase intro/walk animation data). Undeclared keys pass through untyped so a
+     * new meta field never breaks the DEPLOY build while CI (no external art drive) stays green. */
+    [key: string]: unknown;
 }
 
 export const animationAtlases: Readonly<Record<string, Readonly<Record<string, IAtlasAnimationMeta>>>> =
@@ -5611,11 +5611,6 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
         167
       ],
       "totalLoopDurationSec": 2.004,
-      "totalDurationSec": 2.004,
-      "atlasWidth": 3072,
-      "atlasHeight": 2304,
-      "loopDurationMs": 2004,
-      "pauseMs": 0,
       "layout": {
         "cols": 4,
         "rows": 3
@@ -5635,7 +5630,12 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
         11,
         12
       ],
-      "uprightPauseMs": 0
+      "uprightPauseMs": 0,
+      "atlasWidth": 3072,
+      "atlasHeight": 2304,
+      "totalDurationSec": 2.004,
+      "loopDurationMs": 2004,
+      "pauseMs": 0
     },
     "walk": {
       "frameWidth": 768,

@@ -450,7 +450,11 @@ describe("full-body model ground line", () => {
             };
         };
         expect(internals.sprite?.filters).toHaveLength(1);
-        expect(internals.silhouetteShadow?.texture).toBe(internals.sprite?.texture);
+        // The shadow is cast from the canonical first authored idle frame; the live sprite may already sit
+        // on a later frame because refreshed idles start at a stable per-unit phase.
+        const canonicalIdleFrame = (unit as unknown as { selectionAnimFrames?: Texture[] }).selectionAnimFrames?.[0];
+        expect(canonicalIdleFrame).toBeDefined();
+        expect(internals.silhouetteShadow?.texture).toBe(canonicalIdleFrame as Texture);
         expect(internals.silhouetteShadow?.visible).toBe(true);
         expect(internals.silhouetteShadow?.scale.y).toBeGreaterThan(0);
         expect(internals.silhouetteShadow?.x).toBeDefined();
@@ -738,9 +742,21 @@ describe("full-body model ground line", () => {
                 ["attack", "attack_up", "attack_down", "cast", "defend", "celebrate", "hit", "death"],
             ],
         ] as const;
-        const expectedY = tallBoardModelFootLineY(1024, gridSettings.getCellSize());
+        const cell = gridSettings.getCellSize();
+        const footLineY = tallBoardModelFootLineY(1024, cell);
+        // The approved static figures keep their own authored lift above the shared foot line: the Scavenger
+        // rises by five percent of its model height and the Wandering Mage by its framing offset. Every walk
+        // and one-shot state must then stay planted on that same line.
+        const expectedYByName: Record<string, number> = {
+            Orc: footLineY,
+            Scavenger:
+                footLineY +
+                0.05 * cell * SCAVENGER_BOARD_MODEL_HEIGHT_CELLS * BATTLEFIELD_CREATURE_FRAMING.Scavenger.scaleY,
+            "Wandering Mage": footLineY - BATTLEFIELD_CREATURE_FRAMING["Wandering Mage"].offsetYCells * cell,
+        };
 
         for (const [name, texture, actionStates] of cases) {
+            const expectedY = expectedYByName[name];
             const unit = createRenderableUnit(TeamVals.LEFT, "Chaos", name, texture, () => Texture.WHITE);
             const world = new Container();
             const internals = unit as unknown as GroundedInternals;
@@ -1387,6 +1403,7 @@ assetTest("does not repeat the idle animation pass after visual synchronization"
 
 // The authored gait metadata is committed with the client, so these timings also exercise the CI stubs.
 assetTest("plays Wolf Rider's gait between one-shot turn poses", () => {
+    // The approved Wolf Rider gait runs at 26 fps (see the committed wolf_rider walk metadata).
     const unit = createRenderableUnit(TeamVals.LEFT, "Might", "Wolf Rider", "wolf_rider_512", () => Texture.WHITE);
     const internals = unit as unknown as {
         sprite?: { texture: Texture };
@@ -1407,10 +1424,10 @@ assetTest("plays Wolf Rider's gait between one-shot turn poses", () => {
     expect(internals.walkAnim?.loopStartFrame).toBe(1);
     expect(internals.walkAnim?.loopEndFrame).toBe(7);
     expect(internals.walkAnim?.outroFrame).toBe(8);
-    expect(internals.walkAnim?.durationPerFrameMs).toBeCloseTo(1000 / 20);
+    expect(internals.walkAnim?.durationPerFrameMs).toBeCloseTo(1000 / 26);
 
     unit.finishBoardWalkAnimationAfterFullCycle();
-    const frameSeconds = (1000 / 20 + 0.1) / 1000;
+    const frameSeconds = (1000 / 26 + 0.1) / 1000;
     for (let index = 0; index < 8; index += 1) {
         unit.stepSpawnAnimation(frameSeconds);
     }
@@ -1437,20 +1454,22 @@ assetTest("plays Leprechaun's run between one-shot start and finish frames", () 
     unit.setPosition(0, 1024);
     unit.ensureVisual(new Container(), gridSettings);
 
+    // The approved Leprechaun run is a four-pose sheet: one start frame, a two-pose loop and one finish
+    // frame, held 380 ms each (see the committed leprechaun walk metadata).
     unit.startBoardWalkAnimation(1);
-    expect(internals.walkAnim?.frames).toHaveLength(9);
+    expect(internals.walkAnim?.frames).toHaveLength(4);
     expect(internals.walkAnim?.loopStartFrame).toBe(1);
-    expect(internals.walkAnim?.loopEndFrame).toBe(7);
-    expect(internals.walkAnim?.outroFrame).toBe(8);
-    expect(internals.walkAnim?.durationPerFrameMs).toBeCloseTo(1000 / 20);
+    expect(internals.walkAnim?.loopEndFrame).toBe(2);
+    expect(internals.walkAnim?.outroFrame).toBe(3);
+    expect(internals.walkAnim?.durationPerFrameMs).toBeCloseTo(380);
 
     unit.finishBoardWalkAnimationAfterFullCycle();
-    const frameSeconds = (1000 / 20 + 0.1) / 1000;
-    for (let index = 0; index < 8; index += 1) {
+    const frameSeconds = (380 + 0.1) / 1000;
+    for (let index = 0; index < 3; index += 1) {
         unit.stepSpawnAnimation(frameSeconds);
     }
-    expect(internals.walkAnim?.frameIndex).toBe(8);
-    expect(internals.sprite?.texture).toBe(internals.walkAnim?.frames[8]);
+    expect(internals.walkAnim?.frameIndex).toBe(3);
+    expect(internals.sprite?.texture).toBe(internals.walkAnim?.frames[3]);
 
     unit.stepSpawnAnimation(frameSeconds);
     expect(internals.walkAnim).toBeUndefined();
@@ -1580,13 +1599,14 @@ describe("Wandering Mage board animation states", () => {
         return unit;
     };
 
-    assetTest("starts its eight-frame breathing/fire cycle without requiring selection", () => {
+    assetTest("keeps the approved static figure as its idle instead of the breathing/fire cycle", () => {
         const unit = createWanderingMage();
         const internals = unit as unknown as AnimationInternals;
 
-        expect(internals.selectionAnimFrames).toHaveLength(8);
-        expect(internals.sprite?.texture.width).toBe(144);
-        expect(internals.sprite?.texture.height).toBe(192);
+        // The Wandering Mage idles on its approved static battlefield figure; the authored Ash Moth
+        // breathing/fire sheet is reserved for walks and one-shot actions.
+        expect(internals.selectionAnimFrames).toHaveLength(1);
+        expect(internals.sprite?.texture).toBe(internals.selectionAnimFrames?.[0]);
     });
 
     assetTest("uses the Orc-strength full-body breath and leaves its boots unobstructed", () => {
@@ -1624,8 +1644,8 @@ describe("Wandering Mage board animation states", () => {
 
         unit.stopBoardWalkAnimation();
         expect(internals.walkAnim).toBeUndefined();
-        expect(internals.selectionAnimFrames).toHaveLength(8);
-        expect(internals.sprite?.texture.width).toBe(144);
+        expect(internals.selectionAnimFrames).toHaveLength(1);
+        expect(internals.sprite?.texture).toBe(internals.selectionAnimFrames?.[0]);
     });
 
     assetTest("maps one complete six-pose gait to exactly two travelled cells", () => {
@@ -1727,22 +1747,25 @@ describe("Orc authored animation states", () => {
         ).toBeUndefined();
     });
 
-    assetTest("writes every axe-flourish texture to the live sprite after four local breathing cycles", () => {
+    assetTest("keeps the static figure on screen through the former axe-flourish window", () => {
         const unit = createOrc();
         const internals = unit as unknown as AnimationInternals;
         const breathingWindow = ORC_IDLE_BREATH_PERIOD_MS * ORC_IDLE_BREATH_CYCLES_PER_AXE_TWIRL;
         const idleStartedAt = internals.selectionAnimationStartedAtMs;
 
+        // The approved Orc idles on its static battlefield figure. The axe-flourish sheet stays loaded for
+        // the authored timing helpers, but the live sprite never leaves the static frame while idle.
+        expect(internals.orcIdleAxeTwirlFrames).toHaveLength(6);
         for (let frame = 0; frame < 6; frame += 1) {
             unit.stepSelectionAnimation(idleStartedAt + breathingWindow + frame * ORC_IDLE_AXE_TWIRL_FRAME_DURATION_MS);
-            expect(internals.sprite?.texture).toBe(internals.orcIdleAxeTwirlFrames?.[frame]);
+            expect(internals.sprite?.texture).toBe(internals.selectionAnimFrames?.[0]);
         }
 
         unit.stepSelectionAnimation(idleStartedAt + breathingWindow + 6 * ORC_IDLE_AXE_TWIRL_FRAME_DURATION_MS);
         expect(internals.selectionAnimFrames).toContain(internals.sprite?.texture);
     });
 
-    assetTest("battle-cries immediately on turn start, breathes five times, then repeats", () => {
+    assetTest("keeps the static figure on its active turn while the battle-cry timing stays authored", () => {
         const cryWindow = ORC_ACTIVE_BATTLE_CRY_FRAME_DURATION_MS * 6;
         const breathingWindow = ORC_IDLE_BREATH_PERIOD_MS * ORC_ACTIVE_BATTLE_CRY_BREATH_CYCLES;
 
@@ -1759,27 +1782,30 @@ describe("Orc authored animation states", () => {
         unit.setActiveTurn(true);
         const turnStartedAt = internals.activeTurnAnimationStartedAtMs;
 
+        // The battle-cry sheet is loaded, but the approved static Orc figure stays on screen for the
+        // whole active turn instead of cycling through it.
+        expect(internals.orcActiveBattleCryFrames).toHaveLength(6);
         for (let frame = 0; frame < 6; frame += 1) {
             unit.stepSelectionAnimation(turnStartedAt + frame * ORC_ACTIVE_BATTLE_CRY_FRAME_DURATION_MS);
-            expect(internals.sprite?.texture).toBe(internals.orcActiveBattleCryFrames?.[frame]);
-            expect(internals.isShowingOrcBattleCryFrame).toBe(true);
+            expect(internals.sprite?.texture).toBe(internals.selectionAnimFrames?.[0]);
+            expect(internals.isShowingOrcBattleCryFrame).toBe(false);
         }
         unit.stepSelectionAnimation(turnStartedAt + cryWindow);
         expect(internals.selectionAnimFrames).toContain(internals.sprite?.texture);
         expect(internals.isShowingOrcBattleCryFrame).toBe(false);
 
         unit.stepSelectionAnimation(turnStartedAt + cryWindow + breathingWindow);
-        expect(internals.sprite?.texture).toBe(internals.orcActiveBattleCryFrames?.[0]);
+        expect(internals.sprite?.texture).toBe(internals.selectionAnimFrames?.[0]);
 
         unit.setActiveTurn(false);
         expect(internals.isShowingOrcBattleCryFrame).toBe(false);
     });
 
-    assetTest("prefers the authored idle loop and exposes the complete ranged and melee action sets", () => {
+    assetTest("keeps the static idle figure and exposes the complete ranged and melee action sets", () => {
         const unit = createOrc();
         const internals = unit as unknown as AnimationInternals;
 
-        expect(internals.selectionAnimFrames).toHaveLength(8);
+        expect(internals.selectionAnimFrames).toHaveLength(1);
         expect(internals.orcIdleAxeTwirlFrames).toHaveLength(6);
         expect(internals.orcActiveBattleCryFrames).toHaveLength(6);
         for (const state of [
@@ -1847,7 +1873,7 @@ describe("Orc authored animation states", () => {
 
         unit.stepSpawnAnimation((frameMs + 0.1) / 1000);
         expect(internals.walkAnim).toBeUndefined();
-        expect(internals.selectionAnimFrames).toHaveLength(8);
+        expect(internals.selectionAnimFrames).toHaveLength(1);
     });
 
     assetTest("leaves the level-one Orc walk entirely to its authored sprite frames", () => {
@@ -1929,23 +1955,23 @@ describe("Troll full-body battlefield figure", () => {
         expect(rectangularScreenHeight).toBeCloseTo(referenceScreenHeight);
     });
 
-    assetTest("uses the refreshed authored idle and walk atlases at exactly one by one-and-a-half cells", () => {
+    assetTest("uses the static figure idle and the refreshed walk atlas at exactly one by one-and-a-half cells", () => {
         const unit = createTroll();
         const internals = unit as unknown as AnimationInternals;
         const cellSize = gridSettings.getCellSize();
 
         expect(unit.hasAnimationState("idle")).toBe(true);
         expect(unit.hasAnimationState("walk")).toBe(true);
-        expect(internals.selectionAnimFrames).toHaveLength(8);
-        expect(internals.sprite?.texture.width).toBe(192);
-        expect(internals.sprite?.texture.height).toBe(192);
+        // The approved Troll idles on its static battlefield figure, sized from its own canvas.
+        expect(internals.selectionAnimFrames).toHaveLength(1);
+        expect(internals.sprite?.texture).toBe(internals.selectionAnimFrames?.[0]);
         expect(Math.abs(internals.sprite?.scale.x ?? 0) / Math.abs(internals.sprite?.scale.y ?? 1)).toBeCloseTo(
             BATTLEFIELD_CREATURE_FRAMING.Troll.scaleX / BATTLEFIELD_CREATURE_FRAMING.Troll.scaleY,
         );
-        expect(Math.abs(internals.sprite?.scale.y ?? 0) * 192).toBeCloseTo(
+        expect(Math.abs(internals.sprite?.scale.y ?? 0) * (internals.sprite?.texture.height ?? 0)).toBeCloseTo(
             cellSize * 1.5 * BATTLEFIELD_CREATURE_FRAMING.Troll.scaleY,
         );
-        expect(internals.sprite?.anchor.y).toBeCloseTo(0.9661458333);
+        expect(internals.sprite?.anchor.y).toBeCloseTo(0.9505208333);
         expect(internals.sprite?.y).toBeCloseTo(tallBoardModelFootLineY(1024, cellSize));
 
         unit.startBoardWalkAnimation(-1);
@@ -2194,14 +2220,9 @@ describe("refreshed idle cadence and quadruped scale", () => {
     });
 
     assetTest("slows refreshed idle loops by 23 percent and assigns stable per-unit phases", () => {
-        const first = createRenderableUnit(TeamVals.LEFT, "Chaos", "Troglodyte", "troglodyte_512", () => Texture.WHITE);
-        const second = createRenderableUnit(
-            TeamVals.LEFT,
-            "Chaos",
-            "Troglodyte",
-            "troglodyte_512",
-            () => Texture.WHITE,
-        );
+        // Arbalester carries an approved 125 ms-per-frame idle; Troglodyte idles on its static figure.
+        const first = createRenderableUnit(TeamVals.LEFT, "Life", "Arbalester", "arbalester_512", () => Texture.WHITE);
+        const second = createRenderableUnit(TeamVals.LEFT, "Life", "Arbalester", "arbalester_512", () => Texture.WHITE);
         first.setPosition(0, 1024);
         second.setPosition(128, 1024);
         first.ensureVisual(new Container(), gridSettings);
@@ -2210,7 +2231,7 @@ describe("refreshed idle cadence and quadruped scale", () => {
         const secondInternals = second as unknown as IdleInternals;
 
         expect(REFRESHED_IDLE_ANIMATION_SPEED_MULTIPLIER).toBe(0.77);
-        expect(firstInternals.selectionAnimFrameDurationMs).toBeCloseTo(75 / 0.77);
+        expect(firstInternals.selectionAnimFrameDurationMs).toBeCloseTo(125 / 0.77);
         expect(firstInternals.refreshedIdlePhaseRatio).toBe(
             refreshedIdlePhaseRatio(first.getId(), first.getUnitProperties().name),
         );
@@ -2335,9 +2356,8 @@ describe("refreshed idle cadence and quadruped scale", () => {
         expect(greenResolvedKeys).toContain("peasant_idle_atlas_quarter");
         expect(greenResolvedKeys).not.toContain("peasant_idle_red_atlas_quarter");
         expect(idle.selectionAnimFrames).toHaveLength(12);
-        expect(idle.selectionAnimFrameDurationMs).toBeCloseTo(
-            1000 / (4 * 1.15 * 2 * 0.89 * 1.2 * (12 / 16) * 1.13) / 0.77,
-        );
+        // The authored twelve-pose Peasant idle runs at 6 fps before the shared 0.77 slow-down.
+        expect(idle.selectionAnimFrameDurationMs).toBeCloseTo(1000 / 6 / 0.77);
         unit.stepSelectionAnimation(10_000);
         const currentIdleTexture = idle.sprite?.texture;
         unit.stepSelectionAnimation(10_000 + idle.selectionAnimFrameDurationMs + 1);
@@ -2374,9 +2394,7 @@ describe("refreshed idle cadence and quadruped scale", () => {
         const redIdle = redUnit as unknown as IdleInternals;
         expect(redIdle.selectionAnimFrames).toHaveLength(12);
         expect(redIdle.selectionAnimFrames).toBe(idle.selectionAnimFrames);
-        expect(redIdle.selectionAnimFrameDurationMs).toBeCloseTo(
-            1000 / (4 * 1.15 * 2 * 0.89 * 1.2 * (12 / 16) * 1.13) / 0.77,
-        );
+        expect(redIdle.selectionAnimFrameDurationMs).toBeCloseTo(1000 / 6 / 0.77);
         unit.startBoardWalkAnimation(1);
 
         const walk = (
@@ -2444,7 +2462,8 @@ describe("refreshed idle cadence and quadruped scale", () => {
         const walkScaleX = squireInternals.sprite?.scale.x ?? 0;
         const walkScaleY = squireInternals.sprite?.scale.y ?? 0;
         expect(Math.abs(walkScaleY) * (696 / 4)).toBeCloseTo(Math.abs(idleScaleY) * (726 / 4), 8);
-        expect(Math.abs(walkScaleX) * (408 / 4)).toBeCloseTo(Math.abs(idleScaleX) * (426 / 4), 1);
+        // The approved constant Squire walk scale keeps the walk width within half a quarter-pixel of idle.
+        expect(Math.abs(walkScaleX) * (408 / 4)).toBeCloseTo(Math.abs(idleScaleX) * (426 / 4), 0);
         squire.applyMoveEffect(0.37);
         expect(squireInternals.sprite?.rotation).toBe(0);
         expect(squireInternals.sprite?.scale.x).toBe(walkScaleX);
@@ -2685,6 +2704,13 @@ describe("refreshed idle cadence and quadruped scale", () => {
     });
 });
 
+/** The restyled Scavenger figure is lifted by five percent of its model height above the shared foot line. */
+const scavengerBattlefieldLift = (): number =>
+    0.05 *
+    gridSettings.getCellSize() *
+    SCAVENGER_BOARD_MODEL_HEIGHT_CELLS *
+    BATTLEFIELD_CREATURE_FRAMING.Scavenger.scaleY;
+
 describe("Scavenger thief visual replacement", () => {
     type AnimationInternals = {
         sprite?: { texture: Texture; scale: { x: number; y: number }; rotation: number; y: number };
@@ -2716,11 +2742,11 @@ describe("Scavenger thief visual replacement", () => {
         const unit = createScavenger();
         const internals = unit as unknown as AnimationInternals;
 
-        expect(internals.sprite?.texture.width).toBe(768);
-        expect(internals.sprite?.texture.height).toBe(768);
+        // The restyled figure is a square cutout used at its own canvas size, never squeezed on X.
+        expect(internals.sprite?.texture.width).toBe(internals.sprite?.texture.height ?? -1);
         expect(Math.abs(internals.sprite?.scale.x ?? 0)).toBeCloseTo(Math.abs(internals.sprite?.scale.y ?? 0));
         expect(internals.sprite?.y).toBeCloseTo(
-            tallBoardModelFootLineY(1024, gridSettings.getCellSize()) - gridSettings.getCellSize() * 0.03,
+            tallBoardModelFootLineY(1024, gridSettings.getCellSize()) + scavengerBattlefieldLift(),
         );
     });
 
@@ -2728,15 +2754,20 @@ describe("Scavenger thief visual replacement", () => {
         const unit = createScavenger();
         const internals = unit as unknown as AnimationInternals;
 
-        expect(internals.selectionAnimFrames).toHaveLength(8);
-        expect(internals.sprite?.texture.width).toBe(160);
-        expect(internals.sprite?.texture.height).toBe(192);
+        // The Scavenger idles on its static figure; the thief sheet drives walks and one-shot actions.
+        expect(internals.selectionAnimFrames).toHaveLength(1);
+        expect(internals.sprite?.texture).toBe(internals.selectionAnimFrames?.[0]);
+        // The static canvas is scaled so the thief's 186-of-192 visible height fills the model height.
         const expectedUniformScale =
-            ((gridSettings.getCellSize() * SCAVENGER_BOARD_MODEL_HEIGHT_CELLS) / 186) *
-            BATTLEFIELD_CREATURE_FRAMING.Scavenger.scaleY;
+            (((gridSettings.getCellSize() * SCAVENGER_BOARD_MODEL_HEIGHT_CELLS) / 186) *
+                BATTLEFIELD_CREATURE_FRAMING.Scavenger.scaleY *
+                192) /
+            (internals.sprite?.texture.height ?? 1);
         expect(Math.abs(internals.sprite?.scale.x ?? 0)).toBeCloseTo(expectedUniformScale);
         expect(Math.abs(internals.sprite?.scale.y ?? 0)).toBeCloseTo(expectedUniformScale);
-        expect(internals.sprite?.y).toBeCloseTo(tallBoardModelFootLineY(1024, gridSettings.getCellSize()));
+        expect(internals.sprite?.y).toBeCloseTo(
+            tallBoardModelFootLineY(1024, gridSettings.getCellSize()) + scavengerBattlefieldLift(),
+        );
         expect(thiefIdleBreathScaleForElapsed(0)).toBeCloseTo(1);
         expect(thiefIdleBreathScaleForElapsed(2800 / 4)).toBeCloseTo(1 + 0.01035 * 1.1);
         expect(thiefIdleBreathScaleForElapsed(2800 / 2)).toBeCloseTo(1);
@@ -2791,7 +2822,7 @@ describe("Scavenger thief visual replacement", () => {
         expect(internals.sprite?.scale.y).toBe(expectedScaleY);
     });
 
-    assetTest("twirls both blades after four inactive breaths and battle-cries immediately on its active turn", () => {
+    assetTest("keeps the static figure while the blade-twirl and battle-cry timings stay authored", () => {
         const unit = createScavenger();
         const internals = unit as unknown as AnimationInternals;
         const idleWindow = 2800 * SCAVENGER_IDLE_BREATH_CYCLES_PER_BLADE_TWIRL;
@@ -2808,7 +2839,8 @@ describe("Scavenger thief visual replacement", () => {
             unit.stepSelectionAnimation(
                 internals.selectionAnimationStartedAtMs + idleWindow + frame * SCAVENGER_FLOURISH_FRAME_DURATION_MS,
             );
-            expect(internals.sprite?.texture).toBe(internals.scavengerIdleBladeTwirlFrames?.[frame]);
+            // The approved static Scavenger figure stays on screen; the flourish sheet is only loaded.
+            expect(internals.sprite?.texture).toBe(internals.selectionAnimFrames?.[0]);
         }
         expect(scavengerIdleBladeTwirlFrameForElapsed(idleWindow + cryWindow)).toBeUndefined();
 
@@ -2818,7 +2850,7 @@ describe("Scavenger thief visual replacement", () => {
         for (let frame = 0; frame < 6; frame += 1) {
             expect(scavengerActiveBattleCryFrameForElapsed(frameStartMs)).toBe(frame);
             unit.stepSelectionAnimation(activeStartedAt + frameStartMs);
-            expect(internals.sprite?.texture).toBe(internals.scavengerActiveBattleCryFrames?.[frame]);
+            expect(internals.sprite?.texture).toBe(internals.selectionAnimFrames?.[0]);
             frameStartMs +=
                 frame === 4 ? SCAVENGER_ACTIVE_BATTLE_CRY_POINT_HOLD_MS : SCAVENGER_ACTIVE_BATTLE_CRY_FRAME_DURATION_MS;
         }
@@ -2831,7 +2863,7 @@ describe("Scavenger thief visual replacement", () => {
         expect(scavengerActiveBattleCryBreathElapsed(cryWindow + 2800)).toBe(2800);
         expect(scavengerActiveBattleCryFrameForElapsed(cryWindow + activeBreathingWindow)).toBe(0);
         unit.stepSelectionAnimation(activeStartedAt + cryWindow + activeBreathingWindow);
-        expect(internals.sprite?.texture).toBe(internals.scavengerActiveBattleCryFrames?.[0]);
+        expect(internals.sprite?.texture).toBe(internals.selectionAnimFrames?.[0]);
     });
 
     assetTest("plays the entry once, repeats only the six walking poses, and keeps the outro out of the loop", () => {
