@@ -16,6 +16,7 @@ const skipIconImage = images.combat_toolbar_ember_next;
 const luckShieldIconImage = images.combat_toolbar_ember_luck;
 const activeOptionIconImage = new URL("../../../images/icon_active_option.webp", import.meta.url).toString();
 const inactiveOptionIconImage = new URL("../../../images/icon_inactive_option.webp", import.meta.url).toString();
+const DENIED_SLASH_FRAME_COUNT = 14;
 import { IVisibleButton, VisibleButtonState } from "../../scenes/VisibleState";
 import { useButtonContext } from "../context/ButtonContext";
 
@@ -300,18 +301,17 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
                         />
                         {showDeniedSlash && (
                             <Box
-                                aria-hidden
+                                aria-hidden="true"
                                 sx={{
                                     position: "absolute",
-                                    top: "50%",
-                                    left: "12%",
-                                    width: "76%",
-                                    height: `${4 * SCREEN_RATIO}px`,
-                                    borderRadius: "999px",
-                                    background: "linear-gradient(180deg, #ff5148 0%, #c31313 52%, #650606 100%)",
-                                    boxShadow: `0 0 ${2.5 * SCREEN_RATIO}px rgba(255, 34, 25, 0.9), 0 ${1 * SCREEN_RATIO}px ${1.5 * SCREEN_RATIO}px rgba(0, 0, 0, 0.95)`,
-                                    transform: "translateY(-50%) rotate(-48deg)",
-                                    transformOrigin: "center",
+                                    inset: "2%",
+                                    borderRadius: "50%",
+                                    backgroundImage: `url(${images.pick_ban_slash_variant2_atlas})`,
+                                    backgroundRepeat: "no-repeat",
+                                    backgroundSize: `${DENIED_SLASH_FRAME_COUNT * 100}% 100%`,
+                                    // Reuse the completed authored cut exactly; the atlas's preceding frames
+                                    // only animate how the same slash is drawn during pick/ban.
+                                    backgroundPosition: "100% 0",
                                     pointerEvents: "none",
                                     zIndex: 5,
                                 }}

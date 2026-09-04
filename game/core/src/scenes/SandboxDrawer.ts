@@ -40,7 +40,7 @@ export { movementFillAlphaForPhase } from "./movementAreaVisual";
  * aura, the movement highlight, and the board-edge glow all share this color for a consistent cue.
  */
 export const ENEMY_TURN_HIGHLIGHT_COLOR = 0xff3636;
-const ALLY_MOVEMENT_INSPECTION_COLOR = 0xc08a45;
+export const ALLY_MOVEMENT_INSPECTION_COLOR = 0xc08a45;
 /** Neutral cold-steel treatment selected for the active/shift-selected shooting range. */
 export const SHOT_RANGE_COLOR = 0xaeb9bd;
 export const ALLY_HOVERED_SHOT_RANGE_COLOR = 0x35df72;
@@ -241,6 +241,8 @@ export interface ILingeringTrack {
     dirX: number;
     dirY: number;
     cellSize: number;
+    /** Authored walkers use foot-contact puffs instead of the shared continuous movement trail. */
+    kind?: "movement-trail" | "walk-dust";
 }
 
 export interface IGameplayDrawContext {

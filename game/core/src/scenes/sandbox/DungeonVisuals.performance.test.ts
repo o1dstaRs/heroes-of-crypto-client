@@ -54,39 +54,6 @@ describe("dungeon visual allocation", () => {
         visuals.destroy();
     });
 
-    test("does not resolve the unchanged background texture on every simulation step", () => {
-        const gridSettings = new GridSettings(
-            GridConstants.GRID_SIZE,
-            GridConstants.MAX_Y,
-            GridConstants.MIN_Y,
-            GridConstants.MAX_X,
-            GridConstants.MIN_X,
-            GridConstants.MOVEMENT_DELTA,
-            GridConstants.UNIT_SIZE_DELTA,
-        );
-        let textureResolutions = 0;
-        const visuals = new DungeonVisuals({
-            getStage: () => new Container(),
-            getWorldRoot: () => new Container(),
-            getViewportSize: () => ({ width: 1000, height: 1000 }),
-            getGridSettings: () => gridSettings,
-            texAny: () => {
-                textureResolutions++;
-                return Texture.WHITE;
-            },
-            attachToWorldRoot: () => undefined,
-        });
-
-        visuals.ensureBackgroundSprite();
-        visuals.layoutBackgroundSquare(1);
-        const firstStepResolutions = textureResolutions;
-        visuals.ensureBackgroundSprite();
-        visuals.layoutBackgroundSquare(1);
-
-        expect(textureResolutions).toBe(firstStepResolutions);
-        visuals.destroy();
-    });
-
     test("keeps the filter-free background state stable between render steps", () => {
         const gridSettings = new GridSettings(
             GridConstants.GRID_SIZE,

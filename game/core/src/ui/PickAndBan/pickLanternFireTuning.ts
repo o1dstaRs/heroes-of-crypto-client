@@ -32,6 +32,8 @@ export const PICK_LANTERN_FIRE_CHANGE_EVENT = "hoc:pick-lantern-fire-change";
 const PICK_LANTERN_FIRE_PRESET_REVISION_KEY = "hoc-dev-pick-lantern-fires-revision";
 const PICK_LANTERN_FIRE_PRESET_REVISION = "approved-two-fire-2026-08-24-v2";
 
+// Percentages are relative to the uncropped draft background. anchorY is the flame's bottom edge,
+// not its centre: changing height can never move the point where the flame meets the lantern wick.
 export const DEFAULT_PICK_LANTERN_FIRE_TUNING: Readonly<PickLanternFireTuning> = {
     enabled: true,
     source: "natural-atlas",
@@ -74,10 +76,10 @@ export const DEFAULT_SECOND_PICK_LANTERN_FIRE_TUNING: Readonly<PickLanternFireTu
     maskInset: 0,
 };
 
-export const DEFAULT_PICK_LANTERN_FIRE_TUNINGS = [
-    DEFAULT_PICK_LANTERN_FIRE_TUNING,
-    DEFAULT_SECOND_PICK_LANTERN_FIRE_TUNING,
-] as const;
+export const DEFAULT_PICK_LANTERN_FIRE_TUNINGS: readonly [
+    Readonly<PickLanternFireTuning>,
+    Readonly<PickLanternFireTuning>,
+] = [DEFAULT_PICK_LANTERN_FIRE_TUNING, DEFAULT_SECOND_PICK_LANTERN_FIRE_TUNING];
 
 const clamp = (value: unknown, fallback: number, min: number, max: number): number => {
     const numeric = Number(value);
@@ -87,57 +89,85 @@ const clamp = (value: unknown, fallback: number, min: number, max: number): numb
 export const normalizePickLanternFireTuning = (
     value: Partial<PickLanternFireTuning> | undefined,
     fallback: Readonly<PickLanternFireTuning> = DEFAULT_PICK_LANTERN_FIRE_TUNING,
-): PickLanternFireTuning => ({
-    enabled: typeof value?.enabled === "boolean" ? value.enabled : fallback.enabled,
-    source: value?.source === "candle-video" || value?.source === "natural-atlas" ? value.source : fallback.source,
-    anchorX: clamp(value?.anchorX, fallback.anchorX, 0, 100),
-    anchorY: clamp(value?.anchorY, fallback.anchorY, 0, 100),
-    width: clamp(value?.width, fallback.width, 0.2, 30),
-    height: clamp(value?.height, fallback.height, 0.2, 50),
-    opacity: clamp(value?.opacity, fallback.opacity, 0, 1.5),
-    fps: clamp(value?.fps, fallback.fps, 1, 30),
-    playbackRate: clamp(value?.playbackRate, fallback.playbackRate, 0.1, 2.5),
-    brightness: clamp(value?.brightness, fallback.brightness, 0.2, 3),
-    contrast: clamp(value?.contrast, fallback.contrast, 0.2, 3),
-    saturation: clamp(value?.saturation, fallback.saturation, 0, 3),
-    hue: clamp(value?.hue, fallback.hue, -90, 90),
-    blackCutoff: clamp(value?.blackCutoff, fallback.blackCutoff, 0, 0.75),
-    density: clamp(value?.density, fallback.density, 0, 6),
-    glowOpacity: clamp(value?.glowOpacity, fallback.glowOpacity, 0, 1.5),
-    glowSize: clamp(value?.glowSize, fallback.glowSize, 0.5, 4),
-    maskInset: clamp(value?.maskInset, fallback.maskInset, 0, 40),
-});
+): PickLanternFireTuning => {
+    return {
+        enabled: typeof value?.enabled === "boolean" ? value.enabled : fallback.enabled,
+        source: value?.source === "candle-video" || value?.source === "natural-atlas" ? value.source : fallback.source,
+        anchorX: clamp(value?.anchorX, fallback.anchorX, 0, 100),
+        anchorY: clamp(value?.anchorY, fallback.anchorY, 0, 100),
+        width: clamp(value?.width, fallback.width, 0.2, 30),
+        height: clamp(value?.height, fallback.height, 0.2, 50),
+        opacity: clamp(value?.opacity, fallback.opacity, 0, 1.5),
+        fps: clamp(value?.fps, fallback.fps, 1, 30),
+        playbackRate: clamp(value?.playbackRate, fallback.playbackRate, 0.1, 2.5),
+        brightness: clamp(value?.brightness, fallback.brightness, 0.2, 3),
+        contrast: clamp(value?.contrast, fallback.contrast, 0.2, 3),
+        saturation: clamp(value?.saturation, fallback.saturation, 0, 3),
+        hue: clamp(value?.hue, fallback.hue, -90, 90),
+        blackCutoff: clamp(value?.blackCutoff, fallback.blackCutoff, 0, 0.75),
+        density: clamp(value?.density, fallback.density, 0, 6),
+        glowOpacity: clamp(value?.glowOpacity, fallback.glowOpacity, 0, 1.5),
+        glowSize: clamp(value?.glowSize, fallback.glowSize, 0.5, 4),
+        maskInset: clamp(value?.maskInset, fallback.maskInset, 0, 40),
+    };
+};
 
-const defaults = (): [PickLanternFireTuning, PickLanternFireTuning] => [
+const defaultTunings = (): [PickLanternFireTuning, PickLanternFireTuning] => [
     { ...DEFAULT_PICK_LANTERN_FIRE_TUNING },
     { ...DEFAULT_SECOND_PICK_LANTERN_FIRE_TUNING },
 ];
 
 export const readPickLanternFireTunings = (): [PickLanternFireTuning, PickLanternFireTuning] => {
-    if (typeof window === "undefined" || import.meta.env.PROD || import.meta.env.VITE_IS_PROD === "true")
-        return defaults();
+    if (typeof window === "undefined" || import.meta.env.PROD || import.meta.env.VITE_IS_PROD === "true") {
+        return defaultTunings();
+    }
     try {
         if (window.localStorage.getItem(PICK_LANTERN_FIRE_PRESET_REVISION_KEY) !== PICK_LANTERN_FIRE_PRESET_REVISION) {
-            const approved = defaults();
+            const approved = defaultTunings();
             window.localStorage.setItem(PICK_LANTERN_FIRE_STORAGE_KEY, JSON.stringify(approved));
             window.localStorage.setItem(PICK_LANTERN_FIRE_PRESET_REVISION_KEY, PICK_LANTERN_FIRE_PRESET_REVISION);
             return approved;
         }
         const raw = window.localStorage.getItem(PICK_LANTERN_FIRE_STORAGE_KEY);
-        if (!raw) return defaults();
+        if (!raw) return defaultTunings();
         const parsed = JSON.parse(raw) as Array<Partial<PickLanternFireTuning>>;
         return [
             normalizePickLanternFireTuning(parsed[0], DEFAULT_PICK_LANTERN_FIRE_TUNING),
             normalizePickLanternFireTuning(parsed[1], DEFAULT_SECOND_PICK_LANTERN_FIRE_TUNING),
         ];
     } catch {
-        return defaults();
+        return defaultTunings();
     }
 };
 
 export const readPickLanternFireTuning = (slot: PickLanternFireSlot = 0): PickLanternFireTuning =>
     readPickLanternFireTunings()[slot];
 
+export const writePickLanternFireTuning = (
+    value: Partial<PickLanternFireTuning>,
+    slot: PickLanternFireSlot = 0,
+): PickLanternFireTuning => {
+    const fallback = DEFAULT_PICK_LANTERN_FIRE_TUNINGS[slot];
+    const normalized = normalizePickLanternFireTuning(value, fallback);
+    if (typeof window !== "undefined") {
+        if (!import.meta.env.PROD && import.meta.env.VITE_IS_PROD !== "true") {
+            const all = readPickLanternFireTunings();
+            all[slot] = normalized;
+            window.localStorage.setItem(PICK_LANTERN_FIRE_STORAGE_KEY, JSON.stringify(all));
+        }
+        window.dispatchEvent(
+            new CustomEvent<PickLanternFireChangeDetail>(PICK_LANTERN_FIRE_CHANGE_EVENT, {
+                detail: { slot, tuning: normalized },
+            }),
+        );
+    }
+    return normalized;
+};
+
+export const resetPickLanternFireTuning = (slot: PickLanternFireSlot = 0): PickLanternFireTuning =>
+    writePickLanternFireTuning(DEFAULT_PICK_LANTERN_FIRE_TUNINGS[slot], slot);
+
+/** Geometry used by the editor guide; bottom remains exactly anchorY as height changes. */
 export const pickLanternFireBounds = (tuning: PickLanternFireTuning) => ({
     left: tuning.anchorX - tuning.width / 2,
     right: tuning.anchorX + tuning.width / 2,

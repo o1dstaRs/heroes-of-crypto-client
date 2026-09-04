@@ -38,7 +38,13 @@ import { animationAtlases, AnimationUnitName, type AnimationAtlasMeta } from "..
 import { images, type ImageKey } from "../imageAssets";
 import { buildAtlasPingPongTiming, AtlasPingPongTiming } from "./atlasAnimationTiming";
 import { CAN_RENDER_FLAG_GRADIENT, personalArmyFlagGradient, personalArmyPresetFor } from "./personalArmyTint";
-import { TEAM_COLOR_GREEN, TEAM_COLOR_RED, teamColor as resolveTeamColor } from "./teamColors";
+import {
+    TEAM_COLOR_GREEN,
+    TEAM_COLOR_RED,
+    TEAM_FLAG_PALETTE_GREEN,
+    TEAM_FLAG_PALETTE_RED,
+    teamColor as resolveTeamColor,
+} from "./teamColors";
 import { HOC_NUMERIC_FONT_FAMILY } from "../fontFamilies";
 import { projectBattlefieldPoint, projectedRectPoints } from "./sandbox/BattlefieldVisualGrid";
 import {
@@ -57,7 +63,6 @@ import {
 import {
     BATTLEFIELD_SHADOW_SEGMENT_COUNT,
     DEFAULT_BATTLEFIELD_SHADOW_TUNING,
-    isBattlefieldShadowEditorActive,
     publishBattlefieldShadowVisualBounds,
     resolveBattlefieldShadowTuning,
     type BattlefieldShadowTuning,
@@ -213,18 +218,9 @@ let sharedRevealedRosterDesaturateFilter: ColorMatrixFilter | undefined;
 /** Every revealed opponent uses the same immutable grayscale matrix, so one filter serves the whole roster. */
 const revealedRosterDesaturateFilter = (): ColorMatrixFilter => {
     if (sharedRevealedRosterDesaturateFilter) return sharedRevealedRosterDesaturateFilter;
-    sharedRevealedRosterDesaturateFilter = new ColorMatrixFilter();
+    sharedRevealedRosterDesaturateFilter = new ColorMatrixFilter({ resolution: "inherit", antialias: "inherit" });
     sharedRevealedRosterDesaturateFilter.desaturate();
     return sharedRevealedRosterDesaturateFilter;
-};
-
-const syncSingleSpriteFilter = (sprite: Sprite, desired: Filter | undefined): void => {
-    const installed = sprite.filters;
-    if (desired) {
-        if (installed?.length !== 1 || installed[0] !== desired) sprite.filters = [desired];
-    } else if (installed?.length) {
-        sprite.filters = null;
-    }
 };
 
 const battlefieldShadowSegmentTextureCache = new WeakMap<Texture, readonly Texture[]>();
@@ -256,9 +252,9 @@ const GREEN_ARMY_FLAG_GRADIENT = CAN_RENDER_FLAG_GRADIENT
           end: { x: 1, y: 0 },
           textureSpace: "local",
           colorStops: [
-              { offset: 0, color: 0x176238 },
-              { offset: 0.5, color: 0x0b3d20 },
-              { offset: 1, color: 0x176238 },
+              { offset: 0, color: TEAM_FLAG_PALETTE_GREEN.edge },
+              { offset: 0.5, color: TEAM_FLAG_PALETTE_GREEN.center },
+              { offset: 1, color: TEAM_FLAG_PALETTE_GREEN.edge },
           ],
       })
     : undefined;
@@ -267,9 +263,9 @@ const RED_ARMY_FLAG_GRADIENT = CAN_RENDER_FLAG_GRADIENT
           end: { x: 1, y: 0 },
           textureSpace: "local",
           colorStops: [
-              { offset: 0, color: 0x7b1928 },
-              { offset: 0.5, color: 0x510c16 },
-              { offset: 1, color: 0x7b1928 },
+              { offset: 0, color: TEAM_FLAG_PALETTE_RED.edge },
+              { offset: 0.5, color: TEAM_FLAG_PALETTE_RED.center },
+              { offset: 1, color: TEAM_FLAG_PALETTE_RED.edge },
           ],
       })
     : undefined;
@@ -288,7 +284,12 @@ const WANDERING_MAGE_UNIT_NAME = "Wandering Mage";
 const THIEF_BOARD_TEXTURE = "thief_board_128";
 const THIEF_UNIT_NAME = "Thief";
 const SCAVENGER_UNIT_NAME = "Scavenger";
+/** The requested 5% lift is relative to the rendered figure, not the much shorter board cell. */
+const SCAVENGER_BATTLEFIELD_VERTICAL_LIFT_FRACTION = 0.05;
 const PEASANT_UNIT_NAME = "Peasant";
+const BEHOLDER_UNIT_NAME = "Beholder";
+const SQUIRE_UNIT_NAME = "Squire";
+const ARBALESTER_UNIT_NAME = "Arbalester";
 const TROGLODYTE_UNIT_NAME = "Troglodyte";
 const CENTAUR_UNIT_NAME = "Centaur";
 const DRYAD_UNIT_NAME = "Dryad";
@@ -367,7 +368,11 @@ interface RangedProjectileOriginProfile {
     height: number;
 }
 
-/** Authored weapon/hand attachment zones for the native ranged units. */
+/**
+ * Authored attachment zones for the twelve native shooters. Weapon users sit near the visible muzzle or
+ * weapon tip; unarmed throwers sit nearer the torso where their forward hand is painted. The bounds and
+ * target direction do the mirroring, so one profile works for either army side.
+ */
 const RANGED_PROJECTILE_ORIGIN_BY_UNIT: Readonly<Record<string, RangedProjectileOriginProfile>> = {
     arbalester: { forward: 0.46, height: 0.4 },
     monk: { forward: 0.28, height: 0.4 },
@@ -403,17 +408,22 @@ export function rangedProjectileOriginFromBounds(
 }
 
 /**
- * Which board row a figure stands on, normalized to 0 at the nearest row and 1 at the furthest legal one.
+ * Which playable board row a figure stands on, normalized to 0 at the nearest row and 1 at the furthest.
  *
- * Only the footprint's HEIGHT matters here: the logical position is the centre of the whole body, so the
- * row its feet occupy is half the body's height below that centre, and a taller body also has fewer legal
- * rows to stand on. A 2x1 therefore behaves exactly like a 1x1, which is the point.
+ * The illustrated battlefield keeps one mechanical buffer row behind each end of the playable floor.
+ * The shadow editor deliberately parks its comparison row in the upper buffer (row 15), while a unit
+ * dropped on the highest real cell lands on row 14. Clamp both buffers to their adjacent playable
+ * endpoint so the upper real cell receives the editor profile exactly and the lowest real cell receives
+ * the authored lower profile exactly. Only footprint HEIGHT changes the upper legal anchor; a 2x1 still
+ * behaves exactly like a 1x1.
  */
 const battlefieldCreatureRowProgress = (logicalY: number, footprintHeight: number, gs: GridSettings): number => {
-    const maximumBottomRow = Math.max(1, gs.getGridSize() - footprintHeight);
+    const playableEdgeInsetRows = 1;
+    const minimumBottomRow = playableEdgeInsetRows;
+    const maximumBottomRow = Math.max(minimumBottomRow + 1, gs.getGridSize() - footprintHeight - playableEdgeInsetRows);
     const bottomRow =
         (logicalY - gs.getMinY() - (footprintHeight * gs.getCellSize()) / 2) / Math.max(1, gs.getCellSize());
-    return Math.max(0, Math.min(1, bottomRow / maximumBottomRow));
+    return Math.max(0, Math.min(1, (bottomRow - minimumBottomRow) / (maximumBottomRow - minimumBottomRow)));
 };
 
 const interpolateBattlefieldShadowValue = (bottom: number, top: number, rowProgress: number): number =>
@@ -464,6 +474,57 @@ const writeBattlefieldCreatureShadowProjection = (
 };
 
 /**
+ * Shadow profiles are authored against the stable placement/idle frame visible in the editor. Combat
+ * frames use differently cropped canvases, so rebuilding a silhouette from live walk/action frames would
+ * change its apparent tuning even though every numeric value remained identical.
+ */
+export function battlefieldShadowSourceForUnit<T>(_unitName: string, editorReferenceSource: T, _currentSource: T): T {
+    return editorReferenceSource;
+}
+
+/** Use one deterministic frame for gameplay shadows once the editor-authored profile is applied. */
+export function battlefieldCanonicalShadowReference<T>(baseTexture: T, authoredIdleFrames?: readonly T[]): T {
+    return authoredIdleFrames?.[0] ?? baseTexture;
+}
+
+export function battlefieldStableShadowReferenceScale(options: {
+    unitName: string;
+    referenceWidth: number;
+    referenceHeight: number;
+    cellSize: number;
+    chipTargetSide: number;
+    tallBoardModel: boolean;
+    boardModelTargetHeightCells: number;
+    usesThiefSilhouette: boolean;
+    refreshedFullBodyScale: boolean;
+    refreshedWidthScale: number;
+    tallBoardWidthCells: number;
+    visualFootprintSide: number;
+}): { x: number; y: number } {
+    const baseVisibleHeight =
+        options.referenceHeight * (options.usesThiefSilhouette ? THIEF_IDLE_VISIBLE_HEIGHT_RATIO : 1);
+    const baseVisibleWidth =
+        options.referenceWidth * (options.usesThiefSilhouette ? THIEF_IDLE_VISIBLE_WIDTH_RATIO : 1);
+    const y = options.tallBoardModel
+        ? (options.cellSize * options.boardModelTargetHeightCells) / baseVisibleHeight
+        : options.chipTargetSide / options.referenceHeight;
+    const x = options.tallBoardModel
+        ? options.refreshedFullBodyScale ||
+          options.unitName === ORC_UNIT_NAME ||
+          options.unitName === SCAVENGER_UNIT_NAME
+            ? y * (options.refreshedFullBodyScale ? options.refreshedWidthScale : 1)
+            : options.usesThiefSilhouette
+              ? (options.cellSize * options.tallBoardWidthCells * options.visualFootprintSide) / baseVisibleWidth
+              : Math.min(
+                    y,
+                    (options.cellSize * options.tallBoardWidthCells * options.visualFootprintSide) /
+                        options.referenceWidth,
+                )
+        : options.chipTargetSide / options.referenceWidth;
+    return { x, y };
+}
+
+/**
  * Continuous perspective attenuation for a placed battlefield figure.
  * One-cell-tall bodies distribute the 15% reduction evenly across 15 row transitions. A two-cell-tall
  * body has 14 legal transitions, so it traverses the same 100% -> 85% range across the rows it can occupy.
@@ -499,8 +560,40 @@ export function battlefieldCreatureScaleMultiplier(
 }
 /** Authored refreshed idle loops run at 77% of their generated cadence (23% slower). */
 export const REFRESHED_IDLE_ANIMATION_SPEED_MULTIPLIER = 0.77;
+/** Owner-tuned: v5 adds another exact 8% on top of Squire v4's 20% runtime speed increase. */
+export const SQUIRE_IDLE_SPEED_MULTIPLIER = 1.2 * 1.08;
+// The approved walk frames share one exact 408x696 alpha envelope, while the approved idle/base figure
+// occupies 426x726 pixels. Apply one constant uniform scale for the whole walk so entering/leaving movement
+// does not make the Squire shrink or grow; the authored poses themselves are never scaled independently.
+export const SQUIRE_WALK_VISIBLE_SCALE_MULTIPLIER = 726 / 696;
+// The approved death opening frame matches idle height once its 832px canvas is normalized, but its
+// opaque body is 495px wide versus idle's 426px on a 768px canvas. Compensate X only, with one fixed
+// coefficient for the complete death sequence, so the transition cannot flash wider before the fall.
+export const SQUIRE_DEATH_HORIZONTAL_SCALE_MULTIPLIER = 426 / 768 / (495 / 832);
+
+export function authoredIdleFrameDurationMs(
+    unitName: string,
+    authoredFrameDurationMs: number,
+    refreshedFullBodyScale: boolean,
+): number {
+    if (unitName === BEHOLDER_UNIT_NAME || !refreshedFullBodyScale) return authoredFrameDurationMs;
+    const unitSpeedMultiplier = unitName === SQUIRE_UNIT_NAME ? SQUIRE_IDLE_SPEED_MULTIPLIER : 1;
+    return authoredFrameDurationMs / REFRESHED_IDLE_ANIMATION_SPEED_MULTIPLIER / unitSpeedMultiplier;
+}
 /** A quadruped must read below a standing humanoid instead of inheriting the shared 1.5-cell height. */
 export const WOLF_BOARD_MODEL_HEIGHT_CELLS = 1.05 * 0.99;
+// Visible alpha heights measured from the shipped half-resolution Wolf walk atlas. The gait naturally
+// crouches by up to ~3%, but switching directly between that crouched frame and the static battlefield
+// figure reads as the whole creature changing size. Compensate uniformly around the foot anchor so the
+// apparent height stays constant while the authored limb motion remains untouched.
+const WOLF_STATIC_VISIBLE_HEIGHT_RATIO = 562 / 768;
+const WOLF_WALK_VISIBLE_HEIGHT_RATIOS = [376, 375, 369, 365, 365, 370, 372, 370, 369, 363].map(
+    (height) => height / 512,
+);
+export function wolfWalkFrameScaleMultiplier(frameIndex: number): number {
+    const safeIndex = Math.max(0, Math.min(WOLF_WALK_VISIBLE_HEIGHT_RATIOS.length - 1, Math.floor(frameIndex)));
+    return WOLF_STATIC_VISIBLE_HEIGHT_RATIO / WOLF_WALK_VISIBLE_HEIGHT_RATIOS[safeIndex];
+}
 /** Matches Scavenger's measured visible idle silhouette to Squire's measured visible idle height. */
 export const SCAVENGER_BOARD_MODEL_HEIGHT_CELLS = (1.5 * (180 / 192) * 186) / 190;
 type RefreshedBoardVisualProfile = Readonly<{
@@ -543,10 +636,17 @@ const REFRESHED_BOARD_VISUAL_PROFILES: Readonly<Record<string, RefreshedBoardVis
     // Requested proportional 6% reduction.
     Wyvern: { heightCells: 1.41, widthScale: 1.153, offsetXCells: 0 },
 };
-export const ORC_IDLE_BREATH_PERIOD_MS = 2600;
+/** Shared, restrained full-body idle breath used by every battlefield creature. */
+export const COMMON_IDLE_BREATH_PERIOD_MS = 2600;
+// Art direction: battlefield figures remain rigid at idle. Keep the helper math
+// for authored cadence tests, but do not apply breathing scale in production.
+export const COMMON_IDLE_BREATH_SETTINGS = { enabled: false };
 // Owner-tuned: ten percent stronger than the previous 1.035% vertical breathing motion.
-const ORC_IDLE_BREATH_SCALE_AMPLITUDE = 0.01035 * 1.1;
-const ORC_IDLE_CHEST_EXPANSION_AMPLITUDE = 0.008;
+const COMMON_IDLE_BREATH_SCALE_AMPLITUDE = 0.01035 * 1.1;
+const COMMON_IDLE_CHEST_EXPANSION_AMPLITUDE = 0.008;
+export const ORC_IDLE_BREATH_PERIOD_MS = COMMON_IDLE_BREATH_PERIOD_MS;
+const ORC_IDLE_BREATH_SCALE_AMPLITUDE = COMMON_IDLE_BREATH_SCALE_AMPLITUDE;
+const ORC_IDLE_CHEST_EXPANSION_AMPLITUDE = COMMON_IDLE_CHEST_EXPANSION_AMPLITUDE;
 const WANDERING_MAGE_IDLE_BREATH_PERIOD_MS = ORC_IDLE_BREATH_PERIOD_MS;
 const WANDERING_MAGE_IDLE_BREATH_SCALE_AMPLITUDE = ORC_IDLE_BREATH_SCALE_AMPLITUDE;
 const WANDERING_MAGE_IDLE_CHEST_EXPANSION_AMPLITUDE = ORC_IDLE_CHEST_EXPANSION_AMPLITUDE;
@@ -600,6 +700,80 @@ const WANDERING_MAGE_WALK_FPS = 13.44;
 const WANDERING_MAGE_WALK_CYCLE_DISTANCE_CELLS = 2;
 // Eight approved Peasant poses advance every quarter-cell: one full gait spans exactly two cells.
 const PEASANT_WALK_CYCLE_DISTANCE_CELLS = 2;
+// Eight approved Arbalester poses cover one exact gait every 1.5 travelled cells.
+const ARBALESTER_WALK_CYCLE_DISTANCE_CELLS = 1.5;
+// Wolf's ten-pose gait completes once per 3 cells after the approved 2x slowdown.
+const WOLF_WALK_CYCLE_DISTANCE_CELLS = 3;
+// The approved Squire redraw contains eight unique poses plus a ninth copy of frame 0 for atlas
+// compatibility. Its original spatial target was one gait per 1.5 cells; the approved 15% cadence
+// reduction stretches that cycle without changing how quickly the unit itself moves across the board.
+const SQUIRE_WALK_SPEED_MULTIPLIER = 0.85;
+const SQUIRE_WALK_CYCLE_DISTANCE_CELLS = 1.5 / SQUIRE_WALK_SPEED_MULTIPLIER;
+// Match the authored attack anatomy to Peasant's 701px live static battlefield silhouette. The generated
+// coherent redraws keep one internal character scale in every frame. The runtime therefore uses one
+// fixed multiplier per direction: no per-frame zoom means no silhouette pulse during the strike.
+export const PEASANT_ATTACK_RENDER_SCALE = 701 / 438;
+export const PEASANT_DIAGONAL_ATTACK_RENDER_SCALE = 701 / 443;
+export const PEASANT_ATTACK_FRAME_SCALE_FACTORS = Object.freeze({
+    attack: [1, 1, 1, 1, 1, 1, 1, 1],
+    attack_up: [1, 1, 1, 1, 1, 1, 1, 1],
+    attack_down: [1, 1, 1, 1, 1, 1, 1, 1],
+} satisfies Readonly<Record<string, readonly number[]>>);
+export const PEASANT_ATTACK_HORIZONTAL_FRAME_FACTORS: Readonly<Record<string, readonly number[]>> = Object.freeze({
+    // The coherent redraw is authored at one body scale. Match horizontal and vertical scale exactly
+    // in every frame so the final idle seam cannot widen or "grow" when the one-shot ends.
+    attack: [
+        PEASANT_ATTACK_RENDER_SCALE / 1.46,
+        PEASANT_ATTACK_RENDER_SCALE / 1.46,
+        PEASANT_ATTACK_RENDER_SCALE / 1.46,
+        PEASANT_ATTACK_RENDER_SCALE / 1.46,
+        PEASANT_ATTACK_RENDER_SCALE / 1.46,
+        PEASANT_ATTACK_RENDER_SCALE / 1.46,
+        PEASANT_ATTACK_RENDER_SCALE / 1.46,
+        PEASANT_ATTACK_RENDER_SCALE / 1.46,
+    ],
+    attack_up: [
+        PEASANT_DIAGONAL_ATTACK_RENDER_SCALE / 1.46,
+        PEASANT_DIAGONAL_ATTACK_RENDER_SCALE / 1.46,
+        PEASANT_DIAGONAL_ATTACK_RENDER_SCALE / 1.46,
+        PEASANT_DIAGONAL_ATTACK_RENDER_SCALE / 1.46,
+        PEASANT_DIAGONAL_ATTACK_RENDER_SCALE / 1.46,
+        PEASANT_DIAGONAL_ATTACK_RENDER_SCALE / 1.46,
+        PEASANT_DIAGONAL_ATTACK_RENDER_SCALE / 1.46,
+        PEASANT_DIAGONAL_ATTACK_RENDER_SCALE / 1.46,
+    ],
+    attack_down: [
+        PEASANT_DIAGONAL_ATTACK_RENDER_SCALE / 1.46,
+        PEASANT_DIAGONAL_ATTACK_RENDER_SCALE / 1.46,
+        PEASANT_DIAGONAL_ATTACK_RENDER_SCALE / 1.46,
+        PEASANT_DIAGONAL_ATTACK_RENDER_SCALE / 1.46,
+        PEASANT_DIAGONAL_ATTACK_RENDER_SCALE / 1.46,
+        PEASANT_DIAGONAL_ATTACK_RENDER_SCALE / 1.46,
+        PEASANT_DIAGONAL_ATTACK_RENDER_SCALE / 1.46,
+        PEASANT_DIAGONAL_ATTACK_RENDER_SCALE / 1.46,
+    ],
+});
+export const PEASANT_ATTACK_END_RENDER_SCALE =
+    PEASANT_ATTACK_RENDER_SCALE * PEASANT_ATTACK_FRAME_SCALE_FACTORS.attack[7];
+export const PEASANT_ATTACK_UP_RECOVERY_RENDER_SCALES = [
+    PEASANT_DIAGONAL_ATTACK_RENDER_SCALE * PEASANT_ATTACK_FRAME_SCALE_FACTORS.attack_up[6],
+    PEASANT_DIAGONAL_ATTACK_RENDER_SCALE * PEASANT_ATTACK_FRAME_SCALE_FACTORS.attack_up[7],
+] as const;
+export const PEASANT_ATTACK_DOWN_END_RENDER_SCALE =
+    PEASANT_DIAGONAL_ATTACK_RENDER_SCALE * PEASANT_ATTACK_FRAME_SCALE_FACTORS.attack_down[7];
+// Match the approved death opening pose (629px visible height) to Peasant's 701px static figure.
+// Keep this one coefficient for the full fall so the runtime never zooms between authored frames.
+export const PEASANT_DEATH_RENDER_SCALE = 701 / 629;
+const PEASANT_IDLE_SUPPORT_FOOT_OFFSET_X = 289 - 384;
+export const PEASANT_ATTACK_EFFECTIVE_X_SCALE = 1.46;
+const PEASANT_ATTACK_SUPPORT_FOOT_X: Readonly<Record<string, readonly number[]>> = {
+    attack: [289, 289.34, 289, 288, 235, 250, 289, 289],
+    attack_up: [288.6, 289, 289, 289, 289, 289, 289, 288.6],
+    attack_down: [288.6, 289, 289, 289, 289.04, 289, 289, 288.6],
+};
+// Attacking figures must remain above every normally depth-sorted battlefield creature. Ground shadows
+// deliberately retain their natural board depth so only the acting figure moves to the foreground.
+export const CREATURE_ATTACK_FOREGROUND_Z_INDEX = 8000;
 // Stretch Troll's spatial gait cycle by 1 / 0.8 so its refreshed authored poses play 20% slower
 // without changing how quickly the unit itself travels across the board.
 const TROLL_WALK_SPEED_MULTIPLIER = 0.8;
@@ -636,15 +810,79 @@ const WANDERING_MAGE_ACTION_VISIBLE_HEIGHTS: Readonly<Record<string, readonly nu
 const ATTACK_ANIMATION_SPEED_MULTIPLIER = 1.4 * 1.22;
 const HIT_ANIMATION_SPEED_MULTIPLIER = 1.22;
 const DEATH_ANIMATION_SPEED_MULTIPLIER = 2 * 1.2;
+const SQUIRE_DEATH_ADDITIONAL_SPEED_MULTIPLIER = 1.15;
+// Preserve the shared death cadence and approved +35%/+10%/+16%, then apply the requested +15% increase.
+const PEASANT_DEATH_ADDITIONAL_SPEED_MULTIPLIER = 1.35 * 1.1 * 1.16 * 1.15;
 const SCAVENGER_DEATH_ADDITIONAL_SPEED_MULTIPLIER = 1.12;
+// Preserve the previously approved +20%/+15%, then apply the requested additional +10% on top.
+const PEASANT_ATTACK_ADDITIONAL_SPEED_MULTIPLIER = 1.2 * 1.15 * 1.1;
+// Five fixed 240 Hz simulation steps per pose. This removes the alternating 5/6-step dwell that
+// made the horizontal strike look like individual frames were flashing, without materially changing speed.
+export const PEASANT_SIDE_ATTACK_FRAME_DURATION_MS = 1000 / 48;
 // Temporary art-direction switch: keep every creature on the first authored frame. Board interpolation,
 // facing and gameplay VFX remain active, but no creature sprite-sheet frames (idle, walk, action or special)
 // advance until this is switched back on.
 export { CREATURE_SPRITE_ANIMATION_SETTINGS } from "@/pixi/creatureAnimationSettings";
 
-/** Keep the newly approved Peasant walk active while the global creature-animation freeze remains in place. */
+function usesApprovedPermanentIdleAtlas(unitName: string): boolean {
+    return (
+        unitName === PEASANT_UNIT_NAME ||
+        unitName === BEHOLDER_UNIT_NAME ||
+        unitName === SQUIRE_UNIT_NAME ||
+        unitName === ARBALESTER_UNIT_NAME
+    );
+}
+
+/** Keep individually approved idle loops active while other creature atlases remain frozen. */
+export function creatureIdleAnimationEnabledForUnit(unitName: string): boolean {
+    return CREATURE_SPRITE_ANIMATION_SETTINGS.enabled || usesApprovedPermanentIdleAtlas(unitName);
+}
+
+/** Resolve a looping authored idle frame whose poses have independent durations. */
+export function authoredIdleFrameForElapsed(elapsedMs: number, frameDurationsMs: readonly number[]): number {
+    if (frameDurationsMs.length <= 1) return 0;
+    const durations = frameDurationsMs.map((duration) => (Number.isFinite(duration) && duration > 0 ? duration : 1));
+    const cycleMs = durations.reduce((total, duration) => total + duration, 0);
+    let cursorMs = ((elapsedMs % cycleMs) + cycleMs) % cycleMs;
+    for (let index = 0; index < durations.length; index += 1) {
+        if (cursorMs < durations[index]) return index;
+        cursorMs -= durations[index];
+    }
+    return durations.length - 1;
+}
+
+/** Keep individually approved walks active while the global creature-animation freeze remains in place. */
 export function creatureWalkAnimationEnabledForUnit(unitName: string): boolean {
-    return CREATURE_SPRITE_ANIMATION_SETTINGS.enabled || unitName === PEASANT_UNIT_NAME;
+    return (
+        CREATURE_SPRITE_ANIMATION_SETTINGS.enabled ||
+        unitName === PEASANT_UNIT_NAME ||
+        unitName === SQUIRE_UNIT_NAME ||
+        unitName === WOLF_UNIT_NAME ||
+        unitName === ARBALESTER_UNIT_NAME
+    );
+}
+
+/** Keep individually approved one-shot animations active while the global art freeze remains in place. */
+export function creatureOneShotAnimationEnabledForUnit(unitName: string, stateName: string): boolean {
+    return (
+        CREATURE_SPRITE_ANIMATION_SETTINGS.enabled ||
+        (unitName === SQUIRE_UNIT_NAME && stateName === "death") ||
+        (unitName === PEASANT_UNIT_NAME &&
+            (stateName === "attack" ||
+                stateName === "attack_up" ||
+                stateName === "attack_down" ||
+                stateName === "hit" ||
+                stateName === "death"))
+    );
+}
+
+/** Level-one creatures keep only authored sprite motion; higher tiers retain the shared overlays. */
+export function creatureGenericWholeSpriteMotionEnabledForLevel(unitLevel: number): boolean {
+    return unitLevel !== 1;
+}
+
+export function creatureGenericCombatMotionEnabledForUnit(unitName: string, unitLevel: number): boolean {
+    return creatureGenericWholeSpriteMotionEnabledForLevel(unitLevel) && unitName !== PEASANT_UNIT_NAME;
 }
 // Battlefield units expose their compact team/count ribbon. Stack power remains mechanical state and no
 // longer allocates a separate pip rail.
@@ -665,7 +903,44 @@ const inheritedAbsoluteScale = (container: Container, output?: HoCMath.XY): HoCM
     return scale;
 };
 
+export function isAttackAnimationStateName(stateName: string): boolean {
+    return (
+        stateName === "attack" ||
+        stateName.startsWith("attack_") ||
+        stateName === "melee_attack" ||
+        stateName.startsWith("melee_attack_")
+    );
+}
+
 export function oneShotAnimationDurationMultiplier(unitName: string, stateName: string): number {
+    const isAttack = isAttackAnimationStateName(stateName);
+
+    // Recover the authored Peasant hit cadence from the registry. Runtime keeps the approved fast
+    // reaction, with the subsequent 15%, 20% and 13% slow-downs applied cumulatively to the former
+    // 2.25x setting: source/preview stays 75 ms/frame, runtime is 51.98 ms/frame (~416 ms total).
+    if (unitName === PEASANT_UNIT_NAME && stateName === "hit") {
+        const meta = animationAtlases[PEASANT_UNIT_NAME]?.[stateName];
+        if (meta?.loopDurationMs) {
+            return (meta.frameDurationSec * 1000 * meta.frameCount) / meta.loopDurationMs / (2.25 / 1.15 / 1.2 / 1.13);
+        }
+        return 1 / 0.9 / (2.25 / 1.15 / 1.2 / 1.13);
+    }
+
+    // The atlas registry deliberately shortens totalDurationSec by 10% and rounds its loop to whole
+    // milliseconds. Recover the authored Peasant timing from the generated metadata so successive speed
+    // reviews remain exact instead of accumulating a small rounding error in battle.
+    if (unitName === PEASANT_UNIT_NAME && isAttack) {
+        const meta = animationAtlases[PEASANT_UNIT_NAME]?.[stateName];
+        if (meta?.loopDurationMs) {
+            return (
+                (meta.frameDurationSec * 1000 * meta.frameCount) /
+                meta.loopDurationMs /
+                PEASANT_ATTACK_ADDITIONAL_SPEED_MULTIPLIER
+            );
+        }
+        return 1 / 0.9 / PEASANT_ATTACK_ADDITIONAL_SPEED_MULTIPLIER;
+    }
+
     // Wandering Mage has its own tuned combat cadence. Its death sequence is deliberately 15% faster.
     if (unitName === WANDERING_MAGE_UNIT_NAME) {
         return (
@@ -675,20 +950,23 @@ export function oneShotAnimationDurationMultiplier(unitName: string, stateName: 
     }
 
     let multiplier = 1;
-    const isAttack =
-        stateName === "attack" ||
-        stateName.startsWith("attack_") ||
-        stateName === "melee_attack" ||
-        stateName.startsWith("melee_attack_");
-
     if (isAttack) multiplier /= ATTACK_ANIMATION_SPEED_MULTIPLIER;
     if (stateName === "hit") multiplier /= HIT_ANIMATION_SPEED_MULTIPLIER;
     if (stateName === "death") {
         multiplier /=
             DEATH_ANIMATION_SPEED_MULTIPLIER *
+            (unitName === SQUIRE_UNIT_NAME ? SQUIRE_DEATH_ADDITIONAL_SPEED_MULTIPLIER : 1) *
+            (unitName === PEASANT_UNIT_NAME ? PEASANT_DEATH_ADDITIONAL_SPEED_MULTIPLIER : 1) *
             (unitName === SCAVENGER_UNIT_NAME ? SCAVENGER_DEATH_ADDITIONAL_SPEED_MULTIPLIER : 1);
     }
     return multiplier;
+}
+
+/** Keep a differently sized atlas frame at the same on-screen height until the next layout sync. */
+export function textureSwapHeightScaleRatio(previousHeight: number, nextHeight: number): number {
+    return Number.isFinite(previousHeight) && previousHeight > 0 && Number.isFinite(nextHeight) && nextHeight > 0
+        ? previousHeight / nextHeight
+        : 1;
 }
 
 export function ashMothActionScaleMultiplier(stateName: string, frameIndex: number): number {
@@ -696,6 +974,40 @@ export function ashMothActionScaleMultiplier(stateName: string, frameIndex: numb
     if (!heights?.length) return 1;
     const safeFrameIndex = Math.max(0, Math.min(heights.length - 1, Math.floor(frameIndex)));
     return WANDERING_MAGE_IDLE_VISIBLE_HEIGHT_PX / heights[safeFrameIndex];
+}
+
+export function peasantActionScaleMultiplier(stateName: string, frameIndex = 0): number {
+    const safeFrameIndex = Math.max(0, Math.min(7, Math.floor(frameIndex)));
+    if (stateName === "attack") {
+        return PEASANT_ATTACK_RENDER_SCALE * PEASANT_ATTACK_FRAME_SCALE_FACTORS.attack[safeFrameIndex];
+    }
+    if (stateName === "attack_up") {
+        return PEASANT_DIAGONAL_ATTACK_RENDER_SCALE * PEASANT_ATTACK_FRAME_SCALE_FACTORS.attack_up[safeFrameIndex];
+    }
+    if (stateName === "attack_down") {
+        return PEASANT_DIAGONAL_ATTACK_RENDER_SCALE * PEASANT_ATTACK_FRAME_SCALE_FACTORS.attack_down[safeFrameIndex];
+    }
+    if (stateName === "death") return PEASANT_DEATH_RENDER_SCALE;
+    return 1;
+}
+
+export function peasantAttackHorizontalScaleMultiplier(stateName: string, frameIndex = 0): number {
+    const factors = PEASANT_ATTACK_HORIZONTAL_FRAME_FACTORS[stateName];
+    if (!factors) return 1;
+    const safeFrameIndex = Math.max(0, Math.min(factors.length - 1, Math.floor(frameIndex)));
+    const effectiveXScale = PEASANT_ATTACK_EFFECTIVE_X_SCALE * factors[safeFrameIndex];
+    return effectiveXScale / peasantActionScaleMultiplier(stateName, safeFrameIndex);
+}
+
+/** Keep the planted boot at the same world X as Peasant's idle support foot in every attack frame. */
+export function peasantAttackAnchorX(stateName: string, frameIndex = 0): number {
+    const contacts = PEASANT_ATTACK_SUPPORT_FOOT_X[stateName];
+    if (!contacts?.length) return 0.5;
+    const safeFrameIndex = Math.max(0, Math.min(contacts.length - 1, Math.floor(frameIndex)));
+    const horizontalFactor = PEASANT_ATTACK_HORIZONTAL_FRAME_FACTORS[stateName]?.[safeFrameIndex] ?? 1;
+    const effectiveXScale = PEASANT_ATTACK_EFFECTIVE_X_SCALE * horizontalFactor;
+    const anchorPixels = contacts[safeFrameIndex] - PEASANT_IDLE_SUPPORT_FOOT_OFFSET_X / effectiveXScale;
+    return anchorPixels / 768;
 }
 
 export function resolveAnimationAtlasState(_unitName: string, stateName: string): string {
@@ -712,6 +1024,11 @@ export function nativeBoardFacingMultiplier(_unitName: string): -1 | 1 {
 /** During placement both armies face the battlefield centre: green from the left, red from the right. */
 export function placementFacingDirectionForTeam(team: TeamType): -1 | 1 {
     return team === TeamVals.RIGHT ? -1 : 1;
+}
+
+/** Mirror the authored flag anchor with the creature while keeping the flag graphics and text upright. */
+export function flagOffsetXForFacing(flagOffsetXCells: number, facingDirection: -1 | 1): number {
+    return flagOffsetXCells * facingDirection;
 }
 
 /**
@@ -758,6 +1075,15 @@ export function preservesFacingForPureVerticalSingleCellAttack(
 ): boolean {
     if (attackerCells.length !== 1 || targetCells.length !== 1) return false;
     return attackerCells[0].x === targetCells[0].x && attackerCells[0].y !== targetCells[0].y;
+}
+
+export function commonIdleBreathScalesForElapsed(elapsedMs: number): { x: number; y: number } {
+    const breath = Math.sin((elapsedMs / COMMON_IDLE_BREATH_PERIOD_MS) * Math.PI * 2);
+    return {
+        // Broaden only on inhale so the creature never looks unnaturally pinched on exhale.
+        x: 1 + Math.max(0, breath) * COMMON_IDLE_CHEST_EXPANSION_AMPLITUDE,
+        y: 1 + breath * COMMON_IDLE_BREATH_SCALE_AMPLITUDE,
+    };
 }
 
 export function ashMothIdleBreathScaleForElapsed(elapsedMs: number): number {
@@ -821,12 +1147,12 @@ export function scavengerActiveBattleCryBreathElapsed(elapsedMs: number): number
 }
 
 export function orcIdleBreathScalesForElapsed(elapsedMs: number, out?: HoCMath.XY): HoCMath.XY {
-    const breath = Math.sin((elapsedMs / ORC_IDLE_BREATH_PERIOD_MS) * Math.PI * 2);
-    const scales = out ?? { x: 1, y: 1 };
-    // Only the inhale broadens the chest. Exhaling returns to the authored width instead of pinching it.
-    scales.x = 1 + Math.max(0, breath) * ORC_IDLE_CHEST_EXPANSION_AMPLITUDE;
-    scales.y = 1 + breath * ORC_IDLE_BREATH_SCALE_AMPLITUDE;
-    return scales;
+    // Every creature shares the approved calm breathing loop; the scratch object avoids per-frame allocation.
+    const scales = commonIdleBreathScalesForElapsed(elapsedMs);
+    if (!out) return scales;
+    out.x = scales.x;
+    out.y = scales.y;
+    return out;
 }
 
 /** The approved axe flourish plays once after every four complete breathing cycles. */
@@ -1113,10 +1439,6 @@ function getStaticBattlefieldIdleConfig(
     footprintWidth: number,
     footprintHeight: number,
 ): UnitAtlasConfig | null {
-    // The explicit animation switch is also the authored-atlas test/dev switch. Production keeps it
-    // off and uses the approved static battlefield cutouts; when enabled, do not let those cutouts
-    // shadow every idle/walk/action atlas.
-    if (CREATURE_SPRITE_ANIMATION_SETTINGS.enabled) return null;
     const textureName = staticBattlefieldTextureNameForUnit(unitName, footprintWidth, footprintHeight);
     if (!textureName) return null;
     const imageKey = textureName as ImageKey;
@@ -1135,7 +1457,11 @@ function getDefaultAnimationConfig(
     footprintWidth: number,
     footprintHeight = footprintWidth,
 ): UnitAtlasConfig | null {
-    const staticBattlefieldIdle = getStaticBattlefieldIdleConfig(unitName, footprintWidth, footprintHeight);
+    // Approved idle atlases authored from their matching static figures own the permanent board loop.
+    // Other static-redraw creatures keep their single-frame battlefield override.
+    const staticBattlefieldIdle = usesApprovedPermanentIdleAtlas(unitName)
+        ? null
+        : getStaticBattlefieldIdleConfig(unitName, footprintWidth, footprintHeight);
     if (staticBattlefieldIdle) return staticBattlefieldIdle;
     if (unitName === EFREET_UNIT_NAME && footprintWidth === 1 && footprintHeight === 1) {
         return {
@@ -1173,13 +1499,12 @@ function getAnimationStateConfig(
     footprintWidth: number,
     footprintHeight = footprintWidth,
 ): UnitAtlasConfig | null {
-    const staticBattlefieldIdle = getStaticBattlefieldIdleConfig(unitName, footprintWidth, footprintHeight);
-    if (staticBattlefieldIdle) {
-        if (state === "idle") return staticBattlefieldIdle;
-        // Production deliberately freezes the approved static figures, except Peasant's separately
-        // approved walking strip. Let that one walk resolve its atlas without enabling every action.
-        if (!(state === "walk" && creatureWalkAnimationEnabledForUnit(unitName))) return null;
-    }
+    const staticBattlefieldIdle = usesApprovedPermanentIdleAtlas(unitName)
+        ? null
+        : getStaticBattlefieldIdleConfig(unitName, footprintWidth, footprintHeight);
+    // The approved final figure replaces the resting battlefield model only. Keep authored walk, attack,
+    // hit, cast and death atlases available so applying a static redraw never removes combat behaviour.
+    if (staticBattlefieldIdle && state === "idle") return staticBattlefieldIdle;
     if (unitName === EFREET_UNIT_NAME && state === "idle" && footprintWidth === 1 && footprintHeight === 1) {
         return {
             meta: EFREET_FIRE_IDLE_META,
@@ -1224,7 +1549,6 @@ const BADGE_FLAG_WAVE_FRAME_MS = 1000 / 20;
 const ACTIVE_TURN_FIRE_URL = (images as Partial<Record<string, string>>).active_turn_blue_fire_atlas ?? "";
 // Prepared from the blue-fire source video. Keep the implementation/assets ready, but leave the
 // effect visually disabled until the owner asks to restore it.
-const ACTIVE_TURN_FIRE_ENABLED = false;
 let activeTurnFireFramesCache: Texture[] | null | undefined;
 
 /** Ping-pong frame selection keeps the expanding fire cloud seamless at both ends of its loop. */
@@ -1446,8 +1770,8 @@ const FLAG_WAVE_CYCLES = 1.15;
 const FLAG_WAVE_SPEED = 2.6;
 /** Heroes-IV-style count ribbon stays horizontal above the creature. */
 const BATTLEFIELD_FLAG_ROTATION = 0;
-/** Active-turn arrow is 30% larger than its previous 1.06 scale, independent of its animated breath. */
-export const ACTIVE_TURN_POINTER_SIZE_SCALE = 1.378;
+/** Active-turn arrow enlarged by another 50%, independent of its animated breath. */
+export const ACTIVE_TURN_POINTER_SIZE_SCALE = 1.06 * 1.3 * 1.5;
 /** A warm, slightly orange gold that stays legible against both army colours. */
 const ACTIVE_FLAG_GLOW_COLOR = 0xffd05a;
 /** Twice the previous cadence: one complete grow/shrink breath every 1.4 seconds. */
@@ -1474,14 +1798,27 @@ const activeTurnGlowBlurFilter = (): BlurFilter | undefined => {
 /** Normalized 0..1 pulse shared by the active-turn pointer's glow and scale. */
 const activeFlagPulse = (timeSeconds: number): number => {
     const cosineBreath = 0.5 - Math.cos(timeSeconds * ACTIVE_FLAG_GLOW_SPEED) * 0.5;
+    // Smoothstep eases both ends of the breath, so neither the scale nor halo appears to change direction.
     return cosineBreath * cosineBreath * (3 - 2 * cosineBreath);
 };
+/** Public for regression tests: pointer size and glow share the same restrained 100–108% pulse. */
 export const activeFlagScaleForTime = (timeSeconds: number): number => 1 + activeFlagPulse(timeSeconds) * 0.08;
+/** The halo never vanishes completely, so the pointer remains identifiable at the dim pulse phase. */
 export const activeFlagGlowAlphaForTime = (timeSeconds: number): number => 0.32 + activeFlagPulse(timeSeconds) * 0.58;
+/**
+ * Preserve the established two-pixel/13%-of-flag clearance, then add a visible six percent of one board
+ * cell (the previous three percent plus the requested extra lift). The flag width is authored as 42% of a
+ * cell, so this remains resolution-independent.
+ */
 export const activeTurnPointerGap = (flagHeight: number, flagWidth: number): number =>
     Math.max(2, flagHeight * 0.13) + flagWidth * (0.06 / 0.42);
 
-/** Stable screen-space top of the amount flag, excluding the active pointer's animated pulse. */
+/**
+ * Stable screen-space top of the amount flag for pointer UI.
+ *
+ * The active-turn pointer breathes independently while the flag stays fixed. `badgeEmphasisScale` is the
+ * flag's persistent scale, so this anchor only changes when the creature, camera or authored framing does.
+ */
 export const stableDamagePredictionBadgeScreenTop = (
     spriteScreenTop: number,
     margin: number,
@@ -1555,8 +1892,6 @@ interface RosterCardDrawState {
     footprintWidth: number;
     footprintHeight: number;
     projected: boolean;
-    name: string;
-    teamColor: number;
 }
 
 /**
@@ -1690,9 +2025,16 @@ const BOARD_FONT_FAMILY = HOC_NUMERIC_FONT_FAMILY;
  * icons, so the two neutral states look like the same state.
  */
 const NO_TEAM_ROSTER_COLOR = 0xd0d0d0;
+/** Placement hover remains neutral; gold is reserved exclusively for the active flag contour. */
+const PLACEMENT_HOVER_CELL_GLOW_COLOR = 0xffffff;
+/**
+ * `tag.webp` contains generous transparent padding around the crossed swords. At the flag's raw width
+ * the opaque blades are narrower than the cloth and disappear completely behind it, so enlarge the
+ * source canvas until the actual tips and hilts clearly protrude on the battlefield.
+ */
 const RESPOND_EMBLEM_CANVAS_SCALE = 2.25;
+/** Selected mockup variant: compress only the crossed-swords emblem vertically by 20%. */
 const RESPOND_EMBLEM_HEIGHT_SCALE = 0.8;
-
 export class RenderableUnit extends Unit {
     private texResolver!: TexResolver;
     // Server-authoritative "already used its hourglass (wait) this lap" flag, synced from the snapshot in
@@ -1707,6 +2049,9 @@ export class RenderableUnit extends Unit {
     private motionBlurFilter?: BlurFilter;
     private shadow?: Graphics;
     private silhouetteShadow?: Sprite;
+    /** First stable placement/idle frame: the exact canvas against which the shadow editor was tuned. */
+    private silhouetteShadowReferenceTexture?: Texture;
+    private silhouetteShadowReferenceAnchorY?: number;
     private silhouetteShadowSegments: Sprite[] = [];
     private silhouetteShadowSegmented = false;
     private battlefieldShadowProjection?: BattlefieldCreatureShadowProjection;
@@ -1716,10 +2061,14 @@ export class RenderableUnit extends Unit {
     private shadowDrawWidth = 0;
     private shadowDrawHeight = 0;
     private badgeContainer?: Container;
+    /** Freeze the overhead flag in world space while a one-shot pose changes the sprite bounds. */
+    private oneShotBadgePosition?: Readonly<{ x: number; y: number }>;
     private badgeHeader?: Graphics;
     private badgeFlagGlow?: Graphics;
     private badgeFlag?: Graphics;
+    /** Animated all-gold pointer shown above the count flag for the unit whose turn it is. */
     private activeTurnPointer?: Graphics;
+    /** Once the active unit starts moving or acting, keep its pointer hidden until a new turn begins. */
     private activeTurnPointerSuppressed = false;
     private badgeText?: Text;
     private badgeDrawState?: BadgeDrawState;
@@ -1746,6 +2095,11 @@ export class RenderableUnit extends Unit {
     /** Crossed-swords emblem behind the flag once the unit has used its response attack this round. */
     private respondContainer?: Container;
     private respondSprite?: Sprite;
+    /**
+     * Keep a just-played retaliation visible through the damage animation even when that same engine
+     * transaction also flips the lap and immediately clears `responded`. Without this short visual latch
+     * a two-stack fight can set true -> false before Pixi renders a single frame, so the swords never appear.
+     */
     private respondFeedbackUntilMs = 0;
     private respondFeedbackTimer?: ReturnType<typeof setTimeout>;
     private spawnAnim?: SpawnAnimState;
@@ -1757,6 +2111,7 @@ export class RenderableUnit extends Unit {
     private scavengerActiveBattleCryFrames?: Texture[];
     private selectionAnimTiming?: AtlasPingPongTiming;
     private selectionAnimFrameDurationMs = 0;
+    private selectionAnimFrameDurationsMs?: readonly number[];
     private selectionAnimFootAnchorY = 1;
     /** Wall-clock origin for this unit's current uninterrupted idle spell. */
     private selectionAnimationStartedAtMs = 0;
@@ -1810,7 +2165,6 @@ export class RenderableUnit extends Unit {
     // so the opponent's known army reads as a roster line-up rather than units already standing on the board.
     private rosterCard?: Container;
     private rosterCardPlate?: Graphics;
-    private rosterCardLabel?: Text;
     private rosterCardDrawState?: RosterCardDrawState;
     // Uniform multiplier applied to the rendered sprite, shadow, badge and corner indicators.
     // 1 = normal one-cell board size. The placement bench renders unplaced units larger (>1) so
@@ -1819,10 +2173,14 @@ export class RenderableUnit extends Unit {
     // Board mechanics stay on the regular square grid, while the painted dungeon floor uses a traced
     // perspective grid. Board units opt into that visual projection; roster/bench previews leave it off.
     private useBattlefieldVisualProjection = false;
-    // Animated "light waves" aura shown under the unit whose turn it is.
-    private activeAura?: Graphics;
-    // Placement hover reuses the restrained active-turn light waves instead of the old stack of
-    // opaque white circles drawn by HoverManager.
+    // Soft fill shown beneath the unit whose turn it is. The full-footprint mask keeps its feathered light
+    // inside occupied cells without introducing a visible perimeter or internal cell separators.
+    private activeAura?: Container;
+    private activeAuraGlow?: Graphics;
+    private activeAuraMask?: Graphics;
+    private activeAuraGlowBlurFilter?: BlurFilter | null;
+    // Placement hover reuses the restrained active-turn cell light instead of the old stack of opaque
+    // white circles drawn by HoverManager.
     private isHoverTurnAura = false;
     private activeAuraDrawState?: ContinuousEffectDrawState;
     /** Transparent blue-fire atlas layered beneath the active unit and the existing light rings. */
@@ -1833,7 +2191,6 @@ export class RenderableUnit extends Unit {
     private activeAuraColor = 0xffffff;
     // While the active unit is mid-move or mid-attack, the aura is suppressed so it doesn't
     // distract from the action (set each frame by the scene).
-    private suppressActiveAura = false;
     // Light-blue circulating ring + small orbiting dots shown around a unit while its Water Shield buff is
     // active (the once-per-battle absorb). Created lazily; hidden the frame the shield breaks.
     private waterShieldAura?: Graphics;
@@ -1934,6 +2291,9 @@ export class RenderableUnit extends Unit {
         ru.projectedStackPower = undefined;
         ru.rosterCardDrawState = undefined;
         ru.activeAura = undefined;
+        ru.activeAuraGlow = undefined;
+        ru.activeAuraMask = undefined;
+        ru.activeAuraGlowBlurFilter = undefined;
         ru.isHoverTurnAura = false;
         ru.activeAuraDrawState = undefined;
         ru.activeTurnFireSprite = undefined;
@@ -1949,7 +2309,6 @@ export class RenderableUnit extends Unit {
         ru.waterShieldBreakGfx = undefined;
         ru.waterShieldBreakStartMs = undefined;
         ru.waterShieldWasActive = false;
-        ru.suppressActiveAura = false;
         ru.recoilStartMs = 0;
         ru.recoilDx = 0;
         ru.recoilDy = 0;
@@ -1960,6 +2319,8 @@ export class RenderableUnit extends Unit {
         ru.dodgeAnim = undefined;
         ru.dodgeBlurFilter = undefined;
         ru.silhouetteShadow = undefined;
+        ru.silhouetteShadowReferenceTexture = undefined;
+        ru.silhouetteShadowReferenceAnchorY = undefined;
         ru.silhouetteShadowSegments = [];
         ru.silhouetteShadowSegmented = false;
         ru.battlefieldShadowProjection = undefined;
@@ -2235,8 +2596,14 @@ export class RenderableUnit extends Unit {
                     ? SCAVENGER_FLOURISH_FOOT_ANCHOR_Y
                     : this.selectionAnimFootAnchorY))
             : 0.5;
-        if (this.sprite.anchor.x !== 0.5 || this.sprite.anchor.y !== footAnchorY) {
-            this.sprite.anchor.set(0.5, footAnchorY);
+        const actionAnchorX =
+            props.name === PEASANT_UNIT_NAME &&
+            this.oneShotAnim &&
+            isAttackAnimationStateName(this.oneShotAnim.stateName)
+                ? peasantAttackAnchorX(this.oneShotAnim.stateName, this.oneShotAnim.frameIndex)
+                : 0.5;
+        if (this.sprite.anchor.x !== actionAnchorX || this.sprite.anchor.y !== footAnchorY) {
+            this.sprite.anchor.set(actionAnchorX, footAnchorY);
         }
         // Legacy portrait chips use a fixed board texture. Full-body models instead key their authored
         // visible bounds to the live cell size so viewport scaling cannot change their battlefield footprint.
@@ -2249,8 +2616,9 @@ export class RenderableUnit extends Unit {
             ? battlefieldCreaturePerspectiveScale(logicalPos.y, footprintHeight, gs)
             : 1;
         const editorFraming = resolveStoredBattlefieldCreatureFraming(props.name);
-        // Gameplay occupancy must never deform the authored creature. Rectangular 2x1 bodies use the
-        // shorter footprint side for visual sizing, exactly like the approved local sandbox rendering.
+        // A rectangular footprint is gameplay geometry, not permission to deform the authored figure.
+        // Size legacy chips from the shorter footprint side, preserving the same square presentation they
+        // had before mounted/long-bodied creatures received their 2x1 occupancy.
         const visualFootprintSide = Math.min(footprintWidth, footprintHeight);
         const chipTargetSide =
             visualFootprintSide * BATTLEFIELD_CHIP_CELL_PIXELS * this.visualScaleMultiplier * battlefieldCreatureScale;
@@ -2259,9 +2627,25 @@ export class RenderableUnit extends Unit {
         const inheritedScale = inheritedAbsoluteScale(worldRoot, this.inheritedScaleScratch);
         this.inheritedScaleScratch = inheritedScale;
         const screenSizeCompensation = legacyBoardChildScaleCompensation(inheritedScale.x, inheritedScale.y);
+        const baseWidth = baseTex.width > 1 ? baseTex.width : 1;
+        const baseHeight = baseTex.height > 1 ? baseTex.height : 1;
         const currentTexture = this.sprite.texture;
-        const currentWidth = currentTexture && currentTexture.width > 1 ? currentTexture.width : baseTex.width || 1;
-        const currentHeight = currentTexture && currentTexture.height > 1 ? currentTexture.height : baseTex.height || 1;
+        const currentWidth = currentTexture && currentTexture.width > 1 ? currentTexture.width : baseWidth;
+        const currentHeight = currentTexture && currentTexture.height > 1 ? currentTexture.height : baseHeight;
+        // Freeze the same deterministic idle source in gameplay and in the shadow editor. Keeping the
+        // source frame and its authored foot anchor identical is what makes an editor profile transfer 1:1.
+        const canonicalShadowReferenceTexture = battlefieldCanonicalShadowReference(
+            baseTex,
+            hasAuthoredIdle ? this.selectionAnimFrames : undefined,
+        );
+        if (this.useBattlefieldVisualProjection && !this.walkAnim && !this.oneShotAnim) {
+            this.silhouetteShadowReferenceTexture = canonicalShadowReferenceTexture;
+            this.silhouetteShadowReferenceAnchorY = hasAuthoredIdle ? this.selectionAnimFootAnchorY : footAnchorY;
+        }
+        const shadowReferenceTexture = this.silhouetteShadowReferenceTexture ?? currentTexture;
+        const shadowReferenceWidth = shadowReferenceTexture.width > 1 ? shadowReferenceTexture.width : currentWidth;
+        const shadowReferenceHeight = shadowReferenceTexture.height > 1 ? shadowReferenceTexture.height : currentHeight;
+        const shadowReferenceAnchorY = this.silhouetteShadowReferenceAnchorY ?? footAnchorY;
         const usesThiefSilhouette = props.name === THIEF_UNIT_NAME || props.name === SCAVENGER_UNIT_NAME;
         // Key tall models by HEIGHT so they remain exactly 1.5 cells tall. Thief's authored idle/walk
         // frames contain a thin transparent safety margin, so size the visible body rather than that canvas.
@@ -2285,14 +2669,15 @@ export class RenderableUnit extends Unit {
             : props.name === SCAVENGER_UNIT_NAME
               ? SCAVENGER_BOARD_MODEL_HEIGHT_CELLS
               : 1.5;
-        // `heightCells` describes the artwork, while footprint width/height describes occupied cells.
-        // Keeping those concepts separate preserves the source aspect ratio for every rectangular body.
+        // `heightCells` describes the authored figure itself. Footprint width/height only changes occupied
+        // cells; the approved square-body enlargement remains the sole mechanical size multiplier.
         const boardModelTargetHeightCells = boardModelHeightCells * battlefieldCreatureScale;
         const chipScaleX = chipTargetSide / currentWidth;
         const chipScaleY = chipTargetSide / currentHeight;
         const scaleY = tallBoardModel ? (gs.getCellSize() * boardModelTargetHeightCells) / visibleHeight : chipScaleY;
-        // Idle/walk stay inside the requested width. Action sheets and Orc's square padded atlases must
-        // keep a uniform scale: capping that transparent canvas independently used to visibly narrow him.
+        // Idle/walk stay inside the requested width. Action sheets, Orc's square padded atlases and the
+        // restyled Scavenger must keep a uniform scale. The Scavenger's new square cutout was previously
+        // squeezed on X by the legacy Thief width fit, which made its body look vertically stretched.
         const tallBoardWidthCells =
             props.name === SCAVENGER_UNIT_NAME
                 ? SCAVENGER_BOARD_MODEL_HEIGHT_CELLS / 1.5
@@ -2300,14 +2685,44 @@ export class RenderableUnit extends Unit {
                   ? 1
                   : 1.1;
         const scaleX = tallBoardModel
-            ? refreshedFullBodyScale || this.oneShotAnim || props.name === ORC_UNIT_NAME || showingScavengerFlourish
+            ? refreshedFullBodyScale ||
+              this.oneShotAnim ||
+              props.name === ORC_UNIT_NAME ||
+              props.name === SCAVENGER_UNIT_NAME ||
+              showingScavengerFlourish
                 ? scaleY * (refreshedFullBodyScale ? refreshedVisualProfile.widthScale : 1)
                 : usesThiefSilhouette
                   ? (gs.getCellSize() * tallBoardWidthCells * visualFootprintSide) / visibleWidth
                   : Math.min(scaleY, (gs.getCellSize() * tallBoardWidthCells * visualFootprintSide) / currentWidth)
             : chipScaleX;
+        // Compute the frozen editor frame's scale directly. Reusing the live sprite scale during combat is
+        // incorrect whenever an action atlas switches to a differently sized canvas.
+        const stableShadowReferenceScale = battlefieldStableShadowReferenceScale({
+            unitName: props.name,
+            referenceWidth: shadowReferenceWidth,
+            referenceHeight: shadowReferenceHeight,
+            cellSize: gs.getCellSize(),
+            chipTargetSide,
+            tallBoardModel,
+            boardModelTargetHeightCells,
+            usesThiefSilhouette,
+            refreshedFullBodyScale,
+            refreshedWidthScale: refreshedVisualProfile.widthScale,
+            tallBoardWidthCells,
+            visualFootprintSide,
+        });
         // The bottom anchor is the creature's foot line. Breathing stretches/compresses only the
-        // vertical scale around that anchor, so the robe and torso rise while both feet stay planted.
+        // vertical scale around that anchor, so the body rises while both feet stay planted. Every
+        // stack gets a stable phase offset so a whole army never inhales in lockstep.
+        const commonIdleBreathScales =
+            COMMON_IDLE_BREATH_SETTINGS.enabled &&
+            creatureGenericWholeSpriteMotionEnabledForLevel(props.level) &&
+            !this.walkAnim &&
+            !this.oneShotAnim
+                ? commonIdleBreathScalesForElapsed(
+                      performance.now() + this.refreshedIdlePhaseRatio * COMMON_IDLE_BREATH_PERIOD_MS,
+                  )
+                : undefined;
         const orcIdleElapsedMs = this.isActiveTurn
             ? orcActiveBattleCryBreathElapsed(now - this.activeTurnAnimationStartedAtMs)
             : now - this.selectionAnimationStartedAtMs;
@@ -2333,29 +2748,50 @@ export class RenderableUnit extends Unit {
             props.name === WANDERING_MAGE_UNIT_NAME
                 ? ashMothIdleBreathScalesForElapsed(now, (this.idleBreathScaleScratch ??= { x: 1, y: 1 }))
                 : undefined;
-        const idleBreathScale =
-            !this.walkAnim && !this.oneShotAnim
+        const idleBreathScales =
+            COMMON_IDLE_BREATH_SETTINGS.enabled && creatureGenericWholeSpriteMotionEnabledForLevel(props.level)
                 ? props.name === WANDERING_MAGE_UNIT_NAME
-                    ? (idleWanderingMageBreathScales?.y ?? 1)
+                    ? (idleWanderingMageBreathScales ?? commonIdleBreathScales)
                     : usesThiefSilhouette
-                      ? (idleThiefBreathScales?.y ?? 1)
-                      : (idleOrcBreathScales?.y ?? 1)
-                : 1;
+                      ? (idleThiefBreathScales ?? commonIdleBreathScales)
+                      : (idleOrcBreathScales ?? commonIdleBreathScales)
+                : undefined;
         const ashMothActionScale =
             props.name === WANDERING_MAGE_UNIT_NAME && this.oneShotAnim
                 ? ashMothActionScaleMultiplier(this.oneShotAnim.stateName, this.oneShotAnim.frameIndex)
                 : 1;
+        const peasantActionScale =
+            props.name === PEASANT_UNIT_NAME && this.oneShotAnim
+                ? peasantActionScaleMultiplier(this.oneShotAnim.stateName, this.oneShotAnim.frameIndex)
+                : 1;
+        const wolfWalkScale =
+            props.name === WOLF_UNIT_NAME && this.walkAnim ? wolfWalkFrameScaleMultiplier(this.walkAnim.frameIndex) : 1;
+        const squireWalkScale =
+            props.name === SQUIRE_UNIT_NAME && this.walkAnim ? SQUIRE_WALK_VISIBLE_SCALE_MULTIPLIER : 1;
+        const actionScale = ashMothActionScale * peasantActionScale * wolfWalkScale * squireWalkScale;
+        const squireDeathHorizontalScale =
+            props.name === SQUIRE_UNIT_NAME && this.oneShotAnim?.stateName === "death"
+                ? SQUIRE_DEATH_HORIZONTAL_SCALE_MULTIPLIER
+                : 1;
+        const actionScaleX =
+            actionScale *
+            squireDeathHorizontalScale *
+            (props.name === PEASANT_UNIT_NAME &&
+            this.oneShotAnim &&
+            isAttackAnimationStateName(this.oneShotAnim.stateName)
+                ? peasantAttackHorizontalScaleMultiplier(this.oneShotAnim.stateName, this.oneShotAnim.frameIndex)
+                : 1);
         const renderedScaleY =
             scaleY *
-            idleBreathScale *
-            ashMothActionScale *
+            (idleBreathScales?.y ?? 1) *
+            actionScale *
             screenSizeCompensation.y *
             editorFraming.scaleY *
             battlefieldPerspectiveScale;
         const authoredDirectedScaleX =
             scaleX *
-            (idleWanderingMageBreathScales?.x ?? idleThiefBreathScales?.x ?? idleOrcBreathScales?.x ?? 1) *
-            ashMothActionScale *
+            (idleBreathScales?.x ?? 1) *
+            actionScaleX *
             this.facingDirection *
             nativeBoardFacingMultiplier(props.name) *
             editorFraming.scaleX *
@@ -2386,10 +2822,21 @@ export class RenderableUnit extends Unit {
             gs.getCellSize() * editorFraming.offsetXCells * this.facingDirection * battlefieldPerspectiveScale;
         // Every full-body model uses one stable ground line in every state. The state-specific anchor above
         // points at the actual authored boot row, so transparent frame padding cannot move the creature.
+        // The world root is y-up. Keep the Scavenger's authored boot row intact, but lift the complete
+        // figure (and the shadows that derive from spriteY) by five percent of its rendered height.
+        const figureVerticalLift =
+            props.name === SCAVENGER_UNIT_NAME
+                ? gs.getCellSize() *
+                  boardModelTargetHeightCells *
+                  editorFraming.scaleY *
+                  SCAVENGER_BATTLEFIELD_VERTICAL_LIFT_FRACTION *
+                  battlefieldPerspectiveScale
+                : 0;
         const spriteY =
             projectedFootPosition.y +
             this.currentRecoilY -
-            gs.getCellSize() * editorFraming.offsetYCells * battlefieldPerspectiveScale;
+            gs.getCellSize() * editorFraming.offsetYCells * battlefieldPerspectiveScale +
+            figureVerticalLift;
         if (this.sprite.x !== spriteX || this.sprite.y !== spriteY) {
             this.sprite.position.set(spriteX, spriteY);
         }
@@ -2425,10 +2872,16 @@ export class RenderableUnit extends Unit {
         const retiredBattlefieldStyleFilter = this.battlefieldStyleFilter;
         const retiredBattlefieldAlphaHoleFillFilter = this.battlefieldAlphaHoleFillFilter;
         const retiredBattlefieldContourFilter = this.battlefieldContourFilter;
-        // The approved Peasant walk already has its alpha cracks repaired in the source frames. Re-running
-        // the bridge shader on its antialiased weapon edge can brighten isolated pixels into white flecks.
+        // The approved Peasant walk and combat atlases already have their alpha cracks repaired in the
+        // source frames. Re-running the bridge shader on their antialiased weapon and body edges can
+        // brighten isolated pixels into a white rim during the transition away from idle.
+        const peasantUsesSourceRepairedAtlas =
+            props.name === PEASANT_UNIT_NAME &&
+            (this.walkAnim ||
+                (this.oneShotAnim &&
+                    (isAttackAnimationStateName(this.oneShotAnim.stateName) || this.oneShotAnim.stateName === "hit")));
         const runtimeAlphaHoleFillFilter =
-            shouldFillBattlefieldAlphaHoles(props.name) && !(props.name === PEASANT_UNIT_NAME && this.walkAnim)
+            shouldFillBattlefieldAlphaHoles(props.name) && !peasantUsesSourceRepairedAtlas
                 ? getBattlefieldAlphaHoleFillFilter()
                 : undefined;
         const runtimeContourFilter =
@@ -2457,11 +2910,12 @@ export class RenderableUnit extends Unit {
             this.sprite.filters = desiredFilters.length ? desiredFilters : null;
         }
 
-        // Heroes-IV-style furnace shadow: one intact, editable copy of the current creature frame,
-        // flattened into a compact dark projection below the unit.
+        // Heroes-IV-style furnace shadow: one intact, editable copy of the exact stable idle frame shown
+        // by the editor. Live combat-atlas frames never replace it.
+        const shadowSourceTexture = battlefieldShadowSourceForUnit(props.name, shadowReferenceTexture, currentTexture);
         if (!this.silhouetteShadow) {
-            this.silhouetteShadow = new Sprite(currentTexture);
-            this.silhouetteShadow.anchor.set(0.5, footAnchorY);
+            this.silhouetteShadow = new Sprite(shadowSourceTexture);
+            this.silhouetteShadow.anchor.set(0.5, shadowReferenceAnchorY);
             this.silhouetteShadow.tint = 0x000000;
             this.silhouetteShadow.blendMode = "multiply";
             this.silhouetteShadow.roundPixels = false;
@@ -2471,89 +2925,90 @@ export class RenderableUnit extends Unit {
         } else if (!this.silhouetteShadow.parent || this.silhouetteShadow.parent !== worldRoot) {
             worldRoot.addChild(this.silhouetteShadow);
         }
+        const shadowProjection = battlefieldCreatureShadowProjection(logicalPos.y, footprintHeight, gs, props.name);
         const shadowTuning = resolveBattlefieldShadowTuning(props.name);
-        const shadowRowProgress = battlefieldCreatureRowProgress(logicalPos.y, footprintHeight, gs);
-        const shadowProjection = writeBattlefieldCreatureShadowProjection(
-            shadowTuning,
-            shadowRowProgress,
-            this.battlefieldShadowProjection,
-        );
-        this.battlefieldShadowProjection = shadowProjection;
-        if (this.silhouetteShadow.texture !== currentTexture) this.silhouetteShadow.texture = currentTexture;
-        if (this.silhouetteShadow.anchor.x !== 0.5 || this.silhouetteShadow.anchor.y !== footAnchorY) {
-            this.silhouetteShadow.anchor.set(0.5, footAnchorY);
+        if (this.silhouetteShadow.texture !== shadowSourceTexture) this.silhouetteShadow.texture = shadowSourceTexture;
+        if (this.silhouetteShadow.anchor.x !== 0.5 || this.silhouetteShadow.anchor.y !== shadowReferenceAnchorY) {
+            this.silhouetteShadow.anchor.set(0.5, shadowReferenceAnchorY);
         }
-        // The editor authors the upper-row length directly. Perspective is divided out here so the lower
-        // rows can receive their automatic 85% attenuation without swapping the two endpoint controls.
+        const shadowRowProgress = battlefieldCreatureRowProgress(logicalPos.y, footprintHeight, gs);
+        const interpolateShadowValue = (bottom: number, top: number): number =>
+            bottom + (top - bottom) * shadowRowProgress;
+        // The editor authors the furthest upper-row shadow against the creature's minimum perspective size.
+        // Perspective is divided out so only the shadow's far edge moves: its foot anchor stays fixed while
+        // the length decreases linearly to 90% at the nearest lower row.
         // Keep Peasant's crack repair on the upright figure only. On its vertically flattened projection,
         // the bridge shader joins unrelated rows and makes the shadow read denser than every neighbouring
         // creature even though they share the same authored alpha.
-        const desiredShadowFilter =
-            runtimeAlphaHoleFillFilter && props.name !== PEASANT_UNIT_NAME ? runtimeAlphaHoleFillFilter : undefined;
-        syncSingleSpriteFilter(this.silhouetteShadow, desiredShadowFilter);
-        const segmentLengthMultipliers =
-            this.shadowSegmentLengthMultipliers ?? Array<number>(BATTLEFIELD_SHADOW_SEGMENT_COUNT);
-        this.shadowSegmentLengthMultipliers = segmentLengthMultipliers;
-        this.silhouetteShadowSegmented = false;
-        for (let index = 0; index < BATTLEFIELD_SHADOW_SEGMENT_COUNT; index++) {
-            const bottomMultiplier = shadowTuning.bottom.segmentLengthMultipliers[index] ?? 1;
-            const multiplier =
-                bottomMultiplier +
-                ((shadowTuning.top.segmentLengthMultipliers[index] ?? 1) - bottomMultiplier) * shadowRowProgress;
-            segmentLengthMultipliers[index] = multiplier;
-            if (Math.abs(multiplier - 1) > 0.001) this.silhouetteShadowSegmented = true;
+        const desiredShadowFilters =
+            runtimeAlphaHoleFillFilter && props.name !== PEASANT_UNIT_NAME ? [runtimeAlphaHoleFillFilter] : [];
+        const installedShadowFilters = this.silhouetteShadow.filters ?? [];
+        if (
+            desiredShadowFilters.length !== installedShadowFilters.length ||
+            desiredShadowFilters.some((filter, index) => filter !== installedShadowFilters[index])
+        ) {
+            this.silhouetteShadow.filters = desiredShadowFilters.length ? desiredShadowFilters : null;
         }
+        const segmentLengthMultipliers = Array.from({ length: BATTLEFIELD_SHADOW_SEGMENT_COUNT }, (_, index) =>
+            interpolateShadowValue(
+                shadowTuning.bottom.segmentLengthMultipliers[index] ?? 1,
+                shadowTuning.top.segmentLengthMultipliers[index] ?? 1,
+            ),
+        );
+        this.silhouetteShadowSegmented = segmentLengthMultipliers.some(
+            (multiplier) => Math.abs(multiplier - 1) > 0.001,
+        );
         if (this.silhouetteShadowSegmented && this.silhouetteShadowSegments.length === 0) {
-            this.silhouetteShadowSegments = battlefieldShadowSegmentTextures(currentTexture).map((texture, index) => {
-                const segment = new Sprite(texture);
-                // Outside-range anchors place every cropped band around the original sprite centre.
-                segment.anchor.set(BATTLEFIELD_SHADOW_SEGMENT_COUNT / 2 - index, footAnchorY);
-                segment.tint = 0x000000;
-                segment.blendMode = "multiply";
-                segment.roundPixels = false;
-                segment.zIndex = 4000 - pos.y - 0.75;
-                worldRoot.addChild(segment);
-                return segment;
-            });
+            this.silhouetteShadowSegments = battlefieldShadowSegmentTextures(shadowSourceTexture).map(
+                (texture, index) => {
+                    const segment = new Sprite(texture);
+                    // Anchors outside 0..1 place all four cropped sprites around the same original centre.
+                    segment.anchor.set(BATTLEFIELD_SHADOW_SEGMENT_COUNT / 2 - index, shadowReferenceAnchorY);
+                    segment.tint = 0x000000;
+                    segment.blendMode = "multiply";
+                    segment.roundPixels = false;
+                    segment.zIndex = 4000 - pos.y - 0.75;
+                    worldRoot.addChild(segment);
+                    return segment;
+                },
+            );
         }
-        const silhouetteScaleX = this.sprite.scale.x * shadowProjection.widthScale;
+        const stableShadowScaleX =
+            stableShadowReferenceScale.x *
+            this.facingDirection *
+            nativeBoardFacingMultiplier(props.name) *
+            editorFraming.scaleX *
+            battlefieldPerspectiveScale *
+            screenSizeCompensation.x;
+        const stableShadowScaleY =
+            stableShadowReferenceScale.y *
+            editorFraming.scaleY *
+            battlefieldPerspectiveScale *
+            screenSizeCompensation.y;
+        const silhouetteScaleX = stableShadowScaleX * shadowProjection.widthScale;
         // A positive local Y scale is inverted by the y-up world root, projecting the cutout downward from
         // its authored foot row. The regular creature uses a negative Y scale to remain upright.
         const silhouetteScaleY =
-            (Math.abs(this.sprite.scale.y) / Math.max(0.01, battlefieldPerspectiveScale)) *
-            shadowProjection.lengthScale;
+            (stableShadowScaleY / Math.max(0.01, battlefieldPerspectiveScale)) * shadowProjection.lengthScale;
         if (this.silhouetteShadow.scale.x !== silhouetteScaleX || this.silhouetteShadow.scale.y !== silhouetteScaleY) {
             this.silhouetteShadow.scale.set(silhouetteScaleX, silhouetteScaleY);
         }
         const silhouetteX =
             spriteX +
             gs.getCellSize() *
-                interpolateBattlefieldShadowValue(
-                    shadowTuning.bottom.offsetXCells,
-                    shadowTuning.top.offsetXCells,
-                    shadowRowProgress,
-                ) *
+                interpolateShadowValue(shadowTuning.bottom.offsetXCells, shadowTuning.top.offsetXCells) *
                 battlefieldPerspectiveScale *
                 this.facingDirection;
         const silhouetteY =
             spriteY +
             gs.getCellSize() *
-                interpolateBattlefieldShadowValue(
-                    shadowTuning.bottom.offsetYCells,
-                    shadowTuning.top.offsetYCells,
-                    shadowRowProgress,
-                ) *
+                interpolateShadowValue(shadowTuning.bottom.offsetYCells, shadowTuning.top.offsetYCells) *
                 battlefieldPerspectiveScale;
         if (this.silhouetteShadow.x !== silhouetteX || this.silhouetteShadow.y !== silhouetteY) {
             this.silhouetteShadow.position.set(silhouetteX, silhouetteY);
         }
         const silhouetteRotation =
-            ((interpolateBattlefieldShadowValue(
-                shadowTuning.bottom.rotationDegrees,
-                shadowTuning.top.rotationDegrees,
-                shadowRowProgress,
-            ) *
-                Math.PI) /
+            ((interpolateShadowValue(shadowTuning.bottom.rotationDegrees, shadowTuning.top.rotationDegrees) * Math.PI) /
                 180) *
             this.facingDirection;
         if (this.silhouetteShadow.rotation !== silhouetteRotation) {
@@ -2564,27 +3019,35 @@ export class RenderableUnit extends Unit {
         if (this.silhouetteShadow.visible !== wholeSilhouetteVisible) {
             this.silhouetteShadow.visible = wholeSilhouetteVisible;
         }
-        const silhouetteAlpha = shadowProjection.alpha * (isHidden ? 0.55 : 1) * (this.canFly() ? 0.8 : 1);
+        // Profile alpha is the final authored opacity for every creature. Flying units used to receive
+        // another hidden 0.8 multiplier here, so an editor value of 0.45 rendered as 0.36 in battle and
+        // could never match the editor one-for-one.
+        const silhouetteAlpha = shadowProjection.alpha * (isHidden ? 0.55 : 1);
         if (this.silhouetteShadow.alpha !== silhouetteAlpha) this.silhouetteShadow.alpha = silhouetteAlpha;
 
         if (this.silhouetteShadowSegments.length > 0) {
-            const textures = battlefieldShadowSegmentTextures(currentTexture);
+            const textures = battlefieldShadowSegmentTextures(shadowSourceTexture);
             for (let index = 0; index < this.silhouetteShadowSegments.length; index++) {
                 const segment = this.silhouetteShadowSegments[index];
                 if (segment.parent !== worldRoot) worldRoot.addChild(segment);
                 if (segment.texture !== textures[index]) segment.texture = textures[index];
                 const anchorX = BATTLEFIELD_SHADOW_SEGMENT_COUNT / 2 - index;
-                if (segment.anchor.x !== anchorX || segment.anchor.y !== footAnchorY) {
-                    segment.anchor.set(anchorX, footAnchorY);
+                if (segment.anchor.x !== anchorX || segment.anchor.y !== shadowReferenceAnchorY) {
+                    segment.anchor.set(anchorX, shadowReferenceAnchorY);
                 }
-                syncSingleSpriteFilter(segment, desiredShadowFilter);
+                const installedSegmentFilters = segment.filters ?? [];
+                if (
+                    desiredShadowFilters.length !== installedSegmentFilters.length ||
+                    desiredShadowFilters.some((filter, filterIndex) => filter !== installedSegmentFilters[filterIndex])
+                ) {
+                    segment.filters = desiredShadowFilters.length ? desiredShadowFilters : null;
+                }
                 const segmentScaleY = silhouetteScaleY * (segmentLengthMultipliers[index] ?? 1);
                 if (segment.scale.x !== silhouetteScaleX || segment.scale.y !== segmentScaleY) {
                     segment.scale.set(silhouetteScaleX, segmentScaleY);
                 }
-                if (segment.x !== silhouetteX || segment.y !== silhouetteY) {
+                if (segment.x !== silhouetteX || segment.y !== silhouetteY)
                     segment.position.set(silhouetteX, silhouetteY);
-                }
                 if (segment.rotation !== silhouetteRotation) segment.rotation = silhouetteRotation;
                 if (segment.alpha !== silhouetteAlpha) segment.alpha = silhouetteAlpha;
                 const segmentVisible = silhouetteVisible && this.silhouetteShadowSegmented;
@@ -2592,27 +3055,30 @@ export class RenderableUnit extends Unit {
             }
         }
 
-        if (isBattlefieldShadowEditorActive()) {
-            const shadowSprites = this.silhouetteShadowSegmented
-                ? this.silhouetteShadowSegments
-                : [this.silhouetteShadow];
-            let left = Infinity;
-            let top = Infinity;
-            let right = -Infinity;
-            let bottom = -Infinity;
-            for (const shadowSprite of shadowSprites) {
-                const bounds = shadowSprite.getBounds();
-                left = Math.min(left, bounds.x);
-                top = Math.min(top, bounds.y);
-                right = Math.max(right, bounds.x + bounds.width);
-                bottom = Math.max(bottom, bounds.y + bounds.height);
-            }
-            publishBattlefieldShadowVisualBounds(props.name, {
-                bounds: { x: left, y: top, width: right - left, height: bottom - top },
-                cellWidth: gs.getCellSize() * inheritedScale.x,
-                cellHeight: gs.getCellSize() * inheritedScale.y,
-            });
-        }
+        const silhouetteBounds = (
+            this.silhouetteShadowSegmented ? this.silhouetteShadowSegments : [this.silhouetteShadow]
+        ).reduce(
+            (combined, displayObject) => {
+                const bounds = displayObject.getBounds();
+                return {
+                    left: Math.min(combined.left, bounds.x),
+                    top: Math.min(combined.top, bounds.y),
+                    right: Math.max(combined.right, bounds.x + bounds.width),
+                    bottom: Math.max(combined.bottom, bounds.y + bounds.height),
+                };
+            },
+            { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity },
+        );
+        publishBattlefieldShadowVisualBounds(props.name, {
+            bounds: {
+                x: silhouetteBounds.left,
+                y: silhouetteBounds.top,
+                width: silhouetteBounds.right - silhouetteBounds.left,
+                height: silhouetteBounds.bottom - silhouetteBounds.top,
+            },
+            cellWidth: gs.getCellSize() * inheritedScale.x,
+            cellHeight: gs.getCellSize() * inheritedScale.y,
+        });
 
         // The second, independently blurred cast-shadow copy remains retired. One transparent flattened
         // silhouette plus the compact contact patch is cheaper and closer to Heroes IV's readable style.
@@ -2681,7 +3147,7 @@ export class RenderableUnit extends Unit {
         // --- bullet-time dodge (missed attack): offsets sprite+shadow, leans, trails ghosts ---
         this.stepDodgeAnimation(worldRoot, now);
         // --- revealed-roster card (plate + name), drawn under the sprite ---
-        this.ensureRosterCard(worldRoot, gs, props, logicalPos);
+        this.ensureRosterCard(worldRoot, gs, logicalPos);
         // --- badge ---
         this.ensureBadge(worldRoot, gs, props, pos, inheritedScale, now);
         // --- stack power indicator ---
@@ -2835,6 +3301,14 @@ export class RenderableUnit extends Unit {
         this.visualScaleMultiplier = multiplier > 0 ? multiplier : 1;
     }
     public setBattlefieldVisualProjection(enabled: boolean): void {
+        // Crossing from the flat placement bench onto the battlefield is a new visual authoring context.
+        // Drop any reference retained by an older build/state so the next ensureVisual captures the same
+        // stable projected idle frame used by the editor. Repeated `true` calls while moving on the board
+        // intentionally preserve the reference across animations.
+        if (enabled && !this.useBattlefieldVisualProjection) {
+            this.silhouetteShadowReferenceTexture = undefined;
+            this.silhouetteShadowReferenceAnchorY = undefined;
+        }
         this.useBattlefieldVisualProjection = enabled;
     }
     private setSilhouetteShadowVisibility(visible: boolean): void {
@@ -2917,6 +3391,12 @@ export class RenderableUnit extends Unit {
         this.depthSortBoundsAreCurrent = false;
         const walkAnim = this.walkAnim;
         const props = this.getUnitProperties();
+        // Level-one creatures now use only their individually authored sprite frames. Do not layer the
+        // legacy whole-cutout tilt/bounce over them, including units that do not yet have a refreshed atlas.
+        if (!creatureGenericWholeSpriteMotionEnabledForLevel(props.level)) {
+            sprite.rotation = 0;
+            return;
+        }
         // Every authored walk atlas already contains the complete footwork, weight transfer and body
         // motion. The legacy whole-sprite tilt/bounce hid those poses and made refreshed creatures look
         // as if a static cutout was merely rocking. Keep Orc/Wandering Mage/Scavenger exactly on their
@@ -2960,7 +3440,14 @@ export class RenderableUnit extends Unit {
     /** Current live cutout geometry used by the scene's head-first overlap resolver. */
     public getCreatureDepthSortCandidate(stableOrder: number): CreatureDepthSortCandidate | undefined {
         const sprite = this.sprite;
-        if (!this.useBattlefieldVisualProjection || this.visualMode !== "normal" || !sprite?.visible) return undefined;
+        if (
+            !this.useBattlefieldVisualProjection ||
+            this.visualMode !== "normal" ||
+            !sprite?.visible ||
+            this.isPlayingForegroundAttackAnimation()
+        ) {
+            return undefined;
+        }
         const bounds = this.getCreatureBounds();
         if (!bounds) return undefined;
         if (bounds.width <= 0 || bounds.height <= 0) return undefined;
@@ -2988,6 +3475,7 @@ export class RenderableUnit extends Unit {
         if (this.stackPowerContainer) this.stackPowerContainer.zIndex = depth + 1;
         if (this.hourglassContainer) this.hourglassContainer.zIndex = depth + 2;
         if (this.stunContainer) this.stunContainer.zIndex = depth + 2;
+        // Response swords are a local badge child; their layer is controlled by child order, not world depth.
         if (this.respondContainer) this.respondContainer.zIndex = 0;
         if (this.freezeCrust) this.freezeCrust.zIndex = depth + 0.5;
         if (this.freezeLight) this.freezeLight.zIndex = depth + 0.55;
@@ -3024,7 +3512,8 @@ export class RenderableUnit extends Unit {
         // Update Z-Index for depth sorting
         if (this.sprite) {
             const baseZ = 4000 - pos.y;
-            if (this.sprite.zIndex !== baseZ) this.sprite.zIndex = baseZ;
+            const figureZ = this.isPlayingForegroundAttackAnimation() ? CREATURE_ATTACK_FOREGROUND_Z_INDEX : baseZ;
+            if (this.sprite.zIndex !== figureZ) this.sprite.zIndex = figureZ;
             if (this.shadow && this.shadow.zIndex !== baseZ - 0.5) this.shadow.zIndex = baseZ - 0.5;
             if (this.silhouetteShadow && this.silhouetteShadow.zIndex !== baseZ - 0.75) {
                 this.silhouetteShadow.zIndex = baseZ - 0.75;
@@ -3035,24 +3524,25 @@ export class RenderableUnit extends Unit {
             if (this.groundCastShadow && this.groundCastShadow.zIndex !== baseZ - 0.85) {
                 this.groundCastShadow.zIndex = baseZ - 0.85;
             }
-            if (this.badgeContainer && this.badgeContainer.zIndex !== baseZ + 1) this.badgeContainer.zIndex = baseZ + 1;
-            if (this.stackPowerContainer && this.stackPowerContainer.zIndex !== baseZ + 1) {
-                this.stackPowerContainer.zIndex = baseZ + 1;
+            if (this.badgeContainer && this.badgeContainer.zIndex !== figureZ + 1) {
+                this.badgeContainer.zIndex = figureZ + 1;
             }
-            if (this.hourglassContainer && this.hourglassContainer.zIndex !== baseZ + 2) {
-                this.hourglassContainer.zIndex = baseZ + 2;
+            if (this.stackPowerContainer && this.stackPowerContainer.zIndex !== figureZ + 1) {
+                this.stackPowerContainer.zIndex = figureZ + 1;
             }
-            if (this.stunContainer && this.stunContainer.zIndex !== baseZ + 2) this.stunContainer.zIndex = baseZ + 2;
+            if (this.hourglassContainer && this.hourglassContainer.zIndex !== figureZ + 2) {
+                this.hourglassContainer.zIndex = figureZ + 2;
+            }
+            if (this.stunContainer && this.stunContainer.zIndex !== figureZ + 2) {
+                this.stunContainer.zIndex = figureZ + 2;
+            }
             if (this.respondContainer && this.respondContainer.zIndex !== 0) {
                 this.respondContainer.zIndex = 0;
             }
         }
 
-        // Active-turn "light waves" pulse: the SAME animated glow + radiating rings under EVERY
-        // active unit. Owner call (2026-07-18): do NOT gate or vary this per unit — gating it on aura
-        // ownership (5a20846) silently removed the turn cue for plain units, and a per-unit variant
-        // read as two different pulse animations. Aura REACH is telegraphed separately by the
-        // SandboxDrawer range rings. Suppressed while moving/attacking so the action reads clearly.
+        // The active-turn cue now lives exclusively on the count flag. Keep the footprint light only for
+        // placement hover, where it communicates a different interaction before combat begins.
         const showActiveAura = this.isHoverTurnAura;
         if (showActiveAura && !this.isDead()) {
             this.updateActiveAura(worldRoot, gs, pos, now);
@@ -3102,80 +3592,72 @@ export class RenderableUnit extends Unit {
             this.updateWaterShieldBreak(worldRoot, gs, pos, now);
         }
     }
-    /**
-     * Animated golden aura under the active unit: a soft breathing glow plus staggered rings of
-     * light that radiate outward and fade — "waves of light" shining around it. Redrawn every
-     * frame from a time-based phase so it stays smooth and never stutters.
-     */
+    /** Borderless golden pulse contained within the complete footprint occupied by this unit. */
     private updateActiveAura(worldRoot: Container, gs: GridSettings, pos: HoCMath.XY, nowMs: number): void {
-        if (ACTIVE_TURN_FIRE_ENABLED) {
-            this.updateActiveTurnFire(worldRoot, gs, pos, nowMs);
-        } else if (this.activeTurnFireSprite) {
-            this.activeTurnFireSprite.visible = false;
-        }
         if (!this.activeAura) {
-            this.activeAura = new Graphics();
+            this.activeAura = new Container({ label: "active-cell-glow" });
+            this.activeAuraGlow = new Graphics();
+            this.activeAuraMask = new Graphics();
+            this.activeAuraGlow.blendMode = "add";
+            try {
+                this.activeAuraGlowBlurFilter = new BlurFilter({
+                    strength: 9,
+                    quality: 3,
+                    kernelSize: 7,
+                    resolution: "inherit",
+                    antialias: "inherit",
+                });
+                this.activeAuraGlowBlurFilter.padding = 12;
+                this.activeAuraGlow.filters = [this.activeAuraGlowBlurFilter];
+            } catch {
+                this.activeAuraGlowBlurFilter = null;
+            }
+            this.activeAura.addChild(this.activeAuraGlow, this.activeAuraMask);
+            this.activeAuraGlow.mask = this.activeAuraMask;
             if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
             worldRoot.addChild(this.activeAura);
         } else if (this.activeAura.parent !== worldRoot) {
             worldRoot.addChild(this.activeAura);
         }
-        // Sit on the ground beneath the unit (and its shadow) so the unit stands in the light.
-        this.activeAura.zIndex = 4000 - pos.y - 0.6;
+
+        // The complete light container sits beneath the cast shadow and creature, so the figure naturally
+        // covers it. No stroke is ever drawn: only softly blurred, low-alpha fills contribute pixels.
+        this.activeAura.zIndex = 4000 - pos.y - 0.95;
         this.activeAura.visible = true;
+        if (this.activeTurnFireSprite) this.activeTurnFireSprite.visible = false;
 
-        const cell = gs.getCellSize();
-        const footprintWidth = this.getFootprintWidth();
-        const footprintHeight = this.getFootprintHeight();
-        const drawState = (this.activeAuraDrawState ??= newContinuousEffectDrawState());
-        if (
-            !shouldRedrawContinuousEffect(
-                drawState,
-                nowMs,
-                pos,
-                cell,
-                footprintWidth,
-                footprintHeight,
-                this.activeAuraColor,
+        const pulse = 0.5 + 0.5 * Math.sin((nowMs / 1000) * 3.0);
+        if (this.activeAuraGlowBlurFilter) this.activeAuraGlowBlurFilter.strength = 7.5 + pulse * 3;
+
+        const occupied = this.getCells();
+        const minX = Math.min(...occupied.map(({ x }) => x));
+        const maxX = Math.max(...occupied.map(({ x }) => x));
+        const minY = Math.min(...occupied.map(({ y }) => y));
+        const maxY = Math.max(...occupied.map(({ y }) => y));
+        const step = gs.getStep();
+        const left = gs.getMinX() + minX * step;
+        const bottom = gs.getMinY() + minY * step;
+        const right = gs.getMinX() + (maxX + 1) * step;
+        const top = gs.getMinY() + (maxY + 1) * step;
+        const footprint = projectedRectPoints(left, bottom, right, top, gs);
+        const softInset = step * 0.065;
+        const brightInset = step * 0.2;
+
+        this.activeAuraMask?.clear().poly(footprint).fill({ color: 0xffffff, alpha: 1 });
+        this.activeAuraGlow
+            ?.clear()
+            .poly(projectedRectPoints(left + softInset, bottom + softInset, right - softInset, top - softInset, gs))
+            .fill({ color: PLACEMENT_HOVER_CELL_GLOW_COLOR, alpha: 0.16 + pulse * 0.14 })
+            .poly(
+                projectedRectPoints(
+                    left + brightInset,
+                    bottom + brightInset,
+                    right - brightInset,
+                    top - brightInset,
+                    gs,
+                ),
             )
-        ) {
-            return;
-        }
-        const isMultiCell = footprintWidth > 1 || footprintHeight > 1;
-        // Begin the turn waves on the portrait rim (slightly inside it), rather than in the empty
-        // space above/outside the creature. This keeps the indicator visually attached to the cap.
-        // Taking one semi-axis from each footprint side is what keeps the SAME single pulse attached to a
-        // rectangular body: the shape follows the cells, never the creature.
-        const baseRadiusX = cell * footprintEffectExtent(0.47, 0.86, footprintWidth);
-        const baseRadiusY = cell * footprintEffectExtent(0.47, 0.86, footprintHeight);
-        const t = nowMs / 1000;
-
-        const g = this.activeAura;
-        g.clear();
-
-        // 1. Soft pulsing inner glow that breathes with the waves.
-        const pulse = 0.5 + 0.5 * Math.sin(t * 3.0);
-        const glowGrowth = 1.05 + 0.1 * pulse;
-        drawFootprintOval(g, pos.x, pos.y, baseRadiusX * glowGrowth, baseRadiusY * glowGrowth).fill({
-            color: this.activeAuraColor,
-            alpha: 0.1 + 0.1 * pulse,
-        });
-
-        // 2. Expanding light rings radiating outward, staggered so a new wave emerges as the last fades.
-        const ringCount = 3;
-        const cycleSec = 1.8;
-        const maxGrowth = (isMultiCell ? 1.5 : 1.35) * 1.15;
-        for (let i = 0; i < ringCount; i++) {
-            const phase = (t / cycleSec + i / ringCount) % 1;
-            const growth = 1 + (maxGrowth - 1) * phase;
-            const a = (1 - phase) * 0.55;
-            const width = 2 + (1 - phase) * 2.5;
-            drawFootprintOval(g, pos.x, pos.y, baseRadiusX * growth, baseRadiusY * growth).stroke({
-                color: this.activeAuraColor,
-                alpha: a,
-                width,
-            });
-        }
+            .fill({ color: PLACEMENT_HOVER_CELL_GLOW_COLOR, alpha: 0.095 + pulse * 0.09 });
     }
     /** Lightweight transparent sprite-sheet glow for the unit whose turn is currently active. */
     private updateActiveTurnFire(worldRoot: Container, gs: GridSettings, pos: HoCMath.XY, nowMs: number): void {
@@ -3604,10 +4086,16 @@ export class RenderableUnit extends Unit {
         if (!frames.length) return;
         this.selectionAnimFrames = frames;
         this.selectionAnimTiming = buildAtlasPingPongTiming(meta);
+        this.selectionAnimFrameDurationsMs =
+            meta.frameDurationsMs?.length === frames.length ? meta.frameDurationsMs : undefined;
         const authoredFrameDurationMs = 1000 / Math.max(1, meta.fps || 8);
-        this.selectionAnimFrameDurationMs = usesRefreshedFullBodyScale(props, true)
-            ? authoredFrameDurationMs / REFRESHED_IDLE_ANIMATION_SPEED_MULTIPLIER
-            : authoredFrameDurationMs;
+        // Beholder's metadata owns its independently tuned tentacle and blink durations. Applying
+        // the shared refreshed-model multiplier here would destroy those authored percentages.
+        this.selectionAnimFrameDurationMs = authoredIdleFrameDurationMs(
+            props.name,
+            authoredFrameDurationMs,
+            usesRefreshedFullBodyScale(props, true),
+        );
         this.selectionAnimFootAnchorY = tallBoardModelFootAnchorY(props.name, "idle", meta);
         this.selectionAnimFrameIndex = -1;
         if (CREATURE_SPRITE_ANIMATION_SETTINGS.enabled && props.name === ORC_UNIT_NAME) {
@@ -3668,7 +4156,8 @@ export class RenderableUnit extends Unit {
         const frames = this.selectionAnimFrames;
         const timing = this.selectionAnimTiming;
         if (!frames || !timing || !this.sprite) return;
-        if (!CREATURE_SPRITE_ANIMATION_SETTINGS.enabled) {
+        const unitName = this.getUnitProperties().name;
+        if (!creatureIdleAnimationEnabledForUnit(unitName)) {
             const firstFrame = frames[0];
             this.selectionAnimFrameIndex = 0;
             this.isShowingOrcBattleCryFrame = false;
@@ -3686,7 +4175,6 @@ export class RenderableUnit extends Unit {
         // phase-locked. See buildAtlasPingPongTiming for why absolute time keeps them in sync.
         // Authored idle frames are seamless breathing/fire loops, so play them linearly.
         // Legacy creature atlases retain their existing forward/hold/backward selection timing.
-        const unitName = this.getUnitProperties().name;
         const isOrc = unitName === ORC_UNIT_NAME;
         const isScavenger = unitName === SCAVENGER_UNIT_NAME;
         const activeBattleCryFrames = isOrc
@@ -3711,20 +4199,24 @@ export class RenderableUnit extends Unit {
                     ? orcIdleAxeTwirlFrameForElapsed(now - this.selectionAnimationStartedAtMs)
                     : scavengerIdleBladeTwirlFrameForElapsed(now - this.selectionAnimationStartedAtMs)
                 : undefined;
+        const variableIdleDurations = this.selectionAnimFrameDurationsMs;
+        const variableIdleCycleMs = variableIdleDurations?.reduce((total, duration) => total + duration, 0) ?? 0;
+        const authoredIdleFrame = hasAuthoredIdle
+            ? variableIdleDurations
+                ? authoredIdleFrameForElapsed(
+                      now + this.refreshedIdlePhaseRatio * variableIdleCycleMs,
+                      variableIdleDurations,
+                  )
+                : Math.floor(
+                      (now +
+                          this.refreshedIdlePhaseRatio *
+                              Math.max(1, this.selectionAnimFrameDurationMs) *
+                              frames.length) /
+                          Math.max(1, this.selectionAnimFrameDurationMs),
+                  ) % frames.length
+            : timing.frameForElapsed(now);
         const frame =
-            battleCryFrame !== undefined
-                ? battleCryFrame
-                : twirlFrame === undefined
-                  ? hasAuthoredIdle
-                      ? Math.floor(
-                            (now +
-                                this.refreshedIdlePhaseRatio *
-                                    Math.max(1, this.selectionAnimFrameDurationMs) *
-                                    frames.length) /
-                                Math.max(1, this.selectionAnimFrameDurationMs),
-                        ) % frames.length
-                      : timing.frameForElapsed(now)
-                  : twirlFrame;
+            battleCryFrame !== undefined ? battleCryFrame : twirlFrame === undefined ? authoredIdleFrame : twirlFrame;
         const frameKey =
             battleCryFrame !== undefined
                 ? frames.length + (idleTwirlFrames?.length ?? 0) + frame
@@ -3751,6 +4243,7 @@ export class RenderableUnit extends Unit {
         if (!this.sprite) return;
         this.setBoardFacingFromMovement(horizontalDirection);
         if (!creatureWalkAnimationEnabledForUnit(props.name)) {
+            this.restoreScaleAfterSquireWalk();
             this.walkAnim = undefined;
             this.stepSelectionAnimation();
             return;
@@ -3809,6 +4302,7 @@ export class RenderableUnit extends Unit {
         const landingSpeedMultiplier = hasAuthoredFlightPhases
             ? Math.max(0.001, flightPhases.landing.speedMultiplier ?? 1)
             : 1;
+        const wasSquireWalking = props.name === SQUIRE_UNIT_NAME && !!this.walkAnim;
         this.walkAnim = {
             frames,
             footAnchorY: tallBoardModelFootAnchorY(props.name, "walk", config.meta),
@@ -3831,9 +4325,11 @@ export class RenderableUnit extends Unit {
                     : 0,
             loopEndFrame: hasAuthoredFlightPhases
                 ? flightPhases.flight.endFrame
-                : hasAuthoredTurnInAndOut || hasOrcTurnInAndOut
+                : props.name === SQUIRE_UNIT_NAME && frames.length > 1
                   ? frames.length - 2
-                  : frames.length - 1,
+                  : hasAuthoredTurnInAndOut || hasOrcTurnInAndOut
+                    ? frames.length - 2
+                    : frames.length - 1,
             outroFrame: hasAuthoredFlightPhases
                 ? flightPhases.landing.startFrame
                 : hasAuthoredTurnInAndOut || hasOrcTurnInAndOut
@@ -3853,9 +4349,20 @@ export class RenderableUnit extends Unit {
             finishAfterCycle: false,
             distanceDriven:
                 props.name === PEASANT_UNIT_NAME ||
+                props.name === ARBALESTER_UNIT_NAME ||
+                props.name === SQUIRE_UNIT_NAME ||
+                props.name === WOLF_UNIT_NAME ||
                 props.name === WANDERING_MAGE_UNIT_NAME ||
                 props.name === TROLL_UNIT_NAME,
         };
+        // Match the smaller walk silhouette to idle immediately, before the next ensureVisual pass. This
+        // closes the one-render-tick transition gap that can otherwise expose the raw atlas envelope.
+        if (props.name === SQUIRE_UNIT_NAME && !wasSquireWalking) {
+            this.sprite.scale.set(
+                this.sprite.scale.x * SQUIRE_WALK_VISIBLE_SCALE_MULTIPLIER,
+                this.sprite.scale.y * SQUIRE_WALK_VISIBLE_SCALE_MULTIPLIER,
+            );
+        }
         this.sprite.texture = frames[0];
         if (props.name === PEASANT_UNIT_NAME && this.battlefieldAlphaHoleFillFilter) {
             const alphaHoleFilter = this.battlefieldAlphaHoleFillFilter;
@@ -3865,7 +4372,8 @@ export class RenderableUnit extends Unit {
     }
     /**
      * Synchronize spatially-authored gait poses to real board distance. Peasant and Wandering Mage
-     * span two cells per cycle; Troll advances its complete authored gait over the tuned 1.25-cell cycle.
+     * span two cells per cycle; Wolf spans 1.5; Squire uses its 15%-slower 1.765-cell cycle;
+     * Troll uses 1.25 cells.
      */
     public setBoardWalkDistanceCells(distanceCells: number): void {
         const anim = this.walkAnim;
@@ -3892,9 +4400,15 @@ export class RenderableUnit extends Unit {
         const cycleDistance =
             unitName === PEASANT_UNIT_NAME
                 ? PEASANT_WALK_CYCLE_DISTANCE_CELLS
-                : unitName === TROLL_UNIT_NAME
-                  ? TROLL_WALK_CYCLE_DISTANCE_CELLS
-                  : WANDERING_MAGE_WALK_CYCLE_DISTANCE_CELLS;
+                : unitName === ARBALESTER_UNIT_NAME
+                  ? ARBALESTER_WALK_CYCLE_DISTANCE_CELLS
+                  : unitName === SQUIRE_UNIT_NAME
+                    ? SQUIRE_WALK_CYCLE_DISTANCE_CELLS
+                    : unitName === WOLF_UNIT_NAME
+                      ? WOLF_WALK_CYCLE_DISTANCE_CELLS
+                      : unitName === TROLL_UNIT_NAME
+                        ? TROLL_WALK_CYCLE_DISTANCE_CELLS
+                        : WANDERING_MAGE_WALK_CYCLE_DISTANCE_CELLS;
         const frameDistance = cycleDistance / gaitFrameCount;
         const absoluteGaitFrame = Math.floor(safeDistance / frameDistance + 1e-9);
         anim.completedCycles = Math.floor(absoluteGaitFrame / gaitFrameCount);
@@ -3938,9 +4452,17 @@ export class RenderableUnit extends Unit {
         }
         return prefix;
     }
+    private restoreScaleAfterSquireWalk(): void {
+        if (this.getUnitProperties().name !== SQUIRE_UNIT_NAME || !this.walkAnim || !this.sprite) return;
+        this.sprite.scale.set(
+            this.sprite.scale.x / SQUIRE_WALK_VISIBLE_SCALE_MULTIPLIER,
+            this.sprite.scale.y / SQUIRE_WALK_VISIBLE_SCALE_MULTIPLIER,
+        );
+    }
     public stopBoardWalkAnimation(): void {
         if (!this.walkAnim) return;
         const onOutroComplete = this.walkAnim.onOutroComplete;
+        this.restoreScaleAfterSquireWalk();
         this.walkAnim = undefined;
         this.selectionAnimationStartedAtMs = performance.now();
         this.selectionAnimFrameIndex = -1;
@@ -4080,7 +4602,13 @@ export class RenderableUnit extends Unit {
         // --- Wandering Mage movement animation (takes precedence over idle while active) ---
         this.stepBoardWalkAnimation(dt * 1000);
         // --- One Shot animation ---
-        this.stepOneShotAnimation(dt * 1000);
+        // The fixed simulation loop advances at 60 Hz but deliberately passes the legacy 1/240 step,
+        // so dt*1000 represents only one quarter of real elapsed milliseconds. Most older one-shots
+        // were tuned around that legacy clock. Peasant hit is authored in real milliseconds and must
+        // compensate here; without this factor its nominal 50 ms frames lasted 200 ms on screen.
+        const oneShotRealTimeScale =
+            this.oneShotAnim?.stateName === "hit" && this.getUnitProperties().name === PEASANT_UNIT_NAME ? 4 : 1;
+        this.stepOneShotAnimation(dt * 1000 * oneShotRealTimeScale);
         if (mayChangeSpriteBounds) this.depthSortBoundsAreCurrent = false;
     }
     private stopSelectionAnimationInternal(): void {
@@ -4103,7 +4631,14 @@ export class RenderableUnit extends Unit {
     }
     public startSpawnAnimation(_scale: number): void {
         if (!this.sprite || !this.shadow) return;
-        const unitName = this.getUnitProperties().name;
+        const props = this.getUnitProperties();
+        const unitName = props.name;
+        if (!creatureGenericWholeSpriteMotionEnabledForLevel(props.level)) {
+            this.spawnAnim = undefined;
+            this.sprite.alpha = 1;
+            this.shadow.scale.set(1);
+            return;
+        }
         const preservesRefreshedFullBodyScale =
             this.hasAnimationState("idle") &&
             unitName !== ORC_UNIT_NAME &&
@@ -4197,17 +4732,22 @@ export class RenderableUnit extends Unit {
                     ),
                 });
 
+                // Match the stable, non-pulsing forms of the same authored offsets used by ensureBadge().
+                // The active-turn breathing scale is intentionally excluded from every term here.
                 if (this.shouldShowRespondTag()) {
                     anchor.y +=
                         Math.max(0, (geometry.headerWidth - geometry.flagHeight) * 0.5) * this.badgeEmphasisScale;
                 }
                 const framing = resolveStoredBattlefieldCreatureFraming(this.getUnitProperties().name);
-                anchor.x += (framing.flagOffsetXCells ?? 0) * gs.getCellSize();
+                anchor.x +=
+                    flagOffsetXForFacing(framing.flagOffsetXCells ?? 0, this.facingDirection) * gs.getCellSize();
                 anchor.y -= (framing.flagOffsetYCells ?? 0) * gs.getCellSize();
                 return anchor;
             }
         }
 
+        // The flag is created lazily. During that first frame, keep the preview above the creature instead
+        // of flashing at its feet; the next hover update will use the exact live banner bounds.
         const spriteParent = sprite?.parent;
         if (sprite && spriteParent) {
             const bounds = sprite.getBounds();
@@ -4230,21 +4770,32 @@ export class RenderableUnit extends Unit {
     public isPlayingOneShotAnimation(stateName?: string): boolean {
         return !!this.oneShotAnim && (!stateName || this.oneShotAnim.stateName === stateName);
     }
+    public isPlayingForegroundAttackAnimation(): boolean {
+        return !!this.oneShotAnim && isAttackAnimationStateName(this.oneShotAnim.stateName);
+    }
     /**
      * Plays a one-shot animation sequence (like 'death', 'attack', 'hit')
      * @param stateName The animation state name (e.g. "death", "attack")
      * @param onComplete Callback when animation finishes
      */
-    public playOneShotAnimation(stateName: string, onComplete?: () => void): boolean {
+    public playOneShotAnimation(stateName: string, onComplete?: () => void, forcePreview = false): boolean {
+        // An action has begun even when this creature has no authored atlas for it. Hide immediately
+        // instead of allowing the turn marker to linger until the callback or next turn snapshot.
         this.suppressActiveTurnPointer();
-        if (!CREATURE_SPRITE_ANIMATION_SETTINGS.enabled) {
-            this.oneShotAnim = undefined;
-            this.walkAnim = undefined;
-            this.stepSelectionAnimation();
+        const props = this.getUnitProperties();
+        if (!forcePreview && !creatureOneShotAnimationEnabledForUnit(props.name, stateName)) {
+            // A generic Peasant hit/death/cast request is intentionally visual-only no-op. Do not let it
+            // cancel an approved attack or gait that is already playing; death callbacks still run below
+            // and own the actual teardown.
+            if (props.name !== PEASANT_UNIT_NAME) {
+                this.oneShotAnim = undefined;
+                this.restoreScaleAfterSquireWalk();
+                this.walkAnim = undefined;
+                this.stepSelectionAnimation();
+            }
             if (onComplete) onComplete();
             return false;
         }
-        const props = this.getUnitProperties();
         const config = getAnimationStateConfig(
             props.name,
             stateName,
@@ -4264,7 +4815,16 @@ export class RenderableUnit extends Unit {
         }
 
         // Attacks, casts and reactions take visual priority over any short post-move walk tail.
+        this.restoreScaleAfterSquireWalk();
         this.walkAnim = undefined;
+
+        this.oneShotBadgePosition = this.badgeContainer
+            ? { x: this.badgeContainer.x, y: this.badgeContainer.y }
+            : undefined;
+
+        const authoredDurationPerFrame =
+            ((meta.loopDurationMs || 1000) / (meta.frameCount || frames.length)) *
+            oneShotAnimationDurationMultiplier(props.name, stateName);
 
         this.oneShotAnim = {
             stateName,
@@ -4273,14 +4833,38 @@ export class RenderableUnit extends Unit {
             frameIndex: 0,
             elapsed: 0,
             durationPerFrame:
-                ((meta.loopDurationMs || 1000) / (meta.frameCount || frames.length)) *
-                oneShotAnimationDurationMultiplier(props.name, stateName),
+                props.name === PEASANT_UNIT_NAME && stateName === "attack"
+                    ? PEASANT_SIDE_ATTACK_FRAME_DURATION_MS
+                    : authoredDurationPerFrame,
             onComplete,
         };
 
-        // Set first frame immediately
-        this.sprite.texture = frames[0];
+        // Set the first frame immediately. A differently sized atlas would otherwise keep the old
+        // texture's scale for one render tick and visibly flash larger/smaller before ensureVisual()
+        // recalculates it. Preserve screen height across this synchronous swap.
+        const openingFrame = frames[0];
+        const scaleRatio = textureSwapHeightScaleRatio(this.sprite.texture.height, openingFrame.height);
+        const openingHorizontalScale =
+            props.name === SQUIRE_UNIT_NAME && stateName === "death" ? SQUIRE_DEATH_HORIZONTAL_SCALE_MULTIPLIER : 1;
+        if (scaleRatio !== 1 || openingHorizontalScale !== 1) {
+            this.sprite.scale.set(
+                this.sprite.scale.x * scaleRatio * openingHorizontalScale,
+                this.sprite.scale.y * scaleRatio,
+            );
+        }
+        this.sprite.anchor.y = this.oneShotAnim.footAnchorY;
+        this.sprite.texture = openingFrame;
         return true;
+    }
+    /** Cancel any transient pose and restore this creature's authored permanent idle loop immediately. */
+    public returnToIdleAnimation(): void {
+        this.oneShotAnim = undefined;
+        this.oneShotBadgePosition = undefined;
+        this.restoreScaleAfterSquireWalk();
+        this.walkAnim = undefined;
+        this.selectionAnimationStartedAtMs = performance.now();
+        this.selectionAnimFrameIndex = -1;
+        this.stepSelectionAnimation();
     }
     public stepOneShotAnimation(dtMs: number): void {
         if (!this.oneShotAnim || !this.sprite) return;
@@ -4298,6 +4882,7 @@ export class RenderableUnit extends Unit {
                 // Animation Finished
                 const callback = anim.onComplete;
                 this.oneShotAnim = undefined;
+                this.oneShotBadgePosition = undefined;
                 this.selectionAnimationStartedAtMs = performance.now();
                 this.selectionAnimFrameIndex = -1;
                 if (callback) callback();
@@ -4368,6 +4953,8 @@ export class RenderableUnit extends Unit {
             this.silhouetteShadow = undefined;
             this.silhouetteShadowBlurFilter = undefined;
         }
+        this.silhouetteShadowReferenceTexture = undefined;
+        this.silhouetteShadowReferenceAnchorY = undefined;
         for (const segment of this.silhouetteShadowSegments) segment.destroy();
         this.silhouetteShadowSegments = [];
         this.silhouetteShadowSegmented = false;
@@ -4404,7 +4991,6 @@ export class RenderableUnit extends Unit {
             this.rosterCard.destroy({ children: true });
             this.rosterCard = undefined;
             this.rosterCardPlate = undefined;
-            this.rosterCardLabel = undefined;
             this.rosterCardDrawState = undefined;
         }
         if (this.stackPowerContainer) {
@@ -4418,6 +5004,9 @@ export class RenderableUnit extends Unit {
             this.activeAura.destroy({ children: true });
             this.activeAura = undefined;
         }
+        this.activeAuraGlow = undefined;
+        this.activeAuraMask = undefined;
+        this.activeAuraGlowBlurFilter = undefined;
         if (this.activeTurnFireSprite) {
             this.activeTurnFireSprite.destroy();
             this.activeTurnFireSprite = undefined;
@@ -4447,6 +5036,7 @@ export class RenderableUnit extends Unit {
         this.waterShieldWasActive = false;
         this.spawnAnim = undefined;
         this.oneShotAnim = undefined;
+        this.oneShotBadgePosition = undefined;
         this.walkAnim = undefined;
         this.facingDirection = placementFacingDirectionForTeam(this.getTeam());
         // Spellbook sprites live in a scene-shared container, not under this unit's own display
@@ -4488,16 +5078,11 @@ export class RenderableUnit extends Unit {
     /**
      * The card behind a "revealed" unit — ranked placement shows the opponent's known army as a row of
      * B&W silhouettes, and without a marker they read as enemies already deployed on the board. A soft red
-     * fill following the painted cell, plus the creature's name underneath, makes the row read as a roster:
-     * you can see WHAT they drafted at a glance (the stack size stays redacted as "?" on the badge).
+     * fill follows the painted footprint; the creature art itself identifies the draft while the stack size
+     * stays redacted as "?" on the badge.
      * Non-revealed units keep the marker hidden, so nothing changes on the live board.
      */
-    private ensureRosterCard(
-        worldRoot: Container,
-        gs: GridSettings,
-        props: UnitProperties,
-        logicalPos: HoCMath.XY,
-    ): void {
+    private ensureRosterCard(worldRoot: Container, gs: GridSettings, logicalPos: HoCMath.XY): void {
         if (this.visualMode !== "revealed") {
             if (this.rosterCard) {
                 this.rosterCard.visible = false;
@@ -4508,20 +5093,7 @@ export class RenderableUnit extends Unit {
         if (!this.rosterCard) {
             this.rosterCard = new Container();
             this.rosterCardPlate = new Graphics();
-            this.rosterCardLabel = new Text({
-                text: props.name,
-                style: new TextStyle({
-                    fill: 0xefe4cc,
-                    fontSize: 13,
-                    fontWeight: "700",
-                    fontFamily: BOARD_FONT_FAMILY,
-                    stroke: { color: 0x000000, width: 3, join: "round" },
-                }),
-            });
-            this.rosterCardLabel.anchor.set(0.5);
-            // worldRoot is y-up; counter-flip so the caption reads upright.
-            this.rosterCardLabel.scale.y = -1;
-            this.rosterCard.addChild(this.rosterCardPlate, this.rosterCardLabel);
+            this.rosterCard.addChild(this.rosterCardPlate);
             if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
             worldRoot.addChild(this.rosterCard);
         } else if (this.rosterCard.parent !== worldRoot) {
@@ -4531,13 +5103,6 @@ export class RenderableUnit extends Unit {
         const cell = gs.getCellSize() * this.visualScaleMultiplier;
         const footprintWidth = this.getFootprintWidth();
         const footprintHeight = this.getFootprintHeight();
-        const captionGap = cell * 0.3;
-        const fontSize = Math.max(9, Math.round(cell * 0.15));
-        const teamColor =
-            props.team === TeamVals.NO_TEAM
-                ? NO_TEAM_ROSTER_COLOR
-                : // A player may repaint the armies: their OWN in a chosen colour, the enemy in red.
-                  (personalArmyPresetFor(props.team)?.color ?? resolveTeamColor(props.team));
         const previousDrawState = this.rosterCardDrawState;
         const needsRedraw =
             !previousDrawState ||
@@ -4546,9 +5111,7 @@ export class RenderableUnit extends Unit {
             previousDrawState.cell !== cell ||
             previousDrawState.footprintWidth !== footprintWidth ||
             previousDrawState.footprintHeight !== footprintHeight ||
-            previousDrawState.projected !== this.useBattlefieldVisualProjection ||
-            previousDrawState.name !== props.name ||
-            previousDrawState.teamColor !== teamColor;
+            previousDrawState.projected !== this.useBattlefieldVisualProjection;
 
         if (needsRedraw) {
             const plate = this.rosterCardPlate!;
@@ -4576,27 +5139,6 @@ export class RenderableUnit extends Unit {
             // intentional: this remains an opponent cue even when the viewer occupies the red team.
             plate.poly(footprintPoints).fill({ color: 0xe02b35, alpha: 0.22 });
 
-            const label = this.rosterCardLabel!;
-            label.style = new TextStyle({
-                fill: 0xefe4cc,
-                fontSize,
-                fontWeight: "700",
-                fontFamily: BOARD_FONT_FAMILY,
-                stroke: { color: 0x000000, width: 3, join: "round" },
-            });
-            label.text = props.name;
-            // Keep the caption just inside the footprint's lower seam. Projecting this anchor through the
-            // same traced grid keeps it attached to the real stone cell instead of the old square overlay.
-            const labelPosition = this.useBattlefieldVisualProjection
-                ? projectBattlefieldPoint(
-                      {
-                          x: logicalPos.x,
-                          y: logicalBottom + gs.getStep() * 0.12,
-                      },
-                      gs,
-                  )
-                : { x: logicalPos.x, y: logicalBottom + (captionGap + fontSize) * 0.5 };
-            label.position.set(labelPosition.x, labelPosition.y);
             this.rosterCardDrawState = {
                 x: logicalPos.x,
                 y: logicalPos.y,
@@ -4604,8 +5146,6 @@ export class RenderableUnit extends Unit {
                 footprintWidth,
                 footprintHeight,
                 projected: this.useBattlefieldVisualProjection,
-                name: props.name,
-                teamColor,
             };
         }
 
@@ -5000,28 +5540,41 @@ export class RenderableUnit extends Unit {
         this.drawActiveTurnPointer(activeTurnPointer, flagGlow, geometry, needsRedraw, now);
         // The flag stays static during the active turn; only authored preview emphasis may resize it.
         const renderedBadgeScale = this.badgeEmphasisScale;
-        // Centre the ribbon above the actual rendered creature image rather than above its logical cell.
-        // This keeps the badge over the head for tall, short and multi-cell creatures alike.
-        const spriteBounds = this.getCreatureBounds();
         const margin = Math.max(2, Math.floor(iconSide * 0.04));
         let x: number;
         let y: number;
-        if (spriteBounds && spriteBounds.width > 0 && spriteBounds.height > 0) {
-            const screenHalfHeight = geometry.flagHeight * parentScale.y * renderedBadgeScale * 0.5;
-            const screenAnchor = (this.badgeScreenAnchor ??= new Point());
-            screenAnchor.set(spriteBounds.x + spriteBounds.width * 0.5, spriteBounds.y - margin - screenHalfHeight);
-            const aboveHead = worldRoot.toLocal(screenAnchor, undefined, (this.badgeLocalAnchor ??= new Point()), true);
-            x = aboveHead.x;
-            y = aboveHead.y;
+        if (this.oneShotAnim && this.oneShotBadgePosition) {
+            // One-shot atlases change their transparent canvas bounds radically between poses. The flag
+            // belongs to the unit's board position, so retain the exact pre-action coordinates instead of
+            // following the attacking weapon tip or the collapsing death silhouette.
+            x = this.oneShotBadgePosition.x;
+            y = this.oneShotBadgePosition.y;
         } else {
-            // Clear the body's own half-height, which is the footprint's HEIGHT in cells: a two-row body
-            // would otherwise sit its count ribbon on the seam between its own cells.
-            x = pos.x;
-            y = pos.y + iconSide * this.getFootprintHeight() * 0.5 + geometry.flagHeight * 0.5 + margin;
+            // Centre the ribbon above the actual rendered creature image rather than above its logical cell.
+            // This keeps the badge over the head for tall, short and multi-cell creatures alike.
+            const spriteBounds = this.getCreatureBounds();
+            if (spriteBounds && spriteBounds.width > 0 && spriteBounds.height > 0) {
+                const screenHalfHeight = geometry.flagHeight * parentScale.y * renderedBadgeScale * 0.5;
+                const screenAnchor = (this.badgeScreenAnchor ??= new Point());
+                screenAnchor.set(spriteBounds.x + spriteBounds.width * 0.5, spriteBounds.y - margin - screenHalfHeight);
+                const aboveHead = worldRoot.toLocal(
+                    screenAnchor,
+                    undefined,
+                    (this.badgeLocalAnchor ??= new Point()),
+                    true,
+                );
+                x = aboveHead.x;
+                y = aboveHead.y;
+            } else {
+                // Clear the body's own half-height, which is the footprint's HEIGHT in cells: a two-row body
+                // would otherwise sit its count ribbon on the seam between its own cells.
+                x = pos.x;
+                y = pos.y + iconSide * this.getFootprintHeight() * 0.5 + geometry.flagHeight * 0.5 + margin;
+            }
+            const flagFraming = resolveStoredBattlefieldCreatureFraming(props.name);
+            x += flagOffsetXForFacing(flagFraming.flagOffsetXCells ?? 0, this.facingDirection) * gs.getCellSize();
+            y -= (flagFraming.flagOffsetYCells ?? 0) * gs.getCellSize();
         }
-        const flagFraming = resolveStoredBattlefieldCreatureFraming(props.name);
-        x += (flagFraming.flagOffsetXCells ?? 0) * gs.getCellSize();
-        y -= (flagFraming.flagOffsetYCells ?? 0) * gs.getCellSize();
         if (container.x !== x || container.y !== y) container.position.set(x, y);
         if (container.scale.x !== renderedBadgeScale || container.scale.y !== renderedBadgeScale) {
             container.scale.set(renderedBadgeScale, renderedBadgeScale);
@@ -5333,6 +5886,7 @@ export class RenderableUnit extends Unit {
     public setActiveTurn(active: boolean): void {
         if (this.isActiveTurn === active) return;
         this.isActiveTurn = active;
+        // A suppression belongs only to the action that consumed the previous turn.
         this.activeTurnPointerSuppressed = false;
         if (active) {
             this.activeTurnAnimationStartedAtMs = performance.now();
@@ -5392,16 +5946,16 @@ export class RenderableUnit extends Unit {
     public setActiveAuraColor(color: number): void {
         this.activeAuraColor = color;
     }
-    /** Temporarily hide the active-turn aura (e.g. while the unit is moving or attacking). */
-    public setSuppressActiveAura(suppress: boolean): void {
-        this.suppressActiveAura = suppress;
-        if (suppress) this.suppressActiveTurnPointer();
-    }
     /**
      * Apply a brief positional "recoil": the sprite/shadow jerk by (dx, dy) and spring back over
      * ~220ms. Used for attack lunges and authored special-ability motion.
      */
     public applyRecoil(dx: number, dy: number): void {
+        const props = this.getUnitProperties();
+        if (!creatureGenericCombatMotionEnabledForUnit(props.name, props.level)) {
+            this.clearGenericCombatRecoil();
+            return;
+        }
         this.recoilStartMs = performance.now();
         this.recoilDx = dx;
         this.recoilDy = dy;
@@ -5414,6 +5968,22 @@ export class RenderableUnit extends Unit {
      * shake. Kept separate from applyRecoil so attack lunges and authored ability motion are unchanged.
      */
     public applyHitReaction(dx: number, dy: number): void {
+        const props = this.getUnitProperties();
+        const unitName = props.name;
+        if (!creatureGenericCombatMotionEnabledForUnit(unitName, props.level)) {
+            // Peasant's authored hit already contains the full recoil. Play it without adding the
+            // generic world-space displacement/shake that would slide its floor-locked boots.
+            if (
+                this.hasAnimationState("hit") &&
+                !this.isPlayingOneShotAnimation("death") &&
+                !this.isPlayingOneShotAnimation("hit") &&
+                !this.isPlayingForegroundAttackAnimation()
+            ) {
+                this.playOneShotAnimation("hit");
+            }
+            this.clearGenericCombatRecoil();
+            return;
+        }
         // dx points away from the impact source, so its inverse turns Wandering Mage toward whoever hit it.
         this.setBoardFacingFromMovement(-dx);
         // Keep the authored damage pose in the same low-level path as the positional recoil. Both the
@@ -5438,6 +6008,11 @@ export class RenderableUnit extends Unit {
      */
     public playDodgeAnimation(dx: number, dy: number): void {
         if (!this.sprite || this.isDestroyed) return;
+        const props = this.getUnitProperties();
+        if (!creatureGenericCombatMotionEnabledForUnit(props.name, props.level)) {
+            this.clearGenericDodgeAnimation();
+            return;
+        }
         this.suppressActiveTurnPointer();
         // Lean INTO the dodge: tip the sprite toward the escape direction so the sidestep reads as a
         // committed lean rather than a horizontal teleport. Screen-x sign picks the tilt side.
@@ -5569,12 +6144,35 @@ export class RenderableUnit extends Unit {
      * direction). Used for Pikeman's Skewer Strike so the two-unit pierce reads as a real lunge.
      */
     public applyWindupRecoil(dx: number, dy: number): void {
+        const props = this.getUnitProperties();
+        if (!creatureGenericCombatMotionEnabledForUnit(props.name, props.level)) {
+            this.clearGenericCombatRecoil();
+            return;
+        }
         this.recoilStartMs = performance.now();
         this.recoilDx = dx;
         this.recoilDy = dy;
         this.recoilShakeAmplitude = 0;
         this.recoilWindup = true;
         this.recoilDurationMs = 380;
+    }
+    private clearGenericCombatRecoil(): void {
+        this.recoilStartMs = 0;
+        this.recoilDx = 0;
+        this.recoilDy = 0;
+        this.recoilShakeAmplitude = 0;
+        this.recoilWindup = false;
+        this.recoilDurationMs = 220;
+    }
+    private clearGenericDodgeAnimation(): void {
+        if (this.dodgeAnim) {
+            for (const ghost of this.dodgeAnim.ghosts) {
+                if (!ghost.sprite.destroyed) ghost.sprite.destroy();
+            }
+        }
+        this.dodgeAnim = undefined;
+        if (this.sprite) this.sprite.rotation = 0;
+        this.removeDodgeBlur();
     }
     private updateCurrentRecoil(now = performance.now()): void {
         if (!this.recoilStartMs) {

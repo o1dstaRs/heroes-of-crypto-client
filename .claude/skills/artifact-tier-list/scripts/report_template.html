@@ -163,7 +163,7 @@
   </div>
 
   <footer>
-    <p class="note"><b>How to read it.</b> Each fight in the measurable slice gives both sides a random artifact of this tier (never mirrored, never the same creature roster), so a win% is that artifact <b>relative to the field</b>, not versus "no artifact" — the field centers a touch under 50% from draw handling and roster noise. Read the <b>ranking and lift</b>, and treat the <b>whisker</b> (95% Wilson CI) as the real signal: green when it clears 50%, red when it sits below, grey when it straddles. Per-cohort and per-map slices carry fewer fights, so their whiskers widen. <b>Maps:</b> Open = Normal board, Lava = lava center, Mountains = two destructible blocks; <b>Live</b> aggregates all three.</p>
+    <p class="note"><b>How to read it.</b> Each fight in the measurable slice gives both sides a random artifact of this tier (never mirrored, never the same creature roster), so a win% is that artifact <b>relative to the field</b>, not versus "no artifact" — the field centers a touch under 50% from draw handling and roster noise. Read the <b>ranking and lift</b>, and treat the <b>whisker</b> (95% Wilson CI) as the real signal: green when it clears 50%, red when it sits below, grey when it straddles. Per-cohort and per-map slices carry fewer fights, so their whiskers widen. <b>Maps:</b> Open = Normal board, FIRE PIT = lava center, Mountains = two destructible blocks; <b>Live</b> aggregates all three.</p>
   </footer>
 </div>
 
@@ -176,7 +176,7 @@ const DATA = /*__DATA__*/{};
   const state = { tier: "t1", cohort: (M.cohorts||["all"])[0], map: (M.maps||["all"])[0], sort: "winRate", dir: -1 };
   const CO_LABEL = { "all":"All", "ranked-draft":"Ranked draft", "uniform-mixed":"Uniform mixed", "cross-archetype":"Cross-archetype", "ranged-heavy":"Ranged-heavy", "ground-melee":"Ground-melee", "flyer-heavy":"Flyer-heavy", "caster-support":"Caster-support" };
   // Map ids are protocol GridVals: 1=NORMAL(Open), 2=WATER_CENTER, 3=LAVA_CENTER, 4=BLOCK_CENTER(Mountains).
-  const MAP_LABEL = { "all":"All maps", "live":"Live", "1":"Open", "2":"Water", "3":"Lava", "4":"Mountains" };
+  const MAP_LABEL = { "all":"All maps", "live":"Live", "1":"Open", "2":"Water", "3":"FIRE PIT", "4":"Mountains" };
   const titleCase = (s) => s.replace(/\b\w/g, c => c.toUpperCase());
 
   // ---- header (driven entirely by the injected metadata) ----

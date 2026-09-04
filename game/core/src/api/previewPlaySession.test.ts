@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { GridMath, GridVals, TeamVals, getCreaturesByLevel } from "@heroesofcrypto/common";
+import { CreatureVals, GridConstants, GridMath, GridVals, TeamVals, getCreaturesByLevel } from "@heroesofcrypto/common";
 
 import { PlayActionType } from "./play_protocol";
 import { applyPreviewPlayAction, getPreviewPlaySnapshot, startPreviewPlaySession } from "./previewPlaySession";
@@ -94,15 +94,15 @@ describe("battlefield framing comparison layout", () => {
         expect(units.every((unit) => unit.cells.every((cell) => cell.y >= 0 && cell.y < 16))).toBe(true);
     });
 
-    test("packs six shadow-editor creatures across the top with one empty cell between footprints", () => {
+    test("packs shadow-editor creatures across their highest legal gameplay rows", () => {
         startPreviewPlaySession({
             userTeam: TeamVals.LEFT,
             gridType: GridVals.NORMAL,
-            leftArmy: [...getCreaturesByLevel(1)].slice(0, 6),
-            rightArmy: [],
-            spreadLeftArmyAcrossBoard: true,
+            lowerArmy: [...getCreaturesByLevel(1)].slice(0, 6),
+            upperArmy: [],
+            spreadLowerArmyAcrossBoard: true,
             comparisonRowSizes: [6],
-            comparisonRowGroundYs: [15],
+            comparisonAlignToTopPlayableRow: true,
             comparisonHorizontalGapCells: 1,
         });
         const units = [...(getPreviewPlaySnapshot()?.units ?? [])].sort(
@@ -111,7 +111,13 @@ describe("battlefield framing comparison layout", () => {
         );
 
         expect(units).toHaveLength(6);
-        expect(units.every((unit) => Math.min(...unit.cells.map((cell) => cell.y)) === 15)).toBe(true);
+        expect(
+            units.every(
+                (unit) =>
+                    Math.min(...unit.cells.map((cell) => cell.y)) ===
+                    GridConstants.GRID_SIZE - unit.footprintHeight - 1,
+            ),
+        ).toBe(true);
         for (let index = 1; index < units.length; index += 1) {
             const previousRight = Math.max(...units[index - 1].cells.map((cell) => cell.x));
             const currentLeft = Math.min(...units[index].cells.map((cell) => cell.x));
@@ -151,6 +157,25 @@ describe("battlefield framing comparison layout", () => {
             comparisonFixedSlotCount: 6,
         });
         expect(getPreviewPlaySnapshot()?.units).toHaveLength(0);
+    });
+
+    test("keeps comparison hydration independent of live creature spellbooks", () => {
+        startPreviewPlaySession({
+            userTeam: TeamVals.LEFT,
+            gridType: GridVals.NORMAL,
+            lowerArmy: [CreatureVals.MANTICORE, CreatureVals.BATTLE_MAGE, CreatureVals.GOBLIN_KNIGHT],
+            upperArmy: [],
+            spreadLowerArmyAcrossBoard: true,
+            comparisonRowSizes: [3],
+            comparisonRowGroundYs: [15],
+            comparisonHorizontalGapCells: 1,
+        });
+
+        const units = getPreviewPlaySnapshot()?.units ?? [];
+        expect(units.map((unit) => unit.name)).toEqual(["Manticore", "Battle Mage", "Goblin Knight"]);
+        expect(units.every((unit) => unit.abilities?.length === 0)).toBe(true);
+        expect(units.every((unit) => unit.spellEntriesAuthoritative)).toBe(true);
+        expect(units.every((unit) => unit.spellEntries?.length === 0)).toBe(true);
     });
 });
 

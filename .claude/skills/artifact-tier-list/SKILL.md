@@ -60,9 +60,9 @@ the same file path in-session, or pass its URL as `url`.
 ## What the report shows
 
 - **Cohorts** — the draft/roster populations measured (`all` aggregates them).
-- **Maps by terrain** — `Open` (Normal board), `Lava` (lava center), `Mountains` (two destructible
+- **Maps by terrain** — `Open` (Normal board), `FIRE PIT` (lava center), `Mountains` (two destructible
   blocks); `Live` aggregates all three, `all` aggregates everything. Map ids are protocol GridVals
-  (1=Open, 2=Water[not live], 3=Lava, 4=Mountains).
+  (1=Open, 2=Water[not live], 3=FIRE PIT, 4=Mountains).
 - **Win %** is *field-relative*: each fight gives both sides a random artifact of that tier (never
   mirrored, never same roster), so it measures the artifact vs the field of artifacts, not vs "no
   artifact". The field sits a touch under 50% from draws/roster noise — read ranking, lift, and

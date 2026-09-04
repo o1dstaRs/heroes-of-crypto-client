@@ -2,6 +2,7 @@ node_modules/
 dist/
 dist.zip
 .cache/
+tmp/
 *.tgz
 lerna-debug.log
 images/

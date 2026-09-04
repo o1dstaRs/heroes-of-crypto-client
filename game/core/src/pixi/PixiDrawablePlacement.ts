@@ -232,7 +232,7 @@ export function placementTilePolygon(cell: HoCMath.XY, gs: GridSettings): number
  * the corner cells, without the per-cell inset used by hover/boundary accents, so the tint also crosses the
  * native internal grout instead of becoming a collection of separately coloured tiles.
  */
-export function placementZonePolygon(cells: readonly HoCMath.XY[], gs: GridSettings): number[] {
+export function placementZonePolygon(cells: readonly HoCMath.XY[], gs: GridSettings, insetCells = 0): number[] {
     if (!cells.length) return [];
 
     const minX = Math.min(...cells.map(({ x }) => x));
@@ -243,7 +243,7 @@ export function placementZonePolygon(cells: readonly HoCMath.XY[], gs: GridSetti
     const cornerPolygon = (x: number, y: number): number[] => {
         const cell = byKey.get(placementCellKey({ x, y }));
         if (!cell) throw new Error("Placement zone must contain all four corner cells.");
-        return tunedCellFillCornerPoints(cell, gs);
+        return tunedCellFillCornerPoints(cell, gs, insetCells);
     };
     const bottomLeft = cornerPolygon(minX, minY);
     const bottomRight = cornerPolygon(maxX, minY);

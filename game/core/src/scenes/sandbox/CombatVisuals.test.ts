@@ -94,13 +94,13 @@ afterEach(() => {
 });
 
 describe("floating received damage", () => {
-    test("uses the hover kill icon and keeps the complete result above the stack flag", () => {
+    test("uses the hover kill icon and rises vertically from the stack flag", () => {
         const { visuals, attached } = makeVisuals();
         const skullTexture = new Texture({ source: new TextureSource({ width: 256, height: 256 }) });
         const textureFrom = spyOn(Texture, "from").mockReturnValue(skullTexture);
         const flagTop = { x: 120, y: 200 };
 
-        visuals.showFloatingDamage({ x: 900, y: 10 }, 140, undefined, 15, undefined, undefined, flagTop);
+        visuals.showFloatingDamage({ x: 900, y: 10 }, 140, { x: 1, y: -1 }, 15, undefined, undefined, flagTop);
 
         expect(textureFrom).toHaveBeenCalledWith(images.combat_kills_skull_icon_v1);
         textureFrom.mockRestore();
@@ -115,6 +115,11 @@ describe("floating received damage", () => {
         // 80px reserves the complete damage + deaths block and another 6px clears the banner. The label
         // starts at the flag anchor, never down at the old impact position passed as the first argument.
         expect(floating.y).toBe(flagTop.y + 80 + 6);
+
+        const startY = floating.y;
+        visuals.update(0.4);
+        expect(floating.x).toBe(flagTop.x);
+        expect(floating.y).toBeGreaterThan(startY);
     });
 
     test("destroys text and icon children when a floating result expires", () => {

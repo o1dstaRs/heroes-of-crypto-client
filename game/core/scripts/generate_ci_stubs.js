@@ -51,6 +51,7 @@ for (const name of [
     "Thunderbird",
     "Behemoth",
     "Frenzied Boar",
+    "Black Dragon",
 ]) {
     imageKeys.add(`${name.toLowerCase().replaceAll(" ", "_")}_portrait_full`);
 }

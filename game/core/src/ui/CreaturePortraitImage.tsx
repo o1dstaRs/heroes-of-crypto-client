@@ -1,6 +1,10 @@
 import Box, { type BoxProps } from "@mui/joy/Box";
 import React from "react";
 
+import {
+    CREATURE_PORTRAIT_BACKGROUND_MOTION_KEYFRAMES,
+    resolveCreaturePortraitBackgroundMotion,
+} from "./creaturePortraitBackgroundMotion";
 import { resolveCreaturePortraitArtPlacement, resolveCreaturePortraitVisual } from "./creaturePortraitVisual";
 import { UNIT_ID_TO_NAME } from "./unit_ui_constants";
 
@@ -12,6 +16,10 @@ export interface CreaturePortraitImageProps extends Omit<BoxProps, "children"> {
     artScale?: number;
     /** Optional horizontal-only multiplier for surfaces that need a slightly narrower portrait. */
     artScaleX?: number;
+    /** Controls only the faction background. Defaults to crop-to-cover on compact portrait surfaces. */
+    backgroundFit?: React.CSSProperties["objectFit"];
+    /** Animate the luminous forms already painted into the faction background. */
+    animateBackground?: boolean;
     /** Extra offsets applied only to the creature art. The faction background never moves with them. */
     artOffsetX?: number;
     artOffsetY?: number;
@@ -35,6 +43,8 @@ export const CreaturePortraitImage: React.FC<CreaturePortraitImageProps> = ({
     imageStyle,
     artScale = 1,
     artScaleX = 1,
+    backgroundFit = "cover",
+    animateBackground = false,
     artOffsetX = 0,
     artOffsetY = 0,
     artSource,
@@ -48,6 +58,7 @@ export const CreaturePortraitImage: React.FC<CreaturePortraitImageProps> = ({
     const visual = resolveCreaturePortraitVisual(creatureId);
     if (!visual) return null;
     const { framing, background: portraitBackground, backgroundOpacity, backgroundShadeAlpha, source } = visual;
+    const backgroundMotion = animateBackground ? resolveCreaturePortraitBackgroundMotion(creatureId) : null;
     const creatureSource = artSource ?? source;
     const creatureFit = artFit ?? framing.fit;
     const artPlacement = resolveCreaturePortraitArtPlacement(framing, {
@@ -68,6 +79,7 @@ export const CreaturePortraitImage: React.FC<CreaturePortraitImageProps> = ({
                 position: "relative",
                 overflow: "hidden",
                 bgcolor: "#090806",
+                ...(backgroundMotion ? CREATURE_PORTRAIT_BACKGROUND_MOTION_KEYFRAMES : {}),
                 ...sx,
             }}
             data-creature-portrait={creatureId}
@@ -82,12 +94,61 @@ export const CreaturePortraitImage: React.FC<CreaturePortraitImageProps> = ({
                     sx={{
                         position: "absolute",
                         inset: 0,
+                        zIndex: 0,
                         width: "100%",
                         height: "100%",
-                        objectFit: "cover",
+                        objectFit: backgroundFit,
                         opacity: backgroundOpacity,
                     }}
                 />
+            )}
+            {portraitBackground && backgroundMotion && (
+                <>
+                    <Box
+                        component="img"
+                        src={backgroundMotion.glowSrc}
+                        alt=""
+                        aria-hidden
+                        data-creature-portrait-background-motion={`${backgroundMotion.kind}-primary`}
+                        sx={{
+                            position: "absolute",
+                            inset: 0,
+                            zIndex: 0,
+                            width: "100%",
+                            height: "100%",
+                            objectFit: backgroundFit,
+                            opacity: 0,
+                            mixBlendMode: "screen",
+                            pointerEvents: "none",
+                            animation: backgroundMotion.primaryAnimation,
+                            filter: backgroundMotion.primaryFilter,
+                            willChange: "opacity",
+                            "@media (prefers-reduced-motion: reduce)": { animation: "none", opacity: 0 },
+                        }}
+                    />
+                    <Box
+                        component="img"
+                        src={backgroundMotion.glowSrc}
+                        alt=""
+                        aria-hidden
+                        data-creature-portrait-background-motion={`${backgroundMotion.kind}-secondary`}
+                        sx={{
+                            position: "absolute",
+                            inset: 0,
+                            zIndex: 0,
+                            width: "100%",
+                            height: "100%",
+                            objectFit: backgroundFit,
+                            opacity: 0,
+                            mixBlendMode: "screen",
+                            pointerEvents: "none",
+                            animation: backgroundMotion.secondaryAnimation,
+                            filter: backgroundMotion.secondaryFilter,
+                            willChange: "opacity",
+                            "@media (prefers-reduced-motion: reduce)": { animation: "none", opacity: 0 },
+                        }}
+                    />
+                </>
             )}
             {portraitBackground && (
                 <Box

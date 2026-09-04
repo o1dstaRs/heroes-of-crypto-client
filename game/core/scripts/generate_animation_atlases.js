@@ -8,6 +8,16 @@ const crypto = require("crypto");
 // walk was tuned frame-by-frame (including which leg stays in the foreground), so accepting any
 // other bytes here would visibly restore the rejected gait on the next image-generation pass.
 const PINNED_ATLAS_SHA256 = Object.freeze({
+    "arbalester_idle_atlas.webp": "681ae7d8512e2fcad101a5cce9fab6a4e563b6a66a5c14264812dc6d49f9209a",
+    "arbalester_idle_atlas_quarter.webp": "fae89a8440e77c9417115f7b22e152a3b24306259b6951e74377f32bd60d89a9",
+    "arbalester_walk_atlas.webp": "0f710bb008f76b26d550e7ec20ffda7af593cfa248d6bbd16050a8a6a52d5a6c",
+    "arbalester_walk_atlas_quarter.webp": "0b0163d72b92ec788c8fb7d34d1bb3205781f98918253c330de0065e68afe5bf",
+    "peasant_hit_atlas.webp": "e7a70e5bbbcee4c5fff666ff67ff54d07d0dbb133d0f0ed1c33eda311b08c355",
+    "peasant_hit_atlas_quarter.webp": "68dae9a288e292a935e0d3fa4837d37e9c7cbdcd4c31fb77e1cf4d8fdbfd5d4c",
+    "squire_death_atlas.webp": "5473794426ccf536bcaf7b55417308c2f231dbd41bf357be14465c31af835878",
+    "squire_death_atlas_quarter.webp": "b7f9bffde0ccb82d066bd83183999913863f4f3f647f8405873a2951a647f8c0",
+    "squire_walk_atlas.webp": "c916b803fa2c5a51bc44cd6326c3be1c699540e4848dc2d2baaedca9a039eddb",
+    "squire_walk_atlas_quarter.webp": "fcafc98678c26bfdf23b24555d141459b3301c5ac40e33f5229ac6ee35b4f571",
     "thief_walk_atlas.webp": "975b76a8fe56fe7b9d8a4c94c8a77b9edcffdf68115b5754918ed37970e62be0",
     "thief_walk_atlas_quarter.webp": "379d5657f086a3bdc726002df1f0f27cbf15a94591ea25e9070c78744a880970",
 });
@@ -138,11 +148,19 @@ function main() {
 
         const meta = json.meta;
 
-        // ⭐️ Derive animation timings from totalDurationSec
+        // ⭐️ Derive animation timings from totalDurationSec. An authored meta that already carries
+        // explicit loopDurationMs/pauseMs (e.g. the frame-timed Peasant idle with no upright pause)
+        // keeps its own values: the derived 10%-faster loop with a 40% hold is only the default.
         if (typeof meta.totalDurationSec === "number" && Number.isFinite(meta.totalDurationSec)) {
             const baseTotalMs = meta.totalDurationSec * 1000;
-            const loopDurationMs = Math.round(baseTotalMs * 0.9); // 10% faster
-            const pauseMs = Math.round(loopDurationMs * 0.4); // 40% of loopDurationMs
+            const loopDurationMs =
+                typeof meta.loopDurationMs === "number" && Number.isFinite(meta.loopDurationMs)
+                    ? meta.loopDurationMs
+                    : Math.round(baseTotalMs * 0.9); // 10% faster
+            const pauseMs =
+                typeof meta.pauseMs === "number" && Number.isFinite(meta.pauseMs)
+                    ? meta.pauseMs
+                    : Math.round(loopDurationMs * 0.4); // 40% of loopDurationMs
 
             meta.loopDurationMs = loopDurationMs;
             meta.pauseMs = pauseMs;
@@ -226,9 +244,7 @@ function main() {
                 // atlas: when the approved file is already in place, keep it and move on. Only a
                 // missing approved copy is fatal — then there is nothing correct to ship.
                 if (fs.existsSync(dest) && sha256(dest) === pinnedHash) {
-                    console.warn(
-                        `⚠️ Keeping approved ${basename} (source copy at ${file} is a different revision).`,
-                    );
+                    console.warn(`⚠️ Keeping approved ${basename} (source copy at ${file} is a different revision).`);
                     continue;
                 }
                 throw new Error(

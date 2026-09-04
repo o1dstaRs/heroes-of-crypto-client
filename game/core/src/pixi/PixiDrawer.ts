@@ -3,7 +3,8 @@ import { Application, Container, Graphics, Sprite, Texture } from "pixi.js";
 import { Grid, GridType, GridVals, GridSettings, HoCMath, UnitsHolder, ObstacleType } from "@heroesofcrypto/common";
 import { Obstacle } from "../obstacles/obstacle";
 import { RenderableUnit } from "../scenes/RenderableUnit";
-import { projectedCellPoints, projectedPolyline, projectedRectPoints } from "../scenes/sandbox/BattlefieldVisualGrid";
+import { projectedPolyline, projectedRectPoints } from "../scenes/sandbox/BattlefieldVisualGrid";
+import { tunedCellFillPolygon } from "../scenes/movementAreaVisual";
 
 // Internal helper to clamp values
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
@@ -282,7 +283,7 @@ export class PixiDrawer {
         const mixed = hoverSelectedCellsSwitchToRed ? color : dark;
 
         for (const cell of cells) {
-            this.hoverCellsGfx.poly(projectedCellPoints(cell, this.gridSettings)).fill({ color: mixed, alpha: 0.8 });
+            this.hoverCellsGfx.poly(tunedCellFillPolygon(cell, this.gridSettings)).fill({ color: mixed, alpha: 0.8 });
         }
     }
     /** Old drawHighlightedCells */
@@ -293,7 +294,7 @@ export class PixiDrawer {
         const color = isLightMode ? this.COLOR.LIGHT_ORANGE : this.COLOR.LIGHT_YELLOW;
 
         for (const cell of cells) {
-            this.highlightedCellsGfx.poly(projectedCellPoints(cell, this.gridSettings)).fill({ color, alpha: 1 });
+            this.highlightedCellsGfx.poly(tunedCellFillPolygon(cell, this.gridSettings)).fill({ color, alpha: 1 });
         }
     }
     /** Old drawAOECells behavior (only size 1–2 are drawn with drawAttackTo) */
@@ -324,7 +325,7 @@ export class PixiDrawer {
 
         for (const cell of drawableCells.values()) {
             this.aoeGfx
-                .poly(projectedCellPoints(cell, this.gridSettings))
+                .poly(tunedCellFillPolygon(cell, this.gridSettings))
                 .fill({ color: this.COLOR.ATTACK_TO, alpha: 0.7 });
         }
     }
