@@ -1,0 +1,377 @@
+// Snapshot excerpts from src/scenes/RenderableUnit.ts (lines 250-360 and 2420-2685) at the ТЕНИ ФИНАЛ checkpoint.\n// The first section defines row interpolation/stable source; the second builds and anchors the rendered shadow.\n\n *
+ * The illustrated battlefield keeps one mechanical buffer row behind each end of the playable floor.
+ * The shadow editor deliberately parks its comparison row in the upper buffer (row 15), while a unit
+ * dropped on the highest real cell lands on row 14. Clamp both buffers to their adjacent playable
+ * endpoint so the upper real cell receives the editor profile exactly and the lowest real cell receives
+ * the authored lower profile exactly. Only footprint HEIGHT changes the upper legal anchor; a 2x1 still
+ * behaves exactly like a 1x1.
+ */
+const battlefieldCreatureRowProgress = (logicalY: number, footprintHeight: number, gs: GridSettings): number => {
+    const playableEdgeInsetRows = 1;
+    const minimumBottomRow = playableEdgeInsetRows;
+    const maximumBottomRow = Math.max(
+        minimumBottomRow + 1,
+        gs.getGridSize() - footprintHeight - playableEdgeInsetRows,
+    );
+    const bottomRow =
+        (logicalY - gs.getMinY() - (footprintHeight * gs.getCellSize()) / 2) / Math.max(1, gs.getCellSize());
+    return Math.max(0, Math.min(1, (bottomRow - minimumBottomRow) / (maximumBottomRow - minimumBottomRow)));
+};
+
+/**
+ * The two rows nearest the wall furnaces soften their dark rim. A body two cells tall also softens one
+ * anchor row earlier because its upper half already occupies that furnace-adjacent two-row band — which
+ * is why the threshold is expressed as "one row above the top of the body" rather than as a size test.
+ */
+export function battlefieldCreatureContourOpacity(logicalY: number, footprintHeight: number, gs: GridSettings): number {
+    const bottomRow =
+        (logicalY - gs.getMinY() - (footprintHeight * gs.getCellSize()) / 2) / Math.max(1, gs.getCellSize());
+    const firstFurnaceAffectedBottomRow = gs.getGridSize() - (footprintHeight + 1);
+    return bottomRow >= firstFurnaceAffectedBottomRow - 0.001 ? BATTLEFIELD_CREATURE_CONTOUR_FURNACE_OPACITY : 1;
+}
+
+export function battlefieldCreatureShadowProjection(
+    logicalY: number,
+    footprintHeight: number,
+    gs: GridSettings,
+    unitName?: string,
+): BattlefieldCreatureShadowProjection {
+    const rowProgress = battlefieldCreatureRowProgress(logicalY, footprintHeight, gs);
+    const tuning = resolveBattlefieldShadowTuning(unitName);
+    const interpolate = (bottom: number, top: number): number => bottom + (top - bottom) * rowProgress;
+    return {
+        lengthScale: interpolate(tuning.bottom.lengthScale, tuning.top.lengthScale),
+        widthScale: interpolate(tuning.bottom.widthScale, tuning.top.widthScale),
+        alpha: interpolate(tuning.bottom.alpha, tuning.top.alpha),
+    };
+}
+
+/**
+ * Shadow profiles are authored against the stable placement/idle frame visible in the editor. Combat
+ * frames use differently cropped canvases, so rebuilding a silhouette from live walk/action frames would
+ * change its apparent tuning even though every numeric value remained identical.
+ */
+export function battlefieldShadowSourceForUnit<T>(_unitName: string, editorReferenceSource: T, _currentSource: T): T {
+    return editorReferenceSource;
+}
+
+/** Use one deterministic frame for gameplay shadows once the editor-authored profile is applied. */
+export function battlefieldCanonicalShadowReference<T>(baseTexture: T, authoredIdleFrames?: readonly T[]): T {
+    return authoredIdleFrames?.[0] ?? baseTexture;
+}
+
+export function battlefieldStableShadowReferenceScale(options: {
+    unitName: string;
+    referenceWidth: number;
+    referenceHeight: number;
+    cellSize: number;
+    chipTargetSide: number;
+    tallBoardModel: boolean;
+    boardModelTargetHeightCells: number;
+    usesThiefSilhouette: boolean;
+    refreshedFullBodyScale: boolean;
+    refreshedWidthScale: number;
+    tallBoardWidthCells: number;
+    visualFootprintSide: number;
+}): { x: number; y: number } {
+    const baseVisibleHeight =
+        options.referenceHeight * (options.usesThiefSilhouette ? THIEF_IDLE_VISIBLE_HEIGHT_RATIO : 1);
+    const baseVisibleWidth =
+        options.referenceWidth * (options.usesThiefSilhouette ? THIEF_IDLE_VISIBLE_WIDTH_RATIO : 1);
+    const y = options.tallBoardModel
+        ? (options.cellSize * options.boardModelTargetHeightCells) / baseVisibleHeight
+        : options.chipTargetSide / options.referenceHeight;
+    const x = options.tallBoardModel
+        ? options.refreshedFullBodyScale ||
+          options.unitName === ORC_UNIT_NAME ||
+          options.unitName === SCAVENGER_UNIT_NAME
+            ? y * (options.refreshedFullBodyScale ? options.refreshedWidthScale : 1)
+            : options.usesThiefSilhouette
+              ? (options.cellSize * options.tallBoardWidthCells * options.visualFootprintSide) / baseVisibleWidth
+              : Math.min(
+                    y,
+                    (options.cellSize * options.tallBoardWidthCells * options.visualFootprintSide) /
+                        options.referenceWidth,
+                )
+        : options.chipTargetSide / options.referenceWidth;
+    return { x, y };
+}
+
+/**
+ * Continuous perspective attenuation for a placed battlefield figure.
+ * One-cell-tall bodies distribute the 15% reduction evenly across 15 row transitions. A two-cell-tall
+ * body has 14 legal transitions, so it traverses the same 100% -> 85% range across the rows it can occupy.
+ */
+export function battlefieldCreaturePerspectiveScale(
+    logicalY: number,
+    footprintHeight: number,
+    gs: GridSettings,
+): number {
+    const rowProgress = battlefieldCreatureRowProgress(logicalY, footprintHeight, gs);
+    return 1 - (1 - BATTLEFIELD_TOP_ROW_CREATURE_SCALE) * rowProgress;
+            ...(runtimeContourFilter ? [runtimeContourFilter] : []),
+            ...unmanagedFilters,
+            ...(this.visualMode === "revealed" && this.desaturateFilter ? [this.desaturateFilter] : []),
+        ];
+        const installedFilters = this.sprite.filters ?? [];
+        if (
+            desiredFilters.length !== installedFilters.length ||
+            desiredFilters.some((filter, index) => filter !== installedFilters[index])
+        ) {
+            this.sprite.filters = desiredFilters.length ? desiredFilters : null;
+        }
+
+        // Heroes-IV-style furnace shadow: one intact, editable copy of the exact stable idle frame shown
+        // by the editor. Live combat-atlas frames never replace it.
+        const shadowSourceTexture = battlefieldShadowSourceForUnit(
+            props.name,
+            shadowReferenceTexture,
+            currentTexture,
+        );
+        if (!this.silhouetteShadow) {
+            this.silhouetteShadow = new Sprite(shadowSourceTexture);
+            this.silhouetteShadow.anchor.set(0.5, shadowReferenceAnchorY);
+            this.silhouetteShadow.tint = 0x000000;
+            this.silhouetteShadow.blendMode = "multiply";
+            this.silhouetteShadow.roundPixels = false;
+            if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
+            this.silhouetteShadow.zIndex = 4000 - pos.y - 0.75;
+            worldRoot.addChild(this.silhouetteShadow);
+        } else if (!this.silhouetteShadow.parent || this.silhouetteShadow.parent !== worldRoot) {
+            worldRoot.addChild(this.silhouetteShadow);
+        }
+        const shadowProjection = battlefieldCreatureShadowProjection(logicalPos.y, footprintHeight, gs, props.name);
+        const shadowTuning = resolveBattlefieldShadowTuning(props.name);
+        if (this.silhouetteShadow.texture !== shadowSourceTexture) this.silhouetteShadow.texture = shadowSourceTexture;
+        if (this.silhouetteShadow.anchor.x !== 0.5 || this.silhouetteShadow.anchor.y !== shadowReferenceAnchorY) {
+            this.silhouetteShadow.anchor.set(0.5, shadowReferenceAnchorY);
+        }
+        const shadowRowProgress = battlefieldCreatureRowProgress(logicalPos.y, footprintHeight, gs);
+        const interpolateShadowValue = (bottom: number, top: number): number =>
+            bottom + (top - bottom) * shadowRowProgress;
+        // The editor authors the furthest upper-row shadow against the creature's minimum perspective size.
+        // Perspective is divided out so only the shadow's far edge moves: its foot anchor stays fixed while
+        // the length decreases linearly to 90% at the nearest lower row.
+        // Keep Peasant's crack repair on the upright figure only. On its vertically flattened projection,
+        // the bridge shader joins unrelated rows and makes the shadow read denser than every neighbouring
+        // creature even though they share the same authored alpha.
+        const desiredShadowFilters =
+            runtimeAlphaHoleFillFilter && props.name !== PEASANT_UNIT_NAME ? [runtimeAlphaHoleFillFilter] : [];
+        const installedShadowFilters = this.silhouetteShadow.filters ?? [];
+        if (
+            desiredShadowFilters.length !== installedShadowFilters.length ||
+            desiredShadowFilters.some((filter, index) => filter !== installedShadowFilters[index])
+        ) {
+            this.silhouetteShadow.filters = desiredShadowFilters.length ? desiredShadowFilters : null;
+        }
+        const segmentLengthMultipliers = Array.from({ length: BATTLEFIELD_SHADOW_SEGMENT_COUNT }, (_, index) =>
+            interpolateShadowValue(
+                shadowTuning.bottom.segmentLengthMultipliers[index] ?? 1,
+                shadowTuning.top.segmentLengthMultipliers[index] ?? 1,
+            ),
+        );
+        this.silhouetteShadowSegmented = segmentLengthMultipliers.some(
+            (multiplier) => Math.abs(multiplier - 1) > 0.001,
+        );
+        if (this.silhouetteShadowSegmented && this.silhouetteShadowSegments.length === 0) {
+            this.silhouetteShadowSegments = battlefieldShadowSegmentTextures(shadowSourceTexture).map(
+                (texture, index) => {
+                    const segment = new Sprite(texture);
+                    // Anchors outside 0..1 place all four cropped sprites around the same original centre.
+                    segment.anchor.set(BATTLEFIELD_SHADOW_SEGMENT_COUNT / 2 - index, shadowReferenceAnchorY);
+                    segment.tint = 0x000000;
+                    segment.blendMode = "multiply";
+                    segment.roundPixels = false;
+                    segment.zIndex = 4000 - pos.y - 0.75;
+                    worldRoot.addChild(segment);
+                    return segment;
+                },
+            );
+        }
+        const stableShadowScaleX =
+            stableShadowReferenceScale.x *
+            this.facingDirection *
+            nativeBoardFacingMultiplier(props.name) *
+            editorFraming.scaleX *
+            battlefieldPerspectiveScale *
+            screenSizeCompensation.x;
+        const stableShadowScaleY =
+            stableShadowReferenceScale.y *
+            editorFraming.scaleY *
+            battlefieldPerspectiveScale *
+            screenSizeCompensation.y;
+        const silhouetteScaleX = stableShadowScaleX * shadowProjection.widthScale;
+        // A positive local Y scale is inverted by the y-up world root, projecting the cutout downward from
+        // its authored foot row. The regular creature uses a negative Y scale to remain upright.
+        const silhouetteScaleY =
+            (stableShadowScaleY / Math.max(0.01, battlefieldPerspectiveScale)) *
+            shadowProjection.lengthScale;
+        if (this.silhouetteShadow.scale.x !== silhouetteScaleX || this.silhouetteShadow.scale.y !== silhouetteScaleY) {
+            this.silhouetteShadow.scale.set(silhouetteScaleX, silhouetteScaleY);
+        }
+        const silhouetteX =
+            spriteX +
+            gs.getCellSize() *
+                interpolateShadowValue(shadowTuning.bottom.offsetXCells, shadowTuning.top.offsetXCells) *
+                battlefieldPerspectiveScale *
+                this.facingDirection;
+        const silhouetteY =
+            spriteY +
+            gs.getCellSize() *
+                interpolateShadowValue(shadowTuning.bottom.offsetYCells, shadowTuning.top.offsetYCells) *
+                battlefieldPerspectiveScale;
+        if (this.silhouetteShadow.x !== silhouetteX || this.silhouetteShadow.y !== silhouetteY) {
+            this.silhouetteShadow.position.set(silhouetteX, silhouetteY);
+        }
+        const silhouetteRotation =
+            ((interpolateShadowValue(shadowTuning.bottom.rotationDegrees, shadowTuning.top.rotationDegrees) * Math.PI) /
+                180) *
+            this.facingDirection;
+        if (this.silhouetteShadow.rotation !== silhouetteRotation) {
+            this.silhouetteShadow.rotation = silhouetteRotation;
+        }
+        const silhouetteVisible = spriteVisible && this.visualMode === "normal" && this.useBattlefieldVisualProjection;
+        const wholeSilhouetteVisible = silhouetteVisible && !this.silhouetteShadowSegmented;
+        if (this.silhouetteShadow.visible !== wholeSilhouetteVisible) {
+            this.silhouetteShadow.visible = wholeSilhouetteVisible;
+        }
+        // Profile alpha is the final authored opacity for every creature. Flying units used to receive
+        // another hidden 0.8 multiplier here, so an editor value of 0.45 rendered as 0.36 in battle and
+        // could never match the editor one-for-one.
+        const silhouetteAlpha = shadowProjection.alpha * (isHidden ? 0.55 : 1);
+        if (this.silhouetteShadow.alpha !== silhouetteAlpha) this.silhouetteShadow.alpha = silhouetteAlpha;
+
+        if (this.silhouetteShadowSegments.length > 0) {
+            const textures = battlefieldShadowSegmentTextures(shadowSourceTexture);
+            for (let index = 0; index < this.silhouetteShadowSegments.length; index++) {
+                const segment = this.silhouetteShadowSegments[index];
+                if (segment.parent !== worldRoot) worldRoot.addChild(segment);
+                if (segment.texture !== textures[index]) segment.texture = textures[index];
+                const anchorX = BATTLEFIELD_SHADOW_SEGMENT_COUNT / 2 - index;
+                if (segment.anchor.x !== anchorX || segment.anchor.y !== shadowReferenceAnchorY) {
+                    segment.anchor.set(anchorX, shadowReferenceAnchorY);
+                }
+                const installedSegmentFilters = segment.filters ?? [];
+                if (
+                    desiredShadowFilters.length !== installedSegmentFilters.length ||
+                    desiredShadowFilters.some((filter, filterIndex) => filter !== installedSegmentFilters[filterIndex])
+                ) {
+                    segment.filters = desiredShadowFilters.length ? desiredShadowFilters : null;
+                }
+                const segmentScaleY = silhouetteScaleY * (segmentLengthMultipliers[index] ?? 1);
+                if (segment.scale.x !== silhouetteScaleX || segment.scale.y !== segmentScaleY) {
+                    segment.scale.set(silhouetteScaleX, segmentScaleY);
+                }
+                if (segment.x !== silhouetteX || segment.y !== silhouetteY)
+                    segment.position.set(silhouetteX, silhouetteY);
+                if (segment.rotation !== silhouetteRotation) segment.rotation = silhouetteRotation;
+                if (segment.alpha !== silhouetteAlpha) segment.alpha = silhouetteAlpha;
+                const segmentVisible = silhouetteVisible && this.silhouetteShadowSegmented;
+                if (segment.visible !== segmentVisible) segment.visible = segmentVisible;
+            }
+        }
+
+        const silhouetteBounds = (
+            this.silhouetteShadowSegmented ? this.silhouetteShadowSegments : [this.silhouetteShadow]
+        ).reduce(
+            (combined, displayObject) => {
+                const bounds = displayObject.getBounds();
+                return {
+                    left: Math.min(combined.left, bounds.x),
+                    top: Math.min(combined.top, bounds.y),
+                    right: Math.max(combined.right, bounds.x + bounds.width),
+                    bottom: Math.max(combined.bottom, bounds.y + bounds.height),
+                };
+            },
+            { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity },
+        );
+        publishBattlefieldShadowVisualBounds(props.name, {
+            bounds: {
+                x: silhouetteBounds.left,
+                y: silhouetteBounds.top,
+                width: silhouetteBounds.right - silhouetteBounds.left,
+                height: silhouetteBounds.bottom - silhouetteBounds.top,
+            },
+            cellWidth: gs.getCellSize() * inheritedScale.x,
+            cellHeight: gs.getCellSize() * inheritedScale.y,
+        });
+
+        // The second, independently blurred cast-shadow copy remains retired. One transparent flattened
+        // silhouette plus the compact contact patch is cheaper and closer to Heroes IV's readable style.
+        if (this.groundCastShadow) {
+            this.groundCastShadow.destroy();
+            this.groundCastShadow = undefined;
+        }
+        this.silhouetteShadowBlurFilter = undefined;
+
+        if (!this.shadow) {
+            this.shadow = new Graphics();
+            if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
+            this.shadow.zIndex = 4000 - pos.y - 0.5; // Slightly below sprite
+            worldRoot.addChild(this.shadow);
+        } else {
+            if (!this.shadow.parent || this.shadow.parent !== worldRoot) {
+                worldRoot.addChild(this.shadow);
+            }
+        }
+        // A restrained contact patch hides harmless transparent padding in authored frames and plants the
+        // creature without trying to draw a separate connector for every boot, hoof or claw.
+        const modelWidth = currentWidth * Math.abs(authoredDirectedScaleX);
+        // The patch grows with the body it plants: the two authored sizes (0.88 / 1.55 cells across,
+        // 0.09 / 0.13 cells deep) are the one- and two-cell ends of one straight line, so each further
+        // footprint cell simply adds another interval on that axis.
+        const contactPatchWidth = gs.getCellSize() * (0.88 + (footprintWidth - 1) * 0.67);
+        const contactWidth =
+            Math.max(gs.getCellSize() * 0.28, Math.min(modelWidth * 0.52, contactPatchWidth * 0.72)) *
+            screenSizeCompensation.x;
+        const contactHeight =
+            gs.getCellSize() *
+            (0.09 + (footprintHeight - 1) * 0.04) *
+            (this.canFly() ? 0.78 : 1) *
+            screenSizeCompensation.y;
+        if (this.shadowDrawWidth !== contactWidth || this.shadowDrawHeight !== contactHeight) {
+            this.shadow
+                .clear()
+                .ellipse(0, 0, contactWidth / 2, contactHeight / 2)
+                .fill({ color: 0x000000 });
+            this.shadowDrawWidth = contactWidth;
+            this.shadowDrawHeight = contactHeight;
+        }
+        const shadowX = spriteX;
+        const shadowY = spriteY - gs.getCellSize() * (this.canFly() ? 0.015 : 0.005);
+        if (this.shadow.x !== shadowX || this.shadow.y !== shadowY) {
+            this.shadow.position.set(shadowX, shadowY);
+        }
+        const shadowVisible =
+            spriteVisible &&
+            this.visualMode === "normal" &&
+            (!this.useBattlefieldVisualProjection || shadowTuning.contactShadowVisible);
+        if (this.shadow.visible !== shadowVisible) this.shadow.visible = shadowVisible;
+        const normalShadowAlpha = this.useBattlefieldVisualProjection
+            ? isHidden
+                ? shadowTuning.contactAlpha * 0.5
+                : this.canFly()
+                  ? shadowTuning.contactAlpha * 0.75
+                  : shadowTuning.contactAlpha
+            : isHidden
+              ? 0.16
+              : this.canFly()
+                ? 0.3
+                : 0.45;
+        const shadowAlpha = this.visualMode === "ghost" ? 0.1 : normalShadowAlpha;
+        if (this.shadow.alpha !== shadowAlpha) this.shadow.alpha = shadowAlpha;
+        // --- bullet-time dodge (missed attack): offsets sprite+shadow, leans, trails ghosts ---
+        this.stepDodgeAnimation(worldRoot);
+        // --- revealed-roster footprint plate, drawn under the sprite ---
+        this.ensureRosterCard(worldRoot, gs, logicalPos);
+        // --- badge ---
+        this.ensureBadge(worldRoot, gs, props, pos);
+        // --- stack power indicator ---
+        this.ensureStackPowerIndicator(worldRoot, gs, props, pos);
+        // --- turn status indicators: grouped immediately left of the amount flag ---
+        this.ensureFlagStatusIndicators();
+        return scaleY;
+    }
+    public setSpriteRotation(rotation: number) {
+        if (this.sprite) {
+            this.sprite.rotation = rotation;

@@ -46,7 +46,7 @@ import { PickMatchupOverlay } from "../MatchupOverlay";
 import { PickLanternFire } from "./PickLanternFire";
 import { Timer } from "./Timer";
 import { draftAttackIconKind } from "./attackTypeIcon";
-import { boardFootprintLabel } from "./boardFootprintLabel";
+import { creatureFootprint, creatureFootprintLabel } from "./creatureFootprint";
 import { isAugmentHandoffPhase, shouldShowOpponentDraftRail } from "./draftPhaseVisibility";
 import { GameSystemControls } from "../GameSystemControls";
 import { VOLUME_SLOT_PRIORITY } from "../audio/volumeSlot";
@@ -102,13 +102,16 @@ interface CreatureFullConfig {
     shot_distance: number;
     level: number;
     size: number;
-    // Declared only by a creature whose board body is NOT the square `size x size` block.
     footprint_width?: number;
     footprint_height?: number;
     abilities?: string[];
 }
 
+// Ranked turns every drafted creature into a stack worth roughly 1000 creature experience. Keep the
+// draft readout on the same rule as play_session so the amount shown before a pick is the amount that
+// will actually reach placement.
 const STARTING_STACK_EXPERIENCE_BUDGET = 1000;
+
 const startingStackAmount = (config: CreatureFullConfig): number =>
     config.exp > 0 ? Math.max(1, Math.ceil(STARTING_STACK_EXPERIENCE_BUDGET / config.exp)) : 1;
 
@@ -222,8 +225,7 @@ export const CreatureDetailPanel: React.FC<{ creatureId: number }> = ({ creature
     // inapplicable mechanic look like a real zero-valued stat (for example on Berserker).
     const usesShotDistance = c.attack_type === "RANGE" && c.shot_distance > 0;
     const usesShots = c.attack_type === "RANGE" && c.range_shots > 0;
-    const footprintWidth = c.footprint_width ?? c.size;
-    const footprintHeight = c.footprint_height ?? c.size;
+    const footprint = creatureFootprint(c);
     const amount = startingStackAmount(c);
     const img = creatureImage(creatureId);
     const abilities = (c.abilities ?? []).filter(Boolean);
@@ -269,7 +271,12 @@ export const CreatureDetailPanel: React.FC<{ creatureId: number }> = ({ creature
                     <CreaturePortraitImage
                         creatureId={creatureId}
                         alt={c.name}
-                        sx={{ width: "100%", height: "100%", zIndex: 1, isolation: "isolate" }}
+                        sx={{
+                            width: "100%",
+                            height: "100%",
+                            zIndex: 1,
+                            isolation: "isolate",
+                        }}
                     />
                     <Box
                         sx={{
@@ -344,9 +351,9 @@ export const CreatureDetailPanel: React.FC<{ creatureId: number }> = ({ creature
                     value={`${c.magic_resist}%`}
                 />
                 <StatChip
-                    icon={<BoardFootprintIcon width={footprintWidth} height={footprintHeight} />}
+                    icon={<BoardFootprintIcon width={footprint.width} height={footprint.height} />}
                     label={t("Size on the board")}
-                    value={boardFootprintLabel(c)}
+                    value={creatureFootprintLabel(footprint)}
                 />
                 <StatChip icon={images.stat_initiative_gold_v2} label={t("Initiative")} value={c.initiative} />
                 <StatChip
@@ -771,6 +778,8 @@ export const DraftStepper: React.FC<{ step: number; userTeam?: TeamType }> = ({ 
                                     bgcolor: "transparent",
                                     border: "2px solid rgba(145,104,67,.82)",
                                     color: labelColor,
+                                    // A completed stage keeps the same carved treatment, but loses every
+                                    // team/gold hue so its state reads as a simple black-and-white history.
                                     filter: done ? "grayscale(1)" : "none",
                                     boxShadow: active
                                         ? "inset 0 0 0 1px rgba(12,9,7,.95), inset 0 0 0 3px rgba(79,68,58,.28), 0 0 8px rgba(255,211,100,.98), 0 0 18px rgba(237,159,39,.82), 0 2px 5px rgba(0,0,0,.55)"
@@ -936,6 +945,9 @@ const FLY_ICON_DISPLAY_SCALE = 220 / 170;
 const CREATURE_TILE_DISPLAY_SCALE = 0.99;
 const CREATURE_PORTRAIT_FILL_SCALE = 1.019;
 const BAN_SLASH_FRAME_COUNT = 14;
+// Extend the authored cut only along its bottom-left -> top-right axis. Scaling the complete overlay
+// uniformly made the wound itself thicker; this directional transform keeps its approved width while
+// carrying both tips just beyond the portrait frame.
 const BAN_SLASH_AXIS_DEGREES = -53.4;
 const BAN_SLASH_LENGTH_SCALE = 1.28;
 const BAN_SLASH_LENGTH_TRANSFORM = `rotate(${BAN_SLASH_AXIS_DEGREES}deg) scaleX(${BAN_SLASH_LENGTH_SCALE}) rotate(${-BAN_SLASH_AXIS_DEGREES}deg)`;
@@ -1051,6 +1063,8 @@ const CreaturePortrait: React.FC<{
                 maxHeight: fill ? `${CREATURE_PORTRAIT_FILL_SCALE * 100}%` : undefined,
                 alignSelf: fill ? "center" : undefined,
                 borderRadius: "10px",
+                // Portrait and caption clip themselves to the rounded card. The ban slash intentionally
+                // remains visible beyond this frame at its two diagonal tips.
                 overflow: "visible",
                 border: `2px solid ${ring}`,
                 cursor: selectable ? "pointer" : "default",
@@ -1089,6 +1103,9 @@ const CreaturePortrait: React.FC<{
                         borderRadius: "8px",
                         zIndex: 1,
                         isolation: "isolate",
+                        // The faction environment and creature are one muted middle-ground layer. Applying
+                        // the treatment to only the foreground left a fully coloured race background behind
+                        // banned creatures and also let the nested portrait layers compete with the slash.
                         filter: unavailable ? "grayscale(1)" : "none",
                         opacity: unavailable ? 0.5 : 1,
                     }}

@@ -1,0 +1,1827 @@
+{
+  "*": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.272,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.272,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Scavenger": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": -0.02,
+      "offsetYCells": 0.01,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": -0.02,
+      "offsetYCells": 0.01,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Troglodyte": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.93,
+      "alpha": 0.45,
+      "offsetXCells": 0.02,
+      "offsetYCells": 0.18,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.93,
+      "alpha": 0.45,
+      "offsetXCells": 0.02,
+      "offsetYCells": 0.18,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Centaur": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.95,
+      "alpha": 0.45,
+      "offsetXCells": -0.01,
+      "offsetYCells": 0,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.95,
+      "alpha": 0.45,
+      "offsetXCells": -0.01,
+      "offsetYCells": 0,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Berserker": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.07,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.07,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Wolf Rider": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 1.01,
+      "alpha": 0.45,
+      "offsetXCells": 0.07,
+      "offsetYCells": 0.85,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 1.01,
+      "alpha": 0.45,
+      "offsetXCells": 0.07,
+      "offsetYCells": 0.85,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "bottomAlphaOverride": 0.45,
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Wolf": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.34,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.34,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Fairy": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.11,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.11,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Leprechaun": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.13,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.13,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Peasant": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.24,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.24,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Squire": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.13,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.13,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Arbalester": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": -0.01,
+      "offsetYCells": 0.08,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": -0.01,
+      "offsetYCells": 0.08,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Mermaid": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.17,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.17,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Dryad": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": -0.01,
+      "offsetYCells": 0.15,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": -0.01,
+      "offsetYCells": 0.15,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Blacksmith": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.23,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.23,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Wandering Mage": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.97,
+      "alpha": 0.45,
+      "offsetXCells": -0.01,
+      "offsetYCells": 0.01,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.97,
+      "alpha": 0.45,
+      "offsetXCells": -0.01,
+      "offsetYCells": 0.01,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Orc": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.23,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.23,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Troll": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.14,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.14,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Medusa": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0,
+      "offsetYCells": 0.18,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0,
+      "offsetYCells": 0.18,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Beholder": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.25,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.25,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Harpy": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.34,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.34,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Nomad": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0,
+      "offsetYCells": 0.07,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0,
+      "offsetYCells": 0.07,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Hyena": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.01,
+      "offsetYCells": 0.18,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.01,
+      "offsetYCells": 0.18,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Elf": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.11,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.11,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "White Tiger": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": -0.01,
+      "offsetYCells": 0.1,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": -0.01,
+      "offsetYCells": 0.1,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Satyr": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.18,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.18,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Valkyrie": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.93,
+      "alpha": 0.45,
+      "offsetXCells": 0.01,
+      "offsetYCells": 0.07,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.93,
+      "alpha": 0.45,
+      "offsetXCells": 0.01,
+      "offsetYCells": 0.07,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Pikeman": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.94,
+      "alpha": 0.45,
+      "offsetXCells": 0,
+      "offsetYCells": 0.1,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.94,
+      "alpha": 0.45,
+      "offsetXCells": 0,
+      "offsetYCells": 0.1,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Healer": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.01,
+      "offsetYCells": 0.11,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.01,
+      "offsetYCells": 0.11,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Wyvern": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.02,
+      "offsetYCells": 0.18,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.02,
+      "offsetYCells": 0.18,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Trent": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": -0.02,
+      "offsetYCells": 0.15,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": -0.02,
+      "offsetYCells": 0.15,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Manticore": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.06,
+      "offsetYCells": 0.21,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.06,
+      "offsetYCells": 0.21,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Battle Mage": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.03,
+      "offsetYCells": 0.21,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.03,
+      "offsetYCells": 0.21,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Goblin Knight": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.26,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.26,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Nightmare": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.06,
+      "offsetYCells": 0.13,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.06,
+      "offsetYCells": 0.13,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Efreet": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.272,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.272,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Ogre Mage": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.23,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.23,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Unicorn": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.92,
+      "alpha": 0.45,
+      "offsetXCells": 0,
+      "offsetYCells": 0.1,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.92,
+      "alpha": 0.45,
+      "offsetXCells": 0,
+      "offsetYCells": 0.1,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Pegasus": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.92,
+      "alpha": 0.45,
+      "offsetXCells": 0.05,
+      "offsetYCells": 0.2,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.92,
+      "alpha": 0.45,
+      "offsetXCells": 0.05,
+      "offsetYCells": 0.2,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Griffin": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.27,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.27,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Crusader": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.02,
+      "offsetYCells": 0.23,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.02,
+      "offsetYCells": 0.23,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Zena": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.25,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.25,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Monk": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.22,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.22,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Thunderbird": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.07,
+      "offsetYCells": 0.25,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.07,
+      "offsetYCells": 0.25,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Tsar Cannon": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.01,
+      "offsetYCells": 0.32,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.01,
+      "offsetYCells": 0.32,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Angel": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.2,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.036,
+      "offsetYCells": 0.2,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Champion": {
+    "bottom": {
+      "lengthScale": 0.6102,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.11,
+      "offsetYCells": 0.47,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.678,
+      "widthScale": 0.883,
+      "alpha": 0.45,
+      "offsetXCells": 0.11,
+      "offsetYCells": 0.47,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Black Dragon": {
+    "bottom": {
+      "lengthScale": 0.7542,
+      "widthScale": 0.947,
+      "alpha": 0.45,
+      "offsetXCells": 0.08,
+      "offsetYCells": 0.67,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.838,
+      "widthScale": 0.947,
+      "alpha": 0.45,
+      "offsetXCells": 0.08,
+      "offsetYCells": 0.67,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Frenzied Boar": {
+    "bottom": {
+      "lengthScale": 0.7542,
+      "widthScale": 0.949,
+      "alpha": 0.45,
+      "offsetXCells": 0.043,
+      "offsetYCells": 0.62,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.838,
+      "widthScale": 0.949,
+      "alpha": 0.45,
+      "offsetXCells": 0.043,
+      "offsetYCells": 0.62,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Cyclops": {
+    "bottom": {
+      "lengthScale": 0.648,
+      "widthScale": 0.938,
+      "alpha": 0.45,
+      "offsetXCells": 0.05,
+      "offsetYCells": 0.38,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.72,
+      "widthScale": 0.938,
+      "alpha": 0.45,
+      "offsetXCells": 0.05,
+      "offsetYCells": 0.38,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Arachna Queen": {
+    "bottom": {
+      "lengthScale": 0.7335,
+      "widthScale": 1.021,
+      "alpha": 0.45,
+      "offsetXCells": 0.183,
+      "offsetYCells": 1.606,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.815,
+      "widthScale": 1.021,
+      "alpha": 0.45,
+      "offsetXCells": 0.183,
+      "offsetYCells": 1.606,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Mantis": {
+    "bottom": {
+      "lengthScale": 0.7326,
+      "widthScale": 0.904,
+      "alpha": 0.45,
+      "offsetXCells": 0.052,
+      "offsetYCells": 0.51,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.814,
+      "widthScale": 0.904,
+      "alpha": 0.45,
+      "offsetXCells": 0.052,
+      "offsetYCells": 0.51,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Hydra": {
+    "bottom": {
+      "lengthScale": 0.6831,
+      "widthScale": 0.971,
+      "alpha": 0.45,
+      "offsetXCells": 0.06,
+      "offsetYCells": 0.55,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.759,
+      "widthScale": 0.971,
+      "alpha": 0.45,
+      "offsetXCells": 0.06,
+      "offsetYCells": 0.55,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Behemoth": {
+    "bottom": {
+      "lengthScale": 0.9378,
+      "widthScale": 0.994,
+      "alpha": 0.45,
+      "offsetXCells": 0.097,
+      "offsetYCells": 1.13,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 1.042,
+      "widthScale": 0.994,
+      "alpha": 0.45,
+      "offsetXCells": 0.097,
+      "offsetYCells": 1.13,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Gargantuan": {
+    "bottom": {
+      "lengthScale": 0.6984,
+      "widthScale": 0.939,
+      "alpha": 0.45,
+      "offsetXCells": 0.038,
+      "offsetYCells": 0.56,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.776,
+      "widthScale": 0.939,
+      "alpha": 0.45,
+      "offsetXCells": 0.038,
+      "offsetYCells": 0.56,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Abomination": {
+    "bottom": {
+      "lengthScale": 0.7425,
+      "widthScale": 0.915,
+      "alpha": 0.45,
+      "offsetXCells": 0.02,
+      "offsetYCells": 0.6,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.825,
+      "widthScale": 0.915,
+      "alpha": 0.45,
+      "offsetXCells": 0.02,
+      "offsetYCells": 0.6,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  },
+  "Magic Dragon": {
+    "bottom": {
+      "lengthScale": 0.7812,
+      "widthScale": 0.91,
+      "alpha": 0.45,
+      "offsetXCells": 0.089,
+      "offsetYCells": 0.65,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "top": {
+      "lengthScale": 0.868,
+      "widthScale": 0.91,
+      "alpha": 0.45,
+      "offsetXCells": 0.089,
+      "offsetYCells": 0.65,
+      "rotationDegrees": -14,
+      "segmentLengthMultipliers": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "contactAlpha": 0.15,
+    "contactShadowVisible": true
+  }
+}

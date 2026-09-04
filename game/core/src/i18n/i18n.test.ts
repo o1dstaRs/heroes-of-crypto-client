@@ -7,6 +7,8 @@ import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, getLanguage, setLanguage, t, tf 
 import { RU_TRANSLATIONS } from "./ru";
 import { standingLabel } from "./standing";
 
+const IDENTITY_TRANSLATION_ALLOWLIST = new Set(["FIRE PIT"]);
+
 afterEach(() => {
     setLanguage(DEFAULT_LANGUAGE);
 });
@@ -60,10 +62,12 @@ describe("game-client i18n", () => {
         expect(getLanguage()).toBe("ru");
     });
 
-    it("has no empty or identity Russian entries", () => {
+    it("has no empty or accidental identity Russian entries", () => {
         for (const [english, russian] of Object.entries(RU_TRANSLATIONS)) {
             expect(russian.trim().length).toBeGreaterThan(0);
-            expect(russian).not.toBe(english);
+            if (!IDENTITY_TRANSLATION_ALLOWLIST.has(english)) {
+                expect(russian).not.toBe(english);
+            }
         }
     });
 });
@@ -142,7 +146,7 @@ describe("ranked flow localization", () => {
             "The whole enemy draft, live",
             "Draft blind, field the strongest army",
             "Standard",
-            "Lava",
+            "FIRE PIT",
             "Cemetery",
             "Water",
             "Armageddon next lap",

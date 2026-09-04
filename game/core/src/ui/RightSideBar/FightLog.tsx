@@ -332,7 +332,9 @@ export const FightLog = ({ text }: { text: string }) => {
                                                       "&::before": {
                                                           content: '""',
                                                           position: "absolute",
-                                                          // Keep the turn node attached to its event and clear of leading icons.
+                                                          // Keep the turn node visually attached to its event instead of
+                                                          // stranded against the outer rail. The remaining gap leaves the
+                                                          // marker clear of both plain text and leading status icons.
                                                           left: "10px",
                                                           top: "50%",
                                                           width: "5px",

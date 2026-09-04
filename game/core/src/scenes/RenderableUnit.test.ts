@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
-import { BufferImageSource, Container, Graphics, Sprite, Text, Texture } from "pixi.js";
+import { BufferImageSource, ColorMatrixFilter, Container, Graphics, Sprite, Text, Texture } from "pixi.js";
 
 import {
     AbilityFactory,
@@ -20,16 +20,26 @@ import {
 } from "@heroesofcrypto/common";
 
 import {
+    ACTIVE_TURN_POINTER_SIZE_SCALE,
     activeTurnFireFrameForElapsed,
+    activeFlagGlowAlphaForTime,
+    activeFlagScaleForTime,
+    activeTurnPointerGap,
+    stableDamagePredictionBadgeScreenTop,
     attackAnimationVerticalBandForFootprints,
     ashMothIdleBreathScaleForElapsed,
     ashMothIdleBreathScalesForElapsed,
     ashMothActionScaleMultiplier,
+    authoredIdleFrameForElapsed,
+    authoredIdleFrameDurationMs,
     battlefieldCreaturePerspectiveScale,
     battlefieldCreatureContourOpacity,
     battlefieldFootLineOffsetCells,
     battlefieldCreatureScaleMultiplier,
     battlefieldCreatureShadowProjection,
+    battlefieldCanonicalShadowReference,
+    battlefieldStableShadowReferenceScale,
+    battlefieldShadowSourceForUnit,
     BATTLEFIELD_FOUR_CELL_SCALE_MULTIPLIER,
     BATTLEFIELD_FOUR_CELL_Y_OFFSET_RATIO,
     BATTLEFIELD_GARGANTUAN_SCALE_MULTIPLIER,
@@ -41,9 +51,18 @@ import {
     BATTLEFIELD_SHADOW_TOP_ROW_WIDTH_SCALE,
     BATTLEFIELD_SINGLE_CELL_Y_OFFSET_RATIO,
     BATTLEFIELD_TOP_ROW_CREATURE_SCALE,
+    commonIdleBreathScalesForElapsed,
+    COMMON_IDLE_BREATH_PERIOD_MS,
+    COMMON_IDLE_BREATH_SETTINGS,
     dropDuplicateAppliedEntries,
+    CREATURE_ATTACK_FOREGROUND_Z_INDEX,
     CREATURE_SPRITE_ANIMATION_SETTINGS,
+    creatureGenericCombatMotionEnabledForUnit,
+    creatureGenericWholeSpriteMotionEnabledForLevel,
+    creatureIdleAnimationEnabledForUnit,
+    creatureOneShotAnimationEnabledForUnit,
     creatureWalkAnimationEnabledForUnit,
+    flagOffsetXForFacing,
     nativeBoardFacingMultiplier,
     oneShotAnimationDurationMultiplier,
     placementFacingDirectionForTeam,
@@ -54,6 +73,10 @@ import {
     ORC_IDLE_BREATH_CYCLES_PER_AXE_TWIRL,
     ORC_IDLE_BREATH_PERIOD_MS,
     REFRESHED_IDLE_ANIMATION_SPEED_MULTIPLIER,
+    SQUIRE_IDLE_SPEED_MULTIPLIER,
+    SQUIRE_DEATH_HORIZONTAL_SCALE_MULTIPLIER,
+    SQUIRE_WALK_VISIBLE_SCALE_MULTIPLIER,
+    textureSwapHeightScaleRatio,
     SCAVENGER_ACTIVE_BATTLE_CRY_BREATH_CYCLES,
     SCAVENGER_ACTIVE_BATTLE_CRY_DURATION_MS,
     SCAVENGER_ACTIVE_BATTLE_CRY_FRAME_DURATION_MS,
@@ -66,6 +89,20 @@ import {
     orcIdleAxeTwirlFrameForElapsed,
     orcIdleBreathScalesForElapsed,
     preservesFacingForPureVerticalSingleCellAttack,
+    PEASANT_ATTACK_RENDER_SCALE,
+    PEASANT_DIAGONAL_ATTACK_RENDER_SCALE,
+    PEASANT_ATTACK_EFFECTIVE_X_SCALE,
+    PEASANT_ATTACK_END_RENDER_SCALE,
+    PEASANT_ATTACK_FRAME_SCALE_FACTORS,
+    PEASANT_ATTACK_HORIZONTAL_FRAME_FACTORS,
+    PEASANT_SIDE_ATTACK_FRAME_DURATION_MS,
+    PEASANT_ATTACK_UP_RECOVERY_RENDER_SCALES,
+    PEASANT_ATTACK_DOWN_END_RENDER_SCALE,
+    peasantAttackAnchorX,
+    peasantAttackHorizontalScaleMultiplier,
+    PEASANT_DEATH_RENDER_SCALE,
+    peasantActionScaleMultiplier,
+    rangedProjectileOriginFromBounds,
     RenderableUnit,
     revealedOpponentFootprintPoints,
     refreshedBoardVisualProfileForUnit,
@@ -75,6 +112,7 @@ import {
     scavengerIdleBladeTwirlFrameForElapsed,
     TALL_BOARD_MODEL_FOOT_INSET_RATIO,
     WOLF_BOARD_MODEL_HEIGHT_CELLS,
+    wolfWalkFrameScaleMultiplier,
     tallBoardModelFootAnchorY,
     tallBoardModelFootLineY,
     thiefIdleBreathScaleForElapsed,
@@ -90,7 +128,9 @@ import {
 import { getBattlefieldAlphaHoleFillFilter, shouldFillBattlefieldAlphaHoles } from "./BattlefieldAlphaHoleFillFilter";
 import { BATTLEFIELD_CREATURE_FRAMING } from "../ui/battlefieldCreatureFraming";
 import { BATTLEFIELD_SHADOW_TUNING_BY_CREATURE } from "../ui/battlefieldShadowTuning";
+import { DEFAULT_STUN_BADGE_TUNING, stunBadgeLayout } from "../ui/stunBadgeTuning";
 import { BATTLEFIELD_HEIGHT_RATIO } from "../pixi/boardFit";
+import { animationAtlases } from "../generated/animation_atlases";
 
 const gridSettings = new GridSettings(
     GridConstants.GRID_SIZE,
@@ -107,6 +147,35 @@ const sceneLog: ISceneLog = {
     updateLog: () => undefined,
     hasBeenUpdated: () => false,
 };
+
+describe("ranged projectile origin", () => {
+    const bounds = { left: 100, top: 50, right: 220, bottom: 250 };
+
+    test("places an Arbalester shot at the crossbow muzzle and mirrors it with the target", () => {
+        expect(rangedProjectileOriginFromBounds("Arbalester", bounds, { x: 500, y: 150 })).toEqual({
+            x: 215.2,
+            y: 130,
+        });
+        expect(rangedProjectileOriginFromBounds("Arbalester", bounds, { x: 0, y: 150 })).toEqual({
+            x: 104.8,
+            y: 130,
+        });
+    });
+
+    test("uses the forward hand zone for an unarmed shooter", () => {
+        expect(rangedProjectileOriginFromBounds("Monk", bounds, { x: 500, y: 150 })).toEqual({
+            x: 193.6,
+            y: 130,
+        });
+    });
+
+    test("uses facing for a vertical shot and a safe hand-zone fallback for granted ranged attacks", () => {
+        expect(rangedProjectileOriginFromBounds("Unknown Shooter", bounds, { x: 160, y: 0 }, -1)).toEqual({
+            x: 121.6,
+            y: 132,
+        });
+    });
+});
 
 // The atlas metadata is committed (game/core/.gitignore carves it out of src/generated/), so
 // these tests run everywhere — CI included. No conditional skipping: a checkout without the
@@ -150,11 +219,13 @@ beforeEach(() => {
     // Exercise authored playback in its dedicated tests. Production keeps the master switch off; the
     // frozen-state test below explicitly returns to that temporary runtime mode.
     CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = true;
+    COMMON_IDLE_BREATH_SETTINGS.enabled = false;
 });
 
 afterEach(() => {
     HoCLib.setDeterministicRandomSource(undefined);
     CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
+    COMMON_IDLE_BREATH_SETTINGS.enabled = false;
 });
 
 describe("preview placement facing", () => {
@@ -166,6 +237,16 @@ describe("preview placement facing", () => {
         expect(previewPlacementFacing(TeamVals.NO_TEAM, 0)).toBe(1);
         expect(previewPlacementFacing(TeamVals.RIGHT, -512)).toBe(-1);
         expect(previewPlacementFacing(TeamVals.LEFT, 512)).toBe(1);
+    });
+});
+
+describe("level-one generic whole-sprite motion gate", () => {
+    test("disables shared movement/combat overlays at level one and retains them above level one", () => {
+        expect(creatureGenericWholeSpriteMotionEnabledForLevel(1)).toBe(false);
+        expect(creatureGenericWholeSpriteMotionEnabledForLevel(2)).toBe(true);
+        expect(creatureGenericCombatMotionEnabledForUnit("Squire", 1)).toBe(false);
+        expect(creatureGenericCombatMotionEnabledForUnit("Troglodyte", 1)).toBe(false);
+        expect(creatureGenericCombatMotionEnabledForUnit("Satyr", 2)).toBe(true);
     });
 });
 
@@ -590,6 +671,46 @@ describe("full-body model ground line", () => {
         expect(tallBoardModelFootAnchorY("Future Unit", "idle", { footAnchorY: 0.9 })).toBe(0.9);
     });
 
+    test("keeps Squire idle on the static figure anchor and adds another exact eight percent to v4", () => {
+        const squireIdle = animationAtlases.Squire.idle;
+        expect(squireIdle.footAnchorY).toBeCloseTo(730 / 768, 12);
+        expect(SQUIRE_IDLE_SPEED_MULTIPLIER).toBeCloseTo(1.2 * 1.08, 12);
+        const originalRuntimeFrameDurationMs = 150 / REFRESHED_IDLE_ANIMATION_SPEED_MULTIPLIER;
+        const v4RuntimeFrameDurationMs = originalRuntimeFrameDurationMs / 1.2;
+        const currentRuntimeFrameDurationMs = authoredIdleFrameDurationMs("Squire", 150, true);
+        expect(currentRuntimeFrameDurationMs).toBeCloseTo(v4RuntimeFrameDurationMs / 1.08, 12);
+        expect(v4RuntimeFrameDurationMs / currentRuntimeFrameDurationMs).toBeCloseTo(1.08, 12);
+        expect(originalRuntimeFrameDurationMs / currentRuntimeFrameDurationMs).toBeCloseTo(1.296, 12);
+    });
+
+    test("uses one constant Squire walk scale that matches the approved idle silhouette", () => {
+        expect(SQUIRE_WALK_VISIBLE_SCALE_MULTIPLIER).toBeCloseTo(726 / 696, 12);
+        expect(696 * SQUIRE_WALK_VISIBLE_SCALE_MULTIPLIER).toBeCloseTo(726, 12);
+        expect(408 * SQUIRE_WALK_VISIBLE_SCALE_MULTIPLIER).toBeCloseTo(426, 0);
+    });
+
+    test("keeps the approved Squire death sequence width-matched, size-locked, and on the static foot anchor", () => {
+        const squireDeath = animationAtlases.Squire.death;
+        expect(squireDeath.frameWidth).toBe(896);
+        expect(squireDeath.frameHeight).toBe(832);
+        expect(squireDeath.frameCount).toBe(8);
+        expect(squireDeath.frameDurationSec).toBeCloseTo(0.095, 12);
+        expect(squireDeath.footAnchorY).toBeCloseTo(730 / 768, 12);
+        CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
+        expect(creatureOneShotAnimationEnabledForUnit("Squire", "death")).toBe(true);
+        expect(creatureOneShotAnimationEnabledForUnit("Squire", "attack")).toBe(false);
+        expect(oneShotAnimationDurationMultiplier("Squire", "death")).toBeCloseTo(1 / (2 * 1.2 * 1.15), 12);
+        expect(
+            (squireDeath.loopDurationMs / squireDeath.frameCount) *
+                oneShotAnimationDurationMultiplier("Squire", "death"),
+        ).toBeCloseTo(35.625 / 1.15, 12);
+        const openingSwapRatio = textureSwapHeightScaleRatio(768 / 4, 832 / 4);
+        expect(openingSwapRatio).toBeCloseTo(768 / 832, 12);
+        expect((832 / 4) * openingSwapRatio).toBeCloseTo(768 / 4, 12);
+        expect(SQUIRE_DEATH_HORIZONTAL_SCALE_MULTIPLIER).toBeCloseTo(426 / 768 / (495 / 832), 12);
+        expect((495 / 832) * SQUIRE_DEATH_HORIZONTAL_SCALE_MULTIPLIER).toBeCloseTo(426 / 768, 12);
+    });
+
     assetTest("keeps Orc, Scavenger and Wandering Mage planted through every authored board state", () => {
         type GroundedInternals = {
             sprite?: { y: number; anchor: { y: number } };
@@ -671,10 +792,23 @@ describe("full-body model ground line", () => {
 });
 
 test("adds the requested non-Wandering-Mage attack, hit, and death speed boosts", () => {
+    const recoveredPeasantAttackDuration = (0.03214285714285715 * 1000 * 8) / 231;
+    expect(oneShotAnimationDurationMultiplier("Peasant", "attack")).toBeCloseTo(
+        recoveredPeasantAttackDuration / (1.2 * 1.15 * 1.1),
+    );
+    expect(oneShotAnimationDurationMultiplier("Peasant", "attack_up")).toBeCloseTo(
+        recoveredPeasantAttackDuration / (1.2 * 1.15 * 1.1),
+    );
+    expect(oneShotAnimationDurationMultiplier("Peasant", "attack_down")).toBeCloseTo(
+        recoveredPeasantAttackDuration / (1.2 * 1.15 * 1.1),
+    );
     expect(oneShotAnimationDurationMultiplier("Orc", "attack")).toBeCloseTo(1 / (1.4 * 1.22));
     expect(oneShotAnimationDurationMultiplier("Orc", "attack_up")).toBeCloseTo(1 / (1.4 * 1.22));
     expect(oneShotAnimationDurationMultiplier("Orc", "melee_attack_down")).toBeCloseTo(1 / (1.4 * 1.22));
     expect(oneShotAnimationDurationMultiplier("Orc", "death")).toBeCloseTo(1 / (2 * 1.2));
+    expect(oneShotAnimationDurationMultiplier("Peasant", "death")).toBeCloseTo(
+        1 / (2 * 1.2 * 1.35 * 1.1 * 1.16 * 1.15),
+    );
     expect(oneShotAnimationDurationMultiplier("Orc", "hit")).toBeCloseTo(1 / 1.22);
     expect(oneShotAnimationDurationMultiplier("Scavenger", "death")).toBeCloseTo(1 / (2 * 1.2 * 1.12));
 
@@ -694,9 +828,10 @@ test("keeps Wandering Mage cast and attack poses at its idle visual height", () 
 });
 
 describe("battlefield row perspective scale", () => {
-    test("distributes the full fifteen percent reduction evenly across one-cell rows", () => {
+    test("distributes the full fifteen percent reduction across playable rows and clamps both buffer rows", () => {
         expect(BATTLEFIELD_TOP_ROW_CREATURE_SCALE).toBe(0.85);
-        const reductionPerRow = (1 - BATTLEFIELD_TOP_ROW_CREATURE_SCALE) / (GridConstants.GRID_SIZE - 1);
+        const firstPlayableRow = 1;
+        const lastPlayableRow = GridConstants.GRID_SIZE - 2;
         for (let row = 0; row < GridConstants.GRID_SIZE; row += 1) {
             const position = GridMath.getPositionForCell(
                 { x: 0, y: row },
@@ -704,8 +839,9 @@ describe("battlefield row perspective scale", () => {
                 gridSettings.getStep(),
                 gridSettings.getHalfStep(),
             );
+            const progress = Math.max(0, Math.min(1, (row - firstPlayableRow) / (lastPlayableRow - firstPlayableRow)));
             expect(battlefieldCreaturePerspectiveScale(position.y, 1, gridSettings)).toBeCloseTo(
-                1 - row * reductionPerRow,
+                1 - progress * (1 - BATTLEFIELD_TOP_ROW_CREATURE_SCALE),
                 8,
             );
         }
@@ -713,16 +849,16 @@ describe("battlefield row perspective scale", () => {
 
     test("uses the full 100% to 85% range across legal four-cell positions", () => {
         const bottomPosition = GridMath.getPositionForCells(gridSettings, [
-            { x: 0, y: 0 },
-            { x: 1, y: 0 },
             { x: 0, y: 1 },
             { x: 1, y: 1 },
+            { x: 0, y: 2 },
+            { x: 1, y: 2 },
         ]);
         const topPosition = GridMath.getPositionForCells(gridSettings, [
+            { x: 0, y: 13 },
+            { x: 1, y: 13 },
             { x: 0, y: 14 },
             { x: 1, y: 14 },
-            { x: 0, y: 15 },
-            { x: 1, y: 15 },
         ]);
 
         expect(bottomPosition).toBeDefined();
@@ -733,13 +869,13 @@ describe("battlefield row perspective scale", () => {
 
     test("applies the same perspective to the live figure and its movement preview", () => {
         const bottom = GridMath.getPositionForCell(
-            { x: 4, y: 0 },
+            { x: 4, y: 1 },
             gridSettings.getMinX(),
             gridSettings.getStep(),
             gridSettings.getHalfStep(),
         );
         const top = GridMath.getPositionForCell(
-            { x: 4, y: 15 },
+            { x: 4, y: 14 },
             gridSettings.getMinX(),
             gridSettings.getStep(),
             gridSettings.getHalfStep(),
@@ -764,7 +900,136 @@ describe("battlefield row perspective scale", () => {
 });
 
 describe("furnace-cast battlefield shadow", () => {
-    test("grows toward the upper furnace row and stays compact at both extremes", () => {
+    test("uses the first authored idle frame regardless of texture load timing", () => {
+        const staticCutout = { id: "static-cutout" };
+        const firstIdle = { id: "idle-0" };
+        const laterIdle = { id: "idle-1" };
+
+        expect(battlefieldCanonicalShadowReference(staticCutout)).toBe(staticCutout);
+        expect(battlefieldCanonicalShadowReference(staticCutout, [firstIdle, laterIdle])).toBe(firstIdle);
+    });
+
+    test("captures Centaur's shadow reference only after it leaves the flat placement bench", () => {
+        const unit = createRenderableUnit(TeamVals.LEFT, "Might", "Centaur", "centaur_512", () => Texture.WHITE);
+        const world = new Container();
+        const topPlayablePosition = GridMath.getPositionForCell(
+            { x: 4, y: GridConstants.GRID_SIZE - 2 },
+            gridSettings.getMinX(),
+            gridSettings.getStep(),
+            gridSettings.getHalfStep(),
+        );
+        const internals = unit as unknown as {
+            silhouetteShadowReferenceTexture?: Texture;
+            silhouetteShadow?: { texture: Texture };
+            sprite?: { texture: Texture };
+        };
+
+        unit.setPosition(topPlayablePosition.x, topPlayablePosition.y);
+        unit.setBattlefieldVisualProjection(false);
+        unit.ensureVisual(world, gridSettings);
+        expect(internals.silhouetteShadowReferenceTexture).toBeUndefined();
+
+        unit.setBattlefieldVisualProjection(true);
+        unit.setVisualScaleMultiplier(1);
+        unit.ensureVisual(world, gridSettings);
+        expect(internals.silhouetteShadowReferenceTexture).toBe(internals.sprite?.texture);
+        expect(internals.silhouetteShadow?.texture).toBe(internals.sprite?.texture);
+    });
+
+    test("keeps every creature shadow on the frozen editor idle frame instead of live combat frames", () => {
+        const editorIdleFrame = { id: "editor-idle" };
+        const combatFrame = { id: "combat" };
+
+        for (const unitName of Object.keys(BATTLEFIELD_SHADOW_TUNING_BY_CREATURE)) {
+            expect(battlefieldShadowSourceForUnit(unitName, editorIdleFrame, combatFrame)).toBe(editorIdleFrame);
+        }
+    });
+
+    test("sizes the frozen editor idle frame from its own canvas rather than a later combat frame", () => {
+        expect(
+            battlefieldStableShadowReferenceScale({
+                unitName: "Centaur",
+                referenceWidth: 768,
+                referenceHeight: 768,
+                cellSize: 128,
+                chipTargetSide: 128,
+                tallBoardModel: true,
+                boardModelTargetHeightCells: 1.5,
+                usesThiefSilhouette: false,
+                refreshedFullBodyScale: true,
+                refreshedWidthScale: 1,
+                tallBoardWidthCells: 1.1,
+                visualFootprintSide: 1,
+            }),
+        ).toEqual({ x: 0.25, y: 0.25 });
+    });
+
+    test("matches every approved editor profile exactly on the upper row before row scaling begins", () => {
+        for (const footprintHeight of [1, 2]) {
+            const cellSize = gridSettings.getCellSize();
+            const bottomY = gridSettings.getMinY() + (1 + footprintHeight / 2) * cellSize;
+            const topY =
+                gridSettings.getMinY() +
+                (gridSettings.getGridSize() - footprintHeight - 1 + footprintHeight / 2) * cellSize;
+            const middleY = (bottomY + topY) / 2;
+
+            for (const [unitName, tuning] of Object.entries(BATTLEFIELD_SHADOW_TUNING_BY_CREATURE)) {
+                const bottom = battlefieldCreatureShadowProjection(bottomY, footprintHeight, gridSettings, unitName);
+                const middle = battlefieldCreatureShadowProjection(middleY, footprintHeight, gridSettings, unitName);
+                const top = battlefieldCreatureShadowProjection(topY, footprintHeight, gridSettings, unitName);
+
+                expect(top).toEqual({
+                    lengthScale: tuning.top.lengthScale,
+                    widthScale: tuning.top.widthScale,
+                    alpha: tuning.top.alpha,
+                });
+                expect(bottom).toEqual({
+                    lengthScale: tuning.bottom.lengthScale,
+                    widthScale: tuning.bottom.widthScale,
+                    alpha: tuning.bottom.alpha,
+                });
+                expect(middle.lengthScale).toBeCloseTo((tuning.bottom.lengthScale + tuning.top.lengthScale) / 2, 8);
+                expect(middle.widthScale).toBeCloseTo((tuning.bottom.widthScale + tuning.top.widthScale) / 2, 8);
+                expect(middle.alpha).toBeCloseTo((tuning.bottom.alpha + tuning.top.alpha) / 2, 8);
+            }
+        }
+    });
+
+    test("keeps the authored 0.45 silhouette alpha for flying creatures", () => {
+        const topPosition = GridMath.getPositionForCell(
+            { x: 4, y: GridConstants.GRID_SIZE - 1 },
+            gridSettings.getMinX(),
+            gridSettings.getStep(),
+            gridSettings.getHalfStep(),
+        );
+        const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Fairy", "fairy_512", () => Texture.WHITE);
+        const world = new Container();
+        unit.setPosition(topPosition.x, topPosition.y);
+        unit.setBattlefieldVisualProjection(true);
+        unit.ensureVisual(world, gridSettings);
+
+        const internals = unit as unknown as { silhouetteShadow?: { alpha: number } };
+        expect(internals.silhouetteShadow?.alpha).toBeCloseTo(0.45, 8);
+    });
+
+    test("renders the finalized Orc silhouette at its editor opacity on the highest playable row", () => {
+        const topPlayablePosition = GridMath.getPositionForCell(
+            { x: 4, y: GridConstants.GRID_SIZE - 2 },
+            gridSettings.getMinX(),
+            gridSettings.getStep(),
+            gridSettings.getHalfStep(),
+        );
+        const unit = createRenderableUnit(TeamVals.LEFT, "Chaos", "Orc", "orc_512", () => Texture.WHITE);
+        unit.setPosition(topPlayablePosition.x, topPlayablePosition.y);
+        unit.setBattlefieldVisualProjection(true);
+        unit.ensureVisual(new Container(), gridSettings);
+
+        const internals = unit as unknown as { silhouetteShadow?: { alpha: number } };
+        expect(battlefieldCreatureShadowProjection(topPlayablePosition.y, 1, gridSettings, "Orc").alpha).toBe(0.45);
+        expect(internals.silhouetteShadow?.alpha).toBe(0.45);
+    });
+
+    test("uses the editor size at the upper row and shortens only its far edge by 10% at the lower row", () => {
         expect(BATTLEFIELD_SHADOW_BOTTOM_ROW_LENGTH_SCALE).toBeCloseTo(
             BATTLEFIELD_SHADOW_TOP_ROW_LENGTH_SCALE * 0.9,
             8,
@@ -786,6 +1051,7 @@ describe("furnace-cast battlefield shadow", () => {
         );
         const bottomProjection = battlefieldCreatureShadowProjection(bottom.y, 1, gridSettings);
         const topProjection = battlefieldCreatureShadowProjection(top.y, 1, gridSettings);
+        const middleProjection = battlefieldCreatureShadowProjection((bottom.y + top.y) / 2, 1, gridSettings);
 
         expect(bottomProjection).toEqual({
             lengthScale: BATTLEFIELD_SHADOW_BOTTOM_ROW_LENGTH_SCALE,
@@ -797,6 +1063,37 @@ describe("furnace-cast battlefield shadow", () => {
         expect(topProjection.alpha).toBeCloseTo(BATTLEFIELD_SHADOW_TOP_ROW_ALPHA, 8);
         expect(topProjection.lengthScale).toBeGreaterThan(bottomProjection.lengthScale);
         expect(topProjection.widthScale).toBe(bottomProjection.widthScale);
+        expect(topProjection.alpha).toBe(bottomProjection.alpha);
+        expect(middleProjection.lengthScale).toBeCloseTo(BATTLEFIELD_SHADOW_TOP_ROW_LENGTH_SCALE * 0.95, 8);
+        expect(middleProjection.widthScale).toBe(topProjection.widthScale);
+        expect(middleProjection.alpha).toBe(topProjection.alpha);
+    });
+
+    test("interpolates Magic Dragon proportionally from the shortened lower row to the approved upper row", () => {
+        const bottom = GridMath.getPositionForCell(
+            { x: 4, y: 0 },
+            gridSettings.getMinX(),
+            gridSettings.getStep(),
+            gridSettings.getHalfStep(),
+        );
+        const top = GridMath.getPositionForCell(
+            { x: 4, y: GridConstants.GRID_SIZE - 1 },
+            gridSettings.getMinX(),
+            gridSettings.getStep(),
+            gridSettings.getHalfStep(),
+        );
+        const bottomProjection = battlefieldCreatureShadowProjection(bottom.y, 1, gridSettings, "Magic Dragon");
+        const topProjection = battlefieldCreatureShadowProjection(top.y, 1, gridSettings, "Magic Dragon");
+        const middleProjection = battlefieldCreatureShadowProjection(
+            (bottom.y + top.y) / 2,
+            1,
+            gridSettings,
+            "Magic Dragon",
+        );
+
+        expect(bottomProjection).toEqual({ lengthScale: 0.7812, widthScale: 0.91, alpha: 0.45 });
+        expect(middleProjection).toEqual({ lengthScale: 0.8246, widthScale: 0.91, alpha: 0.45 });
+        expect(topProjection).toEqual({ lengthScale: 0.868, widthScale: 0.91, alpha: 0.45 });
     });
 
     test("follows the live unit position and rescales during movement between rows", () => {
@@ -844,8 +1141,8 @@ describe("furnace-cast battlefield shadow", () => {
             gridSettings.getCellSize() * peasantShadow.top.offsetYCells * BATTLEFIELD_TOP_ROW_CREATURE_SCALE,
             8,
         );
-        // The intact upper shadow is the approved maximum; the left one is exactly 10% shorter in
-        // screen space even though the creature itself follows the opposite perspective scale.
+        // Scaling happens around the shared foot anchor: the upper edge at the feet stays put while the
+        // lower edge reaches the approved full length. Intermediate rows use the same linear progression.
         expect((internals.silhouetteShadow?.scale.y ?? 0) / bottomLengthScale).toBeCloseTo(1 / 0.9, 8);
         expect(internals.silhouetteShadow?.alpha ?? 0).toBe(bottomAlpha);
     });
@@ -906,6 +1203,13 @@ test("faces green right and mirrors red left during placement", () => {
     unit.ensureVisual(world, gridSettings);
     expect(internals.facingDirection).toBe(1);
     expect(internals.sprite?.scale.x).toBeGreaterThan(0);
+});
+
+test("mirrors the authored flag anchor with the creature but not the flag itself", () => {
+    expect(flagOffsetXForFacing(0.16, 1)).toBe(0.16);
+    expect(flagOffsetXForFacing(0.16, -1)).toBe(-0.16);
+    expect(flagOffsetXForFacing(-0.11, 1)).toBe(-0.11);
+    expect(flagOffsetXForFacing(-0.11, -1)).toBe(0.11);
 });
 
 test("mirrors the authored horizontal placement correction together with the creature", () => {
@@ -1009,6 +1313,64 @@ assetTest("plays Dryad's reversed run between one-shot turn poses", () => {
     expect(internals.walkAnim).toBeUndefined();
 });
 
+assetTest("fits the approved ten-frame Wolf walk into exactly 3 travelled cells", () => {
+    CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
+    const resolvedKeys: string[] = [];
+    const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Wolf", "wolf_512", (name) => {
+        resolvedKeys.push(name);
+        return Texture.WHITE;
+    });
+    const internals = unit as unknown as {
+        sprite?: { scale: { y: number }; texture: Texture };
+        walkAnim?: {
+            frames: Texture[];
+            frameIndex: number;
+            loopStartFrame: number;
+            loopEndFrame: number;
+            outroFrame?: number;
+            durationPerFrameMs: number;
+            frameDurationsMs?: readonly number[];
+            footAnchorY: number;
+            completedCycles: number;
+            distanceDriven?: boolean;
+        };
+    };
+    unit.setPosition(0, 1024);
+    unit.ensureVisual(new Container(), gridSettings);
+    const baseRenderedCanvasHeight = Math.abs(internals.sprite?.scale.y ?? 0) * (internals.sprite?.texture.height ?? 0);
+
+    unit.startBoardWalkAnimation(1);
+    unit.ensureVisual(new Container(), gridSettings);
+
+    expect(resolvedKeys).toContain("wolf_walk_atlas_half");
+    expect(internals.walkAnim?.frames).toHaveLength(10);
+    expect(internals.walkAnim?.loopStartFrame).toBe(0);
+    expect(internals.walkAnim?.loopEndFrame).toBe(9);
+    expect(internals.walkAnim?.outroFrame).toBeUndefined();
+    expect(internals.walkAnim?.durationPerFrameMs).toBeCloseTo(75);
+    expect(internals.walkAnim?.frameDurationsMs).toEqual([78, 78, 68, 78, 78, 68, 78, 78, 68, 78]);
+    expect(internals.walkAnim?.distanceDriven).toBe(true);
+    expect(internals.walkAnim?.footAnchorY).toBe(1);
+    const walkRenderedCanvasHeight = Math.abs(internals.sprite?.scale.y ?? 0) * (internals.sprite?.texture.height ?? 0);
+    expect(walkRenderedCanvasHeight / baseRenderedCanvasHeight).toBeCloseTo(wolfWalkFrameScaleMultiplier(0), 6);
+    expect(internals.walkAnim!.frames[0].width / internals.walkAnim!.frames[0].height).toBeCloseTo(288 / 256, 6);
+
+    expect(internals.walkAnim?.frameIndex).toBe(0);
+    unit.setBoardWalkDistanceCells(0.3);
+    expect(internals.walkAnim?.frameIndex).toBe(1);
+    unit.setBoardWalkDistanceCells(2.7);
+    expect(internals.walkAnim?.frameIndex).toBe(9);
+    unit.setBoardWalkDistanceCells(3);
+    expect(internals.walkAnim?.frameIndex).toBe(0);
+    expect(internals.walkAnim?.completedCycles).toBe(1);
+});
+
+// SHIPPED-ART PIN (2026-08-24): the shared Drive's animation meta is one revision behind the
+// authored gait tuning these walk tests originally pinned (Wolf Rider 26fps gait, Leprechaun's
+// 170/380ms two-pose run, Peasant's 8-frame 15.625ms freeze walk). Until that art lands in the
+// Drive's heroesofcrypto/animations, the generator emits the uniform 9-frame 20fps walk asserted
+// below. When the new meta uploads: regenerate atlases and restore the original assertions (they
+// are one `git log -p` away on this file).
 assetTest("does not repeat the idle animation pass after visual synchronization", () => {
     const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Dryad", "dryad_512", () => Texture.WHITE);
     unit.setPosition(0, 1024);
@@ -1488,13 +1850,15 @@ describe("Orc authored animation states", () => {
         expect(internals.selectionAnimFrames).toHaveLength(8);
     });
 
-    assetTest("locks movement sway to the authored gait frame without changing walk cadence", () => {
+    assetTest("leaves the level-one Orc walk entirely to its authored sprite frames", () => {
         const unit = createOrc();
         const internals = unit as unknown as AnimationInternals;
 
         unit.startBoardWalkAnimation(1);
         unit.ensureVisual(new Container(), gridSettings);
         const frameMs = internals.walkAnim?.durationPerFrameMs ?? 0;
+        const baseScaleX = internals.sprite?.scale.x;
+        const baseScaleY = internals.sprite?.scale.y;
         expect(frameMs).toBeCloseTo(17.857, 3);
 
         // Intro and first gait pose are neutral; the next gait pose starts the authored sway.
@@ -1507,8 +1871,10 @@ describe("Orc authored animation states", () => {
         unit.applyMoveEffect(123);
         const rotationAtDifferentScenePhase = internals.sprite?.rotation ?? 0;
 
-        expect(rotationAtPhaseZero).toBeCloseTo(Math.sin((Math.PI * 2) / 7) * 0.08, 5);
-        expect(rotationAtDifferentScenePhase).toBeCloseTo(rotationAtPhaseZero, 5);
+        expect(rotationAtPhaseZero).toBe(0);
+        expect(rotationAtDifferentScenePhase).toBe(0);
+        expect(internals.sprite?.scale.x).toBe(baseScaleX);
+        expect(internals.sprite?.scale.y).toBe(baseScaleY);
     });
 });
 
@@ -1638,6 +2004,12 @@ describe("refreshed full-body placement scale", () => {
                 BATTLEFIELD_CREATURE_FRAMING[creature].scaleX / BATTLEFIELD_CREATURE_FRAMING[creature].scaleY,
             );
             unit.startSpawnAnimation(0.125);
+            if (creature === "Troglodyte") {
+                expect(internals.spawnAnim).toBeUndefined();
+                expect(internals.sprite?.scale.x).toBe(initialScaleX);
+                expect(internals.sprite?.scale.y).toBe(initialScaleY);
+                return;
+            }
             expect(internals.spawnAnim?.endScaleX).toBe(initialScaleX);
             expect(internals.spawnAnim?.endScaleY).toBe(initialScaleY);
             expect(internals.spawnAnim?.startScaleX).toBe(initialScaleX);
@@ -1708,9 +2080,33 @@ describe("refreshed idle cadence and quadruped scale", () => {
     type IdleInternals = {
         sprite?: { scale: { x: number; y: number }; texture: Texture };
         selectionAnimFrameDurationMs: number;
+        selectionAnimFrameDurationsMs?: readonly number[];
         selectionAnimFrames?: Texture[];
         refreshedIdlePhaseRatio: number;
     };
+
+    test("selects authored idle frames from independent per-frame durations", () => {
+        const durations = [144, 144, 140, 140];
+        expect(authoredIdleFrameForElapsed(0, durations)).toBe(0);
+        expect(authoredIdleFrameForElapsed(143, durations)).toBe(0);
+        expect(authoredIdleFrameForElapsed(144, durations)).toBe(1);
+        expect(authoredIdleFrameForElapsed(288, durations)).toBe(2);
+        expect(authoredIdleFrameForElapsed(428, durations)).toBe(3);
+        expect(authoredIdleFrameForElapsed(568, durations)).toBe(0);
+        expect(authoredIdleFrameForElapsed(-1, durations)).toBe(3);
+    });
+
+    test("gives every creature the shared grounded breathing scale", () => {
+        const neutral = commonIdleBreathScalesForElapsed(0);
+        const inhale = commonIdleBreathScalesForElapsed(COMMON_IDLE_BREATH_PERIOD_MS / 4);
+        const exhale = commonIdleBreathScalesForElapsed((COMMON_IDLE_BREATH_PERIOD_MS * 3) / 4);
+
+        expect(neutral).toEqual({ x: 1, y: 1 });
+        expect(inhale.x).toBeCloseTo(1.008);
+        expect(inhale.y).toBeCloseTo(1 + 0.01035 * 1.1);
+        expect(exhale.x).toBe(1);
+        expect(exhale.y).toBeCloseTo(1 - 0.01035 * 1.1);
+    });
 
     assetTest("keeps Wolf at its authored proportions inside its two-cell footprint", () => {
         const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Wolf", "wolf_512", () => Texture.WHITE);
@@ -1732,6 +2128,17 @@ describe("refreshed idle cadence and quadruped scale", () => {
         expect(scaleY * (internals.sprite?.texture.height ?? 0)).toBeCloseTo(
             gridSettings.getCellSize() * WOLF_BOARD_MODEL_HEIGHT_CELLS * BATTLEFIELD_CREATURE_FRAMING.Wolf.scaleY,
         );
+    });
+
+    test("keeps every Wolf walk frame at the static battlefield figure's visible height", () => {
+        const staticVisibleHeightRatio = 562 / 768;
+        const walkVisibleHeights = [376, 375, 369, 365, 365, 370, 372, 370, 369, 363];
+        for (const [frameIndex, visibleHeight] of walkVisibleHeights.entries()) {
+            expect((visibleHeight / 512) * wolfWalkFrameScaleMultiplier(frameIndex)).toBeCloseTo(
+                staticVisibleHeightRatio,
+                8,
+            );
+        }
     });
 
     test("keeps the requested per-creature battlefield profiles", () => {
@@ -1834,18 +2241,142 @@ describe("refreshed idle cadence and quadruped scale", () => {
         expect(unit.playOneShotAnimation("attack", () => (actionCompleted = true))).toBe(false);
         expect(actionCompleted).toBe(true);
         expect(internals.sprite?.texture).toBe(firstIdleFrame);
+
+        // The local Animation Lab can inspect an authored atlas even while production combat motion is
+        // globally frozen; leaving the preview must restore the permanent idle immediately.
+        expect(unit.playOneShotAnimation("attack", undefined, true)).toBe(true);
+        expect(unit.isPlayingOneShotAnimation("attack")).toBe(true);
+        unit.returnToIdleAnimation();
+        expect(unit.isPlayingOneShotAnimation()).toBe(false);
+        expect(internals.sprite?.texture).toBe(firstIdleFrame);
     });
 
-    assetTest("keeps only the approved Peasant walk active while the global animation freeze is enabled", () => {
-        CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
-        expect(creatureWalkAnimationEnabledForUnit("Peasant")).toBe(true);
-        expect(creatureWalkAnimationEnabledForUnit("Troglodyte")).toBe(false);
+    assetTest(
+        "plays the approved sixteen-frame Arbalester weapon-sway idle while the global creature freeze is active",
+        () => {
+            CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
+            const resolvedKeys: string[] = [];
+            const unit = createRenderableUnit(TeamVals.LEFT, "Life", "Arbalester", "arbalester_512", (name) => {
+                resolvedKeys.push(name);
+                return Texture.WHITE;
+            });
+            unit.setPosition(0, 1024);
+            unit.ensureVisual(new Container(), gridSettings);
+            const idle = unit as unknown as IdleInternals;
 
-        const unit = createRenderableUnit(TeamVals.LEFT, "Life", "Peasant", "peasant_512", () => Texture.WHITE);
+            expect(creatureIdleAnimationEnabledForUnit("Arbalester")).toBe(true);
+            expect(resolvedKeys).toContain("arbalester_idle_atlas_quarter");
+            expect(idle.selectionAnimFrames).toHaveLength(16);
+            expect(idle.selectionAnimFrameDurationsMs).toEqual(Array(16).fill(125));
+            expect(authoredIdleFrameForElapsed(0, idle.selectionAnimFrameDurationsMs ?? [])).toBe(0);
+            expect(authoredIdleFrameForElapsed(2000, idle.selectionAnimFrameDurationsMs ?? [])).toBe(0);
+        },
+    );
+
+    assetTest("plays the approved eight-frame Arbalester walk while the global creature freeze is active", () => {
+        CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
+        const resolvedKeys: string[] = [];
+        const unit = createRenderableUnit(TeamVals.LEFT, "Life", "Arbalester", "arbalester_512", (name) => {
+            resolvedKeys.push(name);
+            return Texture.WHITE;
+        });
         unit.setPosition(0, 1024);
         unit.ensureVisual(new Container(), gridSettings);
-        const idleFrameWidth = (unit as unknown as { selectionAnimFrames?: Texture[] }).selectionAnimFrames?.[0].frame
-            .width;
+
+        unit.startBoardWalkAnimation(1, 2);
+        const walk = (
+            unit as unknown as {
+                walkAnim?: {
+                    frames: Texture[];
+                    frameIndex: number;
+                    durationPerFrameMs: number;
+                    completedCycles: number;
+                    distanceDriven?: boolean;
+                };
+            }
+        ).walkAnim;
+
+        expect(creatureWalkAnimationEnabledForUnit("Arbalester")).toBe(true);
+        expect(resolvedKeys).toContain("arbalester_walk_atlas_quarter");
+        expect(walk?.frames).toHaveLength(8);
+        expect(walk?.frameIndex).toBe(0);
+        expect(walk?.durationPerFrameMs).toBe(125);
+        expect(walk?.distanceDriven).toBe(true);
+        const openingFrame = walk?.frames[0];
+        unit.setBoardWalkDistanceCells(1.5 / 8 + 0.001);
+        expect(walk?.frameIndex).toBe(1);
+        expect((unit as unknown as { sprite?: { texture: Texture } }).sprite?.texture).not.toBe(openingFrame);
+        unit.setBoardWalkDistanceCells(1.5);
+        expect(walk?.completedCycles).toBe(1);
+        expect(walk?.frameIndex).toBe(0);
+    });
+
+    assetTest("keeps approved idles and walks active during the global freeze", () => {
+        CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
+        expect(creatureIdleAnimationEnabledForUnit("Peasant")).toBe(true);
+        expect(creatureIdleAnimationEnabledForUnit("Beholder")).toBe(true);
+        expect(creatureIdleAnimationEnabledForUnit("Squire")).toBe(true);
+        expect(creatureIdleAnimationEnabledForUnit("Arbalester")).toBe(true);
+        expect(creatureIdleAnimationEnabledForUnit("Troglodyte")).toBe(false);
+        expect(creatureWalkAnimationEnabledForUnit("Peasant")).toBe(true);
+        expect(creatureWalkAnimationEnabledForUnit("Squire")).toBe(true);
+        expect(creatureWalkAnimationEnabledForUnit("Wolf")).toBe(true);
+        expect(creatureWalkAnimationEnabledForUnit("Arbalester")).toBe(true);
+        expect(creatureWalkAnimationEnabledForUnit("Troglodyte")).toBe(false);
+
+        const greenResolvedKeys: string[] = [];
+        const unit = createRenderableUnit(TeamVals.LEFT, "Life", "Peasant", "peasant_512", (name) => {
+            greenResolvedKeys.push(name);
+            return Texture.WHITE;
+        });
+        unit.setPosition(0, 1024);
+        unit.ensureVisual(new Container(), gridSettings);
+        const idle = unit as unknown as IdleInternals;
+        expect(greenResolvedKeys).toContain("peasant_idle_atlas_quarter");
+        expect(greenResolvedKeys).not.toContain("peasant_idle_red_atlas_quarter");
+        expect(idle.selectionAnimFrames).toHaveLength(12);
+        expect(idle.selectionAnimFrameDurationMs).toBeCloseTo(
+            1000 / (4 * 1.15 * 2 * 0.89 * 1.2 * (12 / 16) * 1.13) / 0.77,
+        );
+        unit.stepSelectionAnimation(10_000);
+        const currentIdleTexture = idle.sprite?.texture;
+        unit.stepSelectionAnimation(10_000 + idle.selectionAnimFrameDurationMs + 1);
+        expect(idle.sprite?.texture).not.toBe(currentIdleTexture);
+
+        const beholderResolvedKeys: string[] = [];
+        const beholder = createRenderableUnit(TeamVals.LEFT, "Chaos", "Beholder", "beholder_512", (name) => {
+            beholderResolvedKeys.push(name);
+            return Texture.WHITE;
+        });
+        beholder.setPosition(0, 1024);
+        beholder.ensureVisual(new Container(), gridSettings);
+        const beholderIdle = beholder as unknown as IdleInternals;
+        expect(beholderResolvedKeys).toContain("beholder_idle_atlas_quarter");
+        expect(beholderResolvedKeys.at(-1)).toBe("beholder_idle_atlas_quarter");
+        expect(beholderIdle.selectionAnimFrames).toHaveLength(16);
+        expect(beholderIdle.selectionAnimFrameDurationMs).toBeCloseTo(187 / 1.3);
+        expect(beholderIdle.selectionAnimFrameDurationsMs).toHaveLength(16);
+        expect(beholderIdle.selectionAnimFrameDurationsMs?.slice(0, 11)).toEqual(Array(11).fill(187 / 1.3));
+        expect(beholderIdle.selectionAnimFrameDurationsMs?.slice(11)).toEqual(Array(5).fill((187 * 3) / 0.8 / 5));
+        beholder.stepSelectionAnimation(10_000);
+        const currentBeholderTexture = beholderIdle.sprite?.texture;
+        beholder.stepSelectionAnimation(10_000 + beholderIdle.selectionAnimFrameDurationMs + 1);
+        expect(beholderIdle.sprite?.texture).not.toBe(currentBeholderTexture);
+
+        const redResolvedKeys: string[] = [];
+        const redUnit = createRenderableUnit(TeamVals.RIGHT, "Life", "Peasant", "peasant_512", (name) => {
+            redResolvedKeys.push(name);
+            return Texture.WHITE;
+        });
+        redUnit.setPosition(0, 1024);
+        redUnit.ensureVisual(new Container(), gridSettings);
+        expect(redResolvedKeys).not.toContain("peasant_idle_red_atlas_quarter");
+        const redIdle = redUnit as unknown as IdleInternals;
+        expect(redIdle.selectionAnimFrames).toHaveLength(12);
+        expect(redIdle.selectionAnimFrames).toBe(idle.selectionAnimFrames);
+        expect(redIdle.selectionAnimFrameDurationMs).toBeCloseTo(
+            1000 / (4 * 1.15 * 2 * 0.89 * 1.2 * (12 / 16) * 1.13) / 0.77,
+        );
         unit.startBoardWalkAnimation(1);
 
         const walk = (
@@ -1863,16 +2394,15 @@ describe("refreshed idle cadence and quadruped scale", () => {
             }
         ).walkAnim;
         unit.setBoardWalkDistanceCells(0.2);
-        expect(walk?.frames).toHaveLength(9);
+        expect(walk?.frames).toHaveLength(8);
         expect(walk?.frames[0].frame.width).toBe(192);
-        expect(walk?.frames[0].frame.width).not.toBe(idleFrameWidth);
         expect(
             (unit as unknown as { battlefieldAlphaHoleFillFilter?: unknown }).battlefieldAlphaHoleFillFilter,
         ).toBeUndefined();
         expect(walk?.loopStartFrame).toBe(0);
-        expect(walk?.loopEndFrame).toBe(8);
-        expect(walk?.durationPerFrameMs).toBeCloseTo(50);
-        expect(walk?.frameDurationsMs).toBeUndefined();
+        expect(walk?.loopEndFrame).toBe(7);
+        expect(walk?.durationPerFrameMs).toBeCloseTo(15.625);
+        expect(walk?.frameDurationsMs).toEqual(Array(8).fill(15.625));
         expect(walk?.distanceDriven).toBe(true);
 
         unit.setBoardWalkDistanceCells(0.22);
@@ -1884,6 +2414,259 @@ describe("refreshed idle cadence and quadruped scale", () => {
         unit.setBoardWalkDistanceCells(2);
         expect(walk?.frameIndex).toBe(0);
         expect(walk?.completedCycles).toBe(1);
+
+        const squire = createRenderableUnit(TeamVals.LEFT, "Life", "Squire", "squire_512", () => Texture.WHITE);
+        squire.setPosition(0, 1024);
+        squire.ensureVisual(new Container(), gridSettings);
+
+        const squireInternals = squire as unknown as {
+            sprite?: { texture: Texture; rotation: number; scale: { x: number; y: number } };
+            walkAnim?: {
+                frames: Texture[];
+                loopStartFrame: number;
+                loopEndFrame: number;
+                durationPerFrameMs: number;
+                frameIndex: number;
+                distanceDriven: boolean;
+            };
+        };
+        const idleScaleX = squireInternals.sprite?.scale.x ?? 0;
+        const idleScaleY = squireInternals.sprite?.scale.y ?? 0;
+        squire.startBoardWalkAnimation(1);
+        squire.ensureVisual(new Container(), gridSettings);
+        const squireWalk = squireInternals.walkAnim;
+        expect(squireWalk?.frames).toHaveLength(9);
+        expect(squireWalk?.loopStartFrame).toBe(0);
+        expect(squireWalk?.loopEndFrame).toBe(7);
+        expect(squireWalk?.durationPerFrameMs).toBe(50);
+        expect(squireWalk?.distanceDriven).toBe(true);
+        expect(squireWalk?.frameIndex).toBe(0);
+        const walkScaleX = squireInternals.sprite?.scale.x ?? 0;
+        const walkScaleY = squireInternals.sprite?.scale.y ?? 0;
+        expect(Math.abs(walkScaleY) * (696 / 4)).toBeCloseTo(Math.abs(idleScaleY) * (726 / 4), 8);
+        expect(Math.abs(walkScaleX) * (408 / 4)).toBeCloseTo(Math.abs(idleScaleX) * (426 / 4), 1);
+        squire.applyMoveEffect(0.37);
+        expect(squireInternals.sprite?.rotation).toBe(0);
+        expect(squireInternals.sprite?.scale.x).toBe(walkScaleX);
+        expect(squireInternals.sprite?.scale.y).toBe(walkScaleY);
+        const firstSquireTexture = squireInternals.sprite?.texture;
+        const squireCycleDistance = 1.5 / 0.85;
+        squire.setBoardWalkDistanceCells(squireCycleDistance / 8);
+        expect(squireWalk?.frameIndex).toBe(1);
+        expect(squireInternals.sprite?.texture).not.toBe(firstSquireTexture);
+        squire.setBoardWalkDistanceCells(squireCycleDistance / 2);
+        expect(squireWalk?.frameIndex).toBe(4);
+        squire.setBoardWalkDistanceCells((squireCycleDistance * 7) / 8);
+        expect(squireWalk?.frameIndex).toBe(7);
+        squire.setBoardWalkDistanceCells(squireCycleDistance);
+        expect(squireWalk?.frameIndex).toBe(0);
+    });
+
+    assetTest("keeps the approved one-shot animations active during the global animation freeze", () => {
+        CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
+        expect(creatureOneShotAnimationEnabledForUnit("Peasant", "attack")).toBe(true);
+        expect(creatureOneShotAnimationEnabledForUnit("Peasant", "attack_up")).toBe(true);
+        expect(creatureOneShotAnimationEnabledForUnit("Peasant", "attack_down")).toBe(true);
+        expect(creatureOneShotAnimationEnabledForUnit("Peasant", "death")).toBe(true);
+        expect(creatureOneShotAnimationEnabledForUnit("Peasant", "hit")).toBe(true);
+        expect(creatureOneShotAnimationEnabledForUnit("Troglodyte", "attack")).toBe(false);
+        expect(PEASANT_ATTACK_RENDER_SCALE).toBeCloseTo(701 / 438);
+        expect(PEASANT_DIAGONAL_ATTACK_RENDER_SCALE).toBeCloseTo(701 / 443);
+        expect(PEASANT_ATTACK_END_RENDER_SCALE).toBe(PEASANT_ATTACK_RENDER_SCALE);
+        expect(PEASANT_ATTACK_UP_RECOVERY_RENDER_SCALES).toEqual([
+            PEASANT_DIAGONAL_ATTACK_RENDER_SCALE * PEASANT_ATTACK_FRAME_SCALE_FACTORS.attack_up[6],
+            PEASANT_DIAGONAL_ATTACK_RENDER_SCALE * PEASANT_ATTACK_FRAME_SCALE_FACTORS.attack_up[7],
+        ]);
+        expect(PEASANT_ATTACK_DOWN_END_RENDER_SCALE).toBe(
+            PEASANT_DIAGONAL_ATTACK_RENDER_SCALE * PEASANT_ATTACK_FRAME_SCALE_FACTORS.attack_down[7],
+        );
+        const supportFootContacts = {
+            attack: [289, 289.34, 289, 288, 235, 250, 289, 289],
+            attack_up: [288.6, 289, 289, 289, 289, 289, 289, 288.6],
+            attack_down: [288.6, 289, 289, 289, 289.04, 289, 289, 288.6],
+        } as const;
+        for (const state of ["attack", "attack_up", "attack_down"] as const) {
+            for (let frameIndex = 0; frameIndex < 8; frameIndex += 1) {
+                const actionScale = peasantActionScaleMultiplier(state, frameIndex);
+                const effectiveXScale =
+                    PEASANT_ATTACK_EFFECTIVE_X_SCALE * PEASANT_ATTACK_HORIZONTAL_FRAME_FACTORS[state][frameIndex];
+                expect(peasantAttackHorizontalScaleMultiplier(state, frameIndex) * actionScale).toBeCloseTo(
+                    effectiveXScale,
+                );
+                expect(effectiveXScale).toBeCloseTo(actionScale);
+                expect(
+                    (supportFootContacts[state][frameIndex] - peasantAttackAnchorX(state, frameIndex) * 768) *
+                        effectiveXScale,
+                ).toBeCloseTo(289 - 384);
+            }
+        }
+        expect(peasantActionScaleMultiplier("attack")).toBe(PEASANT_ATTACK_RENDER_SCALE);
+        expect(peasantActionScaleMultiplier("attack_up")).toBe(PEASANT_DIAGONAL_ATTACK_RENDER_SCALE);
+        expect(peasantActionScaleMultiplier("attack_down")).toBe(PEASANT_DIAGONAL_ATTACK_RENDER_SCALE);
+        expect(peasantActionScaleMultiplier("attack", 7)).toBe(PEASANT_ATTACK_END_RENDER_SCALE);
+        expect(peasantActionScaleMultiplier("attack_up", 6)).toBe(PEASANT_ATTACK_UP_RECOVERY_RENDER_SCALES[0]);
+        expect(peasantActionScaleMultiplier("attack_up", 7)).toBe(PEASANT_ATTACK_UP_RECOVERY_RENDER_SCALES[1]);
+        expect(peasantActionScaleMultiplier("attack_down", 7)).toBe(PEASANT_ATTACK_DOWN_END_RENDER_SCALE);
+        expect(peasantActionScaleMultiplier("death")).toBe(PEASANT_DEATH_RENDER_SCALE);
+        expect(PEASANT_DEATH_RENDER_SCALE).toBeCloseTo(701 / 629);
+        expect(peasantActionScaleMultiplier("hit")).toBe(1);
+
+        const unit = createRenderableUnit(TeamVals.LEFT, "Life", "Peasant", "peasant_512", () => Texture.WHITE);
+        unit.setPosition(0, 1024);
+        const worldRoot = new Container();
+        unit.ensureVisual(worldRoot, gridSettings);
+        expect((unit as unknown as { sprite?: Sprite }).sprite?.anchor.y).toBeCloseTo(730 / 768);
+
+        for (const state of ["attack", "attack_up", "attack_down"] as const) {
+            const badgeBeforeAction = unit as unknown as { badgeContainer?: Container };
+            const stableFlagPosition = {
+                x: badgeBeforeAction.badgeContainer?.x,
+                y: badgeBeforeAction.badgeContainer?.y,
+            };
+            expect(unit.playOneShotAnimation(state)).toBe(true);
+            expect(unit.isPlayingForegroundAttackAnimation()).toBe(true);
+            unit.syncVisual(worldRoot, gridSettings);
+            const attackInternals = unit as unknown as {
+                sprite?: Sprite;
+                badgeContainer?: Container;
+                oneShotAnim?: { durationPerFrame: number; frameIndex: number };
+                battlefieldAlphaHoleFillFilter?: unknown;
+            };
+            const openingScaleY = Math.abs(attackInternals.sprite?.scale.y ?? 0);
+            const openingScaleX = Math.abs(attackInternals.sprite?.scale.x ?? 0);
+            expect(attackInternals.sprite?.anchor.x).toBeCloseTo(peasantAttackAnchorX(state, 0));
+            expect(attackInternals.battlefieldAlphaHoleFillFilter).toBeUndefined();
+            expect((unit as unknown as { sprite?: Sprite }).sprite?.zIndex).toBe(CREATURE_ATTACK_FOREGROUND_Z_INDEX);
+            expect((unit as unknown as { sprite?: Sprite }).sprite?.anchor.y).toBeCloseTo(742 / 768);
+            expect(unit.getCreatureDepthSortCandidate(0)).toBeUndefined();
+            expect(
+                (unit as unknown as { oneShotAnim?: { durationPerFrame: number } }).oneShotAnim?.durationPerFrame,
+            ).toBeCloseTo(state === "attack" ? PEASANT_SIDE_ATTACK_FRAME_DURATION_MS : 45 / 1.4 / (1.2 * 1.15 * 1.1));
+            expect(attackInternals.badgeContainer?.x).toBe(stableFlagPosition.x);
+            expect(attackInternals.badgeContainer?.y).toBe(stableFlagPosition.y);
+            for (let frameIndex = 0; frameIndex < 8; frameIndex += 1) {
+                if (frameIndex > 0) {
+                    unit.stepOneShotAnimation((attackInternals.oneShotAnim?.durationPerFrame ?? 1) + 0.01);
+                    unit.syncVisual(worldRoot, gridSettings);
+                }
+                expect(attackInternals.oneShotAnim?.frameIndex).toBe(frameIndex);
+                expect(Math.abs(attackInternals.sprite?.scale.x ?? 0) / openingScaleX).toBeCloseTo(
+                    PEASANT_ATTACK_HORIZONTAL_FRAME_FACTORS[state][frameIndex] /
+                        PEASANT_ATTACK_HORIZONTAL_FRAME_FACTORS[state][0],
+                );
+                expect(attackInternals.sprite?.anchor.x).toBeCloseTo(peasantAttackAnchorX(state, frameIndex));
+                expect(attackInternals.sprite?.anchor.y).toBeCloseTo(742 / 768);
+                expect(attackInternals.badgeContainer?.x).toBe(stableFlagPosition.x);
+                expect(attackInternals.badgeContainer?.y).toBe(stableFlagPosition.y);
+            }
+            expect(attackInternals.oneShotAnim?.frameIndex).toBe(7);
+            const expectedRecoveryScale =
+                state === "attack"
+                    ? PEASANT_ATTACK_END_RENDER_SCALE
+                    : state === "attack_up"
+                      ? PEASANT_ATTACK_UP_RECOVERY_RENDER_SCALES[1]
+                      : PEASANT_ATTACK_DOWN_END_RENDER_SCALE;
+            const openingActionScale =
+                state === "attack" ? PEASANT_ATTACK_RENDER_SCALE : PEASANT_DIAGONAL_ATTACK_RENDER_SCALE;
+            expect(Math.abs(attackInternals.sprite?.scale.y ?? 0) / openingScaleY).toBeCloseTo(
+                expectedRecoveryScale / openingActionScale,
+            );
+            expect(Math.abs(attackInternals.sprite?.scale.x ?? 0) / openingScaleX).toBeCloseTo(
+                PEASANT_ATTACK_HORIZONTAL_FRAME_FACTORS[state][7] / PEASANT_ATTACK_HORIZONTAL_FRAME_FACTORS[state][0],
+            );
+            expect(attackInternals.sprite?.anchor.x).toBeCloseTo(peasantAttackAnchorX(state, 7));
+            unit.stepOneShotAnimation(10_000);
+            expect(unit.isPlayingForegroundAttackAnimation()).toBe(false);
+            unit.syncVisual(worldRoot, gridSettings);
+            expect((unit as unknown as { sprite?: Sprite }).sprite?.anchor.y).toBeCloseTo(730 / 768);
+        }
+    });
+
+    assetTest("keeps Peasant authored motion isolated from generic combat overlays", () => {
+        CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
+        expect(creatureGenericWholeSpriteMotionEnabledForLevel(1)).toBe(false);
+        expect(creatureGenericWholeSpriteMotionEnabledForLevel(2)).toBe(true);
+        expect(creatureGenericCombatMotionEnabledForUnit("Peasant", 1)).toBe(false);
+        expect(creatureGenericCombatMotionEnabledForUnit("Troglodyte", 1)).toBe(false);
+        expect(creatureGenericCombatMotionEnabledForUnit("Satyr", 2)).toBe(true);
+
+        const unit = createRenderableUnit(TeamVals.LEFT, "Life", "Peasant", "peasant_512", () => Texture.WHITE);
+        unit.setPosition(0, 1024);
+        const worldRoot = new Container();
+        unit.ensureVisual(worldRoot, gridSettings);
+        expect(unit.playOneShotAnimation("attack")).toBe(true);
+
+        type PeasantMotionInternals = {
+            sprite?: Sprite;
+            facingDirection: -1 | 1;
+            recoilStartMs: number;
+            recoilDx: number;
+            recoilDy: number;
+            recoilShakeAmplitude: number;
+            recoilWindup: boolean;
+        };
+        const internals = unit as unknown as PeasantMotionInternals;
+        unit.syncVisual(worldRoot, gridSettings);
+        const attackX = internals.sprite?.x;
+        const attackY = internals.sprite?.y;
+        const attackFacing = internals.facingDirection;
+        const expectNoGenericRecoil = (): void => {
+            expect(internals.recoilStartMs).toBe(0);
+            expect(internals.recoilDx).toBe(0);
+            expect(internals.recoilDy).toBe(0);
+            expect(internals.recoilShakeAmplitude).toBe(0);
+            expect(internals.recoilWindup).toBe(false);
+        };
+
+        unit.applyRecoil(40, -20);
+        expectNoGenericRecoil();
+        unit.applyWindupRecoil(40, -20);
+        expectNoGenericRecoil();
+        unit.applyHitReaction(40, -20);
+        expectNoGenericRecoil();
+        expect(unit.isPlayingOneShotAnimation("attack")).toBe(true);
+        expect(internals.facingDirection).toBe(attackFacing);
+
+        let hitCallbackCompleted = false;
+        expect(unit.playOneShotAnimation("hit", () => (hitCallbackCompleted = true))).toBe(true);
+        unit.syncVisual(worldRoot, gridSettings);
+        expect(
+            (unit as unknown as { battlefieldAlphaHoleFillFilter?: unknown }).battlefieldAlphaHoleFillFilter,
+        ).toBeUndefined();
+        expect(hitCallbackCompleted).toBe(false);
+        expect(unit.isPlayingOneShotAnimation("hit")).toBe(true);
+        expect(
+            (unit as unknown as { oneShotAnim?: { durationPerFrame: number } }).oneShotAnim?.durationPerFrame,
+        ).toBeCloseTo(51.98);
+        unit.stepOneShotAnimation(414);
+        expect(hitCallbackCompleted).toBe(false);
+        expect(unit.isPlayingOneShotAnimation("hit")).toBe(true);
+        unit.stepOneShotAnimation(2);
+        expect(hitCallbackCompleted).toBe(true);
+
+        let realTimeHitCompleted = false;
+        expect(unit.playOneShotAnimation("hit", () => (realTimeHitCompleted = true))).toBe(true);
+        for (let tick = 0; tick < 24; tick++) unit.stepSpawnAnimation(1 / 240);
+        expect(realTimeHitCompleted).toBe(false);
+        unit.stepSpawnAnimation(1 / 240);
+        expect(realTimeHitCompleted).toBe(true);
+
+        unit.applyHitReaction(40, -20);
+        expectNoGenericRecoil();
+        expect(unit.isPlayingOneShotAnimation("hit")).toBe(true);
+
+        const activeHit = (unit as unknown as { oneShotAnim?: { elapsed: number } }).oneShotAnim;
+        unit.stepOneShotAnimation(20);
+        const elapsedBeforeRepeatedDamage = activeHit?.elapsed;
+        unit.applyHitReaction(40, -20);
+        expect((unit as unknown as { oneShotAnim?: { elapsed: number } }).oneShotAnim).toBe(activeHit);
+        expect(activeHit?.elapsed).toBe(elapsedBeforeRepeatedDamage);
+
+        unit.playDodgeAnimation(40, -20);
+        expect(unit.isDodging()).toBe(false);
+        unit.syncVisual(worldRoot, gridSettings);
+        expect(internals.sprite?.x).toBe(attackX);
+        expect(internals.sprite?.y).toBe(attackY);
     });
 
     test("does not request disabled Orc flourish sheets while rendering its static cutout", () => {
@@ -1929,6 +2712,18 @@ describe("Scavenger thief visual replacement", () => {
         return unit;
     };
 
+    assetTest("keeps the restyled static figure undistorted on the existing foot line", () => {
+        const unit = createScavenger();
+        const internals = unit as unknown as AnimationInternals;
+
+        expect(internals.sprite?.texture.width).toBe(768);
+        expect(internals.sprite?.texture.height).toBe(768);
+        expect(Math.abs(internals.sprite?.scale.x ?? 0)).toBeCloseTo(Math.abs(internals.sprite?.scale.y ?? 0));
+        expect(internals.sprite?.y).toBeCloseTo(
+            tallBoardModelFootLineY(1024, gridSettings.getCellSize()) - gridSettings.getCellSize() * 0.03,
+        );
+    });
+
     assetTest("uses the complete thief animation set at Squire's visible height", () => {
         const unit = createScavenger();
         const internals = unit as unknown as AnimationInternals;
@@ -1936,14 +2731,11 @@ describe("Scavenger thief visual replacement", () => {
         expect(internals.selectionAnimFrames).toHaveLength(8);
         expect(internals.sprite?.texture.width).toBe(160);
         expect(internals.sprite?.texture.height).toBe(192);
-        expect(Math.abs(internals.sprite?.scale.x ?? 0)).toBeCloseTo(
-            ((gridSettings.getCellSize() * (SCAVENGER_BOARD_MODEL_HEIGHT_CELLS / 1.5)) / 121) *
-                BATTLEFIELD_CREATURE_FRAMING.Scavenger.scaleX,
-        );
-        expect(Math.abs(internals.sprite?.scale.y ?? 0)).toBeCloseTo(
+        const expectedUniformScale =
             ((gridSettings.getCellSize() * SCAVENGER_BOARD_MODEL_HEIGHT_CELLS) / 186) *
-                BATTLEFIELD_CREATURE_FRAMING.Scavenger.scaleY,
-        );
+            BATTLEFIELD_CREATURE_FRAMING.Scavenger.scaleY;
+        expect(Math.abs(internals.sprite?.scale.x ?? 0)).toBeCloseTo(expectedUniformScale);
+        expect(Math.abs(internals.sprite?.scale.y ?? 0)).toBeCloseTo(expectedUniformScale);
         expect(internals.sprite?.y).toBeCloseTo(tallBoardModelFootLineY(1024, gridSettings.getCellSize()));
         expect(thiefIdleBreathScaleForElapsed(0)).toBeCloseTo(1);
         expect(thiefIdleBreathScaleForElapsed(2800 / 4)).toBeCloseTo(1 + 0.01035 * 1.1);
@@ -1972,6 +2764,7 @@ describe("Scavenger thief visual replacement", () => {
                 SCAVENGER_BOARD_MODEL_HEIGHT_CELLS *
                 BATTLEFIELD_CREATURE_FRAMING.Scavenger.scaleY,
         );
+        expect(Math.abs(internals.sprite?.scale.x ?? 0)).toBeCloseTo(Math.abs(internals.sprite?.scale.y ?? 0));
         const walkScaleX = internals.sprite?.scale.x;
         const walkScaleY = internals.sprite?.scale.y;
         unit.applyMoveEffect(123);
@@ -1993,10 +2786,9 @@ describe("Scavenger thief visual replacement", () => {
         const expectedScaleY = internals.sprite?.scale.y;
         const boardScale = unit.getCurrentVisualScale();
         unit.startSpawnAnimation(boardScale);
-        expect(internals.spawnAnim?.endScaleX).toBe(expectedScaleX);
-        expect(internals.spawnAnim?.endScaleY).toBe(expectedScaleY);
-        expect(internals.spawnAnim?.startScaleX).toBe(internals.spawnAnim?.endScaleX);
-        expect(internals.spawnAnim?.startScaleY).toBe(internals.spawnAnim?.endScaleY);
+        expect(internals.spawnAnim).toBeUndefined();
+        expect(internals.sprite?.scale.x).toBe(expectedScaleX);
+        expect(internals.sprite?.scale.y).toBe(expectedScaleY);
     });
 
     assetTest("twirls both blades after four inactive breaths and battle-cries immediately on its active turn", () => {
@@ -2248,12 +3040,8 @@ describe("RenderableUnit revealed roster card", () => {
         return { unit, worldRoot };
     };
 
-    // The stack badge is also a Container+Text, so match on the caption text (the creature's name).
-    const cardOf = (worldRoot: Container, name = "Satyr"): Container | undefined =>
-        worldRoot.children.find(
-            (child) =>
-                child instanceof Container && child.children.some((leaf) => leaf instanceof Text && leaf.text === name),
-        ) as Container | undefined;
+    const cardOf = (unit: RenderableUnit): Container | undefined =>
+        (unit as unknown as { rosterCard?: Container }).rosterCard;
 
     test("traces one-cell and four-cell markers on the exact painted deployment seams", () => {
         const singleCell = { x: 12, y: 8 };
@@ -2286,33 +3074,33 @@ describe("RenderableUnit revealed roster card", () => {
         );
     });
 
-    test("names the creature and draws its plate beneath the silhouette", () => {
-        const { worldRoot } = revealedUnit();
-        const card = cardOf(worldRoot);
+    test("draws only its plate beneath the silhouette at full filter resolution", () => {
+        const { unit, worldRoot } = revealedUnit();
+        const card = cardOf(unit);
 
         expect(card).toBeDefined();
         expect(card!.visible).toBe(true);
-        const label = card!.children.find((child) => child instanceof Text) as Text;
-        expect(label.text).toBe("Satyr");
         expect(card!.children.some((child) => child instanceof Graphics)).toBe(true);
-        // The caption sits below the unit on screen; worldRoot is y-up, so that is a SMALLER y.
-        expect(label.y).toBeLessThan(pos.y);
+        expect(card!.children.some((child) => child instanceof Text)).toBe(false);
         // Behind the sprite (higher zIndex draws later/on top).
-        const sprite = worldRoot.children.find((child) => child.zIndex === 4000 - pos.y);
+        const sprite = worldRoot.children.find((child) => child.zIndex === 4000 - pos.y) as Sprite;
         expect(sprite).toBeDefined();
         expect(card!.zIndex).toBeLessThan(sprite!.zIndex);
+        const grayscale = sprite.filters?.find((filter) => filter instanceof ColorMatrixFilter);
+        expect(grayscale).toBeDefined();
+        expect(grayscale!.resolution).toBe("inherit");
+        expect(grayscale!.antialias).toBe("inherit");
     });
 
     test("follows the unit and disappears once it is no longer a revealed silhouette", () => {
         const { unit, worldRoot } = revealedUnit();
-        const card = cardOf(worldRoot)!;
-        const labelBefore = (card.children.find((child) => child instanceof Text) as Text).y;
+        const card = cardOf(unit)!;
+        const zIndexBefore = card.zIndex;
 
         unit.setPosition(pos.x + 300, pos.y);
         unit.ensureVisual(worldRoot, gridSettings);
-        const label = card.children.find((child) => child instanceof Text) as Text;
-        expect(label.x).toBe(pos.x + 300);
-        expect(label.y).toBe(labelBefore);
+        expect(card.visible).toBe(true);
+        expect(card.zIndex).toBe(zIndexBefore);
 
         unit.setVisualRevealed(false);
         unit.ensureVisual(worldRoot, gridSettings);
@@ -2325,23 +3113,40 @@ describe("RenderableUnit revealed roster card", () => {
         const worldRoot = new Container();
         unit.ensureVisual(worldRoot, gridSettings);
 
-        expect(cardOf(worldRoot)).toBeUndefined();
+        expect(cardOf(unit)).toBeUndefined();
     });
 });
 
 describe("RenderableUnit steady-state overlays", () => {
     type OverlayInternals = {
+        activeAura?: Container;
+        activeAuraGlow?: Graphics;
+        activeAuraMask?: Graphics;
+        activeTurnFireSprite?: Sprite;
         badgeContainer?: Container;
         badgeHeader?: Graphics;
         badgeFlag?: Graphics;
         badgeFlagGlow?: Graphics;
         activeTurnPointer?: Graphics;
+        sprite?: Sprite;
+        badgeDrawState?: {
+            geometry: {
+                bannerLeft: number;
+                bannerRight: number;
+                bannerBottom: number;
+                flagHeight: number;
+                headerWidth: number;
+                borderWidth: number;
+            };
+        };
         stackPowerPips: Graphics[];
         stackPowerDrawState?: { power: number };
         hourglassContainer?: Container;
+        hourglassSprite?: Sprite;
         stunContainer?: Container;
+        stunSprite?: Sprite;
         respondContainer?: Container;
-        activeAura?: Graphics;
+        respondSprite?: Sprite;
         updateActiveAura: (
             worldRoot: Container,
             gs: typeof gridSettings,
@@ -2358,21 +3163,206 @@ describe("RenderableUnit steady-state overlays", () => {
         smallTextureName: string;
     };
 
-    test("resolves its stable base texture only once across steady visual frames", () => {
-        const resolutions = new Map<string, number>();
-        const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Satyr", "satyr_512", (name) => {
-            resolutions.set(name, (resolutions.get(name) ?? 0) + 1);
-            return Texture.WHITE;
-        });
+    test("synchronizes the all-gold pointer enlargement with its glow pulse", () => {
+        expect(ACTIVE_TURN_POINTER_SIZE_SCALE).toBeCloseTo(2.067);
+        expect(activeFlagScaleForTime(0)).toBeCloseTo(1);
+        expect(activeFlagScaleForTime(0.35)).toBeCloseTo(1.04);
+        expect(activeFlagScaleForTime(0.7)).toBeCloseTo(1.08);
+        expect(activeFlagScaleForTime(1.4)).toBeCloseTo(1);
+        expect(activeFlagGlowAlphaForTime(0)).toBeCloseTo(0.32);
+        expect(activeFlagGlowAlphaForTime(0.35)).toBeCloseTo(0.61);
+        expect(activeFlagGlowAlphaForTime(0.7)).toBeCloseTo(0.9);
+        expect(activeFlagGlowAlphaForTime(1.4)).toBeCloseTo(0.32);
+    });
+
+    test("adds a visible six percent of one board cell above the established flag gap", () => {
+        const cellSide = 70;
+        const flagWidth = cellSide * 0.42;
+        const flagHeight = 13;
+
+        expect(activeTurnPointerGap(flagHeight, flagWidth)).toBeCloseTo(2 + cellSide * 0.06);
+    });
+
+    test("keeps the flag upright while its manual head anchor follows a mirrored creature", () => {
+        const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
+        unit.setPosition(0, 1024);
+        const worldRoot = new Container();
+        const internals = unit as unknown as OverlayInternals;
+        const offsetFromSpriteCenter = () => {
+            const bounds = internals.sprite!.getBounds();
+            return internals.badgeContainer!.x - (bounds.x + bounds.width * 0.5);
+        };
+
+        unit.setBoardFacing(1);
+        unit.ensureVisual(worldRoot, gridSettings);
+        const originalOffset = offsetFromSpriteCenter();
+
+        unit.setBoardFacing(-1);
+        unit.ensureVisual(worldRoot, gridSettings);
+        const mirroredOffset = offsetFromSpriteCenter();
+
+        expect(mirroredOffset).toBeCloseTo(-originalOffset, 8);
+        expect(internals.badgeContainer?.scale.x).toBeGreaterThan(0);
+    });
+
+    test("shows one downward all-gold pointer above only the active unit's flag", () => {
+        const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
         unit.setPosition(0, 1024);
         const worldRoot = new Container();
 
         unit.ensureVisual(worldRoot, gridSettings);
-        unit.ensureVisual(worldRoot, gridSettings);
-        unit.ensureVisual(worldRoot, gridSettings);
+        const internals = unit as unknown as OverlayInternals;
+        expect(internals.activeTurnPointer).toBeDefined();
+        expect(internals.activeTurnPointer!.visible).toBe(false);
 
-        const baseKey = (unit as unknown as OverlayInternals).smallTextureName;
-        expect(resolutions.get(baseKey)).toBe(1);
+        unit.setActiveTurn(true);
+        unit.syncVisual(worldRoot, gridSettings);
+        const geometry = internals.badgeDrawState!.geometry;
+        expect(internals.activeTurnPointer!.visible).toBe(true);
+        expect(internals.badgeFlagGlow!.visible).toBe(true);
+        // The world root is y-up, so a larger local y is visually above the flag.
+        expect(internals.activeTurnPointer!.y).toBeCloseTo(
+            geometry.bannerBottom + activeTurnPointerGap(geometry.flagHeight, geometry.headerWidth),
+        );
+        const pointerFill = internals.activeTurnPointer!.context.instructions.find(
+            (instruction) => instruction.action === "fill",
+        ) as unknown as { data: { style: { color: number } } };
+        expect(pointerFill.data.style.color).toBe(0xffc83d);
+        const pointerStroke = internals.activeTurnPointer!.context.instructions.find(
+            (instruction) => instruction.action === "stroke",
+        ) as unknown as { data: { style: { color: number; pixelLine: boolean; width: number } } };
+        expect(pointerStroke.data.style.color).toBe(0x100d08);
+        expect(pointerStroke.data.style.width).toBe(1);
+        expect(pointerStroke.data.style.pixelLine).toBe(true);
+
+        unit.setActiveTurn(false);
+        unit.syncVisual(worldRoot, gridSettings);
+        expect(internals.activeTurnPointer!.visible).toBe(false);
+        expect(internals.badgeFlagGlow!.visible).toBe(false);
+    });
+
+    test("hides the active-turn pointer immediately when movement or an action begins", () => {
+        const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
+        unit.setPosition(0, 1024);
+        unit.setActiveTurn(true);
+        const worldRoot = new Container();
+
+        unit.syncVisual(worldRoot, gridSettings);
+        const internals = unit as unknown as OverlayInternals;
+        expect(internals.activeTurnPointer!.visible).toBe(true);
+        expect(internals.badgeFlagGlow!.visible).toBe(true);
+
+        // Hiding is synchronous and does not depend on whether this creature has an authored walk atlas.
+        unit.startBoardWalkAnimation(1);
+        expect(internals.activeTurnPointer!.visible).toBe(false);
+        expect(internals.badgeFlagGlow!.visible).toBe(false);
+        unit.syncVisual(worldRoot, gridSettings);
+        expect(internals.activeTurnPointer!.visible).toBe(false);
+
+        // A new turn resets the latch; starting any action then consumes the marker in the same way.
+        unit.setActiveTurn(false);
+        unit.setActiveTurn(true);
+        unit.syncVisual(worldRoot, gridSettings);
+        expect(internals.activeTurnPointer!.visible).toBe(true);
+
+        unit.playOneShotAnimation("attack");
+        expect(internals.activeTurnPointer!.visible).toBe(false);
+        expect(internals.badgeFlagGlow!.visible).toBe(false);
+        unit.syncVisual(worldRoot, gridSettings);
+        expect(internals.activeTurnPointer!.visible).toBe(false);
+    });
+
+    test("keeps the damage anchor independent from the active flag pulse scale", () => {
+        const anchorAtDimPulse = stableDamagePredictionBadgeScreenTop(200, 3, 16, 0.87, 1);
+        const anchorAtBrightPulse = stableDamagePredictionBadgeScreenTop(200, 3, 16, 0.87, 1);
+
+        expect(anchorAtBrightPulse).toBe(anchorAtDimPulse);
+        expect(anchorAtBrightPulse).toBeCloseTo(183.08);
+    });
+
+    test("keeps the animated gold flag contour at one physical screen pixel", () => {
+        const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
+        unit.setPosition(0, 1024);
+        const worldRoot = new Container();
+
+        unit.ensureVisual(worldRoot, gridSettings);
+        const flag = (unit as unknown as OverlayInternals).badgeFlag!;
+        const strokes = flag.context.instructions.filter((instruction) => instruction.action === "stroke");
+        const finalStroke = strokes.at(-1) as unknown as {
+            data: { style: { color: number; alpha: number; pixelLine: boolean } };
+        };
+
+        expect(finalStroke.data.style.color).toBe(0xb08a45);
+        expect(finalStroke.data.style.alpha).toBe(1);
+        expect(finalStroke.data.style.pixelLine).toBe(true);
+    });
+
+    test("moves the active-turn glow off the static flag and onto the pointer", () => {
+        const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
+        unit.setPosition(0, 1024);
+        unit.setActiveTurn(true);
+        const worldRoot = new Container();
+
+        unit.syncVisual(worldRoot, gridSettings);
+        const internals = unit as unknown as OverlayInternals;
+        const flagStrokeColors = internals
+            .badgeFlag!.context.instructions.filter((instruction) => instruction.action === "stroke")
+            .map((instruction) => (instruction.data.style as { color: number }).color);
+        const flagGlowStrokes = internals.badgeFlagGlow!.context.instructions.filter(
+            (instruction) => instruction.action === "stroke",
+        );
+        const flagGlowStyles = flagGlowStrokes.map(
+            (instruction) => instruction.data.style as { color: number; alpha: number },
+        );
+        const pointerStrokeColors = internals
+            .activeTurnPointer!.context.instructions.filter((instruction) => instruction.action === "stroke")
+            .map((instruction) => (instruction.data.style as { color: number }).color);
+
+        expect(internals.activeAura).toBeUndefined();
+        expect(internals.activeTurnFireSprite).toBeUndefined();
+        expect(internals.badgeFlagGlow?.visible).toBe(true);
+        expect(flagStrokeColors.at(-1)).toBe(0xb08a45);
+        expect(pointerStrokeColors).toContain(0x100d08);
+        expect(flagGlowStrokes).toHaveLength(2);
+        expect(flagGlowStyles.every(({ color }) => color === 0xffd05a)).toBe(true);
+        expect(flagGlowStyles.every(({ alpha }) => alpha > 0)).toBe(true);
+
+        // Placement hover remains a separate pre-combat interaction and may still use the footprint light.
+        unit.setActiveTurn(false);
+        unit.setHoverTurnAura(true);
+        unit.syncVisual(worldRoot, gridSettings);
+        expect(internals.activeAura?.visible).toBe(true);
+        expect(internals.badgeFlagGlow?.visible).toBe(false);
+    });
+
+    test("uses one borderless placement-hover footprint beneath a two-by-two creature", () => {
+        const unit = createRenderableUnit(
+            TeamVals.RIGHT,
+            "Chaos",
+            "Black Dragon",
+            "black_dragon_512",
+            () => Texture.WHITE,
+        );
+        unit.setPosition(0, 1024);
+        unit.setHoverTurnAura(true);
+        const worldRoot = new Container();
+
+        unit.syncVisual(worldRoot, gridSettings);
+        const internals = unit as unknown as OverlayInternals;
+        const cellGlowFills = internals.activeAuraGlow!.context.instructions.filter(
+            (instruction) => instruction.action === "fill",
+        );
+        const cellGlowStrokes = internals.activeAuraGlow!.context.instructions.filter(
+            (instruction) => instruction.action === "stroke",
+        );
+        const footprintMaskFills = internals.activeAuraMask!.context.instructions.filter(
+            (instruction) => instruction.action === "fill",
+        );
+
+        expect(unit.getCells()).toHaveLength(4);
+        expect(cellGlowFills).toHaveLength(2);
+        expect(cellGlowStrokes).toHaveLength(0);
+        expect(footprintMaskFills).toHaveLength(1);
     });
 
     test("keeps the compact amount ribbon hidden with the unit and leaves the old power rail disabled", () => {
@@ -2398,6 +3388,153 @@ describe("RenderableUnit steady-state overlays", () => {
         expect(internals.badgeFlag).toBeInstanceOf(Graphics);
         expect(internals.badgeContainer?.visible).toBe(false);
         expect(internals.stackPowerPips).toHaveLength(0);
+    });
+
+    test("attaches the hourglass left of the flag and crossed response swords behind it", () => {
+        const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
+        unit.setPosition(0, 1024);
+        unit.setOnHourglass(true);
+        const worldRoot = new Container();
+
+        unit.ensureVisual(worldRoot, gridSettings);
+        const internals = unit as unknown as OverlayInternals;
+        const bareFlagX = internals.badgeContainer!.x;
+        const bareFlagY = internals.badgeContainer!.y;
+        expect(internals.respondContainer).toBeUndefined();
+
+        AllAbilities.processOneInTheFieldAbility(unit);
+        // The real combat-engine callback runs after its last scene sync, so visibility must change immediately.
+        expect(internals.respondContainer?.visible).toBe(true);
+        unit.ensureVisual(worldRoot, gridSettings);
+        const {
+            bannerLeft: flagLeft,
+            bannerRight: flagRight,
+            flagHeight,
+            headerWidth,
+        } = internals.badgeDrawState!.geometry;
+
+        expect(internals.hourglassContainer?.parent).toBe(internals.badgeContainer);
+        expect(internals.respondContainer?.parent).toBe(internals.badgeContainer);
+        expect(internals.badgeContainer?.sortableChildren).toBe(false);
+        expect(internals.respondContainer?.zIndex).toBe(0);
+        expect(internals.respondContainer?.visible).toBe(true);
+        expect(internals.respondSprite?.visible).toBe(true);
+        expect(internals.badgeContainer!.getChildIndex(internals.respondContainer!)).toBeLessThan(
+            internals.badgeContainer!.getChildIndex(internals.badgeFlag!),
+        );
+        // Turning the response marker on must not move or redraw the existing flag itself.
+        expect(internals.badgeContainer!.x).toBe(bareFlagX);
+        expect(internals.badgeContainer!.y).toBe(bareFlagY);
+        expect(internals.hourglassContainer!.x).toBeLessThan(flagLeft);
+        expect(internals.hourglassContainer!.y).toBe(0);
+        expect(internals.respondContainer!.x).toBeCloseTo((flagLeft + flagRight) * 0.5);
+        expect(internals.respondContainer!.y).toBe(0);
+        expect(internals.hourglassSprite!.height).toBeCloseTo(flagHeight);
+        // The source has broad transparent padding, so its canvas must be much larger than the flag for
+        // the actual opaque blades and hilts to protrude clearly from behind the cloth on the zoomed-out map.
+        expect(internals.respondSprite!.width).toBeCloseTo(headerWidth * 2.25);
+        expect(internals.respondSprite!.height).toBeCloseTo(headerWidth * 2.25 * 0.8);
+        expect(internals.respondSprite!.width).toBeGreaterThan(flagRight - flagLeft);
+        expect(internals.respondSprite!.height).toBeGreaterThan(flagHeight);
+        // Nine transparent pixels at the texture's right edge are tucked into the banner, so the visible
+        // gold hourglass rail—not merely its 64 px canvas—meets the flag while both stay equal in height.
+        expect(internals.hourglassContainer!.x + flagHeight * (0.5 - 9 / 64)).toBeCloseTo(flagLeft);
+
+        const responseEmblemX = internals.respondContainer!.x;
+        const responseEmblemY = internals.respondContainer!.y;
+        unit.setOnHourglass(false);
+        unit.ensureVisual(worldRoot, gridSettings);
+        expect(internals.hourglassContainer?.visible).toBe(false);
+        expect(internals.respondContainer?.x).toBe(responseEmblemX);
+        expect(internals.respondContainer?.y).toBe(responseEmblemY);
+    });
+
+    test("replaces the hourglass with the forged hand stun badge in the same flag slot", () => {
+        const requestedTextures: string[] = [];
+        const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Satyr", "satyr_512", (textureName) => {
+            requestedTextures.push(textureName);
+            return Texture.WHITE;
+        });
+        unit.setPosition(0, 1024);
+        unit.setOnHourglass(true);
+        unit.setSkipping(true);
+        const worldRoot = new Container();
+
+        unit.ensureVisual(worldRoot, gridSettings);
+        const internals = unit as unknown as OverlayInternals;
+        const { bannerLeft: flagLeft, flagHeight } = internals.badgeDrawState!.geometry;
+
+        expect(requestedTextures).toContain("stun_hand_forged");
+        expect(internals.hourglassContainer).toBeUndefined();
+        expect(internals.stunContainer?.parent).toBe(internals.badgeContainer);
+        expect(internals.stunContainer?.visible).toBe(true);
+        expect(internals.stunContainer?.y).toBe(0);
+        const layout = stunBadgeLayout(flagHeight, flagLeft, DEFAULT_STUN_BADGE_TUNING);
+        expect(internals.stunSprite?.width).toBeCloseTo(layout.width);
+        expect(internals.stunSprite?.height).toBeCloseTo(layout.height);
+        expect(internals.stunContainer!.x).toBeCloseTo(layout.centerX);
+
+        unit.setSkipping(false);
+        unit.ensureVisual(worldRoot, gridSettings);
+        expect(internals.stunContainer?.visible).toBe(false);
+        expect(internals.hourglassContainer?.visible).toBe(true);
+        expect(internals.hourglassContainer?.parent).toBe(internals.badgeContainer);
+    });
+
+    test("shows the board stun badge immediately when an already-rendered unit receives the effect", () => {
+        const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
+        unit.setPosition(0, 1024);
+        unit.setOnHourglass(true);
+        unit.ensureVisual(new Container(), gridSettings);
+        const internals = unit as unknown as OverlayInternals;
+        expect(internals.hourglassContainer?.visible).toBe(true);
+        expect(internals.stunContainer).toBeUndefined();
+
+        const stun = new EffectFactory().makeEffect("Stun");
+        expect(stun).toBeDefined();
+        expect(unit.applyEffect(stun!)).toBe(true);
+
+        expect(internals.hourglassContainer?.visible).toBe(false);
+        expect(internals.stunContainer?.visible).toBe(true);
+        expect(internals.stunContainer?.parent).toBe(internals.badgeContainer);
+
+        unit.deleteEffect("Stun");
+        expect(internals.stunContainer?.visible).toBe(false);
+        expect(internals.hourglassContainer?.visible).toBe(true);
+    });
+
+    test("shows the board stun badge immediately when ranked snapshot metadata arrives", () => {
+        const unit = createRenderableUnit(TeamVals.RIGHT, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
+        unit.setPosition(0, 1024);
+        unit.ensureVisual(new Container(), gridSettings);
+        const internals = unit as unknown as OverlayInternals;
+        expect(internals.stunContainer).toBeUndefined();
+
+        unit.setSkipping(true);
+        expect(internals.stunContainer?.visible).toBe(true);
+        expect(internals.stunContainer?.parent).toBe(internals.badgeContainer);
+
+        unit.setSkipping(false);
+        expect(internals.stunContainer?.visible).toBe(false);
+    });
+
+    test("keeps crossed swords visible when a lap flip clears responded before the next rendered frame", () => {
+        const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
+        unit.setPosition(0, 1024);
+        unit.ensureVisual(new Container(), gridSettings);
+        const internals = unit as unknown as OverlayInternals;
+
+        // In a two-stack fight the combat engine can retaliate and roll the lap inside one synchronous
+        // action. Pixi never sees the intermediate true state unless the visual feedback is latched.
+        unit.setResponded(true);
+        unit.setResponded(false);
+
+        expect(unit.getResponded()).toBe(false);
+        expect((unit as unknown as { respondFeedbackUntilMs: number }).respondFeedbackUntilMs).toBeGreaterThan(
+            performance.now(),
+        );
+        expect(internals.respondContainer?.visible).toBe(true);
+        unit.destroyVisuals();
     });
 
     test("previews stack power without changing the unit's mechanical value", () => {
@@ -2477,29 +3614,6 @@ describe("RenderableUnit steady-state overlays", () => {
         expect(clearCount).toBe(0);
         unit.ensureVisual(worldRoot, gridSettings, 151);
         expect(clearCount).toBe(1);
-    });
-
-    test("coalesces active-aura redraws inside one rendered frame", () => {
-        const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
-        const worldRoot = new Container();
-        const internals = unit as unknown as OverlayInternals;
-        const pos = { x: 384, y: 640 };
-        internals.updateActiveAura(worldRoot, gridSettings, pos, 1_000);
-
-        const aura = internals.activeAura!;
-        const originalClear = aura.clear.bind(aura);
-        let clearCount = 0;
-        aura.clear = () => {
-            clearCount++;
-            return originalClear();
-        };
-
-        internals.updateActiveAura(worldRoot, gridSettings, pos, 1_001);
-        expect(clearCount).toBe(0);
-        internals.updateActiveAura(worldRoot, gridSettings, pos, 1_004);
-        expect(clearCount).toBe(1);
-        internals.updateActiveAura(worldRoot, gridSettings, { x: pos.x + 1, y: pos.y }, 1_005);
-        expect(clearCount).toBe(2);
     });
 
     test("coalesces stationary status-effect redraws but follows movement immediately", () => {
@@ -2692,39 +3806,6 @@ describe("RenderableUnit dodge animation", () => {
 });
 
 describe("RenderableUnit filter lifecycle", () => {
-    test("scopes cached animation frames to the live parent atlas texture", () => {
-        const makeTexture = () =>
-            new Texture({
-                source: new BufferImageSource({ resource: new Uint8Array(4), width: 8192, height: 8192 }),
-            });
-        const firstTexture = makeTexture();
-        const secondTexture = makeTexture();
-        const createSatyr = (texture: Texture) => {
-            const unit = createRenderableUnit(TeamVals.RIGHT, "Nature", "Satyr", "satyr_512", () => texture);
-            unit.setPosition(0, 1024);
-            unit.ensureVisual(new Container(), gridSettings);
-            return unit;
-        };
-
-        const first = createSatyr(firstTexture);
-        const firstFrames = (first as unknown as { selectionAnimFrames?: Texture[] }).selectionAnimFrames;
-        expect(firstFrames?.length).toBeGreaterThan(1);
-        expect(firstFrames?.[0].source).toBe(firstTexture.source);
-        first.destroyVisuals();
-
-        const second = createSatyr(secondTexture);
-        const secondFrames = (second as unknown as { selectionAnimFrames?: Texture[] }).selectionAnimFrames;
-        expect(secondFrames?.length).toBe(firstFrames?.length);
-        expect(secondFrames).not.toBe(firstFrames);
-        expect(secondFrames?.[0].source).toBe(secondTexture.source);
-        second.destroyVisuals();
-
-        for (const frame of firstFrames ?? []) frame.destroy(false);
-        for (const frame of secondFrames ?? []) frame.destroy(false);
-        firstTexture.destroy(true);
-        secondTexture.destroy(true);
-    });
-
     test("does not retain scene-leased static battlefield frames across scene replacements", () => {
         CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
         const makeTexture = () =>
@@ -2866,22 +3947,9 @@ describe("RenderableUnit filter lifecycle", () => {
 });
 
 /**
- * Rectangular footprints (2x1, 1x2 — any WxH). No shipped creature declares one yet, so these build the
- * shape through the engine's QA override, which is the same lever a browser session uses. Every case here
- * either asserts the rectangle's own geometry or pins that a square body is left exactly as it was.
+ * Rectangular footprints (2x1, 1x2 — any WxH). Mounted and long-bodied creatures now ship as 2x1.
  */
 describe("rectangular footprints", () => {
-    const withFootprintOverride = <T>(source: string, body: () => T): T => {
-        const holder = globalThis as { __hocFootprintOverrides?: string };
-        const previous = holder.__hocFootprintOverrides;
-        holder.__hocFootprintOverrides = source;
-        try {
-            return body();
-        } finally {
-            holder.__hocFootprintOverrides = previous;
-        }
-    };
-
     const spriteOf = (unit: RenderableUnit) =>
         (unit as unknown as { sprite?: { scale: { x: number; y: number }; texture: Texture; x: number; y: number } })
             .sprite!;
@@ -2897,6 +3965,17 @@ describe("rectangular footprints", () => {
         unit.setBattlefieldVisualProjection(true);
         unit.ensureVisual(new Container(), gridSettings);
         return unit;
+    };
+
+    const withFootprintOverride = <T>(source: string, body: () => T): T => {
+        const holder = globalThis as { __hocFootprintOverrides?: string };
+        const previous = holder.__hocFootprintOverrides;
+        holder.__hocFootprintOverrides = source;
+        try {
+            return body();
+        } finally {
+            holder.__hocFootprintOverrides = previous;
+        }
     };
 
     test("carries the declared shape onto the unit itself", () => {
@@ -2916,21 +3995,26 @@ describe("rectangular footprints", () => {
         ).toEqual([`${anchor.x - 1}:${anchor.y}`, `${anchor.x}:${anchor.y}`].sort());
     });
 
-    test("keeps a two-cell-wide body at its authored figure proportions", () => {
-        // Mechanical occupancy changes the footprint only; it must not alter the already approved artwork.
+    test("keeps a two-cell-wide Mantis at its authored visual proportions", () => {
         const position = { x: 384, y: 640 };
-        const square = placedUnit("White Tiger", "Nature", "white_tiger_512", position);
-        const wide = withFootprintOverride("White Tiger=2x1", () =>
-            placedUnit("White Tiger", "Nature", "white_tiger_512", position),
-        );
-        const squareSprite = spriteOf(square);
-        const wideSprite = spriteOf(wide);
-        const renderedWidth = (sprite: typeof squareSprite) => sprite.texture.width * Math.abs(sprite.scale.x);
-        const renderedHeight = (sprite: typeof squareSprite) => sprite.texture.height * Math.abs(sprite.scale.y);
+        const unit = placedUnit("Mantis", "Nature", "mantis_512", position);
+        const sprite = spriteOf(unit);
+        const profile = refreshedBoardVisualProfileForUnit("Mantis");
+        const perspective = battlefieldCreaturePerspectiveScale(position.y, 1, gridSettings);
+        const renderedWidth = sprite.texture.width * Math.abs(sprite.scale.x);
+        const renderedHeight = sprite.texture.height * Math.abs(sprite.scale.y);
 
-        expect(renderedWidth(wideSprite)).toBeCloseTo(renderedWidth(squareSprite), 6);
-        expect(renderedHeight(wideSprite)).toBeCloseTo(renderedHeight(squareSprite), 6);
-        expect(wideSprite.y).toBeCloseTo(squareSprite.y, 6);
+        expect(unit.getFootprintWidth()).toBe(2);
+        const expectedWidth =
+            gridSettings.getCellSize() *
+            profile.heightCells *
+            profile.widthScale *
+            BATTLEFIELD_CREATURE_FRAMING.Mantis.scaleX *
+            perspective;
+        const expectedHeight =
+            gridSettings.getCellSize() * profile.heightCells * BATTLEFIELD_CREATURE_FRAMING.Mantis.scaleY * perspective;
+        expect(renderedWidth).toBeCloseTo(expectedWidth, 6);
+        expect(renderedHeight).toBeCloseTo(expectedHeight, 6);
     });
 
     test("plants a taller body on its own lower seam instead of floating in the upper cell", () => {
@@ -2938,17 +4022,6 @@ describe("rectangular footprints", () => {
         expect(battlefieldFootLineOffsetCells(2)).toBeCloseTo(BATTLEFIELD_FOUR_CELL_Y_OFFSET_RATIO, 8);
         // A body two cells tall has its seam a full cell below the centre; a wide-but-short one does not.
         expect(battlefieldFootLineOffsetCells(3)).toBeCloseTo(1.2, 8);
-
-        const position = { x: 384, y: 640 };
-        const square = placedUnit("White Tiger", "Nature", "white_tiger_512", position);
-        const wide = withFootprintOverride("White Tiger=2x1", () =>
-            placedUnit("White Tiger", "Nature", "white_tiger_512", position),
-        );
-        const tall = withFootprintOverride("White Tiger=1x2", () =>
-            placedUnit("White Tiger", "Nature", "white_tiger_512", position),
-        );
-        expect(spriteOf(wide).y).toBeCloseTo(spriteOf(square).y, 6);
-        expect(spriteOf(tall).y).toBeLessThan(spriteOf(square).y);
     });
 
     test("keeps every row-derived quantity keyed on the footprint's height alone", () => {

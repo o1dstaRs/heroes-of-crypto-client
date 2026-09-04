@@ -14,6 +14,16 @@ describe("lava animation tuning", () => {
         const tuning = normalizeLavaAnimationTuning({
             widthCells: 99,
             heightCells: -1,
+            fogDensity: 99,
+            fogOpacity: 99,
+            fogSpeed: 99,
+            fogColor: "not-a-color",
+            fogScale: -1,
+            fogDetail: 99,
+            fogWarmth: -1,
+            fogDriftX: 99,
+            fogDriftY: -99,
+            fireEnabled: false,
             fireScaleX: 99,
             fireScaleY: -1,
             fireShiftXCells: 99,
@@ -25,6 +35,12 @@ describe("lava animation tuning", () => {
             fire2ScaleX: 99,
             fire2Speed: 99,
             fire2FrameOffset: 999,
+            fire3ScaleX: 99,
+            fire3Speed: 99,
+            fire3FrameOffset: 999,
+            fire4ScaleY: -1,
+            fire4Speed: 99,
+            fire4FrameOffset: 999,
             fireMaskShape: "hexagon" as never,
             fireMaskWidthCells: 99,
             fireMaskHeightCells: -1,
@@ -42,6 +58,16 @@ describe("lava animation tuning", () => {
 
         expect(tuning.widthCells).toBe(8);
         expect(tuning.heightCells).toBe(0.5);
+        expect(tuning.fogDensity).toBe(1.5);
+        expect(tuning.fogOpacity).toBe(1);
+        expect(tuning.fogSpeed).toBe(12);
+        expect(tuning.fogColor).toBe(DEFAULT_LAVA_ANIMATION_TUNING.fogColor);
+        expect(tuning.fogScale).toBe(0.25);
+        expect(tuning.fogDetail).toBe(2);
+        expect(tuning.fogWarmth).toBe(0);
+        expect(tuning.fogDriftX).toBe(2);
+        expect(tuning.fogDriftY).toBe(-2);
+        expect(tuning.fireEnabled).toBe(false);
         expect(tuning.fireScaleX).toBe(2);
         expect(tuning.fireScaleY).toBe(0.25);
         expect(tuning.fireShiftXCells).toBe(2);
@@ -53,6 +79,12 @@ describe("lava animation tuning", () => {
         expect(tuning.fire2ScaleX).toBe(2);
         expect(tuning.fire2Speed).toBe(3);
         expect(tuning.fire2FrameOffset).toBe(63);
+        expect(tuning.fire3ScaleX).toBe(2);
+        expect(tuning.fire3Speed).toBe(3);
+        expect(tuning.fire3FrameOffset).toBe(63);
+        expect(tuning.fire4ScaleY).toBe(0.25);
+        expect(tuning.fire4Speed).toBe(3);
+        expect(tuning.fire4FrameOffset).toBe(63);
         expect(tuning.fireMaskShape).toBe("ellipse");
         expect(tuning.fireMaskWidthCells).toBe(6);
         expect(tuning.fireMaskHeightCells).toBe(0.25);
@@ -94,27 +126,35 @@ describe("lava animation tuning", () => {
         expect(DEFAULT_LAVA_ANIMATION_TUNING.heightCells).toBe(4);
         expect(DEFAULT_LAVA_ANIMATION_TUNING.shiftXCells).toBe(0);
         expect(DEFAULT_LAVA_ANIMATION_TUNING.shiftYCells).toBe(0);
-        expect(DEFAULT_LAVA_ANIMATION_TUNING.fireScaleX).toBe(0.96);
-        expect(DEFAULT_LAVA_ANIMATION_TUNING.fireScaleY).toBe(1.325);
-        expect(DEFAULT_LAVA_ANIMATION_TUNING.fireShiftXCells).toBe(-0.065);
-        expect(DEFAULT_LAVA_ANIMATION_TUNING.fireShiftYCells).toBe(0.5);
+        expect(DEFAULT_LAVA_ANIMATION_TUNING.fireScaleX).toBe(1);
+        expect(DEFAULT_LAVA_ANIMATION_TUNING.fireScaleY).toBe(1);
+        expect(DEFAULT_LAVA_ANIMATION_TUNING.fireShiftXCells).toBe(0);
+        expect(DEFAULT_LAVA_ANIMATION_TUNING.fireShiftYCells).toBe(0);
     });
 
     test("keeps the approved Lava editor tuning as the shipped default", () => {
         expect(DEFAULT_LAVA_ANIMATION_TUNING).toMatchObject({
-            fireScaleX: 0.96,
-            fireScaleY: 1.325,
-            fireBrightness: 1.69,
-            fireSaturation: 0.88,
-            fireContrast: 1.05,
-            fire2Enabled: true,
-            fire2ScaleX: 0.755,
-            fire2ScaleY: 1.145,
-            fire2ShiftYCells: 1.32,
-            fire2Alpha: 0.56,
-            fire2Brightness: 1.83,
-            fire2Saturation: 0.82,
-            fire2FrameOffset: 21,
+            fogEnabled: true,
+            fogDensity: 0.31,
+            fogOpacity: 1,
+            fogSpeed: 10,
+            fogScale: 0.25,
+            fogDetail: 2,
+            fogWarmth: 0.77,
+            fogColor: "#585855",
+            fogDriftX: -0.46,
+            fogDriftY: 0.28,
+            fireEnabled: true,
+            fireScaleX: 1,
+            fireScaleY: 1,
+            fireShiftXCells: 0,
+            fireShiftYCells: 0,
+            fireBrightness: 1,
+            fireSaturation: 1,
+            fireContrast: 1,
+            fireTint: "#ff7a1f",
+            fireTintAmount: 0,
+            fireOverAlpha: 0.82,
             fireMaskShape: "ellipse",
             fireMaskWidthCells: 3.55,
             fireMaskHeightCells: 3.25,
@@ -122,26 +162,26 @@ describe("lava animation tuning", () => {
             brightness: 1,
             saturation: 1,
             contrast: 1,
-            fps: 16.25,
+            fps: 16,
             firstFrame: 0,
             lastFrame: 63,
-            lightIntensity: 0,
-            lightRadius: 0.79,
-            lightPulseAmount: 0.27,
-            lightPulseSpeed: 0.62,
-            edgeFlicker: 0.64,
+            lightIntensity: 1.7,
+            lightRadius: 1.3,
+            lightPulseAmount: 0.32,
+            lightPulseSpeed: 1.35,
+            edgeFlicker: 1.35,
             lightShiftXCells: -0.22,
             lightShiftYCells: 1.31,
             pitLightIntensity: 1.58,
             pitLightRadius: 1,
             pitLightPulseAmount: 0.87,
             pitLightWarmth: 0.76,
-            splashRate: 1.8,
-            splashCount: 4,
-            splashHeightCells: 0.2,
-            splashSizeCells: 0.021,
-            splashSpreadCells: 0.91,
-            splashGlow: 0.53,
+            splashRate: 1.7,
+            splashCount: 11,
+            splashHeightCells: 0.82,
+            splashSizeCells: 0.047,
+            splashSpreadCells: 0.72,
+            splashGlow: 1.45,
         });
     });
 

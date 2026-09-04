@@ -206,11 +206,9 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
     const selectedCardTopInset = Math.max(8, Math.round(sidebarFrameTopInsetPx(windowSize.height) * 0.45));
     const unitDetailsShellPadding = Math.max(2, Math.round(metrics.padPx * 0.16));
     const verticalRailWidth = sidebarVerticalRailWidth(barSize);
-    // Move the complete combat footer as one piece: the timer's lower edge, the queue background/rule and
-    // the creature cards keep their exact internal spacing. At the annotated browser zoom this is the
-    // shared ~46px move from both current edges to the two blue guide lines.
+    // Use the reserved space below the queue instead of leaving it as an empty tail. Moving the shared
+    // footer keeps the timer and the turn-order strip locked together without changing either layout.
     const combatFooterShiftPx = Math.round(metrics.gapPx * 2.6);
-
     // The card is the only elastic block: everything else is pinned, so it both reports its own height
     // (feeding the metrics above) and scales itself down if its content still cannot fit.
     const { setViewport, setContent, scale } = useFitScale();
@@ -409,8 +407,7 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
 
                 {/* Before the fight, the Start panel keeps its normal place in the column. Once combat
                     begins, the timer and queue become one bottom overlay instead of taking height away
-                    from the selected card. This deliberately exposes the exact overlap with the unchanged
-                    pre-fight card at every viewport size. */}
+                    from the selected card. The card therefore keeps exactly its pre-fight fit scale. */}
                 <Box
                     sx={
                         gameStarted
@@ -430,8 +427,6 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
                                       4,
                                       Math.round(metrics.gapPx * 0.7),
                                   )}px 0 0`,
-                                  // Do not darken the newly exposed band above the timer. Only the lower
-                                  // queue edge keeps its inset shade; the top now blends into the unit area.
                                   boxShadow: "inset 0 -18px 28px rgba(0,0,0,.32)",
                                   ...upNextSmokyChainsBackgroundLayer,
                               }

@@ -33,9 +33,28 @@ const IS_PROD =
 // origin served the client (buildApiUrl falls back to window.location.origin; the axios instances
 // get no baseURL, i.e. relative requests). Single-box rigs — UI and APIs on one port — build with
 // this so the SAME bundle works from a LAN IP, a public hostname, or a tunnel, no rebake needed.
-const resolveHost = (configured: string | undefined, fallback: string): string => {
+const isLoopbackOrigin = (value: string): boolean => {
+    try {
+        const hostname = new URL(value).hostname.toLowerCase();
+        return (
+            hostname === "localhost" ||
+            hostname.endsWith(".localhost") ||
+            hostname === "0.0.0.0" ||
+            hostname === "::1" ||
+            hostname === "[::1]" ||
+            hostname.startsWith("127.")
+        );
+    } catch {
+        return false;
+    }
+};
+
+export const resolveHost = (configured: string | undefined, fallback: string, production = IS_PROD): string => {
     if (configured === "same-origin") {
         return "";
+    }
+    if (production && configured && isLoopbackOrigin(configured)) {
+        return fallback;
     }
     return configured || fallback;
 };

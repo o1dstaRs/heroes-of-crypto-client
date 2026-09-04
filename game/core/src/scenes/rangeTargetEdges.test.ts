@@ -9,6 +9,10 @@ import {
     RANGE_TARGET_EDGE_SELECTED_SCALE,
     RANGE_TARGET_EDGE_TOP_ROW_SCALE,
     RANGED_ATTACK_TRAJECTORY_VISIBLE,
+    SHOT_ARROWHEAD_NATIVE_SCREEN_ANGLE,
+    SHOT_ARROWHEAD_SIZE_SCALE,
+    SHOT_GOLD_ARROWHEAD_AXIS_ANCHOR_Y,
+    SHOT_ORC_ARROWHEAD_AXIS_ANCHOR_Y,
     rangeTargetEdgeMarkerDisplayLength,
     rangeTargetEdgeMarkerNeckPoint,
     rangeTargetEdgeMarkerPosition,
@@ -72,20 +76,21 @@ const selectableSides = (attackerCell: { x: number; y: number }) => {
 };
 
 describe("ranged target edge selection", () => {
-    test("renders only the one optimal high-resolution gold arrow", () => {
+    test("renders only the one optimal distant-LOD gold arrow", () => {
         const source = readFileSync(join(import.meta.dir, "HoverManager.ts"), "utf8");
         const drawMarker = source.slice(source.indexOf("public drawRangeTargetEdge("));
-        expect(drawMarker).toContain('texAny("range_target_arrow_v7_gold_wide_crisp")');
+        expect(drawMarker).toContain('texAny("shot_trajectory_gold_arrowhead_wide_socket_v6")');
         expect(drawMarker).toContain("this.hoverRangeTargetEdgeSprites[0]");
         expect(drawMarker).toContain("marker.tint = 0xffffff");
         expect(source).not.toContain("range_target_arrow_v3_broad");
     });
 
-    test("keeps the target arrow at its fixed approved scale", () => {
+    test("applies the approved final target-arrow scale", () => {
         const source = readFileSync(join(import.meta.dir, "HoverManager.ts"), "utf8");
         const drawMarker = source.slice(source.indexOf("public drawRangeTargetEdge("));
         expect(RANGE_TARGET_EDGE_SELECTED_SCALE).toBe(1);
-        expect(drawMarker).toContain("displayLength * zoomX * RANGE_TARGET_EDGE_SELECTED_SCALE * edge.markerScale");
+        expect(SHOT_ARROWHEAD_SIZE_SCALE).toBeCloseTo(0.8 * 0.7 * 0.9 * 1.15 * 1.15 * 1.2 * 1.07);
+        expect(drawMarker).toContain("SHOT_ARROWHEAD_SIZE_SCALE *");
     });
 
     test("keeps the current size on the bottom row and reduces the top row by ten percent", () => {
@@ -101,7 +106,7 @@ describe("ranged target edge selection", () => {
         expect(source).toContain("edge.markerScale");
     });
 
-    test("keeps the gold-casing shooter-to-target trajectory visible", () => {
+    test("keeps the separated-arrow shooter-to-target trajectory visible", () => {
         expect(RANGED_ATTACK_TRAJECTORY_VISIBLE).toBe(true);
     });
 
@@ -138,15 +143,21 @@ describe("ranged target edge selection", () => {
 
     test("uses the authored gold source without tinting or runtime filters", () => {
         const source = readFileSync(join(import.meta.dir, "HoverManager.ts"), "utf8");
-        expect(source).toContain("range_target_arrow_v7_gold_wide_crisp");
+        expect(source).toContain("shot_trajectory_gold_arrowhead_wide_socket_v6");
         expect(source).toContain("marker.filters = null");
         expect(source).toContain("marker.tint = 0xffffff");
-        expect(source).toContain("marker.anchor.set(486 / 742, 0.5)");
-        expect(source).toContain("edge.markerScale) / 512");
+        expect(SHOT_GOLD_ARROWHEAD_AXIS_ANCHOR_Y).toBeCloseTo(144 / 260);
+        expect(SHOT_ORC_ARROWHEAD_AXIS_ANCHOR_Y).toBeCloseTo(144.5 / 260);
+        expect(SHOT_ARROWHEAD_NATIVE_SCREEN_ANGLE).toBe(0);
+        expect(SHOT_ARROWHEAD_SIZE_SCALE).toBeCloseTo(0.8 * 0.7 * 0.9 * 1.15 * 1.15 * 1.2 * 1.07);
+        expect(source).toContain("marker.anchor.set(0.66, arrowheadAxisAnchorY)");
+        expect(source).toContain("screenAngle - SHOT_ARROWHEAD_NATIVE_SCREEN_ANGLE");
+        expect(source).toContain("SHOT_ARROWHEAD_SIZE_SCALE *");
+        expect(source).toContain("Math.max(1, texture.width)");
         expect(source).not.toContain("0x4dff83");
         expect(source).not.toContain("activeUpperEdge");
         expect(source).not.toContain("hoverRangeTargetEdgeOutlineSprites");
-        expect(source).toContain("marker.roundPixels = false");
+        expect(source).toContain("marker.roundPixels = true");
     });
 
     test("snaps to the exact hovered shootable segment and ignores distant pointers", () => {
@@ -197,7 +208,7 @@ describe("ranged target edge selection", () => {
     });
 
     test("keeps the current edge inside a tiny seam dead band instead of alternating every frame", () => {
-        const rightBottom = {
+        const upperLeft = {
             id: "upper-left",
             shootable: true,
             cell: { x: 8, y: 8 },
@@ -205,7 +216,7 @@ describe("ranged target edge selection", () => {
             from: { x: 0, y: 0 },
             to: { x: 50, y: 0 },
         };
-        const rightTop = {
+        const upperRight = {
             id: "upper-right",
             shootable: true,
             cell: { x: 9, y: 8 },
@@ -214,12 +225,8 @@ describe("ranged target edge selection", () => {
             to: { x: 100, y: 0 },
         };
 
-        expect(activeRangeTargetEdge([rightBottom, rightTop], { x: 50.2, y: 0 }, 12, rightBottom)?.id).toBe(
-            "upper-left",
-        );
-        expect(activeRangeTargetEdge([rightBottom, rightTop], { x: 75, y: 0 }, 12, rightBottom)?.id).toBe(
-            "upper-right",
-        );
+        expect(activeRangeTargetEdge([upperLeft, upperRight], { x: 50.2, y: 0 }, 12, upperLeft)?.id).toBe("upper-left");
+        expect(activeRangeTargetEdge([upperLeft, upperRight], { x: 75, y: 0 }, 12, upperLeft)?.id).toBe("upper-right");
     });
 
     test("chooses retained damage before distance, then the nearest edge to the shooter", () => {
@@ -272,32 +279,17 @@ describe("ranged target edge selection", () => {
         expect(source).toContain("const target = this.getUnitAtPosition(this.sc_mouseWorld)");
     });
 
-    test("an attack click targets the cells a unit stands on, never its drawn sprite", () => {
-        // OWNER CALL (2026-08-28), the same rule selection follows. Sprite hit-testing aimed the strike at
-        // whatever art was drawn over the clicked cell instead of what occupies it: clicking a Crusader
-        // struck the Troglodyte next to it, and when the mis-picked body was not adjacent the reachability
-        // guard dropped the click with no strike, no message and no request. Excluding just the acting unit
-        // was not enough — any third creature's overhanging art could win the pick.
+    test("lets a ranged attack click target the visible creature body before falling back to its cells", () => {
         const source = readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
         const attackClick = source.slice(
-            source.indexOf("// Unit Attack Interaction"),
+            source.indexOf("// Melee Attack Interaction"),
             source.indexOf("if (this.currentActiveUnit && this.currentActiveKnownPaths"),
         );
-        const code = attackClick
-            .split("\n")
-            .filter((line) => !line.trim().startsWith("//"))
-            .join("\n");
+        const spriteTarget = attackClick.indexOf("this.getUnitSpriteAtPosition(p)");
+        const occupiedCellFallback = attackClick.indexOf("this.unitsHolder.getAllUnits().get(occupantId)");
 
-        // The engine-validated melee resolve first (it also drew the cursor), then grid occupancy.
-        const resolved = code.indexOf("pointerMeleeAttack?.target");
-        const occupiedCell = code.indexOf("this.unitsHolder.getAllUnits().get(occupantId)");
-        expect(resolved).toBeGreaterThanOrEqual(0);
-        expect(occupiedCell).toBeGreaterThan(resolved);
-
-        // Comments are stripped first: the block explains WHY the sprite pick is gone, and naming it in
-        // prose must not read as calling it.
-        expect(code).not.toContain("getUnitSpriteAtPosition(");
-        expect(code).not.toContain("spriteHitDepth(");
+        expect(spriteTarget).toBeGreaterThanOrEqual(0);
+        expect(occupiedCellFallback).toBeGreaterThan(spriteTarget);
     });
 
     test("does not draw a second Fire Strike rail over the live spell beam", () => {
@@ -309,6 +301,20 @@ describe("ranged target edge selection", () => {
         expect(fireStrikeAim).toContain("if (refused)");
         expect(fireStrikeAim).not.toContain("victim !== target");
         expect(fireStrikeAim).not.toContain("aimedEnd");
+    });
+
+    test("keeps valid Fire Strike targets free of cell fills and target frames", () => {
+        const source = readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
+        const fireStrikeAim = source.slice(
+            source.indexOf("private drawFireStrikeAim("),
+            source.indexOf("private drawVineThrowAim("),
+        );
+        const refusedMarker = fireStrikeAim.indexOf("if (refused) {", fireStrikeAim.indexOf("const refused"));
+        const cellMarker = fireStrikeAim.indexOf("tunedCellFillPolygon(impact.cell");
+
+        expect(refusedMarker).toBeGreaterThanOrEqual(0);
+        expect(cellMarker).toBeGreaterThan(refusedMarker);
+        expect(fireStrikeAim).toContain("creature targets intentionally receive no cell fill");
     });
 
     test("centers the visible highlight on 70% of the edge", () => {
@@ -547,5 +553,33 @@ describe("ranged target edge selection", () => {
             const aim = rangeTargetEdgeEvaluationAim(gridSettings, targetCell, side, attackerPosition);
             expect(GridMath.getCellForPosition(gridSettings, aim)).toEqual(targetCell);
         }
+    });
+
+    test("an attack click targets the cells a unit stands on, never its drawn sprite", () => {
+        // OWNER CALL (2026-08-28), the same rule selection follows. Sprite hit-testing aimed the strike at
+        // whatever art was drawn over the clicked cell instead of what occupies it: clicking a Crusader
+        // struck the Troglodyte next to it, and when the mis-picked body was not adjacent the reachability
+        // guard dropped the click with no strike, no message and no request. Excluding just the acting unit
+        // was not enough — any third creature's overhanging art could win the pick.
+        const source = readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
+        const attackClick = source.slice(
+            source.indexOf("// Unit Attack Interaction"),
+            source.indexOf("if (this.currentActiveUnit && this.currentActiveKnownPaths"),
+        );
+        const code = attackClick
+            .split("\n")
+            .filter((line) => !line.trim().startsWith("//"))
+            .join("\n");
+
+        // The engine-validated melee resolve first (it also drew the cursor), then grid occupancy.
+        const resolved = code.indexOf("pointerMeleeAttack?.target");
+        const occupiedCell = code.indexOf("this.unitsHolder.getAllUnits().get(occupantId)");
+        expect(resolved).toBeGreaterThanOrEqual(0);
+        expect(occupiedCell).toBeGreaterThan(resolved);
+
+        // Comments are stripped first: the block explains WHY the sprite pick is gone, and naming it in
+        // prose must not read as calling it.
+        expect(code).not.toContain("getUnitSpriteAtPosition(");
+        expect(code).not.toContain("spriteHitDepth(");
     });
 });

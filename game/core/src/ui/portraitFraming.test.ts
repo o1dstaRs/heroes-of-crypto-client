@@ -15,20 +15,22 @@ import {
     normalizePortraitFraming,
 } from "./portraitFraming";
 import { resolveCreaturePortraitArtPlacement, resolveCreaturePortraitVisual } from "./creaturePortraitVisual";
-import { fullBodyCreatureImage, UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "./unit_ui_constants";
+import { fullBodyCreatureImage, UNIT_ID_TO_IMAGE } from "./unit_ui_constants";
 
 describe("committed creature portrait framing", () => {
-    test("uses neutral framing for the pre-cropped test-server portraits", () => {
-        expect(PICK_PORTRAIT_FRAMING).toEqual({});
+    test("uses the approved close-up framing for roster portraits", () => {
+        expect(PICK_PORTRAIT_FRAMING).toEqual(PORTRAIT_FRAMING_CHECKPOINT_X);
 
         for (const creatureId of [1, 2, 3, 4].flatMap((level) => [...getCreaturesByLevel(level)])) {
-            expect(resolveCreaturePortraitVisual(creatureId)?.framing).toEqual(DEFAULT_PORTRAIT_FRAMING);
+            expect(resolveCreaturePortraitVisual(creatureId)?.framing).toEqual(
+                PORTRAIT_FRAMING_CHECKPOINT_X[creatureId] ?? DEFAULT_PORTRAIT_FRAMING,
+            );
         }
     });
 
-    test("keeps the legacy editor checkpoint available but inactive", () => {
+    test("keeps the approved editor checkpoint active", () => {
         expect(PICK_PORTRAIT_FRAMING).not.toBe(PORTRAIT_FRAMING_CHECKPOINT_X);
-        expect(PORTRAIT_FRAMING_STORAGE_KEY).toBe("hoc-dev-pick-sandbox-portrait-framing-v1");
+        expect(PORTRAIT_FRAMING_STORAGE_KEY).toBe("hoc-dev-pick-sandbox-portrait-framing-v2");
         expect(PORTRAIT_FRAMING_CHECKPOINT_X[CreatureVals.WOLF_RIDER]).toEqual({
             source: "full",
             fit: "contain",
@@ -98,20 +100,27 @@ describe("committed creature portrait framing", () => {
         expect(normalizePortraitFraming({ scale: 0.1 }).scale).toBe(PORTRAIT_SCALE_MIN);
     });
 
-    test("uses every creature's pre-cropped source without another crop", () => {
+    test("uses every creature's reviewed source with its approved crop", () => {
         for (const creatureId of [1, 2, 3, 4].flatMap((level) => [...getCreaturesByLevel(level)])) {
             const visual = resolveCreaturePortraitVisual(creatureId);
-            expect(visual?.framing).toEqual(DEFAULT_PORTRAIT_FRAMING);
-            expect(visual?.source).toBe(UNIT_ID_TO_IMAGE[creatureId]);
+            const framing = PORTRAIT_FRAMING_CHECKPOINT_X[creatureId] ?? DEFAULT_PORTRAIT_FRAMING;
+            expect(visual?.framing).toEqual(framing);
+            expect(visual?.source).toBe(
+                framing.source === "full"
+                    ? (fullBodyCreatureImage(creatureId) ?? UNIT_ID_TO_IMAGE[creatureId])
+                    : UNIT_ID_TO_IMAGE[creatureId],
+            );
         }
     });
 
-    test("uses the complete test-server pick/sandbox portrait set", () => {
-        for (const [creatureId, name] of Object.entries(UNIT_ID_TO_NAME)) {
-            if (Number(creatureId) === CreatureVals.NO_CREATURE) continue;
-            const slug = name.toLowerCase().replaceAll(" ", "_");
-            expect(UNIT_ID_TO_IMAGE[Number(creatureId)]).toContain(`${slug}_pick_sandbox_x2.webp`);
-            expect(fullBodyCreatureImage(Number(creatureId))).toBe(UNIT_ID_TO_IMAGE[Number(creatureId)]);
+    test("keeps the established portraits instead of the full-body sandbox batch", () => {
+        const activeCreatureIds = [1, 2, 3, 4].flatMap((level) => [...getCreaturesByLevel(level)]);
+        for (const creatureId of activeCreatureIds) {
+            expect(UNIT_ID_TO_IMAGE[creatureId]).not.toContain("_pick_sandbox_x2.webp");
         }
+
+        expect(UNIT_ID_TO_IMAGE[CreatureVals.ORC]).toContain("orc_model_full.webp");
+        expect(UNIT_ID_TO_IMAGE[CreatureVals.TROLL]).toContain("pick_l2_legacy_troll_512.webp");
+        expect(fullBodyCreatureImage(CreatureVals.WOLF_RIDER)).toContain("wolf_rider_portrait_full.webp");
     });
 });

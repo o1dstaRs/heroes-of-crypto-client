@@ -5,7 +5,7 @@
  *   bun build_report.ts <summary.json> <out.html> [--policy=<str>] [--exploration=<0..1>] [--title=<str>]
  *
  * The report is fully data-driven: cohorts, maps, tiers, header and run metadata all come from the
- * summary. Maps are labeled by terrain (GridVals: 1=Open/Normal, 3=Lava, 4=Mountains).
+ * summary. Maps are labeled by terrain (GridVals: 1=Open/Normal, 3=FIRE PIT, 4=Mountains).
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
