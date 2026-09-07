@@ -50,6 +50,18 @@ if (loadTextures.config) {
     loadTextures.config.preferCreateImageBitmap = false;
 }
 
+// Pixi's default load strategy is "throw", under which the retry loop never retries: one
+// transient network error across the 1000+ parallel core-bundle requests aborts the whole
+// init ("Initialization failed"). Assets.loadBundle() takes no per-call load options, so
+// configure the shared loader here; the implicit Assets.init() run on first load merges
+// nothing over these (it only assigns loadOptions when explicitly given).
+Assets.loader.loadOptions = {
+    ...Assets.loader.loadOptions,
+    strategy: "retry",
+    retryCount: 4,
+    retryDelay: 500,
+};
+
 export interface PixiTextureInfo {
     texture: Texture;
     width: number;
