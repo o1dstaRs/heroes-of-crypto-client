@@ -59,6 +59,7 @@ import {
     placementZonePolygon,
     placementVerticalBoundarySpan,
     DrawableRectanglePlacement,
+    DrawableSquarePlacement,
 } from "./PixiDrawablePlacement";
 
 const settings = () =>
@@ -73,6 +74,43 @@ const settings = () =>
     );
 
 describe("placement tile highlight", () => {
+    test("reuses the immutable placement cell layout between animated redraws", () => {
+        let rectangleCellBuilds = 0;
+        let squareCellBuilds = 0;
+        class CountingRectanglePlacement extends DrawableRectanglePlacement {
+            public override possibleCellPositions() {
+                rectangleCellBuilds += 1;
+                return super.possibleCellPositions();
+            }
+        }
+        class CountingSquarePlacement extends DrawableSquarePlacement {
+            public override possibleCellPositions() {
+                squareCellBuilds += 1;
+                return super.possibleCellPositions();
+            }
+        }
+        const rectangle = new CountingRectanglePlacement(settings(), PlacementPositionType.RIGHT_TOP, 3);
+        const square = new CountingSquarePlacement(settings(), PlacementPositionType.LEFT_BOTTOM, 3);
+        const rectangleBuildsAfterConstruction = rectangleCellBuilds;
+        const squareBuildsAfterConstruction = squareCellBuilds;
+        const graphics = new Graphics();
+        const frames = new Container();
+
+        rectangle.draw(graphics, frames);
+        rectangle.draw(graphics, frames);
+        square.draw(graphics, frames);
+        square.draw(graphics, frames);
+
+        expect(rectangleBuildsAfterConstruction).toBeGreaterThan(0);
+        expect(squareBuildsAfterConstruction).toBeGreaterThan(0);
+        expect(rectangleCellBuilds).toBe(rectangleBuildsAfterConstruction);
+        expect(squareCellBuilds).toBe(squareBuildsAfterConstruction);
+        rectangle.releaseVisuals();
+        square.releaseVisuals();
+        graphics.destroy();
+        frames.destroy({ children: true });
+    });
+
     test("releases derived border and carpet GPU resources idempotently", () => {
         const placement = new DrawableRectanglePlacement(settings(), PlacementPositionType.LEFT_BOTTOM, 3);
         const makeCell = () => {

@@ -308,6 +308,17 @@ export function placementWashCellPolygon(cell: HoCMath.XY, cells: readonly HoCMa
     return polygon;
 }
 
+interface PlacementWashGeometry {
+    cellPolygons: number[][];
+    topExtension: number[];
+}
+
+/** The placement footprint cannot change during a placement object's lifetime; project it only once. */
+const placementWashGeometry = (cells: readonly HoCMath.XY[], gs: GridSettings): PlacementWashGeometry => ({
+    cellPolygons: cells.map((cell) => placementWashCellPolygon(cell, cells, gs)),
+    topExtension: placementWashTopExtensionPolygon(cells, gs),
+});
+
 function drawPlacementWash(
     gfx: Graphics,
     cells: readonly HoCMath.XY[],
@@ -317,12 +328,14 @@ function drawPlacementWash(
     opacityScale = 1,
     topOpacityMultiplier = PLACEMENT_WASH_TOP_OPACITY_MULTIPLIER,
     topMinAlpha = PLACEMENT_WASH_TOP_MIN_ALPHA,
+    geometry?: PlacementWashGeometry,
 ): void {
     const alpha = movementFillAlphaForPhase(phase) * opacityScale;
-    for (const cell of cells) {
-        gfx.poly(placementWashCellPolygon(cell, cells, gs)).fill({ color, alpha });
+    const cellPolygons = geometry?.cellPolygons ?? cells.map((cell) => placementWashCellPolygon(cell, cells, gs));
+    for (const polygon of cellPolygons) {
+        gfx.poly(polygon).fill({ color, alpha });
     }
-    const topExtension = placementWashTopExtensionPolygon(cells, gs);
+    const topExtension = geometry?.topExtension ?? placementWashTopExtensionPolygon(cells, gs);
     if (topExtension.length) {
         gfx.poly(topExtension).fill({
             color,
@@ -844,14 +857,22 @@ function drawPlacementGoldBorder(
         destroyPlacementBorderVisual(existing);
     }
 
-    const visual: PlacementBorderVisual = canReuse
-        ? existing
-        : {
-              source,
-              layoutKey,
-              cells: new Map<string, PlacementCarpetCellVisual>(),
-              layer: new Container({ label: "placement-gold-outer-border-image" }),
-          };
+    // Only opacity on the vector wash animates. The raster frame's source, UV slices and projected
+    // corners are immutable for this placement, so keep the already-built meshes between redraws.
+    if (canReuse && existing) {
+        existing.layer.alpha = 1;
+        existing.layer.eventMode = "none";
+        existing.layer.visible = true;
+        if (existing.layer.parent !== frameContainer) frameContainer.addChild(existing.layer);
+        return existing;
+    }
+
+    const visual: PlacementBorderVisual = {
+        source,
+        layoutKey,
+        cells: new Map<string, PlacementCarpetCellVisual>(),
+        layer: new Container({ label: "placement-gold-outer-border-image" }),
+    };
     visual.layer.alpha = 1;
     visual.layer.eventMode = "none";
     visual.layer.visible = true;
@@ -1001,12 +1022,14 @@ export const placementWashColor = (
 
 export class DrawableSquarePlacement extends SquarePlacement implements IDrawablePlacement {
     private readonly visualGridSettings: GridSettings;
+    private readonly drawCells: HoCMath.XY[];
     public constructor(gs: GridSettings, pos: PlacementPositionType, size = 3) {
         super(gs, pos, size);
         this.visualGridSettings = gs;
+        this.drawCells = this.possibleCellPositions();
     }
     public draw(gfx: Graphics, _frameContainer: Container): void {
-        const cells = this.possibleCellPositions();
+        const cells = this.drawCells;
         if (placementUsesEnemyMovementWash(this.placementPositionType)) {
             drawMovementArea(gfx, cells, this.visualGridSettings, ENEMY_MOVEMENT_HIGHLIGHT_COLOR, enemyMovementPhase);
         } else {
@@ -1018,14 +1041,18 @@ export class DrawableSquarePlacement extends SquarePlacement implements IDrawabl
 
 export class DrawableRectanglePlacement extends SideRectanglePlacement implements IDrawablePlacement {
     private readonly visualGridSettings: GridSettings;
+    private readonly drawCells: HoCMath.XY[];
+    private readonly washGeometry: PlacementWashGeometry;
     private carpetVisual?: PlacementCarpetVisual;
     private goldBorderVisual?: PlacementBorderVisual;
     public constructor(gs: GridSettings, pos: PlacementPositionType, size = 3, _sideOriented = true) {
         super(gs, pos, size);
         this.visualGridSettings = gs;
+        this.drawCells = this.possibleCellPositions();
+        this.washGeometry = placementWashGeometry(this.drawCells, this.visualGridSettings);
     }
     public draw(gfx: Graphics, frameContainer: Container): void {
-        const cells = this.possibleCellPositions();
+        const cells = this.drawCells;
         if (placementUsesEnemyMovementWash(this.placementPositionType)) {
             drawPlacementWash(
                 gfx,
@@ -1036,6 +1063,7 @@ export class DrawableRectanglePlacement extends SideRectanglePlacement implement
                 1,
                 RED_PLACEMENT_WASH_TOP_OPACITY_MULTIPLIER,
                 RED_PLACEMENT_WASH_TOP_MIN_ALPHA,
+                this.washGeometry,
             );
             this.goldBorderVisual = drawPlacementGoldBorder(
                 frameContainer,
@@ -1054,6 +1082,9 @@ export class DrawableRectanglePlacement extends SideRectanglePlacement implement
                 placementWashColor(this.placementPositionType, "deep", GREEN_PLACEMENT_HIGHLIGHT_COLOR),
                 enemyMovementPhase,
                 GREEN_PLACEMENT_OPACITY_SCALE,
+                PLACEMENT_WASH_TOP_OPACITY_MULTIPLIER,
+                PLACEMENT_WASH_TOP_MIN_ALPHA,
+                this.washGeometry,
             );
             if (this.carpetVisual) this.carpetVisual.layer.visible = false;
             this.goldBorderVisual = drawPlacementGoldBorder(
