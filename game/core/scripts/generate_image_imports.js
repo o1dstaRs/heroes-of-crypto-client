@@ -89,6 +89,11 @@ for (const { key, file, productionOmitted } of entries) {
 lines.push("} as unknown as Readonly<Record<ImageKey, string>>;");
 
 fs.writeFileSync(outputFile, lines.join("\n") + "\n");
+// Companion catalog of every discovered image key (including production-omitted ones, matching the
+// ImageKey union above). This file IS COMMITTED (see .gitignore) so CI's generate_ci_stubs.js can
+// rebuild the exact same enumerable key universe without the private art Drive; regenerate and
+// commit it together with image_imports.ts whenever the art set changes.
+fs.writeFileSync(path.join(generatedDir, "image_keys.json"), JSON.stringify(entries.map(({ key }) => key).sort(), null, 4) + "\n");
 const omittedCount = entries.filter(({ productionOmitted }) => productionOmitted).length;
 console.log(
     productionBuild

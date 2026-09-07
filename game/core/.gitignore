@@ -10,6 +10,11 @@ src/generated/*
 # animation tests assert against. Committing it lets CI run those tests for real instead of
 # silently skipping them; regenerate with `bun run generate:animations` when art changes.
 !src/generated/animation_atlases.ts
+# EXCEPT the image key catalog: the exact key universe emitted by generate_image_imports.js from
+# the private art Drive. Committing it lets CI's generate_ci_stubs.js rebuild a manifest whose
+# enumerable key set (and therefore every bundle-split bucket size) matches local runs exactly,
+# instead of approximating it from source scans. Regenerate with `bun run generate:images`.
+!src/generated/image_keys.json
 
 # env / secrets
 .env

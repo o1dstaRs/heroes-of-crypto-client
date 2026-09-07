@@ -39,6 +39,39 @@ for (const key of [
 ]) {
     imageKeys.add(key);
 }
+
+// The bundle-split contract tests assert membership (and exact sizes) for every key of the static
+// lazy/deferred sets in imageAssetTiers.ts and unitAtlasKeys.ts. Most of those keys never appear as
+// a literal `images.foo` access anywhere, so the scanner above cannot see them and CI drifts red
+// whenever a set gains keys while the real (Drive-generated) manifest keeps local runs green.
+// Harvest every quoted snake_case literal from those two files instead: the strict shape (no
+// leading/trailing underscore) drops the startsWith/endsWith prefix fragments quoted there too.
+const NON_ASSET_LITERALS = new Set(["background_stone_tiles"]);
+const harvestAssetLiterals = (file) => {
+    const keys = new Set();
+    for (const match of fs.readFileSync(file, "utf8").matchAll(/"([a-z0-9]+(?:_[a-z0-9]+)*)"/g)) {
+        if (!NON_ASSET_LITERALS.has(match[1])) keys.add(match[1]);
+    }
+    return keys;
+};
+for (const file of ["../src/pixi/imageAssetTiers.ts", "../src/pixi/unitAtlasKeys.ts"]) {
+    for (const key of harvestAssetLiterals(path.resolve(__dirname, file))) imageKeys.add(key);
+}
+
+// Board (`<unit>_128/_256`) and card (`<unit>_512`) keys are derived at runtime from the unit names
+// in the COMMITTED animation atlas metadata, so derive the same keys here instead of listing units
+// by hand. "Pick Ban Slash" mirrors NON_UNIT_ATLAS_NAMES: it is draft UI art, never a board chip.
+const committedAnimationAtlasesPath = path.resolve(__dirname, "../src/generated/animation_atlases.ts");
+if (fs.existsSync(committedAnimationAtlasesPath)) {
+    const { animationAtlases } = require(committedAnimationAtlasesPath);
+    for (const unitName of Object.keys(animationAtlases)) {
+        const slug = unitName.toLowerCase().replace(/\s+/g, "_");
+        imageKeys.add(`${slug}_512`);
+        if (unitName === "Pick Ban Slash") continue;
+        imageKeys.add(`${slug}_128`);
+        imageKeys.add(`${slug}_256`);
+    }
+}
 for (const name of [
     "Valkyrie",
     "Harpy",
@@ -90,7 +123,13 @@ for (const columns of [3, 4, 5, 6]) {
         imageKeys.add(`placement_gold_outer_border_green_continuous_${columns}col_${rows}row_v23`);
     }
 }
-const knownImageKeys = [...imageKeys].sort();
+const knownImageKeys = fs.existsSync(path.join(generatedDir, "image_keys.json"))
+    ? // The committed catalog is the exact universe the real generator derives from the art Drive;
+      // using it verbatim keeps CI's enumerable manifest (and every bundle-split bucket size)
+      // identical to local runs. The scans and derivations above remain the fallback when a
+      // checkout somehow lacks the catalog, approximating it from source instead.
+      JSON.parse(fs.readFileSync(path.join(generatedDir, "image_keys.json"), "utf8"))
+    : [...imageKeys].sort();
 
 const imageImportsStub = `/* CI stub — replaced locally by scripts/generate_image_imports.js */
 // Asset-policy and portrait tests exercise the generated lookup contract without downloading the
