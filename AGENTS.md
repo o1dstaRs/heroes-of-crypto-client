@@ -136,6 +136,14 @@ refresh (vite serves common via the `src` alias).
 
 ## Conventions
 
+- **No per-user absolute paths in tracked files.** Never commit `/Users/<name>/…`, `~`, npx-cache
+  module paths, or sibling repos referenced by absolute path — in code, scripts, docs, or env
+  examples. They only work on one machine and leak the owner's username.
+  - Env-var examples in docs use `"$HOME/Google Drive/…"` — `$HOME` expands inside double quotes;
+    a quoted `"~/…"` stays literal and nothing downstream expands it (see `assetLocations.ts`).
+  - Sibling repos (e.g. `../heroes-of-crypto-server`) are resolved relative to the importing file
+    or via an env override (`HOC_SERVER_LOC`, `PLAYWRIGHT_LOC`), never hard-coded.
+  - One-off local convenience paths belong in your shell profile or an untracked `.env`, not the repo.
 - `RenderableUnit.fromBase()` uses `Object.setPrototypeOf` — class field defaults don't run. Always explicitly initialize new fields in `fromBase()` or they'll be `undefined`.
 - World root has `scale.y = -1` (y-up). All world-space graphics/text must account for the flip.
 - Pixi z-index: terrain ~20, gameplay graphics ~55, units ~4000 (sorted by Y), overlays ~5500+.

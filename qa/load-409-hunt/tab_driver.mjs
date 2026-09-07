@@ -9,7 +9,12 @@
 // Usage: node tab_driver.mjs <link> <outdir> <cycles> <tag>
 import fs from "node:fs";
 import path from "node:path";
-import { chromium } from "/Users/zolotukhin/.npm/_npx/e41f203b7505f1fb/node_modules/playwright/index.mjs";
+import { createRequire } from "node:module";
+
+// Playwright is not a workspace dependency: take it from PLAYWRIGHT_LOC, a copy put on NODE_PATH
+// (e.g. `npx -p playwright node tab_driver.mjs …`), or a local node_modules install.
+const require = createRequire(import.meta.url);
+const { chromium } = require(process.env.PLAYWRIGHT_LOC || "playwright");
 
 const LINK = process.argv[2];
 const OUT = process.argv[3];

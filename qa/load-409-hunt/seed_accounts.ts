@@ -1,12 +1,21 @@
 // Seed N active, login-ready players in the isolated Arango DB (HOC_ARANGODB_DB env).
-// Reuses the server's own persistence helpers via absolute imports; run with bun from anywhere:
+// Reuses the server's own persistence helpers from the sibling server checkout; run with bun from anywhere:
 //   HOC_ARANGODB_HOST=... HOC_ARANGODB_DB=cryptopulse_hunt409 ... bun seed_accounts.ts <count> <prefix> <out.json>
 // Mirrors simple_client/create_vs_ai_match.ts's seedPlayer (email/password login, active, free).
-import { Player } from "/Users/zolotukhin/Workplace/heroes-of-crypto-server/generated/protobuf/v1/player_pb";
-import config from "/Users/zolotukhin/Workplace/heroes-of-crypto-server/configuration";
-import { saveDocument } from "/Users/zolotukhin/Workplace/heroes-of-crypto-server/src/db/arango";
-import { DBSchemaV1 } from "/Users/zolotukhin/Workplace/heroes-of-crypto-server/src/db/db_schema";
-import { hashPassword } from "/Users/zolotukhin/Workplace/heroes-of-crypto-server/src/session/password";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+
+// The server repo is a sibling checkout of this one (or named explicitly via HOC_SERVER_LOC) —
+// resolved relative to this file so no per-user absolute path is baked into the script.
+const serverRoot = process.env.HOC_SERVER_LOC
+    ? path.resolve(process.env.HOC_SERVER_LOC)
+    : path.resolve(import.meta.dir, "../../../heroes-of-crypto-server");
+const fromServer = (module: string) => import(`${pathToFileURL(serverRoot).href}/${module}`);
+const { Player } = await fromServer("generated/protobuf/v1/player_pb.js");
+const { default: config } = await fromServer("configuration/index.ts");
+const { saveDocument } = await fromServer("src/db/arango.ts");
+const { DBSchemaV1 } = await fromServer("src/db/db_schema.ts");
+const { hashPassword } = await fromServer("src/session/password.ts");
 
 const COUNT = Number(process.argv[2] || 1);
 const PREFIX = process.argv[3] || "hunt409";
