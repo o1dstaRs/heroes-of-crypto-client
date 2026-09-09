@@ -7,12 +7,14 @@ import {
 } from "./productionImageAssetPolicy";
 
 describe("production creature animation policy", () => {
-    test("omits disabled creature sheets while keeping the two live exceptions", () => {
+    test("omits disabled creature sheets while keeping the approved live exceptions", () => {
         expect(isProductionOmittedDisabledUnitAnimationAssetKey("wolf_idle_atlas_quarter")).toBe(true);
         expect(isProductionOmittedDisabledUnitAnimationAssetKey("behemoth_default_atlas_half")).toBe(true);
         expect(isProductionOmittedDisabledUnitAnimationAssetKey("orc_attack_atlas_quarter")).toBe(true);
 
         expect(isProductionOmittedDisabledUnitAnimationAssetKey("peasant_walk_atlas_quarter")).toBe(false);
+        expect(isProductionOmittedDisabledUnitAnimationAssetKey("peasant_idle_red_atlas_quarter")).toBe(false);
+        expect(isProductionOmittedDisabledUnitAnimationAssetKey("peasant_left_screen_idle_atlas")).toBe(false);
         expect(isProductionOmittedDisabledUnitAnimationAssetKey("orc_idle_atlas_quarter")).toBe(false);
     });
 

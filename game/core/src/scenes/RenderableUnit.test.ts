@@ -1704,6 +1704,58 @@ describe("refreshed authored action playback", () => {
     }
 });
 
+test("Peasant shares the approved faster idle and upright pause across both teams", () => {
+    const wasEnabled = CREATURE_SPRITE_ANIMATION_SETTINGS.enabled;
+    CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
+    try {
+        let sharedFrames: Texture[] | undefined;
+        for (const team of [TeamVals.LEFT, TeamVals.RIGHT]) {
+            const keys: string[] = [];
+            const unit = createRenderableUnit(team, "Life", "Peasant", "peasant_512", (key) => {
+                keys.push(key);
+                return Texture.WHITE;
+            });
+            unit.setPosition(0, 1024);
+            unit.ensureVisual(new Container(), gridSettings);
+            const idle = unit as unknown as {
+                selectionAnimFrames: Texture[];
+                selectionAnimFrameDurationMs: number;
+                refreshedIdlePhaseRatio: number;
+                sprite: { texture: Texture };
+                walkAnim?: object;
+                oneShotAnim?: object;
+            };
+            expect(keys).toContain("peasant_idle_red_atlas_quarter");
+            expect(idle.selectionAnimFrames).toHaveLength(12);
+            if (sharedFrames) expect(idle.selectionAnimFrames).toBe(sharedFrames);
+            sharedFrames = idle.selectionAnimFrames;
+            const d = 1000 / (6 * 1.15) / 0.77;
+            expect(idle.selectionAnimFrameDurationMs).toBeCloseTo(d);
+            idle.refreshedIdlePhaseRatio = 0;
+            const cycle = d * 12 + 700;
+            for (let loop = 0; loop < 3; loop++) {
+                for (let frame = 0; frame < 12; frame++) {
+                    unit.stepSelectionAnimation(loop * cycle + frame * d + (frame > 5 ? 700 : 0) + 0.01);
+                    expect(idle.sprite.texture).toBe(idle.selectionAnimFrames[frame]);
+                }
+                for (const offset of [0.01, 350, 699.99]) {
+                    unit.stepSelectionAnimation(loop * cycle + d * 6 + offset);
+                    expect(idle.sprite.texture).toBe(idle.selectionAnimFrames[5]);
+                }
+            }
+            idle.walkAnim = {};
+            unit.stepSelectionAnimation(0);
+            expect(idle.sprite.texture).toBe(idle.selectionAnimFrames[5]);
+            idle.walkAnim = undefined;
+            idle.oneShotAnim = {};
+            unit.stepSelectionAnimation(0);
+            expect(idle.sprite.texture).toBe(idle.selectionAnimFrames[5]);
+        }
+    } finally {
+        CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = wasEnabled;
+    }
+});
+
 describe("refreshed idle cadence and quadruped scale", () => {
     type IdleInternals = {
         sprite?: { scale: { x: number; y: number }; texture: Texture };
@@ -1844,8 +1896,7 @@ describe("refreshed idle cadence and quadruped scale", () => {
         const unit = createRenderableUnit(TeamVals.LEFT, "Life", "Peasant", "peasant_512", () => Texture.WHITE);
         unit.setPosition(0, 1024);
         unit.ensureVisual(new Container(), gridSettings);
-        const idleFrameWidth = (unit as unknown as { selectionAnimFrames?: Texture[] }).selectionAnimFrames?.[0].frame
-            .width;
+        const idleFrame = (unit as unknown as { selectionAnimFrames?: Texture[] }).selectionAnimFrames?.[0];
         unit.startBoardWalkAnimation(1);
 
         const walk = (
@@ -1865,7 +1916,7 @@ describe("refreshed idle cadence and quadruped scale", () => {
         unit.setBoardWalkDistanceCells(0.2);
         expect(walk?.frames).toHaveLength(9);
         expect(walk?.frames[0].frame.width).toBe(192);
-        expect(walk?.frames[0].frame.width).not.toBe(idleFrameWidth);
+        expect(walk?.frames[0]).not.toBe(idleFrame);
         expect(
             (unit as unknown as { battlefieldAlphaHoleFillFilter?: unknown }).battlefieldAlphaHoleFillFilter,
         ).toBeUndefined();

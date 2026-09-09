@@ -12,7 +12,8 @@ const LazyUnitStatsListItem = React.lazy(() =>
  * initial route while the sidebar is empty, then load it only when the player actually inspects a unit.
  */
 export const DeferredUnitStatsListItem: React.FC<UnitStatsListItemProps> = (props) => {
-    if (!props.factionType) return <ListItem nested />;
+    // Creature inspection uses NO_FACTION; either a unit or a faction must load the card.
+    if (!props.factionType && !props.unitProperties.name) return <ListItem nested />;
 
     return (
         <React.Suspense fallback={<ListItem nested />}>
