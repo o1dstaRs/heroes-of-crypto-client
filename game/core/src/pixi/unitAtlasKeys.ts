@@ -90,6 +90,7 @@ export const isUnitBoardImageKey = (key: string): boolean =>
 // Hand-authored unit strips that intentionally live outside generated/animation_atlases.ts. Keep this
 // list beside the generated classifier so bundle routing does not mistake them for terrain/VFX.
 const specialUnitAnimationAtlasBases = new Set([
+    "peasant_idle_red_atlas",
     "ash_moth_walk_left_atlas",
     "orc_idle_axe_twirl_atlas",
     "orc_idle_battle_cry_atlas",
@@ -98,4 +99,5 @@ const specialUnitAnimationAtlasBases = new Set([
 ]);
 
 export const isUnitAnimationAtlasKey = (key: string): boolean =>
-    generatedUnitAnimationAtlasKey(key) || specialUnitAnimationAtlasBases.has(key.replace(/_(?:quarter|half)$/, ""));
+    key !== "peasant_left_screen_idle_atlas" &&
+    (generatedUnitAnimationAtlasKey(key) || specialUnitAnimationAtlasBases.has(key.replace(/_(?:quarter|half)$/, "")));

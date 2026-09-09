@@ -36,6 +36,7 @@ import { legacyBoardChildScaleCompensation } from "@/pixi/boardFit";
 import { CREATURE_SPRITE_ANIMATION_SETTINGS } from "@/pixi/creatureAnimationSettings";
 import { animationAtlases, AnimationUnitName, type AnimationAtlasMeta } from "../generated/animation_atlases";
 import { images, type ImageKey } from "../imageAssets";
+import { PEASANT_APPROVED_IDLE_META, peasantIdleFrameForElapsed } from "./peasantIdleAnimation";
 import { buildAtlasPingPongTiming, AtlasPingPongTiming } from "./atlasAnimationTiming";
 import { CAN_RENDER_FLAG_GRADIENT, personalArmyFlagGradient, personalArmyPresetFor } from "./personalArmyTint";
 import { TEAM_COLOR_GREEN, TEAM_COLOR_RED, teamColor as resolveTeamColor } from "./teamColors";
@@ -3597,7 +3598,16 @@ export class RenderableUnit extends Unit {
     private startSelectionAnimationInternal(): void {
         if (!this.sprite) return;
         const props = this.getUnitProperties();
-        const config = getDefaultAnimationConfig(props.name, this.getFootprintWidth(), this.getFootprintHeight());
+        const config =
+            props.name === PEASANT_UNIT_NAME
+                ? {
+                      meta: PEASANT_APPROVED_IDLE_META,
+                      imageSrc: images.peasant_idle_red_atlas_quarter,
+                      imageKey: "peasant_idle_red_atlas_quarter" as ImageKey,
+                      cacheKey: "Peasant::idle::shared::approved",
+                      cacheAcrossScenes: true,
+                  }
+                : getDefaultAnimationConfig(props.name, this.getFootprintWidth(), this.getFootprintHeight());
         if (!config) return;
         const { meta } = config;
         const frames = framesForAtlasConfig(config, this.texResolver);
@@ -3668,6 +3678,18 @@ export class RenderableUnit extends Unit {
         const frames = this.selectionAnimFrames;
         const timing = this.selectionAnimTiming;
         if (!frames || !timing || !this.sprite) return;
+        if (this.getUnitProperties().name === PEASANT_UNIT_NAME) {
+            const index = peasantIdleFrameForElapsed(
+                now,
+                this.selectionAnimFrameDurationMs,
+                this.refreshedIdlePhaseRatio ?? 0,
+            );
+            this.selectionAnimFrameIndex = index;
+            this.isShowingOrcBattleCryFrame = false;
+            this.isShowingScavengerFlourishFrame = false;
+            if (frames[index] && this.sprite.texture !== frames[index]) this.sprite.texture = frames[index];
+            return;
+        }
         if (!CREATURE_SPRITE_ANIMATION_SETTINGS.enabled) {
             const firstFrame = frames[0];
             this.selectionAnimFrameIndex = 0;
