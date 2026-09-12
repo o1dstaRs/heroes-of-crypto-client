@@ -26,6 +26,7 @@ import {
     HoCLib,
     AttackType,
     Spell,
+    SpellElement,
     SpellMultiplierType,
     SpellTargetType,
     SpellPowerType,
@@ -74,6 +75,8 @@ import {
     isThrownOffensiveSpell,
     isOffensiveSpellMultiplier,
     offensiveSpellDamageAgainstTarget,
+    projectSpellDamageAgainstUnit,
+    projectSpellRebound,
     elementalSpellMultiplier,
     type IGameActionResult,
     fireforgedSwordDamage,
@@ -7480,20 +7483,23 @@ export class Sandbox extends PixiScene {
         this.setSpellHoverInfo(spell, caster);
     }
     private setSpellHoverInfo(spell: PixiRenderableSpell | undefined, caster?: RenderableUnit): void {
-        const lines =
+        const details =
             spell && caster
-                ? spell.getHoverInfo(
+                ? spell.getHoverDetails(
                       caster.getStackPower(),
                       caster.getAmountAlive(),
                       caster.getCumulativeMaxHp(),
                       caster.getLuck(),
                       caster.getMagicDamageBonusPercentage(),
+                      caster.getBuff("Holy Cross")?.getPower() ?? 0,
                   )
-                : [];
-        const key = lines.join("\n");
+                : { information: [], effectSummary: undefined };
+        const key = `${details.information.join("\n")}\n${JSON.stringify(details.effectSummary)}`;
         if (this.spellHoverInfoKey === key) return;
 
         this.spellHoverInfoKey = key;
+        this.sc_hoverSpellElement = spell?.getElement() ?? SpellElement.NO_ELEMENT;
+        this.sc_hoverSpellEffectSummary = details.effectSummary;
         this.sc_attackDamageSpreadStr = "";
         this.sc_attackRangeDamageDivisorStr = "";
         this.sc_attackKillSpreadStr = "";
@@ -7501,7 +7507,7 @@ export class Sandbox extends PixiScene {
         this.sc_hoverUnitLevel = 0;
         this.sc_hoverUnitMovementType = MovementVals.NO_MOVEMENT;
         this.sc_selectedAttackType = AttackVals.NO_ATTACK;
-        this.sc_hoverInfoArr = lines;
+        this.sc_hoverInfoArr = details.information;
         this.sc_hoverTextUpdateNeeded = true;
     }
     /**
@@ -8545,19 +8551,84 @@ export class Sandbox extends PixiScene {
         if (!isOffensiveSpellMultiplier(spell.getMultiplierType())) {
             return undefined;
         }
-        return offensiveSpellPreviewDamage(
-            spell.getMultiplierType(),
-            spell.getPower(),
-            caster.getAmountAlive(),
-            caster.getStackPower(),
-            caster.getMagicDamageBonusPercentage(),
-            target.getMagicResist(),
-            elementalSpellMultiplier({
-                element: spell.getElement(),
-                targetIsFireElement: target.hasAbilityActive("Fire Element"),
-                targetIsWaterElement: target.hasAbilityActive("Water Element"),
-                targetIsWindElement: target.hasAbilityActive("Wind Element"),
-            }),
+        // `.damage` is what the target actually takes — the field the aim tests headline, and the one
+        // that reads 0 when a Water Shield will swallow the cast.
+        return projectSpellDamageAgainstUnit({ spell, caster, target }).damage;
+    }
+    /**
+     * The hit a Magic Mirror spell buff or Magic Reflection holder sends straight back at the caster,
+     * totalled over every unit this cast would touch — the self-damage the aim preview never mentioned.
+     *
+     * resolveSpellVictims adds the CASTER as an extra victim for every rebounding target, so aiming a spell at
+     * a mirrored unit (or dropping a meteor on one) costs the caster a hit it was never warned about. Both
+     * ends of the number come from the engine's own projection: the reflected share and the damage after the
+     * CASTER's element, magic resistance and Water Shield. Spell buffs are guaranteed; Magic Reflection's
+     * advertised share is also its proc chance.
+     *
+     * Undefined when nothing on the board can rebound this cast, which is the overwhelmingly common case.
+     */
+    private previewSpellRebound(
+        spell: Spell,
+        caster: Unit,
+        victims: readonly { unit: Unit; landed: number }[],
+    ): { damage: number; kills: number; reflectionPercent: number; mirrors: number } | undefined {
+        let damage = 0;
+        let reflectionPercent = 0;
+        let mirrors = 0;
+        // The caster's own Water Shield is a ONE-shot absorb: it eats the first rebound whole and breaks, so
+        // a second mirror in the same blast lands in full. Tracked across the loop because each projection
+        // answers for a single hit and cannot know the shield is already gone.
+        let waterShieldSpent = false;
+        for (const victim of victims) {
+            const rebound = projectSpellRebound({
+                spell,
+                caster,
+                holder: victim.unit,
+                landedOnHolder: victim.landed,
+            });
+            if (!rebound?.landed) {
+                continue;
+            }
+            if (rebound.absorbedByWaterShield && !waterShieldSpent) {
+                waterShieldSpent = true;
+                continue;
+            }
+            damage += rebound.landed;
+            // Two mirrors in one blast hit the caster twice, so the label states the full projected price and
+            // the strongest reflected share rather than pretending the two are one event.
+            reflectionPercent = Math.max(reflectionPercent, rebound.reflectionPercent);
+            mirrors += 1;
+        }
+        if (!mirrors) {
+            return undefined;
+        }
+        return { damage, kills: caster.calculatePossibleLosses(damage), reflectionPercent, mirrors };
+    }
+    /**
+     * Label the caster with what this cast would cost IT, when any creature it touches carries a Magic Mirror
+     * spell buff or Magic Reflection. Drawn over the caster because that is where the damage lands.
+     *
+     * Stated as "-90 (45% rebound)": the price and reflected share. For Magic Reflection that share is also
+     * the proc chance; Magic Mirror and Mass Magic Mirror always return it. Silence here read as "this cast
+     * is free", which is exactly what a mirror punishes.
+     */
+    private drawSpellReboundPreview(
+        spell: Spell,
+        caster: Unit,
+        victims: readonly { unit: Unit; landed: number }[],
+        gs: GridSettings,
+    ): void {
+        const rebound = this.previewSpellRebound(spell, caster, victims);
+        if (!rebound) {
+            return;
+        }
+        const casterCenter =
+            caster instanceof RenderableUnit ? caster.getVisualCenter(gs) : { ...caster.getPosition() };
+        const dying = rebound.kills > 0 ? `, ${rebound.kills} die` : "";
+        this.hoverManager.addAOEDamageLabel(
+            casterCenter,
+            `-${rebound.damage} (${rebound.reflectionPercent}% rebound${dying})`,
+            !caster.isSmallSize(),
         );
     }
     /**
@@ -13411,7 +13482,18 @@ export class Sandbox extends PixiScene {
                                       7) /
                                   8
                                 : 0;
-                            const chainCut = (1 - enemy.getMagicResist() / 100) * heavyArmorMultiplier(enemy);
+                            // The arc is WIND, so it is priced by the element table exactly as the engine
+                            // prices it: an Earth Element reads 50% more. (A Wind Element never reaches
+                            // here — getChainLightningTargets already drops it and everything behind it.)
+                            const chainElement = elementalSpellMultiplier({
+                                element: SpellElement.AIR,
+                                targetIsFireElement: enemy.hasAbilityActive("Fire Element"),
+                                targetIsWaterElement: enemy.hasAbilityActive("Water Element"),
+                                targetIsWindElement: enemy.hasAbilityActive("Wind Element"),
+                                targetIsEarthElement: enemy.hasAbilityActive("Earth Element"),
+                            });
+                            const chainCut =
+                                chainElement * (1 - enemy.getMagicResist() / 100) * heavyArmorMultiplier(enemy);
                             addProjectedDamage(
                                 enemy,
                                 Math.floor(chainMultiplier * primaryHitMin * chainCut),

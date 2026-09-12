@@ -126,3 +126,92 @@ describe("PixiRenderableSpell card hit area", () => {
         }
     });
 });
+
+describe("PixiRenderableSpell effect summary", () => {
+    const summaryOf = (
+        faction: string,
+        name: string,
+        ownerStackPower: number,
+        casterAmountAlive: number,
+        casterCumulativeMaxHp = 1,
+        magicDamageBonusPercentage = 0,
+        healingBonusPercentage = 0,
+    ) => {
+        const layer = new Container();
+        const spell = new PixiRenderableSpell(
+            { spellProperties: HoCConfig.getSpellConfig(faction, name), amount: 1 },
+            layer,
+            { spell_cell_260: Texture.WHITE },
+            Texture.WHITE,
+            new Map(),
+        );
+
+        try {
+            return spell.getHoverDetails(
+                ownerStackPower,
+                casterAmountAlive,
+                casterCumulativeMaxHp,
+                0,
+                magicDamageBonusPercentage,
+                healingBonusPercentage,
+            ).effectSummary;
+        } finally {
+            spell.destroy();
+            layer.destroy();
+        }
+    };
+
+    test("highlights calculated spell damage", () => {
+        expect(summaryOf("Nature", "Lightning Strike", 5, 2, 1, 15)).toEqual({
+            kind: "damage",
+            label: "Spell damage",
+            value: "345",
+            detail: "Before resistance and element",
+        });
+    });
+
+    test("highlights healing in HP", () => {
+        expect(summaryOf("Life", "Heal", 1, 2)).toEqual({
+            kind: "healing",
+            label: "Healing",
+            value: "10 HP",
+        });
+        expect(summaryOf("Life", "Mass Heal", 3, 3, 1, 0, 50)).toEqual({
+            kind: "healing",
+            label: "Healing per ally",
+            value: "11 HP",
+        });
+    });
+
+    test("highlights buff and debuff percentages", () => {
+        expect(summaryOf("Life", "Spiritual Armor", 1, 2)).toEqual({
+            kind: "buff",
+            label: "Buff",
+            value: "+30%",
+        });
+        expect(summaryOf("Death", "Quagmire", 1, 2)).toEqual({
+            kind: "debuff",
+            label: "Debuff",
+            value: "−25%",
+        });
+    });
+
+    test("highlights max-HP terrain damage and smoke reduction", () => {
+        expect(summaryOf("Chaos", "Fire Wall", 4, 2)).toEqual({
+            kind: "damage",
+            label: "Damage per cell",
+            value: "25% max HP",
+            detail: "Friend or foe",
+        });
+        expect(summaryOf("Chaos", "Smoke", 4, 2)).toEqual({
+            kind: "debuff",
+            label: "Ranged damage",
+            value: "−50%",
+            detail: "When the shot crosses smoke",
+        });
+    });
+
+    test("does not invent a percentage for non-numeric status spells", () => {
+        expect(summaryOf("Chaos", "Misfortune", 1, 2)).toBeUndefined();
+    });
+});

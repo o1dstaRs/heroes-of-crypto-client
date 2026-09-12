@@ -1181,6 +1181,8 @@ export class PixiGameManager {
                 unitLevel: this.m_scene.sc_hoverUnitLevel,
                 unitMovementType: this.m_scene.sc_hoverUnitMovementType,
                 information: this.m_scene.sc_hoverInfoArr,
+                spellElement: this.m_scene.sc_hoverSpellElement,
+                spellEffectSummary: this.m_scene.sc_hoverSpellEffectSummary,
                 isHoveringAttackTarget: this.m_scene.sc_isHoveringAttackTarget,
                 meleeCursorDirection: this.m_scene.sc_meleeCursorDirection,
             });

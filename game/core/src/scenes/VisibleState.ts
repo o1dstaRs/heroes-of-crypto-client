@@ -160,6 +160,16 @@ export interface IVisibleButton {
     customSpriteName?: string;
 }
 
+export type SpellEffectSummaryKind = "damage" | "healing" | "buff" | "debuff";
+
+/** Scan-friendly headline for the main numeric effect of a spellbook card. */
+export interface ISpellEffectSummary {
+    kind: SpellEffectSummaryKind;
+    label: string;
+    value: string;
+    detail?: string;
+}
+
 export interface IHoverInfo {
     attackType: AttackType;
     damageSpread: string;
@@ -171,6 +181,8 @@ export interface IHoverInfo {
     information: string[];
     /** Element of the hovered spell, so its card can be marked in that element's colour. */
     spellElement?: SpellElement;
+    /** Main damage/healing/buff value, rendered separately from the longer rules text. */
+    spellEffectSummary?: ISpellEffectSummary;
     // True while the cursor is hovering an enemy unit that the active unit can attack. Drives the
     // HoMM-style attack cursor (themed melee/ranged/magic PNG only shows when actively aiming at a
     // valid target). Optional because UpdateHoverInfo emits {} when no hover info is present.
