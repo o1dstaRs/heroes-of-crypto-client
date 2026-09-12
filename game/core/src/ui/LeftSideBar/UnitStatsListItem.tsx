@@ -34,6 +34,7 @@ import {
     resolveLeftSidebarPortraitTuning,
     type LeftSidebarPortraitTuning,
 } from "../leftSidebarPortraitTuning";
+import { resolveLeftSidebarPortraitAnimation } from "../leftSidebarPortraitAnimation";
 import { resolveLeftSidebarPortraitArt } from "../leftSidebarPortraitArt";
 import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
 import Toggler from "../Toggler";
@@ -118,7 +119,8 @@ const AtlasAnimation: React.FC<{
     onLoaded: () => void;
     /** Ceiling for the rendered portrait; the frame keeps its aspect ratio and centres inside the slot. */
     maxHeight: number;
-}> = ({ meta, src, onLoaded, maxHeight }) => {
+    fillHeight?: boolean;
+}> = ({ meta, src, onLoaded, maxHeight, fillHeight = false }) => {
     const [isImageLoaded, setIsImageLoaded] = React.useState(() => isAtlasReady(src));
     const bgRef = React.useRef<HTMLDivElement | null>(null);
 
@@ -200,10 +202,11 @@ const AtlasAnimation: React.FC<{
         <Box
             sx={{
                 position: "relative",
-                width: "100%",
+                width: fillHeight ? "auto" : "100%",
+                height: fillHeight ? "100%" : "auto",
                 // Height, not width, is the scarce resource in the sidebar: cap the portrait and let the
                 // frame's own aspect ratio decide how wide it may be inside that cap.
-                maxWidth: `${Math.round(maxHeight * (frameWidth / frameHeight))}px`,
+                maxWidth: fillHeight ? "100%" : `${Math.round(maxHeight * (frameWidth / frameHeight))}px`,
                 mx: "auto",
                 aspectRatio: `${frameWidth} / ${frameHeight}`,
                 overflow: "visible",
@@ -230,7 +233,7 @@ const AtlasAnimation: React.FC<{
                     opacity: isImageLoaded ? 1 : 0,
                     transform: "translateZ(0)",
                     backfaceVisibility: "hidden",
-                    transition: "opacity 180ms ease-out",
+                    transition: fillHeight ? "none" : "opacity 180ms ease-out",
                     willChange: "background-position, opacity",
                 }}
             />
@@ -1113,6 +1116,11 @@ const UnitStatsLayout: React.FC<{
 }) => {
     const creatureId = UNIT_NAME_TO_ID[unitProperties.name.trim()];
     const sidebarPortraitArt = creatureId === undefined ? {} : resolveLeftSidebarPortraitArt(creatureId);
+    const portraitAnimationConfig = creatureId === undefined ? null : resolveLeftSidebarPortraitAnimation(creatureId);
+    const [portraitAnimationReady, setPortraitAnimationReady] = useState(false);
+    useEffect(() => setPortraitAnimationReady(false), [portraitAnimationConfig?.src]);
+    const handlePortraitAnimationLoaded = React.useCallback(() => setPortraitAnimationReady(true), []);
+
     const [sidebarPortraitTuning, setSidebarPortraitTuning] = useState<LeftSidebarPortraitTuning>(() =>
         creatureId === undefined
             ? { ...DEFAULT_LEFT_SIDEBAR_PORTRAIT_TUNING }
@@ -1401,28 +1409,53 @@ const UnitStatsLayout: React.FC<{
                         }}
                     >
                         {creatureId !== undefined ? (
-                            <CreaturePortraitImage
-                                creatureId={creatureId}
-                                alt={unitProperties.name}
-                                artScale={sidebarPortraitTuning.artScale}
-                                artScaleX={0.96 * (sidebarPortraitArt.artScaleX ?? 1)}
-                                artOffsetX={sidebarPortraitTuning.artOffsetX}
-                                artOffsetY={sidebarPortraitTuning.artOffsetY}
-                                artSource={sidebarPortraitArt.source}
-                                artSourceUsesFraming={sidebarPortraitArt.usesFraming !== false}
-                                artFit={sidebarPortraitArt.fit}
-                                artBaseScale={sidebarPortraitArt.baseScale}
-                                highQualityArt
-                                sx={{
-                                    width: "100%",
-                                    height: "100%",
-                                    bgcolor: "transparent",
-                                }}
-                                imageStyle={{
-                                    transition: "opacity 120ms ease-out",
-                                    imageRendering: "auto",
-                                }}
-                            />
+                            <Box sx={{ position: "relative", width: "100%", height: "100%" }}>
+                                <CreaturePortraitImage
+                                    creatureId={creatureId}
+                                    alt={unitProperties.name}
+                                    artScale={sidebarPortraitTuning.artScale}
+                                    artScaleX={0.96 * (sidebarPortraitArt.artScaleX ?? 1)}
+                                    artOffsetX={sidebarPortraitTuning.artOffsetX}
+                                    artOffsetY={sidebarPortraitTuning.artOffsetY}
+                                    artSource={sidebarPortraitArt.source}
+                                    artSourceUsesFraming={sidebarPortraitArt.usesFraming !== false}
+                                    artFit={sidebarPortraitArt.fit}
+                                    artBaseScale={sidebarPortraitArt.baseScale}
+                                    highQualityArt
+                                    sx={{
+                                        width: "100%",
+                                        height: "100%",
+                                        bgcolor: "transparent",
+                                    }}
+                                    imageStyle={{
+                                        opacity: portraitAnimationReady ? 0 : 1,
+                                        transition: "none",
+                                        imageRendering: "auto",
+                                    }}
+                                />
+                                {portraitAnimationConfig && (
+                                    <Box
+                                        aria-label={`${unitProperties.name} animated portrait`}
+                                        sx={{
+                                            position: "absolute",
+                                            inset: 0,
+                                            zIndex: 4,
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            pointerEvents: "none",
+                                        }}
+                                    >
+                                        <AtlasAnimation
+                                            meta={portraitAnimationConfig.meta}
+                                            src={portraitAnimationConfig.src}
+                                            onLoaded={handlePortraitAnimationLoaded}
+                                            maxHeight={portraitHeight}
+                                            fillHeight
+                                        />
+                                    </Box>
+                                )}
+                            </Box>
                         ) : animationConfig ? (
                             <AtlasAnimation
                                 meta={animationConfig.meta}
