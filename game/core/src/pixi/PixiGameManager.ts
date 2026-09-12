@@ -36,7 +36,14 @@ import type { PixiApp } from "./PixiApp";
 import type { PreloadedPixiTextures } from "./PixiTextureLoader";
 import { displayedLoadingProgress, MINIMUM_LOADING_SCREEN_DURATION_MS } from "./loadingProgress";
 
-import type { PixiScene, PixiSceneContext, SceneConstructor, SceneEntry } from "./PixiScene";
+import type {
+    CreatureAnimationLabResult,
+    CreatureAnimationLabState,
+    PixiScene,
+    PixiSceneContext,
+    SceneConstructor,
+    SceneEntry,
+} from "./PixiScene";
 import type { AuthoritativeSnapshotOptions } from "./PixiScene";
 import type { LoadingScreen } from "../scenes/LoadingScreen";
 import { getScenesGrouped } from "./sceneRegistry";
@@ -78,6 +85,9 @@ export class PixiGameManager {
     }
     private sceneConstructor: SceneConstructor | null = null;
     private sceneTitle = "Heroes";
+    private testBoardBackground = false;
+    private testBoardNarrowingLevel = 1;
+    private creatureAnimationLabEnabled = false;
     public readonly onHasStarted = new Signal<(started: boolean) => void>();
     // Scenes receive a scoped signal rather than the public, manager-lifetime signal. A Sandbox scene
     // subscribes to its own start events, so handing it the public signal retained every replaced scene
@@ -88,6 +98,8 @@ export class PixiGameManager {
     public readonly onAugmentChanged = new Signal<(changed: boolean) => void>();
     public readonly onArtifactChanged = new Signal<(changed: boolean) => void>();
     public readonly onGridTypeChanged = new Signal<(gridType: GridType) => void>();
+    public readonly onTestBoardBackgroundChanged = new Signal<(enabled: boolean) => void>();
+    public readonly onTestBoardNarrowingLevelChanged = new Signal<(level: number) => void>();
     public readonly onAttackLanded = new Signal<(attackMessage: string) => void>();
     public readonly onDamageReceived = new Signal<(attackDamage: number) => void>();
     // public readonly onUnitSelected = new Signal<(unitProperties: UnitProperties) => void>();
@@ -718,12 +730,50 @@ export class PixiGameManager {
     public IsTeamAiControlled(team: TeamType): boolean {
         return this.m_scene?.isTeamAiControlled(team) ?? false;
     }
+    public SetCreatureAnimationLabEnabled(enabled: boolean): void {
+        this.creatureAnimationLabEnabled = enabled;
+        this.m_scene?.setCreatureAnimationLabEnabled(enabled);
+    }
+    public PlayCreatureAnimationLabState(state: CreatureAnimationLabState): CreatureAnimationLabResult {
+        return (
+            this.m_scene?.playCreatureAnimationLabState(state) ?? {
+                ok: false,
+                message: "Sandbox ещё загружается",
+            }
+        );
+    }
+    public MoveCreatureAnimationLabSelection(dx: number, dy: number): CreatureAnimationLabResult {
+        return (
+            this.m_scene?.moveCreatureAnimationLabSelection(dx, dy) ?? {
+                ok: false,
+                message: "Sandbox ещё загружается",
+            }
+        );
+    }
     /** TEMPORARY sandbox comparison toggle: paint the board with the previous floor texture. */
     public SetLegacyBoardBackground(enabled: boolean): void {
         this.m_scene?.setLegacyBoardBackground(enabled);
     }
     public IsLegacyBoardBackground(): boolean {
         return this.m_scene?.isLegacyBoardBackground() ?? false;
+    }
+    /** Fourth sandbox map: generated abyss art over the unchanged normal 16x16 mechanics. */
+    public SetTestBoardBackground(enabled: boolean): void {
+        this.testBoardBackground = enabled;
+        this.m_scene?.setTestBoardBackground(enabled);
+        this.onTestBoardBackgroundChanged.emit(enabled);
+    }
+    public IsTestBoardBackground(): boolean {
+        return this.m_scene?.isTestBoardBackground() ?? this.testBoardBackground;
+    }
+    public SetTestBoardNarrowingLevel(level: number): void {
+        const nextLevel = Math.max(0, Math.min(5, Math.round(level)));
+        this.testBoardNarrowingLevel = nextLevel;
+        this.m_scene?.setTestBoardNarrowingLevel(nextLevel);
+        this.onTestBoardNarrowingLevelChanged.emit(nextLevel);
+    }
+    public GetTestBoardNarrowingLevel(): number {
+        return this.m_scene?.getTestBoardNarrowingLevel() ?? this.testBoardNarrowingLevel;
     }
     /** Replay the previous fight with the exact same units, positions and map. */
     public Rematch(): void {
@@ -846,6 +896,9 @@ export class PixiGameManager {
             gameActionTransport: this.gameActionTransport,
         };
         this.m_scene = new SceneClass(context);
+        this.m_scene.setCreatureAnimationLabEnabled?.(this.creatureAnimationLabEnabled);
+        this.m_scene.setTestBoardBackground?.(this.testBoardBackground);
+        this.m_scene.setTestBoardNarrowingLevel?.(this.testBoardNarrowingLevel);
 
         this.m_scene.setupControls();
         this.sceneBaseHotKeys = this.m_scene.getBaseHotkeys();

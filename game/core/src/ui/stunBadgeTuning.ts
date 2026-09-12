@@ -13,11 +13,11 @@ export interface StunBadgeLayout {
     centerX: number;
 }
 
-export const STUN_BADGE_TUNING_STORAGE_KEY = "hoc-dev-stun-badge-tuning-v2";
+export const STUN_BADGE_TUNING_STORAGE_KEY = "hoc-dev-stun-badge-tuning-v3";
 
 /** Current reviewed runtime appearance exported from the development editor. */
 export const DEFAULT_STUN_BADGE_TUNING: StunBadgeTuning = Object.freeze({
-    widthScale: 1.84 * 0.97,
+    widthScale: 1.84 * 0.97 * 0.97,
     heightScale: 1.99 * 0.97,
     offsetXFlagHeights: 0.25,
 });

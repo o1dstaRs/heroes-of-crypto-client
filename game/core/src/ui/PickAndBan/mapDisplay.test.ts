@@ -10,7 +10,7 @@ describe("getMapDisplay (ranked map reveal presentation)", () => {
             imageKey: "map_badge_normal_4x4_actual_style_v4",
         });
         expect(getMapDisplay(GridVals.LAVA_CENTER)).toMatchObject({
-            name: "Lava",
+            name: "FIRE PIT",
             imageKey: "map_badge_lava_frameless_v2",
         });
         expect(getMapDisplay(GridVals.BLOCK_CENTER)).toMatchObject({

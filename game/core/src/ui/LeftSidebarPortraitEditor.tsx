@@ -527,6 +527,7 @@ export const LeftSidebarPortraitEditor: React.FC = () => {
                                                 creatureId={creature.id}
                                                 artScale={creatureTuning.artScale}
                                                 artScaleX={sidebarPortraitArt.artScaleX}
+                                                backgroundFit="fill"
                                                 artOffsetX={creatureTuning.artOffsetX}
                                                 artOffsetY={creatureTuning.artOffsetY}
                                                 artSource={sidebarPortraitArt.source}

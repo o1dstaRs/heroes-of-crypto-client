@@ -864,17 +864,19 @@ export class CombatVisuals {
         const startX = baseX;
         const startY = baseY + stack * FT_STACK_STEP;
 
-        // Drift along the full hit trajectory (both axes), with a small alternating fan for stacked text.
+        // Damage numbers anchored to a stack flag must leave that flag on one clean vertical line. The
+        // attack direction still applies to free-floating labels (MISS, RESISTED, etc.), while repeated
+        // flag-anchored hits separate only vertically through the stack offset above.
         let driftX = 0;
         let driftY = 0;
-        if (direction) {
+        if (direction && !flagTopAnchor) {
             const len = Math.sqrt(direction.x * direction.x + direction.y * direction.y);
             if (len > 0.001) {
                 driftX = (direction.x / len) * FT_DRIFT;
                 driftY = (direction.y / len) * FT_DRIFT;
             }
         }
-        if (stack > 0) driftX += (stack % 2 === 0 ? 1 : -1) * 10 * stack;
+        if (stack > 0 && !flagTopAnchor) driftX += (stack % 2 === 0 ? 1 : -1) * 10 * stack;
 
         container.scale.set(FT_START_SCALE, -FT_START_SCALE);
         container.alpha = 0;

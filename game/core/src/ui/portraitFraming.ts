@@ -91,11 +91,13 @@ export const PORTRAIT_FRAMING_CHECKPOINT_X: Readonly<Partial<Record<number, Port
 });
 
 /** Production baseline used by every portrait consumer. */
-export const PICK_PORTRAIT_FRAMING: Partial<Record<number, PortraitFraming>> = {};
+export const PICK_PORTRAIT_FRAMING: Partial<Record<number, PortraitFraming>> = {
+    ...PORTRAIT_FRAMING_CHECKPOINT_X,
+};
 
-// The test-server pick/sandbox files own their crop. Keep their editor state separate from the legacy
-// 512/full-body sources so stale localhost transforms cannot be applied to the prepared WebP canvases.
-export const PORTRAIT_FRAMING_STORAGE_KEY = "hoc-dev-pick-sandbox-portrait-framing-v1";
+// Start a clean editor namespace with the restored production framing so stale neutral localhost
+// overrides from the uncropped roster regression cannot hide the approved close-ups.
+export const PORTRAIT_FRAMING_STORAGE_KEY = "hoc-dev-pick-sandbox-portrait-framing-v2";
 
 const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
 

@@ -30,6 +30,13 @@ import { TeamType, TeamVals } from "@heroesofcrypto/common";
 export const TEAM_COLOR_GREEN = 0x00d200;
 export const TEAM_COLOR_RED = 0xff0000;
 
+/** Shared cloth shades used by battlefield count flags and selected-creature name plaques. */
+export const TEAM_FLAG_PALETTE_GREEN = { edge: 0x176238, center: 0x0b3d20 } as const;
+export const TEAM_FLAG_PALETTE_RED = { edge: 0x7b1928, center: 0x510c16 } as const;
+
+export const teamFlagPalette = (team: TeamType) =>
+    team === TeamVals.LEFT ? TEAM_FLAG_PALETTE_GREEN : TEAM_FLAG_PALETTE_RED;
+
 /** The colour a team is ALWAYS drawn in: LEFT green, RIGHT red, from every seat. */
 export const teamColor = (team: TeamType): number => (team === TeamVals.LEFT ? TEAM_COLOR_GREEN : TEAM_COLOR_RED);
 

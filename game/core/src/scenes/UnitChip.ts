@@ -555,6 +555,15 @@ export class UnitChip extends Container {
         this.sprite.scale.x = Math.abs(this.sprite.scale.x) * (this.mirrorPortraitX ? -1 : 1);
         this.sprite.position.set(this.mirrorPortraitX ? -framedX : framedX, (cardHeight * framing.offsetY) / 100);
     }
+    /** Replace a deferred portrait once Pixi finishes loading it, then restore its approved crop. */
+    public setPortraitTexture(texture: Texture): void {
+        if (this.destroyed || this.sprite.destroyed || texture === Texture.EMPTY) return;
+        this.idleTexture = texture;
+        this.sprite.texture = texture;
+        if (this.lastCardWidth > 0 && this.lastCardHeight > 0) {
+            this.layout(this.lastCardWidth, this.lastCardHeight);
+        }
+    }
     private layoutTypeOverlay(cardWidth: number, cardHeight: number): void {
         if (!this.attackTypeIcon || !this.movementTypeIcon) return;
 

@@ -34,8 +34,8 @@ import {
     resolveLeftSidebarPortraitTuning,
     type LeftSidebarPortraitTuning,
 } from "../leftSidebarPortraitTuning";
-import { resolveLeftSidebarPortraitAnimation } from "../leftSidebarPortraitAnimation";
 import { resolveLeftSidebarPortraitArt } from "../leftSidebarPortraitArt";
+import { resolveLeftSidebarPortraitAnimation } from "../leftSidebarPortraitAnimation";
 import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
 import Toggler from "../Toggler";
 import SynergiesRow from "./SynergiesRow";
@@ -53,6 +53,7 @@ import { areUnitStatsPropsEqual, type UnitStatsListItemProps } from "./unitStats
 import { getDefaultAnimationConfig, isAtlasReady, type SidebarAtlasMeta, warmAtlas } from "./unitAtlas";
 import { stonePlateSx } from "./stonePlateStyles";
 import { hocDisplayFontFamily } from "../hocTheme";
+import { selectedUnitNamePlaqueBackground } from "./namePlaqueColor";
 import { personalArmyCssColor } from "../../scenes/personalArmyTint";
 
 interface IAbilityStackProps {
@@ -119,8 +120,10 @@ const AtlasAnimation: React.FC<{
     onLoaded: () => void;
     /** Ceiling for the rendered portrait; the frame keeps its aspect ratio and centres inside the slot. */
     maxHeight: number;
+    playback?: "ping-pong" | "loop";
+    /** Fit the complete authored frame into the existing portrait box. */
     fillHeight?: boolean;
-}> = ({ meta, src, onLoaded, maxHeight, fillHeight = false }) => {
+}> = ({ meta, src, onLoaded, maxHeight, playback = "ping-pong", fillHeight = false }) => {
     const [isImageLoaded, setIsImageLoaded] = React.useState(() => isAtlasReady(src));
     const bgRef = React.useRef<HTMLDivElement | null>(null);
 
@@ -144,18 +147,30 @@ const AtlasAnimation: React.FC<{
     // Derive a stable timing config from meta primitives so the rAF loop isn't restarted on every
     // parent re-render (e.g. HP changes) — only when the actual atlas shape/timing changes. Uses the
     // same shared helper as the board sprite so both views ping-pong identically and stay in phase.
-    const timing = React.useMemo(
-        () => buildAtlasPingPongTiming(meta),
-        [
-            meta.frameCount,
-            meta.fps,
-            meta.totalDurationSec,
-            meta.loopDurationMs,
-            meta.pauseMs,
-            meta.layout?.cols,
-            meta.layout?.rows,
-        ],
-    );
+    const timing = React.useMemo(() => {
+        if (playback === "ping-pong") return buildAtlasPingPongTiming(meta);
+
+        const cols = meta.layout?.cols ?? 1;
+        const rows = meta.layout?.rows ?? 1;
+        const frameCount = Math.max(1, meta.frameCount ?? 1);
+        const frameDurationMs = 1000 / Math.max(0.01, meta.fps || 4);
+        return {
+            cols,
+            rows,
+            frameCount,
+            cycleMs: frameDurationMs * frameCount,
+            frameForElapsed: (absMs: number) => Math.floor(absMs / frameDurationMs) % frameCount,
+        };
+    }, [
+        playback,
+        meta.frameCount,
+        meta.fps,
+        meta.totalDurationSec,
+        meta.loopDurationMs,
+        meta.pauseMs,
+        meta.layout?.cols,
+        meta.layout?.rows,
+    ]);
 
     // Imperative frame stepping: write backgroundPosition straight to the DOM each rAF tick instead
     // of going through React state (no reconciliation 12x/sec).
@@ -688,8 +703,21 @@ export const SectionTitle: React.FC<{
     displayFont?: boolean;
     preserveCase?: boolean;
     namePlaque?: boolean;
+    namePlaqueTeam?: TeamType;
     heightScale?: number;
-}> = ({ title, metrics, displayFont = false, preserveCase = false, namePlaque = false, heightScale = 1 }) => {
+    leftRuleLiftPx?: number;
+    rightRuleLiftPx?: number;
+}> = ({
+    title,
+    metrics,
+    displayFont = false,
+    preserveCase = false,
+    namePlaque = false,
+    namePlaqueTeam = TeamVals.NO_TEAM,
+    heightScale = 1,
+    leftRuleLiftPx = 0,
+    rightRuleLiftPx = 0,
+}) => {
     const fontSizeRem = metrics.sectionTitleRem * (namePlaque ? 1.45 : displayFont ? 1.1 : 1);
     const naturalHeightPx = fontSizeRem * 16 + (namePlaque ? 6 : 12);
     const scaledHeightPx = naturalHeightPx * heightScale;
@@ -708,7 +736,26 @@ export const SectionTitle: React.FC<{
             }}
         >
             <Box
-                sx={{ height: "1px", flex: 1, background: "linear-gradient(90deg, transparent, rgba(132,91,52,.58))" }}
+                sx={{
+                    height: "1px",
+                    flex: 1,
+                    position: "relative",
+                    background: "linear-gradient(90deg, transparent, rgba(132,91,52,.58))",
+                    transform: leftRuleLiftPx ? `translateY(-${leftRuleLiftPx}px)` : "none",
+                    ...(leftRuleLiftPx
+                        ? {
+                              "&::after": {
+                                  content: '""',
+                                  position: "absolute",
+                                  left: "100%",
+                                  top: 0,
+                                  width: "6px",
+                                  height: "1px",
+                                  background: "rgba(132,91,52,.58)",
+                              },
+                          }
+                        : {}),
+                }}
             />
             <Typography
                 level="title-sm"
@@ -745,7 +792,7 @@ export const SectionTitle: React.FC<{
                     textAlign: "center",
                     clipPath: "polygon(7px 0, calc(100% - 7px) 0, 100% 50%, calc(100% - 7px) 100%, 7px 100%, 0 50%)",
                     background: namePlaque
-                        ? "linear-gradient(180deg, rgba(44,37,30,.59), rgba(14,13,12,.605))"
+                        ? selectedUnitNamePlaqueBackground(namePlaqueTeam)
                         : "linear-gradient(180deg, rgba(44,37,30,.96), rgba(14,13,12,.98)) padding-box, linear-gradient(90deg, #241a12, #8b6238, #241a12) border-box",
                     border: "1px solid transparent",
                     ...(namePlaque
@@ -762,7 +809,22 @@ export const SectionTitle: React.FC<{
                 sx={{
                     height: "1px",
                     flex: 1,
+                    position: "relative",
                     background: "linear-gradient(90deg, rgba(132,91,52,.58), transparent)",
+                    transform: rightRuleLiftPx ? `translateY(-${rightRuleLiftPx}px)` : "none",
+                    ...(rightRuleLiftPx
+                        ? {
+                              "&::before": {
+                                  content: '""',
+                                  position: "absolute",
+                                  right: "100%",
+                                  top: 0,
+                                  width: "6px",
+                                  height: "1px",
+                                  background: "rgba(132,91,52,.58)",
+                              },
+                          }
+                        : {}),
                 }}
             />
         </Box>
@@ -776,7 +838,18 @@ const PanelSection: React.FC<{
     overlayTitle?: boolean;
     offsetY?: number;
     titleHeightScale?: number;
-}> = ({ title, metrics, children, overlayTitle = false, offsetY = 0, titleHeightScale = 1 }) => (
+    leftRuleLiftPx?: number;
+    rightRuleLiftPx?: number;
+}> = ({
+    title,
+    metrics,
+    children,
+    overlayTitle = false,
+    offsetY = 0,
+    titleHeightScale = 1,
+    leftRuleLiftPx = 0,
+    rightRuleLiftPx = 0,
+}) => (
     <Box
         sx={{
             width: "100%",
@@ -804,7 +877,14 @@ const PanelSection: React.FC<{
                     : undefined
             }
         >
-            <SectionTitle title={title} metrics={metrics} displayFont heightScale={titleHeightScale} />
+            <SectionTitle
+                title={title}
+                metrics={metrics}
+                displayFont
+                heightScale={titleHeightScale}
+                leftRuleLiftPx={leftRuleLiftPx}
+                rightRuleLiftPx={rightRuleLiftPx}
+            />
         </Box>
         {children}
     </Box>
@@ -1118,9 +1198,13 @@ const UnitStatsLayout: React.FC<{
     const sidebarPortraitArt = creatureId === undefined ? {} : resolveLeftSidebarPortraitArt(creatureId);
     const portraitAnimationConfig = creatureId === undefined ? null : resolveLeftSidebarPortraitAnimation(creatureId);
     const [portraitAnimationReady, setPortraitAnimationReady] = useState(false);
-    useEffect(() => setPortraitAnimationReady(false), [portraitAnimationConfig?.src]);
-    const handlePortraitAnimationLoaded = React.useCallback(() => setPortraitAnimationReady(true), []);
-
+    useEffect(() => {
+        setPortraitAnimationReady(false);
+    }, [portraitAnimationConfig?.src]);
+    const handlePortraitAnimationLoaded = useCallback(() => {
+        setPortraitAnimationReady(true);
+        onImageLoaded();
+    }, [onImageLoaded]);
     const [sidebarPortraitTuning, setSidebarPortraitTuning] = useState<LeftSidebarPortraitTuning>(() =>
         creatureId === undefined
             ? { ...DEFAULT_LEFT_SIDEBAR_PORTRAIT_TUNING }
@@ -1306,6 +1390,9 @@ const UnitStatsLayout: React.FC<{
     // card gap, then lifts its title wrapper by one full section gap; half of the plaque's rendered height
     // lands the border exactly on the horizontal rules running through the plaque centre.
     const abilityTitleHeightPx = metrics.sectionTitleRem * 1.1 * 16 + 12;
+    // The right-hand divider follows the actual lower edge of the creature artwork: only a shallow step
+    // above the regular Abilities axis. The portrait uses the same boundary, so no fragment hangs below it.
+    const abilityRightStepPx = Math.round(abilityTitleHeightPx * UNIT_SECTION_PLAQUE_HEIGHT_SCALE * 0.32);
     const abilityDividerCenterExtensionPx = Math.round(
         Math.round(metrics.gapPx * 0.5) - Math.round(metrics.gapPx) + abilityTitleHeightPx * 0.5,
     );
@@ -1409,12 +1496,21 @@ const UnitStatsLayout: React.FC<{
                         }}
                     >
                         {creatureId !== undefined ? (
-                            <Box sx={{ position: "relative", width: "100%", height: "100%" }}>
+                            <Box
+                                sx={{
+                                    position: "relative",
+                                    width: "100%",
+                                    height: "100%",
+                                    clipPath: `polygon(0 0, 100% 0, 100% calc(100% - ${abilityRightStepPx}px), 71% calc(100% - ${abilityRightStepPx}px), 71% 100%, 29% 100%, 29% calc(100% - ${abilityRightStepPx}px), 0 calc(100% - ${abilityRightStepPx}px))`,
+                                }}
+                            >
                                 <CreaturePortraitImage
                                     creatureId={creatureId}
                                     alt={unitProperties.name}
                                     artScale={sidebarPortraitTuning.artScale}
                                     artScaleX={0.96 * (sidebarPortraitArt.artScaleX ?? 1)}
+                                    backgroundFit="fill"
+                                    animateBackground
                                     artOffsetX={sidebarPortraitTuning.artOffsetX}
                                     artOffsetY={sidebarPortraitTuning.artOffsetY}
                                     artSource={sidebarPortraitArt.source}
@@ -1451,6 +1547,7 @@ const UnitStatsLayout: React.FC<{
                                             src={portraitAnimationConfig.src}
                                             onLoaded={handlePortraitAnimationLoaded}
                                             maxHeight={portraitHeight}
+                                            playback="ping-pong"
                                             fillHeight
                                         />
                                     </Box>
@@ -1494,6 +1591,9 @@ const UnitStatsLayout: React.FC<{
                             // to the frame on the Abilities divider. Its top and stat positions stay fixed.
                             bottom: `${-abilityDividerCenterExtensionPx}px`,
                             zIndex: 2,
+                            // Match the portrait's stepped lower edge so the translucent stat surface cannot
+                            // leave a dark patterned remnant below either raised divider segment.
+                            clipPath: `polygon(0 0, 100% 0, 100% calc(100% - ${abilityRightStepPx}px), 71% calc(100% - ${abilityRightStepPx}px), 71% 100%, 29% 100%, 29% calc(100% - ${abilityRightStepPx}px), 0 calc(100% - ${abilityRightStepPx}px))`,
                             ...stonePlateSx,
                             paddingBottom: `calc(10px + ${abilityDividerCenterExtensionPx}px)`,
                             // Twenty-five percent transparent: the creature continues visibly behind the plate,
@@ -1538,6 +1638,8 @@ const UnitStatsLayout: React.FC<{
                 metrics={metrics}
                 overlayTitle
                 titleHeightScale={UNIT_SECTION_PLAQUE_HEIGHT_SCALE}
+                leftRuleLiftPx={abilityRightStepPx}
+                rightRuleLiftPx={abilityRightStepPx}
             >
                 <IconScrollWell height={abilityWellHeight}>
                     <AbilityStack
@@ -1902,6 +2004,7 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({ unitProperti
                             displayFont
                             preserveCase
                             namePlaque
+                            namePlaqueTeam={unitProperties.team}
                         />
                     </Box>
                     <List sx={{ p: 0, gap: 0, flex: 1, minHeight: 0 }}>

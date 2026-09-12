@@ -1,6 +1,7 @@
 // game/core/src/overlays/UnitsOverlay.ts
 import {
     Application,
+    Assets,
     Container,
     Rectangle,
     Text,
@@ -743,6 +744,18 @@ export class UnitsOverlay {
                                   }
                                 : undefined,
                     });
+                    if (portraitVisual && !portraitTexture) {
+                        void Assets.load<Texture>(portraitVisual.source)
+                            .then((texture) => chip.setPortraitTexture(texture))
+                            .catch((error: unknown) => {
+                                if (process.env.NODE_ENV === "development") {
+                                    console.warn(
+                                        `[portrait] Failed to load deferred roster portrait for ${unitName}`,
+                                        error,
+                                    );
+                                }
+                            });
+                    }
                     chip.setTicker(this.app.ticker);
                     bucketCont.addChild(chip);
                     this.allChips.push(chip);

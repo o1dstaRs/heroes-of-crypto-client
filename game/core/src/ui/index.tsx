@@ -97,6 +97,27 @@ const LavaAnimationTuningEditor = React.lazy(() =>
     import("./LavaAnimationTuningEditor").then((m) => ({ default: m.LavaAnimationTuningEditor })),
 );
 
+const ShotTrajectoryEditor = React.lazy(() =>
+    import("./ShotTrajectoryEditor").then((m) => ({ default: m.ShotTrajectoryEditor })),
+);
+const BarrelShadowEditor = React.lazy(() =>
+    import("./BarrelShadowEditor").then((m) => ({ default: m.BarrelShadowEditor })),
+);
+const PickLanternFireEditor = React.lazy(() =>
+    import("./PickLanternFireEditor").then((m) => ({ default: m.PickLanternFireEditor })),
+);
+const LavaFireVideoEditor = React.lazy(() =>
+    import("./LavaFireVideoEditor").then((m) => ({ default: m.LavaFireVideoEditor })),
+);
+const LavaPitEffectsEditor = React.lazy(() =>
+    import("./LavaPitEffectsEditor").then((m) => ({ default: m.LavaPitEffectsEditor })),
+);
+const MovementAreaEditor = React.lazy(() => import("./MovementAreaEditor"));
+const StunBadgeEditor = React.lazy(() => import("./StunBadgeEditor"));
+const CreatureAnimationLabPanel = React.lazy(() =>
+    import("./CreatureAnimationLab").then((m) => ({ default: m.CreatureAnimationLabPanel })),
+);
+
 const isEditableTarget = (target: EventTarget | null): boolean => {
     if (!(target instanceof HTMLElement)) {
         return false;
@@ -399,6 +420,29 @@ const LevelOnePickPreview: React.FC = () => (
                 opponentLabel="Opponent"
                 showOpponentRosterDuringAugmentHandoff={false}
                 systemControl={<PickExitFightControl gameId="level-one-pick-preview" />}
+            />
+        </div>
+    </PickBanContext.Provider>
+);
+
+const LEVEL_TWO_PICK_PREVIEW_STATE: PickBanContextType = {
+    ...LEVEL_ONE_PICK_PREVIEW_STATE,
+    picked: [12, 24, 31],
+    requiredLevel: 2,
+};
+
+/** Stable, backend-free canvas for the second creature-pick step. */
+const LevelTwoPickPreview: React.FC = () => (
+    <PickBanContext.Provider value={LEVEL_TWO_PICK_PREVIEW_STATE}>
+        <div className="container" style={{ display: "flex" }}>
+            <CssVarsProvider>
+                <CssBaseline />
+            </CssVarsProvider>
+            <StainedGlassWindow
+                userTeam={TeamVals.LEFT as TeamType}
+                gameId="level-two-pick-preview"
+                opponentLabel="Opponent"
+                showOpponentRosterDuringAugmentHandoff={false}
             />
         </div>
     </PickBanContext.Provider>
@@ -866,7 +910,6 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
             setPickNearingPlay(true);
         }
     }, []);
-
     useEffect(() => {
         setPickNearingPlay(false);
         setObserverMode(false);
@@ -1170,7 +1213,7 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
                     />
                     {/* Live 60-frame lava-atlas calibration: playback, color, geometry, light and procedural splashes. */}
                     <Route
-                        path="/dev/lava-editor"
+                        path="/dev/lava-animation-editor"
                         element={
                             <React.Suspense fallback={null}>
                                 <LavaAnimationTuningEditor windowSize={windowSize} />
@@ -1184,6 +1227,83 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
                             <React.Suspense fallback={null}>
                                 <LoadingScreenFireEditor />
                             </React.Suspense>
+                        }
+                    />
+                    {/* Backend-free visual fixture for the second creature-pick phase. */}
+                    <Route path="/preview/picks/level2" element={<LevelTwoPickPreview />} />
+                    {/* Four live trajectory treatments; the selected style persists locally and is used by combat. */}
+                    <Route
+                        path="/dev/shot-trajectories"
+                        element={
+                            <React.Suspense fallback={null}>
+                                <ShotTrajectoryEditor />
+                            </React.Suspense>
+                        }
+                    />
+                    {/* All nine Cemetery barrel variants with live creature-style shadow tuning. */}
+                    <Route
+                        path="/dev/barrel-shadow-editor"
+                        element={
+                            <React.Suspense fallback={null}>
+                                <BarrelShadowEditor windowSize={windowSize} />
+                            </React.Suspense>
+                        }
+                    />
+                    {/* Draft-background lantern flame: two sources, fixed bottom anchor and live colour/geometry tuning. */}
+                    <Route
+                        path="/dev/pick-lantern-fire-editor"
+                        element={
+                            <React.Suspense fallback={null}>
+                                <PickLanternFireEditor>
+                                    <BundlePickPreview />
+                                </PickLanternFireEditor>
+                            </React.Suspense>
+                        }
+                    />
+                    {/* Live 60-frame lava-atlas calibration on the video-fire pit: playback, color, geometry, light and splashes. */}
+                    <Route
+                        path="/dev/lava-editor"
+                        element={
+                            <React.Suspense fallback={null}>
+                                <LavaFireVideoEditor windowSize={windowSize} />
+                            </React.Suspense>
+                        }
+                    />
+                    <Route
+                        path="/dev/lava-pit"
+                        element={
+                            <React.Suspense fallback={null}>
+                                <LavaPitEffectsEditor windowSize={windowSize} />
+                            </React.Suspense>
+                        }
+                    />
+                    {/* Top-two-row movement-fill calibration; only each row's upper edge is adjustable. */}
+                    <Route
+                        path="/dev/movement-area-editor"
+                        element={
+                            <React.Suspense fallback={null}>
+                                <MovementAreaEditor windowSize={windowSize} />
+                            </React.Suspense>
+                        }
+                    />
+                    {/* Independent width, height and horizontal-position tuning for the battlefield stun badge. */}
+                    <Route
+                        path="/dev/stun-badge-editor"
+                        element={
+                            <React.Suspense fallback={null}>
+                                <StunBadgeEditor />
+                            </React.Suspense>
+                        }
+                    />
+                    <Route
+                        path="/dev/creature-animation-lab"
+                        element={
+                            <>
+                                <Heroes windowSize={windowSize} />
+                                <React.Suspense fallback={null}>
+                                    <CreatureAnimationLabPanel />
+                                </React.Suspense>
+                            </>
                         }
                     />
                 </>

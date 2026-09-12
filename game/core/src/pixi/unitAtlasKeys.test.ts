@@ -45,6 +45,9 @@ describe("unit animation atlas key split", () => {
     test("terrain atlases the board draws at first paint stay core", () => {
         expect(isUnitAnimationAtlasKey("lava_center_anim_atlas")).toBe(false);
         expect(isUnitAnimationAtlasKey("tombstone_tiles_256_atlas")).toBe(false);
+        expect(isUnitAnimationAtlasKey("fire_pit_variant_1_low_front_fire_overlay_seamless_v2_64_atlas")).toBe(false);
+        expect(isUnitAnimationAtlasKey("ambient_fire_video_torch_left_natural_v4_64_atlas")).toBe(false);
+        expect(isUnitAnimationAtlasKey("ambient_fire_video_torch_right_natural_v4_64_atlas")).toBe(false);
     });
 
     test("keeps the generated pick/ban slash classified as UI instead of a unit source sheet", () => {

@@ -15,6 +15,10 @@ const RC_BLUR_BASE = 2; // gaussian blur on the live sprite at the start of the 
 const RC_BLUR_RANGE = 8; // extra blur added as it reaches top speed
 const RC_AFTERIMAGE_SPACING_CELLS = 0.4; // drop a ghost every ~0.4 cells travelled
 const RC_AFTERIMAGE_LIFE = 0.22; // seconds a ghost lingers before it has fully faded
+/** Grounded walkers alternate left/right compact contacts every half travelled cell. */
+const WALK_DUST_INTERVAL_CELLS = 0.5;
+const WALK_DUST_LIFE = 0.27;
+const WALK_DUST_FOOT_OFFSET_CELLS = 0.12;
 export interface IMoveAnimationContext {
     getGridSettings(): GridSettings;
     updateSceneLog(msg: string): void;
@@ -42,6 +46,8 @@ interface IMoveAnimationState {
     rapidCharge: boolean;
     totalSegments: number;
     lastAfterimageWorld: HoCMath.XY;
+    nextFootstepDistance: number;
+    footstepIndex: number;
 }
 
 interface IAfterimage {
@@ -62,6 +68,7 @@ interface ILingeringTrack {
     dirX: number;
     dirY: number;
     cellSize: number;
+    kind?: "movement-trail" | "walk-dust";
 }
 
 interface ISwapAnimSegment {
@@ -222,6 +229,10 @@ export class MoveAnimationManager {
             rapidCharge: useRapidCharge,
             totalSegments: Math.max(1, worldPath.length - 1),
             lastAfterimageWorld: { x: start.x, y: start.y },
+            // Frame 0 is an authored support pose. Emit its contact on the first moving tick, then
+            // alternate at frame 4 / frame 0 every half gait cycle.
+            nextFootstepDistance: 0,
+            footstepIndex: 0,
         };
     }
     public startSwapAnimation(
@@ -322,6 +333,7 @@ export class MoveAnimationManager {
         const cellSize = gs.getCellSize();
         const { unit, worldPath, speed } = anim;
         const isLargeUnit = !unit.isSmallSize();
+        const isFlying = unit.canFly();
 
         if (!worldPath || worldPath.length < 2 || speed <= 0) {
             const end = worldPath[worldPath.length - 1] ?? unit.getPosition();
@@ -362,6 +374,7 @@ export class MoveAnimationManager {
             unit.setBoardFacingFromMovement(dx);
             const segLen = Math.sqrt(dx * dx + dy * dy) || 1e-6;
             const segRemaining = (1 - a.t) * segLen;
+            const segmentStartProgress = segIndex + a.t;
 
             let newPos: HoCMath.XY;
 
@@ -382,7 +395,7 @@ export class MoveAnimationManager {
                 remaining = 0;
             }
 
-            if (isLargeUnit) {
+            if (isLargeUnit && isFlying) {
                 // Space the large-unit puffs further apart so they read as one cohesive trailing
                 // cloud rather than a dense stream of many small particles.
                 const spacing = cellSize * 1.5;
@@ -406,8 +419,22 @@ export class MoveAnimationManager {
 
             this.moveTrackProgress = a.currentSegment + a.t;
             // Synchronize spatially-authored phases to path progress: Fairy finishes take-off inside
-            // its opening distance span, while Wandering Mage/Troll keep their gait locked to cells.
+            // its opening distance span, while Peasant/Squire/Wandering Mage/Troll keep gait locked to cells.
             unit.setBoardWalkDistanceCells(this.moveTrackProgress);
+
+            if (!isFlying) {
+                this.dropWalkDustAtCellCenters(
+                    a,
+                    segmentStartProgress,
+                    this.moveTrackProgress,
+                    segIndex,
+                    p0,
+                    dx,
+                    dy,
+                    segLen,
+                    gs,
+                );
+            }
 
             // Rapid Charge: spill a fading afterimage every ~0.4 cells travelled — the trail of ghosts
             // behind the dashing unit is the "motion blur" of a fast charge.
@@ -424,7 +451,7 @@ export class MoveAnimationManager {
                 }
             }
 
-            if (!isLargeUnit && this.moveTrackPath && this.moveTrackPath.length > 0) {
+            if (!isLargeUnit && isFlying && this.moveTrackPath && this.moveTrackPath.length > 0) {
                 const idx = Math.floor(this.moveTrackProgress);
                 // Skip the final cell (the destination) — dust only trails behind, not where it lands.
                 if (idx >= 0 && idx < this.moveTrackPath.length - 1 && idx !== this.lastTrackDropIndex) {
@@ -445,6 +472,7 @@ export class MoveAnimationManager {
                             dirX: visualDirection.x,
                             dirY: visualDirection.y,
                             cellSize: metrics.cellSize,
+                            kind: "movement-trail",
                         });
                         this.lastTrackDropIndex = idx;
                     }
@@ -556,7 +584,59 @@ export class MoveAnimationManager {
             dirX: visualDirection.x,
             dirY: visualDirection.y,
             cellSize: metrics.cellSize,
+            kind: "movement-trail",
         });
+    }
+    private dropWalkDustAtCellCenters(
+        anim: IMoveAnimationState,
+        progressStart: number,
+        progressEnd: number,
+        segmentIndex: number,
+        segmentStart: HoCMath.XY,
+        dx: number,
+        dy: number,
+        segmentLength: number,
+        gs: GridSettings,
+    ): void {
+        // A large dt can cross several foot contacts. Resolve every half-cell threshold independently
+        // so left and right puffs remain sequential instead of appearing as a simultaneous pair.
+        while (anim.nextFootstepDistance <= progressEnd + 1e-9) {
+            const contactDistance = anim.nextFootstepDistance;
+            if (
+                contactDistance + 1e-9 >= progressStart &&
+                contactDistance <= segmentIndex + 1 + 1e-9 &&
+                // The destination is occupied rather than passed: never leave walking dust there.
+                contactDistance < anim.totalSegments - 1e-9
+            ) {
+                const contactT = Math.max(0, Math.min(1, contactDistance - segmentIndex));
+                const worldPoint = {
+                    x: segmentStart.x + dx * contactT,
+                    y: segmentStart.y + dy * contactT,
+                };
+                const metrics = projectedBattlefieldMetricsAtPoint(worldPoint, gs);
+                const visualDirection = this.projectDirection(worldPoint, dx / segmentLength, dy / segmentLength, gs);
+                const perpendicular = { x: -visualDirection.y, y: visualDirection.x };
+                const footOffset = metrics.cellSize * WALK_DUST_FOOT_OFFSET_CELLS;
+                const side = anim.footstepIndex % 2 === 0 ? -1 : 1;
+
+                this.lingeringTracks.push({
+                    x: metrics.center.x + perpendicular.x * footOffset * side,
+                    y: metrics.center.y + perpendicular.y * footOffset * side,
+                    radius: metrics.cellSize * 0.3,
+                    life: WALK_DUST_LIFE,
+                    maxLife: WALK_DUST_LIFE,
+                    phase: anim.footstepIndex,
+                    team: anim.unit.getTeam(),
+                    flying: false,
+                    dirX: visualDirection.x,
+                    dirY: visualDirection.y,
+                    cellSize: metrics.cellSize,
+                    kind: "walk-dust",
+                });
+            }
+            anim.footstepIndex += 1;
+            anim.nextFootstepDistance += WALK_DUST_INTERVAL_CELLS;
+        }
     }
     private projectDirection(point: HoCMath.XY, dirX: number, dirY: number, gs: GridSettings): HoCMath.XY {
         const result = this.directionResultScratch;

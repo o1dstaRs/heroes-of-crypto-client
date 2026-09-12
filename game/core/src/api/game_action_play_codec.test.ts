@@ -133,6 +133,24 @@ describe("createPlayActionFromGameAction", () => {
         });
     });
 
+    it("round-trips a free Through Shot world point without a unit target", () => {
+        const action: GameAction = {
+            type: "range_attack",
+            attackerId: "cannon",
+            targetId: "",
+            targetPosition: { x: 123.5, y: 456.25 },
+        };
+        const wire = createPlayActionFromGameAction(action, envelope);
+        expect(wire).toMatchObject({
+            type: PlayActionType.RANGE_ATTACK,
+            unitId: "cannon",
+            targetCell: action.targetPosition,
+        });
+        expect(wire.targetUnitId).toBeUndefined();
+        expect(wire.targetSide).toBeUndefined();
+        expect(createGameActionFromPlayAction(wire)).toEqual({ ...action, aimCell: undefined, aimSide: undefined });
+    });
+
     it("round-trips the Fire Wall orientation so a rotated wall survives the wire", () => {
         // HORIZONTAL is 0 and must survive: it is sent 1-based so the varint zero-skip can't drop it.
         // Without this field the server normalized EVERY ranked cast to horizontal — the live "unable

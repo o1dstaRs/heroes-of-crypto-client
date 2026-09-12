@@ -122,6 +122,20 @@ const dustTrailRotation = (dirX: number, dirY: number): number => {
     return Math.sign(dirX * dirY) * (Math.PI / 4);
 };
 
+/**
+ * Align the atlas to the route as an undirected axis. Canonicalizing opposite vectors to the same
+ * half-plane prevents the sprite from turning upside-down when a creature reverses and walks left.
+ */
+export const walkDustRotation = (dirX: number, dirY: number): number => {
+    let x = dirX;
+    let y = dirY;
+    if (x < -0.001 || (Math.abs(x) <= 0.001 && y < 0)) {
+        x = -x;
+        y = -y;
+    }
+    return Math.atan2(y, x);
+};
+
 const DUST_TINTS = [0xc6bfb0, 0xbbb4a5, 0xcec7b8] as const;
 const DUST_ATLAS_URL = images.vfx_dust_smoky_ash_atlas;
 
@@ -137,6 +151,7 @@ export class SmokeLayer {
     private readonly dustSprites = new Map<ILingeringTrack, Sprite>();
     private readonly activeTracks = new Set<ILingeringTrack>();
     private dustFrames?: Texture[];
+    private squireFootstepFrames?: Texture[];
     private dustAtlas?: Texture;
     private atlasLoadStarted = false;
     private filter?: Filter;
@@ -184,6 +199,20 @@ export class SmokeLayer {
                 this.atlasLoadFailed = true;
                 this.installProceduralFallback();
             });
+        void Assets.load<Texture>(images.squire_footstep_dust_compact_atlas)
+            .then((atlas) => {
+                if (this.destroyed) {
+                    // Same teardown discipline as the shared dust atlas: a late decode must not outlive the scene.
+                    void Assets.unload(images.squire_footstep_dust_compact_atlas).catch(() => undefined);
+                    return;
+                }
+                this.installSquireFootstepAtlas(atlas);
+            })
+            .catch(() => {
+                // This optional unit-specific VFX has no procedural substitute; gameplay continues
+                // with the Squire cleanly animated and without an unrelated generic smoke puff.
+                this.squireFootstepFrames = undefined;
+            });
     }
     private installDustAtlas(atlas: Texture): void {
         if (this.destroyed) return;
@@ -203,6 +232,23 @@ export class SmokeLayer {
             this.dustFrames = undefined;
             this.atlasLoadFailed = true;
             this.installProceduralFallback();
+        }
+    }
+    private installSquireFootstepAtlas(atlas: Texture): void {
+        try {
+            atlas.source.autoGenerateMipmaps = true;
+            atlas.source.scaleMode = "linear";
+            const frameSide = 512;
+            this.squireFootstepFrames = Array.from({ length: 6 }, (_, index) => {
+                const col = index % 3;
+                const row = Math.floor(index / 3);
+                return new Texture({
+                    source: atlas.source,
+                    frame: new Rectangle(col * frameSide, row * frameSide, frameSide, frameSide),
+                });
+            });
+        } catch {
+            this.squireFootstepFrames = undefined;
         }
     }
     private installProceduralFallback(): void {
@@ -232,19 +278,23 @@ export class SmokeLayer {
     }
     /** Draw the selected six-frame atlas at the bottom edge of every travelled cell. */
     private updateSpriteDust(tracks: readonly ILingeringTrack[]): void {
-        const frames = this.dustFrames;
-        if (!frames) return;
+        if (!this.dustFrames && !this.squireFootstepFrames) return;
 
         const activeTracks = this.activeTracks;
         activeTracks.clear();
         for (const track of tracks) {
             if (track.flying) continue;
+            const isWalkDust = track.kind === "walk-dust";
+            const frames = isWalkDust ? this.squireFootstepFrames : this.dustFrames;
+            if (!frames) continue;
             activeTracks.add(track);
 
             let sprite = this.dustSprites.get(track);
             if (!sprite) {
                 sprite = new Sprite(frames[0]);
-                sprite.anchor.set(0.5, 1);
+                // The approved Squire atlas' painted-pixel centre is (0.46, 0.63). Using the visible
+                // centre rather than the square source centre keeps every puff exactly on its cell.
+                sprite.anchor.set(isWalkDust ? 0.46 : 0.5, isWalkDust ? 0.63 : 1);
                 this.spriteContainer.addChild(sprite);
                 this.dustSprites.set(track, sprite);
             }
@@ -258,20 +308,30 @@ export class SmokeLayer {
             // only a slightly taller one. This is intentionally non-uniform: the owner asked for a wide,
             // low effect rather than a circular cloud around the unit's waist.
             const footprintScale = Math.max(1, track.radius / (track.cellSize * 0.42));
-            const displayWidth = track.cellSize * 1.38 * footprintScale;
-            const displayHeight = track.cellSize * (0.62 + (footprintScale - 1) * 0.12);
+            const displayWidth = isWalkDust ? track.cellSize * 0.68 : track.cellSize * 1.38 * footprintScale;
+            const displayHeight = isWalkDust
+                ? track.cellSize * 0.4
+                : track.cellSize * (0.62 + (footprintScale - 1) * 0.12);
             sprite.scale.set(displayWidth / 512, -displayHeight / 512);
-            sprite.rotation = dustTrailRotation(track.dirX, track.dirY);
+            sprite.tint = isWalkDust ? 0xb59a78 : 0xffffff;
+            sprite.rotation = isWalkDust
+                ? walkDustRotation(track.dirX, track.dirY)
+                : dustTrailRotation(track.dirX, track.dirY);
 
             // The generated frames have a small transparent strip below their painted baseline. Offset
             // that strip as well as half a cell so the visible dust itself hugs the cell's lower edge.
-            const transparentBottomPadding = displayHeight * 0.12;
-            sprite.position.set(track.x, track.y - track.cellSize * 0.5 - transparentBottomPadding);
+            if (isWalkDust) {
+                sprite.position.set(track.x, track.y);
+            } else {
+                const transparentBottomPadding = displayHeight * 0.12;
+                sprite.position.set(track.x, track.y - track.cellSize * 0.5 - transparentBottomPadding);
+            }
 
             // The atlas already has a soft alpha matte. A second restrained layer opacity keeps its dense
             // middle frames from looking like an opaque wall and fades the final flecks smoothly.
             const fade = Math.min(1, life * 1.6);
-            sprite.alpha = 0.52 * fade;
+            // Shared walking dust is 10% more transparent than the approved 0.56 baseline.
+            sprite.alpha = (isWalkDust ? 0.56 * 0.9 : 0.52) * fade;
         }
 
         for (const [track, sprite] of this.dustSprites) {
@@ -285,13 +345,13 @@ export class SmokeLayer {
         if (!tracks.length && !this.dustSprites.size && !this.hasGeometry) return;
         let hasGroundTrack = false;
         for (const track of tracks) {
-            if (!track.flying) {
+            if (!track.flying && track.kind !== "walk-dust") {
                 hasGroundTrack = true;
                 break;
             }
         }
         if (hasGroundTrack && !this.dustFrames) this.ensureDustAtlasLoad();
-        if (this.dustFrames) {
+        if (this.dustFrames || this.squireFootstepFrames) {
             this.updateSpriteDust(tracks);
             return;
         }
@@ -324,7 +384,7 @@ export class SmokeLayer {
         // Muted grey-browns, but light enough to read against the darkened dungeon floor.
 
         for (const t of tracks) {
-            if (t.flying) continue;
+            if (t.flying || t.kind === "walk-dust") continue;
             const seed = t.phase;
             const k = Math.max(0, t.life / t.maxLife); // 1 -> 0
             const fade = Math.min(1, k * 1.6); // hold then fall off

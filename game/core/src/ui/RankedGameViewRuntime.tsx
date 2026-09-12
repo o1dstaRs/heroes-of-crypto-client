@@ -72,8 +72,8 @@ import {
     DRAFT_ARMIES_HEIGHT,
     DRAFT_HEADER_HEIGHT,
     DRAFT_ZONE_GAP,
-    DraftBottomControls,
     CreatureDetailPanel,
+    DraftBottomControls,
     draftBoardSx,
     draftShellSx,
     DraftTitle,
@@ -839,6 +839,14 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
         setBattleSystemControlsActive(true);
         return () => setBattleSystemControlsActive(false);
     }, []);
+
+    // SocialDock lives above the router, so tell it about the real combat state directly. This keeps the
+    // three system controls in their pick-screen row during placement, then moves the combined medallion
+    // to the top-right on the first fighting turn.
+    useEffect(() => {
+        setBattleSystemControlsActive(gameStarted);
+        return () => setBattleSystemControlsActive(false);
+    }, [gameStarted]);
 
     // "Iron and Silk" runs from the match being found until the first turn. The route hands the flag over
     // once the board is up; from here it is simply "we have a board and the fight has not started", which is
