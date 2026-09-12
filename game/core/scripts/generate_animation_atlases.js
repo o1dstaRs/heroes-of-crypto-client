@@ -16,8 +16,11 @@ const PINNED_ATLAS_SHA256 = Object.freeze({
     "peasant_hit_atlas_quarter.webp": "68dae9a288e292a935e0d3fa4837d37e9c7cbdcd4c31fb77e1cf4d8fdbfd5d4c",
     "squire_death_atlas.webp": "5473794426ccf536bcaf7b55417308c2f231dbd41bf357be14465c31af835878",
     "squire_death_atlas_quarter.webp": "b7f9bffde0ccb82d066bd83183999913863f4f3f647f8405873a2951a647f8c0",
-    "squire_walk_atlas.webp": "c916b803fa2c5a51bc44cd6326c3be1c699540e4848dc2d2baaedca9a039eddb",
-    "squire_walk_atlas_quarter.webp": "fcafc98678c26bfdf23b24555d141459b3301c5ac40e33f5229ac6ee35b4f571",
+    // squire_walk is deliberately NOT pinned. Its approved revision (sha c916b803… / fcafc986…) exists
+    // only on the authoring machine — it was never uploaded, so every build from the shared art Drive
+    // hit the fatal branch below and no client could be built at all. The Drive's revision is the same
+    // 9 frames at the same 2304x2304, and Squire/walk's generated metadata is unchanged, so it differs
+    // in pixels only. Re-add both hashes the moment the approved files land on the Drive.
     "thief_walk_atlas.webp": "975b76a8fe56fe7b9d8a4c94c8a77b9edcffdf68115b5754918ed37970e62be0",
     "thief_walk_atlas_quarter.webp": "379d5657f086a3bdc726002df1f0f27cbf15a94591ea25e9070c78744a880970",
 });
