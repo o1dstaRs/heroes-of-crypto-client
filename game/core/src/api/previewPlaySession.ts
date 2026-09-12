@@ -75,12 +75,19 @@ export interface PreviewPlacementOptions {
     /** Optional dev-fixture rosters; the regular placement preview keeps its canonical six stacks. */
     leftArmy?: readonly number[];
     rightArmy?: readonly number[];
+    /** Lower/upper aliases used by side-neutral dev editors while left/right callers are migrated. */
+    lowerArmy?: readonly number[];
+    upperArmy?: readonly number[];
     /** Dev comparison views can align a large left roster along the board's bottom edge. */
     spreadLeftArmyAcrossBoard?: boolean;
+    /** Lower-team alias for spreadLeftArmyAcrossBoard. */
+    spreadLowerArmyAcrossBoard?: boolean;
     /** Consecutive group sizes for horizontal rows (the framing editor uses one row per level). */
     comparisonRowSizes?: readonly number[];
     /** Optional exact ground row for each comparison row; shadow tuning pins its selected unit at the top. */
     comparisonRowGroundYs?: readonly number[];
+    /** Place every comparison unit on its own highest legal gameplay row, accounting for footprint height. */
+    comparisonAlignToTopPlayableRow?: boolean;
     /** When set, comparison units are packed left-to-right with this many empty cells between footprints. */
     comparisonHorizontalGapCells?: number;
     /** Preserve this many fixed horizontal slots, including empty lowerArmy entries such as 0. */
@@ -244,6 +251,7 @@ const deployComparisonTeam = (
     requestedRowGroundYs?: readonly number[],
     requestedHorizontalGapCells?: number,
     requestedFixedSlotCount?: number,
+    alignToTopPlayableRow = false,
 ): void => {
     if (!units.length) return;
 
@@ -304,6 +312,7 @@ const deployComparisonTeam = (
                 fixedSlotCount > 0
                     ? Math.max(unit.footprintWidth - 1, fixedSlotAnchorX)
                     : packedLeftX + unit.footprintWidth - 1;
+            const unitGroundY = alignToTopPlayableRow ? GridConstants.GRID_SIZE - unit.footprintHeight - 1 : rowGroundY;
             const base = {
                 x:
                     fixedSlotCount > 0
@@ -311,7 +320,7 @@ const deployComparisonTeam = (
                         : horizontalGapCells === undefined
                           ? Math.round(minBaseX + slot * columnIndex)
                           : packedBaseX,
-                y: Math.min(GridConstants.GRID_SIZE - 1, rowGroundY + unit.footprintHeight - 1),
+                y: Math.min(GridConstants.GRID_SIZE - 1, unitGroundY + unit.footprintHeight - 1),
             };
             unit.placed = true;
             unit.cells = footprintOf(base, unit.footprintWidth, unit.footprintHeight);
@@ -323,8 +332,8 @@ const deployComparisonTeam = (
 
 const buildSnapshot = (options: PreviewPlacementOptions): PlaySnapshot => {
     const now = Date.now();
-    const leftArmy = options.leftArmy ?? LEFT_ARMY;
-    const rightArmy = options.rightArmy ?? RIGHT_ARMY;
+    const leftArmy = options.lowerArmy ?? options.leftArmy ?? LEFT_ARMY;
+    const rightArmy = options.upperArmy ?? options.rightArmy ?? RIGHT_ARMY;
     const units = [
         ...leftArmy.map((creatureId, index) => buildUnit(creatureId, TeamVals.LEFT, index)),
         ...rightArmy.map((creatureId, index) => buildUnit(creatureId, TeamVals.RIGHT, index)),
@@ -337,13 +346,25 @@ const buildSnapshot = (options: PreviewPlacementOptions): PlaySnapshot => {
     // client decides the zone is. Deploying into the augmented zone instead put the army one column outside
     // the drawn zone whenever the client had not yet folded the augment in.
     const leftUnits = units.filter((unit) => unit.team === TeamVals.LEFT);
-    if (options.spreadLeftArmyAcrossBoard) {
+    const usesComparisonLayout = options.spreadLowerArmyAcrossBoard ?? options.spreadLeftArmyAcrossBoard;
+    if (usesComparisonLayout) {
+        // Framing/shadow comparison surfaces only need the creature body. Mark the empty spell list as
+        // authoritative so RankedPlayScene does not reconstruct a creature's live spellbook while hydrating
+        // the visual fixture. That reconstruction can legitimately fail while common's spell roster is being
+        // edited (for example Battle Mage still referring to a moved Meteorite); one bad spell must not abort
+        // creation of every comparison creature that follows it in the row.
+        for (const unit of leftUnits) {
+            unit.abilities = [];
+            unit.spellEntriesAuthoritative = true;
+            unit.spellEntries = [];
+        }
         deployComparisonTeam(
             leftUnits,
             options.comparisonRowSizes,
             options.comparisonRowGroundYs,
             options.comparisonHorizontalGapCells,
             options.comparisonFixedSlotCount,
+            options.comparisonAlignToTopPlayableRow,
         );
     } else {
         deployTeam(leftUnits, TeamVals.LEFT, PLACEMENT_ZONE_DEPTH[0]);

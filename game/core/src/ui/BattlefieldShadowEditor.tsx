@@ -1,15 +1,18 @@
 import { CREATURES_JSON, GridVals, TeamVals, getCreaturesByLevel } from "@heroesofcrypto/common";
-import { Box, Button, Input, Sheet, Typography } from "@mui/joy";
-import React, { useEffect, useState } from "react";
+import { Box, Button, Checkbox, Input, Sheet, Typography } from "@mui/joy";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { PREVIEW_PLACEMENT_GAME_ID, startPreviewPlaySession } from "../api/previewPlaySession";
 import type { IWindowSize } from "../scenes/VisibleState";
 import {
+    BATTLEFIELD_SHADOW_TUNING_CHANGE_EVENT,
+    BATTLEFIELD_SHADOW_SEGMENT_COUNT,
     normalizeBattlefieldShadowTuning,
     readBattlefieldShadowVisualBounds,
     readStoredBattlefieldShadowTuning,
     resetStoredBattlefieldShadowTuning,
     setBattlefieldShadowEditorActive,
+    startBattlefieldShadowTuningSync,
     writeStoredBattlefieldShadowTuning,
     type BattlefieldShadowRowTuning,
     type BattlefieldShadowSegmentVisualBounds,
@@ -38,6 +41,7 @@ const SHADOW_EDITOR_CREATURES = [1, 2, 3, 4].flatMap((level) =>
 const SHADOW_EDITOR_SLOT_COUNT = 6;
 const SHADOW_EDITOR_EMPTY_SLOT_ID = 0;
 const SHADOW_EDITOR_SLOT_STORAGE_KEY = "hoc:shadow-editor:creature-slots-v2";
+const SHADOW_EDITOR_STATE_ENDPOINT = "/__hoc-dev/battlefield-shadow-editor-state";
 const shadowEditorCreatureIds = new Set(SHADOW_EDITOR_CREATURES.map((creature) => creature.id));
 
 const defaultShadowEditorSlots = (): number[] =>
@@ -46,18 +50,23 @@ const defaultShadowEditorSlots = (): number[] =>
         (_, index) => SHADOW_EDITOR_CREATURES[index]?.id ?? SHADOW_EDITOR_EMPTY_SLOT_ID,
     );
 
+const normalizeShadowEditorSlots = (value: unknown): number[] | undefined => {
+    if (!Array.isArray(value) || value.length !== SHADOW_EDITOR_SLOT_COUNT) return undefined;
+    const used = new Set<number>();
+    return Array.from({ length: SHADOW_EDITOR_SLOT_COUNT }, (_, index) => {
+        const id = Number(value[index]);
+        if (id === SHADOW_EDITOR_EMPTY_SLOT_ID) return SHADOW_EDITOR_EMPTY_SLOT_ID;
+        if (!shadowEditorCreatureIds.has(id) || used.has(id)) return SHADOW_EDITOR_EMPTY_SLOT_ID;
+        used.add(id);
+        return id;
+    });
+};
+
 const readShadowEditorSlots = (): number[] => {
     if (typeof window === "undefined" || typeof window.localStorage === "undefined") return defaultShadowEditorSlots();
     try {
         const parsed = JSON.parse(window.localStorage.getItem(SHADOW_EDITOR_SLOT_STORAGE_KEY) ?? "[]");
-        if (!Array.isArray(parsed) || parsed.length !== SHADOW_EDITOR_SLOT_COUNT) return defaultShadowEditorSlots();
-        const used = new Set<number>();
-        return Array.from({ length: SHADOW_EDITOR_SLOT_COUNT }, (_, index) => {
-            const id = Number(parsed[index]);
-            if (!shadowEditorCreatureIds.has(id) || used.has(id)) return SHADOW_EDITOR_EMPTY_SLOT_ID;
-            used.add(id);
-            return id;
-        });
+        return normalizeShadowEditorSlots(parsed) ?? defaultShadowEditorSlots();
     } catch {
         return defaultShadowEditorSlots();
     }
@@ -130,10 +139,11 @@ const TRANSFORM_HANDLES: readonly TransformHandle[] = [
 const ShadowDirectManipulation: React.FC<{
     creatures: readonly { id: number; name: string }[];
     selectedCreatureId: number;
+    selectedSegmentIndex: number | null;
     tuning: BattlefieldShadowTuning;
     onSelect: (creatureId: number) => void;
     onTransform: (patch: Partial<BattlefieldShadowRowTuning>) => void;
-}> = ({ creatures, selectedCreatureId, tuning, onSelect, onTransform }) => {
+}> = ({ creatures, selectedCreatureId, selectedSegmentIndex, tuning, onSelect, onTransform }) => {
     const [visuals, setVisuals] = useState<Record<string, ScreenShadowBounds>>({});
 
     useEffect(() => {
@@ -189,12 +199,21 @@ const ShadowDirectManipulation: React.FC<{
         const startLengthScale = tuning.top.lengthScale;
         const startOffsetX = tuning.top.offsetXCells;
         const startOffsetY = tuning.top.offsetYCells;
+        const startSegmentLengthMultipliers = [...tuning.top.segmentLengthMultipliers];
         const rounded = (value: number) => Math.round(value * 1000) / 1000;
         const move = (pointerEvent: PointerEvent) => {
             const deltaX = pointerEvent.clientX - startX;
             const deltaY = pointerEvent.clientY - startY;
             const widthFactor = Math.max(0.1, 1 + (handle.widthDirection * deltaX) / bounds.screenWidth);
             const lengthFactor = Math.max(0.1, 1 + (handle.lengthDirection * deltaY) / bounds.screenHeight);
+            if (selectedSegmentIndex !== null) {
+                const nextSegments = [...startSegmentLengthMultipliers];
+                nextSegments[selectedSegmentIndex] = rounded(
+                    (startSegmentLengthMultipliers[selectedSegmentIndex] ?? 1) * lengthFactor,
+                );
+                onTransform({ segmentLengthMultipliers: nextSegments });
+                return;
+            }
             if (handle.proportional && !pointerEvent.shiftKey) {
                 const factor = Math.abs(widthFactor - 1) >= Math.abs(lengthFactor - 1) ? widthFactor : lengthFactor;
                 const widthGrowth = bounds.screenWidth * (factor - 1);
@@ -247,6 +266,15 @@ const ShadowDirectManipulation: React.FC<{
                 const visual = visuals[creature.name];
                 if (!visual || performance.now() - visual.updatedAt > 1000) return [];
                 const selected = creature.id === selectedCreatureId;
+                const handles =
+                    selectedSegmentIndex === null
+                        ? TRANSFORM_HANDLES
+                        : TRANSFORM_HANDLES.filter((handle) => handle.key === "n" || handle.key === "s").map(
+                              (handle) => ({
+                                  ...handle,
+                                  x: (selectedSegmentIndex + 0.5) / BATTLEFIELD_SHADOW_SEGMENT_COUNT,
+                              }),
+                          );
                 return [
                     <Box
                         key={`${creature.id}-shadow-frame`}
@@ -273,8 +301,31 @@ const ShadowDirectManipulation: React.FC<{
                             "&:hover": { borderColor: "rgba(255,255,255,.95)", bgcolor: "transparent" },
                         }}
                     />,
+                    ...(selected && selectedSegmentIndex !== null
+                        ? Array.from({ length: BATTLEFIELD_SHADOW_SEGMENT_COUNT }, (_, segmentIndex) => (
+                              <Box
+                                  key={`${creature.id}-segment-guide-${segmentIndex}`}
+                                  sx={{
+                                      position: "fixed",
+                                      zIndex: 12501,
+                                      left:
+                                          visual.left +
+                                          (visual.screenWidth * segmentIndex) / BATTLEFIELD_SHADOW_SEGMENT_COUNT,
+                                      top: visual.top,
+                                      width: visual.screenWidth / BATTLEFIELD_SHADOW_SEGMENT_COUNT,
+                                      height: visual.screenHeight,
+                                      borderLeft: segmentIndex === 0 ? "none" : "1px dashed rgba(255,255,255,.45)",
+                                      bgcolor:
+                                          segmentIndex === selectedSegmentIndex
+                                              ? "rgba(242,173,63,.16)"
+                                              : "transparent",
+                                      pointerEvents: "none",
+                                  }}
+                              />
+                          ))
+                        : []),
                     ...(selected
-                        ? TRANSFORM_HANDLES.map((handle) => (
+                        ? handles.map((handle) => (
                               <Box
                                   key={`${creature.id}-${handle.key}`}
                                   component="button"
@@ -419,16 +470,60 @@ export const BattlefieldShadowEditor: React.FC<{ windowSize: IWindowSize }> = ({
     const [dock, setDock] = useState<"left" | "right">("right");
     const [collapsed, setCollapsed] = useState(false);
     const [mapView, setMapView] = useState<MapViewTransform>({ zoom: 1, x: 0, y: 0 });
+    const [segmentEditMode, setSegmentEditMode] = useState(false);
+    const [selectedSegmentIndex, setSelectedSegmentIndex] = useState(0);
+    const [sharedSlotsReady, setSharedSlotsReady] = useState(false);
+    const lastSharedSlotsKey = useRef<string | undefined>(undefined);
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         setBattlefieldShadowEditorActive(true);
         return () => setBattlefieldShadowEditorActive(false);
     }, []);
 
     useEffect(() => {
         if (!selectedCreature) return;
-        setTuning(readStoredBattlefieldShadowTuning(selectedCreature.name));
+        startBattlefieldShadowTuningSync();
+        const refresh = () => setTuning(readStoredBattlefieldShadowTuning(selectedCreature.name));
+        refresh();
+        window.addEventListener(BATTLEFIELD_SHADOW_TUNING_CHANGE_EVENT, refresh);
+        return () => window.removeEventListener(BATTLEFIELD_SHADOW_TUNING_CHANGE_EVENT, refresh);
     }, [selectedCreature]);
+
+    useEffect(() => {
+        let disposed = false;
+        const initialSlots = slotCreatureIds;
+        const refresh = async (): Promise<void> => {
+            try {
+                const response = await fetch(SHADOW_EDITOR_STATE_ENDPOINT, { cache: "no-store" });
+                if (!response.ok) return;
+                const payload = (await response.json()) as { slots?: unknown };
+                const remoteSlots = normalizeShadowEditorSlots(payload.slots);
+                if (disposed) return;
+                if (remoteSlots) {
+                    lastSharedSlotsKey.current = JSON.stringify(remoteSlots);
+                    setSlotCreatureIds((current) =>
+                        current.every((id, index) => id === remoteSlots[index]) ? current : remoteSlots,
+                    );
+                } else {
+                    lastSharedSlotsKey.current = JSON.stringify(initialSlots);
+                    await fetch(SHADOW_EDITOR_STATE_ENDPOINT, {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ slots: initialSlots }),
+                    });
+                }
+                if (!disposed) setSharedSlotsReady(true);
+            } catch {
+                // Keep the browser-local fallback if the page is opened without the development middleware.
+            }
+        };
+        void refresh();
+        const timer = window.setInterval(() => void refresh(), 350);
+        return () => {
+            disposed = true;
+            window.clearInterval(timer);
+        };
+    }, []);
 
     useEffect(() => {
         startPreviewPlaySession({
@@ -443,7 +538,16 @@ export const BattlefieldShadowEditor: React.FC<{ windowSize: IWindowSize }> = ({
             comparisonFixedSlotCount: SHADOW_EDITOR_SLOT_COUNT,
         });
         window.localStorage.setItem(SHADOW_EDITOR_SLOT_STORAGE_KEY, JSON.stringify(slotCreatureIds));
-    }, [slotCreatureIds]);
+        const slotsKey = JSON.stringify(slotCreatureIds);
+        if (sharedSlotsReady && lastSharedSlotsKey.current !== slotsKey) {
+            lastSharedSlotsKey.current = slotsKey;
+            void fetch(SHADOW_EDITOR_STATE_ENDPOINT, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ slots: slotCreatureIds }),
+            }).catch(() => undefined);
+        }
+    }, [sharedSlotsReady, slotCreatureIds]);
 
     if (import.meta.env.PROD || import.meta.env.VITE_IS_PROD === "true") {
         return (
@@ -451,7 +555,7 @@ export const BattlefieldShadowEditor: React.FC<{ windowSize: IWindowSize }> = ({
         );
     }
 
-    const persist = (nextValue: BattlefieldShadowTuning, message = "Сохранено локально") => {
+    const persist = (nextValue: BattlefieldShadowTuning, message = "Сохранено в редакторе") => {
         const next = normalizeBattlefieldShadowTuning(nextValue);
         setTuning(next);
         if (selectedCreature) writeStoredBattlefieldShadowTuning(selectedCreature.name, next);
@@ -537,6 +641,7 @@ export const BattlefieldShadowEditor: React.FC<{ windowSize: IWindowSize }> = ({
             <ShadowDirectManipulation
                 creatures={previewCreatures}
                 selectedCreatureId={selectedCreatureId}
+                selectedSegmentIndex={segmentEditMode ? selectedSegmentIndex : null}
                 tuning={tuning}
                 onSelect={setSelectedCreatureId}
                 onTransform={updateTopRow}
@@ -699,6 +804,49 @@ export const BattlefieldShadowEditor: React.FC<{ windowSize: IWindowSize }> = ({
                         tuning={tuning.top}
                         onChange={updateTopRow}
                     />
+
+                    <Box sx={{ mt: 1.25, p: 1.25, border: `1px solid ${hocColors.orangeBorder}`, borderRadius: "9px" }}>
+                        <Checkbox
+                            checked={segmentEditMode}
+                            onChange={(event) => setSegmentEditMode(event.target.checked)}
+                            label="Растягивать только 25% кадра"
+                            sx={{ color: hocColors.parchment }}
+                        />
+                        <Typography level="body-xs" sx={{ mt: 0.5, color: hocColors.muted }}>
+                            Включите режим, выберите четверть слева направо и тяните её верхнюю или нижнюю точку.
+                            Остальные 75% не изменятся.
+                        </Typography>
+                        <Box sx={{ mt: 1, display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 0.65 }}>
+                            {Array.from({ length: BATTLEFIELD_SHADOW_SEGMENT_COUNT }, (_, index) => (
+                                <Button
+                                    key={index}
+                                    size="sm"
+                                    variant={selectedSegmentIndex === index ? "solid" : "outlined"}
+                                    color={selectedSegmentIndex === index ? "warning" : "neutral"}
+                                    disabled={!segmentEditMode}
+                                    onClick={() => setSelectedSegmentIndex(index)}
+                                >
+                                    {index + 1}
+                                </Button>
+                            ))}
+                        </Box>
+                        {segmentEditMode ? (
+                            <Box sx={{ mt: 1 }}>
+                                <ValueControl
+                                    label={`Часть ${selectedSegmentIndex + 1} ×`}
+                                    value={tuning.top.segmentLengthMultipliers[selectedSegmentIndex] ?? 1}
+                                    min={0.25}
+                                    max={3}
+                                    step={0.01}
+                                    onChange={(value) => {
+                                        const segmentLengthMultipliers = [...tuning.top.segmentLengthMultipliers];
+                                        segmentLengthMultipliers[selectedSegmentIndex] = value;
+                                        updateTopRow({ segmentLengthMultipliers });
+                                    }}
+                                />
+                            </Box>
+                        ) : null}
+                    </Box>
 
                     <Box sx={{ mt: 1.25 }}>
                         <ValueControl

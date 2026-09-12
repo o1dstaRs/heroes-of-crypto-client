@@ -62,6 +62,7 @@ import type { AuthoritativeSnapshotOptions } from "../pixi/PixiScene";
 import { TextureType, unitToTextureName } from "../pixi/PixiUnitsFactory";
 import { reconcileRankedTransientTerrain } from "./rankedTransientTerrain";
 import { syncPlacementSynergyUnitCounts } from "../ui/rankedSynergySync";
+import { BARREL_SHADOW_EDITOR_LAYOUT, isBarrelShadowEditorActive } from "../ui/barrelShadowTuning";
 import { projectBattlefieldPoint } from "./sandbox/BattlefieldVisualGrid";
 import { clearPersonalArmyTint, setPersonalArmyTint } from "./personalArmyTint";
 import { isGreenTeam } from "./teamColors";
@@ -295,6 +296,7 @@ export const placementFootprintOfUnitState = (unitState: {
 /** Minimal grid surface the occupancy audit needs (see reconcileRankedGridOccupancy). */
 export interface IOccupancyAuditGrid {
     getRegisteredCells(unitId: string): HoCMath.XY[];
+    getOccupiedCells(unitId: string): HoCMath.XY[];
     getOccupantUnitId(cell: HoCMath.XY): string | undefined;
     cleanupAll(unitId: string, attackRange: number, isSmallUnit: boolean): void;
     occupyCells(
@@ -334,8 +336,10 @@ export const reconcileRankedGridOccupancy = (
         }
         const id = unitState.properties.id;
         const registered = grid.getRegisteredCells(id);
+        const occupied = grid.getOccupiedCells(id);
         const inSync =
             rankedUnitCellsMatchAuthoritative(registered, unitState.cells) &&
+            rankedUnitCellsMatchAuthoritative(occupied, unitState.cells) &&
             unitState.cells.every((cell) => grid.getOccupantUnitId(cell) === id);
         if (inSync) {
             continue;
@@ -346,7 +350,7 @@ export const reconcileRankedGridOccupancy = (
         const footprint = placementFootprintOfUnitState(unitState);
         grid.cleanupAll(id, unitState.properties.attack_range, footprint.width === 1 && footprint.height === 1);
         // Trust the authoritative cells incl. lava/water standing — same reasoning as hydrateSceneState.
-        const occupied = grid.occupyCells(
+        const occupancyRestored = grid.occupyCells(
             unitState.cells.map((cell) => ({ ...cell })),
             id,
             unitState.team,
@@ -357,7 +361,7 @@ export const reconcileRankedGridOccupancy = (
         // Only report a unit as fixed once the grid actually took it. A refused re-registration leaves the
         // unit with NO cells at all, and calling that "fixed" is worse than the divergence this heals: the
         // caller would stop looking, and the board would stay silently empty under that unit forever.
-        if (occupied) {
+        if (occupancyRestored) {
             fixed.push(id);
         }
     }
@@ -2161,6 +2165,13 @@ export class RankedPlayScene extends Sandbox {
         options?: { reinstallLayout?: boolean },
     ): void {
         if (snapshot.gridType !== GridVals.BLOCK_CENTER) {
+            return;
+        }
+        if (isBarrelShadowEditorActive()) {
+            const layout = BARREL_SHADOW_EDITOR_LAYOUT.map((barrel) => ({ ...barrel }));
+            this.grid.setScatteredMountains(layout.map(({ x, y }) => ({ x, y })));
+            this.dungeonVisuals?.setScatteredMountains(layout, true);
+            this.refreshGridMatrices();
             return;
         }
         const plan = planScatteredMountainSync(

@@ -99,12 +99,14 @@ export const createPlayActionFromGameAction = (
             return withEnvelope(envelope, {
                 type: PlayActionType.RANGE_ATTACK,
                 unitId: action.attackerId,
-                targetUnitId: action.targetId,
-                // Aim intent only: which target cell + which of its sides. The server validates and
-                // reconstructs the trajectory; no raw position is ever sent. Side is 1-based so LEFT
-                // (0) survives the varint zero-skip.
-                targetCell: maybeCell(action.aimCell),
-                targetSide: action.aimSide !== undefined ? action.aimSide + 1 : undefined,
+                targetUnitId: action.targetId || undefined,
+                // Targeted shots carry a target cell + side. Through Shot instead carries its free
+                // world-space endpoint in targetCell. Side is 1-based so LEFT (0) survives varint zero-skip.
+                targetCell: maybeCell(action.targetPosition ?? action.aimCell),
+                targetSide:
+                    action.targetPosition === undefined && action.aimSide !== undefined
+                        ? action.aimSide + 1
+                        : undefined,
             });
         case "obstacle_attack":
             return withEnvelope(envelope, {
@@ -238,17 +240,18 @@ export const createGameActionFromPlayAction = (action: Partial<PlayAction>): Gam
                 : undefined;
         }
         case PlayActionType.RANGE_ATTACK: {
-            if (!action.unitId || !action.targetUnitId) {
+            if (!action.unitId || (!action.targetUnitId && !action.targetCell)) {
                 return undefined;
             }
             const aimCell = maybeCell(action.targetCell);
             return {
                 type: "range_attack",
                 attackerId: action.unitId,
-                targetId: action.targetUnitId,
-                aimCell,
+                targetId: action.targetUnitId ?? "",
+                targetPosition: action.targetUnitId ? undefined : aimCell,
+                aimCell: action.targetUnitId ? aimCell : undefined,
                 // Decode the 1-based wire side back to RangeAttackCellSide; only meaningful with a cell.
-                aimSide: aimCell && action.targetSide ? action.targetSide - 1 : undefined,
+                aimSide: action.targetUnitId && aimCell && action.targetSide ? action.targetSide - 1 : undefined,
             };
         }
         case PlayActionType.OBSTACLE_ATTACK: {

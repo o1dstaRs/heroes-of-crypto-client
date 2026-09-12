@@ -497,7 +497,7 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     Reveal: "Открыть",
     Rules: "Правила",
     Standard: "Обычная",
-    Lava: "Лава",
+    "FIRE PIT": "FIRE PIT",
     Cemetery: "Кладбище",
     Water: "Вода",
     "Open field — no central hazard.": "Открытое поле без опасности в центре.",

@@ -21,7 +21,7 @@ export const getMapDisplay = (mapType: number): IMapDisplay | undefined => {
             };
         case GridVals.LAVA_CENTER:
             return {
-                name: "Lava",
+                name: "FIRE PIT",
                 imageKey: "map_badge_lava_frameless_v2",
                 accent: "#ff7a3c",
                 blurb: "A lava pool scars the center of the board.",

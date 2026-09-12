@@ -5,7 +5,10 @@ export const CREATURE_SPRITE_ANIMATION_SETTINGS = { enabled: false };
 
 // Peasant's walk is separately approved and remains active while the global creature-animation freeze
 // is in place. These are the only unit atlases worth decoding in that mode.
-const UNIT_ATLASES_USED_WHILE_ANIMATIONS_DISABLED = new Set(["peasant_walk_atlas_quarter"]);
+const UNIT_ATLASES_USED_WHILE_ANIMATIONS_DISABLED = new Set([
+    "peasant_walk_atlas_quarter",
+    "peasant_idle_red_atlas_quarter",
+]);
 
 export const shouldPreloadUnitAnimationAtlas = (key: string, animationsEnabled: boolean): boolean =>
     animationsEnabled || UNIT_ATLASES_USED_WHILE_ANIMATIONS_DISABLED.has(key);

@@ -1,4 +1,4 @@
-import { CREATURES_JSON, GridVals, TeamVals, getCreaturesByLevel } from "@heroesofcrypto/common";
+import { CREATURES_JSON, GridConstants, GridVals, TeamVals, getCreaturesByLevel } from "@heroesofcrypto/common";
 import { Box, Button, Input, Sheet, Typography } from "@mui/joy";
 import { Assets } from "pixi.js";
 import React, { useEffect, useRef, useState } from "react";
@@ -25,6 +25,7 @@ import {
     type BattlefieldCreatureVisualBounds,
     type FootprintModeCandidate,
 } from "./battlefieldCreatureFraming";
+import { footprintComparisonLayout } from "./battlefieldCreatureEditorLayout";
 import { hocColors, hocDisplayFontFamily } from "./hocTheme";
 import { RankedGameView } from "./RankedGameView";
 import { UNIT_ID_TO_NAME } from "./unit_ui_constants";
@@ -183,8 +184,9 @@ type DragMode = "move" | "width" | "height" | "both";
 const CreatureSelectionOverlays: React.FC<{
     creatures: readonly EditorCreature[];
     selectedCreatureName: string;
+    showSelectionChrome: boolean;
     onSelect: (creatureId: number) => void;
-}> = ({ creatures, selectedCreatureName, onSelect }) => {
+}> = ({ creatures, selectedCreatureName, showSelectionChrome, onSelect }) => {
     const [visuals, setVisuals] = useState<Record<string, ScreenVisualBounds>>({});
 
     useEffect(() => {
@@ -232,13 +234,18 @@ const CreatureSelectionOverlays: React.FC<{
                             width: visual.screenWidth,
                             height: visual.screenHeight,
                             p: 0,
-                            border: selected ? "1px solid rgba(255,209,90,.3)" : "1px solid transparent",
+                            border:
+                                showSelectionChrome && selected
+                                    ? "1px solid rgba(255,209,90,.3)"
+                                    : "1px solid transparent",
                             bgcolor: "transparent",
                             cursor: "pointer",
-                            "&:hover": {
-                                borderColor: "#ffd15a",
-                                bgcolor: "rgba(255,174,37,.08)",
-                            },
+                            "&:hover": showSelectionChrome
+                                ? {
+                                      borderColor: "#ffd15a",
+                                      bgcolor: "rgba(255,174,37,.08)",
+                                  }
+                                : undefined,
                             "&::after": {
                                 content: JSON.stringify(creature.name),
                                 position: "absolute",
@@ -250,9 +257,9 @@ const CreatureSelectionOverlays: React.FC<{
                                 bgcolor: "rgba(7,5,3,.78)",
                                 fontSize: 9,
                                 whiteSpace: "nowrap",
-                                opacity: selected ? 1 : 0,
+                                opacity: showSelectionChrome && selected ? 1 : 0,
                             },
-                            "&:hover::after": { opacity: 1 },
+                            "&:hover::after": showSelectionChrome ? { opacity: 1 } : undefined,
                         }}
                     />
                 );
@@ -396,14 +403,14 @@ const formatTypeScriptConfig = (overrides: Record<string, BattlefieldCreatureFra
 export const BattlefieldCreatureFramingEditor: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
     const searchParams = new URLSearchParams(window.location.search);
     const requestedFootprint = parseFootprintShape(searchParams.get("footprint"));
+    const requestedFootprintKey = requestedFootprint ? formatFootprintShape(requestedFootprint) : undefined;
     const footprintModeActive = requestedFootprint !== undefined;
     const requestedLevelParam = searchParams.get("level");
     const allLevelsMode = !footprintModeActive && (requestedLevelParam === null || requestedLevelParam === "all");
     const requestedLevel = Number(requestedLevelParam);
     const editorLevel = [1, 2, 3, 4].includes(requestedLevel) ? requestedLevel : 1;
-    // No shipped creature declares footprint_width/footprint_height, so filtering creatures.json alone
-    // leaves this mode permanently empty. resolveFootprintMode answers with the creatures to show and with
-    // whatever the engine's QA override has to lend them to make the shape real on the board.
+    // Prefer declared footprints. If a requested shape is not in the catalog, resolveFootprintMode can still
+    // lend it to artwork that is already authored at the matching width for QA comparison.
     const footprintMode = requestedFootprint
         ? resolveFootprintMode(requestedFootprint, footprintModeCandidates, manualFootprintOverrideSource)
         : undefined;
@@ -414,7 +421,7 @@ export const BattlefieldCreatureFramingEditor: React.FC<{ windowSize: IWindowSiz
           ? EDITOR_CREATURES
           : EDITOR_CREATURES.filter((creature) => creature.level === editorLevel);
     const editorModeKey = requestedFootprint
-        ? `footprint-${formatFootprintShape(requestedFootprint)}:${footprintOverrideSource}`
+        ? `footprint-${requestedFootprintKey}:${footprintOverrideSource}`
         : allLevelsMode
           ? "all-levels"
           : `level-${editorLevel}`;
@@ -441,9 +448,14 @@ export const BattlefieldCreatureFramingEditor: React.FC<{ windowSize: IWindowSiz
     const visibleCreatures = filteredCreatures.filter((creature) => !hiddenCreatureIds.has(creature.id));
     const visibleCreatureIds = visibleCreatures.map((creature) => creature.id);
     const visibleCreatureIdsKey = visibleCreatureIds.join(",");
-    const comparisonRowSizesKey = allLevelsMode
-        ? [1, 2, 3, 4].map((level) => visibleCreatures.filter((creature) => creature.level === level).length).join(",")
-        : "";
+    const footprintLayout = requestedFootprint
+        ? footprintComparisonLayout(visibleCreatures.length, requestedFootprint.width, GridConstants.GRID_SIZE)
+        : undefined;
+    const comparisonRowSizesKey =
+        (allLevelsMode
+            ? [1, 2, 3, 4].map((level) => visibleCreatures.filter((creature) => creature.level === level).length)
+            : footprintLayout?.rowSizes
+        )?.join(",") ?? "";
     const selectedCreature = filteredCreatures.find((creature) => creature.id === selectedCreatureId);
     const framing = selectedCreature
         ? (overrides[selectedCreature.name] ??
@@ -475,6 +487,7 @@ export const BattlefieldCreatureFramingEditor: React.FC<{ windowSize: IWindowSiz
             comparisonRowSizes: comparisonRowSizesKey
                 ? comparisonRowSizesKey.split(",").map((size) => Number(size))
                 : undefined,
+            comparisonHorizontalGapCells: footprintLayout?.horizontalGapCells,
         });
         return () => {
             footprintOverrideHolder.__hocFootprintOverrides = previousOverrides;
@@ -567,10 +580,10 @@ export const BattlefieldCreatureFramingEditor: React.FC<{ windowSize: IWindowSiz
         nextUrl.searchParams.delete("creature");
         window.location.assign(nextUrl.toString());
     };
-    const switchToTwoByOne = () => {
-        if (requestedFootprint && formatFootprintShape(requestedFootprint) === "2x1") return;
+    const switchFootprint = (footprint: "1x1" | "2x1" | "2x2") => {
+        if (requestedFootprintKey === footprint) return;
         const nextUrl = new URL(window.location.href);
-        nextUrl.searchParams.set("footprint", "2x1");
+        nextUrl.searchParams.set("footprint", footprint);
         nextUrl.searchParams.delete("level");
         nextUrl.searchParams.delete("creature");
         window.location.assign(nextUrl.toString());
@@ -614,9 +627,10 @@ export const BattlefieldCreatureFramingEditor: React.FC<{ windowSize: IWindowSiz
                     <CreatureSelectionOverlays
                         creatures={visibleCreatures}
                         selectedCreatureName={selectedCreature.name}
+                        showSelectionChrome={!footprintModeActive}
                         onSelect={setSelectedCreatureId}
                     />
-                    {!hiddenCreatureIds.has(selectedCreature.id) && (
+                    {!footprintModeActive && !hiddenCreatureIds.has(selectedCreature.id) && (
                         <CreatureTransformHandles
                             creatureName={selectedCreature.name}
                             framing={framing}
@@ -726,7 +740,7 @@ export const BattlefieldCreatureFramingEditor: React.FC<{ windowSize: IWindowSiz
                     </Typography>
                     <Typography level="body-xs" sx={{ mt: 0.5, color: hocColors.muted }}>
                         {requestedFootprint
-                            ? `Существа ${requestedFootprint.width}×${requestedFootprint.height} стоят одной линией по нижнему краю карты.${
+                            ? `Существа ${requestedFootprint.width}×${requestedFootprint.height} разложены по свободным рядам с пустой клеткой между соседними площадями.${
                                   footprintMode?.seededNames.length
                                       ? " Форма выдана QA-оверрайдом движка — данные существ не меняются."
                                       : ""
@@ -737,7 +751,7 @@ export const BattlefieldCreatureFramingEditor: React.FC<{ windowSize: IWindowSiz
                         Кликните по модели, затем двигайте рамку; жёлтые ручки меняют ширину и высоту независимо.
                     </Typography>
 
-                    <Box sx={{ mt: 1.25, display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 0.75 }}>
+                    <Box sx={{ mt: 1.25, display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 0.75 }}>
                         <Button
                             size="sm"
                             variant={allLevelsMode ? "solid" : "outlined"}
@@ -764,13 +778,36 @@ export const BattlefieldCreatureFramingEditor: React.FC<{ windowSize: IWindowSiz
                         ))}
                         <Button
                             size="sm"
-                            variant={footprintModeActive ? "solid" : "outlined"}
-                            color={footprintModeActive ? "warning" : "neutral"}
-                            aria-pressed={footprintModeActive}
-                            onClick={switchToTwoByOne}
+                            variant={requestedFootprintKey === "1x1" ? "solid" : "outlined"}
+                            color={requestedFootprintKey === "1x1" ? "warning" : "neutral"}
+                            aria-label="Показать существ размером 1 на 1"
+                            aria-pressed={requestedFootprintKey === "1x1"}
+                            onClick={() => switchFootprint("1x1")}
+                            sx={{ minWidth: 0 }}
+                        >
+                            1×1
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant={requestedFootprintKey === "2x1" ? "solid" : "outlined"}
+                            color={requestedFootprintKey === "2x1" ? "warning" : "neutral"}
+                            aria-label="Показать существ размером 2 на 1"
+                            aria-pressed={requestedFootprintKey === "2x1"}
+                            onClick={() => switchFootprint("2x1")}
                             sx={{ minWidth: 0 }}
                         >
                             2×1
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant={requestedFootprintKey === "2x2" ? "solid" : "outlined"}
+                            color={requestedFootprintKey === "2x2" ? "warning" : "neutral"}
+                            aria-label="Показать существ размером 2 на 2"
+                            aria-pressed={requestedFootprintKey === "2x2"}
+                            onClick={() => switchFootprint("2x2")}
+                            sx={{ minWidth: 0 }}
+                        >
+                            2×2
                         </Button>
                     </Box>
 

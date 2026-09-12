@@ -1,4 +1,4 @@
-import { Sprite, Graphics, Matrix, Texture, Text, ColorMatrixFilter } from "pixi.js";
+import { Sprite, Graphics, Matrix, Rectangle, Texture, Text, TilingSprite, ColorMatrixFilter } from "pixi.js";
 import {
     FightStateManager,
     IPlacement,
@@ -24,6 +24,14 @@ import { projectBattlefieldPoint, projectedPolyline, projectedRectPoints } from 
 import { placementFacingDirectionForTeam, previewPlacementFacing, type BattlefieldUnitPreview } from "./RenderableUnit";
 import { rangeTargetEdgeMarkerAngle } from "./rangeTargetEdges";
 import { getShotTrajectoryStyle } from "./shotTrajectoryStyle";
+import {
+    getShotTrajectoryTuning,
+    SHOT_ARROWHEAD_AUTHORING_WIDTH,
+    SHOT_FLETCHING_AUTHORING_WIDTH,
+    shotCasingVisibleSlice,
+    shotTrajectoryAuthoringOffsetToWorld,
+    type ShotTrajectoryTransformTuning,
+} from "./shotTrajectoryTuning";
 import { tunedCellFillPolygon } from "./movementAreaVisual";
 import { placementZonePolygon } from "../pixi/PixiDrawablePlacement";
 
@@ -46,13 +54,44 @@ export interface RangeTargetEdgeVisual {
 }
 
 const MELEE_SWORD_ANGLE_STEP = Math.PI / 4;
-/** Ranged aim paints the approved moving gold-casing trajectory from shooter to selected target edge. */
+/** Ranged aim paints the approved three-part arrow trajectory from shooter to selected target edge. */
 export const RANGED_ATTACK_TRAJECTORY_VISIBLE = true;
-export const BASE_SHOT_CASING_SPACING = 38;
-export const SHOT_CASING_SPACING_SCALE = 1.3;
-export const SHOT_CASING_SPACING = BASE_SHOT_CASING_SPACING * SHOT_CASING_SPACING_SCALE;
-/** Reduce only the casing artwork dimensions by seven percent; trajectory spacing stays unchanged. */
-export const SHOT_CASING_SIZE_SCALE = 0.93;
+/** The approved Orc trajectory treatment is now shared by every ranged creature. */
+export const shotTrajectoryUsesOrcPalette = (_unitName?: string): boolean => true;
+export const BASE_SHOT_SHAFT_SPACING = 38;
+/** Per-part scale adjustments approved against the live battlefield screenshot. */
+export const SHOT_FLETCHING_SIZE_SCALE = 0.8 * 0.7 * 1.1 * 0.85 * 0.85 * 1.2 * 1.15;
+export const SHOT_ARROWHEAD_SIZE_SCALE = 0.8 * 0.7 * 0.9 * 1.15 * 1.15 * 1.2 * 1.07;
+/** Original casing proportions and cadence from the approved old in-game trajectory. */
+export const SHOT_SHAFT_RENDER_LENGTH = 22 * 1.25 * 1.15 * 0.87 * 1.03;
+/** Start from the approved wider interval, then pull the casings seven percent closer together. */
+export const SHOT_SHAFT_SPACING_SCALE = 1.3 * 1.3 * 0.93;
+export const SHOT_SHAFT_SPACING = BASE_SHOT_SHAFT_SPACING * SHOT_SHAFT_SPACING_SCALE;
+/** Keep the earlier thirty-percent boost and make the current flight another twenty-five percent faster. */
+export const SHOT_SHAFT_SPEED = 36 * 1.3 * 1.25;
+export const SHOT_SHAFT_THICKNESS_SCALE = 1;
+/** Let each moving shaft section enter the terminal broadhead before it disappears. */
+export const SHOT_SHAFT_TARGET_PENETRATION_SCALE = 0.65;
+/** Small animated golden glints travel across the full trajectory, with no extra aiming rail underneath. */
+export const SHOT_TRAJECTORY_SPARK_SPACING = 64;
+export const SHOT_TRAJECTORY_SPARK_SPEED = 34;
+/** Brief, local welding burst while a moving casing crosses the arrowhead socket plane. */
+export const SHOT_ARROWHEAD_WELD_SPARK_COUNT = 8;
+export const SHOT_ARROWHEAD_WELD_SPARK_MAX_LENGTH = 9;
+export const SHOT_ARROWHEAD_WELD_ZONE_LENGTH_SCALE = 0.22;
+export const SHOT_ARROWHEAD_WELD_SEAM_HEIGHT_SCALE = 1.15;
+/**
+ * Measured socket/shaft centerlines inside each authored transparent canvas. The artwork is deliberately
+ * not vertically centered in its file, so a generic 0.5 anchor makes the casings skim the socket edge.
+ */
+export const SHOT_GOLD_FLETCHING_AXIS_ANCHOR_Y = 92.5 / 176;
+export const SHOT_GOLD_SHAFT_AXIS_ANCHOR_Y = 102 / 216;
+export const SHOT_GOLD_ARROWHEAD_AXIS_ANCHOR_Y = 144 / 260;
+export const SHOT_ORC_FLETCHING_AXIS_ANCHOR_Y = 91.5 / 176;
+export const SHOT_ORC_SHAFT_AXIS_ANCHOR_Y = 26 / 54;
+export const SHOT_ORC_ARROWHEAD_AXIS_ANCHOR_Y = 144.5 / 260;
+/** The distant LOD is authored in the same true side-on plane as the fletching and shaft. */
+export const SHOT_ARROWHEAD_NATIVE_SCREEN_ANGLE = 0;
 /** Keeping scale fixed prevents the terminal arrow jumping while the optimal edge is recomputed. */
 export const RANGE_TARGET_EDGE_SELECTED_SCALE = 1;
 /** The furthest painted row is ten percent smaller; the nearest row keeps the approved current size. */
@@ -66,6 +105,21 @@ export const rangeTargetEdgeMarkerRowScale = (markerCellY: number, gridSize: num
 export const RANGE_TARGET_EDGE_LENGTH_SCALE = 0.8 * 0.85;
 /** Move every target-edge arrow 50% of a cell inward, along the direction its point faces. */
 export const RANGE_TARGET_EDGE_INWARD_OFFSET_FRACTION = 0.5;
+
+export const MAGIC_AIM_DUAL_HELIX_FRAME_COUNT = 16;
+export const MAGIC_AIM_DUAL_HELIX_FPS = 18;
+/**
+ * Sandbox.Step receives the legacy 1/240 simulation delta while it is actually ticked at 60 Hz.
+ * Atlas playback is visual wall-clock animation, so compensate for that 4x timebase difference.
+ */
+export const MAGIC_AIM_DUAL_HELIX_TIME_SCALE = 4;
+const MAGIC_AIM_DUAL_HELIX_FRAME_WIDTH = 256;
+const MAGIC_AIM_DUAL_HELIX_FRAME_HEIGHT = 64;
+const MAGIC_AIM_DUAL_HELIX_ATLAS_COLUMNS = 4;
+
+/** Convert wall-clock time into the atlas frame shared by every repeated segment of the aim. */
+export const magicAimDualHelixFrameIndex = (elapsedMs: number): number =>
+    Math.floor(Math.max(0, elapsedMs) / (1000 / MAGIC_AIM_DUAL_HELIX_FPS)) % MAGIC_AIM_DUAL_HELIX_FRAME_COUNT;
 
 export const rangeTargetEdgeMarkerPosition = (
     cellCenter: HoCMath.XY,
@@ -281,6 +335,23 @@ export const cameraCompensatedSpriteTransform = (
         ty: worldPosition.y,
     };
 };
+
+/**
+ * Convert a screen-aligned local offset back into world coordinates. Combined with the camera and the
+ * Y-up world root, this keeps editor-authored contact coordinates fixed to the arrowhead at every angle.
+ */
+export const cameraCompensatedLocalOffset = (
+    offsetAlong: number,
+    offsetPerpendicular: number,
+    screenAngle: number,
+    cameraScale: HoCMath.XY,
+): HoCMath.XY => {
+    const transform = cameraCompensatedSpriteTransform({ x: 0, y: 0 }, screenAngle, 1, cameraScale);
+    return {
+        x: transform.a * offsetAlong + transform.c * offsetPerpendicular,
+        y: transform.b * offsetAlong + transform.d * offsetPerpendicular,
+    };
+};
 // The visible blade-to-pommel diagonal inside the 20x24 cursor artwork.
 const MELEE_SWORD_ART_LENGTH = 29;
 // The source is 20x24, so its painted blade is not geometrically aligned to a perfect 45-degree
@@ -437,7 +508,7 @@ export interface ISandboxHoverContext {
     // Callbacks
     texAny(name: string): Texture | undefined;
     waitForTexture?(name: string): Promise<Texture | undefined>;
-    attachToWorldRoot(obj: Sprite | Graphics | Text, zIndex: number): void;
+    attachToWorldRoot(obj: Sprite | Graphics | Text | TilingSprite, zIndex: number): void;
     attachToCursorOverlay(obj: Sprite | Text, zIndex?: number): void;
     getPlacement(teamType: TeamType, placementIndex: number): IPlacement | undefined;
     // Wait, IPlacement IS imported in Sandbox.ts from common.
@@ -496,7 +567,15 @@ export class HoverManager {
     private aoeGraphics: Graphics;
     private hoverAttackSwordTexture?: Texture;
     private hoverRangeTargetEdgeTexture?: Texture;
+    private hoverRangeTargetEdgeOrcTexture?: Texture;
+    private hoverShotArrowFletchingTexture?: Texture;
+    private hoverShotOrcFletchingTexture?: Texture;
+    private hoverShotCasingTexture?: Texture;
+    private hoverShotGoldCasingTexture?: Texture;
     private hoverShotHammeredBronzeCasingTexture?: Texture;
+    private magicAimDualHelixFrames: Texture[] = [];
+    private magicAimDualHelix?: TilingSprite;
+    private magicAimDualHelixElapsedMs = 0;
     /**
      * Invisible child of the app-owned cursor overlay. PixiScene empties that persistent layer whenever a
      * scene is replaced, so its destroyed event gives this helper a lifecycle signal without making the
@@ -527,13 +606,47 @@ export class HoverManager {
             // Keep the tiny pixel-art sword crisp when it is enlarged to span a grid-cell segment.
             this.hoverAttackSwordTexture = texture;
         });
-        this.loadCursorTexture("range_target_arrow_v7_gold_wide_crisp", (texture) => {
+        this.loadCursorTexture("shot_trajectory_gold_arrowhead_wide_socket_v6", (texture) => {
             // The high-resolution source carries its final gold/bronze palette; never recolor it at runtime.
             texture.source.scaleMode = "linear";
             this.hoverRangeTargetEdgeTexture = texture;
         });
+        this.loadCursorTexture("shot_trajectory_orc_bronze_arrowhead_distant_match_v8", (texture) => {
+            texture.source.scaleMode = "linear";
+            this.hoverRangeTargetEdgeOrcTexture = texture;
+        });
+        this.loadCursorTexture("shot_trajectory_gold_fletching_wide_socket_v6", (texture) => {
+            texture.source.scaleMode = "linear";
+            this.hoverShotArrowFletchingTexture = texture;
+        });
+        this.loadCursorTexture("shot_trajectory_orc_bronze_fletching_distant_match_v8", (texture) => {
+            texture.source.scaleMode = "linear";
+            this.hoverShotOrcFletchingTexture = texture;
+        });
         this.loadCursorTexture("shot_trajectory_hammered_bronze_casing_sprite_v4", (texture) => {
+            // This is the original crisp in-game casing shown in the approved reference screenshot.
+            this.hoverShotCasingTexture = texture;
             this.hoverShotHammeredBronzeCasingTexture = texture;
+        });
+        this.loadCursorTexture("shot_trajectory_gold_casing_sprite_v6", (texture) => {
+            texture.source.scaleMode = "linear";
+            this.hoverShotGoldCasingTexture = texture;
+        });
+        this.loadCursorTexture("magic_aim_dual_helix_default_atlas", (texture) => {
+            texture.source.scaleMode = "linear";
+            this.magicAimDualHelixFrames = Array.from({ length: MAGIC_AIM_DUAL_HELIX_FRAME_COUNT }, (_, index) => {
+                const column = index % MAGIC_AIM_DUAL_HELIX_ATLAS_COLUMNS;
+                const row = Math.floor(index / MAGIC_AIM_DUAL_HELIX_ATLAS_COLUMNS);
+                return new Texture({
+                    source: texture.source,
+                    frame: new Rectangle(
+                        texture.frame.x + column * MAGIC_AIM_DUAL_HELIX_FRAME_WIDTH,
+                        texture.frame.y + row * MAGIC_AIM_DUAL_HELIX_FRAME_HEIGHT,
+                        MAGIC_AIM_DUAL_HELIX_FRAME_WIDTH,
+                        MAGIC_AIM_DUAL_HELIX_FRAME_HEIGHT,
+                    ),
+                });
+            });
         });
     }
     /** Best-effort cursor art: never let a decoration failure break hover construction. */
@@ -692,6 +805,10 @@ export class HoverManager {
         if (auraGraphics) this.safeAttachGraphics(auraGraphics, 51); // Below units and movement path
         if (aoeGraphics) this.safeAttachGraphics(aoeGraphics, 4500); // Above units: AOE splash area
         if (this.isGraphicsUsable(this.spellBeam)) this.safeAttachGraphics(this.spellBeam, 2199);
+        if (this.magicAimDualHelix) this.context.attachToWorldRoot(this.magicAimDualHelix, 2199);
+        if (this.isGraphicsUsable(this.hoverShotEmergenceSparks))
+            this.safeAttachGraphics(this.hoverShotEmergenceSparks, 5602);
+        if (this.isGraphicsUsable(this.hoverShotJointSparks)) this.safeAttachGraphics(this.hoverShotJointSparks, 5602);
         if (this.isGraphicsUsable(this.spellBadgeRing)) this.safeAttachGraphics(this.spellBadgeRing, 2202);
         if (this.spellBadgeIcon) this.context.attachToWorldRoot(this.spellBadgeIcon, 2203);
         if (this.spellBadgeText) this.context.attachToWorldRoot(this.spellBadgeText, 2203);
@@ -798,6 +915,7 @@ export class HoverManager {
             !!this.hoverSelectedCells?.length ||
             !!this.hoverBattlefieldFootprintCells?.length;
         if (hasPulsingHover) this.hoverGlowPhase += dt * (5 / 3);
+        this.updateMagicAimDualHelixAnimation(dt);
         if (this.animatedRangeArrow) {
             const arrow = this.animatedRangeArrow;
             this.drawAttackArrow(arrow.from, arrow.to, arrow.continuationTo, arrow.smokeFrom, "arrow", false);
@@ -842,7 +960,9 @@ export class HoverManager {
         // section. Picking only the four outer corners removes the internal 2x1 / 2x2 seams while retaining
         // the same visual inset as the established 1x1 support-cell treatment.
         const polygon =
-            cells.length === 1 ? tunedCellFillPolygon(cells[0], gs, inset / size) : placementZonePolygon(cells, gs);
+            cells.length === 1
+                ? tunedCellFillPolygon(cells[0], gs, inset / size)
+                : placementZonePolygon(cells, gs, inset / size);
         gfx.poly(polygon)
             .fill({ color: fillColor, alpha: fillAlpha })
             .stroke({ width: Math.max(2, size * 0.035), color: strokeColor, alpha: strokeAlpha });
@@ -1055,7 +1175,11 @@ export class HoverManager {
     }
     public hoverAttackArrow?: Graphics;
     private hoverRangeTargetEdgeSprites: Sprite[] = [];
-    private hoverShotCasingSprites: Sprite[] = [];
+    private hoverShotShaftSprites: Sprite[] = [];
+    private hoverShotShaftCropTextures: Texture[] = [];
+    private hoverShotStartFletching?: Sprite;
+    private hoverShotEmergenceSparks?: Graphics;
+    private hoverShotJointSparks?: Graphics;
     private animatedRangeArrow?: {
         from: HoCMath.XY;
         to: HoCMath.XY;
@@ -1278,11 +1402,20 @@ export class HoverManager {
         if (this.hoverAttackArrow) {
             this.hoverAttackArrow.clear();
         }
+        if (this.isGraphicsUsable(this.hoverShotJointSparks)) {
+            this.hoverShotJointSparks.clear();
+            this.hoverShotJointSparks.visible = false;
+        }
+        if (this.isGraphicsUsable(this.hoverShotEmergenceSparks)) {
+            this.hoverShotEmergenceSparks.clear();
+            this.hoverShotEmergenceSparks.visible = false;
+        }
         this.animatedRangeArrow = undefined;
         if (this.hoverAttackSword) this.hoverAttackSword.visible = false;
         this.clearObstacleHighlight();
         for (const sprite of this.hoverRangeTargetEdgeSprites) sprite.visible = false;
-        for (const sprite of this.hoverShotCasingSprites) sprite.visible = false;
+        for (const sprite of this.hoverShotShaftSprites) sprite.visible = false;
+        if (this.hoverShotStartFletching) this.hoverShotStartFletching.visible = false;
 
         // 1. Restore stack visibility for ALL highlighted units
         for (const unit of this.highlightedUnits) {
@@ -1309,6 +1442,13 @@ export class HoverManager {
             this.aoeDamageLabelPool.push(label);
         }
         this.aoeDamageLabels = [];
+        for (const visual of this.aoeDamagePredictions) {
+            visual.damageText.visible = false;
+            if (visual.killText) visual.killText.visible = false;
+            if (visual.killIcon) visual.killIcon.visible = false;
+            this.aoeDamagePredictionPool.push(visual);
+        }
+        this.aoeDamagePredictions = [];
 
         if (this.hoverDamageText) {
             this.hoverDamageText.visible = false;
@@ -1326,30 +1466,69 @@ export class HoverManager {
         this.clearSpellPreview();
         this.hoverAttackTargetUnit = undefined;
     }
-    /** Paint the one optimal arrow as the terminal continuation of the casing trajectory. */
+    /** Paint the arrowhead selected for an ordinary target edge. */
     public drawRangeTargetEdge(edge: RangeTargetEdgeVisual, trajectoryFrom: HoCMath.XY): void {
-        const texture =
-            this.hoverRangeTargetEdgeTexture ?? this.context.texAny("range_target_arrow_v7_gold_wide_crisp");
+        this.drawRangeTerminalArrowhead(edge.markerCenter, trajectoryFrom, edge.markerScale);
+    }
+    /** Paint a full terminal arrowhead at an exact trajectory endpoint, including free cannon rays. */
+    public drawRangeTerminalArrowhead(
+        markerCenter: HoCMath.XY,
+        trajectoryFrom: HoCMath.XY,
+        markerScale = 1,
+    ): HoCMath.XY {
+        const useOrcPalette = shotTrajectoryUsesOrcPalette(this.context.getCurrentActiveUnit()?.getName());
+        const texture = useOrcPalette
+            ? (this.hoverRangeTargetEdgeOrcTexture ??
+              this.context.texAny("shot_trajectory_orc_bronze_arrowhead_distant_match_v8"))
+            : (this.hoverRangeTargetEdgeTexture ??
+              this.context.texAny("shot_trajectory_gold_arrowhead_wide_socket_v6"));
+        const arrowheadAxisAnchorY = useOrcPalette
+            ? SHOT_ORC_ARROWHEAD_AXIS_ANCHOR_Y
+            : SHOT_GOLD_ARROWHEAD_AXIS_ANCHOR_Y;
         for (const sprite of this.hoverRangeTargetEdgeSprites) sprite.visible = false;
-        if (!texture) return;
 
-        // Keep the approved head size and inward/outward contact point. The rear extension grows away from
-        // the creature, and the whole marker follows the exact casing rail instead of a cardinal direction.
+        // Keep the approved head size and inward/outward contact point. The ornate neck grows away from
+        // the creature, and the whole marker follows the exact shaft-section rail instead of a cardinal
+        // direction.
         const gridSettings = this.context.sceneSettings.getGridSettings();
-        const displayLength = rangeTargetEdgeMarkerDisplayLength(gridSettings.getCellSize());
         const cameraScale = this.context.getCameraScale();
+        const rayDx = markerCenter.x - trajectoryFrom.x;
+        const rayDy = markerCenter.y - trajectoryFrom.y;
+        const facingSide =
+            Math.abs(rayDx) >= Math.abs(rayDy)
+                ? rayDx >= 0
+                    ? GridMath.RangeAttackCellSide.LEFT
+                    : GridMath.RangeAttackCellSide.RIGHT
+                : rayDy >= 0
+                  ? GridMath.RangeAttackCellSide.DOWN
+                  : GridMath.RangeAttackCellSide.UP;
+        // Free cannon rays used to pass markerCenter itself to drawAttackArrow. That is the endpoint of
+        // the arrowhead artwork, not the socket: casings and their weld flash consequently ran all the way
+        // to the blade tip. Resolve the same first opaque joint used by ordinary unit-target arrows and
+        // return it to the caller as the real casing endpoint.
+        const trajectoryEndpoint = rangeTargetEdgeTrajectoryEndpoint(
+            trajectoryFrom,
+            markerCenter,
+            facingSide,
+            gridSettings.getCellSize(),
+            cameraScale,
+            markerScale,
+        );
+        if (!texture) return trajectoryEndpoint;
+
+        const displayLength = rangeTargetEdgeMarkerDisplayLength(gridSettings.getCellSize());
         const zoomX = Math.abs(cameraScale.x) || 1;
         const zoomY = Math.abs(cameraScale.y) || zoomX;
-        const worldAngle = Math.atan2(edge.markerCenter.y - trajectoryFrom.y, edge.markerCenter.x - trajectoryFrom.x);
+        const worldAngle = Math.atan2(markerCenter.y - trajectoryFrom.y, markerCenter.x - trajectoryFrom.x);
         const screenAngle = Math.atan2(-Math.sin(worldAngle) * zoomY, Math.cos(worldAngle) * zoomX);
-        const markerScreenScale = (displayLength * zoomX * RANGE_TARGET_EDGE_SELECTED_SCALE * edge.markerScale) / 512;
+        const arrowheadScreenAngle = screenAngle - SHOT_ARROWHEAD_NATIVE_SCREEN_ANGLE;
+        const markerScreenScale =
+            (displayLength * zoomX * RANGE_TARGET_EDGE_SELECTED_SCALE * SHOT_ARROWHEAD_SIZE_SCALE * markerScale) /
+            Math.max(1, texture.width);
 
         let marker = this.hoverRangeTargetEdgeSprites[0];
         if (!marker || marker.destroyed) {
             marker = new Sprite(texture);
-            // The head occupies exactly the old V6 coordinates. Moving the anchor right by the new rear
-            // extension pins that head in place while every added pixel grows away from the target creature.
-            marker.anchor.set(486 / 742, 0.5);
             marker.eventMode = "none";
             // Attaching sets zIndex on a sortable world container. Doing it on every pointer move
             // dirtied Pixi's full child order and made ranged hover appear to freeze; attach once.
@@ -1358,27 +1537,122 @@ export class HoverManager {
         } else if (marker.texture !== texture) {
             marker.texture = texture;
         }
+        // Keep the physical socket center — not the transparent canvas center — on the casing rail.
+        marker.anchor.set(0.66, arrowheadAxisAnchorY);
         const transform = cameraCompensatedSpriteTransform(
-            edge.markerCenter,
-            screenAngle,
+            markerCenter,
+            arrowheadScreenAngle,
             markerScreenScale,
             cameraScale,
         );
         marker.setFromMatrix(
-            new Matrix(
-                transform.a * RANGE_TARGET_EDGE_LENGTH_SCALE,
-                transform.b * RANGE_TARGET_EDGE_LENGTH_SCALE,
-                transform.c,
-                transform.d,
-                transform.tx,
-                transform.ty,
-            ),
+            new Matrix(transform.a, transform.b, transform.c, transform.d, transform.tx, transform.ty),
         );
         marker.visible = true;
-        marker.roundPixels = false;
+        marker.roundPixels = true;
         marker.tint = 0xffffff;
         marker.alpha = 1;
         marker.filters = null;
+        return trajectoryEndpoint;
+    }
+    private drawShotWeldSparks(
+        kind: "emergence" | "contact",
+        position: HoCMath.XY,
+        screenAngle: number,
+        cameraScale: HoCMath.XY,
+        contactStrength: number,
+        tuning: ShotTrajectoryTransformTuning,
+        shaftScreenHeight: number,
+        jointZoneLength: number,
+    ): void {
+        let sparks = kind === "emergence" ? this.hoverShotEmergenceSparks : this.hoverShotJointSparks;
+        if (contactStrength <= 0) {
+            if (this.isGraphicsUsable(sparks)) {
+                sparks.clear();
+                sparks.visible = false;
+            }
+            return;
+        }
+        if (!this.isGraphicsUsable(sparks)) {
+            sparks = new Graphics();
+            if (!this.safeAttachGraphics(sparks, 5602)) {
+                sparks.destroy();
+                return;
+            }
+            if (kind === "emergence") this.hoverShotEmergenceSparks = sparks;
+            else this.hoverShotJointSparks = sparks;
+        }
+
+        sparks.clear();
+        sparks.visible = true;
+        const transform = cameraCompensatedSpriteTransform(position, screenAngle, 1, cameraScale);
+        sparks.setFromMatrix(
+            new Matrix(transform.a, transform.b, transform.c, transform.d, transform.tx, transform.ty),
+        );
+        const flicker = 0.72 + 0.28 * Math.sin(this.hoverGlowPhase * 16.7);
+        const burstScale = contactStrength * flicker;
+        const seamHalfThickness = Math.max(
+            3.5,
+            (shaftScreenHeight * SHOT_ARROWHEAD_WELD_SEAM_HEIGHT_SCALE * tuning.scale) / 2,
+        );
+        const jointZoneHalfLength = jointZoneLength * SHOT_ARROWHEAD_WELD_ZONE_LENGTH_SCALE * tuning.scale;
+        sparks
+            .moveTo(0, -seamHalfThickness)
+            .lineTo(0, seamHalfThickness)
+            .stroke({
+                width: 5.6,
+                color: 0xff8a18,
+                alpha: 0.24 + burstScale * 0.38,
+                cap: "round",
+            });
+        sparks
+            .moveTo(0, -seamHalfThickness)
+            .lineTo(0, seamHalfThickness)
+            .stroke({
+                width: 1.8,
+                color: 0xffffdc,
+                alpha: 0.68 + burstScale * 0.32,
+                cap: "round",
+            });
+        sparks
+            .moveTo(-jointZoneHalfLength, 0)
+            .lineTo(jointZoneHalfLength, 0)
+            .stroke({
+                width: 3.2,
+                color: 0xffa11f,
+                alpha: 0.12 + burstScale * 0.18,
+                cap: "round",
+            });
+        sparks.circle(0, 0, 7.5 * burstScale).fill({
+            color: 0xff8a18,
+            alpha: 0.18 + burstScale * 0.26,
+        });
+        sparks.circle(0, 0, 1.2 + burstScale * 0.8).fill({
+            color: 0xffffef,
+            alpha: 0.82 + burstScale * 0.18,
+        });
+        for (let sparkIndex = 0; sparkIndex < SHOT_ARROWHEAD_WELD_SPARK_COUNT; sparkIndex += 1) {
+            const sparkPhase = this.hoverGlowPhase * 21.3 + sparkIndex * 2.41;
+            const seamOffset = (sparkIndex / (SHOT_ARROWHEAD_WELD_SPARK_COUNT - 1) - 0.5) * seamHalfThickness * 2;
+            const longitudinalOffset = Math.sin(sparkPhase * 0.73) * jointZoneHalfLength;
+            const spread = (sparkIndex / (SHOT_ARROWHEAD_WELD_SPARK_COUNT - 1) - 0.5) * Math.PI;
+            const rayAngle = Math.PI + spread + Math.sin(sparkPhase) * 0.18;
+            const rayLength =
+                (2.2 + (0.5 + 0.5 * Math.sin(sparkPhase * 1.37)) * SHOT_ARROWHEAD_WELD_SPARK_MAX_LENGTH) *
+                burstScale *
+                tuning.scale;
+            const rayUx = Math.cos(rayAngle);
+            const rayUy = Math.sin(rayAngle);
+            sparks
+                .moveTo(longitudinalOffset + rayUx * 0.8, seamOffset + rayUy * 0.8)
+                .lineTo(longitudinalOffset + rayUx * rayLength, seamOffset + rayUy * rayLength)
+                .stroke({
+                    width: 0.9 + burstScale * 0.55,
+                    color: sparkIndex % 2 === 0 ? 0xffffe2 : 0xffb52f,
+                    alpha: 0.55 + burstScale * 0.45,
+                    cap: "round",
+                });
+        }
     }
     private hoverTargetSilhouettes: Sprite[] = [];
     private silhouettePool: Sprite[] = [];
@@ -1451,6 +1725,8 @@ export class HoverManager {
     }
     private aoeDamageLabels: Text[] = [];
     private aoeDamageLabelPool: Text[] = [];
+    private aoeDamagePredictions: Array<{ damageText: Text; killText?: Text; killIcon?: Sprite }> = [];
+    private aoeDamagePredictionPool: Array<{ damageText: Text; killText?: Text; killIcon?: Sprite }> = [];
     /**
      * Floating projected-damage number over ONE splashed unit, for the Gargantuan Area Throw (3x3) aim
      * preview. Unlike drawDamagePrediction (which reuses a single shared Text and so can only show one
@@ -1488,6 +1764,96 @@ export class HoverManager {
         label.position.set(position.x, position.y);
         this.aoeDamageLabels.push(label);
     }
+    /** One ordinary damage/loss forecast per unit caught by a multi-target area preview. */
+    public addAOEDamagePrediction(
+        damageStr: string,
+        killStr: string | undefined,
+        position: HoCMath.XY,
+        isLargeTarget: boolean,
+        killIconPath?: string,
+    ): void {
+        const visual = this.aoeDamagePredictionPool.pop() ?? {
+            damageText: new Text({
+                text: damageStr,
+                style: {
+                    fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
+                    fontSize: DAMAGE_PREDICTION_FONT_SIZE,
+                    fill: 0xff3333,
+                    stroke: { color: 0x000000, width: DAMAGE_PREDICTION_STROKE_WIDTH, join: "round" },
+                    align: "center",
+                    fontWeight: "bold",
+                },
+            }),
+        };
+        visual.damageText.text = damageStr;
+        this.attachDamagePredictionObject(visual.damageText);
+        visual.damageText.visible = true;
+
+        const hasKills = !!killStr;
+        const verticalScaleCompensation = damagePredictionVerticalScaleCompensation(this.context.getCameraScale());
+        const { scale, verticalScale, centerOffsetY } = damagePredictionLayout(
+            isLargeTarget,
+            hasKills,
+            verticalScaleCompensation,
+        );
+        const centerY = position.y + centerOffsetY;
+        visual.damageText.anchor.set(0.5);
+        visual.damageText.scale.set(scale, -verticalScale);
+
+        if (hasKills) {
+            if (!visual.killText) {
+                visual.killText = new Text({
+                    text: killStr,
+                    style: {
+                        fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
+                        fontSize: DAMAGE_PREDICTION_FONT_SIZE,
+                        fill: 0xffffff,
+                        stroke: { color: 0x000000, width: DAMAGE_PREDICTION_STROKE_WIDTH, join: "round" },
+                        align: "center",
+                        fontWeight: "bold",
+                    },
+                });
+            }
+            visual.killText.text = killStr;
+            this.attachDamagePredictionObject(visual.killText);
+            visual.killText.visible = true;
+            visual.killText.scale.set(scale, -verticalScale);
+
+            const spacing = DAMAGE_PREDICTION_ROW_SPACING * verticalScale;
+            visual.damageText.position.set(position.x, centerY + spacing / 2);
+            if (killIconPath) {
+                const texture = this.context.texAny(killIconPath) || Texture.from(killIconPath);
+                if (!visual.killIcon) {
+                    visual.killIcon = new Sprite(texture);
+                } else {
+                    visual.killIcon.texture = texture;
+                }
+                this.attachDamagePredictionObject(visual.killIcon);
+                visual.killIcon.visible = true;
+                const iconWidth = DAMAGE_PREDICTION_FONT_SIZE * scale * DAMAGE_PREDICTION_KILL_ICON_SCALE;
+                const iconHeight = DAMAGE_PREDICTION_FONT_SIZE * verticalScale * DAMAGE_PREDICTION_KILL_ICON_SCALE;
+                const padding = 5 * scale;
+                const startX = position.x - (iconWidth + padding + visual.killText.width) / 2;
+                visual.killIcon.anchor.set(0, 0.5);
+                visual.killIcon.width = iconWidth;
+                visual.killIcon.height = iconHeight;
+                visual.killIcon.scale.y = -Math.abs(visual.killIcon.scale.y);
+                visual.killIcon.position.set(startX, centerY - spacing / 2);
+                visual.killText.anchor.set(0, 0.5);
+                visual.killText.position.set(startX + iconWidth + padding, centerY - spacing / 2);
+            } else {
+                if (visual.killIcon) visual.killIcon.visible = false;
+                visual.killText.anchor.set(0.5);
+                visual.killText.position.set(position.x, centerY - spacing / 2);
+            }
+        } else {
+            visual.damageText.position.set(position.x, centerY);
+            if (visual.killText) visual.killText.visible = false;
+            if (visual.killIcon) visual.killIcon.visible = false;
+        }
+
+        this.aoeDamagePredictions.push(visual);
+    }
     /**
      * `smokeFrom` marks where the shot first enters SMOKE. From that point to the target the arrow is
      * drawn thick and red, because the smoke rule is STICKY: once the ray crosses a smoked cell every
@@ -1504,7 +1870,16 @@ export class HoverManager {
         rememberAnimation = true,
         meleeFacingAngle?: number,
     ): void {
-        for (const sprite of this.hoverShotCasingSprites) sprite.visible = false;
+        for (const sprite of this.hoverShotShaftSprites) sprite.visible = false;
+        if (this.hoverShotStartFletching) this.hoverShotStartFletching.visible = false;
+        if (this.isGraphicsUsable(this.hoverShotJointSparks)) {
+            this.hoverShotJointSparks.clear();
+            this.hoverShotJointSparks.visible = false;
+        }
+        if (this.isGraphicsUsable(this.hoverShotEmergenceSparks)) {
+            this.hoverShotEmergenceSparks.clear();
+            this.hoverShotEmergenceSparks.visible = false;
+        }
         // The feature flag remains explicit so dev builds can isolate target-edge marker behavior without
         // deleting the authoritative trajectory implementation.
         if (marker === "arrow" && !RANGED_ATTACK_TRAJECTORY_VISIBLE) {
@@ -1633,50 +2008,417 @@ export class HoverManager {
                 drawDashes(0, arrowLen, 1.5, 0xffffe9, 0.9);
                 break;
             case "gold-casings": {
+                // The authored arrow pieces remain the only trajectory rail. Graphics are reserved for
+                // moving golden sparks distributed over its full length; no line, glow rail or dots are drawn.
+                g.visible = true;
                 const ux = Math.cos(angle);
                 const uy = Math.sin(angle);
-                const casingLength = 22 * 1.25 * 1.15 * SHOT_CASING_SIZE_SCALE;
-                const casingSpacing = SHOT_CASING_SPACING;
-                const casingPhase = (this.hoverGlowPhase * 36) % casingSpacing;
-                const texture =
-                    this.hoverShotHammeredBronzeCasingTexture ??
-                    this.context.texAny("shot_trajectory_hammered_bronze_casing_sprite_v4");
-                if (!texture) break;
                 const cameraScale = this.context.getCameraScale();
                 const zoomX = Math.abs(cameraScale.x) || 1;
                 const zoomY = Math.abs(cameraScale.y) || zoomX;
                 const screenAngle = Math.atan2(-uy * zoomY, ux * zoomX);
-                const casingScreenScale = (casingLength * zoomX) / Math.max(1, texture.width);
-                let casingIndex = 0;
-                for (let d = casingPhase - casingSpacing; d < arrowLen + casingSpacing; d += casingSpacing) {
-                    if (d < casingLength * 0.5 || d > arrowLen - casingLength * 0.5) continue;
-                    let casing = this.hoverShotCasingSprites[casingIndex];
-                    if (!casing || casing.destroyed) {
-                        casing = new Sprite(texture);
-                        casing.anchor.set(0.5);
-                        casing.eventMode = "none";
-                        this.context.attachToWorldRoot(casing, 2201);
-                        this.hoverShotCasingSprites[casingIndex] = casing;
-                    } else if (casing.texture !== texture) {
-                        casing.texture = texture;
+                const useOrcPalette = shotTrajectoryUsesOrcPalette(this.context.getCurrentActiveUnit()?.getName());
+                const trajectoryTuning = getShotTrajectoryTuning();
+                const emergenceTuning = trajectoryTuning.emergence;
+                const projectileOriginTuning = trajectoryTuning.projectileOrigin;
+                const emergenceSparkTuning = trajectoryTuning.emergenceSparks;
+                const contactSparkTuning = trajectoryTuning.contactSparks;
+
+                const fletchingTexture = useOrcPalette
+                    ? (this.hoverShotOrcFletchingTexture ??
+                      this.context.texAny("shot_trajectory_orc_bronze_fletching_distant_match_v8"))
+                    : (this.hoverShotArrowFletchingTexture ??
+                      this.context.texAny("shot_trajectory_gold_fletching_wide_socket_v6"));
+                const fletchingAxisAnchorY = useOrcPalette
+                    ? SHOT_ORC_FLETCHING_AXIS_ANCHOR_Y
+                    : SHOT_GOLD_FLETCHING_AXIS_ANCHOR_Y;
+                const shaftAxisAnchorY = useOrcPalette ? SHOT_ORC_SHAFT_AXIS_ANCHOR_Y : SHOT_GOLD_SHAFT_AXIS_ANCHOR_Y;
+                const cellSize = this.context.sceneSettings.getGridSettings().getCellSize();
+
+                const sparkEdgeInset = Math.min(cellSize * 0.22, arrowLen * 0.04);
+                const sparkTravelLength = Math.max(1, arrowLen - sparkEdgeInset * 2);
+                const sparkCount = Math.max(6, Math.ceil(sparkTravelLength / SHOT_TRAJECTORY_SPARK_SPACING));
+                const sparkLateralSpread = Math.min(7, cellSize * 0.055);
+                for (let sparkIndex = 0; sparkIndex < sparkCount; sparkIndex += 1) {
+                    const sparkPhase = this.hoverGlowPhase * 3.4 + sparkIndex * 2.17;
+                    const along =
+                        sparkEdgeInset +
+                        ((sparkIndex * (sparkTravelLength / sparkCount) +
+                            this.hoverGlowPhase * SHOT_TRAJECTORY_SPARK_SPEED) %
+                            sparkTravelLength);
+                    const lateral = Math.sin(sparkPhase * 1.37 + sparkIndex * 1.91) * sparkLateralSpread;
+                    const sparkle = 0.5 + 0.5 * Math.sin(sparkPhase * 2.1);
+                    const sparkX = from.x + ux * along + nx * lateral;
+                    const sparkY = from.y + uy * along + ny * lateral;
+                    const raySize = 2.1 + sparkle * 3.4;
+                    const normalSize = 1.4 + sparkle * 2.5;
+                    g.circle(sparkX, sparkY, 3.2 + sparkle * 2.2).fill({
+                        color: 0xffa51f,
+                        alpha: 0.08 + sparkle * 0.12,
+                    });
+                    g.circle(sparkX, sparkY, 0.8 + sparkle * 0.9).fill({
+                        color: 0xffffd2,
+                        alpha: 0.72 + sparkle * 0.28,
+                    });
+                    g.moveTo(sparkX - ux * raySize, sparkY - uy * raySize)
+                        .lineTo(sparkX + ux * raySize, sparkY + uy * raySize)
+                        .stroke({ width: 0.9, color: 0xffd35c, alpha: 0.28 + sparkle * 0.62, cap: "round" });
+                    g.moveTo(sparkX - nx * normalSize, sparkY - ny * normalSize)
+                        .lineTo(sparkX + nx * normalSize, sparkY + ny * normalSize)
+                        .stroke({ width: 0.75, color: 0xffffe8, alpha: 0.22 + sparkle * 0.72, cap: "round" });
+                }
+
+                const fletchingBaseLength = Math.min(78, Math.max(44, cellSize * 0.58)) * SHOT_FLETCHING_SIZE_SCALE;
+                const fletchingLength = fletchingBaseLength * emergenceTuning.scale;
+                const fletchingOffsetAlong = shotTrajectoryAuthoringOffsetToWorld(
+                    emergenceTuning.offsetAlong,
+                    fletchingBaseLength,
+                    SHOT_FLETCHING_AUTHORING_WIDTH,
+                );
+                const fletchingOffsetPerpendicular = shotTrajectoryAuthoringOffsetToWorld(
+                    emergenceTuning.offsetPerpendicular,
+                    fletchingBaseLength,
+                    SHOT_FLETCHING_AUTHORING_WIDTH,
+                );
+                const projectileOriginAlong = shotTrajectoryAuthoringOffsetToWorld(
+                    projectileOriginTuning.offsetAlong,
+                    fletchingBaseLength,
+                    SHOT_FLETCHING_AUTHORING_WIDTH,
+                );
+                const projectileOriginPerpendicular = shotTrajectoryAuthoringOffsetToWorld(
+                    projectileOriginTuning.offsetPerpendicular,
+                    fletchingBaseLength,
+                    SHOT_FLETCHING_AUTHORING_WIDTH,
+                );
+                if (fletchingTexture) {
+                    let fletching = this.hoverShotStartFletching;
+                    if (!fletching || fletching.destroyed) {
+                        fletching = new Sprite(fletchingTexture);
+                        fletching.eventMode = "none";
+                        // Keep the socket behind the emerging casing: once metal fills the hole, its dark
+                        // inner ellipse must be occluded instead of remaining painted over the projectile.
+                        this.context.attachToWorldRoot(fletching, 2201);
+                        this.hoverShotStartFletching = fletching;
+                    } else if (fletching.texture !== fletchingTexture) {
+                        fletching.texture = fletchingTexture;
                     }
-                    casing.visible = true;
-                    const position = { x: from.x + ux * d, y: from.y + uy * d };
+                    fletching.zIndex = 2201;
+                    fletching.anchor.set(0.5, fletchingAxisAnchorY);
+                    const fletchingPosition = {
+                        x: from.x + ux * fletchingOffsetAlong + nx * fletchingOffsetPerpendicular,
+                        y: from.y + uy * fletchingOffsetAlong + ny * fletchingOffsetPerpendicular,
+                    };
+                    const fletchingTransform = cameraCompensatedSpriteTransform(
+                        fletchingPosition,
+                        screenAngle + (emergenceTuning.rotationDegrees * Math.PI) / 180,
+                        (fletchingLength * zoomX) / Math.max(1, fletchingTexture.width),
+                        cameraScale,
+                    );
+                    fletching.setFromMatrix(
+                        new Matrix(
+                            fletchingTransform.a,
+                            fletchingTransform.b,
+                            fletchingTransform.c,
+                            fletchingTransform.d,
+                            fletchingTransform.tx,
+                            fletchingTransform.ty,
+                        ),
+                    );
+                    fletching.visible = true;
+                    fletching.roundPixels = true;
+                    fletching.tint = 0xffffff;
+                    fletching.alpha = 1;
+                }
+
+                const shaftTexture = useOrcPalette
+                    ? (this.hoverShotCasingTexture ??
+                      this.context.texAny("shot_trajectory_hammered_bronze_casing_sprite_v4"))
+                    : (this.hoverShotGoldCasingTexture ?? this.context.texAny("shot_trajectory_gold_casing_sprite_v6"));
+                if (!shaftTexture) return;
+                const shaftLength = SHOT_SHAFT_RENDER_LENGTH;
+                const shaftSpacing = SHOT_SHAFT_SPACING;
+                const shaftPhase = (this.hoverGlowPhase * SHOT_SHAFT_SPEED) % shaftSpacing;
+                const shaftScreenScale = (shaftLength * zoomX) / Math.max(1, shaftTexture.width);
+                // The green editor point is the exact origin in the 144px calibration artwork. Do not add
+                // a second inferred socket distance here: that used to place the first casing far outside
+                // the fletching even though the marker was visibly inside it in the editor.
+                const startClearance = Math.max(0, fletchingOffsetAlong + projectileOriginAlong);
+                const originLateralOffset = fletchingOffsetPerpendicular + projectileOriginPerpendicular;
+                const targetPenetration = shaftLength * SHOT_SHAFT_TARGET_PENETRATION_SCALE;
+                const endClearance = arrowLen + targetPenetration;
+                let emergenceJointContactStrength = 0;
+                let arrowheadJointContactStrength = 0;
+                const sourceFrame = shaftTexture.frame;
+                let shaftIndex = 0;
+                for (let d = shaftPhase - shaftSpacing; d < arrowLen + shaftSpacing; d += shaftSpacing) {
+                    const segmentStart = d - shaftLength / 2;
+                    const segmentEnd = d + shaftLength / 2;
+                    if (segmentStart <= startClearance && segmentEnd >= startClearance) {
+                        const contactProgress = Math.max(0, Math.min(1, (segmentEnd - startClearance) / shaftLength));
+                        emergenceJointContactStrength = Math.max(
+                            emergenceJointContactStrength,
+                            0.35 + Math.sin(contactProgress * Math.PI) * 0.65,
+                        );
+                    }
+                    if (segmentStart <= arrowLen && segmentEnd >= arrowLen) {
+                        const contactProgress = Math.max(0, Math.min(1, (segmentEnd - arrowLen) / shaftLength));
+                        arrowheadJointContactStrength = Math.max(
+                            arrowheadJointContactStrength,
+                            0.35 + Math.sin(contactProgress * Math.PI) * 0.65,
+                        );
+                    }
+                    const visibleSlice = shotCasingVisibleSlice(d, shaftLength, startClearance, endClearance);
+                    if (!visibleSlice) continue;
+
+                    // Crop the authored bitmap instead of squeezing it. A segment therefore grows out of
+                    // the fletching and is progressively swallowed by the target arrowhead without ever
+                    // popping in or disappearing as a complete piece.
+                    const { sourceStartFraction, sourceEndFraction } = visibleSlice;
+                    const isBoundarySlice = sourceStartFraction > 0.0001 || sourceEndFraction < 0.9999;
+                    const visibleSegmentCenter =
+                        d + shaftLength * ((sourceStartFraction + sourceEndFraction) / 2 - 0.5);
+                    const cropFrame = new Rectangle(
+                        sourceFrame.x + sourceFrame.width * sourceStartFraction,
+                        sourceFrame.y,
+                        sourceFrame.width * (sourceEndFraction - sourceStartFraction),
+                        sourceFrame.height,
+                    );
+                    let renderTexture = shaftTexture;
+                    if (isBoundarySlice) {
+                        let cropTexture = this.hoverShotShaftCropTextures[shaftIndex];
+                        if (
+                            !cropTexture ||
+                            cropTexture.destroyed ||
+                            cropTexture.source !== shaftTexture.source ||
+                            cropTexture.trim
+                        ) {
+                            cropTexture = new Texture({
+                                source: shaftTexture.source,
+                                frame: cropFrame.clone(),
+                                // Give the boundary fragment its real narrow logical width. Keeping the
+                                // full casing as `orig` makes Pixi wait for/lay out the complete sprite and
+                                // can hide the first emerging columns at the socket.
+                                orig: new Rectangle(0, 0, cropFrame.width, sourceFrame.height),
+                                dynamic: true,
+                            });
+                            this.hoverShotShaftCropTextures[shaftIndex] = cropTexture;
+                        } else {
+                            cropTexture.frame.copyFrom(cropFrame);
+                            cropTexture.orig.x = 0;
+                            cropTexture.orig.y = 0;
+                            cropTexture.orig.width = cropFrame.width;
+                            cropTexture.orig.height = sourceFrame.height;
+                            // `updateUvs()` changes sampling only. The sprite keeps its previous quad until
+                            // Texture emits `update`, which made a narrow 1/4 or 1/2 slice stay invisible
+                            // and then pop in when the complete casing texture was assigned. `update()`
+                            // refreshes both UVs and the sprite geometry on every emerging frame.
+                            cropTexture.update();
+                        }
+                        renderTexture = cropTexture;
+                    }
+                    let shaft = this.hoverShotShaftSprites[shaftIndex];
+                    if (!shaft || shaft.destroyed) {
+                        shaft = new Sprite(renderTexture);
+                        shaft.eventMode = "none";
+                        this.context.attachToWorldRoot(shaft, 2202);
+                        this.hoverShotShaftSprites[shaftIndex] = shaft;
+                    } else if (shaft.texture !== renderTexture) {
+                        shaft.texture = renderTexture;
+                    }
+                    // Every progressively revealed slice stays in front of the fletching socket, so even
+                    // the first partial pixel column naturally covers the hole it is emerging through.
+                    shaft.zIndex = 2202;
+                    shaft.anchor.set(0.5, shaftAxisAnchorY);
+                    shaft.visible = true;
+                    const pathProgress = Math.max(
+                        0,
+                        Math.min(1, (d - startClearance) / Math.max(1, arrowLen - startClearance)),
+                    );
+                    const lateralOffset = originLateralOffset * (1 - pathProgress);
+                    const position = {
+                        x: from.x + ux * visibleSegmentCenter + nx * lateralOffset,
+                        y: from.y + uy * visibleSegmentCenter + ny * lateralOffset,
+                    };
                     const transform = cameraCompensatedSpriteTransform(
                         position,
                         screenAngle,
-                        casingScreenScale,
+                        shaftScreenScale,
                         cameraScale,
                     );
-                    casing.setFromMatrix(
-                        new Matrix(transform.a, transform.b, transform.c, transform.d, transform.tx, transform.ty),
+                    shaft.setFromMatrix(
+                        new Matrix(
+                            transform.a,
+                            transform.b,
+                            transform.c * SHOT_SHAFT_THICKNESS_SCALE,
+                            transform.d * SHOT_SHAFT_THICKNESS_SCALE,
+                            transform.tx,
+                            transform.ty,
+                        ),
                     );
-                    casing.roundPixels = true;
-                    casing.tint = 0xffffff;
-                    casing.alpha = 1;
-                    casingIndex += 1;
+                    shaft.roundPixels = true;
+                    shaft.tint = 0xffffff;
+                    shaft.alpha = 1;
+                    shaftIndex += 1;
                 }
-                break;
+                if (arrowheadJointContactStrength > 0) {
+                    let jointSparks = this.hoverShotJointSparks;
+                    if (!this.isGraphicsUsable(jointSparks)) {
+                        jointSparks = new Graphics();
+                        if (!this.safeAttachGraphics(jointSparks, 5602)) {
+                            jointSparks.destroy();
+                            jointSparks = undefined;
+                        } else {
+                            this.hoverShotJointSparks = jointSparks;
+                        }
+                    }
+                    if (jointSparks) {
+                        jointSparks.clear();
+                        jointSparks.visible = true;
+                        const arrowheadDisplayLength =
+                            rangeTargetEdgeMarkerDisplayLength(cellSize) *
+                            RANGE_TARGET_EDGE_SELECTED_SCALE *
+                            SHOT_ARROWHEAD_SIZE_SCALE;
+                        const arrowheadScreenLength = arrowheadDisplayLength * zoomX;
+                        const contactOffsetAlong = shotTrajectoryAuthoringOffsetToWorld(
+                            contactSparkTuning.offsetAlong,
+                            arrowheadScreenLength,
+                            SHOT_ARROWHEAD_AUTHORING_WIDTH,
+                        );
+                        const contactOffsetPerpendicular = shotTrajectoryAuthoringOffsetToWorld(
+                            contactSparkTuning.offsetPerpendicular,
+                            arrowheadScreenLength,
+                            SHOT_ARROWHEAD_AUTHORING_WIDTH,
+                        );
+                        const contactRotation = (contactSparkTuning.rotationDegrees * Math.PI) / 180;
+                        const contactPositionOffset = cameraCompensatedLocalOffset(
+                            contactOffsetAlong,
+                            contactOffsetPerpendicular,
+                            screenAngle,
+                            cameraScale,
+                        );
+                        const jointX = endX + contactPositionOffset.x;
+                        const jointY = endY + contactPositionOffset.y;
+                        const contactScreenAngle = screenAngle + contactRotation;
+                        const contactTransform = cameraCompensatedSpriteTransform(
+                            { x: jointX, y: jointY },
+                            contactScreenAngle,
+                            1,
+                            cameraScale,
+                        );
+                        jointSparks.setFromMatrix(
+                            new Matrix(
+                                contactTransform.a,
+                                contactTransform.b,
+                                contactTransform.c,
+                                contactTransform.d,
+                                contactTransform.tx,
+                                contactTransform.ty,
+                            ),
+                        );
+                        const flicker = 0.72 + 0.28 * Math.sin(this.hoverGlowPhase * 16.7);
+                        const burstScale = arrowheadJointContactStrength * flicker;
+                        const seamHalfThickness = Math.max(
+                            3.5,
+                            (sourceFrame.height *
+                                shaftScreenScale *
+                                SHOT_SHAFT_THICKNESS_SCALE *
+                                SHOT_ARROWHEAD_WELD_SEAM_HEIGHT_SCALE *
+                                contactSparkTuning.scale) /
+                                2,
+                        );
+                        const jointZoneHalfLength =
+                            shaftLength * zoomX * SHOT_ARROWHEAD_WELD_ZONE_LENGTH_SCALE * contactSparkTuning.scale;
+                        jointSparks
+                            .moveTo(0, -seamHalfThickness)
+                            .lineTo(0, seamHalfThickness)
+                            .stroke({
+                                width: 5.6,
+                                color: 0xff8a18,
+                                alpha: 0.24 + burstScale * 0.38,
+                                cap: "round",
+                            });
+                        jointSparks
+                            .moveTo(0, -seamHalfThickness)
+                            .lineTo(0, seamHalfThickness)
+                            .stroke({
+                                width: 1.8,
+                                color: 0xffffdc,
+                                alpha: 0.68 + burstScale * 0.32,
+                                cap: "round",
+                            });
+                        jointSparks
+                            .moveTo(-jointZoneHalfLength, 0)
+                            .lineTo(jointZoneHalfLength, 0)
+                            .stroke({
+                                width: 3.2,
+                                color: 0xffa11f,
+                                alpha: 0.12 + burstScale * 0.18,
+                                cap: "round",
+                            });
+                        jointSparks.circle(0, 0, 7.5 * burstScale).fill({
+                            color: 0xff8a18,
+                            alpha: 0.18 + burstScale * 0.26,
+                        });
+                        jointSparks.circle(0, 0, 1.2 + burstScale * 0.8).fill({
+                            color: 0xffffef,
+                            alpha: 0.82 + burstScale * 0.18,
+                        });
+                        for (let sparkIndex = 0; sparkIndex < SHOT_ARROWHEAD_WELD_SPARK_COUNT; sparkIndex += 1) {
+                            const sparkPhase = this.hoverGlowPhase * 21.3 + sparkIndex * 2.41;
+                            const seamOffset =
+                                (sparkIndex / (SHOT_ARROWHEAD_WELD_SPARK_COUNT - 1) - 0.5) * seamHalfThickness * 2;
+                            const longitudinalOffset = Math.sin(sparkPhase * 0.73) * jointZoneHalfLength;
+                            const spread = (sparkIndex / (SHOT_ARROWHEAD_WELD_SPARK_COUNT - 1) - 0.5) * Math.PI;
+                            const rayAngle = Math.PI + spread + Math.sin(sparkPhase) * 0.18;
+                            const rayLength =
+                                (2.2 +
+                                    (0.5 + 0.5 * Math.sin(sparkPhase * 1.37)) * SHOT_ARROWHEAD_WELD_SPARK_MAX_LENGTH) *
+                                burstScale *
+                                contactSparkTuning.scale;
+                            const rayUx = Math.cos(rayAngle);
+                            const rayUy = Math.sin(rayAngle);
+                            jointSparks
+                                .moveTo(longitudinalOffset + rayUx * 0.8, seamOffset + rayUy * 0.8)
+                                .lineTo(longitudinalOffset + rayUx * rayLength, seamOffset + rayUy * rayLength)
+                                .stroke({
+                                    width: 0.9 + burstScale * 0.55,
+                                    color: sparkIndex % 2 === 0 ? 0xffffe2 : 0xffb52f,
+                                    alpha: 0.55 + burstScale * 0.45,
+                                    cap: "round",
+                                });
+                        }
+                    }
+                }
+                const emergenceSparkOffsetAlong = shotTrajectoryAuthoringOffsetToWorld(
+                    emergenceSparkTuning.offsetAlong,
+                    fletchingBaseLength,
+                    SHOT_FLETCHING_AUTHORING_WIDTH,
+                );
+                const emergenceSparkOffsetPerpendicular = shotTrajectoryAuthoringOffsetToWorld(
+                    emergenceSparkTuning.offsetPerpendicular,
+                    fletchingBaseLength,
+                    SHOT_FLETCHING_AUTHORING_WIDTH,
+                );
+                const emergencePositionOffset = cameraCompensatedLocalOffset(
+                    emergenceSparkOffsetAlong,
+                    emergenceSparkOffsetPerpendicular,
+                    screenAngle,
+                    cameraScale,
+                );
+                this.drawShotWeldSparks(
+                    "emergence",
+                    {
+                        x: from.x + ux * startClearance + nx * originLateralOffset + emergencePositionOffset.x,
+                        y: from.y + uy * startClearance + ny * originLateralOffset + emergencePositionOffset.y,
+                    },
+                    screenAngle + (emergenceSparkTuning.rotationDegrees * Math.PI) / 180,
+                    cameraScale,
+                    emergenceJointContactStrength,
+                    emergenceSparkTuning,
+                    sourceFrame.height * shaftScreenScale * SHOT_SHAFT_THICKNESS_SCALE,
+                    shaftLength * zoomX,
+                );
+                return;
             }
             case "marching-chevrons":
             case "double-chevron-pulses":
@@ -1752,7 +2494,7 @@ export class HoverManager {
 
         // The forged version stays 1:1 with its approved preview: only paired chevrons and their rivets.
         // Other treatments retain the travelling bead that was part of their original animation.
-        if (trajectoryStyle !== "forged-double-chevrons" && trajectoryStyle !== "gold-casings") {
+        if (trajectoryStyle !== "forged-double-chevrons") {
             const flightPulse = (this.hoverGlowPhase * 92) % Math.max(arrowLen, 1);
             const pulseX = from.x + Math.cos(angle) * flightPulse;
             const pulseY = from.y + Math.sin(angle) * flightPulse;
@@ -1886,6 +2628,55 @@ export class HoverManager {
     private spellBadgeRing?: Graphics;
     private spellBadgeIcon?: Sprite;
     private spellBadgeText?: Text;
+    /** Draw a directed spell aim as one animated atlas tile repeated along the whole ray. */
+    private drawMagicAimDualHelix(casterPos: HoCMath.XY, targetPos: HoCMath.XY): boolean {
+        if (!this.magicAimDualHelixFrames.length) return false;
+
+        if (!this.magicAimDualHelix) {
+            const effect = new TilingSprite({
+                texture: this.magicAimDualHelixFrames[0],
+                width: 1,
+                height: MAGIC_AIM_DUAL_HELIX_FRAME_HEIGHT,
+                anchor: { x: 0, y: 0.5 },
+            });
+            effect.blendMode = "add";
+            effect.roundPixels = false;
+            try {
+                this.context.attachToWorldRoot(effect, 2199);
+            } catch {
+                effect.destroy();
+                return false;
+            }
+            this.magicAimDualHelix = effect;
+        }
+
+        const dx = targetPos.x - casterPos.x;
+        const dy = targetPos.y - casterPos.y;
+        const length = Math.max(1, Math.hypot(dx, dy));
+        const effect = this.magicAimDualHelix;
+        if (!effect.visible) this.magicAimDualHelixElapsedMs = 0;
+        effect.position.set(casterPos.x, casterPos.y);
+        effect.rotation = Math.atan2(dy, dx);
+        effect.width = length;
+        effect.height = MAGIC_AIM_DUAL_HELIX_FRAME_HEIGHT;
+        effect.visible = true;
+        this.updateMagicAimDualHelixAnimation(0);
+        return true;
+    }
+    /** Advance the atlas from the scene ticker, independently of pointer-move hover recalculation. */
+    private updateMagicAimDualHelixAnimation(dt: number): void {
+        const effect = this.magicAimDualHelix;
+        if (!effect?.visible || !this.magicAimDualHelixFrames.length) return;
+
+        this.magicAimDualHelixElapsedMs += Math.max(0, dt) * 1000 * MAGIC_AIM_DUAL_HELIX_TIME_SCALE;
+        const frameIndex = magicAimDualHelixFrameIndex(this.magicAimDualHelixElapsedMs);
+        effect.texture = this.magicAimDualHelixFrames[frameIndex];
+        effect.alpha = 0.88 + 0.12 * Math.sin((this.magicAimDualHelixElapsedMs / 1000) * Math.PI * 2 * 1.35);
+    }
+    private hideMagicAimDualHelix(): void {
+        if (this.magicAimDualHelix) this.magicAimDualHelix.visible = false;
+        this.magicAimDualHelixElapsedMs = 0;
+    }
     public drawSpellCastPreview(opts: {
         casterPos: HoCMath.XY;
         targetPos?: HoCMath.XY;
@@ -1898,74 +2689,86 @@ export class HoverManager {
 
         // 1. Beam from caster to hovered target (only when a target is hovered).
         if (opts.targetPos) {
-            if (!this.isGraphicsUsable(this.spellBeam)) {
-                this.spellBeam = new Graphics();
-                if (!this.safeAttachGraphics(this.spellBeam, 2199)) {
-                    this.spellBeam.destroy();
-                    this.spellBeam = undefined;
-                    return;
-                }
-            }
-            const g = this.spellBeam;
-            g.clear();
-            g.visible = true;
-            const fx = opts.casterPos.x;
-            const fy = opts.casterPos.y;
-            const tx = opts.targetPos.x;
-            const ty = opts.targetPos.y;
-            const angle = Math.atan2(ty - fy, tx - fx);
-            const negative = opts.beamStyle === "negative";
-            const glowColor = negative ? 0x9e1308 : 0x00a94f;
-            const midColor = negative ? 0xff3b12 : 0x18e875;
-            const coreColor = negative ? 0xffc04a : 0xbaffd2;
-
-            // Variant 1: a narrow luminous core, broad magical glow and a sharp arcane spearhead.
-            g.moveTo(fx, fy).lineTo(tx, ty).stroke({ width: 20, color: glowColor, alpha: 0.16 });
-            g.moveTo(fx, fy).lineTo(tx, ty).stroke({ width: 9, color: midColor, alpha: 0.38 });
-            g.moveTo(fx, fy).lineTo(tx, ty).stroke({ width: 3, color: coreColor, alpha: 0.95 });
-
-            const dx = tx - fx;
-            const dy = ty - fy;
-            const length = Math.max(1, Math.hypot(dx, dy));
-            const nx = -dy / length;
-            const ny = dx / length;
-            for (let i = 1; i <= 6; i++) {
-                const t = i / 8;
-                const wave = Math.sin(i * 2.35) * (negative ? 8 : 5);
-                const px = fx + dx * t + nx * wave;
-                const py = fy + dy * t + ny * wave;
-                const runeSize = negative ? 4 + (i % 2) : 3 + (i % 2);
-                if (negative) {
-                    // Ember tongues trail off the fiery red beam.
-                    g.moveTo(px - nx * runeSize, py - ny * runeSize)
-                        .quadraticCurveTo(
-                            px + nx * runeSize * 2.5 - (dx / length) * 5,
-                            py + ny * runeSize * 2.5 - (dy / length) * 5,
-                            px + nx * runeSize * 0.6,
-                            py + ny * runeSize * 0.6,
-                        )
-                        .stroke({ width: 2, color: i % 2 ? 0xff6a18 : 0xffc13b, alpha: 0.72 });
-                } else {
-                    // Small diamond runes keep the green beam magical without obscuring the board.
-                    g.poly([px, py - runeSize, px + runeSize, py, px, py + runeSize, px - runeSize, py]).stroke({
-                        width: 1.5,
-                        color: coreColor,
-                        alpha: 0.72,
-                    });
-                }
+            const dualHelixVisible = this.drawMagicAimDualHelix(opts.casterPos, opts.targetPos);
+            if (dualHelixVisible) {
+                if (this.spellBeam) this.safeClearGraphics(this.spellBeam);
+            } else {
+                this.hideMagicAimDualHelix();
             }
 
-            const hl = 28;
-            const hw = 12;
-            const ux = Math.cos(angle);
-            const uy = Math.sin(angle);
-            const bx = tx - ux * hl;
-            const by = ty - uy * hl;
-            g.poly([tx, ty, bx + nx * hw, by + ny * hw, bx + ux * 7, by + uy * 7, bx - nx * hw, by - ny * hw])
-                .fill({ color: midColor, alpha: 0.28 })
-                .stroke({ width: 3, color: coreColor, alpha: 1 });
+            if (!dualHelixVisible) {
+                if (!this.isGraphicsUsable(this.spellBeam)) {
+                    this.spellBeam = new Graphics();
+                    if (!this.safeAttachGraphics(this.spellBeam, 2199)) {
+                        this.spellBeam.destroy();
+                        this.spellBeam = undefined;
+                        return;
+                    }
+                }
+                const g = this.spellBeam;
+                g.clear();
+                g.visible = true;
+                const fx = opts.casterPos.x;
+                const fy = opts.casterPos.y;
+                const tx = opts.targetPos.x;
+                const ty = opts.targetPos.y;
+                const angle = Math.atan2(ty - fy, tx - fx);
+                const negative = opts.beamStyle === "negative";
+                const glowColor = negative ? 0x9e1308 : 0x00a94f;
+                const midColor = negative ? 0xff3b12 : 0x18e875;
+                const coreColor = negative ? 0xffc04a : 0xbaffd2;
+
+                // Variant 1: a narrow luminous core, broad magical glow and a sharp arcane spearhead.
+                g.moveTo(fx, fy).lineTo(tx, ty).stroke({ width: 20, color: glowColor, alpha: 0.16 });
+                g.moveTo(fx, fy).lineTo(tx, ty).stroke({ width: 9, color: midColor, alpha: 0.38 });
+                g.moveTo(fx, fy).lineTo(tx, ty).stroke({ width: 3, color: coreColor, alpha: 0.95 });
+
+                const dx = tx - fx;
+                const dy = ty - fy;
+                const length = Math.max(1, Math.hypot(dx, dy));
+                const nx = -dy / length;
+                const ny = dx / length;
+                for (let i = 1; i <= 6; i++) {
+                    const t = i / 8;
+                    const wave = Math.sin(i * 2.35) * (negative ? 8 : 5);
+                    const px = fx + dx * t + nx * wave;
+                    const py = fy + dy * t + ny * wave;
+                    const runeSize = negative ? 4 + (i % 2) : 3 + (i % 2);
+                    if (negative) {
+                        // Ember tongues trail off the fiery red beam.
+                        g.moveTo(px - nx * runeSize, py - ny * runeSize)
+                            .quadraticCurveTo(
+                                px + nx * runeSize * 2.5 - (dx / length) * 5,
+                                py + ny * runeSize * 2.5 - (dy / length) * 5,
+                                px + nx * runeSize * 0.6,
+                                py + ny * runeSize * 0.6,
+                            )
+                            .stroke({ width: 2, color: i % 2 ? 0xff6a18 : 0xffc13b, alpha: 0.72 });
+                    } else {
+                        // Small diamond runes keep the green beam magical without obscuring the board.
+                        g.poly([px, py - runeSize, px + runeSize, py, px, py + runeSize, px - runeSize, py]).stroke({
+                            width: 1.5,
+                            color: coreColor,
+                            alpha: 0.72,
+                        });
+                    }
+                }
+
+                const hl = 28;
+                const hw = 12;
+                const ux = Math.cos(angle);
+                const uy = Math.sin(angle);
+                const bx = tx - ux * hl;
+                const by = ty - uy * hl;
+                g.poly([tx, ty, bx + nx * hw, by + ny * hw, bx + ux * 7, by + uy * 7, bx - nx * hw, by - ny * hw])
+                    .fill({ color: midColor, alpha: 0.28 })
+                    .stroke({ width: 3, color: coreColor, alpha: 1 });
+            }
         } else if (this.spellBeam) {
             this.safeClearGraphics(this.spellBeam);
+            this.hideMagicAimDualHelix();
+        } else {
+            this.hideMagicAimDualHelix();
         }
 
         // 2. Badge above the caster (world is y-up, so +Y floats it higher on screen).
@@ -2022,6 +2825,7 @@ export class HoverManager {
     }
     public clearSpellPreview(): void {
         if (this.spellBeam) this.safeClearGraphics(this.spellBeam);
+        this.hideMagicAimDualHelix();
         if (this.spellBadgeRing) this.safeClearGraphics(this.spellBadgeRing);
         if (this.spellBadgeIcon) this.spellBadgeIcon.visible = false;
         if (this.spellBadgeText) this.spellBadgeText.visible = false;

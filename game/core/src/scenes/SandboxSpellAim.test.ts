@@ -64,8 +64,8 @@ const unitLike = (params: {
     stackPower?: number;
     luck?: number;
     magicReflectionPower?: number;
-    /** Buff powers by name, as Unit.getBuffPower reports them: absent buff -> undefined, never 0. */
-    buffPowers?: Record<string, number>;
+    mirrorPower?: number;
+    massMirrorPower?: number;
 }): Unit => {
     const abilities = new Set(params.abilities ?? []);
     if (params.magicReflectionPower) {
@@ -79,11 +79,15 @@ const unitLike = (params: {
         getMagicResist: () => params.magicResist ?? 0,
         getMagicDamageBonusPercentage: () => 0,
         getAbilityPower: () => params.magicReflectionPower ?? 0,
-        // getMagicMirrorPower reads Magic Mirror / Mass Magic Mirror through this. Returning undefined
-        // for an absent buff is the real contract — 0 would read as a buff that reflects nothing, which
-        // is a different statement — and these fixtures carry the dragon's ABILITY, not the mage's buff.
-        getBuffPower: (name: string) => params.buffPowers?.[name],
         hasAbilityActive: (name: string) => abilities.has(name),
+        // Magic Mirror / Mass Magic Mirror are read through these. Returning undefined for an absent buff
+        // is the real contract — 0 would read as a buff that reflects nothing, which is a different
+        // statement — and these fixtures carry the dragon's ABILITY, not the mage's buff.
+        getBuff: (name: string) => {
+            const power = name === "Magic Mirror" ? params.mirrorPower : params.massMirrorPower;
+            return power === undefined ? undefined : ({ getPower: () => power } as never);
+        },
+        getBuffPower: (name: string) => (name === "Magic Mirror" ? params.mirrorPower : params.massMirrorPower),
         // Mirrors Unit.willWaterShieldAbsorb: an intact shield eats anything but a Fire Element's hit.
         willWaterShieldAbsorb: (attacker?: { hasAbilityActive: (name: string) => boolean }) =>
             !!params.waterShield && !attacker?.hasAbilityActive("Fire Element"),
@@ -333,6 +337,23 @@ describe("Magic Reflection rebound projection", () => {
 
             expect(rebound?.reflectionPercent).toBe(15);
             expect(rebound?.damage).toBe(expected);
+        }
+    });
+
+    test("Magic Mirror spell buffs project their guaranteed configured share", () => {
+        for (const [holder, percent, damage] of [
+            [unitLike({ id: "mirror", mirrorPower: 30 }), 30, 180],
+            [unitLike({ id: "mass-mirror", massMirrorPower: 25 }), 25, 150],
+        ] as const) {
+            const rebound = projectSpellRebound({
+                spell: lightning,
+                caster: casterWithResist(0),
+                holder,
+                landedOnHolder: 600,
+            });
+
+            expect(rebound?.reflectionPercent).toBe(percent);
+            expect(rebound?.damage).toBe(damage);
         }
     });
 

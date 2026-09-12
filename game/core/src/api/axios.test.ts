@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { AxiosInstance } from "axios";
 
 import { resetAccessTokenTimerForTests, setStoredAccessToken } from "./access_token";
-import { axiosAuthInstance, axiosGameInstance, axiosMMInstance } from "./axios";
+import { axiosAuthInstance, axiosGameInstance, axiosMMInstance, resolveHost } from "./axios";
 
 const b64url = (value: object): string =>
     Buffer.from(JSON.stringify(value)).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -51,6 +51,24 @@ const respondWithRotation = async (instance: AxiosInstance, rawToken: string): P
         }),
     });
 };
+
+describe("API host resolution", () => {
+    test("production ignores a localhost value leaked in from the development environment", () => {
+        expect(resolveHost("http://localhost:3001", "https://auth.heroesofcrypto.io", true)).toBe(
+            "https://auth.heroesofcrypto.io",
+        );
+        expect(resolveHost("http://127.0.0.1:3001", "https://game.heroesofcrypto.io", true)).toBe(
+            "https://game.heroesofcrypto.io",
+        );
+    });
+
+    test("development and explicit same-origin builds keep their intended routing", () => {
+        expect(resolveHost("http://localhost:3001", "https://auth.heroesofcrypto.io", false)).toBe(
+            "http://localhost:3001",
+        );
+        expect(resolveHost("same-origin", "https://auth.heroesofcrypto.io", true)).toBe("");
+    });
+});
 
 describe("axios token rotation", () => {
     test("auth, matchmaking, and game responses all normalize and install refreshed tokens", async () => {

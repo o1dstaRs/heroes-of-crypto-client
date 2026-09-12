@@ -172,7 +172,7 @@
   </div>
 
   <footer>
-    <p class="note"><b>How to read it.</b> Every fight pits two different level-balanced rosters against each other, so a creature's win% is measured <b>against the field of creatures at its own level</b> — the mean sits at 50% for level 1 through 4 alike, which makes the same 50% line meaningful in every slice. Read the <b>ranking and lift</b>, and treat the <b>whisker</b> (95% Wilson CI) as the real signal: green when it clears 50%, red when it sits below, grey when it straddles. <b>HP Δ</b> is the average health margin at the end — how decisively, not just how often, a creature wins. Per-cohort and per-map slices carry fewer fights, so their whiskers widen. <b>Maps:</b> Open = Normal board, Lava = lava center, Mountains = two destructible blocks; <b>Live</b> aggregates all three.</p>
+    <p class="note"><b>How to read it.</b> Every fight pits two different level-balanced rosters against each other, so a creature's win% is measured <b>against the field of creatures at its own level</b> — the mean sits at 50% for level 1 through 4 alike, which makes the same 50% line meaningful in every slice. Read the <b>ranking and lift</b>, and treat the <b>whisker</b> (95% Wilson CI) as the real signal: green when it clears 50%, red when it sits below, grey when it straddles. <b>HP Δ</b> is the average health margin at the end — how decisively, not just how often, a creature wins. Per-cohort and per-map slices carry fewer fights, so their whiskers widen. <b>Maps:</b> Open = Normal board, FIRE PIT = lava center, Mountains = two destructible blocks; <b>Live</b> aggregates all three.</p>
   </footer>
 </div>
 
@@ -185,7 +185,7 @@ const DATA = /*__DATA__*/{};
   const state = { level: "all", cohort: (M.cohorts||["all"])[0], map: (M.maps||["all"])[0], sort: "winRate", dir: -1 };
   const CO_LABEL = { "all":"All", "ranked-draft":"Ranked draft", "uniform-mixed":"Uniform mixed", "cross-archetype":"Cross-archetype", "ranged-heavy":"Ranged-heavy", "ground-melee":"Ground-melee", "flyer-heavy":"Flyer-heavy", "caster-support":"Caster-support" };
   // Map ids are protocol GridVals: 1=NORMAL(Open), 2=WATER_CENTER, 3=LAVA_CENTER, 4=BLOCK_CENTER(Mountains).
-  const MAP_LABEL = { "all":"All maps", "live":"Live", "1":"Open", "2":"Water", "3":"Lava", "4":"Mountains" };
+  const MAP_LABEL = { "all":"All maps", "live":"Live", "1":"Open", "2":"Water", "3":"FIRE PIT", "4":"Mountains" };
   const titleCase = (s) => s.replace(/\b\w/g, c => c.toUpperCase());
   const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
   const monogram = (n) => n.split(/\s+/).map(w => w[0]).join("").slice(0,2).toUpperCase();

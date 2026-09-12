@@ -73,6 +73,14 @@ export const registerVolumeSlot = (element: HTMLElement | null, priority: number
     };
 };
 
+let releaseLegacyVolumeSlot: () => void = () => {};
+
+/** Compatibility setter for the preserved game-controls host. */
+export const setVolumeSlot = (element: HTMLElement | null): void => {
+    releaseLegacyVolumeSlot();
+    releaseLegacyVolumeSlot = element ? registerVolumeSlot(element, VOLUME_SLOT_PRIORITY.gameControls) : () => {};
+};
+
 export const subscribeVolumeSlot = (listener: () => void): (() => void) => {
     listeners.add(listener);
     return () => {

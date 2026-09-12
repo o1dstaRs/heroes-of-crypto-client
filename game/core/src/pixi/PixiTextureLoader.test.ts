@@ -174,10 +174,10 @@ describe("pixi texture bundle split", () => {
         expect(idleCount).toBeLessThan(animationCount);
     });
 
-    test("defers frozen creature animations while preserving the approved Peasant walk", () => {
+    test("defers frozen creature animations while preserving the approved Peasant idle and walk", () => {
         const { idleAtlases, animations, deferredUnitAtlases } = getSplitBundles({ animationsEnabled: false });
 
-        expect(Object.keys(idleAtlases)).toHaveLength(0);
+        expect(Object.keys(idleAtlases)).toEqual(["peasant_idle_red_atlas_quarter"]);
         expect(Object.keys(animations)).toEqual(["peasant_walk_atlas_quarter"]);
         expect(deferredUnitAtlases.wolf_idle_atlas_quarter).toBeDefined();
         expect(deferredUnitAtlases.wolf_attack_atlas_quarter).toBeDefined();
@@ -191,6 +191,7 @@ describe("pixi texture bundle split", () => {
             "board_icon",
             "pick_ban_slash_variant2_atlas",
             "wolf_left_screen_x2",
+            "peasant_left_screen_idle_atlas",
             "black_dragon_portrait_full",
             "pick_phase_heroic_hearth_tavern_background_v10",
             "pick_phase_floor_fog_atlas",

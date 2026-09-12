@@ -75,6 +75,9 @@ export const FIGHT_EVENT_VFX: Record<GameEvent["type"], FightEventVfx> = {
             "replay reads record.events, never its local re-run). Offensive fire spells ride it the same " +
             "way via renderSpellDamageVfx off damaged[]: thrown ones sweep embers caster->victim, called-down " +
             "ones just burst, and Ring of Fire instead lays ONE spawnFireRing on event.targetCell (no " +
+            "per-victim sweeps). Lightning Strike is the one called-down spell that does NOT burst in fire: " +
+            "it takes spawnLightningStrike, a white-blue bolt down out of the sky onto the victim, because " +
+            "it is an AIR spell and the amber puff read as Fire Strike (no " +
             "per-victim sweeps — those read as a volley of fire arrows and hid the ring). A Magic Mirror " +
             "rebound (damaged[].rebounded) takes the mirror treatment instead of the fire: " +
             "spawnMagicMirrorRebound draws the glass pane on the holder (damaged[].reboundedFromUnitId) and " +

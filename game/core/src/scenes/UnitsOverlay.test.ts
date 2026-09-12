@@ -99,6 +99,34 @@ describe("UnitsOverlay chip visibility", () => {
         expect(PICK_CARD_ASPECT).toBeCloseTo(190 / 256);
     });
 
+    test("reapplies the approved crop when a deferred portrait finishes loading", () => {
+        const chip = new UnitChip({
+            unitName: "Wolf",
+            portrait: {
+                texture: Texture.EMPTY,
+                framing: {
+                    source: "full",
+                    fit: "contain",
+                    scale: 3,
+                    offsetX: -20,
+                    offsetY: 30,
+                    background: "none",
+                },
+            },
+        });
+        chip.layout(190, 256);
+        chip.setPortraitTexture(Texture.WHITE);
+
+        const internals = chip as unknown as { idleTexture: Texture; sprite: Sprite };
+        expect(internals.idleTexture).toBe(Texture.WHITE);
+        expect(internals.sprite.texture).toBe(Texture.WHITE);
+        expect(Math.abs(internals.sprite.width)).toBeCloseTo(570);
+        expect(internals.sprite.x).toBeCloseTo(-38);
+        expect(internals.sprite.y).toBeCloseTo(76.8);
+
+        chip.destroy();
+    });
+
     test("reuses badge text styles while responsive layout changes", () => {
         const chip = new UnitChip({ unitName: "Peasant", texture: Texture.EMPTY });
         const badgeText = (chip as unknown as { badgeText: { style: object } }).badgeText;
@@ -181,12 +209,11 @@ describe("UnitsOverlay chip visibility", () => {
         });
         overlay.build();
 
-        expect(requestedTextures).toContain("peasant_pick_sandbox_x2");
-        expect(requestedTextures).not.toContain("black_dragon_pick_sandbox_x2");
-        expect(requestedTextures).not.toContain("peasant_512");
+        expect(requestedTextures).toContain("peasant_512");
+        expect(requestedTextures).not.toContain("black_dragon_512");
 
         (overlay as unknown as OverlayInternals).setSelectedLevel(4);
-        expect(requestedTextures).toContain("black_dragon_pick_sandbox_x2");
+        expect(requestedTextures).toContain("black_dragon_portrait_full");
 
         overlay.destroy();
     });
@@ -268,8 +295,9 @@ describe("UnitsOverlay chip visibility", () => {
         const might = portraitParts(internals.allChips.find((chip) => chip.nameKey === "Centaur")!);
 
         expect(nature.sprite.scale.x).toBeLessThan(0);
-        // The prepared pick/sandbox WebP owns its crop, so mirroring must not introduce another offset.
-        expect(nature.sprite.x).toBe(0);
+        // Wolf's approved crop has a non-zero X offset. A crop-first mirror reverses that offset along
+        // with the image so the visible card fragment is preserved rather than exposing another body area.
+        expect(nature.sprite.x).toBeGreaterThan(0);
         expect(nature.portraitBackground?.scale.x).toBeGreaterThan(0);
         expect(life.sprite.scale.x).toBeGreaterThan(0);
         expect(life.portraitBackground?.scale.x).toBeGreaterThan(0);

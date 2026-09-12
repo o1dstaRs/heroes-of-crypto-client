@@ -49,7 +49,7 @@ const DEFERRED_REACT_OR_LEGACY_UI_ASSETS = new Set([
 ]);
 
 export function isDeferredReactUiAssetKey(key: string): boolean {
-    if (DEFERRED_REACT_OR_LEGACY_UI_ASSETS.has(key)) return true;
+    if (key === "peasant_left_screen_idle_atlas" || DEFERRED_REACT_OR_LEGACY_UI_ASSETS.has(key)) return true;
     return (
         key.startsWith("pick_ban_") ||
         key.startsWith("pick_phase_") ||

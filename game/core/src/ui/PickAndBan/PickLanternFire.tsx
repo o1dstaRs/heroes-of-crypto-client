@@ -1,15 +1,23 @@
 import { Box } from "@mui/joy";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 import { images as rawImages } from "../../generated/image_imports";
 import { startVisibleInterval } from "../visibleInterval";
-import { readPickLanternFireTuning, type PickLanternFireSlot } from "./pickLanternFireTuning";
+import {
+    PICK_LANTERN_FIRE_CHANGE_EVENT,
+    readPickLanternFireTuning,
+    type PickLanternFireChangeDetail,
+    type PickLanternFireSlot,
+    type PickLanternFireTuning,
+} from "./pickLanternFireTuning";
 
 const images = rawImages as Record<string, string>;
 const NATURAL_ATLAS = images.ambient_fire_video_torch_left_natural_v4_64_atlas;
+const CANDLE_VIDEO = "/video/pick_lantern_candle_single_v1.webm";
 const ATLAS_COLUMNS = 8;
 const ATLAS_ROWS = 8;
 const ATLAS_FRAMES = 64;
+const ATLAS_CLEANUP_FILTER_ID = "pick-lantern-fire-dark-cleanup";
 
 const framePosition = (frame: number): string => {
     const column = frame % ATLAS_COLUMNS;
@@ -19,21 +27,60 @@ const framePosition = (frame: number): string => {
 const FRAME_POSITIONS = Array.from({ length: ATLAS_FRAMES }, (_, frame) => framePosition(frame));
 
 export const PickLanternFire: React.FC<{ slot: PickLanternFireSlot; active?: boolean }> = ({ slot, active = true }) => {
-    const tuning = readPickLanternFireTuning(slot);
+    const [tuning, setTuning] = useState<PickLanternFireTuning>(() => readPickLanternFireTuning(slot));
     const firstFrame = (slot * 29) % ATLAS_FRAMES;
     const flameRef = useRef<HTMLDivElement | null>(null);
-    const cleanupFilterId = `pick-lantern-fire-dark-cleanup-${slot}`;
+    const videoRef = useRef<HTMLVideoElement | null>(null);
+    const cleanupFilterId = `${ATLAS_CLEANUP_FILTER_ID}-${slot}`;
 
+    // The dev editor (/dev/pick-lantern-fire-editor) publishes live changes; production only reads once.
     useEffect(() => {
-        if (!active || !tuning.enabled) return undefined;
+        const onChange = (event: Event) => {
+            const detail = (event as CustomEvent<PickLanternFireChangeDetail>).detail;
+            if (!detail || detail.slot === slot) setTuning(detail?.tuning ?? readPickLanternFireTuning(slot));
+        };
+        window.addEventListener(PICK_LANTERN_FIRE_CHANGE_EVENT, onChange);
+        window.addEventListener("storage", onChange);
+        return () => {
+            window.removeEventListener(PICK_LANTERN_FIRE_CHANGE_EVENT, onChange);
+            window.removeEventListener("storage", onChange);
+        };
+    }, [slot]);
+
+    // Frames advance by mutating the atlas box directly (no React re-render per frame), and the interval
+    // pauses while the tab is hidden.
+    useEffect(() => {
+        if (!active || !tuning.enabled || tuning.source !== "natural-atlas") return undefined;
         let frame = firstFrame;
         return startVisibleInterval(() => {
             if (flameRef.current) flameRef.current.style.backgroundPosition = FRAME_POSITIONS[frame];
             frame = (frame + 1) % ATLAS_FRAMES;
         }, 1000 / tuning.fps);
-    }, [active, firstFrame, tuning.enabled, tuning.fps]);
+    }, [active, firstFrame, tuning.enabled, tuning.fps, tuning.source]);
+
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return;
+        video.playbackRate = tuning.playbackRate;
+        if (active && tuning.enabled && tuning.source === "candle-video") {
+            void video.play().catch(() => undefined);
+        } else {
+            video.pause();
+        }
+    }, [active, tuning.enabled, tuning.playbackRate, tuning.source]);
 
     if (!active || !tuning.enabled) return null;
+
+    const commonMediaSx = {
+        position: "absolute",
+        inset: `${tuning.maskInset}%`,
+        width: `${100 - tuning.maskInset * 2}%`,
+        height: `${100 - tuning.maskInset * 2}%`,
+        opacity: tuning.opacity,
+        filter: `brightness(${tuning.brightness}) contrast(${tuning.contrast}) saturate(${tuning.saturation}) hue-rotate(${tuning.hue}deg)`,
+        transformOrigin: "50% 100%",
+        pointerEvents: "none",
+    } as const;
 
     return (
         <Box
@@ -53,11 +100,10 @@ export const PickLanternFire: React.FC<{ slot: PickLanternFireSlot; active?: boo
             }}
         >
             <Box
-                ref={flameRef}
                 sx={{
                     position: "absolute",
                     left: "50%",
-                    bottom: 0,
+                    bottom: "0%",
                     width: `${100 * tuning.glowSize}%`,
                     height: `${88 * tuning.glowSize}%`,
                     transform: "translateX(-50%)",
@@ -79,6 +125,9 @@ export const PickLanternFire: React.FC<{ slot: PickLanternFireSlot; active?: boo
                         height="120%"
                         colorInterpolationFilters="sRGB"
                     >
+                        {/* Build a luminance mask, then cut away the dark opaque material embedded in the
+                            atlas. SourceGraphic is composited back through it, so the original RGB colour
+                            and alpha survive while black/brown knots become transparent. */}
                         <feColorMatrix
                             in="SourceGraphic"
                             result="luminance-mask"
@@ -86,8 +135,13 @@ export const PickLanternFire: React.FC<{ slot: PickLanternFireSlot; active?: boo
                             values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0.2126 0.7152 0.0722 0 0"
                         />
                         <feComponentTransfer in="luminance-mask" result="threshold-mask">
+                            {/* A narrow 5%-luminance transition removes the dark material completely instead
+                                of leaving it as a smoky semi-transparent silhouette. */}
                             <feFuncA type="linear" slope="20" intercept={-20 * tuning.blackCutoff} />
                         </feComponentTransfer>
+                        {/* Expand nearby bright fragments into one continuous flame body. The warm fill
+                            replaces the black material inside that body; original pixels are screened back
+                            over it to retain the photographic white/yellow highlights. */}
                         <feMorphology
                             in="threshold-mask"
                             result="dense-mask"
@@ -102,22 +156,38 @@ export const PickLanternFire: React.FC<{ slot: PickLanternFireSlot; active?: boo
                     </filter>
                 </defs>
             </svg>
-            <Box
-                sx={{
-                    position: "absolute",
-                    inset: `${tuning.maskInset}%`,
-                    width: `${100 - tuning.maskInset * 2}%`,
-                    height: `${100 - tuning.maskInset * 2}%`,
-                    opacity: tuning.opacity,
-                    backgroundImage: `url(${NATURAL_ATLAS})`,
-                    backgroundRepeat: "no-repeat",
-                    backgroundSize: `${ATLAS_COLUMNS * 100}% ${ATLAS_ROWS * 100}%`,
-                    backgroundPosition: FRAME_POSITIONS[firstFrame],
-                    filter: `url(#${cleanupFilterId}) brightness(${tuning.brightness}) contrast(${tuning.contrast}) saturate(${tuning.saturation}) hue-rotate(${tuning.hue}deg)`,
-                    transformOrigin: "50% 100%",
-                    pointerEvents: "none",
-                }}
-            />
+            {tuning.source === "natural-atlas" ? (
+                <Box
+                    ref={flameRef}
+                    sx={{
+                        ...commonMediaSx,
+                        backgroundImage: `url(${NATURAL_ATLAS})`,
+                        backgroundRepeat: "no-repeat",
+                        backgroundSize: `${ATLAS_COLUMNS * 100}% ${ATLAS_ROWS * 100}%`,
+                        backgroundPosition: FRAME_POSITIONS[firstFrame],
+                        filter: `url(#${cleanupFilterId}) brightness(${tuning.brightness}) contrast(${tuning.contrast}) saturate(${tuning.saturation}) hue-rotate(${tuning.hue}deg)`,
+                        // After the luminance-derived cleanup above, normal compositing preserves the warm
+                        // core without reintroducing black or washing it out with additive blending.
+                        mixBlendMode: "normal",
+                    }}
+                />
+            ) : (
+                <Box
+                    component="video"
+                    ref={videoRef}
+                    src={CANDLE_VIDEO}
+                    muted
+                    loop
+                    playsInline
+                    preload="auto"
+                    onLoadedMetadata={(event) => {
+                        if (slot === 1 && event.currentTarget.duration > 3) event.currentTarget.currentTime = 2.7;
+                    }}
+                    // The user-supplied candle video has an opaque black plate, so only this source needs
+                    // additive screen blending to remove black without changing the flame's warm colour.
+                    sx={{ ...commonMediaSx, objectFit: "fill", mixBlendMode: "screen" }}
+                />
+            )}
         </Box>
     );
 };
