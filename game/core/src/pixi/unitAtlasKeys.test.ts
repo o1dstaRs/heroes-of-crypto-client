@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { animationAtlases } from "../generated/animation_atlases";
 import {
+    NON_UNIT_ATLAS_NAMES,
     buildUnitAnimationAtlasKeyClassifier,
     isUnitAnimationAtlasKey,
     isUnitBoardImageKey,
@@ -31,7 +32,7 @@ describe("unit animation atlas key split", () => {
     test("every generated creature state maps to supplementary in all three size variants", () => {
         const units = Object.entries(animationAtlases);
         for (const [unitName, states] of units) {
-            if (unitName === "Pick Ban Slash") continue;
+            if (NON_UNIT_ATLAS_NAMES.has(unitName)) continue;
             const base = unitName.toLowerCase().replace(/\s+/g, "_");
             for (const state of Object.keys(states)) {
                 const key = `${base}_${state.toLowerCase()}_atlas`;

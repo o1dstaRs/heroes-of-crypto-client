@@ -261,6 +261,57 @@ describe("Lava splash emission", () => {
 });
 
 describe("DungeonVisuals lifecycle", () => {
+    test("evicts ambient flame atlases that finish decoding after teardown", async () => {
+        const stage = new Container();
+        const worldRoot = new Container();
+        const gridSettings = new GridSettings(16, 1024, 0, 1024, 0, 64, 32);
+        const mutableAssets = Assets as unknown as {
+            load: typeof Assets.load;
+            unload: typeof Assets.unload;
+        };
+        const originalLoad = mutableAssets.load;
+        const originalUnload = mutableAssets.unload;
+        const finishLoads: ((texture: Texture) => void)[] = [];
+        const unloaded: string[] = [];
+        mutableAssets.load = (() =>
+            new Promise<Texture>((resolve) => {
+                finishLoads.push(resolve);
+            })) as typeof Assets.load;
+        mutableAssets.unload = (async (url: string) => {
+            unloaded.push(url);
+        }) as typeof Assets.unload;
+
+        try {
+            const visuals = new DungeonVisuals({
+                getStage: () => stage,
+                getWorldRoot: () => worldRoot,
+                getViewportSize: () => ({ width: 1024, height: 1024 }),
+                getGridSettings: () => gridSettings,
+                // The ambient flames must miss the resolver to take the Assets.load path this test is
+                // about; everything else still resolves so the floor comes up normally.
+                texAny: (name: string) => (name.startsWith("ambient_fire_") ? undefined : Texture.WHITE),
+                attachToWorldRoot: () => undefined,
+            });
+            visuals.ensureBackgroundSprite();
+            expect(finishLoads).toHaveLength(3);
+
+            visuals.destroy();
+            for (const finishLoad of finishLoads) finishLoad(Texture.WHITE);
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(new Set(unloaded)).toEqual(
+                new Set([
+                    images.ambient_fire_video_torch_left_natural_v4_64_atlas,
+                    images.ambient_fire_video_torch_right_natural_v4_64_atlas,
+                    images.ambient_fire_left_furnace_atlas,
+                ]),
+            );
+        } finally {
+            mutableAssets.load = originalLoad;
+            mutableAssets.unload = originalUnload;
+        }
+    });
     test("does not retain the retired empty top band or disabled floor halo", () => {
         const stage = new Container();
         const worldRoot = new Container();

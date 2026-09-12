@@ -21,6 +21,44 @@ if (!("document" in globalThis)) {
 }
 
 describe("dungeon visual allocation", () => {
+    test("does not resolve the unchanged background texture on every simulation step", () => {
+        const gridSettings = new GridSettings(
+            GridConstants.GRID_SIZE,
+            GridConstants.MAX_Y,
+            GridConstants.MIN_Y,
+            GridConstants.MAX_X,
+            GridConstants.MIN_X,
+            GridConstants.MOVEMENT_DELTA,
+            GridConstants.UNIT_SIZE_DELTA,
+        );
+        // Scoped to the floor texture on purpose. The optional fire / chasm-glow overlays re-ask for
+        // their atlas on every step BY DESIGN, because those can still finish decoding after the floor
+        // is up — and under a 1x1 stub they never satisfy the atlas size check, so they retry forever.
+        // The guarantee being pinned here is the one this test is named for: the settled background
+        // sprite is resolved once and then left alone.
+        let backgroundResolutions = 0;
+        const visuals = new DungeonVisuals({
+            getStage: () => new Container(),
+            getWorldRoot: () => new Container(),
+            getViewportSize: () => ({ width: 1000, height: 1000 }),
+            getGridSettings: () => gridSettings,
+            texAny: (name: string) => {
+                if (name.startsWith("background_")) backgroundResolutions++;
+                return Texture.WHITE;
+            },
+            attachToWorldRoot: () => undefined,
+        });
+
+        visuals.ensureBackgroundSprite();
+        visuals.layoutBackgroundSquare(1);
+        expect(backgroundResolutions).toBeGreaterThan(0);
+        const firstStepResolutions = backgroundResolutions;
+        visuals.ensureBackgroundSprite();
+        visuals.layoutBackgroundSquare(1);
+
+        expect(backgroundResolutions).toBe(firstStepResolutions);
+        visuals.destroy();
+    });
     test("reuses the static battlefield layout until the viewport changes", () => {
         const gridSettings = new GridSettings(
             GridConstants.GRID_SIZE,

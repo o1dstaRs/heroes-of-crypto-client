@@ -4,7 +4,14 @@ type AnimationAtlasIndex = Readonly<Record<string, Readonly<Record<string, unkno
 
 // The generated atlas metadata also carries a small draft UI animation. It shares the same file
 // shape as creature atlases but must remain a normal React-owned asset, including in production.
-const NON_UNIT_ATLAS_NAMES = new Set(["Pick Ban Slash"]);
+// Entries of the generated atlas index that are not creatures on the board: draft UI art, battlefield
+// VFX, and the React left-sidebar portrait. They must never be routed as unit board/animation assets.
+export const NON_UNIT_ATLAS_NAMES = new Set([
+    "Pick Ban Slash",
+    "Lava Chasm Glow Level",
+    "Magic Aim Dual Helix",
+    "Peasant Left Screen",
+]);
 
 /**
  * Every per-unit animation atlas image key BASE (`<unit>_<state>_atlas`), derived from the generated

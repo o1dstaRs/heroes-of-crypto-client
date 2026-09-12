@@ -4139,44 +4139,6 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
       "pauseMs": 320
     }
   },
-  "Magic Aim Dual Helix": {
-    "default": {
-      "frameWidth": 256,
-      "frameHeight": 64,
-      "atlasWidth": 1024,
-      "atlasHeight": 256,
-      "frameCount": 16,
-      "fps": 18,
-      "frameDurationSec": 0.05555555555555555,
-      "frameDurationsMs": [
-        56,
-        56,
-        56,
-        56,
-        56,
-        56,
-        56,
-        56,
-        56,
-        56,
-        56,
-        56,
-        56,
-        56,
-        56,
-        56
-      ],
-      "totalDurationSec": 0.8888888888888888,
-      "layout": {
-        "cols": 4,
-        "rows": 4
-      },
-      "geometry": "seamless-horizontal-dual-helix-tile",
-      "encoding": "lossless-webp-rgba",
-      "loopDurationMs": 800,
-      "pauseMs": 320
-    }
-  },
   "Magic Dragon": {
     "attack": {
       "frameWidth": 768,
@@ -5701,26 +5663,6 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
       "footAnchorY": 0.953125,
       "loopDurationMs": 113,
       "pauseMs": 45
-    }
-  },
-  "Peasant Left Screen": {
-    "idle": {
-      "frameWidth": 572,
-      "frameHeight": 808,
-      "atlasWidth": 3432,
-      "atlasHeight": 4848,
-      "frameCount": 34,
-      "fps": 9.936,
-      "frameDurationSec": 0.10064412238325282,
-      "totalDurationSec": 3.421900161030596,
-      "layout": {
-        "cols": 6,
-        "rows": 6
-      },
-      "geometry": "left-sidebar-portrait-572x808",
-      "encoding": "webp-rgba-q90",
-      "loopDurationMs": 3080,
-      "pauseMs": 1232
     }
   },
   "Peasant Left Screen": {

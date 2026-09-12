@@ -2353,11 +2353,12 @@ describe("refreshed idle cadence and quadruped scale", () => {
         unit.setPosition(0, 1024);
         unit.ensureVisual(new Container(), gridSettings);
         const idle = unit as unknown as IdleInternals;
-        expect(greenResolvedKeys).toContain("peasant_idle_atlas_quarter");
-        expect(greenResolvedKeys).not.toContain("peasant_idle_red_atlas_quarter");
+        // Both teams now share the approved red-atlas idle (see "Peasant shares the approved faster idle
+        // and upright pause across both teams", which pins its cadence and the upright hold in full).
+        expect(greenResolvedKeys).toContain("peasant_idle_red_atlas_quarter");
         expect(idle.selectionAnimFrames).toHaveLength(12);
-        // The authored twelve-pose Peasant idle runs at 6 fps before the shared 0.77 slow-down.
-        expect(idle.selectionAnimFrameDurationMs).toBeCloseTo(1000 / 6 / 0.77);
+        // Twelve authored poses at 6 fps, 15% faster, before the shared 0.77 slow-down.
+        expect(idle.selectionAnimFrameDurationMs).toBeCloseTo(1000 / (6 * 1.15) / 0.77);
         unit.stepSelectionAnimation(10_000);
         const currentIdleTexture = idle.sprite?.texture;
         unit.stepSelectionAnimation(10_000 + idle.selectionAnimFrameDurationMs + 1);
@@ -2390,11 +2391,10 @@ describe("refreshed idle cadence and quadruped scale", () => {
         });
         redUnit.setPosition(0, 1024);
         redUnit.ensureVisual(new Container(), gridSettings);
-        expect(redResolvedKeys).not.toContain("peasant_idle_red_atlas_quarter");
         const redIdle = redUnit as unknown as IdleInternals;
         expect(redIdle.selectionAnimFrames).toHaveLength(12);
         expect(redIdle.selectionAnimFrames).toBe(idle.selectionAnimFrames);
-        expect(redIdle.selectionAnimFrameDurationMs).toBeCloseTo(1000 / 6 / 0.77);
+        expect(redIdle.selectionAnimFrameDurationMs).toBeCloseTo(1000 / (6 * 1.15) / 0.77);
         unit.startBoardWalkAnimation(1);
 
         const walk = (
@@ -3150,6 +3150,53 @@ describe("RenderableUnit revealed roster card", () => {
 });
 
 describe("RenderableUnit steady-state overlays", () => {
+    test("resolves its stable base texture only once across steady visual frames", () => {
+        const resolutions = new Map<string, number>();
+        const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Satyr", "satyr_512", (name) => {
+            resolutions.set(name, (resolutions.get(name) ?? 0) + 1);
+            return Texture.WHITE;
+        });
+        unit.setPosition(0, 1024);
+        const worldRoot = new Container();
+
+        // Building the visual may touch the base key once more than the sprite itself does (the idle
+        // config resolves by key as well). What must never happen is a resolution per rendered frame,
+        // so the count is pinned after the visual settles and then held across further steady frames.
+        unit.ensureVisual(worldRoot, gridSettings);
+        const baseKey = (unit as unknown as OverlayInternals).smallTextureName;
+        const settled = resolutions.get(baseKey) ?? 0;
+        expect(settled).toBeGreaterThan(0);
+
+        unit.ensureVisual(worldRoot, gridSettings);
+        unit.ensureVisual(worldRoot, gridSettings);
+
+        expect(resolutions.get(baseKey)).toBe(settled);
+    });
+
+    test("coalesces active-aura redraws inside one rendered frame", () => {
+        const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
+        const worldRoot = new Container();
+        const internals = unit as unknown as OverlayInternals;
+        const pos = { x: 384, y: 640 };
+        internals.updateActiveAura(worldRoot, gridSettings, pos, 1_000);
+
+        // The active aura is a Container holding the glow/mask Graphics, so the redraw that the guard
+        // suppresses is the glow's clear(), not the container's.
+        const glow = internals.activeAuraGlow!;
+        const originalClear = glow.clear.bind(glow);
+        let clearCount = 0;
+        glow.clear = () => {
+            clearCount++;
+            return originalClear();
+        };
+
+        internals.updateActiveAura(worldRoot, gridSettings, pos, 1_001);
+        expect(clearCount).toBe(0);
+        internals.updateActiveAura(worldRoot, gridSettings, pos, 1_004);
+        expect(clearCount).toBe(1);
+        internals.updateActiveAura(worldRoot, gridSettings, { x: pos.x + 1, y: pos.y }, 1_005);
+        expect(clearCount).toBe(2);
+    });
     type OverlayInternals = {
         activeAura?: Container;
         activeAuraGlow?: Graphics;
@@ -3838,6 +3885,46 @@ describe("RenderableUnit dodge animation", () => {
 });
 
 describe("RenderableUnit filter lifecycle", () => {
+    test("scopes cached animation frames to the live parent atlas texture", () => {
+        // The cache under test only holds multi-frame strips, and Satyr's idle is frozen to a single
+        // static figure while the global creature freeze is on, so lift it for this test only.
+        const wasEnabled = CREATURE_SPRITE_ANIMATION_SETTINGS.enabled;
+        CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = true;
+        try {
+            const makeTexture = () =>
+                new Texture({
+                    source: new BufferImageSource({ resource: new Uint8Array(4), width: 8192, height: 8192 }),
+                });
+            const firstTexture = makeTexture();
+            const secondTexture = makeTexture();
+            const createShooter = (texture: Texture) => {
+                const unit = createRenderableUnit(TeamVals.LEFT, "Life", "Arbalester", "arbalester_512", () => texture);
+                unit.setPosition(0, 1024);
+                unit.ensureVisual(new Container(), gridSettings);
+                return unit;
+            };
+
+            const first = createShooter(firstTexture);
+            const firstFrames = (first as unknown as { selectionAnimFrames?: Texture[] }).selectionAnimFrames;
+            expect(firstFrames?.length).toBeGreaterThan(1);
+            expect(firstFrames?.[0].source).toBe(firstTexture.source);
+            first.destroyVisuals();
+
+            const second = createShooter(secondTexture);
+            const secondFrames = (second as unknown as { selectionAnimFrames?: Texture[] }).selectionAnimFrames;
+            expect(secondFrames?.length).toBe(firstFrames?.length);
+            expect(secondFrames).not.toBe(firstFrames);
+            expect(secondFrames?.[0].source).toBe(secondTexture.source);
+            second.destroyVisuals();
+
+            for (const frame of firstFrames ?? []) frame.destroy(false);
+            for (const frame of secondFrames ?? []) frame.destroy(false);
+            firstTexture.destroy(true);
+            secondTexture.destroy(true);
+        } finally {
+            CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = wasEnabled;
+        }
+    });
     test("does not retain scene-leased static battlefield frames across scene replacements", () => {
         CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
         const makeTexture = () =>

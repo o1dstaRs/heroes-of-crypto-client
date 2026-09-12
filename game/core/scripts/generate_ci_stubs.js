@@ -58,16 +58,25 @@ for (const file of ["../src/pixi/imageAssetTiers.ts", "../src/pixi/unitAtlasKeys
     for (const key of harvestAssetLiterals(path.resolve(__dirname, file))) imageKeys.add(key);
 }
 
+// Mirrors NON_UNIT_ATLAS_NAMES in src/pixi/unitAtlasKeys.ts: entries of the generated atlas index that
+// are draft UI art, battlefield VFX or the React sidebar portrait, never board chips.
+const NON_UNIT_ATLAS_NAMES = new Set([
+    "Pick Ban Slash",
+    "Lava Chasm Glow Level",
+    "Magic Aim Dual Helix",
+    "Peasant Left Screen",
+]);
+
 // Board (`<unit>_128/_256`) and card (`<unit>_512`) keys are derived at runtime from the unit names
 // in the COMMITTED animation atlas metadata, so derive the same keys here instead of listing units
-// by hand. "Pick Ban Slash" mirrors NON_UNIT_ATLAS_NAMES: it is draft UI art, never a board chip.
+// by hand.
 const committedAnimationAtlasesPath = path.resolve(__dirname, "../src/generated/animation_atlases.ts");
 if (fs.existsSync(committedAnimationAtlasesPath)) {
     const { animationAtlases } = require(committedAnimationAtlasesPath);
     for (const unitName of Object.keys(animationAtlases)) {
         const slug = unitName.toLowerCase().replace(/\s+/g, "_");
         imageKeys.add(`${slug}_512`);
-        if (unitName === "Pick Ban Slash") continue;
+        if (NON_UNIT_ATLAS_NAMES.has(unitName)) continue;
         imageKeys.add(`${slug}_128`);
         imageKeys.add(`${slug}_256`);
     }

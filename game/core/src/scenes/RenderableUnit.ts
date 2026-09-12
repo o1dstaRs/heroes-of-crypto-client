@@ -3627,6 +3627,23 @@ export class RenderableUnit extends Unit {
         this.activeAura.visible = true;
         if (this.activeTurnFireSprite) this.activeTurnFireSprite.visible = false;
 
+        // Same-frame duplicate guard, as the water-shield / whirlpool / freeze effects use. The pulse
+        // still advances every rendered frame; this only drops a second identical draw landing inside
+        // the same few milliseconds, which is what the scene does when several passes touch the unit.
+        const drawState = (this.activeAuraDrawState ??= newContinuousEffectDrawState());
+        if (
+            !shouldRedrawContinuousEffect(
+                drawState,
+                nowMs,
+                pos,
+                gs.getCellSize(),
+                this.getFootprintWidth(),
+                this.getFootprintHeight(),
+            )
+        ) {
+            return;
+        }
+
         const pulse = 0.5 + 0.5 * Math.sin((nowMs / 1000) * 3.0);
         if (this.activeAuraGlowBlurFilter) this.activeAuraGlowBlurFilter.strength = 7.5 + pulse * 3;
 
