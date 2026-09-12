@@ -5665,25 +5665,6 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
       "pauseMs": 45
     }
   },
-  "Peasant Idle": {
-    "red": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 2304,
-      "frameCount": 12,
-      "fps": 6,
-      "frameDurationSec": 0.16666666666666666,
-      "totalDurationSec": 2,
-      "layout": {
-        "cols": 4,
-        "rows": 3
-      },
-      "footAnchorY": 0.9505208333333334,
-      "loopDurationMs": 1800,
-      "pauseMs": 1000
-    }
-  },
   "Peasant Left Screen": {
     "idle": {
       "frameWidth": 572,
@@ -7767,21 +7748,21 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
       "pauseMs": 216
     },
     "walk": {
-      "frameWidth": 1024,
-      "frameHeight": 1024,
-      "atlasWidth": 4096,
-      "atlasHeight": 2048,
-      "frameCount": 8,
-      "fps": 10,
-      "frameDurationSec": 0.1,
-      "totalDurationSec": 0.8,
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 2304,
+      "atlasHeight": 2304,
+      "frameCount": 9,
+      "fps": 26,
+      "frameDurationSec": 0.038461538461538464,
+      "totalDurationSec": 0.34615384615384615,
       "layout": {
-        "cols": 4,
-        "rows": 2
+        "cols": 3,
+        "rows": 3
       },
-      "footAnchorY": 0.8125,
-      "loopDurationMs": 720,
-      "pauseMs": 288
+      "footAnchorY": 0.8854166666666666,
+      "loopDurationMs": 312,
+      "pauseMs": 125
     }
   },
   "Wyvern": {
