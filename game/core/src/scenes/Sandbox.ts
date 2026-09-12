@@ -580,6 +580,8 @@ const CHAKRAM_FLIGHTLESS_HOP_MS = 150;
 
 // Magic Mirror rebound damage numbers: cold cyan rather than the usual red, so a hit the caster took off its
 // own reflected spell is instantly distinguishable from the damage it dealt.
+/** The one called-down spell with its own bolt VFX; every other offensive spell shares the fire burst. */
+const LIGHTNING_STRIKE_SPELL_NAME = "Lightning Strike";
 const MIRROR_DAMAGE_FILL = "#bfefff";
 const MIRROR_DAMAGE_STROKE = "#12384d";
 
@@ -8677,6 +8679,11 @@ export class Sandbox extends PixiScene {
             // Strike, Meteor Shower) have nothing to travel and just burst where they land. Ring of Fire is
             // excluded from the per-victim sweep (its flame is the circle drawn above).
             const isThrown = isThrownOffensiveSpell(event.spellName);
+            // Lightning Strike is called DOWN out of the sky (its own card says so), so it gets a vertical
+            // bolt instead of the amber burst every other offensive spell shares. Without this it landed as
+            // a fire puff — the wrong element entirely for an AIR spell, and indistinguishable from Fire
+            // Strike at a glance.
+            const isCalledDownLightning = event.spellName === LIGHTNING_STRIKE_SPELL_NAME;
             for (const hit of event.damaged ?? []) {
                 const hitPosition = projectBattlefieldPoint(hit.position, gs);
                 const hitUnit = this.unitsHolder.getAllUnits().get(hit.unitId) as RenderableUnit | undefined;
@@ -8709,7 +8716,11 @@ export class Sandbox extends PixiScene {
                 if (isThrown && !isRing && visualCasterPosition) {
                     this.combatVisuals.spawnFireSweep(visualCasterPosition, hitPosition, cellSize);
                 }
-                this.combatVisuals.spawnFireBurn(hitPosition, cellSize, isThrown ? 0.9 : 1.3);
+                if (isCalledDownLightning) {
+                    this.combatVisuals.spawnLightningStrike(hitPosition, cellSize);
+                } else {
+                    this.combatVisuals.spawnFireBurn(hitPosition, cellSize, isThrown ? 0.9 : 1.3);
+                }
                 if (hit.amount > 0) {
                     this.combatVisuals.showFloatingDamage(
                         hitPosition,

@@ -35,9 +35,12 @@ describe("Magic Reflection rebound VFX wiring", () => {
         const sandbox = sceneSource("Sandbox.ts");
         const start = sandbox.indexOf("protected renderSpellDamageVfx(");
         expect(start).toBeGreaterThan(-1);
-        // The helper is the last thing in its own method; bound the slice generously and assert the call
-        // sits INSIDE it rather than merely somewhere in the file.
-        const body = sandbox.slice(start, start + 4000);
+        // Bound the slice at the NEXT method rather than a fixed character count, and assert the call sits
+        // INSIDE renderSpellDamageVfx rather than merely somewhere in the file. A fixed window silently
+        // became too small the moment the method grew (adding the Lightning Strike branch did it), failing
+        // this test for a reason that had nothing to do with the rebound.
+        const nextMethod = sandbox.slice(start + 1).search(/\n {4}(?:protected|private|public) /);
+        const body = sandbox.slice(start, nextMethod > -1 ? start + 1 + nextMethod : undefined);
 
         expect(body).toContain("hit.rebounded");
         expect(body).toContain("this.combatVisuals.spawnMagicMirrorRebound(");
