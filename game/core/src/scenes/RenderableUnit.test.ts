@@ -2359,10 +2359,10 @@ describe("refreshed idle cadence and quadruped scale", () => {
         expect(idle.selectionAnimFrames).toHaveLength(12);
         // Twelve authored poses at 6 fps, 15% faster, before the shared 0.77 slow-down.
         expect(idle.selectionAnimFrameDurationMs).toBeCloseTo(1000 / (6 * 1.15) / 0.77);
-        unit.stepSelectionAnimation(10_000);
-        const currentIdleTexture = idle.sprite?.texture;
-        unit.stepSelectionAnimation(10_000 + idle.selectionAnimFrameDurationMs + 1);
-        expect(idle.sprite?.texture).not.toBe(currentIdleTexture);
+        // Advancing the Peasant idle is NOT asserted here: its cadence holds the upright sixth pose for
+        // an extra 700ms and starts at a per-unit phase, so "one frame duration later" is not always a
+        // different frame. "Peasant shares the approved faster idle and upright pause across both teams"
+        // pins that cadence deterministically instead.
 
         const beholderResolvedKeys: string[] = [];
         const beholder = createRenderableUnit(TeamVals.LEFT, "Chaos", "Beholder", "beholder_512", (name) => {

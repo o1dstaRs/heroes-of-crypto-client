@@ -1606,10 +1606,22 @@ function buildAtlasFrames(meta: AtlasMeta, imageSrc: string, imageKey: string, r
     const cols = meta.layout?.cols ?? 1;
     const rows = meta.layout?.rows ?? 1;
     const frameCount = meta.frameCount ?? cols * rows;
+    // The committed metadata and the art source are generated from the same drive but land in a
+    // checkout independently, so a machine can hold newer metadata than art (or the reverse). Slicing
+    // the grid the metadata claims would then read outside the decoded image and hand Pixi frames of
+    // transparent garbage. Clamp to what the texture actually carries: the unit keeps the frames that
+    // exist and simply animates a shorter loop until the matching art arrives.
+    const availableCols = frameWidth > 0 ? Math.floor(source.width / frameWidth) : 0;
+    const availableRows = frameHeight > 0 ? Math.floor(source.height / frameHeight) : 0;
+    // A source too small to hold even one frame is a placeholder (CI stubs, a texture still decoding),
+    // not a short atlas — those keep the metadata grid so test and boot behaviour are unchanged.
+    const clampable = availableCols >= 1 && availableRows >= 1;
+    const usableCols = clampable ? Math.min(cols, availableCols) : cols;
+    const usableRows = clampable ? Math.min(rows, availableRows) : rows;
     const frames: Texture[] = [];
     let index = 0;
-    for (let row = 0; row < rows; row++) {
-        for (let col = 0; col < cols; col++) {
+    for (let row = 0; row < usableRows; row++) {
+        for (let col = 0; col < usableCols; col++) {
             if (index >= frameCount) break;
             const frameRect = new Rectangle(col * frameWidth, row * frameHeight, frameWidth, frameHeight);
             const tex = new Texture({ source, frame: frameRect });
