@@ -2556,6 +2556,98 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
       "pauseMs": 162
     }
   },
+  "Lava Chasm Glow Level": {
+    "1": {
+      "frameWidth": 512,
+      "frameHeight": 448,
+      "atlasWidth": 2048,
+      "atlasHeight": 1344,
+      "frameCount": 12,
+      "fps": 8,
+      "frameDurationSec": 0.125,
+      "totalDurationSec": 1.5,
+      "layout": {
+        "cols": 4,
+        "rows": 3
+      },
+      "geometry": "full-background transparent chasm-emission overlay",
+      "encoding": "lossless WebP RGBA",
+      "loopDurationMs": 1350,
+      "pauseMs": 540
+    },
+    "2": {
+      "frameWidth": 512,
+      "frameHeight": 448,
+      "atlasWidth": 2048,
+      "atlasHeight": 1344,
+      "frameCount": 12,
+      "fps": 8,
+      "frameDurationSec": 0.125,
+      "totalDurationSec": 1.5,
+      "layout": {
+        "cols": 4,
+        "rows": 3
+      },
+      "geometry": "full-background transparent chasm-emission overlay",
+      "encoding": "lossless WebP RGBA",
+      "loopDurationMs": 1350,
+      "pauseMs": 540
+    },
+    "3": {
+      "frameWidth": 512,
+      "frameHeight": 448,
+      "atlasWidth": 2048,
+      "atlasHeight": 1344,
+      "frameCount": 12,
+      "fps": 8,
+      "frameDurationSec": 0.125,
+      "totalDurationSec": 1.5,
+      "layout": {
+        "cols": 4,
+        "rows": 3
+      },
+      "geometry": "full-background transparent chasm-emission overlay",
+      "encoding": "lossless WebP RGBA",
+      "loopDurationMs": 1350,
+      "pauseMs": 540
+    },
+    "4": {
+      "frameWidth": 512,
+      "frameHeight": 448,
+      "atlasWidth": 2048,
+      "atlasHeight": 1344,
+      "frameCount": 12,
+      "fps": 8,
+      "frameDurationSec": 0.125,
+      "totalDurationSec": 1.5,
+      "layout": {
+        "cols": 4,
+        "rows": 3
+      },
+      "geometry": "full-background transparent chasm-emission overlay",
+      "encoding": "lossless WebP RGBA",
+      "loopDurationMs": 1350,
+      "pauseMs": 540
+    },
+    "5": {
+      "frameWidth": 512,
+      "frameHeight": 448,
+      "atlasWidth": 2048,
+      "atlasHeight": 1344,
+      "frameCount": 12,
+      "fps": 8,
+      "frameDurationSec": 0.125,
+      "totalDurationSec": 1.5,
+      "layout": {
+        "cols": 4,
+        "rows": 3
+      },
+      "geometry": "full-background transparent chasm-emission overlay",
+      "encoding": "lossless WebP RGBA",
+      "loopDurationMs": 1350,
+      "pauseMs": 540
+    }
+  },
   "Fairy": {
     "attack": {
       "frameWidth": 768,
@@ -3945,6 +4037,44 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
       "footAnchorY": 0.9661458333333334,
       "loopDurationMs": 405,
       "pauseMs": 162
+    }
+  },
+  "Magic Aim Dual Helix": {
+    "default": {
+      "frameWidth": 256,
+      "frameHeight": 64,
+      "atlasWidth": 1024,
+      "atlasHeight": 256,
+      "frameCount": 16,
+      "fps": 18,
+      "frameDurationSec": 0.05555555555555555,
+      "frameDurationsMs": [
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56
+      ],
+      "totalDurationSec": 0.8888888888888888,
+      "layout": {
+        "cols": 4,
+        "rows": 4
+      },
+      "geometry": "seamless-horizontal-dual-helix-tile",
+      "encoding": "lossless-webp-rgba",
+      "loopDurationMs": 800,
+      "pauseMs": 320
     }
   },
   "Magic Dragon": {
@@ -5429,6 +5559,26 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
       "footAnchorY": 0.9661458333333334,
       "loopDurationMs": 405,
       "pauseMs": 162
+    }
+  },
+  "Peasant Left Screen": {
+    "idle": {
+      "frameWidth": 572,
+      "frameHeight": 808,
+      "atlasWidth": 3432,
+      "atlasHeight": 4848,
+      "frameCount": 34,
+      "fps": 9.936,
+      "frameDurationSec": 0.10064412238325282,
+      "totalDurationSec": 3.421900161030596,
+      "layout": {
+        "cols": 6,
+        "rows": 6
+      },
+      "geometry": "left-sidebar-portrait-572x808",
+      "encoding": "webp-rgba-q90",
+      "loopDurationMs": 3080,
+      "pauseMs": 1232
     }
   },
   "Pegasus": {
