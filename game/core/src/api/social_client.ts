@@ -406,9 +406,15 @@ export const fetchPredictionMarkets = async (): Promise<PredictionMarket[]> => {
     return result.markets ?? [];
 };
 
-/** Every bet this player has placed, newest first (all statuses). */
-export const fetchMyPredictionBets = async (): Promise<PredictionBet[]> => {
-    const result = await get<{ bets?: PredictionBet[] }>(endpoints.social.predictionBets);
+/**
+ * This player's bets, newest first (all statuses). Pass `gameIds` to ask about specific games: the unscoped
+ * list stops at the server's 200 newest, so only a scoped read reliably answers "did I bet on this game".
+ */
+export const fetchMyPredictionBets = async (gameIds?: readonly string[]): Promise<PredictionBet[]> => {
+    const path = gameIds?.length
+        ? `${endpoints.social.predictionBets}?gameIds=${gameIds.map(encodeURIComponent).join(",")}`
+        : endpoints.social.predictionBets;
+    const result = await get<{ bets?: PredictionBet[] }>(path);
     return result.bets ?? [];
 };
 

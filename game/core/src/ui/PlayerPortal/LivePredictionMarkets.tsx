@@ -94,7 +94,7 @@ export const LivePredictionMarkets: React.FC<LivePredictionMarketsProps> = ({
         }
         const [fetchedMarkets, fetchedBets] = await Promise.all([
             fetchPredictionMarkets().catch(() => [] as PredictionMarket[]),
-            fetchMyPredictionBets().catch(() => [] as PredictionBet[]),
+            fetchMyPredictionBets(gameId ? [gameId] : undefined).catch(() => [] as PredictionBet[]),
         ]);
         setMarkets(
             eligiblePredictionMarkets(
@@ -171,6 +171,9 @@ export const LivePredictionMarkets: React.FC<LivePredictionMarketsProps> = ({
             setAmount("");
         } catch (err) {
             setError(socialErrorMessage(err, t("Could not place the prediction")));
+            // A rejection is final (draft over, already predicted, purse moved): re-read the books so the
+            // card stops offering what the server just refused.
+            void reload();
         } finally {
             setBusy(false);
         }

@@ -3,6 +3,7 @@ import { Button, Input, Sheet, Stack, Tab, TabList, TabPanel, Tabs, Typography }
 import React, { useCallback, useEffect, useState } from "react";
 
 import {
+    eligiblePredictionMarkets,
     fetchMyPredictionBets,
     fetchPredictionMarkets,
     placePredictionBet,
@@ -14,6 +15,7 @@ import {
 } from "../../api/social_client";
 import { fetchRankedStanding } from "../../api/social_client";
 import { t, tf } from "../../i18n/i18n";
+import { useAuthContext } from "../auth/context/auth_context";
 import { CurrencyIcon } from "../GoldCurrencyIcon";
 import { hocColors, hocInputSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "../hocTheme";
 import { useRankedSeason } from "../useRankedSeason";
@@ -61,16 +63,21 @@ export const PredictionsPanel: React.FC<PredictionsPanelProps> = ({ open, onClos
     const [armedSide, setArmedSide] = useState("");
     const [amount, setAmount] = useState("");
 
+    // The same eligibility the portal card applies: a player's own draft is never offered (the server refuses
+    // it anyway), matched by the auth payload's username and current game.
+    const { user } = useAuthContext();
+    const viewerUsername = user?.username;
+    const viewerGameId = user?.in_game_id;
     const reload = useCallback(async (): Promise<void> => {
         const [nextMarkets, nextBets, standing] = await Promise.all([
             fetchPredictionMarkets().catch(() => [] as PredictionMarket[]),
             fetchMyPredictionBets().catch(() => [] as PredictionBet[]),
             fetchRankedStanding().catch(() => null),
         ]);
-        setMarkets(nextMarkets);
+        setMarkets(eligiblePredictionMarkets(nextMarkets, { gameId: viewerGameId, username: viewerUsername }));
         setBets(nextBets);
         setGold(standing?.gold ?? 0);
-    }, []);
+    }, [viewerGameId, viewerUsername]);
 
     useEffect(() => {
         if (!open) {
@@ -109,6 +116,8 @@ export const PredictionsPanel: React.FC<PredictionsPanelProps> = ({ open, onClos
             await reload();
         } catch (err) {
             setError(socialErrorMessage(err, t("Could not place the prediction")));
+            // A rejection is final (draft over, already predicted, purse moved): re-read the books.
+            void reload();
         } finally {
             setBusy(false);
         }
