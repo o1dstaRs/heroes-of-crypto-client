@@ -204,13 +204,13 @@ function main() {
     lines.push("    encoding?: string;");
     lines.push("    phases?: {");
     lines.push(
-        "        intro: { startFrame: number; endFrame: number; loop: boolean; distanceCells?: number; speedMultiplier?: number };",
+        "        intro: { startFrame: number; endFrame: number; loop: boolean; distanceCells?: number; cycleDistanceCells?: number; speedMultiplier?: number };",
     );
     lines.push(
-        "        flight: { startFrame: number; endFrame: number; loop: boolean; distanceCells?: number; speedMultiplier?: number };",
+        "        flight: { startFrame: number; endFrame: number; loop: boolean; distanceCells?: number; cycleDistanceCells?: number; speedMultiplier?: number };",
     );
     lines.push(
-        "        landing: { startFrame: number; endFrame: number; loop: boolean; distanceCells?: number; speedMultiplier?: number };",
+        "        landing: { startFrame: number; endFrame: number; loop: boolean; distanceCells?: number; cycleDistanceCells?: number; speedMultiplier?: number };",
     );
     lines.push("    };");
     lines.push("    loopDurationMs: number;");
