@@ -97,3 +97,24 @@ test("a projectile texture finishing after teardown is evicted from the global c
         texture.destroy(true);
     }
 });
+
+test("the legacy projectile reports contact once and cancellation never reports a hit", async () => {
+    for (const cancelled of [false, true]) {
+        const { projectiles } = setup();
+        let impacts = 0;
+        const flight = projectiles.fire({
+            from: { x: 0, y: 0 },
+            to: { x: 100, y: 0 },
+            big: true,
+            onImpact: () => impacts++,
+        });
+        await Promise.resolve();
+        expect(impacts).toBe(0);
+        if (cancelled) projectiles.clear();
+        else projectiles.update(1);
+        await flight;
+        projectiles.update(1);
+        expect(impacts).toBe(cancelled ? 0 : 1);
+        projectiles.destroy();
+    }
+});

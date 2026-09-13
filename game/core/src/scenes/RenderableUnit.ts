@@ -879,9 +879,9 @@ export function creatureOneShotAnimationEnabledForUnit(unitName: string, stateNa
     );
 }
 
-/** Level-one creatures keep only authored sprite motion; higher tiers retain the shared overlays. */
+/** Level-one and level-two creatures keep only authored sprite motion; higher tiers retain the shared overlays. */
 export function creatureGenericWholeSpriteMotionEnabledForLevel(unitLevel: number): boolean {
-    return unitLevel !== 1;
+    return unitLevel !== 1 && unitLevel !== 2;
 }
 
 export function creatureGenericCombatMotionEnabledForUnit(unitName: string, unitLevel: number): boolean {
@@ -4824,6 +4824,14 @@ export class RenderableUnit extends Unit {
         return { x: center.x, y: center.y + gs.getCellSize() };
     }
     private oneShotAnim?: OneShotAnimState;
+    public getAnimationTextureKey(stateName: string): string | undefined {
+        if (!creatureOneShotAnimationEnabledForUnit(this.getName(), stateName)) return undefined;
+        return getAnimationStateConfig(this.getName(), stateName, this.getFootprintWidth(), this.getFootprintHeight())
+            ?.imageKey;
+    }
+    public getProjectileImpactPoint(gs: GridSettings): HoCMath.XY {
+        return this.getVisualCenter(gs);
+    }
     public hasAnimationState(stateName: string): boolean {
         if (stateName === "idle") return this.idleAnimationStateAvailable;
         const props = this.getUnitProperties();

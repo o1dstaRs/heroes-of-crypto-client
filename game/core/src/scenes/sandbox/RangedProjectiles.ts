@@ -32,6 +32,8 @@ export interface IRangedProjectilesContext {
 export const BIG_PROJECTILE_UNITS = new Set<string>(["cyclops", "tsar cannon", "gargantuan"]);
 
 export interface IFireProjectileOptions {
+    /** Fired on contact, never when scene teardown cancels the projectile. */
+    onImpact?: () => void;
     from: HoCMath.XY;
     to: HoCMath.XY;
     big: boolean;
@@ -91,6 +93,7 @@ interface IProjectile {
     sprite?: Sprite;
     spin: number; // radians of blade rotation accumulated in flight
     resolve: () => void;
+    onImpact?: () => void;
 }
 
 interface IRockImpact {
@@ -305,6 +308,7 @@ export class RangedProjectiles {
 
         return new Promise<void>((resolve) => {
             const projectile: IProjectile = {
+                onImpact: opts.onImpact,
                 g,
                 from,
                 to,
@@ -385,7 +389,11 @@ export class RangedProjectiles {
                 p.sprite?.destroy();
                 p.g.destroy();
                 this.projectiles.splice(i, 1);
-                p.resolve();
+                try {
+                    p.onImpact?.();
+                } finally {
+                    p.resolve();
+                }
             }
         }
         this.updateRockImpacts(dt);

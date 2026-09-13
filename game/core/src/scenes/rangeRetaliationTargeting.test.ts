@@ -1,64 +1,75 @@
-import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { expect, test } from "bun:test";
+import { Sandbox } from "./Sandbox";
 
-const sandboxSource = (): string => readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
-
-/**
- * Two rules for the ranged counter-shot, both learned from bugs.
- *
- * 1. It is identified by the animation's ORIGIN, never its victim. The engine stamps the response entry
- *    with the counter's FIRST VICTIM, and a counter fired back down the lane stops on the first enemy it
- *    meets — routinely a stack of the attacker's own army screening them. Asking "does an animation name
- *    the attacker" therefore dropped the whole retaliation, silently, for about a third of all counters.
- * 2. It lands at a figure's VISUAL CENTRE, never at a recorded edge. The engine's toPosition is a logical
- *    combat coordinate; reusing it as a rendered endpoint made counters dive at the feet of large sprites.
- *
- * Both paths — replay (which ranked live also runs) and the local sandbox — have to obey both.
- */
-describe("ranged retaliation projectile targeting", () => {
-    const replaySlice = (source: string): string =>
-        source.slice(
-            source.indexOf("private async playReplayRetaliation("),
-            source.indexOf("private materializeReplaySummons("),
-        );
-    const liveSlice = (source: string): string => {
-        const start = source.indexOf("// Ranged counter: when the defender shoots back");
-        return source.slice(start, source.indexOf("        } else {", start));
+test("the shared exchange targets the counter's actual screening victim by its origin", () => {
+    const attacker = {
+        getId: () => "A",
+        getPosition: () => ({ x: 0, y: 0 }),
+        hasAbilityActive: () => false,
+        getAbility: () => undefined,
     };
+    const defender = { getId: () => "B" };
+    const event = {
+        attackerId: "A",
+        targetId: "B",
+        attackType: "range",
+        unitIdsDied: [],
+        damage: { amount: 20, unitId: "B", hits: [{ amount: 20, unitsDied: 0 }] },
+        animations: [
+            { fromPosition: { x: 0, y: 0 }, toPosition: { x: 500, y: 0 }, affectedUnitId: "B" },
+            { fromPosition: { x: 500, y: 0 }, toPosition: { x: 100, y: 0 }, affectedUnitId: "screen" },
+        ],
+    };
+    const scene = Object.create(Sandbox.prototype);
+    const plan = scene.buildCombatExchange(
+        attacker,
+        defender,
+        event,
+        new Map([
+            ["A", 100],
+            ["B", 100],
+            ["screen", 100],
+        ]),
+        new Set(),
+        { amount: 12, unitsDied: 0 },
+    );
+    expect(
+        plan.map((strike: { attackerId: string; targetId: string }) => [strike.attackerId, strike.targetId]),
+    ).toEqual([
+        ["A", "B"],
+        ["B", "screen"],
+    ]);
+    expect(plan[1].amount).toBe(12);
+});
 
-    test("both paths find the counter by its origin, not by who it hit", () => {
-        const source = sandboxSource();
-
-        for (const [name, slice] of [
-            ["replay", replaySlice(source)],
-            ["live", liveSlice(source)],
-        ] as const) {
-            expect({ name, findsByOrigin: slice.includes("findRangeResponseAnimation(") }).toEqual({
-                name,
-                findsByOrigin: true,
-            });
-            // The old test: an animation naming the attacker. It is the bug, so it must not come back.
-            expect({ name, asksWhoItHit: slice.includes("affectedUnitId === attacker.getId()") }).toEqual({
-                name,
-                asksWhoItHit: false,
-            });
-        }
-    });
-
-    test("both paths fly the counter at whoever it actually struck", () => {
-        const source = sandboxSource();
-
-        expect(replaySlice(source)).toContain("await this.playReplayProjectile(target, responseVictim);");
-        expect(liveSlice(source)).toContain("const responseTarget = liveResponseVictim.getVisualCenter(gs);");
-        expect(liveSlice(source)).toContain("target.getRangedProjectileOrigin(responseTarget, gs)");
-        expect(liveSlice(source)).toContain("to: responseTarget");
-    });
-
-    test("neither path aims at the engine's recorded edge", () => {
-        const source = sandboxSource();
-
-        expect(replaySlice(source)).not.toContain("responseEdge");
-        expect(liveSlice(source)).not.toContain("?.toPosition");
-    });
+test("a defender killed by the first hit retains its recorded response before death", () => {
+    const attacker = {
+        getId: () => "A",
+        getPosition: () => ({ x: 0, y: 0 }),
+        hasAbilityActive: () => false,
+        getAbility: () => undefined,
+    };
+    const defender = { getId: () => "B" };
+    const scene = Object.create(Sandbox.prototype);
+    const plan = scene.buildCombatExchange(
+        attacker,
+        defender,
+        {
+            attackerId: "A",
+            targetId: "B",
+            attackType: "melee",
+            damage: { amount: 100, hits: [{ amount: 100, unitsDied: 10 }] },
+            animations: [],
+        },
+        new Map([
+            ["A", 100],
+            ["B", 10],
+        ]),
+        new Set(["B"]),
+        { amount: 4, unitsDied: 0 },
+    );
+    expect(plan.map((strike: { response: boolean; lethal: boolean }) => [strike.response, strike.lethal])).toEqual([
+        [true, false],
+        [false, true],
+    ]);
 });

@@ -13,3 +13,16 @@ Checks: LevelOnePackage.test covers every level-one creature after authoritative
 Production loads each visible creature's approved sheets only after its base texture is available. Do not re-enable a whole-roster background preload: it competes with placement textures on slow connections. Arbalester idle pages remain bounded and demand-loaded. `approvedAnimationLoading.test` and the slow-portrait regression in `LevelOnePackage.test` protect this order.
 
 The approved aim components are pinned separately in `game/core/src/pixi/shotTrajectoryAssets.json`. Keep all six head, fletching and shaft textures in production, demand-loaded as combat effects. The same build guard verifies their hashes and generated URL entries. HoverManager uses the local endpoint mipmap filtering and fractional sprite placement; do not restore pixel rounding on rotating endpoints.
+
+## Combat order and sprite-only motion
+
+Both sandbox actions and authoritative battle replays use the same resolved-strike queue.
+A melee strike and its victim's hit reaction start together; the next response or repeated
+strike waits for both clips. Ranged reactions start on projectile contact. A defender with
+a recorded response that dies from the first blow responds before its fatal blow. Later
+blows cannot hit an already presented corpse, and mutually lethal opening blows finish
+before either figure can interrupt its own death animation. This changes presentation only.
+
+Levels one and two suppress procedural cutout sway, bounce, recoil, attack windup and dodge.
+Approved sprite clips remain enabled; unfinished actions have no invented motion or death
+shatter fallback. Other levels keep their existing generic-motion policy.
