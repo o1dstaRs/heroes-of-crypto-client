@@ -238,6 +238,7 @@ export const endpoints = {
     // Authenticated social layer: notifications tray, friends/blocks, presence heartbeat.
     social: {
         presencePing: IS_PROD ? "/v1/presence-ping" : "/v1/mm/presence-ping",
+        clientError: IS_PROD ? "/v1/client-error" : "/v1/mm/client-error",
         notifications: IS_PROD ? "/v1/notifications" : "/v1/mm/notifications",
         notificationsSeen: IS_PROD ? "/v1/notifications-seen" : "/v1/mm/notifications-seen",
         friendRequest: IS_PROD ? "/v1/friend-request" : "/v1/mm/friend-request",

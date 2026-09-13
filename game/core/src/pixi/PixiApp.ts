@@ -52,6 +52,10 @@ export class PixiApp {
             background: 0x000000,
         });
         this.renderTexturePoolBucket = renderTexturePoolBucket(width, height, DPR);
+        // Dev-only handle for headless probes (walk the stage after a render error); never set in builds.
+        if (import.meta.env.DEV) {
+            (globalThis as { __hocPixiApp?: Application }).__hocPixiApp = this.app;
+        }
 
         // --- World containers ---
         this.camera = new Container(); // we pan/zoom this one

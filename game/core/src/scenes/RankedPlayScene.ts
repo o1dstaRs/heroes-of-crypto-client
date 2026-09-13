@@ -1423,6 +1423,8 @@ export class RankedPlayScene extends Sandbox {
     // drawn, the other seat's placements are never hidden, and START waits for both seats to ready up.
     private sandboxCoop = false;
     private sandboxCoopBothReady = false;
+    // The map the last co-op snapshot carried, so a switch by the other seat is told from the first load.
+    private lastCoopGridType?: number;
     public override getUnitsOverlay(): UnitsOverlay | undefined {
         return this.sandboxCoop ? this.unitsOverlay : undefined;
     }
@@ -2097,12 +2099,15 @@ export class RankedPlayScene extends Sandbox {
         if (this.sandboxCoop) {
             this.seedSynergyVariantChoices(TeamVals.LEFT, snapshot.leftSynergies ?? []);
             this.seedSynergyVariantChoices(TeamVals.RIGHT, snapshot.rightSynergies ?? []);
-            // The other seat switched the map: re-carve terrain and visuals before the rebuild below, and
-            // tell the sidebar's picker (sc_gridTypeUpdateNeeded -> onGridTypeChanged).
-            if (snapshot.gridType !== this.getGridType()) {
+            // The other seat switched the map mid-setup: re-carve terrain and visuals the way the sandbox's
+            // own picker does (the hydrate below then re-seeds the stones — its key includes the map) and
+            // tell the sidebar's picker (sc_gridTypeUpdateNeeded -> onGridTypeChanged). Skipped on the first
+            // snapshot: the initial map is the hydrate's job on a fresh scene.
+            if (this.lastCoopGridType !== undefined && this.lastCoopGridType !== snapshot.gridType) {
                 super.setGridType(snapshot.gridType as GridType);
                 this.sc_gridTypeUpdateNeeded = true;
             }
+            this.lastCoopGridType = snapshot.gridType;
         }
 
         // A mid-turn full hydrate (an opponent auto-action, a lap event — anything that changes the board

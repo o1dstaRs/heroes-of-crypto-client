@@ -3,6 +3,7 @@ import React from "react";
 
 import type { SandboxCoopSession } from "../api/sandbox_coop_client";
 import type { IWindowSize } from "../scenes/VisibleState";
+import { GameErrorBoundary } from "./GameErrorBoundary";
 
 export { fetchRankedPlaySnapshot } from "../api/ranked_play_client";
 
@@ -21,7 +22,11 @@ type Props = {
 
 /** Route boundary that keeps the live ranked controller out of sandbox and draft startup. */
 export const RankedGameView: React.FC<Props> = (props) => (
-    <React.Suspense fallback={null}>
-        <RankedGameViewRuntime {...props} />
-    </React.Suspense>
+    <GameErrorBoundary
+        context={`${props.sandboxCoop ? "sandbox" : props.replayOnly ? "replay" : "game"} ${props.gameId}`}
+    >
+        <React.Suspense fallback={null}>
+            <RankedGameViewRuntime {...props} />
+        </React.Suspense>
+    </GameErrorBoundary>
 );

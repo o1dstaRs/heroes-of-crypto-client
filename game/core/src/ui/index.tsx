@@ -17,6 +17,7 @@ import {
 } from "@heroesofcrypto/common";
 import { PICK_EVENT_SOURCE } from "./env";
 import { installFootprintOverridesFromSearch } from "./footprintOverridesFromUrl";
+import { installClientErrorReporting } from "./clientErrorReport";
 
 import CssBaseline from "@mui/joy/CssBaseline";
 import { CssVarsProvider } from "@mui/joy/styles";
@@ -1468,6 +1469,8 @@ const App: React.FC = () => {
 };
 
 installFootprintOverridesFromSearch(window.location.search);
+// Uncaught errors (a blank page is all the player sees otherwise) go to the server log.
+installClientErrorReporting();
 
 // Reuse an existing root across hot-reloads / re-evaluations instead of calling createRoot()
 // on the same #root container twice (React warns and leaks the previous root otherwise).
