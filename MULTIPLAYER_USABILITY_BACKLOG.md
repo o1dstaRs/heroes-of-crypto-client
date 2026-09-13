@@ -83,5 +83,10 @@ Status legend: **done** shipped, **open** not started.
   for sandboxes; both seats see each other's picks). S splits and D deletes the selected stack, as in the
   offline sandbox (ranked gets the same keys with D arming first). A friend's placement no longer drops
   the host's roster pick or in-progress drag (selection survives the board rebuild).
+- Done (second staging round): synergies really work — the sidebar has the sandbox's synergy slots, a
+  chosen variant is remembered by the server across recounts and is what the army fights with, and the
+  highlight survives a reload; artifacts fold into every unit at fight start (verified over HTTP through
+  fight start). Either seat switches the shared map (NORMAL / FIRE PIT / BARRELS) from the sidebar; the
+  other seat's board and picker follow.
 - Open: one friend per sandbox; no in-match text chat (the social dock collapses during a fight, DMs are
   behind the medallion).

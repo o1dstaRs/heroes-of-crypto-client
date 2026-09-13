@@ -6,6 +6,8 @@ import {
     TeamVals,
     type GameAction,
     type TeamType,
+    GridVals,
+    type GridType,
 } from "@heroesofcrypto/common";
 import {
     Alert,
@@ -85,6 +87,7 @@ import {
 } from "./PickAndBan/runtime";
 import { PickLanternFire } from "./PickAndBan/PickLanternFire";
 import SandboxToggleContainer from "./RightSideBar/SandboxToggleContainer";
+import { SynergySlots } from "./RightSideBar/SynergySlots";
 import SideToggleContainer from "./RightSideBar/SideToggleContainer";
 import { UpNextOverlay } from "./UpNextOverlay";
 import { AiControlBadge, aiBadgeLeft } from "./AiControlBadge";
@@ -1419,14 +1422,23 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     // ranked scene applies it locally first). Re-armed once Pixi is up, since it lands on the live scene.
     useEffect(() => {
         if (!sandboxCoop || replayOnly || isObserver || !pixiReady) {
-            manager.SetArtifactPickTransport(undefined);
+            manager.SetSandboxSetupTransport(undefined);
             return undefined;
         }
-        manager.SetArtifactPickTransport((team, tier, artifactId) => {
-            void submitProtocolAction({ type: PlayActionType.ARTIFACT, team, attackType: tier, amount: artifactId });
+        manager.SetSandboxSetupTransport((pick) => {
+            if (pick.kind === "artifact") {
+                void submitProtocolAction({
+                    type: PlayActionType.ARTIFACT,
+                    team: pick.team,
+                    attackType: pick.tier,
+                    amount: pick.artifactId,
+                });
+                return;
+            }
+            void submitProtocolAction({ type: PlayActionType.GRID_TYPE, team: userTeam, amount: pick.gridType });
         });
-        return () => manager.SetArtifactPickTransport(undefined);
-    }, [isObserver, manager, pixiReady, replayOnly, sandboxCoop, submitProtocolAction]);
+        return () => manager.SetSandboxSetupTransport(undefined);
+    }, [isObserver, manager, pixiReady, replayOnly, sandboxCoop, submitProtocolAction, userTeam]);
 
     // Relay our live move aim to the opponent, throttled so a fast-moving cursor produces a
     // steady trickle of hints rather than a flood. Clears (no cell) are sent immediately.
@@ -2052,6 +2064,54 @@ interface RankedPlacementStackActionsProps {
     /** Co-op sandbox: the D key deletes at once, as in the offline sandbox; ranked keeps the two-step. */
     immediateDelete?: boolean;
 }
+
+/**
+ * Co-op sandbox: the shared board, picked by either seat while setting up (the same three maps the offline
+ * sandbox offers). Routes through the pixi manager like the sandbox's picker; the other seat's switch
+ * arrives with the snapshot and lands here through onGridTypeChanged.
+ */
+const CoopMapPicker: React.FC<{ disabled: boolean }> = ({ disabled }) => {
+    const manager = usePixiManager();
+    const [gridType, setGridType] = useState<number>(() => manager.GetGridType());
+    useEffect(() => {
+        const connection = manager.onGridTypeChanged.connect((next: number) => setGridType(next));
+        return () => {
+            connection.disconnect();
+        };
+    }, [manager]);
+    const options: { value: number; label: string }[] = [
+        { value: GridVals.NORMAL, label: "NORMAL" },
+        { value: GridVals.LAVA_CENTER, label: "FIRE PIT" },
+        { value: GridVals.BLOCK_CENTER, label: "BARRELS" },
+    ];
+    return (
+        <Box sx={{ width: "100%", px: 1, pt: 0.75, pb: 0.5, borderBottom: "1px solid rgba(112, 75, 42, .42)" }}>
+            <Typography level="body-xs" sx={{ color: hocColors.sidebarTitle, mb: 0.25 }}>
+                Map
+            </Typography>
+            <Stack direction="row" spacing={0.5}>
+                {options.map((option) => (
+                    <Button
+                        key={option.value}
+                        size="sm"
+                        variant={option.value === gridType ? "solid" : "outlined"}
+                        disabled={disabled}
+                        onClick={() => manager.SetGridType(option.value as GridType)}
+                        sx={{
+                            ...(option.value === gridType ? hocPrimaryButtonSx : hocSoftButtonSx),
+                            flex: 1,
+                            minWidth: 0,
+                            px: 0.5,
+                            fontSize: "0.68rem",
+                        }}
+                    >
+                        {option.label}
+                    </Button>
+                ))}
+            </Stack>
+        </Box>
+    );
+};
 
 const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = ({
     canSubmit,
@@ -3290,14 +3350,35 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                             // narrow column stacks three tall radio groups and pushes the artifacts and the
                             // rest of the panel off the bottom. Same picker underneath — both route their
                             // choice through the pixi manager — so this is layout only.
-                            <SandboxToggleContainer
-                                side={userTeam === TeamVals.LEFT ? "green" : "red"}
-                                teamType={userTeam}
-                                showArtifactPicker={skipAugmentStep}
-                                budgetPoints={augmentBudget}
-                                authoritativeSelections={augmentAuthoritativeSelections}
-                                onReadyChange={setAugmentReady}
-                            />
+                            <>
+                                {/* Co-op sandbox: the offline sandbox's synergy slots, for the viewer's own
+                                    army — click an unlocked one to field it instead of the game's default. */}
+                                {skipAugmentStep && (
+                                    <Box
+                                        sx={{
+                                            width: "100%",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            px: 1.25,
+                                            pt: 0.75,
+                                            pb: 0.9,
+                                            borderBottom: "1px solid rgba(112, 75, 42, .42)",
+                                        }}
+                                    >
+                                        <SynergySlots teamType={userTeam} size="clamp(22px, 1.75vw, 34px)" />
+                                    </Box>
+                                )}
+                                {skipAugmentStep && <CoopMapPicker disabled={ready} />}
+                                <SandboxToggleContainer
+                                    side={userTeam === TeamVals.LEFT ? "green" : "red"}
+                                    teamType={userTeam}
+                                    showArtifactPicker={skipAugmentStep}
+                                    budgetPoints={augmentBudget}
+                                    authoritativeSelections={augmentAuthoritativeSelections}
+                                    onReadyChange={setAugmentReady}
+                                />
+                            </>
                         ) : (
                             <RankedAugmentSummary snapshot={snapshot} userTeam={userTeam} budget={augmentBudget} />
                         )}

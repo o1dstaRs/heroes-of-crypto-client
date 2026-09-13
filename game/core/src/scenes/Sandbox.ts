@@ -6163,6 +6163,42 @@ export class Sandbox extends PixiScene {
      * change on top of the fight-wide seeded/default variant — and takes effect immediately at the
      * level the army currently unlocks (2/4/6 unique creatures -> level 1/2/3).
      */
+    /** The faction a synergy entry names ("Life", "Chaos", "Might", "Nature"), as the engine's value. */
+    protected factionTypeByName(factionName: string): FactionType | undefined {
+        const byName: Record<string, FactionType> = {
+            Life: FactionVals.LIFE,
+            Chaos: FactionVals.CHAOS,
+            Might: FactionVals.MIGHT,
+            Nature: FactionVals.NATURE,
+        };
+        return byName[factionName];
+    }
+    /**
+     * Seed this team's manual variant choices from applied synergy entries ("Faction:variantId:level"), as
+     * the co-op sandbox's server reports them: after a reload the sidebar then highlights the variant the
+     * team actually fields instead of the fight-wide seeded one.
+     */
+    protected seedSynergyVariantChoices(teamType: TeamType, entries: readonly string[]): void {
+        const choices = this.sc_synergyVariantChoicePerTeam.get(teamType) ?? {};
+        let changed = false;
+        for (const entry of entries) {
+            const [factionName, variantText, levelText] = entry.split(":");
+            const pair = FACTION_SYNERGY_PAIRS[factionName ?? ""];
+            const variantId = Number(variantText);
+            if (!pair || !Number.isInteger(variantId) || Number(levelText) <= 0) {
+                continue;
+            }
+            const variant = pair.find((candidate) => candidate === variantId);
+            if (variant === undefined || choices[factionName] === variant) {
+                continue;
+            }
+            choices[factionName] = variant;
+            changed = true;
+        }
+        if (changed) {
+            this.sc_synergyVariantChoicePerTeam.set(teamType, choices);
+        }
+    }
     public selectSynergyVariant(teamType: TeamType, factionName: string, synergyName: string): boolean {
         const pair = FACTION_SYNERGY_PAIRS[factionName];
         if (!pair) {

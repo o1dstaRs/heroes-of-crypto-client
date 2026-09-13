@@ -95,7 +95,11 @@ const LevelDots: React.FC<{ level: number; active: boolean }> = ({ level, active
 
 export const SynergySlots: React.FC<{ teamType: TeamType; size?: number | string }> = ({ teamType, size = 22 }) => {
     const manager = usePixiManager();
-    const [possible, setPossible] = useState<Map<TeamType, SynergyWithLevel[]> | null>(null);
+    // Start from what the scene already knows: the co-op sidebar mounts after the scene's first refresh, so
+    // waiting for the next signal left every slot locked until the army changed again.
+    const [possible, setPossible] = useState<Map<TeamType, SynergyWithLevel[]> | null>(() =>
+        manager.GetPossibleSynergies(),
+    );
     // Bumped after every pick/loadout refresh so the applied-state (read straight from the fight) rerenders.
     const [, setSynergyRevision] = useState(0);
     useEffect(() => {

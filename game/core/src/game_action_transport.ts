@@ -122,6 +122,9 @@ export interface AuthoritativeGameSnapshot {
      */
     sandboxCoop?: boolean;
     sandboxCoopBothReady?: boolean;
+    /** Co-op sandbox: each team's applied synergies ("Faction:variant:level") already during placement. */
+    leftSynergies?: string[];
+    rightSynergies?: string[];
     winnerTeam?: TeamType | number;
     phase: number;
     gridType: number;

@@ -1,4 +1,4 @@
-import { Artifact, TeamType } from "@heroesofcrypto/common";
+import { Artifact, FightStateManager, TeamType } from "@heroesofcrypto/common";
 import React, { useState } from "react";
 import { Box, Divider, Tooltip, Typography } from "@mui/joy";
 
@@ -172,8 +172,14 @@ export const ArtifactToggler: React.FC<{
     onToggle?: () => void;
 }> = ({ teamType, isOpen: isOpenProp, onToggle }) => {
     const manager = usePixiManager();
-    const [tier1Selected, setTier1Selected] = useState<number>(Artifact.Tier1Artifact.NO_ARTIFACT);
-    const [tier2Selected, setTier2Selected] = useState<number>(Artifact.Tier2Artifact.NO_ARTIFACT);
+    // Start from the fight's current picks: the co-op sandbox's server keeps them, so a reload (or a late
+    // mount) still highlights what the team actually carries.
+    const [tier1Selected, setTier1Selected] = useState<number>(() =>
+        FightStateManager.getInstance().getFightProperties().getArtifactTier1(teamType),
+    );
+    const [tier2Selected, setTier2Selected] = useState<number>(() =>
+        FightStateManager.getInstance().getFightProperties().getArtifactTier2(teamType),
+    );
     const [openLocal, setOpenLocal] = useState(false);
     const isOpen = isOpenProp !== undefined ? isOpenProp : openLocal;
     const toggle = () => (onToggle ? onToggle() : setOpenLocal((current) => !current));

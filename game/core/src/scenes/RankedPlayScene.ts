@@ -2092,6 +2092,18 @@ export class RankedPlayScene extends Sandbox {
         // rebuild: in the co-op sandbox the friend's every placement lands here as a full hydrate, and
         // losing the pick each time was the "my unit selection drops" report.
         const placementSelection = this.capturePlacementSelection();
+        // The co-op server reports each team's applied synergies during placement; remember the variant
+        // choices they encode so the rebuild below (refreshSynergyNumbers) fields the same ones.
+        if (this.sandboxCoop) {
+            this.seedSynergyVariantChoices(TeamVals.LEFT, snapshot.leftSynergies ?? []);
+            this.seedSynergyVariantChoices(TeamVals.RIGHT, snapshot.rightSynergies ?? []);
+            // The other seat switched the map: re-carve terrain and visuals before the rebuild below, and
+            // tell the sidebar's picker (sc_gridTypeUpdateNeeded -> onGridTypeChanged).
+            if (snapshot.gridType !== this.getGridType()) {
+                super.setGridType(snapshot.gridType as GridType);
+                this.sc_gridTypeUpdateNeeded = true;
+            }
+        }
 
         // A mid-turn full hydrate (an opponent auto-action, a lap event — anything that changes the board
         // signature without a replayable record) destroys every unit AND the player's armed spell. The
@@ -2651,6 +2663,57 @@ export class RankedPlayScene extends Sandbox {
         return true;
     }
     /**
+     * Co-op sandbox: choosing which of a faction's two synergies the team fields applies locally (super)
+     * and travels to the server as a SYNERGY action at the level the army currently unlocks; the server
+     * keeps the choice across recounts. Ranked plays the variant the game drew and never gets here.
+     */
+    public override selectSynergyVariant(teamType: TeamType, factionName: string, synergyName: string): boolean {
+        const transport = this.sc_gameActionTransport;
+        if (!transport) {
+            return super.selectSynergyVariant(teamType, factionName, synergyName);
+        }
+        if (!this.sandboxCoop || this.viewerTeam === undefined || teamType !== this.viewerTeam) {
+            return false;
+        }
+        const applied = super.selectSynergyVariant(teamType, factionName, synergyName);
+        const faction = this.factionTypeByName(factionName);
+        if (!applied || faction === undefined) {
+            return applied;
+        }
+        const level = FightStateManager.getInstance()
+            .getFightProperties()
+            .getPossibleSynergies(teamType)
+            .filter((entry) => entry.faction === faction && entry.synergy === synergyName)
+            .reduce((best, entry) => Math.max(best, entry.level), 0);
+        if (level > 0) {
+            transport({ type: "synergy", team: teamType, faction, synergyName, level });
+        }
+        return applied;
+    }
+    /**
+     * Co-op sandbox: the map is shared, so a pick from the sidebar applies locally (Sandbox.setGridType — the
+     * ranked scene never rolls its own stones, the seeded layout arrives with the snapshot) and travels to
+     * the server as a GRID_TYPE action; the other seat's board follows through the snapshot. Ranked keeps
+     * the map it was created with.
+     */
+    public override setGridType(gridType: GridType): void {
+        if (!this.sc_gameActionTransport) {
+            super.setGridType(gridType);
+            return;
+        }
+        if (
+            !this.sandboxCoop ||
+            this.viewerTeam === undefined ||
+            FightStateManager.getInstance().getFightProperties().hasFightStarted()
+        ) {
+            return;
+        }
+        super.setGridType(gridType);
+        // The sidebar's picker listens to onGridTypeChanged; the sandbox override raises no flag itself.
+        this.sc_gridTypeUpdateNeeded = true;
+        this.sc_sandboxSetupTransport?.({ kind: "grid_type", gridType });
+    }
+    /**
      * Co-op sandbox: artifacts are picked freely, like the offline sandbox, and the pick travels to the
      * authoritative server (ARTIFACT play action) so it folds into stats at fight start on both screens.
      * Ranked artifacts come from the draft and cannot change here.
@@ -2664,7 +2727,7 @@ export class RankedPlayScene extends Sandbox {
         }
         const applied = super.propagateArtifact(teamType, tier, artifactId);
         if (applied) {
-            this.sc_artifactPickTransport?.(teamType, tier, artifactId);
+            this.sc_sandboxSetupTransport?.({ kind: "artifact", team: teamType, tier, artifactId });
         }
         return applied;
     }
@@ -4043,7 +4106,8 @@ export class RankedPlayScene extends Sandbox {
             )
             .sort()
             .join("|");
-        return `${placementStageKey}|${unitStateKey}`;
+        // The board itself is part of the key: a co-op map switch changes no unit yet must rebuild.
+        return `${placementStageKey}|grid:${snapshot.gridType}|${unitStateKey}`;
     }
     private isAuthoritativeSnapshot(value: unknown): value is AuthoritativeGameSnapshot {
         return (
@@ -4108,6 +4172,12 @@ export class RankedPlayScene extends Sandbox {
             this.unitsHolder.getAllUnits().values(),
             snapshot.fightStarted,
         );
+        // That recount re-installed the fight-wide seeded variants; in a co-op sandbox put each team's own
+        // variant choice back on top (every unit is on the board there, so the zone recount matches).
+        if (this.sandboxCoop && !snapshot.fightStarted) {
+            this.refreshSynergyNumbers(TeamVals.LEFT);
+            this.refreshSynergyNumbers(TeamVals.RIGHT);
+        }
         this.authoritativeHiddenIds = new Set(
             snapshot.units.filter((u) => (u.buffs ?? []).includes("Hidden")).map((u) => u.id),
         );

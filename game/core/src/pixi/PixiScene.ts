@@ -64,6 +64,10 @@ import { destroyContainerChildren, destroyContainerFilters } from "./filterLifec
 
 export { getScenesGrouped, registerScene } from "./sceneRegistry";
 
+/** Co-op sandbox setup picks that are not GameActions: a free artifact, or the shared board. */
+export type SandboxSetupPick =
+    { kind: "artifact"; team: TeamType; tier: number; artifactId: number } | { kind: "grid_type"; gridType: GridType };
+
 export interface AuthoritativeSnapshotOptions {
     /**
      * Set when the caller already animated+applied this snapshot's board changes
@@ -229,8 +233,8 @@ export abstract class PixiScene {
     protected drawer!: PixiDrawer;
     protected physicsManager!: SimplePhysicsManager;
     protected sc_gameActionTransport?: SceneGameActionTransport;
-    /** Co-op sandbox: where a free artifact pick goes (the ARTIFACT play action); set by the ranked view. */
-    protected sc_artifactPickTransport?: (team: TeamType, tier: number, artifactId: number) => void;
+    /** Co-op sandbox: where a setup pick that is not a GameAction goes (artifact, map); set by the ranked view. */
+    protected sc_sandboxSetupTransport?: (pick: SandboxSetupPick) => void;
     protected animating = false;
     protected constructor(sceneSettings: SceneSettings) {
         this.sc_sceneSettings = sceneSettings;
@@ -249,8 +253,8 @@ export abstract class PixiScene {
     public setGameActionTransport(transport?: SceneGameActionTransport): void {
         this.sc_gameActionTransport = transport;
     }
-    public setArtifactPickTransport(transport?: (team: TeamType, tier: number, artifactId: number) => void): void {
-        this.sc_artifactPickTransport = transport;
+    public setSandboxSetupTransport(transport?: (pick: SandboxSetupPick) => void): void {
+        this.sc_sandboxSetupTransport = transport;
     }
     public applyAuthoritativeSnapshot(
         _snapshot: AuthoritativeGameSnapshot,

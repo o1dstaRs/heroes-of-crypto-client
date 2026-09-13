@@ -360,6 +360,8 @@ export const toAuthoritativeGameSnapshot = (
               sandboxCoopBothReady:
                   snapshot.players.length > 0 &&
                   snapshot.players.every((player) => snapshot.readyPlayerIds.includes(player.playerId)),
+              leftSynergies: snapshot.leftSynergies ?? [],
+              rightSynergies: snapshot.rightSynergies ?? [],
           }
         : {}),
     winnerTeam: winnerTeamFromSnapshot(snapshot),

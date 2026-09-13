@@ -12,6 +12,7 @@ import {
     TeamVals,
     FactionType,
     GridType,
+    GridVals,
     FightStateManager,
     HoCMath,
     type GameAction,
@@ -44,6 +45,7 @@ import type {
     PixiSceneContext,
     SceneConstructor,
     SceneEntry,
+    SandboxSetupPick,
 } from "./PixiScene";
 import type { AuthoritativeSnapshotOptions } from "./PixiScene";
 import type { LoadingScreen } from "../scenes/LoadingScreen";
@@ -550,9 +552,12 @@ export class PixiGameManager {
         this.gameActionTransport = transport;
         this.m_scene?.setGameActionTransport(transport);
     }
-    /** Co-op sandbox: the channel a free artifact pick is sent through (see RankedPlayScene.propagateArtifact). */
-    public SetArtifactPickTransport(transport?: (team: TeamType, tier: number, artifactId: number) => void): void {
-        this.m_scene?.setArtifactPickTransport(transport);
+    /** Co-op sandbox: the channel setup picks that are not GameActions (artifact, map) are sent through. */
+    public SetSandboxSetupTransport(transport?: (pick: SandboxSetupPick) => void): void {
+        this.m_scene?.setSandboxSetupTransport(transport);
+    }
+    public GetGridType(): GridType {
+        return this.m_scene?.getGridType() ?? (GridVals.NORMAL as GridType);
     }
     public SetMoveIntentSink(sink?: (unitId: string | undefined, cell: HoCMath.XY | undefined) => void): void {
         this.m_scene?.setMoveIntentSink(sink);
@@ -1019,6 +1024,10 @@ export class PixiGameManager {
             ).selectSynergyVariant(teamType, factionName, synergyName);
         }
         return false;
+    }
+    /** The synergies each team could field right now (a copy), for a sidebar mounting after the last emit. */
+    public GetPossibleSynergies(): Map<TeamType, SynergyWithLevel[]> {
+        return new Map(this.m_scene?.sc_possibleSynergiesPerTeam ?? []);
     }
     /** Applied synergy entries ("Faction:variant:level") for a team, for the sidebar's chosen-state. */
     public GetAppliedSynergies(teamType: TeamType): string[] {

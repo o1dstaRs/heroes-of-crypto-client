@@ -33,6 +33,7 @@ export const PlayActionType = {
     ABANDON: 21,
     SYNERGY: 22,
     ARTIFACT: 23,
+    GRID_TYPE: 24,
 } as const;
 
 export type PlayActionTypeValue = (typeof PlayActionType)[keyof typeof PlayActionType];
