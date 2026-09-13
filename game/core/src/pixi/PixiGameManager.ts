@@ -920,6 +920,13 @@ export class PixiGameManager {
             onHasStarted: this.onSceneHasStarted,
             gameActionTransport: this.gameActionTransport,
         };
+        // A brand-new scene must never inherit the previous game's fight state. This manager lives for
+        // the whole app, and a route change (a co-op or ranked board back to the offline sandbox) only
+        // swaps the scene class — the process-global FightProperties kept the old game's map, placement
+        // upgrades, doctrine and artifacts, and the sandbox constructor's default-placement call is a
+        // no-op once a team already has one. Live report: the offline sandbox opened with the previous
+        // game's deployment zones drawn. Ranked/co-op scenes re-hydrate from their snapshot regardless.
+        FightStateManager.getInstance().reset();
         this.m_scene = new SceneClass(context);
         this.m_scene.setCreatureAnimationLabEnabled?.(this.creatureAnimationLabEnabled);
         this.m_scene.setTestBoardBackground?.(this.testBoardBackground);
