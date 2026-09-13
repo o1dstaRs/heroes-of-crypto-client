@@ -4548,12 +4548,21 @@ export class Sandbox extends PixiScene {
                 } else if (strike.amount > 0 && renderedVictim) {
                     // Final engine HP can already be zero after a later blow. This hit still precedes it.
                     reaction = this.playReplayOneShot(victim, "hit", 3000, true);
+                    if (victim.getUnitProperties().level > 2) {
+                        this.applyReplayHitKnockback(victim, source);
+                        reaction = Promise.all([reaction, this.delayReplay(330)]).then(() => {});
+                    }
                 }
             };
             if (melee) {
                 const attack = this.playReplayOneShot(source, attackState, 5000, true);
+                if (source.getUnitProperties().level > 2) this.applyReplayLunge(source, victim);
                 impact();
-                await Promise.all([attack, reaction]);
+                await Promise.all([
+                    attack,
+                    reaction,
+                    source.getUnitProperties().level > 2 ? this.delayReplay(220) : Promise.resolve(),
+                ]);
             } else {
                 const attack = usesAuthoredRangedRelease(source.getName())
                     ? Promise.resolve()

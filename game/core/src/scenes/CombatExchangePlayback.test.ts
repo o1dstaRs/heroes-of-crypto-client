@@ -15,6 +15,7 @@ const setup = () => {
     const unit = (id: string) => ({
         getId: () => id,
         getName: () => "Orc",
+        getUnitProperties: () => ({ level: 1 }),
         getAnimationTextureKey: () => undefined,
         getVisualCenter: () => ({ x: id === "A" ? 0 : 100, y: 0 }),
         getDamagePredictionAnchor: () => ({ x: 0, y: 100 }),
@@ -184,5 +185,19 @@ test("an authored shooter's recovery must finish before the counter starts", asy
     finish.shift()!();
     await flush();
     recover();
+    await pending;
+});
+
+test("higher tiers retain their existing lunge and knockback within the serial exchange", async () => {
+    const { scene, a, b, events, finish } = setup();
+    a.getUnitProperties = () => ({ level: 3 });
+    b.getUnitProperties = () => ({ level: 4 });
+    scene.applyReplayLunge = () => events.push("lunge");
+    scene.applyReplayHitKnockback = () => events.push("knockback");
+    scene.delayReplay = async () => {};
+    const pending = scene.playCombatExchange(a, b, { attackType: "melee" }, [strike()], () => {});
+    await flush();
+    expect(events).toEqual(["A:attack", "lunge", "damage", "B:hit", "knockback"]);
+    finish.splice(0).forEach((fn) => fn());
     await pending;
 });
