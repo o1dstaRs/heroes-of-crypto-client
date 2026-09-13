@@ -1,16 +1,15 @@
 import Button from "@mui/joy/Button";
-import React, { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router";
+import React, { useState } from "react";
+import { useNavigate } from "react-router";
 
 import { useAuthContext } from "./auth/context/auth_context";
 import { exitFightButtonSx } from "./exitFightButtonSx";
 import { ExitMatchDialog } from "./exitRules/ExitMatchDialog";
 import { leaveOutcomeFor } from "./exitRules/exitRulesModel";
+import { useDraftConduct } from "./exitRules/useDraftConduct";
 import { useLeaveGuard } from "./exitRules/useLeaveGuard";
 import { useFullscreenActive } from "./useFullscreenActive";
-import { fetchRankedConduct, type RankedConduct } from "../api/ranked_conduct_client";
 import { t, useTranslation } from "../i18n/i18n";
-import { isMarkedVsAiGame } from "../utils/aiOpponent";
 
 /**
  * The draft's exit control. The fight hasn't started, so in ranked leaving is always an Abandon (unscored for a
@@ -21,32 +20,14 @@ export const PickExitFightControl: React.FC<{ gameId: string }> = ({ gameId }) =
     const { abandonGame } = useAuthContext();
     const isFullscreen = useFullscreenActive();
     const navigate = useNavigate();
-    const location = useLocation();
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
-    const [conduct, setConduct] = useState<RankedConduct | undefined>();
-    const vsAi = isMarkedVsAiGame(gameId);
-    const casual = vsAi || (location.state as { from?: string } | null)?.from === "lobby";
+    // Loaded with the draft and again when the dialog opens. Fetched only on opening, the dialog's first frame showed
+    // the placed-player Abandon and "these rules start soon" until the answer arrived, and a quick confirm acted on it.
+    const { casual, vsAi, conduct } = useDraftConduct(gameId, confirmOpen);
     // Closing the tab mid-draft abandons a ranked match too; the browser asks first.
     useLeaveGuard(!casual);
-
-    useEffect(() => {
-        if (!confirmOpen || casual) {
-            return undefined;
-        }
-        let cancelled = false;
-        void fetchRankedConduct()
-            .then((next) => {
-                if (!cancelled) {
-                    setConduct(next);
-                }
-            })
-            .catch(() => undefined);
-        return () => {
-            cancelled = true;
-        };
-    }, [casual, confirmOpen]);
 
     const close = (): void => {
         if (!busy) {

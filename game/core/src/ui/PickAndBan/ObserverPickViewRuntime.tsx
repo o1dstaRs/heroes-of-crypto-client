@@ -5,8 +5,11 @@ import Sheet from "@mui/joy/Sheet";
 import Stack from "@mui/joy/Stack";
 import Typography from "@mui/joy/Typography";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router";
 
 import { fetchPickObserveSnapshot, type PickObserveSnapshot, type PickObserveTeam } from "../../api/ranked_play_client";
+import { useDraftExitResult } from "../exitRules/DraftEndedNotice";
+import { ExitResultBanner } from "../exitRules/ExitResultBanner";
 import { fetchRankedStanding } from "../../api/social_client";
 import { images as rawImages } from "../../generated/image_imports";
 import { t, tf, useTranslation } from "../../i18n/i18n";
@@ -267,6 +270,12 @@ export const ObserverPickView: React.FC<IObserverPickViewProps> = ({
     // A signed-in spectator with season gold may back a side while the draft runs. The market card applies
     // the server's own rules (ranked draft only, never a player's own game, one bet per game).
     const { authenticated, user } = useAuthContext();
+    const navigate = useNavigate();
+    const draftExit = useDraftExitResult(gameId, draftClosed);
+    // The public result names players by username, and this view only knows the signed-in user's.
+    const draftViewerPlayerId = draftExit.match?.players.find(
+        (player) => !!user?.username && player.username === user.username,
+    )?.playerId;
     const [viewerGold, setViewerGold] = useState<number | undefined>(undefined);
     const refreshViewerGold = useCallback(async (): Promise<void> => {
         if (!authenticated) {
@@ -390,7 +399,18 @@ export const ObserverPickView: React.FC<IObserverPickViewProps> = ({
                     <Typography level="body-xs" sx={{ color: "rgba(159,182,212,0.6)" }}>
                         {t("Creature picks and artifacts stay hidden until the fight starts.")}
                     </Typography>
-                    {draftOpenElsewhere ? (
+                    {/* A draft that ended before the fight: how it counted, once the abandon daemon has settled it. */}
+                    {draftClosed && draftExit.match?.exit && (
+                        <Box sx={{ pt: 0.75, maxWidth: 520 }}>
+                            <ExitResultBanner exit={draftExit.match.exit} ranked viewerPlayerId={draftViewerPlayerId} />
+                        </Box>
+                    )}
+                    {draftClosed && draftOpenElsewhere ? (
+                        // A player whose draft this was: it's over, so no "open elsewhere" and no "Draft here".
+                        <Button size="sm" variant="solid" onClick={() => navigate("/play")} sx={{ mt: 0.75 }}>
+                            {t("Back to the arena")}
+                        </Button>
+                    ) : draftOpenElsewhere ? (
                         <Stack spacing={0.75} alignItems="center" sx={{ pt: 0.75 }}>
                             <Typography level="body-sm" sx={{ color: "#dcb158", textAlign: "center", maxWidth: 520 }}>
                                 {t(

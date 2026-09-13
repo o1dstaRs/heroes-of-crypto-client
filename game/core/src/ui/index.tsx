@@ -55,6 +55,7 @@ import { AugmentStepPreview } from "./AugmentStepPreview";
 import { PlacementStepPreview } from "./PlacementStepPreview";
 import { SIDE_FIRE_DEFINITIONS } from "../scenes/sandbox/ambientFireTuning";
 import { LocalModelDraftOpponent } from "./PickAndBan/LocalModelDraftOpponent";
+import { DraftEndedNotice } from "./exitRules/DraftEndedNotice";
 import AutoPickToast from "./PickAndBan/AutoPickToast";
 import { buildApiUrl, endpoints, HOST_GAME_API } from "../api/axios";
 import { AuthProvider } from "./auth/context/auth_provider";
@@ -919,7 +920,8 @@ const PickAndBanView: React.FC<{
                     }
                 />
                 <LocalModelDraftOpponent eventUrl={pickEventsUrl} userTeam={userTeam} />
-                <AutoPickToast />
+                <AutoPickToast gameId={gameId} />
+                <DraftEndedNotice gameId={gameId} userTeam={userTeam} />
                 <Popover />
             </div>
         </PickBanEventProvider>

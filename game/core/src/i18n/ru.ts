@@ -1185,6 +1185,13 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "You abandoned": "Вы покинули матч",
     "Opponent conceded": "Соперник сдался",
     "You conceded": "Вы сдались",
+    "The draft has ended": "Драфт завершён",
+    "The match ended before the fight.": "Матч закончился до боя.",
+    "The match ended before the fight. Checking how it counts…": "Матч закончился до боя. Проверяем, как он засчитан…",
+    "Back to the arena": "Назад на арену",
+    "Time ran out — we auto-picked for you.": "Время вышло — мы выбрали за вас.",
+    "{count} auto-picks in one ranked draft end the match as your abandon.":
+        "{count} автовыбора в одном рейтинговом драфте засчитываются как ваш выход из матча.",
     "You abandoned at {pct}% casualties": "Вы покинули матч при потерях {pct}%",
     "Opponent abandoned at {pct}% casualties": "Соперник покинул матч при потерях {pct}%",
     "You conceded at {pct}% casualties": "Вы сдались при потерях {pct}%",
