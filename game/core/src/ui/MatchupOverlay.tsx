@@ -108,8 +108,8 @@ const Crest: React.FC<{ team: TeamType; tone: MatchupTeamTone }> = ({ team, tone
         <Box
             aria-hidden="true"
             sx={{
-                width: 35,
-                height: 39,
+                width: 38,
+                height: 41,
                 flex: "0 0 auto",
                 display: "grid",
                 placeItems: "center",
@@ -145,8 +145,8 @@ const AiAvatar: React.FC<{ label: string }> = ({ label }) => (
         src={images.combat_toolbar_ember_ai}
         alt={label}
         sx={{
-            width: 37,
-            height: 37,
+            width: 39,
+            height: 39,
             flex: "0 0 auto",
             objectFit: "contain",
             filter: "drop-shadow(0 2px 3px rgba(0,0,0,.72)) drop-shadow(0 0 3px rgba(211,173,92,.28))",
@@ -168,7 +168,7 @@ const Side: React.FC<{
                 minWidth: 0,
                 display: "flex",
                 alignItems: "center",
-                gap: 0.75,
+                gap: 0.9,
                 flexDirection: reversed ? "row-reverse" : "row",
                 textAlign: reversed ? "right" : "left",
             }}
@@ -178,7 +178,7 @@ const Side: React.FC<{
                     label={`${text.username} — ${text.rank}`}
                     league={profile.league ?? 0}
                     wealth={profile.wealth ?? 0}
-                    size={35}
+                    size={38}
                     variant="compact"
                 />
             ) : player.isAi ? (
@@ -195,9 +195,9 @@ const Side: React.FC<{
                         whiteSpace: "nowrap",
                         color: "#f2e7d0",
                         fontFamily: hocDisplayFontFamily,
-                        fontSize: "0.71rem",
+                        fontSize: "0.77rem",
                         fontWeight: 800,
-                        letterSpacing: "0.07em",
+                        letterSpacing: "0.055em",
                         lineHeight: 1.1,
                         textTransform: "uppercase",
                     }}
@@ -206,28 +206,47 @@ const Side: React.FC<{
                 </Typography>
                 <Box
                     sx={{
-                        mt: "3px",
+                        mt: "4px",
                         display: "flex",
                         minWidth: 0,
                         alignItems: "center",
                         justifyContent: reversed ? "flex-end" : "flex-start",
-                        gap: 0.35,
-                        color: "#c4b8a0",
-                        fontSize: "0.5rem",
-                        fontWeight: 800,
-                        letterSpacing: "0.02em",
+                        gap: 0.45,
+                        color: "#eadfc8",
+                        fontSize: "0.62rem",
+                        fontWeight: 900,
+                        fontVariantNumeric: "lining-nums tabular-nums",
+                        letterSpacing: "0.01em",
                         lineHeight: 1,
                         textTransform: "uppercase",
                         whiteSpace: "nowrap",
                     }}
                 >
-                    <Box component="span" sx={{ overflow: "hidden", textOverflow: "ellipsis", color: tone.bright }}>
+                    <Box
+                        component="span"
+                        sx={{
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            color: tone.bright,
+                            textShadow: "0 1px 2px #000",
+                        }}
+                    >
                         {text.record}
                     </Box>
                     <Box component="span" sx={{ flex: "0 0 auto", color: "#8b7960" }}>
                         ·
                     </Box>
-                    <Box component="span" sx={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <Box
+                        component="span"
+                        sx={{
+                            flex: "0 0 auto",
+                            color: "#fff0c9",
+                            fontSize: "0.69rem",
+                            fontWeight: 900,
+                            letterSpacing: 0,
+                            textShadow: "0 1px 2px #000",
+                        }}
+                    >
                         {text.winRate}
                     </Box>
                 </Box>
@@ -375,9 +394,9 @@ export const MatchupOverlay: React.FC<MatchupOverlayProps> = ({
                 top: placement === "fight" ? `${fightPosition?.top ?? 16}px` : 0,
                 left: centred ? "50%" : `calc(100% - ${fightRightEdge}px)`,
                 transform: centred ? "translateX(-50%)" : "translateX(-100%)",
-                width: collapsed ? 36 : "min(298px, calc(100vw - 24px))",
-                height: collapsed ? 30 : 54,
-                maxWidth: placement === "fight" && !collapsed ? `${fightPosition?.maxWidth ?? 298}px` : undefined,
+                width: collapsed ? 36 : "min(326px, calc(100vw - 24px))",
+                height: collapsed ? 30 : 58,
+                maxWidth: placement === "fight" && !collapsed ? `${fightPosition?.maxWidth ?? 326}px` : undefined,
                 transition: "left 260ms ease, transform 260ms ease, width 180ms ease, height 180ms ease",
             }}
         >
@@ -391,7 +410,7 @@ export const MatchupOverlay: React.FC<MatchupOverlayProps> = ({
                         py: 0.75,
                         overflow: "hidden",
                         display: "grid",
-                        gridTemplateColumns: "minmax(0, 1fr) 38px minmax(0, 1fr)",
+                        gridTemplateColumns: "minmax(0, 1fr) 40px minmax(0, 1fr)",
                         alignItems: "center",
                         gap: 0.5,
                         border: "1px solid rgba(211,173,92,.62)",
@@ -418,7 +437,7 @@ export const MatchupOverlay: React.FC<MatchupOverlayProps> = ({
                     <Box
                         sx={{
                             minWidth: 0,
-                            height: 34,
+                            height: 38,
                             display: "grid",
                             placeItems: "center",
                             borderLeft: "1px solid rgba(234,204,133,.17)",
@@ -432,7 +451,7 @@ export const MatchupOverlay: React.FC<MatchupOverlayProps> = ({
                                 sx={{
                                     color: "inherit",
                                     fontFamily: hocDisplayFontFamily,
-                                    fontSize: "0.72rem",
+                                    fontSize: "0.78rem",
                                     fontWeight: 800,
                                     letterSpacing: "0.1em",
                                     lineHeight: 1,
