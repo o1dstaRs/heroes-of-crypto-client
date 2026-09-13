@@ -93,19 +93,48 @@ export const listSandboxReplays = (storage = getBrowserStorage()): SandboxReplay
 export const loadSandboxReplay = (id: string, storage = getBrowserStorage()): SandboxReplay | undefined =>
     listSandboxReplays(storage).find((replay) => replay.id === id);
 
-export const saveSandboxReplay = (replay: SandboxReplay, storage = getBrowserStorage()): void => {
+const persistReplays = (replays: SandboxReplay[], storage: ReplayStorage): boolean => {
+    let candidate = [...replays].sort((a, b) => b.updatedAtMs - a.updatedAtMs).slice(0, MAX_SAVED_SANDBOX_REPLAYS);
+    for (;;) {
+        let serialized: string;
+        try {
+            serialized = JSON.stringify(candidate);
+        } catch {
+            return false;
+        }
+        try {
+            storage.setItem(SANDBOX_REPLAY_STORAGE_KEY, serialized);
+            return true;
+        } catch {
+            // Quota exceeded (or storage disabled): drop the OLDEST replays and retry. A throw here
+            // used to escape into callers — the debounced persist spammed uncaught
+            // QuotaExceededError, and a synchronous flush() during a sandbox reload aborted the
+            // scene rebuild halfway, leaving destroyed textures bound on the next render.
+            if (candidate.length <= 1) {
+                // Not even the newest replay alone fits. Clear the key so future saves start from
+                // an empty slate instead of failing forever against a stale oversized blob.
+                try {
+                    storage.removeItem(SANDBOX_REPLAY_STORAGE_KEY);
+                } catch {
+                    // nothing further to do; storage is unwritable
+                }
+                return false;
+            }
+            candidate = candidate.slice(0, Math.ceil(candidate.length / 2));
+        }
+    }
+};
+
+export const saveSandboxReplay = (replay: SandboxReplay, storage = getBrowserStorage()): boolean => {
     if (!storage) {
-        return;
+        return false;
     }
 
     // No defensive clone: the replay is JSON.stringify'd synchronously below, so the stored snapshot
     // is detached regardless. Cloning the whole (growing) replay here was pure per-save overhead.
     const replays = listSandboxReplays(storage).filter((existing) => existing.id !== replay.id);
     replays.unshift(replay);
-    storage.setItem(
-        SANDBOX_REPLAY_STORAGE_KEY,
-        JSON.stringify(replays.sort((a, b) => b.updatedAtMs - a.updatedAtMs).slice(0, MAX_SAVED_SANDBOX_REPLAYS)),
-    );
+    return persistReplays(replays, storage);
 };
 
 export const deleteSandboxReplay = (id: string, storage = getBrowserStorage()): void => {
@@ -114,7 +143,7 @@ export const deleteSandboxReplay = (id: string, storage = getBrowserStorage()): 
     }
 
     const replays = listSandboxReplays(storage).filter((replay) => replay.id !== id);
-    storage.setItem(SANDBOX_REPLAY_STORAGE_KEY, JSON.stringify(replays));
+    persistReplays(replays, storage);
 };
 
 export const clearSandboxReplays = (storage = getBrowserStorage()): void => {
