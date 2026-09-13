@@ -46,6 +46,7 @@ import {
     TEAM_FLAG_PALETTE_RED,
     teamColor as resolveTeamColor,
 } from "./teamColors";
+import { UnitLoadingPlaceholder } from "./unitLoadingPlaceholder";
 import { HOC_NUMERIC_FONT_FAMILY } from "../fontFamilies";
 import { projectBattlefieldPoint, projectedRectPoints } from "./sandbox/BattlefieldVisualGrid";
 import {
@@ -2059,6 +2060,11 @@ export class RenderableUnit extends Unit {
     // there — this flag is the only source. Drives the stun icon; OR'd with the live check for sandbox.
     private skippingThisTurnSynced = false;
     private sprite?: Sprite;
+    /**
+     * Stands in for the sprite while the base texture is still downloading. Created on first use: fromBase() re-types an
+     * existing Unit, so field initialisers never run on a RenderableUnit.
+     */
+    private loadingPlaceholder?: UnitLoadingPlaceholder;
     private motionBlurFilter?: BlurFilter;
     private shadow?: Graphics;
     private silhouetteShadow?: Sprite;
@@ -2555,7 +2561,25 @@ export class RenderableUnit extends Unit {
         const tallBoardModel = usesTallBoardModel(props, texName, hasAuthoredIdle);
         const refreshedFullBodyScale = usesRefreshedFullBodyScale(props, hasAuthoredIdle);
         const baseTex = this.resolveBaseTexture();
-        if (!baseTex) return;
+        if (!baseTex) {
+            // No board image yet: stand in with a team-coloured token and the stack count, so the unit is on the board
+            // and countable while its art downloads. The sprite below replaces it as soon as the image lands.
+            const inheritedScale = inheritedAbsoluteScale(worldRoot, this.inheritedScaleScratch);
+            this.inheritedScaleScratch = inheritedScale;
+            const perspectiveScale = this.useBattlefieldVisualProjection
+                ? battlefieldCreaturePerspectiveScale(logicalPos.y, footprintHeight, gs)
+                : 1;
+            (this.loadingPlaceholder ??= new UnitLoadingPlaceholder()).sync(worldRoot, {
+                x: pos.x,
+                y: pos.y,
+                side: gs.getCellSize() * Math.min(footprintWidth, footprintHeight) * perspectiveScale,
+                team: this.getTeam(),
+                amount: this.badgeAmountOverride ?? this.getAmountAlive(),
+                compensation: legacyBoardChildScaleCompensation(inheritedScale.x, inheritedScale.y),
+            });
+            return;
+        }
+        this.loadingPlaceholder?.destroy();
         // --- sprite ---
         if (!this.sprite) {
             // first time: use base texture
@@ -4997,6 +5021,7 @@ export class RenderableUnit extends Unit {
             this.sprite.destroy();
             this.sprite = undefined;
         }
+        this.loadingPlaceholder?.destroy();
         if (this.shadow) {
             this.shadow.destroy();
             this.shadow = undefined;

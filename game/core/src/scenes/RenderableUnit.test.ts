@@ -228,6 +228,48 @@ afterEach(() => {
     COMMON_IDLE_BREATH_SETTINGS.enabled = false;
 });
 
+describe("board placeholder while the board image downloads", () => {
+    const placeholderOf = (root: Container) =>
+        root.children.find((child) => child.label === "unit-loading-placeholder") as Container | undefined;
+    const spriteOf = (unit: RenderableUnit) => (unit as unknown as { sprite?: Sprite }).sprite;
+
+    test("a unit shows a team token with its stack count until its image lands, then its sprite", () => {
+        let loaded: Texture | undefined;
+        const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Wolf", "wolf_512", () => loaded);
+        unit.setPosition(384, 640);
+        const root = new Container();
+
+        unit.ensureVisual(root, gridSettings);
+        const token = placeholderOf(root);
+        expect(token).toBeDefined();
+        expect(token?.position.x).toBe(384);
+        expect(token?.position.y).toBe(640);
+        const count = token?.children.find((child) => child instanceof Text) as Text | undefined;
+        expect(count?.text).toBe(String(unit.getAmountAlive()));
+        expect(spriteOf(unit)).toBeUndefined();
+
+        // A second pass while still loading keeps the same token rather than stacking another.
+        unit.ensureVisual(root, gridSettings);
+        expect(root.children.filter((child) => child.label === "unit-loading-placeholder")).toHaveLength(1);
+
+        loaded = Texture.WHITE;
+        unit.ensureVisual(root, gridSettings);
+        expect(placeholderOf(root)).toBeUndefined();
+        expect(spriteOf(unit)).toBeDefined();
+    });
+
+    test("destroying a unit that never got its image removes its token", () => {
+        const unit = createRenderableUnit(TeamVals.RIGHT, "Nature", "Wolf", "wolf_512");
+        unit.setPosition(384, 640);
+        const root = new Container();
+        unit.ensureVisual(root, gridSettings);
+        expect(placeholderOf(root)).toBeDefined();
+
+        unit.destroyVisuals();
+        expect(placeholderOf(root)).toBeUndefined();
+    });
+});
+
 describe("preview placement facing", () => {
     test("a teamless overlay ghost faces by the hovered board half; a real team always wins", () => {
         // The army overlay is a team-less catalog: its chips carry NO_TEAM until the drop assigns a
