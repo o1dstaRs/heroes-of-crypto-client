@@ -18,12 +18,6 @@ interface TurnTimerBarProps {
     heading?: React.ReactNode;
     // Ranked only: whose clock is running. Your own gets the red fill; theirs gets the calm amber one.
     enemyTurn?: boolean;
-    /**
-     * Rendered directly under the groove, in the groove's own column — clear of the lap medallion on one
-     * side and the seconds on the other. The additional-time control goes here rather than across the card:
-     * it does one thing, to this clock, and at full card width it read as a separate action rather than as
-     * the second half of the timer.
-     */
     footer?: React.ReactNode;
     footerIndicator?: React.ReactNode;
 }
@@ -199,35 +193,26 @@ export const TurnTimerBar: React.FC<TurnTimerBarProps> = ({
                 </Typography>
             </Box>
 
-            {/* Compact overlay inside the timer's existing footprint. Because it is absolute, using or
-                hiding additional time never changes this component's measured height and therefore cannot
-                rescale the portrait, stats or effect icons above it. */}
             {(footer || footerIndicator) && (
                 <Box
                     sx={{
-                        display: "flex",
-                        position: "absolute",
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        zIndex: 2,
-                        height: `${Math.round(12 * metrics.fontScale)}px`,
-                        pl: `${medallion + gapPx + footerInsetPx}px`,
-                        pr: `${secondsWidth + gapPx + footerInsetPx}px`,
-                        justifyContent: "center",
-                        // Drop into the card's lower breathing room: clear of the progress groove, but
-                        // still above the card edge and the Up Next heading beneath it.
-                        transform: `translateY(${Math.round(10 * metrics.fontScale)}px)`,
+                        display: "grid",
+                        gridTemplateColumns: `${medallion}px minmax(0, 1fr) ${secondsWidth}px`,
+                        alignItems: "center",
+                        columnGap: `${gapPx}px`,
+                        minHeight: `${Math.round(28 * metrics.fontScale)}px`,
+                        mt: `${Math.max(3, Math.round(metrics.gapPx * 0.35))}px`,
                     }}
                 >
                     {footer && (
                         <Box
                             sx={{
                                 display: "flex",
-                                flex: "0 0 56%",
-                                maxWidth: "56%",
+                                gridColumn: 2,
+                                minWidth: 0,
                                 alignItems: "center",
-                                "& > *": { flex: 1, whiteSpace: "nowrap" },
+                                justifyContent: "center",
+                                "& > *": { maxWidth: "100%", whiteSpace: "nowrap" },
                             }}
                         >
                             {footer}
@@ -236,18 +221,17 @@ export const TurnTimerBar: React.FC<TurnTimerBarProps> = ({
                     {footerIndicator && (
                         <Box
                             sx={{
-                                position: "absolute",
-                                // Match the seconds column exactly. The seconds are right-aligned inside
-                                // this same-width slot, so its visual centre lands directly above the icon.
-                                // The visible time includes the trailing "s" beyond the two digits. Nudge
-                                // the icon to the visual centre of the complete label rather than the digits.
-                                right: `-${Math.round(5 * metrics.fontScale)}px`,
-                                top: "50%",
+                                gridColumn: 3,
                                 width: `${secondsWidth}px`,
-                                transform: "translateY(-50%)",
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "center",
+                                color: hocColors.gold,
+                                filter: `drop-shadow(0 0 3px ${hocColors.gold}66)`,
+                                "& svg": {
+                                    color: "inherit",
+                                    fontSize: `${Math.round(20 * metrics.fontScale)}px`,
+                                },
                             }}
                         >
                             {footerIndicator}

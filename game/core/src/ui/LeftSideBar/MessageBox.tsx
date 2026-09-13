@@ -29,21 +29,11 @@ import {
     type CountdownFrameTuning,
 } from "../countdownFrameLayout";
 import { CountdownFrameEditor } from "../CountdownFrameEditor";
-import { isFullscreenActive, onFullscreenChange } from "../fullscreen";
 import { TurnTimerBar } from "./TurnTimerBar";
 import { stonePlateSx } from "./stonePlateStyles";
 import { useSidebarMetrics } from "./sidebarMetrics";
 
 import { commonTooltipSx } from "./tooltipStyles";
-
-const moreTimeButtonLabelPlus4Url = new URL(
-    "../../../images/ui_more_time_button_forged_label_plus4_v2.webp",
-    import.meta.url,
-).toString();
-const enemyTurnButtonBlankUrl = new URL(
-    "../../../images/ui_enemy_turn_button_forged_blank_v1.webp",
-    import.meta.url,
-).toString();
 
 // Exact crop supplied for the new command-panel direction. Only the frame and stone surface remain baked
 // into the high-resolution 432x114 plate; START is live HoC Forge text, so the same type system can be used
@@ -162,9 +152,29 @@ const StartButton = ({ onClick, scale, disabled }: { onClick?: () => void; scale
 };
 
 export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; windowSize: IWindowSize }) => {
-    const [visibleState, setVisibleState] = useState<IVisibleState>({} as IVisibleState);
+    const showTurnTimerPreview =
+        Boolean(import.meta.env.DEV) &&
+        typeof window !== "undefined" &&
+        new URL(window.location.href).searchParams.get("timerPreview") === "1";
+    const [visibleState, setVisibleState] = useState<IVisibleState>(() =>
+        showTurnTimerPreview
+            ? {
+                  canBeStarted: false,
+                  hasFinished: false,
+                  secondsRemaining: 38,
+                  secondsMax: 45,
+                  teamTypeTurn: TeamVals.LEFT,
+                  hasAdditionalTime: true,
+                  lapNumber: 1,
+                  numberOfLapsTillNarrowing: 3,
+                  numberOfLapsTillStopNarrowing: 9,
+                  canRequestAdditionalTime: true,
+                  upNext: [],
+                  lapsNarrowed: 0,
+              }
+            : ({} as IVisibleState),
+    );
     const [countdown, setCountdown] = useState<number | null>(null);
-    const [isFullscreen, setIsFullscreen] = useState(isFullscreenActive);
     const [countdownFrameEditorOpen, setCountdownFrameEditorOpen] = useState(() => {
         if (!import.meta.env.DEV || typeof window === "undefined") return false;
         const params = new URL(window.location.href).searchParams;
@@ -177,10 +187,7 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
     const countdownInterval = useRef<NodeJS.Timeout | null>(null);
     const manager = usePixiManager();
     const metrics = useSidebarMetrics();
-    // On the player's setup the "full screen" layout can be a narrow maximized viewport without the
-    // browser Fullscreen API becoming active. The approved browser layout stays above this breakpoint;
-    // the narrow timer panel gets the restored wide label from the fullscreen reference.
-    const useFullscreenMoreTimeLabel = isFullscreen || metrics.barSize < 300;
+    const iconOnlyMoreTime = metrics.barSize < 200;
     const aiToggleSize = Math.max(30, Math.round(42 * metrics.startButtonScale));
     // Set only in ranked play (the viewer has a fixed side); undefined in sandbox/observer.
     const viewerTeam = useViewerTeam();
@@ -189,7 +196,6 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
     const isSandbox = viewerTeam === undefined;
     const [greenAi, setGreenAi] = useState(false);
     const [redAi, setRedAi] = useState(false);
-    useEffect(() => onFullscreenChange(() => setIsFullscreen(isFullscreenActive())), []);
     useEffect(() => {
         if (!import.meta.env.DEV) return;
         const onKeyDown = (event: KeyboardEvent) => {
@@ -216,11 +222,14 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
     };
 
     useEffect(() => {
+        if (showTurnTimerPreview) {
+            return;
+        }
         const connection = manager.onVisibleStateUpdated.connect(setVisibleState);
         return () => {
             connection.disconnect();
         };
-    }, [manager]);
+    }, [manager, showTurnTimerPreview]);
 
     // Countdown Logic
     useEffect(() => {
@@ -689,7 +698,7 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
     const aiTeams = [TeamVals.LEFT, TeamVals.RIGHT].filter((team) => manager.IsTeamAiControlled(team));
     const sandboxHumanTeam =
         isSandbox && aiTeams.length === 1 ? (aiTeams[0] === TeamVals.LEFT ? TeamVals.RIGHT : TeamVals.LEFT) : undefined;
-    const perspectiveTeam = viewerTeam ?? sandboxHumanTeam;
+    const perspectiveTeam = viewerTeam ?? sandboxHumanTeam ?? (showTurnTimerPreview ? TeamVals.LEFT : undefined);
 
     const turnTeam = visibleState.teamTypeTurn;
     const isEnemyTurn = perspectiveTeam !== undefined && turnTeam !== undefined && turnTeam !== perspectiveTeam;
@@ -726,11 +735,7 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
             messageBoxTitle = "Calculating next turn";
         } else if (perspectiveTeam !== undefined) {
             // Frame the turn from the watcher's side instead of by absolute team colours. On the other
-            // side's turn the heading is left EMPTY on purpose — the button below says "Enemy turn" for
-            // the whole of it, and printing it twice was the only thing in this card saying the same word
-            // to itself. The header row keeps its height either way: the hazard icon beside it sits in a
-            // fixed slot.
-            messageBoxTitle = visibleState.teamTypeTurn === perspectiveTeam ? "Your turn" : "";
+            messageBoxTitle = visibleState.teamTypeTurn === perspectiveTeam ? "Your turn" : "Opponent's turn";
         } else if (visibleState.teamTypeTurn === TeamVals.LEFT) {
             messageBoxTitle = "Green team's turn";
         } else {
@@ -740,7 +745,7 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
     }
 
     // --- ICON LOGIC ---
-    let defaultIcon: React.ReactNode = <TimelapseRoundedIcon />;
+    let footerIndicator: React.ReactNode;
 
     // Shared with the bottom-centre NextLapHazardBadge and the UpNextOverlay icon, so all three warnings
     // agree on what is coming (and armageddon outranks narrowing the same way in each).
@@ -749,7 +754,7 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
     const isArmageddonTurn = hazard?.kind === "armageddon";
 
     if (isArmageddonTurn) {
-        defaultIcon = (
+        footerIndicator = (
             <Tooltip title="Armageddon wave after this turn." placement="top" sx={{ ...commonTooltipSx, zIndex: 2 }}>
                 {/* Wrapped in a Box to separate styling context */}
                 <Box component="span" sx={{ display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
@@ -758,7 +763,7 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
             </Tooltip>
         );
     } else if (isNarrowingTurn) {
-        defaultIcon = (
+        footerIndicator = (
             <Tooltip
                 title="The map will narrow after this turn."
                 placement="top"
@@ -807,24 +812,6 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
                         borderRadius: "inherit",
                         background: stonePlateSx.background,
                     },
-                    // The More Time bitmap is intentionally paint-scaled without taking up layout space.
-                    // Continue the card surface behind its enlarged left half and a little beyond it,
-                    // while leaving both this card's footprint and Up Next at their existing coordinates.
-                    "&::after": {
-                        content: '""',
-                        position: "absolute",
-                        zIndex: -1,
-                        pointerEvents: "none",
-                        left: 0,
-                        right: 0,
-                        top: "calc(100% - 1px)",
-                        height: `${Math.round(14 * metrics.fontScale)}px`,
-                        // Continue from the dark end of the card's vertical gradient instead of
-                        // restarting it from its lighter top colour at this seam.
-                        background:
-                            "repeating-linear-gradient(135deg, rgba(255,255,255,.012) 0 1px, transparent 1px 7px), linear-gradient(rgba(9,9,8,.98), rgba(9,9,8,.98))",
-                        borderRadius: "0 0 3px 3px",
-                    },
                 }}
             >
                 {visibleState.hasFinished && (
@@ -857,118 +844,69 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
                                 {messageBoxTitle}
                             </Typography>
                         }
-                        footerIndicator={
-                            <Box
-                                sx={{
-                                    width: 22,
-                                    height: 22,
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    color: hocColors.gold,
-                                    filter: `drop-shadow(0 0 3px ${hocColors.gold}66)`,
-                                    "& svg": { color: "inherit" },
-                                }}
-                            >
-                                {defaultIcon}
-                            </Box>
-                        }
-                        // Keep the opponent-turn label, but remove the action completely as soon as this
-                        // turn's reserve has been spent. A single click issues a single request.
+                        footerIndicator={footerIndicator}
                         footer={
-                            cannotAct || visibleState.canRequestAdditionalTime ? (
-                                <Button
-                                    onClick={() => manager.RequestTime(visibleState.teamTypeTurn)}
-                                    size="sm"
-                                    variant="solid"
-                                    disabled={cannotAct || !visibleState.canRequestAdditionalTime}
-                                    sx={{
-                                        width: "100%",
-                                        minHeight: 0,
-                                        position: "relative",
-                                        // Keep the active plate at the same visual height in wide and narrow
-                                        // sidebars. Deriving height from its width made it shrink in the expanded
-                                        // viewport and left oversized empty gaps above and below it. The footer
-                                        // itself is absolutely positioned, so this does not move other content.
-                                        height: `${Math.round(20 * metrics.fontScale)}px`,
-                                        py: 0,
-                                        px: "2px",
-                                        // Both states use the same forged silhouette. The opponent state swaps
-                                        // in a text-free plate so its live label remains localizable and legible.
-                                        border: 0,
-                                        borderRadius: 0,
-                                        backgroundColor: "transparent",
-                                        backgroundImage: `url(${
-                                            cannotAct ? enemyTurnButtonBlankUrl : moreTimeButtonLabelPlus4Url
-                                        })`,
-                                        backgroundRepeat: "no-repeat",
-                                        backgroundPosition: "center",
-                                        backgroundSize: "100% 100%",
-                                        fontSize: `${0.66 * metrics.fontScale}rem`,
-                                        lineHeight: 1,
-                                        fontWeight: 800,
-                                        textTransform: "uppercase",
-                                        // The active label is baked into the exact-size v2 bitmap at 104% of
-                                        // the previous lettering. Keep the live text only for accessibility.
-                                        color: cannotAct ? hocColors.parchment : "transparent",
-                                        textShadow: cannotAct
-                                            ? "0 1px 1px rgba(0,0,0,.95), 0 0 2px rgba(224,183,100,.38)"
-                                            : "none",
-                                        letterSpacing: cannotAct ? hocDisplayLetterSpacing : undefined,
-                                        // Width keeps the approved slight overpaint. Height is now explicit above,
-                                        // so no fullscreen-state guess is needed and the centre stays fixed.
-                                        transform: "scale(1.2, 1)",
-                                        transformOrigin: "center",
-                                        transition:
-                                            "border-color 140ms ease, box-shadow 140ms ease, filter 140ms ease, transform 140ms ease",
-                                        // Lights up under the cursor: the hairline goes to full gold and a soft
-                                        // glow comes up around it, so the control announces itself as pressable
-                                        // on a card where everything else is a readout. Gated on :not(:disabled)
-                                        // — on the opponent's clock, or with the reserve spent, it stays inert
-                                        // rather than inviting a click that does nothing.
-                                        "&:hover:not(:disabled)": {
-                                            borderColor: cannotAct ? hocColors.gold : "transparent",
-                                            backgroundColor: "transparent",
-                                            boxShadow: cannotAct
-                                                ? `0 0 10px 1px ${hocColors.gold}59, inset 0 0 9px ${hocColors.gold}33`
-                                                : "none",
-                                            // The active control is a transparent bitmap, so drop-shadow follows
-                                            // the forged silhouette more clearly than a rectangular box shadow.
-                                            filter: cannotAct
-                                                ? "brightness(1.18)"
-                                                : `brightness(1.3) saturate(1.2) drop-shadow(0 0 4px ${hocColors.gold}cc) drop-shadow(0 0 10px ${hocColors.gold}73)`,
-                                            transform: cannotAct ? "none" : "scale(1.24, 1.04)",
-                                        },
-                                        "&:disabled": {
-                                            opacity: 1,
-                                            color: hocColors.parchment,
-                                            WebkitTextFillColor: hocColors.parchment,
-                                        },
-                                        // The label is baked into the bitmap. In the expanded viewport, repaint
-                                        // only its central strip at the measured windowed/fullscreen width ratio;
-                                        // the forged frame, button footprint, height and centre remain untouched.
-                                        ...(useFullscreenMoreTimeLabel && !cannotAct
-                                            ? {
-                                                  "&::after": {
-                                                      content: '""',
-                                                      position: "absolute",
-                                                      inset: "18%",
-                                                      pointerEvents: "none",
-                                                      backgroundImage: `url(${moreTimeButtonLabelPlus4Url})`,
-                                                      backgroundRepeat: "no-repeat",
-                                                      backgroundPosition: "center",
-                                                      backgroundSize: "156.25% 156.25%",
-                                                      transform: "scaleX(1.42)",
-                                                      transformOrigin: "center",
-                                                  },
-                                              }
-                                            : {}),
-                                    }}
+                            !cannotAct && visibleState.canRequestAdditionalTime ? (
+                                <Tooltip
+                                    title="Use this lap's remaining time reserve"
+                                    placement="top"
+                                    sx={{ ...commonTooltipSx, zIndex: 2 }}
                                 >
-                                    {/* On the other side's clock this stops being an action and becomes the
-                                        label for the wait. */}
-                                    {cannotAct ? "Enemy turn" : "More time"}
-                                </Button>
+                                    <Button
+                                        onClick={() => manager.RequestTime(visibleState.teamTypeTurn)}
+                                        size="sm"
+                                        variant="plain"
+                                        startDecorator={iconOnlyMoreTime ? undefined : <TimelapseRoundedIcon />}
+                                        sx={{
+                                            width: iconOnlyMoreTime
+                                                ? `${Math.round(27 * metrics.fontScale)}px`
+                                                : "fit-content",
+                                            minWidth: iconOnlyMoreTime ? 0 : metrics.compact ? 88 : 126,
+                                            maxWidth: "100%",
+                                            minHeight: 0,
+                                            height: `${Math.round(27 * metrics.fontScale)}px`,
+                                            py: 0,
+                                            px: metrics.compact ? 1 : 1.5,
+                                            border: `1px solid ${hocColors.gold}99`,
+                                            borderRadius: "999px",
+                                            background:
+                                                "linear-gradient(180deg, rgba(60,42,19,.94), rgba(20,13,7,.98))",
+                                            color: hocColors.parchment,
+                                            boxShadow:
+                                                "inset 0 1px rgba(255,232,180,.16), inset 0 -1px rgba(0,0,0,.7), 0 2px 5px rgba(0,0,0,.45)",
+                                            fontFamily: hocDisplayFontFamily,
+                                            fontSize: `${0.62 * metrics.fontScale}rem`,
+                                            fontWeight: 700,
+                                            lineHeight: 1,
+                                            letterSpacing: hocDisplayLetterSpacing,
+                                            textTransform: "uppercase",
+                                            textShadow: "0 1px 1px rgba(0,0,0,.9)",
+                                            transition:
+                                                "border-color 140ms ease, box-shadow 140ms ease, background 140ms ease, transform 100ms ease",
+                                            "& .MuiButton-startDecorator": {
+                                                marginInlineEnd: metrics.compact ? "4px" : "7px",
+                                                color: hocColors.gold,
+                                                "& svg": { fontSize: `${Math.round(16 * metrics.fontScale)}px` },
+                                            },
+                                            "&:hover": {
+                                                borderColor: hocColors.gold,
+                                                background:
+                                                    "linear-gradient(180deg, rgba(89,61,24,.98), rgba(28,18,8,.99))",
+                                                boxShadow: `inset 0 1px rgba(255,232,180,.22), 0 0 9px ${hocColors.gold}42`,
+                                                transform: "translateY(-1px)",
+                                            },
+                                            "&:active": { transform: "translateY(1px)" },
+                                        }}
+                                    >
+                                        {iconOnlyMoreTime ? (
+                                            <TimelapseRoundedIcon
+                                                sx={{ fontSize: `${Math.round(15 * metrics.fontScale)}px` }}
+                                            />
+                                        ) : (
+                                            "More time"
+                                        )}
+                                    </Button>
+                                </Tooltip>
                             ) : undefined
                         }
                     />
