@@ -111,7 +111,7 @@ import { startVisibleInterval } from "./visibleInterval";
 import { dragObserverPanelOffset, type PanelOffset } from "./observerPanelDrag";
 import { SpectatorContext, ViewerTeamContext } from "./context/ViewerTeamContext";
 import { SANDBOX_UNREADY_REASON, sandboxCoopSeatStatuses } from "./SandboxCoopControls";
-import { openFriendsPanel } from "./social/openFriendsEvent";
+import { useStopWatching } from "./useStopWatching";
 import { takeCoopCarryOver } from "./social/coopCarryOver";
 import { clearTurnAlert, isTabUnwatched, signalYourTurn, yourTurnActivationKey } from "./turnAlert";
 import { OpponentConnectionBadge } from "./OpponentConnectionBadge";
@@ -157,6 +157,7 @@ import {
     getAiSeatDifficulty,
     getMarkedVsAiDifficulty,
     hasAiSeatPlayer,
+    isAiSeatPlayerId,
     isMarkedVsAiGame,
     markVsAiGame,
     vsAiDifficultyLabel,
@@ -619,8 +620,11 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
         toSceneSnapshot,
     ]);
 
+    // Once the match is over the board no longer changes, so the fallback poll stops; a co-op sandbox keeps it
+    // for its rematch flow. A results screen left open used to request a snapshot every 4s indefinitely.
+    const matchFinished = !!snapshot && (snapshot.fightFinished || snapshot.phase === PlayPhase.FINISHED);
     useEffect(() => {
-        if (replayOnly) {
+        if (replayOnly || (matchFinished && !sandboxCoop)) {
             return undefined;
         }
         let cancelled = false;
@@ -655,7 +659,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             cancelled = true;
             stopPolling();
         };
-    }, [refreshSnapshot, replayOnly]);
+    }, [matchFinished, refreshSnapshot, replayOnly, sandboxCoop]);
 
     useEffect(() => {
         // The preview session (/preview/placement) has no event stream to connect to — its snapshot lives
@@ -796,20 +800,16 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     const cameFromLobby = observerOrigin?.from === "lobby";
     // A spectator who followed a friend's "Spectate" goes back to the arena with the friends panel open.
     const cameFromFriends = observerOrigin?.from === "friends";
+    // Spectators leave the way they came in: their lobby, the friends panel, or THIS deployment's website
+    // (it used to be production's even on the test server) — see spectatorExitFor.
+    const stopWatching = useStopWatching();
     const handleBackToLobby = useCallback(() => {
         if (isObserver && !replayOnly) {
-            if (cameFromLobby) {
-                navigate(observerOrigin?.lobbyId ? `/lobby/${observerOrigin.lobbyId}` : "/lobbies");
-            } else if (cameFromFriends) {
-                navigate("/play");
-                openFriendsPanel();
-            } else {
-                window.location.assign("https://heroesofcrypto.io");
-            }
+            stopWatching();
             return;
         }
         navigate(replayOnly ? "/portal" : "/play");
-    }, [navigate, replayOnly, isObserver, cameFromLobby, cameFromFriends, observerOrigin]);
+    }, [navigate, replayOnly, isObserver, stopWatching]);
     const handlePlayAgainVsAi = useCallback(async () => {
         // Always rematch the default AI (no difficulty tiers) — matches the tier-less "Play vs AI" entry.
         // The just-finished match's result write (game doc -> finished, both players' inGameId released)
@@ -1908,6 +1908,8 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             userTeam={userTeam}
             isObserver={isObserver}
             skipAugmentStep={!!sandboxCoop}
+            replayOnly={replayOnly}
+            onStopWatching={isObserver && !replayOnly ? handleBackToLobby : undefined}
         />
     );
     const rankedFooter =
@@ -2094,6 +2096,10 @@ interface RankedOverlayProps {
     isObserver: boolean;
     /** Co-op sandbox: no draft, so the full-screen augment step never opens (the sidebar picker stays). */
     skipAugmentStep?: boolean;
+    /** A portal replay: the observer copy speaks of the replay, not of a live match. */
+    replayOnly?: boolean;
+    /** A live spectator's way out (see spectatorExitFor). Absent for players and replays. */
+    onStopWatching?: () => void;
 }
 
 interface RankedPlacementStackActionsProps {
@@ -2599,7 +2605,8 @@ const useObserverIdentities = (snapshot: PlaySnapshot): Record<string, IObserver
         .join(",");
     useEffect(() => {
         let cancelled = false;
-        for (const playerId of playerIds.split(",").filter(Boolean)) {
+        // AI seats have no ranked profile (the lookup only 404s); their panel line comes from the seat id.
+        for (const playerId of playerIds.split(",").filter((id) => id && !isAiSeatPlayerId(id))) {
             axiosMMInstance
                 .get(`${endpoints.mm.rankedProfile}/${encodeURIComponent(playerId)}`)
                 .then((response) => {
@@ -2642,26 +2649,32 @@ const observerIdentityLine = (identity: IObserverIdentity | undefined): string =
 
 const ObserverSetupPanel: React.FC<{ snapshot: PlaySnapshot }> = ({ snapshot }) => {
     const identities = useObserverIdentities(snapshot);
-    const identityFor = (team: number): IObserverIdentity | undefined => {
+    const identityLineFor = (team: number): string => {
         const player = snapshot.players.find((candidate) => candidate.team === team);
-        return player ? identities[player.playerId] : undefined;
+        if (!player) {
+            return "";
+        }
+        if (isAiSeatPlayerId(player.playerId)) {
+            return aiOpponentLabel(player.playerId) ?? t("AI");
+        }
+        return observerIdentityLine(identities[player.playerId]);
     };
     return (
         <Stack spacing={0.5}>
             <Typography level="body-sm" textColor={hocColors.parchment}>
-                Army setups
+                {t("Army setups")}
             </Typography>
             {/* useFlexGap: plain spacing is a left margin, so a wrapped second team kept it and sat indented. */}
             <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
                 <ObserverTeamSetup
                     label={teamLabel(TeamVals.LEFT)}
-                    identityLine={observerIdentityLine(identityFor(TeamVals.LEFT))}
+                    identityLine={identityLineFor(TeamVals.LEFT)}
                     snapshot={snapshot}
                     side="lower"
                 />
                 <ObserverTeamSetup
                     label={teamLabel(TeamVals.RIGHT)}
-                    identityLine={observerIdentityLine(identityFor(TeamVals.RIGHT))}
+                    identityLine={identityLineFor(TeamVals.RIGHT)}
                     snapshot={snapshot}
                     side="upper"
                 />
@@ -3141,6 +3154,8 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     userTeam,
     isObserver,
     skipAugmentStep = false,
+    replayOnly = false,
+    onStopWatching,
 }) => {
     const isFullscreen = useFullscreenActive();
     const navigate = useNavigate();
@@ -3740,10 +3755,26 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
 
                 {isObserver && (
                     <Typography level="body-xs" textColor={hocColors.muted}>
-                        Live observer mode. Controls are disabled; replay is available after the fight ends.
+                        {replayOnly
+                            ? t("Watching a replay. Controls are disabled.")
+                            : snapshot.fightFinished || snapshot.phase === PlayPhase.FINISHED
+                              ? t("This match has ended. Controls are disabled.")
+                              : t(
+                                    "Live observer mode. Controls are disabled; replay is available after the fight ends.",
+                                )}
                     </Typography>
                 )}
                 {isObserver && <ObserverSetupPanel snapshot={snapshot} />}
+                {onStopWatching && (
+                    <Button
+                        variant="soft"
+                        size="sm"
+                        onClick={onStopWatching}
+                        sx={{ ...hocSoftButtonSx, alignSelf: "flex-start" }}
+                    >
+                        {t("Stop watching")}
+                    </Button>
+                )}
 
                 {busy && (
                     <Stack direction="row" spacing={1} alignItems="center">

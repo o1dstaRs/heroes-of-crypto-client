@@ -24,7 +24,7 @@ import CssBaseline from "@mui/joy/CssBaseline";
 import { CssVarsProvider } from "@mui/joy/styles";
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter as Router, Route, Routes, useNavigate, useParams } from "react-router";
+import { BrowserRouter as Router, Route, Routes, useLocation, useNavigate, useParams } from "react-router";
 import { TextStyle } from "pixi.js";
 
 import { usePixiManager } from "../pixi/PixiGameManager";
@@ -72,6 +72,8 @@ import { setPrefightMusicActive } from "./audio/prefightMusic";
 import type { SceneGameActionTransport } from "../game_action_transport";
 import { fetchPickObserveSnapshot, fetchRankedPlaySnapshot } from "../api/ranked_play_client";
 import ObserverPickView from "./PickAndBan/ObserverPickView";
+import { t } from "../i18n/i18n";
+import { useStopWatching } from "./useStopWatching";
 import { PlayerPortalPage } from "./PlayerPortal/PlayerPortalPage";
 import { isMockPortalEnabled } from "./PlayerPortal/mockPortal";
 import { RankedGameView } from "./RankedGameView";
@@ -837,12 +839,30 @@ const pickEventUrl = (gameId: string): string => {
     return appendEncodedPath(buildApiUrl(HOST_GAME_API, endpoints.game.pickEvents), gameId);
 };
 
+// How long a participant's draft stream may stay unconnected before the view assumes the server refused it. The
+// server answers a second tab or device with 429 and the event source retries silently, which left a dead screen.
+const DRAFT_STREAM_STALL_MS = 12_000;
+
+const DraftConnectionWatch: React.FC<{ onStalled?: () => void }> = ({ onStalled }) => {
+    const { isConnected } = usePickBanEvents();
+    useEffect(() => {
+        if (!onStalled || isConnected) {
+            return undefined;
+        }
+        const timer = window.setTimeout(onStalled, DRAFT_STREAM_STALL_MS);
+        return () => window.clearTimeout(timer);
+    }, [isConnected, onStalled]);
+    return null;
+};
+
 const PickAndBanView: React.FC<{
     windowSize: IWindowSize;
     userTeam: TeamType;
     gameId: string;
     onPickPhaseChange?: (phase: number) => void;
-}> = ({ windowSize, userTeam, gameId, onPickPhaseChange }) => {
+    /** The draft stream never connected (see DRAFT_STREAM_STALL_MS). */
+    onConnectionStalled?: () => void;
+}> = ({ windowSize, userTeam, gameId, onPickPhaseChange, onConnectionStalled }) => {
     const manager = usePixiManager();
     const [started, setStarted] = useState(false);
     const [isLoading, setIsLoading] = useState(manager.isLoading);
@@ -866,6 +886,7 @@ const PickAndBanView: React.FC<{
     return (
         <PickBanEventProvider url={pickEventsUrl} userTeam={userTeam}>
             <PickPhaseReporter onPhaseChange={onPickPhaseChange} />
+            <DraftConnectionWatch onStalled={onConnectionStalled} />
             <div
                 className="container"
                 style={{
@@ -954,9 +975,21 @@ const MatchLoadingOverlay: React.FC = () => (
     </div>
 );
 
+/**
+ * A different game id is a different match: remount the route so no draft, fight or overlay state from the game
+ * watched before survives. Spectate links from the friends dock navigate between games without a reload.
+ */
+const KeyedGameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
+    const { gameId } = useParams<{ gameId: string }>();
+    return <GameRoute key={gameId} windowSize={windowSize} />;
+};
+
 const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
     const { gameId } = useParams<{ gameId: string }>();
     const { authenticated, getCurrentGame } = useAuthContext();
+    const navigate = useNavigate();
+    const location = useLocation();
+    const stopWatching = useStopWatching();
     const [showOverlay, setShowOverlay] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
     const [userTeam, setUserTeam] = useState<TeamType>(TeamVals.NO_TEAM as TeamType);
@@ -965,6 +998,19 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
     // interactive pick screen for the read-only observer view; the play route already handles
     // observers via userTeam === NO_TEAM.
     const [observerMode, setObserverMode] = useState(false);
+    // A participant whose own draft stream would not connect (a second tab or device) watches read-only instead.
+    const [draftOpenElsewhere, setDraftOpenElsewhere] = useState(false);
+    const handleDraftStalled = useCallback(() => setDraftOpenElsewhere(true), []);
+    const handleDraftHere = useCallback(() => setDraftOpenElsewhere(false), []);
+    // The error/ended overlay's way out: a spectator leaves the way they came; a signed-in player with no
+    // spectating origin goes back to the arena.
+    const leaveOverlay = useCallback(() => {
+        if (authenticated && !location.state) {
+            navigate("/play");
+            return;
+        }
+        stopWatching();
+    }, [authenticated, location.state, navigate, stopWatching]);
 
     // "Iron and Silk" covers everything between the match being found and the first turn: the match check,
     // picks and augments here, then placement inside RankedGameView, which takes over the flag once the
@@ -1024,6 +1070,12 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                             setErrorMessage("");
                             return true;
                         }
+                        if (draft?.stage === "finished") {
+                            // Over before anyone could watch: say so, with a way out, not "not available yet".
+                            setShowOverlay(true);
+                            setErrorMessage(t("This match has ended"));
+                            return true;
+                        }
                     } catch (draftErr) {
                         console.error(draftErr);
                     }
@@ -1052,7 +1104,7 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                 }
 
                 setShowOverlay(true);
-                setErrorMessage("This game is not available to observe yet");
+                setErrorMessage(t("This game is not available to observe yet"));
                 return;
             }
 
@@ -1061,7 +1113,7 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
 
                 if (currentGame?.abandoned) {
                     setShowOverlay(true);
-                    setErrorMessage("This game has been abandoned!");
+                    setErrorMessage(t("This game has been abandoned!"));
                 } else {
                     setErrorMessage("");
 
@@ -1073,7 +1125,7 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                             return;
                         }
                         setShowOverlay(true);
-                        setErrorMessage("The game is no longer active or you don't have access to it");
+                        setErrorMessage(t("The game is no longer active or you don't have access to it"));
                     } else {
                         setRouteMode("checking");
                         setShowOverlay(false);
@@ -1085,7 +1137,7 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                     return;
                 }
                 setShowOverlay(true);
-                setErrorMessage((err as Error).message || "An unexpected error occurred");
+                setErrorMessage((err as Error).message || t("An unexpected error occurred"));
             }
         };
 
@@ -1173,18 +1225,39 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                         textShadow: "0 0 10px white",
                     }}
                 >
-                    {errorMessage}
+                    <div style={{ display: "grid", gap: 18, justifyItems: "center", padding: 24, textAlign: "center" }}>
+                        <div>{errorMessage}</div>
+                        <button
+                            type="button"
+                            onClick={leaveOverlay}
+                            style={{
+                                font: "inherit",
+                                fontSize: 18,
+                                padding: "8px 20px",
+                                borderRadius: 8,
+                                border: "1px solid rgba(255, 255, 255, 0.6)",
+                                background: "rgba(0, 0, 0, 0.35)",
+                                color: "white",
+                                textShadow: "none",
+                                cursor: "pointer",
+                            }}
+                        >
+                            {t("Leave")}
+                        </button>
+                    </div>
                 </div>
             )}
             {!showOverlay && gameId && routeMode === "checking" && <MatchLoadingOverlay />}
             {!showOverlay && gameId && routeMode !== "checking" && (
                 <>
                     {routeMode === "pick" &&
-                        (observerMode ? (
+                        (observerMode || draftOpenElsewhere ? (
                             <ObserverPickView
                                 gameId={gameId}
                                 onPickPhaseChange={handlePickPhaseChange}
                                 onDraftEnded={handleDraftEnded}
+                                draftOpenElsewhere={draftOpenElsewhere}
+                                onDraftHere={draftOpenElsewhere ? handleDraftHere : undefined}
                             />
                         ) : (
                             <PickAndBanView
@@ -1192,6 +1265,7 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                                 userTeam={userTeam}
                                 gameId={gameId}
                                 onPickPhaseChange={handlePickPhaseChange}
+                                onConnectionStalled={handleDraftStalled}
                             />
                         ))}
                     {routeMode === "play" && (
@@ -1463,7 +1537,7 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
                 path="/game/:gameId"
                 element={
                     <WalletProvider>
-                        <GameRoute windowSize={windowSize} />
+                        <KeyedGameRoute windowSize={windowSize} />
                     </WalletProvider>
                 }
             />

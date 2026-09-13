@@ -594,6 +594,25 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     Army: "Армия",
     "Doctrine, artifacts and augments are revealed when the fight starts":
         "Перк, артефакты и усиления откроются в начале боя",
+    // Spectator exits, finished matches and the draft watcher.
+    "Stop watching": "Выйти из просмотра",
+    "This match has ended": "Этот матч завершён",
+    "This match ended before the fight": "Матч завершился до боя",
+    "This match has ended. Controls are disabled.": "Матч завершён. Управление отключено.",
+    "Watching a replay. Controls are disabled.": "Просмотр повтора. Управление отключено.",
+    "This game is not available to observe yet": "Эту игру пока нельзя смотреть",
+    "This game has been abandoned!": "Эта игра прервана!",
+    "The game is no longer active or you don't have access to it":
+        "Игра больше не активна, или у вас нет к ней доступа",
+    "An unexpected error occurred": "Произошла непредвиденная ошибка",
+    "Your draft is open in another tab or on another device, so you're watching it here.":
+        "Ваш драфт открыт в другой вкладке или на другом устройстве, поэтому здесь вы его смотрите.",
+    "Draft here": "Продолжить драфт здесь",
+    "Recent games": "Последние игры",
+    "Loading…": "Загрузка…",
+    "No ranked games yet": "Пока нет рейтинговых игр",
+    "vs {name}": "против {name}",
+    "Ranked game": "Рейтинговая игра",
     Yours: "Ваш",
     None: "Нет",
     "{tier} artifact": "артефакт {tier}-го уровня",

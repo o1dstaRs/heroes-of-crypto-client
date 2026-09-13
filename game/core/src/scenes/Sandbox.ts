@@ -1875,6 +1875,14 @@ export class Sandbox extends PixiScene {
     protected isEnemyActiveTurn(): boolean {
         return false;
     }
+    /** The active unit's turn-ring colour: red on the viewer's enemy's turn, white otherwise. */
+    protected activeTurnAuraColor(): number {
+        return this.isEnemyActiveTurn() ? ENEMY_TURN_HIGHLIGHT_COLOR : 0xffffff;
+    }
+    /** Whether applied actions are recorded into the browser's local sandbox replays. */
+    protected shouldRecordSandboxReplay(): boolean {
+        return true;
+    }
     /**
      * The team the generic "AI toggle" (autobattle) may auto-play, or undefined for no restriction.
      * The base sandbox returns undefined so single-player autobattle can drive whichever unit is
@@ -15946,7 +15954,7 @@ export class Sandbox extends PixiScene {
     private createReplayRecordingActionEngine(engine: SceneActionEngine): SceneActionEngine {
         return {
             apply: (action: GameAction) => {
-                const shouldRecord = !this.replayRecordingSuspended;
+                const shouldRecord = !this.replayRecordingSuspended && this.shouldRecordSandboxReplay();
                 if (shouldRecord) {
                     this.replayRecorder.beginAction();
                 }
@@ -15966,7 +15974,7 @@ export class Sandbox extends PixiScene {
         };
     }
     private flushPendingReplayRecords(): void {
-        if (this.replayRecordingSuspended) {
+        if (this.replayRecordingSuspended || !this.shouldRecordSandboxReplay()) {
             this.pendingReplayRecords = [];
             return;
         }
@@ -16735,7 +16743,7 @@ export class Sandbox extends PixiScene {
         // setActiveTurn is idempotent and preserves the current animation phase when it is already true.
         nextUnit.setActiveTurn(true);
         // Red aura on the enemy's turn, white on yours, so the pulsing ring telegraphs whose turn it is.
-        nextUnit.setActiveAuraColor(this.isEnemyActiveTurn() ? ENEMY_TURN_HIGHLIGHT_COLOR : 0xffffff);
+        nextUnit.setActiveAuraColor(this.activeTurnAuraColor());
         nextUnit.syncVisual(worldRoot, gs);
 
         const unitsNext: IVisibleUnit[] = [];

@@ -93,6 +93,12 @@ export const listSandboxReplays = (storage = getBrowserStorage()): SandboxReplay
 export const loadSandboxReplay = (id: string, storage = getBrowserStorage()): SandboxReplay | undefined =>
     listSandboxReplays(storage).find((replay) => replay.id === id);
 
+/**
+ * Store the newest replays that fit. A long fight snapshots the whole board per action and can outgrow the
+ * browser's storage quota; a throwing save used to surface as an uncaught error on every action (37 error
+ * reports from one spectator tab). Older replays are dropped until the write fits, and if even the newest
+ * alone does not, the save is skipped: a local replay is a convenience, never worth an error.
+ */
 export const saveSandboxReplay = (replay: SandboxReplay, storage = getBrowserStorage()): void => {
     if (!storage) {
         return;
@@ -102,10 +108,15 @@ export const saveSandboxReplay = (replay: SandboxReplay, storage = getBrowserSto
     // is detached regardless. Cloning the whole (growing) replay here was pure per-save overhead.
     const replays = listSandboxReplays(storage).filter((existing) => existing.id !== replay.id);
     replays.unshift(replay);
-    storage.setItem(
-        SANDBOX_REPLAY_STORAGE_KEY,
-        JSON.stringify(replays.sort((a, b) => b.updatedAtMs - a.updatedAtMs).slice(0, MAX_SAVED_SANDBOX_REPLAYS)),
-    );
+    let kept = replays.sort((a, b) => b.updatedAtMs - a.updatedAtMs).slice(0, MAX_SAVED_SANDBOX_REPLAYS);
+    while (kept.length > 0) {
+        try {
+            storage.setItem(SANDBOX_REPLAY_STORAGE_KEY, JSON.stringify(kept));
+            return;
+        } catch {
+            kept = kept.slice(0, -1);
+        }
+    }
 };
 
 export const deleteSandboxReplay = (id: string, storage = getBrowserStorage()): void => {
@@ -114,7 +125,11 @@ export const deleteSandboxReplay = (id: string, storage = getBrowserStorage()): 
     }
 
     const replays = listSandboxReplays(storage).filter((replay) => replay.id !== id);
-    storage.setItem(SANDBOX_REPLAY_STORAGE_KEY, JSON.stringify(replays));
+    try {
+        storage.setItem(SANDBOX_REPLAY_STORAGE_KEY, JSON.stringify(replays));
+    } catch {
+        // A smaller list than the one already stored cannot exceed the quota; nothing useful to do if it did.
+    }
 };
 
 export const clearSandboxReplays = (storage = getBrowserStorage()): void => {

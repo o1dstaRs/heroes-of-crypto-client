@@ -4,6 +4,7 @@ import Typography from "@mui/joy/Typography";
 import React, { useEffect, useState } from "react";
 
 import { fetchPublicPlayerStats, type PublicPlayerStats } from "../../api/social_client";
+import { t, tf } from "../../i18n/i18n";
 import { CreaturePortraitImage } from "../CreaturePortraitImage";
 import { UNIT_ID_TO_NAME } from "../unit_ui_constants";
 
@@ -58,15 +59,15 @@ export const ObserverRecentGames: React.FC<{ playerId: string; isBot: boolean }>
                 level="body-xs"
                 sx={{ color: "#9fb6d4", textTransform: "uppercase", letterSpacing: 0.7, mb: 0.75 }}
             >
-                Recent games
+                {t("Recent games")}
             </Typography>
             {games === undefined ? (
                 <Typography level="body-xs" sx={{ color: "rgba(159,182,212,0.5)" }}>
-                    Loading…
+                    {t("Loading…")}
                 </Typography>
             ) : games.length === 0 ? (
                 <Typography level="body-xs" sx={{ color: "rgba(159,182,212,0.5)" }}>
-                    No ranked games yet
+                    {t("No ranked games yet")}
                 </Typography>
             ) : (
                 <Stack spacing={0.6}>
@@ -101,7 +102,9 @@ export const ObserverRecentGames: React.FC<{ playerId: string; isBot: boolean }>
                                     noWrap
                                     sx={{ color: "#efe4cc", width: 84, flex: "0 0 auto" }}
                                 >
-                                    {game.opponent?.username ? `vs ${game.opponent.username}` : "Ranked game"}
+                                    {game.opponent?.username
+                                        ? tf("vs {name}", { name: game.opponent.username })
+                                        : t("Ranked game")}
                                 </Typography>
                                 <Stack direction="row" spacing={0.25} sx={{ minWidth: 0, overflow: "hidden" }}>
                                     {(game.creatureIds ?? []).slice(0, 6).map((creatureId, index) => (
