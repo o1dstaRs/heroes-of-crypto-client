@@ -824,8 +824,8 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Red AI": "Красный ИИ",
     "Unable to start another match": "Не удалось начать новый матч",
     "Exit the fight?": "Выйти из боя?",
-    "This forfeits the fight — your opponent is declared the winner immediately and it counts as a loss for you. This cannot be undone.":
-        "Это сдача: соперник сразу станет победителем, а вам засчитают поражение. Отменить действие нельзя.",
+    "This forfeits the fight — your opponent is declared the winner immediately and it counts as a loss for you. In ranked, leaving 3 matches in a row suspends your ranked play. This cannot be undone.":
+        "Это сдача: соперник сразу станет победителем, а вам засчитают поражение. В рейтинге 3 выхода из матчей подряд приостанавливают доступ к рейтинговым играм. Отменить действие нельзя.",
     Cancel: "Отмена",
     Forfeit: "Сдаться",
     "EXIT FIGHT": "ВЫЙТИ ИЗ БОЯ",

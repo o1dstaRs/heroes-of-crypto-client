@@ -3285,7 +3285,8 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                 <Stack spacing={2} sx={{ mt: 1, minWidth: 300, maxWidth: 360 }}>
                     <Typography level="body-sm" textColor={hocColors.mutedStrong}>
                         This forfeits the fight — your opponent is declared the winner immediately and it counts as a
-                        loss for you. This cannot be undone.
+                        loss for you. In ranked, leaving 3 matches in a row suspends your ranked play. This cannot be
+                        undone.
                     </Typography>
                     <Stack direction="row" spacing={1} justifyContent="flex-end">
                         <Button
