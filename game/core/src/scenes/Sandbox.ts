@@ -4945,14 +4945,15 @@ export class Sandbox extends PixiScene {
         }
         return rendered;
     }
-    private showReplayAttackDamage(
-        attacker: RenderableUnit,
-        target: RenderableUnit,
-        attackEvent: Extract<GameEvent, { type: "unit_attacked" }>,
-        record: SandboxReplay["actions"][number],
-        presentedUnitIds: ReadonlySet<string> = new Set(),
-    ): void {
-        const damage = attackEvent.damage;
+    /**
+     * Secondary damage from abilities that trigger DURING the exchange — Fire Shield reflect, Chain Lightning
+     * bounces, Petrifying Gaze kills, Magic Mirror, Lightning Spin — each gets its own floating number on the
+     * affected unit (impact-time position fallback so dead units still show). Staggered so they don't stack on
+     * the primary hit. Styled per source (and Petrifying Gaze yanks the struck unit) so the ranked replay
+     * matches the live sandbox effect — otherwise the gaze read as a plain red number with no reaction on the
+     * side that took it.
+     */
+    private showSecondaryDamageNumbers(secondary: IVisibleDamage["secondary"], attackerCenter: HoCMath.XY): void {
         const gs = this.sc_sceneSettings.getGridSettings();
         // Flesh Shield is deliberately rendered as ONE aggregated, labelled value on the aura owner.
         // Keep it out of the generic secondary loop below or it would also draw as an ordinary `-X` hit.
@@ -5035,6 +5036,7 @@ export class Sandbox extends PixiScene {
         target: RenderableUnit,
         attackEvent: Extract<GameEvent, { type: "unit_attacked" }>,
         record: SandboxReplay["actions"][number],
+        presentedUnitIds: ReadonlySet<string> = new Set(),
     ): void {
         const damage = attackEvent.damage;
         const gs = this.sc_sceneSettings.getGridSettings();
