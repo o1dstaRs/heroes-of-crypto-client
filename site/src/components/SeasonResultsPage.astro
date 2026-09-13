@@ -365,6 +365,12 @@ const profileRoot = isRu ? "/ru/profile/" : "/profile/";
         gap: 18px;
     }
 
+    /* A shrinkable column: the wide standings table scrolls in its wrapper instead of widening the page. */
+    .seasons-shell,
+    .seasons-content {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
     .seasons-head h1 {
         margin: 6px 0 10px;
         font-family: var(--hoc-font-display);
