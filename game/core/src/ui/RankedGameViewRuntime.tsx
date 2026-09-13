@@ -136,6 +136,7 @@ import {
 } from "./rankedActionResponse";
 import {
     isRankedBoardPlacementStage,
+    observerPlacementRosterIds,
     rankedPlacementLockActionType,
     shouldHideRankedSetupOpponentRoster,
     shouldShowRankedAugmentPicker,
@@ -2468,6 +2469,12 @@ const ObserverTeamSetup: React.FC<{
         },
     ].filter((entry) => entry.level > 0);
 
+    // Before the fight a spectator is shown only what BOTH players can already see. The server blanks every
+    // side's doctrine, artifacts and augments until the fight starts, so those blanks must not read as "None";
+    // the army itself appears once board placement has exposed it to both seats.
+    const beforeFight = snapshot.phase === PlayPhase.PLACEMENT && !snapshot.fightStarted;
+    const exposedRoster = observerPlacementRosterIds(snapshot, side === "lower" ? TeamVals.LEFT : TeamVals.RIGHT);
+
     return (
         <Stack spacing={0.5} sx={{ minWidth: 130 }}>
             <Typography level="body-xs" textColor={hocColors.gold}>
@@ -2478,37 +2485,60 @@ const ObserverTeamSetup: React.FC<{
                     {identityLine}
                 </Typography>
             )}
-            <Typography level="body-xs" textColor={hocColors.mutedStrong}>
-                {`Doctrine: ${observerDoctrineName(doctrineId)}`}
-            </Typography>
-            {(tier1 > 0 || tier2 > 0) && <ArtifactTierIcons tier1Id={tier1} tier2Id={tier2} />}
-            {augments.length > 0 && (
-                <Stack direction="row" spacing={0.75} flexWrap="wrap" alignItems="center">
-                    {augments.map(({ category, level }) => {
-                        const imageKey = AUGMENT_SIDEBAR_IMAGES[category];
-                        const src = imageKey ? images[imageKey] : undefined;
-                        return (
-                            <Stack key={category} direction="row" spacing={0.25} alignItems="center">
-                                {src && (
-                                    <Box
-                                        component="img"
-                                        src={src}
-                                        alt={category}
-                                        sx={{ width: 18, height: 18, borderRadius: "4px" }}
-                                    />
-                                )}
-                                <Typography level="body-xs" textColor={hocColors.mutedStrong}>
-                                    {`${category} ${level}`}
-                                </Typography>
-                            </Stack>
-                        );
-                    })}
-                </Stack>
-            )}
-            {synergies.length > 0 && (
-                <Typography level="body-xs" textColor={hocColors.muted}>
-                    {`Synergies: ${synergies.map(observerSynergyLabel).join(", ")}`}
-                </Typography>
+            {beforeFight ? (
+                <>
+                    {exposedRoster.length > 0 ? (
+                        <RankedRosterRow
+                            title={t("Army")}
+                            accent={hocColors.parchment}
+                            borderColor="rgba(255,255,255,0.12)"
+                            bgcolor="#171a23"
+                            creatureIds={exposedRoster}
+                        />
+                    ) : (
+                        <Typography level="body-xs" textColor={hocColors.muted}>
+                            {t("Revealed during board placement")}
+                        </Typography>
+                    )}
+                    <Typography level="body-xs" textColor={hocColors.muted}>
+                        {t("Doctrine, artifacts and augments are revealed when the fight starts")}
+                    </Typography>
+                </>
+            ) : (
+                <>
+                    <Typography level="body-xs" textColor={hocColors.mutedStrong}>
+                        {`Doctrine: ${observerDoctrineName(doctrineId)}`}
+                    </Typography>
+                    {(tier1 > 0 || tier2 > 0) && <ArtifactTierIcons tier1Id={tier1} tier2Id={tier2} />}
+                    {augments.length > 0 && (
+                        <Stack direction="row" spacing={0.75} flexWrap="wrap" alignItems="center">
+                            {augments.map(({ category, level }) => {
+                                const imageKey = AUGMENT_SIDEBAR_IMAGES[category];
+                                const src = imageKey ? images[imageKey] : undefined;
+                                return (
+                                    <Stack key={category} direction="row" spacing={0.25} alignItems="center">
+                                        {src && (
+                                            <Box
+                                                component="img"
+                                                src={src}
+                                                alt={category}
+                                                sx={{ width: 18, height: 18, borderRadius: "4px" }}
+                                            />
+                                        )}
+                                        <Typography level="body-xs" textColor={hocColors.mutedStrong}>
+                                            {`${category} ${level}`}
+                                        </Typography>
+                                    </Stack>
+                                );
+                            })}
+                        </Stack>
+                    )}
+                    {synergies.length > 0 && (
+                        <Typography level="body-xs" textColor={hocColors.muted}>
+                            {`Synergies: ${synergies.map(observerSynergyLabel).join(", ")}`}
+                        </Typography>
+                    )}
+                </>
             )}
         </Stack>
     );

@@ -579,6 +579,9 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Observer setups": "Составы для наблюдателя",
     "Opponent army": "Армия противника",
     "Revealed during board placement": "Откроется во время расстановки",
+    Army: "Армия",
+    "Doctrine, artifacts and augments are revealed when the fight starts":
+        "Перк, артефакты и усиления откроются в начале боя",
     Yours: "Ваш",
     None: "Нет",
     "{tier} artifact": "артефакт {tier}-го уровня",
