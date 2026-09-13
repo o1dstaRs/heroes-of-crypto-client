@@ -5169,8 +5169,8 @@ export class Sandbox extends PixiScene {
         this.currentActiveUnit = unit;
         unit.setActiveTurn(true);
 
-        // An Area Throw unit's shot at a barrel resolves as a throw at that cell (the engine hands it to its area
-        // throw), so it plays exactly like one — rock, 3x3 splash numbers and all — from the recorded event.
+        // An Area Throw or Large Caliber shot at a barrel resolves as a splash at that cell (the engine hands it to its
+        // area strike), so it plays exactly like a throw — projectile, 3x3 splash numbers and all — from the record.
         const areaEvent = record.events.find(
             (event): event is Extract<GameEvent, { type: "area_attacked" }> => event.type === "area_attacked",
         );
@@ -8268,9 +8268,12 @@ export class Sandbox extends PixiScene {
             return undefined;
         }
         if (kind === "range") {
-            // A Gargantuan aiming its Area Throw lobs the rock onto the barrel as a throw at that cell (its 3x3 breaks
-            // every barrel and hits every unit there), so the area-throw click and hover own the cell.
-            if (this.isAreaThrowAiming() && this.grid.hasScatteredMountains()) {
+            // A Gargantuan's Area Throw or a Cyclops' Large Caliber aimed at a barrel lands there with its 3x3 splash
+            // (every barrel broken, every unit hit), so the area click and hover own the cell.
+            if (
+                (this.isAreaThrowAiming() && this.grid.hasScatteredMountains()) ||
+                this.isLargeCaliberBarrelAiming(worldPos)
+            ) {
                 return undefined;
             }
             // A shot at the mountain needs no attack-from cell: the unit fires from where it stands.
@@ -9440,8 +9443,12 @@ export class Sandbox extends PixiScene {
         if (!unit || !this.sc_mouseWorld) {
             return notHovering();
         }
-        // A Gargantuan aiming its Area Throw at a barrel previews the throw's 3x3 (updateAreaThrowHover), not a stone shot.
-        if (this.isAreaThrowAiming() && this.grid.hasScatteredMountains()) {
+        // A Gargantuan's Area Throw or a Cyclops' Large Caliber aimed at a barrel previews its 3x3 splash
+        // (updateAreaThrowHover), not a stone shot.
+        if (
+            (this.isAreaThrowAiming() && this.grid.hasScatteredMountains()) ||
+            this.isLargeCaliberBarrelAiming(this.sc_mouseWorld)
+        ) {
             return notHovering();
         }
         const fightProps = FightStateManager.getInstance().getFightProperties();
@@ -10161,9 +10168,33 @@ export class Sandbox extends PixiScene {
             unit.getRangeShots() > 0
         );
     }
+    /**
+     * A Large Caliber shooter (Cyclops — its shots ignore structures) aiming straight at a cemetery barrel. The ball
+     * lands on that barrel with its 3x3 splash, breaking every barrel and hitting every unit in it: the engine resolves
+     * the shot exactly like an Area Throw at that cell, so it previews and fires through the area path too.
+     */
+    private isLargeCaliberBarrelAiming(worldPos?: HoCMath.XY): boolean {
+        const unit = this.currentActiveUnit;
+        if (
+            !unit ||
+            !worldPos ||
+            !this.grid.hasScatteredMountains() ||
+            !unit.hasAbilityActive("Large Caliber") ||
+            unit.getAttackTypeSelection() !== AttackVals.RANGE ||
+            unit.getRangeShots() <= 0
+        ) {
+            return false;
+        }
+        const cell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), worldPos);
+        return (
+            !!cell &&
+            this.isStandingAttackObstacleCell(cell) &&
+            this.attackHandler.canLandRangeAttack(unit, this.grid.getEnemyAggrMatrixByUnitId(unit.getId()))
+        );
+    }
     private getAreaThrowCells(worldPos?: HoCMath.XY): HoCMath.XY[] | undefined {
         const unit = this.currentActiveUnit;
-        if (!unit || !worldPos || !this.isAreaThrowAiming()) {
+        if (!unit || !worldPos || !(this.isAreaThrowAiming() || this.isLargeCaliberBarrelAiming(worldPos))) {
             return undefined;
         }
         const gs = this.sc_sceneSettings.getGridSettings();
@@ -10218,11 +10249,15 @@ export class Sandbox extends PixiScene {
         cellPosition: HoCMath.XY,
         replayRecord?: SandboxReplay["actions"][number],
     ): Promise<void> {
-        const action: GameAction = {
-            type: "area_throw_attack",
-            attackerId: unit.getId(),
-            targetCell: mouseCell,
-        };
+        // What this throw IS: an Area Throw at the cell, or — for a Large Caliber shooter aiming at a barrel — an
+        // obstacle_attack the engine resolves as the same splash. A replay re-applies the action the server recorded.
+        const recordedAction = replayRecord?.action;
+        const action: GameAction =
+            recordedAction?.type === "area_throw_attack" || recordedAction?.type === "obstacle_attack"
+                ? cloneReplayData(recordedAction)
+                : unit.hasAbilityActive("Area Throw")
+                  ? { type: "area_throw_attack", attackerId: unit.getId(), targetCell: mouseCell }
+                  : { type: "obstacle_attack", attackerId: unit.getId(), targetPosition: cellPosition };
 
         // Ranked: defer to the authoritative replay so the throw — and Double Shot's second
         // projectile — animates exactly once, when the server echoes the action. Without this the
@@ -10260,6 +10295,7 @@ export class Sandbox extends PixiScene {
             big: bigProjectile,
             tsarCannonball: areaThrowUnitName === "tsar cannon",
             gargantuanRock: areaThrowUnitName === "gargantuan",
+            cyclopsRock: areaThrowUnitName === "cyclops",
         });
 
         const unitSnapshot = this.snapshotRenderableUnits();
@@ -10311,6 +10347,7 @@ export class Sandbox extends PixiScene {
                 big: bigProjectile,
                 tsarCannonball: areaThrowUnitName === "tsar cannon",
                 gargantuanRock: areaThrowUnitName === "gargantuan",
+                cyclopsRock: areaThrowUnitName === "cyclops",
             });
             shownAnyWave = this.showSplashDamage(waves[throwIndex] ?? [], muzzle) || shownAnyWave;
         }
@@ -13916,7 +13953,29 @@ export class Sandbox extends PixiScene {
                                 );
                             } else {
                                 this.hoverManager.clearObstacleHighlight();
-                                this.dungeonVisuals.clearScatteredMountainHighlight();
+                                // A Large Caliber ball flies over the barrels on its line and breaks every one in
+                                // the blast around the unit it hits.
+                                if (
+                                    isRangeAttackContext &&
+                                    arrowEndPos &&
+                                    this.currentActiveUnit.hasAbilityActive("Large Caliber")
+                                ) {
+                                    this.highlightScatteredObstaclesInCells(
+                                        this.attackHandler
+                                            .evaluateRangeAttack(
+                                                this.unitsHolder.getAllUnits(),
+                                                this.currentActiveUnit,
+                                                this.currentActiveUnit.getPosition(),
+                                                arrowEndPos,
+                                                false,
+                                                false,
+                                                true,
+                                            )
+                                            .affectedCells.flat(),
+                                    );
+                                } else {
+                                    this.dungeonVisuals.clearScatteredMountainHighlight();
+                                }
                             }
                             this.hoverManager.drawDamagePrediction(
                                 dmgStr,
