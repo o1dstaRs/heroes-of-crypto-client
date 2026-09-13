@@ -40,9 +40,14 @@ describe("Cemetery barrel danger highlights", () => {
         expect(helper).toContain("this.attackHandler.getObstacleIntersections(from, to)");
         expect(helper).toContain("this.dungeonVisuals.highlightScatteredMountains(");
 
-        expect(sliceFrom(source, "private updateAreaThrowHover()", 5_500)).toContain(
-            "this.highlightScatteredObstaclesAlongTrajectory(activeUnit.getPosition(), impactPos)",
-        );
+        // Area Throw is the exception: its rock flies OVER the barrels on its line (the engine ignores structures
+        // there) and breaks every barrel in the 3x3 it lands on, so its preview marks the blast, not the line.
+        const areaThrowHover = sliceFrom(source, "private updateAreaThrowHover()", 5_500);
+        expect(areaThrowHover).toContain("this.highlightScatteredObstaclesInCells(cells)");
+        expect(areaThrowHover).not.toContain("this.highlightScatteredObstaclesAlongTrajectory(");
+        const blastHelper = sliceFrom(source, "private highlightScatteredObstaclesInCells(", 800);
+        expect(blastHelper).toContain(".filter((cell) => this.isStandingAttackObstacleCell(cell))");
+        expect(blastHelper).toContain("this.dungeonVisuals.highlightScatteredMountains(");
         expect(sliceFrom(source, "protected renderIncomingThreatPreview(", 6_500)).toContain(
             "this.highlightScatteredObstaclesAlongTrajectory(shooterLogical, impactLogical)",
         );

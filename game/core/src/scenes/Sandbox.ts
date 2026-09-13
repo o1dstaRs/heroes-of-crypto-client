@@ -4715,9 +4715,9 @@ export class Sandbox extends PixiScene {
     }
     /**
      * Unit damage an obstacle strike dealt, drawn at the blow's impact. Lightning Spin hits every enemy around the
-     * attacker even when the blow was aimed at a barrel; a barrel is no unit target, so the engine hangs those hits
-     * on the action's first obstacle_attacked. They get the numbers, pops and heals a unit strike's secondary
-     * damage gets, and every enemy the spin struck flinches away from the attacker.
+     * attacker and a Skewer Strike the enemy behind the barrel, even though the blow was aimed at a barrel; a barrel
+     * is no unit target, so the engine hangs those hits on the action's first obstacle_attacked. They get the
+     * numbers, pops and heals a unit strike's secondary damage gets, and every struck enemy flinches away.
      */
     private showObstacleStrikeUnitDamage(attacker: RenderableUnit, events: readonly GameEvent[]): void {
         const damage = events.find(
@@ -4732,7 +4732,9 @@ export class Sandbox extends PixiScene {
         );
         for (const entry of damage.secondary) {
             const victim = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
-            if (entry.source === "lightning_spin" && entry.amount > 0 && victim && !victim.isDead()) {
+            const struckByTheBlow =
+                entry.source === "lightning_spin" || entry.source === "skewer_strike" || entry.source === "fire_breath";
+            if (struckByTheBlow && entry.amount > 0 && victim && !victim.isDead()) {
                 this.applyReplayHitKnockback(victim, attacker);
             }
         }
@@ -5166,6 +5168,16 @@ export class Sandbox extends PixiScene {
         }
         this.currentActiveUnit = unit;
         unit.setActiveTurn(true);
+
+        // An Area Throw unit's shot at a barrel resolves as a throw at that cell (the engine hands it to its area
+        // throw), so it plays exactly like one — rock, 3x3 splash numbers and all — from the recorded event.
+        const areaEvent = record.events.find(
+            (event): event is Extract<GameEvent, { type: "area_attacked" }> => event.type === "area_attacked",
+        );
+        if (areaEvent) {
+            await this.performAreaThrow(unit, areaEvent.targetCell, areaEvent.targetPosition, record);
+            return true;
+        }
 
         // Walk to the melee attack-from cell first (the engine folds the approach into the obstacle
         // attack, so there's no separate move record to replay).
@@ -8256,6 +8268,11 @@ export class Sandbox extends PixiScene {
             return undefined;
         }
         if (kind === "range") {
+            // A Gargantuan aiming its Area Throw lobs the rock onto the barrel as a throw at that cell (its 3x3 breaks
+            // every barrel and hits every unit there), so the area-throw click and hover own the cell.
+            if (this.isAreaThrowAiming() && this.grid.hasScatteredMountains()) {
+                return undefined;
+            }
             // A shot at the mountain needs no attack-from cell: the unit fires from where it stands.
             return { unit, attackType: AttackVals.RANGE, targetPosition };
         }
@@ -9378,6 +9395,22 @@ export class Sandbox extends PixiScene {
         return intersections;
     }
     /**
+     * Mark the cemetery barrels standing inside an area that breaks every barrel in it — an Area Throw's 3x3, which
+     * flies over the barrels on its line (the engine ignores structures there) and lands on these.
+     */
+    private highlightScatteredObstaclesInCells(cells: readonly HoCMath.XY[]): void {
+        if (!this.grid.hasScatteredMountains()) {
+            this.dungeonVisuals.clearScatteredMountainHighlight();
+            return;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        this.dungeonVisuals.highlightScatteredMountains(
+            cells
+                .filter((cell) => this.isStandingAttackObstacleCell(cell))
+                .map((cell) => GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep())),
+        );
+    }
+    /**
      * Mountain hover: mirrors hovering a 2x2 ENEMY. Ranged units preview a shot in place; melee
      * units get the same cursor-tracked attack-from selection as unit targets (the landing follows
      * the cursor around the rock — edges, corners, both flanks), plus the move silhouette and arrow.
@@ -9405,6 +9438,10 @@ export class Sandbox extends PixiScene {
 
         const unit = this.currentActiveUnit;
         if (!unit || !this.sc_mouseWorld) {
+            return notHovering();
+        }
+        // A Gargantuan aiming its Area Throw at a barrel previews the throw's 3x3 (updateAreaThrowHover), not a stone shot.
+        if (this.isAreaThrowAiming() && this.grid.hasScatteredMountains()) {
             return notHovering();
         }
         const fightProps = FightStateManager.getInstance().getFightProperties();
@@ -9531,6 +9568,28 @@ export class Sandbox extends PixiScene {
                     this.hoverManager.addTargetHighlight(enemy);
                 }
             }
+        }
+        // A Skewer Strike runs on through the barrel into the enemy standing right behind it.
+        const skeweredBehind = AllAbilities.skewerStrikeUnitBehindObstacle(
+            unit,
+            this.grid,
+            this.unitsHolder,
+            attackFromCell,
+            hoveredCell,
+        );
+        if (skeweredBehind) {
+            this.hoverManager.addTargetHighlight(skeweredBehind);
+        }
+        // ...and a Fire Breath burns whoever stands there, ally or enemy, unless it is fire-immune.
+        const burnedBehind = AllAbilities.fireBreathUnitBehindObstacle(
+            unit,
+            this.grid,
+            this.unitsHolder,
+            attackFromCell,
+            hoveredCell,
+        );
+        if (burnedBehind) {
+            this.hoverManager.addTargetHighlight(burnedBehind);
         }
         if (this.grid.hasScatteredMountains()) {
             // Skewer Strike / Fire Breath run on through the barrel: the one standing directly behind it on
@@ -9863,7 +9922,8 @@ export class Sandbox extends PixiScene {
                     projectedShotStart,
                 );
                 this.hoverManager.drawAttackArrow(projectedShotStart, projectedCasingJoint);
-                this.highlightScatteredObstaclesAlongTrajectory(activeUnit.getPosition(), impactPos);
+                // The rock flies OVER the barrels on its line and breaks every one in the 3x3 it lands on.
+                this.highlightScatteredObstaclesInCells(cells);
                 divisor = this.attackHandler.getRangeAttackDivisor(activeUnit, impactPos);
             }
         }
@@ -13901,17 +13961,34 @@ export class Sandbox extends PixiScene {
                                     this.hoverManager.addTargetHighlight(enemy);
                                 }
                             }
-                            // Lightning Spin's radial impact breaks the cemetery barrels around the attacker too.
+                            // Lightning Spin's radial impact breaks the cemetery barrels around the attacker too, and a
+                            // Skewer Strike the barrel standing behind its small target.
                             if (!isRangeAttackContext && attackFromCell) {
-                                const spunBarrels = AllAbilities.lightningSpinObstacleCells(
+                                const skeweredBarrel = AllAbilities.skewerStrikeObstacleCell(
                                     this.currentActiveUnit,
-                                    this.unitsHolder,
                                     this.grid,
                                     attackFromCell,
+                                    targetUnit,
                                 );
-                                if (spunBarrels.length) {
+                                const struckBarrels = [
+                                    ...AllAbilities.lightningSpinObstacleCells(
+                                        this.currentActiveUnit,
+                                        this.unitsHolder,
+                                        this.grid,
+                                        attackFromCell,
+                                    ),
+                                    ...(skeweredBarrel ? [skeweredBarrel] : []),
+                                    // Fire Breath burns every barrel in the band it sweeps behind the target.
+                                    ...AllAbilities.fireBreathObstacleCells(
+                                        this.currentActiveUnit,
+                                        this.grid,
+                                        attackFromCell,
+                                        targetUnit,
+                                    ),
+                                ];
+                                if (struckBarrels.length) {
                                     this.dungeonVisuals.highlightScatteredMountains(
-                                        spunBarrels.map((cell) =>
+                                        struckBarrels.map((cell) =>
                                             GridMath.getPositionForCell(
                                                 cell,
                                                 gs.getMinX(),
