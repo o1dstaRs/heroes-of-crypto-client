@@ -108,6 +108,7 @@ import { ButtonProvider } from "./context/ButtonContext";
 import { exitFightButtonSx } from "./exitFightButtonSx";
 import { useFullscreenActive } from "./useFullscreenActive";
 import { startVisibleInterval } from "./visibleInterval";
+import { eventStreamRetryDelayMs } from "./eventStreamRetry";
 import { dragObserverPanelOffset, type PanelOffset } from "./observerPanelDrag";
 import { SpectatorContext, ViewerTeamContext } from "./context/ViewerTeamContext";
 import { SANDBOX_UNREADY_REASON, sandboxCoopSeatStatuses } from "./SandboxCoopControls";
@@ -675,6 +676,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             const controller = new AbortController();
             abortRef.current = controller;
 
+            let failedStatus = 0;
             try {
                 setStatus("Connecting");
                 const response = await fetch(playEventsUrl(gameId, latestSequenceRef.current), {
@@ -685,7 +687,14 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                 });
 
                 if (!response.ok || !response.body) {
-                    throw new Error(`Event stream failed: ${response.status}`);
+                    failedStatus = response.status;
+                    // 429: the game already has as many spectators as the server accepts. Say so and back off
+                    // instead of hammering it every second.
+                    throw new Error(
+                        response.status === 429
+                            ? t("Too many people are watching this match. Trying again shortly.")
+                            : `Event stream failed: ${response.status}`,
+                    );
                 }
 
                 setStatus("Connected");
@@ -741,7 +750,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                 if (!closed && (err as Error).name !== "AbortError") {
                     setStatus("Reconnecting");
                     setError((err as Error).message || "Event stream disconnected");
-                    retryTimer = window.setTimeout(connect, 1200);
+                    retryTimer = window.setTimeout(connect, eventStreamRetryDelayMs(failedStatus));
                 }
             }
         };

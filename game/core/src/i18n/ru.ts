@@ -98,6 +98,8 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     Connecting: "Подключение",
     Connected: "Подключено",
     Reconnecting: "Переподключение…",
+    "Too many people are watching this match. Trying again shortly.":
+        "Слишком много зрителей у этого матча. Скоро попробуем снова.",
     "Watching as observer": "Режим наблюдателя",
     "Drag to move · double-click to reset": "Перетащите, чтобы переместить · двойной щелчок — вернуть на место",
     "Your prediction: {amount} {symbol} on {name}": "Ваш прогноз: {amount} {symbol} на {name}",
