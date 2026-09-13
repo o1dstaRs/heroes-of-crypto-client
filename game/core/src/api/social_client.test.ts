@@ -2,8 +2,10 @@ import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from "bun:
 
 import { axiosMMInstance, buildApiUrl, endpoints, HOST_MATCHMAKING_API } from "./axios";
 import {
+    canSpectateFriend,
     eligiblePredictionMarkets,
     fetchFriendMessages,
+    friendGameLabel,
     isFriendInviteNotification,
     chatSegments,
     searchHitPresenceLabel,
@@ -206,5 +208,23 @@ describe("notification sound classes", () => {
         expect(isFriendInviteNotification("friend_message")).toBe(false);
         expect(isFriendInviteNotification("chat_reply")).toBe(false);
         expect(isFriendInviteNotification("system")).toBe(false);
+    });
+});
+
+describe("friends in game", () => {
+    test("labels the friend's stage and offers spectating only for a live draft or fight", () => {
+        expect(friendGameLabel({})).toBeUndefined();
+        expect(friendGameLabel({ inGameId: "g", gameStage: "confirming" })).toBe("In game · Starting");
+        expect(friendGameLabel({ inGameId: "g", gameStage: "pick" })).toBe("In game · Drafting");
+        expect(friendGameLabel({ inGameId: "g", gameStage: "play" })).toBe("In game · Fighting");
+
+        expect(canSpectateFriend({ inGameId: "g", gameStage: "play" }, undefined)).toBe(true);
+        expect(canSpectateFriend({ inGameId: "g", gameStage: "pick" }, undefined)).toBe(true);
+        expect(canSpectateFriend({ inGameId: "g", gameStage: "confirming" }, undefined)).toBe(false);
+        expect(canSpectateFriend({}, undefined)).toBe(false);
+    });
+
+    test("never offers spectating while the viewer is in a game", () => {
+        expect(canSpectateFriend({ inGameId: "g", gameStage: "play" }, "mine")).toBe(false);
     });
 });

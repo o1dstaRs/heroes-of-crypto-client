@@ -66,7 +66,37 @@ export interface FriendEntry {
      * "no figure", which the row draws as a dash — never as a zero the player has not earned.
      */
     gold?: number;
+    /** The ranked/lobby game the friend is in right now (only while it is live) and where it stands. */
+    inGameId?: string;
+    gameStage?: FriendGameStage;
 }
+
+export type FriendGameStage = "confirming" | "pick" | "play";
+
+/** What the friends row says next to a friend who is in a game. Undefined when they are not. */
+export const friendGameLabel = (friend: Pick<FriendEntry, "inGameId" | "gameStage">): string | undefined => {
+    if (!friend.inGameId) {
+        return undefined;
+    }
+    switch (friend.gameStage) {
+        case "play":
+            return "In game · Fighting";
+        case "pick":
+            return "In game · Drafting";
+        default:
+            return "In game · Starting";
+    }
+};
+
+/**
+ * Spectating is offered for a friend's draft or fight, and never while YOU are in a game yourself: your
+ * own match is what the game route would send you to. A match that is still being accepted has nothing
+ * to watch yet.
+ */
+export const canSpectateFriend = (
+    friend: Pick<FriendEntry, "inGameId" | "gameStage">,
+    viewerInGameId: string | undefined,
+): boolean => !!friend.inGameId && (friend.gameStage === "pick" || friend.gameStage === "play") && !viewerInGameId;
 
 export interface FriendMessage {
     id: string;
@@ -86,6 +116,8 @@ export interface FriendConversation {
 
 export interface FriendsOverview {
     friends: FriendEntry[];
+    /** The viewer's own live game, if any — while present, no friend can be spectated. */
+    viewerInGameId?: string;
     incoming: PendingIncomingRequest[];
     outgoing: { requestId: string; toPlayerId: string; toUsername: string; createdAt: number }[];
     blocked: { playerId: string; username: string; createdAt: number }[];

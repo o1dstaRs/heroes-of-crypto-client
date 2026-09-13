@@ -25,6 +25,7 @@ import { startVisibleInterval } from "../visibleInterval";
 import { ConversationPanel } from "./ConversationPanel";
 import { useCurrentLobby } from "./CurrentLobbyContext";
 import { DockPanelCloseButton, DockPanelShell } from "./DockPanelShell";
+import { OPEN_FRIENDS_EVENT } from "./openFriendsEvent";
 import { PredictionsPanel } from "./PredictionsPanel";
 import { getSocialDockSlot, getSocialDockSlotServerSnapshot, subscribeSocialDockSlot } from "./socialDockSlot";
 import { useSocial } from "./SocialProvider";
@@ -37,9 +38,11 @@ import {
 } from "./systemControlsMode";
 import {
     blockPlayer,
+    canSpectateFriend,
     fetchFriends,
     fetchNotifications,
     formatLastSeen,
+    friendGameLabel,
     searchHitPresenceLabel,
     markNotificationsSeen,
     removeFriend,
@@ -126,9 +129,6 @@ const instantDockLabelSx = {
     pointerEvents: "none",
     transition: "none",
 } as const;
-
-/** Dispatch on window to open the friends panel from anywhere (see SocialDockRuntime's listener). */
-export const OPEN_FRIENDS_EVENT = "hoc:open-friends";
 
 const notificationText = (notification: SocialNotification): string => {
     switch (notification.type) {
@@ -728,17 +728,41 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage })
                                     <Typography
                                         level="body-xs"
                                         sx={{
-                                            color: friend.online ? hocColors.green : hocColors.muted,
+                                            color: friend.inGameId
+                                                ? hocColors.gold
+                                                : friend.online
+                                                  ? hocColors.green
+                                                  : hocColors.muted,
                                             whiteSpace: "nowrap",
                                         }}
                                     >
-                                        {friend.online ? "Online" : formatLastSeen(friend.lastOnlineAt)}
+                                        {friendGameLabel(friend) ??
+                                            (friend.online ? "Online" : formatLastSeen(friend.lastOnlineAt))}
                                     </Typography>
                                 </Stack>
                                 <Stack direction="row" spacing={0.7} sx={{ mt: 0.8, flexWrap: "wrap" }}>
                                     <Button size="sm" sx={hocPrimaryButtonSx} onClick={() => onMessage(friend)}>
                                         Message
                                     </Button>
+                                    {canSpectateFriend(friend, overview.viewerInGameId) && friend.inGameId ? (
+                                        <Button
+                                            size="sm"
+                                            variant="outlined"
+                                            sx={hocSoftButtonSx}
+                                            disabled={busy}
+                                            title={
+                                                friend.gameStage === "pick"
+                                                    ? "Watch their draft live"
+                                                    : "Watch their fight live"
+                                            }
+                                            onClick={() => {
+                                                onClose();
+                                                navigate(`/game/${friend.inGameId}`, { state: { from: "friends" } });
+                                            }}
+                                        >
+                                            Spectate
+                                        </Button>
+                                    ) : null}
                                     {currentLobbyId ? (
                                         <Button
                                             size="sm"
@@ -750,7 +774,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage })
                                             Invite
                                         </Button>
                                     ) : null}
-                                    {sandboxInviteAvailable ? (
+                                    {sandboxInviteAvailable && !friend.inGameId ? (
                                         <Button
                                             size="sm"
                                             variant="outlined"

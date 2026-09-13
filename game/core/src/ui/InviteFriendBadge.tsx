@@ -2,7 +2,7 @@ import Button from "@mui/joy/Button";
 import React from "react";
 
 import { hocSidebarImageButtonSx } from "./hocTheme";
-import { OPEN_FRIENDS_EVENT } from "./social/SocialDockRuntime";
+import { openFriendsPanel } from "./social/openFriendsEvent";
 
 /**
  * "Invite a friend" link shown in the offline sandbox footer for a signed-in player, under "Play Ranked".
@@ -13,7 +13,7 @@ export const InviteFriendBadge: React.FC = () => (
     <Button
         variant="plain"
         type="button"
-        onClick={() => window.dispatchEvent(new CustomEvent(OPEN_FRIENDS_EVENT))}
+        onClick={openFriendsPanel}
         aria-label="Invite a friend into a co-op sandbox"
         sx={{
             ...hocSidebarImageButtonSx("neutral"),

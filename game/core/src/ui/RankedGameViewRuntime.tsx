@@ -99,6 +99,7 @@ import { useFullscreenActive } from "./useFullscreenActive";
 import { startVisibleInterval } from "./visibleInterval";
 import { ViewerTeamContext } from "./context/ViewerTeamContext";
 import { SandboxCoopBanner, SandboxCoopReadyButton, sandboxCoopSeatStatuses } from "./SandboxCoopControls";
+import { openFriendsPanel } from "./social/openFriendsEvent";
 import type { SandboxCoopSession } from "../api/sandbox_coop_client";
 import {
     hocColors,
@@ -772,17 +773,22 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     const location = useLocation();
     const observerOrigin = (location.state ?? null) as { from?: string; lobbyId?: string } | null;
     const cameFromLobby = observerOrigin?.from === "lobby";
+    // A spectator who followed a friend's "Spectate" goes back to the arena with the friends panel open.
+    const cameFromFriends = observerOrigin?.from === "friends";
     const handleBackToLobby = useCallback(() => {
         if (isObserver && !replayOnly) {
             if (cameFromLobby) {
                 navigate(observerOrigin?.lobbyId ? `/lobby/${observerOrigin.lobbyId}` : "/lobbies");
+            } else if (cameFromFriends) {
+                navigate("/play");
+                openFriendsPanel();
             } else {
                 window.location.assign("https://heroesofcrypto.io");
             }
             return;
         }
         navigate(replayOnly ? "/portal" : "/play");
-    }, [navigate, replayOnly, isObserver, cameFromLobby, observerOrigin]);
+    }, [navigate, replayOnly, isObserver, cameFromLobby, cameFromFriends, observerOrigin]);
     const handlePlayAgainVsAi = useCallback(async () => {
         // Always rematch the default AI (no difficulty tiers) — matches the tier-less "Play vs AI" entry.
         // The just-finished match's result write (game doc -> finished, both players' inGameId released)
@@ -1827,7 +1833,9 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                                       : isObserver
                                         ? cameFromLobby
                                             ? t("Back to lobby")
-                                            : t("Back to website")
+                                            : cameFromFriends
+                                              ? t("Back to friends")
+                                              : t("Back to website")
                                         : undefined
                             }
                             canReplay={snapshot.phase === PlayPhase.FINISHED || snapshot.fightFinished}

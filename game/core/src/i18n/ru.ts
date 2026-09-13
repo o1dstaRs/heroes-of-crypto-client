@@ -110,6 +110,7 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Play again": "Играть снова",
     "Back to lobby": "Назад в лобби",
     "Back to website": "На сайт",
+    "Back to friends": "Назад к друзьям",
     Copy: "Копировать",
     Copied: "Скопировано",
     "Copy battle log": "Скопировать журнал боя",
