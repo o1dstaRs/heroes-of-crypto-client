@@ -615,6 +615,26 @@ export interface PublicPlayerStats {
     winStreak?: number;
     lossStreak?: number;
     gold?: number;
+    peakMmr?: number;
+    lastRankedGameAt?: number;
+    /** Public recent form. Creature ids are optional until the ranked profile API exposes each lineup. */
+    recentGames?: Array<{
+        gameId: string;
+        finishedTime: number;
+        result: "win" | "loss" | "draw";
+        mmrDelta?: number;
+        creatureIds?: number[];
+        opponent?: { playerId: string; username: string } | null;
+    }>;
+    /** The public profile's aggregate picks, used when historical matches predate lineup storage. */
+    playstyle?: {
+        topCreatures?: Array<{
+            creatureId: number;
+            name?: string;
+            games?: number;
+            winRatePct?: number;
+        }>;
+    } | null;
 }
 
 export const fetchPublicPlayerStats = async (playerId: string): Promise<PublicPlayerStats> => {
