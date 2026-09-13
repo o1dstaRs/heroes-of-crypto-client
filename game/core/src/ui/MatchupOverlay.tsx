@@ -178,7 +178,9 @@ const Side: React.FC<{
                 textAlign: reversed ? "right" : "left",
             }}
         >
-            {profile ? (
+            {player.isAi ? (
+                <AiAvatar label={`${text.username} — AI`} />
+            ) : profile ? (
                 <LeagueEmblem
                     label={`${text.username} — ${text.rank}`}
                     league={profile.league ?? 0}
@@ -186,8 +188,6 @@ const Side: React.FC<{
                     size={42}
                     variant="compact"
                 />
-            ) : player.isAi ? (
-                <AiAvatar label={`${text.username} — AI`} />
             ) : (
                 <Crest team={player.team} tone={tone} />
             )}
