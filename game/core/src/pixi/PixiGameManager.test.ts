@@ -78,4 +78,27 @@ describe("PixiGameManager scene reload", () => {
         // The process default (side-oriented boards) survives the reset — it is applied on every fresh state.
         expect(fresh.isSideOrientedPlacement()).toBe(true);
     });
+
+    // The mirror case: an authoritative board (ranked / co-op sandbox) carries a transport, and its own
+    // hydrate resets around a capture/restore of the server's setup. Wiping it here would drop the
+    // server's augments until the next snapshot re-synced them.
+    it("leaves the fight state alone for an authoritative board, which hydrates its own setup", () => {
+        const manager = new PixiGameManager();
+        Object.assign(manager, {
+            sceneConstructor: SceneDouble as unknown as SceneConstructor,
+            pixiApp: {
+                getTicker: () => ({ addOnce: () => undefined }),
+            },
+            textures: {},
+            gameActionTransport: { submitAction: () => undefined },
+        });
+        const authoritative = FightStateManager.getInstance().getFightProperties();
+        authoritative.setDefaultPlacementPerTeam(TeamVals.LEFT, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
+        authoritative.setAugmentPerTeam(TeamVals.LEFT, { type: "Placement", value: Augment.PlacementAugment.LEVEL_3 });
+
+        manager.LoadGame(true);
+
+        expect(FightStateManager.getInstance().getFightProperties()).toBe(authoritative);
+        expect(authoritative.getAugmentPlacementLevel(TeamVals.LEFT)).toBe(Augment.PlacementAugment.LEVEL_3);
+    });
 });
