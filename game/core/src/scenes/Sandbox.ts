@@ -9275,7 +9275,7 @@ export class Sandbox extends PixiScene {
         const notHovering = (): boolean => {
             this.hoverManager.clearObstacleHighlight();
             this.dungeonVisuals.clearScatteredMountainHighlight();
-            if (this.sc_hoverInfoArr[0] === "Hit the object") {
+            if (this.sc_hoverInfoArr[0] === "Hit the object" || this.sc_hoverInfoArr[0] === "Hit 2 tombstones") {
                 this.sc_hoverInfoArr = [];
                 this.sc_hoverTextUpdateNeeded = true;
                 this.hoverManager.hoverAttackFromCell = undefined;
@@ -9412,7 +9412,23 @@ export class Sandbox extends PixiScene {
             );
         }
         if (this.grid.hasScatteredMountains()) {
-            this.dungeonVisuals.highlightScatteredMountains([cellCenter]);
+            // Skewer Strike / Fire Breath run on through the barrel: the one standing directly behind it on
+            // the strike line goes too (attack_handler.pierceScatteredObstacleBehind), so the preview shows
+            // both and says so, the way a Double Shot preview already does.
+            const pierceCell =
+                unit.hasAbilityActive("Skewer Strike") || unit.hasAbilityActive("Fire Breath")
+                    ? AbilityHelper.pierceCellBehind(unit, attackFromCell, hoveredCell)
+                    : undefined;
+            const piercedBarrel =
+                pierceCell && this.isStandingAttackObstacleCell(pierceCell)
+                    ? GridMath.getPositionForCell(pierceCell, gs.getMinX(), gs.getStep(), gs.getHalfStep())
+                    : undefined;
+            this.dungeonVisuals.highlightScatteredMountains(piercedBarrel ? [cellCenter, piercedBarrel] : [cellCenter]);
+            if (piercedBarrel) {
+                this.sc_hoverInfoArr = ["Hit 2 tombstones"];
+                this.sc_hoverTextUpdateNeeded = true;
+                return true;
+            }
         } else {
             this.hoverManager.highlightObstacle(cellCenter, gs.getCellSize());
         }
