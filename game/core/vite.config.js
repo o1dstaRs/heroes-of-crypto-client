@@ -2,6 +2,7 @@
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import fs from "node:fs/promises";
+import { realpathSync } from "node:fs";
 import path from "path";
 
 const DEV_SHADOW_TUNING_ENDPOINT = "/__hoc-dev/battlefield-shadow-tuning";
@@ -138,6 +139,21 @@ const devShadowTuningPlugin = () => ({
     },
 });
 
+// Vite checks the REAL path of every file it serves. A second checkout that symlinks images/ (or the
+// common tree) to the main one would otherwise get 403 for every image: allow each directory's target too.
+const withRealPaths = (dirs) => {
+    const allowed = new Set();
+    for (const dir of dirs) {
+        allowed.add(dir);
+        try {
+            allowed.add(realpathSync(dir));
+        } catch {
+            // Missing directory (e.g. images/ not generated yet): nothing to follow.
+        }
+    }
+    return [...allowed];
+};
+
 const isKnownDependencyWarning = (log) => {
     const id = typeof log?.id === "string" ? log.id : "";
     const message = typeof log?.message === "string" ? log.message : "";
@@ -226,13 +242,14 @@ export default defineConfig(({ mode }) => {
             },
             // allow Vite to read sibling workspace files for HMR
             fs: {
-                allow: [
+                allow: withRealPaths([
                     path.resolve(__dirname), // core
+                    path.resolve(__dirname, "images"), // generated art; a worktree often symlinks it
                     path.resolve(__dirname, "../heroes-of-crypto-common"), // workspace root
                     path.resolve(__dirname, "../heroes-of-crypto-common/src"),
                     commonSourceDir,
                     path.resolve(__dirname, "../.."), // project root (for node_modules)
-                ],
+                ]),
             },
         },
 
