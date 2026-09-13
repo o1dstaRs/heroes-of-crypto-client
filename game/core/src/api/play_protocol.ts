@@ -38,6 +38,22 @@ export const PlayActionType = {
 
 export type PlayActionTypeValue = (typeof PlayActionType)[keyof typeof PlayActionType];
 
+/**
+ * How the client produced an action (PlayAction.input_source, play.proto field 23). The server records it as
+ * integrity evidence only (phase 1); it never changes whether or how an action is accepted.
+ */
+export const PlayInputSource = {
+    UNKNOWN: 0,
+    POINTER: 1,
+    KEYBOARD: 2,
+    AUTO_UNIT: 3,
+    CLIENT_RETRY: 4,
+    CLIENT_AI: 5,
+    LOCAL_MODEL: 6,
+} as const;
+
+export type PlayInputSourceValue = (typeof PlayInputSource)[keyof typeof PlayInputSource];
+
 // Existing `reason` field sentinel used only on MOVE_UNIT. It is intentionally not a new protobuf field:
 // old clients retain move-is-the-turn behavior, while a new client can request one planned follow-up.
 export const PLAY_MOVE_CONTINUE_TURN_REASON = "continue_turn";
@@ -331,6 +347,10 @@ export interface PlayAction {
     hasWaterCell?: boolean;
     reason?: string;
     amount?: number;
+    // Integrity telemetry (play.proto 23-25): self-reported evidence, never used to accept or reject an action.
+    inputSource?: number;
+    pointerEvents?: number;
+    tabHidden?: boolean;
 }
 
 export interface PlayIntent {
@@ -617,6 +637,9 @@ export const encodePlayAction = (action: PlayAction): Uint8Array => {
     writer.int32(20, action.amount);
     writer.int32(21, action.targetSide);
     writer.int32(22, action.targetOrientation);
+    writer.int32(23, action.inputSource);
+    writer.int32(24, action.pointerEvents);
+    writer.bool(25, action.tabHidden);
     return writer.finish();
 };
 

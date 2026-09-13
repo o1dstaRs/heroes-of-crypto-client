@@ -36,6 +36,7 @@ import {
     type LocalModelLegalAction,
     type LocalModelOpponentConfig,
 } from "./LocalModelOpponent";
+import { markAutoPlayedAction } from "./autoPlayedAction";
 import { alliesAreTransparent, thrownSpellReachesTarget } from "./spell_targeting";
 
 /**
@@ -413,7 +414,12 @@ export class AIController {
         return this.localModelOpponent.enabled && unit.getTeam() === modelTeam;
     }
     private modelAction<T extends GameAction>(unit: Unit, action: T): T {
-        return this.shouldControlUnit(unit) ? markLocalModelAction(action) : action;
+        if (this.shouldControlUnit(unit)) {
+            return markLocalModelAction(action);
+        }
+        // Everything else this controller applies is played without the player's input: tag it for the ranked
+        // integrity evidence (autoPlayedAction.ts). A mindless unit counts as its own rule, not as the AI toggle.
+        return markAutoPlayedAction(action, unit.hasAbilityActive("AI Driven") ? "auto_unit" : "client_ai");
     }
     /**
      * Trigger AI action with proper delay.

@@ -733,7 +733,7 @@ export const content = {
                 ],
             },
             privacy: {
-                updated: "27/06/2026",
+                updated: "13/09/2026",
                 intro: "Old Stars Gaming ('OSG', 'we', 'us') respects your privacy. This Privacy Policy explains what information we collect when you use Heroes of Crypto and how we use, share, and protect it. You can play sandbox mode without an account; ranked play and some features need a free account.",
                 sections: [
                     {
@@ -741,7 +741,7 @@ export const content = {
                         body: [
                             "Account information: when you register we collect a username, an email address, and a password, which we store only in hashed form.",
                             "Gameplay data: the matches you play, in-game actions, results, ratings, and related statistics needed to run the game and matchmaking.",
-                            "Technical data: basic device and browser details, an approximate location derived from your IP address, and server logs, used for security, anti-cheat, and troubleshooting.",
+                            "Technical data: basic device and browser details, server logs, and two anti-cheat signals: a random identifier your browser creates for our game, and your IP address with its network range. We store both signals only as keyed hashes, never the raw values; IP hashes are kept for 120 days and device hashes for 400 days. We use them for security, troubleshooting, and anti-cheat, for example to notice several ranked accounts played from one device.",
                             "Communications: messages you send us for support or feedback.",
                             "Optional wallet data: only if you choose to connect a crypto wallet for token features do we process your public wallet address. This is never required to play.",
                         ],
@@ -761,7 +761,7 @@ export const content = {
                     {
                         title: "4. Cookies and local storage",
                         body: [
-                            "We store a sign-in/session token and basic preferences in your browser's local storage so you can stay logged in and keep your settings. We do not use these for cross-site advertising and we do not sell them.",
+                            "We store a sign-in/session token, basic preferences, and a random device identifier in your browser's local storage so you can stay logged in, keep your settings, and so we can detect multi-accounting in ranked play. We do not use these for cross-site advertising and we do not sell them.",
                         ],
                     },
                     {
@@ -1485,7 +1485,7 @@ export const content = {
                 ],
             },
             privacy: {
-                updated: "27.06.2026",
+                updated: "13.09.2026",
                 intro: "Old Stars Gaming («OSG», «мы», «нас») уважает вашу приватность. Эта Политика конфиденциальности объясняет, какую информацию мы собираем при использовании Heroes of Crypto и как мы её используем, передаём и защищаем. Песочницу можно использовать без аккаунта; для рейтинговой игры и некоторых функций нужен бесплатный аккаунт.",
                 sections: [
                     {
@@ -1493,7 +1493,7 @@ export const content = {
                         body: [
                             "Данные аккаунта: при регистрации мы собираем имя пользователя, email и пароль, который храним только в виде хэша.",
                             "Игровые данные: сыгранные матчи, внутриигровые действия, результаты, рейтинги и связанная статистика, необходимые для работы игры и подбора соперников.",
-                            "Технические данные: базовые сведения об устройстве и браузере, примерное местоположение по IP-адресу и серверные логи — для безопасности, защиты от читов и диагностики.",
+                            "Технические данные: базовые сведения об устройстве и браузере, серверные логи и два сигнала для защиты от читов: случайный идентификатор, который ваш браузер создаёт для нашей игры, и ваш IP-адрес с его сетевым диапазоном. Оба сигнала мы храним только в виде ключевых хэшей, никогда в исходном виде: хэши IP — 120 дней, хэши устройства — 400 дней. Мы используем их для безопасности, диагностики и защиты от читов, например чтобы заметить несколько рейтинговых аккаунтов с одного устройства.",
                             "Обращения: сообщения, которые вы отправляете нам в поддержку или как обратную связь.",
                             "Необязательные данные кошелька: только если вы решите подключить криптокошелёк для функций токена, мы обрабатываем ваш публичный адрес кошелька. Это никогда не требуется для игры.",
                         ],
@@ -1513,7 +1513,7 @@ export const content = {
                     {
                         title: "4. Файлы cookie и локальное хранилище",
                         body: [
-                            "Мы храним токен входа/сессии и базовые настройки в локальном хранилище вашего браузера, чтобы вы оставались в системе и сохраняли настройки. Мы не используем их для межсайтовой рекламы и не продаём их.",
+                            "Мы храним токен входа/сессии, базовые настройки и случайный идентификатор устройства в локальном хранилище вашего браузера, чтобы вы оставались в системе, сохраняли настройки и чтобы мы могли выявлять мультиаккаунты в рейтинговой игре. Мы не используем их для межсайтовой рекламы и не продаём их.",
                         ],
                     },
                     {

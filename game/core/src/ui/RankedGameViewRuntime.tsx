@@ -41,7 +41,13 @@ import {
     sendRankedPlayMoveIntent,
     toAuthoritativeGameSnapshot,
 } from "../api/ranked_play_client";
-import { PlayActionType, PlayEventKind, PlayPhase, PLAY_MOVE_CONTINUE_TURN_REASON } from "../api/play_protocol";
+import {
+    PlayActionType,
+    PlayEventKind,
+    PlayInputSource,
+    PlayPhase,
+    PLAY_MOVE_CONTINUE_TURN_REASON,
+} from "../api/play_protocol";
 import { createInitialPlayerPlacementActions, createModelPlacementActions } from "./rankedPlacementGeometry";
 import { setPrefightMusicActive } from "./audio/prefightMusic";
 import type { PlayAction, PlaySnapshot, PlayUnitState } from "../api/play_protocol";
@@ -58,10 +64,12 @@ import {
     type RankedReplay,
     type RankedReplayActionRecord,
 } from "../replay/ranked_replay";
+import { autoPlayedInputSource } from "../scenes/autoPlayedAction";
 import { getLocalModelOpponentConfig, isLocalModelAction } from "../scenes/LocalModelOpponent";
 import { authoritativeSnapshotToSandboxSceneState, RankedPlayScene } from "../scenes/RankedPlayScene";
 import type { IWindowSize } from "../scenes/VisibleState";
 import { FightFinishedOverlay } from "./FightFinishedOverlay";
+import { installInputTelemetry, takeInputTelemetry } from "./inputTelemetry";
 import LeftSideBar from "./LeftSideBar";
 import SynergiesRow from "./LeftSideBar/SynergiesRow";
 import { Main } from "./Main";
@@ -908,7 +916,20 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                 setError("");
             }
             try {
-                const result = await sendRankedPlayAction(gameId, payload, options);
+                // Integrity telemetry rides every real action, never the heartbeat: evidence only (inputTelemetry.ts).
+                const telemetry = payload.type === PlayActionType.PING ? undefined : takeInputTelemetry();
+                const result = await sendRankedPlayAction(
+                    gameId,
+                    telemetry
+                        ? {
+                              ...payload,
+                              inputSource: payload.inputSource ?? telemetry.inputSource,
+                              pointerEvents: telemetry.pointerEvents,
+                              tabHidden: telemetry.tabHidden,
+                          }
+                        : payload,
+                    options,
+                );
                 latestSequenceRef.current = Math.max(latestSequenceRef.current, result.sequence);
                 if (payload.type === PlayActionType.PING && result.accepted) {
                     return true;
@@ -994,6 +1015,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                                     targetCells: [],
                                     reason: "manual",
                                     expectedSequence: latestSequenceRef.current,
+                                    inputSource: PlayInputSource.CLIENT_RETRY,
                                 },
                                 options,
                             ).catch(() => undefined);
@@ -1038,6 +1060,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                                 path: [],
                                 targetCells: [],
                                 expectedSequence: latestSequenceRef.current,
+                                inputSource: PlayInputSource.CLIENT_RETRY,
                             },
                             options,
                         ).catch(() => undefined);
@@ -1138,13 +1161,17 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             team: TeamType,
             authorization?: string,
             transportOptions?: SceneGameActionTransportOptions,
+            inputSource?: number,
         ) => {
             await queueActionSubmission(async () => {
                 const envelope = buildActionEnvelope(team);
                 if (!envelope) return;
 
                 await sendPlayAction(
-                    createPlayActionFromGameAction(action, envelope, transportOptions),
+                    {
+                        ...createPlayActionFromGameAction(action, envelope, transportOptions),
+                        ...(inputSource !== undefined ? { inputSource } : {}),
+                    },
                     authorization ? { authorization } : undefined,
                 );
             });
@@ -1153,8 +1180,8 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     );
 
     const submitGameAction = useCallback(
-        async (action: GameAction, transportOptions?: SceneGameActionTransportOptions) => {
-            await submitGameActionForTeam(action, userTeam, undefined, transportOptions);
+        async (action: GameAction, transportOptions?: SceneGameActionTransportOptions, inputSource?: number) => {
+            await submitGameActionForTeam(action, userTeam, undefined, transportOptions, inputSource);
         },
         [submitGameActionForTeam, userTeam],
     );
@@ -1193,6 +1220,10 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
         };
         return startVisibleInterval(pingHumanPlayer, 8_000);
     }, [gameId, hasSnapshot, isObserver, submitProtocolActionForTeam, userTeam]);
+
+    useEffect(() => {
+        installInputTelemetry();
+    }, []);
 
     const transport = useCallback<SceneGameActionTransport>(
         (action, transportOptions) => {
@@ -1257,6 +1288,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                     effectiveLocalModelConfig.modelTeam,
                     effectiveLocalModelConfig.authorization,
                     transportOptions,
+                    PlayInputSource.LOCAL_MODEL,
                 );
                 return { handled: true, completed: true };
             }
@@ -1279,7 +1311,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             // gate ("your units, your zone, no cross-team ordering dependency"). Stale optimistic state is
             // repaired by reconciling from the authoritative snapshot — see shouldPlayAuthoritativeAction —
             // not by throwing the player's input away.
-            void submitGameAction(action, transportOptions);
+            void submitGameAction(action, transportOptions, autoPlayedInputSource(action));
             return { handled: true, completed: true };
         },
         [

@@ -5,6 +5,7 @@ import type { AuthoritativeGameSnapshot, SceneGameActionTransport } from "../gam
 import { createRankedReplayFromPayload, type RankedReplay, type RankedReplayPayload } from "../replay/ranked_replay";
 import { appendBoundedDiagnosticLine } from "../utils/boundedDiagnosticLog";
 import { buildApiUrl, endpoints, HOST_GAME_API, axiosGameInstance } from "./axios";
+import { deviceIdHeaders } from "./deviceId";
 import { createPlayActionFromGameAction } from "./game_action_play_codec";
 import { isPreviewPlayGame } from "./previewPlayGate";
 import {
@@ -24,6 +25,7 @@ const authHeaders = (authorization?: string): Record<string, string> => {
     return {
         "Content-Type": "application/octet-stream",
         "x-request-id": uuidv4(),
+        ...deviceIdHeaders(),
         ...(token ? { Authorization: token } : {}),
     };
 };
@@ -32,6 +34,7 @@ export const rankedEventHeaders = (): Record<string, string> => {
     const token = localStorage.getItem(STORAGE_KEY);
     return {
         Accept: "text/event-stream",
+        ...deviceIdHeaders(),
         ...(token ? { Authorization: token } : {}),
     };
 };
