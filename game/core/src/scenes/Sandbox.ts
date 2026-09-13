@@ -16327,6 +16327,10 @@ export class Sandbox extends PixiScene {
         const minCellY = gs.getMinY() / gs.getCellSize();
         const maxCellY = gs.getMaxY() / gs.getCellSize();
         const offset = layer - 1;
+        // A scattered stone on a narrowed cell falls into the hole (common Grid.occupyByHole), so its art has to
+        // go with it. Diff the standing set rather than read occupyByHole's result: ranked never re-sends a stone
+        // the local grid already dropped, so this is the only place that can remove it.
+        const standingBefore = this.grid.hasScatteredMountains() ? this.grid.getScatteredMountainsStanding() : [];
 
         for (let i = minCellX + offset; i < maxCellX - offset; i++) {
             this.grid.occupyByHole({ x: i + maxCellX, y: offset });
@@ -16335,6 +16339,14 @@ export class Sandbox extends PixiScene {
         for (let i = minCellY + offset; i < maxCellY - offset; i++) {
             this.grid.occupyByHole({ x: offset, y: i });
             this.grid.occupyByHole({ x: (maxCellX << 1) - layer, y: i });
+        }
+        if (standingBefore.length) {
+            const standingAfter = this.grid.getScatteredMountainsStanding();
+            for (const stone of standingBefore) {
+                if (!standingAfter.some((cell) => cell.x === stone.x && cell.y === stone.y)) {
+                    this.dungeonVisuals?.removeScatteredMountainAt(stone.x, stone.y);
+                }
+            }
         }
     }
     private syncSystemMovedUnit(
