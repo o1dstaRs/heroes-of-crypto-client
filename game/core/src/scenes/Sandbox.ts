@@ -4436,7 +4436,11 @@ export class Sandbox extends PixiScene {
                   target.getId(),
                   attacker.getPosition(),
                   attacker.hasAbilityActive("Through Shot"),
-                  !!(attacker.getAbility("Double Shot") ?? attacker.getAbility("Crafted Double Shot")),
+                  !!(
+                      attacker.getAbility("Double Shot") ??
+                      attacker.getAbility("Crafted Double Shot") ??
+                      attacker.getAbility("Double Throw")
+                  ),
               )
             : Array.from({ length: Math.max(1, event.damage.hits?.length ?? 0) }, () => ({
                   targetUnitId: target.getId(),
@@ -6124,7 +6128,8 @@ export class Sandbox extends PixiScene {
                 // 3) Remove Pixi visuals + selection
                 // Spawn the "broken mirror" shatter from the unit's current sprite before tearing it
                 // down (only for real deaths — not placement/force cleanup or resurrections).
-                const customDeathPlaying = isDead && this.playCustomDeathAnimation(utd);
+                const customDeathPlaying =
+                    this.dyingVisualUnits.has(utd) || (isDead && this.playCustomDeathAnimation(utd));
                 if (isDead && !customDeathPlaying) {
                     const shatterInfo = utd.getShatterInfo();
                     if (shatterInfo) {
@@ -16459,7 +16464,9 @@ export class Sandbox extends PixiScene {
             if (presentIds.has(unit.getId())) {
                 continue;
             }
-            unit.destroyVisuals();
+            // Snapshot reconciliation removes logical occupancy immediately, but an authored death
+            // started at impact owns its visuals until its completion callback.
+            if (!this.dyingVisualUnits.has(unit)) unit.destroyVisuals();
             this.grid.cleanupAll(unit.getId(), unit.getAttackRange(), unit.isSmallSize());
             this.unitsHolder.deleteUnitById(unit.getId());
             removed = true;

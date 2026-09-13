@@ -201,3 +201,63 @@ test("higher tiers retain their existing lunge and knockback within the serial e
     finish.splice(0).forEach((fn) => fn());
     await pending;
 });
+
+test("snapshot reconciliation and full hydration preserve an in-flight authored death", () => {
+    for (const fullHydration of [false, true]) {
+        const { scene, a, events } = setup();
+        const units = new Map([["A", a]]);
+        Object.assign(a, {
+            getAttackRange: () => 1,
+            isSmallSize: () => true,
+            destroyVisuals: () => events.push("destroy"),
+        });
+        Object.assign(scene, {
+            dyingVisualUnits: new Set([a]),
+            unitsHolder: {
+                getAllUnits: () => units,
+                deleteUnitById: (id: string) => units.delete(id),
+                refreshStackPowerForAllUnits: () => {},
+            },
+            grid: { cleanupAll: () => {}, getMatrix: () => [], getMatrixNoUnits: () => [] },
+            refreshUnits: () => {},
+        });
+        if (fullHydration) scene.destroySpecificUnits([a], true, false);
+        else scene.reconcileGhostUnits(new Set());
+        expect(units.size).toBe(0);
+        expect(events).not.toContain("destroy");
+        expect(scene.dyingVisualUnits.has(a)).toBe(true);
+    }
+});
+
+test("Double Throw preserves both recorded projectile impacts", () => {
+    const { scene, a, b } = setup();
+    Object.assign(a, {
+        getPosition: () => ({ x: 0, y: 0 }),
+        hasAbilityActive: () => false,
+        getAbility: (name: string) => (name === "Double Throw" ? {} : undefined),
+    });
+    const plan = scene.buildCombatExchange(
+        a,
+        b,
+        {
+            attackerId: "A",
+            targetId: "B",
+            attackType: "range",
+            damage: {
+                amount: 10,
+                hits: [
+                    { amount: 10, unitsDied: 1 },
+                    { amount: 5, unitsDied: 1 },
+                ],
+            },
+            animations: [0, 1].map(() => ({
+                affectedUnitId: "B",
+                fromPosition: { x: 0, y: 0 },
+                toPosition: { x: 100, y: 0 },
+            })),
+        },
+        new Map([["B", 10]]),
+        new Set(),
+    );
+    expect(plan.map((hit: CombatExchangeStrike) => hit.amount)).toEqual([10, 5]);
+});
