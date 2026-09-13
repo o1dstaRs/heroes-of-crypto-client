@@ -233,11 +233,17 @@ interface IObserverPickViewProps {
 
 export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onPickPhaseChange, onDraftEnded }) => {
     const [snapshot, setSnapshot] = useState<PickObserveSnapshot | undefined>(undefined);
+    // The game this view saw end WITHOUT a fight. Keyed by game id, so a different game polls again.
+    const [closedGameId, setClosedGameId] = useState<string | undefined>(undefined);
+    const draftClosed = closedGameId === gameId;
     const [now, setNow] = useState(() => Date.now());
     // Server/browser clock drift so the countdown tracks the authoritative deadline.
     const driftRef = useRef(0);
 
     useEffect(() => {
+        if (draftClosed) {
+            return undefined;
+        }
         let cancelled = false;
         const poll = async () => {
             try {
@@ -245,10 +251,16 @@ export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onP
                 if (cancelled || !next) {
                     return;
                 }
-                if (next.stage !== "pick") {
+                if (next.stage === "play") {
                     // Keep the finished draft on screen: a stage-only snapshot carries no teams and rendered
                     // as blank "Left team / Right team" cards until the fight view took over.
                     onDraftEnded?.();
+                    return;
+                }
+                if (next.stage === "finished" || next.abandoned) {
+                    // No fight to hand off to — an abandoned draft reads "finished" once the game leaves PICK.
+                    // Handing off here polled play-snapshot every 750ms forever; say so and stop instead.
+                    setClosedGameId(gameId);
                     return;
                 }
                 if (typeof next.serverTimeMs === "number") {
@@ -267,7 +279,7 @@ export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onP
             cancelled = true;
             stopPolling();
         };
-    }, [gameId, onPickPhaseChange, onDraftEnded]);
+    }, [gameId, draftClosed, onPickPhaseChange, onDraftEnded]);
 
     useEffect(() => {
         return startVisibleInterval(() => setNow(Date.now()), 500);
@@ -304,12 +316,16 @@ export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onP
                     </Typography>
                     <Stack direction="row" spacing={1.5} alignItems="center">
                         <Typography sx={{ color: "#9fb6d4", fontSize: 16 }}>
-                            {snapshot ? phaseLabel(snapshot) : "Connecting to the draft"}
-                            {snapshot?.phaseCount
+                            {draftClosed
+                                ? "This match ended before the fight"
+                                : snapshot
+                                  ? phaseLabel(snapshot)
+                                  : "Connecting to the draft"}
+                            {!draftClosed && snapshot?.phaseCount
                                 ? ` — phase ${Math.min((snapshot.phaseSeq ?? 0) + 1, snapshot.phaseCount)}/${snapshot.phaseCount}`
                                 : ""}
                         </Typography>
-                        {secondsLeft !== undefined && (
+                        {!draftClosed && secondsLeft !== undefined && (
                             <Typography
                                 sx={{
                                     px: 1,
