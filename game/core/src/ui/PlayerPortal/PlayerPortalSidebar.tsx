@@ -176,7 +176,7 @@ const SidebarRecentFormDot: React.FC<{
                     </Typography>
                     {result.detail ? (
                         <Typography level="body-xs" sx={{ color: color.background, mt: 0.2 }}>
-                            {t(result.detail)}
+                            {tf(result.detail, result.detailParams ?? {})}
                         </Typography>
                     ) : null}
                     <Typography level="body-xs" sx={{ color: hocColors.muted, mt: 0.45 }}>
@@ -355,7 +355,7 @@ const RecentMatchRow: React.FC<{
                         </Typography>
                         {result.detail && (
                             <Typography level="body-xs" sx={{ color }}>
-                                · {t(result.detail)}
+                                · {tf(result.detail, result.detailParams ?? {})}
                             </Typography>
                         )}
                         {kind.showsMmr && mmrDelta && (

@@ -922,7 +922,7 @@ const MatchCard: React.FC<{
                                 </Typography>
                                 {result.detail && (
                                     <Typography level="body-xs" sx={{ color: resultColor, whiteSpace: "nowrap" }}>
-                                        {t(result.detail)}
+                                        {tf(result.detail, result.detailParams ?? {})}
                                     </Typography>
                                 )}
                             </Stack>

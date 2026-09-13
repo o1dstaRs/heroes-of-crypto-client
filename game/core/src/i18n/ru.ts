@@ -1185,6 +1185,14 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "You abandoned": "Вы покинули матч",
     "Opponent conceded": "Соперник сдался",
     "You conceded": "Вы сдались",
+    "You abandoned at {pct}% casualties": "Вы покинули матч при потерях {pct}%",
+    "Opponent abandoned at {pct}% casualties": "Соперник покинул матч при потерях {pct}%",
+    "You conceded at {pct}% casualties": "Вы сдались при потерях {pct}%",
+    "Opponent conceded at {pct}% casualties": "Соперник сдался при потерях {pct}%",
+    "You left at {pct}% casualties, so the match is unscored":
+        "Вы вышли при потерях {pct}%, поэтому матч без результата",
+    "Your opponent left at {pct}% casualties, so the match is unscored":
+        "Соперник вышел при потерях {pct}%, поэтому матч без результата",
     Unscored: "Без результата",
     Voided: "Аннулирован",
     "Server problem, match voided": "Проблема сервера, матч аннулирован",

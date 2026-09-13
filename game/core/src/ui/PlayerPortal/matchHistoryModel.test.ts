@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { PortalMatchKind } from "@heroesofcrypto/common";
 
+import { RU_TRANSLATIONS } from "../../i18n/ru";
 import {
     filterPortalMatches,
     formatMatchDamage,
@@ -70,6 +71,56 @@ describe("match history model", () => {
             label: "Victory",
             tone: "win",
         });
+    });
+
+    it("shows the board casualties an early ending resolved at, from the viewer's side", () => {
+        const exit = (leaver: string, bp: number): Partial<PortalMatchData> => ({
+            exit_recorded: true,
+            exit_casualty_bp: bp,
+            exit_leaver: leaver,
+        });
+        expect(matchResultPresentation(match({ outcome_reason: "abandon", ...exit("player", 2399) }))).toEqual({
+            detail: "You abandoned at {pct}% casualties",
+            detailParams: { pct: 23 },
+            label: "Defeat",
+            tone: "loss",
+        });
+        // Whole percent, never rounded up across the 50% line: 49.99% reads 49, like the exit meter.
+        expect(
+            matchResultPresentation(match({ outcome_reason: "abandon", won: true, ...exit("opponent", 4999) })),
+        ).toMatchObject({ detail: "Opponent abandoned at {pct}% casualties", detailParams: { pct: 49 } });
+        expect(
+            matchResultPresentation(match({ outcome_reason: "concede", won: true, ...exit("opponent", 5000) })),
+        ).toMatchObject({ detail: "Opponent conceded at {pct}% casualties", detailParams: { pct: 50 } });
+        expect(
+            matchResultPresentation(match({ outcome_reason: "unscored", draw: true, ...exit("player", 1200) })),
+        ).toEqual({
+            detail: "You left at {pct}% casualties, so the match is unscored",
+            detailParams: { pct: 12 },
+            label: "Unscored",
+            tone: "draw",
+        });
+        expect(
+            matchResultPresentation(match({ outcome_reason: "unscored", draw: true, ...exit("opponent", 0) })).detail,
+        ).toBe("Your opponent left at {pct}% casualties, so the match is unscored");
+        // A double abandon has no single leaver, and a result without a recorded exit keeps the plain wording.
+        expect(
+            matchResultPresentation(match({ outcome_reason: "unscored", draw: true, ...exit("both", 0) })).detail,
+        ).toBe("An early exit left this match unscored");
+        expect(matchResultPresentation(match({ outcome_reason: "abandon", won: true }))).toEqual({
+            detail: "Opponent abandoned",
+            label: "Victory",
+            tone: "win",
+        });
+        const templates = [
+            "You abandoned at {pct}% casualties",
+            "Opponent abandoned at {pct}% casualties",
+            "You conceded at {pct}% casualties",
+            "Opponent conceded at {pct}% casualties",
+            "You left at {pct}% casualties, so the match is unscored",
+            "Your opponent left at {pct}% casualties, so the match is unscored",
+        ];
+        expect(templates.filter((template) => !(template in RU_TRANSLATIONS))).toEqual([]);
     });
 
     it("presents explicit match modes without inferring from rating values", () => {
