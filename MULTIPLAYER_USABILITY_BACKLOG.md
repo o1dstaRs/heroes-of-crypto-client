@@ -71,7 +71,10 @@ Status legend: **done** shipped, **open** not started.
   before the game-document lookup, and `sandbox-join` restores on demand. Verified: a restart mid-placement
   came back with all placed units, ready flags and no placement clock.
 
-## 8. Smaller co-op gaps — open
+## 8. Smaller co-op gaps — partly done
 
-- One friend per sandbox; no map choice; the host's local sandbox placements are dropped when inviting;
-  no in-match text chat (the social dock collapses during a fight, DMs are behind the medallion).
+- Done: the co-op sandbox opens on the host's current map, and the green army the host had already placed
+  in the offline sandbox is carried over (stored per tab when the invite is sent, replayed once as ordinary
+  placements when the co-op board first shows the host an empty army). A rematch keeps the map.
+- Open: one friend per sandbox; no in-match text chat (the social dock collapses during a fight, DMs are
+  behind the medallion).

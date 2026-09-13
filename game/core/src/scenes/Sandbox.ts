@@ -16547,6 +16547,30 @@ export class Sandbox extends PixiScene {
     protected getPlacementOwnerTeam(): TeamType | undefined {
         return undefined;
     }
+    /**
+     * The real (non-ghost) units this team has standing in its deployment zone, as name + cells. The
+     * "Invite a friend" flow carries the host's green army into the co-op sandbox with this.
+     */
+    public override getPlacedArmyExport(team: TeamType): { unitName: string; cells: { x: number; y: number }[] }[] {
+        const leftBottomPlacement = this.getPlacement(TeamVals.LEFT, 0);
+        const rightTopPlacement = this.getPlacement(TeamVals.RIGHT, 0);
+        if (!leftBottomPlacement || !rightTopPlacement) {
+            return [];
+        }
+        return this.unitsHolder
+            .getAllAlliesPlaced(
+                team,
+                leftBottomPlacement,
+                rightTopPlacement,
+                this.getPlacement(TeamVals.LEFT, 1),
+                this.getPlacement(TeamVals.RIGHT, 1),
+            )
+            .filter((unit) => !this.revealedOpponentUnitIds.has(unit.getId()) && !unit.isDead())
+            .map((unit) => ({
+                unitName: unit.getName(),
+                cells: unit.getCells().map((cell) => ({ x: cell.x, y: cell.y })),
+            }));
+    }
     /** Whether START may light up now that each side has (or lacks) a placed army. */
     protected canStartFightNow(leftPlaced: boolean, rightPlaced: boolean): boolean {
         return leftPlaced && rightPlaced;

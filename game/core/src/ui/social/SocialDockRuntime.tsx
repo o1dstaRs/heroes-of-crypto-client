@@ -25,6 +25,7 @@ import { startVisibleInterval } from "../visibleInterval";
 import { ConversationPanel } from "./ConversationPanel";
 import { useCurrentLobby } from "./CurrentLobbyContext";
 import { DockPanelCloseButton, DockPanelShell } from "./DockPanelShell";
+import { storeCoopCarryOver } from "./coopCarryOver";
 import { OPEN_FRIENDS_EVENT } from "./openFriendsEvent";
 import { PredictionsPanel } from "./PredictionsPanel";
 import { getSocialDockSlot, getSocialDockSlotServerSnapshot, subscribeSocialDockSlot } from "./socialDockSlot";
@@ -61,6 +62,7 @@ import {
     type SocialNotification,
 } from "../../api/social_client";
 import { useAuthContext } from "../auth/context/auth_context";
+import { usePixiManager } from "../../pixi/PixiGameManager";
 import { createSandboxCoop, sandboxCoopErrorMessage, sandboxCoopPath } from "../../api/sandbox_coop_client";
 import {
     hocColors,
@@ -399,6 +401,7 @@ interface FriendsPanelProps {
 const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage }) => {
     const social = useSocial();
     const navigate = useNavigate();
+    const manager = usePixiManager();
     const { lobbyId: currentLobbyId, sandboxInviteAvailable } = useCurrentLobby();
     const [overview, setOverview] = useState<FriendsOverview | null>(null);
     const [loading, setLoading] = useState(false);
@@ -511,7 +514,10 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage })
         setBusy(true);
         setMessage(null);
         try {
-            const session = await createSandboxCoop(friend.playerId);
+            // The host's map and placed green army travel with them into the co-op board.
+            const carry = manager.GetSandboxCarryOver();
+            const session = await createSandboxCoop(friend.playerId, carry ? { gridType: carry.gridType } : {});
+            storeCoopCarryOver(session.gameId, carry?.army ?? []);
             onClose();
             navigate(sandboxCoopPath(session.gameId));
         } catch (err) {

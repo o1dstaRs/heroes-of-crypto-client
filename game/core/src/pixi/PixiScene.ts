@@ -988,6 +988,10 @@ export abstract class PixiScene {
     public getUnitsOverlay(): UnitsOverlay | undefined {
         return undefined;
     }
+    /** The units a team has placed on the board, by name and cells — what a co-op sandbox can be seeded with. */
+    public getPlacedArmyExport(_team: TeamType): { unitName: string; cells: { x: number; y: number }[] }[] {
+        return [];
+    }
     public HomeCamera(): void {
         const minX = -1024,
             maxX = 1024;

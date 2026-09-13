@@ -9,6 +9,7 @@ import {
     SynergyWithLevel,
     FactionVals,
     TeamType,
+    TeamVals,
     FactionType,
     GridType,
     FightStateManager,
@@ -720,6 +721,17 @@ export class PixiGameManager {
         const index = this.flatScenes.findIndex((e) => e.name === this.sceneTitle) + 1;
         if (index >= this.flatScenes.length) this.activateScene(this.flatScenes[0]);
         else this.activateScene(this.flatScenes[index]);
+    }
+    /**
+     * What the offline sandbox would hand a co-op sandbox: its map and the green army as placed. Undefined
+     * once a fight has started (there is nothing to carry) or before a scene exists.
+     */
+    public GetSandboxCarryOver():
+        { gridType: number; army: { unitName: string; cells: { x: number; y: number }[] }[] } | undefined {
+        if (!this.m_scene || this.started) {
+            return undefined;
+        }
+        return { gridType: this.m_scene.getGridType(), army: this.m_scene.getPlacedArmyExport(TeamVals.LEFT) };
     }
     public StartGame(): void {
         if (this.m_scene && this.m_scene.startScene()) this.started = true;

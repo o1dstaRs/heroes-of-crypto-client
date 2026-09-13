@@ -100,6 +100,7 @@ import { startVisibleInterval } from "./visibleInterval";
 import { ViewerTeamContext } from "./context/ViewerTeamContext";
 import { SandboxCoopBanner, SandboxCoopReadyButton, sandboxCoopSeatStatuses } from "./SandboxCoopControls";
 import { openFriendsPanel } from "./social/openFriendsEvent";
+import { takeCoopCarryOver } from "./social/coopCarryOver";
 import { clearTurnAlert, isTabUnwatched, signalYourTurn, yourTurnActivationKey } from "./turnAlert";
 import { OpponentConnectionBadge } from "./OpponentConnectionBadge";
 import { playNotificationSound } from "./audio/uiSounds";
@@ -1566,6 +1567,43 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
         !!snapshot &&
         !snapshot.fightStarted &&
         (snapshot.phase === PlayPhase.FINISHED || snapshot.phase === PlayPhase.ABANDONED);
+    // The army the host placed in the offline sandbox lands on the co-op board the first time it shows
+    // them an empty one (the invite stored it in this tab). Replayed once, as ordinary placements the
+    // server validates like any other; anything it refuses (a cell outside the zone) is simply skipped.
+    const carryOverRunKeyRef = useRef("");
+    useEffect(() => {
+        if (
+            !sandboxCoop ||
+            isObserver ||
+            replayOnly ||
+            !snapshot ||
+            snapshot.phase !== PlayPhase.PLACEMENT ||
+            ready ||
+            snapshot.units.some((unit) => unit.team === userTeam)
+        ) {
+            return;
+        }
+        if (carryOverRunKeyRef.current === snapshot.gameId) {
+            return;
+        }
+        carryOverRunKeyRef.current = snapshot.gameId;
+        const army = takeCoopCarryOver(snapshot.gameId);
+        if (!army.length) {
+            return;
+        }
+        void (async () => {
+            for (const unit of army) {
+                await submitGameAction({
+                    type: "place_unit",
+                    unitId: uuidv4(),
+                    team: userTeam,
+                    unitName: unit.unitName,
+                    cells: unit.cells,
+                });
+            }
+        })();
+    }, [isObserver, ready, replayOnly, sandboxCoop, snapshot, submitGameAction, userTeam]);
+
     // Rematch: whoever presses it hosts a fresh sandbox with the same friend in the other seat; the
     // friend gets the usual invite toast and follows when ready.
     const rematchSandboxCoop = useCallback(async () => {
@@ -1574,7 +1612,8 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
         }
         const other = sandboxCoop.host.playerId === myPlayer.playerId ? sandboxCoop.guest : sandboxCoop.host;
         try {
-            const session = await createSandboxCoop(other.playerId);
+            // Same map as the board they just played on.
+            const session = await createSandboxCoop(other.playerId, { gridType: snapshotRef.current?.gridType });
             navigate(sandboxCoopPath(session.gameId));
         } catch (err) {
             throw new Error(sandboxCoopErrorMessage(err, "Unable to open a rematch"));

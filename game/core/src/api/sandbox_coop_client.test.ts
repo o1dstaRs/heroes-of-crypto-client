@@ -25,10 +25,12 @@ describe("sandbox_coop_client", () => {
             calls.push({ url, body, contentType: config.headers["Content-Type"] });
             return Promise.resolve({ data: SESSION });
         };
-        const session = await createSandboxCoop("g", post);
+        const session = await createSandboxCoop("g", { gridType: 3 }, post);
         expect(session.gameId).toBe(SESSION.gameId);
         expect(calls[0]?.url.endsWith("sandbox-create")).toBe(true);
-        expect(calls[0]?.body).toEqual({ toPlayerId: "g" });
+        expect(calls[0]?.body).toEqual({ toPlayerId: "g", gridType: 3 });
+        await createSandboxCoop("g", {}, post);
+        expect(calls[1]?.body).toEqual({ toPlayerId: "g" });
         expect(calls[0]?.contentType).toBe("application/json");
     });
 

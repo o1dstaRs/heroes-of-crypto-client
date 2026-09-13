@@ -59,9 +59,18 @@ const asSession = (data: unknown): SandboxCoopSession => {
 
 export const createSandboxCoop = async (
     toPlayerId: string,
+    options: { gridType?: number } = {},
     post: SandboxCoopPost = postJson,
 ): Promise<SandboxCoopSession> =>
-    asSession((await post(endpoints.game.sandboxCreate, { toPlayerId }, { headers: authHeaders() })).data);
+    asSession(
+        (
+            await post(
+                endpoints.game.sandboxCreate,
+                { toPlayerId, ...(options.gridType !== undefined ? { gridType: options.gridType } : {}) },
+                { headers: authHeaders() },
+            )
+        ).data,
+    );
 
 export const joinSandboxCoop = async (gameId: string, post: SandboxCoopPost = postJson): Promise<SandboxCoopSession> =>
     asSession((await post(appendEncodedPath(endpoints.game.sandboxJoin, gameId), {}, { headers: authHeaders() })).data);
