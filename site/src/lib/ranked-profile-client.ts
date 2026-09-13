@@ -281,8 +281,11 @@ export interface PublicRankedProfile {
     winRatePct: number;
     winStreak: number;
     lossStreak: number;
-    // Season currency ("Gold"): minted 1:1 with every positive MMR movement, never deducted.
+    // Available season currency ("Gold"): what the player can put into a new wager, prediction or lobby.
     gold: number;
+    // Available plus gold in play: the figure the profile SHOWS. Absent from older servers.
+    totalGold?: number;
+    goldInPlay?: number;
     placedAt: number;
     lastRankedGameAt: number;
     // Public playtime + presence: total seconds ever spent in games, and online / last-seen state.
@@ -532,6 +535,8 @@ export function normalizePublicRankedProfile(value: unknown): PublicRankedProfil
         winStreak: nonNegativeInteger(row.winStreak),
         lossStreak: nonNegativeInteger(row.lossStreak),
         gold: nonNegativeInteger(row.gold),
+        totalGold: row.totalGold === undefined ? undefined : nonNegativeInteger(row.totalGold),
+        goldInPlay: row.goldInPlay === undefined ? undefined : nonNegativeInteger(row.goldInPlay),
         placedAt: nonNegativeInteger(row.placedAt),
         lastRankedGameAt: nonNegativeInteger(row.lastRankedGameAt),
         secondsInGame: nonNegativeInteger(row.secondsInGame),

@@ -29,6 +29,7 @@ import {
     TOP_WEALTH,
 } from "./ranked-arena-data";
 import { getAuthUser, isLoggedIn } from "./auth-state";
+import { displayedGold } from "./gold-display";
 import { leagueEmblemPath } from "./league-emblems";
 import { fetchMyBets, impliedShare, placeBet, proposedReturn, type PredictionBet } from "./prediction-client";
 import { rankedArenaCopy } from "./ranked-arena-copy";
@@ -469,8 +470,8 @@ const createPlayerDossier = (
     };
     append(
         dossier,
-        // Season currency first: gold is minted 1:1 with won MMR and never deducted.
-        metric(currency.name, currencyAmount(player.gold, "", currency)),
+        // Season currency first: the total, available plus gold in play.
+        metric(currency.name, currencyAmount(displayedGold(player), "", currency)),
         metric(copy.bansLabel, player.bannedCreatureName || copy.bansNone),
         metric(copy.gamesPlayed, numberFormatter.format(player.totalGames)),
         metric(copy.peakRating, numberFormatter.format(player.peakMmr || player.mmr)),
@@ -501,7 +502,11 @@ const renderPlayerDetail = (
 
     const rating = el("div", "ranked-arena__detail-rating");
     const detailGold = el("small", "ranked-arena__detail-gold");
-    append(detailGold, document.createTextNode(`${currency.name}: `), currencyAmount(player.gold, "", currency));
+    append(
+        detailGold,
+        document.createTextNode(`${currency.name}: `),
+        currencyAmount(displayedGold(player), "", currency),
+    );
     append(
         rating,
         el("span", "", copy.rating),
@@ -566,7 +571,7 @@ const renderCalibratingSection = (
             el("span", "ranked-arena__rank", "…"),
             identity,
             el("strong", "ranked-arena__row-rating", "—"),
-            currencyAmount(player.gold, "ranked-arena__row-gold", currency),
+            currencyAmount(displayedGold(player), "ranked-arena__row-gold", currency),
             el("span", "ranked-arena__row-record", `${player.wins}–${player.losses}–${player.draws}`),
             el(
                 "span",
@@ -665,10 +670,10 @@ const renderPlayers = (
         row.dataset.selected = String(player.playerId === selected!.playerId);
         row.setAttribute(
             "aria-label",
-            `${player.username}, ${localizedStanding(copy, player.league, player.wealth)}, ${player.mmr} ${copy.rating}, ${player.gold} ${currency.name}`,
+            `${player.username}, ${localizedStanding(copy, player.league, player.wealth)}, ${player.mmr} ${copy.rating}, ${displayedGold(player)} ${currency.name}`,
         );
         // Plain-hover affordance on top of the styled dossier: the balance in a native tooltip.
-        row.title = `${currency.name}: ${numberFormatter.format(player.gold)}`;
+        row.title = `${currency.name}: ${numberFormatter.format(displayedGold(player))}`;
 
         const rank = el("span", "ranked-arena__rank", `#${player.position || player.leaderboardRank || "—"}`);
         const identity = el("span", "ranked-arena__player-identity");
@@ -686,7 +691,7 @@ const renderPlayers = (
             rank,
             identity,
             el("strong", "ranked-arena__row-rating", numberFormatter.format(player.mmr)),
-            currencyAmount(player.gold, "ranked-arena__row-gold", currency),
+            currencyAmount(displayedGold(player), "ranked-arena__row-gold", currency),
             el("span", "ranked-arena__row-record", `${player.wins}–${player.losses}–${player.draws}`),
             el("span", "ranked-arena__row-rate", `${player.winRatePct.toFixed(1).replace(/\.0$/, "")}%`),
             createPlayerDossier(player, copy, dossierId, currency),
@@ -1028,6 +1033,8 @@ const renderGames = (
     const ladderRanks = new Map(
         allRankedPlayers(state).map((player) => [player.playerId, player.position || player.leaderboardRank] as const),
     );
+    // Spectate is never offered while the viewer is playing a live game themselves (same rule as the friends list).
+    const viewerPlaying = viewerInLiveMatch(getAuthUser(), state.games.games);
     const visibleGames = games.slice(0, state.visibleGames);
     for (const [gameIndex, game] of visibleGames.entries()) {
         const card = el("article", "ranked-arena__game-card");
@@ -1046,7 +1053,9 @@ const renderGames = (
         if (stageStartedAt(game)) time.dateTime = new Date(stageStartedAt(game)).toISOString();
         append(liveMeta, el("i"), time);
         append(header, badges, liveMeta);
-        if (game.observable) {
+        if (viewerPlaying) {
+            // No Watch link while you are in a match yourself.
+        } else if (game.observable) {
             const watch = el("a", "ranked-arena__watch", copy.watchLive);
             watch.href = `${gameClientRoot}/game/${encodeURIComponent(game.gameId)}`;
             watch.setAttribute(
