@@ -1,6 +1,7 @@
 import { IDamageStatistic } from "@heroesofcrypto/common";
 import { FIGHT_LOG_SURFACE_BACKGROUND } from "./fightLogLayout";
-import { toolbarColumnHeightPx } from "../DraggableToolbar/toolbarMetrics";
+import { toolbarColumnHeightPx, toolbarSlotCount } from "../DraggableToolbar/toolbarMetrics";
+import { ButtonContext } from "../context/ButtonContextDefs";
 import {
     RIGHT_SIDEBAR_BG_IMAGE,
     RIGHT_SIDEBAR_BG_POSITION,
@@ -13,7 +14,7 @@ import Box from "@mui/joy/Box";
 import List from "@mui/joy/List";
 import Sheet from "@mui/joy/Sheet";
 import Typography from "@mui/joy/Typography";
-import React, { useEffect, useState, useCallback, useLayoutEffect, useRef } from "react";
+import React, { useContext, useEffect, useState, useCallback, useLayoutEffect, useRef } from "react";
 import Button from "@mui/joy/Button";
 import { useNavigate } from "react-router";
 import { useAuthContext } from "../auth/context/auth_context";
@@ -75,16 +76,19 @@ export default function RightSideBar({
     const [unitDamageStatistics, setUnitDamageStatistics] = useState([] as IDamageStatistic[]);
 
     // See the note at the log itself: its height is measured on the first layout and then held, so nothing
-    // that happens later in the fight can re-deal it. The window size and leaving the fight are the only
-    // things that release it — both change what "the spare height" even means.
+    // that happens later in the fight can re-deal it. The window size, leaving the fight and the button row
+    // settling on its slot count are the only things that release it — each changes what "the spare height" means.
     const logBoxRef = useRef<HTMLDivElement>(null);
     const [frozenLogHeight, setFrozenLogHeight] = useState<number | null>(null);
     const damageListSpaceRef = useRef<HTMLDivElement>(null);
     const [damageListViewportHeight, setDamageListViewportHeight] = useState<number | null>(null);
+    // The button row gives up its AI slot when the scene offers no AI toggle (ranked, lobby, vs-AI), and the
+    // log takes that height. Read without the throwing hook: the draft screen mounts this bar with no ButtonProvider.
+    const toolbarSlots = toolbarSlotCount(useContext(ButtonContext)?.buttons ?? []);
 
     useLayoutEffect(() => {
         setFrozenLogHeight(null);
-    }, [windowSize.width, windowSize.height, gameStarted]);
+    }, [windowSize.width, windowSize.height, gameStarted, toolbarSlots]);
 
     useLayoutEffect(() => {
         if (frozenLogHeight !== null) {
@@ -395,8 +399,8 @@ export default function RightSideBar({
                                 // Fixed, and fixed to the button column rather than to anything's content:
                                 // this row is the one place in the bar whose height would otherwise swing
                                 // with the turn, and everything under it — the log especially — is pinned
-                                // by where it ends.
-                                height: `${toolbarColumnHeightPx()}px`,
+                                // by where it ends. Five slots when the scene offers no AI toggle, six otherwise.
+                                height: `${toolbarColumnHeightPx(toolbarSlots)}px`,
                                 flexShrink: 0,
                                 gap: "6px",
                             }}
