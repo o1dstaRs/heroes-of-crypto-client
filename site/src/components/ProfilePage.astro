@@ -1208,8 +1208,10 @@ const rankedApp = links.rankedApp;
 
         if (nameEl) nameEl.textContent = profile.username;
         if (goldEl) {
-            const gold = numberFormatter.format(profile.gold);
-            goldEl.innerHTML = currencyMarkup(profile.gold);
+            // The total, available plus gold in play (owner decision 2026-09-13); older servers send only gold.
+            const shownGold = profile.totalGold ?? profile.gold;
+            const gold = numberFormatter.format(shownGold);
+            goldEl.innerHTML = currencyMarkup(shownGold);
             goldEl.setAttribute("aria-label", `${currentCurrency.name}: ${gold}`);
             goldEl.title = currentCurrency.name;
             goldEl.hidden = false;
@@ -1411,7 +1413,7 @@ const rankedApp = links.rankedApp;
                 const netSign = wagers.net > 0 ? "+" : "";
                 wagerSummaryEl.innerHTML = `
                     <span class="prediction-panel__metric"><b>${numberFormatter.format(wagers.wagers)}</b><span>${escapeHtml(copy.wagersPlayed)}</span></span>
-                    <span class="prediction-panel__metric"><b>${currencyMarkup(wagers.staked)}</b><span>${escapeHtml(copy.predictionsStaked)}</span></span>
+                    <span class="prediction-panel__metric"><b>${currencyMarkup(wagers.staked)}</b><span>${escapeHtml(copy.wagersWagered)}</span></span>
                     <span class="prediction-panel__metric"><b>${
                         wagers.won + wagers.lost > 0
                             ? `${wagers.winRatePct.toFixed(1).replace(/\.0$/, "")}%`

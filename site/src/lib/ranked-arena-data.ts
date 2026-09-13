@@ -23,8 +23,11 @@ export interface RankedPlayer {
     playerId: string;
     username: string;
     mmr: number;
-    // Season currency balance ("Gold" on the test season): minted 1:1 with positive MMR movement.
+    // Available season currency: what the player can put into a new wager, prediction or lobby.
     gold: number;
+    // Available plus gold in play (open wagers and predictions): the figure rows SHOW. Absent from older servers.
+    totalGold?: number;
+    goldInPlay?: number;
     league: number;
     leagueName: string;
     // Which third of their league they sit in by gold: 1 Ragged, 2 Stacked, 3 Whale (0 = unplaced).
@@ -78,6 +81,8 @@ export interface CalibratingPlayer {
     totalGames: number;
     winRatePct: number;
     gold: number;
+    totalGold?: number;
+    goldInPlay?: number;
 }
 
 export interface ArenaSeason {
@@ -184,6 +189,10 @@ const normalizeLiveGameResults = (value: unknown): LiveGameResult[] =>
         )
         .slice(0, 5);
 
+/** An optional whole-number figure: undefined when the server did not send it (older servers). */
+const optionalWholeNumber = (value: unknown): number | undefined =>
+    typeof value === "number" && Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : undefined;
+
 const normalizePlayer = (value: unknown, fallbackPosition = 0): RankedPlayer | null => {
     const row = asRecord(value);
     const playerId = asString(row.playerId);
@@ -198,6 +207,8 @@ const normalizePlayer = (value: unknown, fallbackPosition = 0): RankedPlayer | n
         username: asString(row.username, "Unknown player"),
         mmr: Math.max(0, asInteger(row.mmr)),
         gold: Math.max(0, asInteger(row.gold)),
+        totalGold: optionalWholeNumber(row.totalGold),
+        goldInPlay: optionalWholeNumber(row.goldInPlay),
         league,
         leagueName: asString(row.leagueName, fallbackLeagueName(league)),
         wealth: Math.max(0, Math.min(3, asInteger(row.wealth))),
@@ -218,6 +229,26 @@ const normalizePlayer = (value: unknown, fallbackPosition = 0): RankedPlayer | n
         bannedCreatureName: asString(row.bannedCreatureName),
     };
 };
+
+/**
+ * Whether the signed-in viewer is playing one of the live games right now. Spectate is never offered to them, the
+ * same rule the in-game friends list applies. Matched by the stored auth user's current game and, because that is
+ * saved at sign-in and can be stale, by their username among the live seats.
+ */
+export function viewerInLiveMatch(
+    viewer: { username?: string; in_game_id?: string } | null | undefined,
+    games: readonly { gameId: string; players: readonly { username: string }[] }[],
+): boolean {
+    if (!viewer) {
+        return false;
+    }
+    const name = viewer.username?.trim().toLowerCase() ?? "";
+    return games.some(
+        (game) =>
+            (!!viewer.in_game_id && viewer.in_game_id === game.gameId) ||
+            (!!name && game.players.some((player) => player.username.trim().toLowerCase() === name)),
+    );
+}
 
 export function normalizeTopResponse(value: unknown): RankedTopResponse {
     const response = asRecord(value);
@@ -278,6 +309,8 @@ export function normalizeStandingsResponse(value: unknown): RankedStandingsRespo
                 totalGames: Math.max(0, asInteger(row.totalGames)),
                 winRatePct: Math.max(0, asNumber(row.winRatePct)),
                 gold: Math.max(0, asInteger(row.gold)),
+                totalGold: optionalWholeNumber(row.totalGold),
+                goldInPlay: optionalWholeNumber(row.goldInPlay),
             };
         })
         .filter((player): player is CalibratingPlayer => player !== null);
@@ -462,7 +495,8 @@ export function filterRankedPlayers(
             case "streak":
                 return directed(streakScore(a) - streakScore(b)) || byRank(a, b);
             case "gold":
-                return directed(a.gold - b.gold) || byRank(a, b);
+                // Tables order by the total a player holds, the same figure the row shows.
+                return directed((a.totalGold ?? a.gold) - (b.totalGold ?? b.gold)) || byRank(a, b);
             default:
                 return direction === "asc" ? byRank(a, b) : -byRank(a, b);
         }

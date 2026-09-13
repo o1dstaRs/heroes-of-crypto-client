@@ -5,6 +5,7 @@ import {
     type RankedPlayer,
     type RankedTopResponse,
 } from "./ranked-arena-data";
+import { displayedGold } from "./gold-display";
 import { rankedArenaCopy } from "./ranked-arena-copy";
 import { leagueEmblemPath } from "./league-emblems";
 import { LEGACY_SEASON_CURRENCY, seasonCurrencyIconUrl, type SeasonCurrency } from "./season-currency";
@@ -206,7 +207,7 @@ export function initHeroLeaderboard(): HeroLeaderboardController | null {
             dossier,
             metric(copy.rating, numberFormatter.format(player.mmr)),
             metric(copy.leagueLabel, leagueLabel(player.league)),
-            metric(currency.name, currencyAmount(player.gold, numberFormatter, currency)),
+            metric(currency.name, currencyAmount(displayedGold(player), numberFormatter, currency)),
             metric(
                 copy.lastBattle,
                 player.lastRankedGameAt ? localizedRelativeTime(copy, player.lastRankedGameAt) : "—",
