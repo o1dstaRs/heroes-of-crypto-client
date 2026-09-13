@@ -58,6 +58,7 @@ import {
     isLazyMapTextureAssetKey,
     isLazySpellAssetKey,
 } from "./imageAssetTiers";
+import { boardFirstTextureLoads, boardImageRetryDelayMs, isBoardImageTextureKey } from "./boardFirstTextureLoads";
 import { images as rawImageUrls } from "../imageAssets";
 import { UnitsOverlay } from "../scenes/UnitsOverlay";
 import { destroyContainerChildren, destroyContainerFilters } from "./filterLifecycle";
@@ -88,6 +89,8 @@ export interface AuthoritativeSnapshotOptions {
 const STEPS_BETWEEN_MOUSE_ACTIONS_MIN = 2;
 const lazyTextureLoads = new Map<string, Promise<Texture>>();
 const lazyTextureLeaseCounts = new Map<string, number>();
+// Board images whose last download failed: how many times in a row, and when to ask again.
+const boardImageRetries = new Map<string, { failures: number; retryAt: number }>();
 
 /** Minimal shape of objects your scene selects / manipulates. */
 export interface BodyLike {
@@ -160,6 +163,7 @@ export abstract class PixiScene {
     private readonly sc_viewportSize = { width: 0, height: 0 };
     private readonly sc_lazyTextureUrls = new Map<string, string>();
     private readonly sc_pendingLazyTextureKeys = new Set<string>();
+    private readonly sc_boardImageRetryTimers = new Set<ReturnType<typeof setTimeout>>();
     public readonly sc_debugLines: Array<[string, string]> = [];
     public readonly sc_statisticLines: Array<[string, string]> = [];
     public readonly sc_sceneLog = new SceneLog();
@@ -442,13 +446,30 @@ export abstract class PixiScene {
         // Large optional families (notably the approved 768px battlefield figures) stay out of the
         // all-assets core bundle. Load the exact requested key once, then repaint live units when it lands.
         // Returning undefined meanwhile lets callers keep their existing static/vector fallback.
+        // Board images go first: every other texture waits for the ones downloading (boardFirstTextureLoads).
         let pending = lazyTextureLoads.get(url);
         if (!pending) {
-            pending = Assets.load<Texture>(url);
+            // A board image that just failed waits out its retry delay instead of being re-requested on every repaint.
+            if ((boardImageRetries.get(url)?.retryAt ?? 0) > Date.now()) {
+                return undefined;
+            }
+            pending = boardFirstTextureLoads.load(key, () => Assets.load<Texture>(url));
             lazyTextureLoads.set(url, pending);
             void pending.then(
-                () => lazyTextureLoads.delete(url),
-                () => lazyTextureLoads.delete(url),
+                () => {
+                    lazyTextureLoads.delete(url);
+                    boardImageRetries.delete(url);
+                },
+                () => {
+                    lazyTextureLoads.delete(url);
+                    if (isBoardImageTextureKey(key)) {
+                        const failures = (boardImageRetries.get(url)?.failures ?? 0) + 1;
+                        boardImageRetries.set(url, {
+                            failures,
+                            retryAt: Date.now() + boardImageRetryDelayMs(failures),
+                        });
+                    }
+                },
             );
         }
         // Every interested scene gets its own completion observer. This matters when New Battle replaces
@@ -468,11 +489,23 @@ export abstract class PixiScene {
                     if (isSceneLeasedTexture) this.retainLazyTexture(key, url);
                     this.onSupplementaryTexturesLoaded?.();
                 },
-                () => this.sc_pendingLazyTextureKeys.delete(key),
+                () => {
+                    this.sc_pendingLazyTextureKeys.delete(key);
+                    // A unit whose board image failed would stay invisible: repaint when the retry is due, so it asks again.
+                    if (!this.sc_destroyed && isBoardImageTextureKey(key)) this.scheduleBoardImageRetry(url);
+                },
             );
         }
         return undefined;
     };
+    private scheduleBoardImageRetry(url: string): void {
+        const delayMs = Math.max(0, (boardImageRetries.get(url)?.retryAt ?? 0) - Date.now());
+        const timer = setTimeout(() => {
+            this.sc_boardImageRetryTimers.delete(timer);
+            if (!this.sc_destroyed) this.onSupplementaryTexturesLoaded?.();
+        }, delayMs);
+        this.sc_boardImageRetryTimers.add(timer);
+    }
     /** Resolve an optional texture that texAny started loading, while respecting scene teardown. */
     protected async waitForTexture(key: string): Promise<Texture | undefined> {
         const immediate = this.texAny(key);
@@ -905,6 +938,8 @@ export abstract class PixiScene {
     public Destroy() {
         if (this.sc_destroyed) return;
         this.sc_destroyed = true;
+        for (const timer of this.sc_boardImageRetryTimers) clearTimeout(timer);
+        this.sc_boardImageRetryTimers.clear();
         this.cancelSceneTimeouts();
         this.releaseLazyTextures();
         this.sc_pendingLazyTextureKeys.clear();
