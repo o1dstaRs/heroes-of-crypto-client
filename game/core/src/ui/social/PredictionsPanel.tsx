@@ -1,4 +1,5 @@
-import { Button, Divider, Input, Sheet, Stack, Tab, TabList, TabPanel, Tabs, Typography } from "@mui/joy";
+import CasinoRoundedIcon from "@mui/icons-material/CasinoRounded";
+import { Button, Input, Sheet, Stack, Tab, TabList, TabPanel, Tabs, Typography } from "@mui/joy";
 import React, { useCallback, useEffect, useState } from "react";
 
 import {
@@ -17,7 +18,7 @@ import { CurrencyIcon } from "../GoldCurrencyIcon";
 import { hocColors, hocInputSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "../hocTheme";
 import { useRankedSeason } from "../useRankedSeason";
 import { startVisibleInterval } from "../visibleInterval";
-import { DockPanelCloseButton, DockPanelShell } from "./DockPanelShell";
+import { DockPanelHeader, DockPanelShell } from "./DockPanelShell";
 
 /**
  * In-game prediction tray: the markets you can still bet on, and everything you have bet already.
@@ -231,22 +232,22 @@ export const PredictionsPanel: React.FC<PredictionsPanelProps> = ({ open, onClos
     };
 
     return (
-        <DockPanelShell open={open} onClose={onClose} width={520}>
-            <Stack direction="row" justifyContent="space-between" alignItems="baseline">
-                <Typography level="title-lg" sx={{ color: hocColors.gold }}>
-                    {t("Predictions")}
-                </Typography>
-                <Typography
-                    level="body-sm"
-                    sx={{ display: "inline-flex", alignItems: "center", gap: 0.4, color: hocColors.gold }}
-                    title={`${t(currency.name)} (${currency.symbol})`}
-                >
-                    <CurrencyIcon iconSvg={currency.iconSvg} size={15} /> {gold} {currency.symbol}
-                </Typography>
-            </Stack>
-            <Typography level="body-xs" sx={{ color: hocColors.muted }}>
-                {t("Back a side while a game is still drafting. One bet per game, final once placed.")}
-            </Typography>
+        <DockPanelShell open={open} onClose={onClose} width={520} anchorOffset={146}>
+            <DockPanelHeader
+                title={t("Predictions")}
+                subtitle={t("Back a side while a game is still drafting. One bet per game, final once placed.")}
+                leading={<CasinoRoundedIcon sx={{ color: hocColors.gold, fontSize: 21 }} />}
+                action={
+                    <Typography
+                        level="body-sm"
+                        sx={{ display: "inline-flex", alignItems: "center", gap: 0.4, color: hocColors.gold }}
+                        title={`${t(currency.name)} (${currency.symbol})`}
+                    >
+                        <CurrencyIcon iconSvg={currency.iconSvg} size={15} /> {gold} {currency.symbol}
+                    </Typography>
+                }
+                onClose={onClose}
+            />
 
             <Tabs defaultValue={0} sx={{ bgcolor: "transparent", mt: 0.5 }}>
                 <TabList sx={{ bgcolor: "transparent" }}>
@@ -290,9 +291,6 @@ export const PredictionsPanel: React.FC<PredictionsPanelProps> = ({ open, onClos
                     )}
                 </TabPanel>
             </Tabs>
-
-            <Divider sx={{ my: 0.5 }} />
-            <DockPanelCloseButton onClose={onClose} />
         </DockPanelShell>
     );
 };

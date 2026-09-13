@@ -45,7 +45,7 @@ describe("the sandbox keeps the bottom-right dock", () => {
         expect(ranked).toContain("setBattleSystemControlsActive(false)");
     });
 
-    test("the dock still carries all four controls, gated only on being logged in", () => {
+    test("the dock still carries all four controls, gated in production on being logged in", () => {
         const dock = read("social/SocialDockRuntime.tsx");
         for (const control of [
             'aria-label="Bets and predictions"',
@@ -56,8 +56,11 @@ describe("the sandbox keeps the bottom-right dock", () => {
         }
         // Sound is a slot the volume control mounts into rather than an IconButton of its own.
         expect(dock).toContain('data-volume-control="social-dock"');
-        // The only thing that may hide the dock is an inactive/logged-out account.
-        expect(withoutComments(dock)).toContain("const active = authenticated && user?.is_active !== false");
+        // Production still gates the dock on an active account; the existing dev-only portal preview
+        // may render it without a session so the social bubbles can be reviewed in the browser.
+        expect(withoutComments(dock)).toContain(
+            "const active = (authenticated && user?.is_active !== false) || mockPreview",
+        );
     });
 
     test("the dock reserves the speaker footprint while the game footer owns the live control", () => {

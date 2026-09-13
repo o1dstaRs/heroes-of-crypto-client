@@ -1,11 +1,12 @@
-import { Box, Button, Sheet } from "@mui/joy";
+import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
+import { Box, IconButton, Sheet, Stack, Typography } from "@mui/joy";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import React from "react";
 // react-router, NOT react-router-dom: the app mounts its Router from the former (v8), and the two
 // packages carry separate contexts — importing the dom variant here finds no Router at all.
 import { useLocation } from "react-router";
 
-import { hocPanelSx, hocSoftButtonSx } from "../hocTheme";
+import { hocColors, hocPanelSx } from "../hocTheme";
 import { t } from "../../i18n/i18n";
 import { playUiPopupSound } from "../audio/uiSounds";
 import {
@@ -48,6 +49,7 @@ export { DOCK_PANEL_COLUMN_WIDTH };
 const DOCK_BUTTON_STRIP = 58;
 
 export interface DockPanelShellProps {
+    anchorOffset?: number;
     open: boolean;
     onClose: () => void;
     /** Panel width OUTSIDE a fight; in a fight the panel follows the sidebar column instead. */
@@ -58,7 +60,14 @@ export interface DockPanelShellProps {
 
 export const useInGame = (): boolean => useLocation().pathname.startsWith("/game/");
 
-export const DockPanelShell: React.FC<DockPanelShellProps> = ({ open, onClose, width, maxWidth, children }) => {
+export const DockPanelShell: React.FC<DockPanelShellProps> = ({
+    anchorOffset = 66,
+    open,
+    onClose,
+    width,
+    maxWidth,
+    children,
+}) => {
     const inGame = useInGame();
     const reduceMotion = useReducedMotion();
     const panelRef = React.useRef<HTMLDivElement | null>(null);
@@ -125,8 +134,8 @@ export const DockPanelShell: React.FC<DockPanelShellProps> = ({ open, onClose, w
                     }
                     sx={{
                         position: "fixed",
-                        right: 8,
-                        bottom: DOCK_BUTTON_STRIP,
+                        right: { xs: 8, sm: 12 },
+                        bottom: { xs: DOCK_BUTTON_STRIP, sm: DOCK_BUTTON_STRIP + 4 },
                         transformOrigin: "bottom right",
                         // Never taller than the space above the dock buttons, so it cannot run under them
                         // or off the top of the window.
@@ -136,6 +145,19 @@ export const DockPanelShell: React.FC<DockPanelShellProps> = ({ open, onClose, w
                         zIndex: 1390,
                         display: "flex",
                         pointerEvents: "none",
+                        "&::after": {
+                            content: '""',
+                            position: "absolute",
+                            right: `${anchorOffset}px`,
+                            bottom: -7,
+                            width: 14,
+                            height: 14,
+                            bgcolor: "#0b0805",
+                            borderRight: "1px solid rgba(220,177,88,0.38)",
+                            borderBottom: "1px solid rgba(220,177,88,0.38)",
+                            transform: "rotate(45deg)",
+                            pointerEvents: "none",
+                        },
                     }}
                 >
                     <Sheet
@@ -147,16 +169,22 @@ export const DockPanelShell: React.FC<DockPanelShellProps> = ({ open, onClose, w
                             pointerEvents: "auto",
                             display: "flex",
                             flexDirection: "column",
-                            gap: 1,
-                            p: 1.5,
+                            position: "relative",
+                            gap: 0.75,
+                            p: 1.2,
                             width: "100%",
                             minHeight: 0,
-                            overflowY: "auto",
+                            overflow: "hidden",
                             // Opaque rather than a translucent card: it sits directly on the animated
                             // board or a busy profile, and a see-through panel over moving art is
                             // unreadable.
-                            bgcolor: "rgba(10, 8, 6, 0.96)",
-                            boxShadow: "0 12px 32px rgba(0, 0, 0, 0.55)",
+                            borderRadius: "18px",
+                            borderColor: "rgba(220, 177, 88, 0.38)",
+                            background:
+                                "radial-gradient(circle at 88% 0%, rgba(220,177,88,0.11), transparent 38%), linear-gradient(155deg, rgba(22,14,8,0.985), rgba(7,6,5,0.99) 58%, rgba(14,9,5,0.99))",
+                            boxShadow:
+                                "0 18px 52px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,226,166,0.08), inset 0 0 28px rgba(0,0,0,0.32)",
+                            backdropFilter: "blur(14px)",
                         }}
                     >
                         {children}
@@ -167,20 +195,64 @@ export const DockPanelShell: React.FC<DockPanelShellProps> = ({ open, onClose, w
     );
 };
 
-/**
- * The footer Close button every dock panel ends with.
- *
- * Shared rather than written out per panel: the shell is a stretch flex column, so a Button placed
- * directly in it spans the panel's width — but one wrapped in a Box shrinks to its own text instead.
- * Predictions had picked up such a wrapper and its Close came out visibly smaller than the identical
- * button on Friends and Notifications. With a single definition the three cannot drift again.
- *
- * Must remain a DIRECT child of DockPanelShell to keep that full width.
- */
-export const DockPanelCloseButton: React.FC<{ onClose: () => void }> = ({ onClose }) => (
-    <Button variant="outlined" sx={{ ...hocSoftButtonSx, mt: 1 }} onClick={onClose}>
-        {t("Close")}
-    </Button>
+export interface DockPanelHeaderProps {
+    action?: React.ReactNode;
+    leading?: React.ReactNode;
+    onClose: () => void;
+    subtitle?: React.ReactNode;
+    title: React.ReactNode;
+}
+
+export const DockPanelHeader: React.FC<DockPanelHeaderProps> = ({ action, leading, onClose, subtitle, title }) => (
+    <Stack
+        direction="row"
+        alignItems="center"
+        spacing={1}
+        sx={{ minHeight: 42, px: 0.35, pb: 0.8, borderBottom: "1px solid rgba(220,177,88,0.16)" }}
+    >
+        {leading ? (
+            <Box sx={{ display: "grid", placeItems: "center", flex: "0 0 auto" }}>{leading}</Box>
+        ) : (
+            <Box
+                aria-hidden="true"
+                sx={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: "50%",
+                    bgcolor: hocColors.gold,
+                    boxShadow: "0 0 10px rgba(220,177,88,0.52)",
+                    flex: "0 0 7px",
+                }}
+            />
+        )}
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography level="title-md" noWrap sx={{ color: hocColors.parchment, fontWeight: 800 }}>
+                {title}
+            </Typography>
+            {subtitle ? (
+                <Typography level="body-xs" noWrap sx={{ color: hocColors.muted }}>
+                    {subtitle}
+                </Typography>
+            ) : null}
+        </Box>
+        {action}
+        <IconButton
+            size="sm"
+            variant="plain"
+            aria-label={t("Close")}
+            title={t("Close")}
+            onClick={onClose}
+            sx={{
+                minWidth: 30,
+                minHeight: 30,
+                color: hocColors.muted,
+                borderRadius: "50%",
+                "&:hover": { color: hocColors.parchment, bgcolor: "rgba(220,177,88,0.12)" },
+            }}
+        >
+            <CloseRoundedIcon sx={{ fontSize: 18 }} />
+        </IconButton>
+    </Stack>
 );
 
 export default DockPanelShell;
