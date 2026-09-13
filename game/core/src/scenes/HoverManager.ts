@@ -521,6 +521,8 @@ export interface ISandboxHoverContext {
     getCurrentActiveKnownPaths(): Map<number, IWeightedRoute[]> | undefined;
     getDraggingUnitId(): string | undefined;
     getDraggingUnitTeam(): TeamType | undefined;
+    /** The one team a fresh roster pick may be placed for (co-op sandbox); undefined = either. */
+    getPlacementOwnerTeam?(): TeamType | undefined;
     getPlacementPreviewUnit(): Unit | undefined;
     getSelectedUnitProperties(): UnitProperties | undefined;
     hasActiveSelection(): boolean;
@@ -3271,8 +3273,10 @@ export class HoverManager {
             return;
         }
 
-        // Case B: Wrong Team Zone -> Red Square
-        if (draggingUnitTeam && teamFromPlacement !== draggingUnitTeam) {
+        // Case B: Wrong Team Zone -> Red Square. A unit being repositioned carries its own team; a fresh
+        // roster pick belongs to whichever seat this viewer owns (co-op sandbox), or to either (offline).
+        const ownerTeam = draggingUnitTeam ?? this.context.getPlacementOwnerTeam?.();
+        if (ownerTeam && teamFromPlacement !== ownerTeam) {
             this.hoverSelectedCells = candidateCells;
             this.hoverSelectedCellsSwitchToRed = true;
             this.hoverPlacementCell = cell;

@@ -783,6 +783,7 @@ export class Sandbox extends PixiScene {
     private hoverRangeAttackObstacle?: IAttackObstacle;
     private currentEnemiesCellsWithinMovementRange?: HoCMath.XY[];
     protected unitsOverlay: UnitsOverlay;
+    private unitsOverlayBuilt = false;
     protected placementManager: PlacementManager;
     private spawnPulsePhase = 0;
     private bgKey = "background_new";
@@ -1233,7 +1234,7 @@ export class Sandbox extends PixiScene {
         );
         const fightAlreadyStarted = FightStateManager.getInstance().getFightProperties().hasFightStarted();
         if (!this.sc_gameActionTransport && !fightAlreadyStarted) {
-            this.unitsOverlay.build();
+            this.ensureUnitsOverlayBuilt();
         } else {
             this.unitsOverlay.setVisible(false);
         }
@@ -1268,6 +1269,7 @@ export class Sandbox extends PixiScene {
             getCurrentActiveKnownPaths: () => this.currentActiveKnownPaths,
             getDraggingUnitId: () => this.draggingUnitId,
             getDraggingUnitTeam: () => this.draggingUnitTeam,
+            getPlacementOwnerTeam: () => this.getPlacementOwnerTeam(),
             getPlacementPreviewUnit: () => this.getPlacementPreviewUnit(),
             getSelectedUnitProperties: () => this.sc_selectedUnitProperties,
             hasActiveSelection: () => this.hasActiveSelection,
@@ -6713,6 +6715,14 @@ export class Sandbox extends PixiScene {
         const teamType = this.hoverManager.hoverPlacementCellTeam;
         if (!teamType) {
             console.log("No hoverPlacementCellTeam, abort placement");
+            if (!this.selectionFromOverlay) {
+                this.clearBoardSelection();
+            }
+            return;
+        }
+        const ownerTeam = this.getPlacementOwnerTeam();
+        if (ownerTeam !== undefined && teamType !== ownerTeam) {
+            console.log("Placement zone belongs to the other seat, abort placement");
             if (!this.selectionFromOverlay) {
                 this.clearBoardSelection();
             }
@@ -16530,6 +16540,29 @@ export class Sandbox extends PixiScene {
     protected getPlacementDrawTeam(): TeamType | undefined {
         return undefined;
     }
+    /**
+     * The only team this viewer may place a fresh roster pick for. Undefined means either (the offline
+     * sandbox drives both armies). The friend co-op sandbox draws BOTH zones but owns exactly one.
+     */
+    protected getPlacementOwnerTeam(): TeamType | undefined {
+        return undefined;
+    }
+    /** Whether START may light up now that each side has (or lacks) a placed army. */
+    protected canStartFightNow(leftPlaced: boolean, rightPlaced: boolean): boolean {
+        return leftPlaced && rightPlaced;
+    }
+    /**
+     * Build the roster overlay exactly once. The offline sandbox builds it at construction; the ranked
+     * scene only once a snapshot turns the game into a friend co-op sandbox, which lands after the
+     * transport is installed and would otherwise never see the roster.
+     */
+    protected ensureUnitsOverlayBuilt(): void {
+        if (this.unitsOverlayBuilt || !this.unitsOverlay) {
+            return;
+        }
+        this.unitsOverlayBuilt = true;
+        this.unitsOverlay.build();
+    }
     private checkStartCondition(): void {
         let leftAllowed = false;
         let rightAllowed = false;
@@ -16563,7 +16596,7 @@ export class Sandbox extends PixiScene {
                 )
                 .some(isRealPlacedUnit);
         }
-        if (leftAllowed && rightAllowed) {
+        if (this.canStartFightNow(leftAllowed, rightAllowed)) {
             if (this.sc_visibleState) {
                 if (!this.sc_visibleState.canBeStarted) {
                     this.sc_visibleState.canBeStarted = true;

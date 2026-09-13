@@ -37,6 +37,7 @@ export interface SocialNotification {
         | "friend_accepted"
         | "friend_message"
         | "lobby_invite"
+        | "sandbox_invite"
         | "chat_mention"
         | "chat_reply"
         | "system";
@@ -45,6 +46,8 @@ export interface SocialNotification {
     requestId?: string;
     messageId?: string;
     lobbyId?: string;
+    /** Co-op sandbox session id carried by a `sandbox_invite` — the direct link is /sandbox/<id>. */
+    sandboxId?: string;
     body?: string;
     createdAt: number;
     seenAt: number;
@@ -116,6 +119,10 @@ const get = async <T>(path: string): Promise<T> => {
 };
 
 export const presencePing = (): Promise<PresencePingResult> => post(endpoints.social.presencePing);
+
+/** Notification types that mean "a friend is asking for you" — they get the friend-invite sound. */
+export const isFriendInviteNotification = (type: SocialNotification["type"]): boolean =>
+    type === "friend_request" || type === "lobby_invite" || type === "sandbox_invite";
 
 export const fetchNotifications = (): Promise<{ notifications: SocialNotification[]; unseenCount: number }> =>
     get(endpoints.social.notifications);

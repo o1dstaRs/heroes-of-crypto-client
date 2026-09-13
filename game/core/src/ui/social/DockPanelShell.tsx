@@ -7,6 +7,7 @@ import { useLocation } from "react-router";
 
 import { hocPanelSx, hocSoftButtonSx } from "../hocTheme";
 import { t } from "../../i18n/i18n";
+import { playUiPopupSound } from "../audio/uiSounds";
 import {
     DOCK_BUTTON_MARKER,
     DOCK_PANEL_COLUMN_WIDTH,
@@ -61,6 +62,14 @@ export const DockPanelShell: React.FC<DockPanelShellProps> = ({ open, onClose, w
     const inGame = useInGame();
     const reduceMotion = useReducedMotion();
     const panelRef = React.useRef<HTMLDivElement | null>(null);
+
+    // Every dock panel opens on a click (a dock button, a friend's Message, a tray row), so the popup
+    // sound rides the open transition here rather than in each button.
+    React.useEffect(() => {
+        if (open) {
+            playUiPopupSound();
+        }
+    }, [open]);
 
     // Escape closes the panel wherever it is. The modal used to give this for free.
     React.useEffect(() => {

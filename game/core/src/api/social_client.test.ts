@@ -4,6 +4,7 @@ import { axiosMMInstance, buildApiUrl, endpoints, HOST_MATCHMAKING_API } from ".
 import {
     eligiblePredictionMarkets,
     fetchFriendMessages,
+    isFriendInviteNotification,
     chatSegments,
     searchHitPresenceLabel,
     searchPlayers,
@@ -194,5 +195,16 @@ describe("arena chat rendering", () => {
 
     test("an email is not a tag", () => {
         expect(chatSegments("write to me@example.com").some((s) => s.kind === "mention")).toBe(false);
+    });
+});
+
+describe("notification sound classes", () => {
+    test("only invitations from a friend get the friend-invite fanfare", () => {
+        expect(isFriendInviteNotification("friend_request")).toBe(true);
+        expect(isFriendInviteNotification("lobby_invite")).toBe(true);
+        expect(isFriendInviteNotification("sandbox_invite")).toBe(true);
+        expect(isFriendInviteNotification("friend_message")).toBe(false);
+        expect(isFriendInviteNotification("chat_reply")).toBe(false);
+        expect(isFriendInviteNotification("system")).toBe(false);
     });
 });

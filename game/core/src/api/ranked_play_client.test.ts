@@ -23,3 +23,35 @@ describe("ranked play snapshot conversion", () => {
         expect(toAuthoritativeGameSnapshot(snapshot).hideOpponentRosterDuringSetup).toBe(false);
     });
 });
+
+describe("co-op sandbox snapshot flags", () => {
+    test("stay absent for ranked and mark both-ready only when every seat is in the ready list", () => {
+        const base = decodePlaySnapshot(new Uint8Array());
+        expect(toAuthoritativeGameSnapshot(base).sandboxCoop).toBeUndefined();
+
+        const seats = [
+            { playerId: "h", team: 2, connected: true, aiControlled: false, lastSeenMs: 0 },
+            { playerId: "g", team: 1, connected: true, aiControlled: false, lastSeenMs: 0 },
+        ];
+        const oneReady = toAuthoritativeGameSnapshot(
+            { ...base, players: seats, readyPlayerIds: ["h"] },
+            2,
+            undefined,
+            true,
+        );
+        expect(oneReady.sandboxCoop).toBe(true);
+        expect(oneReady.sandboxCoopBothReady).toBe(false);
+
+        const bothReady = toAuthoritativeGameSnapshot(
+            { ...base, players: seats, readyPlayerIds: ["g", "h"] },
+            2,
+            undefined,
+            true,
+        );
+        expect(bothReady.sandboxCoopBothReady).toBe(true);
+        expect(
+            toAuthoritativeGameSnapshot({ ...base, players: [], readyPlayerIds: [] }, 2, undefined, true)
+                .sandboxCoopBothReady,
+        ).toBe(false);
+    });
+});

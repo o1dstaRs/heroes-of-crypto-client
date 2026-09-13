@@ -1,6 +1,7 @@
 import type { TeamType } from "@heroesofcrypto/common";
 import React from "react";
 
+import type { SandboxCoopSession } from "../api/sandbox_coop_client";
 import type { IWindowSize } from "../scenes/VisibleState";
 
 export { fetchRankedPlaySnapshot } from "../api/ranked_play_client";
@@ -14,6 +15,8 @@ type Props = {
     userTeam: TeamType;
     windowSize: IWindowSize;
     replayOnly?: boolean;
+    /** Friend co-op sandbox (route /sandbox/:id): the two seats and which one is ours. */
+    sandboxCoop?: SandboxCoopSession;
 };
 
 /** Route boundary that keeps the live ranked controller out of sandbox and draft startup. */

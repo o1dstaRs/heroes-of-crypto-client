@@ -55,6 +55,7 @@ import {
     type SocialNotification,
 } from "../../api/social_client";
 import { useAuthContext } from "../auth/context/auth_context";
+import { createSandboxCoop, sandboxCoopErrorMessage, sandboxCoopPath } from "../../api/sandbox_coop_client";
 import {
     hocColors,
     hocDangerAlertSx,
@@ -126,6 +127,9 @@ const instantDockLabelSx = {
     transition: "none",
 } as const;
 
+/** Dispatch on window to open the friends panel from anywhere (see SocialDockRuntime's listener). */
+export const OPEN_FRIENDS_EVENT = "hoc:open-friends";
+
 const notificationText = (notification: SocialNotification): string => {
     switch (notification.type) {
         case "friend_request":
@@ -136,6 +140,8 @@ const notificationText = (notification: SocialNotification): string => {
             return `${notification.fromUsername ?? "Someone"}: ${notification.body ?? "New message"}`;
         case "lobby_invite":
             return `${notification.fromUsername ?? "Someone"} invited you to a lobby`;
+        case "sandbox_invite":
+            return `${notification.fromUsername ?? "Someone"} invited you into their sandbox`;
         case "chat_mention":
             return `${notification.fromUsername ?? "Someone"} mentioned you in the Arena chat: ${notification.body ?? ""}`;
         case "chat_reply":
@@ -233,6 +239,7 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ open, onClose, on
     const isClickable = (notification: SocialNotification): boolean =>
         (notification.type === "friend_message" && !!notification.fromPlayerId) ||
         (notification.type === "lobby_invite" && !!notification.lobbyId) ||
+        (notification.type === "sandbox_invite" && !!notification.sandboxId) ||
         notification.type === "chat_reply" ||
         notification.type === "chat_mention";
 
@@ -249,6 +256,10 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ open, onClose, on
         } else if (notification.type === "lobby_invite" && notification.lobbyId) {
             onClose();
             navigate(`/lobby/${notification.lobbyId}`);
+        } else if (notification.type === "sandbox_invite" && notification.sandboxId) {
+            // The direct link into the friend's co-op sandbox: the route resolves this player's seat.
+            onClose();
+            navigate(sandboxCoopPath(notification.sandboxId));
         } else if (notification.type === "chat_reply" || notification.type === "chat_mention") {
             // The room reads this key on mount, so a collapsed chat opens itself for the arrival.
             window.localStorage.setItem(ARENA_CHAT_OPEN_KEY, "1");
@@ -379,7 +390,8 @@ interface FriendsPanelProps {
 
 const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage }) => {
     const social = useSocial();
-    const { lobbyId: currentLobbyId } = useCurrentLobby();
+    const navigate = useNavigate();
+    const { lobbyId: currentLobbyId, sandboxInviteAvailable } = useCurrentLobby();
     const [overview, setOverview] = useState<FriendsOverview | null>(null);
     const [loading, setLoading] = useState(false);
     const [query, setQuery] = useState("");
@@ -477,6 +489,28 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage })
             setMessage({ kind: "ok", text: `Lobby invite sent to ${friend.username}` });
         } catch (err) {
             setMessage({ kind: "error", text: socialErrorMessage(err, "Could not send the lobby invite") });
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    // Offered from the offline sandbox (a signed-in player standing in it): opens a co-op sandbox with this
+    // friend in the red seat, drops the invite into their tray and moves the host straight into it.
+    const inviteToSandbox = async (friend: FriendEntry): Promise<void> => {
+        if (!sandboxInviteAvailable || busy) {
+            return;
+        }
+        setBusy(true);
+        setMessage(null);
+        try {
+            const session = await createSandboxCoop(friend.playerId);
+            onClose();
+            navigate(sandboxCoopPath(session.gameId));
+        } catch (err) {
+            setMessage({
+                kind: "error",
+                text: sandboxCoopErrorMessage(err, "Could not open a sandbox with this friend"),
+            });
         } finally {
             setBusy(false);
         }
@@ -716,6 +750,18 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage })
                                             Invite
                                         </Button>
                                     ) : null}
+                                    {sandboxInviteAvailable ? (
+                                        <Button
+                                            size="sm"
+                                            variant="outlined"
+                                            sx={hocSoftButtonSx}
+                                            disabled={busy}
+                                            title="Open a co-op sandbox: you play green, they play red"
+                                            onClick={() => void inviteToSandbox(friend)}
+                                        >
+                                            Invite to sandbox
+                                        </Button>
+                                    ) : null}
                                     <Button
                                         size="sm"
                                         variant="outlined"
@@ -818,6 +864,17 @@ export const SocialDock: React.FC = () => {
     );
     const floatingVolumeSlotRef = useRef<HTMLDivElement | null>(null);
     const systemMenuCloseTimerRef = useRef<number | null>(null);
+
+    // Screens outside the dock (the sandbox's "Invite a friend" badge) open the friends panel through
+    // this window event rather than reaching into the dock's state.
+    useEffect(() => {
+        const onOpenFriends = (): void => {
+            social.requestNotificationPermission();
+            setFriendsOpen(true);
+        };
+        window.addEventListener(OPEN_FRIENDS_EVENT, onOpenFriends);
+        return () => window.removeEventListener(OPEN_FRIENDS_EVENT, onOpenFriends);
+    }, [social]);
 
     const cancelSystemMenuClose = useCallback(() => {
         if (systemMenuCloseTimerRef.current !== null) {

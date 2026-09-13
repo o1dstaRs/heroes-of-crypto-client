@@ -275,6 +275,9 @@ export const endpoints = {
         playReplay: IS_PROD ? "/v1/play-replay" : "/v1/game/play-replay",
         playSnapshot: IS_PROD ? "/v1/play-snapshot" : "/v1/game/play-snapshot",
         playAction: IS_PROD ? "/v1/play-action" : "/v1/game/play-action",
+        // Friend co-op sandbox: open one and invite a friend / resolve your seat from the invite link.
+        sandboxCreate: IS_PROD ? "/v1/sandbox-create" : "/v1/game/sandbox-create",
+        sandboxJoin: IS_PROD ? "/v1/sandbox-join" : "/v1/game/sandbox-join",
         pickPair: IS_PROD ? "/v1/pick-pair" : "/v1/game/pick-pair",
         // Public, spoiler-safe draft spectator snapshot (no auth): what each team's OPPONENT already
         // sees (slot reveals), plus bans and the current phase/deadline.

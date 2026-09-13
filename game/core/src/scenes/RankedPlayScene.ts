@@ -1419,8 +1419,12 @@ export class RankedPlayScene extends Sandbox {
     // Raw server tuple used by AIController retry guards. Do not use rankedTurnStartLocalMs: its clock-offset
     // conversion can jitter between snapshots, while the authoritative start is stable for one activation.
     private rankedTurnActivationKey = "";
+    // Friend co-op sandbox (snapshot.sandboxCoop): the roster overlay is on, BOTH deployment zones are
+    // drawn, the other seat's placements are never hidden, and START waits for both seats to ready up.
+    private sandboxCoop = false;
+    private sandboxCoopBothReady = false;
     public override getUnitsOverlay(): UnitsOverlay | undefined {
-        return undefined;
+        return this.sandboxCoop ? this.unitsOverlay : undefined;
     }
     public override setGameActionTransport(transport?: SceneGameActionTransport): void {
         super.setGameActionTransport(transport);
@@ -1431,6 +1435,12 @@ export class RankedPlayScene extends Sandbox {
         this.updateUnitsOverlayVisibility();
     }
     protected override updateUnitsOverlayVisibility(): void {
+        const started = FightStateManager.getInstance().getFightProperties().hasFightStarted();
+        if (this.sandboxCoop && !started && this.viewerTeam !== undefined) {
+            this.ensureUnitsOverlayBuilt();
+            this.unitsOverlay?.setVisible(true);
+            return;
+        }
         this.unitsOverlay?.setVisible(false);
         this.unitsOverlay?.clearSelection(false);
     }
@@ -1756,6 +1766,12 @@ export class RankedPlayScene extends Sandbox {
         // placement zone is its own. It must never reach the colour helpers: board colours are team-fixed
         // (LEFT green / RIGHT red) on every screen, so both players see the same match the same way.
         this.viewerTeam = snapshot.viewerTeam === undefined ? undefined : (snapshot.viewerTeam as TeamType);
+        const wasSandboxCoop = this.sandboxCoop;
+        this.sandboxCoop = snapshot.sandboxCoop === true;
+        this.sandboxCoopBothReady = snapshot.sandboxCoopBothReady === true;
+        if (this.sandboxCoop || wasSandboxCoop) {
+            this.updateUnitsOverlayVisibility();
+        }
         // A player may tint their OWN army (settings menu). Armed only here, for a live authoritative
         // fight this client is playing: replays and the sandbox clear it, so a recorded match is always
         // watched in its true team colours. Team identity is untouched either way.
@@ -1902,7 +1918,9 @@ export class RankedPlayScene extends Sandbox {
         // retain a pre-final ranked report whose winner is still NO_TEAM; either makes the overlay hide.
         // A published finish needs a real stats winner matching teamWin, not only populated roster totals.
         if (shouldPublishRankedFinish(snapshot, this.sc_visibleState)) {
-            const finishedState = authoritativeSnapshotToSandboxSceneState(snapshot, { hideOpponentPlacements: true });
+            const finishedState = authoritativeSnapshotToSandboxSceneState(snapshot, {
+                hideOpponentPlacements: !this.sandboxCoop,
+            });
             this.applyRankedFightStats(snapshot, finishedState.units);
         }
 
@@ -1961,7 +1979,7 @@ export class RankedPlayScene extends Sandbox {
         this.renderNewlyAppliedMorale(snapshot);
         this.renderNewlyAppliedPoison(snapshot);
         this.shatterNewlyDeadUnits(snapshot);
-        const state = authoritativeSnapshotToSandboxSceneState(snapshot, { hideOpponentPlacements: true });
+        const state = authoritativeSnapshotToSandboxSceneState(snapshot, { hideOpponentPlacements: !this.sandboxCoop });
         // Self-heal an active-unit desync: the server says a unit is active but on our board that unit
         // is missing or dead (e.g. its death was applied locally but the server kept/resurrected it, or
         // a force-recovered replay left the board half-applied). syncAuthoritativeActiveUnit would bail
@@ -2318,7 +2336,7 @@ export class RankedPlayScene extends Sandbox {
         }
 
         const replayStateAfter = this.isAuthoritativeSnapshot(stateAfter)
-            ? authoritativeSnapshotToSandboxSceneState(stateAfter, { hideOpponentPlacements: true })
+            ? authoritativeSnapshotToSandboxSceneState(stateAfter, { hideOpponentPlacements: !this.sandboxCoop })
             : undefined;
         return super.playAuthoritativeActionRecord(action, events, replayStateAfter).then((played) => {
             // The animation has finished but the turn-handoff snapshot is applied right after (await in
@@ -2329,7 +2347,13 @@ export class RankedPlayScene extends Sandbox {
         });
     }
     protected override getPlacementDrawTeam(): TeamType | undefined {
+        return this.sandboxCoop ? undefined : this.viewerTeam;
+    }
+    protected override getPlacementOwnerTeam(): TeamType | undefined {
         return this.viewerTeam;
+    }
+    protected override canStartFightNow(leftPlaced: boolean, rightPlaced: boolean): boolean {
+        return leftPlaced && rightPlaced && (!this.sandboxCoop || this.sandboxCoopBothReady);
     }
     /**
      * During placement the opponent's placement zone is never drawn (see getPlacementDrawTeam). Instead,

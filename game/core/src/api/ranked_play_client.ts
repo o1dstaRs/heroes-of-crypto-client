@@ -349,10 +349,19 @@ export const toAuthoritativeGameSnapshot = (
     snapshot: PlaySnapshot,
     viewerTeam?: TeamType,
     localModelTeam?: TeamType,
+    sandboxCoop = false,
 ): AuthoritativeGameSnapshot => ({
     gameId: snapshot.gameId,
     viewerTeam,
     localModelTeam,
+    ...(sandboxCoop
+        ? {
+              sandboxCoop: true,
+              sandboxCoopBothReady:
+                  snapshot.players.length > 0 &&
+                  snapshot.players.every((player) => snapshot.readyPlayerIds.includes(player.playerId)),
+          }
+        : {}),
     winnerTeam: winnerTeamFromSnapshot(snapshot),
     phase: snapshot.phase,
     gridType: snapshot.gridType,

@@ -980,4 +980,21 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Could not send that message": "Не удалось отправить сообщение",
     "Could not register that vote": "Не удалось учесть голос",
     "Could not report that message": "Не удалось отправить жалобу",
+
+    // ~~~ Friend co-op sandbox ~~~
+    "Co-op sandbox": "Совместная песочница",
+    you: "вы",
+    Away: "Не здесь",
+    Leave: "Выйти",
+    "Cancel ready": "Отменить готовность",
+    "Waiting for {name} to join…": "Ожидание, пока {name} присоединится…",
+    "Both ready — press START": "Оба готовы — нажмите СТАРТ",
+    "Place your army, then press READY": "Расставьте армию и нажмите ГОТОВО",
+    "Place at least one unit first": "Сначала поставьте хотя бы один отряд",
+    "This sandbox is no longer open": "Эта песочница больше не открыта",
+    "Unable to join this sandbox": "Не удалось присоединиться к песочнице",
+    "Joining the sandbox…": "Входим в песочницу…",
+    "Back to sandbox": "Назад в песочницу",
+    "This sandbox was closed": "Эта песочница закрыта",
+    "Your friend left, or a newer sandbox replaced this one.": "Ваш друг вышел, или её заменила новая песочница.",
 };

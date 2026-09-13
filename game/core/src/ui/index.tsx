@@ -40,6 +40,9 @@ import { AiControlBadge, aiBadgeLeft } from "./AiControlBadge";
 import { NextLapHazardBadge } from "./NextLapHazardBadge";
 import { ExitReplayBadge } from "./ExitReplayBadge";
 import { PlayRankedBadge } from "./PlayRankedBadge";
+import { InviteFriendBadge } from "./InviteFriendBadge";
+import { SandboxCoopRoute } from "./SandboxCoopRoute";
+import { useCurrentLobby } from "./social/CurrentLobbyContext";
 import { LoadingFullscreenToggle } from "./LoadingFullscreenToggle";
 import { MatchupOverlay, type MatchupPlayer } from "./MatchupOverlay";
 import { useGameCursor } from "./cursor/useGameCursor";
@@ -205,9 +208,19 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
 }) => {
     const manager = usePixiManager();
     const navigate = useNavigate();
+    const { authenticated, user } = useAuthContext();
+    const { setSandboxInviteAvailable } = useCurrentLobby();
     const showFightMatchupPreview =
         Boolean(import.meta.env.DEV) && new URLSearchParams(window.location.search).get("matchupPreview") === "fight";
     const [started, setStarted] = useState(showFightMatchupPreview);
+    // A signed-in player standing in the offline sandbox can invite a friend into a co-op sandbox (the
+    // friends panel's "Invite to sandbox"). Published app-wide so the dock offers it only from here.
+    const canInviteFriend =
+        authenticated && user?.is_active !== false && !gameActionTransport && !showFightMatchupPreview && !started;
+    useEffect(() => {
+        setSandboxInviteAvailable(canInviteFriend);
+        return () => setSandboxInviteAvailable(false);
+    }, [canInviteFriend, setSandboxInviteAvailable]);
     const [isLoading, setIsLoading] = useState(manager.isLoading);
     const [aiToggleOn, setAiToggleOn] = useState(false);
     const [replayPlaybackActive, setReplayPlaybackActive] = useState(false);
@@ -305,7 +318,14 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
                         <RightSideBar
                             gameStarted={started}
                             windowSize={windowSize}
-                            rankedFooter={!started && !replayPlaybackActive ? <PlayRankedBadge /> : undefined}
+                            rankedFooter={
+                                !started && !replayPlaybackActive ? (
+                                    <div style={{ display: "grid", gap: 6, width: "100%", justifyItems: "center" }}>
+                                        <PlayRankedBadge />
+                                        {canInviteFriend && <InviteFriendBadge />}
+                                    </div>
+                                ) : undefined
+                            }
                             onClose={!started && !replayPlaybackActive ? closeSandbox : undefined}
                         />
                     )}
@@ -1371,6 +1391,15 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
                 element={
                     <WalletProvider>
                         <GameRoute windowSize={windowSize} />
+                    </WalletProvider>
+                }
+            />
+            {/* Friend co-op sandbox: the invite's direct link. Host plays green, the invited friend red. */}
+            <Route
+                path="/sandbox/:gameId"
+                element={
+                    <WalletProvider>
+                        {activated ? <SandboxCoopRoute windowSize={windowSize} /> : <LoginScreen />}
                     </WalletProvider>
                 }
             />

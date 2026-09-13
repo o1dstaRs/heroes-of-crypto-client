@@ -1,6 +1,13 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
-import { presencePing, respondFriendRequest, type PendingIncomingRequest } from "../../api/social_client";
+import {
+    fetchNotifications,
+    isFriendInviteNotification,
+    presencePing,
+    respondFriendRequest,
+    type PendingIncomingRequest,
+} from "../../api/social_client";
+import { playFriendInviteSound, playNotificationSound } from "../audio/uiSounds";
 import { useAuthContext } from "../auth/context/auth_context";
 
 /**
@@ -51,6 +58,32 @@ export const SocialProvider: React.FC<{ children?: React.ReactNode }> = ({ child
     const notifiedRequestIds = useRef<Set<string>>(new Set());
     const lastUnseenRef = useRef(0);
     const mountedRef = useRef(false);
+    // Sound cues: the first ping after sign-in only establishes the baseline (a backlog of unseen items
+    // is not "news"); afterwards a badge that grew means something arrived. Which sound plays depends on
+    // WHAT arrived, so the newest unseen entries are fetched and classified — a friend asking for you
+    // (request, lobby or sandbox invite) gets the invite fanfare, anything else the plain chime.
+    const pingedOnceRef = useRef(false);
+    const lastSoundedCreatedAtRef = useRef(0);
+
+    const soundNewArrivals = useCallback(async (): Promise<void> => {
+        try {
+            const { notifications } = await fetchNotifications();
+            const fresh = notifications.filter(
+                (notification) => notification.seenAt === 0 && notification.createdAt > lastSoundedCreatedAtRef.current,
+            );
+            if (!fresh.length) {
+                return;
+            }
+            lastSoundedCreatedAtRef.current = Math.max(...fresh.map((notification) => notification.createdAt));
+            if (fresh.some((notification) => isFriendInviteNotification(notification.type))) {
+                playFriendInviteSound();
+            } else {
+                playNotificationSound();
+            }
+        } catch {
+            // The badge already tells the story; a missed chime is not worth an error.
+        }
+    }, []);
 
     const ping = useCallback(async (): Promise<void> => {
         try {
@@ -60,6 +93,12 @@ export const SocialProvider: React.FC<{ children?: React.ReactNode }> = ({ child
             }
             setUnseenCount(result.unseenCount);
             setPendingIncoming(result.pendingIncoming);
+            if (pingedOnceRef.current && result.unseenCount > lastUnseenRef.current) {
+                void soundNewArrivals();
+            } else if (!pingedOnceRef.current) {
+                lastSoundedCreatedAtRef.current = Date.now();
+            }
+            pingedOnceRef.current = true;
 
             // Browser notifications: only for things the player hasn't been shown yet, and only
             // when the tab isn't the thing they're looking at (the in-app popup covers that case).
@@ -96,13 +135,14 @@ export const SocialProvider: React.FC<{ children?: React.ReactNode }> = ({ child
             // Silent: presence is a heartbeat; one missed beat is irrelevant and transient network
             // failures here must never surface as UI errors.
         }
-    }, []);
+    }, [soundNewArrivals]);
 
     useEffect(() => {
         mountedRef.current = true;
         if (!active) {
             setUnseenCount(0);
             setPendingIncoming([]);
+            pingedOnceRef.current = false;
             return () => {
                 mountedRef.current = false;
             };

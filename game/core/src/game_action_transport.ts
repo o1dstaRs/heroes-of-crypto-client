@@ -115,6 +115,13 @@ export interface AuthoritativeGameSnapshot {
     gameId: string;
     viewerTeam?: TeamType | number;
     localModelTeam?: TeamType | number;
+    /**
+     * Friend co-op sandbox (route /sandbox/:id): the ranked scene shows the roster overlay so the viewer
+     * spawns units by name onto their own zone, draws BOTH deployment zones, and never hides the other
+     * seat's placements. `sandboxCoopBothReady` gates the START button (the server refuses otherwise).
+     */
+    sandboxCoop?: boolean;
+    sandboxCoopBothReady?: boolean;
     winnerTeam?: TeamType | number;
     phase: number;
     gridType: number;

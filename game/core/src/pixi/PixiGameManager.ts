@@ -441,8 +441,12 @@ export class PixiGameManager {
                 this.m_scene?.onBackgroundAssetLoad?.(1.0);
             });
 
-        const initialOverlay = getUnitsOverlayFromScene(this.m_scene);
-        if (initialOverlay) {
+        // Wire the roster-overlay pointer forwarding for ANY scene that can host the overlay, not only one
+        // that exposes it at init: the ranked scene hides it (getUnitsOverlay -> undefined) until a snapshot
+        // marks the game a friend co-op sandbox, and each handler re-reads the overlay at event time anyway.
+        const supportsUnitsOverlay =
+            typeof (this.m_scene as SceneWithUnitsOverlay | null)?.getUnitsOverlay === "function";
+        if (supportsUnitsOverlay) {
             const forwardOverlayInteraction = (e: PointerEvent) => {
                 // 🔥 FIX: If the fight has started, do not let the overlay intercept clicks.
                 // This ensures clicks pass through to HandleMouseDown for unit movement.
