@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+    buildOwnRankedStandingUrl,
     buildPublicRankedProfileUrl,
+    fetchOwnRankedPlayerId,
     isPublicRankedPlayerId,
     normalizePublicRankedProfile,
     publicRankedProfileFallbackFromSearchParams,
@@ -272,6 +274,48 @@ describe("gold history normalization", () => {
     test("a missing or malformed history is an empty list, never a crash", () => {
         expect(withHistory(undefined)).toEqual([]);
         expect(withHistory("nonsense")).toEqual([]);
+    });
+});
+
+describe("own ranked player id", () => {
+    test("builds the production and local own-standing routes", () => {
+        expect(buildOwnRankedStandingUrl({ baseUrl: "https://mm.example/", production: true })).toBe(
+            "https://mm.example/v1/ranked-standing",
+        );
+        expect(buildOwnRankedStandingUrl({ baseUrl: "http://localhost:3001", production: false })).toBe(
+            "http://localhost:3001/v1/mm/ranked-standing",
+        );
+    });
+
+    test("reads the id from the signed-in standing and never guesses one", async () => {
+        const realFetch = globalThis.fetch;
+        const calls: { url: string; authorization: string | null }[] = [];
+        const respondWith = (status: number, body: unknown): void => {
+            globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+                calls.push({ url: String(input), authorization: new Headers(init?.headers).get("Authorization") });
+                return new Response(JSON.stringify(body), { status });
+            }) as typeof fetch;
+        };
+        const options = { baseUrl: "https://mm.example", production: true };
+        try {
+            respondWith(200, { playerId: PLAYER_ID, state: "placed" });
+            expect(await fetchOwnRankedPlayerId("Bearer token", options)).toBe(PLAYER_ID);
+            expect(calls[0]).toEqual({ url: "https://mm.example/v1/ranked-standing", authorization: "Bearer token" });
+
+            // A server from before the field, a game id in its place, and a rejected token all read as unknown.
+            respondWith(200, { state: "placed" });
+            expect(await fetchOwnRankedPlayerId("Bearer token", options)).toBeNull();
+            respondWith(200, { playerId: "../../not-a-player" });
+            expect(await fetchOwnRankedPlayerId("Bearer token", options)).toBeNull();
+            respondWith(401, {});
+            expect(await fetchOwnRankedPlayerId("Bearer token", options)).toBeNull();
+
+            // Signed out: no request at all.
+            expect(await fetchOwnRankedPlayerId(null, options)).toBeNull();
+            expect(calls).toHaveLength(4);
+        } finally {
+            globalThis.fetch = realFetch;
+        }
     });
 });
 

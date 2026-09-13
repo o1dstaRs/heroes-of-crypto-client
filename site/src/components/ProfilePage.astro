@@ -179,7 +179,7 @@ const rankedApp = links.rankedApp;
     } from "@heroesofcrypto/common/src/artifacts/artifact_properties";
     import { getDoctrineProperties, type Doctrine } from "@heroesofcrypto/common/src/doctrines/doctrine_properties";
 
-    import { getAuthUser, isLoggedIn, onAuthStateChange } from "../lib/auth-state";
+    import { getAuthToken, isLoggedIn, onAuthStateChange } from "../lib/auth-state";
     import { artifacts } from "../lib/artifacts-data";
     import { fetchPlayerPortal, PortalAuthError } from "../lib/portal-client";
     import { gameClientRoot } from "../lib/ranked-arena-client";
@@ -196,8 +196,8 @@ const rankedApp = links.rankedApp;
         type RankedMatchUnitPerformance,
     } from "../lib/ranked-match-client";
     import {
+        fetchOwnRankedPlayerId,
         fetchPublicRankedProfile,
-        isPublicRankedPlayerId,
         publicRankedProfileFallbackFromSearchParams,
         rankedExitRatePct,
         type PlaystyleArtifact,
@@ -1825,9 +1825,11 @@ const rankedApp = links.rankedApp;
      * view — a missing id or a failed lookup simply leaves the fallback in place.
      */
     async function paintOwnStanding(): Promise<void> {
-        const ownId = (getAuthUser()?.in_game_id ?? "").trim();
-        if (!isPublicRankedPlayerId(ownId)) return;
         try {
+            // The stored auth user has no player id (its in_game_id is the match being played), so the
+            // signed-in standing says whose profile this is.
+            const ownId = await fetchOwnRankedPlayerId(getAuthToken());
+            if (!ownId) return;
             applyStandingToHeader(await fetchPublicRankedProfile(ownId));
         } catch {
             /* no standing on show is strictly better than a wrong one */

@@ -809,3 +809,32 @@ export async function fetchPublicRankedProfile(playerId: string): Promise<Public
     }
     return profile;
 }
+
+export function buildOwnRankedStandingUrl(options: RankedProfileUrlOptions = {}): string {
+    const production = options.production ?? runtimeIsProduction();
+    const baseUrl = (options.baseUrl ?? runtimeBaseUrl(production)).replace(/\/+$/, "");
+    return `${baseUrl}${production ? "/v1/ranked-standing" : "/v1/mm/ranked-standing"}`;
+}
+
+/**
+ * The signed-in player's ranked id, read from their own standing. The stored auth user carries no player id:
+ * its `in_game_id` is the match being played right now. Null when signed out, rejected, or answered by a
+ * server that predates the field — never a guess.
+ */
+export async function fetchOwnRankedPlayerId(
+    token: string | null,
+    options: RankedProfileUrlOptions = {},
+): Promise<string | null> {
+    if (!token) {
+        return null;
+    }
+    const response = await fetch(buildOwnRankedStandingUrl(options), {
+        cache: "no-store",
+        headers: { Accept: "application/json", Authorization: token },
+    });
+    if (!response.ok) {
+        return null;
+    }
+    const playerId = asString(asRecord(await response.json()).playerId);
+    return isPublicRankedPlayerId(playerId) ? playerId : null;
+}
