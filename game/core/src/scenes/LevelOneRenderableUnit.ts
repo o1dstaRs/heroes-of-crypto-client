@@ -66,6 +66,7 @@ import { syncWolfAttackReachVisuals } from "./WolfAttackReachVisuals";
 import { syncScavengerHitColorFilter, syncScavengerIdleColorFilter } from "./ScavengerIdleColorFilter";
 import { syncBerserkerIdleVisuals } from "./BerserkerIdleVisuals";
 import { applyScavengerHitRegistration, clearScavengerHitRegistration } from "./ScavengerHitRegistration";
+import { UnitLoadingPlaceholder } from "./unitLoadingPlaceholder";
 import { staticBattlefieldTextureNameForUnit, TextureType, unitToTextureName } from "@/pixi/PixiUnitsFactory";
 import { legacyBoardChildScaleCompensation } from "@/pixi/boardFit";
 import {
@@ -2527,6 +2528,8 @@ export class RenderableUnit extends Unit {
     private stackForcedHidden = false;
     private isActiveTurn = false;
     private isDestroyed = false;
+    // Created on first use: fromBase swaps the prototype, so field initialisers never run on this class.
+    private loadingPlaceholder?: UnitLoadingPlaceholder;
     private visualMode: "normal" | "hidden" | "ghost" | "revealed" = "normal";
     // Split preview: temporarily enlarge the count badge and (optionally) show a projected amount.
     private badgeEmphasisScale = 1;
@@ -2966,7 +2969,25 @@ export class RenderableUnit extends Unit {
         const tallBoardModel = usesTallBoardModel(props, texName, hasAuthoredIdle);
         const refreshedFullBodyScale = usesRefreshedFullBodyScale(props, hasAuthoredIdle);
         const baseTex = this.resolveBaseTexture();
-        if (!baseTex) return;
+        if (!baseTex) {
+            // No board image yet: stand in with a team-coloured token and the stack count, so the unit is on the board
+            // and countable while its art downloads. The sprite below replaces it as soon as the image lands.
+            const inheritedScale = inheritedAbsoluteScale(worldRoot, this.inheritedScaleScratch);
+            this.inheritedScaleScratch = inheritedScale;
+            const perspectiveScale = this.useBattlefieldVisualProjection
+                ? battlefieldCreaturePerspectiveScale(logicalPos.y, footprintHeight, gs)
+                : 1;
+            (this.loadingPlaceholder ??= new UnitLoadingPlaceholder()).sync(worldRoot, {
+                x: pos.x,
+                y: pos.y,
+                side: gs.getCellSize() * Math.min(footprintWidth, footprintHeight) * perspectiveScale,
+                team: this.getTeam(),
+                amount: this.badgeAmountOverride ?? this.getAmountAlive(),
+                compensation: legacyBoardChildScaleCompensation(inheritedScale.x, inheritedScale.y),
+            });
+            return;
+        }
+        this.loadingPlaceholder?.destroy();
         if (!this.animationAssetsRequested) {
             this.animationAssetsRequested = true;
             for (const key of approvedAnimationAssetKeysForUnit(props.name)) this.texResolver(key);
@@ -6880,6 +6901,7 @@ export class RenderableUnit extends Unit {
     }
     /** Release non-display resources whether the unit or its parent container initiates teardown. */
     private releaseVisualLifecycleResources(): void {
+        this.loadingPlaceholder?.destroy();
         this.cancelArbalesterRangedShot();
         this.cancelDryadRangedShot();
         this.arbalesterIdlePager?.dispose();

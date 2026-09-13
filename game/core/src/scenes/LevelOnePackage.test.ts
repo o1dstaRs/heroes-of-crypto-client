@@ -9,7 +9,7 @@ import {
     Unit,
     UnitVals,
 } from "@heroesofcrypto/common";
-import { BufferImageSource, Container, Texture } from "pixi.js";
+import { BufferImageSource, Container, Text, Texture } from "pixi.js";
 import { RenderableUnit } from "./RenderableUnit";
 import { RenderableUnit as ApprovedUnit } from "./LevelOneRenderableUnit";
 import { Sandbox } from "./Sandbox";
@@ -176,5 +176,57 @@ test("a slow base portrait does not enqueue combat sheets before the creature ca
     expect(requests).toContain("peasant_attack_down_atlas_quarter");
     expect(requests.some((key) => key.startsWith("wolf_"))).toBe(false);
     unit.destroyVisuals();
+    root.destroy();
+});
+
+const tokensOn = (root: Container) => root.children.filter((child) => child.label === "unit-loading-placeholder");
+const approvedWolf = (resolveTexture: (key: string) => Texture | undefined) => {
+    const effects = new EffectFactory();
+    const properties = HoCConfig.getCreatureConfig(TeamVals.RIGHT, "Nature", "Wolf", "wolf_512", 10);
+    return RenderableUnit.fromBase(
+        Unit.createUnit(
+            properties,
+            grid,
+            TeamVals.RIGHT,
+            UnitVals.CREATURE,
+            new AbilityFactory(effects),
+            effects,
+            false,
+        ),
+        resolveTexture,
+    );
+};
+
+test("an approved creature shows its team token with the stack count until its board image lands", () => {
+    let baseAvailable = false;
+    const unit = approvedWolf((key) => (baseAvailable && !key.includes("atlas") ? texture : undefined));
+    expect(unit instanceof ApprovedUnit).toBe(true);
+    const root = new Container();
+    unit.setPosition(0, 1024);
+
+    unit.ensureVisual(root, grid);
+    unit.ensureVisual(root, grid);
+    expect(tokensOn(root)).toHaveLength(1);
+    const count = tokensOn(root)[0].children.find((child) => child instanceof Text) as Text | undefined;
+    expect(count?.text).toBe(String(unit.getAmountAlive()));
+    expect((unit as unknown as { sprite?: unknown }).sprite).toBeUndefined();
+
+    baseAvailable = true;
+    unit.ensureVisual(root, grid);
+    expect(tokensOn(root)).toHaveLength(0);
+    expect((unit as unknown as { sprite?: unknown }).sprite).toBeDefined();
+    unit.destroyVisuals();
+    root.destroy();
+});
+
+test("destroying an approved creature that never got its board image removes its token", () => {
+    const unit = approvedWolf(() => undefined);
+    const root = new Container();
+    unit.setPosition(0, 1024);
+    unit.ensureVisual(root, grid);
+    expect(tokensOn(root)).toHaveLength(1);
+
+    unit.destroyVisuals();
+    expect(tokensOn(root)).toHaveLength(0);
     root.destroy();
 });
