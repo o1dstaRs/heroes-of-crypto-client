@@ -9,3 +9,5 @@ Run the normal common build, then `NODE_ENV=production bun run --cwd game/core b
 Update assets and their hash manifest together when approving a new revision. Upload files with their manifest-relative directory layout; do not flatten the authoring checkout. Deploy all hashed assets before switching index.html, retain the previous index and assets for rollback, and verify /play and battle routes from a fresh browser.
 
 Checks: LevelOnePackage.test covers every level-one creature after authoritative reconstruction, idle availability, walking frames, melee directions, ranged directions and casts where applicable. Existing legacy renderer tests exercise the unapproved renderer separately. DungeonVisuals and lava tests cover scene teardown, extinguishing and narrowing.
+
+Production loads each visible creature's approved sheets only after its base texture is available. Do not re-enable a whole-roster background preload: it competes with placement textures on slow connections. Arbalester idle pages remain bounded and demand-loaded. `approvedAnimationLoading.test` and the slow-portrait regression in `LevelOnePackage.test` protect this order.

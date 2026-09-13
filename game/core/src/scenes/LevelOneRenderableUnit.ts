@@ -68,7 +68,11 @@ import { syncBerserkerIdleVisuals } from "./BerserkerIdleVisuals";
 import { applyScavengerHitRegistration, clearScavengerHitRegistration } from "./ScavengerHitRegistration";
 import { staticBattlefieldTextureNameForUnit, TextureType, unitToTextureName } from "@/pixi/PixiUnitsFactory";
 import { legacyBoardChildScaleCompensation } from "@/pixi/boardFit";
-import { CREATURE_SPRITE_ANIMATION_SETTINGS, usesApprovedBaseAnimations } from "@/pixi/creatureAnimationSettings";
+import {
+    CREATURE_SPRITE_ANIMATION_SETTINGS,
+    usesApprovedBaseAnimations,
+    approvedAnimationAssetKeysForUnit,
+} from "@/pixi/creatureAnimationSettings";
 import { animationAtlases, AnimationUnitName, type AnimationAtlasMeta } from "../animations/levelOneAtlases";
 import { images, type ImageKey } from "../imageAssets";
 import { buildAtlasPingPongTiming, AtlasPingPongTiming } from "./atlasAnimationTiming";
@@ -2554,6 +2558,7 @@ export class RenderableUnit extends Unit {
     private smallTextureName = "";
     /** The stable fallback portrait/full-body texture; lazy assets are retained only after they resolve. */
     private baseTexture?: Texture;
+    private animationAssetsRequested = false;
     private idleAnimationStateAvailable = false;
     private creatureAnimationLabPreviewEnabled = false;
     private scavengerLabAnimationsEnabled = false;
@@ -2763,6 +2768,7 @@ export class RenderableUnit extends Unit {
         ru.badgeScreenAnchor = undefined;
         ru.badgeLocalAnchor = undefined;
         ru.baseTexture = undefined;
+        ru.animationAssetsRequested = false;
         const unitProperties = ru.getUnitProperties();
         const footprintWidth = ru.getFootprintWidth();
         const footprintHeight = ru.getFootprintHeight();
@@ -2961,6 +2967,10 @@ export class RenderableUnit extends Unit {
         const refreshedFullBodyScale = usesRefreshedFullBodyScale(props, hasAuthoredIdle);
         const baseTex = this.resolveBaseTexture();
         if (!baseTex) return;
+        if (!this.animationAssetsRequested) {
+            this.animationAssetsRequested = true;
+            for (const key of approvedAnimationAssetKeysForUnit(props.name)) this.texResolver(key);
+        }
         // --- sprite ---
         if (!this.sprite) {
             // first time: use base texture

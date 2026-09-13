@@ -164,3 +164,20 @@ export const shouldPreloadUnitAnimationAtlas = (key: string, animationsEnabled: 
     // The native pager owns a bounded current/next working set, including when all motion is enabled.
     !/^arbalester_idle_page_\d{2}_atlas$/.test(key) &&
     (animationsEnabled || UNIT_ATLASES_USED_WHILE_ANIMATIONS_DISABLED.has(key));
+
+/** Only the visible creature's approved sheets; the idle pager retains its own bounded working set. */
+export const approvedAnimationAssetKeysForUnit = (unitName: string): string[] => {
+    if (!usesApprovedBaseAnimations(unitName)) return [];
+    const prefix = unitName === "Wandering Mage" ? "ash_moth_" : unitName.toLowerCase().replaceAll(" ", "_") + "_";
+    return [...UNIT_ATLASES_USED_WHILE_ANIMATIONS_DISABLED]
+        .filter((key) => key !== "squire_default_atlas_quarter")
+        .filter(
+            (key) =>
+                (key.startsWith(prefix) && !(unitName === "Wolf" && key.startsWith("wolf_rider_"))) ||
+                (unitName === "Scavenger" && key === "thief_walk_atlas_quarter"),
+        )
+        .sort((a, b) => {
+            const priority = (key: string) => (/_(idle|default)_/.test(key) ? 0 : /_walk_/.test(key) ? 1 : 2);
+            return priority(a) - priority(b);
+        });
+};

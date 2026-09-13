@@ -144,3 +144,37 @@ test("paged Arbalester idle survives production pruning without eager decoding",
         expect(Object.hasOwn(images, key)).toBe(true);
     }
 });
+
+test("a slow base portrait does not enqueue combat sheets before the creature can appear", () => {
+    const effects = new EffectFactory();
+    const properties = HoCConfig.getCreatureConfig(TeamVals.LEFT, "Life", "Peasant", "peasant_512", 10);
+    const requests: string[] = [];
+    let baseAvailable = false;
+    const unit = RenderableUnit.fromBase(
+        Unit.createUnit(
+            properties,
+            grid,
+            TeamVals.LEFT,
+            UnitVals.CREATURE,
+            new AbilityFactory(effects),
+            effects,
+            false,
+        ),
+        (key) => {
+            requests.push(key);
+            return baseAvailable && !key.includes("atlas") ? texture : undefined;
+        },
+    );
+    requests.length = 0;
+    const root = new Container();
+    unit.setPosition(0, 1024);
+    unit.ensureVisual(root, grid);
+    expect(requests.some((key) => key.includes("_attack_"))).toBe(false);
+    baseAvailable = true;
+    unit.ensureVisual(root, grid);
+    expect(requests).toContain("peasant_walk_atlas_quarter");
+    expect(requests).toContain("peasant_attack_down_atlas_quarter");
+    expect(requests.some((key) => key.startsWith("wolf_"))).toBe(false);
+    unit.destroyVisuals();
+    root.destroy();
+});
