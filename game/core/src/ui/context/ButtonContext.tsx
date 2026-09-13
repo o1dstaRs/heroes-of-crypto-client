@@ -1,11 +1,15 @@
 import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { IVisibleButton, VisibleButtonState } from "../../scenes/VisibleState";
 import { usePixiManager } from "../../pixi/PixiGameManager";
-import { ButtonContext, useButtonContext } from "./ButtonContextDefs";
+import { ButtonContext, spectatorButtons, useButtonContext } from "./ButtonContextDefs";
 
 export { useButtonContext };
 
-export const ButtonProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+/** `readOnly`: a spectator's fight — the toolbar mirrors the active unit's options, disabled, and clicks go nowhere. */
+export const ButtonProvider: React.FC<{ children: React.ReactNode; readOnly?: boolean }> = ({
+    children,
+    readOnly = false,
+}) => {
     const manager = usePixiManager();
     const [buttons, setButtons] = useState<IVisibleButton[]>([]);
 
@@ -31,12 +35,16 @@ export const ButtonProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const propagateClick = useCallback(
         (name: string, state: VisibleButtonState) => {
+            if (readOnly) {
+                return;
+            }
             manager.PropagateButtonClicked(name, state);
         },
-        [manager],
+        [manager, readOnly],
     );
 
-    const value = useMemo(() => ({ buttons, propagateClick }), [buttons, propagateClick]);
+    const shownButtons = useMemo(() => (readOnly ? spectatorButtons(buttons) : buttons), [buttons, readOnly]);
+    const value = useMemo(() => ({ buttons: shownButtons, propagateClick }), [shownButtons, propagateClick]);
 
     return <ButtonContext.Provider value={value}>{children}</ButtonContext.Provider>;
 };

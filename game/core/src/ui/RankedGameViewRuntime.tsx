@@ -1888,8 +1888,9 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             />
         ) : undefined;
 
+    // A spectator's toolbar mirrors the fight but must not drive it: every button disabled, clicks dropped.
     return (
-        <ButtonProvider>
+        <ButtonProvider readOnly={isObserver}>
             <div
                 className="container"
                 style={{
