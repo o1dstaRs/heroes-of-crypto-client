@@ -15,6 +15,17 @@ export interface CreatureDepthSortCandidate {
 
 const HEAD_ZONE_WIDTH_RATIO = 0.48;
 const HEAD_ZONE_HEIGHT_RATIO = 0.66;
+/**
+ * How much of a head zone another body must cover before the face counts as threatened. A bounding
+ * rectangle over-approximates a creature — a 2x2 dragon's box is mostly empty air above its back — so
+ * a head zone that merely clips a corner of a big box must not reorder anything: the resolver lifts
+ * the "threatened" creature above the box's owner, and with it above every unrelated creature whose
+ * ground line sits between the two (a Squire one row behind a Pikeman was lifted over the Pikeman
+ * because its head zone touched the Black Dragon's box two cells away, hiding the Pikeman entirely).
+ */
+const HEAD_ZONE_COVERED_RATIO = 0.3;
+/** A small body sitting inside a large head zone (a footman on a dragon's face) still counts. */
+const BODY_INSIDE_HEAD_RATIO = 0.5;
 const DEPTH_EPSILON = 0.01;
 const EMPTY_DEPTHS: ReadonlyMap<string, number> = new Map();
 
@@ -27,8 +38,11 @@ const intersectionArea = (left: CreatureDepthRect, right: CreatureDepthRect): nu
 
 const meaningfullyIntersects = (headZone: CreatureDepthRect, bodyBounds: CreatureDepthRect): boolean => {
     const overlap = intersectionArea(headZone, bodyBounds);
-    const referenceArea = Math.min(rectArea(headZone), rectArea(bodyBounds));
-    return overlap > Math.max(4, referenceArea * 0.01);
+    if (overlap <= 4) return false;
+    return (
+        overlap >= rectArea(headZone) * HEAD_ZONE_COVERED_RATIO ||
+        overlap >= rectArea(bodyBounds) * BODY_INSIDE_HEAD_RATIO
+    );
 };
 
 /**
