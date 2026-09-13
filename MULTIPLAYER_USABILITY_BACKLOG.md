@@ -90,3 +90,10 @@ Status legend: **done** shipped, **open** not started.
   other seat's board and picker follow.
 - Open: one friend per sandbox; no in-match text chat (the social dock collapses during a fight, DMs are
   behind the medallion).
+
+## 9. A loading screen right before the augment step — done
+
+- The draft's last phase hands off to the fight view, which boots Pixi behind a loader that held for a
+  fixed 2 s on every route (a sandbox-only minimum applied everywhere), after a poll that checked for the
+  play session only every 2 s. The loader now lasts only as long as the assets take on ranked and co-op
+  boards, and the handoff poll runs every 0.75 s once the draft reaches its final phase.

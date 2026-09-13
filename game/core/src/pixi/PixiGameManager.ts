@@ -36,7 +36,7 @@ import type { UnitsOverlay } from "../scenes/UnitsOverlay";
 import type { PixiApp } from "./PixiApp";
 // import { PixiSceneManager } from "./PixiSceneManager"; // Deprecated
 import type { PreloadedPixiTextures } from "./PixiTextureLoader";
-import { displayedLoadingProgress, MINIMUM_LOADING_SCREEN_DURATION_MS } from "./loadingProgress";
+import { displayedLoadingProgress, minimumLoadingScreenDurationMs } from "./loadingProgress";
 
 import type {
     CreatureAnimationLabResult,
@@ -319,12 +319,16 @@ export class PixiGameManager {
         // Ensure it's on top of everything (UI container usually) but for now just add to stage
         stage.addChild(loadingScreen);
         const loadingScreenShownAt = performance.now();
+        // The sandbox keeps its loading art up for a moment; a ranked or co-op board (the augment step
+        // waits behind it) shows the loader only as long as the assets actually take. The helper always
+        // existed for this split but the constant was used directly, so every route sat through 2 s.
+        const minimumDurationMs = minimumLoadingScreenDurationMs(this.sceneTitle);
         let actualLoadingProgress = 0;
         let minimumDurationElapsed = false;
         const renderLoadingProgress = (now = performance.now()) => {
             if (!isCurrentLifecycle() || !loadingScreen) return;
-            const elapsedMs = minimumDurationElapsed ? MINIMUM_LOADING_SCREEN_DURATION_MS : now - loadingScreenShownAt;
-            loadingScreen.setProgress(displayedLoadingProgress(actualLoadingProgress, elapsedMs));
+            const elapsedMs = minimumDurationElapsed ? minimumDurationMs : now - loadingScreenShownAt;
+            loadingScreen.setProgress(displayedLoadingProgress(actualLoadingProgress, elapsedMs, minimumDurationMs));
         };
         const minimumLoadingScreenDuration = new Promise<void>((resolve) => {
             let animationFrameId = 0;
@@ -347,7 +351,7 @@ export class PixiGameManager {
                 }
 
                 renderLoadingProgress(now);
-                if (now - loadingScreenShownAt >= MINIMUM_LOADING_SCREEN_DURATION_MS) {
+                if (now - loadingScreenShownAt >= minimumDurationMs) {
                     finish();
                     return;
                 }
@@ -355,7 +359,7 @@ export class PixiGameManager {
             };
 
             animationFrameId = window.requestAnimationFrame(animate);
-            fallbackTimeoutId = window.setTimeout(finish, MINIMUM_LOADING_SCREEN_DURATION_MS);
+            fallbackTimeoutId = window.setTimeout(finish, minimumDurationMs);
         });
 
         // 2. Load Core Assets (Blocking)

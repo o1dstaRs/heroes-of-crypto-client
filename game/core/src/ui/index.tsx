@@ -1090,7 +1090,8 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
         };
 
         void probePlaySnapshot();
-        const intervalId = window.setInterval(probePlaySnapshot, pickNearingPlay ? 2000 : 15000);
+        // Nearing play, poll briskly: this gap is dead time on both screens right before the augment step.
+        const intervalId = window.setInterval(probePlaySnapshot, pickNearingPlay ? 750 : 15000);
 
         return () => {
             cancelled = true;
