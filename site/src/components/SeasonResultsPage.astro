@@ -1,0 +1,675 @@
+---
+import { content, links, type Language } from "../lib/site-data";
+
+interface Props {
+    lang: Language;
+}
+
+const { lang } = Astro.props;
+const copy = content[lang].seasons;
+const isRu = lang === "ru";
+const profileRoot = isRu ? "/ru/profile/" : "/profile/";
+---
+
+<section
+    class="seasons-page"
+    data-seasons-page
+    data-lang={lang}
+    data-profile-root={profileRoot}
+    data-copy={JSON.stringify(copy)}
+>
+    <div class="page-shell seasons-shell">
+        <header class="seasons-head">
+            <p class="eyebrow">{copy.eyebrow}</p>
+            <h1>{copy.title}</h1>
+            <p class="seasons-sub">{copy.subtitle}</p>
+        </header>
+
+        <aside class="seasons-current" data-seasons-current hidden>
+            <img
+                class="seasons-current__icon"
+                data-seasons-current-icon
+                src="/assets/icons/currency/gold.svg"
+                alt=""
+                width="44"
+                height="44"
+            />
+            <div class="seasons-current__copy">
+                <p class="seasons-current__label">{copy.currentSeasonLabel}</p>
+                <p class="seasons-current__name" data-seasons-current-name></p>
+                <p class="seasons-current__meta" data-seasons-current-meta></p>
+            </div>
+            <a class="seasons-btn" href={links.rankedApp}>{copy.playRanked}</a>
+        </aside>
+
+        <p class="seasons-note" data-seasons-loading>{copy.loading}</p>
+
+        <div class="seasons-panel" data-seasons-error hidden>
+            <h2>{copy.errorTitle}</h2>
+            <p>{copy.errorBody}</p>
+            <button type="button" class="seasons-btn" data-seasons-retry>{copy.retry}</button>
+        </div>
+
+        <div class="seasons-panel" data-seasons-empty hidden>
+            <h2>{copy.emptyTitle}</h2>
+            <p>{copy.emptyBody}</p>
+        </div>
+
+        <div class="seasons-content" data-seasons-content hidden>
+            <div class="seasons-tabs" role="tablist" aria-label={copy.title} data-seasons-tabs></div>
+
+            <article class="seasons-season" data-seasons-season aria-live="polite">
+                <header class="seasons-season__head">
+                    <img class="seasons-season__icon" data-seasons-season-icon src="/assets/icons/currency/gold.svg" alt="" width="40" height="40" />
+                    <div>
+                        <h2 data-seasons-season-name></h2>
+                        <p class="seasons-season__meta" data-seasons-season-meta></p>
+                    </div>
+                </header>
+
+                <p class="seasons-note" data-seasons-season-loading hidden>{copy.loading}</p>
+                <p class="seasons-note" data-seasons-season-missing hidden>{copy.seasonNotFound}</p>
+
+                <div data-seasons-season-body hidden>
+                    <dl class="seasons-stats" data-seasons-stats></dl>
+                    <ol class="seasons-podium" data-seasons-podium aria-label={copy.podiumTitle}></ol>
+                    <h3 class="seasons-table-title">{copy.tableTitle}</h3>
+                    <div class="seasons-table-scroll">
+                        <table class="seasons-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col" class="num">{copy.colPlace}</th>
+                                    <th scope="col">{copy.colPlayer}</th>
+                                    <th scope="col">{copy.colLeague}</th>
+                                    <th scope="col" class="num">{copy.colMmr}</th>
+                                    <th scope="col" class="num">{copy.colRecord}</th>
+                                    <th scope="col" class="num">{copy.colWinRate}</th>
+                                    <th scope="col" class="num">{copy.colBalance}</th>
+                                </tr>
+                            </thead>
+                            <tbody data-seasons-rows></tbody>
+                        </table>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </div>
+</section>
+
+<script>
+    import { leagueEmblemPath } from "../lib/league-emblems";
+    import { fetchSeasonCurrencyCatalog, seasonCurrencyIconUrl, type SeasonCurrency, type SeasonCurrencyCatalog } from "../lib/season-currency";
+    import {
+        fetchSeasonResultsDetail,
+        fetchSeasonResultsList,
+        seasonFromSearch,
+        SeasonResultsNotFoundError,
+        type SeasonResultsDetail,
+        type SeasonResultsListEntry,
+        type SeasonResultsPlayer,
+    } from "../lib/season-results-client";
+
+    const page = document.querySelector<HTMLElement>("[data-seasons-page]");
+    if (page) {
+        startSeasonsPage(page);
+    }
+
+    function startSeasonsPage(root: HTMLElement): void {
+        const lang = root.dataset.lang === "ru" ? "ru" : "en";
+        const copy = JSON.parse(root.dataset.copy ?? "{}") as Record<string, string>;
+        const profileRoot = root.dataset.profileRoot ?? "/profile/";
+        const numberFormatter = new Intl.NumberFormat(lang);
+        const dateFormatter = new Intl.DateTimeFormat(lang, { dateStyle: "medium" });
+        const el = <T extends HTMLElement = HTMLElement>(name: string): T => {
+            const node = root.querySelector<T>(`[data-${name}]`);
+            if (!node) {
+                throw new Error(`season results page is missing [data-${name}]`);
+            }
+            return node;
+        };
+
+        const loadingEl = el("seasons-loading");
+        const errorEl = el("seasons-error");
+        const emptyEl = el("seasons-empty");
+        const contentEl = el("seasons-content");
+        const tabsEl = el("seasons-tabs");
+        const seasonIconEl = el<HTMLImageElement>("seasons-season-icon");
+        const seasonNameEl = el("seasons-season-name");
+        const seasonMetaEl = el("seasons-season-meta");
+        const seasonLoadingEl = el("seasons-season-loading");
+        const seasonMissingEl = el("seasons-season-missing");
+        const seasonBodyEl = el("seasons-season-body");
+        const statsEl = el("seasons-stats");
+        const podiumEl = el("seasons-podium");
+        const rowsEl = el("seasons-rows");
+
+        const details = new Map<number, SeasonResultsDetail>();
+        let entries: SeasonResultsListEntry[] = [];
+        let selected = 0;
+        let renderToken = 0;
+
+        const escapeHtml = (value: string): string =>
+            value.replace(/[&<>"']/g, (char) => `&#${char.charCodeAt(0)};`);
+        const fill = (template: string, values: Record<string, string>): string =>
+            Object.entries(values).reduce((text, [key, value]) => text.replaceAll(`{${key}}`, value), template);
+        const formatDate = (timestamp: number): string => (timestamp > 0 ? dateFormatter.format(new Date(timestamp)) : "—");
+        const currencyMarkup = (amount: number, currency: SeasonCurrency): string => {
+            const value = numberFormatter.format(Math.max(0, Math.trunc(amount)));
+            return `<span class="currency-amount" aria-label="${escapeHtml(`${currency.name}: ${value}`)}"><img class="currency-icon" src="${escapeHtml(seasonCurrencyIconUrl(currency))}" alt="" aria-hidden="true" width="20" height="20" /><span>${escapeHtml(value)}</span></span>`;
+        };
+        const profileHref = (player: SeasonResultsPlayer): string =>
+            `${profileRoot}?${new URLSearchParams({ playerId: player.playerId, username: player.username }).toString()}`;
+        const standingLabel = (player: SeasonResultsPlayer): string => {
+            if (player.place > 0 && player.league > 0) {
+                return player.leagueName;
+            }
+            return player.state === "placed" ? copy.unranked : copy.calibrating;
+        };
+        const leagueMarkup = (player: SeasonResultsPlayer): string =>
+            `<span class="league-cell"><img src="${escapeHtml(leagueEmblemPath(player.place > 0 ? player.league : 0, 0))}" alt="" aria-hidden="true" width="26" height="26" /><span>${escapeHtml(standingLabel(player))}</span></span>`;
+        const winRate = (player: SeasonResultsPlayer): string =>
+            player.totalGames > 0 ? `${player.winRatePct.toFixed(1).replace(/\.0$/, "")}%` : "—";
+
+        const show = (state: "loading" | "error" | "empty" | "content"): void => {
+            loadingEl.hidden = state !== "loading";
+            errorEl.hidden = state !== "error";
+            emptyEl.hidden = state !== "empty";
+            contentEl.hidden = state !== "content";
+        };
+
+        const renderCurrent = (catalog: SeasonCurrencyCatalog | null): void => {
+            const card = el("seasons-current");
+            if (!catalog) {
+                card.hidden = true;
+                return;
+            }
+            const now = Date.now();
+            const running = catalog.current;
+            const upcoming = catalog.seasons.filter((candidate) => candidate.startsAt > now).sort((a, b) => a.startsAt - b.startsAt)[0];
+            const shown = running ?? upcoming;
+            el<HTMLImageElement>("seasons-current-icon").src = seasonCurrencyIconUrl(shown?.currency ?? null);
+            el("seasons-current-name").textContent = running ? running.name : copy.noCurrentSeason;
+            el("seasons-current-meta").textContent = running
+                ? `${fill(copy.currentSeasonEnds, { date: formatDate(running.endsAt) })} · ${running.currency.name}`
+                : upcoming
+                  ? `${fill(copy.nextSeasonStarts, { date: formatDate(upcoming.startsAt) })} · ${upcoming.name}`
+                  : "";
+            card.hidden = false;
+        };
+
+        const renderTabs = (): void => {
+            tabsEl.innerHTML = entries
+                .map((entry) => {
+                    const isSelected = entry.season.sequence === selected;
+                    return `<button type="button" role="tab" class="seasons-tab" data-season-tab="${entry.season.sequence}" aria-selected="${isSelected}" tabindex="${isSelected ? 0 : -1}">${escapeHtml(entry.season.name)}</button>`;
+                })
+                .join("");
+        };
+
+        const renderSeason = (detail: SeasonResultsDetail): void => {
+            const currency = detail.season.currency;
+            seasonIconEl.src = seasonCurrencyIconUrl(currency);
+            seasonNameEl.textContent = detail.season.name;
+            seasonMetaEl.textContent = `${fill(copy.finishedOn, { date: formatDate(detail.season.endsAt) })} · ${currency.name}`;
+
+            const stats: [string, string][] = [
+                [copy.playersLabel, escapeHtml(numberFormatter.format(detail.playerCount))],
+                [copy.placedLabel, escapeHtml(numberFormatter.format(detail.rankedCount))],
+                [fill(copy.totalLabel, { currency: currency.name }), currencyMarkup(detail.totalGold, currency)],
+            ];
+            if (detail.refundedGold > 0) {
+                stats.push([copy.returnedLabel, currencyMarkup(detail.refundedGold, currency)]);
+            }
+            statsEl.innerHTML = stats
+                .map(([label, value]) => `<div class="seasons-stat"><dt>${escapeHtml(label)}</dt><dd>${value}</dd></div>`)
+                .join("");
+
+            podiumEl.innerHTML = detail.players
+                .filter((player) => player.place > 0 && player.place <= 3)
+                .map(
+                    (player) => `
+                        <li class="podium-card" data-place="${player.place}">
+                            <span class="podium-place">${player.place}</span>
+                            <img class="podium-emblem" src="${escapeHtml(leagueEmblemPath(player.league, 0))}" alt="" aria-hidden="true" width="48" height="48" />
+                            <span class="podium-copy">
+                                <a class="podium-name" href="${escapeHtml(profileHref(player))}">${escapeHtml(player.username)}</a>
+                                <span class="podium-meta">${escapeHtml(standingLabel(player))} · ${escapeHtml(numberFormatter.format(player.mmr))} MMR</span>
+                                ${currencyMarkup(player.gold, currency)}
+                            </span>
+                        </li>`,
+                )
+                .join("");
+            podiumEl.hidden = podiumEl.innerHTML.trim() === "";
+
+            rowsEl.innerHTML = detail.players.length
+                ? detail.players
+                .map(
+                    (player) => `
+                        <tr data-place="${player.place}">
+                            <td class="num place-cell">${player.place > 0 ? escapeHtml(numberFormatter.format(player.place)) : "—"}</td>
+                            <td><a class="player-link" href="${escapeHtml(profileHref(player))}">${escapeHtml(player.username)}</a></td>
+                            <td>${leagueMarkup(player)}</td>
+                            <td class="num">${player.mmr > 0 ? escapeHtml(numberFormatter.format(player.mmr)) : "—"}</td>
+                            <td class="num">${player.wins}–${player.losses}–${player.draws}</td>
+                            <td class="num">${escapeHtml(winRate(player))}</td>
+                            <td class="num">${currencyMarkup(player.gold, currency)}</td>
+                        </tr>`,
+                )
+                .join("")
+                : `<tr><td class="seasons-empty-row" colspan="7">${escapeHtml(copy.noPlayers)}</td></tr>`;
+            seasonBodyEl.hidden = false;
+        };
+
+        const selectSeason = async (sequence: number, updateUrl: boolean): Promise<void> => {
+            selected = sequence;
+            renderTabs();
+            if (updateUrl) {
+                const url = new URL(window.location.href);
+                url.searchParams.set("season", String(sequence));
+                window.history.replaceState(null, "", url);
+            }
+            const token = ++renderToken;
+            const listed = entries.find((entry) => entry.season.sequence === sequence);
+            seasonNameEl.textContent = listed?.season.name ?? "";
+            seasonMetaEl.textContent = "";
+            seasonMissingEl.hidden = true;
+            seasonBodyEl.hidden = true;
+            seasonLoadingEl.hidden = false;
+            try {
+                const cached = details.get(sequence);
+                const detail = cached ?? (await fetchSeasonResultsDetail(sequence));
+                details.set(sequence, detail);
+                if (token !== renderToken) {
+                    return;
+                }
+                renderSeason(detail);
+            } catch (err) {
+                if (token !== renderToken) {
+                    return;
+                }
+                if (err instanceof SeasonResultsNotFoundError) {
+                    seasonMissingEl.hidden = false;
+                } else {
+                    show("error");
+                }
+            } finally {
+                if (token === renderToken) {
+                    seasonLoadingEl.hidden = true;
+                }
+            }
+        };
+
+        tabsEl.addEventListener("click", (event) => {
+            const tab = (event.target as HTMLElement).closest<HTMLElement>("[data-season-tab]");
+            const sequence = Number(tab?.dataset.seasonTab);
+            if (sequence && sequence !== selected) {
+                void selectSeason(sequence, true);
+            }
+        });
+        tabsEl.addEventListener("keydown", (event) => {
+            if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") {
+                return;
+            }
+            const index = entries.findIndex((entry) => entry.season.sequence === selected);
+            const next = entries[(index + (event.key === "ArrowRight" ? 1 : -1) + entries.length) % entries.length];
+            if (next) {
+                event.preventDefault();
+                void selectSeason(next.season.sequence, true).then(() =>
+                    tabsEl.querySelector<HTMLElement>(`[data-season-tab="${next.season.sequence}"]`)?.focus(),
+                );
+            }
+        });
+
+        const load = async (): Promise<void> => {
+            show("loading");
+            const catalogRequest = fetchSeasonCurrencyCatalog().catch(() => null);
+            try {
+                const list = await fetchSeasonResultsList();
+                entries = list.seasons;
+            } catch {
+                renderCurrent(await catalogRequest);
+                show("error");
+                return;
+            }
+            renderCurrent(await catalogRequest);
+            if (!entries.length) {
+                show("empty");
+                return;
+            }
+            show("content");
+            const requested = seasonFromSearch(window.location.search);
+            const initial = entries.some((entry) => entry.season.sequence === requested) ? requested : entries[0].season.sequence;
+            await selectSeason(initial, false);
+        };
+
+        el("seasons-retry").addEventListener("click", () => void load());
+        void load();
+    }
+</script>
+
+<style>
+    .seasons-page {
+        position: relative;
+        min-height: calc(100svh - 68px);
+        padding-block: clamp(28px, 5vw, 64px);
+        background:
+            linear-gradient(112deg, rgba(7, 5, 4, 0.95), rgba(7, 5, 4, 0.86) 52%, rgba(7, 5, 4, 0.96)),
+            center top / cover fixed no-repeat url("/assets/images/background_dark_old.webp"),
+            #070504;
+        font-family: var(--hoc-font-ui, var(--hoc-font-display, inherit));
+        color: var(--ink);
+    }
+
+    .seasons-shell {
+        display: grid;
+        gap: 18px;
+    }
+
+    .seasons-head h1 {
+        margin: 6px 0 10px;
+        font-family: var(--hoc-font-display);
+        font-size: clamp(2rem, 4.2vw, 3.1rem);
+        color: var(--ink-strong);
+        line-height: 1.05;
+    }
+
+    .seasons-sub {
+        max-width: 72ch;
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.55;
+    }
+
+    .seasons-current,
+    .seasons-panel,
+    .seasons-season {
+        padding: clamp(16px, 2vw, 22px);
+        border: 1px solid rgba(255, 143, 0, 0.27);
+        border-radius: 16px;
+        background: rgba(12, 8, 5, 0.91);
+        box-shadow: 0 14px 38px rgba(0, 0, 0, 0.42);
+    }
+
+    .seasons-current {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        align-items: center;
+    }
+
+    .seasons-current__copy {
+        flex: 1 1 220px;
+        min-width: 0;
+    }
+
+    .seasons-current__label {
+        margin: 0;
+        font-size: 0.72rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--muted);
+    }
+
+    .seasons-current__name {
+        margin: 2px 0;
+        font-size: 1.15rem;
+        color: var(--gold-soft);
+    }
+
+    .seasons-current__meta,
+    .seasons-season__meta {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.92rem;
+    }
+
+    .seasons-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 40px;
+        padding: 0 18px;
+        border: 1px solid var(--gold);
+        border-radius: 999px;
+        background: rgba(220, 177, 88, 0.14);
+        color: var(--gold-soft);
+        font: inherit;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    .seasons-btn:hover,
+    .seasons-btn:focus-visible {
+        background: rgba(220, 177, 88, 0.26);
+    }
+
+    .seasons-panel h2 {
+        margin: 0 0 6px;
+        color: var(--ink-strong);
+    }
+
+    .seasons-panel p {
+        margin: 0 0 12px;
+        color: var(--muted);
+    }
+
+    .seasons-note {
+        margin: 0;
+        color: var(--muted);
+    }
+
+    .seasons-content {
+        display: grid;
+        gap: 14px;
+    }
+
+    .seasons-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .seasons-tabs :global(.seasons-tab) {
+        min-height: 38px;
+        padding: 0 16px;
+        border: 1px solid var(--line-strong);
+        border-radius: 999px;
+        background: rgba(12, 8, 5, 0.7);
+        color: var(--ink);
+        font: inherit;
+        cursor: pointer;
+    }
+
+    .seasons-tabs :global(.seasons-tab[aria-selected="true"]) {
+        border-color: var(--gold);
+        background: rgba(220, 177, 88, 0.2);
+        color: var(--gold-soft);
+    }
+
+    .seasons-season__head {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 14px;
+    }
+
+    .seasons-season__head h2 {
+        margin: 0;
+        font-family: var(--hoc-font-display);
+        color: var(--ink-strong);
+    }
+
+    .seasons-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 10px;
+        margin: 0 0 16px;
+    }
+
+    .seasons-stats :global(.seasons-stat) {
+        padding: 10px 12px;
+        border: 1px solid rgba(220, 177, 88, 0.22);
+        border-radius: 12px;
+    }
+
+    .seasons-stats :global(dt) {
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+    }
+
+    .seasons-stats :global(dd) {
+        margin: 4px 0 0;
+        font-size: 1.2rem;
+        color: var(--ink-strong);
+    }
+
+    .seasons-podium {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        gap: 10px;
+        margin: 0 0 18px;
+        padding: 0;
+        list-style: none;
+    }
+
+    .seasons-podium :global(.podium-card) {
+        position: relative;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        padding: 12px 14px;
+        border: 1px solid rgba(220, 177, 88, 0.3);
+        border-radius: 14px;
+        background: linear-gradient(135deg, rgba(220, 177, 88, 0.12), rgba(12, 8, 5, 0.4));
+    }
+
+    .seasons-podium :global(.podium-card[data-place="1"]) {
+        border-color: var(--gold);
+        background: linear-gradient(135deg, rgba(239, 212, 154, 0.22), rgba(12, 8, 5, 0.4));
+    }
+
+    .seasons-podium :global(.podium-card[data-place="2"]) {
+        border-color: rgba(214, 214, 224, 0.55);
+    }
+
+    .seasons-podium :global(.podium-card[data-place="3"]) {
+        border-color: rgba(205, 160, 120, 0.6);
+    }
+
+    .seasons-podium :global(.podium-place) {
+        position: absolute;
+        top: 8px;
+        right: 12px;
+        font-family: var(--hoc-font-display);
+        font-size: 1.5rem;
+        color: var(--gold);
+    }
+
+    .seasons-podium :global(.podium-copy) {
+        display: grid;
+        gap: 3px;
+        min-width: 0;
+    }
+
+    .seasons-podium :global(.podium-name) {
+        overflow: hidden;
+        color: var(--ink-strong);
+        font-size: 1.05rem;
+        text-decoration: none;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .seasons-podium :global(.podium-meta) {
+        color: var(--muted);
+        font-size: 0.85rem;
+    }
+
+    .seasons-table-title {
+        margin: 0 0 8px;
+        font-size: 0.8rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--muted);
+    }
+
+    .seasons-table-scroll {
+        overflow-x: auto;
+    }
+
+    .seasons-table {
+        width: 100%;
+        min-width: 660px;
+        border-collapse: collapse;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .seasons-table th {
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--line);
+        font-size: 0.72rem;
+        font-weight: normal;
+        letter-spacing: 0.08em;
+        text-align: left;
+        text-transform: uppercase;
+        color: var(--muted);
+    }
+
+    .seasons-table :global(td) {
+        padding: 9px 10px;
+        border-bottom: 1px solid rgba(112, 75, 42, 0.28);
+        color: var(--ink);
+        white-space: nowrap;
+    }
+
+    .seasons-table .num,
+    .seasons-table :global(td.num) {
+        text-align: right;
+    }
+
+    .seasons-table :global(tr[data-place="1"] .place-cell),
+    .seasons-table :global(tr[data-place="2"] .place-cell),
+    .seasons-table :global(tr[data-place="3"] .place-cell) {
+        color: var(--gold);
+    }
+
+    .seasons-table :global(.player-link),
+    .seasons-podium :global(.podium-name:hover) {
+        color: var(--ink-strong);
+        text-decoration: none;
+    }
+
+    .seasons-table :global(.player-link:hover),
+    .seasons-table :global(.player-link:focus-visible) {
+        color: var(--gold-soft);
+        text-decoration: underline;
+    }
+
+    .seasons-table :global(.seasons-empty-row) {
+        padding: 18px 10px;
+        color: var(--muted);
+        text-align: center;
+        white-space: normal;
+    }
+
+    .seasons-page :global(.league-cell) {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .seasons-page :global(.currency-amount) {
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        justify-content: flex-end;
+    }
+
+    .seasons-page :global(.currency-icon) {
+        width: 20px;
+        height: 20px;
+        flex: 0 0 auto;
+    }
+</style>
