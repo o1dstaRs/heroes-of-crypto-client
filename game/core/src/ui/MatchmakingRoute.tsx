@@ -37,6 +37,7 @@ import {
 } from "./hocTheme";
 import { DoctrineIcon } from "./DoctrineIcon";
 import { ArenaNavBar } from "./ArenaNavBar";
+import { ArenaArtReadout } from "./ArenaArtReadout";
 import { ARENA_IDLE_WASH, arenaBackgroundUrl } from "./arenaBackdrop";
 import { startBackgroundAssetPrefetch } from "./assetPrefetch";
 import { getDoctrineCopy } from "./doctrineCopy";
@@ -1069,6 +1070,7 @@ export const MatchmakingRoute: React.FC = () => {
                                 {t("Ranked Arena")}
                             </Typography>
                             <Stack direction="row" spacing={0.75} alignItems="center">
+                                <ArenaArtReadout />
                                 {onlineNow !== undefined && (
                                     <Tooltip
                                         title={tf("{online} online · {searching} searching · {playing} in battle", {

@@ -380,6 +380,13 @@ export const RU_TRANSLATIONS: Record<string, string> = {
 
     // ~~~ Ranked arena + matchmaking ~~~
     "Ranked Arena": "Рейтинговая арена",
+    "Battle art": "Графика боя",
+    "Battle art ready": "Графика боя загружена",
+    "Battle art {percent}%": "Графика боя {percent}%",
+    "Battle art is downloaded: units appear on the board the moment a match starts.":
+        "Графика боя загружена: отряды появятся на поле сразу, как начнётся матч.",
+    "Downloading battle art in the background so units appear on the board the moment a match starts.":
+        "Загружаем графику боя в фоне, чтобы отряды появились на поле сразу, как начнётся матч.",
     Sandbox: "Песочница",
     Profile: "Профиль",
     "Game navigation": "Навигация по игре",

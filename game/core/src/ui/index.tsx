@@ -977,7 +977,8 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
 
     // Fallback if this tab never visited the ranked arena: drafting is still idle network time, and
     // without a warmup RankedGameView blocks on the core tier behind a loading screen. A no-op when
-    // the arena already started it. Abortable here so a bounced direct-link match stops leftover work.
+    // the arena already started it. Paused once the draft hands over to the board, so it never competes with the
+    // board's own loading; the arena resumes it.
     useEffect(() => {
         if (!gameId || routeMode !== "pick") {
             return undefined;
