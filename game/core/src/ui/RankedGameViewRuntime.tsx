@@ -103,7 +103,6 @@ import { openFriendsPanel } from "./social/openFriendsEvent";
 import { takeCoopCarryOver } from "./social/coopCarryOver";
 import { clearTurnAlert, isTabUnwatched, signalYourTurn, yourTurnActivationKey } from "./turnAlert";
 import { OpponentConnectionBadge } from "./OpponentConnectionBadge";
-import { playNotificationSound } from "./audio/uiSounds";
 import {
     createSandboxCoop,
     sandboxCoopErrorMessage,
@@ -1524,10 +1523,10 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
         })();
     }, [isObserver, replayOnly, sandboxCoop, snapshot, submitProtocolAction, userTeam]);
 
-    // "Your turn" for a player who tabbed away: chime on every fresh activation of one of our units, and
-    // flash the tab title (plus an OS toast) while the tab is not being watched. Seats the AI is driving
-    // need no nudge. The first snapshot after a (re)load only seeds the key — the board is already showing
-    // whose turn it is.
+    // "Your turn" for a player who tabbed away: flash the tab title (plus a silent OS toast) while the tab
+    // is not being watched. No sound — the owner wants audio limited to the interface cues (notifications,
+    // invites, panels), and a chime on every own-unit activation read as "weird sounds on attack". Seats
+    // the AI is driving need no nudge. The first snapshot after a (re)load only seeds the key.
     const lastTurnKeyRef = useRef<string | undefined>(undefined);
     const seatIsAutomated = aiToggleOn || !!myPlayer?.aiControlled;
     useEffect(() => {
@@ -1544,7 +1543,6 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
         if (previous === undefined || key === previous || seatIsAutomated) {
             return;
         }
-        playNotificationSound();
         if (isTabUnwatched()) {
             const unitName = snapshot.units.find((unit) => unit.id === snapshot.currentUnitId)?.name ?? "";
             signalYourTurn(unitName);

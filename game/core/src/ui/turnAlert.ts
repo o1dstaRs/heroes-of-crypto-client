@@ -3,7 +3,7 @@ import { PlayPhase, type PlaySnapshot } from "../api/play_protocol";
 /**
  * "It's your turn" for a player who is no longer looking at the tab. Same two signals as the match-ready
  * alert: the tab title flashes for everyone, an OS notification fires only when the tab is genuinely not
- * being watched. The chime itself is played by the caller through the effects channel.
+ * being watched. Both are silent: game audio stays limited to the interface cues the owner asked for.
  */
 
 export const YOUR_TURN_NOTIFICATION_TAG = "hoc-your-turn";
@@ -54,6 +54,7 @@ export const signalYourTurn = (unitName: string): void => {
         liveNotification = new Notification("Heroes of Crypto — your turn", {
             body: unitName ? `${unitName} is waiting for your order.` : "Your unit is waiting for your order.",
             tag: YOUR_TURN_NOTIFICATION_TAG,
+            silent: true,
         });
         liveNotification.onclick = () => {
             window.focus();
