@@ -109,6 +109,24 @@ describe("Cemetery barrel danger highlights", () => {
         expect(hover.slice(drawAim, drawAim + 300)).toContain("blockedCasingJoint");
     });
 
+    test("prices every unit a barrel-aimed melee strike's riders hit with the unit hover's own rider projection", () => {
+        const source = sceneSource();
+        const hover = sliceFrom(source, "private updateObstacleHover(): boolean", 16_000);
+        expect(hover).toContain('riderHits.push({ unit: enemy, source: "Lightning Spin" })');
+        expect(hover).toContain('riderHits.push({ unit: skeweredBehind, source: "Skewer Strike" })');
+        expect(hover).toContain('riderHits.push({ unit: burnedBehind, source: "Fire Breath" })');
+        expect(hover).toContain("this.drawObstacleStrikeRiderPredictions(unit, attackFromCell, riderHits)");
+
+        const predictions = sliceFrom(source, "private drawObstacleStrikeRiderPredictions(", 3_000);
+        expect(predictions).toContain("this.projectMeleeRiderDamage(");
+        expect(predictions).toContain("projectKillBand(struck.unit, struck.min, struck.max)");
+        expect(predictions).toContain("this.hoverManager.addAOEDamagePrediction(");
+
+        // The unit-target hover prices the same riders through the same method, so the two numbers cannot drift.
+        const unitHoverRiders = sliceFrom(source, "for (const secondaryHit of secondaryHits) {", 1_200);
+        expect(unitHoverRiders).toContain("this.projectMeleeRiderDamage(");
+    });
+
     test("renders a red alpha wash above the exact authored barrel silhouette", () => {
         const source = dungeonSource();
         const overlay = sliceFrom(source, "const dangerOverlay = new Sprite(tex);", 900);
