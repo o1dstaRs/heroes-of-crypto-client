@@ -107,6 +107,7 @@ describe("ranked flow localization", () => {
             join(ui, "SandboxCoopControls.tsx"),
             join(ui, "SandboxCoopRoute.tsx"),
             join(ui, "LiveMatchBanner.tsx"),
+            join(ui, "OpponentConnectionBadge.tsx"),
             join(ui, "liveMatchBannerModel.ts"),
             join(ui, "PlayerSettingsPanel.tsx"),
             join(ui, "AugmentStepPreviewRuntime.tsx"),

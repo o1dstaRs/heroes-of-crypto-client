@@ -67,6 +67,10 @@ export interface PlayPlayerState {
     connected: boolean;
     aiControlled: boolean;
     lastSeenMs: number;
+    /** Server time at which a disconnected human seat is handed to the AI (0 = not pending). */
+    aiTakeoverAtMs?: number;
+    /** Server time at which a disconnected human seat forfeits the ranked fight (0 = no forfeit rule). */
+    forfeitAtMs?: number;
 }
 
 export interface PlayUnitState {
@@ -1066,6 +1070,10 @@ const decodePlayerState = (bytes: Uint8Array): PlayPlayerState => {
             player.aiControlled = reader.bool();
         } else if (field === 5) {
             player.lastSeenMs = reader.varintNumber();
+        } else if (field === 6) {
+            player.aiTakeoverAtMs = reader.varintNumber();
+        } else if (field === 7) {
+            player.forfeitAtMs = reader.varintNumber();
         } else {
             reader.skip(wireType);
         }

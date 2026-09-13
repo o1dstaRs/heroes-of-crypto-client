@@ -101,6 +101,7 @@ import { ViewerTeamContext } from "./context/ViewerTeamContext";
 import { SandboxCoopBanner, SandboxCoopReadyButton, sandboxCoopSeatStatuses } from "./SandboxCoopControls";
 import { openFriendsPanel } from "./social/openFriendsEvent";
 import { clearTurnAlert, isTabUnwatched, signalYourTurn, yourTurnActivationKey } from "./turnAlert";
+import { OpponentConnectionBadge } from "./OpponentConnectionBadge";
 import { playNotificationSound } from "./audio/uiSounds";
 import type { SandboxCoopSession } from "../api/sandbox_coop_client";
 import {
@@ -1856,6 +1857,14 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                         />
                     )}
                     {pixiReady && gameStarted && <NextLapHazardBadge />}
+                    {pixiReady && !replayOnly && (
+                        <OpponentConnectionBadge
+                            snapshot={snapshot}
+                            viewerTeam={viewerTeam}
+                            aiSeatPlayerId={aiSeatPlayerId}
+                            top={gameStarted ? 58 : 14}
+                        />
+                    )}
                     {pixiReady && gameStarted && (aiToggleOn || !!myPlayer?.aiControlled) && (
                         <AiControlBadge left={aiBadgeLeft(windowSize)} />
                     )}

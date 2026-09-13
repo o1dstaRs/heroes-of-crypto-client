@@ -24,20 +24,26 @@ Status legend: **done** shipped, **open** not started.
   "Match found — accept it in the arena / Your draft is in progress / Your fight is in progress" with a
   Return button on every screen except that game's own route.
 
-## 3. Opponent connection state is invisible in a fight — open
+## 3. Opponent connection state is invisible in a fight — done
 
 - The play session emits `PLAYER_CONNECTED` / `PLAYER_DISCONNECTED`, runs a 30 s AI takeover and a
-  forfeit window, but the fight HUD never says "opponent disconnected, AI takes over in 20 s" or "opponent
+  forfeit window, but the fight HUD never said "opponent disconnected, AI takes over in 20 s" or "opponent
   is back". Players read the pause as the game freezing.
-- Approach: reuse the co-op banner's seat-status strip (`SandboxCoopBanner`) as a general opponent
-  indicator fed by `snapshot.players[].connected` / `lastSeenMs` and the takeover deadline.
+- Shipped: each seat in the play snapshot now carries `aiTakeoverAtMs` / `forfeitAtMs` (server time,
+  0 when nothing is pending); `OpponentConnectionBadge` under the matchup strip reads "Opponent
+  disconnected · AI takes over in 12s", "… · the AI is playing their turns · forfeits in 2:31", and a
+  five-second "Opponent is back". Observers see every human seat by colour; bot seats are skipped.
 
-## 4. Invites have no lifecycle — open
+## 4. Invites have no lifecycle — done
 
-- A `sandbox_invite` / `lobby_invite` is a bare notification: nothing marks it accepted, expired, or
-  pointing at a room that already closed, so stale invites stay clickable and dead-end on an error screen.
-- Approach: store `acceptedAt` / `expiredAt` on the notification (or resolve the room's liveness when the
-  tray lists it), grey out dead invites, and let the inviter see "accepted / declined".
+- A `sandbox_invite` / `lobby_invite` was a bare notification: nothing marked it accepted or pointing at
+  a room that already closed, so stale invites stayed clickable and dead-ended on an error screen.
+- Shipped: joining stamps `acceptedAt` on the invite (sandbox join on the game role, lobby join on mm);
+  the tray lists invites with `roomOpen`, resolved at read time — lobbies from their document status,
+  sandboxes from a Redis marker the game role writes on open/close (`game/v1/sandbox_rooms.ts`) since the
+  session lives in another process. A closed room's invite is greyed, non-clickable and labelled
+  "· closed"; an accepted one reads "· accepted" while the room stays open.
+- Still open: telling the inviter their invite was accepted, and a decline action.
 
 ## 5. No rematch after a friendly game — open
 

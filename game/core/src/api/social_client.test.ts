@@ -6,6 +6,8 @@ import {
     eligiblePredictionMarkets,
     fetchFriendMessages,
     friendGameLabel,
+    inviteStateLabel,
+    inviteTarget,
     isFriendInviteNotification,
     chatSegments,
     searchHitPresenceLabel,
@@ -226,5 +228,18 @@ describe("friends in game", () => {
 
     test("never offers spectating while the viewer is in a game", () => {
         expect(canSpectateFriend({ inGameId: "g", gameStage: "play" }, "mine")).toBe(false);
+    });
+});
+
+describe("invite lifecycle", () => {
+    test("an open invite links to its room, a closed one links nowhere and reads closed", () => {
+        expect(inviteTarget({ type: "sandbox_invite", sandboxId: "s1" })).toBe("/sandbox/s1");
+        expect(inviteTarget({ type: "lobby_invite", lobbyId: "l1", roomOpen: true })).toBe("/lobby/l1");
+        expect(inviteTarget({ type: "sandbox_invite", sandboxId: "s1", roomOpen: false })).toBeUndefined();
+        expect(inviteTarget({ type: "chat_reply" })).toBeUndefined();
+        expect(inviteStateLabel({ type: "sandbox_invite", roomOpen: false, acceptedAt: 5 })).toBe("closed");
+        expect(inviteStateLabel({ type: "lobby_invite", roomOpen: true, acceptedAt: 5 })).toBe("accepted");
+        expect(inviteStateLabel({ type: "lobby_invite", roomOpen: true })).toBeUndefined();
+        expect(inviteStateLabel({ type: "friend_request", roomOpen: false })).toBeUndefined();
     });
 });

@@ -43,6 +43,8 @@ import {
     fetchNotifications,
     formatLastSeen,
     friendGameLabel,
+    inviteStateLabel,
+    inviteTarget,
     searchHitPresenceLabel,
     markNotificationsSeen,
     removeFriend,
@@ -130,6 +132,12 @@ const instantDockLabelSx = {
     transition: "none",
 } as const;
 
+/** " · accepted" / " · closed" after an invite line, so the state reads without a second glance. */
+const inviteSuffix = (notification: SocialNotification): string => {
+    const state = inviteStateLabel(notification);
+    return state ? ` · ${state}` : "";
+};
+
 const notificationText = (notification: SocialNotification): string => {
     switch (notification.type) {
         case "friend_request":
@@ -139,9 +147,9 @@ const notificationText = (notification: SocialNotification): string => {
         case "friend_message":
             return `${notification.fromUsername ?? "Someone"}: ${notification.body ?? "New message"}`;
         case "lobby_invite":
-            return `${notification.fromUsername ?? "Someone"} invited you to a lobby`;
+            return `${notification.fromUsername ?? "Someone"} invited you to a lobby${inviteSuffix(notification)}`;
         case "sandbox_invite":
-            return `${notification.fromUsername ?? "Someone"} invited you into their sandbox`;
+            return `${notification.fromUsername ?? "Someone"} invited you into their sandbox${inviteSuffix(notification)}`;
         case "chat_mention":
             return `${notification.fromUsername ?? "Someone"} mentioned you in the Arena chat: ${notification.body ?? ""}`;
         case "chat_reply":
@@ -236,10 +244,10 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ open, onClose, on
     // Which tray entries do something when clicked, and what that is. Messages open the conversation;
     // lobby invites route straight into the lobby room; chat replies and mentions land in the arena
     // with its chat forced open.
+    // A room invite is clickable only while its room is still open (the server annotates roomOpen).
     const isClickable = (notification: SocialNotification): boolean =>
         (notification.type === "friend_message" && !!notification.fromPlayerId) ||
-        (notification.type === "lobby_invite" && !!notification.lobbyId) ||
-        (notification.type === "sandbox_invite" && !!notification.sandboxId) ||
+        !!inviteTarget(notification) ||
         notification.type === "chat_reply" ||
         notification.type === "chat_mention";
 
@@ -253,13 +261,10 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ open, onClose, on
                 muted: false,
                 unreadCount: 0,
             });
-        } else if (notification.type === "lobby_invite" && notification.lobbyId) {
+        } else if (inviteTarget(notification)) {
+            // The direct link into the friend's room: the route resolves this player's seat.
             onClose();
-            navigate(`/lobby/${notification.lobbyId}`);
-        } else if (notification.type === "sandbox_invite" && notification.sandboxId) {
-            // The direct link into the friend's co-op sandbox: the route resolves this player's seat.
-            onClose();
-            navigate(sandboxCoopPath(notification.sandboxId));
+            navigate(inviteTarget(notification) ?? "/play");
         } else if (notification.type === "chat_reply" || notification.type === "chat_mention") {
             // The room reads this key on mount, so a collapsed chat opens itself for the arrival.
             window.localStorage.setItem(ARENA_CHAT_OPEN_KEY, "1");
@@ -342,6 +347,8 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ open, onClose, on
                                     border: `1px solid ${notification.seenAt === 0 ? hocColors.orangeBorder : "rgba(255,143,0,0.14)"}`,
                                     bgcolor: notification.seenAt === 0 ? hocColors.orangeSoft : "transparent",
                                     cursor: clickable ? "pointer" : "default",
+                                    // A closed room's invite stays listed for the record, visibly dead.
+                                    opacity: inviteStateLabel(notification) === "closed" ? 0.55 : 1,
                                     "&:hover": clickable ? { borderColor: hocColors.orangeBorder } : undefined,
                                 }}
                             >
@@ -952,13 +959,7 @@ export const SocialDock: React.FC = () => {
     const popupVisible = !!popup && !trayOpen && !friendsOpen && !conversationFriend && !inGame;
     // A room invite gets its own non-blocking toast: the tray badge alone made invites easy to miss.
     const inviteToast = social.inviteToast;
-    const inviteToastTarget = inviteToast
-        ? inviteToast.type === "sandbox_invite" && inviteToast.sandboxId
-            ? sandboxCoopPath(inviteToast.sandboxId)
-            : inviteToast.type === "lobby_invite" && inviteToast.lobbyId
-              ? `/lobby/${inviteToast.lobbyId}`
-              : null
-        : null;
+    const inviteToastTarget = inviteToast ? (inviteTarget(inviteToast) ?? null) : null;
     const inviteToastText = inviteToast
         ? `${inviteToast.fromUsername ?? "A friend"} invited you ${
               inviteToast.type === "sandbox_invite" ? "into their sandbox" : "to a lobby"

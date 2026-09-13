@@ -53,7 +53,43 @@ export interface SocialNotification {
     body?: string;
     createdAt: number;
     seenAt: number;
+    /** Invites only: when this player joined the room through the invite. */
+    acceptedAt?: number;
+    /** Invites only: whether the room can still be joined (false = closed, greyed and dead in the tray). */
+    roomOpen?: boolean;
 }
+
+export const isRoomInvite = (notification: Pick<SocialNotification, "type">): boolean =>
+    notification.type === "sandbox_invite" || notification.type === "lobby_invite";
+
+/** The room an invite leads to, or undefined when the invite carries no room or the room has closed. */
+export const inviteTarget = (
+    notification: Pick<SocialNotification, "type" | "sandboxId" | "lobbyId" | "roomOpen">,
+): string | undefined => {
+    if (notification.roomOpen === false) {
+        return undefined;
+    }
+    if (notification.type === "sandbox_invite" && notification.sandboxId) {
+        return `/sandbox/${encodeURIComponent(notification.sandboxId)}`;
+    }
+    if (notification.type === "lobby_invite" && notification.lobbyId) {
+        return `/lobby/${encodeURIComponent(notification.lobbyId)}`;
+    }
+    return undefined;
+};
+
+/** The short state word the tray appends to an invite: "accepted", "closed", or nothing. */
+export const inviteStateLabel = (
+    notification: Pick<SocialNotification, "type" | "acceptedAt" | "roomOpen">,
+): string | undefined => {
+    if (!isRoomInvite(notification)) {
+        return undefined;
+    }
+    if (notification.roomOpen === false) {
+        return "closed";
+    }
+    return notification.acceptedAt ? "accepted" : undefined;
+};
 
 export interface FriendEntry {
     playerId: string;
