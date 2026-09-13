@@ -76,5 +76,12 @@ Status legend: **done** shipped, **open** not started.
 - Done: the co-op sandbox opens on the host's current map, and the green army the host had already placed
   in the offline sandbox is carried over (stored per tab when the invite is sent, replayed once as ordinary
   placements when the co-op board first shows the host an empty army). A rematch keeps the map.
+- Done (staging feedback round): the co-op board uses the ranked pieces instead of bespoke ones — the
+  matchup strip (green vs red, Ready / Not ready / Away per seat, a Leave button while setting up) and the
+  standard READY PLACEMENT button, which toggles back with CANCEL READY. Artifacts and either synergy
+  variant are pickable in the sidebar (server: sandbox-only ARTIFACT action; synergy variant check relaxed
+  for sandboxes; both seats see each other's picks). S splits and D deletes the selected stack, as in the
+  offline sandbox (ranked gets the same keys with D arming first). A friend's placement no longer drops
+  the host's roster pick or in-progress drag (selection survives the board rebuild).
 - Open: one friend per sandbox; no in-match text chat (the social dock collapses during a fight, DMs are
   behind the medallion).

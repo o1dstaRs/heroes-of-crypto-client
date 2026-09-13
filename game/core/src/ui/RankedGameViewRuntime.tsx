@@ -98,7 +98,7 @@ import { exitFightButtonSx } from "./exitFightButtonSx";
 import { useFullscreenActive } from "./useFullscreenActive";
 import { startVisibleInterval } from "./visibleInterval";
 import { ViewerTeamContext } from "./context/ViewerTeamContext";
-import { SandboxCoopBanner, SandboxCoopReadyButton, sandboxCoopSeatStatuses } from "./SandboxCoopControls";
+import { SANDBOX_UNREADY_REASON, sandboxCoopSeatStatuses } from "./SandboxCoopControls";
 import { openFriendsPanel } from "./social/openFriendsEvent";
 import { takeCoopCarryOver } from "./social/coopCarryOver";
 import { clearTurnAlert, isTabUnwatched, signalYourTurn, yourTurnActivationKey } from "./turnAlert";
@@ -1416,6 +1416,19 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
         return () => manager.SetGameActionTransport(undefined);
     }, [manager, replayOnly, transport]);
 
+    // Co-op sandbox: a free artifact pick from the sidebar goes to the server as an ARTIFACT action (the
+    // ranked scene applies it locally first). Re-armed once Pixi is up, since it lands on the live scene.
+    useEffect(() => {
+        if (!sandboxCoop || replayOnly || isObserver || !pixiReady) {
+            manager.SetArtifactPickTransport(undefined);
+            return undefined;
+        }
+        manager.SetArtifactPickTransport((team, tier, artifactId) => {
+            void submitProtocolAction({ type: PlayActionType.ARTIFACT, team, attackType: tier, amount: artifactId });
+        });
+        return () => manager.SetArtifactPickTransport(undefined);
+    }, [isObserver, manager, pixiReady, replayOnly, sandboxCoop, submitProtocolAction]);
+
     // Relay our live move aim to the opponent, throttled so a fast-moving cursor produces a
     // steady trickle of hints rather than a flood. Clears (no cell) are sent immediately.
     useEffect(() => {
@@ -1561,6 +1574,43 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
         () => !!snapshot?.units.some((unit) => unit.team === userTeam && unit.placed && !unit.dead),
         [snapshot, userTeam],
     );
+    // The matchup strip's two sides for a co-op sandbox: the invite's seats, each annotated with where
+    // they stand in the READY handshake until the fight starts (then the strip reads like a ranked one).
+    const coopMatchupPlayers = useMemo<readonly MatchupPlayer[]>(
+        () =>
+            sandboxCoop
+                ? [sandboxCoop.host, sandboxCoop.guest].map((seat) => {
+                      const live = sandboxSeats.find((status) => status.team === seat.team);
+                      const started = !!snapshot?.fightStarted;
+                      return {
+                          playerId: seat.playerId,
+                          team: seat.team as TeamType,
+                          label: seat.username,
+                          note: started
+                              ? undefined
+                              : !live?.connected
+                                ? t("Away")
+                                : live.ready
+                                  ? t("Ready")
+                                  : t("Not ready"),
+                          noteTone: started ? undefined : !live?.connected ? "warn" : live.ready ? "good" : "muted",
+                      };
+                  })
+                : [],
+        [sandboxCoop, sandboxSeats, snapshot?.fightStarted],
+    );
+    const coopMatchupStatus = useMemo(() => {
+        if (!sandboxCoop || !snapshot || snapshot.fightStarted) {
+            return undefined;
+        }
+        const other = sandboxSeats.find((seat) => !seat.isViewer);
+        if (other && !other.connected) {
+            return t("Waiting for friend");
+        }
+        return sandboxSeats.length && sandboxSeats.every((seat) => seat.ready)
+            ? t("Both ready — press START")
+            : t("Placement");
+    }, [sandboxCoop, sandboxSeats, snapshot]);
     // A sandbox that ended before its fight started was closed by a seat leaving (or by a newer invite).
     const sandboxClosedEarly =
         !!sandboxCoop &&
@@ -1818,21 +1868,13 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     );
     const rankedFooter =
         snapshot.phase === PlayPhase.PLACEMENT && !isObserver && isRankedBoardPlacementStage(snapshot) ? (
-            sandboxCoop ? (
-                <SandboxCoopReadyButton
-                    canSubmit={canSubmit}
-                    ready={ready}
-                    hasPlacedUnits={sandboxHasPlacedUnits}
-                    submitProtocolAction={submitProtocolAction}
-                />
-            ) : (
-                <RankedReadyPlacementButton
-                    canSubmit={canSubmit}
-                    ready={ready}
-                    snapshot={snapshot}
-                    submitProtocolAction={submitProtocolAction}
-                />
-            )
+            <RankedReadyPlacementButton
+                canSubmit={canSubmit}
+                ready={ready}
+                snapshot={snapshot}
+                submitProtocolAction={submitProtocolAction}
+                coop={sandboxCoop ? { hasPlacedUnits: sandboxHasPlacedUnits } : undefined}
+            />
         ) : undefined;
 
     return (
@@ -1872,14 +1914,6 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                             }
                         />
                     )}
-                    {pixiReady && sandboxCoop && !sandboxClosedEarly && (
-                        <SandboxCoopBanner
-                            seats={sandboxSeats}
-                            phase={snapshot.phase}
-                            fightStarted={gameStarted}
-                            onLeave={() => void leaveSandboxCoop()}
-                        />
-                    )}
                     {sandboxClosedEarly && (
                         <Box
                             sx={{
@@ -1905,17 +1939,36 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                         </Box>
                     )}
                     {pixiReady && gameStarted && <UpNextOverlay />}
-                    {pixiReady && snapshot.phase === PlayPhase.PLAY && (
-                        <MatchupOverlay
-                            players={battleMatchupPlayers}
-                            placement="fight"
-                            fightStarted={snapshot.fightStarted}
-                            windowSize={windowSize}
-                            viewerTeam={viewerTeam}
-                        />
-                    )}
+                    {pixiReady &&
+                        (snapshot.phase === PlayPhase.PLAY ||
+                            (sandboxCoop && snapshot.phase === PlayPhase.PLACEMENT)) && (
+                            // The co-op sandbox shows the same matchup strip from placement on: who sits on green
+                            // and red, whether they are here and ready, and a Leave button while setting up.
+                            <MatchupOverlay
+                                players={sandboxCoop ? coopMatchupPlayers : battleMatchupPlayers}
+                                placement="fight"
+                                fightStarted={snapshot.fightStarted}
+                                status={sandboxCoop ? coopMatchupStatus : undefined}
+                                windowSize={windowSize}
+                                viewerTeam={viewerTeam}
+                                action={
+                                    sandboxCoop && !gameStarted && !isObserver && !sandboxClosedEarly ? (
+                                        <Button
+                                            size="sm"
+                                            variant="outlined"
+                                            sx={hocSoftButtonSx}
+                                            onClick={() => void leaveSandboxCoop()}
+                                        >
+                                            {t("Leave")}
+                                        </Button>
+                                    ) : undefined
+                                }
+                            />
+                        )}
                     {pixiReady && gameStarted && <NextLapHazardBadge />}
-                    {pixiReady && !replayOnly && (
+                    {/* In a co-op sandbox the matchup strip already reads Away / Not ready per seat while
+                        setting up, so the connection badge only joins once the fight runs. */}
+                    {pixiReady && !replayOnly && !(sandboxCoop && !gameStarted) && (
                         <OpponentConnectionBadge
                             snapshot={snapshot}
                             viewerTeam={viewerTeam}
@@ -1998,6 +2051,8 @@ interface RankedPlacementStackActionsProps {
     snapshot: PlaySnapshot;
     submitGameAction: (action: GameAction) => Promise<void>;
     userTeam: TeamType;
+    /** Co-op sandbox: the D key deletes at once, as in the offline sandbox; ranked keeps the two-step. */
+    immediateDelete?: boolean;
 }
 
 const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = ({
@@ -2006,6 +2061,7 @@ const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = 
     snapshot,
     submitGameAction,
     userTeam,
+    immediateDelete = false,
 }) => {
     const amountAlive = Math.max(0, Math.floor(selectedUnit.amountAlive));
     const maxSplitAmount = Math.max(0, amountAlive - 1);
@@ -2041,6 +2097,37 @@ const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = 
     // A 1-unit stack cannot split, but it can still be DELETED — with auto-deploy there is no
     // bench, so hiding the whole panel here removed the only way to act on single-unit screens.
     const canShowSplit = maxSplitAmount >= 1;
+    // The sandbox's keyboard shortcuts here too: S splits the selected stack by the slider's amount, D
+    // deletes it — at once in the co-op sandbox, arm-then-confirm (like the button) in ranked.
+    useEffect(() => {
+        const onKeyDown = (event: KeyboardEvent): void => {
+            if (event.repeat || event.metaKey || event.ctrlKey || event.altKey) {
+                return;
+            }
+            const target = event.target as HTMLElement | null;
+            if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) {
+                return;
+            }
+            const key = event.key.toLowerCase();
+            if ((key !== "s" && key !== "d") || (key === "s" && !canSplit) || (key === "d" && !canSubmit)) {
+                return;
+            }
+            event.preventDefault();
+            event.stopPropagation();
+            if (key === "s") {
+                void submitGameAction({ type: "split_unit", unitId: selectedUnit.id, amount: sliderValue });
+                return;
+            }
+            if (!immediateDelete && !deleteArmed) {
+                setDeleteArmed(true);
+                return;
+            }
+            setDeleteArmed(false);
+            void submitGameAction({ type: "delete_unit", unitId: selectedUnit.id });
+        };
+        window.addEventListener("keydown", onKeyDown, { capture: true });
+        return () => window.removeEventListener("keydown", onKeyDown, { capture: true });
+    }, [canSplit, canSubmit, deleteArmed, immediateDelete, selectedUnit.id, sliderValue, submitGameAction]);
 
     return (
         <Box
@@ -2830,19 +2917,32 @@ const RankedReadyPlacementButton: React.FC<{
     ready: boolean;
     snapshot: PlaySnapshot;
     submitProtocolAction: (action: Partial<PlayAction>) => Promise<void>;
-}> = ({ canSubmit, ready, snapshot, submitProtocolAction }) => {
+    /**
+     * Co-op sandbox: the same button, but READY is a lobby-style toggle (press again to cancel) that needs
+     * at least one unit on the board, and there is no clock. START is the sidebar's usual button.
+     */
+    coop?: { hasPlacedUnits: boolean };
+}> = ({ canSubmit, ready, snapshot, submitProtocolAction, coop }) => {
     const [nowMs, setNowMs] = useState(Date.now());
     useEffect(() => {
         return startVisibleInterval(() => setNowMs(Date.now()), 1000);
     }, []);
     const secondsLeft =
         snapshot.placementDeadlineMs > 0 ? Math.max(0, Math.ceil((snapshot.placementDeadlineMs - nowMs) / 1000)) : -1;
+    const disabled = coop ? !canSubmit || (!ready && !coop.hasPlacedUnits) : !canSubmit || ready;
+    const label = coop ? (ready ? t("Cancel ready") : "READY PLACEMENT") : ready ? "READY" : "READY PLACEMENT";
 
     return (
         <Button
             variant="plain"
-            disabled={!canSubmit || ready}
-            onClick={() => void submitProtocolAction({ type: PlayActionType.READY_PLACEMENT })}
+            disabled={disabled}
+            title={coop && !ready && !coop.hasPlacedUnits ? t("Place at least one unit first") : undefined}
+            onClick={() =>
+                void submitProtocolAction({
+                    type: PlayActionType.READY_PLACEMENT,
+                    ...(coop && ready ? { reason: SANDBOX_UNREADY_REASON } : {}),
+                })
+            }
             sx={rankedReadyPlacementButtonSx}
         >
             <Box
@@ -2857,9 +2957,10 @@ const RankedReadyPlacementButton: React.FC<{
                     overflow: "hidden",
                     fontSize: "93%",
                     transform: "translateX(2%)",
+                    textTransform: "uppercase",
                 }}
             >
-                {ready ? "READY" : "READY PLACEMENT"}
+                {label}
             </Box>
             {secondsLeft >= 0 && (
                 <Box
@@ -3194,7 +3295,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                             <SandboxToggleContainer
                                 side={userTeam === TeamVals.LEFT ? "green" : "red"}
                                 teamType={userTeam}
-                                showArtifactPicker={false}
+                                showArtifactPicker={skipAugmentStep}
                                 budgetPoints={augmentBudget}
                                 authoritativeSelections={augmentAuthoritativeSelections}
                                 onReadyChange={setAugmentReady}
@@ -3404,6 +3505,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                             during the split Setup stage, when the board is locked. */}
                         {inBoardStage && selectedUnit?.placed && selectedUnit.team === userTeam && (
                             <RankedPlacementStackActions
+                                immediateDelete={skipAugmentStep}
                                 canSubmit={canSubmit}
                                 selectedUnit={selectedUnit}
                                 snapshot={snapshot}

@@ -32,6 +32,7 @@ export const PlayActionType = {
     AUGMENT: 20,
     ABANDON: 21,
     SYNERGY: 22,
+    ARTIFACT: 23,
 } as const;
 
 export type PlayActionTypeValue = (typeof PlayActionType)[keyof typeof PlayActionType];

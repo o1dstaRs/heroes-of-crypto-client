@@ -749,6 +749,19 @@ export function getAttackFinalImpactDelayMs(hitCount: number): number {
     return Math.max(0, Math.floor(hitCount) - 1) * ATTACK_HIT_STAGGER_MS;
 }
 
+/** See Sandbox.capturePlacementSelection. */
+export interface IPlacementSelectionCapture {
+    selectedBoardUnitId?: string;
+    draggingUnitId?: string;
+    placementDragPointerOrigin?: HoCMath.XY;
+    placementDragPointerMoved: boolean;
+    hasActiveSelection: boolean;
+    selectionFromOverlay: boolean;
+    selectedUnitProperties?: Readonly<UnitProperties>;
+    selectedFactionType?: FactionType;
+    overlayHasSelection: boolean;
+}
+
 export class Sandbox extends PixiScene {
     private static readonly MOVE_SPEED_FACTOR = 16;
     /** The endless animation playground is intentionally quicker than a live battle. */
@@ -1653,6 +1666,57 @@ export class Sandbox extends PixiScene {
             this.hoverManager.resetHover(true);
         }
         return true;
+    }
+    /**
+     * The player's placement selection, captured before a full board rebuild and put back after it. A
+     * hydrate destroys every unit and clears every drag/selection field; without this, in the co-op
+     * sandbox each placement the friend made dropped the host's roster pick or in-progress drag.
+     */
+    protected capturePlacementSelection(): IPlacementSelectionCapture {
+        return {
+            selectedBoardUnitId: this.selectedBoardUnit?.getId(),
+            draggingUnitId: this.draggingUnitId,
+            placementDragPointerOrigin: this.placementDragPointerOrigin
+                ? { ...this.placementDragPointerOrigin }
+                : undefined,
+            placementDragPointerMoved: this.placementDragPointerMoved,
+            hasActiveSelection: this.hasActiveSelection,
+            selectionFromOverlay: this.selectionFromOverlay,
+            selectedUnitProperties: this.sc_selectedUnitProperties,
+            selectedFactionType: this.sc_selectedFactionType,
+            overlayHasSelection: !!this.unitsOverlay?.hasSelection(),
+        };
+    }
+    protected restorePlacementSelection(capture: IPlacementSelectionCapture): void {
+        if (!capture.hasActiveSelection || FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
+            return;
+        }
+        if (capture.selectionFromOverlay) {
+            // The roster chip is still highlighted: the next board click places it, exactly as before.
+            if (!capture.overlayHasSelection || !this.unitsOverlay?.hasSelection()) {
+                return;
+            }
+            this.hasActiveSelection = true;
+            this.selectionFromOverlay = true;
+            this.draggingUnitId = undefined;
+            this.draggingUnitTeam = undefined;
+            this.placementDragPointerOrigin = undefined;
+            this.placementDragPointerMoved = false;
+            this.sc_selectedUnitProperties = capture.selectedUnitProperties;
+            this.sc_selectedFactionType = capture.selectedFactionType;
+            if (capture.selectedUnitProperties) {
+                this.setSelectedUnitProperties(capture.selectedUnitProperties);
+            }
+            this.sc_unitPropertiesUpdateNeeded = true;
+            return;
+        }
+        if (capture.selectedBoardUnitId && this.selectSceneUnitForPlacement(capture.selectedBoardUnitId)) {
+            // A drag in progress keeps its anchor instead of re-starting under the cursor.
+            if (capture.draggingUnitId === capture.selectedBoardUnitId) {
+                this.placementDragPointerOrigin = capture.placementDragPointerOrigin;
+                this.placementDragPointerMoved = capture.placementDragPointerMoved;
+            }
+        }
     }
     public override selectAuthoritativeUnit(unitId: string): void {
         this.selectSceneUnitForPlacement(unitId);

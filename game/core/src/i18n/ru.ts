@@ -1001,6 +1001,7 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     Leave: "Выйти",
     "Cancel ready": "Отменить готовность",
     "Waiting for {name} to join…": "Ожидание, пока {name} присоединится…",
+    "Waiting for friend": "Ждём друга",
     "Both ready — press START": "Оба готовы — нажмите СТАРТ",
     "Place your army, then press READY": "Расставьте армию и нажмите ГОТОВО",
     "Place at least one unit first": "Сначала поставьте хотя бы один отряд",

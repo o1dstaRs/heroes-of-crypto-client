@@ -179,6 +179,7 @@ describe("the ranked sidebar uses the compact augment picker", () => {
         );
         expect(sidebar).toContain("authoritativeSelections={augmentAuthoritativeSelections}");
         expect(sidebar).toContain("onReadyChange={setAugmentReady}");
-        expect(sidebar).toContain("showArtifactPicker={false}");
+        // Ranked hides the free artifact picker (artifacts are drafted); the co-op sandbox shows it.
+        expect(sidebar).toContain("showArtifactPicker={skipAugmentStep}");
     });
 });

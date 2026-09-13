@@ -2088,6 +2088,10 @@ export class RankedPlayScene extends Sandbox {
         }
 
         const selectedUnitId = this.sc_selectedUnitProperties?.id;
+        // Placement selection (a roster chip waiting to be placed, a board unit mid-drag) survives the
+        // rebuild: in the co-op sandbox the friend's every placement lands here as a full hydrate, and
+        // losing the pick each time was the "my unit selection drops" report.
+        const placementSelection = this.capturePlacementSelection();
 
         // A mid-turn full hydrate (an opponent auto-action, a lap event — anything that changes the board
         // signature without a replayable record) destroys every unit AND the player's armed spell. The
@@ -2155,8 +2159,12 @@ export class RankedPlayScene extends Sandbox {
             }
         }
         this.applyRankedFightStats(snapshot, state.units);
-        if (selectedUnitId && !snapshot.fightStarted && !snapshot.fightFinished) {
-            this.selectSceneUnitForPlacement(selectedUnitId);
+        if (!snapshot.fightStarted && !snapshot.fightFinished) {
+            if (placementSelection.hasActiveSelection) {
+                this.restorePlacementSelection(placementSelection);
+            } else if (selectedUnitId) {
+                this.selectSceneUnitForPlacement(selectedUnitId);
+            }
         }
     }
     /**
@@ -2641,6 +2649,24 @@ export class RankedPlayScene extends Sandbox {
         // covers the stat block, the sidebar push and the active unit's reach.
         transport({ type: "synergy", team: teamType, faction, synergyName, level: synergyLevel });
         return true;
+    }
+    /**
+     * Co-op sandbox: artifacts are picked freely, like the offline sandbox, and the pick travels to the
+     * authoritative server (ARTIFACT play action) so it folds into stats at fight start on both screens.
+     * Ranked artifacts come from the draft and cannot change here.
+     */
+    public override propagateArtifact(teamType: TeamType, tier: number, artifactId: number): boolean {
+        if (!this.sc_gameActionTransport) {
+            return super.propagateArtifact(teamType, tier, artifactId);
+        }
+        if (!this.sandboxCoop || this.viewerTeam === undefined || teamType !== this.viewerTeam) {
+            return false;
+        }
+        const applied = super.propagateArtifact(teamType, tier, artifactId);
+        if (applied) {
+            this.sc_artifactPickTransport?.(teamType, tier, artifactId);
+        }
+        return applied;
     }
     /**
      * Ranked routes "Use additional time" through the authoritative server: send a

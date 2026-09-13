@@ -550,6 +550,10 @@ export class PixiGameManager {
         this.gameActionTransport = transport;
         this.m_scene?.setGameActionTransport(transport);
     }
+    /** Co-op sandbox: the channel a free artifact pick is sent through (see RankedPlayScene.propagateArtifact). */
+    public SetArtifactPickTransport(transport?: (team: TeamType, tier: number, artifactId: number) => void): void {
+        this.m_scene?.setArtifactPickTransport(transport);
+    }
     public SetMoveIntentSink(sink?: (unitId: string | undefined, cell: HoCMath.XY | undefined) => void): void {
         this.m_scene?.setMoveIntentSink(sink);
     }

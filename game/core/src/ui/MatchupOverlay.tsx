@@ -20,6 +20,9 @@ export type MatchupPlayer = Readonly<{
     isAi?: boolean;
     /** Stable data used only by backend-free preview routes. Live games always resolve the public profile. */
     previewProfile?: PublicPlayerStats;
+    /** Replaces the record line with a live note (co-op: Ready / Not ready / Away). */
+    note?: string;
+    noteTone?: "good" | "muted" | "warn";
 }>;
 
 type MatchupOverlayProps = Readonly<{
@@ -32,6 +35,8 @@ type MatchupOverlayProps = Readonly<{
     windowSize?: { width: number; height: number };
     /** The locally-controlled seat. Undefined for observers/replays, which retain canonical team colours. */
     viewerTeam?: TeamType;
+    /** A control docked at the strip's right edge (pointer events enabled): the co-op sandbox's Leave. */
+    action?: React.ReactNode;
 }>;
 
 type MatchupProfile = Readonly<{
@@ -145,8 +150,8 @@ const AiAvatar: React.FC<{ label: string }> = ({ label }) => (
         src={images.combat_toolbar_ember_ai}
         alt={label}
         sx={{
-            width: 39,
-            height: 39,
+            width: 43,
+            height: 43,
             flex: "0 0 auto",
             objectFit: "contain",
             filter: "drop-shadow(0 2px 3px rgba(0,0,0,.72)) drop-shadow(0 0 3px rgba(211,173,92,.28))",
@@ -178,7 +183,7 @@ const Side: React.FC<{
                     label={`${text.username} — ${text.rank}`}
                     league={profile.league ?? 0}
                     wealth={profile.wealth ?? 0}
-                    size={38}
+                    size={42}
                     variant="compact"
                 />
             ) : player.isAi ? (
@@ -204,52 +209,76 @@ const Side: React.FC<{
                 >
                     {text.username}
                 </Typography>
-                <Box
-                    sx={{
-                        mt: "4px",
-                        display: "flex",
-                        minWidth: 0,
-                        alignItems: "center",
-                        justifyContent: reversed ? "flex-end" : "flex-start",
-                        gap: 0.45,
-                        color: "#eadfc8",
-                        fontSize: "0.62rem",
-                        fontWeight: 900,
-                        fontVariantNumeric: "lining-nums tabular-nums",
-                        letterSpacing: "0.01em",
-                        lineHeight: 1,
-                        textTransform: "uppercase",
-                        whiteSpace: "nowrap",
-                    }}
-                >
-                    <Box
-                        component="span"
+                {player.note ? (
+                    <Typography
                         sx={{
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            color: tone.bright,
-                            textShadow: "0 1px 2px #000",
-                        }}
-                    >
-                        {text.record}
-                    </Box>
-                    <Box component="span" sx={{ flex: "0 0 auto", color: "#8b7960" }}>
-                        ·
-                    </Box>
-                    <Box
-                        component="span"
-                        sx={{
-                            flex: "0 0 auto",
-                            color: "#fff0c9",
-                            fontSize: "0.69rem",
+                            mt: "4px",
+                            color:
+                                player.noteTone === "good"
+                                    ? "#8de3a1"
+                                    : player.noteTone === "warn"
+                                      ? "#ffb08a"
+                                      : "#a89b82",
+                            fontFamily: hocDisplayFontFamily,
+                            fontSize: "0.62rem",
                             fontWeight: 900,
-                            letterSpacing: 0,
+                            letterSpacing: "0.04em",
+                            lineHeight: 1,
+                            textTransform: "uppercase",
+                            whiteSpace: "nowrap",
                             textShadow: "0 1px 2px #000",
                         }}
                     >
-                        {text.winRate}
+                        {player.note}
+                    </Typography>
+                ) : (
+                    <Box
+                        sx={{
+                            mt: "4px",
+                            display: "flex",
+                            minWidth: 0,
+                            alignItems: "center",
+                            justifyContent: reversed ? "flex-end" : "flex-start",
+                            gap: 0.45,
+                            color: "#eadfc8",
+                            fontSize: "0.66rem",
+                            fontWeight: 900,
+                            fontVariantNumeric: "lining-nums tabular-nums",
+                            letterSpacing: "0.01em",
+                            lineHeight: 1,
+                            textTransform: "uppercase",
+                            whiteSpace: "nowrap",
+                        }}
+                    >
+                        <Box
+                            component="span"
+                            sx={{
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                color: tone.bright,
+                                textShadow: "0 1px 2px #000",
+                            }}
+                        >
+                            {text.record}
+                        </Box>
+                        <Box component="span" sx={{ flex: "0 0 auto", color: "#8b7960" }}>
+                            ·
+                        </Box>
+                        <Box
+                            component="span"
+                            sx={{
+                                flex: "0 0 auto",
+                                color: "#fff0c9",
+                                fontSize: "0.69rem",
+                                fontWeight: 900,
+                                letterSpacing: 0,
+                                textShadow: "0 1px 2px #000",
+                            }}
+                        >
+                            {text.winRate}
+                        </Box>
                     </Box>
-                </Box>
+                )}
             </Box>
         </Box>
     );
@@ -323,6 +352,7 @@ export const MatchupOverlay: React.FC<MatchupOverlayProps> = ({
     status,
     windowSize,
     viewerTeam,
+    action,
 }) => {
     const [profiles, setProfiles] = useState<Record<string, PublicPlayerStats>>({});
     const [collapsed, setCollapsed] = useState(readMatchupCollapsed);
@@ -394,9 +424,12 @@ export const MatchupOverlay: React.FC<MatchupOverlayProps> = ({
                 top: placement === "fight" ? `${fightPosition?.top ?? 16}px` : 0,
                 left: centred ? "50%" : `calc(100% - ${fightRightEdge}px)`,
                 transform: centred ? "translateX(-50%)" : "translateX(-100%)",
-                width: collapsed ? 36 : "min(326px, calc(100vw - 24px))",
+                width: collapsed ? 36 : action ? "min(400px, calc(100vw - 24px))" : "min(326px, calc(100vw - 24px))",
                 height: collapsed ? 30 : 58,
-                maxWidth: placement === "fight" && !collapsed ? `${fightPosition?.maxWidth ?? 326}px` : undefined,
+                maxWidth:
+                    placement === "fight" && !collapsed
+                        ? `${(fightPosition?.maxWidth ?? 326) + (action ? 74 : 0)}px`
+                        : undefined,
                 transition: "left 260ms ease, transform 260ms ease, width 180ms ease, height 180ms ease",
             }}
         >
@@ -410,7 +443,9 @@ export const MatchupOverlay: React.FC<MatchupOverlayProps> = ({
                         py: 0.75,
                         overflow: "hidden",
                         display: "grid",
-                        gridTemplateColumns: "minmax(0, 1fr) 40px minmax(0, 1fr)",
+                        gridTemplateColumns: action
+                            ? "minmax(0, 1fr) 40px minmax(0, 1fr) auto"
+                            : "minmax(0, 1fr) 40px minmax(0, 1fr)",
                         alignItems: "center",
                         gap: 0.5,
                         border: "1px solid rgba(211,173,92,.62)",
@@ -484,6 +519,11 @@ export const MatchupOverlay: React.FC<MatchupOverlayProps> = ({
                         profile={(right.playerId ? profiles[right.playerId] : undefined) ?? right.previewProfile}
                         reversed
                     />
+                    {action && (
+                        <Box sx={{ pointerEvents: "auto", pl: 0.5, display: "grid", alignItems: "center" }}>
+                            {action}
+                        </Box>
+                    )}
                 </Box>
             )}
             <MatchupToggle collapsed={collapsed} onClick={toggleCollapsed} />

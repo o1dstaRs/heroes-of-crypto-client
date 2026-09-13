@@ -229,6 +229,8 @@ export abstract class PixiScene {
     protected drawer!: PixiDrawer;
     protected physicsManager!: SimplePhysicsManager;
     protected sc_gameActionTransport?: SceneGameActionTransport;
+    /** Co-op sandbox: where a free artifact pick goes (the ARTIFACT play action); set by the ranked view. */
+    protected sc_artifactPickTransport?: (team: TeamType, tier: number, artifactId: number) => void;
     protected animating = false;
     protected constructor(sceneSettings: SceneSettings) {
         this.sc_sceneSettings = sceneSettings;
@@ -246,6 +248,9 @@ export abstract class PixiScene {
     }
     public setGameActionTransport(transport?: SceneGameActionTransport): void {
         this.sc_gameActionTransport = transport;
+    }
+    public setArtifactPickTransport(transport?: (team: TeamType, tier: number, artifactId: number) => void): void {
+        this.sc_artifactPickTransport = transport;
     }
     public applyAuthoritativeSnapshot(
         _snapshot: AuthoritativeGameSnapshot,
