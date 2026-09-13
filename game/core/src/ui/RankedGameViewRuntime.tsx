@@ -69,6 +69,10 @@ import { getLocalModelOpponentConfig, isLocalModelAction } from "../scenes/Local
 import { authoritativeSnapshotToSandboxSceneState, RankedPlayScene } from "../scenes/RankedPlayScene";
 import type { IWindowSize } from "../scenes/VisibleState";
 import { FightFinishedOverlay } from "./FightFinishedOverlay";
+import { AwayTimeToast } from "./exitRules/AwayTimeToast";
+import { ExitMatchDialog } from "./exitRules/ExitMatchDialog";
+import { exitStandingFromSnapshot, type IExitStanding } from "./exitRules/exitRulesModel";
+import { useLeaveGuard } from "./exitRules/useLeaveGuard";
 import { installInputTelemetry, takeInputTelemetry } from "./inputTelemetry";
 import LeftSideBar from "./LeftSideBar";
 import SynergiesRow from "./LeftSideBar/SynergiesRow";
@@ -861,6 +865,19 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     const gameStarted =
         !!snapshot &&
         (snapshot.fightStarted || snapshot.phase === PlayPhase.PLAY || snapshot.phase === PlayPhase.FINISHED);
+    // Exit rules (plan §5): what leaving counts as for this seat right now, for the dialogs, the Alt strip and the toast.
+    const exitStanding = useMemo<IExitStanding | undefined>(
+        () => (snapshot && myPlayer && !isObserver ? exitStandingFromSnapshot(snapshot, myPlayer.playerId) : undefined),
+        [isObserver, myPlayer, snapshot],
+    );
+    // Closing the tab mid-match is leaving too: in ranked the browser asks first. Friend sandboxes leave freely.
+    useLeaveGuard(
+        !!exitStanding?.ranked &&
+            !sandboxCoop &&
+            !replayOnly &&
+            !snapshot?.fightFinished &&
+            (snapshot?.phase === PlayPhase.PLACEMENT || snapshot?.phase === PlayPhase.PLAY),
+    );
     const battleMatchupPlayers = useMemo<readonly MatchupPlayer[]>(
         () =>
             snapshot?.players.map((player) => ({
@@ -1916,6 +1933,9 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             submitProtocolAction={submitProtocolAction}
             userTeam={userTeam}
             isObserver={isObserver}
+            exitStanding={exitStanding}
+            vsAi={isVsAiMatch}
+            allowPlacementExit={!sandboxCoop}
             skipAugmentStep={!!sandboxCoop}
             replayOnly={replayOnly}
             onStopWatching={isObserver && !replayOnly ? handleBackToLobby : undefined}
@@ -1996,7 +2016,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                             </Stack>
                         </Box>
                     )}
-                    {pixiReady && gameStarted && <UpNextOverlay />}
+                    {pixiReady && gameStarted && <UpNextOverlay exitStanding={exitStanding} />}
                     {pixiReady &&
                         (snapshot.phase === PlayPhase.PLAY ||
                             (sandboxCoop && snapshot.phase === PlayPhase.PLACEMENT)) && (
@@ -2041,6 +2061,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                             left={aiBadgeLeft(windowSize)}
                         />
                     )}
+                    {!replayOnly && exitStanding && <AwayTimeToast standing={exitStanding} />}
                     {pixiReady && (replayOnly || replayPlaybackActive) && (
                         // Ranked: leaving the replay returns to the account / game-selection screen.
                         <ExitReplayBadge
@@ -2065,6 +2086,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                             }
                             canReplay={snapshot.phase === PlayPhase.FINISHED || snapshot.fightFinished}
                             gameId={gameId}
+                            exit={snapshot.exit}
                             mode="ranked"
                             players={snapshot.players.map((player) => ({
                                 playerId: player.playerId,
@@ -2088,6 +2110,11 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
 };
 
 interface RankedOverlayProps {
+    /** How leaving counts for this seat right now (exit rules); undefined for observers. */
+    exitStanding?: IExitStanding;
+    vsAi?: boolean;
+    /** Placement gets an exit control too (a friend sandbox has its own Leave button instead). */
+    allowPlacementExit?: boolean;
     busy: boolean;
     canSubmit: boolean;
     currentUnit?: PlayUnitState;
@@ -3165,6 +3192,9 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     skipAugmentStep = false,
     replayOnly = false,
     onStopWatching,
+    exitStanding,
+    vsAi = false,
+    allowPlacementExit = false,
 }) => {
     const isFullscreen = useFullscreenActive();
     const navigate = useNavigate();
@@ -3333,44 +3363,23 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     }, [augmentOverlayOpen, cancelAugmentInspectEnd]);
 
     const confirmExitModal = (
-        <Modal open={confirmExitOpen} onClose={() => !busy && setConfirmExitOpen(false)}>
-            <ModalDialog sx={hocPanelSx}>
-                <Typography level="h4" sx={{ color: hocColors.parchment }}>
-                    Exit the fight?
-                </Typography>
-                <Stack spacing={2} sx={{ mt: 1, minWidth: 300, maxWidth: 360 }}>
-                    <Typography level="body-sm" textColor={hocColors.mutedStrong}>
-                        This forfeits the fight — your opponent is declared the winner immediately and it counts as a
-                        loss for you. In ranked, leaving 3 matches in a row suspends your ranked play. This cannot be
-                        undone.
-                    </Typography>
-                    <Stack direction="row" spacing={1} justifyContent="flex-end">
-                        <Button
-                            variant="plain"
-                            disabled={busy}
-                            onClick={() => setConfirmExitOpen(false)}
-                            sx={hocSoftButtonSx}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            variant="solid"
-                            color="danger"
-                            loading={busy}
-                            onClick={async () => {
-                                // Record the forfeit (opponent wins), then drop the player back to
-                                // game-mode selection instead of leaving them on the finished board.
-                                await submitProtocolAction({ type: PlayActionType.ABANDON });
-                                setConfirmExitOpen(false);
-                                navigate("/play");
-                            }}
-                        >
-                            Forfeit
-                        </Button>
-                    </Stack>
-                </Stack>
-            </ModalDialog>
-        </Modal>
+        <ExitMatchDialog
+            open={confirmExitOpen}
+            phase={gameStarted ? "fight" : "placement"}
+            outcome={exitStanding?.leaveOutcome ?? "casual"}
+            standing={exitStanding}
+            rules={exitStanding ?? { ranked: false, enforced: false, enforceAtMs: 0 }}
+            vsAi={vsAi}
+            busy={busy}
+            onCancel={() => setConfirmExitOpen(false)}
+            onConfirm={async () => {
+                // The server resolves how it counts (Concede, Abandon, unscored), then the player goes back to
+                // game-mode selection instead of staying on the finished board.
+                await submitProtocolAction({ type: PlayActionType.ABANDON });
+                setConfirmExitOpen(false);
+                navigate("/play");
+            }}
+        />
     );
 
     // Fight phase: the sheet has nothing left to say, so it does not render one. Returning the button bare
@@ -3774,6 +3783,17 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                     </Typography>
                 )}
                 {isObserver && <ObserverSetupPanel snapshot={snapshot} />}
+                {allowPlacementExit && !isObserver && !replayOnly && snapshot.phase === PlayPhase.PLACEMENT && (
+                    <Button
+                        variant="plain"
+                        size="sm"
+                        color="danger"
+                        onClick={() => setConfirmExitOpen(true)}
+                        sx={{ alignSelf: "flex-start" }}
+                    >
+                        {t("Leave match")}
+                    </Button>
+                )}
                 {onStopWatching && (
                     <Button
                         variant="soft"

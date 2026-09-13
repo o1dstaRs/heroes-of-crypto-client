@@ -125,7 +125,22 @@ describe("match history model", () => {
         ).toBe("");
         expect(
             matchKindPresentation(match({ match_kind: PortalMatchKind.CALIBRATION, outcome_reason: "concede" })).detail,
-        ).toBe("Didn't count toward calibration — a player conceded");
+            // Under the exit rules a Concede counts toward calibration, and the row can't tell which rules settled it.
+        ).toBe("");
+        expect(
+            matchKindPresentation(match({ match_kind: PortalMatchKind.CALIBRATION, outcome_reason: "unscored" }))
+                .detail,
+        ).toBe("Didn't count — an early exit left the match unscored");
+        expect(matchResultPresentation(match({ outcome_reason: "unscored", draw: true }))).toEqual({
+            detail: "An early exit left this match unscored",
+            label: "Unscored",
+            tone: "draw",
+        });
+        expect(matchResultPresentation(match({ outcome_reason: "void", draw: true })).label).toBe("Voided");
+        expect(matchResultPresentation(match({ outcome_reason: "abandon", won: true })).detail).toBe(
+            "Opponent abandoned",
+        );
+        expect(matchResultPresentation(match({ outcome_reason: "concede", won: false })).detail).toBe("You conceded");
         expect(
             matchKindPresentation(match({ match_kind: PortalMatchKind.CALIBRATION, outcome_reason: "disconnect" }))
                 .detail,

@@ -172,3 +172,47 @@ describe("ranked match consumer contract", () => {
         });
     }
 });
+
+/**
+ * Exit rules (ranked match integrity phase 2): the server adds `exit` — built by exit_resolver.publicRankedExit —
+ * plus the "abandon" / "unscored" / "void" reasons and an "none" outcome. Same two directions as above.
+ */
+const EXIT_WIRE_PAYLOAD = {
+    ...WIRE_PAYLOAD,
+    outcome: "none",
+    reason: "unscored",
+    winnerPlayerId: "",
+    exit: {
+        kind: "abandon",
+        cause: "absence",
+        leaverPlayerId: "1a1669fb-1b15-4f94-b72d-cc9c983bb1fd",
+        scored: false,
+        unscoredReason: "leaver_calibrating",
+        boardBp: 2140,
+        phase: "fight",
+        lap: 3,
+        enforced: true,
+    },
+    players: WIRE_PAYLOAD.players.map((player) => ({ ...player, result: "none", delta: 0, goldEarned: 0 })),
+};
+
+describe("ranked match exit contract", () => {
+    test("the parser reads every exit field the API sends", () => {
+        const match = normalizePublicRankedMatch(EXIT_WIRE_PAYLOAD);
+        expect(match?.outcome).toBe("none");
+        expect(match?.reason).toBe("unscored");
+        expect(match?.exit).toEqual(EXIT_WIRE_PAYLOAD.exit);
+    });
+
+    const producedExitKeys = new Set(Object.keys(normalizePublicRankedMatch(EXIT_WIRE_PAYLOAD)!.exit!));
+    for (const component of CONSUMERS) {
+        test(`${component} only reads exit fields the parser produces`, async () => {
+            const source = await Bun.file(`${import.meta.dir}/../components/${component}`).text();
+            // Components bind the parsed exit as `exit` (match page) or read it as `match.exit`; any field read off it
+            // must be one the parser fills in.
+            const read = [...source.matchAll(/\bexit\??\.([A-Za-z_][A-Za-z0-9_]*)/g)].map((match) => match[1]);
+            const unknown = [...new Set(read)].filter((key) => !producedExitKeys.has(key)).sort();
+            expect(unknown).toEqual([]);
+        });
+    }
+});

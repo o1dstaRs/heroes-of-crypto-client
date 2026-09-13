@@ -1,24 +1,52 @@
 import Button from "@mui/joy/Button";
-import Modal from "@mui/joy/Modal";
-import ModalDialog from "@mui/joy/ModalDialog";
-import Stack from "@mui/joy/Stack";
-import Typography from "@mui/joy/Typography";
-import React, { useState } from "react";
-import { useNavigate } from "react-router";
+import React, { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router";
 
-import { exitFightButtonSx } from "./exitFightButtonSx";
-import { hocColors, hocPanelSx, hocSoftButtonSx } from "./hocTheme";
 import { useAuthContext } from "./auth/context/auth_context";
+import { exitFightButtonSx } from "./exitFightButtonSx";
+import { ExitMatchDialog } from "./exitRules/ExitMatchDialog";
+import { leaveOutcomeFor } from "./exitRules/exitRulesModel";
+import { useLeaveGuard } from "./exitRules/useLeaveGuard";
 import { useFullscreenActive } from "./useFullscreenActive";
+import { fetchRankedConduct, type RankedConduct } from "../api/ranked_conduct_client";
+import { t, useTranslation } from "../i18n/i18n";
+import { isMarkedVsAiGame } from "../utils/aiOpponent";
 
-/** The pick-phase counterpart to combat's forfeit control. */
+/**
+ * The draft's exit control. The fight hasn't started, so in ranked leaving is always an Abandon (unscored for a
+ * calibrating player); lobby and vs-AI drafts have no penalties. The server decides, this only explains it first.
+ */
 export const PickExitFightControl: React.FC<{ gameId: string }> = ({ gameId }) => {
+    useTranslation();
     const { abandonGame } = useAuthContext();
     const isFullscreen = useFullscreenActive();
     const navigate = useNavigate();
+    const location = useLocation();
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
+    const [conduct, setConduct] = useState<RankedConduct | undefined>();
+    const vsAi = isMarkedVsAiGame(gameId);
+    const casual = vsAi || (location.state as { from?: string } | null)?.from === "lobby";
+    // Closing the tab mid-draft abandons a ranked match too; the browser asks first.
+    useLeaveGuard(!casual);
+
+    useEffect(() => {
+        if (!confirmOpen || casual) {
+            return undefined;
+        }
+        let cancelled = false;
+        void fetchRankedConduct()
+            .then((next) => {
+                if (!cancelled) {
+                    setConduct(next);
+                }
+            })
+            .catch(() => undefined);
+        return () => {
+            cancelled = true;
+        };
+    }, [casual, confirmOpen]);
 
     const close = (): void => {
         if (!busy) {
@@ -36,51 +64,35 @@ export const PickExitFightControl: React.FC<{ gameId: string }> = ({ gameId }) =
                 onClick={() => setConfirmOpen(true)}
                 sx={exitFightButtonSx(isFullscreen)}
             >
-                EXIT FIGHT
+                {t("EXIT FIGHT")}
             </Button>
-            <Modal open={confirmOpen} onClose={close}>
-                <ModalDialog sx={hocPanelSx}>
-                    <Typography level="h4" sx={{ color: hocColors.parchment }}>
-                        Exit the fight?
-                    </Typography>
-                    <Stack spacing={2} sx={{ mt: 1, minWidth: 300, maxWidth: 360 }}>
-                        <Typography level="body-sm" textColor={hocColors.mutedStrong}>
-                            Leaving during picks forfeits the match and counts as a loss. In ranked, leaving 3 matches
-                            in a row suspends your ranked play. This cannot be undone.
-                        </Typography>
-                        {error && (
-                            <Typography level="body-sm" color="danger">
-                                {error}
-                            </Typography>
-                        )}
-                        <Stack direction="row" spacing={1} justifyContent="flex-end">
-                            <Button variant="plain" disabled={busy} onClick={close} sx={hocSoftButtonSx}>
-                                Cancel
-                            </Button>
-                            <Button
-                                variant="solid"
-                                color="danger"
-                                loading={busy}
-                                onClick={async () => {
-                                    setBusy(true);
-                                    setError("");
-                                    try {
-                                        await abandonGame(gameId);
-                                        setConfirmOpen(false);
-                                        navigate("/play");
-                                    } catch {
-                                        setError("The fight could not be forfeited. Please try again.");
-                                    } finally {
-                                        setBusy(false);
-                                    }
-                                }}
-                            >
-                                Forfeit
-                            </Button>
-                        </Stack>
-                    </Stack>
-                </ModalDialog>
-            </Modal>
+            <ExitMatchDialog
+                open={confirmOpen}
+                phase="draft"
+                outcome={leaveOutcomeFor(!casual, "draft", false, conduct?.calibrating === true)}
+                rules={{
+                    ranked: !casual,
+                    enforced: conduct?.rules.enforced === true,
+                    enforceAtMs: conduct?.rules.enforceAtMs ?? 0,
+                }}
+                vsAi={vsAi}
+                busy={busy}
+                error={error}
+                onCancel={close}
+                onConfirm={async () => {
+                    setBusy(true);
+                    setError("");
+                    try {
+                        await abandonGame(gameId);
+                        setConfirmOpen(false);
+                        navigate("/play");
+                    } catch {
+                        setError(t("The match could not be left. Please try again."));
+                    } finally {
+                        setBusy(false);
+                    }
+                }}
+            />
         </>
     );
 };

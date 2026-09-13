@@ -52,6 +52,19 @@ const copy = isRu
           disconnect: "Отключение",
           doubleDisconnect: "Оба игрока отключились",
           cancel: "Отмена",
+          abandon: "Выход из матча",
+          unscored: "Без результата",
+          void: "Аннулирован",
+          exitConcededAt: "Сдача при потерях {pct}%",
+          exitAbandonedAt: "Выход при потерях {pct}%",
+          exitAbandonedBeforeFight: "Выход до начала боя",
+          exitUnscoredCalibration: "Без результата: выход во время калибровки",
+          exitUnscoredDouble: "Без результата: оба игрока вышли",
+          exitVoided: "Аннулирован: проблема сервера",
+          exitCauseAbsence: "закончилось время отсутствия",
+          exitCauseAfk: "пропущенные ходы",
+          exitPreview: "По новым правилам выхода: {label}",
+          exitRules: "Как работает выход",
           maps: ["Неизвестная", "Обычная", "Водный центр", "FIRE PIT", "Горный центр"],
           noArtifact: "Не выбран",
           level: "ур.",
@@ -99,6 +112,19 @@ const copy = isRu
           disconnect: "Disconnect",
           doubleDisconnect: "Both players disconnected",
           cancel: "Cancelled",
+          abandon: "Abandoned",
+          unscored: "Unscored",
+          void: "Voided",
+          exitConcededAt: "Conceded at {pct}% casualties",
+          exitAbandonedAt: "Abandoned at {pct}% casualties",
+          exitAbandonedBeforeFight: "Abandoned before the fight",
+          exitUnscoredCalibration: "Unscored: abandoned during calibration",
+          exitUnscoredDouble: "Unscored: both players left",
+          exitVoided: "Voided: server problem",
+          exitCauseAbsence: "away time ran out",
+          exitCauseAfk: "missed turns",
+          exitPreview: "Under the new leaving rules: {label}",
+          exitRules: "How leaving works",
           maps: ["Unknown", "Normal", "Water center", "FIRE PIT", "Mountain center"],
           noArtifact: "Not selected",
           level: "Lv.",
@@ -150,6 +176,12 @@ const copy = isRu
         type RankedMatchUnitPerformance,
     } from "../lib/ranked-match-client";
     import { isPublicRankedPlayerId, type RankedMatchReason } from "../lib/ranked-profile-client";
+    import {
+        leavingRulesPath,
+        rankedExitLabel,
+        rankedExitPreviewLabel,
+        type RankedExitLabelKey,
+    } from "../lib/ranked-exit";
     import { creatureById } from "../lib/portal-data";
     import {
         LEGACY_SEASON_CURRENCY,
@@ -198,11 +230,22 @@ const copy = isRu
         if (reason === "disconnect") return text("disconnect");
         if (reason === "double_disconnect") return text("doubleDisconnect");
         if (reason === "cancel") return text("cancel");
+        if (reason === "abandon") return text("abandon");
+        if (reason === "unscored") return text("unscored");
+        if (reason === "void") return text("void");
         return text("normal");
     };
 
+    const exitLabel = (key: RankedExitLabelKey): string => text(key);
+
     const resultLabel = (result: PublicRankedMatchPlayer["result"]): string =>
-        result === "win" ? text("victory") : result === "loss" ? text("defeat") : text("draw");
+        result === "win"
+            ? text("victory")
+            : result === "loss"
+              ? text("defeat")
+              : result === "none"
+                ? text("unscored")
+                : text("draw");
 
     const mapLabel = (gridType: number): string => copy.maps[gridType] || copy.maps[0] || "—";
 
@@ -378,14 +421,21 @@ const copy = isRu
             ? [viewer, match.players.find((player) => player.playerId !== viewer.playerId)!]
             : match.players;
         const headline =
-            match.outcome === "draw"
+            match.outcome === "none"
+                ? reasonLabel(match.reason === "void" ? "void" : "unscored")
+                : match.outcome === "draw"
                 ? text("draw")
                 : viewer
                   ? resultLabel(viewer.result)
                   : `${orderedPlayers[0].username} ${text("defeated")} ${orderedPlayers[1].username}`;
-        const tone = match.outcome === "draw" ? "draw" : viewer?.result ?? "win";
+        const tone = match.outcome !== "win" ? "draw" : viewer?.result === "none" ? "draw" : viewer?.result ?? "win";
         const totalDamage = (match.stats?.lowerDamage ?? 0) + (match.stats?.upperDamage ?? 0);
         const finished = match.finishedTime ? dateFormatter.format(new Date(match.finishedTime)) : "—";
+        // Exit rules: how an early ending was resolved, e.g. "Abandoned at 31% casualties". An exit settled before the
+        // rules applied keeps its old reason and adds how the same exit counts under them.
+        const exit = match.exit;
+        const finishText = rankedExitLabel(exit, exitLabel) || reasonLabel(match.reason);
+        const exitPreview = rankedExitPreviewLabel(exit, exitLabel);
         const replay = `${gameClientRoot}/game/${encodeURIComponent(match.gameId)}/replay`;
         const stats = match.stats
             ? `
@@ -395,7 +445,7 @@ const copy = isRu
                         <div><span>${escapeHtml(text("map"))}</span><strong>${escapeHtml(mapLabel(match.stats.gridType))}</strong></div>
                         <div><span>${escapeHtml(text("laps"))}</span><strong>${numberFormatter.format(match.stats.totalLaps)}</strong></div>
                         <div><span>${escapeHtml(text("totalDamage"))}</span><strong>${numberFormatter.format(totalDamage)}</strong></div>
-                        <div><span>${escapeHtml(text("finishReason"))}</span><strong>${escapeHtml(reasonLabel(match.reason))}</strong></div>
+                        <div><span>${escapeHtml(text("finishReason"))}</span><strong>${escapeHtml(finishText)}</strong></div>
                     </div>
                 </section>
                 <section class="match-section">
@@ -419,6 +469,9 @@ const copy = isRu
             </section>
             <div class="match-facts">
                 <span><b>${escapeHtml(text("finished"))}</b>${escapeHtml(finished)}</span>
+                <span><b>${escapeHtml(text("finishReason"))}</b>${escapeHtml(finishText)}</span>
+                ${exitPreview ? `<span>${escapeHtml(exitPreview)}</span>` : ""}
+                ${exit ? `<span><a href="${escapeHtml(leavingRulesPath(language))}">${escapeHtml(text("exitRules"))}</a></span>` : ""}
                 ${match.seasonSequence > 0 ? `<span><b>${escapeHtml(text("season"))}</b>${escapeHtml(match.season?.name ?? `#${match.seasonSequence}`)}</span>` : ""}
             </div>
             <section class="matchup">${orderedPlayers.map((player) => playerCard(player, match)).join('<span class="versus-mark">VS</span>')}</section>

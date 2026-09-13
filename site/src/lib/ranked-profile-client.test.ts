@@ -191,6 +191,33 @@ describe("public ranked profile normalization", () => {
     });
 });
 
+describe("exit rules in the profile history", () => {
+    test("recent games keep abandon, unscored and void reasons with their exit", () => {
+        const profile = normalizePublicRankedProfile({
+            playerId: PLAYER_ID,
+            recentGames: [
+                {
+                    gameId: "abandoned",
+                    finishedTime: 300,
+                    result: "loss",
+                    reason: "abandon",
+                    exit: { kind: "abandon", cause: "absence", leaverPlayerId: PLAYER_ID, scored: true, boardBp: 3100, phase: "fight", lap: 4, enforced: true },
+                },
+                { gameId: "unscored", finishedTime: 200, result: "none", reason: "unscored", exit: null },
+                { gameId: "voided", finishedTime: 100, result: "none", reason: "void", exit: "garbage" },
+            ],
+        });
+        expect(profile?.recentGames.map((match) => [match.gameId, match.result, match.reason])).toEqual([
+            ["abandoned", "loss", "abandon"],
+            ["unscored", "none", "unscored"],
+            ["voided", "none", "void"],
+        ]);
+        expect(profile?.recentGames[0].exit).toMatchObject({ kind: "abandon", cause: "absence", boardBp: 3100 });
+        expect(profile?.recentGames[1].exit).toBeNull();
+        expect(profile?.recentGames[2].exit).toBeNull();
+    });
+});
+
 describe("gold history normalization", () => {
     const withHistory = (goldHistory: unknown) =>
         normalizePublicRankedProfile({ playerId: PLAYER_ID, username: "Artemis", goldHistory }).goldHistory;

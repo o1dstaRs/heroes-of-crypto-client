@@ -12,6 +12,9 @@ import { buildApiUrl, endpoints, HOST_MATCHMAKING_API } from "../api/axios";
 import { createVsAiGame } from "../api/vs_ai_client";
 import { fetchPublicPlayerStats, type PublicPlayerStats } from "../api/social_client";
 import { tf, useTranslation } from "../i18n/i18n";
+import { acceptRankedRules, fetchRankedConduct, rulesCardDue, type RankedConduct } from "../api/ranked_conduct_client";
+import { formatAwayClock } from "./exitRules/exitRulesModel";
+import { RankedRulesCard } from "./exitRules/RankedRulesCard";
 import { markVsAiGame } from "../utils/aiOpponent";
 import { getPreGameDoctrine, setPreGameDoctrine } from "../utils/preGameDoctrine";
 import { ArenaChatPanel } from "./ArenaChatPanel";
@@ -292,6 +295,17 @@ export const MatchmakingRoute: React.FC = () => {
     const cooldownTill = Number(user?.match_making_cooldown_till ?? 0) || 0;
     const penaltySeconds = cooldownTill > nowMs ? Math.ceil((cooldownTill - nowMs) / 1000) : 0;
     const penalized = penaltySeconds > 0;
+    // Exit rules: the player's own conduct record (the wait after an abandon) and whether the ranked rules card is due.
+    // The cooldown arrives in server time and is kept on this clock, so a skewed device clock can't shorten it.
+    const [conduct, setConduct] = useState<RankedConduct | undefined>();
+    const [rulesCardOpen, setRulesCardOpen] = useState(false);
+    const [rulesCardBusy, setRulesCardBusy] = useState(false);
+    const [rulesCardError, setRulesCardError] = useState("");
+    // Set when the card is acknowledged, so the search that follows doesn't reopen it before the new state renders.
+    const rulesAcknowledgedRef = useRef(false);
+    const abandonCooldownUntil = conduct?.abandonCooldownUntil ?? 0;
+    const abandonCooldownMs = Math.max(0, abandonCooldownUntil - nowMs);
+    const abandonCooling = abandonCooldownMs > 0;
 
     // How long we have been looking for an opponent. The server's match_making_queue_added_time is the
     // authority — it survives a page reload and a re-queue keeps the original enqueue timestamp — so take
@@ -548,21 +562,39 @@ export const MatchmakingRoute: React.FC = () => {
         void me().catch(() => undefined);
     }, [me]);
 
-    // Tick while the queue timer runs or a penalty is active; the penalty tick stops once it elapses.
+    const refreshConduct = useCallback(() => {
+        void fetchRankedConduct()
+            .then((next) =>
+                setConduct({
+                    ...next,
+                    abandonCooldownUntil:
+                        next.abandonCooldownUntil > next.serverTimeMs
+                            ? Date.now() + (next.abandonCooldownUntil - next.serverTimeMs)
+                            : 0,
+                }),
+            )
+            .catch(() => undefined);
+    }, []);
     useEffect(() => {
-        if (!isSearching && cooldownTill <= Date.now()) {
+        refreshConduct();
+    }, [refreshConduct]);
+
+    // Tick while the queue timer runs or a penalty is active; the penalty tick stops once it elapses.
+    const waitUntil = Math.max(cooldownTill, abandonCooldownUntil);
+    useEffect(() => {
+        if (!isSearching && waitUntil <= Date.now()) {
             return undefined;
         }
         setNowMs(Date.now());
         const id = window.setInterval(() => {
             const t = Date.now();
             setNowMs(t);
-            if (!isSearching && t >= cooldownTill) {
+            if (!isSearching && t >= waitUntil) {
                 window.clearInterval(id);
             }
         }, 500);
         return () => window.clearInterval(id);
-    }, [cooldownTill, isSearching]);
+    }, [waitUntil, isSearching]);
 
     // Stamp the local queue-entry time on every path into the searching state (the Find button, and a
     // stream update that puts us back in the queue), and drop it once the search is over.
@@ -607,6 +639,11 @@ export const MatchmakingRoute: React.FC = () => {
         if (penalized) {
             return tf("Match not accepted — search again in {seconds}s", { seconds: penaltySeconds });
         }
+        if (abandonCooling) {
+            return tf("You abandoned a ranked match — search again in {time}", {
+                time: formatAwayClock(abandonCooldownMs),
+            });
+        }
         if (state === "searching") {
             return queueSize
                 ? tf("Looking for opponent ({count} in queue)", { count: queueSize })
@@ -629,10 +666,26 @@ export const MatchmakingRoute: React.FC = () => {
             return t("Connection error");
         }
         return t("Ready");
-    }, [needsActivation, penalized, penaltySeconds, queueSize, secondsRemaining, state, t]);
+    }, [
+        abandonCooldownMs,
+        abandonCooling,
+        needsActivation,
+        penalized,
+        penaltySeconds,
+        queueSize,
+        secondsRemaining,
+        state,
+        t,
+    ]);
 
     const handleStart = async () => {
-        if (needsActivation || penalized || aiStartInFlightRef.current) {
+        if (needsActivation || penalized || abandonCooling || aiStartInFlightRef.current) {
+            return;
+        }
+        // Before a player's first ranked search (and after the rules change), the rules card explains how leaving counts.
+        if (!rulesAcknowledgedRef.current && rulesCardDue(conduct)) {
+            setRulesCardError("");
+            setRulesCardOpen(true);
             return;
         }
         setError("");
@@ -654,8 +707,9 @@ export const MatchmakingRoute: React.FC = () => {
             setState("error");
             setError((err as Error)?.message ?? t("Unable to enter matchmaking"));
             // The server rejects re-queue during a no-accept cooldown (429); refresh /me so the render
-            // switches from the raw error to the penalty countdown.
+            // switches from the raw error to the penalty countdown. The abandon cooldown lives in the conduct record.
             void me().catch(() => undefined);
+            refreshConduct();
         }
     };
 
@@ -819,7 +873,7 @@ export const MatchmakingRoute: React.FC = () => {
         state === "searching" || state === "confirming" || state === "accepted" || state === "starting-ai";
     const shortGameId =
         pendingGameId.length > 16 ? `${pendingGameId.slice(0, 8)}…${pendingGameId.slice(-5)}` : pendingGameId;
-    const showStatusPresentation = state !== "idle" || needsActivation || penalized;
+    const showStatusPresentation = state !== "idle" || needsActivation || penalized || abandonCooling;
     const presentation = (() => {
         if (needsActivation) {
             return {
@@ -835,6 +889,14 @@ export const MatchmakingRoute: React.FC = () => {
                 eyebrow: t("QUEUE COOLDOWN"),
                 headline: tf("Search unlocks in {seconds}s", { seconds: penaltySeconds }),
                 description: t("Ranked matches must be accepted in time. The queue will reopen automatically."),
+            };
+        }
+        if (abandonCooling) {
+            return {
+                accent: hocColors.danger,
+                eyebrow: t("RANKED COOLDOWN"),
+                headline: tf("Ranked search reopens in {time}", { time: formatAwayClock(abandonCooldownMs) }),
+                description: t("You abandoned your last ranked match. Casual lobbies and vs-AI games are open."),
             };
         }
         if (state === "searching") {
@@ -1282,7 +1344,7 @@ export const MatchmakingRoute: React.FC = () => {
                                             {t("IN QUEUE")}
                                         </Typography>
                                     </Stack>
-                                ) : penalized ? (
+                                ) : penalized || abandonCooling ? (
                                     <TimerRoundedIcon />
                                 ) : needsActivation || state === "error" ? (
                                     <ShieldRoundedIcon />
@@ -1627,10 +1689,12 @@ export const MatchmakingRoute: React.FC = () => {
                                     <Button
                                         fullWidth
                                         variant="solid"
-                                        disabled={state === "starting-ai" || penalized}
-                                        onClick={handleStart}
+                                        disabled={state === "starting-ai" || penalized || abandonCooling}
+                                        onClick={() => void handleStart()}
                                         startDecorator={<RankedSearchIcon sx={{ fontSize: 24 }} />}
-                                        endDecorator={!penalized ? <ArrowForwardRoundedIcon /> : undefined}
+                                        endDecorator={
+                                            !penalized && !abandonCooling ? <ArrowForwardRoundedIcon /> : undefined
+                                        }
                                         sx={{
                                             ...hocActionPrimaryButtonSx,
                                             minHeight: 58,
@@ -1640,7 +1704,11 @@ export const MatchmakingRoute: React.FC = () => {
                                     >
                                         {penalized
                                             ? tf("Search again in {seconds}s", { seconds: penaltySeconds })
-                                            : t("Find ranked opponent")}
+                                            : abandonCooling
+                                              ? tf("Search again in {time}", {
+                                                    time: formatAwayClock(abandonCooldownMs),
+                                                })
+                                              : t("Find ranked opponent")}
                                     </Button>
                                     <PracticeVsAiButton loading={state === "starting-ai"} onClick={handlePlayAi} />
                                 </Box>
@@ -1715,7 +1783,50 @@ export const MatchmakingRoute: React.FC = () => {
                                 </Alert>
                             )}
 
-                            {error && !penalized && (
+                            {abandonCooling && (
+                                <Alert variant="soft" color="warning" sx={{ textAlign: "left" }}>
+                                    {tf("You abandoned your last ranked match. You can search again in {time}.", {
+                                        time: formatAwayClock(abandonCooldownMs),
+                                    })}
+                                </Alert>
+                            )}
+
+                            <RankedRulesCard
+                                open={rulesCardOpen}
+                                rules={{
+                                    ranked: true,
+                                    enforced: conduct?.rules.enforced === true,
+                                    enforceAtMs: conduct?.rules.enforceAtMs ?? 0,
+                                }}
+                                busy={rulesCardBusy}
+                                error={rulesCardError}
+                                onClose={() => setRulesCardOpen(false)}
+                                onAccept={async () => {
+                                    if (!conduct) {
+                                        setRulesCardOpen(false);
+                                        return;
+                                    }
+                                    setRulesCardBusy(true);
+                                    setRulesCardError("");
+                                    try {
+                                        await acceptRankedRules(conduct.rules.version);
+                                        setConduct({
+                                            ...conduct,
+                                            rules: { ...conduct.rules, acceptedVersion: conduct.rules.version },
+                                        });
+                                        setRulesCardOpen(false);
+                                        // The acknowledged state lands on the next render; start the search from here.
+                                        rulesAcknowledgedRef.current = true;
+                                        void handleStart();
+                                    } catch {
+                                        setRulesCardError(t("Couldn't save that. Please try again."));
+                                    } finally {
+                                        setRulesCardBusy(false);
+                                    }
+                                }}
+                            />
+
+                            {error && !penalized && !abandonCooling && (
                                 <Alert variant="soft" color="danger" sx={{ textAlign: "left" }}>
                                     {error}
                                 </Alert>

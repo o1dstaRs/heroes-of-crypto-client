@@ -73,7 +73,8 @@ export type MatchResultTone = "draw" | "loss" | "win";
 
 export interface MatchResultPresentation {
     detail: string;
-    label: "Defeat" | "Draw" | "Victory";
+    // "Unscored" / "Voided": an early exit or a server problem left the match without a result (exit rules).
+    label: "Defeat" | "Draw" | "Victory" | "Unscored" | "Voided";
     tone: MatchResultTone;
 }
 
@@ -149,15 +150,31 @@ export const normalizeMatchSetup = (setup: PortalMatchSetupData | undefined): Ma
 };
 
 export const matchResultPresentation = (match: PortalMatchData): MatchResultPresentation => {
-    const detail = match.abandoned ? (match.player_abandoned ? "You left" : "Opponent left") : "";
+    const reason = match.outcome_reason ?? "";
+    if (reason === "void") {
+        return { detail: "Server problem, match voided", label: "Voided", tone: "draw" };
+    }
+    if (reason === "unscored") {
+        return { detail: "An early exit left this match unscored", label: "Unscored", tone: "draw" };
+    }
+    let detail = match.abandoned ? (match.player_abandoned ? "You left" : "Opponent left") : "";
+    if (reason === "abandon") {
+        detail = match.won ? "Opponent abandoned" : "You abandoned";
+    } else if (reason === "concede" && !match.abandoned && !match.draw) {
+        detail = match.won ? "Opponent conceded" : "You conceded";
+    }
     if (match.draw) {
         return { detail, label: "Draw", tone: "draw" };
     }
     return match.won ? { detail, label: "Victory", tone: "win" } : { detail, label: "Defeat", tone: "loss" };
 };
 
+// No "concede" entry: under the exit rules a Concede counts toward calibration, and the history row can't tell a
+// concede settled before the rules from one settled after them.
 const CALIBRATION_MISS_DETAIL: Record<string, string> = {
-    concede: "Didn't count toward calibration — a player conceded",
+    abandon: "Didn't count toward calibration — the opponent abandoned",
+    unscored: "Didn't count — an early exit left the match unscored",
+    void: "Didn't count — the match was voided",
     disconnect: "Didn't count toward calibration — a player disconnected",
     double_disconnect: "Didn't count toward calibration — both players disconnected",
     cancel: "Didn't count toward calibration — cancelled before it started",

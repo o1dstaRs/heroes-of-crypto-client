@@ -1053,4 +1053,143 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Back to sandbox": "Назад в песочницу",
     "This sandbox was closed": "Эта песочница закрыта",
     "Your friend left, or a newer sandbox replaced this one.": "Ваш друг вышел, или её заменила новая песочница.",
+    // Exit rules (ranked integrity phase 2): exit dialogs, Alt strip, away-time notice, results banner, rules card.
+    // Terms match the website: Concede = "сдача", Abandon = "выход из матча", Unscored = "без результата".
+    "Board destroyed · {destroyed} / {total} XP": "Уничтожено на поле · {destroyed} / {total} XP",
+    "The fight hasn't started: nothing destroyed yet": "Бой ещё не начался: потерь пока нет",
+    "Rules apply from {date}": "Правила действуют с {date}",
+    "Rules start soon": "Правила скоро вступят в силу",
+    "These rules apply from {date}. Until then, leaving counts as it does today.":
+        "Эти правила действуют с {date}. До этого выход засчитывается так же, как сейчас.",
+    "These rules start soon. Until then, leaving counts as it does today.":
+        "Эти правила скоро вступят в силу. До этого выход засчитывается так же, как сейчас.",
+    "Leaving a ranked match": "Выход из рейтингового матча",
+    "You can always leave, but when you leave decides how it counts.":
+        "Выйти можно всегда, но от момента выхода зависит, как он будет засчитан.",
+    "Concede or Abandon": "Сдача или выход из матча",
+    "Board casualties count the XP destroyed across both armies: every stack is worth its creatures' XP at the start of the fight, and summoned creatures don't count. Hold Alt during a fight to see them.":
+        "Потери на поле считаются по уничтоженному XP обеих армий: каждый отряд стоит XP своих существ на начало боя, призванные существа не учитываются. Удерживайте Alt во время боя, чтобы увидеть потери.",
+    "Once half the board's XP is destroyed, leaving is a Concede: an ordinary loss, with no strike. It stays that way for the rest of the match.":
+        "Когда уничтожена половина XP поля, выход считается сдачей: обычное поражение без штрафа. Так остаётся до конца матча.",
+    "Before that, or during the draft or placement, leaving is an Abandon: a loss, and a 5-minute wait before you can queue ranked again. 3 abandons in a row suspend your ranked play until support reviews it.":
+        "До этого, а также во время драфта или расстановки, это выход из матча: поражение и 5 минут ожидания до следующего рейтингового поиска. 3 выхода подряд приостанавливают рейтинговую игру, пока поддержка не проверит аккаунт.",
+    "The line is the same for every player, and no ending ever halves the rating change.":
+        "Порог одинаков для всех игроков, и никакой исход не уменьшает изменение рейтинга вдвое.",
+    "During calibration": "Во время калибровки",
+    "If you abandon while you're still calibrating, the match is unscored for both players. It still counts as an abandon for you.":
+        "Если вы выходите из матча во время калибровки, матч остаётся без результата для обоих игроков. Для вас он всё равно засчитывается как выход.",
+    "If you disconnect or step away": "Если вы отключились или отошли",
+    "Each match gives you 5 minutes of away time: time disconnected after the first 10 seconds of each drop, turns that run out while you're connected, and draft picks made for you.":
+        "В каждом матче у вас есть 5 минут отсутствия: время без подключения после первых 10 секунд каждого обрыва, ходы, истёкшие при подключении, и выборы на драфте, сделанные за вас.",
+    "While you're away, your units only wait or defend. The match ends for you when your away time runs out, when you miss 4 turns in a row, or when 3 of your draft picks are made for you. It counts as a Concede or an Abandon by the rule above.":
+        "Пока вас нет, ваши юниты только ждут или защищаются. Матч для вас заканчивается, когда время отсутствия исчерпано, когда вы пропускаете 4 хода подряд или когда игра делает за вас 3 выбора на драфте. Это засчитывается как сдача или выход по правилу выше.",
+    "Money and server problems": "Ставки и проблемы сервера",
+    "If you abandon, your wager goes to your opponent and bets on the match are refunded. If our servers have a problem, the match is voided: no result, no penalty, and stakes are returned.":
+        "Если вы выходите из матча, ваша ставка достаётся сопернику, а прогнозы на матч возвращаются. Если у наших серверов проблема, матч аннулируется: без результата, без наказания, ставки возвращаются.",
+    "Casual lobby and vs-AI matches have no penalties.": "В обычных лобби и матчах против ИИ наказаний нет.",
+    "Leave this match?": "Покинуть матч?",
+    "Concede this match?": "Сдать матч?",
+    "Leave the draft?": "Покинуть драфт?",
+    "Abandon this match?": "Выйти из матча?",
+    "The AI wins this match. Nothing else changes.": "Матч выигрывает ИИ. Больше ничего не меняется.",
+    "This is a casual match: your opponent wins, and nothing else changes.":
+        "Это обычный матч: побеждает соперник, больше ничего не меняется.",
+    "Half the battlefield has fallen, so leaving now is a Concede: an ordinary loss, with no strike and no cooldown.":
+        "Половина поля уже уничтожена, поэтому выход сейчас — это сдача: обычное поражение без штрафа и без ожидания.",
+    "You're still in your calibration matches, so abandoning makes this match unscored for both players: nobody wins, loses or gains rating. It still counts as an abandon for you.":
+        "Вы ещё проходите калибровку, поэтому выход оставит матч без результата для обоих игроков: никто не побеждает, не проигрывает и не получает рейтинг. Для вас он всё равно засчитывается как выход.",
+    "Less than half the battlefield has fallen, so leaving now is an Abandon.":
+        "Уничтожено меньше половины поля, поэтому выход сейчас — это выход из матча.",
+    "The fight hasn't started, so leaving now is an Abandon.":
+        "Бой ещё не начался, поэтому выход сейчас — это выход из матча.",
+    "Leave match": "Покинуть матч",
+    Concede: "Сдать матч",
+    "Abandon match": "Выйти из матча",
+    "Back to draft": "Назад к драфту",
+    "Back to placement": "Назад к расстановке",
+    "Keep playing": "Продолжить игру",
+    "You take the loss, at full rating": "Вам засчитывается поражение с полным изменением рейтинга",
+    "You wait 5 minutes before you can queue ranked again": "5 минут ожидания до следующего рейтингового поиска",
+    "3 abandons in a row suspend your ranked play": "3 выхода подряд приостанавливают рейтинговую игру",
+    "How leaving works": "Как работает выход",
+    "Leave once half the board's XP is destroyed and it's an ordinary loss. Leave before that and it's an Abandon: a loss, and a 5-minute wait before your next ranked search.":
+        "Выход после уничтожения половины XP поля — обычное поражение. Выход раньше — это выход из матча: поражение и 5 минут ожидания до следующего рейтингового поиска.",
+    "If you abandon during your calibration matches, the match is unscored for both players.":
+        "Если вы выходите из матча во время калибровки, матч остаётся без результата для обоих игроков.",
+    "You have 5 minutes of away time per match. While you're away, your units only wait or defend.":
+        "В каждом матче у вас есть 5 минут отсутствия. Пока вас нет, ваши юниты только ждут или защищаются.",
+    "3 abandons in a row suspend your ranked play.": "3 выхода подряд приостанавливают рейтинговую игру.",
+    "How ranked works": "Как устроен рейтинг",
+    "Read the full rules": "Полные правила",
+    "Got it": "Понятно",
+    "Leaving now: Concede, no penalty": "Выход сейчас: сдача, без наказания",
+    "Leaving now: Abandon, unscored for both": "Выход сейчас: выход из матча, без результата для обоих",
+    "Leaving now: Abandon": "Выход сейчас: выход из матча",
+    "Casual match: leaving has no penalty": "Обычный матч: выход без наказания",
+    "Concede unlocked for the rest of the match": "Сдача доступна до конца матча",
+    "Concede unlocks at 50%": "Сдача откроется при 50%",
+    "Away time {used} / {budget}": "Время отсутствия {used} / {budget}",
+    "You were away {used} this match. If you're away another {left}, the match ends for you.":
+        "В этом матче вас не было {used}. Если отсутствие продлится ещё {left}, матч для вас закончится.",
+    "It would count as a Concede: half the board is already destroyed.":
+        "Это засчитается как сдача: половина поля уже уничтожена.",
+    "It would count as an Abandon unless half the board is destroyed by then.":
+        "Это засчитается как выход из матча, если к тому моменту не будет уничтожена половина поля.",
+    "You were away {used} this match. From {date}, away time is limited to {budget} per match.":
+        "В этом матче вас не было {used}. С {date} время отсутствия ограничено {budget} на матч.",
+    "You were away {used} this match. Soon, away time will be limited to {budget} per match.":
+        "В этом матче вас не было {used}. Скоро время отсутствия будет ограничено {budget} на матч.",
+    "Server problem: this match is voided. No result, no penalty, and stakes are returned.":
+        "Проблема сервера: матч аннулирован. Без результата, без наказания, ставки возвращаются.",
+    "Both players left, so this match is unscored for both.":
+        "Оба игрока вышли, поэтому матч остаётся без результата для обоих.",
+    "You left the match.": "Вы покинули матч.",
+    "Your opponent left the match.": "Соперник покинул матч.",
+    "Under the new exit rules, this ending would count as a Concede: an ordinary loss.":
+        "По новым правилам выхода такой исход засчитается как сдача: обычное поражение.",
+    "Under the new exit rules, this ending would count as an Abandon.":
+        "По новым правилам выхода такой исход засчитается как выход из матча.",
+    "Under the new exit rules, this match would be unscored for both players.":
+        "По новым правилам выхода этот матч остался бы без результата для обоих игроков.",
+    "You conceded at {pct}% casualties: an ordinary loss, with no penalty.":
+        "Вы сдались при потерях {pct}%: обычное поражение без наказания.",
+    "Your opponent conceded at {pct}% casualties.": "Соперник сдался при потерях {pct}%.",
+    "A player conceded at {pct}% casualties.": "Игрок сдался при потерях {pct}%.",
+    "You abandoned at {pct}% casualties: a loss, and ranked search reopens in 5 minutes.":
+        "Вы вышли из матча при потерях {pct}%: поражение, рейтинговый поиск откроется через 5 минут.",
+    "Your opponent abandoned at {pct}% casualties. You get the full win.":
+        "Соперник вышел из матча при потерях {pct}%. Вам засчитывается полная победа.",
+    "A player abandoned at {pct}% casualties.": "Игрок вышел из матча при потерях {pct}%.",
+    "You abandoned during calibration, so this match is unscored for both players. It still counts as an abandon for you.":
+        "Вы вышли из матча во время калибровки, поэтому матч остаётся без результата для обоих игроков. Для вас он всё равно засчитывается как выход.",
+    "Your opponent abandoned during their calibration, so this match doesn't count for either of you.":
+        "Соперник вышел из матча во время своей калибровки, поэтому матч не засчитывается никому из вас.",
+    "A calibrating player abandoned, so this match is unscored for both.":
+        "Игрок на калибровке вышел из матча, поэтому матч остаётся без результата для обоих.",
+    "Your away time ran out.": "Ваше время отсутствия закончилось.",
+    "Their away time ran out.": "Время отсутствия соперника закончилось.",
+    "You missed 4 turns in a row.": "Вы пропустили 4 хода подряд.",
+    "They missed 4 turns in a row.": "Соперник пропустил 4 хода подряд.",
+    "The match could not be left. Please try again.": "Не удалось покинуть матч. Попробуйте ещё раз.",
+    "You abandoned a ranked match — search again in {time}":
+        "Вы вышли из рейтингового матча — поиск снова через {time}",
+    "RANKED COOLDOWN": "ПАУЗА РЕЙТИНГА",
+    "Ranked search reopens in {time}": "Рейтинговый поиск откроется через {time}",
+    "You abandoned your last ranked match. Casual lobbies and vs-AI games are open.":
+        "Вы вышли из последнего рейтингового матча. Обычные лобби и игры против ИИ доступны.",
+    "Search again in {time}": "Поиск снова через {time}",
+    "You abandoned your last ranked match. You can search again in {time}.":
+        "Вы вышли из последнего рейтингового матча. Искать снова можно через {time}.",
+    "Couldn't save that. Please try again.": "Не удалось сохранить. Попробуйте ещё раз.",
+    "Opponent abandoned": "Соперник покинул матч",
+    "You abandoned": "Вы покинули матч",
+    "Opponent conceded": "Соперник сдался",
+    "You conceded": "Вы сдались",
+    Unscored: "Без результата",
+    Voided: "Аннулирован",
+    "Server problem, match voided": "Проблема сервера, матч аннулирован",
+    "An early exit left this match unscored": "Ранний выход оставил матч без результата",
+    "Didn't count toward calibration — the opponent abandoned": "Не засчитан в калибровку — соперник покинул матч",
+    "Didn't count — an early exit left the match unscored": "Не засчитан — ранний выход оставил матч без результата",
+    "Didn't count — the match was voided": "Не засчитан — матч аннулирован",
 };
