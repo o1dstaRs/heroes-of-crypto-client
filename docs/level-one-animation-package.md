@@ -1,0 +1,11 @@
+# Level-one animation release
+
+The approved renderer is selected by creature name in `RenderableUnit.fromBase`, including authoritative scene reconstruction. The general animation freeze only applies to other creatures. Never replace this dispatch with an editor-only flag.
+
+`game/core/src/animations/levelOneAtlases.ts` owns approved playback settings. `levelOneAssets.json` pins the WebP files; `battlefieldEnvironmentAssets.json` pins the locally approved burning/extinguished pit and five narrowing stages. Keep the relative paths under the configured `HOC_IMAGES_LOC` and `HOC_ANIMATIONS_LOC/output`. Source art remains outside Git.
+
+Run the normal common build, then `NODE_ENV=production bun run --cwd game/core build:test`. Both image generators validate/copy the pinned package. `build:skip` also validates installed file hashes and required generated image entries. Missing or stale files abort the release. CI may compile image stubs for code checks only; never deploy CI stub output.
+
+Update assets and their hash manifest together when approving a new revision. Upload files with their manifest-relative directory layout; do not flatten the authoring checkout. Deploy all hashed assets before switching index.html, retain the previous index and assets for rollback, and verify /play and battle routes from a fresh browser.
+
+Checks: LevelOnePackage.test covers every level-one creature after authoritative reconstruction, idle availability, walking frames, melee directions, ranged directions and casts where applicable. Existing legacy renderer tests exercise the unapproved renderer separately. DungeonVisuals and lava tests cover scene teardown, extinguishing and narrowing.

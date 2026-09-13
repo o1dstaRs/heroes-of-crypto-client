@@ -216,6 +216,8 @@ const spellAmounts = (unit: Unit): Record<string, number> =>
     Object.fromEntries(unit.getSpells().map((spell) => [spell.getName(), spell.getAmount()]));
 
 beforeEach(() => {
+    // This suite preserves the legacy renderer contract; LevelOnePackage.test covers its replacement.
+    CREATURE_SPRITE_ANIMATION_SETTINGS.approvedBaseEnabled = false;
     // Exercise authored playback in its dedicated tests. Production keeps the master switch off; the
     // frozen-state test below explicitly returns to that temporary runtime mode.
     CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = true;
@@ -223,6 +225,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+    CREATURE_SPRITE_ANIMATION_SETTINGS.approvedBaseEnabled = true;
     HoCLib.setDeterministicRandomSource(undefined);
     CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
     COMMON_IDLE_BREATH_SETTINGS.enabled = false;

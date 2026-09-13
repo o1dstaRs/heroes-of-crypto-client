@@ -36,6 +36,10 @@ const mode = process.argv[2] || "production";
 // development-mode bundle is ever genuinely wanted.
 process.env.NODE_ENV = process.env.HOC_BUILD_NODE_ENV || "production";
 
+// build:skip must not silently publish an old generated image map or incomplete animation checkout.
+const { verifyLevelOneBuildAssets } = await import("./verify_level_one_build_assets.ts");
+verifyLevelOneBuildAssets();
+
 const { build } = await import("vite");
 
 await build({ mode });

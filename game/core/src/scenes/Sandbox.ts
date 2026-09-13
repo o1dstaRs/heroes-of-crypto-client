@@ -1,3 +1,5 @@
+import { RenderableUnit as LevelOneRenderableUnit } from "./LevelOneRenderableUnit";
+import { usesAuthoredRangedRelease } from "../pixi/creatureAnimationSettings";
 import { Assets, Sprite, Graphics, Container, Texture, BlurFilter, RenderTexture, Text, TextStyle } from "pixi.js";
 import { PixiDrawer } from "../pixi/PixiDrawer";
 import {
@@ -162,7 +164,11 @@ import { createCinematicFilter } from "./sandbox/CinematicFilter";
 import { LightingLayer } from "./sandbox/LightingLayer";
 import { MoveAnimationManager } from "./sandbox/MoveAnimationManager";
 import { CombatVisuals } from "./sandbox/CombatVisuals";
-import { RangedProjectiles, BIG_PROJECTILE_UNITS } from "./sandbox/RangedProjectiles";
+import {
+    RangedProjectiles,
+    BIG_PROJECTILE_UNITS,
+    type IFireProjectileOptions,
+} from "./sandbox/BattleRangedProjectiles";
 import {
     projectBattlefieldPoint,
     projectedBattlefieldMetricsAtPoint,
@@ -4304,6 +4310,175 @@ export class Sandbox extends PixiScene {
             position: resolveRangeProjectilePlaybackPosition(impact, !!impactUnit, preActionVisualCenter),
         };
     }
+    private async waitForProjectileHitReaction(unit: RenderableUnit): Promise<boolean> {
+        const busy = (): boolean =>
+            ["hit", "attack", "attack_up", "attack_down"].some((state) => unit.isPlayingOneShotAnimation(state));
+        for (let frame = 0; frame < 300 && busy(); frame++) {
+            if (this.isSceneDestroyed()) return false;
+            await this.delayReplay(16);
+        }
+        return !this.isSceneDestroyed() && !busy() && !unit.isPlayingOneShotAnimation("death");
+    }
+    private async fireUnitProjectile(
+        sourceUnit: RenderableUnit,
+        opts: IFireProjectileOptions,
+        previewState?: string,
+    ): Promise<void> {
+        const unit = sourceUnit as unknown as LevelOneRenderableUnit;
+        const authoredShooter = usesAuthoredRangedRelease(unit.getName());
+        if (
+            !authoredShooter ||
+            (!opts.orcAxe && !opts.centaurSpear && !opts.arbalesterBolt && !opts.dryadArrow) ||
+            !unit.hasAnimationState("attack")
+        ) {
+            await this.rangedProjectiles.fire(opts);
+            return;
+        }
+        await this.rangedProjectiles.prepare(opts);
+        if (!(await this.waitForProjectileHitReaction(sourceUnit))) return;
+        const center = unit.getProjectileImpactPoint(this.sc_sceneSettings.getGridSettings());
+        const dy = opts.to.y - center.y;
+        const state =
+            previewState ??
+            (Math.abs(dy) < this.sc_sceneSettings.getGridSettings().getCellSize() * 0.35
+                ? "attack"
+                : dy > 0
+                  ? "attack_up"
+                  : "attack_down");
+        if (opts.dryadArrow && authoredShooter) {
+            await this.fireDryadLabProjectile(unit, opts, state);
+            return;
+        }
+        if (opts.arbalesterBolt && authoredShooter) {
+            await this.fireArbalesterLabProjectile(unit, opts, state);
+            return;
+        }
+        const centaurLabThrow = !!opts.centaurSpear && authoredShooter;
+        unit.setBoardFacing(opts.to.x - center.x);
+        let centaurReleaseOrigin: HoCMath.XY | undefined;
+        const released = await new Promise<boolean>((resolve) => {
+            let done = false;
+            let timeout: ReturnType<typeof globalThis.setTimeout> | undefined;
+            const settle = (value: boolean): void => {
+                if (done) return;
+                done = true;
+                this.clearSceneTimeout(timeout);
+                resolve(value);
+            };
+            timeout = this.scheduleSceneTimeout(
+                () => settle(false),
+                2000,
+                () => settle(false),
+            );
+            const release = (): void => {
+                if (centaurLabThrow)
+                    centaurReleaseOrigin = unit.getRangedProjectileOrigin(
+                        opts.to,
+                        this.sc_sceneSettings.getGridSettings(),
+                    );
+                settle(true);
+            };
+            const started = centaurLabThrow
+                ? unit.playCentaurLabRangedThrow(state, release, () => settle(false))
+                : unit.playOrcRangedThrow(state, release, () => settle(false));
+            if (!started) settle(false);
+        });
+        if (!released || this.isSceneDestroyed()) return;
+        try {
+            await this.rangedProjectiles.fire({
+                ...opts,
+                from:
+                    centaurReleaseOrigin ??
+                    unit.getRangedProjectileOrigin(opts.to, this.sc_sceneSettings.getGridSettings()),
+                orcAppearance: centaurLabThrow ? undefined : unit.getOrcProjectileAppearance(),
+            });
+        } finally {
+            if (!centaurLabThrow) unit.finishOrcRangedThrow();
+        }
+    }
+    private async fireDryadLabProjectile(
+        unit: LevelOneRenderableUnit,
+        opts: IFireProjectileOptions,
+        state: string,
+    ): Promise<void> {
+        const shot = unit.prepareDryadRangedShot();
+        if (!shot) return;
+        const timeout = this.scheduleSceneTimeout(
+            () => shot.abort(),
+            10000,
+            () => shot.abort(),
+        );
+        try {
+            const [atlas] = await Promise.all([
+                this.waitForTexture(unit.getAnimationTextureKey(state) ?? ""),
+                this.rangedProjectiles.prepare(opts),
+            ]);
+            if (!atlas) return;
+            if (shot.signal.aborted || this.isSceneDestroyed()) return;
+            const gs = this.sc_sceneSettings.getGridSettings();
+            unit.setBoardFacing(opts.to.x - unit.getVisualCenter(gs).x);
+            let arrowLength: number | undefined;
+            const origin = await new Promise<HoCMath.XY | undefined>((resolve) => {
+                const cancel = (): void => settle(undefined);
+                const settle = (point: HoCMath.XY | undefined): void => {
+                    shot.signal.removeEventListener("abort", cancel);
+                    resolve(point);
+                };
+                shot.signal.addEventListener("abort", cancel, { once: true });
+                if (
+                    !unit.playDryadRangedShot(state, shot, () => {
+                        arrowLength = unit.getDryadArrowLength();
+                        settle(unit.getRangedProjectileOrigin(opts.to, gs));
+                    })
+                )
+                    settle(undefined);
+            });
+            if (!origin || shot.signal.aborted || this.isSceneDestroyed()) return;
+            await this.rangedProjectiles.fire({ ...opts, from: origin, arrowLength, signal: shot.signal });
+        } finally {
+            this.clearSceneTimeout(timeout);
+            unit.finishDryadRangedShot(shot);
+        }
+    }
+    private async fireArbalesterLabProjectile(
+        unit: LevelOneRenderableUnit,
+        opts: IFireProjectileOptions,
+        state: string,
+    ): Promise<void> {
+        const shot = unit.prepareArbalesterRangedShot();
+        if (!shot) return;
+        const timeout = this.scheduleSceneTimeout(
+            () => shot.abort(),
+            10000,
+            () => shot.abort(),
+        );
+        try {
+            await this.rangedProjectiles.prepare(opts);
+            if (shot.signal.aborted || this.isSceneDestroyed()) return;
+            const gs = this.sc_sceneSettings.getGridSettings();
+            unit.setBoardFacing(opts.to.x - unit.getVisualCenter(gs).x);
+            const origin = await new Promise<HoCMath.XY | undefined>((resolve) => {
+                const cancel = (): void => settle(undefined);
+                const settle = (point: HoCMath.XY | undefined): void => {
+                    shot.signal.removeEventListener("abort", cancel);
+                    resolve(point);
+                };
+                shot.signal.addEventListener("abort", cancel, { once: true });
+                if (
+                    !unit.playArbalesterRangedShot(state, shot, () =>
+                        settle(unit.getRangedProjectileOrigin(opts.to, gs)),
+                    )
+                ) {
+                    settle(undefined);
+                }
+            });
+            if (!origin || shot.signal.aborted || this.isSceneDestroyed()) return;
+            await this.rangedProjectiles.fire({ ...opts, from: origin, signal: shot.signal });
+        } finally {
+            this.clearSceneTimeout(timeout);
+            unit.finishArbalesterRangedShot(shot);
+        }
+    }
     private async playReplayProjectile(
         attacker: RenderableUnit,
         target: RenderableUnit,
@@ -4317,7 +4492,7 @@ export class Sandbox extends PixiScene {
         const bigProjectile = BIG_PROJECTILE_UNITS.has(attacker.getName().toLowerCase());
         // Ranked replays the shot from the authoritative record, so the chakram must be thrown here too —
         // otherwise Zena's disc only spins for the acting player and everyone else sees a plain bolt.
-        await this.rangedProjectiles.fire({
+        await this.fireUnitProjectile(attacker, {
             from: muzzle,
             to: targetPosition,
             big: bigProjectile,
@@ -4325,7 +4500,7 @@ export class Sandbox extends PixiScene {
             orcAxe: attacker.getName().trim().toLowerCase() === "orc",
             arbalesterBolt: attacker.getName().trim().toLowerCase() === "arbalester",
             centaurSpear: attacker.getName().trim().toLowerCase() === "centaur",
-            dryadDart: attacker.getName().trim().toLowerCase() === "dryad",
+            dryadArrow: attacker.getName().trim().toLowerCase() === "dryad",
             beholderEye: attacker.getName().trim().toLowerCase() === "beholder",
             elfArrow: attacker.getName().trim().toLowerCase() === "elf",
             medusaSerpent: attacker.getName().trim().toLowerCase() === "medusa",
@@ -4423,6 +4598,10 @@ export class Sandbox extends PixiScene {
         timeoutMs: number,
         melee = false,
     ): Promise<void> {
+        if (!melee && usesAuthoredRangedRelease(attacker.getName())) {
+            this.prepareDirectionalAttackState(attacker, target, false);
+            return Promise.resolve();
+        }
         return this.playReplayOneShot(attacker, this.prepareDirectionalAttackState(attacker, target, melee), timeoutMs);
     }
     /**
@@ -9240,14 +9419,14 @@ export class Sandbox extends PixiScene {
         const big = BIG_PROJECTILE_UNITS.has(unit.getName().toLowerCase());
         const unitName = unit.getName().trim().toLowerCase();
         for (let shotIndex = 0; shotIndex < worldPositions.length; shotIndex += 1) {
-            await this.rangedProjectiles.fire({
+            await this.fireUnitProjectile(unit, {
                 from: unit.getRangedProjectileOrigin(worldPositions[shotIndex], gsAnim),
                 to: worldPositions[shotIndex],
                 big,
                 orcAxe: unitName === "orc",
                 arbalesterBolt: unitName === "arbalester",
                 centaurSpear: unitName === "centaur",
-                dryadDart: unitName === "dryad",
+                dryadArrow: unitName === "dryad",
                 beholderEye: unitName === "beholder",
                 elfArrow: unitName === "elf",
                 medusaSerpent: unitName === "medusa",
@@ -10715,7 +10894,7 @@ export class Sandbox extends PixiScene {
             const bigProjectile = BIG_PROJECTILE_UNITS.has(attacker.getName().toLowerCase());
             // ABILITY Chakram (Zena): throw the spinning disc instead of a bolt. Gated on the ABILITY, not
             // the creature name, so a stolen/granted Chakram throws one too — and a Broken one does not.
-            await this.rangedProjectiles.fire({
+            await this.fireUnitProjectile(attacker, {
                 from: muzzle,
                 to: shotTarget,
                 big: bigProjectile,
@@ -10723,7 +10902,7 @@ export class Sandbox extends PixiScene {
                 orcAxe: attacker.getName().trim().toLowerCase() === "orc",
                 arbalesterBolt: attacker.getName().trim().toLowerCase() === "arbalester",
                 centaurSpear: attacker.getName().trim().toLowerCase() === "centaur",
-                dryadDart: attacker.getName().trim().toLowerCase() === "dryad",
+                dryadArrow: attacker.getName().trim().toLowerCase() === "dryad",
                 beholderEye: attacker.getName().trim().toLowerCase() === "beholder",
                 elfArrow: attacker.getName().trim().toLowerCase() === "elf",
                 medusaSerpent: attacker.getName().trim().toLowerCase() === "medusa",
@@ -10779,14 +10958,15 @@ export class Sandbox extends PixiScene {
                         ? (this.unitsHolder.getAllUnits().get(liveResponseAnimation.affectedUnitId) as
                               RenderableUnit | undefined)
                         : undefined) ?? attacker;
-                target.playOneShotAnimation(this.prepareDirectionalAttackState(target, liveResponseVictim, false));
+                if (!usesAuthoredRangedRelease(target.getName()))
+                    target.playOneShotAnimation(this.prepareDirectionalAttackState(target, liveResponseVictim, false));
                 // Retaliation has no live cursor-owned edge: always land it at the figure's visual center.
                 const responseTarget = liveResponseVictim.getVisualCenter(gs);
                 const responseMuzzle = target.getRangedProjectileOrigin(responseTarget, gs);
                 const bigResponse = BIG_PROJECTILE_UNITS.has(target.getName().toLowerCase());
                 // The RESPONDER throws its own weapon: a counter-shooting Zena sends the chakram back, not a
                 // bolt. Gated on the responder's ability, mirroring the outgoing shot.
-                void this.rangedProjectiles.fire({
+                void this.fireUnitProjectile(target, {
                     from: responseMuzzle,
                     to: responseTarget,
                     big: bigResponse,
@@ -10794,7 +10974,7 @@ export class Sandbox extends PixiScene {
                     orcAxe: target.getName().trim().toLowerCase() === "orc",
                     arbalesterBolt: target.getName().trim().toLowerCase() === "arbalester",
                     centaurSpear: target.getName().trim().toLowerCase() === "centaur",
-                    dryadDart: target.getName().trim().toLowerCase() === "dryad",
+                    dryadArrow: target.getName().trim().toLowerCase() === "dryad",
                     beholderEye: target.getName().trim().toLowerCase() === "beholder",
                     elfArrow: target.getName().trim().toLowerCase() === "elf",
                     medusaSerpent: target.getName().trim().toLowerCase() === "medusa",

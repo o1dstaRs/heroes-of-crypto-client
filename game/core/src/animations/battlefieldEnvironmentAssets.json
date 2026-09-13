@@ -1,0 +1,116 @@
+[
+    {
+        "key": "background_stone_tiles_sinister_16x16_first_ring_destroyed_aaa_v3",
+        "kind": "image",
+        "path": "background_stone_tiles_sinister_16x16_first_ring_destroyed_aaa_v3.webp",
+        "sha256": "cc8ad326c779e38993fe90e958c95fca6209efcf4f69d6f6a20596cdecc9c8b5"
+    },
+    {
+        "key": "background_stone_tiles_sinister_16x16_five_rings_destroyed_aaa_v4",
+        "kind": "image",
+        "path": "background_stone_tiles_sinister_16x16_five_rings_destroyed_aaa_v4.webp",
+        "sha256": "7753c3672ddb05f38588ce27976b08f1f0ded343a704c66b83d4df06616df7ba"
+    },
+    {
+        "key": "background_stone_tiles_sinister_16x16_four_rings_destroyed_aaa_v7",
+        "kind": "image",
+        "path": "background_stone_tiles_sinister_16x16_four_rings_destroyed_aaa_v7.webp",
+        "sha256": "38b11ebf0547a1fe21d98fce0bc286cc8258d47e00122ca95551d9f7185e48e2"
+    },
+    {
+        "key": "background_stone_tiles_sinister_16x16_original_restored",
+        "kind": "image",
+        "path": "background_stone_tiles_sinister_16x16_original_restored.webp",
+        "sha256": "b288c27af5c723482f1650a7e2c0f990a0cc3d2133364e9c2e7a60c01184c2ac"
+    },
+    {
+        "key": "background_stone_tiles_sinister_16x16_three_rings_destroyed_aaa_v3",
+        "kind": "image",
+        "path": "background_stone_tiles_sinister_16x16_three_rings_destroyed_aaa_v3.webp",
+        "sha256": "7eaf726759fdcc1c9c240cab9cf33140416634d0118949d9b7eea4bb42a0a0d7"
+    },
+    {
+        "key": "background_stone_tiles_sinister_16x16_two_rings_destroyed_aaa_v7",
+        "kind": "image",
+        "path": "background_stone_tiles_sinister_16x16_two_rings_destroyed_aaa_v7.webp",
+        "sha256": "417dd32f01db743a30fddb4e71ffa0709414665df20cf4dfffd185f9d2351ca0"
+    },
+    {
+        "key": "fire_pit_dark_bowl_v1_512",
+        "kind": "image",
+        "path": "fire_pit_dark_bowl_v1_512.webp",
+        "sha256": "36dec923ca79e02387966d2e717e64d4d6147e71de0237fb9328c5a4b857d6e9"
+    },
+    {
+        "key": "fire_pit_extinguished_deep_background_v16_512",
+        "kind": "image",
+        "path": "fire_pit_extinguished_deep_background_v16_512.webp",
+        "sha256": "fcdf0091d63a2dca7e42f605a11d521ae7216cffb419c1696cff8c4555fa475e"
+    },
+    {
+        "key": "fire_pit_grate_burning_charred_v18_512",
+        "kind": "image",
+        "path": "fire_pit_grate_burning_charred_v18_512.webp",
+        "sha256": "4f1e3d3176134998434a8f7b0f7d6817d570d70d9fc96b74f54c5c723d5ea802"
+    },
+    {
+        "key": "fire_pit_grate_burning_exact_v17_512",
+        "kind": "image",
+        "path": "fire_pit_grate_burning_exact_v17_512.webp",
+        "sha256": "4a0b37c7fe5a693088e0d7ec15ca906adb59bfa75a679671028d48510a32de68"
+    },
+    {
+        "key": "fire_pit_grid_map_palette_v8_512",
+        "kind": "image",
+        "path": "fire_pit_grid_map_palette_v8_512.webp",
+        "sha256": "ba71c265df70fdd4d633603b90e588087a5e9c1f10cc39f9923a485822f3757e"
+    },
+    {
+        "key": "fire_pit_grok_video_fire_actual_extent_v4_64_atlas",
+        "kind": "image",
+        "path": "fire_pit_grok_video_fire_actual_extent_v4_64_atlas.webp",
+        "sha256": "3fc95e6655e13d8a36e935c8b78b2569ecdda3ee4ee634c657e35bb2bd8d9c2f"
+    },
+    {
+        "key": "fire_pit_grok_video_fire_over_v2_64_atlas",
+        "kind": "image",
+        "path": "fire_pit_grok_video_fire_over_v2_64_atlas.webp",
+        "sha256": "a69063ddb90b17df2800b93d65dee5a332ebb7413ffa73a3302cb03d9551a22b"
+    },
+    {
+        "key": "fire_pit_grok_video_fire_under_v2_64_atlas",
+        "kind": "image",
+        "path": "fire_pit_grok_video_fire_under_v2_64_atlas.webp",
+        "sha256": "6bf6c41d8c5a3eae86b6ac4a3674ee3bc39cdb98389ae7d62a1e89f63aebf673"
+    },
+    {
+        "key": "lava_chasm_glow_narrowing_level_1_atlas",
+        "kind": "animation",
+        "path": "environment/lava_chasm_glow/level_1/atlas/lava_chasm_glow_narrowing_level_1_atlas.webp",
+        "sha256": "ce8a18f75569f6e5f1dbc42d7a14c70587cab48d27102777a08de9a4e3792698"
+    },
+    {
+        "key": "lava_chasm_glow_narrowing_level_2_atlas",
+        "kind": "animation",
+        "path": "environment/lava_chasm_glow/level_2/atlas/lava_chasm_glow_narrowing_level_2_atlas.webp",
+        "sha256": "3ffd766e69b8b5ccd24b93757d606f27eafbbc3a9652686251c9e1afe5e8682d"
+    },
+    {
+        "key": "lava_chasm_glow_narrowing_level_3_atlas",
+        "kind": "animation",
+        "path": "environment/lava_chasm_glow/level_3/atlas/lava_chasm_glow_narrowing_level_3_atlas.webp",
+        "sha256": "7dc4b941fdd392547ebfcfae5a42ec5fa5b73ad9de554f5a4096acec016877cf"
+    },
+    {
+        "key": "lava_chasm_glow_narrowing_level_4_atlas",
+        "kind": "animation",
+        "path": "environment/lava_chasm_glow/level_4/atlas/lava_chasm_glow_narrowing_level_4_atlas.webp",
+        "sha256": "3507c39ac4104192af5c69c1f20262d9ea168a989028db1f048d5a431c212472"
+    },
+    {
+        "key": "lava_chasm_glow_narrowing_level_5_atlas",
+        "kind": "animation",
+        "path": "environment/lava_chasm_glow/level_5/atlas/lava_chasm_glow_narrowing_level_5_atlas.webp",
+        "sha256": "a901926611eebf06e49faaf14157ce61fe181fdd9d446be0a0c115fb0ddc5add"
+    }
+]

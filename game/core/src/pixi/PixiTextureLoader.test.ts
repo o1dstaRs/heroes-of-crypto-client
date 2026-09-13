@@ -23,6 +23,7 @@ import {
     unloadRosterAssets,
 } from "./PixiTextureLoader";
 import { isUnitAnimationAtlasKey } from "./unitAtlasKeys";
+import { shouldPreloadUnitAnimationAtlas } from "./creatureAnimationSettings";
 
 // The board renders every creature's PERMANENT art from its idle/default atlas. If those keys ride
 // in the big Tier-2b animation bundle, a fresh-cache load shows the old static tokens until hundreds
@@ -174,13 +175,17 @@ describe("pixi texture bundle split", () => {
         expect(idleCount).toBeLessThan(animationCount);
     });
 
-    test("defers frozen creature animations while preserving the approved Peasant idle and walk", () => {
+    test("preloads approved level-one motion while deferring unapproved animations", () => {
         const { idleAtlases, animations, deferredUnitAtlases } = getSplitBundles({ animationsEnabled: false });
 
-        expect(Object.keys(idleAtlases)).toEqual(["peasant_idle_red_atlas_quarter"]);
-        expect(Object.keys(animations)).toEqual(["peasant_walk_atlas_quarter"]);
-        expect(deferredUnitAtlases.wolf_idle_atlas_quarter).toBeDefined();
-        expect(deferredUnitAtlases.wolf_attack_atlas_quarter).toBeDefined();
+        expect(idleAtlases.peasant_idle_red_atlas_quarter).toBeDefined();
+        expect(animations.peasant_walk_atlas_quarter).toBeDefined();
+        expect(idleAtlases.wolf_idle_atlas_half).toBeDefined();
+        expect(animations.wolf_attack_atlas_half).toBeDefined();
+        for (const key of [...Object.keys(idleAtlases), ...Object.keys(animations)]) {
+            expect(shouldPreloadUnitAnimationAtlas(key, false), key).toBe(true);
+        }
+        expect(deferredUnitAtlases.wolf_attack_atlas_half).toBeUndefined();
     });
 
     test("leaves React-only draft and portrait art out of Pixi's texture cache", () => {

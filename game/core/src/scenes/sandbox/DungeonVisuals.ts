@@ -923,24 +923,19 @@ export class DungeonVisuals {
     private static readonly FIRE_PIT_EXTINGUISHED_KEY = "fire_pit_extinguished_deep_background_v16_512";
     private static readonly FIRE_PIT_EXTINGUISHED_GRATE_KEY = "fire_pit_grate_burning_charred_v18_512";
     private static readonly FIRE_PIT_EDITOR_BOWL_KEY = "fire_pit_dark_bowl_v1_512";
-    private static readonly FIRE_PIT_EDITOR_GRATE_KEY = "fire_pit_grate_burning_clean_v19_512";
+    private static readonly FIRE_PIT_EDITOR_GRATE_KEY = "fire_pit_grate_burning_exact_v17_512";
     private static readonly FIRE_PIT_VIDEO_LOOP = true;
-    private static readonly FIRE_PIT_ANIM_KEY = "fire_pit_grok_video_fire_only_v11_64_atlas";
-    private static readonly FIRE_PIT_EDITOR_ANIM_KEY = "fire_pit_grok_video_fire_only_v11_64_atlas";
-    private static readonly FIRE_PIT_CENTER_ANIM_KEY = "fire_pit_grok_video_center_fire_only_v15_64_atlas";
-    private static readonly FIRE_PIT_OVER_ANIM_KEY = "fire_pit_grok_video_marked_corner_patch_v25_64_atlas";
-    private static readonly USE_MARKED_CORNER_PATCH = false;
-    private static readonly FIRE_PIT_SPILL_ANIM_KEY = "fire_pit_grok_video_bottom_glow_ring_soft_smooth_v13_64_atlas";
+    private static readonly FIRE_PIT_ANIM_KEY = "fire_pit_grok_video_fire_under_v2_64_atlas";
+    private static readonly FIRE_PIT_EDITOR_ANIM_KEY = "fire_pit_grok_video_fire_under_v2_64_atlas";
+    private static readonly FIRE_PIT_OVER_ANIM_KEY = "fire_pit_grok_video_fire_over_v2_64_atlas";
+    private static readonly FIRE_PIT_SPILL_ANIM_KEY = "fire_pit_grok_video_fire_actual_extent_v4_64_atlas";
     private static readonly FIRE_PIT_ANIM_FRAME_PX = 512;
     private static readonly FIRE_PIT_ANIM_COLS = 8;
     private static readonly FIRE_PIT_ANIM_FRAMES = 64;
-    private static readonly FIRE_PIT_CENTER_ANIM_FRAME_PX = 256;
-    /** Keep the outer glow inside the narrow dark seam immediately around the forged frame. */
-    private static readonly FIRE_PIT_GLOW_REACH_CELLS = 0.05;
-    /** Slightly overlap the central reinforcement into its neighbours so it has no rectangular cut line. */
-    private static readonly FIRE_PIT_CENTER_REINFORCEMENT_HALF_SCALE = 0.49;
-    private static readonly FIRE_PIT_CENTER_PRIMARY_ALPHA = 0.78;
-    private static readonly FIRE_PIT_CENTER_SECONDARY_ALPHA = 0.78;
+    /** Central atlas crops cover half of the full pit width and height. */
+    private static readonly FIRE_PIT_CENTER_REINFORCEMENT_HALF_SCALE = 0.5;
+    private static readonly FIRE_PIT_CENTER_PRIMARY_ALPHA = 0.86;
+    private static readonly FIRE_PIT_CENTER_SECONDARY_ALPHA = 0.55;
     private lavaAnimFrames?: Texture[];
     private firePitOverlayFrames?: Texture[];
     private firePitOverlayAtlas?: Texture;
@@ -953,8 +948,6 @@ export class DungeonVisuals {
     private firePitSpillAtlas?: Texture;
     private firePitSpillLoadStarted = false;
     private firePitCenterFrames?: Texture[];
-    private firePitCenterAtlas?: Texture;
-    private firePitCenterLoadStarted = false;
     private firePitCenterFramesB?: Texture[];
     public constructor(context: IDungeonVisualsContext) {
         this.context = context;
@@ -1234,46 +1227,34 @@ export class DungeonVisuals {
         const rawFrame = lavaAnimationFrameAtTime(tuning, (performance.now() / 1000) * speed);
         return this.firePitOverlayFrames[(rawFrame + frameOffset) % DungeonVisuals.FIRE_PIT_ANIM_FRAMES];
     }
-    /** Dedicated transparent centre fire, synchronized one-for-one with the main 64-frame loop. */
-    private firePitCenterTexture(): Texture | undefined {
-        if (!this.firePitCenterFrames) {
-            const atlasUrl = (images as Readonly<Record<string, string | undefined>>)[
-                DungeonVisuals.FIRE_PIT_CENTER_ANIM_KEY
-            ];
-            if (!this.firePitCenterAtlas) {
-                if (!this.firePitCenterLoadStarted && atlasUrl) {
-                    this.firePitCenterLoadStarted = true;
-                    void Assets.load<Texture>(atlasUrl)
-                        .then((loaded) => {
-                            this.firePitCenterAtlas = loaded;
-                            this.ensureCenterTerrainSprite();
-                        })
-                        .catch(() => {
-                            this.firePitCenterLoadStarted = false;
-                        });
-                }
-                return undefined;
-            }
-            const side = DungeonVisuals.FIRE_PIT_CENTER_ANIM_FRAME_PX;
-            this.firePitCenterFrames = Array.from(
+    /** Two phase-offset crops reproduce the test server's central flame density. */
+    private firePitCenterTexture(layer: 1 | 2 = 1): Texture | undefined {
+        if (!this.firePitOverlayAtlas || !this.firePitOverlayFrames) return undefined;
+        if (!(layer === 1 ? this.firePitCenterFrames : this.firePitCenterFramesB)) {
+            const side = DungeonVisuals.FIRE_PIT_ANIM_FRAME_PX;
+            const half = side / 2;
+            const frames = Array.from(
                 { length: DungeonVisuals.FIRE_PIT_ANIM_FRAMES },
                 (_, index) =>
                     new Texture({
-                        source: this.firePitCenterAtlas!.source,
+                        source: this.firePitOverlayAtlas!.source,
                         frame: new Rectangle(
-                            (index % DungeonVisuals.FIRE_PIT_ANIM_COLS) * side,
-                            Math.floor(index / DungeonVisuals.FIRE_PIT_ANIM_COLS) * side,
-                            side,
-                            side,
+                            (index % DungeonVisuals.FIRE_PIT_ANIM_COLS) * side + (layer === 1 ? 0 : half),
+                            Math.floor(index / DungeonVisuals.FIRE_PIT_ANIM_COLS) * side + side / 4,
+                            half,
+                            half,
                         ),
                     }),
             );
+            if (layer === 1) this.firePitCenterFrames = frames;
+            else this.firePitCenterFramesB = frames;
         }
-        const tuning = resolveLavaAnimationTuning();
-        const rawFrame = lavaAnimationFrameAtTime(tuning, performance.now() / 1000);
-        return this.firePitCenterFrames[rawFrame % DungeonVisuals.FIRE_PIT_ANIM_FRAMES];
+        const frame = lavaAnimationFrameAtTime(resolveLavaAnimationTuning(), performance.now() / 1000);
+        return (layer === 1 ? this.firePitCenterFrames : this.firePitCenterFramesB)?.[
+            (frame + (layer === 1 ? 17 : 43)) % DungeonVisuals.FIRE_PIT_ANIM_FRAMES
+        ];
     }
-    /** Targeted corner patches phase-locked to the unchanged V11 fire atlas. */
+    /** Flames crossing the grate, synchronized with the under-fire loop. */
     private firePitOverTexture(): Texture | undefined {
         if (!this.firePitOverFrames) {
             const atlasUrl = (images as Readonly<Record<string, string | undefined>>)[
@@ -1469,7 +1450,7 @@ export class DungeonVisuals {
             fireCenterTargetB.filters = [this.lavaFireColorFilter];
         }
         if (fireOverTarget) {
-            fireOverTarget.alpha = Math.min(1, tuning.fireAlpha);
+            fireOverTarget.alpha = Math.min(1, tuning.fireAlpha * tuning.fireOverAlpha);
             fireOverTarget.filters = [this.lavaFireColorFilter];
         }
         if (fireSpillTarget) {
@@ -2247,19 +2228,13 @@ export class DungeonVisuals {
             return;
         }
 
-        // The burning pit is deliberately composed as background -> animated fire -> grate. Keeping the grate
-        // in its own topmost mesh lets the flames move freely without ever washing out the seam-aligned bars.
-        const loadedFireOverlay = animateLavaPit ? this.firePitOverlayTexture() : undefined;
-        // The retired centre booster contains a mirrored circular highlight and a horizontal source seam.
-        // The approved main loop already carries continuous centre fire, so keeping the booster disabled avoids
-        // the translucent rectangular "obstacle" without changing the surrounding flame animation.
-        const loadedFireCenter: Texture | undefined = undefined;
-        const loadedFireCenterB: Texture | undefined = undefined;
-        // Restore the original V11 loop exactly as it looked before the marked-corner cleanup began.
-        // Keep the experimental sparse patch asset available for comparison, but do not render it.
-        const loadedFireOver =
-            animateLavaPit && DungeonVisuals.USE_MARKED_CORNER_PATCH ? this.firePitOverTexture() : undefined;
-        const loadedFireSpill = animateLavaPit ? this.firePitSpillTexture() : undefined;
+        // Match the test build: under-fire, central crops, grate, and foreground flames.
+        const fireEnabled = animateLavaPit && resolveLavaAnimationTuning().fireEnabled;
+        const loadedFireOverlay = fireEnabled ? this.firePitOverlayTexture() : undefined;
+        const loadedFireCenter = fireEnabled ? this.firePitCenterTexture() : undefined;
+        const loadedFireCenterB = fireEnabled ? this.firePitCenterTexture(2) : undefined;
+        const loadedFireOver = fireEnabled ? this.firePitOverTexture() : undefined;
+        const loadedFireSpill = fireEnabled ? this.firePitSpillTexture() : undefined;
         // The previous stacked fire copies are intentionally retired. One coherent field now burns beneath the
         // single grate instead of several unrelated miniature layers with different alpha edges.
         const loadedFireOverlayB: Texture | undefined = undefined;
@@ -2489,8 +2464,8 @@ export class DungeonVisuals {
                 if (this.lavaFireOverMesh.parent !== this.lavaPitForegroundContainer) {
                     this.lavaPitForegroundContainer.addChild(this.lavaFireOverMesh);
                 }
-                // The patch repairs fire below the immutable forged grate; it must never paint over the bars.
-                this.lavaFireOverMesh.zIndex = 2;
+                // Match the test furnace: foreground flame tips cross the forged grate.
+                this.lavaFireOverMesh.zIndex = 200;
                 this.lavaPitForegroundContainer.sortChildren();
             } else if (this.lavaFireOverMesh) {
                 this.lavaFireOverMesh.visible = false;
@@ -2510,8 +2485,8 @@ export class DungeonVisuals {
                 if (this.lavaFireSpillMesh.parent !== this.lavaPitForegroundContainer) {
                     this.lavaPitForegroundContainer.addChild(this.lavaFireSpillMesh);
                 }
-                // The glow belongs behind the forged frame; only real flame tips may render above it.
-                this.lavaFireSpillMesh.zIndex = 90;
+                // Full-extent flame tips spill outside and in front of the grate, as in the test build.
+                this.lavaFireSpillMesh.zIndex = 201;
                 this.lavaPitForegroundContainer.sortChildren();
             } else if (this.lavaFireSpillMesh) {
                 this.lavaFireSpillMesh.visible = false;
@@ -2598,9 +2573,9 @@ export class DungeonVisuals {
             }
             const fireHalfWidth = halfWidth * tuning.fireScaleX;
             const fireHalfHeight = halfHeight * tuning.fireScaleY;
-            const spillScale = (4 + DungeonVisuals.FIRE_PIT_GLOW_REACH_CELLS * 2) / 4;
-            const fireDisplayHalfWidth = fireHalfWidth * spillScale;
-            const fireDisplayHalfHeight = fireHalfHeight * spillScale;
+            // The spill atlas includes the full source image around the cropped furnace.
+            const fireDisplayHalfWidth = fireHalfWidth * (544 / 340);
+            const fireDisplayHalfHeight = fireHalfHeight * (560 / 270);
             const fireTopLeft = projectBattlefieldPoint(
                 {
                     x: fireLogicalTarget.x - fireHalfWidth,
@@ -2695,31 +2670,35 @@ export class DungeonVisuals {
                 this.lavaFireOverMesh.visible = true;
             }
             if (this.lavaFireSpillMesh && fireSpill) {
+                const spillLogicalTarget = {
+                    x: fireLogicalTarget.x + (544 / 2 - (98 + 340 / 2)) * ((fireHalfWidth * 2) / 340),
+                    y: fireLogicalTarget.y - (560 / 2 - (137 + 270 / 2)) * ((fireHalfHeight * 2) / 270),
+                };
                 const spillTopLeft = projectBattlefieldPoint(
                     {
-                        x: fireLogicalTarget.x - fireDisplayHalfWidth,
-                        y: fireLogicalTarget.y + fireDisplayHalfHeight,
+                        x: spillLogicalTarget.x - fireDisplayHalfWidth,
+                        y: spillLogicalTarget.y + fireDisplayHalfHeight,
                     },
                     gs,
                 );
                 const spillTopRight = projectBattlefieldPoint(
                     {
-                        x: fireLogicalTarget.x + fireDisplayHalfWidth,
-                        y: fireLogicalTarget.y + fireDisplayHalfHeight,
+                        x: spillLogicalTarget.x + fireDisplayHalfWidth,
+                        y: spillLogicalTarget.y + fireDisplayHalfHeight,
                     },
                     gs,
                 );
                 const spillBottomRight = projectBattlefieldPoint(
                     {
-                        x: fireLogicalTarget.x + fireDisplayHalfWidth,
-                        y: fireLogicalTarget.y - fireDisplayHalfHeight,
+                        x: spillLogicalTarget.x + fireDisplayHalfWidth,
+                        y: spillLogicalTarget.y - fireDisplayHalfHeight,
                     },
                     gs,
                 );
                 const spillBottomLeft = projectBattlefieldPoint(
                     {
-                        x: fireLogicalTarget.x - fireDisplayHalfWidth,
-                        y: fireLogicalTarget.y - fireDisplayHalfHeight,
+                        x: spillLogicalTarget.x - fireDisplayHalfWidth,
+                        y: spillLogicalTarget.y - fireDisplayHalfHeight,
                     },
                     gs,
                 );
@@ -2840,17 +2819,7 @@ export class DungeonVisuals {
                 );
                 this.lavaFireOverlayMeshD.visible = true;
             }
-            if (fireOverlay && DungeonVisuals.FIRE_PIT_VIDEO_LOOP) {
-                this.updateVideoFireBoundsMask([topLeft, topRight, bottomRight, bottomLeft]);
-                if (this.lavaFireOverlayMesh) this.lavaFireOverlayMesh.mask = this.lavaFireMask ?? null;
-                if (this.lavaFireCenterMesh) this.lavaFireCenterMesh.mask = this.lavaFireMask ?? null;
-                if (this.lavaFireCenterMeshB) this.lavaFireCenterMeshB.mask = this.lavaFireMask ?? null;
-                if (this.lavaFireOverlayMeshB) this.lavaFireOverlayMeshB.mask = this.lavaFireMask ?? null;
-                if (this.lavaFireOverlayMeshC) this.lavaFireOverlayMeshC.mask = this.lavaFireMask ?? null;
-                if (this.lavaFireOverlayMeshD) this.lavaFireOverlayMeshD.mask = this.lavaFireMask ?? null;
-                if (this.lavaFireOverMesh) this.lavaFireOverMesh.mask = this.lavaFireMask ?? null;
-                if (this.lavaFireSpillMesh) this.lavaFireSpillMesh.mask = null;
-            } else if (fireOverlay && !DungeonVisuals.FIRE_PIT_VIDEO_LOOP) {
+            if (fireOverlay && !DungeonVisuals.FIRE_PIT_VIDEO_LOOP) {
                 this.updateLavaFireMask(tuning, gs, logicalTarget, cellSize);
                 if (this.lavaFireOverlayMesh) this.lavaFireOverlayMesh.mask = this.lavaFireMask ?? null;
                 if (this.lavaFireOverlayMeshB) this.lavaFireOverlayMeshB.mask = this.lavaFireMask ?? null;
@@ -3493,7 +3462,9 @@ export class DungeonVisuals {
             this.chasmGlowLayer = layer;
         }
 
-        const atlasKey = lavaChasmGlowAtlasKeyForBackground(this.backgroundKey());
+        // Use the painting actually installed on the sprite, including its loading fallback.
+        // The requested narrowing stage may still be decoding while its glow is already cached.
+        const atlasKey = lavaChasmGlowAtlasKeyForBackground(this.backgroundTextureKey ?? "");
         if (!atlasKey) {
             if (this.chasmGlowSprite) this.chasmGlowSprite.visible = false;
             this.activeChasmGlowAtlasKey = undefined;
@@ -4005,7 +3976,10 @@ export class DungeonVisuals {
             this.chasmGlowSprite.position.set(layout.x, layout.y);
             this.chasmGlowSprite.width = layout.width;
             this.chasmGlowSprite.height = layout.height;
-            this.chasmGlowSprite.visible = !this.useLegacyBackground && !!this.activeChasmGlowAtlasKey;
+            this.chasmGlowSprite.visible =
+                !this.useLegacyBackground &&
+                !!this.activeChasmGlowAtlasKey &&
+                this.activeChasmGlowAtlasKey === lavaChasmGlowAtlasKeyForBackground(this.backgroundTextureKey ?? "");
         }
 
         // The floor halo around the pit is intentionally disabled. Fire may illuminate the recessed
@@ -4127,8 +4101,6 @@ export class DungeonVisuals {
         this.firePitOverlayAtlasKey = undefined;
         this.firePitOverlayLoadStarted = false;
         this.firePitCenterFrames = undefined;
-        this.firePitCenterAtlas = undefined;
-        this.firePitCenterLoadStarted = false;
         this.firePitCenterFramesB = undefined;
         this.firePitOverFrames = undefined;
         this.firePitOverAtlas = undefined;

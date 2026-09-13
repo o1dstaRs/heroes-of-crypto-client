@@ -31,6 +31,10 @@ const scanImageKeys = (directory) => {
     }
 };
 scanImageKeys(sourceDir);
+for (const { key } of require("../src/animations/battlefieldEnvironmentAssets.json")) imageKeys.add(key);
+for (const { key } of require("../src/animations/levelOneAssets.json")) imageKeys.add(key);
+for (const key of Object.values(require("../src/pixi/battlefieldTextureKeys.ts").FINAL_STATIC_BATTLEFIELD_TEXTURES))
+    imageKeys.add(key);
 for (const key of [
     "chaos_portrait_bg_obsidian_fissure_corner_fire_v1",
     "life_portrait_bg_golden_dawn_four_corner_haze_v1",
@@ -138,7 +142,15 @@ const knownImageKeys = fs.existsSync(path.join(generatedDir, "image_keys.json"))
       // using it verbatim keeps CI's enumerable manifest (and every bundle-split bucket size)
       // identical to local runs. The scans and derivations above remain the fallback when a
       // checkout somehow lacks the catalog, approximating it from source instead.
-      JSON.parse(fs.readFileSync(path.join(generatedDir, "image_keys.json"), "utf8"))
+      [
+          ...new Set([
+              ...JSON.parse(fs.readFileSync(path.join(generatedDir, "image_keys.json"), "utf8")),
+              ...require("../src/animations/levelOneAssets.json").map((asset) => asset.key),
+              ...require("../src/animations/battlefieldEnvironmentAssets.json").map((asset) => asset.key),
+              ...Object.values(require("../src/pixi/battlefieldTextureKeys.ts").FINAL_STATIC_BATTLEFIELD_TEXTURES),
+              ...require("../src/pixi/creaturePortraitAssetKeys.ts").CREATURE_PORTRAIT_ASSET_KEYS,
+          ]),
+      ].sort()
     : [...imageKeys].sort();
 
 const imageImportsStub = `/* CI stub — replaced locally by scripts/generate_image_imports.js */

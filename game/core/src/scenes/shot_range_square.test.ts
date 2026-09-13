@@ -78,7 +78,7 @@ const drawRange = (
 ) => {
     const recorded = recorder();
     const context = {
-        fightProps: { hasFightStarted: () => true },
+        fightProps: { hasFightStarted: () => true, getLapsNarrowed: () => 0 },
         currentActiveShotRange: {
             xy: cellCenter(cell),
             distance: GridMath.getFullDamageSquareHalfExtent(shotDistance, footprintWidth, GridConstants.STEP),
@@ -149,7 +149,7 @@ describe("the full-damage shot square", () => {
         };
         const recorded = recorder();
         const context = {
-            fightProps: { hasFightStarted: () => true },
+            fightProps: { hasFightStarted: () => true, getLapsNarrowed: () => 0 },
             currentActiveShotRange: { ...range, color: ALLY_HOVERED_SHOT_RANGE_COLOR },
             hoveredShotRange: { ...range, color: ENEMY_HOVERED_SHOT_RANGE_COLOR },
             isActiveUnitMoving: false,
@@ -176,7 +176,7 @@ describe("the full-damage shot square", () => {
         };
         const recorded = recorder();
         const context = {
-            fightProps: { hasFightStarted: () => true },
+            fightProps: { hasFightStarted: () => true, getLapsNarrowed: () => 0 },
             currentActiveShotRange: range,
             hoveredShotRange: { ...range },
             isActiveUnitMoving: false,
@@ -275,7 +275,7 @@ describe("the full-damage shot square", () => {
         const cornerContainer = new Container();
         const cornerPool: ShotRangeCornerSpritePool = { sprites: [], matrices: [], placements: [], used: 0 };
         const context = {
-            fightProps: { hasFightStarted: () => true },
+            fightProps: { hasFightStarted: () => true, getLapsNarrowed: () => 0 },
             currentActiveShotRange: {
                 xy: cellCenter({ x: 5, y: 5 }),
                 distance: GridMath.getFullDamageSquareHalfExtent(3.5, 1, GridConstants.STEP),

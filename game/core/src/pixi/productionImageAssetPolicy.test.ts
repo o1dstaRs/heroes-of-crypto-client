@@ -1,3 +1,4 @@
+import { CREATURE_PORTRAIT_ASSET_KEYS } from "./creaturePortraitAssetKeys";
 import { describe, expect, test } from "bun:test";
 import {
     isProductionOmittedDisabledUnitAnimationAssetKey,
@@ -50,7 +51,6 @@ describe("production environment image policy", () => {
         for (const key of [
             "fire_pit_unified_front_wide_48_atlas",
             "fire_pit_high_fire_overlay_smooth_64_atlas",
-            "fire_pit_dark_bowl_v1_512",
             "fire_pit_extinguished_bronze_curb_v4_512",
             "fire_pit_grate_overlay_v1_512",
             "ambient_fire_video_torch_left_seamless_v2_64_atlas",
@@ -87,7 +87,7 @@ describe("production environment image policy", () => {
             "black_dragon_portrait_full",
             "magic_dragon_portrait_full",
         ]) {
-            expect(isProductionOmittedLegacyUiAssetKey(key)).toBe(true);
+            expect(isProductionOmittedLegacyUiAssetKey(key)).toBe(!CREATURE_PORTRAIT_ASSET_KEYS.has(key));
         }
         for (const key of [
             "book_1024_clean_pages_v1",
@@ -160,7 +160,7 @@ describe("production environment image policy", () => {
             "map_badge_normal_medallion_v1",
             "map_badge_lava_medallion_v1",
         ]) {
-            expect(isProductionOmittedLegacyUiAssetKey(key)).toBe(true);
+            expect(isProductionOmittedLegacyUiAssetKey(key)).toBe(!CREATURE_PORTRAIT_ASSET_KEYS.has(key));
         }
     });
 });
@@ -240,7 +240,7 @@ describe("production unreferenced image policy", () => {
             "tombstone_tiles_256_atlas",
             "x_mark_1_512",
         ]) {
-            expect(isProductionOmittedUnreferencedAssetKey(key)).toBe(true);
+            expect(isProductionOmittedUnreferencedAssetKey(key)).toBe(!CREATURE_PORTRAIT_ASSET_KEYS.has(key));
         }
 
         for (const key of [

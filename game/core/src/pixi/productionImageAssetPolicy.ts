@@ -1,3 +1,5 @@
+import { CREATURE_PORTRAIT_ASSET_KEYS } from "./creaturePortraitAssetKeys";
+import battlefieldEnvironmentAssets from "../animations/battlefieldEnvironmentAssets.json";
 import { isDeferredEnvironmentAssetKey } from "./imageAssetTiers";
 import { CREATURE_SPRITE_ANIMATION_SETTINGS, shouldPreloadUnitAnimationAtlas } from "./creatureAnimationSettings";
 import { isUnitAnimationAtlasKey } from "./unitAtlasKeys";
@@ -8,6 +10,7 @@ import { isUnitAnimationAtlasKey } from "./unitAtlasKeys";
  * source into a release even though no production path can request one.
  */
 const LIVE_PRODUCTION_ENVIRONMENT_ASSETS = new Set([
+    ...battlefieldEnvironmentAssets.map((asset) => asset.key),
     "ambient_fire_left_furnace_atlas",
     "cemetery_obstacles_9x_256",
     "cemetery_obstacles_9x_256_hp",
@@ -179,6 +182,7 @@ const LIVE_UNIT_ATLASES_WHILE_ANIMATION_IS_DISABLED = new Set(["orc_idle_atlas_q
 
 /** Animation sheets that no compiled production path can request under the current art-direction switch. */
 export function isProductionOmittedDisabledUnitAnimationAssetKey(key: string): boolean {
+    if (/^arbalester_idle_page_\d{2}_atlas$/.test(key)) return false;
     if (CREATURE_SPRITE_ANIMATION_SETTINGS.enabled || !isUnitAnimationAtlasKey(key)) return false;
     return !shouldPreloadUnitAnimationAtlas(key, false) && !LIVE_UNIT_ATLASES_WHILE_ANIMATION_IS_DISABLED.has(key);
 }
@@ -189,11 +193,13 @@ export function isProductionOmittedEnvironmentAssetKey(key: string): boolean {
 }
 
 export function isProductionOmittedUnreferencedAssetKey(key: string): boolean {
+    if (CREATURE_PORTRAIT_ASSET_KEYS.has(key)) return false;
     return UNUSED_PRODUCTION_ASSETS.has(key);
 }
 
 /** Retired UI exports with no runtime consumer; their current replacements use distinct keys. */
 export function isProductionOmittedLegacyUiAssetKey(key: string): boolean {
+    if (CREATURE_PORTRAIT_ASSET_KEYS.has(key)) return false;
     if (UNUSED_PRODUCTION_LEGACY_UI_ASSETS.has(key)) return true;
     // The old full-body exports were superseded by the approved `*_pick_sandbox_x2` portraits. The
     // current fullBodyCreatureImage() selector deliberately aliases that same approved source, so no
