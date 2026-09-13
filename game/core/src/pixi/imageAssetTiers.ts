@@ -1,5 +1,6 @@
 import { BATTLEFIELD_TEXTURE_KEYS } from "./battlefieldTextureKeys";
 import { isUnitAnimationAtlasKey, isUnitBoardImageKey, isUnitCardImageKey } from "./unitAtlasKeys";
+import { isNamedUnitStateSheetKey } from "./unitStateSheetKeys";
 
 // Keep asset routing free of Pixi imports so non-renderer surfaces (notably the ranked draft) can
 // reuse the exact runtime split without pulling Pixi into their entry bundle.
@@ -434,6 +435,7 @@ export function isLazySpellAssetKey(key: string): boolean {
 export function isCoreTextureAssetKey(key: string): boolean {
     return (
         !isUnitAnimationAtlasKey(key) &&
+        !isNamedUnitStateSheetKey(key) &&
         !isDeferredReactUiAssetKey(key) &&
         !isDeferredEnvironmentAssetKey(key) &&
         !isDeferredPlacementAssetKey(key) &&

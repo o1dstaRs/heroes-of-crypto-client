@@ -19,6 +19,7 @@ import {
     isTransientLoadingScreenAssetKey,
 } from "./imageAssetTiers";
 import { isUnitAnimationAtlasKey } from "./unitAtlasKeys";
+import { isNamedUnitStateSheetKey } from "./unitStateSheetKeys";
 
 export {
     isDeferredEnvironmentAssetKey,
@@ -161,7 +162,7 @@ export function getSplitBundles(options: SplitBundleOptions = {}) {
         // renderer exclusively asks for their quarter/half variants, so never decode those originals.
         if (isRedundantFullResolutionUnitAtlasKey(k)) {
             excludedFullResolutionUnitAtlases[k] = { src };
-        } else if (isUnitAnimationAtlasKey(k)) {
+        } else if (isUnitAnimationAtlasKey(k) || isNamedUnitStateSheetKey(k)) {
             if (!shouldPreloadUnitAnimationAtlas(k, animationsEnabled)) {
                 deferredUnitAtlases[k] = { src };
             } else if (isIdleAtlasKey(k)) {
