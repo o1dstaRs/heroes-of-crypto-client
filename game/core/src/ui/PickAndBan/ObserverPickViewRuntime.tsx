@@ -3,14 +3,18 @@ import Box from "@mui/joy/Box";
 import Sheet from "@mui/joy/Sheet";
 import Stack from "@mui/joy/Stack";
 import Typography from "@mui/joy/Typography";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { fetchPickObserveSnapshot, type PickObserveSnapshot, type PickObserveTeam } from "../../api/ranked_play_client";
+import { fetchRankedStanding } from "../../api/social_client";
 import { images as rawImages } from "../../generated/image_imports";
+import { useAuthContext } from "../auth/context/auth_context";
 import { CreaturePortraitImage } from "../CreaturePortraitImage";
+import { LivePredictionMarkets } from "../PlayerPortal/LivePredictionMarkets";
 import { UNIT_ID_TO_NAME } from "../unit_ui_constants";
 import { startVisibleInterval } from "../visibleInterval";
 import { observedDraftArtifactSlots, type ObservedDraftArtifactSlot } from "./observerPickArtifacts";
+import { ObserverRecentGames } from "./ObserverRecentGames";
 
 const images = rawImages as Record<string, string>;
 
@@ -215,6 +219,7 @@ const TeamColumn: React.FC<{ team?: PickObserveTeam; fallbackLabel: string }> = 
                         ))}
                     </Stack>
                 </Box>
+                {team && <ObserverRecentGames playerId={team.playerId} isBot={team.isBot} />}
             </Stack>
         </Sheet>
     );
@@ -240,6 +245,24 @@ export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onP
     const [now, setNow] = useState(() => Date.now());
     // Server/browser clock drift so the countdown tracks the authoritative deadline.
     const driftRef = useRef(0);
+    // A signed-in spectator with season gold may back a side while the draft runs. The market card applies
+    // the server's own rules (ranked draft only, never a player's own game, one bet per game).
+    const { authenticated, user } = useAuthContext();
+    const [viewerGold, setViewerGold] = useState<number | undefined>(undefined);
+    const refreshViewerGold = useCallback(async (): Promise<void> => {
+        if (!authenticated) {
+            setViewerGold(undefined);
+            return;
+        }
+        try {
+            setViewerGold((await fetchRankedStanding()).gold);
+        } catch {
+            setViewerGold(undefined);
+        }
+    }, [authenticated]);
+    useEffect(() => {
+        void refreshViewerGold();
+    }, [refreshViewerGold]);
 
     useEffect(() => {
         if (draftClosed) {
@@ -354,6 +377,17 @@ export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onP
                     </Stack>
                     <TeamColumn team={right} fallbackLabel="Right team" />
                 </Stack>
+
+                {!draftClosed && authenticated && !!user?.username && viewerGold !== undefined && (
+                    <Box sx={{ width: "100%", maxWidth: 520 }}>
+                        <LivePredictionMarkets
+                            gameId={gameId}
+                            viewerUsername={user.username}
+                            gold={viewerGold}
+                            onBetPlaced={refreshViewerGold}
+                        />
+                    </Box>
+                )}
 
                 {bans.length > 0 && (
                     <Sheet

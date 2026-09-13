@@ -23,6 +23,11 @@ export interface LivePredictionMarketsProps {
     gold: number;
     onBetPlaced?: () => void | Promise<void>;
     onVisibilityChange?: (visible: boolean) => void;
+    /**
+     * Scope the card to this one game (the spectator's draft view): no Spectate link, and a bet the viewer
+     * already placed on it is shown in place of the form.
+     */
+    gameId?: string;
 }
 
 const mockMarkets = (): PredictionMarket[] => [
@@ -52,6 +57,7 @@ export const LivePredictionMarkets: React.FC<LivePredictionMarketsProps> = ({
     gold,
     onBetPlaced,
     onVisibilityChange,
+    gameId,
 }) => {
     // Keep this independently mounted card in sync with the profile language picker.
     useTranslation();
@@ -91,13 +97,13 @@ export const LivePredictionMarkets: React.FC<LivePredictionMarketsProps> = ({
             fetchMyPredictionBets().catch(() => [] as PredictionBet[]),
         ]);
         setMarkets(
-            eligiblePredictionMarkets(fetchedMarkets, {
-                gameId: viewerGameId,
-                username: viewerUsername,
-            }),
+            eligiblePredictionMarkets(
+                gameId ? fetchedMarkets.filter((market) => market.gameId === gameId) : fetchedMarkets,
+                { gameId: viewerGameId, username: viewerUsername },
+            ),
         );
         setBets(fetchedBets);
-    }, [mockPreview, viewerGameId, viewerUsername]);
+    }, [gameId, mockPreview, viewerGameId, viewerUsername]);
 
     useEffect(() => {
         void reload();
@@ -125,7 +131,11 @@ export const LivePredictionMarkets: React.FC<LivePredictionMarketsProps> = ({
         [betByGame, markets],
     );
     const stake = Math.max(0, Math.floor(Number(amount) || 0));
-    const visible = availableGold > 0 && wagerableMarkets.length > 0;
+    // Scoped to one game, a bet already placed on it replaces the form (one immutable bet per game).
+    const ownBetMarket = gameId
+        ? markets.find((market) => market.gameId === gameId && betByGame.has(market.gameId))
+        : undefined;
+    const visible = (availableGold > 0 && wagerableMarkets.length > 0) || !!ownBetMarket;
 
     useEffect(() => {
         onVisibilityChange?.(visible);
@@ -168,22 +178,35 @@ export const LivePredictionMarkets: React.FC<LivePredictionMarketsProps> = ({
 
     if (!visible) return null;
 
+    const panelSx = {
+        ...hocPanelSx,
+        p: 1.15,
+        borderRadius: "14px",
+        bgcolor: "rgba(10,7,5,0.72)",
+        borderColor: "rgba(255,143,0,0.2)",
+        boxShadow: "0 12px 32px rgba(0,0,0,0.28)",
+        backdropFilter: "blur(12px)",
+        background: "linear-gradient(135deg, rgba(255,143,0,0.055), transparent 58%), rgba(10,7,5,0.72)",
+    };
+
+    if (ownBetMarket) {
+        const ownBet = betByGame.get(ownBetMarket.gameId);
+        const backed = ownBetMarket.seats.find((seat) => seat.playerId === ownBet?.predictedPlayerId);
+        return (
+            <Sheet component="section" aria-label={t("Live prediction markets")} variant="outlined" sx={panelSx}>
+                <Typography level="body-sm" sx={{ color: hocColors.gold, fontWeight: 750 }}>
+                    {tf("Your prediction: {amount} {symbol} on {name}", {
+                        amount: ownBet?.amount ?? 0,
+                        symbol: currency.symbol,
+                        name: backed?.username ?? "",
+                    })}
+                </Typography>
+            </Sheet>
+        );
+    }
+
     return (
-        <Sheet
-            component="section"
-            aria-label={t("Live prediction markets")}
-            variant="outlined"
-            sx={{
-                ...hocPanelSx,
-                p: 1.15,
-                borderRadius: "14px",
-                bgcolor: "rgba(10,7,5,0.72)",
-                borderColor: "rgba(255,143,0,0.2)",
-                boxShadow: "0 12px 32px rgba(0,0,0,0.28)",
-                backdropFilter: "blur(12px)",
-                background: "linear-gradient(135deg, rgba(255,143,0,0.055), transparent 58%), rgba(10,7,5,0.72)",
-            }}
-        >
+        <Sheet component="section" aria-label={t("Live prediction markets")} variant="outlined" sx={panelSx}>
             <Stack direction="row" alignItems="center" sx={{ mb: 0.55 }}>
                 <Stack direction="row" spacing={0.65} alignItems="center">
                     <Box
@@ -244,31 +267,33 @@ export const LivePredictionMarkets: React.FC<LivePredictionMarketsProps> = ({
                                     >
                                         {draftClock(market.pickEndTime, now)}
                                     </Typography>
-                                    <Button
-                                        component="a"
-                                        href={
-                                            mockPreview
-                                                ? "/preview/picks/spectator"
-                                                : `/game/${encodeURIComponent(market.gameId)}`
-                                        }
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        size="sm"
-                                        variant="plain"
-                                        aria-label={tf("Spectate {players} in a new tab", {
-                                            players: market.seats.map((seat) => seat.username).join(t(" versus ")),
-                                        })}
-                                        startDecorator={<VisibilityRoundedIcon sx={{ fontSize: 15 }} />}
-                                        sx={{
-                                            minHeight: 24,
-                                            px: 0.55,
-                                            color: hocColors.mutedStrong,
-                                            fontSize: "0.7rem",
-                                            "&:hover": { color: hocColors.gold, bgcolor: "rgba(255,143,0,0.08)" },
-                                        }}
-                                    >
-                                        {t("Spectate")}
-                                    </Button>
+                                    {!gameId && (
+                                        <Button
+                                            component="a"
+                                            href={
+                                                mockPreview
+                                                    ? "/preview/picks/spectator"
+                                                    : `/game/${encodeURIComponent(market.gameId)}`
+                                            }
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            size="sm"
+                                            variant="plain"
+                                            aria-label={tf("Spectate {players} in a new tab", {
+                                                players: market.seats.map((seat) => seat.username).join(t(" versus ")),
+                                            })}
+                                            startDecorator={<VisibilityRoundedIcon sx={{ fontSize: 15 }} />}
+                                            sx={{
+                                                minHeight: 24,
+                                                px: 0.55,
+                                                color: hocColors.mutedStrong,
+                                                fontSize: "0.7rem",
+                                                "&:hover": { color: hocColors.gold, bgcolor: "rgba(255,143,0,0.08)" },
+                                            }}
+                                        >
+                                            {t("Spectate")}
+                                        </Button>
+                                    )}
                                 </Stack>
                             </Stack>
 
