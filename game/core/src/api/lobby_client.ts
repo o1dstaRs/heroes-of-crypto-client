@@ -166,6 +166,16 @@ const base64ToBytes = (b64: string): Uint8Array => {
     return bytes;
 };
 
+/** The lobby stream answered with an HTTP error; `status` tells a gone lobby from a passing failure. */
+export class LobbyEventStreamError extends Error {
+    public readonly status: number;
+    public constructor(status: number) {
+        super(`Lobby event stream failed: ${status}`);
+        this.name = "LobbyEventStreamError";
+        this.status = status;
+    }
+}
+
 /**
  * Open the per-lobby SSE stream. Each frame is base64(protobuf Lobby); `onLobby` is invoked with the
  * decoded lobby state on every change. Returns when the stream ends or `signal` aborts.
@@ -178,7 +188,7 @@ export const openLobbyEventStream = async (
     const url = appendEncodedPath(buildApiUrl(HOST_MATCHMAKING_API, endpoints.mm.lobbyEvents), lobbyId);
     const response = await fetch(url, { headers: eventHeaders(), mode: "cors", cache: "no-cache", signal });
     if (!response.ok || !response.body) {
-        throw new Error(`Lobby event stream failed: ${response.status}`);
+        throw new LobbyEventStreamError(response.status);
     }
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -193,7 +203,8 @@ export const openLobbyEventStream = async (
         buffer = frames.pop() ?? "";
         for (const frame of frames) {
             const trimmed = frame.trim();
-            if (!trimmed) {
+            // ": heartbeat" comment frames keep an idle stream open on the server; they carry no lobby.
+            if (!trimmed || trimmed.startsWith(":")) {
                 continue;
             }
             try {
@@ -202,5 +213,65 @@ export const openLobbyEventStream = async (
                 console.error("Failed to decode lobby SSE frame", err);
             }
         }
+    }
+};
+
+const LOBBY_STREAM_RETRY_DELAYS_MS: readonly number[] = [1_000, 2_000, 5_000, 10_000];
+
+const sleepUnlessAborted = (ms: number, signal: AbortSignal): Promise<void> =>
+    new Promise((resolve) => {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const finish = (): void => {
+            clearTimeout(timer);
+            signal.removeEventListener("abort", finish);
+            resolve();
+        };
+        if (signal.aborted) {
+            resolve();
+            return;
+        }
+        timer = setTimeout(finish, ms);
+        signal.addEventListener("abort", finish, { once: true });
+    });
+
+/** A 4xx other than a timeout or a rate limit: the lobby is gone or this player may not watch it. */
+const isFinalLobbyStreamFailure = (err: unknown): boolean =>
+    err instanceof LobbyEventStreamError &&
+    err.status >= 400 &&
+    err.status < 500 &&
+    err.status !== 408 &&
+    err.status !== 429;
+
+/**
+ * Keep a lobby's event stream open for as long as `signal` lives, reopening it whenever it ends or drops
+ * (a server restart, a network blip, a proxy cutting an idle connection). The server sends the full lobby
+ * as the first frame of every connection, so a reconnect misses nothing. Gives up only when the lobby is
+ * gone or closed to this player; backs off while the stream keeps failing without delivering a frame.
+ */
+export const followLobbyEventStream = async (
+    lobbyId: string,
+    onLobby: (lobby: LobbyObject) => void,
+    signal: AbortSignal,
+    retryDelaysMs: readonly number[] = LOBBY_STREAM_RETRY_DELAYS_MS,
+): Promise<void> => {
+    let failures = 0;
+    while (!signal.aborted) {
+        let framesReceived = 0;
+        try {
+            await openLobbyEventStream(
+                lobbyId,
+                (lobby) => {
+                    framesReceived += 1;
+                    onLobby(lobby);
+                },
+                signal,
+            );
+        } catch (err) {
+            if (signal.aborted || isFinalLobbyStreamFailure(err)) {
+                return;
+            }
+        }
+        failures = framesReceived > 0 ? 0 : failures + 1;
+        await sleepUnlessAborted(retryDelaysMs[Math.min(failures, retryDelaysMs.length - 1)] ?? 0, signal);
     }
 };

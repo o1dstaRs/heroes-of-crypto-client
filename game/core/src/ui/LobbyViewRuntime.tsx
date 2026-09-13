@@ -8,9 +8,9 @@ import { useNavigate, useParams } from "react-router";
 import {
     fetchLobby,
     fetchLobbyShoutStatus,
+    followLobbyEventStream,
     joinLobby,
     leaveLobby,
-    openLobbyEventStream,
     setLobbyReady,
     shoutLobbyToArena,
     startLobby,
@@ -173,11 +173,8 @@ export const LobbyView: React.FC = () => {
                     setError("Lobby not found");
                 }
             }
-            try {
-                await openLobbyEventStream(lobbyId, (next) => active && setLobby(next), controller.signal);
-            } catch {
-                /* stream ended / aborted */
-            }
+            // Reopens the stream after any drop until this screen closes; a missing lobby ends it.
+            await followLobbyEventStream(lobbyId, (next) => active && setLobby(next), controller.signal);
         })();
         return () => {
             active = false;
