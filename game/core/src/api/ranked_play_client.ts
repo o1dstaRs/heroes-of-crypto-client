@@ -386,6 +386,8 @@ export const toAuthoritativeGameSnapshot = (
     centerObstacleHitsRight: snapshot.centerObstacleHitsRight,
     scatteredStandingCells: snapshot.scatteredStandingCells,
     scatteredStandingCount: snapshot.scatteredStandingCount,
+    transientCells: snapshot.transientCells,
+    transientCellsCount: snapshot.transientCellsCount,
     stepsMoraleMultiplier: snapshot.stepsMoraleMultiplier,
     units: snapshot.units,
     upNext: snapshot.upNext,

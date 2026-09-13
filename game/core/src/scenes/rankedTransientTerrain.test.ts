@@ -10,7 +10,13 @@ import {
 } from "@heroesofcrypto/common";
 import { describe, expect, test } from "bun:test";
 
-import { reconcileRankedTransientTerrain, type RankedTerrainJournalEntry } from "./rankedTransientTerrain";
+import { PlayTransientCellKind } from "../api/play_protocol";
+import {
+    installRankedTransientTerrain,
+    reconcileRankedTransientTerrain,
+    syncRankedTransientTerrain,
+    type RankedTerrainJournalEntry,
+} from "./rankedTransientTerrain";
 
 const gridSettings = new GridSettings(
     GridConstants.GRID_SIZE,
@@ -237,6 +243,36 @@ describe("reconcileRankedTransientTerrain", () => {
         expect(fightProperties.getFireWalls().toJSON()[0]).toMatchObject({ x: 8, y: 9, l: 4 });
     });
 
+    // Live report: a Smoke cast vanished from the ranked board after a full hydrate. The journal rebuild
+    // handled vines and fire walls but skipped smoke, so the wiped store stayed empty.
+    test("rebuilds smoke clouds and removes dispelled or expired cells", () => {
+        const fightProperties = new FightProperties();
+        reconcileRankedTransientTerrain(fightProperties, [
+            journalEntry(40, [
+                {
+                    type: "smoke_placed",
+                    casterId: "mage",
+                    cells: [
+                        { x: 5, y: 5 },
+                        { x: 6, y: 5 },
+                        { x: 5, y: 6 },
+                        { x: 6, y: 6 },
+                    ],
+                    lapsRemaining: 3,
+                },
+            ]),
+            journalEntry(41, [{ type: "smoke_dispel", cells: [{ x: 6, y: 6 }] }]),
+            journalEntry(42, [{ type: "smoke_expired", cells: [{ x: 5, y: 6 }] }]),
+        ]);
+
+        const smoke = fightProperties.getSmokeClouds();
+        expect(smoke.has({ x: 5, y: 5 })).toBe(true);
+        expect(smoke.has({ x: 6, y: 5 })).toBe(true);
+        expect(smoke.has({ x: 5, y: 6 })).toBe(false);
+        expect(smoke.has({ x: 6, y: 6 })).toBe(false);
+        expect(smoke.toJSON()).toContainEqual({ x: 5, y: 5, l: 3 });
+    });
+
     test("duplicate journal delivery is idempotent in reconstructed terrain state", () => {
         const fightProperties = new FightProperties();
         const placement = journalEntry(30, [
@@ -297,5 +333,55 @@ describe("reconcileRankedTransientTerrain", () => {
 
         expect(fightProperties.getVines().size()).toBe(0);
         expect(fightProperties.getFireWalls().size()).toBe(0);
+    });
+});
+
+describe("installRankedTransientTerrain", () => {
+    test("replaces every transient store with the snapshot's cells, including a cast older than the journal", () => {
+        const fightProperties = new FightProperties();
+        // Stale local state a hydrate would otherwise have wiped — or, worse, left behind after the server
+        // cleared it.
+        fightProperties.getSmokeClouds().add({ x: 1, y: 1 }, 2);
+        fightProperties.getVines().add({ x: 2, y: 2 }, 3, TeamVals.LEFT);
+        fightProperties.getFireWalls().add({ x: 3, y: 3 }, 1);
+
+        installRankedTransientTerrain(fightProperties, [
+            { kind: PlayTransientCellKind.SMOKE, x: 5, y: 5, lapsRemaining: 4, team: 0 },
+            { kind: PlayTransientCellKind.SMOKE, x: 6, y: 5, lapsRemaining: 1, team: 0 },
+            { kind: PlayTransientCellKind.VINE, x: 10, y: 12, lapsRemaining: 2, team: TeamVals.RIGHT },
+            { kind: PlayTransientCellKind.FIRE_WALL, x: 8, y: 9, lapsRemaining: 3, team: 0 },
+            // A dead cell the server should never send; ignored rather than installed.
+            { kind: PlayTransientCellKind.SMOKE, x: 7, y: 7, lapsRemaining: 0, team: 0 },
+            { kind: 99, x: 0, y: 0, lapsRemaining: 5, team: 0 },
+        ]);
+
+        expect(fightProperties.getSmokeClouds().toJSON()).toEqual([
+            { x: 5, y: 5, l: 4 },
+            { x: 6, y: 5, l: 1 },
+        ]);
+        expect(fightProperties.getSmokeClouds().has({ x: 1, y: 1 })).toBe(false);
+        expect(fightProperties.getSmokeClouds().has({ x: 7, y: 7 })).toBe(false);
+        expect(fightProperties.getVines().toJSON()).toEqual([{ x: 10, y: 12, l: 2, t: TeamVals.RIGHT }]);
+        expect(fightProperties.getFireWalls().has({ x: 3, y: 3 })).toBe(false);
+        expect(fightProperties.getFireWalls().toJSON()[0]).toMatchObject({ x: 8, y: 9, l: 3 });
+    });
+
+    test("an empty snapshot from a server that carries the cells clears everything", () => {
+        const fightProperties = new FightProperties();
+        fightProperties.getSmokeClouds().add({ x: 1, y: 1 }, 2);
+
+        syncRankedTransientTerrain(fightProperties, { transientCellsCount: 0, transientCells: undefined });
+
+        expect(fightProperties.getSmokeClouds().size()).toBe(0);
+    });
+
+    test("an older server without the cells falls back to the journal rebuild", () => {
+        const fightProperties = new FightProperties();
+
+        syncRankedTransientTerrain(fightProperties, {
+            journalTail: [journalEntry(40, [{ type: "smoke_placed", cells: [{ x: 5, y: 5 }], lapsRemaining: 3 }])],
+        });
+
+        expect(fightProperties.getSmokeClouds().has({ x: 5, y: 5 })).toBe(true);
     });
 });

@@ -231,6 +231,42 @@ describe("play protobuf decoder", () => {
         expect(decoded.scatteredStandingCount).toBe(3);
     });
 
+    test("decodes transient terrain cells and their 1-based count (snapshot fields 60 and 61)", () => {
+        const cell = (kind: number, x: number, y: number, laps: number, team: number): number[] => [
+            ...intField(1, kind),
+            ...intField(2, x),
+            ...intField(3, y),
+            ...intField(4, laps),
+            ...intField(5, team),
+        ];
+        const snapshot = new Uint8Array([
+            ...stringField(1, "game-1"),
+            ...messageField(60, cell(1, 5, 5, 4, 0)),
+            ...messageField(60, cell(2, 10, 12, 2, 1)),
+            ...messageField(60, cell(3, 8, 9, 3, 0)),
+            ...intField(61, 4),
+        ]);
+
+        const decoded = decodePlaySnapshot(snapshot);
+
+        expect(decoded.transientCells).toEqual([
+            { kind: 1, x: 5, y: 5, lapsRemaining: 4, team: 0 },
+            { kind: 2, x: 10, y: 12, lapsRemaining: 2, team: 1 },
+            { kind: 3, x: 8, y: 9, lapsRemaining: 3, team: 0 },
+        ]);
+        expect(decoded.transientCellsCount).toBe(3);
+    });
+
+    test("an empty transient-cell list still decodes its count, and an older server leaves both undefined", () => {
+        const empty = decodePlaySnapshot(new Uint8Array([...stringField(1, "game-1"), ...intField(61, 1)]));
+        expect(empty.transientCells).toBeUndefined();
+        expect(empty.transientCellsCount).toBe(0);
+
+        const older = decodePlaySnapshot(new Uint8Array([...stringField(1, "game-1")]));
+        expect(older.transientCells).toBeUndefined();
+        expect(older.transientCellsCount).toBeUndefined();
+    });
+
     test("scattered fields absent (older server / classic game) stay undefined", () => {
         const decoded = decodePlaySnapshot(new Uint8Array([...stringField(1, "game-1")]));
 

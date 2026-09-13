@@ -111,6 +111,15 @@ export interface AuthoritativeJournalEntry {
     acceptedAtMs: number;
 }
 
+/** One live cell of transient terrain on an authoritative snapshot (kind: 1 smoke, 2 vine, 3 fire wall). */
+export interface AuthoritativeTransientCell {
+    kind: number;
+    x: number;
+    y: number;
+    lapsRemaining: number;
+    team: number;
+}
+
 export interface AuthoritativeGameSnapshot {
     gameId: string;
     viewerTeam?: TeamType | number;
@@ -157,6 +166,10 @@ export interface AuthoritativeGameSnapshot {
      * (older server / game persisted before scattered ranked shipped). */
     scatteredStandingCells?: number[];
     scatteredStandingCount?: number;
+    /** Every live smoke / vine / fire-wall cell with its remaining laps. `transientCellsCount` undefined =
+     * older server, and the scene rebuilds those stores from the journal tail instead. */
+    transientCells?: AuthoritativeTransientCell[];
+    transientCellsCount?: number;
     /** Cumulative server movement penalty used with unit morale when calculating effective initiative. */
     stepsMoraleMultiplier?: number;
     units: AuthoritativeUnitState[];

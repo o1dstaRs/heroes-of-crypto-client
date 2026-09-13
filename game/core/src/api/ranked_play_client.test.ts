@@ -24,6 +24,20 @@ describe("ranked play snapshot conversion", () => {
     });
 });
 
+describe("transient terrain forwarding", () => {
+    test("forwards the snapshot's smoke / vine / fire-wall cells and their count untouched", () => {
+        const snapshot = decodePlaySnapshot(new Uint8Array());
+        snapshot.transientCells = [{ kind: 1, x: 5, y: 5, lapsRemaining: 4, team: 0 }];
+        snapshot.transientCellsCount = 1;
+
+        const authoritative = toAuthoritativeGameSnapshot(snapshot);
+
+        expect(authoritative.transientCells).toEqual([{ kind: 1, x: 5, y: 5, lapsRemaining: 4, team: 0 }]);
+        expect(authoritative.transientCellsCount).toBe(1);
+        expect(toAuthoritativeGameSnapshot(decodePlaySnapshot(new Uint8Array())).transientCellsCount).toBeUndefined();
+    });
+});
+
 describe("co-op sandbox snapshot flags", () => {
     test("stay absent for ranked and mark both-ready only when every seat is in the ready list", () => {
         const base = decodePlaySnapshot(new Uint8Array());

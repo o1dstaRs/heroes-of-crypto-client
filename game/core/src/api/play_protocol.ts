@@ -186,6 +186,23 @@ export interface PlayDamageStatistic {
     lap: number;
 }
 
+/** `kind` of a PlayTransientCell on the snapshot — see play.proto. */
+export enum PlayTransientCellKind {
+    SMOKE = 1,
+    VINE = 2,
+    FIRE_WALL = 3,
+}
+
+/** One live cell of transient terrain (smoke / vine / fire wall) carried on the play snapshot. */
+export interface PlayTransientCell {
+    kind: number;
+    x: number;
+    y: number;
+    lapsRemaining: number;
+    /** The thrower's team for a vine; 0 for the other kinds. */
+    team: number;
+}
+
 export interface PlaySnapshot {
     gameId: string;
     phase: PlayPhaseValue;
@@ -227,6 +244,11 @@ export interface PlaySnapshot {
      * active, every stone destroyed"; undefined means classic mountains (older server / pre-scattered
      * persisted game) — the scene must keep the classic pair for those. */
     scatteredStandingCount?: number;
+    /** Every live smoke / vine / fire-wall cell with its remaining laps (wire fields 60/61).
+     * `transientCellsCount` undefined = older server: the scene then rebuilds these stores from the
+     * journal tail instead. */
+    transientCells?: PlayTransientCell[];
+    transientCellsCount?: number;
     /** Server-authoritative cumulative multiplier applied to morale when deriving movement steps. */
     stepsMoraleMultiplier?: number;
     upNext: string[];
@@ -893,6 +915,11 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
             (snapshot.scatteredStandingCells ??= []).push(Math.max(0, reader.varintNumber() - 1));
         } else if (field === 59) {
             snapshot.scatteredStandingCount = Math.max(0, reader.varintNumber() - 1);
+        } else if (field === 60) {
+            (snapshot.transientCells ??= []).push(decodeTransientCell(reader.bytesValue()));
+        } else if (field === 61) {
+            // 1-based on the wire so an empty board (1) survives proto3's zero-default; absent = older server.
+            snapshot.transientCellsCount = Math.max(0, reader.varintNumber() - 1);
         } else {
             reader.skip(wireType);
         }
@@ -1081,6 +1108,28 @@ const decodePlayerState = (bytes: Uint8Array): PlayPlayerState => {
         }
     }
     return player;
+};
+
+const decodeTransientCell = (bytes: Uint8Array): PlayTransientCell => {
+    const reader = new ProtoReader(bytes);
+    const cell: PlayTransientCell = { kind: 0, x: 0, y: 0, lapsRemaining: 0, team: 0 };
+    while (!reader.done()) {
+        const { field, wireType } = reader.tag();
+        if (field === 1) {
+            cell.kind = reader.varintNumber();
+        } else if (field === 2) {
+            cell.x = reader.varintNumber();
+        } else if (field === 3) {
+            cell.y = reader.varintNumber();
+        } else if (field === 4) {
+            cell.lapsRemaining = reader.varintNumber();
+        } else if (field === 5) {
+            cell.team = reader.varintNumber();
+        } else {
+            reader.skip(wireType);
+        }
+    }
+    return cell;
 };
 
 const decodeDamageStatistic = (bytes: Uint8Array): PlayDamageStatistic => {

@@ -60,7 +60,7 @@ import type { RenderableUnit } from "./RenderableUnit";
 import type { UnitsOverlay } from "./UnitsOverlay";
 import type { AuthoritativeSnapshotOptions } from "../pixi/PixiScene";
 import { TextureType, unitToTextureName } from "../pixi/PixiUnitsFactory";
-import { reconcileRankedTransientTerrain } from "./rankedTransientTerrain";
+import { syncRankedTransientTerrain } from "./rankedTransientTerrain";
 import { syncPlacementSynergyUnitCounts } from "../ui/rankedSynergySync";
 import { BARREL_SHADOW_EDITOR_LAYOUT, isBarrelShadowEditorActive } from "../ui/barrelShadowTuning";
 import { projectBattlefieldPoint } from "./sandbox/BattlefieldVisualGrid";
@@ -1824,10 +1824,10 @@ export class RankedPlayScene extends Sandbox {
             return;
         }
 
-        // Full ranked hydrates reset FightProperties, while the play snapshot carries no vine/fire-wall
-        // cells. Re-materialize those transient terrain stores from the authoritative journal BEFORE
-        // activating the unit: activation immediately computes the move/attack preview from these stores.
-        reconcileRankedTransientTerrain(FightStateManager.getInstance().getFightProperties(), snapshot.journalTail);
+        // Full ranked hydrates reset FightProperties. Re-materialize the transient terrain stores (smoke,
+        // vines, fire walls) from the snapshot's own cells — or, on an older server, from the journal tail —
+        // BEFORE activating the unit: activation immediately computes the move/attack preview from them.
+        syncRankedTransientTerrain(FightStateManager.getInstance().getFightProperties(), snapshot);
 
         const newActiveId = snapshot.currentUnitId || undefined;
         // Right after an OPPONENT action the server may reassert the same enemy unit as still-active
