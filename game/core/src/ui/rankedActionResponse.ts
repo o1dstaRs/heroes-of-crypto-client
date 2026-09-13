@@ -74,13 +74,18 @@ export const resolveEffectiveLocalModelOpponentConfig = (
     snapshot: PlaySnapshot | null,
     viewerTeam?: TeamType,
 ): LocalModelOpponentConfig => {
+    // A spectator tab holds no seat, so any side its model drove would be someone else's — handed that
+    // player's id and token, it would play their side for them. Only a seated viewer may run one.
+    if (viewerTeam === undefined) {
+        return { ...config, enabled: false };
+    }
     if (!config.enabled || !snapshot || !config.playerId) {
-        return viewerTeam !== undefined && config.modelTeam === viewerTeam ? { ...config, enabled: false } : config;
+        return config.modelTeam === viewerTeam ? { ...config, enabled: false } : config;
     }
 
     const modelPlayer = snapshot.players.find((player) => player.playerId === config.playerId);
     const resolvedModelTeam = (modelPlayer?.team as TeamType | undefined) ?? config.modelTeam;
-    if (viewerTeam !== undefined && resolvedModelTeam === viewerTeam) {
+    if (resolvedModelTeam === viewerTeam) {
         return { ...config, enabled: false, modelTeam: resolvedModelTeam };
     }
 

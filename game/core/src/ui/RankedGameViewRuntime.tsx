@@ -101,7 +101,7 @@ import { exitFightButtonSx } from "./exitFightButtonSx";
 import { useFullscreenActive } from "./useFullscreenActive";
 import { startVisibleInterval } from "./visibleInterval";
 import { dragObserverPanelOffset, type PanelOffset } from "./observerPanelDrag";
-import { ViewerTeamContext } from "./context/ViewerTeamContext";
+import { SpectatorContext, ViewerTeamContext } from "./context/ViewerTeamContext";
 import { SANDBOX_UNREADY_REASON, sandboxCoopSeatStatuses } from "./SandboxCoopControls";
 import { openFriendsPanel } from "./social/openFriendsEvent";
 import { takeCoopCarryOver } from "./social/coopCarryOver";
@@ -1912,7 +1912,9 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                         they are used. */}
                     {pixiReady && (
                         <ViewerTeamContext.Provider value={viewerTeam}>
-                            <LeftSideBar gameStarted={gameStarted} windowSize={windowSize} />
+                            <SpectatorContext.Provider value={isObserver}>
+                                <LeftSideBar gameStarted={gameStarted} windowSize={windowSize} />
+                            </SpectatorContext.Provider>
                         </ViewerTeamContext.Provider>
                     )}
                     {pixiReady && (

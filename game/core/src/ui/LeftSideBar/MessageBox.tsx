@@ -18,7 +18,7 @@ import { images } from "../../generated/image_imports";
 import { nextLapHazard } from "../nextLapHazard";
 import { IVisibleState, IWindowSize } from "../../scenes/VisibleState";
 import { hocColors, hocDisplayFontFamily, hocDisplayLetterSpacing } from "../hocTheme";
-import { useViewerTeam } from "../context/ViewerTeamContext";
+import { useIsSpectator, useViewerTeam } from "../context/ViewerTeamContext";
 import { meteorIconDataUrl } from "../meteorIcon";
 import {
     COUNTDOWN_FRAME_LINE_KEYS,
@@ -191,9 +191,11 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
     const aiToggleSize = Math.max(30, Math.round(42 * metrics.startButtonScale));
     // Set only in ranked play (the viewer has a fixed side); undefined in sandbox/observer.
     const viewerTeam = useViewerTeam();
+    // A ranked spectator has no viewer team either, yet none of the sandbox controls are theirs.
+    const isSpectator = useIsSpectator();
     // Sandbox-only "AI side" toggles: hand green (LEFT) / red (RIGHT) entirely to the AI. Such a team
     // auto-plays every turn and the human can't act for it. Lets you play vs the AI, or clash two AIs.
-    const isSandbox = viewerTeam === undefined;
+    const isSandbox = viewerTeam === undefined && !isSpectator;
     const [greenAi, setGreenAi] = useState(false);
     const [redAi, setRedAi] = useState(false);
     useEffect(() => {
@@ -481,6 +483,10 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
             : countdownOverlayContent;
 
     // --- CASE 1: Game NOT Started ---
+    // A spectator starts nothing and hands no side to the AI: the START plate and AI switches are not theirs.
+    if (!gameStarted && !hasTimer && isSpectator) {
+        return countdownOverlay;
+    }
     if (!gameStarted && !hasTimer) {
         return (
             <>

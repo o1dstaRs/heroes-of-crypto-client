@@ -555,8 +555,7 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Spectating the draft": "Наблюдение за драфтом",
     "Connecting to the draft": "Подключение к драфту",
     " — phase {current}/{total}": " — фаза {current}/{total}",
-    "Creature picks follow scouting reveals; selected artifacts are public as soon as they are locked in.":
-        "Выборы существ видны по правилам разведки; выбранные артефакты открываются сразу после подтверждения.",
+    "Creature picks and artifacts stay hidden until the fight starts.": "Существа и артефакты скрыты до начала боя.",
     "Left team": "Нижняя команда",
     "Right team": "Верхняя команда",
     VS: "ПРОТИВ",

@@ -15,10 +15,11 @@ import { observedDraftArtifactSlots, type ObservedDraftArtifactSlot } from "./ob
 const images = rawImages as Record<string, string>;
 
 /**
- * Read-only spectator view of a game still in its draft. Polls the public, spoiler-safe
- * pick-observe snapshot: each team shows exactly the picks its OPPONENT has already seen (slot
- * reveals), plus the shared bans and the live phase countdown. When the draft hands off to the
- * fight, the surrounding GameRoute's play-snapshot poll flips this view into the fight observer.
+ * Read-only spectator view of a game still in its draft. Polls the public pick-observe snapshot, which
+ * carries only what both seats already know — seats, bans, the phase and its countdown — so a player cannot
+ * scout their own draft through it. Creature picks and artifacts arrive only for an all-AI game. When the
+ * draft hands off to the fight, the surrounding GameRoute's play-snapshot poll flips this view into the
+ * fight observer.
  */
 
 const POLL_MS = 3_000;
@@ -145,7 +146,7 @@ const ArtifactSlot: React.FC<{ slot: ObservedDraftArtifactSlot }> = ({ slot }) =
                         textOverflow: "ellipsis",
                     }}
                 >
-                    {artifact?.name ?? "Not selected"}
+                    {artifact?.name ?? "Hidden"}
                 </Typography>
             </Stack>
         </Stack>
@@ -342,8 +343,7 @@ export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onP
                         )}
                     </Stack>
                     <Typography level="body-xs" sx={{ color: "rgba(159,182,212,0.6)" }}>
-                        Creature picks follow scouting reveals; selected artifacts are public as soon as they are locked
-                        in.
+                        Creature picks and artifacts stay hidden until the fight starts.
                     </Typography>
                 </Stack>
 
