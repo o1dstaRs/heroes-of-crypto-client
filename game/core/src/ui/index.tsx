@@ -42,6 +42,7 @@ import { ExitReplayBadge } from "./ExitReplayBadge";
 import { PlayRankedBadge } from "./PlayRankedBadge";
 import { InviteFriendBadge } from "./InviteFriendBadge";
 import { SandboxCoopRoute } from "./SandboxCoopRoute";
+import { LiveMatchBanner } from "./LiveMatchBanner";
 import { useCurrentLobby } from "./social/CurrentLobbyContext";
 import { LoadingFullscreenToggle } from "./LoadingFullscreenToggle";
 import { MatchupOverlay, type MatchupPlayer } from "./MatchupOverlay";
@@ -1445,6 +1446,7 @@ const App: React.FC = () => {
                         <ThemeMusic />
                         {/* Floating notifications, friends, and messages; compact during fights. */}
                         <SocialDock />
+                        <LiveMatchBanner />
                         <AuthedRoutes windowSize={windowSize} />
                     </Router>
                 </CurrentLobbyProvider>

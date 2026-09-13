@@ -870,6 +870,7 @@ export const SocialDock: React.FC = () => {
     const { authenticated, user } = useAuthContext();
     const social = useSocial();
     const location = useLocation();
+    const navigate = useNavigate();
     const [trayOpen, setTrayOpen] = useState(false);
     const [friendsOpen, setFriendsOpen] = useState(false);
     const [conversationFriend, setConversationFriend] = useState<FriendEntry | null>(null);
@@ -949,6 +950,20 @@ export const SocialDock: React.FC = () => {
 
     const popup = social.popupRequest;
     const popupVisible = !!popup && !trayOpen && !friendsOpen && !conversationFriend && !inGame;
+    // A room invite gets its own non-blocking toast: the tray badge alone made invites easy to miss.
+    const inviteToast = social.inviteToast;
+    const inviteToastTarget = inviteToast
+        ? inviteToast.type === "sandbox_invite" && inviteToast.sandboxId
+            ? sandboxCoopPath(inviteToast.sandboxId)
+            : inviteToast.type === "lobby_invite" && inviteToast.lobbyId
+              ? `/lobby/${inviteToast.lobbyId}`
+              : null
+        : null;
+    const inviteToastText = inviteToast
+        ? `${inviteToast.fromUsername ?? "A friend"} invited you ${
+              inviteToast.type === "sandbox_invite" ? "into their sandbox" : "to a lobby"
+          }`
+        : "";
 
     const dockControls = (
         <Stack
@@ -1350,6 +1365,50 @@ export const SocialDock: React.FC = () => {
                 }
             />
 
+            {inviteToast && inviteToastTarget ? (
+                <Box
+                    role="status"
+                    data-social-dock-button="true"
+                    sx={{
+                        position: "fixed",
+                        top: 14,
+                        left: "50%",
+                        transform: "translateX(-50%)",
+                        zIndex: 1450,
+                        ...hocPanelSx,
+                        px: 1.5,
+                        py: 1,
+                        maxWidth: "min(92vw, 520px)",
+                        boxShadow: "0 8px 24px rgba(0,0,0,0.6)",
+                    }}
+                >
+                    <Stack direction="row" spacing={1.25} alignItems="center">
+                        <Typography level="body-md" sx={{ color: hocColors.parchment, minWidth: 0 }}>
+                            {inviteToastText}
+                        </Typography>
+                        <Button
+                            size="sm"
+                            sx={hocPrimaryButtonSx}
+                            onClick={() => {
+                                social.dismissInviteToast();
+                                setTrayOpen(false);
+                                setFriendsOpen(false);
+                                navigate(inviteToastTarget);
+                            }}
+                        >
+                            Join
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="plain"
+                            sx={{ color: hocColors.muted }}
+                            onClick={social.dismissInviteToast}
+                        >
+                            Later
+                        </Button>
+                    </Stack>
+                </Box>
+            ) : null}
             <Modal open={popupVisible} onClose={() => popup && social.dismissPopup(popup.requestId)}>
                 <ModalDialog variant="outlined" sx={{ ...hocPanelSx, width: 380, maxWidth: "92vw" }}>
                     <Typography level="title-lg" sx={{ color: hocColors.gold }}>

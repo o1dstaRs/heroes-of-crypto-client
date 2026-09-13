@@ -100,6 +100,8 @@ import { startVisibleInterval } from "./visibleInterval";
 import { ViewerTeamContext } from "./context/ViewerTeamContext";
 import { SandboxCoopBanner, SandboxCoopReadyButton, sandboxCoopSeatStatuses } from "./SandboxCoopControls";
 import { openFriendsPanel } from "./social/openFriendsEvent";
+import { clearTurnAlert, isTabUnwatched, signalYourTurn, yourTurnActivationKey } from "./turnAlert";
+import { playNotificationSound } from "./audio/uiSounds";
 import type { SandboxCoopSession } from "../api/sandbox_coop_client";
 import {
     hocColors,
@@ -1501,6 +1503,47 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             }
         })();
     }, [isObserver, replayOnly, sandboxCoop, snapshot, submitProtocolAction, userTeam]);
+
+    // "Your turn" for a player who tabbed away: chime on every fresh activation of one of our units, and
+    // flash the tab title (plus an OS toast) while the tab is not being watched. Seats the AI is driving
+    // need no nudge. The first snapshot after a (re)load only seeds the key — the board is already showing
+    // whose turn it is.
+    const lastTurnKeyRef = useRef<string | undefined>(undefined);
+    const seatIsAutomated = aiToggleOn || !!myPlayer?.aiControlled;
+    useEffect(() => {
+        if (!snapshot || isObserver || replayOnly) {
+            return;
+        }
+        const key = yourTurnActivationKey(snapshot, userTeam);
+        const previous = lastTurnKeyRef.current;
+        lastTurnKeyRef.current = key;
+        if (!key) {
+            clearTurnAlert();
+            return;
+        }
+        if (previous === undefined || key === previous || seatIsAutomated) {
+            return;
+        }
+        playNotificationSound();
+        if (isTabUnwatched()) {
+            const unitName = snapshot.units.find((unit) => unit.id === snapshot.currentUnitId)?.name ?? "";
+            signalYourTurn(unitName);
+        }
+    }, [isObserver, replayOnly, seatIsAutomated, snapshot, userTeam]);
+    useEffect(() => {
+        const onAttention = (): void => {
+            if (!isTabUnwatched()) {
+                clearTurnAlert();
+            }
+        };
+        window.addEventListener("focus", onAttention);
+        document.addEventListener("visibilitychange", onAttention);
+        return () => {
+            window.removeEventListener("focus", onAttention);
+            document.removeEventListener("visibilitychange", onAttention);
+            clearTurnAlert();
+        };
+    }, []);
 
     // Co-op sandbox: who sits where, live from the snapshot (connected / ready), named by the invite.
     const sandboxSeats = useMemo(

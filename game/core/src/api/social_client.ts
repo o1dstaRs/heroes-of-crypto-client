@@ -28,6 +28,8 @@ export interface PendingIncomingRequest {
 export interface PresencePingResult {
     unseenCount: number;
     pendingIncoming: PendingIncomingRequest[];
+    /** The viewer's own live ranked/lobby game, for the "return to your match" banner. */
+    liveGame?: { gameId: string; stage: FriendGameStage };
 }
 
 export interface SocialNotification {

@@ -5,10 +5,13 @@ import {
     isFriendInviteNotification,
     presencePing,
     respondFriendRequest,
+    type FriendGameStage,
     type PendingIncomingRequest,
+    type SocialNotification,
 } from "../../api/social_client";
 import { playFriendInviteSound, playNotificationSound } from "../audio/uiSounds";
 import { useAuthContext } from "../auth/context/auth_context";
+import { currentPresenceAttention, presencePingIntervalMs } from "./presenceCadence";
 
 /**
  * App-wide social state: a ~25s presence heartbeat while logged in (this is what makes the player
@@ -17,7 +20,10 @@ import { useAuthContext } from "../auth/context/auth_context";
  * panel) lives in SocialDock — this provider is pure state so it can mount once above the router.
  */
 
-const PING_INTERVAL_MS = 25_000;
+export interface ILiveGame {
+    gameId: string;
+    stage: FriendGameStage;
+}
 
 interface ISocialContext {
     unseenCount: number;
@@ -25,6 +31,11 @@ interface ISocialContext {
     /** Oldest incoming request not yet dismissed this session — drives the accept/decline popup. */
     popupRequest: PendingIncomingRequest | null;
     dismissPopup: (requestId: string) => void;
+    /** The newest sandbox/lobby invite that arrived this session and was not acted on — drives the Join toast. */
+    inviteToast: SocialNotification | null;
+    dismissInviteToast: () => void;
+    /** The viewer's own live ranked/lobby game, as the last presence ping reported it. */
+    liveGame: ILiveGame | null;
     respond: (requestId: string, accept: boolean) => Promise<void>;
     /** Zero the badge locally (the tray marks seen server-side when opened). */
     clearUnseen: () => void;
@@ -37,6 +48,9 @@ const SocialContext = createContext<ISocialContext>({
     pendingIncoming: [],
     popupRequest: null,
     dismissPopup: () => {},
+    inviteToast: null,
+    dismissInviteToast: () => {},
+    liveGame: null,
     respond: async () => {},
     clearUnseen: () => {},
     refreshNow: () => {},
@@ -53,6 +67,8 @@ export const SocialProvider: React.FC<{ children?: React.ReactNode }> = ({ child
 
     const [unseenCount, setUnseenCount] = useState(0);
     const [pendingIncoming, setPendingIncoming] = useState<PendingIncomingRequest[]>([]);
+    const [inviteToast, setInviteToast] = useState<SocialNotification | null>(null);
+    const [liveGame, setLiveGame] = useState<ILiveGame | null>(null);
     const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => new Set());
     // Requests/counts we already fired a browser notification for — never nag twice per session.
     const notifiedRequestIds = useRef<Set<string>>(new Set());
@@ -80,6 +96,15 @@ export const SocialProvider: React.FC<{ children?: React.ReactNode }> = ({ child
             } else {
                 playNotificationSound();
             }
+            // A room invite is time-sensitive: raise the Join toast for the newest one that has a room to go to.
+            const invite = fresh.find(
+                (notification) =>
+                    (notification.type === "sandbox_invite" && !!notification.sandboxId) ||
+                    (notification.type === "lobby_invite" && !!notification.lobbyId),
+            );
+            if (invite) {
+                setInviteToast(invite);
+            }
         } catch {
             // The badge already tells the story; a missed chime is not worth an error.
         }
@@ -93,6 +118,10 @@ export const SocialProvider: React.FC<{ children?: React.ReactNode }> = ({ child
             }
             setUnseenCount(result.unseenCount);
             setPendingIncoming(result.pendingIncoming);
+            setLiveGame((current) => {
+                const next = result.liveGame ?? null;
+                return current?.gameId === next?.gameId && current?.stage === next?.stage ? current : next;
+            });
             if (pingedOnceRef.current && result.unseenCount > lastUnseenRef.current) {
                 void soundNewArrivals();
             } else if (!pingedOnceRef.current) {
@@ -142,25 +171,49 @@ export const SocialProvider: React.FC<{ children?: React.ReactNode }> = ({ child
         if (!active) {
             setUnseenCount(0);
             setPendingIncoming([]);
+            setInviteToast(null);
+            setLiveGame(null);
             pingedOnceRef.current = false;
             return () => {
                 mountedRef.current = false;
             };
         }
-        void ping();
-        const handle = window.setInterval(() => void ping(), PING_INTERVAL_MS);
-        const onVisible = (): void => {
+        // The cadence follows the tab's attention (see presenceCadence): a watched tab polls briskly so an
+        // invite or a badge never waits long, a hidden one keeps the cheap heartbeat. Attention changes
+        // re-arm the timer and, when the tab comes back, ping right away.
+        let handle: number | undefined;
+        let stopped = false;
+        const arm = (): void => {
+            if (stopped) {
+                return;
+            }
+            window.clearTimeout(handle);
+            handle = window.setTimeout(() => {
+                void ping().finally(arm);
+            }, presencePingIntervalMs(currentPresenceAttention()));
+        };
+        void ping().finally(arm);
+        const onAttention = (): void => {
             if (!document.hidden) {
-                void ping();
+                void ping().finally(arm);
+            } else {
+                arm();
             }
         };
-        document.addEventListener("visibilitychange", onVisible);
+        document.addEventListener("visibilitychange", onAttention);
+        window.addEventListener("focus", onAttention);
+        window.addEventListener("blur", onAttention);
         return () => {
+            stopped = true;
             mountedRef.current = false;
-            window.clearInterval(handle);
-            document.removeEventListener("visibilitychange", onVisible);
+            window.clearTimeout(handle);
+            document.removeEventListener("visibilitychange", onAttention);
+            window.removeEventListener("focus", onAttention);
+            window.removeEventListener("blur", onAttention);
         };
     }, [active, ping]);
+
+    const dismissInviteToast = useCallback((): void => setInviteToast(null), []);
 
     const respond = useCallback(
         async (requestId: string, accept: boolean): Promise<void> => {
@@ -205,6 +258,9 @@ export const SocialProvider: React.FC<{ children?: React.ReactNode }> = ({ child
             pendingIncoming,
             popupRequest,
             dismissPopup,
+            inviteToast,
+            dismissInviteToast,
+            liveGame,
             respond,
             clearUnseen,
             refreshNow,
@@ -215,6 +271,9 @@ export const SocialProvider: React.FC<{ children?: React.ReactNode }> = ({ child
             pendingIncoming,
             popupRequest,
             dismissPopup,
+            inviteToast,
+            dismissInviteToast,
+            liveGame,
             respond,
             clearUnseen,
             refreshNow,
