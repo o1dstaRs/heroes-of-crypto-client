@@ -1,3 +1,4 @@
+import { BATTLEFIELD_TEXTURE_KEYS } from "./battlefieldTextureKeys";
 import { isUnitAnimationAtlasKey, isUnitBoardImageKey, isUnitCardImageKey } from "./unitAtlasKeys";
 
 // Keep asset routing free of Pixi imports so non-renderer surfaces (notably the ranked draft) can
@@ -138,6 +139,7 @@ export function isDeferredPlacementAssetKey(key: string): boolean {
 }
 
 export function isDeferredLegacyCreatureAssetKey(key: string): boolean {
+    if (BATTLEFIELD_TEXTURE_KEYS.has(key)) return false;
     if (key.endsWith("_final")) return true;
     if (/_portrait_full_v\d+$/.test(key)) return true;
     return key.includes("_battlefield_side_right_") && !key.endsWith("_battlefield_side_right_final_v1");
@@ -148,6 +150,7 @@ export function isDeferredUnitCardAssetKey(key: string): boolean {
 }
 
 export function isLazyBattlefieldCreatureAssetKey(key: string): boolean {
+    if (BATTLEFIELD_TEXTURE_KEYS.has(key)) return true;
     return key === "efreet_board_128" || key.endsWith("_battlefield_side_right_final_v1") || isUnitBoardImageKey(key);
 }
 
