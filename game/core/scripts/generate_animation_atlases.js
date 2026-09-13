@@ -3,6 +3,7 @@
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const levelOneNames = new Set(require("../src/animations/levelOneAssets.json").map((asset) => `${asset.key}.webp`));
 
 // Approved animation art that must never be silently replaced by an older export. The Scavenger
 // walk was tuned frame-by-frame (including which leg stays in the foreground), so accepting any
@@ -149,7 +150,9 @@ function main() {
             continue;
         }
 
-        const meta = json.meta;
+        const meta = { ...json.meta };
+        // Authoring references are not runtime URLs and must stay portable across asset checkouts.
+        if (typeof meta.battlefieldReference === "string") meta.battlefieldReference = path.basename(meta.battlefieldReference);
 
         // ⭐️ Derive animation timings from totalDurationSec. An authored meta that already carries
         // explicit loopDurationMs/pauseMs (e.g. the frame-timed Peasant idle with no upright pause)
@@ -238,6 +241,7 @@ function main() {
     let copied = 0;
     for (const file of atlasWebps) {
         const basename = path.basename(file);
+        if (levelOneNames.has(basename)) continue;
         const dest = path.join(imagesDir, basename);
         const pinnedHash = PINNED_ATLAS_SHA256[basename];
         if (pinnedHash) {
@@ -263,6 +267,7 @@ function main() {
         }
     }
 
+    require("./prepare_level_one_assets.ts").prepareLevelOneAssets(imagesDir);
     console.log(`✅ Copied ${copied} atlas .webp files into: ${imagesDir}`);
 }
 

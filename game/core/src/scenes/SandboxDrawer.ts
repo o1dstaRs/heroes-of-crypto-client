@@ -1,5 +1,12 @@
 import { Container, Graphics, Matrix, Sprite, Texture } from "pixi.js";
-import { FightProperties, FightStateManager, GridSettings, HoCMath, TeamType } from "@heroesofcrypto/common";
+import {
+    FightProperties,
+    FightStateManager,
+    GridSettings,
+    HoCConstants,
+    HoCMath,
+    TeamType,
+} from "@heroesofcrypto/common";
 
 /**
  * The aura rings a unit should DISPLAY: real auras only, each widened by the team's "+N aura range"
@@ -349,6 +356,9 @@ export class SandboxDrawer {
             shotRangeCornerEnemyTexture,
         } = ctx;
         const fightStarted = fightProps.hasFightStarted();
+        const narrowingLayers = fightStarted
+            ? Math.min(Math.max(0, fightProps.getLapsNarrowed()), HoCConstants.MAX_HOLE_LAYERS)
+            : 0;
         const movementGraphics = ctx.movementGraphics ?? g;
         // The unit whose turn is active always receives a neutral white movement preview. Team colours are
         // reserved for placement zones and hovered-unit inspection, so overlapping aura/team overlays stay legible.
@@ -413,7 +423,7 @@ export class SandboxDrawer {
                 gs,
                 hoverGlowPhase,
                 SHOT_RANGE_COLOR,
-                fightStarted,
+                narrowingLayers,
                 shotRangeCornerContainer,
                 shotRangeCornerPool,
                 shotRangeCornerTextureForColor(
@@ -436,7 +446,7 @@ export class SandboxDrawer {
                 gs,
                 hoverGlowPhase,
                 color,
-                fightStarted,
+                narrowingLayers,
                 shotRangeCornerContainer,
                 shotRangeCornerPool,
                 shotRangeCornerTextureForColor(
@@ -464,7 +474,7 @@ export class SandboxDrawer {
                 gs,
                 hoverGlowPhase,
                 color,
-                fightStarted,
+                narrowingLayers,
                 shotRangeCornerContainer,
                 shotRangeCornerPool,
                 shotRangeCornerTextureForColor(
@@ -670,11 +680,13 @@ export class SandboxDrawer {
         horizontalHalfExtent: number,
         verticalHalfExtent: number,
         gs: GridSettings,
+        narrowingLayers = 0,
     ): ShotRangeBounds | undefined {
-        const left = Math.max(xy.x - horizontalHalfExtent, gs.getMinX());
-        const right = Math.min(xy.x + horizontalHalfExtent, gs.getMaxX());
-        const bottom = Math.max(xy.y - verticalHalfExtent, gs.getMinY());
-        const top = Math.min(xy.y + verticalHalfExtent, gs.getMaxY());
+        const inset = narrowingLayers * gs.getCellSize();
+        const left = Math.max(xy.x - horizontalHalfExtent, gs.getMinX() + inset);
+        const right = Math.min(xy.x + horizontalHalfExtent, gs.getMaxX() - inset);
+        const bottom = Math.max(xy.y - verticalHalfExtent, gs.getMinY() + inset);
+        const top = Math.min(xy.y + verticalHalfExtent, gs.getMaxY() - inset);
         const width = right - left;
         const height = top - bottom;
         return width > 0 && height > 0 ? { left, bottom, width, height } : undefined;
@@ -687,23 +699,29 @@ export class SandboxDrawer {
         gs: GridSettings,
         _pulsePhase: number,
         color: number,
-        _fightStarted: boolean,
+        narrowingLayers: number,
         cornerContainer?: Container,
         cornerPool?: ShotRangeCornerSpritePool,
         cornerTexture?: Texture,
     ): void {
-        const bounds = SandboxDrawer.clampSquareToBoard(xy, horizontalHalfExtent, verticalHalfExtent, gs);
+        const bounds = SandboxDrawer.clampSquareToBoard(
+            xy,
+            horizontalHalfExtent,
+            verticalHalfExtent,
+            gs,
+            narrowingLayers,
+        );
         if (!bounds) return;
         const { left, bottom, width, height } = bounds;
         const cellSize = gs.getCellSize();
         const lineWidth = Math.max(1.15, cellSize * SHOT_RANGE_LINE_WIDTH_CELLS);
         const lineAlpha = 0.83;
         const cornerAlpha = 0.85;
-        // One unbroken perimeter follows the hand-painted perspective seams exactly.
-        // A single opaque rail keeps all four sides pixel-identical. The former dark bed + bright
-        // highlight blended differently over light and dark floor tiles and read as dashes/tone shifts.
+        // Keep all four rails one screen pixel wide. A world-space stroke shrinks below a pixel under
+        // the board camera, letting horizontal edges disappear between raster rows (especially without MSAA).
         g.poly(projectedRectPoints(left, bottom, left + width, bottom + height, gs)).stroke({
             width: lineWidth,
+            pixelLine: true,
             color,
             alpha: lineAlpha,
             cap: "square",

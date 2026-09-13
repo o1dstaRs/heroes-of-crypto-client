@@ -1,4 +1,5 @@
 // scripts/generate_image_imports.js
+require("./prepare_level_one_assets.ts").prepareLevelOneAssets();
 const fs = require("fs");
 const path = require("path");
 const { isWebPFile } = require("../src/gameImageAssetPolicy.ts");
@@ -93,7 +94,10 @@ fs.writeFileSync(outputFile, lines.join("\n") + "\n");
 // ImageKey union above). This file IS COMMITTED (see .gitignore) so CI's generate_ci_stubs.js can
 // rebuild the exact same enumerable key universe without the private art Drive; regenerate and
 // commit it together with image_imports.ts whenever the art set changes.
-fs.writeFileSync(path.join(generatedDir, "image_keys.json"), JSON.stringify(entries.map(({ key }) => key).sort(), null, 4) + "\n");
+fs.writeFileSync(
+    path.join(generatedDir, "image_keys.json"),
+    JSON.stringify(entries.map(({ key }) => key).sort(), null, 4) + "\n",
+);
 const omittedCount = entries.filter(({ productionOmitted }) => productionOmitted).length;
 console.log(
     productionBuild

@@ -216,6 +216,8 @@ const spellAmounts = (unit: Unit): Record<string, number> =>
     Object.fromEntries(unit.getSpells().map((spell) => [spell.getName(), spell.getAmount()]));
 
 beforeEach(() => {
+    // This suite preserves the legacy renderer contract; LevelOnePackage.test covers its replacement.
+    CREATURE_SPRITE_ANIMATION_SETTINGS.approvedBaseEnabled = false;
     // Exercise authored playback in its dedicated tests. Production keeps the master switch off; the
     // frozen-state test below explicitly returns to that temporary runtime mode.
     CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = true;
@@ -223,6 +225,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+    CREATURE_SPRITE_ANIMATION_SETTINGS.approvedBaseEnabled = true;
     HoCLib.setDeterministicRandomSource(undefined);
     CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
     COMMON_IDLE_BREATH_SETTINGS.enabled = false;
@@ -282,13 +285,13 @@ describe("preview placement facing", () => {
     });
 });
 
-describe("level-one generic whole-sprite motion gate", () => {
-    test("disables shared movement/combat overlays at level one and retains them above level one", () => {
+describe("level-one and level-two generic whole-sprite motion gate", () => {
+    test("disables shared movement/combat overlays for the first two levels", () => {
         expect(creatureGenericWholeSpriteMotionEnabledForLevel(1)).toBe(false);
-        expect(creatureGenericWholeSpriteMotionEnabledForLevel(2)).toBe(true);
+        expect(creatureGenericWholeSpriteMotionEnabledForLevel(2)).toBe(false);
         expect(creatureGenericCombatMotionEnabledForUnit("Squire", 1)).toBe(false);
         expect(creatureGenericCombatMotionEnabledForUnit("Troglodyte", 1)).toBe(false);
-        expect(creatureGenericCombatMotionEnabledForUnit("Satyr", 2)).toBe(true);
+        expect(creatureGenericCombatMotionEnabledForUnit("Satyr", 2)).toBe(false);
     });
 });
 
@@ -2646,10 +2649,10 @@ describe("refreshed idle cadence and quadruped scale", () => {
     assetTest("keeps Peasant authored motion isolated from generic combat overlays", () => {
         CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
         expect(creatureGenericWholeSpriteMotionEnabledForLevel(1)).toBe(false);
-        expect(creatureGenericWholeSpriteMotionEnabledForLevel(2)).toBe(true);
+        expect(creatureGenericWholeSpriteMotionEnabledForLevel(2)).toBe(false);
         expect(creatureGenericCombatMotionEnabledForUnit("Peasant", 1)).toBe(false);
         expect(creatureGenericCombatMotionEnabledForUnit("Troglodyte", 1)).toBe(false);
-        expect(creatureGenericCombatMotionEnabledForUnit("Satyr", 2)).toBe(true);
+        expect(creatureGenericCombatMotionEnabledForUnit("Satyr", 2)).toBe(false);
 
         const unit = createRenderableUnit(TeamVals.LEFT, "Life", "Peasant", "peasant_512", () => Texture.WHITE);
         unit.setPosition(0, 1024);
@@ -3860,7 +3863,7 @@ describe("RenderableUnit dodge animation", () => {
     function createVisualUnit(): { unit: RenderableUnit; worldRoot: Container } {
         const effectFactory = new EffectFactory();
         const base = Unit.createUnit(
-            HoCConfig.getCreatureConfig(TeamVals.RIGHT, "Nature", "Satyr", "satyr_512", 1),
+            HoCConfig.getCreatureConfig(TeamVals.RIGHT, "Nature", "Pegasus", "pegasus_512", 1),
             gridSettings,
             TeamVals.RIGHT,
             UnitVals.CREATURE,

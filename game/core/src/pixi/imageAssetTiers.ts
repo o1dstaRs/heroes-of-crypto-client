@@ -1,3 +1,7 @@
+import shotTrajectoryAssets from "./shotTrajectoryAssets.json";
+import { CREATURE_PORTRAIT_ASSET_KEYS } from "./creaturePortraitAssetKeys";
+import battlefieldEnvironmentAssets from "../animations/battlefieldEnvironmentAssets.json";
+const approvedEnvironmentKeys = new Set(battlefieldEnvironmentAssets.map((asset) => asset.key));
 import { BATTLEFIELD_TEXTURE_KEYS } from "./battlefieldTextureKeys";
 import { isUnitAnimationAtlasKey, isUnitBoardImageKey, isUnitCardImageKey } from "./unitAtlasKeys";
 import { isNamedUnitStateSheetKey } from "./unitStateSheetKeys";
@@ -6,6 +10,7 @@ import { isNamedUnitStateSheetKey } from "./unitStateSheetKeys";
 // reuse the exact runtime split without pulling Pixi into their entry bundle.
 
 export function isIdleAtlasKey(key: string): boolean {
+    if (key === "blacksmith_idle_atlas" || key === "orc_idle_atlas") return true;
     return (
         isUnitAnimationAtlasKey(key) &&
         (key.includes("_idle") || key.includes("_default")) &&
@@ -14,6 +19,113 @@ export function isIdleAtlasKey(key: string): boolean {
 }
 
 export function isRedundantFullResolutionUnitAtlasKey(key: string): boolean {
+    if (approvedEnvironmentKeys.has(key)) return false;
+    if (
+        [
+            "berserker_walk_atlas",
+            "berserker_sword_idle_atlas",
+            "berserker_hit_atlas",
+            "berserker_death_atlas",
+            "berserker_melee_attack_atlas",
+            "berserker_melee_attack_up_atlas",
+            "berserker_melee_attack_down_atlas",
+        ].includes(key)
+    )
+        return false;
+    if (
+        [
+            "dryad_lab_walk_atlas",
+            "dryad_lab_hit_atlas",
+            "dryad_lab_death_atlas",
+            "dryad_lab_melee_attack_atlas",
+            "dryad_lab_melee_attack_up_atlas",
+            "dryad_lab_melee_attack_down_atlas",
+            "dryad_lab_attack_atlas",
+            "dryad_lab_attack_up_atlas",
+            "dryad_lab_attack_down_atlas",
+        ].includes(key)
+    )
+        return false;
+    if (key === "leprechaun_lab_walk_atlas") return false;
+    if (key === "leprechaun_lab_idle_atlas") return false;
+    if (key === "leprechaun_lab_hit_atlas" || key === "leprechaun_lab_death_atlas") return false;
+    if (
+        [
+            "leprechaun_lab_melee_attack_atlas",
+            "leprechaun_lab_melee_attack_up_atlas",
+            "leprechaun_lab_melee_attack_down_atlas",
+        ].includes(key)
+    )
+        return false;
+    if (key === "fairy_lab_walk_atlas" || key === "fairy_lab_idle_atlas") return false;
+    if (key === "fairy_lab_hit_atlas" || key === "fairy_lab_death_atlas") return false;
+    if (
+        [
+            "fairy_lab_melee_attack_atlas",
+            "fairy_lab_melee_attack_up_atlas",
+            "fairy_lab_melee_attack_down_atlas",
+        ].includes(key)
+    )
+        return false;
+    if (/^arbalester_idle_page_\d{2}_atlas$/.test(key)) return false;
+    if (
+        [
+            "arbalester_walk_atlas",
+            "arbalester_hit_atlas",
+            "arbalester_death_atlas",
+            "arbalester_attack_atlas",
+            "arbalester_attack_up_atlas",
+            "arbalester_attack_down_atlas",
+            "arbalester_melee_attack_atlas",
+            "arbalester_melee_attack_up_atlas",
+            "arbalester_melee_attack_down_atlas",
+        ].includes(key)
+    )
+        return false;
+    if (
+        [
+            "centaur_lab_walk_atlas",
+            "centaur_lab_idle_atlas",
+            "centaur_lab_hit_atlas",
+            "centaur_lab_death_atlas",
+            "centaur_lab_melee_attack_atlas",
+            "centaur_lab_melee_attack_up_atlas",
+            "centaur_lab_melee_attack_down_atlas",
+            "centaur_lab_attack_atlas",
+            "centaur_lab_attack_up_atlas",
+            "centaur_lab_attack_down_atlas",
+        ].includes(key)
+    )
+        return false;
+    if (
+        [
+            "orc_idle_atlas",
+            "orc_walk_atlas",
+            "orc_hit_atlas",
+            "orc_death_atlas",
+            "orc_attack_atlas",
+            "orc_attack_up_atlas",
+            "orc_attack_down_atlas",
+            "orc_melee_attack_atlas",
+            "orc_melee_attack_up_atlas",
+            "orc_melee_attack_down_atlas",
+        ].includes(key)
+    )
+        return false;
+    // The approved Blacksmith detail pass is rendered from its original 768px frames.
+    if (
+        [
+            "blacksmith_walk_atlas",
+            "blacksmith_idle_atlas",
+            "blacksmith_hit_atlas",
+            "blacksmith_death_atlas",
+            "blacksmith_melee_attack_atlas",
+            "blacksmith_cast_atlas",
+            "blacksmith_melee_attack_up_atlas",
+            "blacksmith_melee_attack_down_atlas",
+        ].includes(key)
+    )
+        return false;
     return isUnitAnimationAtlasKey(key) && key.endsWith("_atlas");
 }
 
@@ -110,6 +222,7 @@ export function isLazyMapTextureAssetKey(key: string): boolean {
 
 export function isDeferredEnvironmentAssetKey(key: string): boolean {
     if (LIVE_ENVIRONMENT_ASSETS.has(key)) return false;
+    if (approvedEnvironmentKeys.has(key)) return true;
     if (isLazyMapTextureAssetKey(key)) return true;
     if (
         key === "active_turn_blue_fire_atlas" ||
@@ -183,7 +296,7 @@ const LAZY_COMBAT_EFFECT_ASSETS = new Set([
     "shot_range_corner_aaa_v1",
     "shot_range_corner_aaa_v4_green",
     "shot_range_corner_aaa_v4_red",
-    "shot_trajectory_hammered_bronze_casing_sprite_v4",
+    ...shotTrajectoryAssets.map((asset) => asset.key),
     "vfx_dust_smoky_ash_atlas",
 ]);
 
@@ -453,6 +566,8 @@ export function isCoreTextureAssetKey(key: string): boolean {
 
 /** Authoring/superseded exports that no production path can request, even lazily. */
 export function isProductionOmittedAssetKey(key: string): boolean {
+    if (CREATURE_PORTRAIT_ASSET_KEYS.has(key)) return false;
+    if (approvedEnvironmentKeys.has(key)) return false;
     return (
         isRedundantFullResolutionUnitAtlasKey(key) ||
         (isDeferredPlacementAssetKey(key) && !isLivePlacementAssetKey(key)) ||

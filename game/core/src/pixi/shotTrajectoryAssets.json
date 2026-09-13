@@ -1,0 +1,38 @@
+[
+    {
+        "key": "shot_trajectory_gold_arrowhead_wide_socket_v6",
+        "kind": "image",
+        "path": "shot_trajectory_gold_arrowhead_wide_socket_v6.webp",
+        "sha256": "180dd2e52330e392066f19fec40b4264564e3d0bd43df0bbef2a2a4b44551837"
+    },
+    {
+        "key": "shot_trajectory_orc_bronze_arrowhead_distant_match_v8",
+        "kind": "image",
+        "path": "shot_trajectory_orc_bronze_arrowhead_distant_match_v8.webp",
+        "sha256": "a5b00ee8c73ffc7936846bfc2b776192f74c42472101807b840adbc41a095ad9"
+    },
+    {
+        "key": "shot_trajectory_gold_fletching_wide_socket_v6",
+        "kind": "image",
+        "path": "shot_trajectory_gold_fletching_wide_socket_v6.webp",
+        "sha256": "15fc8b2128fdd721f96f9b3586dce17486750035a1e85b564242aebd7c9da307"
+    },
+    {
+        "key": "shot_trajectory_orc_bronze_fletching_distant_match_v8",
+        "kind": "image",
+        "path": "shot_trajectory_orc_bronze_fletching_distant_match_v8.webp",
+        "sha256": "a619fffee33e1750f7cd6d13f2f07944c1ec020596b71e59444d1ae11ef01670"
+    },
+    {
+        "key": "shot_trajectory_hammered_bronze_casing_sprite_v4",
+        "kind": "image",
+        "path": "shot_trajectory_hammered_bronze_casing_sprite_v4.webp",
+        "sha256": "dc6fbcbe33ea92bdf4666728841487517aafeb4af63d8984b1cb928f1f2d3a2e"
+    },
+    {
+        "key": "shot_trajectory_gold_casing_sprite_v6",
+        "kind": "image",
+        "path": "shot_trajectory_gold_casing_sprite_v6.webp",
+        "sha256": "0d65ead14ed5f70d62147ae368c9ad9cd85716fa28dd78efe2c7ba2bc2d4b68e"
+    }
+]

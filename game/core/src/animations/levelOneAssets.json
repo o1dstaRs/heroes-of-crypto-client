@@ -1,0 +1,1712 @@
+[
+    {
+        "key": "arbalester_attack_atlas",
+        "kind": "animation",
+        "path": "arbalester_attack/atlas/arbalester_attack_atlas.webp",
+        "sha256": "9e810c3276a323c604bc3010b2f8742e8f016cb5d9a00202179dba9f1fbe13c4"
+    },
+    {
+        "key": "arbalester_attack_atlas_quarter",
+        "kind": "animation",
+        "path": "arbalester_attack/atlas/arbalester_attack_atlas_quarter.webp",
+        "sha256": "5ff676ce0844b851ce9b12ad9a17b4898ec5ddb247fac17cb6bb3f579c28db8a"
+    },
+    {
+        "key": "arbalester_attack_down_atlas",
+        "kind": "animation",
+        "path": "arbalester_attack_down/atlas/arbalester_attack_down_atlas.webp",
+        "sha256": "c627150e6fb3f54acd111a93fcf6356a22f0218a6e9522224be723570f1be100"
+    },
+    {
+        "key": "arbalester_attack_down_atlas_quarter",
+        "kind": "animation",
+        "path": "arbalester_attack_down/atlas/arbalester_attack_down_atlas_quarter.webp",
+        "sha256": "8cbd772f9f4f1e53068f7187c644b7bb02996e5b8722c23d7662168727728cfd"
+    },
+    {
+        "key": "arbalester_attack_up_atlas",
+        "kind": "animation",
+        "path": "arbalester_attack/atlas/arbalester_attack_up_atlas.webp",
+        "sha256": "bf33780d407aa3f3cef29317e255cbd496c8875f2925471d6b451a32cf111d7c"
+    },
+    {
+        "key": "arbalester_attack_up_atlas_quarter",
+        "kind": "animation",
+        "path": "arbalester_attack/atlas/arbalester_attack_up_atlas_quarter.webp",
+        "sha256": "a4011476dbe69f1f8a33f8e8423fad12da639413092ebac87ce0e59245309925"
+    },
+    {
+        "key": "arbalester_cyan_bolt",
+        "kind": "image",
+        "path": "arbalester_cyan_bolt.webp",
+        "sha256": "d9f0d819c73801c78ec6d6f56172449f76044616413de82520ae5d9684b33281"
+    },
+    {
+        "key": "arbalester_death_atlas",
+        "kind": "animation",
+        "path": "arbalester_death/atlas/arbalester_death_atlas.webp",
+        "sha256": "0b4bb527211c6a95b3be75a1fccb64883e384a59df323894897bd74f29559a95"
+    },
+    {
+        "key": "arbalester_death_atlas_quarter",
+        "kind": "animation",
+        "path": "arbalester_death/atlas/arbalester_death_atlas_quarter.webp",
+        "sha256": "e6fc778deea4f9c0af0c820620d874101998d2af0986f9d0df2bc34eb0574368"
+    },
+    {
+        "key": "arbalester_hit_atlas",
+        "kind": "animation",
+        "path": "arbalester_hit/atlas/arbalester_hit_atlas.webp",
+        "sha256": "db37df2022ca2c0c7b6ecf43bf0e6804b7b58d135fabcbf4c2c899dc4455aaf8"
+    },
+    {
+        "key": "arbalester_hit_atlas_quarter",
+        "kind": "animation",
+        "path": "arbalester_hit/atlas/arbalester_hit_atlas_quarter.webp",
+        "sha256": "0d0c520f7f3aada273622e170f1f64cef236dc97add11c56700fb072366ff767"
+    },
+    {
+        "key": "arbalester_idle_atlas",
+        "kind": "animation",
+        "path": "arbalester_idle/atlas/arbalester_idle_atlas.webp",
+        "sha256": "0d1ac17571a56c80f6419da461d95a010a55b302719ecdae6ede7f4b524e6f81"
+    },
+    {
+        "key": "arbalester_idle_atlas_quarter",
+        "kind": "animation",
+        "path": "arbalester_idle/atlas/arbalester_idle_atlas_quarter.webp",
+        "sha256": "b1163e5159d31385d2eee95ebc09fd01fa3c1ba39d34ebf95231617cd10c1341"
+    },
+    {
+        "key": "arbalester_idle_page_00_atlas",
+        "kind": "animation",
+        "path": "arbalester_idle/atlas/arbalester_idle_page_00_atlas.webp",
+        "sha256": "9caa94fdbed3b07332cab382dd03fb6b5b88ecfa1ece92f3a355063a1bff5770"
+    },
+    {
+        "key": "arbalester_idle_page_01_atlas",
+        "kind": "animation",
+        "path": "arbalester_idle/atlas/arbalester_idle_page_01_atlas.webp",
+        "sha256": "e500d455356c5e82002c327a846f41aab253edefbe17a5c8d84cfc3a1f3d1b8e"
+    },
+    {
+        "key": "arbalester_idle_page_02_atlas",
+        "kind": "animation",
+        "path": "arbalester_idle/atlas/arbalester_idle_page_02_atlas.webp",
+        "sha256": "11dea8fe4e3dd8638e437e63472db4663c669cddb9dbe2557b395c5cfaeadd91"
+    },
+    {
+        "key": "arbalester_idle_page_03_atlas",
+        "kind": "animation",
+        "path": "arbalester_idle/atlas/arbalester_idle_page_03_atlas.webp",
+        "sha256": "e7f26fd5facaceda9de8d92979210927db27acb41a243799c309342d3520d7d7"
+    },
+    {
+        "key": "arbalester_idle_page_04_atlas",
+        "kind": "animation",
+        "path": "arbalester_idle/atlas/arbalester_idle_page_04_atlas.webp",
+        "sha256": "b9a492de1fe3c1819d61f048005114d7c35ce3d1997e5b3ac9bd8ee5ee565d15"
+    },
+    {
+        "key": "arbalester_idle_page_05_atlas",
+        "kind": "animation",
+        "path": "arbalester_idle/atlas/arbalester_idle_page_05_atlas.webp",
+        "sha256": "291ed677799163d5c368ccc90140bc2f95a1561bc7e8fa4bb59fb09a858ded72"
+    },
+    {
+        "key": "arbalester_idle_page_06_atlas",
+        "kind": "animation",
+        "path": "arbalester_idle/atlas/arbalester_idle_page_06_atlas.webp",
+        "sha256": "baa53ee1edc0735144f8b2a2cf76b33937c1f203d655a70f940ebf2cc7564a46"
+    },
+    {
+        "key": "arbalester_idle_page_07_atlas",
+        "kind": "animation",
+        "path": "arbalester_idle/atlas/arbalester_idle_page_07_atlas.webp",
+        "sha256": "18713ae919c9626374502bbd6d9aea089747577f1995eb8ce210d3649889a8f6"
+    },
+    {
+        "key": "arbalester_idle_page_08_atlas",
+        "kind": "animation",
+        "path": "arbalester_idle/atlas/arbalester_idle_page_08_atlas.webp",
+        "sha256": "58de322afabc0f56c27b5fa8aee2333141de85337f31e3e664c2f836eb68cba2"
+    },
+    {
+        "key": "arbalester_idle_page_09_atlas",
+        "kind": "animation",
+        "path": "arbalester_idle/atlas/arbalester_idle_page_09_atlas.webp",
+        "sha256": "292ce923e327bdae346a4b3a3781ad314752c366106ae6a5dc414eb4143815c0"
+    },
+    {
+        "key": "arbalester_idle_page_10_atlas",
+        "kind": "animation",
+        "path": "arbalester_idle/atlas/arbalester_idle_page_10_atlas.webp",
+        "sha256": "d7bca95802e74b2f100aef539936efccc638c956383c9ea93a26e316e44248c9"
+    },
+    {
+        "key": "arbalester_idle_page_11_atlas",
+        "kind": "animation",
+        "path": "arbalester_idle/atlas/arbalester_idle_page_11_atlas.webp",
+        "sha256": "d59dff8268f5163327fa3d3ec7e2c0673e54d2b3a154be1758ecf5f2dbb4985c"
+    },
+    {
+        "key": "arbalester_idle_page_12_atlas",
+        "kind": "animation",
+        "path": "arbalester_idle/atlas/arbalester_idle_page_12_atlas.webp",
+        "sha256": "036823a1d89d37e217b6800e60b37f6c1fc95346d8928ce3ae700ff2ec370014"
+    },
+    {
+        "key": "arbalester_idle_page_13_atlas",
+        "kind": "animation",
+        "path": "arbalester_idle/atlas/arbalester_idle_page_13_atlas.webp",
+        "sha256": "fa4cac2fa643e58b5dc7efa40cfab4677bb2595de861dfd68b0ec675732aed47"
+    },
+    {
+        "key": "arbalester_idle_page_14_atlas",
+        "kind": "animation",
+        "path": "arbalester_idle/atlas/arbalester_idle_page_14_atlas.webp",
+        "sha256": "46e31c4dfe2333d3bf3f8d13c9e435aea7ce448f376dc30e29144c9697098928"
+    },
+    {
+        "key": "arbalester_idle_page_15_atlas",
+        "kind": "animation",
+        "path": "arbalester_idle/atlas/arbalester_idle_page_15_atlas.webp",
+        "sha256": "2820c1ff971521004a95bd3120f2589546c2c3e8eac0c9560b56f28210217bd2"
+    },
+    {
+        "key": "arbalester_idle_page_16_atlas",
+        "kind": "animation",
+        "path": "arbalester_idle/atlas/arbalester_idle_page_16_atlas.webp",
+        "sha256": "349546a3ad51938d2c366f2c8940f328e56624ab4a371b89dd6e0a3a44caa1a7"
+    },
+    {
+        "key": "arbalester_idle_page_17_atlas",
+        "kind": "animation",
+        "path": "arbalester_idle/atlas/arbalester_idle_page_17_atlas.webp",
+        "sha256": "6f20b5333402743995f1e652b6f544a5d840f8f5f036faeffde3e761541e900c"
+    },
+    {
+        "key": "arbalester_idle_page_18_atlas",
+        "kind": "animation",
+        "path": "arbalester_idle/atlas/arbalester_idle_page_18_atlas.webp",
+        "sha256": "4f34e9b320bc1571771461e8737ef5d88a8c37ad4d3d04a2bc558c35e0694247"
+    },
+    {
+        "key": "arbalester_idle_page_19_atlas",
+        "kind": "animation",
+        "path": "arbalester_idle/atlas/arbalester_idle_page_19_atlas.webp",
+        "sha256": "05dd10b2651272645e14b25b6b37a587678f423b252f921cfa511e0842b1a237"
+    },
+    {
+        "key": "arbalester_idle_page_20_atlas",
+        "kind": "animation",
+        "path": "arbalester_idle/atlas/arbalester_idle_page_20_atlas.webp",
+        "sha256": "7c52354afd2348dd2dbeb52c7cdf26dacdd513cf3eae0575c62fcca7185cef99"
+    },
+    {
+        "key": "arbalester_idle_page_21_atlas",
+        "kind": "animation",
+        "path": "arbalester_idle/atlas/arbalester_idle_page_21_atlas.webp",
+        "sha256": "593ffd10218bdb6fe8f79286db4b4f61ee45bdd42563cae73c9e069553c14ae7"
+    },
+    {
+        "key": "arbalester_melee_attack_atlas",
+        "kind": "animation",
+        "path": "arbalester_melee_attack/atlas/arbalester_melee_attack_atlas.webp",
+        "sha256": "8779d3136e1123cb043930aec6a8f4bd1a3dd453fd98c9c3178010f00d17f516"
+    },
+    {
+        "key": "arbalester_melee_attack_atlas_quarter",
+        "kind": "animation",
+        "path": "arbalester_melee_attack/atlas/arbalester_melee_attack_atlas_quarter.webp",
+        "sha256": "7659a030f5f4915fe836692c44cb96245453f1583c6c50c46ed229083b05ac95"
+    },
+    {
+        "key": "arbalester_melee_attack_down_atlas",
+        "kind": "animation",
+        "path": "arbalester_melee_attack_down/atlas/arbalester_melee_attack_down_atlas.webp",
+        "sha256": "63e5053dfd3647666c370e6516913c76f431a3f3a81fdc00449300c82350ce07"
+    },
+    {
+        "key": "arbalester_melee_attack_down_atlas_quarter",
+        "kind": "animation",
+        "path": "arbalester_melee_attack_down/atlas/arbalester_melee_attack_down_atlas_quarter.webp",
+        "sha256": "3b6abdebc64dffce39c9257b329d57363cbc342922a6c13e9efa2367ea79f180"
+    },
+    {
+        "key": "arbalester_melee_attack_up_atlas",
+        "kind": "animation",
+        "path": "arbalester_melee_attack_up/atlas/arbalester_melee_attack_up_atlas.webp",
+        "sha256": "20228cf569d1c42cc73a4f308baf57d95cb2784d593e8ed796929f9fa1cddaa4"
+    },
+    {
+        "key": "arbalester_melee_attack_up_atlas_quarter",
+        "kind": "animation",
+        "path": "arbalester_melee_attack_up/atlas/arbalester_melee_attack_up_atlas_quarter.webp",
+        "sha256": "8a499184e8c0f0f7a2538f5a3f344436d5c51f5b96e5139b0b907d8b948c8e3e"
+    },
+    {
+        "key": "arbalester_walk_atlas",
+        "kind": "animation",
+        "path": "arbalester_walk/atlas/arbalester_walk_atlas.webp",
+        "sha256": "0f710bb008f76b26d550e7ec20ffda7af593cfa248d6bbd16050a8a6a52d5a6c"
+    },
+    {
+        "key": "arbalester_walk_atlas_quarter",
+        "kind": "animation",
+        "path": "arbalester_walk/atlas/arbalester_walk_atlas_quarter.webp",
+        "sha256": "0b0163d72b92ec788c8fb7d34d1bb3205781f98918253c330de0065e68afe5bf"
+    },
+    {
+        "key": "ash_moth_cast_atlas",
+        "kind": "animation",
+        "path": "ash_moth_cast/atlas/ash_moth_cast_atlas.webp",
+        "sha256": "8d4f92a608a4a12d32987cce7bb27fec6bbf33cd4b21c5732fbd15c052218d05"
+    },
+    {
+        "key": "ash_moth_cast_atlas_quarter",
+        "kind": "animation",
+        "path": "ash_moth_cast/atlas/ash_moth_cast_atlas_quarter.webp",
+        "sha256": "335fcce6ae6d6d7b2ed18b03349409b8794176de73bc29e442359b4c2609f1e2"
+    },
+    {
+        "key": "ash_moth_death_atlas",
+        "kind": "animation",
+        "path": "ash_moth_death/atlas/ash_moth_death_atlas.webp",
+        "sha256": "5fc90f29659aad1d443125ed4fd38c97bf4c2317e27895a44b4f305caf035ddd"
+    },
+    {
+        "key": "ash_moth_death_atlas_quarter",
+        "kind": "animation",
+        "path": "ash_moth_death/atlas/ash_moth_death_atlas_quarter.webp",
+        "sha256": "b496b639ee79b18067c9ec90dc5828966eb58acc9ddc80ca82814e8bccd6034c"
+    },
+    {
+        "key": "ash_moth_hit_atlas",
+        "kind": "animation",
+        "path": "ash_moth_hit/atlas/ash_moth_hit_atlas.webp",
+        "sha256": "b2eda4db1326f7984901efab8c964394ef69570eb83648ddfc6707e245f80a1a"
+    },
+    {
+        "key": "ash_moth_hit_atlas_quarter",
+        "kind": "animation",
+        "path": "ash_moth_hit/atlas/ash_moth_hit_atlas_quarter.webp",
+        "sha256": "02dc4bdf23040da52963bd4e74ea56f6acd40cae96d04e7bcae5e1de42095c66"
+    },
+    {
+        "key": "ash_moth_idle_atlas",
+        "kind": "animation",
+        "path": "ash_moth_idle/atlas/ash_moth_idle_atlas.webp",
+        "sha256": "097df0fd4c762cad0f4e9945ba1b7a784957c61aefd692eccc95fc7eadcc7699"
+    },
+    {
+        "key": "ash_moth_idle_atlas_quarter",
+        "kind": "animation",
+        "path": "ash_moth_idle/atlas/ash_moth_idle_atlas_quarter.webp",
+        "sha256": "378ce5f55c7ff50061f55b97eb7d3b726b6bd706efb57899c693c21a9a0b6a56"
+    },
+    {
+        "key": "ash_moth_melee_attack_atlas",
+        "kind": "animation",
+        "path": "ash_moth_melee_attack/atlas/ash_moth_melee_attack_atlas.webp",
+        "sha256": "4d1f3b719d42dd77692805921d13a6031c63f9d4e2c6d5cb38e0322386caba9d"
+    },
+    {
+        "key": "ash_moth_melee_attack_atlas_quarter",
+        "kind": "animation",
+        "path": "ash_moth_melee_attack/atlas/ash_moth_melee_attack_atlas_quarter.webp",
+        "sha256": "d4265ae820895b207e3549906412f0ddf4895ab6d2b60fe4c0fe72b8ce2cf814"
+    },
+    {
+        "key": "ash_moth_melee_attack_down_atlas",
+        "kind": "animation",
+        "path": "ash_moth_melee_attack_down/atlas/ash_moth_melee_attack_down_atlas.webp",
+        "sha256": "f184bc6bd2b327be91968636726c73b4ccce24b4639be3777af824c458bb2774"
+    },
+    {
+        "key": "ash_moth_melee_attack_down_atlas_quarter",
+        "kind": "animation",
+        "path": "ash_moth_melee_attack_down/atlas/ash_moth_melee_attack_down_atlas_quarter.webp",
+        "sha256": "aca32f6557e06357a17aacec55fae5757f144a4840a9e5ef5e9f2a5bee9f263b"
+    },
+    {
+        "key": "ash_moth_melee_attack_up_atlas",
+        "kind": "animation",
+        "path": "ash_moth_melee_attack_up/atlas/ash_moth_melee_attack_up_atlas.webp",
+        "sha256": "b8d95d6093a954d7e6bbfe3eee676966040e3ca58b9370bc27984fcc9868ae81"
+    },
+    {
+        "key": "ash_moth_melee_attack_up_atlas_quarter",
+        "kind": "animation",
+        "path": "ash_moth_melee_attack_up/atlas/ash_moth_melee_attack_up_atlas_quarter.webp",
+        "sha256": "3ae6293108dd15dc6573ec06981372a1fe86ae2b41edd378fbd51ac704a63a89"
+    },
+    {
+        "key": "ash_moth_walk_atlas",
+        "kind": "animation",
+        "path": "ash_moth_walk/atlas/ash_moth_walk_atlas.webp",
+        "sha256": "10d565740837b00cdf351ae4de17d3e6057af9c87c2739e428485da33834c42b"
+    },
+    {
+        "key": "ash_moth_walk_atlas_quarter",
+        "kind": "animation",
+        "path": "ash_moth_walk/atlas/ash_moth_walk_atlas_quarter.webp",
+        "sha256": "acf4c84c73600bd3288605a8eb43d6b6a46946be7f915b3428685eaffe24ddfc"
+    },
+    {
+        "key": "ash_moth_walk_left_atlas",
+        "kind": "animation",
+        "path": "ash_moth_walk/atlas/ash_moth_walk_left_atlas.webp",
+        "sha256": "c68d60d5abbd4a8ce7203315a7b93aa0939090b00c91fd855f88a557c3ab2d2f"
+    },
+    {
+        "key": "ash_moth_walk_left_atlas_quarter",
+        "kind": "animation",
+        "path": "ash_moth_walk/atlas/ash_moth_walk_left_atlas_quarter.webp",
+        "sha256": "163134b3cf817c5a6ad812cfa62e5b2831aafcc9799648cdad4beeaf6083c997"
+    },
+    {
+        "key": "berserker_death_atlas",
+        "kind": "animation",
+        "path": "berserker_death/atlas/berserker_death_atlas.webp",
+        "sha256": "db5c972637b9486f01c00db587325b279ed4fc1c62cca6a654cc9531409fa676"
+    },
+    {
+        "key": "berserker_death_atlas_quarter",
+        "kind": "animation",
+        "path": "berserker_death/atlas/berserker_death_atlas_quarter.webp",
+        "sha256": "15628df1cbcb37daebd7d6fb046b10d38c3f52a7656bffb8a1c6a6958da74235"
+    },
+    {
+        "key": "berserker_hit_atlas",
+        "kind": "animation",
+        "path": "berserker_hit/atlas/berserker_hit_atlas.webp",
+        "sha256": "ecd9d7dd2f7767f7adf277b2c2a5ed4a8c850d15d8f474fe9d11317925f8f0b1"
+    },
+    {
+        "key": "berserker_hit_atlas_quarter",
+        "kind": "animation",
+        "path": "berserker_hit/atlas/berserker_hit_atlas_quarter.webp",
+        "sha256": "ab49b81617fd03460f966b20479b4c45e991a4832257f2ee64259a17f2e7ad72"
+    },
+    {
+        "key": "berserker_melee_attack_atlas",
+        "kind": "animation",
+        "path": "berserker_melee_attack/atlas/berserker_melee_attack_atlas.webp",
+        "sha256": "a4eef351486606c889b2d60cb6787ec9dad157c061ebb57e71f467f5bd565d50"
+    },
+    {
+        "key": "berserker_melee_attack_atlas_quarter",
+        "kind": "animation",
+        "path": "berserker_melee_attack/atlas/berserker_melee_attack_atlas_quarter.webp",
+        "sha256": "6365a07ab1c095384d98869cccb2e37f4b9345c5a686cc3474e665568c6c2ac7"
+    },
+    {
+        "key": "berserker_melee_attack_down_atlas",
+        "kind": "animation",
+        "path": "berserker_melee_attack_down/atlas/berserker_melee_attack_down_atlas.webp",
+        "sha256": "5563f0892c90717be5dfb0be34c491dd557a4fec436f346f8194c76f102d1374"
+    },
+    {
+        "key": "berserker_melee_attack_down_atlas_quarter",
+        "kind": "animation",
+        "path": "berserker_melee_attack_down/atlas/berserker_melee_attack_down_atlas_quarter.webp",
+        "sha256": "6d544a2ddd41179c13ef368225909154d93cb4f97912c9e014d81f31bb601d58"
+    },
+    {
+        "key": "berserker_melee_attack_up_atlas",
+        "kind": "animation",
+        "path": "berserker_melee_attack_up/atlas/berserker_melee_attack_up_atlas.webp",
+        "sha256": "4dddd9fb8108d48191d628487fa09c2b14df05338ff654970a8d771c17379931"
+    },
+    {
+        "key": "berserker_melee_attack_up_atlas_quarter",
+        "kind": "animation",
+        "path": "berserker_melee_attack_up/atlas/berserker_melee_attack_up_atlas_quarter.webp",
+        "sha256": "c74255940c60f334328b8cda438d04c9d53f50ae8bf0bb415be9cb1eabc8b240"
+    },
+    {
+        "key": "berserker_sword_idle_atlas",
+        "kind": "animation",
+        "path": "berserker_sword_idle/atlas/berserker_sword_idle_atlas.webp",
+        "sha256": "8e0bba0c85a3c249da398234753a4850ef8078dd0c5f6041ff9ced3d587d8cd4"
+    },
+    {
+        "key": "berserker_sword_idle_atlas_quarter",
+        "kind": "animation",
+        "path": "berserker_sword_idle/atlas/berserker_sword_idle_atlas_quarter.webp",
+        "sha256": "7cb846dd68bd16c5e8a1d2b7105ca55f826d9dd4da7a3c95c202fed9593143ba"
+    },
+    {
+        "key": "berserker_walk_atlas",
+        "kind": "animation",
+        "path": "berserker_walk/atlas/berserker_walk_atlas.webp",
+        "sha256": "a97aa44fadb83cd52e309a14d8e0ef612e07ef6d6a000d056901e50cd47a930a"
+    },
+    {
+        "key": "berserker_walk_atlas_quarter",
+        "kind": "animation",
+        "path": "berserker_walk/atlas/berserker_walk_atlas_quarter.webp",
+        "sha256": "04f2515b4b2ca5ccc324857278bcb36106af570397dfd5dab8606c128b542bcd"
+    },
+    {
+        "key": "blacksmith_cast_atlas",
+        "kind": "animation",
+        "path": "blacksmith_cast/atlas/blacksmith_cast_atlas.webp",
+        "sha256": "4a3c85354608f872c421a30c3f6a543a5ceae77119a56212b558e56ee8050e26"
+    },
+    {
+        "key": "blacksmith_cast_atlas_quarter",
+        "kind": "animation",
+        "path": "blacksmith_cast/atlas/blacksmith_cast_atlas_quarter.webp",
+        "sha256": "e5157f31c6bdf2eca632e19842c28e17ee71a4c05c0ed54f5161e57d74febbfe"
+    },
+    {
+        "key": "blacksmith_death_atlas",
+        "kind": "animation",
+        "path": "blacksmith_death/atlas/blacksmith_death_atlas.webp",
+        "sha256": "fa178985af92fbbc0d6988c9a40213cecb8f6d9cf1918856ab567c8587683677"
+    },
+    {
+        "key": "blacksmith_death_atlas_quarter",
+        "kind": "animation",
+        "path": "blacksmith_death/atlas/blacksmith_death_atlas_quarter.webp",
+        "sha256": "2ce923fe1b5471b68d6ceafd3abb7c6106cc1a028a8342e04225f956c7ee0c2e"
+    },
+    {
+        "key": "blacksmith_hit_atlas",
+        "kind": "animation",
+        "path": "blacksmith_hit/atlas/blacksmith_hit_atlas.webp",
+        "sha256": "86219bb5338108f9db2c97c8882ac731a4352c55cc364224dea62c9f278093aa"
+    },
+    {
+        "key": "blacksmith_hit_atlas_quarter",
+        "kind": "animation",
+        "path": "blacksmith_hit/atlas/blacksmith_hit_atlas_quarter.webp",
+        "sha256": "50d0897f181161016b424076d0fead24f62f8140358bfd34a3b055c5451047dc"
+    },
+    {
+        "key": "blacksmith_idle_atlas",
+        "kind": "animation",
+        "path": "blacksmith_idle/atlas/blacksmith_idle_atlas.webp",
+        "sha256": "a10e0c3c68021d4890477af80157418407d035dd82085cbf0e7724ccdb136fba"
+    },
+    {
+        "key": "blacksmith_idle_atlas_quarter",
+        "kind": "animation",
+        "path": "blacksmith_idle/atlas/blacksmith_idle_atlas_quarter.webp",
+        "sha256": "5be102e9941c64b8559c6bb4e0648f8b2424c8c846a57af86478522297689a31"
+    },
+    {
+        "key": "blacksmith_melee_attack_atlas",
+        "kind": "animation",
+        "path": "blacksmith_melee_attack/atlas/blacksmith_melee_attack_atlas.webp",
+        "sha256": "ed7e1f5dc210b23289814292d6cd9979b6cd66e0f899e698e9b1b48e08dd81f0"
+    },
+    {
+        "key": "blacksmith_melee_attack_atlas_quarter",
+        "kind": "animation",
+        "path": "blacksmith_melee_attack/atlas/blacksmith_melee_attack_atlas_quarter.webp",
+        "sha256": "e4ca44fce20f943ff8633a4458315572bbe2dc11467f60d1211d3ae235eac964"
+    },
+    {
+        "key": "blacksmith_melee_attack_down_atlas",
+        "kind": "animation",
+        "path": "blacksmith_melee_attack_down/atlas/blacksmith_melee_attack_down_atlas.webp",
+        "sha256": "44c25859f3142a9208c903ae115825ad8e8d5ad725968422a912ab7b54fe927b"
+    },
+    {
+        "key": "blacksmith_melee_attack_down_atlas_quarter",
+        "kind": "animation",
+        "path": "blacksmith_melee_attack_down/atlas/blacksmith_melee_attack_down_atlas_quarter.webp",
+        "sha256": "744496144dae26d3313a425b1bc1448ccce7b349a6a7778ade531e37dfb0440c"
+    },
+    {
+        "key": "blacksmith_melee_attack_up_atlas",
+        "kind": "animation",
+        "path": "blacksmith_melee_attack_up/atlas/blacksmith_melee_attack_up_atlas.webp",
+        "sha256": "e2ac4703df6869f0152c0cce865deb6f72d61f8d4d21399a7c8f4a3829815fb0"
+    },
+    {
+        "key": "blacksmith_melee_attack_up_atlas_quarter",
+        "kind": "animation",
+        "path": "blacksmith_melee_attack_up/atlas/blacksmith_melee_attack_up_atlas_quarter.webp",
+        "sha256": "080cd14a9ecefe5010ef6e26201be377f8580e7a5a07c34ef6b0eb9dc465843c"
+    },
+    {
+        "key": "blacksmith_walk_atlas",
+        "kind": "animation",
+        "path": "blacksmith_walk/atlas/blacksmith_walk_atlas.webp",
+        "sha256": "30ff339797ecb6156bd9c3bbee21ddcab4f10875e9e19140a3c325e1368bbf36"
+    },
+    {
+        "key": "blacksmith_walk_atlas_quarter",
+        "kind": "animation",
+        "path": "blacksmith_walk/atlas/blacksmith_walk_atlas_quarter.webp",
+        "sha256": "7f7643c319115d989c55794757b9add8f8af1ce01233ea729c5744eb384f94ef"
+    },
+    {
+        "key": "centaur_lab_attack_atlas",
+        "kind": "animation",
+        "path": "centaur_lab_attack/atlas/centaur_lab_attack_atlas.webp",
+        "sha256": "1bebeda7766040c3c85d5a16cd32b2f2247ee5ce4c839ffcffd4aa24c6fcebf7"
+    },
+    {
+        "key": "centaur_lab_attack_atlas_quarter",
+        "kind": "animation",
+        "path": "centaur_lab_attack/atlas/centaur_lab_attack_atlas_quarter.webp",
+        "sha256": "fa49101e2bc73a17faf5c354f21aee781a08ae4d84c95f27c2949378bb6d2bb8"
+    },
+    {
+        "key": "centaur_lab_attack_down_atlas",
+        "kind": "animation",
+        "path": "centaur_lab_attack_down/atlas/centaur_lab_attack_down_atlas.webp",
+        "sha256": "b56c5ae6d5059160eb459f514778818178fbce274b1d292db079eb13988b962c"
+    },
+    {
+        "key": "centaur_lab_attack_down_atlas_quarter",
+        "kind": "animation",
+        "path": "centaur_lab_attack_down/atlas/centaur_lab_attack_down_atlas_quarter.webp",
+        "sha256": "689460119e0496f88f4e337df8a65935d28908bb2c6b31b439a7e9c4697c3093"
+    },
+    {
+        "key": "centaur_lab_attack_up_atlas",
+        "kind": "animation",
+        "path": "centaur_lab_attack_up/atlas/centaur_lab_attack_up_atlas.webp",
+        "sha256": "7f51d6e1a0d9c498f96f5962a5256c75aa34efa4ca3a90992556cfdd0a49a644"
+    },
+    {
+        "key": "centaur_lab_attack_up_atlas_quarter",
+        "kind": "animation",
+        "path": "centaur_lab_attack_up/atlas/centaur_lab_attack_up_atlas_quarter.webp",
+        "sha256": "4aa377a629746350c1bfb0d0019f44bb526ccaf37f352e341b228b1451bd10a9"
+    },
+    {
+        "key": "centaur_lab_death_atlas",
+        "kind": "animation",
+        "path": "centaur_lab_death/atlas/centaur_lab_death_atlas.webp",
+        "sha256": "4a992ee85d3740ae4fbf8113898e092897de8f6e529831ca3dda3510c6b3f29d"
+    },
+    {
+        "key": "centaur_lab_death_atlas_quarter",
+        "kind": "animation",
+        "path": "centaur_lab_death/atlas/centaur_lab_death_atlas_quarter.webp",
+        "sha256": "448a15231031e18bdc9eaac81b6c6088e810506b304bb823bf834890d973f25a"
+    },
+    {
+        "key": "centaur_lab_hit_atlas",
+        "kind": "animation",
+        "path": "centaur_lab_hit/atlas/centaur_lab_hit_atlas.webp",
+        "sha256": "510b6192216f8da14b80192ab8a7db448e0f115e5f3939578e543f1b70caf743"
+    },
+    {
+        "key": "centaur_lab_hit_atlas_quarter",
+        "kind": "animation",
+        "path": "centaur_lab_hit/atlas/centaur_lab_hit_atlas_quarter.webp",
+        "sha256": "3d1e2fdc36898c57a8f52b5b04df10cd9245e824c89170249ca0f261f86fd2ae"
+    },
+    {
+        "key": "centaur_lab_idle_atlas",
+        "kind": "animation",
+        "path": "centaur_lab_idle/atlas/centaur_lab_idle_atlas.webp",
+        "sha256": "0606cb9ebb3ce28d0d9b168da923a36f1881d4a4626d922e902f192deccb6d73"
+    },
+    {
+        "key": "centaur_lab_idle_atlas_quarter",
+        "kind": "animation",
+        "path": "centaur_lab_idle/atlas/centaur_lab_idle_atlas_quarter.webp",
+        "sha256": "4210ab99bb6fd94142ac41aa4d40ba30670455be408dd5e7dbc9250784c80730"
+    },
+    {
+        "key": "centaur_lab_melee_attack_atlas",
+        "kind": "animation",
+        "path": "centaur_lab_melee_attack/atlas/centaur_lab_melee_attack_atlas.webp",
+        "sha256": "ed9c546cf00f14119f350836b4629787b1fa7c527eb9229c393fe3cb9b9b891b"
+    },
+    {
+        "key": "centaur_lab_melee_attack_atlas_quarter",
+        "kind": "animation",
+        "path": "centaur_lab_melee_attack/atlas/centaur_lab_melee_attack_atlas_quarter.webp",
+        "sha256": "e7113cd3d2573ac694c62ff9a24ae1926408e2e7d81150f89cd9df75eb70240b"
+    },
+    {
+        "key": "centaur_lab_melee_attack_down_atlas",
+        "kind": "animation",
+        "path": "centaur_lab_melee_attack_down/atlas/centaur_lab_melee_attack_down_atlas.webp",
+        "sha256": "af1f7f928d2272cf2d500b5e5de569a6ea3e3cd5f0fd027baee86daf8195b38c"
+    },
+    {
+        "key": "centaur_lab_melee_attack_down_atlas_quarter",
+        "kind": "animation",
+        "path": "centaur_lab_melee_attack_down/atlas/centaur_lab_melee_attack_down_atlas_quarter.webp",
+        "sha256": "895680a143d50f73df40ac7615d2e2177f7de1783f38a058c29f3bc77476f8b2"
+    },
+    {
+        "key": "centaur_lab_melee_attack_up_atlas",
+        "kind": "animation",
+        "path": "centaur_lab_melee_attack_up/atlas/centaur_lab_melee_attack_up_atlas.webp",
+        "sha256": "7f60a1f9a84cd6d47b3a995da93c8a16673e25f8a7cfc56ae1a551579e8578ee"
+    },
+    {
+        "key": "centaur_lab_melee_attack_up_atlas_quarter",
+        "kind": "animation",
+        "path": "centaur_lab_melee_attack_up/atlas/centaur_lab_melee_attack_up_atlas_quarter.webp",
+        "sha256": "02c977577aa8f493be2b76f060d8ded5c10fc7c43387b2dbbb1580a83d2e0120"
+    },
+    {
+        "key": "centaur_lab_walk_atlas",
+        "kind": "animation",
+        "path": "centaur_lab_walk/atlas/centaur_lab_walk_atlas.webp",
+        "sha256": "a6249dd5bb185f43d4d464332bc0f78b69edee69ccaa6708e184a61080c6708b"
+    },
+    {
+        "key": "centaur_lab_walk_atlas_quarter",
+        "kind": "animation",
+        "path": "centaur_lab_walk/atlas/centaur_lab_walk_atlas_quarter.webp",
+        "sha256": "eb7a23c3b2da0468c872b6591ddc78bbec461614b782707a31eead42d67c7ffc"
+    },
+    {
+        "key": "centaur_spear_variant_4",
+        "kind": "image",
+        "path": "centaur_spear_variant_4.webp",
+        "sha256": "6bfc1c660700e6a2b3720acc265cf441820299f24575423336d99ca037e18519"
+    },
+    {
+        "key": "dryad_lab_arrow",
+        "kind": "image",
+        "path": "dryad_lab_arrow.webp",
+        "sha256": "31d235c173704a156a792f448cff3906671b134d52600aab5ce22bbcd65efb81"
+    },
+    {
+        "key": "dryad_lab_attack_atlas",
+        "kind": "animation",
+        "path": "dryad_lab_attack/atlas/dryad_lab_attack_atlas.webp",
+        "sha256": "286d0f602fa0d4f307ff12b3067edd3318c24cfc154639b69b68c97f490860dd"
+    },
+    {
+        "key": "dryad_lab_attack_atlas_quarter",
+        "kind": "animation",
+        "path": "dryad_lab_attack/atlas/dryad_lab_attack_atlas_quarter.webp",
+        "sha256": "34cc87c618f49332559adb5b86e5e8f4ac6f005c78993ac9e0caa0a18639a1f0"
+    },
+    {
+        "key": "dryad_lab_attack_down_atlas",
+        "kind": "animation",
+        "path": "dryad_lab_attack_down/atlas/dryad_lab_attack_down_atlas.webp",
+        "sha256": "25ea4e449c3f1c54bf601df41d2b3728991b9cafaa4a37eb41d4cf3b9ef54c72"
+    },
+    {
+        "key": "dryad_lab_attack_down_atlas_quarter",
+        "kind": "animation",
+        "path": "dryad_lab_attack_down/atlas/dryad_lab_attack_down_atlas_quarter.webp",
+        "sha256": "65129fe8c92a7307922f60e948003fb98d0935572f25c42a3abc49d050b931e7"
+    },
+    {
+        "key": "dryad_lab_attack_up_atlas",
+        "kind": "animation",
+        "path": "dryad_lab_attack_up/atlas/dryad_lab_attack_up_atlas.webp",
+        "sha256": "a57804910eb8d979b34c06567749b4c98153458bbe3b75a2ab75c4b5cf353dbf"
+    },
+    {
+        "key": "dryad_lab_attack_up_atlas_quarter",
+        "kind": "animation",
+        "path": "dryad_lab_attack_up/atlas/dryad_lab_attack_up_atlas_quarter.webp",
+        "sha256": "0377ca96abcd01df92b66eff243beaf79d42cb590517c4479087a9bb3643a21e"
+    },
+    {
+        "key": "dryad_lab_death_atlas",
+        "kind": "animation",
+        "path": "dryad_lab_death/atlas/dryad_lab_death_atlas.webp",
+        "sha256": "05fbc059448efe957c712c403387aadc24f3ed72cfc4b47d267e194b42a346da"
+    },
+    {
+        "key": "dryad_lab_death_atlas_quarter",
+        "kind": "animation",
+        "path": "dryad_lab_death/atlas/dryad_lab_death_atlas_quarter.webp",
+        "sha256": "6132553e57c9c14a2a04cc6c49a721b1c88aa819da24ee3df605cb26f72fe8f4"
+    },
+    {
+        "key": "dryad_lab_hit_atlas",
+        "kind": "animation",
+        "path": "dryad_lab_hit/atlas/dryad_lab_hit_atlas.webp",
+        "sha256": "83920ede9bad05a88c6adb5e12c6c25f8d36a9254bf38ee584581e1e417f6f10"
+    },
+    {
+        "key": "dryad_lab_hit_atlas_quarter",
+        "kind": "animation",
+        "path": "dryad_lab_hit/atlas/dryad_lab_hit_atlas_quarter.webp",
+        "sha256": "ae2542763bc6ab005d507fcb51ad9d94c6f621d154ae3f75476ba9771a6e1311"
+    },
+    {
+        "key": "dryad_lab_melee_attack_atlas",
+        "kind": "animation",
+        "path": "dryad_lab_melee_attack/atlas/dryad_lab_melee_attack_atlas.webp",
+        "sha256": "096e3d3fd63fdad6ad05dd19983c5f464e564503448464199d46a91930ca2f04"
+    },
+    {
+        "key": "dryad_lab_melee_attack_atlas_quarter",
+        "kind": "animation",
+        "path": "dryad_lab_melee_attack/atlas/dryad_lab_melee_attack_atlas_quarter.webp",
+        "sha256": "71dd46402b423e7f80165f36a817e90e40bffb28488be9581439476d2c8ea9a9"
+    },
+    {
+        "key": "dryad_lab_melee_attack_down_atlas",
+        "kind": "animation",
+        "path": "dryad_lab_melee_attack_down/atlas/dryad_lab_melee_attack_down_atlas.webp",
+        "sha256": "fc09ec68736907531672f29dae0109acaa9d1085545f18f8d740d96f06989d89"
+    },
+    {
+        "key": "dryad_lab_melee_attack_down_atlas_quarter",
+        "kind": "animation",
+        "path": "dryad_lab_melee_attack_down/atlas/dryad_lab_melee_attack_down_atlas_quarter.webp",
+        "sha256": "ddf41eafa70b7f68d9d19fa82470aadbcca91c2094368ab93f4dcf2ffc5370f9"
+    },
+    {
+        "key": "dryad_lab_melee_attack_up_atlas",
+        "kind": "animation",
+        "path": "dryad_lab_melee_attack_up/atlas/dryad_lab_melee_attack_up_atlas.webp",
+        "sha256": "386c716b3dc78b9379cdd0891678bed52a622566168480b668e08c0e21f0cd2f"
+    },
+    {
+        "key": "dryad_lab_melee_attack_up_atlas_quarter",
+        "kind": "animation",
+        "path": "dryad_lab_melee_attack_up/atlas/dryad_lab_melee_attack_up_atlas_quarter.webp",
+        "sha256": "9f68d60290fb260c14dbb986fe26fed937af73bbadea832a9507ab6b06a244e7"
+    },
+    {
+        "key": "dryad_lab_walk_atlas",
+        "kind": "animation",
+        "path": "dryad_lab_walk/atlas/dryad_lab_walk_atlas.webp",
+        "sha256": "d09c17c889c5c295084e1f5217b04927d8e5c302933cfbd5787db9da11556625"
+    },
+    {
+        "key": "dryad_lab_walk_atlas_quarter",
+        "kind": "animation",
+        "path": "dryad_lab_walk/atlas/dryad_lab_walk_atlas_quarter.webp",
+        "sha256": "927c2b4953a58ef7832e5ee9ab0bc9ce0de11f4f1a0c929107c2d427798390d6"
+    },
+    {
+        "key": "fairy_lab_death_atlas",
+        "kind": "animation",
+        "path": "fairy_lab_death/atlas/fairy_lab_death_atlas.webp",
+        "sha256": "7fe93c41ca762157b3a57fe62637196d7d8a7a7d94d353b2cc1e87f8012a3734"
+    },
+    {
+        "key": "fairy_lab_death_atlas_quarter",
+        "kind": "animation",
+        "path": "fairy_lab_death/atlas/fairy_lab_death_atlas_quarter.webp",
+        "sha256": "865e51f0e7b30378c7cc9e581741fdaa833e1c87ead73acb71459fb3cb76c244"
+    },
+    {
+        "key": "fairy_lab_hit_atlas",
+        "kind": "animation",
+        "path": "fairy_lab_hit/atlas/fairy_lab_hit_atlas.webp",
+        "sha256": "f947da6b292ab43f6aef6f39752ef7653f60b03a96a0d1d6718851fd0db582ef"
+    },
+    {
+        "key": "fairy_lab_hit_atlas_quarter",
+        "kind": "animation",
+        "path": "fairy_lab_hit/atlas/fairy_lab_hit_atlas_quarter.webp",
+        "sha256": "5755a43e888da37deeef8fa3bc20c5f561752c4c542f4f3b6c8106ba0123bfae"
+    },
+    {
+        "key": "fairy_lab_idle_atlas",
+        "kind": "animation",
+        "path": "fairy_lab_idle/atlas/fairy_lab_idle_atlas.webp",
+        "sha256": "8e33c302cbb56729944d392f49dc6120f699cce80b9e951ac520a076da361081"
+    },
+    {
+        "key": "fairy_lab_idle_atlas_quarter",
+        "kind": "animation",
+        "path": "fairy_lab_idle/atlas/fairy_lab_idle_atlas_quarter.webp",
+        "sha256": "5ff1a0384678a76e821dc9195dcc2897f09f5660a98ccd7e4e65e876a37629e0"
+    },
+    {
+        "key": "fairy_lab_melee_attack_atlas",
+        "kind": "animation",
+        "path": "fairy_lab_melee_attack/atlas/fairy_lab_melee_attack_atlas.webp",
+        "sha256": "73d5912fb5fcf239c7b2da602a53c86b83ef0ee8fa72f6dc5e79c90cdf16f245"
+    },
+    {
+        "key": "fairy_lab_melee_attack_atlas_quarter",
+        "kind": "animation",
+        "path": "fairy_lab_melee_attack/atlas/fairy_lab_melee_attack_atlas_quarter.webp",
+        "sha256": "8567d4c51ffca02c5ed83fe6155049eb4bfa185df6f991f07559c2013cd0e0f1"
+    },
+    {
+        "key": "fairy_lab_melee_attack_down_atlas",
+        "kind": "animation",
+        "path": "fairy_lab_melee_attack_down/atlas/fairy_lab_melee_attack_down_atlas.webp",
+        "sha256": "d13a7dd6c14722b74fa4da4dd4f575e0a2ee5cf6091effff42569775d549b0ae"
+    },
+    {
+        "key": "fairy_lab_melee_attack_down_atlas_quarter",
+        "kind": "animation",
+        "path": "fairy_lab_melee_attack_down/atlas/fairy_lab_melee_attack_down_atlas_quarter.webp",
+        "sha256": "06448271984d7cb114b5bde0fc3b35a5b1a2f9b74019334920de012533b64328"
+    },
+    {
+        "key": "fairy_lab_melee_attack_up_atlas",
+        "kind": "animation",
+        "path": "fairy_lab_melee_attack_up/atlas/fairy_lab_melee_attack_up_atlas.webp",
+        "sha256": "72e3a7f92f733176e3d319f9b75414c2fd9184c63c5548a38b60267b50539c15"
+    },
+    {
+        "key": "fairy_lab_melee_attack_up_atlas_quarter",
+        "kind": "animation",
+        "path": "fairy_lab_melee_attack_up/atlas/fairy_lab_melee_attack_up_atlas_quarter.webp",
+        "sha256": "9d1514af761eca6eaaab5b3e33162d81069acd0ae581c60a6ad7b81b6f663e99"
+    },
+    {
+        "key": "fairy_lab_walk_atlas",
+        "kind": "animation",
+        "path": "fairy_lab_walk/atlas/fairy_lab_walk_atlas.webp",
+        "sha256": "c6bbaa2a3409f8e7d7fabfbe948aba2cac1100e004e2acc84dcea5f3adc72d4d"
+    },
+    {
+        "key": "fairy_lab_walk_atlas_quarter",
+        "kind": "animation",
+        "path": "fairy_lab_walk/atlas/fairy_lab_walk_atlas_quarter.webp",
+        "sha256": "bb75424a516f2f8e7e668c42f092f4d9aed28af520dff06501c8ecea2b90f9e3"
+    },
+    {
+        "key": "leprechaun_lab_death_atlas",
+        "kind": "animation",
+        "path": "leprechaun_lab_death/atlas/leprechaun_lab_death_atlas.webp",
+        "sha256": "9eeb1884f739ab3463395a1a46f27952d3bd4e85e1804a900c3a2df55f96443c"
+    },
+    {
+        "key": "leprechaun_lab_death_atlas_quarter",
+        "kind": "animation",
+        "path": "leprechaun_lab_death/atlas/leprechaun_lab_death_atlas_quarter.webp",
+        "sha256": "835ee5f34261693aad1c9574e1792ad37ce446761be24dcd4b724a61f3ba964d"
+    },
+    {
+        "key": "leprechaun_lab_hit_atlas",
+        "kind": "animation",
+        "path": "leprechaun_lab_hit/atlas/leprechaun_lab_hit_atlas.webp",
+        "sha256": "f02dd5ae763a4717cedd31cfdd9d4e2081bd28cff25d3480a6ff69e7ab9c819d"
+    },
+    {
+        "key": "leprechaun_lab_hit_atlas_quarter",
+        "kind": "animation",
+        "path": "leprechaun_lab_hit/atlas/leprechaun_lab_hit_atlas_quarter.webp",
+        "sha256": "26c0029b63d90ab9c758c2c20df444d10a05994d8b6b878fc2737b0793e1ea03"
+    },
+    {
+        "key": "leprechaun_lab_idle_atlas",
+        "kind": "animation",
+        "path": "leprechaun_lab_idle/atlas/leprechaun_lab_idle_atlas.webp",
+        "sha256": "7db0c78eac5f75de99c961b4804ddef1ff3146030364fbec1fa391e69839133d"
+    },
+    {
+        "key": "leprechaun_lab_idle_atlas_quarter",
+        "kind": "animation",
+        "path": "leprechaun_lab_idle/atlas/leprechaun_lab_idle_atlas_quarter.webp",
+        "sha256": "e484a2c0a92419fa7128c79ccbadcb9a074012cc5a737b42b3ae140aa31b13fc"
+    },
+    {
+        "key": "leprechaun_lab_melee_attack_atlas",
+        "kind": "animation",
+        "path": "leprechaun_lab_melee_attack/atlas/leprechaun_lab_melee_attack_atlas.webp",
+        "sha256": "5501362d19b95258fa629b3f96eb26f0bdd518800f7d66ffd231b3546d205f32"
+    },
+    {
+        "key": "leprechaun_lab_melee_attack_atlas_quarter",
+        "kind": "animation",
+        "path": "leprechaun_lab_melee_attack/atlas/leprechaun_lab_melee_attack_atlas_quarter.webp",
+        "sha256": "59e5a6732a94a89369a7ce0344174e20c5040e355c7c2c0253de1deb3e8030ee"
+    },
+    {
+        "key": "leprechaun_lab_melee_attack_down_atlas",
+        "kind": "animation",
+        "path": "leprechaun_lab_melee_attack_down/atlas/leprechaun_lab_melee_attack_down_atlas.webp",
+        "sha256": "619106a138d863399c61240cf2df7e9ffe8954816a3dd711c8915167c98ad814"
+    },
+    {
+        "key": "leprechaun_lab_melee_attack_down_atlas_quarter",
+        "kind": "animation",
+        "path": "leprechaun_lab_melee_attack_down/atlas/leprechaun_lab_melee_attack_down_atlas_quarter.webp",
+        "sha256": "9866c1850dbc9e8be493cac5e865aa22c141b19e38bf92095b672e8d55af95b4"
+    },
+    {
+        "key": "leprechaun_lab_melee_attack_up_atlas",
+        "kind": "animation",
+        "path": "leprechaun_lab_melee_attack_up/atlas/leprechaun_lab_melee_attack_up_atlas.webp",
+        "sha256": "41850bec3f96178886316e91e5ea2f263f7cd1cf49475a297c7fdf44b7cd4090"
+    },
+    {
+        "key": "leprechaun_lab_melee_attack_up_atlas_quarter",
+        "kind": "animation",
+        "path": "leprechaun_lab_melee_attack_up/atlas/leprechaun_lab_melee_attack_up_atlas_quarter.webp",
+        "sha256": "701a15918597f497dfb7467ec72e7b1ab8b89a17e2cbcff49af9243342a2449b"
+    },
+    {
+        "key": "leprechaun_lab_walk_atlas",
+        "kind": "animation",
+        "path": "leprechaun_lab_walk/atlas/leprechaun_lab_walk_atlas.webp",
+        "sha256": "9a0b8a93e57f52070443ef2cd8e0810a5f28146e951f59d0813d3b5ad033c5a0"
+    },
+    {
+        "key": "leprechaun_lab_walk_atlas_quarter",
+        "kind": "animation",
+        "path": "leprechaun_lab_walk/atlas/leprechaun_lab_walk_atlas_quarter.webp",
+        "sha256": "73f91e00566e618cdbf4fa1096d08a00d1288c508e944ec6eeed38780d40c9da"
+    },
+    {
+        "key": "mermaid_death_atlas",
+        "kind": "animation",
+        "path": "mermaid_death/atlas/mermaid_death_atlas.webp",
+        "sha256": "6a4e77e6a1df29b960887bd95ab44129903d68603325f8e8f010d8270fb5d217"
+    },
+    {
+        "key": "mermaid_death_atlas_quarter",
+        "kind": "animation",
+        "path": "mermaid_death/atlas/mermaid_death_atlas_quarter.webp",
+        "sha256": "51f9b375403dd4dfbf7cb71f7c59c05c83032621e1e5355b8ba469fa7bd468a1"
+    },
+    {
+        "key": "mermaid_hit_atlas",
+        "kind": "animation",
+        "path": "mermaid_hit/atlas/mermaid_hit_atlas.webp",
+        "sha256": "a912a965f66fe2f6b14a4ce45a0f0d3dfdd931e41fd1719218e7335823bef618"
+    },
+    {
+        "key": "mermaid_hit_atlas_quarter",
+        "kind": "animation",
+        "path": "mermaid_hit/atlas/mermaid_hit_atlas_quarter.webp",
+        "sha256": "4332e5a6e2394e3303a5bcb2686eceee05c2a6abf6bda2ca12fc9be6dba3e96f"
+    },
+    {
+        "key": "mermaid_idle_atlas",
+        "kind": "animation",
+        "path": "mermaid_idle/atlas/mermaid_idle_atlas.webp",
+        "sha256": "52011935a88865e73f9136767fe37a480dbf5d2225e48bcada39d2cc3cfcc587"
+    },
+    {
+        "key": "mermaid_idle_atlas_quarter",
+        "kind": "animation",
+        "path": "mermaid_idle/atlas/mermaid_idle_atlas_quarter.webp",
+        "sha256": "dd2319e5b94a4ffc1d87b15f66ee477e8d65f96e44f4d0b5fa65f8d544dd7b30"
+    },
+    {
+        "key": "mermaid_melee_attack_atlas",
+        "kind": "animation",
+        "path": "mermaid_melee_attack/atlas/mermaid_melee_attack_atlas.webp",
+        "sha256": "68e259550916c29be4c33bef6c3a3bb0151b81662822f36edf49cfba8a38a9b1"
+    },
+    {
+        "key": "mermaid_melee_attack_atlas_quarter",
+        "kind": "animation",
+        "path": "mermaid_melee_attack/atlas/mermaid_melee_attack_atlas_quarter.webp",
+        "sha256": "45bffc1e1a457612dccec60c8daa193408ffb4d82bdcd1c44c7c27bd00980515"
+    },
+    {
+        "key": "mermaid_melee_attack_down_atlas",
+        "kind": "animation",
+        "path": "mermaid_melee_attack_down/atlas/mermaid_melee_attack_down_atlas.webp",
+        "sha256": "a81ecfbfad9f8b9c82063e7119cd7749b00a47c7a5df033a293260820f40b1fd"
+    },
+    {
+        "key": "mermaid_melee_attack_down_atlas_quarter",
+        "kind": "animation",
+        "path": "mermaid_melee_attack_down/atlas/mermaid_melee_attack_down_atlas_quarter.webp",
+        "sha256": "412020d73fbef63f614ab9755e6606d84589f1468c4bf85e1d2d08feb7e6eda1"
+    },
+    {
+        "key": "mermaid_melee_attack_up_atlas",
+        "kind": "animation",
+        "path": "mermaid_melee_attack_up/atlas/mermaid_melee_attack_up_atlas.webp",
+        "sha256": "03888fe1420ab84ab7c06e297f3d790af06f77b25e9f6da46906a59a4bfc4102"
+    },
+    {
+        "key": "mermaid_melee_attack_up_atlas_quarter",
+        "kind": "animation",
+        "path": "mermaid_melee_attack_up/atlas/mermaid_melee_attack_up_atlas_quarter.webp",
+        "sha256": "8bdc40eecfc27a56eb8b751958a0fc30f4b2dbd899e0e4535af1fd83d87f2241"
+    },
+    {
+        "key": "mermaid_walk_atlas",
+        "kind": "animation",
+        "path": "mermaid_walk/atlas/mermaid_walk_atlas.webp",
+        "sha256": "5a29bf204def0e7bea392117398715ca23cad7335bee1a6636def055ddcdaa72"
+    },
+    {
+        "key": "mermaid_walk_atlas_quarter",
+        "kind": "animation",
+        "path": "mermaid_walk/atlas/mermaid_walk_atlas_quarter.webp",
+        "sha256": "745b86b3338133b4dcd9489d9765b873e9a44d61078b46df226e3dc0d6d7cddb"
+    },
+    {
+        "key": "orc_attack_atlas",
+        "kind": "animation",
+        "path": "orc_attack/atlas/orc_attack_atlas.webp",
+        "sha256": "17af0c42e53c2dfaca79232a9433f0accd165b562c2fe261da899cfe5750312d"
+    },
+    {
+        "key": "orc_attack_atlas_quarter",
+        "kind": "animation",
+        "path": "orc_attack/atlas/orc_attack_atlas_quarter.webp",
+        "sha256": "93e2d2c67cb8c8cf83ff8773c0bc967ed9416b0e07ea1bb3a5ef6fad87aed133"
+    },
+    {
+        "key": "orc_attack_down_atlas",
+        "kind": "animation",
+        "path": "orc_attack_down/atlas/orc_attack_down_atlas.webp",
+        "sha256": "e9e0ca6fdf73f59ab57a9e4f67840aca627fbd64caed1fa734ad515fafe05f9f"
+    },
+    {
+        "key": "orc_attack_down_atlas_quarter",
+        "kind": "animation",
+        "path": "orc_attack_down/atlas/orc_attack_down_atlas_quarter.webp",
+        "sha256": "6e11962b255d1fe75221f44556ef2a01dd0c2a1dbf0e60e0b468034b44ba8a3f"
+    },
+    {
+        "key": "orc_attack_up_atlas",
+        "kind": "animation",
+        "path": "orc_attack_up/atlas/orc_attack_up_atlas.webp",
+        "sha256": "178de430af92d87d23f63b45217ed95498a5e79562b5ae43829ff625506871c8"
+    },
+    {
+        "key": "orc_attack_up_atlas_quarter",
+        "kind": "animation",
+        "path": "orc_attack_up/atlas/orc_attack_up_atlas_quarter.webp",
+        "sha256": "81505487bcc835d0b8418d9c47d8cc303db3ef98f75e9db1c050172a63345c20"
+    },
+    {
+        "key": "orc_death_atlas",
+        "kind": "animation",
+        "path": "orc_death/atlas/orc_death_atlas.webp",
+        "sha256": "ebfe084377d863edcf6a409b4277107c1ff7687fd22c4615f627381ddbad7d7d"
+    },
+    {
+        "key": "orc_death_atlas_quarter",
+        "kind": "animation",
+        "path": "orc_death/atlas/orc_death_atlas_quarter.webp",
+        "sha256": "c3377772931f4ef89aebfa5d178df736b945f1403c5c205f4433238e80cd8f98"
+    },
+    {
+        "key": "orc_hit_atlas",
+        "kind": "animation",
+        "path": "orc_hit/atlas/orc_hit_atlas.webp",
+        "sha256": "09c9ff61fbc51a61d0f0b073fdc4f549a02a14623e67e21361cc01bb80fb0514"
+    },
+    {
+        "key": "orc_hit_atlas_quarter",
+        "kind": "animation",
+        "path": "orc_hit/atlas/orc_hit_atlas_quarter.webp",
+        "sha256": "a807897fbd58bd396db28392fb462d039013d3e5797ba8549926d89d5f0cff6b"
+    },
+    {
+        "key": "orc_idle_atlas",
+        "kind": "animation",
+        "path": "orc_idle/atlas/orc_idle_atlas.webp",
+        "sha256": "1221ba1c9bc4f7eaa69306b9b5fce6229195e5ef3d432818022875740ebf12f8"
+    },
+    {
+        "key": "orc_idle_atlas_quarter",
+        "kind": "animation",
+        "path": "orc_idle/atlas/orc_idle_atlas_quarter.webp",
+        "sha256": "b3a2acd8c4a1d59e867be4142154ccee78310f42ea6067213c2efdec521ce1f6"
+    },
+    {
+        "key": "orc_melee_attack_atlas",
+        "kind": "animation",
+        "path": "orc_melee_attack/atlas/orc_melee_attack_atlas.webp",
+        "sha256": "8f353bf0539b9b5fbc69f49e2c79871570c60ba98dd28b2f45c3c43921f93f43"
+    },
+    {
+        "key": "orc_melee_attack_atlas_quarter",
+        "kind": "animation",
+        "path": "orc_melee_attack/atlas/orc_melee_attack_atlas_quarter.webp",
+        "sha256": "b1f186db4a143dc199571bae63467a035acd6c6e2e96b920cb71c9c8565d8035"
+    },
+    {
+        "key": "orc_melee_attack_down_atlas",
+        "kind": "animation",
+        "path": "orc_melee_attack_down/atlas/orc_melee_attack_down_atlas.webp",
+        "sha256": "3f9367992992b8e8f78a4fedbc360e3413c068daaaa70abb738470da0c74f03f"
+    },
+    {
+        "key": "orc_melee_attack_down_atlas_quarter",
+        "kind": "animation",
+        "path": "orc_melee_attack_down/atlas/orc_melee_attack_down_atlas_quarter.webp",
+        "sha256": "24018473a08223a9887182b9b11efaf5ff5e6cbe14625c5faa719b7c25470eee"
+    },
+    {
+        "key": "orc_melee_attack_up_atlas",
+        "kind": "animation",
+        "path": "orc_melee_attack_up/atlas/orc_melee_attack_up_atlas.webp",
+        "sha256": "10ee366b491b19324d2dd69297e84bf080b5a4efc76968b8fc8a7042bf50d8de"
+    },
+    {
+        "key": "orc_melee_attack_up_atlas_quarter",
+        "kind": "animation",
+        "path": "orc_melee_attack_up/atlas/orc_melee_attack_up_atlas_quarter.webp",
+        "sha256": "b7305be15f36ae094033c8490d2d8af73be5862dac4c790c5a5876591d9cd795"
+    },
+    {
+        "key": "orc_throwing_axe",
+        "kind": "image",
+        "path": "orc_throwing_axe.webp",
+        "sha256": "15a1f7ac4697f48453bab91c98101687ab22fc24a397f51a1a38df5f11cf7315"
+    },
+    {
+        "key": "orc_walk_atlas",
+        "kind": "animation",
+        "path": "orc_walk/atlas/orc_walk_atlas.webp",
+        "sha256": "d332e18efb68a38b999184e564d9a15b3e006cf806afecaeb2ca9bf856dba811"
+    },
+    {
+        "key": "orc_walk_atlas_quarter",
+        "kind": "animation",
+        "path": "orc_walk/atlas/orc_walk_atlas_quarter.webp",
+        "sha256": "0cd467e4b766c53ce70f5060f2e4e3018b82ef842bc1a78a881f71c12742f88f"
+    },
+    {
+        "key": "peasant_attack_atlas",
+        "kind": "animation",
+        "path": "peasant_attack/atlas/peasant_attack_atlas.webp",
+        "sha256": "795ead227f424e2afe295bf544a1682201aadc6d3751d982caf90cc001a14011"
+    },
+    {
+        "key": "peasant_attack_atlas_quarter",
+        "kind": "animation",
+        "path": "peasant_attack/atlas/peasant_attack_atlas_quarter.webp",
+        "sha256": "320dac9a5e76b894c510d77f63774883d161c962729eb0a5cdec851341225db7"
+    },
+    {
+        "key": "peasant_attack_down_atlas",
+        "kind": "animation",
+        "path": "peasant_attack_down/atlas/peasant_attack_down_atlas.webp",
+        "sha256": "450b81345b7304493b67cad2cbc65122500d53805c2cbfd92aa0f99b40904fb1"
+    },
+    {
+        "key": "peasant_attack_down_atlas_quarter",
+        "kind": "animation",
+        "path": "peasant_attack_down/atlas/peasant_attack_down_atlas_quarter.webp",
+        "sha256": "0aa0c6790b4aac38618ee3e16314adef2695390caaff1677731fc1b957c07573"
+    },
+    {
+        "key": "peasant_attack_up_atlas",
+        "kind": "animation",
+        "path": "peasant_attack_up/atlas/peasant_attack_up_atlas.webp",
+        "sha256": "11f1afcc78c06f59b781de17a65614826aa39465c72c55c8d9f78b7b2c14f121"
+    },
+    {
+        "key": "peasant_attack_up_atlas_quarter",
+        "kind": "animation",
+        "path": "peasant_attack_up/atlas/peasant_attack_up_atlas_quarter.webp",
+        "sha256": "009d2f9c333e701db8bd62523996bf1f07e9704c49be28c9374aa7c57eebe73c"
+    },
+    {
+        "key": "peasant_death_atlas",
+        "kind": "animation",
+        "path": "peasant_death/atlas/peasant_death_atlas.webp",
+        "sha256": "32e28f3b3570abc0096a4111d9e9de56bff0b5bff8904b522c4caf43951428aa"
+    },
+    {
+        "key": "peasant_death_atlas_quarter",
+        "kind": "animation",
+        "path": "peasant_death/atlas/peasant_death_atlas_quarter.webp",
+        "sha256": "8547df45431c64b7d546e62dd6496eae3173cad652950575d278165fb8044b0a"
+    },
+    {
+        "key": "peasant_hit_atlas",
+        "kind": "animation",
+        "path": "peasant_hit/atlas/peasant_hit_atlas.webp",
+        "sha256": "e7a70e5bbbcee4c5fff666ff67ff54d07d0dbb133d0f0ed1c33eda311b08c355"
+    },
+    {
+        "key": "peasant_hit_atlas_quarter",
+        "kind": "animation",
+        "path": "peasant_hit/atlas/peasant_hit_atlas_quarter.webp",
+        "sha256": "68dae9a288e292a935e0d3fa4837d37e9c7cbdcd4c31fb77e1cf4d8fdbfd5d4c"
+    },
+    {
+        "key": "peasant_idle_red_atlas",
+        "kind": "animation",
+        "path": "peasant_idle_red/atlas/peasant_idle_red_atlas.webp",
+        "sha256": "4ac8e5c1b678f69a3472a7392941af993ea84b18d4614cc451d9840386950da1"
+    },
+    {
+        "key": "peasant_idle_red_atlas_quarter",
+        "kind": "animation",
+        "path": "peasant_idle_red/atlas/peasant_idle_red_atlas_quarter.webp",
+        "sha256": "0ad001e78080ff38f42d6032383db55c50cf0514495af3319fbf23dcc8e43544"
+    },
+    {
+        "key": "peasant_walk_atlas",
+        "kind": "animation",
+        "path": "peasant_walk/atlas/peasant_walk_atlas.webp",
+        "sha256": "40032e3eed05887a9c62843c47deccb331ed85839fec11225e357cd41282ff40"
+    },
+    {
+        "key": "peasant_walk_atlas_quarter",
+        "kind": "animation",
+        "path": "peasant_walk/atlas/peasant_walk_atlas_quarter.webp",
+        "sha256": "5ece11ca65655ccf9708c87219e12fe2de7c77fc066599bedaa141eb56ae6f54"
+    },
+    {
+        "key": "scavenger_combat_attack_atlas",
+        "kind": "animation",
+        "path": "scavenger_combat_attack/atlas/scavenger_combat_attack_atlas.webp",
+        "sha256": "e53c34739e45dc4430215737dad6792bdb63c0c4d99d321b327b5b8fb0532095"
+    },
+    {
+        "key": "scavenger_combat_attack_atlas_quarter",
+        "kind": "animation",
+        "path": "scavenger_combat_attack/atlas/scavenger_combat_attack_atlas_quarter.webp",
+        "sha256": "57c33a4b56c2f95e0263b377c5e516793e558803aabc399ba7e9d6373283b59c"
+    },
+    {
+        "key": "scavenger_combat_attack_down_atlas",
+        "kind": "animation",
+        "path": "scavenger_combat_attack_down/atlas/scavenger_combat_attack_down_atlas.webp",
+        "sha256": "fa4a79f06b957c09bceeedaffbe14a07b77153752aa94886d04aec164935ad4b"
+    },
+    {
+        "key": "scavenger_combat_attack_down_atlas_quarter",
+        "kind": "animation",
+        "path": "scavenger_combat_attack_down/atlas/scavenger_combat_attack_down_atlas_quarter.webp",
+        "sha256": "3d63ff3c261b07e85799e7ab56eef4194396a9d3a8ed1b33ba33e4fb84f0d889"
+    },
+    {
+        "key": "scavenger_combat_attack_up_atlas",
+        "kind": "animation",
+        "path": "scavenger_combat_attack_up/atlas/scavenger_combat_attack_up_atlas.webp",
+        "sha256": "c6a381c31261680cbb2b869fa95f949a15a1ff6dc89d1f8b01bd268be40c2c21"
+    },
+    {
+        "key": "scavenger_combat_attack_up_atlas_quarter",
+        "kind": "animation",
+        "path": "scavenger_combat_attack_up/atlas/scavenger_combat_attack_up_atlas_quarter.webp",
+        "sha256": "49602d35367b28043fcedf3bbed7a6e657a6d7f4e570ee745ccea5511b7195cd"
+    },
+    {
+        "key": "scavenger_combat_death_atlas",
+        "kind": "animation",
+        "path": "scavenger_combat_death/atlas/scavenger_combat_death_atlas.webp",
+        "sha256": "d08eb46ce9ae4f5c736e4aa6038b0b35c070214c98ae6997b362ccf037bb0507"
+    },
+    {
+        "key": "scavenger_combat_death_atlas_quarter",
+        "kind": "animation",
+        "path": "scavenger_combat_death/atlas/scavenger_combat_death_atlas_quarter.webp",
+        "sha256": "ad315b0ea143dc584abdb42dfac47f1a24a2001538f0428c4bb7c0204f99c369"
+    },
+    {
+        "key": "scavenger_combat_hit_atlas",
+        "kind": "animation",
+        "path": "scavenger_combat_hit/atlas/scavenger_combat_hit_atlas.webp",
+        "sha256": "67757fbb9a39d0fa2332243a8d812f0e80f8ad558ae5a625c5ab42c3eb5e89d0"
+    },
+    {
+        "key": "scavenger_combat_hit_atlas_quarter",
+        "kind": "animation",
+        "path": "scavenger_combat_hit/atlas/scavenger_combat_hit_atlas_quarter.webp",
+        "sha256": "0f9c02019ea6d801ea53f94a262fc629ffa4899df5bb40991c1e1c1b344afb9f"
+    },
+    {
+        "key": "scavenger_homm_idle_atlas",
+        "kind": "animation",
+        "path": "scavenger_homm_idle/atlas/scavenger_homm_idle_atlas.webp",
+        "sha256": "1380108d474f4686b6b0ff246f603d7348a6f7db4e0294a99fa16c5aa66e2dac"
+    },
+    {
+        "key": "scavenger_homm_idle_atlas_quarter",
+        "kind": "animation",
+        "path": "scavenger_homm_idle/atlas/scavenger_homm_idle_atlas_quarter.webp",
+        "sha256": "3c2720bb8dcee6199224b5e5af35559050648740918e3cdb7f2e1f9c710756d5"
+    },
+    {
+        "key": "squire_attack_atlas",
+        "kind": "animation",
+        "path": "squire_attack/atlas/squire_attack_atlas.webp",
+        "sha256": "189d0179862ac03da348d6c48ec4ba60cdc449b6aa74c3de6d1619ad330b57c6"
+    },
+    {
+        "key": "squire_attack_atlas_quarter",
+        "kind": "animation",
+        "path": "squire_attack/atlas/squire_attack_atlas_quarter.webp",
+        "sha256": "52531bfdcc726ec57015b637619ff2f6da99607dbc0307bda4fcea119a074a2b"
+    },
+    {
+        "key": "squire_attack_down_atlas",
+        "kind": "animation",
+        "path": "squire_attack_down/atlas/squire_attack_down_atlas.webp",
+        "sha256": "fc41ce639cd92cc3a3441f8a56f8caa0178bc8880f59fcb39028a7869c18bbdc"
+    },
+    {
+        "key": "squire_attack_down_atlas_quarter",
+        "kind": "animation",
+        "path": "squire_attack_down/atlas/squire_attack_down_atlas_quarter.webp",
+        "sha256": "3295605cd2078f43995f0b84655ca8aa9b8d96aaae27798ebc972e6152d2bee1"
+    },
+    {
+        "key": "squire_attack_up_atlas",
+        "kind": "animation",
+        "path": "squire_attack_up/atlas/squire_attack_up_atlas.webp",
+        "sha256": "9bb3072831b20bfcbe72d8c8e4c9d22fcd945972846978174bd21d3c3403ce2b"
+    },
+    {
+        "key": "squire_attack_up_atlas_quarter",
+        "kind": "animation",
+        "path": "squire_attack_up/atlas/squire_attack_up_atlas_quarter.webp",
+        "sha256": "5a7b53ca22ea066dbdc5b05fa18bc8b3ee10e8efa1b956f44eaccbf697652936"
+    },
+    {
+        "key": "squire_death_atlas",
+        "kind": "animation",
+        "path": "squire_death/atlas/squire_death_atlas.webp",
+        "sha256": "5473794426ccf536bcaf7b55417308c2f231dbd41bf357be14465c31af835878"
+    },
+    {
+        "key": "squire_death_atlas_quarter",
+        "kind": "animation",
+        "path": "squire_death/atlas/squire_death_atlas_quarter.webp",
+        "sha256": "b7f9bffde0ccb82d066bd83183999913863f4f3f647f8405873a2951a647f8c0"
+    },
+    {
+        "key": "squire_hit_atlas",
+        "kind": "animation",
+        "path": "squire_hit/atlas/squire_hit_atlas.webp",
+        "sha256": "ae2043d7219b29a3b88a8469e12f02e2d05b6a9535703fade453096b4aeda794"
+    },
+    {
+        "key": "squire_hit_atlas_quarter",
+        "kind": "animation",
+        "path": "squire_hit/atlas/squire_hit_atlas_quarter.webp",
+        "sha256": "e6f95d61205d52a8a18718692d03ce9c23933c067e9c1149ccce99000320139c"
+    },
+    {
+        "key": "squire_idle_atlas",
+        "kind": "animation",
+        "path": "squire_idle/atlas/squire_idle_atlas.webp",
+        "sha256": "dcc91729ba74604d944fc3377c013ccc7fe0c7b350e6789d6af7ad3e4d153e4c"
+    },
+    {
+        "key": "squire_idle_atlas_quarter",
+        "kind": "animation",
+        "path": "squire_idle/atlas/squire_idle_atlas_quarter.webp",
+        "sha256": "5f19423fb0f803192a1155b3ba78a16eab0efbdeae2619b13e4ba2fdfec74400"
+    },
+    {
+        "key": "squire_walk_atlas",
+        "kind": "animation",
+        "path": "squire_walk/atlas/squire_walk_atlas.webp",
+        "sha256": "c916b803fa2c5a51bc44cd6326c3be1c699540e4848dc2d2baaedca9a039eddb"
+    },
+    {
+        "key": "squire_walk_atlas_quarter",
+        "kind": "animation",
+        "path": "squire_walk/atlas/squire_walk_atlas_quarter.webp",
+        "sha256": "fcafc98678c26bfdf23b24555d141459b3301c5ac40e33f5229ac6ee35b4f571"
+    },
+    {
+        "key": "thief_walk_atlas",
+        "kind": "animation",
+        "path": "thief_walk/atlas/thief_walk_atlas.webp",
+        "sha256": "60bc33524b2aa7425776cb2c79cc6360126a35b54b0e9bc40c57cdfff17218a9"
+    },
+    {
+        "key": "thief_walk_atlas_quarter",
+        "kind": "animation",
+        "path": "thief_walk/atlas/thief_walk_atlas_quarter.webp",
+        "sha256": "7cc5d165eafbbe0a401e6bfa5a99ed35fef96d1d7abd0cdfd7663c83052d2f87"
+    },
+    {
+        "key": "troglodyte_attack_atlas",
+        "kind": "animation",
+        "path": "troglodyte_attack/atlas/troglodyte_attack_atlas.webp",
+        "sha256": "1f8a25ce58c62a905b5142cab08f13f0a2f89ed674a7f74c0d153b695c9833dc"
+    },
+    {
+        "key": "troglodyte_attack_atlas_quarter",
+        "kind": "animation",
+        "path": "troglodyte_attack/atlas/troglodyte_attack_atlas_quarter.webp",
+        "sha256": "5deb7ab4fe37f6a2e05af1ca295114e87d0ca47043e343f565c7d0218617c823"
+    },
+    {
+        "key": "troglodyte_attack_down_atlas",
+        "kind": "animation",
+        "path": "troglodyte_attack_down/atlas/troglodyte_attack_down_atlas.webp",
+        "sha256": "174d5dd039de2e7b214d37d4d6530750e664548a9df67fa4fa3b16870e9aebec"
+    },
+    {
+        "key": "troglodyte_attack_down_atlas_quarter",
+        "kind": "animation",
+        "path": "troglodyte_attack_down/atlas/troglodyte_attack_down_atlas_quarter.webp",
+        "sha256": "cf708344cd9a05c208b06894506a9bce065a6f59df45a273d01d05b137427324"
+    },
+    {
+        "key": "troglodyte_attack_up_atlas",
+        "kind": "animation",
+        "path": "troglodyte_attack_up/atlas/troglodyte_attack_up_atlas.webp",
+        "sha256": "f45aae98f0d2244721403b6f9862e2888729a432db9db2fe1fd087e0999a8863"
+    },
+    {
+        "key": "troglodyte_attack_up_atlas_quarter",
+        "kind": "animation",
+        "path": "troglodyte_attack_up/atlas/troglodyte_attack_up_atlas_quarter.webp",
+        "sha256": "8eae1c5ae6c30299a2ae3fe577c64cec37dbd92f7d88ae10b277b82536da7140"
+    },
+    {
+        "key": "troglodyte_death_atlas",
+        "kind": "animation",
+        "path": "troglodyte_death/atlas/troglodyte_death_atlas.webp",
+        "sha256": "5d4b47276ab17d1caeba8f78830dd7cf9223febf9758dfbdd56f40a066bc1568"
+    },
+    {
+        "key": "troglodyte_death_atlas_quarter",
+        "kind": "animation",
+        "path": "troglodyte_death/atlas/troglodyte_death_atlas_quarter.webp",
+        "sha256": "239d0260e36be30b61fad1cf8f885b21e1df68db21c186dc419d5b525501dae8"
+    },
+    {
+        "key": "troglodyte_hit_atlas",
+        "kind": "animation",
+        "path": "troglodyte_hit/atlas/troglodyte_hit_atlas.webp",
+        "sha256": "506f7af7f98eb6fdb744a1e6cdcf981e1f1bca27d9df594913b6a18e9b28c0b7"
+    },
+    {
+        "key": "troglodyte_hit_atlas_quarter",
+        "kind": "animation",
+        "path": "troglodyte_hit/atlas/troglodyte_hit_atlas_quarter.webp",
+        "sha256": "3b630f9ca3f88d7859c75c4fc5e373b5366a812ba19d04866b64ee2cc50b8cb4"
+    },
+    {
+        "key": "troglodyte_idle_atlas",
+        "kind": "animation",
+        "path": "troglodyte_idle/atlas/troglodyte_idle_atlas.webp",
+        "sha256": "f377d614a44b99fc01fafcfcaba6ee1bef2d9e900fec60005fe904d252bfb647"
+    },
+    {
+        "key": "troglodyte_idle_atlas_quarter",
+        "kind": "animation",
+        "path": "troglodyte_idle/atlas/troglodyte_idle_atlas_quarter.webp",
+        "sha256": "ecce7a40bb035d46cc0878e635a103d235e5220bd8c9eab0162d5ad594a1a080"
+    },
+    {
+        "key": "troglodyte_walk_atlas",
+        "kind": "animation",
+        "path": "troglodyte_walk/atlas/troglodyte_walk_atlas.webp",
+        "sha256": "8d87e86aa86c015a71a165fd0790ab9804c75dde7406dab63383a27b65a65f28"
+    },
+    {
+        "key": "troglodyte_walk_atlas_quarter",
+        "kind": "animation",
+        "path": "troglodyte_walk/atlas/troglodyte_walk_atlas_quarter.webp",
+        "sha256": "4c9e7cd0b0131d67b2d501c3a5e8ef676957b5f5864b2893c80611148df05ebf"
+    },
+    {
+        "key": "wolf_attack_atlas",
+        "kind": "animation",
+        "path": "wolf_attack/atlas/wolf_attack_atlas.webp",
+        "sha256": "bccc7158b1c9441503f9fe9af63830897e9948ad617e444dc0b73a65b9a1af52"
+    },
+    {
+        "key": "wolf_attack_atlas_half",
+        "kind": "animation",
+        "path": "wolf_attack/atlas/wolf_attack_atlas_half.webp",
+        "sha256": "527e21db8b79abe6cfd27677b2ef9a04b37492d9e93e4d7893d3104817e2a16f"
+    },
+    {
+        "key": "wolf_attack_atlas_quarter",
+        "kind": "animation",
+        "path": "wolf_attack/atlas/wolf_attack_atlas_quarter.webp",
+        "sha256": "72dbc09829ed397cf10de5ff509d3391e48eba1f6ffaec3d35d4133864eb92eb"
+    },
+    {
+        "key": "wolf_attack_down_atlas",
+        "kind": "animation",
+        "path": "wolf_attack_down/atlas/wolf_attack_down_atlas.webp",
+        "sha256": "1491ff45f9f4f7764eba2c58d6d0eef200dc1d16944b9cf5ca6866ee152fc878"
+    },
+    {
+        "key": "wolf_attack_down_atlas_half",
+        "kind": "animation",
+        "path": "wolf_attack_down/atlas/wolf_attack_down_atlas_half.webp",
+        "sha256": "2f7cae8c7b8507e57b8735946783686937b67bf24de39353b2ab5e334f125de0"
+    },
+    {
+        "key": "wolf_attack_down_atlas_quarter",
+        "kind": "animation",
+        "path": "wolf_attack_down/atlas/wolf_attack_down_atlas_quarter.webp",
+        "sha256": "7c914a2a710919c5f1929ad3f7ab4481d97f4666eecd8a72a6ed7363c2304208"
+    },
+    {
+        "key": "wolf_attack_up_atlas",
+        "kind": "animation",
+        "path": "wolf_attack_up/atlas/wolf_attack_up_atlas.webp",
+        "sha256": "3edc15b1588150af228cb5e1491bc64bc55486680f745c2d8f3df1f6050f76a9"
+    },
+    {
+        "key": "wolf_attack_up_atlas_half",
+        "kind": "animation",
+        "path": "wolf_attack_up/atlas/wolf_attack_up_atlas_half.webp",
+        "sha256": "2dfdeeb580e7dbd095c9a3fca58367205c77e93995a350223a2ddd433ffec68f"
+    },
+    {
+        "key": "wolf_attack_up_atlas_quarter",
+        "kind": "animation",
+        "path": "wolf_attack_up/atlas/wolf_attack_up_atlas_quarter.webp",
+        "sha256": "2a4aeb7b3a863814632701cc9d9a9ab2e9965437e0043193056884c6fc7d4387"
+    },
+    {
+        "key": "wolf_death_atlas",
+        "kind": "animation",
+        "path": "wolf_death/atlas/wolf_death_atlas.webp",
+        "sha256": "b00ba9db38f0d524c0f013446613cf0abb8aeee673668ff9465178199af88b41"
+    },
+    {
+        "key": "wolf_death_atlas_half",
+        "kind": "animation",
+        "path": "wolf_death/atlas/wolf_death_atlas_half.webp",
+        "sha256": "9d20bb7cc7b318f58cd72cdef883eb99c7db6fa83cf99713927b51758500acc5"
+    },
+    {
+        "key": "wolf_death_atlas_quarter",
+        "kind": "animation",
+        "path": "wolf_death/atlas/wolf_death_atlas_quarter.webp",
+        "sha256": "59a28fd4a5496c7912e6c44d7e7d1f30072eb93895fa668996ac240afcfaa32b"
+    },
+    {
+        "key": "wolf_hit_atlas",
+        "kind": "animation",
+        "path": "wolf_hit/atlas/wolf_hit_atlas.webp",
+        "sha256": "5a2d2fba09e81c29983591be26bdc6617a053957b2ebd4d5849b29faa59042f7"
+    },
+    {
+        "key": "wolf_hit_atlas_half",
+        "kind": "animation",
+        "path": "wolf_hit/atlas/wolf_hit_atlas_half.webp",
+        "sha256": "32cf8eb89d120158dfccf546dc66fa00be8cfea9d4b036d6d9745e4c696fedcf"
+    },
+    {
+        "key": "wolf_hit_atlas_quarter",
+        "kind": "animation",
+        "path": "wolf_hit/atlas/wolf_hit_atlas_quarter.webp",
+        "sha256": "bdbb5f1a1f009d9d1fae4ece887f1a6188c66e49e1af657fd903fe2c647ac5c1"
+    },
+    {
+        "key": "wolf_idle_atlas",
+        "kind": "animation",
+        "path": "wolf_idle/atlas/wolf_idle_atlas.webp",
+        "sha256": "b53b06a07f85dbbe685f43e986002c5c568a37e2a8d3815737fb039eed12e921"
+    },
+    {
+        "key": "wolf_idle_atlas_half",
+        "kind": "animation",
+        "path": "wolf_idle/atlas/wolf_idle_atlas_half.webp",
+        "sha256": "15db1665de26ab5bfd70c8337bfb481a0d19e15bcfba18c95439fac3f08b8e51"
+    },
+    {
+        "key": "wolf_idle_atlas_quarter",
+        "kind": "animation",
+        "path": "wolf_idle/atlas/wolf_idle_atlas_quarter.webp",
+        "sha256": "254827185cfaa21f72109ef8618952a7be72470880af381a64217d43e0c3797e"
+    },
+    {
+        "key": "wolf_rider_attack_atlas",
+        "kind": "animation",
+        "path": "wolf_rider_attack/atlas/wolf_rider_attack_atlas.webp",
+        "sha256": "a7dfef54dd93d28a6f023b9aa43ccf47097e44e9cdaa76a15367feb4350ad8ea"
+    },
+    {
+        "key": "wolf_rider_attack_atlas_quarter",
+        "kind": "animation",
+        "path": "wolf_rider_attack/atlas/wolf_rider_attack_atlas_quarter.webp",
+        "sha256": "b7fafd63488660b37312c27d32eef22636bc0dc7b100e283f2bba662e1fd9c51"
+    },
+    {
+        "key": "wolf_rider_attack_down_atlas",
+        "kind": "animation",
+        "path": "wolf_rider_attack_down/atlas/wolf_rider_attack_down_atlas.webp",
+        "sha256": "b80b1e8715f12d478364d29f4d2d4b763e693372d05363f504ca6ac9434fb78f"
+    },
+    {
+        "key": "wolf_rider_attack_down_atlas_quarter",
+        "kind": "animation",
+        "path": "wolf_rider_attack_down/atlas/wolf_rider_attack_down_atlas_quarter.webp",
+        "sha256": "028f1b196799665a14d8f032e707d47fbcf5c728613a191b928bb1839c2ec4fe"
+    },
+    {
+        "key": "wolf_rider_attack_up_atlas",
+        "kind": "animation",
+        "path": "wolf_rider_attack_up/atlas/wolf_rider_attack_up_atlas.webp",
+        "sha256": "40c75b99e835f9c69126a3185303c4781069338915be9c97cedf251c1e33a37a"
+    },
+    {
+        "key": "wolf_rider_attack_up_atlas_quarter",
+        "kind": "animation",
+        "path": "wolf_rider_attack_up/atlas/wolf_rider_attack_up_atlas_quarter.webp",
+        "sha256": "017edb34d21e9c3086c8d8f3fdd80190341b12e94f712578e1fd2f01bbdb7f8f"
+    },
+    {
+        "key": "wolf_rider_death_atlas",
+        "kind": "animation",
+        "path": "wolf_rider_death/atlas/wolf_rider_death_atlas.webp",
+        "sha256": "b27bb259c39ae1d48317daea3e5837203f985efb65a50e6d82fef2b0b76a7bd4"
+    },
+    {
+        "key": "wolf_rider_death_atlas_quarter",
+        "kind": "animation",
+        "path": "wolf_rider_death/atlas/wolf_rider_death_atlas_quarter.webp",
+        "sha256": "ca47480d1e1bd3671736bcbc6c96006110ba9cbea3f8185b31d5bba76ff2a53c"
+    },
+    {
+        "key": "wolf_rider_hit_atlas",
+        "kind": "animation",
+        "path": "wolf_rider_hit/atlas/wolf_rider_hit_atlas.webp",
+        "sha256": "ffad78d28c4b7d7c15ea48914b07c3583cdb09811c410fb45f64bb187bc5902a"
+    },
+    {
+        "key": "wolf_rider_hit_atlas_quarter",
+        "kind": "animation",
+        "path": "wolf_rider_hit/atlas/wolf_rider_hit_atlas_quarter.webp",
+        "sha256": "fa6926b883ffe1214f1e7173c7810cd9dcb9a4e9b33a307450626e0e9152639a"
+    },
+    {
+        "key": "wolf_rider_idle_atlas",
+        "kind": "animation",
+        "path": "wolf_rider_idle/atlas/wolf_rider_idle_atlas.webp",
+        "sha256": "fe80dcc0747285af5ce7bcfbaad8beb0f29dddf56e7560a2be724669da9b05ed"
+    },
+    {
+        "key": "wolf_rider_idle_atlas_quarter",
+        "kind": "animation",
+        "path": "wolf_rider_idle/atlas/wolf_rider_idle_atlas_quarter.webp",
+        "sha256": "4ea84e16bfd53024bb40c8bf3feffe51a0c1edefdb4bd2fb2120e3d9a82d75a4"
+    },
+    {
+        "key": "wolf_rider_walk_atlas",
+        "kind": "animation",
+        "path": "wolf_rider_walk/atlas/wolf_rider_walk_atlas.webp",
+        "sha256": "bb50ec66df6fcf8ffe03619291ebf83e134746c0c265c0f4ae24d81d4ed0d9e0"
+    },
+    {
+        "key": "wolf_rider_walk_atlas_quarter",
+        "kind": "animation",
+        "path": "wolf_rider_walk/atlas/wolf_rider_walk_atlas_quarter.webp",
+        "sha256": "2589d23b4feb5c8aa1bd6ba4db9aa23a3f63e9b027cff8d3a9427ae7b3f54671"
+    },
+    {
+        "key": "wolf_walk_atlas",
+        "kind": "animation",
+        "path": "wolf_walk/atlas/wolf_walk_atlas.webp",
+        "sha256": "83b155d717d30f3cce97a9f9149bbd877416e5547f4eece0b353688b916817d6"
+    },
+    {
+        "key": "wolf_walk_atlas_half",
+        "kind": "animation",
+        "path": "wolf_walk/atlas/wolf_walk_atlas_half.webp",
+        "sha256": "cda6025a00e040c11d19e1720b2d416413025b3a787015e822ba943f4bbf4c44"
+    },
+    {
+        "key": "wolf_walk_atlas_quarter",
+        "kind": "animation",
+        "path": "wolf_walk/atlas/wolf_walk_atlas_quarter.webp",
+        "sha256": "ce6135bf1e212ea0e15bc018f512fc189e5390091b1c3e93c85fa841daafec2d"
+    }
+]

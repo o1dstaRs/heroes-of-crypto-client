@@ -457,7 +457,7 @@ describe("DungeonVisuals lifecycle", () => {
             await Promise.resolve();
             await Promise.resolve();
 
-            expect(unloaded).toEqual([images.fire_pit_grok_video_fire_only_v11_64_atlas]);
+            expect(unloaded).toEqual([images.fire_pit_grok_video_fire_under_v2_64_atlas]);
         } finally {
             mutableAssets.load = originalLoad;
             mutableAssets.unload = originalUnload;

@@ -1,3 +1,4 @@
+import { usesApprovedBaseAnimations } from "../../pixi/creatureAnimationSettings";
 import { RenderableUnit } from "../RenderableUnit";
 import { GridSettings, HoCMath, TeamType, GridMath } from "@heroesofcrypto/common";
 import { HoverManager } from "../HoverManager";
@@ -45,6 +46,7 @@ interface IMoveAnimationState {
     // Rapid Charge: accelerate toward the destination + leave a blurred afterimage trail.
     rapidCharge: boolean;
     totalSegments: number;
+    walkedDistanceCells: number;
     lastAfterimageWorld: HoCMath.XY;
     nextFootstepDistance: number;
     footstepIndex: number;
@@ -198,7 +200,17 @@ export class MoveAnimationManager {
                 ? worldPath[firstHorizontalSegment].x - worldPath[firstHorizontalSegment - 1].x
                 : 0;
         // Every worldPath segment is one accepted board step, matching moveTrackProgress below.
-        const travelDistanceCells = Math.max(0, worldPath.length - 1);
+        const travelDistanceCells = usesApprovedBaseAnimations(unit.getUnitProperties().name)
+            ? worldPath
+                  .slice(1)
+                  .reduce(
+                      (sum, point, index) =>
+                          sum +
+                          Math.hypot(point.x - worldPath[index].x, point.y - worldPath[index].y) /
+                              this.context.getGridSettings().getCellSize(),
+                      0,
+                  )
+            : Math.max(0, worldPath.length - 1);
         unit.startBoardWalkAnimation(initialHorizontalDirection, travelDistanceCells);
         // Rapid Charge dash (accelerate + motion blur) ONLY when this move leads into a melee attack —
         // the caller passes rapidCharge=true for a move+attack approach, never for a plain reposition —
@@ -228,6 +240,7 @@ export class MoveAnimationManager {
             waitingForLanding: false,
             rapidCharge: useRapidCharge,
             totalSegments: Math.max(1, worldPath.length - 1),
+            walkedDistanceCells: 0,
             lastAfterimageWorld: { x: start.x, y: start.y },
             // Frame 0 is an authored support pose. Emit its contact on the first moving tick, then
             // alternate at frame 4 / frame 0 every half gait cycle.
@@ -375,6 +388,7 @@ export class MoveAnimationManager {
             const segLen = Math.sqrt(dx * dx + dy * dy) || 1e-6;
             const segRemaining = (1 - a.t) * segLen;
             const segmentStartProgress = segIndex + a.t;
+            a.walkedDistanceCells += Math.min(remaining, segRemaining) / cellSize;
 
             let newPos: HoCMath.XY;
 
@@ -420,7 +434,11 @@ export class MoveAnimationManager {
             this.moveTrackProgress = a.currentSegment + a.t;
             // Synchronize spatially-authored phases to path progress: Fairy finishes take-off inside
             // its opening distance span, while Peasant/Squire/Wandering Mage/Troll keep gait locked to cells.
-            unit.setBoardWalkDistanceCells(this.moveTrackProgress);
+            unit.setBoardWalkDistanceCells(
+                usesApprovedBaseAnimations(unit.getUnitProperties().name)
+                    ? a.walkedDistanceCells
+                    : this.moveTrackProgress,
+            );
 
             if (!isFlying) {
                 this.dropWalkDustAtCellCenters(

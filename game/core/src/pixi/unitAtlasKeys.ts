@@ -1,4 +1,14 @@
-import { animationAtlases } from "../generated/animation_atlases";
+import { animationAtlases as generatedAnimationAtlases } from "../generated/animation_atlases";
+import { animationAtlases as levelOneAnimationAtlases } from "../animations/levelOneAtlases";
+const animationAtlases = Object.fromEntries(
+    [...new Set([...Object.keys(generatedAnimationAtlases), ...Object.keys(levelOneAnimationAtlases)])].map((name) => [
+        name,
+        {
+            ...(generatedAnimationAtlases as AnimationAtlasIndex)[name],
+            ...(levelOneAnimationAtlases as AnimationAtlasIndex)[name],
+        },
+    ]),
+);
 
 type AnimationAtlasIndex = Readonly<Record<string, Readonly<Record<string, unknown>>>>;
 
@@ -11,6 +21,7 @@ export const NON_UNIT_ATLAS_NAMES = new Set([
     "Lava Chasm Glow Level",
     "Magic Aim Dual Helix",
     "Peasant Left Screen",
+    ...Object.keys(animationAtlases).filter((name) => /^(Fire Pit|Lava Chasm)/.test(name)),
 ]);
 
 /**
@@ -20,7 +31,7 @@ export const NON_UNIT_ATLAS_NAMES = new Set([
 export function buildUnitAnimationAtlasKeyClassifier(atlases: AnimationAtlasIndex): (key: string) => boolean {
     const bases = new Set<string>();
     for (const [unitName, states] of Object.entries(atlases)) {
-        if (NON_UNIT_ATLAS_NAMES.has(unitName)) continue;
+        if (NON_UNIT_ATLAS_NAMES.has(unitName) || /^(Fire Pit|Lava Chasm)/.test(unitName)) continue;
         const unitBase = unitName.toLowerCase().replace(/\s+/g, "_");
         for (const state of Object.keys(states)) {
             bases.add(`${unitBase}_${state.toLowerCase()}_atlas`);
@@ -45,7 +56,9 @@ export function buildUnitAnimationAtlasKeyClassifier(atlases: AnimationAtlasInde
 const generatedUnitAnimationAtlasKey = buildUnitAnimationAtlasKeyClassifier(animationAtlases);
 
 const generatedUnitCardImageKeys = new Set(
-    Object.keys(animationAtlases).map((unitName) => `${unitName.toLowerCase().replace(/\s+/g, "_")}_512`),
+    Object.keys(animationAtlases)
+        .filter((name) => !NON_UNIT_ATLAS_NAMES.has(name) && !/^(Fire Pit|Lava Chasm)/.test(name))
+        .map((unitName) => `${unitName.toLowerCase().replace(/\s+/g, "_")}_512`),
 );
 const generatedUnitBoardImageKeys = new Set(
     Object.keys(animationAtlases)
@@ -106,5 +119,7 @@ const specialUnitAnimationAtlasBases = new Set([
 ]);
 
 export const isUnitAnimationAtlasKey = (key: string): boolean =>
-    key !== "peasant_left_screen_idle_atlas" &&
-    (generatedUnitAnimationAtlasKey(key) || specialUnitAnimationAtlasBases.has(key.replace(/_(?:quarter|half)$/, "")));
+    /^arbalester_idle_page_\d{2}_atlas$/.test(key) ||
+    (key !== "peasant_left_screen_idle_atlas" &&
+        (generatedUnitAnimationAtlasKey(key) ||
+            specialUnitAnimationAtlasBases.has(key.replace(/_(?:quarter|half)$/, ""))));

@@ -1,3 +1,5 @@
+import { RenderableUnit as LevelOneRenderableUnit } from "./LevelOneRenderableUnit";
+import { usesApprovedBaseAnimations } from "../pixi/creatureAnimationSettings";
 import {
     Container,
     Sprite,
@@ -878,9 +880,9 @@ export function creatureOneShotAnimationEnabledForUnit(unitName: string, stateNa
     );
 }
 
-/** Level-one creatures keep only authored sprite motion; higher tiers retain the shared overlays. */
+/** Level-one and level-two creatures keep only authored sprite motion; higher tiers retain the shared overlays. */
 export function creatureGenericWholeSpriteMotionEnabledForLevel(unitLevel: number): boolean {
-    return unitLevel !== 1;
+    return unitLevel !== 1 && unitLevel !== 2;
 }
 
 export function creatureGenericCombatMotionEnabledForUnit(unitName: string, unitLevel: number): boolean {
@@ -2050,6 +2052,13 @@ const RESPOND_EMBLEM_CANVAS_SCALE = 2.25;
 /** Selected mockup variant: compress only the crossed-swords emblem vertically by 20%. */
 const RESPOND_EMBLEM_HEIGHT_SCALE = 0.8;
 export class RenderableUnit extends Unit {
+    public static override [Symbol.hasInstance](value: unknown): boolean {
+        return (
+            typeof value === "object" &&
+            value !== null &&
+            (RenderableUnit.prototype.isPrototypeOf(value) || LevelOneRenderableUnit.prototype.isPrototypeOf(value))
+        );
+    }
     private texResolver!: TexResolver;
     // Server-authoritative "already used its hourglass (wait) this lap" flag, synced from the snapshot in
     // ranked (the client's FightProperties hourglass state isn't authoritative there). Overwritten every
@@ -2261,6 +2270,8 @@ export class RenderableUnit extends Unit {
      * (We rely on JS prototype + TS casting; Unit stays the core owner.)
      */
     public static fromBase(base: Unit, texResolver: TexResolver): RenderableUnit {
+        if (usesApprovedBaseAnimations(base.getName()))
+            return LevelOneRenderableUnit.fromBase(base, texResolver) as unknown as RenderableUnit;
         Object.setPrototypeOf(base, RenderableUnit.prototype);
         const ru = base as RenderableUnit;
         ru.texResolver = texResolver;
@@ -4837,6 +4848,14 @@ export class RenderableUnit extends Unit {
         return { x: center.x, y: center.y + gs.getCellSize() };
     }
     private oneShotAnim?: OneShotAnimState;
+    public getAnimationTextureKey(stateName: string): string | undefined {
+        if (!creatureOneShotAnimationEnabledForUnit(this.getName(), stateName)) return undefined;
+        return getAnimationStateConfig(this.getName(), stateName, this.getFootprintWidth(), this.getFootprintHeight())
+            ?.imageKey;
+    }
+    public getProjectileImpactPoint(gs: GridSettings): HoCMath.XY {
+        return this.getVisualCenter(gs);
+    }
     public hasAnimationState(stateName: string): boolean {
         if (stateName === "idle") return this.idleAnimationStateAvailable;
         const props = this.getUnitProperties();
