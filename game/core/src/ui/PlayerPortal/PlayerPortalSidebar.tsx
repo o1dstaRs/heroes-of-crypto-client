@@ -8,6 +8,7 @@ import React from "react";
 import { useNavigate } from "react-router";
 
 import { rankedSeasonCurrencyAt } from "../../api/ranked_season_client";
+import { availableGold, displayedGold } from "../../api/goldDisplay";
 import { fetchPublicPlayerStats, type PublicPlayerStats } from "../../api/social_client";
 import { t, tf, useTranslation } from "../../i18n/i18n";
 import { useAuthContext } from "../auth/context/auth_context";
@@ -458,9 +459,11 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
     const recent = (data?.recent_matches ?? []).slice(0, 3);
     const recentFormMatches = (data?.recent_matches ?? []).slice(0, 10);
     const displayName = data?.username || t("Your Profile");
-    const rawGold = Number(data?.gold ?? 0);
-    const gold = Number.isFinite(rawGold) ? Math.max(0, Math.trunc(rawGold)) : 0;
-    const localizedGold = gold.toLocaleString(language === "ru" ? "ru-RU" : "en-US");
+    // Available gold gates the prediction card below; the header shows the TOTAL, available plus gold in play,
+    // so putting gold into a wager or prediction never makes the balance look smaller.
+    const gold = availableGold({ gold: Number(data?.gold ?? 0) });
+    const shownGold = displayedGold({ gold, totalGold: standing?.totalGold }) ?? gold;
+    const localizedGold = shownGold.toLocaleString(language === "ru" ? "ru-RU" : "en-US");
     const showRecentBattles = !predictionsVisible || recentBattlesExpanded;
 
     return (

@@ -41,7 +41,7 @@ const statusLabel = (status: PredictionBet["status"]): string =>
         open: t("In play"),
         won: t("Won"),
         lost: t("Lost"),
-        burned: t("Burned"),
+        burned: t("Forfeited"),
         refunded: t("Refunded"),
     })[status];
 
@@ -134,7 +134,7 @@ export const PredictionsPanel: React.FC<PredictionsPanelProps> = ({ open, onClos
             <Sheet key={market.gameId} variant="outlined" sx={{ ...hocPanelSx, p: 1.25, mb: 1 }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="baseline" sx={{ mb: 0.5 }}>
                     <Typography level="body-xs" sx={{ color: hocColors.muted }}>
-                        {tf("{amount} {symbol} · {count} bets", {
+                        {tf("{amount} {symbol} · {count} predictions", {
                             amount: market.totalPool,
                             count: market.totalBets,
                             symbol: currency.symbol,
@@ -177,7 +177,7 @@ export const PredictionsPanel: React.FC<PredictionsPanelProps> = ({ open, onClos
 
                 {mine ? (
                     <Typography level="body-xs" sx={{ color: hocColors.gold, mt: 0.75 }}>
-                        {t("Your bet")}: {mine.amount} {currency.symbol}
+                        {t("Your prediction")}: {mine.amount} {currency.symbol}
                     </Typography>
                 ) : armed ? (
                     <Stack spacing={0.75} sx={{ mt: 0.75 }}>
@@ -186,7 +186,7 @@ export const PredictionsPanel: React.FC<PredictionsPanelProps> = ({ open, onClos
                                 size="sm"
                                 type="number"
                                 slotProps={{ input: { min: 1, step: 1 } }}
-                                placeholder={tf("{currency} to stake", { currency: t(currency.name) })}
+                                placeholder={tf("{currency} to predict", { currency: t(currency.name) })}
                                 value={amount}
                                 onChange={(event) => setAmount(event.target.value)}
                                 sx={{ ...hocInputSx, flex: 1 }}
@@ -198,7 +198,7 @@ export const PredictionsPanel: React.FC<PredictionsPanelProps> = ({ open, onClos
                                 disabled={busy || stake < 1 || stake > gold}
                                 onClick={() => void submit(market)}
                             >
-                                {busy ? t("Placing…") : t("Place bet")}
+                                {busy ? t("Placing…") : t("Predict")}
                             </Button>
                         </Stack>
                         {stake > 0 && chosen && (
@@ -244,7 +244,7 @@ export const PredictionsPanel: React.FC<PredictionsPanelProps> = ({ open, onClos
         <DockPanelShell open={open} onClose={onClose} width={520} anchorOffset={146}>
             <DockPanelHeader
                 title={t("Predictions")}
-                subtitle={t("Back a side while a game is still drafting. One bet per game, final once placed.")}
+                subtitle={t("Back a side while a game is still drafting. One prediction per game, final once made.")}
                 leading={<CasinoRoundedIcon sx={{ color: hocColors.gold, fontSize: 21 }} />}
                 action={
                     <Typography
@@ -252,7 +252,8 @@ export const PredictionsPanel: React.FC<PredictionsPanelProps> = ({ open, onClos
                         sx={{ display: "inline-flex", alignItems: "center", gap: 0.4, color: hocColors.gold }}
                         title={`${t(currency.name)} (${currency.symbol})`}
                     >
-                        <CurrencyIcon iconSvg={currency.iconSvg} size={15} /> {gold} {currency.symbol}
+                        <CurrencyIcon iconSvg={currency.iconSvg} size={15} />{" "}
+                        {tf("Available: {amount} {symbol}", { amount: gold, symbol: currency.symbol })}
                     </Typography>
                 }
                 onClose={onClose}
@@ -283,7 +284,7 @@ export const PredictionsPanel: React.FC<PredictionsPanelProps> = ({ open, onClos
                 <TabPanel value={1} sx={{ px: 0, maxHeight: "52vh", overflowY: "auto" }}>
                     {openBets.length === 0 ? (
                         <Typography level="body-sm" sx={{ color: hocColors.muted }}>
-                            {t("No bets in play.")}
+                            {t("No predictions in play.")}
                         </Typography>
                     ) : (
                         openBets.map(renderBet)

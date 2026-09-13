@@ -3,6 +3,7 @@ import { Artifact } from "@heroesofcrypto/common";
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 
+import { displayedGold } from "../../api/goldDisplay";
 import { t, tf, useTranslation } from "../../i18n/i18n";
 
 import { images } from "../../generated/image_imports";
@@ -481,7 +482,9 @@ export const PlayerPortalPage: React.FC = () => {
     // Dense usage lists are ordered by sample size; win rate only breaks equal-game ties.
     const creatureStats = useMemo(() => playerPortalMostPlayedFirst(data?.creature_stats ?? []), [data]);
     const matches = data?.recent_matches ?? [];
-    const totalGold = Math.max(0, Number(data?.gold ?? 0));
+    // Shown as the total, available plus gold in play (see goldDisplay); the portal payload carries only available.
+    const totalGold =
+        displayedGold({ gold: Math.max(0, Number(data?.gold ?? 0)), totalGold: standing?.totalGold }) ?? 0;
     // New payloads carry independently aggregated pairs. Keep deriving them from legacy full-lineup payloads
     // as a rollout fallback so the client and auth server can deploy in either order.
     const strongestPairs = useMemo(() => {

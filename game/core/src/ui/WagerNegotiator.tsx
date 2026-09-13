@@ -251,7 +251,7 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
                             </Button>
                         </Stack>
                         <Typography level="body-xs" sx={{ color: hocColors.muted, mt: 0.5 }}>
-                            {t("If the draft ends first, your wager rides your next match instead.")}
+                            {t("If the draft ends first, this becomes your next-match wager instead.")}
                         </Typography>
                     </>
                 )}
@@ -310,7 +310,7 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
     if (wager.status === "locked" || wager.status === "settled" || wager.status === "burned") {
         const text =
             wager.status === "locked"
-                ? tf("Wager locked: {amount} {symbol} each — winner takes {pot} {symbol}", {
+                ? tf("Wager confirmed: {amount} {symbol} each — winner takes {pot} {symbol}", {
                       amount: wager.amount,
                       pot,
                       symbol: currency.symbol,
@@ -320,7 +320,7 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
                         amount: wager.payout,
                         symbol: currency.symbol,
                     })
-                  : tf("Draw — the pot of {pot} {symbol} burns", { pot, symbol: currency.symbol });
+                  : tf("Draw — the pot of {pot} {symbol} is forfeited", { pot, symbol: currency.symbol });
         return (
             <Sheet
                 variant="outlined"

@@ -107,6 +107,9 @@ export interface FriendEntry {
      * "no figure", which the row draws as a dash — never as a zero the player has not earned.
      */
     gold?: number;
+    /** Available gold plus gold in play; the figure a row SHOWS (see goldDisplay). Optional like `gold`. */
+    totalGold?: number;
+    goldInPlay?: number;
     /** The ranked/lobby game the friend is in right now (only while it is live) and where it stands. */
     inGameId?: string;
     gameStage?: FriendGameStage;
@@ -229,6 +232,9 @@ export interface PlayerSearchHit {
     lastOnlineAt?: number;
     /** Season gold, on the same optional terms as the presence pair above. */
     gold?: number;
+    /** Available gold plus gold in play; the figure a row SHOWS (see goldDisplay). */
+    totalGold?: number;
+    goldInPlay?: number;
 }
 
 const post = async <T>(path: string, body?: Record<string, unknown>): Promise<T> => {
@@ -336,7 +342,11 @@ export interface RankedStanding {
     totalGames: number;
     winStreak: number;
     lossStreak: number;
+    /** Available gold: what a new wager, prediction or lobby can spend. */
     gold: number;
+    /** Available gold plus gold in play; the figure to SHOW (see goldDisplay). Absent from older servers. */
+    totalGold?: number;
+    goldInPlay?: number;
 }
 
 /** The signed-in player's own ranked standing (calibration progress, or league once placed). */
@@ -621,6 +631,8 @@ export interface PublicPlayerStats {
     winStreak?: number;
     lossStreak?: number;
     gold?: number;
+    totalGold?: number;
+    goldInPlay?: number;
     peakMmr?: number;
     lastRankedGameAt?: number;
     /** Public recent form. Creature ids are optional until the ranked profile API exposes each lineup. */

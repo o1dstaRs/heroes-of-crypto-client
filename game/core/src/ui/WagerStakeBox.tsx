@@ -158,7 +158,7 @@ export const WagerStakeBox: React.FC<{ currency: Readonly<RankedSeasonCurrency> 
                             </Stack>
                             <Typography level="body-xs" sx={{ mt: 0.35, color: hocColors.muted, lineHeight: 1.4 }}>
                                 {tf(
-                                    "{currency} rides your next match. If your opponent puts in too — winner takes the pot, a tie burns it.",
+                                    "{currency} is your next-match wager. If your opponent sets one too, the winner takes the pot; a draw forfeits it.",
                                     { currency: t(currency.name) },
                                 )}
                             </Typography>
@@ -176,7 +176,7 @@ export const WagerStakeBox: React.FC<{ currency: Readonly<RankedSeasonCurrency> 
                                 level="body-xs"
                                 sx={{ color: hocColors.muted, letterSpacing: "0.08em", textTransform: "uppercase" }}
                             >
-                                {t("Purse")}
+                                {t("Available")}
                             </Typography>
                             <Stack
                                 direction="row"
@@ -233,7 +233,7 @@ export const WagerStakeBox: React.FC<{ currency: Readonly<RankedSeasonCurrency> 
                         </Stack>
                         <Stack direction="row" spacing={0.45} alignItems="center">
                             <Typography level="body-xs" sx={{ color: hocColors.muted }}>
-                                {t("Purse")}
+                                {t("Available")}
                             </Typography>
                             <CurrencyIcon iconSvg={currency.iconSvg} prominent size={26} />
                             <Typography level="title-lg" sx={{ color: hocColors.parchment, fontWeight: 700 }}>
