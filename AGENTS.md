@@ -148,6 +148,9 @@ refresh (vite serves common via the `src` alias).
 - World root has `scale.y = -1` (y-up). All world-space graphics/text must account for the flip.
 - Pixi z-index: terrain ~20, gameplay graphics ~55, units ~4000 (sorted by Y), overlays ~5500+.
 - The `@heroesofcrypto/common` submodule tracks `main`. Run `git submodule update --remote` to pull latest.
+- **No two tracked paths may differ only by letter case** (`ui/liveMatchBanner.ts` next to `ui/LiveMatchBanner.tsx`).
+  macOS and Windows see one path, so bun and Vite resolve whichever they find first and Vite caches it until
+  restarted, while Linux CI stays green. `bun run check:case` (part of `bun run check`) fails on any such pair.
 
 ## AI tournament analyser
 
