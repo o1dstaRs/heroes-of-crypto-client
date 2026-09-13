@@ -5,6 +5,7 @@ const ObserverPickViewRuntime = React.lazy(() => import("./ObserverPickViewRunti
 interface IObserverPickViewProps {
     gameId: string;
     onPickPhaseChange?: (phase: number) => void;
+    onDraftEnded?: () => void;
 }
 
 export const ObserverPickView: React.FC<IObserverPickViewProps> = (props) => (

@@ -44,7 +44,13 @@ import type {
 import { getAbilityDisplayMetadata } from "../abilityDisplay";
 import type { SandboxReplay } from "../replay/sandbox_replay";
 import { buildFightDamageEntries } from "./FightStatsTracker";
-import type { IFightDeathEntry, IFightStatsReport, IFightStatsSample, IVisibleState } from "./VisibleState";
+import type {
+    IFightDeathEntry,
+    IFightCreatureElimination,
+    IFightStatsReport,
+    IFightStatsSample,
+    IVisibleState,
+} from "./VisibleState";
 import { UNIT_ID_TO_NAME } from "../ui/unit_ui_constants";
 import {
     Sandbox,
@@ -1218,8 +1224,10 @@ export const rankedSecondarySceneLogLines = (
     unitNames: ReadonlyMap<string, string>,
     flagForUnit: (unitId: string) => string = () => "",
 ): string[] => {
+    // An obstacle strike carries unit damage too: Lightning Spin hits the enemies around the attacker even when
+    // the blow was aimed at a barrel, and those hits ride the action's first obstacle_attacked.
     const secondary =
-        event.type === "unit_attacked" || event.type === "area_attacked"
+        event.type === "unit_attacked" || event.type === "area_attacked" || event.type === "obstacle_attacked"
             ? event.damage?.secondary
             : spellCastSecondaryDamage(event);
     const lines: string[] = [];
@@ -1240,7 +1248,9 @@ export const rankedSecondarySceneLogLines = (
             case "water_shield": {
                 // Name the striker — the event itself knows who swung; matches the engine's sandbox line.
                 const strikerId =
-                    event.type === "unit_attacked" || event.type === "area_attacked"
+                    event.type === "unit_attacked" ||
+                    event.type === "area_attacked" ||
+                    event.type === "obstacle_attacked"
                         ? event.attackerId
                         : event.type === "spell_cast"
                           ? event.casterId
@@ -1388,6 +1398,7 @@ export class RankedPlayScene extends Sandbox {
     private rankedStatsLastLeftDamage = 0;
     private rankedStatsLastRightDamage = 0;
     private rankedStatsSeries: IFightStatsSample[] = [];
+    private readonly rankedStatsAliveCreatureGroups = new Map<string, IFightCreatureElimination>();
     private rankedSceneLogGameId = "";
     private rankedSceneLogSequence = -1;
     // Turn-grouping state for the journal-rebuilt log: the current lap and the unit whose turn header
@@ -1806,7 +1817,9 @@ export class RankedPlayScene extends Sandbox {
         }
     }
     private restoreRankedAiToggle(gameId: string): void {
-        if (!gameId || typeof localStorage === "undefined") {
+        // A toggle saved by an older client for a ranked, lobby or vs-AI game must not switch autobattle
+        // back on now that only the co-op sandbox offers it.
+        if (!gameId || typeof localStorage === "undefined" || !this.isAiToggleAllowed()) {
             return;
         }
         try {
@@ -2795,6 +2808,14 @@ export class RankedPlayScene extends Sandbox {
     protected override getToggleAiControlledTeam(): TeamType | undefined {
         return this.viewerTeam;
     }
+    /**
+     * Autobattle is a sandbox tool. The friend co-op sandbox keeps it; in ranked, lobby and vs-AI games the
+     * button is not rendered, so a seat is only ever automated by the server's absence takeover, which both
+     * players are shown.
+     */
+    protected override isAiToggleAllowed(): boolean {
+        return this.sandboxCoop;
+    }
     protected override updateVisibleTurnTimer(): void {
         // The base sets aiToggleOn from the live toggle; this override drives the timer off the server
         // clock and returns before super runs, so mirror the toggle here or the "AI on" badge never shows
@@ -3762,6 +3783,7 @@ export class RankedPlayScene extends Sandbox {
         this.rankedStatsLastLeftDamage = 0;
         this.rankedStatsLastRightDamage = 0;
         this.rankedStatsSeries = [];
+        this.rankedStatsAliveCreatureGroups.clear();
         this.rankedStatsLeftRoster.clear();
         this.rankedStatsRightRoster.clear();
         this.rankedStatsCountedUnitIds.clear();
@@ -3857,6 +3879,7 @@ export class RankedPlayScene extends Sandbox {
         this.rankedStatsLastRightKilled = 0;
         this.rankedStatsLastLeftDamage = 0;
         this.rankedStatsLastRightDamage = 0;
+        this.rankedStatsAliveCreatureGroups.clear();
         this.rankedStatsSeries = [
             {
                 lap: 1,
@@ -3923,6 +3946,29 @@ export class RankedPlayScene extends Sandbox {
             return false;
         }
 
+        const currentCreatureGroups = new Map<string, IFightCreatureElimination>();
+        for (const unit of units) {
+            const amountAlive = Math.max(0, Math.floor(unit.properties.amount_alive));
+            if (amountAlive <= 0 || (unit.team !== TeamVals.LEFT && unit.team !== TeamVals.RIGHT)) {
+                continue;
+            }
+            const name = unit.properties.name;
+            const creatureKey = `${unit.team}|${name.trim().toLowerCase()}`;
+            currentCreatureGroups.set(creatureKey, {
+                creatureKey,
+                name,
+                smallTextureName: unit.properties.small_texture_name,
+                team: unit.team,
+            });
+        }
+        const eliminations = Array.from(this.rankedStatsAliveCreatureGroups.entries())
+            .filter(([creatureKey]) => !currentCreatureGroups.has(creatureKey))
+            .map(([, creature]) => creature);
+        this.rankedStatsAliveCreatureGroups.clear();
+        currentCreatureGroups.forEach((creature, creatureKey) =>
+            this.rankedStatsAliveCreatureGroups.set(creatureKey, creature),
+        );
+
         const leftKilled = Math.max(
             0,
             this.rankedStatsLeftStartTotal - this.aliveTotal(units, TeamVals.LEFT as TeamType),
@@ -3943,7 +3989,8 @@ export class RankedPlayScene extends Sandbox {
             leftKilled === this.rankedStatsLastLeftKilled &&
             rightKilled === this.rankedStatsLastRightKilled &&
             leftDamage === this.rankedStatsLastLeftDamage &&
-            rightDamage === this.rankedStatsLastRightDamage
+            rightDamage === this.rankedStatsLastRightDamage &&
+            eliminations.length === 0
         ) {
             return false;
         }
@@ -3962,6 +4009,7 @@ export class RankedPlayScene extends Sandbox {
             rightDamage,
             leftDamagePct: this.percent(leftDamage, this.rankedStatsLeftStartHealthTotal),
             rightDamagePct: this.percent(rightDamage, this.rankedStatsRightStartHealthTotal),
+            ...(eliminations.length > 0 ? { eliminations } : {}),
         });
         return true;
     }

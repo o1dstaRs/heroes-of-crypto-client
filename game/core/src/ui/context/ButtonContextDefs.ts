@@ -8,6 +8,13 @@ export interface IButtonContext {
 
 export const ButtonContext = createContext<IButtonContext | null>(null);
 
+/**
+ * A spectator's fight toolbar: the same buttons the scene publishes, each still shown, but all disabled. Returns
+ * copies, so the scene's own button state is never touched.
+ */
+export const spectatorButtons = (buttons: readonly IVisibleButton[]): IVisibleButton[] =>
+    buttons.map((button) => (button.isDisabled ? button : { ...button, isDisabled: true }));
+
 export function useButtonContext() {
     const context = useContext(ButtonContext);
     if (!context) {

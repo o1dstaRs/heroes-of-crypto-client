@@ -28,7 +28,7 @@ import {
     type RankedTopResponse,
     TOP_WEALTH,
 } from "./ranked-arena-data";
-import { isLoggedIn } from "./auth-state";
+import { getAuthUser, isLoggedIn } from "./auth-state";
 import { leagueEmblemPath } from "./league-emblems";
 import { fetchMyBets, impliedShare, placeBet, proposedReturn, type PredictionBet } from "./prediction-client";
 import { rankedArenaCopy } from "./ranked-arena-copy";
@@ -796,6 +796,17 @@ const renderPredictionPanel = (
         return panel;
     }
 
+    // A seat never gets bet controls on its own game (the server refuses it): match the stored auth user by
+    // current game or username, the same way the in-game market cards do.
+    const viewer = getAuthUser();
+    const viewerName = viewer?.username?.trim().toLowerCase() ?? "";
+    const viewerIsSeat =
+        (!!viewer?.in_game_id && viewer.in_game_id === game.gameId) ||
+        (!!viewerName && game.players.some((player) => player.username.trim().toLowerCase() === viewerName));
+    if (viewerIsSeat) {
+        return panel;
+    }
+
     const isOpen = state.predictOpenGameId === game.gameId;
     if (!isOpen) {
         // A bet button per SIDE, shown to everyone. Signed out, the click routes to login (carrying a
@@ -1440,6 +1451,9 @@ const initArena = (root: HTMLElement, heroLeaderboard: HeroLeaderboardController
             void fetchResource("games");
         } catch (err) {
             state.predictError = (err as Error).message;
+            // A rejection is final (draft over, already predicted, purse moved): re-read the live feed so a
+            // market that just closed stops offering its form.
+            void fetchResource("games");
         } finally {
             state.predictBusy = false;
             render();

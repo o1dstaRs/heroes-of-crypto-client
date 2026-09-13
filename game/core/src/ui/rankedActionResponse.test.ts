@@ -145,6 +145,7 @@ describe("ranked action response snapshots", () => {
                         },
                     ],
                 }),
+                TeamVals.RIGHT,
             ).modelTeam,
         ).toBe(TeamVals.LEFT);
     });
@@ -185,6 +186,28 @@ describe("ranked action response snapshots", () => {
 
         expect(resolved.enabled).toBe(false);
         expect(resolved.modelTeam).toBe(TeamVals.LEFT);
+    });
+
+    test("never lets a spectator tab (no viewer team) drive a model for either seat", () => {
+        const config: LocalModelOpponentConfig = {
+            enabled: true,
+            modelTeam: TeamVals.RIGHT,
+            apiBase: "/hoc-local-model",
+            modelName: "auto",
+            authorization: "Bearer player-token",
+            playerId: "human-player",
+            style: "balanced",
+        };
+        const players = [
+            { playerId: "human-player", team: TeamVals.LEFT, connected: true, aiControlled: false, lastSeenMs: 0 },
+            { playerId: "other-player", team: TeamVals.RIGHT, connected: true, aiControlled: false, lastSeenMs: 0 },
+        ];
+
+        expect(resolveEffectiveLocalModelOpponentConfig(config, snapshot({ players })).enabled).toBe(false);
+        expect(
+            resolveEffectiveLocalModelOpponentConfig({ ...config, playerId: undefined }, snapshot({ players })).enabled,
+        ).toBe(false);
+        expect(resolveEffectiveLocalModelOpponentConfig(config, null).enabled).toBe(false);
     });
 });
 

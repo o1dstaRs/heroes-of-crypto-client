@@ -45,7 +45,8 @@ export const PickExitFightControl: React.FC<{ gameId: string }> = ({ gameId }) =
                     </Typography>
                     <Stack spacing={2} sx={{ mt: 1, minWidth: 300, maxWidth: 360 }}>
                         <Typography level="body-sm" textColor={hocColors.mutedStrong}>
-                            Leaving during picks forfeits the match and counts as a loss. This cannot be undone.
+                            Leaving during picks forfeits the match and counts as a loss. In ranked, leaving 3 matches
+                            in a row suspends your ranked play. This cannot be undone.
                         </Typography>
                         {error && (
                             <Typography level="body-sm" color="danger">

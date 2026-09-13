@@ -622,17 +622,43 @@ export const nextObstacleHits = (
     return { left: Math.max(0, current.left - landed), right: current.right };
 };
 
+type ObstacleAttackedEvent = Extract<GameEvent, { type: "obstacle_attacked" }>;
+
+/** Hover caption for a strike that fells more than one tombstone at once (Double Shot, a pierce, a spin). */
+const multiTombstoneCaption = (count: number): string => `Hit ${count} tombstones`;
+const isMultiTombstoneCaption = (caption: string | undefined): boolean =>
+    !!caption && /^Hit \d+ tombstones$/.test(caption);
+
+/**
+ * An obstacle strike's `obstacle_attacked` events grouped by the impact that lands them, in landing order.
+ *
+ * Each stone that fell to a blow or projectile of its own is one impact. A barrel Lightning Spin broke
+ * (`source: "lightning_spin"`) has no blow of its own — the spin is one radial impact set off by the first
+ * blow — so it rides that first impact instead of adding a lunge.
+ */
+export const obstacleImpactEvents = (events: readonly GameEvent[]): ObstacleAttackedEvent[][] => {
+    const obstacleEvents = events.filter((event): event is ObstacleAttackedEvent => event.type === "obstacle_attacked");
+    const spun = obstacleEvents.filter((event) => event.source === "lightning_spin");
+    const struck = obstacleEvents.filter((event) => event.source !== "lightning_spin");
+    if (!struck.length) {
+        return spun.length ? [spun] : [];
+    }
+    return struck.map((event, index) => (index === 0 ? [event, ...spun] : [event]));
+};
+
 /**
  * Exact impact points an obstacle strike must animate, in landing order.
  *
  * Scattered tombstones emit one `obstacle_attacked` event per destroyed stone, so their recorded positions
  * are already the authoritative Double Shot path. Classic mountains instead aggregate a multi-hit strike
  * into one event; repeat that single position once per landed hit to preserve the existing two-projectile
- * presentation there.
+ * presentation there. A stone Lightning Spin broke is no strike of its own (see obstacleImpactEvents), so it
+ * adds no impact point.
  */
 export const obstacleStrikePositions = (events: readonly GameEvent[], fallback: HoCMath.XY): HoCMath.XY[] => {
     const obstacleEvents = events.filter(
-        (event): event is Extract<GameEvent, { type: "obstacle_attacked" }> => event.type === "obstacle_attacked",
+        (event): event is ObstacleAttackedEvent =>
+            event.type === "obstacle_attacked" && event.source !== "lightning_spin",
     );
     if (obstacleEvents.length > 1) {
         return obstacleEvents.map((event) => ({ ...event.targetPosition }));
@@ -1323,6 +1349,7 @@ export class Sandbox extends PixiScene {
                 getCurrentActiveSpell: () => this.currentActiveSpell,
                 getVisibleState: () => this.sc_visibleState,
                 isInputLockedByAI: () => this.isBoardInputLockedByAI(),
+                isAiToggleAllowed: () => this.isAiToggleAllowed(),
                 canControlCurrentActiveUnit: () => this.canControlCurrentActiveUnit(),
                 hasUnactedTeammateInCurrentLap: (unit) => this.hasUnactedTeammateInCurrentLap(unit),
                 setVisibleButtons: (buttons, updated) => {
@@ -1838,6 +1865,13 @@ export class Sandbox extends PixiScene {
      */
     protected getToggleAiControlledTeam(): TeamType | undefined {
         return undefined;
+    }
+    /**
+     * Whether the manual AI toggle (autobattle) is offered. The sandbox is a practice board, so it always
+     * is; RankedPlayScene narrows it to the friend co-op sandbox.
+     */
+    protected isAiToggleAllowed(): boolean {
+        return true;
     }
     /** Ranked: install the sink that relays this player's live move aim to the opponent. */
     public override setMoveIntentSink(sink?: (unitId: string | undefined, cell: HoCMath.XY | undefined) => void): void {
@@ -4920,23 +4954,14 @@ export class Sandbox extends PixiScene {
     ): void {
         const damage = attackEvent.damage;
         const gs = this.sc_sceneSettings.getGridSettings();
-        const attackerCenter = attacker.getVisualCenter(gs);
-
-        // Secondary damage from abilities that trigger DURING the exchange — Fire Shield reflect,
-        // Chain Lightning bounces, Petrifying Gaze kills, Magic Mirror — each gets its own floating
-        // number on the affected unit (impact-time position fallback so dead units still show).
-        // Staggered so they don't stack on the primary hit. Additive: shown alongside the
-        // splash/primary numbers below, not instead of them. Styled per source (and Petrifying Gaze
-        // yanks the struck unit) so the ranked replay matches the live sandbox effect — otherwise the
-        // gaze read as a plain red number with no reaction on the side that took it.
         // Flesh Shield is deliberately rendered as ONE aggregated, labelled value on the aura owner.
         // Keep it out of the generic secondary loop below or it would also draw as an ordinary `-X` hit.
-        this.showFleshShieldAbsorbedDamage(damage.secondary, attackerCenter, 220);
-        this.showWaterShieldAbsorbs(damage.secondary, attackerCenter, 220);
+        this.showFleshShieldAbsorbedDamage(secondary, attackerCenter, 220);
+        this.showWaterShieldAbsorbs(secondary, attackerCenter, 220);
         // Devour Essence is a HEAL riding the same payload — green "+N" on the devourer, kept out of
         // the red-number loop below.
-        this.showDevourEssenceHeals(damage.secondary);
-        (damage.secondary ?? [])
+        this.showDevourEssenceHeals(secondary);
+        (secondary ?? [])
             .filter(
                 (entry) =>
                     entry.source !== "flesh_shield" &&
@@ -4977,6 +5002,46 @@ export class Sandbox extends PixiScene {
                     220 + index * 180,
                 );
             });
+    }
+    /**
+     * Unit damage an obstacle strike dealt, drawn at the blow's impact. Lightning Spin hits every enemy around the
+     * attacker and a Skewer Strike the enemy behind the barrel, even though the blow was aimed at a barrel; a barrel
+     * is no unit target, so the engine hangs those hits on the action's first obstacle_attacked. They get the
+     * numbers, pops and heals a unit strike's secondary damage gets, and every struck enemy flinches away.
+     */
+    private showObstacleStrikeUnitDamage(attacker: RenderableUnit, events: readonly GameEvent[]): void {
+        const damage = events.find(
+            (event): event is ObstacleAttackedEvent => event.type === "obstacle_attacked" && !!event.damage,
+        )?.damage;
+        if (!damage?.secondary?.length) {
+            return;
+        }
+        this.showSecondaryDamageNumbers(
+            damage.secondary,
+            attacker.getVisualCenter(this.sc_sceneSettings.getGridSettings()),
+        );
+        for (const entry of damage.secondary) {
+            const victim = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
+            const struckByTheBlow =
+                entry.source === "lightning_spin" || entry.source === "skewer_strike" || entry.source === "fire_breath";
+            if (struckByTheBlow && entry.amount > 0 && victim && !victim.isDead()) {
+                this.applyReplayHitKnockback(victim, attacker);
+            }
+        }
+        this.flushEffectPops();
+    }
+    private showReplayAttackDamage(
+        attacker: RenderableUnit,
+        target: RenderableUnit,
+        attackEvent: Extract<GameEvent, { type: "unit_attacked" }>,
+        record: SandboxReplay["actions"][number],
+    ): void {
+        const damage = attackEvent.damage;
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const attackerCenter = attacker.getVisualCenter(gs);
+
+        // Additive: shown alongside the splash/primary numbers below, not instead of them.
+        this.showSecondaryDamageNumbers(damage.secondary, attackerCenter);
 
         // Deep Wounds: rake an orange claw slash across the wounded unit for EVERY application recorded
         // during this attack (a double-punch wounder produces two entries -> two claws). Driven off the
@@ -5404,6 +5469,16 @@ export class Sandbox extends PixiScene {
         this.currentActiveUnit = unit;
         unit.setActiveTurn(true);
 
+        // An Area Throw or Large Caliber shot at a barrel resolves as a splash at that cell (the engine hands it to its
+        // area strike), so it plays exactly like a throw — projectile, 3x3 splash numbers and all — from the record.
+        const areaEvent = record.events.find(
+            (event): event is Extract<GameEvent, { type: "area_attacked" }> => event.type === "area_attacked",
+        );
+        if (areaEvent) {
+            await this.performAreaThrow(unit, areaEvent.targetCell, areaEvent.targetPosition, record);
+            return true;
+        }
+
         // Walk to the melee attack-from cell first (the engine folds the approach into the obstacle
         // attack, so there's no separate move record to replay).
         if (action.attackFrom) {
@@ -5439,26 +5514,28 @@ export class Sandbox extends PixiScene {
         // handed over), which would silently drop the whole strike — the mountain damage, the
         // destroy, and any lap mechanics (lava drying) bundled into this action's events. Driving it
         // off the journal mirrors how unit attacks replay and guarantees those all show.
-        const obstacleEvents = record.events.filter(
-            (event): event is Extract<GameEvent, { type: "obstacle_attacked" }> => event.type === "obstacle_attacked",
-        );
+        // One impact per blow; the stones a Lightning Spin broke fall with the first one (obstacleImpactEvents).
+        const obstacleImpacts = obstacleImpactEvents(record.events);
         const remainingEvents = record.events.filter((event) => event.type !== "obstacle_attacked");
         const strikePositions = obstacleStrikePositions(record.events, action.targetPosition);
         const scattered = this.grid.hasScatteredMountains();
         this.sc_sceneLog.updateLog(`${unit.getName()} hit mountain`);
-        let appliedObstacleEvents = 0;
+        let appliedImpacts = 0;
         await this.animateObstacleStrikeSequence(unit, strikePositions, action.attackFrom, (impactIndex) => {
+            if (impactIndex === 0) {
+                this.showObstacleStrikeUnitDamage(unit, record.events);
+            }
             if (!scattered) {
                 return;
             }
-            const event = obstacleEvents[impactIndex];
-            if (!event) {
+            const impact = obstacleImpacts[impactIndex];
+            if (!impact) {
                 return;
             }
-            this.applyReplayEvents([event]);
-            appliedObstacleEvents = impactIndex + 1;
+            this.applyReplayEvents(impact);
+            appliedImpacts = impactIndex + 1;
         });
-        this.applyReplayEvents([...obstacleEvents.slice(appliedObstacleEvents), ...remainingEvents]);
+        this.applyReplayEvents([...obstacleImpacts.slice(appliedImpacts).flat(), ...remainingEvents]);
         this.sc_moveBlocked = false;
         await this.delayReplay(Sandbox.REPLAY_ATTACK_DAMAGE_BASE_HOLD_MS);
         await this.delayReplay(Sandbox.REPLAY_ATTACK_AFTER_APPLY_HOLD_MS);
@@ -6023,9 +6100,11 @@ export class Sandbox extends PixiScene {
      * dies later (to a spell, armageddon…) still gets the generic death.
      */
     protected noteDeathBlowsFromAttackEvent(
-        event: Extract<GameEvent, { type: "unit_attacked" | "area_attacked" }>,
+        // An obstacle strike can kill too: the hits of a Lightning Spin off it ride its first obstacle_attacked.
+        event: Extract<GameEvent, { type: "unit_attacked" | "area_attacked" | "obstacle_attacked" }>,
     ): void {
-        if (!event.unitIdsDied?.length) {
+        const unitIdsDied = event.unitIdsDied ?? [];
+        if (!unitIdsDied.length) {
             return;
         }
         // The live path sees the same engine event twice (applyAttackActionResult at impact, then the
@@ -6036,7 +6115,9 @@ export class Sandbox extends PixiScene {
             return;
         }
         this.notedDeathBlowEvents.add(event);
-        const kind = event.type === "unit_attacked" ? event.attackType : "range";
+        // Only the (melee-only) spin ever kills from an obstacle strike, so that blow is a melee one.
+        const kind =
+            event.type === "unit_attacked" ? event.attackType : event.type === "obstacle_attacked" ? "melee" : "range";
         const units = this.unitsHolder.getAllUnits();
         // Strike line from VISUAL centers: getPosition() on a 2x2 unit is its base cell, which would
         // skew the blow's angle for large attackers/victims (same reason the splash VFX uses it).
@@ -6051,15 +6132,15 @@ export class Sandbox extends PixiScene {
         // event itself preserves the impact-time positions: the attacker's own animation entry (a melee
         // strike records `toPosition` = where it struck from) and the damage payload's per-unit positions.
         const attackerAnimLogical =
-            event.type === "unit_attacked"
+            event.type === "unit_attacked" || event.type === "obstacle_attacked"
                 ? event.animations.find((animation) => animation.affectedUnitId === event.attackerId)?.toPosition
                 : undefined;
         const attackerAnimPos = attackerAnimLogical ? projectBattlefieldPoint(attackerAnimLogical, gs) : undefined;
         const damagePositionOf = (unitId: string): HoCMath.XY | undefined => {
-            if (event.type !== "unit_attacked") {
+            const damage = event.type === "area_attacked" ? undefined : event.damage;
+            if (!damage) {
                 return undefined;
             }
-            const damage = event.damage;
             if (damage.unitId === unitId && damage.unitPosition) {
                 return projectBattlefieldPoint(damage.unitPosition, gs);
             }
@@ -6085,7 +6166,7 @@ export class Sandbox extends PixiScene {
         // A ranged RESPONSE that kills the initiating attacker follows the same broad return direction.
         // Retaliation deliberately ignores the recorded cursor edge, matching projectile playback below.
         const responseAim = attackerPos;
-        for (const unitId of event.unitIdsDied) {
+        for (const unitId of unitIdsDied) {
             // The attacker itself dying (melee retaliation or ranged response) is a blow FROM the target's side.
             const isAttackerDeath = unitId === event.attackerId;
             const from = isAttackerDeath ? primaryPos : attackerPos;
@@ -8488,6 +8569,14 @@ export class Sandbox extends PixiScene {
             return undefined;
         }
         if (kind === "range") {
+            // A Gargantuan's Area Throw or a Cyclops' Large Caliber aimed at a barrel lands there with its 3x3 splash
+            // (every barrel broken, every unit hit), so the area click and hover own the cell.
+            if (
+                (this.isAreaThrowAiming() && this.grid.hasScatteredMountains()) ||
+                this.isLargeCaliberBarrelAiming(worldPos)
+            ) {
+                return undefined;
+            }
             // A shot at the mountain needs no attack-from cell: the unit fires from where it stands.
             return { unit, attackType: AttackVals.RANGE, targetPosition };
         }
@@ -9460,9 +9549,8 @@ export class Sandbox extends PixiScene {
             return false;
         }
 
-        const obstacleEvents = result.events.filter(
-            (event): event is Extract<GameEvent, { type: "obstacle_attacked" }> => event.type === "obstacle_attacked",
-        );
+        // One impact per blow; the stones a Lightning Spin broke fall with the first one (obstacleImpactEvents).
+        const obstacleImpacts = obstacleImpactEvents(result.events);
         const remainingEvents = result.events.filter((event) => event.type !== "obstacle_attacked");
         const strikePositions = obstacleStrikePositions(result.events, worldPos);
         const scattered = this.grid.hasScatteredMountains();
@@ -9475,24 +9563,30 @@ export class Sandbox extends PixiScene {
         // their matching impacts. This makes Double Shot read as two real shots instead of deleting both
         // stones immediately and then drawing a cosmetic projectile at the final target.
         void (async () => {
-            let appliedObstacleEvents = 0;
+            let appliedImpacts = 0;
             try {
                 await this.animateObstacleStrikeSequence(unit, strikePositions, attackFromCell, (impactIndex) => {
+                    if (impactIndex === 0) {
+                        this.showObstacleStrikeUnitDamage(unit, result.events);
+                    }
                     if (!scattered) {
                         return;
                     }
-                    const event = obstacleEvents[impactIndex];
-                    if (!event) {
+                    const impact = obstacleImpacts[impactIndex];
+                    if (!impact) {
                         return;
                     }
-                    this.applyTurnEngineEvents([event], unitSnapshot);
-                    appliedObstacleEvents = impactIndex + 1;
+                    this.applyTurnEngineEvents(impact, unitSnapshot);
+                    appliedImpacts = impactIndex + 1;
                 });
             } finally {
                 // Classic mountains aggregate all hits into one event, so apply it after the final impact.
                 // The slice is also a recovery path if an animation is interrupted before every scattered
-                // event reaches its per-impact callback: the turn can never remain locked indefinitely.
-                const pendingEvents: GameEvent[] = [...obstacleEvents.slice(appliedObstacleEvents), ...remainingEvents];
+                // impact reaches its callback: the turn can never remain locked indefinitely.
+                const pendingEvents: GameEvent[] = [
+                    ...obstacleImpacts.slice(appliedImpacts).flat(),
+                    ...remainingEvents,
+                ];
                 if (pendingEvents.length) {
                     this.applyTurnEngineEvents(pendingEvents, unitSnapshot);
                 }
@@ -9605,6 +9699,22 @@ export class Sandbox extends PixiScene {
         return intersections;
     }
     /**
+     * Mark the cemetery barrels standing inside an area that breaks every barrel in it — an Area Throw's 3x3, which
+     * flies over the barrels on its line (the engine ignores structures there) and lands on these.
+     */
+    private highlightScatteredObstaclesInCells(cells: readonly HoCMath.XY[]): void {
+        if (!this.grid.hasScatteredMountains()) {
+            this.dungeonVisuals.clearScatteredMountainHighlight();
+            return;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        this.dungeonVisuals.highlightScatteredMountains(
+            cells
+                .filter((cell) => this.isStandingAttackObstacleCell(cell))
+                .map((cell) => GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep())),
+        );
+    }
+    /**
      * Mountain hover: mirrors hovering a 2x2 ENEMY. Ranged units preview a shot in place; melee
      * units get the same cursor-tracked attack-from selection as unit targets (the landing follows
      * the cursor around the rock — edges, corners, both flanks), plus the move silhouette and arrow.
@@ -9614,7 +9724,7 @@ export class Sandbox extends PixiScene {
         const notHovering = (): boolean => {
             this.hoverManager.clearObstacleHighlight();
             this.dungeonVisuals.clearScatteredMountainHighlight();
-            if (this.sc_hoverInfoArr[0] === "Hit the object" || this.sc_hoverInfoArr[0] === "Hit 2 tombstones") {
+            if (this.sc_hoverInfoArr[0] === "Hit the object" || isMultiTombstoneCaption(this.sc_hoverInfoArr[0])) {
                 this.sc_hoverInfoArr = [];
                 this.sc_hoverTextUpdateNeeded = true;
                 this.hoverManager.hoverAttackFromCell = undefined;
@@ -9632,6 +9742,14 @@ export class Sandbox extends PixiScene {
 
         const unit = this.currentActiveUnit;
         if (!unit || !this.sc_mouseWorld) {
+            return notHovering();
+        }
+        // A Gargantuan's Area Throw or a Cyclops' Large Caliber aimed at a barrel previews its 3x3 splash
+        // (updateAreaThrowHover), not a stone shot.
+        if (
+            (this.isAreaThrowAiming() && this.grid.hasScatteredMountains()) ||
+            this.isLargeCaliberBarrelAiming(this.sc_mouseWorld)
+        ) {
             return notHovering();
         }
         const fightProps = FightStateManager.getInstance().getFightProperties();
@@ -9750,6 +9868,37 @@ export class Sandbox extends PixiScene {
                 meleeSwordFacingAngle(attackFromPos, cellCenter),
             );
         }
+        // Lightning Spin goes off whatever the blow is aimed at, so every enemy around the attacker's body takes a
+        // hit (attack_handler.spinAroundObstacleStrike) — outline them the way a unit-target hover does.
+        if (unit.hasAbilityActive("Lightning Spin")) {
+            for (const enemy of this.unitsHolder.allEnemiesAroundUnit(unit, true, attackFromCell)) {
+                if (!enemy.isDead()) {
+                    this.hoverManager.addTargetHighlight(enemy);
+                }
+            }
+        }
+        // A Skewer Strike runs on through the barrel into the enemy standing right behind it.
+        const skeweredBehind = AllAbilities.skewerStrikeUnitBehindObstacle(
+            unit,
+            this.grid,
+            this.unitsHolder,
+            attackFromCell,
+            hoveredCell,
+        );
+        if (skeweredBehind) {
+            this.hoverManager.addTargetHighlight(skeweredBehind);
+        }
+        // ...and a Fire Breath burns whoever stands there, ally or enemy, unless it is fire-immune.
+        const burnedBehind = AllAbilities.fireBreathUnitBehindObstacle(
+            unit,
+            this.grid,
+            this.unitsHolder,
+            attackFromCell,
+            hoveredCell,
+        );
+        if (burnedBehind) {
+            this.hoverManager.addTargetHighlight(burnedBehind);
+        }
         if (this.grid.hasScatteredMountains()) {
             // Skewer Strike / Fire Breath run on through the barrel: the one standing directly behind it on
             // the strike line goes too (attack_handler.pierceScatteredObstacleBehind), so the preview shows
@@ -9762,9 +9911,19 @@ export class Sandbox extends PixiScene {
                 pierceCell && this.isStandingAttackObstacleCell(pierceCell)
                     ? GridMath.getPositionForCell(pierceCell, gs.getMinX(), gs.getStep(), gs.getHalfStep())
                     : undefined;
-            this.dungeonVisuals.highlightScatteredMountains(piercedBarrel ? [cellCenter, piercedBarrel] : [cellCenter]);
-            if (piercedBarrel) {
-                this.sc_hoverInfoArr = ["Hit 2 tombstones"];
+            // A Lightning Spin breaks every other barrel around the attacker's body in the same impact.
+            const spunBarrels = AllAbilities.lightningSpinObstacleCells(
+                unit,
+                this.unitsHolder,
+                this.grid,
+                attackFromCell,
+            )
+                .filter((cell) => cell.x !== hoveredCell.x || cell.y !== hoveredCell.y)
+                .map((cell) => GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep()));
+            const struckBarrels = [cellCenter, ...(piercedBarrel ? [piercedBarrel] : []), ...spunBarrels];
+            this.dungeonVisuals.highlightScatteredMountains(struckBarrels);
+            if (struckBarrels.length > 1) {
+                this.sc_hoverInfoArr = [multiTombstoneCaption(struckBarrels.length)];
                 this.sc_hoverTextUpdateNeeded = true;
                 return true;
             }
@@ -10071,7 +10230,8 @@ export class Sandbox extends PixiScene {
                     projectedShotStart,
                 );
                 this.hoverManager.drawAttackArrow(projectedShotStart, projectedCasingJoint);
-                this.highlightScatteredObstaclesAlongTrajectory(activeUnit.getPosition(), impactPos);
+                // The rock flies OVER the barrels on its line and breaks every one in the 3x3 it lands on.
+                this.highlightScatteredObstaclesInCells(cells);
                 divisor = this.attackHandler.getRangeAttackDivisor(activeUnit, impactPos);
             }
         }
@@ -10309,9 +10469,33 @@ export class Sandbox extends PixiScene {
             unit.getRangeShots() > 0
         );
     }
+    /**
+     * A Large Caliber shooter (Cyclops — its shots ignore structures) aiming straight at a cemetery barrel. The ball
+     * lands on that barrel with its 3x3 splash, breaking every barrel and hitting every unit in it: the engine resolves
+     * the shot exactly like an Area Throw at that cell, so it previews and fires through the area path too.
+     */
+    private isLargeCaliberBarrelAiming(worldPos?: HoCMath.XY): boolean {
+        const unit = this.currentActiveUnit;
+        if (
+            !unit ||
+            !worldPos ||
+            !this.grid.hasScatteredMountains() ||
+            !unit.hasAbilityActive("Large Caliber") ||
+            unit.getAttackTypeSelection() !== AttackVals.RANGE ||
+            unit.getRangeShots() <= 0
+        ) {
+            return false;
+        }
+        const cell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), worldPos);
+        return (
+            !!cell &&
+            this.isStandingAttackObstacleCell(cell) &&
+            this.attackHandler.canLandRangeAttack(unit, this.grid.getEnemyAggrMatrixByUnitId(unit.getId()))
+        );
+    }
     private getAreaThrowCells(worldPos?: HoCMath.XY): HoCMath.XY[] | undefined {
         const unit = this.currentActiveUnit;
-        if (!unit || !worldPos || !this.isAreaThrowAiming()) {
+        if (!unit || !worldPos || !(this.isAreaThrowAiming() || this.isLargeCaliberBarrelAiming(worldPos))) {
             return undefined;
         }
         const gs = this.sc_sceneSettings.getGridSettings();
@@ -10366,11 +10550,15 @@ export class Sandbox extends PixiScene {
         cellPosition: HoCMath.XY,
         replayRecord?: SandboxReplay["actions"][number],
     ): Promise<void> {
-        const action: GameAction = {
-            type: "area_throw_attack",
-            attackerId: unit.getId(),
-            targetCell: mouseCell,
-        };
+        // What this throw IS: an Area Throw at the cell, or — for a Large Caliber shooter aiming at a barrel — an
+        // obstacle_attack the engine resolves as the same splash. A replay re-applies the action the server recorded.
+        const recordedAction = replayRecord?.action;
+        const action: GameAction =
+            recordedAction?.type === "area_throw_attack" || recordedAction?.type === "obstacle_attack"
+                ? cloneReplayData(recordedAction)
+                : unit.hasAbilityActive("Area Throw")
+                  ? { type: "area_throw_attack", attackerId: unit.getId(), targetCell: mouseCell }
+                  : { type: "obstacle_attack", attackerId: unit.getId(), targetPosition: cellPosition };
 
         // Ranked: defer to the authoritative replay so the throw — and Double Shot's second
         // projectile — animates exactly once, when the server echoes the action. Without this the
@@ -10408,6 +10596,7 @@ export class Sandbox extends PixiScene {
             big: bigProjectile,
             tsarCannonball: areaThrowUnitName === "tsar cannon",
             gargantuanRock: areaThrowUnitName === "gargantuan",
+            cyclopsRock: areaThrowUnitName === "cyclops",
         });
 
         const unitSnapshot = this.snapshotRenderableUnits();
@@ -10459,6 +10648,7 @@ export class Sandbox extends PixiScene {
                 big: bigProjectile,
                 tsarCannonball: areaThrowUnitName === "tsar cannon",
                 gargantuanRock: areaThrowUnitName === "gargantuan",
+                cyclopsRock: areaThrowUnitName === "cyclops",
             });
             shownAnyWave = this.showSplashDamage(waves[throwIndex] ?? [], muzzle) || shownAnyWave;
         }
@@ -13999,7 +14189,29 @@ export class Sandbox extends PixiScene {
                                 );
                             } else {
                                 this.hoverManager.clearObstacleHighlight();
-                                this.dungeonVisuals.clearScatteredMountainHighlight();
+                                // A Large Caliber ball flies over the barrels on its line and breaks every one in
+                                // the blast around the unit it hits.
+                                if (
+                                    isRangeAttackContext &&
+                                    arrowEndPos &&
+                                    this.currentActiveUnit.hasAbilityActive("Large Caliber")
+                                ) {
+                                    this.highlightScatteredObstaclesInCells(
+                                        this.attackHandler
+                                            .evaluateRangeAttack(
+                                                this.unitsHolder.getAllUnits(),
+                                                this.currentActiveUnit,
+                                                this.currentActiveUnit.getPosition(),
+                                                arrowEndPos,
+                                                false,
+                                                false,
+                                                true,
+                                            )
+                                            .affectedCells.flat(),
+                                    );
+                                } else {
+                                    this.dungeonVisuals.clearScatteredMountainHighlight();
+                                }
                             }
                             this.hoverManager.drawDamagePrediction(
                                 dmgStr,
@@ -14042,6 +14254,44 @@ export class Sandbox extends PixiScene {
                                 // The primary is outlined by the block above; Lightning Spin also lists it.
                                 if (enemy.getId() !== targetUnit.getId()) {
                                     this.hoverManager.addTargetHighlight(enemy);
+                                }
+                            }
+                            // Lightning Spin's radial impact breaks the cemetery barrels around the attacker too, and a
+                            // Skewer Strike the barrel standing behind its small target.
+                            if (!isRangeAttackContext && attackFromCell) {
+                                const skeweredBarrel = AllAbilities.skewerStrikeObstacleCell(
+                                    this.currentActiveUnit,
+                                    this.grid,
+                                    attackFromCell,
+                                    targetUnit,
+                                );
+                                const struckBarrels = [
+                                    ...AllAbilities.lightningSpinObstacleCells(
+                                        this.currentActiveUnit,
+                                        this.unitsHolder,
+                                        this.grid,
+                                        attackFromCell,
+                                    ),
+                                    ...(skeweredBarrel ? [skeweredBarrel] : []),
+                                    // Fire Breath burns every barrel in the band it sweeps behind the target.
+                                    ...AllAbilities.fireBreathObstacleCells(
+                                        this.currentActiveUnit,
+                                        this.grid,
+                                        attackFromCell,
+                                        targetUnit,
+                                    ),
+                                ];
+                                if (struckBarrels.length) {
+                                    this.dungeonVisuals.highlightScatteredMountains(
+                                        struckBarrels.map((cell) =>
+                                            GridMath.getPositionForCell(
+                                                cell,
+                                                gs.getMinX(),
+                                                gs.getStep(),
+                                                gs.getHalfStep(),
+                                            ),
+                                        ),
+                                    );
                                 }
                             }
                         }
@@ -16155,6 +16405,9 @@ export class Sandbox extends PixiScene {
                     shouldRefreshVisibleState = true;
                     break;
                 case "obstacle_attacked": {
+                    // A Lightning Spin off the strike may have killed: attribute those blows before this batch's
+                    // teardown events spawn the death visuals, exactly as unit_attacked does below.
+                    this.noteDeathBlowsFromAttackEvent(event);
                     if (this.grid.hasScatteredMountains()) {
                         const destroyedCell = GridMath.getCellForPosition(
                             this.sc_sceneSettings.getGridSettings(),
@@ -16369,6 +16622,10 @@ export class Sandbox extends PixiScene {
         const minCellY = gs.getMinY() / gs.getCellSize();
         const maxCellY = gs.getMaxY() / gs.getCellSize();
         const offset = layer - 1;
+        // A scattered stone on a narrowed cell falls into the hole (common Grid.occupyByHole), so its art has to
+        // go with it. Diff the standing set rather than read occupyByHole's result: ranked never re-sends a stone
+        // the local grid already dropped, so this is the only place that can remove it.
+        const standingBefore = this.grid.hasScatteredMountains() ? this.grid.getScatteredMountainsStanding() : [];
 
         for (let i = minCellX + offset; i < maxCellX - offset; i++) {
             this.grid.occupyByHole({ x: i + maxCellX, y: offset });
@@ -16377,6 +16634,14 @@ export class Sandbox extends PixiScene {
         for (let i = minCellY + offset; i < maxCellY - offset; i++) {
             this.grid.occupyByHole({ x: offset, y: i });
             this.grid.occupyByHole({ x: (maxCellX << 1) - layer, y: i });
+        }
+        if (standingBefore.length) {
+            const standingAfter = this.grid.getScatteredMountainsStanding();
+            for (const stone of standingBefore) {
+                if (!standingAfter.some((cell) => cell.x === stone.x && cell.y === stone.y)) {
+                    this.dungeonVisuals?.removeScatteredMountainAt(stone.x, stone.y);
+                }
+            }
         }
     }
     private syncSystemMovedUnit(

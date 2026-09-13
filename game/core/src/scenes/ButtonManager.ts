@@ -39,6 +39,11 @@ export interface ISandboxButtonContext {
     setSpellBookOverlay(active: boolean): void;
     isInputLockedByAI(): boolean;
     /**
+     * Whether the manual AI toggle (autobattle) is offered at all. The sandbox keeps it; a ranked, lobby or
+     * vs-AI seat must be played by its human, so there the button is not rendered and clicks are ignored.
+     */
+    isAiToggleAllowed(): boolean;
+    /**
      * Whether the local player may act on the current active unit. Sandbox controls both teams, so
      * this is always true there. Ranked overrides it: on the opponent's turn the active unit is theirs,
      * so all action buttons (incl. the purely-local spellbook overlay) must be disabled.
@@ -145,7 +150,14 @@ export class ButtonManager {
             attackType: IVisibleButton,
             spellBook: IVisibleButton,
         ) => {
-            buttons.push(hourglass, shield, next, ai, attackType, spellBook);
+            buttons.push(
+                hourglass,
+                shield,
+                next,
+                ...(this.context.isAiToggleAllowed() ? [ai] : []),
+                attackType,
+                spellBook,
+            );
             // Update local references
             this.hourglassButton = hourglass;
             this.shieldButton = shield;
@@ -375,6 +387,9 @@ export class ButtonManager {
                 return;
             }
             case "AI": {
+                if (!this.context.isAiToggleAllowed()) {
+                    return;
+                }
                 this.sc_isAIActive = !this.sc_isAIActive;
                 // 👇 Fix: Push AI state
                 this.context.setAIActive(this.sc_isAIActive);

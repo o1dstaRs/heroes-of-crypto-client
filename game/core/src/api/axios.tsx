@@ -1,6 +1,7 @@
 import axios, { AxiosRequestConfig, AxiosInstance } from "axios";
 
 import { adoptRotatedStoredAccessToken, registerAccessTokenListener } from "./access_token";
+import { DEVICE_ID_HEADER, getDeviceId } from "./deviceId";
 
 const DEFAULT_DEV_API = "http://127.0.0.1:3001";
 const PROD_AUTH_API = "https://auth.heroesofcrypto.io";
@@ -102,6 +103,11 @@ const syncAuthorizationDefaults = (accessToken: string | null): void => {
 };
 
 registerAccessTokenListener(syncAuthorizationDefaults);
+
+// Ranked integrity phase 1: a random per-install id the server keeps only as a keyed hash (see deviceId.ts).
+for (const instance of [axiosAuthInstance, axiosMMInstance, axiosGameInstance]) {
+    instance.defaults.headers.common[DEVICE_ID_HEADER] = getDeviceId();
+}
 
 const adoptRotatedAccessToken = (headers: unknown): void => {
     if (!headers || typeof headers !== "object") {

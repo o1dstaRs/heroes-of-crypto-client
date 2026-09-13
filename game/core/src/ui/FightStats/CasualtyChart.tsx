@@ -1,8 +1,9 @@
 import { TeamVals, TeamType } from "@heroesofcrypto/common";
 
 import Box from "@mui/joy/Box";
+import Tooltip from "@mui/joy/Tooltip";
 import { motion } from "framer-motion";
-import React from "react";
+import React, { useId } from "react";
 
 import { images } from "../../generated/image_imports";
 import { IFightStatsSample } from "../../scenes/VisibleState";
@@ -55,6 +56,7 @@ export const CasualtyChart: React.FC<{
     viewHeight = DEFAULT_CHART_H,
 }) => {
     useTranslation();
+    const eliminationClipPrefix = useId().replace(/[^a-zA-Z0-9_-]/g, "");
     const ChartW = Math.max(ML + MR + 40, viewWidth);
     const ChartH = Math.max(MT + MB + 30, viewHeight);
     const PLOT_W = ChartW - ML - MR;
@@ -92,6 +94,37 @@ export const CasualtyChart: React.FC<{
 
     const finalGreen = accGreen(pts[n - 1]);
     const finalRed = accRed(pts[n - 1]);
+    const eliminationMarkers = pts.flatMap((sample, sampleIndex) => {
+        const eliminations = (sample.eliminations ?? []).flatMap((elimination) => {
+            const imageSrc = imgSrc(elimination.smallTextureName);
+            return imageSrc ? [{ elimination, imageSrc }] : [];
+        });
+        const markerGap = 22;
+        const markerRadius = 10;
+        const availableLeft = ML + markerRadius;
+        const availableRight = ML + PLOT_W - markerRadius;
+        const groupSpan = Math.min(PLOT_W - markerRadius * 2, Math.max(0, eliminations.length - 1) * markerGap);
+        const groupCenter = Math.min(
+            availableRight - groupSpan / 2,
+            Math.max(availableLeft + groupSpan / 2, xFor(sampleIndex)),
+        );
+
+        return eliminations.map(({ elimination, imageSrc }, eliminationIndex) => {
+            const casualtyPct = elimination.team === LOWER_TEAM ? accGreen(sample) : accRed(sample);
+            return {
+                elimination,
+                imageSrc,
+                pointX: xFor(sampleIndex),
+                pointY: yFor(casualtyPct),
+                centerX: groupCenter + (eliminationIndex - (eliminations.length - 1) / 2) * markerGap,
+                centerY: yFor(casualtyPct),
+                clipId: `${eliminationClipPrefix}-defeat-${sampleIndex}-${eliminationIndex}`,
+                lap: sample.lap,
+                sampleIndex,
+                eliminationIndex,
+            };
+        });
+    });
 
     return (
         <Box
@@ -108,6 +141,11 @@ export const CasualtyChart: React.FC<{
                     <stop offset="0%" stopColor={RED} stopOpacity={0.45} />
                     <stop offset="100%" stopColor={RED} stopOpacity={0} />
                 </linearGradient>
+                {eliminationMarkers.map((marker) => (
+                    <clipPath key={marker.clipId} id={marker.clipId}>
+                        <circle cx={marker.centerX} cy={marker.centerY} r={8} />
+                    </clipPath>
+                ))}
             </defs>
 
             {/* Horizontal gridlines + Y labels */}
@@ -179,6 +217,92 @@ export const CasualtyChart: React.FC<{
                 animate={{ pathLength: 1 }}
                 transition={{ duration: drawDurationSec, ease: "easeInOut" }}
             />
+
+            {/* A crossed portrait marks when every deployed stack of that creature type has fallen. */}
+            {eliminationMarkers.map((marker, markerIndex) => {
+                const color = teamColor(marker.elimination.team);
+                const label = `${marker.elimination.name}: all stacks defeated on lap ${marker.lap}`;
+                return (
+                    <Tooltip
+                        key={`${marker.sampleIndex}:${marker.elimination.creatureKey}:${marker.eliminationIndex}`}
+                        title={label}
+                        placement="top"
+                        variant="solid"
+                        enterDelay={120}
+                        sx={{
+                            zIndex: 10001,
+                            border: `1px solid ${color}`,
+                            backgroundColor: "#211208",
+                            color: PARCHMENT,
+                            fontWeight: 800,
+                            boxShadow: "0 5px 18px rgba(0,0,0,.72)",
+                        }}
+                    >
+                        <motion.g
+                            role="img"
+                            aria-label={label}
+                            tabIndex={0}
+                            style={{ cursor: "help", outline: "none" }}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: drawDurationSec + markerIndex * 0.06, duration: 0.2 }}
+                        >
+                            {(marker.pointX !== marker.centerX || marker.pointY !== marker.centerY) && (
+                                <line
+                                    x1={marker.pointX}
+                                    y1={marker.pointY}
+                                    x2={marker.centerX}
+                                    y2={marker.centerY}
+                                    stroke={color}
+                                    strokeOpacity={0.65}
+                                    strokeWidth={1}
+                                    strokeDasharray="2 2"
+                                />
+                            )}
+                            <circle
+                                cx={marker.centerX}
+                                cy={marker.centerY}
+                                r={10}
+                                fill={WOOD_DARK}
+                                stroke="rgba(0,0,0,.9)"
+                                strokeWidth={3}
+                            />
+                            <image
+                                href={marker.imageSrc}
+                                x={marker.centerX - 8}
+                                y={marker.centerY - 8}
+                                width={16}
+                                height={16}
+                                preserveAspectRatio="xMidYMid slice"
+                                clipPath={`url(#${marker.clipId})`}
+                            />
+                            <circle
+                                cx={marker.centerX}
+                                cy={marker.centerY}
+                                r={9}
+                                fill="none"
+                                stroke={color}
+                                strokeWidth={1.5}
+                            />
+                            <circle
+                                cx={marker.centerX + 7}
+                                cy={marker.centerY + 7}
+                                r={4.5}
+                                fill={WOOD_DARK}
+                                stroke={color}
+                                strokeWidth={1}
+                            />
+                            <path
+                                d={`M ${marker.centerX + 5} ${marker.centerY + 5} L ${marker.centerX + 9} ${marker.centerY + 9} M ${marker.centerX + 9} ${marker.centerY + 5} L ${marker.centerX + 5} ${marker.centerY + 9}`}
+                                fill="none"
+                                stroke={PARCHMENT}
+                                strokeWidth={1.2}
+                                strokeLinecap="round"
+                            />
+                        </motion.g>
+                    </Tooltip>
+                );
+            })}
 
             {/* Final value markers */}
             <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: drawDurationSec }}>

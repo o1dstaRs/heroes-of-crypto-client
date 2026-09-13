@@ -1,5 +1,6 @@
 import { type TeamType } from "@heroesofcrypto/common";
 import Box from "@mui/joy/Box";
+import Tooltip from "@mui/joy/Tooltip";
 import Typography from "@mui/joy/Typography";
 import React, { useEffect, useMemo, useState } from "react";
 
@@ -8,9 +9,11 @@ import { fetchPublicPlayerStats, type PublicPlayerStats } from "../api/social_cl
 import { images } from "../generated/image_imports";
 import { battleSidebarWidth } from "../pixi/boardFit";
 import { readPlayerArmyColorId } from "../settings/playerArmyColor";
+import { CreaturePortraitImage } from "./CreaturePortraitImage";
 import { hocDisplayFontFamily } from "./hocTheme";
 import { MATCHUP_LOWER_TEAM, MATCHUP_UPPER_TEAM, matchupTeamTone, type MatchupTeamTone } from "./matchupOverlayTone";
 import { LeagueEmblem } from "./PlayerPortal/LeagueEmblem";
+import { creatureName, timeAgo } from "./PlayerPortal/portalFormat";
 
 export type MatchupPlayer = Readonly<{
     playerId?: string;
@@ -108,13 +111,13 @@ export const fightMatchupOverlayPosition = (windowSize: { width: number; height:
     };
 };
 
-const Crest: React.FC<{ team: TeamType; tone: MatchupTeamTone }> = ({ team, tone }) => {
+const Crest: React.FC<{ team: TeamType; tone: MatchupTeamTone; size?: number }> = ({ team, tone, size = 38 }) => {
     return (
         <Box
             aria-hidden="true"
             sx={{
-                width: 38,
-                height: 41,
+                width: size,
+                height: Math.round(size * 1.08),
                 flex: "0 0 auto",
                 display: "grid",
                 placeItems: "center",
@@ -134,7 +137,7 @@ const Crest: React.FC<{ team: TeamType; tone: MatchupTeamTone }> = ({ team, tone
                     gridArea: "1 / 1",
                     color: "#fff2cb",
                     fontFamily: "Georgia, serif",
-                    fontSize: 17,
+                    fontSize: Math.round(size * 0.45),
                     fontWeight: 700,
                     lineHeight: 1,
                     textShadow: "0 1px 2px rgba(0,0,0,.92)",
@@ -144,20 +147,353 @@ const Crest: React.FC<{ team: TeamType; tone: MatchupTeamTone }> = ({ team, tone
     );
 };
 
-const AiAvatar: React.FC<{ label: string }> = ({ label }) => (
+const AiAvatar: React.FC<{ label: string; size?: number }> = ({ label, size = 43 }) => (
     <Box
         component="img"
         src={images.combat_toolbar_ember_ai}
         alt={label}
         sx={{
-            width: 43,
-            height: 43,
+            width: size,
+            height: size,
             flex: "0 0 auto",
             objectFit: "contain",
             filter: "drop-shadow(0 2px 3px rgba(0,0,0,.72)) drop-shadow(0 0 3px rgba(211,173,92,.28))",
             userSelect: "none",
         }}
     />
+);
+
+const PlayerAvatar: React.FC<{
+    player: MatchupPlayer;
+    profile?: PublicPlayerStats;
+    size: number;
+    text: MatchupProfile;
+    tone: MatchupTeamTone;
+}> = ({ player, profile, size, text, tone }) =>
+    player.isAi ? (
+        <AiAvatar label={`${text.username} — AI`} size={size} />
+    ) : profile ? (
+        <LeagueEmblem
+            label={`${text.username} — ${text.rank}`}
+            league={profile.league ?? 0}
+            wealth={profile.wealth ?? 0}
+            size={size}
+            variant={size <= 48 ? "compact" : "default"}
+        />
+    ) : (
+        <Crest team={player.team} tone={tone} size={size} />
+    );
+
+const DetailStat: React.FC<{ label: string; value: string | number; color?: string }> = ({ label, value, color }) => (
+    <Box
+        sx={{
+            minWidth: 0,
+            px: 0.7,
+            py: 0.65,
+            border: "1px solid rgba(234,204,133,.12)",
+            borderRadius: "6px",
+            bgcolor: "rgba(0,0,0,.24)",
+            textAlign: "center",
+        }}
+    >
+        <Typography
+            sx={{
+                color: color ?? "#f3e7ce",
+                fontFamily: hocDisplayFontFamily,
+                fontSize: "0.8rem",
+                fontWeight: 900,
+                fontVariantNumeric: "tabular-nums",
+                lineHeight: 1,
+            }}
+        >
+            {value}
+        </Typography>
+        <Typography
+            sx={{
+                mt: "4px",
+                color: "#958873",
+                fontFamily: hocDisplayFontFamily,
+                fontSize: "0.48rem",
+                fontWeight: 800,
+                letterSpacing: "0.08em",
+                lineHeight: 1,
+                textTransform: "uppercase",
+            }}
+        >
+            {label}
+        </Typography>
+    </Box>
+);
+
+const PickPortrait: React.FC<{ creatureId: number; size?: number }> = ({ creatureId, size = 26 }) => (
+    <CreaturePortraitImage
+        creatureId={creatureId}
+        alt={creatureName(creatureId)}
+        title={creatureName(creatureId)}
+        highQualityArt
+        sx={{
+            width: size,
+            height: size,
+            flex: "0 0 auto",
+            border: "1px solid rgba(222,180,91,.54)",
+            borderRadius: "5px",
+            boxShadow: "0 2px 5px rgba(0,0,0,.45)",
+        }}
+    />
+);
+
+const MatchupPlayerCard: React.FC<{
+    player: MatchupPlayer;
+    profile?: PublicPlayerStats;
+    tone: MatchupTeamTone;
+}> = ({ player, profile, tone }) => {
+    const text = profileFor(player, profile);
+    const recent = (profile?.recentGames ?? []).slice(0, 3);
+    const popularPicks = (profile?.playstyle?.topCreatures ?? []).slice(0, 6);
+    const streak =
+        (profile?.winStreak ?? 0) > 0
+            ? `${profile?.winStreak}W`
+            : (profile?.lossStreak ?? 0) > 0
+              ? `${profile?.lossStreak}L`
+              : "—";
+    const streakColor =
+        (profile?.winStreak ?? 0) > 0 ? "#8de3a1" : (profile?.lossStreak ?? 0) > 0 ? "#ee9a90" : undefined;
+    const standing = [
+        profile?.standingTitle || text.rank,
+        (profile?.leaderboardRank ?? 0) > 0 ? `#${profile?.leaderboardRank}` : "",
+    ]
+        .filter(Boolean)
+        .join(" · ");
+
+    return (
+        <Box
+            sx={{
+                width: 320,
+                p: 1.25,
+                overflow: "hidden",
+                border: `1px solid ${tone.edge}`,
+                borderRadius: "10px",
+                background: `radial-gradient(circle at 18% 0%, ${tone.panel}, rgba(13,10,8,.985) 56%), linear-gradient(145deg, rgba(31,25,17,.98), rgba(8,7,6,.99))`,
+                boxShadow: `0 16px 38px rgba(0,0,0,.78), 0 0 14px ${tone.edge}, inset 0 1px rgba(255,235,180,.13)`,
+            }}
+        >
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
+                <PlayerAvatar player={player} profile={profile} size={76} text={text} tone={tone} />
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography
+                        sx={{
+                            overflow: "hidden",
+                            color: "#f6ead4",
+                            fontFamily: hocDisplayFontFamily,
+                            fontSize: "1.05rem",
+                            fontWeight: 900,
+                            letterSpacing: "0.055em",
+                            lineHeight: 1.08,
+                            textOverflow: "ellipsis",
+                            textTransform: "uppercase",
+                            whiteSpace: "nowrap",
+                        }}
+                    >
+                        {text.username}
+                    </Typography>
+                    <Typography
+                        sx={{
+                            mt: 0.55,
+                            color: tone.bright,
+                            fontFamily: hocDisplayFontFamily,
+                            fontSize: "0.68rem",
+                            fontWeight: 800,
+                            letterSpacing: "0.035em",
+                            lineHeight: 1.2,
+                        }}
+                    >
+                        {player.isAi ? "AI opponent" : standing || "Rank unavailable"}
+                    </Typography>
+                    {!player.isAi && (
+                        <Typography
+                            sx={{
+                                mt: 0.65,
+                                color: "#d9ccb3",
+                                fontFamily: hocDisplayFontFamily,
+                                fontSize: "0.64rem",
+                                fontWeight: 800,
+                                fontVariantNumeric: "tabular-nums",
+                                letterSpacing: "0.015em",
+                            }}
+                        >
+                            {text.record} ·{" "}
+                            <Box component="span" sx={{ color: "#fff0c9" }}>
+                                {text.winRate}
+                            </Box>
+                        </Typography>
+                    )}
+                </Box>
+            </Box>
+
+            {player.isAi ? (
+                <Typography sx={{ mt: 1, color: "#9d907a", fontSize: "0.65rem", lineHeight: 1.35 }}>
+                    Computer-controlled rival. Ranked player statistics are not applicable.
+                </Typography>
+            ) : (
+                <>
+                    <Box
+                        sx={{ mt: 1.15, display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 0.55 }}
+                    >
+                        <DetailStat label="MMR" value={(profile?.mmr ?? 0) > 0 ? Math.round(profile?.mmr ?? 0) : "—"} />
+                        <DetailStat
+                            label="Peak"
+                            value={(profile?.peakMmr ?? 0) > 0 ? Math.round(profile?.peakMmr ?? 0) : "—"}
+                        />
+                        <DetailStat label="Games" value={profile?.totalGames ?? "—"} />
+                        <DetailStat label="Streak" value={streak} color={streakColor} />
+                    </Box>
+
+                    <Typography
+                        sx={{
+                            mt: 1.15,
+                            color: "#cfae69",
+                            fontFamily: hocDisplayFontFamily,
+                            fontSize: "0.56rem",
+                            fontWeight: 900,
+                            letterSpacing: "0.12em",
+                            textTransform: "uppercase",
+                        }}
+                    >
+                        Recent battles
+                    </Typography>
+                    <Box sx={{ mt: 0.5, display: "grid", gap: 0.45 }}>
+                        {recent.length > 0 ? (
+                            recent.map((match) => {
+                                const result =
+                                    match.result === "win"
+                                        ? { label: "W", color: "#8de3a1", bg: "rgba(69,150,92,.2)" }
+                                        : match.result === "loss"
+                                          ? { label: "L", color: "#ee9a90", bg: "rgba(157,66,66,.2)" }
+                                          : { label: "D", color: "#e6c774", bg: "rgba(169,137,62,.18)" };
+                                return (
+                                    <Box
+                                        key={match.gameId}
+                                        sx={{
+                                            minWidth: 0,
+                                            px: 0.65,
+                                            py: 0.5,
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: 0.6,
+                                            border: "1px solid rgba(234,204,133,.09)",
+                                            borderRadius: "6px",
+                                            bgcolor: "rgba(0,0,0,.2)",
+                                        }}
+                                    >
+                                        <Box
+                                            sx={{
+                                                width: 21,
+                                                height: 21,
+                                                flex: "0 0 auto",
+                                                display: "grid",
+                                                placeItems: "center",
+                                                border: `1px solid ${result.color}`,
+                                                borderRadius: "5px",
+                                                bgcolor: result.bg,
+                                                color: result.color,
+                                                fontFamily: hocDisplayFontFamily,
+                                                fontSize: "0.62rem",
+                                                fontWeight: 900,
+                                            }}
+                                        >
+                                            {result.label}
+                                        </Box>
+                                        <Box sx={{ minWidth: 0, flex: 1 }}>
+                                            <Typography
+                                                sx={{
+                                                    overflow: "hidden",
+                                                    color: "#dcd0b9",
+                                                    fontSize: "0.61rem",
+                                                    fontWeight: 750,
+                                                    lineHeight: 1.1,
+                                                    textOverflow: "ellipsis",
+                                                    whiteSpace: "nowrap",
+                                                }}
+                                            >
+                                                {match.opponent?.username
+                                                    ? `vs ${match.opponent.username}`
+                                                    : "Ranked battle"}
+                                            </Typography>
+                                            <Typography
+                                                sx={{ mt: "2px", color: "#857a69", fontSize: "0.52rem", lineHeight: 1 }}
+                                            >
+                                                {timeAgo(match.finishedTime) || "Recently"}
+                                            </Typography>
+                                        </Box>
+                                        {(match.creatureIds ?? []).slice(0, 6).map((creatureId, index) => (
+                                            <PickPortrait
+                                                key={`${match.gameId}:${creatureId}:${index}`}
+                                                creatureId={creatureId}
+                                                size={22}
+                                            />
+                                        ))}
+                                    </Box>
+                                );
+                            })
+                        ) : (
+                            <Typography sx={{ color: "#857a69", fontSize: "0.6rem" }}>
+                                No recent public matches.
+                            </Typography>
+                        )}
+                    </Box>
+
+                    {popularPicks.length > 0 && (
+                        <Box sx={{ mt: 0.85, display: "flex", alignItems: "center", gap: 0.5 }}>
+                            <Typography
+                                sx={{
+                                    mr: 0.25,
+                                    color: "#958873",
+                                    fontFamily: hocDisplayFontFamily,
+                                    fontSize: "0.51rem",
+                                    fontWeight: 850,
+                                    letterSpacing: "0.08em",
+                                    textTransform: "uppercase",
+                                }}
+                            >
+                                Popular picks
+                            </Typography>
+                            {popularPicks.map((pick, index) => (
+                                <PickPortrait key={`${pick.creatureId}:${index}`} creatureId={pick.creatureId} />
+                            ))}
+                        </Box>
+                    )}
+                </>
+            )}
+        </Box>
+    );
+};
+
+/** The rich player-hover surface shared by the VS bar and post-fight participant portraits. */
+export const MatchupPlayerTooltip: React.FC<{
+    player: MatchupPlayer;
+    profile?: PublicPlayerStats;
+    tone: MatchupTeamTone;
+    placement?: "bottom" | "bottom-start" | "bottom-end";
+    children: React.ReactElement;
+}> = ({ player, profile, tone, placement = "bottom-start", children }) => (
+    <Tooltip
+        arrow
+        enterDelay={160}
+        leaveDelay={110}
+        placement={placement}
+        variant="plain"
+        sx={{
+            "--Tooltip-arrowSize": "8px",
+            zIndex: 18000,
+            maxWidth: "none",
+            p: 0,
+            bgcolor: "transparent",
+            boxShadow: "none",
+        }}
+        title={<MatchupPlayerCard player={player} profile={profile} tone={tone} />}
+    >
+        {children}
+    </Tooltip>
 );
 
 const Side: React.FC<{
@@ -168,119 +504,123 @@ const Side: React.FC<{
 }> = ({ player, tone, profile, reversed = false }) => {
     const text = profileFor(player, profile);
     return (
-        <Box
-            sx={{
-                minWidth: 0,
-                display: "flex",
-                alignItems: "center",
-                gap: 0.9,
-                flexDirection: reversed ? "row-reverse" : "row",
-                textAlign: reversed ? "right" : "left",
-            }}
+        <MatchupPlayerTooltip
+            player={player}
+            profile={profile}
+            tone={tone}
+            placement={reversed ? "bottom-end" : "bottom-start"}
         >
-            {player.isAi ? (
-                <AiAvatar label={`${text.username} — AI`} />
-            ) : profile ? (
-                <LeagueEmblem
-                    label={`${text.username} — ${text.rank}`}
-                    league={profile.league ?? 0}
-                    wealth={profile.wealth ?? 0}
-                    size={42}
-                    variant="compact"
-                />
-            ) : (
-                <Crest team={player.team} tone={tone} />
-            )}
-            <Box sx={{ minWidth: 0, flex: "1 1 auto" }}>
-                <Typography
-                    level="body-sm"
-                    sx={{
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        color: "#f2e7d0",
-                        fontFamily: hocDisplayFontFamily,
-                        fontSize: "0.77rem",
-                        fontWeight: 800,
-                        letterSpacing: "0.055em",
-                        lineHeight: 1.1,
-                        textTransform: "uppercase",
-                    }}
-                >
-                    {text.username}
-                </Typography>
-                {player.note ? (
+            <Box
+                tabIndex={0}
+                aria-label={`Show ${text.username} details`}
+                sx={{
+                    minWidth: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 0.9,
+                    flexDirection: reversed ? "row-reverse" : "row",
+                    textAlign: reversed ? "right" : "left",
+                    pointerEvents: "auto",
+                    cursor: "help",
+                    outline: "none",
+                    "&:focus-visible": {
+                        borderRadius: "5px",
+                        boxShadow: `0 0 0 1px ${tone.bright}`,
+                    },
+                }}
+            >
+                <PlayerAvatar player={player} profile={profile} size={player.isAi ? 43 : 42} text={text} tone={tone} />
+                <Box sx={{ minWidth: 0, flex: "1 1 auto" }}>
                     <Typography
+                        level="body-sm"
                         sx={{
-                            mt: "4px",
-                            color:
-                                player.noteTone === "good"
-                                    ? "#8de3a1"
-                                    : player.noteTone === "warn"
-                                      ? "#ffb08a"
-                                      : "#a89b82",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            color: "#f2e7d0",
                             fontFamily: hocDisplayFontFamily,
-                            fontSize: "0.62rem",
-                            fontWeight: 900,
-                            letterSpacing: "0.04em",
-                            lineHeight: 1,
+                            fontSize: "0.77rem",
+                            fontWeight: 800,
+                            letterSpacing: "0.055em",
+                            lineHeight: 1.1,
                             textTransform: "uppercase",
-                            whiteSpace: "nowrap",
-                            textShadow: "0 1px 2px #000",
                         }}
                     >
-                        {player.note}
+                        {text.username}
                     </Typography>
-                ) : (
-                    <Box
-                        sx={{
-                            mt: "4px",
-                            display: "flex",
-                            minWidth: 0,
-                            alignItems: "center",
-                            justifyContent: reversed ? "flex-end" : "flex-start",
-                            gap: 0.45,
-                            color: "#eadfc8",
-                            fontSize: "0.66rem",
-                            fontWeight: 900,
-                            fontVariantNumeric: "lining-nums tabular-nums",
-                            letterSpacing: "0.01em",
-                            lineHeight: 1,
-                            textTransform: "uppercase",
-                            whiteSpace: "nowrap",
-                        }}
-                    >
-                        <Box
-                            component="span"
+                    {player.isAi ? null : player.note ? (
+                        <Typography
                             sx={{
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                color: tone.bright,
-                                textShadow: "0 1px 2px #000",
-                            }}
-                        >
-                            {text.record}
-                        </Box>
-                        <Box component="span" sx={{ flex: "0 0 auto", color: "#8b7960" }}>
-                            ·
-                        </Box>
-                        <Box
-                            component="span"
-                            sx={{
-                                flex: "0 0 auto",
-                                color: "#fff0c9",
-                                fontSize: "0.69rem",
+                                mt: "4px",
+                                color:
+                                    player.noteTone === "good"
+                                        ? "#8de3a1"
+                                        : player.noteTone === "warn"
+                                          ? "#ffb08a"
+                                          : "#a89b82",
+                                fontFamily: hocDisplayFontFamily,
+                                fontSize: "0.62rem",
                                 fontWeight: 900,
-                                letterSpacing: 0,
+                                letterSpacing: "0.04em",
+                                lineHeight: 1,
+                                textTransform: "uppercase",
+                                whiteSpace: "nowrap",
                                 textShadow: "0 1px 2px #000",
                             }}
                         >
-                            {text.winRate}
+                            {player.note}
+                        </Typography>
+                    ) : (
+                        <Box
+                            sx={{
+                                mt: "4px",
+                                display: "flex",
+                                minWidth: 0,
+                                alignItems: "center",
+                                justifyContent: reversed ? "flex-end" : "flex-start",
+                                gap: 0.45,
+                                color: "#eadfc8",
+                                fontSize: "0.66rem",
+                                fontWeight: 900,
+                                fontVariantNumeric: "lining-nums tabular-nums",
+                                letterSpacing: "0.01em",
+                                lineHeight: 1,
+                                textTransform: "uppercase",
+                                whiteSpace: "nowrap",
+                            }}
+                        >
+                            <Box
+                                component="span"
+                                sx={{
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    color: tone.bright,
+                                    textShadow: "0 1px 2px #000",
+                                }}
+                            >
+                                {text.record}
+                            </Box>
+                            <Box component="span" sx={{ flex: "0 0 auto", color: "#8b7960" }}>
+                                ·
+                            </Box>
+                            <Box
+                                component="span"
+                                sx={{
+                                    flex: "0 0 auto",
+                                    color: "#fff0c9",
+                                    fontSize: "0.69rem",
+                                    fontWeight: 900,
+                                    letterSpacing: 0,
+                                    textShadow: "0 1px 2px #000",
+                                }}
+                            >
+                                {text.winRate}
+                            </Box>
                         </Box>
-                    </Box>
-                )}
+                    )}
+                </Box>
             </Box>
-        </Box>
+        </MatchupPlayerTooltip>
     );
 };
 

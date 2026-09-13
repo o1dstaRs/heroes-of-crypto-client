@@ -94,6 +94,7 @@ describe("public ranked profile normalization", () => {
                 {
                     seasonSequence: 3,
                     seasonName: "First Flame",
+                    goldPlace: 2,
                     currency: { name: "Crowns", symbol: "CR", iconSvg: "<svg></svg>" },
                 },
                 { seasonSequence: 2, seasonName: "Legacy" },
@@ -111,6 +112,7 @@ describe("public ranked profile normalization", () => {
             iconSvg: "<svg></svg>",
         });
         expect(profile?.seasonHistory[1].currency).toEqual({ name: "Gold", symbol: "G", iconSvg: "" });
+        expect(profile?.seasonHistory.map((entry) => entry.goldPlace)).toEqual([2, 0]);
     });
 
     test("normalizes and orders public prediction history by placement date", () => {

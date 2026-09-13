@@ -1,6 +1,7 @@
 import {
     createPickSimState,
     CreatureByLevel,
+    CreatureVals,
     getCurrentPickPhase,
     getOmniscientCreatureChoices,
     getPickTeamView,
@@ -238,28 +239,78 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
                     league: 2,
                     leagueName: "Vanguard",
                     wealth: 2,
+                    mmr: 1114,
+                    peakMmr: 1198,
+                    leaderboardRank: 42,
                     wins: 142,
                     draws: 6,
                     losses: 74,
+                    totalGames: 222,
                     winRatePct: 64,
+                    winStreak: 3,
+                    recentGames: [
+                        {
+                            gameId: "preview-match-1",
+                            finishedTime: Date.now() - 18 * 60_000,
+                            result: "win",
+                            mmrDelta: 21,
+                            opponent: { playerId: "preview-nyx", username: "Nyx" },
+                            creatureIds: [
+                                CreatureVals.ANGEL,
+                                CreatureVals.ELF,
+                                CreatureVals.DRYAD,
+                                CreatureVals.GRIFFIN,
+                                CreatureVals.MERMAID,
+                                CreatureVals.BEHOLDER,
+                            ],
+                        },
+                        {
+                            gameId: "preview-match-2",
+                            finishedTime: Date.now() - 3 * 3_600_000,
+                            result: "loss",
+                            mmrDelta: -17,
+                            opponent: { playerId: "preview-rune", username: "Rune" },
+                            creatureIds: [
+                                CreatureVals.MERMAID,
+                                CreatureVals.BEHOLDER,
+                                CreatureVals.ELF,
+                                CreatureVals.WHITE_TIGER,
+                                CreatureVals.SATYR,
+                                CreatureVals.UNICORN,
+                            ],
+                        },
+                        {
+                            gameId: "preview-match-3",
+                            finishedTime: Date.now() - 26 * 3_600_000,
+                            result: "win",
+                            mmrDelta: 19,
+                            opponent: { playerId: "preview-kael", username: "Kael" },
+                            creatureIds: [
+                                CreatureVals.DRYAD,
+                                CreatureVals.ANGEL,
+                                CreatureVals.MERMAID,
+                                CreatureVals.TRENT,
+                                CreatureVals.MANTICORE,
+                                CreatureVals.BATTLE_MAGE,
+                            ],
+                        },
+                    ],
+                    playstyle: {
+                        topCreatures: [
+                            { creatureId: CreatureVals.ANGEL, name: "Angel", games: 88, winRatePct: 67 },
+                            { creatureId: CreatureVals.ELF, name: "Elf", games: 76, winRatePct: 62 },
+                            { creatureId: CreatureVals.DRYAD, name: "Dryad", games: 69, winRatePct: 65 },
+                            { creatureId: CreatureVals.MERMAID, name: "Mermaid", games: 61, winRatePct: 59 },
+                            { creatureId: CreatureVals.GRIFFIN, name: "Griffin", games: 54, winRatePct: 57 },
+                            { creatureId: CreatureVals.BEHOLDER, name: "Beholder", games: 49, winRatePct: 55 },
+                        ],
+                    },
                 },
             },
             {
                 team: 1 as TeamType,
                 label: "AI (v0.8)",
                 isAi: true,
-                previewProfile: {
-                    playerId: "preview-ai-v08",
-                    username: "AI (v0.8)",
-                    state: "placed",
-                    league: 3,
-                    leagueName: "Marshal",
-                    wealth: 3,
-                    wins: 118,
-                    draws: 9,
-                    losses: 89,
-                    winRatePct: 55,
-                },
             },
         ],
         [],
@@ -944,6 +995,8 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
             setPickNearingPlay(true);
         }
     }, []);
+    // A spectator's draft view sees the draft end directly (it never observes AUGMENTS), so hand off now.
+    const handleDraftEnded = useCallback(() => setPickNearingPlay(true), []);
     useEffect(() => {
         setPickNearingPlay(false);
         setObserverMode(false);
@@ -1127,7 +1180,11 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                 <>
                     {routeMode === "pick" &&
                         (observerMode ? (
-                            <ObserverPickView gameId={gameId} onPickPhaseChange={handlePickPhaseChange} />
+                            <ObserverPickView
+                                gameId={gameId}
+                                onPickPhaseChange={handlePickPhaseChange}
+                                onDraftEnded={handleDraftEnded}
+                            />
                         ) : (
                             <PickAndBanView
                                 windowSize={windowSize}

@@ -11,9 +11,12 @@ import React, { useEffect, useRef, useState } from "react";
 import { fetchPublicRankedMatch, type PublicRankedMatch } from "../../api/ranked_match_client";
 import { fetchPublicPlayerStats, type PublicPlayerStats } from "../../api/social_client";
 import { HOC_GAME_FONT_FAMILY } from "../../fontFamilies";
+import { images } from "../../generated/image_imports";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { IFightDeathEntry, IFightStatsReport, IVisibleState } from "../../scenes/VisibleState";
 import { CreaturePortraitImage } from "../CreaturePortraitImage";
+import { MatchupPlayerTooltip, type MatchupPlayer } from "../MatchupOverlay";
+import { matchupTeamTone } from "../matchupOverlayTone";
 import { LeagueEmblem } from "../PlayerPortal/LeagueEmblem";
 import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
 import { GOLD, PARCHMENT, WOOD_DARK, imgSrc, teamColor, teamName } from "../FightStats/CasualtyChart";
@@ -43,13 +46,97 @@ const RESULTS_PREVIEW_STATE: IVisibleState = {
         winner: UPPER_TEAM,
         series: [
             { lap: 1, leftKilled: 0, rightKilled: 0, leftKilledPct: 0, rightKilledPct: 0 },
-            { lap: 2, leftKilled: 74, rightKilled: 80, leftKilledPct: 37, rightKilledPct: 40 },
-            { lap: 3, leftKilled: 128, rightKilled: 126, leftKilledPct: 64, rightKilledPct: 63 },
-            { lap: 4, leftKilled: 160, rightKilled: 152, leftKilledPct: 80, rightKilledPct: 76 },
-            { lap: 5, leftKilled: 171, rightKilled: 200, leftKilledPct: 86, rightKilledPct: 100 },
+            {
+                lap: 2,
+                leftKilled: 74,
+                rightKilled: 80,
+                leftKilledPct: 37,
+                rightKilledPct: 40,
+                eliminations: [
+                    {
+                        creatureKey: "preview-lower-peasant",
+                        name: "Peasant",
+                        smallTextureName: "peasant_512",
+                        team: LOWER_TEAM,
+                    },
+                    {
+                        creatureKey: "preview-upper-peasant",
+                        name: "Peasant",
+                        smallTextureName: "peasant_512",
+                        team: UPPER_TEAM,
+                    },
+                ],
+            },
+            {
+                lap: 3,
+                leftKilled: 128,
+                rightKilled: 126,
+                leftKilledPct: 64,
+                rightKilledPct: 63,
+                eliminations: [
+                    {
+                        creatureKey: "preview-lower-squire",
+                        name: "Squire",
+                        smallTextureName: "squire_512",
+                        team: LOWER_TEAM,
+                    },
+                    {
+                        creatureKey: "preview-upper-squire",
+                        name: "Squire",
+                        smallTextureName: "squire_512",
+                        team: UPPER_TEAM,
+                    },
+                ],
+            },
+            {
+                lap: 4,
+                leftKilled: 160,
+                rightKilled: 152,
+                leftKilledPct: 80,
+                rightKilledPct: 76,
+                eliminations: [
+                    {
+                        creatureKey: "preview-lower-arbalester",
+                        name: "Arbalester",
+                        smallTextureName: "arbalester_512",
+                        team: LOWER_TEAM,
+                    },
+                    {
+                        creatureKey: "preview-upper-arbalester",
+                        name: "Arbalester",
+                        smallTextureName: "arbalester_512",
+                        team: UPPER_TEAM,
+                    },
+                ],
+            },
+            {
+                lap: 5,
+                leftKilled: 200,
+                rightKilled: 171,
+                leftKilledPct: 100,
+                rightKilledPct: 86,
+                eliminations: [
+                    {
+                        creatureKey: "preview-lower-blacksmith",
+                        name: "Blacksmith",
+                        smallTextureName: "blacksmith_512",
+                        team: LOWER_TEAM,
+                    },
+                ],
+            },
         ],
-        leftDeaths: [{ name: "Peasant", smallTextureName: "peasant_512", died: 200, start: 200, team: LOWER_TEAM }],
-        rightDeaths: [{ name: "Peasant", smallTextureName: "peasant_512", died: 171, start: 200, team: UPPER_TEAM }],
+        leftDeaths: [
+            { name: "Peasant", smallTextureName: "peasant_512", died: 50, start: 50, team: LOWER_TEAM },
+            { name: "Squire", smallTextureName: "squire_512", died: 50, start: 50, team: LOWER_TEAM },
+            { name: "Arbalester", smallTextureName: "arbalester_512", died: 50, start: 50, team: LOWER_TEAM },
+            { name: "Blacksmith", smallTextureName: "blacksmith_512", died: 50, start: 50, team: LOWER_TEAM },
+        ],
+        rightDeaths: [
+            { name: "Peasant", smallTextureName: "peasant_512", died: 50, start: 50, team: UPPER_TEAM },
+            { name: "Squire", smallTextureName: "squire_512", died: 50, start: 50, team: UPPER_TEAM },
+            { name: "Arbalester", smallTextureName: "arbalester_512", died: 50, start: 50, team: UPPER_TEAM },
+            { name: "Blacksmith", smallTextureName: "blacksmith_512", died: 21, start: 50, team: UPPER_TEAM },
+        ],
         damageByUnit: [
             { name: "Peasant", smallTextureName: "peasant_512", damage: 1600, team: UPPER_TEAM },
             { name: "Squire", smallTextureName: "squire_512", damage: 1315, team: UPPER_TEAM },
@@ -108,6 +195,14 @@ const RESULTS_PREVIEW_PROFILES: Record<string, PublicPlayerStats> = {
         wealth: 2,
         wealthName: "Stacked",
         standingTitle: "Stacked Marshal",
+        peakMmr: 1904,
+        leaderboardRank: 63,
+        wins: 86,
+        draws: 9,
+        losses: 61,
+        totalGames: 156,
+        winRatePct: 55,
+        winStreak: 2,
     },
     "preview-upper": {
         playerId: "preview-upper",
@@ -604,12 +699,33 @@ const ResultParticipantCard: React.FC<{
     const mmrDelta = Number.isFinite(participant.mmrDelta) ? Number(participant.mmrDelta) : 0;
     const goldEarned = Number.isFinite(participant.goldEarned) ? Math.max(0, Number(participant.goldEarned)) : 0;
     const isViewer = !!viewerPlayerId && participant.playerId === viewerPlayerId;
-    const avatar = participant.profile ? (
+    const hoverPlayer: MatchupPlayer = {
+        playerId: participant.playerId,
+        team: participant.team,
+        label: participant.username,
+        isAi: participant.isAi,
+    };
+    const hoverTone = matchupTeamTone(participant.team, undefined);
+    const avatar = participant.isAi ? (
+        <Box
+            component="img"
+            src={images.combat_toolbar_ember_ai}
+            alt={`${participant.username} — AI`}
+            sx={{
+                width: 76,
+                height: 76,
+                objectFit: "contain",
+                filter: `drop-shadow(0 3px 5px rgba(0,0,0,.78)) drop-shadow(0 0 7px ${color}38)`,
+                userSelect: "none",
+            }}
+        />
+    ) : participant.profile ? (
         <LeagueEmblem
             label={`${participant.username} — ${participantStanding(participant)}`}
             league={participant.profile.league ?? 0}
             wealth={participant.profile.wealth ?? 0}
             size={76}
+            showNativeTitle={false}
         />
     ) : (
         <Avatar
@@ -622,10 +738,10 @@ const ResultParticipantCard: React.FC<{
                 border: `2px solid ${color}b8`,
                 boxShadow: `0 0 16px ${color}35, inset 0 0 13px rgba(0,0,0,.58)`,
                 fontFamily: HOC_GAME_FONT_FAMILY,
-                fontSize: participant.isAi ? "1.75rem" : "1.45rem",
+                fontSize: "1.45rem",
             }}
         >
-            {participant.isAi ? "⚙" : participant.username.trim().slice(0, 1).toUpperCase() || "?"}
+            {participant.username.trim().slice(0, 1).toUpperCase() || "?"}
         </Avatar>
     );
 
@@ -660,7 +776,25 @@ const ResultParticipantCard: React.FC<{
                 },
             }}
         >
-            <Box sx={{ flexShrink: 0, filter: won ? "none" : "saturate(.72) brightness(.82)" }}>{avatar}</Box>
+            <MatchupPlayerTooltip
+                player={hoverPlayer}
+                profile={participant.profile}
+                tone={hoverTone}
+                placement={reversed ? "bottom-end" : "bottom-start"}
+            >
+                <Box
+                    tabIndex={0}
+                    aria-label={`Show ${participant.username} details`}
+                    sx={{
+                        flexShrink: 0,
+                        filter: won ? "none" : "saturate(.72) brightness(.82)",
+                        cursor: "help",
+                        outline: "none",
+                    }}
+                >
+                    {avatar}
+                </Box>
+            </MatchupPlayerTooltip>
             <Box sx={{ minWidth: 0, flex: 1, textAlign: reversed ? "right" : "left", zIndex: 1 }}>
                 <Stack
                     direction={reversed ? "row-reverse" : "row"}
@@ -911,6 +1045,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
     const manager = usePixiManager();
     const previewParams = new URLSearchParams(window.location.search);
     const previewMode = import.meta.env.DEV && previewParams.get("fight-results-preview") === "1";
+    const previewAi = previewMode && previewParams.get("fight-results-ai") === "1";
     const requestedPreviewBackground = previewParams.get("fight-results-bg");
     const previewBackground =
         import.meta.env.DEV && requestedPreviewBackground?.startsWith("/@fs/") ? requestedPreviewBackground : undefined;
@@ -1059,14 +1194,18 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
             (player) => player.team === team || (!!settlement?.playerId && player.playerId === settlement.playerId),
         );
         const playerId = settlement?.playerId ?? seat?.playerId;
-        const profile = playerId ? profiles[playerId] : undefined;
+        const isAi = previewAi ? team === UPPER_TEAM : !!seat?.isAi;
+        const profile = !isAi && playerId ? profiles[playerId] : undefined;
         const fallbackResult = isDraw ? "draw" : stats.winner === team ? "win" : "loss";
         const fallbackName = seat?.label || (team === LOWER_TEAM ? "Green Player" : "Red Player");
         return {
             team,
             playerId,
-            username: settlement?.username || profile?.username || fallbackName,
-            isAi: !!seat?.isAi,
+            username:
+                previewAi && team === UPPER_TEAM
+                    ? "AI (V0.8)"
+                    : settlement?.username || profile?.username || fallbackName,
+            isAi,
             calibration: settlement?.calibration ?? profile?.state === "calibration",
             mmrAfter: settlement?.mmrAfter ?? profile?.mmr,
             mmrDelta: settlement?.delta,

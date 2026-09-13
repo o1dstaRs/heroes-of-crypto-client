@@ -84,6 +84,8 @@ export interface LeagueEmblemProps {
     /** Tighter shadows keep the 512px portrait crisp when it is reduced to a small HUD avatar. */
     variant?: "default" | "compact";
     wealth?: number;
+    /** Disable the browser's plain title popup when a richer parent tooltip owns the hover surface. */
+    showNativeTitle?: boolean;
 }
 
 /** A player's wealth portrait inside its league frame. League 0 is calibration. */
@@ -91,6 +93,7 @@ export const LeagueEmblem: React.FC<LeagueEmblemProps> = ({
     label,
     league,
     size = 72,
+    showNativeTitle = true,
     variant = "default",
     wealth = 0,
 }) => (
@@ -98,7 +101,7 @@ export const LeagueEmblem: React.FC<LeagueEmblemProps> = ({
         component="img"
         src={leagueEmblemSource(league, wealth)}
         alt={label}
-        title={label}
+        title={showNativeTitle ? label : undefined}
         draggable={false}
         sx={{
             display: "block",

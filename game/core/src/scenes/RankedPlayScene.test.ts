@@ -1717,6 +1717,38 @@ describe("ranked spell secondary-damage scene log", () => {
             "🔴 Mermaid's Water Shield absorbs Orc's hit and breaks",
         ]);
     });
+
+    test("a Lightning Spin off a barrel strike logs each enemy it caught", () => {
+        // The spin's unit hits ride the first obstacle_attacked of the action — a barrel has no attack payload.
+        const obstacleEvent = {
+            type: "obstacle_attacked",
+            attackerId: "hydra",
+            targetPosition: { x: -64, y: 256 },
+            hitsBefore: 6,
+            hitsAfter: 6,
+            animations: [],
+            unitIdsDied: ["goblin"],
+            damage: {
+                amount: 0,
+                render: false,
+                unitPosition: { x: 0, y: 0 },
+                unitIsSmall: true,
+                secondary: [
+                    { source: "lightning_spin", unitId: "goblin", position: { x: 1, y: 2 }, amount: 30, unitsDied: 3 },
+                    { source: "lightning_spin", unitId: "orc", position: { x: 3, y: 2 }, amount: 25, unitsDied: 0 },
+                ],
+            },
+        } as unknown as GameEvent;
+        const spinNames = new Map([
+            ["hydra", "Hydra"],
+            ["goblin", "Goblin"],
+            ["orc", "Orc"],
+        ]);
+        expect(rankedSecondarySceneLogLines(obstacleEvent, spinNames, () => "🟢")).toEqual([
+            "🟢 Goblin hit 30 by Lightning Spin 💀 3",
+            "🟢 Orc hit 25 by Lightning Spin",
+        ]);
+    });
 });
 
 describe("ranked effects_applied scene log", () => {

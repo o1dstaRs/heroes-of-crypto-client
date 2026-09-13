@@ -1575,15 +1575,16 @@ const rankedApp = links.rankedApp;
             seasonsSection.hidden = history.length === 0;
             seasonsEl.innerHTML = history
                 .map((entry) => {
-                    const rank = entry.leaderboardRank ? ` · #${entry.leaderboardRank}` : "";
-                    const standing = entry.league > 0 ? `${leagueLabel(entry.league)}${rank}` : copy.publicUnranked;
+                    // A season's place is its gold-table place (final balance); the league is the MMR standing.
+                    const place = entry.goldPlace ? `#${entry.goldPlace} · ` : "";
+                    const standing = `${place}${entry.league > 0 ? leagueLabel(entry.league) : copy.publicUnranked}`;
                     const mmr = entry.mmr ? `${numberFormatter.format(entry.mmr)} MMR` : "—";
                     const rate = entry.totalGames
                         ? `${entry.winRatePct.toFixed(1).replace(/\.0$/, "")}%`
                         : "—";
                     return `
                         <div class="season-row">
-                            <span class="season-name">${escapeHtml(entry.seasonName)}</span>
+                            <a class="season-name" href="${language === "ru" ? "/ru/seasons/" : "/seasons/"}?season=${entry.seasonSequence}">${escapeHtml(entry.seasonName)}</a>
                             <span class="season-standing">${escapeHtml(standing)}</span>
                             <span class="season-mmr">${escapeHtml(mmr)}</span>
                             <span class="season-gold">${currencyMarkup(entry.gold, "", entry.currency)}</span>
@@ -2367,6 +2368,17 @@ const rankedApp = links.rankedApp;
        a narrow grid track wrapping "1 games" into "1" / "games" on two lines is the bug this guards
        against. min-width: 0 lets a grid item shrink below its text's intrinsic width so the ellipsis can
        actually take over instead of the row blowing out or wrapping. */
+    .season-history :global(.season-row > a.season-name) {
+        min-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        color: inherit;
+        text-decoration: underline;
+        text-decoration-color: rgba(220, 177, 88, 0.45);
+        text-underline-offset: 3px;
+    }
+
     .season-history :global(.season-row > span) {
         min-width: 0;
         overflow: hidden;

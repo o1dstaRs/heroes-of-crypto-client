@@ -3,22 +3,27 @@ import Box from "@mui/joy/Box";
 import Sheet from "@mui/joy/Sheet";
 import Stack from "@mui/joy/Stack";
 import Typography from "@mui/joy/Typography";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { fetchPickObserveSnapshot, type PickObserveSnapshot, type PickObserveTeam } from "../../api/ranked_play_client";
+import { fetchRankedStanding } from "../../api/social_client";
 import { images as rawImages } from "../../generated/image_imports";
+import { useAuthContext } from "../auth/context/auth_context";
 import { CreaturePortraitImage } from "../CreaturePortraitImage";
+import { LivePredictionMarkets } from "../PlayerPortal/LivePredictionMarkets";
 import { UNIT_ID_TO_NAME } from "../unit_ui_constants";
 import { startVisibleInterval } from "../visibleInterval";
 import { observedDraftArtifactSlots, type ObservedDraftArtifactSlot } from "./observerPickArtifacts";
+import { ObserverRecentGames } from "./ObserverRecentGames";
 
 const images = rawImages as Record<string, string>;
 
 /**
- * Read-only spectator view of a game still in its draft. Polls the public, spoiler-safe
- * pick-observe snapshot: each team shows exactly the picks its OPPONENT has already seen (slot
- * reveals), plus the shared bans and the live phase countdown. When the draft hands off to the
- * fight, the surrounding GameRoute's play-snapshot poll flips this view into the fight observer.
+ * Read-only spectator view of a game still in its draft. Polls the public pick-observe snapshot, which
+ * carries only what both seats already know — seats, bans, the phase and its countdown — so a player cannot
+ * scout their own draft through it. Creature picks and artifacts arrive only for an all-AI game. When the
+ * draft hands off to the fight, the surrounding GameRoute's play-snapshot poll flips this view into the
+ * fight observer.
  */
 
 const POLL_MS = 3_000;
@@ -145,7 +150,7 @@ const ArtifactSlot: React.FC<{ slot: ObservedDraftArtifactSlot }> = ({ slot }) =
                         textOverflow: "ellipsis",
                     }}
                 >
-                    {artifact?.name ?? "Not selected"}
+                    {artifact?.name ?? "Hidden"}
                 </Typography>
             </Stack>
         </Stack>
@@ -214,6 +219,7 @@ const TeamColumn: React.FC<{ team?: PickObserveTeam; fallbackLabel: string }> = 
                         ))}
                     </Stack>
                 </Box>
+                {team && <ObserverRecentGames playerId={team.playerId} isBot={team.isBot} />}
             </Stack>
         </Sheet>
     );
@@ -223,20 +229,62 @@ interface IObserverPickViewProps {
     gameId: string;
     /** Forwards the live phase so GameRoute can speed up its pick->play handoff poll. */
     onPickPhaseChange?: (phase: number) => void;
+    /**
+     * The snapshot reports the draft is over ("play" or "finished"). The server flips the game to PLAY in the
+     * same write that enters AUGMENTS, so this view practically never sees that phase; without this signal
+     * GameRoute stayed on its slow 15s handoff poll.
+     */
+    onDraftEnded?: () => void;
 }
 
-export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onPickPhaseChange }) => {
+export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onPickPhaseChange, onDraftEnded }) => {
     const [snapshot, setSnapshot] = useState<PickObserveSnapshot | undefined>(undefined);
+    // The game this view saw end WITHOUT a fight. Keyed by game id, so a different game polls again.
+    const [closedGameId, setClosedGameId] = useState<string | undefined>(undefined);
+    const draftClosed = closedGameId === gameId;
     const [now, setNow] = useState(() => Date.now());
     // Server/browser clock drift so the countdown tracks the authoritative deadline.
     const driftRef = useRef(0);
+    // A signed-in spectator with season gold may back a side while the draft runs. The market card applies
+    // the server's own rules (ranked draft only, never a player's own game, one bet per game).
+    const { authenticated, user } = useAuthContext();
+    const [viewerGold, setViewerGold] = useState<number | undefined>(undefined);
+    const refreshViewerGold = useCallback(async (): Promise<void> => {
+        if (!authenticated) {
+            setViewerGold(undefined);
+            return;
+        }
+        try {
+            setViewerGold((await fetchRankedStanding()).gold);
+        } catch {
+            setViewerGold(undefined);
+        }
+    }, [authenticated]);
+    useEffect(() => {
+        void refreshViewerGold();
+    }, [refreshViewerGold]);
 
     useEffect(() => {
+        if (draftClosed) {
+            return undefined;
+        }
         let cancelled = false;
         const poll = async () => {
             try {
                 const next = await fetchPickObserveSnapshot(gameId);
                 if (cancelled || !next) {
+                    return;
+                }
+                if (next.stage === "play") {
+                    // Keep the finished draft on screen: a stage-only snapshot carries no teams and rendered
+                    // as blank "Left team / Right team" cards until the fight view took over.
+                    onDraftEnded?.();
+                    return;
+                }
+                if (next.stage === "finished" || next.abandoned) {
+                    // No fight to hand off to — an abandoned draft reads "finished" once the game leaves PICK.
+                    // Handing off here polled play-snapshot every 750ms forever; say so and stop instead.
+                    setClosedGameId(gameId);
                     return;
                 }
                 if (typeof next.serverTimeMs === "number") {
@@ -255,7 +303,7 @@ export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onP
             cancelled = true;
             stopPolling();
         };
-    }, [gameId, onPickPhaseChange]);
+    }, [gameId, draftClosed, onPickPhaseChange, onDraftEnded]);
 
     useEffect(() => {
         return startVisibleInterval(() => setNow(Date.now()), 500);
@@ -292,12 +340,16 @@ export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onP
                     </Typography>
                     <Stack direction="row" spacing={1.5} alignItems="center">
                         <Typography sx={{ color: "#9fb6d4", fontSize: 16 }}>
-                            {snapshot ? phaseLabel(snapshot) : "Connecting to the draft"}
-                            {snapshot?.phaseCount
+                            {draftClosed
+                                ? "This match ended before the fight"
+                                : snapshot
+                                  ? phaseLabel(snapshot)
+                                  : "Connecting to the draft"}
+                            {!draftClosed && snapshot?.phaseCount
                                 ? ` — phase ${Math.min((snapshot.phaseSeq ?? 0) + 1, snapshot.phaseCount)}/${snapshot.phaseCount}`
                                 : ""}
                         </Typography>
-                        {secondsLeft !== undefined && (
+                        {!draftClosed && secondsLeft !== undefined && (
                             <Typography
                                 sx={{
                                     px: 1,
@@ -314,8 +366,7 @@ export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onP
                         )}
                     </Stack>
                     <Typography level="body-xs" sx={{ color: "rgba(159,182,212,0.6)" }}>
-                        Creature picks follow scouting reveals; selected artifacts are public as soon as they are locked
-                        in.
+                        Creature picks and artifacts stay hidden until the fight starts.
                     </Typography>
                 </Stack>
 
@@ -326,6 +377,17 @@ export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onP
                     </Stack>
                     <TeamColumn team={right} fallbackLabel="Right team" />
                 </Stack>
+
+                {!draftClosed && authenticated && !!user?.username && viewerGold !== undefined && (
+                    <Box sx={{ width: "100%", maxWidth: 520 }}>
+                        <LivePredictionMarkets
+                            gameId={gameId}
+                            viewerUsername={user.username}
+                            gold={viewerGold}
+                            onBetPlaced={refreshViewerGold}
+                        />
+                    </Box>
+                )}
 
                 {bans.length > 0 && (
                     <Sheet

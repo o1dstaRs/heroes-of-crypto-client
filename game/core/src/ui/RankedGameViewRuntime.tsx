@@ -41,7 +41,13 @@ import {
     sendRankedPlayMoveIntent,
     toAuthoritativeGameSnapshot,
 } from "../api/ranked_play_client";
-import { PlayActionType, PlayEventKind, PlayPhase, PLAY_MOVE_CONTINUE_TURN_REASON } from "../api/play_protocol";
+import {
+    PlayActionType,
+    PlayEventKind,
+    PlayInputSource,
+    PlayPhase,
+    PLAY_MOVE_CONTINUE_TURN_REASON,
+} from "../api/play_protocol";
 import { createInitialPlayerPlacementActions, createModelPlacementActions } from "./rankedPlacementGeometry";
 import { setPrefightMusicActive } from "./audio/prefightMusic";
 import type { PlayAction, PlaySnapshot, PlayUnitState } from "../api/play_protocol";
@@ -58,10 +64,12 @@ import {
     type RankedReplay,
     type RankedReplayActionRecord,
 } from "../replay/ranked_replay";
+import { autoPlayedInputSource } from "../scenes/autoPlayedAction";
 import { getLocalModelOpponentConfig, isLocalModelAction } from "../scenes/LocalModelOpponent";
 import { authoritativeSnapshotToSandboxSceneState, RankedPlayScene } from "../scenes/RankedPlayScene";
 import type { IWindowSize } from "../scenes/VisibleState";
 import { FightFinishedOverlay } from "./FightFinishedOverlay";
+import { installInputTelemetry, takeInputTelemetry } from "./inputTelemetry";
 import LeftSideBar from "./LeftSideBar";
 import SynergiesRow from "./LeftSideBar/SynergiesRow";
 import { Main } from "./Main";
@@ -90,7 +98,7 @@ import SandboxToggleContainer from "./RightSideBar/SandboxToggleContainer";
 import { SynergySlots } from "./RightSideBar/SynergySlots";
 import SideToggleContainer from "./RightSideBar/SideToggleContainer";
 import { UpNextOverlay } from "./UpNextOverlay";
-import { AiControlBadge, aiBadgeLeft } from "./AiControlBadge";
+import { SeatAiControlNotice, aiBadgeLeft } from "./AiControlBadge";
 import { NextLapHazardBadge } from "./NextLapHazardBadge";
 import { ExitReplayBadge } from "./ExitReplayBadge";
 import { setBattleSystemControlsActive } from "./social/systemControlsMode";
@@ -100,7 +108,8 @@ import { ButtonProvider } from "./context/ButtonContext";
 import { exitFightButtonSx } from "./exitFightButtonSx";
 import { useFullscreenActive } from "./useFullscreenActive";
 import { startVisibleInterval } from "./visibleInterval";
-import { ViewerTeamContext } from "./context/ViewerTeamContext";
+import { dragObserverPanelOffset, type PanelOffset } from "./observerPanelDrag";
+import { SpectatorContext, ViewerTeamContext } from "./context/ViewerTeamContext";
 import { SANDBOX_UNREADY_REASON, sandboxCoopSeatStatuses } from "./SandboxCoopControls";
 import { openFriendsPanel } from "./social/openFriendsEvent";
 import { takeCoopCarryOver } from "./social/coopCarryOver";
@@ -135,6 +144,7 @@ import {
 } from "./rankedActionResponse";
 import {
     isRankedBoardPlacementStage,
+    observerPlacementRosterIds,
     rankedPlacementLockActionType,
     shouldHideRankedSetupOpponentRoster,
     shouldShowRankedAugmentPicker,
@@ -906,7 +916,20 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                 setError("");
             }
             try {
-                const result = await sendRankedPlayAction(gameId, payload, options);
+                // Integrity telemetry rides every real action, never the heartbeat: evidence only (inputTelemetry.ts).
+                const telemetry = payload.type === PlayActionType.PING ? undefined : takeInputTelemetry();
+                const result = await sendRankedPlayAction(
+                    gameId,
+                    telemetry
+                        ? {
+                              ...payload,
+                              inputSource: payload.inputSource ?? telemetry.inputSource,
+                              pointerEvents: telemetry.pointerEvents,
+                              tabHidden: telemetry.tabHidden,
+                          }
+                        : payload,
+                    options,
+                );
                 latestSequenceRef.current = Math.max(latestSequenceRef.current, result.sequence);
                 if (payload.type === PlayActionType.PING && result.accepted) {
                     return true;
@@ -992,6 +1015,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                                     targetCells: [],
                                     reason: "manual",
                                     expectedSequence: latestSequenceRef.current,
+                                    inputSource: PlayInputSource.CLIENT_RETRY,
                                 },
                                 options,
                             ).catch(() => undefined);
@@ -1036,6 +1060,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                                 path: [],
                                 targetCells: [],
                                 expectedSequence: latestSequenceRef.current,
+                                inputSource: PlayInputSource.CLIENT_RETRY,
                             },
                             options,
                         ).catch(() => undefined);
@@ -1136,13 +1161,17 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             team: TeamType,
             authorization?: string,
             transportOptions?: SceneGameActionTransportOptions,
+            inputSource?: number,
         ) => {
             await queueActionSubmission(async () => {
                 const envelope = buildActionEnvelope(team);
                 if (!envelope) return;
 
                 await sendPlayAction(
-                    createPlayActionFromGameAction(action, envelope, transportOptions),
+                    {
+                        ...createPlayActionFromGameAction(action, envelope, transportOptions),
+                        ...(inputSource !== undefined ? { inputSource } : {}),
+                    },
                     authorization ? { authorization } : undefined,
                 );
             });
@@ -1151,8 +1180,8 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     );
 
     const submitGameAction = useCallback(
-        async (action: GameAction, transportOptions?: SceneGameActionTransportOptions) => {
-            await submitGameActionForTeam(action, userTeam, undefined, transportOptions);
+        async (action: GameAction, transportOptions?: SceneGameActionTransportOptions, inputSource?: number) => {
+            await submitGameActionForTeam(action, userTeam, undefined, transportOptions, inputSource);
         },
         [submitGameActionForTeam, userTeam],
     );
@@ -1191,6 +1220,10 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
         };
         return startVisibleInterval(pingHumanPlayer, 8_000);
     }, [gameId, hasSnapshot, isObserver, submitProtocolActionForTeam, userTeam]);
+
+    useEffect(() => {
+        installInputTelemetry();
+    }, []);
 
     const transport = useCallback<SceneGameActionTransport>(
         (action, transportOptions) => {
@@ -1255,6 +1288,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                     effectiveLocalModelConfig.modelTeam,
                     effectiveLocalModelConfig.authorization,
                     transportOptions,
+                    PlayInputSource.LOCAL_MODEL,
                 );
                 return { handled: true, completed: true };
             }
@@ -1277,7 +1311,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             // gate ("your units, your zone, no cross-team ordering dependency"). Stale optimistic state is
             // repaired by reconciling from the authoritative snapshot — see shouldPlayAuthoritativeAction —
             // not by throwing the player's input away.
-            void submitGameAction(action, transportOptions);
+            void submitGameAction(action, transportOptions, autoPlayedInputSource(action));
             return { handled: true, completed: true };
         },
         [
@@ -1887,8 +1921,9 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             />
         ) : undefined;
 
+    // A spectator's toolbar mirrors the fight but must not drive it: every button disabled, clicks dropped.
     return (
-        <ButtonProvider>
+        <ButtonProvider readOnly={isObserver}>
             <div
                 className="container"
                 style={{
@@ -1910,7 +1945,9 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                         they are used. */}
                     {pixiReady && (
                         <ViewerTeamContext.Provider value={viewerTeam}>
-                            <LeftSideBar gameStarted={gameStarted} windowSize={windowSize} />
+                            <SpectatorContext.Provider value={isObserver}>
+                                <LeftSideBar gameStarted={gameStarted} windowSize={windowSize} />
+                            </SpectatorContext.Provider>
                         </ViewerTeamContext.Provider>
                     )}
                     {pixiReady && (
@@ -1986,8 +2023,12 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                             top={gameStarted ? 58 : 14}
                         />
                     )}
-                    {pixiReady && gameStarted && (aiToggleOn || !!myPlayer?.aiControlled) && (
-                        <AiControlBadge left={aiBadgeLeft(windowSize)} />
+                    {pixiReady && gameStarted && (
+                        <SeatAiControlNotice
+                            aiControlled={!!myPlayer?.aiControlled}
+                            toggleOn={aiToggleOn}
+                            left={aiBadgeLeft(windowSize)}
+                        />
                     )}
                     {pixiReady && (replayOnly || replayPlaybackActive) && (
                         // Ranked: leaving the replay returns to the account / game-selection screen.
@@ -2464,6 +2505,12 @@ const ObserverTeamSetup: React.FC<{
         },
     ].filter((entry) => entry.level > 0);
 
+    // Before the fight a spectator is shown only what BOTH players can already see. The server blanks every
+    // side's doctrine, artifacts and augments until the fight starts, so those blanks must not read as "None";
+    // the army itself appears once board placement has exposed it to both seats.
+    const beforeFight = snapshot.phase === PlayPhase.PLACEMENT && !snapshot.fightStarted;
+    const exposedRoster = observerPlacementRosterIds(snapshot, side === "lower" ? TeamVals.LEFT : TeamVals.RIGHT);
+
     return (
         <Stack spacing={0.5} sx={{ minWidth: 130 }}>
             <Typography level="body-xs" textColor={hocColors.gold}>
@@ -2474,37 +2521,60 @@ const ObserverTeamSetup: React.FC<{
                     {identityLine}
                 </Typography>
             )}
-            <Typography level="body-xs" textColor={hocColors.mutedStrong}>
-                {`Doctrine: ${observerDoctrineName(doctrineId)}`}
-            </Typography>
-            {(tier1 > 0 || tier2 > 0) && <ArtifactTierIcons tier1Id={tier1} tier2Id={tier2} />}
-            {augments.length > 0 && (
-                <Stack direction="row" spacing={0.75} flexWrap="wrap" alignItems="center">
-                    {augments.map(({ category, level }) => {
-                        const imageKey = AUGMENT_SIDEBAR_IMAGES[category];
-                        const src = imageKey ? images[imageKey] : undefined;
-                        return (
-                            <Stack key={category} direction="row" spacing={0.25} alignItems="center">
-                                {src && (
-                                    <Box
-                                        component="img"
-                                        src={src}
-                                        alt={category}
-                                        sx={{ width: 18, height: 18, borderRadius: "4px" }}
-                                    />
-                                )}
-                                <Typography level="body-xs" textColor={hocColors.mutedStrong}>
-                                    {`${category} ${level}`}
-                                </Typography>
-                            </Stack>
-                        );
-                    })}
-                </Stack>
-            )}
-            {synergies.length > 0 && (
-                <Typography level="body-xs" textColor={hocColors.muted}>
-                    {`Synergies: ${synergies.map(observerSynergyLabel).join(", ")}`}
-                </Typography>
+            {beforeFight ? (
+                <>
+                    {exposedRoster.length > 0 ? (
+                        <RankedRosterRow
+                            title={t("Army")}
+                            accent={hocColors.parchment}
+                            borderColor="rgba(255,255,255,0.12)"
+                            bgcolor="#171a23"
+                            creatureIds={exposedRoster}
+                        />
+                    ) : (
+                        <Typography level="body-xs" textColor={hocColors.muted}>
+                            {t("Revealed during board placement")}
+                        </Typography>
+                    )}
+                    <Typography level="body-xs" textColor={hocColors.muted}>
+                        {t("Doctrine, artifacts and augments are revealed when the fight starts")}
+                    </Typography>
+                </>
+            ) : (
+                <>
+                    <Typography level="body-xs" textColor={hocColors.mutedStrong}>
+                        {`Doctrine: ${observerDoctrineName(doctrineId)}`}
+                    </Typography>
+                    {(tier1 > 0 || tier2 > 0) && <ArtifactTierIcons tier1Id={tier1} tier2Id={tier2} />}
+                    {augments.length > 0 && (
+                        <Stack direction="row" spacing={0.75} flexWrap="wrap" alignItems="center">
+                            {augments.map(({ category, level }) => {
+                                const imageKey = AUGMENT_SIDEBAR_IMAGES[category];
+                                const src = imageKey ? images[imageKey] : undefined;
+                                return (
+                                    <Stack key={category} direction="row" spacing={0.25} alignItems="center">
+                                        {src && (
+                                            <Box
+                                                component="img"
+                                                src={src}
+                                                alt={category}
+                                                sx={{ width: 18, height: 18, borderRadius: "4px" }}
+                                            />
+                                        )}
+                                        <Typography level="body-xs" textColor={hocColors.mutedStrong}>
+                                            {`${category} ${level}`}
+                                        </Typography>
+                                    </Stack>
+                                );
+                            })}
+                        </Stack>
+                    )}
+                    {synergies.length > 0 && (
+                        <Typography level="body-xs" textColor={hocColors.muted}>
+                            {`Synergies: ${synergies.map(observerSynergyLabel).join(", ")}`}
+                        </Typography>
+                    )}
+                </>
             )}
         </Stack>
     );
@@ -2581,7 +2651,8 @@ const ObserverSetupPanel: React.FC<{ snapshot: PlaySnapshot }> = ({ snapshot }) 
             <Typography level="body-sm" textColor={hocColors.parchment}>
                 Army setups
             </Typography>
-            <Stack direction="row" spacing={2} flexWrap="wrap">
+            {/* useFlexGap: plain spacing is a left margin, so a wrapped second team kept it and sat indented. */}
+            <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
                 <ObserverTeamSetup
                     label={teamLabel(TeamVals.LEFT)}
                     identityLine={observerIdentityLine(identityFor(TeamVals.LEFT))}
@@ -3074,6 +3145,54 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     const isFullscreen = useFullscreenActive();
     const navigate = useNavigate();
     const [confirmExitOpen, setConfirmExitOpen] = useState(false);
+    // A spectator's FIGHT panel floats bottom-centre over the board (GameSystemControls' centre slot), where it
+    // hides the units it describes — so its header drags it anywhere, and a double-click puts it back.
+    const panelDraggable = isObserver && gameStarted;
+    const panelRef = useRef<HTMLDivElement | null>(null);
+    const [panelOffset, setPanelOffset] = useState<PanelOffset>({ x: 0, y: 0 });
+    const panelDragRef = useRef<{ pointerX: number; pointerY: number; offset: PanelOffset; rect: DOMRect } | null>(
+        null,
+    );
+    const endPanelDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId);
+        }
+        panelDragRef.current = null;
+    };
+    const panelDragHandleProps = panelDraggable
+        ? {
+              title: t("Drag to move · double-click to reset"),
+              onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => {
+                  if (event.button !== 0 || !panelRef.current) {
+                      return;
+                  }
+                  event.currentTarget.setPointerCapture(event.pointerId);
+                  panelDragRef.current = {
+                      pointerX: event.clientX,
+                      pointerY: event.clientY,
+                      offset: panelOffset,
+                      rect: panelRef.current.getBoundingClientRect(),
+                  };
+              },
+              onPointerMove: (event: React.PointerEvent<HTMLDivElement>) => {
+                  const start = panelDragRef.current;
+                  if (!start || !event.currentTarget.hasPointerCapture(event.pointerId)) {
+                      return;
+                  }
+                  setPanelOffset(
+                      dragObserverPanelOffset(
+                          start.offset,
+                          start.rect,
+                          { x: event.clientX - start.pointerX, y: event.clientY - start.pointerY },
+                          { width: window.innerWidth, height: window.innerHeight },
+                      ),
+                  );
+              },
+              onPointerUp: endPanelDrag,
+              onPointerCancel: endPanelDrag,
+              onDoubleClick: () => setPanelOffset({ x: 0, y: 0 }),
+          }
+        : {};
     const [augmentInspectedCreatureId, setAugmentInspectedCreatureId] = useState(0);
     // The doctrine sets the upgrade-point budget (5/6/7 via getUpgradePoints).
     const userDoctrineId = ((userTeam === TeamVals.LEFT ? snapshot?.leftDoctrine : snapshot?.rightDoctrine) ||
@@ -3198,7 +3317,8 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                 <Stack spacing={2} sx={{ mt: 1, minWidth: 300, maxWidth: 360 }}>
                     <Typography level="body-sm" textColor={hocColors.mutedStrong}>
                         This forfeits the fight — your opponent is declared the winner immediately and it counts as a
-                        loss for you. This cannot be undone.
+                        loss for you. In ranked, leaving 3 matches in a row suspends your ranked play. This cannot be
+                        undone.
                     </Typography>
                     <Stack direction="row" spacing={1} justifyContent="flex-end">
                         <Button
@@ -3251,9 +3371,11 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
 
     return (
         <Sheet
+            ref={panelRef}
             variant="plain"
             sx={{
                 position: embedded ? "static" : "fixed",
+                transform: panelDraggable ? `translate(${panelOffset.x}px, ${panelOffset.y}px)` : undefined,
                 top: embedded ? undefined : 12,
                 right: embedded ? undefined : 12,
                 zIndex: embedded ? "auto" : 20,
@@ -3288,7 +3410,23 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
             }}
         >
             <Stack spacing={1} sx={{ height: "100%", minHeight: 0, flex: "1 1 auto" }}>
-                <Stack direction="row" spacing={1} alignItems="center" justifyContent="center">
+                <Stack
+                    direction="row"
+                    spacing={1}
+                    alignItems="center"
+                    justifyContent="center"
+                    {...panelDragHandleProps}
+                    sx={
+                        panelDraggable
+                            ? {
+                                  cursor: "grab",
+                                  touchAction: "none",
+                                  userSelect: "none",
+                                  "&:active": { cursor: "grabbing" },
+                              }
+                            : undefined
+                    }
+                >
                     <Typography
                         level="title-md"
                         textColor={hocColors.parchment}
@@ -3319,10 +3457,15 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                     </Typography>
                 )}
 
-                {(isObserver || currentUnit) && (
+                {/* Two lines, not one: rendered back to back they read "Watching as observerActive: …". */}
+                {isObserver && (
                     <Typography level="body-sm" textColor={hocColors.mutedStrong}>
-                        {isObserver ? t("Watching as observer") : ""}
-                        {currentUnit ? `${t("Active")}: ${currentUnit.name} (${teamLabel(currentUnit.team)})` : ""}
+                        {t("Watching as observer")}
+                    </Typography>
+                )}
+                {currentUnit && (
+                    <Typography level="body-sm" textColor={hocColors.mutedStrong}>
+                        {`${t("Active")}: ${currentUnit.name} (${teamLabel(currentUnit.team)})`}
                     </Typography>
                 )}
 

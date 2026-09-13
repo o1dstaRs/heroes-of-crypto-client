@@ -125,6 +125,8 @@ export interface SeasonHistoryEntry {
     league: number;
     leagueName: string;
     leaderboardRank: number;
+    /** Place in the season's gold table (final balance, its main result); 0 = none. */
+    goldPlace: number;
     wins: number;
     losses: number;
     draws: number;
@@ -674,6 +676,7 @@ function normalizeSeasonHistoryEntry(value: unknown): SeasonHistoryEntry | null 
         league,
         leagueName: asString(row.leagueName, fallbackLeagueName(league)),
         leaderboardRank: nonNegativeInteger(row.leaderboardRank),
+        goldPlace: nonNegativeInteger(row.goldPlace),
         wins: nonNegativeInteger(row.wins),
         losses: nonNegativeInteger(row.losses),
         draws: nonNegativeInteger(row.draws),
