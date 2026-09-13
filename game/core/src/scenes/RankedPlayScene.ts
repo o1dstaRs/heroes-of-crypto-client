@@ -1218,8 +1218,10 @@ export const rankedSecondarySceneLogLines = (
     unitNames: ReadonlyMap<string, string>,
     flagForUnit: (unitId: string) => string = () => "",
 ): string[] => {
+    // An obstacle strike carries unit damage too: Lightning Spin hits the enemies around the attacker even when
+    // the blow was aimed at a barrel, and those hits ride the action's first obstacle_attacked.
     const secondary =
-        event.type === "unit_attacked" || event.type === "area_attacked"
+        event.type === "unit_attacked" || event.type === "area_attacked" || event.type === "obstacle_attacked"
             ? event.damage?.secondary
             : spellCastSecondaryDamage(event);
     const lines: string[] = [];
@@ -1240,7 +1242,9 @@ export const rankedSecondarySceneLogLines = (
             case "water_shield": {
                 // Name the striker — the event itself knows who swung; matches the engine's sandbox line.
                 const strikerId =
-                    event.type === "unit_attacked" || event.type === "area_attacked"
+                    event.type === "unit_attacked" ||
+                    event.type === "area_attacked" ||
+                    event.type === "obstacle_attacked"
                         ? event.attackerId
                         : event.type === "spell_cast"
                           ? event.casterId

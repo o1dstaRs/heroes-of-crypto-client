@@ -59,7 +59,11 @@ export const FIGHT_EVENT_VFX: Record<GameEvent["type"], FightEventVfx> = {
         ranked: "replay",
         note: "AOE splash + secondary numbers; playReplayAreaThrowAction->performAreaThrow->showSplashDamage. The boulder impact (flash + shockwave ring + dust + rock chips) rides the SAME splash[] through the shared renderAreaImpactVfx, called from showSplashDamage (both sandbox paths) AND ranked's applyAuthoritativeSplashVfx, which runs neither of them. Centre and reach are derived from the splash entries, so the ring stops where the damage did",
     },
-    obstacle_attacked: { rendered: true, ranked: "replay", note: "obstacle hit; playReplayObstacleAttackAction" },
+    obstacle_attacked: {
+        rendered: true,
+        ranked: "replay",
+        note: "obstacle hit; playReplayObstacleAttackAction. Stones tagged source lightning_spin fall on the aimed blow's impact (obstacleImpactEvents), and a spin's unit hits ride damage.secondary on the action's first obstacle_attacked -> showObstacleStrikeUnitDamage, in both the live and replay strike paths",
+    },
     ability_stolen: {
         rendered: true,
         ranked: "replay",
