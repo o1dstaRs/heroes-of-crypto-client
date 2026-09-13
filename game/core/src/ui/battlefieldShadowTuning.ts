@@ -467,10 +467,31 @@ const patchSharedDevTuning = (unitName: string, value: BattlefieldShadowTuning):
 const sharedCookieName = (unitName: string): string =>
     `${BATTLEFIELD_SHADOW_TUNING_COOKIE_PREFIX}${encodeURIComponent(unitName)}`;
 
+/**
+ * The cookie jar, or "" when this document has none that can be read.
+ *
+ * `typeof document !== "undefined"` is NOT enough to reach for `document.cookie`. A sandboxed iframe
+ * without `allow-same-origin` throws a SecurityError on access, and a headless/partial DOM (the canvas
+ * stub our Pixi tests install so ColorMatrixFilter can probe a context) has no `cookie` property at all.
+ * This runs inside the shadow projection, which every ensureVisual call goes through, so a throw here
+ * takes the whole board down with it — one unreadable jar must degrade to "no draft", nothing more.
+ */
+const readCookieJar = (): string => {
+    if (typeof document === "undefined") return "";
+    try {
+        const jar = (document as { cookie?: unknown }).cookie;
+        return typeof jar === "string" ? jar : "";
+    } catch {
+        return "";
+    }
+};
+
 const readSharedCookieTuning = (unitName?: string): BattlefieldShadowTuning | undefined => {
-    if (!unitName || typeof document === "undefined") return undefined;
+    if (!unitName) return undefined;
+    const jar = readCookieJar();
+    if (!jar) return undefined;
     const name = `${sharedCookieName(unitName)}=`;
-    const entry = document.cookie
+    const entry = jar
         .split(";")
         .map((part) => part.trim())
         .find((part) => part.startsWith(name));
@@ -485,7 +506,13 @@ const readSharedCookieTuning = (unitName?: string): BattlefieldShadowTuning | un
 const writeSharedCookieTuning = (unitName: string, value: BattlefieldShadowTuning): void => {
     if (typeof document === "undefined") return;
     const encoded = encodeURIComponent(JSON.stringify(normalizeBattlefieldShadowTuning(value)));
-    document.cookie = `${sharedCookieName(unitName)}=${encoded}; Path=/; Max-Age=${BATTLEFIELD_SHADOW_TUNING_COOKIE_MAX_AGE_SECONDS}; SameSite=Lax`;
+    // Same defence as readCookieJar: a jar that cannot be written is a draft that does not travel between
+    // dev ports, never a crash in the editor that was only saving a preview.
+    try {
+        document.cookie = `${sharedCookieName(unitName)}=${encoded}; Path=/; Max-Age=${BATTLEFIELD_SHADOW_TUNING_COOKIE_MAX_AGE_SECONDS}; SameSite=Lax`;
+    } catch {
+        /* unreadable/unwritable cookie jar — the localStorage draft below still holds the edit */
+    }
 };
 
 const readStoredMap = (): Record<string, BattlefieldShadowTuning> => {
