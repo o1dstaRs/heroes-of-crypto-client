@@ -14,7 +14,8 @@ const RETURNED_NOTICE_MS = 5_000;
 
 /**
  * Presence of the OTHER seats during a fight: "opponent disconnected, AI takes over in 12s", "the AI is
- * playing their turns, they forfeit in 2:31", and a short "opponent is back". The server emits the
+ * playing their turns, they forfeit in 2:31", "opponent is away" when they stayed connected but the server
+ * took their seat over after missed turns, and a short "opponent is back". The server emits the
  * connect/disconnect events and runs the takeover and forfeit clocks; without this strip the pause read as
  * the game freezing. Deadlines arrive as server time, so the countdown is measured against the snapshot's
  * server clock plus the local time elapsed since it landed.
@@ -76,10 +77,13 @@ export const OpponentConnectionBadge: React.FC<{
             <Stack spacing={0.5} alignItems="center">
                 {notices.map((notice) => {
                     const back = notice.state === "back";
+                    const name = seatName(notice.team);
                     const parts = [
                         back
-                            ? t("{seat} is back").replace("{seat}", seatName(notice.team))
-                            : `${seatName(notice.team)} ${t("disconnected")}`,
+                            ? t("{seat} is back").replace("{seat}", name)
+                            : notice.connected
+                              ? t("{seat} is away").replace("{seat}", name)
+                              : `${name} ${t("disconnected")}`,
                     ];
                     if (notice.state === "disconnected" && notice.takeoverInMs !== undefined) {
                         parts.push(

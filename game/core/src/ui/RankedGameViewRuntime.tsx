@@ -90,7 +90,7 @@ import SandboxToggleContainer from "./RightSideBar/SandboxToggleContainer";
 import { SynergySlots } from "./RightSideBar/SynergySlots";
 import SideToggleContainer from "./RightSideBar/SideToggleContainer";
 import { UpNextOverlay } from "./UpNextOverlay";
-import { AiControlBadge, aiBadgeLeft } from "./AiControlBadge";
+import { SeatAiControlNotice, aiBadgeLeft } from "./AiControlBadge";
 import { NextLapHazardBadge } from "./NextLapHazardBadge";
 import { ExitReplayBadge } from "./ExitReplayBadge";
 import { setBattleSystemControlsActive } from "./social/systemControlsMode";
@@ -1991,8 +1991,12 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                             top={gameStarted ? 58 : 14}
                         />
                     )}
-                    {pixiReady && gameStarted && (aiToggleOn || !!myPlayer?.aiControlled) && (
-                        <AiControlBadge left={aiBadgeLeft(windowSize)} />
+                    {pixiReady && gameStarted && (
+                        <SeatAiControlNotice
+                            aiControlled={!!myPlayer?.aiControlled}
+                            toggleOn={aiToggleOn}
+                            left={aiBadgeLeft(windowSize)}
+                        />
                     )}
                     {pixiReady && (replayOnly || replayPlaybackActive) && (
                         // Ranked: leaving the replay returns to the account / game-selection screen.

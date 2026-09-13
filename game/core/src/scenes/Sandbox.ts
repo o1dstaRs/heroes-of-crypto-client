@@ -1342,6 +1342,7 @@ export class Sandbox extends PixiScene {
                 getCurrentActiveSpell: () => this.currentActiveSpell,
                 getVisibleState: () => this.sc_visibleState,
                 isInputLockedByAI: () => this.isBoardInputLockedByAI(),
+                isAiToggleAllowed: () => this.isAiToggleAllowed(),
                 canControlCurrentActiveUnit: () => this.canControlCurrentActiveUnit(),
                 hasUnactedTeammateInCurrentLap: (unit) => this.hasUnactedTeammateInCurrentLap(unit),
                 setVisibleButtons: (buttons, updated) => {
@@ -1857,6 +1858,13 @@ export class Sandbox extends PixiScene {
      */
     protected getToggleAiControlledTeam(): TeamType | undefined {
         return undefined;
+    }
+    /**
+     * Whether the manual AI toggle (autobattle) is offered. The sandbox is a practice board, so it always
+     * is; RankedPlayScene narrows it to the friend co-op sandbox.
+     */
+    protected isAiToggleAllowed(): boolean {
+        return true;
     }
     /** Ranked: install the sink that relays this player's live move aim to the opponent. */
     public override setMoveIntentSink(sink?: (unitId: string | undefined, cell: HoCMath.XY | undefined) => void): void {

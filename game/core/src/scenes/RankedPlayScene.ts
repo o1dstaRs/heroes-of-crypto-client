@@ -1817,7 +1817,9 @@ export class RankedPlayScene extends Sandbox {
         }
     }
     private restoreRankedAiToggle(gameId: string): void {
-        if (!gameId || typeof localStorage === "undefined") {
+        // A toggle saved by an older client for a ranked, lobby or vs-AI game must not switch autobattle
+        // back on now that only the co-op sandbox offers it.
+        if (!gameId || typeof localStorage === "undefined" || !this.isAiToggleAllowed()) {
             return;
         }
         try {
@@ -2805,6 +2807,14 @@ export class RankedPlayScene extends Sandbox {
      */
     protected override getToggleAiControlledTeam(): TeamType | undefined {
         return this.viewerTeam;
+    }
+    /**
+     * Autobattle is a sandbox tool. The friend co-op sandbox keeps it; in ranked, lobby and vs-AI games the
+     * button is not rendered, so a seat is only ever automated by the server's absence takeover, which both
+     * players are shown.
+     */
+    protected override isAiToggleAllowed(): boolean {
+        return this.sandboxCoop;
     }
     protected override updateVisibleTurnTimer(): void {
         // The base sets aiToggleOn from the live toggle; this override drives the timer off the server

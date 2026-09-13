@@ -43,6 +43,7 @@ const makeContext = (over: Partial<ISandboxButtonContext> = {}): { ctx: ISandbox
         },
         setSpellBookOverlay: () => {},
         isInputLockedByAI: () => false,
+        isAiToggleAllowed: () => true,
         canControlCurrentActiveUnit: () => true,
         hasUnactedTeammateInCurrentLap: () => false,
         isHourglassDenied: () => false,
@@ -138,6 +139,38 @@ describe("ButtonManager AI toggle", () => {
 
         expect(rec.aiActive).toEqual([]);
         expect(bm.sc_isAIActive).toBe(true);
+    });
+
+    it("leaves the AI button out of the toolbar where autobattle is not allowed (ranked, lobby, vs-AI)", () => {
+        let rendered: IVisibleButton[] = [];
+        const { ctx } = makeContext({
+            isAiToggleAllowed: () => false,
+            getCurrentActiveUnit: () => makeUnit(),
+            setVisibleButtons: (buttons) => {
+                rendered = buttons;
+            },
+        });
+        const bm = new ButtonManager(ctx, false);
+
+        bm.refreshButtons(true);
+        expect(rendered.map((b) => b.name)).not.toContain("AI");
+        expect(rendered.map((b) => b.name)).toContain("Next");
+
+        bm.setButtonsRefreshLocked(true);
+        expect(rendered.map((b) => b.name)).not.toContain("AI");
+    });
+
+    it("ignores an AI toggle click where autobattle is not allowed", () => {
+        const { ctx, rec } = makeContext({
+            isAiToggleAllowed: () => false,
+            getCurrentActiveUnit: () => makeUnit(),
+        });
+        const bm = new ButtonManager(ctx, false);
+
+        bm.propagateButtonClicked("AI", VisibleButtonState.FIRST);
+
+        expect(rec.aiActive).toEqual([]);
+        expect(bm.sc_isAIActive).toBe(false);
     });
 });
 
