@@ -1,15 +1,21 @@
 import { LEGACY_SEASON_CURRENCY, normalizeSeasonCurrency, type SeasonCurrency } from "./season-currency";
 
 /**
- * Public season results: the final table of every CLOSED season. When a season ends the server returns
- * every pending stake, records each player's final currency and place, and zeroes the purses — these
+ * Public season results: the final tables of every CLOSED season. When a season ends the server returns
+ * every pending stake, records each player's final currency and places, and zeroes the purses — these
  * endpoints serve what it recorded:
- *   GET /v1/season-results              every closed season, newest first, with its podium
- *   GET /v1/season-results/:sequence    one season's full table
+ *   GET /v1/season-results              every closed season, newest first, with the top of both tables
+ *   GET /v1/season-results/:sequence    one season's players, in gold-table order
  * (development servers prefix the path with /mm, like every public ranked route.)
+ *
+ * A season has two tables over the same players: the GOLD table — its main result, places by final
+ * balance — and the MMR table, the final rating ladder.
  */
 
 export type SeasonResultsStatus = "upcoming" | "active" | "finished";
+
+/** Which of a season's tables is shown: gold (the main one) or MMR. */
+export type SeasonResultsView = "gold" | "mmr";
 
 export interface SeasonResultsSeason {
     sequence: number;
@@ -21,8 +27,10 @@ export interface SeasonResultsSeason {
 }
 
 export interface SeasonResultsPlayer {
-    /** Final place, 1-based; 0 = unranked (calibrating, or no games that season). */
-    place: number;
+    /** Place in the gold table (final balance), 1-based; 0 = finished with an empty purse. */
+    goldPlace: number;
+    /** Place in the MMR table, 1-based; 0 = unranked (calibrating, or no games that season). */
+    mmrPlace: number;
     playerId: string;
     username: string;
     state: string;
@@ -45,7 +53,10 @@ export interface SeasonResultsListEntry {
     playerCount: number;
     rankedCount: number;
     totalGold: number;
+    /** Top of the gold table. */
     podium: SeasonResultsPlayer[];
+    /** Top of the MMR table. */
+    mmrPodium: SeasonResultsPlayer[];
 }
 
 export interface SeasonResultsList {
@@ -114,7 +125,8 @@ export function normalizeSeasonResultsPlayer(value: unknown): SeasonResultsPlaye
         return null;
     }
     return {
-        place: wholeNumber(row.place),
+        goldPlace: wholeNumber(row.goldPlace),
+        mmrPlace: wholeNumber(row.mmrPlace),
         playerId,
         username: asString(row.username, "Unknown"),
         state: asString(row.state, "placed"),
@@ -152,6 +164,7 @@ export function normalizeSeasonResultsList(value: unknown): SeasonResultsList {
                 rankedCount: wholeNumber(entry.rankedCount),
                 totalGold: wholeNumber(entry.totalGold),
                 podium: players(entry.podium),
+                mmrPodium: players(entry.mmrPodium),
             };
         })
         .filter((entry): entry is SeasonResultsListEntry => entry !== null)
@@ -188,6 +201,32 @@ export function normalizeSeasonResultsDetail(value: unknown): SeasonResultsDetai
             .filter((league) => league.league > 0),
         players: players(row.players),
     };
+}
+
+/** A player's place in `view`'s table; 0 = no place there. */
+export function placeInView(player: SeasonResultsPlayer, view: SeasonResultsView): number {
+    return view === "mmr" ? player.mmrPlace : player.goldPlace;
+}
+
+// Places first (ascending), then everyone without one.
+const byPlace = (a: number, b: number): number => {
+    if (a > 0 && b > 0) {
+        return a - b;
+    }
+    return a > 0 === b > 0 ? 0 : a > 0 ? -1 : 1;
+};
+
+/**
+ * The players in `view`'s table order, the order the server numbers them in: places first, then those
+ * without one by the other table (MMR place for the gold table, balance for the MMR table), then id.
+ */
+export function playersInView(list: readonly SeasonResultsPlayer[], view: SeasonResultsView): SeasonResultsPlayer[] {
+    return [...list].sort(
+        (a, b) =>
+            byPlace(placeInView(a, view), placeInView(b, view)) ||
+            (view === "mmr" ? b.gold - a.gold : byPlace(a.mmrPlace, b.mmrPlace)) ||
+            (a.playerId < b.playerId ? -1 : a.playerId > b.playerId ? 1 : 0),
+    );
 }
 
 export interface SeasonResultsUrlOptions {
@@ -265,4 +304,9 @@ export function seasonFromSearch(search: string): number {
     const raw = new URLSearchParams(search).get("season");
     const sequence = raw === null ? Number.NaN : Number(raw);
     return Number.isInteger(sequence) && sequence > 0 ? sequence : 0;
+}
+
+/** `?view=mmr` on the results page opens the MMR table; anything else shows the gold table. */
+export function viewFromSearch(search: string): SeasonResultsView {
+    return new URLSearchParams(search).get("view") === "mmr" ? "mmr" : "gold";
 }

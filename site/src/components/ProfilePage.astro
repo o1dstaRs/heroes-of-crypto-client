@@ -1575,8 +1575,9 @@ const rankedApp = links.rankedApp;
             seasonsSection.hidden = history.length === 0;
             seasonsEl.innerHTML = history
                 .map((entry) => {
-                    const rank = entry.leaderboardRank ? ` · #${entry.leaderboardRank}` : "";
-                    const standing = entry.league > 0 ? `${leagueLabel(entry.league)}${rank}` : copy.publicUnranked;
+                    // A season's place is its gold-table place (final balance); the league is the MMR standing.
+                    const place = entry.goldPlace ? `#${entry.goldPlace} · ` : "";
+                    const standing = `${place}${entry.league > 0 ? leagueLabel(entry.league) : copy.publicUnranked}`;
                     const mmr = entry.mmr ? `${numberFormatter.format(entry.mmr)} MMR` : "—";
                     const rate = entry.totalGames
                         ? `${entry.winRatePct.toFixed(1).replace(/\.0$/, "")}%`

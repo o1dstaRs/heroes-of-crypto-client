@@ -72,20 +72,20 @@ const profileRoot = isRu ? "/ru/profile/" : "/profile/";
 
                 <div data-seasons-season-body hidden>
                     <dl class="seasons-stats" data-seasons-stats></dl>
+                    <div class="seasons-view" role="group" aria-label={copy.rankBy}>
+                        <span class="seasons-view__label">{copy.rankBy}</span>
+                        <button type="button" class="seasons-view__option" data-seasons-view="gold" aria-pressed="true">
+                            <img data-seasons-view-icon src="/assets/icons/currency/gold.svg" alt="" aria-hidden="true" width="18" height="18" />
+                            <span data-seasons-view-currency></span>
+                        </button>
+                        <button type="button" class="seasons-view__option" data-seasons-view="mmr" aria-pressed="false">{copy.viewMmr}</button>
+                    </div>
                     <ol class="seasons-podium" data-seasons-podium aria-label={copy.podiumTitle}></ol>
                     <h3 class="seasons-table-title">{copy.tableTitle}</h3>
                     <div class="seasons-table-scroll">
                         <table class="seasons-table">
                             <thead>
-                                <tr>
-                                    <th scope="col" class="num">{copy.colPlace}</th>
-                                    <th scope="col">{copy.colPlayer}</th>
-                                    <th scope="col">{copy.colLeague}</th>
-                                    <th scope="col" class="num">{copy.colMmr}</th>
-                                    <th scope="col" class="num">{copy.colRecord}</th>
-                                    <th scope="col" class="num">{copy.colWinRate}</th>
-                                    <th scope="col" class="num">{copy.colBalance}</th>
-                                </tr>
+                                <tr data-seasons-head></tr>
                             </thead>
                             <tbody data-seasons-rows></tbody>
                         </table>
@@ -102,11 +102,15 @@ const profileRoot = isRu ? "/ru/profile/" : "/profile/";
     import {
         fetchSeasonResultsDetail,
         fetchSeasonResultsList,
+        placeInView,
+        playersInView,
         seasonFromSearch,
         SeasonResultsNotFoundError,
+        viewFromSearch,
         type SeasonResultsDetail,
         type SeasonResultsListEntry,
         type SeasonResultsPlayer,
+        type SeasonResultsView,
     } from "../lib/season-results-client";
 
     const page = document.querySelector<HTMLElement>("[data-seasons-page]");
@@ -141,12 +145,18 @@ const profileRoot = isRu ? "/ru/profile/" : "/profile/";
         const seasonBodyEl = el("seasons-season-body");
         const statsEl = el("seasons-stats");
         const podiumEl = el("seasons-podium");
+        const headEl = el("seasons-head");
         const rowsEl = el("seasons-rows");
+        const viewIconEl = el<HTMLImageElement>("seasons-view-icon");
+        const viewCurrencyEl = el("seasons-view-currency");
+        const viewButtons = [...root.querySelectorAll<HTMLButtonElement>("[data-seasons-view]")];
 
         const details = new Map<number, SeasonResultsDetail>();
         let entries: SeasonResultsListEntry[] = [];
         let selected = 0;
         let renderToken = 0;
+        // The gold table is the season's main result; `?view=mmr` opens the MMR table.
+        let view: SeasonResultsView = viewFromSearch(window.location.search);
 
         const escapeHtml = (value: string): string =>
             value.replace(/[&<>"']/g, (char) => `&#${char.charCodeAt(0)};`);
@@ -160,13 +170,13 @@ const profileRoot = isRu ? "/ru/profile/" : "/profile/";
         const profileHref = (player: SeasonResultsPlayer): string =>
             `${profileRoot}?${new URLSearchParams({ playerId: player.playerId, username: player.username }).toString()}`;
         const standingLabel = (player: SeasonResultsPlayer): string => {
-            if (player.place > 0 && player.league > 0) {
+            if (player.mmrPlace > 0 && player.league > 0) {
                 return player.leagueName;
             }
             return player.state === "placed" ? copy.unranked : copy.calibrating;
         };
         const leagueMarkup = (player: SeasonResultsPlayer): string =>
-            `<span class="league-cell"><img src="${escapeHtml(leagueEmblemPath(player.place > 0 ? player.league : 0, 0))}" alt="" aria-hidden="true" width="26" height="26" /><span>${escapeHtml(standingLabel(player))}</span></span>`;
+            `<span class="league-cell"><img src="${escapeHtml(leagueEmblemPath(player.mmrPlace > 0 ? player.league : 0, 0))}" alt="" aria-hidden="true" width="26" height="26" /><span>${escapeHtml(standingLabel(player))}</span></span>`;
         const winRate = (player: SeasonResultsPlayer): string =>
             player.totalGames > 0 ? `${player.winRatePct.toFixed(1).replace(/\.0$/, "")}%` : "—";
 
@@ -206,6 +216,97 @@ const profileRoot = isRu ? "/ru/profile/" : "/profile/";
                 .join("");
         };
 
+        interface Column {
+            label: string;
+            numeric: boolean;
+            /** The column this table ranks by. */
+            key: boolean;
+            cell: (player: SeasonResultsPlayer, currency: SeasonCurrency) => string;
+        }
+
+        // The ranking column sits right after the name, so it stays on screen on a phone.
+        const columnsFor = (current: SeasonResultsView): Column[] => {
+            const place: Column = {
+                label: copy.colPlace,
+                numeric: true,
+                key: false,
+                cell: (player) => {
+                    const value = placeInView(player, current);
+                    return value > 0 ? escapeHtml(numberFormatter.format(value)) : "—";
+                },
+            };
+            const name: Column = {
+                label: copy.colPlayer,
+                numeric: false,
+                key: false,
+                cell: (player) =>
+                    `<a class="player-link" href="${escapeHtml(profileHref(player))}">${escapeHtml(player.username)}</a>`,
+            };
+            const balance: Column = {
+                label: copy.colBalance,
+                numeric: true,
+                key: current === "gold",
+                cell: (player, currency) => currencyMarkup(player.gold, currency),
+            };
+            const league: Column = { label: copy.colLeague, numeric: false, key: false, cell: (player) => leagueMarkup(player) };
+            const mmr: Column = {
+                label: copy.colMmr,
+                numeric: true,
+                key: current === "mmr",
+                cell: (player) => (player.mmr > 0 ? escapeHtml(numberFormatter.format(player.mmr)) : "—"),
+            };
+            const record: Column = {
+                label: copy.colRecord,
+                numeric: true,
+                key: false,
+                cell: (player) => `${player.wins}–${player.losses}–${player.draws}`,
+            };
+            const rate: Column = { label: copy.colWinRate, numeric: true, key: false, cell: (player) => escapeHtml(winRate(player)) };
+            return current === "gold"
+                ? [place, name, balance, league, mmr, record, rate]
+                : [place, name, league, mmr, record, rate, balance];
+        };
+        const classAttr = (column: Column, extra = ""): string => {
+            const names = [column.numeric ? "num" : "", column.key ? "is-key" : "", extra].filter(Boolean).join(" ");
+            return names ? ` class="${names}"` : "";
+        };
+
+        const renderStandings = (detail: SeasonResultsDetail): void => {
+            const currency = detail.season.currency;
+            const ordered = playersInView(detail.players, view);
+            const columns = columnsFor(view);
+            viewButtons.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.seasonsView === view)));
+
+            podiumEl.innerHTML = ordered
+                .filter((player) => placeInView(player, view) > 0 && placeInView(player, view) <= 3)
+                .map(
+                    (player) => `
+                        <li class="podium-card" data-place="${placeInView(player, view)}">
+                            <span class="podium-place">${placeInView(player, view)}</span>
+                            <img class="podium-emblem" src="${escapeHtml(leagueEmblemPath(player.mmrPlace > 0 ? player.league : 0, 0))}" alt="" aria-hidden="true" width="48" height="48" />
+                            <span class="podium-copy">
+                                <a class="podium-name" href="${escapeHtml(profileHref(player))}">${escapeHtml(player.username)}</a>
+                                <span class="podium-meta">${escapeHtml(standingLabel(player))}${player.mmr > 0 ? ` · ${escapeHtml(numberFormatter.format(player.mmr))} MMR` : ""}</span>
+                                ${currencyMarkup(player.gold, currency)}
+                            </span>
+                        </li>`,
+                )
+                .join("");
+            podiumEl.hidden = podiumEl.innerHTML.trim() === "";
+
+            headEl.innerHTML = columns.map((column) => `<th scope="col"${classAttr(column)}>${escapeHtml(column.label)}</th>`).join("");
+            rowsEl.innerHTML = ordered.length
+                ? ordered
+                      .map(
+                          (player) =>
+                              `<tr data-place="${placeInView(player, view)}">${columns
+                                  .map((column, index) => `<td${classAttr(column, index === 0 ? "place-cell" : "")}>${column.cell(player, currency)}</td>`)
+                                  .join("")}</tr>`,
+                      )
+                      .join("")
+                : `<tr><td class="seasons-empty-row" colspan="${columns.length}">${escapeHtml(copy.noPlayers)}</td></tr>`;
+        };
+
         const renderSeason = (detail: SeasonResultsDetail): void => {
             const currency = detail.season.currency;
             seasonIconEl.src = seasonCurrencyIconUrl(currency);
@@ -224,39 +325,9 @@ const profileRoot = isRu ? "/ru/profile/" : "/profile/";
                 .map(([label, value]) => `<div class="seasons-stat"><dt>${escapeHtml(label)}</dt><dd>${value}</dd></div>`)
                 .join("");
 
-            podiumEl.innerHTML = detail.players
-                .filter((player) => player.place > 0 && player.place <= 3)
-                .map(
-                    (player) => `
-                        <li class="podium-card" data-place="${player.place}">
-                            <span class="podium-place">${player.place}</span>
-                            <img class="podium-emblem" src="${escapeHtml(leagueEmblemPath(player.league, 0))}" alt="" aria-hidden="true" width="48" height="48" />
-                            <span class="podium-copy">
-                                <a class="podium-name" href="${escapeHtml(profileHref(player))}">${escapeHtml(player.username)}</a>
-                                <span class="podium-meta">${escapeHtml(standingLabel(player))} · ${escapeHtml(numberFormatter.format(player.mmr))} MMR</span>
-                                ${currencyMarkup(player.gold, currency)}
-                            </span>
-                        </li>`,
-                )
-                .join("");
-            podiumEl.hidden = podiumEl.innerHTML.trim() === "";
-
-            rowsEl.innerHTML = detail.players.length
-                ? detail.players
-                .map(
-                    (player) => `
-                        <tr data-place="${player.place}">
-                            <td class="num place-cell">${player.place > 0 ? escapeHtml(numberFormatter.format(player.place)) : "—"}</td>
-                            <td><a class="player-link" href="${escapeHtml(profileHref(player))}">${escapeHtml(player.username)}</a></td>
-                            <td>${leagueMarkup(player)}</td>
-                            <td class="num">${player.mmr > 0 ? escapeHtml(numberFormatter.format(player.mmr)) : "—"}</td>
-                            <td class="num">${player.wins}–${player.losses}–${player.draws}</td>
-                            <td class="num">${escapeHtml(winRate(player))}</td>
-                            <td class="num">${currencyMarkup(player.gold, currency)}</td>
-                        </tr>`,
-                )
-                .join("")
-                : `<tr><td class="seasons-empty-row" colspan="7">${escapeHtml(copy.noPlayers)}</td></tr>`;
+            viewIconEl.src = seasonCurrencyIconUrl(currency);
+            viewCurrencyEl.textContent = currency.name;
+            renderStandings(detail);
             seasonBodyEl.hidden = false;
         };
 
@@ -319,6 +390,27 @@ const profileRoot = isRu ? "/ru/profile/" : "/profile/";
                 );
             }
         });
+
+        viewButtons.forEach((button) =>
+            button.addEventListener("click", () => {
+                const next: SeasonResultsView = button.dataset.seasonsView === "mmr" ? "mmr" : "gold";
+                if (next === view) {
+                    return;
+                }
+                view = next;
+                const url = new URL(window.location.href);
+                if (view === "mmr") {
+                    url.searchParams.set("view", "mmr");
+                } else {
+                    url.searchParams.delete("view");
+                }
+                window.history.replaceState(null, "", url);
+                const detail = details.get(selected);
+                if (detail) {
+                    renderStandings(detail);
+                }
+            }),
+        );
 
         const load = async (): Promise<void> => {
             show("loading");
@@ -531,6 +623,47 @@ const profileRoot = isRu ? "/ru/profile/" : "/profile/";
         color: var(--ink-strong);
     }
 
+    .seasons-view {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        margin: 0 0 14px;
+    }
+
+    .seasons-view__label {
+        margin-right: 4px;
+        font-size: 0.72rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--muted);
+    }
+
+    .seasons-view__option {
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        min-height: 34px;
+        padding: 0 14px;
+        border: 1px solid var(--line-strong);
+        border-radius: 999px;
+        background: rgba(12, 8, 5, 0.7);
+        color: var(--ink);
+        font: inherit;
+        cursor: pointer;
+    }
+
+    .seasons-view__option[aria-pressed="true"] {
+        border-color: var(--gold);
+        background: rgba(220, 177, 88, 0.2);
+        color: var(--gold-soft);
+    }
+
+    .seasons-view__option img {
+        width: 18px;
+        height: 18px;
+    }
+
     .seasons-podium {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
@@ -612,7 +745,7 @@ const profileRoot = isRu ? "/ru/profile/" : "/profile/";
         font-variant-numeric: tabular-nums;
     }
 
-    .seasons-table th {
+    .seasons-table :global(th) {
         padding: 8px 10px;
         border-bottom: 1px solid var(--line);
         font-size: 0.72rem;
@@ -630,9 +763,15 @@ const profileRoot = isRu ? "/ru/profile/" : "/profile/";
         white-space: nowrap;
     }
 
-    .seasons-table .num,
+    .seasons-table :global(th.num),
     .seasons-table :global(td.num) {
         text-align: right;
+    }
+
+    /* The column the shown table ranks by. */
+    .seasons-table :global(th.is-key),
+    .seasons-table :global(td.is-key) {
+        color: var(--gold-soft);
     }
 
     .seasons-table :global(tr[data-place="1"] .place-cell),
