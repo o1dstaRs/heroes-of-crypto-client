@@ -26,24 +26,6 @@ class MemoryStorage implements ReplayStorage {
     }
 }
 
-/** A storage that rejects writes above a byte budget, like localStorage under quota pressure. */
-class QuotaStorage extends MemoryStorage {
-    private rejectedOnce = false;
-    public constructor(private readonly capacityBytes: number) {
-        super();
-    }
-    public override setItem(key: string, value: string): void {
-        if (value.length > this.capacityBytes) {
-            this.rejectedOnce = true;
-            throw new DOMException("setItem exceeded the quota", "QuotaExceededError");
-        }
-        super.setItem(key, value);
-    }
-    public get sawQuotaError(): boolean {
-        return this.rejectedOnce;
-    }
-}
-
 const createInitialState = (): SandboxSceneState => ({
     gridType: GridVals.NORMAL,
     currentLap: 0,
@@ -169,52 +151,47 @@ describe("SandboxReplayRecorder", () => {
         expect(saved.at(-1)?.id).toBe("replay-3");
     });
 
-    it("trims the oldest replays under quota pressure instead of throwing", () => {
-        // Regression guard for the sandbox-reload incident: a QuotaExceededError escaping
-        // saveSandboxReplay spammed uncaught errors from the debounced persist and aborted the
-        // scene rebuild halfway when reset() flushed synchronously mid-teardown.
-        const base = {
+    describe("when the browser's storage quota is full", () => {
+        /** Storage that refuses any write longer than `limit` characters, like a full localStorage. */
+        class QuotaStorage extends MemoryStorage {
+            public constructor(private readonly limit: number) {
+                super();
+            }
+            public override setItem(key: string, value: string): void {
+                if (value.length > this.limit) {
+                    throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+                }
+                super.setItem(key, value);
+            }
+        }
+        const replay = (index: number): SandboxReplay => ({
             version: 1,
             kind: "sandbox",
+            id: `replay-${index}`,
+            createdAtMs: index,
+            updatedAtMs: index,
             initialState: createInitialState(),
             actions: [],
-        } satisfies Pick<SandboxReplay, "actions" | "initialState" | "kind" | "version">;
-        const bigReplay = (id: string, updatedAtMs: number): SandboxReplay => ({
-            ...base,
-            id,
-            createdAtMs: updatedAtMs,
-            updatedAtMs,
         });
 
-        // Budget that fits exactly two big replays: the save must shed older history, not throw.
-        const reference = JSON.stringify([bigReplay("ref-a", 1), bigReplay("ref-b", 2)]);
-        const storage = new QuotaStorage(reference.length);
+        it("drops the oldest replays until the newest fits, and never throws", () => {
+            const oneReplay = JSON.stringify([replay(0)]).length;
+            const storage = new QuotaStorage(oneReplay * 2 + 1);
 
-        expect(() => {
-            for (let i = 0; i < 6; i += 1) {
-                saveSandboxReplay(bigReplay(`replay-${i}`, i), storage);
-            }
-        }).not.toThrow();
-        expect(storage.sawQuotaError).toBe(true);
+            expect(() => {
+                for (let i = 0; i < 5; i += 1) {
+                    saveSandboxReplay(replay(i), storage);
+                }
+            }).not.toThrow();
 
-        const saved = listSandboxReplays(storage);
-        expect(saved.length).toBeGreaterThan(0);
-        expect(saved.length).toBeLessThan(6); // history was shed
-        expect(saved[0].id).toBe("replay-5"); // the newest always survives
-    });
+            expect(listSandboxReplays(storage).map((saved) => saved.id)).toEqual(["replay-4", "replay-3"]);
+        });
 
-    it("clears storage rather than throwing when a single replay exceeds the whole quota", () => {
-        const base = {
-            version: 1,
-            kind: "sandbox",
-            initialState: createInitialState(),
-            actions: [],
-        } satisfies Pick<SandboxReplay, "actions" | "initialState" | "kind" | "version">;
-        const replay: SandboxReplay = { ...base, id: "huge", createdAtMs: 1, updatedAtMs: 1 };
-        const storage = new QuotaStorage(JSON.stringify([replay]).length - 1);
+        it("skips the save when even the newest replay alone does not fit", () => {
+            const storage = new QuotaStorage(10);
 
-        expect(() => saveSandboxReplay(replay, storage)).not.toThrow();
-        expect(storage.sawQuotaError).toBe(true);
-        expect(listSandboxReplays(storage)).toHaveLength(0); // slate wiped clean, no stale blob
+            expect(() => saveSandboxReplay(replay(1), storage)).not.toThrow();
+            expect(listSandboxReplays(storage)).toEqual([]);
+        });
     });
 });

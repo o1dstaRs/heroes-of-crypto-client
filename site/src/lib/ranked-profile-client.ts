@@ -1,4 +1,12 @@
 import { rankedArenaCopy } from "./ranked-arena-copy";
+import {
+    normalizeRankedMatchExit,
+    normalizeRankedMatchReason,
+    normalizeRankedMatchResult,
+    type RankedMatchExit,
+    type RankedMatchReason,
+    type RankedMatchResult,
+} from "./ranked-exit";
 import { normalizeSeasonCurrency, type SeasonCurrency } from "./season-currency";
 
 /** Fallback display name when a payload omits it — the English table the server also serves. */
@@ -6,8 +14,7 @@ const fallbackLeagueName = (league: number): string =>
     rankedArenaCopy.en.leagueNames[league - 1] ?? rankedArenaCopy.en.unranked;
 
 export type RankedProfileState = "calibration" | "placed" | "recalibration";
-export type RankedMatchResult = "win" | "loss" | "draw";
-export type RankedMatchReason = "normal" | "concede" | "disconnect" | "double_disconnect" | "cancel";
+export type { RankedMatchReason, RankedMatchResult } from "./ranked-exit";
 
 export interface RankedProfileCalibration {
     required: number;
@@ -33,6 +40,8 @@ export interface RankedProfileMatch {
     finishedTime: number;
     result: RankedMatchResult;
     reason: RankedMatchReason;
+    // How an early ending was resolved (exit rules); null for a played-out game or an older record.
+    exit: RankedMatchExit | null;
     mmrDelta: number;
     goldEarned: number;
     calibration: boolean;
@@ -335,19 +344,9 @@ const normalizeState = (value: unknown): RankedProfileState => {
     return "calibration";
 };
 
-const normalizeResult = (value: unknown): RankedMatchResult => {
-    if (value === "win" || value === "loss") {
-        return value;
-    }
-    return "draw";
-};
+const normalizeResult = normalizeRankedMatchResult;
 
-const normalizeReason = (value: unknown): RankedMatchReason => {
-    if (value === "concede" || value === "disconnect" || value === "double_disconnect" || value === "cancel") {
-        return value;
-    }
-    return "normal";
-};
+const normalizeReason = normalizeRankedMatchReason;
 
 /** Human UUIDs and persistent `ai:` seats are both exactly 36 characters in the ranked service. */
 export const isPublicRankedPlayerId = (value: string): boolean =>
@@ -490,6 +489,7 @@ export function normalizePublicRankedProfile(value: unknown): PublicRankedProfil
                 finishedTime: nonNegativeInteger(match.finishedTime),
                 result: normalizeResult(match.result),
                 reason: normalizeReason(match.reason),
+                exit: normalizeRankedMatchExit(match.exit),
                 mmrDelta: asInteger(match.mmrDelta),
                 goldEarned: nonNegativeInteger(match.goldEarned),
                 calibration: match.calibration === true,
@@ -808,4 +808,33 @@ export async function fetchPublicRankedProfile(playerId: string): Promise<Public
         throw new Error("Ranked profile response was malformed");
     }
     return profile;
+}
+
+export function buildOwnRankedStandingUrl(options: RankedProfileUrlOptions = {}): string {
+    const production = options.production ?? runtimeIsProduction();
+    const baseUrl = (options.baseUrl ?? runtimeBaseUrl(production)).replace(/\/+$/, "");
+    return `${baseUrl}${production ? "/v1/ranked-standing" : "/v1/mm/ranked-standing"}`;
+}
+
+/**
+ * The signed-in player's ranked id, read from their own standing. The stored auth user carries no player id:
+ * its `in_game_id` is the match being played right now. Null when signed out, rejected, or answered by a
+ * server that predates the field — never a guess.
+ */
+export async function fetchOwnRankedPlayerId(
+    token: string | null,
+    options: RankedProfileUrlOptions = {},
+): Promise<string | null> {
+    if (!token) {
+        return null;
+    }
+    const response = await fetch(buildOwnRankedStandingUrl(options), {
+        cache: "no-store",
+        headers: { Accept: "application/json", Authorization: token },
+    });
+    if (!response.ok) {
+        return null;
+    }
+    const playerId = asString(asRecord(await response.json()).playerId);
+    return isPublicRankedPlayerId(playerId) ? playerId : null;
 }

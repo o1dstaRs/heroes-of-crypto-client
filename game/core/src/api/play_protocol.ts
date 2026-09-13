@@ -89,6 +89,27 @@ export interface PlayPlayerState {
     aiTakeoverAtMs?: number;
     /** Server time at which a disconnected human seat forfeits the ranked fight (0 = no forfeit rule). */
     forfeitAtMs?: number;
+    /** Exit rules (play.proto 8-10): away time used against the match's allowance, turns missed in a row while
+     * connected, and whether this seat is still in ranked calibration (its abandon would be unscored). */
+    absenceUsedMs?: number;
+    consecutiveMissedTurns?: number;
+    calibrating?: boolean;
+}
+
+/** How a match ended early, decided by the server's exit resolver (play.proto PlayExitResolution). */
+export interface PlayExitResolution {
+    kind: "concede" | "abandon" | "void" | string;
+    cause: string;
+    leaverPlayerId: string;
+    /** False for unscored and voided matches: no result for either player. */
+    scored: boolean;
+    unscoredReason: string;
+    boardBp: number;
+    phase: string;
+    lap: number;
+    /** False while the rules are only announced: the exit is shown, scoring stays on the previous rules. */
+    enforced: boolean;
+    ranked: boolean;
 }
 
 export interface PlayUnitState {
@@ -318,6 +339,24 @@ export interface PlaySnapshot {
     leftStartRosterAmounts?: number[];
     rightStartRosterCreatureIds?: number[];
     rightStartRosterAmounts?: number[];
+    /** Exit rules (play.proto 62-73). Board casualties: the share of both armies' starting XP destroyed, in basis
+     * points (5000 = the 50% line), each side's share, and the XP numbers behind it. */
+    casualtyBp?: number;
+    leftCasualtyBp?: number;
+    rightCasualtyBp?: number;
+    boardXpDestroyed?: number;
+    boardXpTotal?: number;
+    /** The 50% line was reached at some point: leaving is a Concede for the rest of the match. */
+    exitUnlocked?: boolean;
+    /** A matchmade ranked game, where leaving can cost strikes, cooldowns and calibration results. */
+    exitRulesRanked?: boolean;
+    /** Whether exits are already scored by the rules, and from when (0 = announced, no date yet). */
+    exitRulesEnforced?: boolean;
+    exitRulesEnforceAtMs?: number;
+    absenceBudgetMs?: number;
+    afkMissedTurnsLimit?: number;
+    /** How the match ended early, once it has. */
+    exit?: PlayExitResolution;
 }
 
 export interface PlayAction {
@@ -943,6 +982,30 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
         } else if (field === 61) {
             // 1-based on the wire so an empty board (1) survives proto3's zero-default; absent = older server.
             snapshot.transientCellsCount = Math.max(0, reader.varintNumber() - 1);
+        } else if (field === 62) {
+            snapshot.casualtyBp = reader.varintNumber();
+        } else if (field === 63) {
+            snapshot.leftCasualtyBp = reader.varintNumber();
+        } else if (field === 64) {
+            snapshot.rightCasualtyBp = reader.varintNumber();
+        } else if (field === 65) {
+            snapshot.boardXpDestroyed = reader.varintNumber();
+        } else if (field === 66) {
+            snapshot.boardXpTotal = reader.varintNumber();
+        } else if (field === 67) {
+            snapshot.exitUnlocked = reader.bool();
+        } else if (field === 68) {
+            snapshot.exitRulesRanked = reader.bool();
+        } else if (field === 69) {
+            snapshot.exitRulesEnforced = reader.bool();
+        } else if (field === 70) {
+            snapshot.exitRulesEnforceAtMs = reader.varintNumber();
+        } else if (field === 71) {
+            snapshot.absenceBudgetMs = reader.varintNumber();
+        } else if (field === 72) {
+            snapshot.afkMissedTurnsLimit = reader.varintNumber();
+        } else if (field === 73) {
+            snapshot.exit = decodeExitResolution(reader.bytesValue());
         } else {
             reader.skip(wireType);
         }
@@ -1126,11 +1189,60 @@ const decodePlayerState = (bytes: Uint8Array): PlayPlayerState => {
             player.aiTakeoverAtMs = reader.varintNumber();
         } else if (field === 7) {
             player.forfeitAtMs = reader.varintNumber();
+        } else if (field === 8) {
+            player.absenceUsedMs = reader.varintNumber();
+        } else if (field === 9) {
+            player.consecutiveMissedTurns = reader.varintNumber();
+        } else if (field === 10) {
+            player.calibrating = reader.bool();
         } else {
             reader.skip(wireType);
         }
     }
     return player;
+};
+
+export const decodeExitResolution = (bytes: Uint8Array): PlayExitResolution => {
+    const reader = new ProtoReader(bytes);
+    const exit: PlayExitResolution = {
+        kind: "",
+        cause: "",
+        leaverPlayerId: "",
+        scored: false,
+        unscoredReason: "",
+        boardBp: 0,
+        phase: "",
+        lap: 0,
+        enforced: false,
+        ranked: false,
+    };
+    while (!reader.done()) {
+        const { field, wireType } = reader.tag();
+        if (field === 1) {
+            exit.kind = reader.string();
+        } else if (field === 2) {
+            exit.cause = reader.string();
+        } else if (field === 3) {
+            exit.leaverPlayerId = reader.string();
+        } else if (field === 4) {
+            exit.scored = reader.bool();
+        } else if (field === 5) {
+            exit.unscoredReason = reader.string();
+        } else if (field === 6) {
+            exit.boardBp = reader.varintNumber();
+        } else if (field === 7) {
+            exit.phase = reader.string();
+        } else if (field === 8) {
+            exit.lap = reader.varintNumber();
+        } else if (field === 9) {
+            exit.enforced = reader.bool();
+        } else if (field === 10) {
+            exit.ranked = reader.bool();
+        } else {
+            reader.skip(wireType);
+        }
+    }
+    return exit;
 };
 
 const decodeTransientCell = (bytes: Uint8Array): PlayTransientCell => {

@@ -71,7 +71,7 @@ import { syncPlacementSynergyUnitCounts } from "../ui/rankedSynergySync";
 import { BARREL_SHADOW_EDITOR_LAYOUT, isBarrelShadowEditorActive } from "../ui/barrelShadowTuning";
 import { projectBattlefieldPoint } from "./sandbox/BattlefieldVisualGrid";
 import { clearPersonalArmyTint, setPersonalArmyTint } from "./personalArmyTint";
-import { isGreenTeam } from "./teamColors";
+import { isGreenTeam, teamColor } from "./teamColors";
 
 export const isRankedAuthoritativeRecordAlreadyApplied = (
     lastAppliedSequence: number,
@@ -2599,7 +2599,9 @@ export class RankedPlayScene extends Sandbox {
      */
     protected override canControlCurrentActiveUnit(): boolean {
         const currentActiveUnit = this.getCurrentActiveUnit();
-        if (!currentActiveUnit || this.viewerTeam === undefined) return true;
+        if (!currentActiveUnit) return true;
+        // A spectator controls nothing. The read-only toolbar already hides it; this keeps the scene honest.
+        if (this.viewerTeam === undefined) return false;
         return currentActiveUnit.getTeam() === this.viewerTeam;
     }
     /** Only the viewer's own turn may extend the clock — never the opponent's. */
@@ -2775,8 +2777,9 @@ export class RankedPlayScene extends Sandbox {
      * the target cell even when no live move-aim was relayed (e.g. the opponent clicked quickly).
      */
     protected override shouldShowMoveDestinationSilhouette(unit: RenderableUnit): boolean {
+        // A spectator chooses no destinations, so every move gets its preview.
         if (this.viewerTeam === undefined) {
-            return false;
+            return true;
         }
         // Opponent moves always get a destination preview (no live aim is relayed for them).
         if (unit.getTeam() !== this.viewerTeam) {
@@ -2799,6 +2802,22 @@ export class RankedPlayScene extends Sandbox {
         const currentActiveUnit = this.getCurrentActiveUnit();
         if (!currentActiveUnit || this.viewerTeam === undefined) return false;
         return currentActiveUnit.getTeam() !== this.viewerTeam;
+    }
+    /**
+     * A spectator has no side, so "your turn" and "enemy turn" mean nothing to them: the active unit's ring
+     * takes its team's colour instead (LOWER green, UPPER red), which says whose turn it is. The pulse itself
+     * is the same for every unit, as the owner asked.
+     */
+    protected override activeTurnAuraColor(): number {
+        const currentActiveUnit = this.getCurrentActiveUnit();
+        if (this.viewerTeam === undefined && currentActiveUnit) {
+            return teamColor(currentActiveUnit.getTeam());
+        }
+        return super.activeTurnAuraColor();
+    }
+    /** Ranked and co-op boards are server-authoritative and replay from the server: never fill local storage. */
+    protected override shouldRecordSandboxReplay(): boolean {
+        return false;
     }
     /**
      * The AI toggle (autobattle) may only auto-play the local player's own units in ranked — never

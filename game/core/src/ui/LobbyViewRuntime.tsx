@@ -132,6 +132,8 @@ export const LobbyView: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuthContext();
     const myUsername = user?.username ?? "";
+    // The same rule the friends list follows: never offer to spectate while you are in a match yourself.
+    const viewerInLiveMatch = !!user?.in_game_id;
 
     const [lobby, setLobby] = useState<LobbyObject | null>(null);
     const [error, setError] = useState("");
@@ -550,12 +552,20 @@ export const LobbyView: React.FC = () => {
                         <Typography sx={{ color: hocColors.parchment, mb: 1 }}>
                             This game is already in progress — the lobby is full.
                         </Typography>
-                        <Typography level="body-sm" sx={{ color: hocColors.muted, mb: 1.5 }}>
-                            Every game is public, so you can watch it live.
-                        </Typography>
-                        <Button sx={hocPrimaryButtonSx} onClick={spectate}>
-                            Spectate live
-                        </Button>
+                        {viewerInLiveMatch ? (
+                            <Typography level="body-sm" sx={{ color: hocColors.muted }}>
+                                You can watch it once your own match is over.
+                            </Typography>
+                        ) : (
+                            <>
+                                <Typography level="body-sm" sx={{ color: hocColors.muted, mb: 1.5 }}>
+                                    Every game is public, so you can watch it live.
+                                </Typography>
+                                <Button sx={hocPrimaryButtonSx} onClick={spectate}>
+                                    Spectate live
+                                </Button>
+                            </>
+                        )}
                     </Sheet>
                 ) : null}
 

@@ -15,6 +15,8 @@ import { getTeamFlagBackground, TeamAmountFlag } from "../TeamAmountFlag";
 import { ACTIVE_TURN_QUEUE_PULSE_MAX_SCALE, useSynchronizedActiveTurnQueuePulse } from "../activeTurnQueuePulse";
 import { upNextWideSmokyChainsBackgroundSurface } from "../upNextBackground";
 import { hocColors, hocDisplayFontFamily } from "../hocTheme";
+import { AltExitStrip } from "../exitRules/AltExitStrip";
+import type { IExitStanding } from "../exitRules/exitRulesModel";
 const stopImg = new URL("../../../images/stop.webp", import.meta.url).toString();
 const hourglassImg = new URL("../../../images/hourglass.webp", import.meta.url).toString();
 
@@ -67,7 +69,8 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAu
     );
 };
 
-export const UpNextOverlay: React.FC = () => {
+/** `exitStanding`: a seated player's exit rules reading, shown under the queue (board casualties, leave outcome). */
+export const UpNextOverlay: React.FC<{ exitStanding?: IExitStanding }> = ({ exitStanding }) => {
     const [visibleState, setVisibleState] = useState<IVisibleState>({} as IVisibleState);
     const [altPressed, setAltPressed] = useState<boolean>(false);
 
@@ -338,6 +341,7 @@ export const UpNextOverlay: React.FC = () => {
                     );
                 })}
             </Stack>
+            {exitStanding && <AltExitStrip standing={exitStanding} />}
         </Box>
     );
 };

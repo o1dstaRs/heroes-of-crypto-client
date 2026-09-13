@@ -1,4 +1,12 @@
-import { isPublicRankedPlayerId, type RankedMatchReason, type RankedMatchResult } from "./ranked-profile-client";
+import {
+    normalizeRankedMatchExit,
+    normalizeRankedMatchReason,
+    normalizeRankedMatchResult,
+    type RankedMatchExit,
+    type RankedMatchReason,
+    type RankedMatchResult,
+} from "./ranked-exit";
+import { isPublicRankedPlayerId } from "./ranked-profile-client";
 import { normalizeSeasonCurrency, type SeasonCurrency } from "./season-currency";
 
 export type RankedMatchSide = "lower" | "upper";
@@ -65,8 +73,11 @@ export interface PublicRankedMatch {
     durationMs: number;
     lowerCreatureIds: number[];
     upperCreatureIds: number[];
-    outcome: "win" | "draw";
+    // "none": unscored or voided (exit rules), with no winner and no rating change.
+    outcome: "win" | "draw" | "none";
     reason: RankedMatchReason;
+    // How an early ending was resolved; null for a played-out game or an older record.
+    exit: RankedMatchExit | null;
     winnerPlayerId: string;
     seasonSequence: number;
     season: PublicRankedMatchSeason | null;
@@ -87,19 +98,9 @@ const asInteger = (value: unknown): number => Math.trunc(asNumber(value));
 
 const nonNegativeInteger = (value: unknown): number => Math.max(0, asInteger(value));
 
-const normalizeReason = (value: unknown): RankedMatchReason => {
-    if (value === "concede" || value === "disconnect" || value === "double_disconnect" || value === "cancel") {
-        return value;
-    }
-    return "normal";
-};
+const normalizeReason = normalizeRankedMatchReason;
 
-const normalizeResult = (value: unknown): RankedMatchResult => {
-    if (value === "win" || value === "loss") {
-        return value;
-    }
-    return "draw";
-};
+const normalizeResult: (value: unknown) => RankedMatchResult = normalizeRankedMatchResult;
 
 const normalizeSide = (value: unknown): RankedMatchSide | null =>
     value === "lower" || value === "upper" ? value : null;
@@ -215,8 +216,9 @@ export function normalizePublicRankedMatch(value: unknown): PublicRankedMatch | 
         durationMs: nonNegativeInteger(row.durationMs),
         lowerCreatureIds: normalizeCreatureIds(row.lowerCreatureIds),
         upperCreatureIds: normalizeCreatureIds(row.upperCreatureIds),
-        outcome: row.outcome === "win" ? "win" : "draw",
+        outcome: row.outcome === "win" ? "win" : row.outcome === "none" ? "none" : "draw",
         reason: normalizeReason(row.reason),
+        exit: normalizeRankedMatchExit(row.exit),
         winnerPlayerId: isPublicRankedPlayerId(winnerPlayerId) ? winnerPlayerId : "",
         seasonSequence: nonNegativeInteger(row.seasonSequence) || season?.sequence || 0,
         season,

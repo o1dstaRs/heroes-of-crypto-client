@@ -1,0 +1,147 @@
+---
+import { knowledgePath } from "../lib/knowledge-base";
+import { DEFAULT_RANKED_EXIT_RULES, ruleTokenValue, splitRuleTokens } from "../lib/ranked-exit";
+import { content, localPath, type Language } from "../lib/site-data";
+
+interface Props {
+    lang: Language;
+}
+
+const { lang } = Astro.props;
+const rules = content[lang].leavingRules;
+// The static page prints the published phase-2 numbers; the script below swaps in the live ones.
+const segments = (text: string) =>
+    splitRuleTokens(text).map((segment) =>
+        "token" in segment
+            ? { token: segment.token, value: ruleTokenValue(segment.token, DEFAULT_RANKED_EXIT_RULES, lang) }
+            : { text: segment.text },
+    );
+const statusCopy = {
+    statusPending: rules.statusPending,
+    statusScheduled: rules.statusScheduled,
+    statusEnforced: rules.statusEnforced,
+    statusEnforcedUndated: rules.statusEnforcedUndated,
+};
+---
+
+<section class="subhero">
+    <div class="page-shell">
+        <p class="eyebrow">{rules.eyebrow}</p>
+        <h1>{rules.title}</h1>
+        <p>{rules.description}</p>
+    </div>
+</section>
+
+<section class="section legal-section leaving-rules" data-leaving-rules data-lang={lang}>
+    <article class="page-shell legal-doc">
+        <p class="updated leaving-rules-status" data-leaving-rules-status hidden></p>
+        <p class="lead">{rules.intro}</p>
+        {
+            rules.sections.map((section) => (
+                <section>
+                    <h2>{section.title}</h2>
+                    {section.body.map((paragraph) => (
+                        <p>
+                            {segments(paragraph).map((segment) =>
+                                "token" in segment ? <span data-rule-token={segment.token}>{segment.value}</span> : segment.text,
+                            )}
+                        </p>
+                    ))}
+                    {section.items.length > 0 && (
+                        <ul>
+                            {section.items.map((item) => (
+                                <li>
+                                    {segments(item).map((segment) =>
+                                        "token" in segment ? (
+                                            <span data-rule-token={segment.token}>{segment.value}</span>
+                                        ) : (
+                                            segment.text
+                                        ),
+                                    )}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </section>
+            ))
+        }
+        <footer class="leaving-rules-footer">
+            <p class="updated">
+                <strong>{rules.versionLabel}:</strong> <span data-leaving-rules-version>{DEFAULT_RANKED_EXIT_RULES.version}</span>
+            </p>
+            <p>
+                <strong>{rules.relatedTitle}:</strong>
+                <a href={knowledgePath(lang, { section: "rules" })}>{rules.relatedRules}</a> ·
+                <a href={localPath(lang, "terms-of-service")}>{rules.relatedTerms}</a>
+            </p>
+        </footer>
+    </article>
+    <script type="application/json" data-leaving-rules-copy set:html={JSON.stringify(statusCopy)}></script>
+</section>
+
+<script>
+    import { fetchRankedExitRules, isRankedRuleToken, rankedExitRulesState, ruleTokenValue } from "../lib/ranked-exit";
+
+    const root = document.querySelector<HTMLElement>("[data-leaving-rules]");
+    const copyElement = document.querySelector<HTMLElement>("[data-leaving-rules-copy]");
+
+    if (root && copyElement) {
+        const copy = JSON.parse(copyElement.textContent || "{}") as Record<string, string>;
+        const language = root.dataset.lang === "ru" ? "ru" : "en";
+        const status = root.querySelector<HTMLElement>("[data-leaving-rules-status]");
+        const version = root.querySelector<HTMLElement>("[data-leaving-rules-version]");
+        const dateFormatter = new Intl.DateTimeFormat(language === "ru" ? "ru-RU" : "en-GB", { dateStyle: "long" });
+
+        fetchRankedExitRules()
+            .then((rules) => {
+                for (const element of root.querySelectorAll<HTMLElement>("[data-rule-token]")) {
+                    const token = element.dataset.ruleToken ?? "";
+                    if (isRankedRuleToken(token)) {
+                        element.textContent = ruleTokenValue(token, rules, language);
+                    }
+                }
+                if (version) version.textContent = rules.version;
+                const state = rankedExitRulesState(rules, Date.now());
+                const template =
+                    state === "enforced"
+                        ? copy.statusEnforced
+                        : state === "enforced_undated"
+                          ? copy.statusEnforcedUndated
+                          : state === "scheduled"
+                            ? copy.statusScheduled
+                            : copy.statusPending;
+                const date = rules.enforceAtMs > 0 ? dateFormatter.format(new Date(rules.enforceAtMs)) : "";
+                if (status && template) {
+                    status.textContent = template.replace("{date}", date);
+                    status.hidden = false;
+                }
+            })
+            // Without the live response the page still reads correctly: the published numbers are already printed.
+            .catch(() => undefined);
+    }
+</script>
+
+<style>
+    .leaving-rules ul {
+        display: grid;
+        gap: 10px;
+        margin: 14px 0 0;
+        padding-left: 1.25em;
+        color: rgba(251, 244, 232, 0.86);
+    }
+
+    .leaving-rules-status {
+        font-weight: 600;
+    }
+
+    .leaving-rules-footer {
+        display: grid;
+        gap: 8px;
+        padding-top: 28px;
+        border-top: 1px solid var(--line);
+    }
+
+    .leaving-rules-footer p {
+        margin: 0;
+    }
+</style>

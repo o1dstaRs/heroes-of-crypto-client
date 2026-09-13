@@ -249,6 +249,10 @@ describe("ranked season client", () => {
         expect(isInsufficientSeasonCurrencyError(new Error("Request failed: Not enough gold for that stake"))).toBe(
             true,
         );
+        // Current server wording (glossary rename): still recognised by the "not enough gold" match.
+        expect(
+            isInsufficientSeasonCurrencyError(new Error("Request failed: Not enough gold for that wager amount")),
+        ).toBe(true);
         expect(isInsufficientSeasonCurrencyError({ response: { data: "Not enough gold to raise that high" } })).toBe(
             true,
         );

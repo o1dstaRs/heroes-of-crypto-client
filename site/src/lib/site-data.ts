@@ -94,6 +94,7 @@ export const content = {
             proposal: "Proposal",
             terms: "Terms",
             privacy: "Privacy",
+            leavingRules: "Leaving rules",
         },
         play: {
             startCta: "Play",
@@ -285,6 +286,20 @@ export const content = {
             publicReasonDisconnect: "Disconnect",
             publicReasonDoubleDisconnect: "Both disconnected",
             publicReasonCancel: "Cancelled",
+            publicReasonAbandon: "Abandoned",
+            publicReasonUnscored: "Unscored",
+            publicReasonVoid: "Voided",
+            exitConcededAt: "Conceded at {pct}% casualties",
+            exitAbandonedAt: "Abandoned at {pct}% casualties",
+            exitAbandonedBeforeFight: "Abandoned before the fight",
+            exitUnscoredCalibration: "Unscored: abandoned during calibration",
+            exitUnscoredDouble: "Unscored: both players left",
+            exitVoided: "Voided: server problem",
+            exitCauseAbsence: "away time ran out",
+            exitCauseAfk: "missed turns",
+            exitPreview: "Under the new leaving rules: {label}",
+            matchYouAbandoned: "You abandoned",
+            matchOpponentAbandoned: "Opponent abandoned",
             publicDivisionUpper: "Upper division",
             publicDivisionMiddle: "Middle division",
             publicDivisionLower: "Lower division",
@@ -632,6 +647,87 @@ export const content = {
             formMessage: "Message",
             formSubmit: "Open email draft",
         },
+        leavingRules: {
+            title: "Leaving a ranked match",
+            eyebrow: "Ranked rules",
+            description:
+                "How leaving, disconnecting and going idle count in ranked Heroes of Crypto matches: Concede or Abandon, calibration, away time, penalties, wagers and predictions.",
+            intro: "Ranked only works when both players see matches through. You can always leave, but when you leave decides how it counts. Everything that can cost you rating, gold or queue time is on this page.",
+            statusPending: "Starting soon: until then, leaving counts as it does today.",
+            statusScheduled: "These rules apply from {date}.",
+            statusEnforced: "In effect since {date}.",
+            statusEnforcedUndated: "In effect.",
+            versionLabel: "Rules version",
+            relatedTitle: "See also",
+            relatedRules: "Game rules",
+            relatedTerms: "Terms of Service",
+            sections: [
+                {
+                    title: "Concede or Abandon",
+                    body: [
+                        "Casualties show how much of the board has been destroyed, counted in XP across both armies. Every stack is worth its creature's XP × its size when the fight starts, and stack sizes are balanced so each picked stack is worth about the same: losing your Peasants counts as much as losing your Angels. A typical board starts with about 12,000 XP.",
+                        "Hold Alt during a fight to see casualties. The exit dialog always tells you how leaving would count before you confirm.",
+                    ],
+                    items: [
+                        "{threshold} of the board destroyed or more: leaving is a Concede, an ordinary loss with no penalty. On a typical board that is about 6,000 XP, destroyed on either side.",
+                        "Below {threshold}, or during the draft or placement: leaving is an Abandon. You take the loss, and it counts as an abandon on your record.",
+                        "Once {threshold} is reached, Concede stays available for the rest of the match, even if units are healed or brought back.",
+                        "Summoned creatures, like wolves and spiders, add no XP and don't count.",
+                        "The line is the same for every player.",
+                        "Rating is never reduced because of how a match ended: a Concede or an Abandon moves MMR exactly like a finished match.",
+                    ],
+                },
+                {
+                    title: "During your first 5 ranked matches",
+                    body: [
+                        "If you abandon while you're still calibrating, the match is unscored for both players: nobody wins, loses or gains rating, and no calibration match is used up. It still counts as an abandon for you.",
+                    ],
+                    items: [],
+                },
+                {
+                    title: "If you disconnect or step away",
+                    body: [
+                        "Each match gives you {absence} of away time, covering the draft, placement and fight together. It never resets during a match.",
+                    ],
+                    items: [
+                        "Time disconnected counts after the first {grace} of each drop, so a short Wi-Fi blip costs nothing.",
+                        "A turn that runs out while you're connected counts in full, and so does a draft pick the game makes for you.",
+                        "While you're away, your units only wait or defend. They never move, attack or cast for you.",
+                        "The match ends for you when your away time runs out, when you miss 4 turns in a row while connected, or when 3 of your draft picks are made for you. It counts as a Concede or an Abandon by the rule above.",
+                    ],
+                },
+                {
+                    title: "Penalties for abandoning",
+                    body: [],
+                    items: [
+                        "After any abandon, you wait {cooldown} before you can queue ranked again.",
+                        "3 abandons in a row suspend your ranked play until support reviews your account. A finished match or a Concede resets the count.",
+                        "vs AI, sandbox and casual lobbies stay open either way.",
+                    ],
+                },
+                {
+                    title: "Wagers and predictions",
+                    body: [],
+                    items: [
+                        "If you abandon, your wager goes to your opponent, and prediction bets on the match are refunded.",
+                        "A Concede past {threshold} settles wagers and predictions like any finished match.",
+                        "Unscored and voided matches return every stake and bet.",
+                    ],
+                },
+                {
+                    title: "When it's our fault",
+                    body: [
+                        "If our servers have a problem, such as a restart or a wide outage, the affected matches are voided: no result, no penalty, and stakes are returned. Away time lost to the outage isn't charged.",
+                    ],
+                    items: [],
+                },
+                {
+                    title: "Casual lobbies",
+                    body: ["Leaving a casual lobby match never costs rating, penalties or queue time."],
+                    items: [],
+                },
+            ],
+        },
         patches: patchNotes.en,
         legal: {
             terms: {
@@ -849,6 +945,7 @@ export const content = {
             proposal: "Документ",
             terms: "Условия",
             privacy: "Приватность",
+            leavingRules: "Правила выхода",
         },
         play: {
             startCta: "Играть",
@@ -1040,6 +1137,20 @@ export const content = {
             publicReasonDisconnect: "Отключение",
             publicReasonDoubleDisconnect: "Оба отключились",
             publicReasonCancel: "Отменён",
+            publicReasonAbandon: "Выход из матча",
+            publicReasonUnscored: "Без результата",
+            publicReasonVoid: "Аннулирован",
+            exitConcededAt: "Сдача при потерях {pct}%",
+            exitAbandonedAt: "Выход при потерях {pct}%",
+            exitAbandonedBeforeFight: "Выход до начала боя",
+            exitUnscoredCalibration: "Без результата: выход во время калибровки",
+            exitUnscoredDouble: "Без результата: оба игрока вышли",
+            exitVoided: "Аннулирован: проблема сервера",
+            exitCauseAbsence: "закончилось время отсутствия",
+            exitCauseAfk: "пропущенные ходы",
+            exitPreview: "По новым правилам выхода: {label}",
+            matchYouAbandoned: "Вы покинули матч",
+            matchOpponentAbandoned: "Соперник покинул матч",
             publicDivisionUpper: "Верхний дивизион",
             publicDivisionMiddle: "Средний дивизион",
             publicDivisionLower: "Нижний дивизион",
@@ -1384,6 +1495,87 @@ export const content = {
             formSubject: "Тема",
             formMessage: "Сообщение",
             formSubmit: "Открыть письмо",
+        },
+        leavingRules: {
+            title: "Выход из рейтингового матча",
+            eyebrow: "Правила рейтинга",
+            description:
+                "Как в рейтинговых матчах Heroes of Crypto учитываются выход, отключение и бездействие: сдача или выход из матча, калибровка, время отсутствия, наказания, ставки и прогнозы.",
+            intro: "Рейтинг работает, только когда оба игрока доигрывают матчи. Выйти можно всегда, но от момента выхода зависит, как он будет засчитан. Всё, что может стоить вам рейтинга, золота или времени в очереди, описано на этой странице.",
+            statusPending: "Скоро вступят в силу: до этого выход засчитывается так же, как сейчас.",
+            statusScheduled: "Правила действуют с {date}.",
+            statusEnforced: "Действуют с {date}.",
+            statusEnforcedUndated: "Действуют.",
+            versionLabel: "Версия правил",
+            relatedTitle: "См. также",
+            relatedRules: "Правила игры",
+            relatedTerms: "Условия использования",
+            sections: [
+                {
+                    title: "Сдача или выход из матча",
+                    body: [
+                        "Потери показывают, какая часть поля уничтожена. Они считаются в опыте (XP) по обеим армиям: каждый отряд стоит XP своего существа × размер отряда на начало боя. Размеры отрядов сбалансированы так, что каждый выбранный отряд стоит примерно одинаково: потеря крестьян весит столько же, сколько потеря ангелов. Обычно на поле около 12 000 XP.",
+                        "Удерживайте Alt во время боя, чтобы увидеть потери. Окно выхода всегда показывает, как будет засчитан выход, до подтверждения.",
+                    ],
+                    items: [
+                        "Уничтожено {threshold} поля или больше: выход считается сдачей, обычным поражением без наказания. На обычном поле это около 6 000 XP, уничтоженных у любой из сторон.",
+                        "Меньше {threshold}, а также во время драфта или расстановки: это выход из матча. Вам засчитывается поражение, и выход записывается в вашу историю.",
+                        "Когда {threshold} достигнуто, сдача остаётся доступной до конца матча, даже если юнитов вылечат или воскресят.",
+                        "Призванные существа, например волки и пауки, не добавляют XP и не учитываются.",
+                        "Порог одинаков для всех игроков.",
+                        "Рейтинг никогда не уменьшается из-за того, как закончился матч: сдача и выход меняют MMR так же, как доигранный матч.",
+                    ],
+                },
+                {
+                    title: "В первых 5 рейтинговых матчах",
+                    body: [
+                        "Если вы выходите из матча, пока ещё проходите калибровку, матч не засчитывается обоим игрокам: никто не побеждает, не проигрывает и не получает рейтинг, а калибровочный матч не расходуется. Для вас он всё равно считается выходом из матча.",
+                    ],
+                    items: [],
+                },
+                {
+                    title: "Если вы отключились или отошли",
+                    body: [
+                        "В каждом матче у вас есть {absence} времени отсутствия на драфт, расстановку и бой вместе. Внутри матча оно не восстанавливается.",
+                    ],
+                    items: [
+                        "Время отключения считается после первых {grace} каждого разрыва, поэтому короткий сбой Wi-Fi ничего не стоит.",
+                        "Ход, время которого истекло, пока вы были подключены, засчитывается полностью, как и выбор на драфте, сделанный игрой за вас.",
+                        "Пока вас нет, ваши юниты только ждут или защищаются. Они не ходят, не атакуют и не колдуют за вас.",
+                        "Матч для вас заканчивается, когда время отсутствия исчерпано, когда вы пропускаете 4 хода подряд, будучи подключённым, или когда игра делает за вас 3 выбора на драфте. Это засчитывается как сдача или выход из матча по правилу выше.",
+                    ],
+                },
+                {
+                    title: "Наказания за выход из матча",
+                    body: [],
+                    items: [
+                        "После любого выхода из матча нужно подождать {cooldown}, прежде чем снова искать рейтинговый матч.",
+                        "3 выхода из матча подряд приостанавливают вашу рейтинговую игру, пока поддержка не проверит аккаунт. Доигранный матч или сдача обнуляют счёт.",
+                        "Матчи против ИИ, песочница и обычные лобби остаются доступными в любом случае.",
+                    ],
+                },
+                {
+                    title: "Ставки и прогнозы",
+                    body: [],
+                    items: [
+                        "Если вы выходите из матча, ваша ставка достаётся сопернику, а прогнозы на этот матч возвращаются.",
+                        "Сдача после {threshold} рассчитывает ставки и прогнозы как любой доигранный матч.",
+                        "Матчи без результата и аннулированные матчи возвращают все ставки и прогнозы.",
+                    ],
+                },
+                {
+                    title: "Когда виноваты мы",
+                    body: [
+                        "Если у наших серверов проблема, например перезапуск или крупный сбой, затронутые матчи аннулируются: без результата, без наказаний, ставки возвращаются. Время отсутствия во время сбоя не списывается.",
+                    ],
+                    items: [],
+                },
+                {
+                    title: "Обычные лобби",
+                    body: ["Выход из матча в обычном лобби никогда не стоит рейтинга, наказаний или времени в очереди."],
+                    items: [],
+                },
+            ],
         },
         patches: patchNotes.ru,
         legal: {

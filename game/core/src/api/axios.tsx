@@ -240,6 +240,9 @@ export const endpoints = {
         rankedProfile: IS_PROD ? "/v1/ranked-profile" : "/v1/mm/ranked-profile",
         // Public settled result: both seats' names, visible MMR movement and gold earned.
         rankedMatch: IS_PROD ? "/v1/ranked-match" : "/v1/mm/ranked-match",
+        // Signed in: the player's own conduct record and the exit rules' numbers; and acknowledging the rules card.
+        rankedConduct: IS_PROD ? "/v1/ranked-conduct" : "/v1/mm/ranked-conduct",
+        rankedRulesAccept: IS_PROD ? "/v1/ranked-rules-accept" : "/v1/mm/ranked-rules-accept",
     },
     // Authenticated social layer: notifications tray, friends/blocks, presence heartbeat.
     social: {

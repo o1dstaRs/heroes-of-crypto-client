@@ -69,6 +69,10 @@ import { getLocalModelOpponentConfig, isLocalModelAction } from "../scenes/Local
 import { authoritativeSnapshotToSandboxSceneState, RankedPlayScene } from "../scenes/RankedPlayScene";
 import type { IWindowSize } from "../scenes/VisibleState";
 import { FightFinishedOverlay } from "./FightFinishedOverlay";
+import { AwayTimeToast } from "./exitRules/AwayTimeToast";
+import { ExitMatchDialog } from "./exitRules/ExitMatchDialog";
+import { exitStandingFromSnapshot, type IExitStanding } from "./exitRules/exitRulesModel";
+import { useLeaveGuard } from "./exitRules/useLeaveGuard";
 import { installInputTelemetry, takeInputTelemetry } from "./inputTelemetry";
 import LeftSideBar from "./LeftSideBar";
 import SynergiesRow from "./LeftSideBar/SynergiesRow";
@@ -108,10 +112,11 @@ import { ButtonProvider } from "./context/ButtonContext";
 import { exitFightButtonSx } from "./exitFightButtonSx";
 import { useFullscreenActive } from "./useFullscreenActive";
 import { startVisibleInterval } from "./visibleInterval";
+import { eventStreamRetryDelayMs } from "./eventStreamRetry";
 import { dragObserverPanelOffset, type PanelOffset } from "./observerPanelDrag";
 import { SpectatorContext, ViewerTeamContext } from "./context/ViewerTeamContext";
 import { SANDBOX_UNREADY_REASON, sandboxCoopSeatStatuses } from "./SandboxCoopControls";
-import { openFriendsPanel } from "./social/openFriendsEvent";
+import { useStopWatching } from "./useStopWatching";
 import { takeCoopCarryOver } from "./social/coopCarryOver";
 import { clearTurnAlert, isTabUnwatched, signalYourTurn, yourTurnActivationKey } from "./turnAlert";
 import { OpponentConnectionBadge } from "./OpponentConnectionBadge";
@@ -157,6 +162,7 @@ import {
     getAiSeatDifficulty,
     getMarkedVsAiDifficulty,
     hasAiSeatPlayer,
+    isAiSeatPlayerId,
     isMarkedVsAiGame,
     markVsAiGame,
     vsAiDifficultyLabel,
@@ -619,8 +625,11 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
         toSceneSnapshot,
     ]);
 
+    // Once the match is over the board no longer changes, so the fallback poll stops; a co-op sandbox keeps it
+    // for its rematch flow. A results screen left open used to request a snapshot every 4s indefinitely.
+    const matchFinished = !!snapshot && (snapshot.fightFinished || snapshot.phase === PlayPhase.FINISHED);
     useEffect(() => {
-        if (replayOnly) {
+        if (replayOnly || (matchFinished && !sandboxCoop)) {
             return undefined;
         }
         let cancelled = false;
@@ -655,7 +664,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             cancelled = true;
             stopPolling();
         };
-    }, [refreshSnapshot, replayOnly]);
+    }, [matchFinished, refreshSnapshot, replayOnly, sandboxCoop]);
 
     useEffect(() => {
         // The preview session (/preview/placement) has no event stream to connect to — its snapshot lives
@@ -671,6 +680,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             const controller = new AbortController();
             abortRef.current = controller;
 
+            let failedStatus = 0;
             try {
                 setStatus("Connecting");
                 const response = await fetch(playEventsUrl(gameId, latestSequenceRef.current), {
@@ -681,7 +691,14 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                 });
 
                 if (!response.ok || !response.body) {
-                    throw new Error(`Event stream failed: ${response.status}`);
+                    failedStatus = response.status;
+                    // 429: the game already has as many spectators as the server accepts. Say so and back off
+                    // instead of hammering it every second.
+                    throw new Error(
+                        response.status === 429
+                            ? t("Too many people are watching this match. Trying again shortly.")
+                            : `Event stream failed: ${response.status}`,
+                    );
                 }
 
                 setStatus("Connected");
@@ -737,7 +754,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                 if (!closed && (err as Error).name !== "AbortError") {
                     setStatus("Reconnecting");
                     setError((err as Error).message || "Event stream disconnected");
-                    retryTimer = window.setTimeout(connect, 1200);
+                    retryTimer = window.setTimeout(connect, eventStreamRetryDelayMs(failedStatus));
                 }
             }
         };
@@ -796,20 +813,16 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     const cameFromLobby = observerOrigin?.from === "lobby";
     // A spectator who followed a friend's "Spectate" goes back to the arena with the friends panel open.
     const cameFromFriends = observerOrigin?.from === "friends";
+    // Spectators leave the way they came in: their lobby, the friends panel, or THIS deployment's website
+    // (it used to be production's even on the test server) — see spectatorExitFor.
+    const stopWatching = useStopWatching();
     const handleBackToLobby = useCallback(() => {
         if (isObserver && !replayOnly) {
-            if (cameFromLobby) {
-                navigate(observerOrigin?.lobbyId ? `/lobby/${observerOrigin.lobbyId}` : "/lobbies");
-            } else if (cameFromFriends) {
-                navigate("/play");
-                openFriendsPanel();
-            } else {
-                window.location.assign("https://heroesofcrypto.io");
-            }
+            stopWatching();
             return;
         }
         navigate(replayOnly ? "/portal" : "/play");
-    }, [navigate, replayOnly, isObserver, cameFromLobby, cameFromFriends, observerOrigin]);
+    }, [navigate, replayOnly, isObserver, stopWatching]);
     const handlePlayAgainVsAi = useCallback(async () => {
         // Always rematch the default AI (no difficulty tiers) — matches the tier-less "Play vs AI" entry.
         // The just-finished match's result write (game doc -> finished, both players' inGameId released)
@@ -852,6 +865,19 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     const gameStarted =
         !!snapshot &&
         (snapshot.fightStarted || snapshot.phase === PlayPhase.PLAY || snapshot.phase === PlayPhase.FINISHED);
+    // Exit rules (plan §5): what leaving counts as for this seat right now, for the dialogs, the Alt strip and the toast.
+    const exitStanding = useMemo<IExitStanding | undefined>(
+        () => (snapshot && myPlayer && !isObserver ? exitStandingFromSnapshot(snapshot, myPlayer.playerId) : undefined),
+        [isObserver, myPlayer, snapshot],
+    );
+    // Closing the tab mid-match is leaving too: in ranked the browser asks first. Friend sandboxes leave freely.
+    useLeaveGuard(
+        !!exitStanding?.ranked &&
+            !sandboxCoop &&
+            !replayOnly &&
+            !snapshot?.fightFinished &&
+            (snapshot?.phase === PlayPhase.PLACEMENT || snapshot?.phase === PlayPhase.PLAY),
+    );
     const battleMatchupPlayers = useMemo<readonly MatchupPlayer[]>(
         () =>
             snapshot?.players.map((player) => ({
@@ -1907,7 +1933,12 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             submitProtocolAction={submitProtocolAction}
             userTeam={userTeam}
             isObserver={isObserver}
+            exitStanding={exitStanding}
+            vsAi={isVsAiMatch}
+            allowPlacementExit={!sandboxCoop}
             skipAugmentStep={!!sandboxCoop}
+            replayOnly={replayOnly}
+            onStopWatching={isObserver && !replayOnly ? handleBackToLobby : undefined}
         />
     );
     const rankedFooter =
@@ -1985,7 +2016,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                             </Stack>
                         </Box>
                     )}
-                    {pixiReady && gameStarted && <UpNextOverlay />}
+                    {pixiReady && gameStarted && <UpNextOverlay exitStanding={exitStanding} />}
                     {pixiReady &&
                         (snapshot.phase === PlayPhase.PLAY ||
                             (sandboxCoop && snapshot.phase === PlayPhase.PLACEMENT)) && (
@@ -2030,6 +2061,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                             left={aiBadgeLeft(windowSize)}
                         />
                     )}
+                    {!replayOnly && exitStanding && <AwayTimeToast standing={exitStanding} />}
                     {pixiReady && (replayOnly || replayPlaybackActive) && (
                         // Ranked: leaving the replay returns to the account / game-selection screen.
                         <ExitReplayBadge
@@ -2054,6 +2086,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                             }
                             canReplay={snapshot.phase === PlayPhase.FINISHED || snapshot.fightFinished}
                             gameId={gameId}
+                            exit={snapshot.exit}
                             mode="ranked"
                             players={snapshot.players.map((player) => ({
                                 playerId: player.playerId,
@@ -2077,6 +2110,11 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
 };
 
 interface RankedOverlayProps {
+    /** How leaving counts for this seat right now (exit rules); undefined for observers. */
+    exitStanding?: IExitStanding;
+    vsAi?: boolean;
+    /** Placement gets an exit control too (a friend sandbox has its own Leave button instead). */
+    allowPlacementExit?: boolean;
     busy: boolean;
     canSubmit: boolean;
     currentUnit?: PlayUnitState;
@@ -2094,6 +2132,10 @@ interface RankedOverlayProps {
     isObserver: boolean;
     /** Co-op sandbox: no draft, so the full-screen augment step never opens (the sidebar picker stays). */
     skipAugmentStep?: boolean;
+    /** A portal replay: the observer copy speaks of the replay, not of a live match. */
+    replayOnly?: boolean;
+    /** A live spectator's way out (see spectatorExitFor). Absent for players and replays. */
+    onStopWatching?: () => void;
 }
 
 interface RankedPlacementStackActionsProps {
@@ -2599,7 +2641,8 @@ const useObserverIdentities = (snapshot: PlaySnapshot): Record<string, IObserver
         .join(",");
     useEffect(() => {
         let cancelled = false;
-        for (const playerId of playerIds.split(",").filter(Boolean)) {
+        // AI seats have no ranked profile (the lookup only 404s); their panel line comes from the seat id.
+        for (const playerId of playerIds.split(",").filter((id) => id && !isAiSeatPlayerId(id))) {
             axiosMMInstance
                 .get(`${endpoints.mm.rankedProfile}/${encodeURIComponent(playerId)}`)
                 .then((response) => {
@@ -2642,26 +2685,32 @@ const observerIdentityLine = (identity: IObserverIdentity | undefined): string =
 
 const ObserverSetupPanel: React.FC<{ snapshot: PlaySnapshot }> = ({ snapshot }) => {
     const identities = useObserverIdentities(snapshot);
-    const identityFor = (team: number): IObserverIdentity | undefined => {
+    const identityLineFor = (team: number): string => {
         const player = snapshot.players.find((candidate) => candidate.team === team);
-        return player ? identities[player.playerId] : undefined;
+        if (!player) {
+            return "";
+        }
+        if (isAiSeatPlayerId(player.playerId)) {
+            return aiOpponentLabel(player.playerId) ?? t("AI");
+        }
+        return observerIdentityLine(identities[player.playerId]);
     };
     return (
         <Stack spacing={0.5}>
             <Typography level="body-sm" textColor={hocColors.parchment}>
-                Army setups
+                {t("Army setups")}
             </Typography>
             {/* useFlexGap: plain spacing is a left margin, so a wrapped second team kept it and sat indented. */}
             <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
                 <ObserverTeamSetup
                     label={teamLabel(TeamVals.LEFT)}
-                    identityLine={observerIdentityLine(identityFor(TeamVals.LEFT))}
+                    identityLine={identityLineFor(TeamVals.LEFT)}
                     snapshot={snapshot}
                     side="lower"
                 />
                 <ObserverTeamSetup
                     label={teamLabel(TeamVals.RIGHT)}
-                    identityLine={observerIdentityLine(identityFor(TeamVals.RIGHT))}
+                    identityLine={identityLineFor(TeamVals.RIGHT)}
                     snapshot={snapshot}
                     side="upper"
                 />
@@ -3141,6 +3190,11 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     userTeam,
     isObserver,
     skipAugmentStep = false,
+    replayOnly = false,
+    onStopWatching,
+    exitStanding,
+    vsAi = false,
+    allowPlacementExit = false,
 }) => {
     const isFullscreen = useFullscreenActive();
     const navigate = useNavigate();
@@ -3309,44 +3363,23 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     }, [augmentOverlayOpen, cancelAugmentInspectEnd]);
 
     const confirmExitModal = (
-        <Modal open={confirmExitOpen} onClose={() => !busy && setConfirmExitOpen(false)}>
-            <ModalDialog sx={hocPanelSx}>
-                <Typography level="h4" sx={{ color: hocColors.parchment }}>
-                    Exit the fight?
-                </Typography>
-                <Stack spacing={2} sx={{ mt: 1, minWidth: 300, maxWidth: 360 }}>
-                    <Typography level="body-sm" textColor={hocColors.mutedStrong}>
-                        This forfeits the fight — your opponent is declared the winner immediately and it counts as a
-                        loss for you. In ranked, leaving 3 matches in a row suspends your ranked play. This cannot be
-                        undone.
-                    </Typography>
-                    <Stack direction="row" spacing={1} justifyContent="flex-end">
-                        <Button
-                            variant="plain"
-                            disabled={busy}
-                            onClick={() => setConfirmExitOpen(false)}
-                            sx={hocSoftButtonSx}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            variant="solid"
-                            color="danger"
-                            loading={busy}
-                            onClick={async () => {
-                                // Record the forfeit (opponent wins), then drop the player back to
-                                // game-mode selection instead of leaving them on the finished board.
-                                await submitProtocolAction({ type: PlayActionType.ABANDON });
-                                setConfirmExitOpen(false);
-                                navigate("/play");
-                            }}
-                        >
-                            Forfeit
-                        </Button>
-                    </Stack>
-                </Stack>
-            </ModalDialog>
-        </Modal>
+        <ExitMatchDialog
+            open={confirmExitOpen}
+            phase={gameStarted ? "fight" : "placement"}
+            outcome={exitStanding?.leaveOutcome ?? "casual"}
+            standing={exitStanding}
+            rules={exitStanding ?? { ranked: false, enforced: false, enforceAtMs: 0 }}
+            vsAi={vsAi}
+            busy={busy}
+            onCancel={() => setConfirmExitOpen(false)}
+            onConfirm={async () => {
+                // The server resolves how it counts (Concede, Abandon, unscored), then the player goes back to
+                // game-mode selection instead of staying on the finished board.
+                await submitProtocolAction({ type: PlayActionType.ABANDON });
+                setConfirmExitOpen(false);
+                navigate("/play");
+            }}
+        />
     );
 
     // Fight phase: the sheet has nothing left to say, so it does not render one. Returning the button bare
@@ -3740,10 +3773,37 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
 
                 {isObserver && (
                     <Typography level="body-xs" textColor={hocColors.muted}>
-                        Live observer mode. Controls are disabled; replay is available after the fight ends.
+                        {replayOnly
+                            ? t("Watching a replay. Controls are disabled.")
+                            : snapshot.fightFinished || snapshot.phase === PlayPhase.FINISHED
+                              ? t("This match has ended. Controls are disabled.")
+                              : t(
+                                    "Live observer mode. Controls are disabled; replay is available after the fight ends.",
+                                )}
                     </Typography>
                 )}
                 {isObserver && <ObserverSetupPanel snapshot={snapshot} />}
+                {allowPlacementExit && !isObserver && !replayOnly && snapshot.phase === PlayPhase.PLACEMENT && (
+                    <Button
+                        variant="plain"
+                        size="sm"
+                        color="danger"
+                        onClick={() => setConfirmExitOpen(true)}
+                        sx={{ alignSelf: "flex-start" }}
+                    >
+                        {t("Leave match")}
+                    </Button>
+                )}
+                {onStopWatching && (
+                    <Button
+                        variant="soft"
+                        size="sm"
+                        onClick={onStopWatching}
+                        sx={{ ...hocSoftButtonSx, alignSelf: "flex-start" }}
+                    >
+                        {t("Stop watching")}
+                    </Button>
+                )}
 
                 {busy && (
                     <Stack direction="row" spacing={1} alignItems="center">

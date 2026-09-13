@@ -4,7 +4,8 @@ export interface PublicRankedMatchPlayer {
     playerId: string;
     username: string;
     side: "lower" | "upper";
-    result: "win" | "loss" | "draw";
+    /** "none": an unscored or voided match, where neither player won or lost. */
+    result: "win" | "loss" | "draw" | "none";
     calibration: boolean;
     mmrBefore: number;
     mmrAfter: number;
@@ -12,10 +13,26 @@ export interface PublicRankedMatchPlayer {
     goldEarned: number;
 }
 
+/** How an early ending was resolved (the server's exit resolver), as the public match record shows it. */
+export interface PublicRankedExit {
+    kind: "concede" | "abandon" | "void" | string;
+    cause: string;
+    leaverPlayerId: string;
+    scored: boolean;
+    unscoredReason: string;
+    boardBp: number;
+    phase: string;
+    lap: number;
+    enforced: boolean;
+}
+
 export interface PublicRankedMatch {
     gameId: string;
     winnerPlayerId: string;
     players: PublicRankedMatchPlayer[];
+    outcome?: "win" | "draw" | "none";
+    reason?: string;
+    exit?: PublicRankedExit | null;
 }
 
 /** Load the authoritative public settlement written when a ranked fight finishes. */

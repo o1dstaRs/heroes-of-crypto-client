@@ -179,7 +179,7 @@ const rankedApp = links.rankedApp;
     } from "@heroesofcrypto/common/src/artifacts/artifact_properties";
     import { getDoctrineProperties, type Doctrine } from "@heroesofcrypto/common/src/doctrines/doctrine_properties";
 
-    import { getAuthUser, isLoggedIn, onAuthStateChange } from "../lib/auth-state";
+    import { getAuthToken, isLoggedIn, onAuthStateChange } from "../lib/auth-state";
     import { artifacts } from "../lib/artifacts-data";
     import { fetchPlayerPortal, PortalAuthError } from "../lib/portal-client";
     import { gameClientRoot } from "../lib/ranked-arena-client";
@@ -196,8 +196,8 @@ const rankedApp = links.rankedApp;
         type RankedMatchUnitPerformance,
     } from "../lib/ranked-match-client";
     import {
+        fetchOwnRankedPlayerId,
         fetchPublicRankedProfile,
-        isPublicRankedPlayerId,
         publicRankedProfileFallbackFromSearchParams,
         rankedExitRatePct,
         type PlaystyleArtifact,
@@ -207,6 +207,7 @@ const rankedApp = links.rankedApp;
         type RankedMatchResult,
         type RankedProfileMatch,
     } from "../lib/ranked-profile-client";
+    import { rankedExitLabel } from "../lib/ranked-exit";
     import { creatureById, timeAgo, winRateColor, winRatePct } from "../lib/portal-data";
     import {
         fetchSeasonCurrencyCatalog,
@@ -742,16 +743,35 @@ const rankedApp = links.rankedApp;
         const won = match.won === true;
         const draw = match.draw === true;
         const abandoned = match.abandoned === true;
-        const resultLabel = draw ? copy.resultDraw : won ? copy.resultWin : copy.resultLoss;
-        const resultClass = draw ? "draw" : won ? "win" : "loss";
+        // Exit rules: the portal's outcome_reason tells an unscored or voided game (stored as a draw) from a real one.
+        const outcomeReason = typeof match.outcome_reason === "string" ? match.outcome_reason : "";
+        const noResult = outcomeReason === "unscored" || outcomeReason === "void";
+        const resultLabel = noResult
+            ? outcomeReason === "void"
+                ? copy.publicReasonVoid
+                : copy.publicReasonUnscored
+            : draw
+              ? copy.resultDraw
+              : won
+                ? copy.resultWin
+                : copy.resultLoss;
+        const resultClass = draw || noResult ? "draw" : won ? "win" : "loss";
         const opponentName = typeof match.opponent_username === "string" ? match.opponent_username : "—";
         const opponent = escapeHtml(opponentName);
         const matchContext = `${resultLabel} ${copy.versus} ${opponentName}`;
-        const abandonmentDetail = abandoned
-            ? match.player_abandoned === true
-                ? copy.matchYouLeft
-                : copy.matchOpponentLeft
-            : "";
+        // An in-fight abandon isn't stored as a pre-fight "left", so the leaver is read from the result: they lost.
+        const abandonmentDetail =
+            outcomeReason === "void"
+                ? copy.exitVoided
+                : outcomeReason === "abandon"
+                  ? won
+                      ? copy.matchOpponentAbandoned
+                      : copy.matchYouAbandoned
+                  : abandoned
+                    ? match.player_abandoned === true
+                        ? copy.matchYouLeft
+                        : copy.matchOpponentLeft
+                    : "";
         const when = timeAgo(num(match.finished_time), agoLabels);
         const currency = portalMatchCurrency(match);
         const gameId = typeof match.game_id === "string" ? match.game_id : "";
@@ -842,13 +862,22 @@ const rankedApp = links.rankedApp;
         if (reason === "disconnect") return copy.publicReasonDisconnect;
         if (reason === "double_disconnect") return copy.publicReasonDoubleDisconnect;
         if (reason === "cancel") return copy.publicReasonCancel;
+        if (reason === "abandon") return copy.publicReasonAbandon;
+        if (reason === "unscored") return copy.publicReasonUnscored;
+        if (reason === "void") return copy.publicReasonVoid;
         return copy.publicReasonNormal;
+    }
+
+    /** "Abandoned at 31% casualties" for an exit scored by the leaving rules; the plain reason otherwise. */
+    function publicFinishText(match: RankedProfileMatch): string {
+        return rankedExitLabel(match.exit, (key) => copy[key] ?? "") || publicReasonLabel(match.reason);
     }
 
     function recentForm(outcomes: RankedMatchResult[]): string {
         // Both profile APIs are newest-first. Show the form chronologically, with the latest result on
         // the right, and keep the strip at exactly ten positions even for a new commander.
-        const results = outcomes.slice(0, 10).reverse();
+        // Unscored and voided games have no result, so they take no place in the form strip.
+        const results = outcomes.filter((result) => result !== "none").slice(0, 10).reverse();
         const padded: Array<RankedMatchResult | "empty"> = [
             ...Array<"empty">(Math.max(0, 10 - results.length)).fill("empty"),
             ...results,
@@ -862,6 +891,7 @@ const rankedApp = links.rankedApp;
             win: copy.resultWin,
             draw: copy.resultDraw,
             loss: copy.resultLoss,
+            none: copy.publicReasonUnscored,
             empty: copy.publicNoResult,
         };
         return `<span class="result-form" role="img" aria-label="${escapeHtml(ariaLabel)}">${padded
@@ -925,7 +955,16 @@ const rankedApp = links.rankedApp;
     function publicMatchRow(match: RankedProfileMatch): string {
         const currency = match.season?.currency ?? LEGACY_SEASON_CURRENCY;
         const resultLabel =
-            match.result === "win" ? copy.resultWin : match.result === "loss" ? copy.resultLoss : copy.resultDraw;
+            match.result === "win"
+                ? copy.resultWin
+                : match.result === "loss"
+                  ? copy.resultLoss
+                  : match.result === "none"
+                    ? match.reason === "void"
+                        ? copy.publicReasonVoid
+                        : copy.publicReasonUnscored
+                    : copy.resultDraw;
+        const resultClass = match.result === "none" ? "draw" : match.result;
         const opponentName = match.opponent?.username ?? "—";
         const matchContext = `${resultLabel} ${copy.versus} ${opponentName}`;
         const opponent = match.opponent
@@ -936,21 +975,21 @@ const rankedApp = links.rankedApp;
         const deltaClass = match.mmrDelta > 0 ? "positive" : match.mmrDelta < 0 ? "negative" : "";
         const mode: MatchMode = match.calibration ? "calibration" : "ranked";
         return `
-            <article class="match-row match-row--ranked match-card--expandable ${match.result}" aria-label="${escapeHtml(matchContext)}">
+            <article class="match-row match-row--ranked match-card--expandable ${resultClass}" aria-label="${escapeHtml(matchContext)}">
                 <div class="match-card-overview">
                     <div class="match-card-toggle-surface">
                         ${matchToggle(match.gameId, "public", matchContext)}
                         <div class="match-card-summary">
                             <div class="match-main">
                                 <div class="match-title">
-                                    <strong class="match-result ${match.result}">${escapeHtml(resultLabel)}</strong>
+                                    <strong class="match-result ${resultClass}">${escapeHtml(resultLabel)}</strong>
                                     <span>${escapeHtml(copy.versus)}</span>
                                     ${opponent}
                                 </div>
                                 <div class="match-meta">
                                     ${modeBadge(mode)}
                                     <span class="match-when">${escapeHtml(when)}</span>
-                                    <span class="match-reason">${escapeHtml(publicReasonLabel(match.reason))}</span>
+                                    <span class="match-reason">${escapeHtml(publicFinishText(match))}</span>
                                 </div>
                             </div>
                             <div class="match-rewards">
@@ -1786,9 +1825,11 @@ const rankedApp = links.rankedApp;
      * view — a missing id or a failed lookup simply leaves the fallback in place.
      */
     async function paintOwnStanding(): Promise<void> {
-        const ownId = (getAuthUser()?.in_game_id ?? "").trim();
-        if (!isPublicRankedPlayerId(ownId)) return;
         try {
+            // The stored auth user has no player id (its in_game_id is the match being played), so the
+            // signed-in standing says whose profile this is.
+            const ownId = await fetchOwnRankedPlayerId(getAuthToken());
+            if (!ownId) return;
             applyStandingToHeader(await fetchPublicRankedProfile(ownId));
         } catch {
             /* no standing on show is strictly better than a wrong one */

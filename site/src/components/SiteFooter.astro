@@ -9,6 +9,7 @@ const { lang } = Astro.props;
 const copy = content[lang];
 const socialLinksLabel = lang === "ru" ? "Социальные ссылки" : "Social links";
 const playHref = lang === "ru" ? "/ru/play/" : links.play;
+const leavingRulesHref = lang === "ru" ? "/ru/rules/leaving/" : "/rules/leaving/";
 ---
 
 <footer class="site-footer">
@@ -28,6 +29,7 @@ const playHref = lang === "ru" ? "/ru/play/" : links.play;
             <a href={localPath(lang, "contact-us")}>{copy.nav.contact}</a>
             <a href={localPath(lang, "terms-of-service")}>{copy.nav.terms}</a>
             <a href={localPath(lang, "privacy-policy")}>{copy.nav.privacy}</a>
+            <a href={leavingRulesHref}>{copy.nav.leavingRules}</a>
         </div>
 
         <a class="footer-play" href={playHref}>

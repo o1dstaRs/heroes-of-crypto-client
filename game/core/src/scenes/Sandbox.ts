@@ -96,6 +96,7 @@ import {
     applyThroughShotDamageTail,
     doubleShotAbility,
     type IAttackDamageProjection,
+    type IAttackDamageProjectionInput,
 } from "@heroesofcrypto/common";
 import { clearPersonalArmyTint } from "./personalArmyTint";
 import { UnitsOverlay } from "./UnitsOverlay";
@@ -628,6 +629,30 @@ type ObstacleAttackedEvent = Extract<GameEvent, { type: "obstacle_attacked" }>;
 const multiTombstoneCaption = (count: number): string => `Hit ${count} tombstones`;
 const isMultiTombstoneCaption = (caption: string | undefined): boolean =>
     !!caption && /^Hit \d+ tombstones$/.test(caption);
+
+/** A melee rider that lands a hit of its own on a unit beyond the swing — priced by projectMeleeRiderDamage. */
+type MeleeRiderSource = "Fire Breath" | "Skewer Strike" | "Lightning Spin";
+
+/** Heavy Armor's coefficient on the magic damage a unit takes (Fire Breath, Chain Lightning). */
+const heavyArmorDamageMultiplier = (unit: Unit): number => {
+    const heavyArmorAbility = unit.getAbility("Heavy Armor");
+    if (!heavyArmorAbility) {
+        return 1;
+    }
+    return Number(
+        (
+            ((heavyArmorAbility.getPower() + unit.getLuck()) / 100 / HoCConstants.MAX_UNIT_STACK_POWER) *
+                unit.getStackPower() +
+            1
+        ).toFixed(2),
+    );
+};
+
+/** ARTIFACT Broken Aegis: the victim takes reduced damage from area attacks. */
+const withBrokenAegisCut = (unit: Unit, damage: number): number => {
+    const aegisShieldBuff = unit.getBuff("Broken Aegis");
+    return aegisShieldBuff ? Math.floor(damage * (1 - aegisShieldBuff.getPower() / 100)) : damage;
+};
 
 /**
  * An obstacle strike's `obstacle_attacked` events grouped by the impact that lands them, in landing order.
@@ -1856,6 +1881,14 @@ export class Sandbox extends PixiScene {
      */
     protected isEnemyActiveTurn(): boolean {
         return false;
+    }
+    /** The active unit's turn-ring colour: red on the viewer's enemy's turn, white otherwise. */
+    protected activeTurnAuraColor(): number {
+        return this.isEnemyActiveTurn() ? ENEMY_TURN_HIGHLIGHT_COLOR : 0xffffff;
+    }
+    /** Whether applied actions are recorded into the browser's local sandbox replays. */
+    protected shouldRecordSandboxReplay(): boolean {
+        return true;
     }
     /**
      * The team the generic "AI toggle" (autobattle) may auto-play, or undefined for no restriction.
@@ -9717,6 +9750,174 @@ export class Sandbox extends PixiScene {
         );
     }
     /**
+     * The attack rate a strike from `attackFromCell` lands at. War Anger reads the auras on the cells the body will
+     * stand on (attackFromCell is the landing ANCHOR, so the body hangs down-left of it) — the ONLY reason a preview
+     * overrides the engine's own getAttack().
+     */
+    private hoverAttackRateAt(attacker: Unit, attackFromCell?: HoCMath.XY): number {
+        const attackRate = attacker.getAttack();
+        if (!attacker.getAuraEffect("War Anger")) {
+            return attackRate;
+        }
+        const cells = attackFromCell ? attacker.getFootprintCellsForAnchor(attackFromCell) : attacker.getCells();
+        return Math.max(
+            1,
+            attackRate -
+                attacker.getCurrentAttackModIncrease() +
+                this.unitsHolder.getUnitAuraAttackMod(attacker, cells),
+        );
+    }
+    /**
+     * The damage band one melee rider lands on one unit. Each rider is projected with the shared band and then given
+     * ITS OWN tail, because that is what the engine runs: the breath is magical (magic resistance, Heavy Armor,
+     * Broken Aegis — no Giant's Maul), the skewer and the spin are physical AOE (Giant's Maul, then physical-AOE
+     * status resistance). None carries the primary's multiplier chain, and none cares whether the blow that set it
+     * off was aimed at a unit or at a cemetery barrel — the unit-target hover and the barrel hover share this.
+     * Penetrating Bite is an on-TARGET additive in the engine, so only the spin (which adds it per victim) has it.
+     */
+    private projectMeleeRiderDamage(
+        source: MeleeRiderSource,
+        projectionBase: Omit<IAttackDamageProjectionInput, "target">,
+        victim: Unit,
+        attackFromCell: HoCMath.XY | undefined,
+        withLuckyStrike: (damage: number) => number,
+    ): { min: number; max: number } {
+        const attacker = projectionBase.attacker;
+        const abilityPower = projectionBase.synergyAbilityPowerIncrease;
+        if (source === "Fire Breath") {
+            // fire_breath_ability: the breath's own multiplier, then the victim's MAGIC resistance and Heavy Armor
+            // coefficient inside one floor, then its Broken Aegis. Magic resistance is the whole point of this branch
+            // — Wardguard, Magic Shield, Warding Mane Blessing and Arcane Ward Blessing all compose into it.
+            const fireBreathAbility = attacker.getAbility("Fire Breath");
+            const band = projectAttackDamageBand({
+                ...projectionBase,
+                target: victim,
+                abilityMultiplier: fireBreathAbility
+                    ? attacker.calculateAbilityMultiplier(fireBreathAbility, abilityPower)
+                    : 1,
+            });
+            const magicCut = (1 - victim.getMagicResist() / 100) * heavyArmorDamageMultiplier(victim);
+            return {
+                min: withBrokenAegisCut(victim, Math.floor(band.min * magicCut)),
+                max: withBrokenAegisCut(victim, Math.floor(band.max * magicCut)),
+            };
+        }
+        if (source === "Skewer Strike") {
+            // skewer_strike_ability: the skewer's own multiplier, then Giant's Maul and the victim's physical-AOE
+            // status resistance — the Through Shot tail.
+            const skewerStrikeAbility = attacker.getAbility("Skewer Strike");
+            const band = projectAttackDamageBand({
+                ...projectionBase,
+                target: victim,
+                abilityMultiplier: skewerStrikeAbility
+                    ? attacker.calculateAbilityMultiplier(skewerStrikeAbility, abilityPower)
+                    : 1,
+            });
+            return {
+                min: applyThroughShotDamageTail({ attacker, victim, damage: band.min }),
+                max: applyThroughShotDamageTail({ attacker, victim, damage: band.max }),
+            };
+        }
+        // lightning_spin_ability builds spin x Rapid Charge x Paralysis x the victim's Deep Wounds, and then hands that
+        // product to calculateAttackDamage's `divisor` PARAMETER with a synergy of 1 — the multiplier and the synergy
+        // are both in the wrong slot at that call site. This mirrors it argument for argument so the hover shows what
+        // the spin really deals; if that call is ever corrected, move the product back to `abilityMultiplier` here
+        // (and restore the synergy) in the same change.
+        const lightningSpinAbility = attacker.getAbility("Lightning Spin");
+        let spinMultiplier = lightningSpinAbility
+            ? attacker.calculateAbilityMultiplier(lightningSpinAbility, abilityPower)
+            : 1;
+        if (attackFromCell && this.currentActiveKnownPaths) {
+            const spinPaths = this.currentActiveKnownPaths.get((attackFromCell.x << 4) | attackFromCell.y);
+            spinMultiplier *= AllAbilities.processRapidChargeAbility(
+                attacker,
+                spinPaths?.length ? spinPaths[0].route.length : 1,
+            );
+        }
+        spinMultiplier *= attackerParalysisMultiplier(attacker);
+        const spinDeepWounds = victim.getEffect("Deep Wounds");
+        if (spinDeepWounds && AllAbilities.hasAnyDeepWoundsAbility(attacker)) {
+            spinMultiplier *= 1 + spinDeepWounds.getPower() / 100;
+        }
+        if (spinMultiplier <= 0) {
+            // A fully paralysed spin: the engine would divide by zero here. Show the nothing it is worth.
+            return { min: 0, max: 0 };
+        }
+        const band = projectAttackDamageBand({
+            ...projectionBase,
+            target: victim,
+            synergyAbilityPowerIncrease: 1,
+            divisor: spinMultiplier,
+        });
+        // The spin adds Penetrating Bite per victim and then runs the full AOE tail (Maul, the victim's Broken Aegis,
+        // its physical-AOE resistance) in that order.
+        const spinBite = AllAbilities.processPenetratingBiteAbility(attacker, victim);
+        return {
+            min: applyAoeDamageTail({ attacker, victim, damage: band.min + spinBite }),
+            max: applyAoeDamageTail({ attacker, victim, damage: withLuckyStrike(band.max) + spinBite }),
+        };
+    }
+    /**
+     * Float a damage/loss forecast over every unit a barrel-aimed melee strike's riders will hit — the numbers a
+     * unit-target hover already shows for the same riders. Hits on one unit add up before its kill spread is taken.
+     */
+    private drawObstacleStrikeRiderPredictions(
+        attacker: Unit,
+        attackFromCell: HoCMath.XY,
+        hits: readonly { unit: Unit; source: MeleeRiderSource }[],
+    ): void {
+        if (!hits.length) {
+            return;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const abilityPower = FightStateManager.getInstance()
+            .getFightProperties()
+            .getAdditionalAbilityPowerPerTeam(attacker.getTeam());
+        const projectionBase: Omit<IAttackDamageProjectionInput, "target"> = {
+            attacker,
+            attackType: AttackVals.MELEE,
+            synergyAbilityPowerIncrease: abilityPower,
+            attackRate: this.hoverAttackRateAt(attacker, attackFromCell),
+        };
+        // Lucky Strike is a proc: it tops the band only, at the point the engine applies it.
+        const luckyStrikeAbility = attacker.getAbility("Lucky Strike");
+        const withLuckyStrike = (damage: number): number =>
+            luckyStrikeAbility
+                ? Math.floor(damage * attacker.calculateAbilityMultiplier(luckyStrikeAbility, abilityPower))
+                : damage;
+        const projectedByUnit = new Map<string, { unit: Unit; min: number; max: number }>();
+        for (const hit of hits) {
+            const band = this.projectMeleeRiderDamage(
+                hit.source,
+                projectionBase,
+                hit.unit,
+                attackFromCell,
+                withLuckyStrike,
+            );
+            const alreadyStruck = projectedByUnit.get(hit.unit.getId());
+            if (alreadyStruck) {
+                alreadyStruck.min += band.min;
+                alreadyStruck.max += band.max;
+            } else {
+                projectedByUnit.set(hit.unit.getId(), { unit: hit.unit, min: band.min, max: band.max });
+            }
+        }
+        for (const struck of projectedByUnit.values()) {
+            const projection = projectKillBand(struck.unit, struck.min, struck.max);
+            const killStr =
+                projection.killsMax > 0 ? formatCombatRange(projection.killsMin, projection.killsMax) : undefined;
+            this.hoverManager.addAOEDamagePrediction(
+                formatCombatRange(projection.min, projection.max),
+                killStr,
+                struck.unit instanceof RenderableUnit
+                    ? struck.unit.getDamagePredictionAnchor(gs)
+                    : struck.unit.getPosition(),
+                !struck.unit.isSmallSize(),
+                killStr ? images.combat_kills_skull_icon_v1 : undefined,
+            );
+        }
+    }
+    /**
      * Mountain hover: mirrors hovering a 2x2 ENEMY. Ranged units preview a shot in place; melee
      * units get the same cursor-tracked attack-from selection as unit targets (the landing follows
      * the cursor around the rock — edges, corners, both flanks), plus the move silhouette and arrow.
@@ -9870,16 +10071,18 @@ export class Sandbox extends PixiScene {
                 meleeSwordFacingAngle(attackFromPos, cellCenter),
             );
         }
+        // Every unit the blow's riders will hit, outlined and priced exactly as a unit-target hover prices them.
         // Lightning Spin goes off whatever the blow is aimed at, so every enemy around the attacker's body takes a
-        // hit (attack_handler.spinAroundObstacleStrike) — outline them the way a unit-target hover does.
+        // hit (attack_handler.spinAroundObstacleStrike).
+        const riderHits: { unit: Unit; source: MeleeRiderSource }[] = [];
         if (unit.hasAbilityActive("Lightning Spin")) {
             for (const enemy of this.unitsHolder.allEnemiesAroundUnit(unit, true, attackFromCell)) {
                 if (!enemy.isDead()) {
-                    this.hoverManager.addTargetHighlight(enemy);
+                    riderHits.push({ unit: enemy, source: "Lightning Spin" });
                 }
             }
         }
-        // A Skewer Strike runs on through the barrel into the enemy standing right behind it.
+        // A Skewer Strike runs on through the barrel into the enemy standing right behind it...
         const skeweredBehind = AllAbilities.skewerStrikeUnitBehindObstacle(
             unit,
             this.grid,
@@ -9888,7 +10091,7 @@ export class Sandbox extends PixiScene {
             hoveredCell,
         );
         if (skeweredBehind) {
-            this.hoverManager.addTargetHighlight(skeweredBehind);
+            riderHits.push({ unit: skeweredBehind, source: "Skewer Strike" });
         }
         // ...and a Fire Breath burns whoever stands there, ally or enemy, unless it is fire-immune.
         const burnedBehind = AllAbilities.fireBreathUnitBehindObstacle(
@@ -9899,7 +10102,14 @@ export class Sandbox extends PixiScene {
             hoveredCell,
         );
         if (burnedBehind) {
-            this.hoverManager.addTargetHighlight(burnedBehind);
+            riderHits.push({ unit: burnedBehind, source: "Fire Breath" });
+        }
+        for (const struckUnit of new Set(riderHits.map((hit) => hit.unit))) {
+            this.hoverManager.addTargetHighlight(struckUnit);
+        }
+        // Like the sword marker, the forecast is withheld once the swing is committed.
+        if (!this.isStrikeInFlight()) {
+            this.drawObstacleStrikeRiderPredictions(unit, attackFromCell, riderHits);
         }
         if (this.grid.hasScatteredMountains()) {
             // Skewer Strike / Fire Breath run on through the barrel: the one standing directly behind it on
@@ -13303,7 +13513,6 @@ export class Sandbox extends PixiScene {
                         // engine can never roll, dropped the elemental / Giant's Maul / Broken Aegis /
                         // status-resistance tails, and priced Double Shot as a flat x2. Add nothing
                         // arithmetic here: extend the shared projection instead, so both sides move together.
-                        const attackRate = this.currentActiveUnit.getAttack();
                         const abilityPower = FightStateManager.getInstance()
                             .getFightProperties()
                             .getAdditionalAbilityPowerPerTeam(this.currentActiveUnit.getTeam());
@@ -13452,23 +13661,7 @@ export class Sandbox extends PixiScene {
                         // would square it — which is exactly the bug the engine's own duplicate had.
 
                         // 4. War Anger (Attack Rate Modification based on Position)
-                        const warAngerAuraEffect = this.currentActiveUnit.getAuraEffect("War Anger");
-                        let effectiveAttackRate = attackRate;
-
-                        if (warAngerAuraEffect) {
-                            // Sample the auras on the cells the attacker will really stand on. attackFromCell
-                            // is the landing ANCHOR, so the body hangs down-left of it; the three cells this
-                            // used to push grew UP-RIGHT instead, which sampled cells no shape ever occupies.
-                            const cells: HoCMath.XY[] = attackFromCell
-                                ? this.currentActiveUnit.getFootprintCellsForAnchor(attackFromCell)
-                                : this.currentActiveUnit.getCells();
-
-                            const newAttackRate =
-                                attackRate -
-                                this.currentActiveUnit.getCurrentAttackModIncrease() +
-                                this.unitsHolder.getUnitAuraAttackMod(this.currentActiveUnit, cells);
-                            effectiveAttackRate = Math.max(1, newAttackRate);
-                        }
+                        const effectiveAttackRate = this.hoverAttackRateAt(this.currentActiveUnit, attackFromCell);
 
                         // Shared by every branch below: the attacker, its team's synergy power, and the attack
                         // rate the strike will actually happen at (War Anger can change it at the destination
@@ -13535,7 +13728,7 @@ export class Sandbox extends PixiScene {
                         // Each secondary carries the ability that produced it: they do NOT share the primary's
                         // damage shape (its multiplier chain, its tail, its resistance), and pricing them all
                         // like the primary — as this used to — was wrong by the whole difference.
-                        const secondaryHits: Array<{ unit: Unit; source: string }> = [];
+                        const secondaryHits: Array<{ unit: Unit; source: MeleeRiderSource | "Chain Lightning" }> = [];
                         // Units the RANGE branches priced themselves but that nothing else outlines (Chakram
                         // bounces leave the ray, so highlightRangeAttackUnits never sees them).
                         const rangeHighlightExtras: Unit[] = [];
@@ -13878,150 +14071,20 @@ export class Sandbox extends PixiScene {
                             }
                         }
 
-                        // Calculate stats for secondary targets. Each one is projected with the SHARED band and
-                        // then given ITS OWN ability's tail, because that is what the engine runs: the breath
-                        // is magical (magic resistance, Heavy Armor, Broken Aegis — no Giant's Maul), the
-                        // skewer and the spin are physical AOE (Giant's Maul, then physical-AOE status
-                        // resistance). None of them carries the primary's multiplier chain.
-                        const heavyArmorMultiplier = (unit: Unit): number => {
-                            const heavyArmorAbility = unit.getAbility("Heavy Armor");
-                            if (!heavyArmorAbility) {
-                                return 1;
-                            }
-                            return Number(
-                                (
-                                    ((heavyArmorAbility.getPower() + unit.getLuck()) /
-                                        100 /
-                                        HoCConstants.MAX_UNIT_STACK_POWER) *
-                                        unit.getStackPower() +
-                                    1
-                                ).toFixed(2),
-                            );
-                        };
-                        const withBrokenAegis = (unit: Unit, damage: number): number => {
-                            const aegisShieldBuff = unit.getBuff("Broken Aegis");
-                            return aegisShieldBuff
-                                ? Math.floor(damage * (1 - aegisShieldBuff.getPower() / 100))
-                                : damage;
-                        };
+                        // Calculate stats for secondary targets. Every melee rider (Fire Breath, Skewer Strike,
+                        // Lightning Spin) is priced by its own ability's projection — the same one the barrel
+                        // hover uses — and Chain Lightning as a share of the swing that set it off.
                         for (const secondaryHit of secondaryHits) {
                             const enemy = secondaryHit.unit;
-                            // Penetrating Bite is an on-TARGET additive in the engine (the melee swing and the
-                            // second punch add it); no AOE rider does, so it stays off every secondary.
-                            if (secondaryHit.source === "Fire Breath") {
-                                // fire_breath_ability ~86: the breath's own multiplier, then the victim's MAGIC
-                                // resistance and Heavy Armor coefficient inside one floor, then its Broken
-                                // Aegis. Magic resistance is the whole point of this branch — Wardguard, Magic
-                                // Shield, Warding Mane Blessing and Arcane Ward Blessing all compose into it, and the
-                                // hover applied none of them (it showed 400 against a hit that landed for 200).
-                                const fireBreathAbility = this.currentActiveUnit.getAbility("Fire Breath");
-                                const band = projectAttackDamageBand({
-                                    ...projectionBase,
-                                    target: enemy,
-                                    abilityMultiplier: fireBreathAbility
-                                        ? this.currentActiveUnit.calculateAbilityMultiplier(
-                                              fireBreathAbility,
-                                              abilityPower,
-                                          )
-                                        : 1,
-                                });
-                                const magicCut = (1 - enemy.getMagicResist() / 100) * heavyArmorMultiplier(enemy);
-                                addProjectedDamage(
+                            if (secondaryHit.source !== "Chain Lightning") {
+                                const band = this.projectMeleeRiderDamage(
+                                    secondaryHit.source,
+                                    projectionBase,
                                     enemy,
-                                    withBrokenAegis(enemy, Math.floor(band.min * magicCut)),
-                                    withBrokenAegis(enemy, Math.floor(band.max * magicCut)),
+                                    attackFromCell,
+                                    withLuckyStrike,
                                 );
-                                continue;
-                            }
-                            if (secondaryHit.source === "Skewer Strike") {
-                                // skewer_strike_ability ~109: the skewer's own multiplier, then Giant's Maul
-                                // and the victim's physical-AOE status resistance — the Through Shot tail.
-                                const skewerStrikeAbility = this.currentActiveUnit.getAbility("Skewer Strike");
-                                const band = projectAttackDamageBand({
-                                    ...projectionBase,
-                                    target: enemy,
-                                    abilityMultiplier: skewerStrikeAbility
-                                        ? this.currentActiveUnit.calculateAbilityMultiplier(
-                                              skewerStrikeAbility,
-                                              abilityPower,
-                                          )
-                                        : 1,
-                                });
-                                addProjectedDamage(
-                                    enemy,
-                                    applyThroughShotDamageTail({
-                                        attacker: this.currentActiveUnit,
-                                        victim: enemy,
-                                        damage: band.min,
-                                    }),
-                                    applyThroughShotDamageTail({
-                                        attacker: this.currentActiveUnit,
-                                        victim: enemy,
-                                        damage: band.max,
-                                    }),
-                                );
-                                continue;
-                            }
-                            if (secondaryHit.source === "Lightning Spin") {
-                                // lightning_spin_ability ~116-136 builds spin x Rapid Charge x Paralysis x the
-                                // victim's Deep Wounds, and then hands that product to calculateAttackDamage's
-                                // `divisor` PARAMETER with a synergy of 1 — the multiplier and the synergy are
-                                // both in the wrong slot at that call site. This mirrors it argument for
-                                // argument so the hover shows what the spin really deals; if that call is ever
-                                // corrected, move the product back to `abilityMultiplier` here (and restore
-                                // `abilityPower`) in the same change.
-                                const lightningSpinAbility = this.currentActiveUnit.getAbility("Lightning Spin");
-                                let spinMultiplier = lightningSpinAbility
-                                    ? this.currentActiveUnit.calculateAbilityMultiplier(
-                                          lightningSpinAbility,
-                                          abilityPower,
-                                      )
-                                    : 1;
-                                if (attackFromCell && this.currentActiveKnownPaths) {
-                                    const spinPaths = this.currentActiveKnownPaths.get(
-                                        (attackFromCell.x << 4) | attackFromCell.y,
-                                    );
-                                    spinMultiplier *= AllAbilities.processRapidChargeAbility(
-                                        this.currentActiveUnit,
-                                        spinPaths?.length ? spinPaths[0].route.length : 1,
-                                    );
-                                }
-                                spinMultiplier *= attackerParalysisMultiplier(this.currentActiveUnit);
-                                const spinDeepWounds = enemy.getEffect("Deep Wounds");
-                                if (spinDeepWounds && AllAbilities.hasAnyDeepWoundsAbility(this.currentActiveUnit)) {
-                                    spinMultiplier *= 1 + spinDeepWounds.getPower() / 100;
-                                }
-                                if (spinMultiplier <= 0) {
-                                    // A fully paralysed spin: the engine would divide by zero here. Show the
-                                    // nothing it is worth rather than an infinity.
-                                    addProjectedDamage(enemy, 0, 0);
-                                    continue;
-                                }
-                                const band = projectAttackDamageBand({
-                                    ...projectionBase,
-                                    target: enemy,
-                                    synergyAbilityPowerIncrease: 1,
-                                    divisor: spinMultiplier,
-                                });
-                                // The spin adds Penetrating Bite per victim and then runs the full AOE tail
-                                // (Maul, the victim's Broken Aegis, its physical-AOE resistance) in that order.
-                                const spinBite = AllAbilities.processPenetratingBiteAbility(
-                                    this.currentActiveUnit,
-                                    enemy,
-                                );
-                                addProjectedDamage(
-                                    enemy,
-                                    applyAoeDamageTail({
-                                        attacker: this.currentActiveUnit,
-                                        victim: enemy,
-                                        damage: band.min + spinBite,
-                                    }),
-                                    applyAoeDamageTail({
-                                        attacker: this.currentActiveUnit,
-                                        victim: enemy,
-                                        damage: withLuckyStrike(band.max) + spinBite,
-                                    }),
-                                );
+                                addProjectedDamage(enemy, band.min, band.max);
                                 continue;
                             }
                             // Chain Lightning: the arc is a SHARE of the swing that triggered it, decaying by
@@ -14049,7 +14112,7 @@ export class Sandbox extends PixiScene {
                                 targetIsEarthElement: enemy.hasAbilityActive("Earth Element"),
                             });
                             const chainCut =
-                                chainElement * (1 - enemy.getMagicResist() / 100) * heavyArmorMultiplier(enemy);
+                                chainElement * (1 - enemy.getMagicResist() / 100) * heavyArmorDamageMultiplier(enemy);
                             addProjectedDamage(
                                 enemy,
                                 Math.floor(chainMultiplier * primaryHitMin * chainCut),
@@ -16129,7 +16192,7 @@ export class Sandbox extends PixiScene {
     private createReplayRecordingActionEngine(engine: SceneActionEngine): SceneActionEngine {
         return {
             apply: (action: GameAction) => {
-                const shouldRecord = !this.replayRecordingSuspended;
+                const shouldRecord = !this.replayRecordingSuspended && this.shouldRecordSandboxReplay();
                 if (shouldRecord) {
                     this.replayRecorder.beginAction();
                 }
@@ -16149,7 +16212,7 @@ export class Sandbox extends PixiScene {
         };
     }
     private flushPendingReplayRecords(): void {
-        if (this.replayRecordingSuspended) {
+        if (this.replayRecordingSuspended || !this.shouldRecordSandboxReplay()) {
             this.pendingReplayRecords = [];
             return;
         }
@@ -16920,7 +16983,7 @@ export class Sandbox extends PixiScene {
         // setActiveTurn is idempotent and preserves the current animation phase when it is already true.
         nextUnit.setActiveTurn(true);
         // Red aura on the enemy's turn, white on yours, so the pulsing ring telegraphs whose turn it is.
-        nextUnit.setActiveAuraColor(this.isEnemyActiveTurn() ? ENEMY_TURN_HIGHLIGHT_COLOR : 0xffffff);
+        nextUnit.setActiveAuraColor(this.activeTurnAuraColor());
         nextUnit.syncVisual(worldRoot, gs);
 
         const unitsNext: IVisibleUnit[] = [];

@@ -24,6 +24,7 @@ import {
 } from "./PixiTextureLoader";
 import { isUnitAnimationAtlasKey } from "./unitAtlasKeys";
 import { shouldPreloadUnitAnimationAtlas } from "./creatureAnimationSettings";
+import { isNamedUnitStateSheetKey } from "./unitStateSheetKeys";
 
 // The board renders every creature's PERMANENT art from its idle/default atlas. If those keys ride
 // in the big Tier-2b animation bundle, a fresh-cache load shows the old static tokens until hundreds
@@ -98,10 +99,11 @@ describe("pixi texture bundle split", () => {
             expect(`${key}: ${isUnitAnimationAtlasKey(key) && !isIdleAtlasKey(key)}`).toBe(`${key}: true`);
         }
         for (const key of Object.keys(core)) {
-            expect(`${key}: ${isUnitAnimationAtlasKey(key)}`).toBe(`${key}: false`);
+            expect(`${key}: ${isUnitAnimationAtlasKey(key) || isNamedUnitStateSheetKey(key)}`).toBe(`${key}: false`);
         }
+        // A creature sheet the atlas index does not list yet is recognised by its name and deferred too.
         for (const key of Object.keys(deferredUnitAtlases)) {
-            expect(`${key}: ${isUnitAnimationAtlasKey(key)}`).toBe(`${key}: true`);
+            expect(`${key}: ${isUnitAnimationAtlasKey(key) || isNamedUnitStateSheetKey(key)}`).toBe(`${key}: true`);
         }
         for (const key of Object.keys(deferredReactUiAssets)) {
             expect(`${key}: ${isDeferredReactUiAssetKey(key)}`).toBe(`${key}: true`);

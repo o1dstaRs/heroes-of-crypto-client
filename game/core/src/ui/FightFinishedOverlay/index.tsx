@@ -9,6 +9,8 @@ import { motion } from "framer-motion";
 import React, { useEffect, useRef, useState } from "react";
 
 import { fetchPublicRankedMatch, type PublicRankedMatch } from "../../api/ranked_match_client";
+import type { PlayExitResolution } from "../../api/play_protocol";
+import { ExitResultBanner } from "../exitRules/ExitResultBanner";
 import { fetchPublicPlayerStats, type PublicPlayerStats } from "../../api/social_client";
 import { HOC_GAME_FONT_FAMILY } from "../../fontFamilies";
 import { images } from "../../generated/image_imports";
@@ -665,7 +667,8 @@ type ResultParticipant = Readonly<{
     goldEarned?: number;
     showRewards: boolean;
     settled: boolean;
-    result: "win" | "loss" | "draw";
+    // "none": an unscored or voided match (exit rules), where neither player won or lost.
+    result: "win" | "loss" | "draw" | "none";
     profile?: PublicPlayerStats;
 }>;
 
@@ -690,7 +693,14 @@ const ResultParticipantCard: React.FC<{
 }> = ({ participant, reversed = false, showRankedDetails = false, viewerPlayerId }) => {
     const color = teamColor(participant.team);
     const won = participant.result === "win";
-    const resultLabel = participant.result === "draw" ? "DRAW" : won ? "WINNER" : "DEFEATED";
+    const resultLabel =
+        participant.result === "none"
+            ? "NO RESULT"
+            : participant.result === "draw"
+              ? "DRAW"
+              : won
+                ? "WINNER"
+                : "DEFEATED";
     const visibleMmr = participant.calibration
         ? undefined
         : Number.isFinite(participant.mmrAfter)
@@ -1025,6 +1035,8 @@ interface FightFinishedOverlayProps {
     onBackToLobby?: () => void;
     /** Friendly games: open a fresh room with the same seats (the co-op sandbox re-invites the friend). */
     onRematch?: () => void | Promise<void>;
+    /** How the match ended early, from the live snapshot (exit rules); the settled record's exit wins once loaded. */
+    exit?: PlayExitResolution;
 }
 
 // =============================================================================
@@ -1041,6 +1053,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
     onPlayAgainVsAi,
     onBackToLobby,
     onRematch,
+    exit,
 }) => {
     const manager = usePixiManager();
     const previewParams = new URLSearchParams(window.location.search);
@@ -1174,6 +1187,14 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
     }
 
     const isDraw = stats.winner === TeamVals.NO_TEAM;
+    // Exit rules: the settled record's exit is authoritative (the ladder confirms calibration); the snapshot's is instant.
+    const matchExit = activeMatch?.exit ?? exit;
+    const noResultLabel =
+        matchExit?.kind === "void"
+            ? "VOIDED"
+            : matchExit && matchExit.enforced && !matchExit.scored
+              ? "UNSCORED"
+              : undefined;
     const winnerColor = isDraw ? GOLD : teamColor(stats.winner);
     const canSandboxReplay = manager.CanPlayCurrentSandboxReplay();
     const canReplay = previewMode || (canReplayOverride ?? canSandboxReplay);
@@ -1458,7 +1479,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                                 textShadow: `0 0 9px ${winnerColor}45, 0 2px 2px #000`,
                             }}
                         >
-                            {isDraw ? "DRAW" : "VICTORY"}
+                            {noResultLabel ?? (isDraw ? "DRAW" : "VICTORY")}
                         </Typography>
                         <Typography
                             sx={{
@@ -1482,6 +1503,11 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     />
                 </Stack>
 
+                {mode === "ranked" && matchExit && (
+                    <Box sx={{ flexShrink: 0, mb: 1, px: 0.25 }}>
+                        <ExitResultBanner exit={matchExit} ranked={exit?.ranked} viewerPlayerId={viewerPlayerId} />
+                    </Box>
+                )}
                 <Stack direction="row" spacing={0.75} sx={{ flexShrink: 0, mb: 1.25, px: 0.25 }}>
                     <CompactBattleStat label="LENGTH" value={`${Math.max(0, stats.totalLaps)} LAPS`} />
                     <CompactBattleStat

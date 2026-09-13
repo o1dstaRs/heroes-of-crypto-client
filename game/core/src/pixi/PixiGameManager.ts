@@ -369,6 +369,7 @@ export class PixiGameManager {
 
         const { preloadCoreAssets, preloadIdleAtlasAssets, preloadAnimationAssets } =
             await import("./PixiTextureLoader");
+        const { boardFirstTextureLoads } = await import("./boardFirstTextureLoads");
         if (!isCurrentLifecycle()) {
             cleanupLoadingScreen();
             pixiApp.destroy();
@@ -429,13 +430,23 @@ export class PixiGameManager {
             Object.assign(this.textures as Record<string, unknown>, newTextures);
             this.m_scene?.onSupplementaryTexturesLoaded?.();
         };
-        preloadIdleAtlasAssets((p) => {
-            if (!isCurrentLifecycle()) return;
-            // The idle bundle is ~5% of the payload; report it as the first slice of the bar.
-            this.m_scene?.onBackgroundAssetLoad?.(p * 0.1);
-        })
+        // The bundles are extras: the creatures' board images go first (boardFirstTextureLoads). Two frames let the
+        // scene's first sync pass request those images; the bundles start once they have settled.
+        const nextFrame = (): Promise<void> => new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
+        nextFrame()
+            .then(nextFrame)
+            .then(() => boardFirstTextureLoads.afterBoardImages())
+            .then(() =>
+                isCurrentLifecycle()
+                    ? preloadIdleAtlasAssets((p) => {
+                          if (!isCurrentLifecycle()) return;
+                          // The idle bundle is ~5% of the payload; report it as the first slice of the bar.
+                          this.m_scene?.onBackgroundAssetLoad?.(p * 0.1);
+                      })
+                    : undefined,
+            )
             .then((idleTextures) => {
-                if (!isCurrentLifecycle()) return undefined;
+                if (!isCurrentLifecycle() || !idleTextures) return undefined;
                 applyLoadedTextures(idleTextures);
                 return preloadAnimationAssets((p) => {
                     if (!isCurrentLifecycle()) return;

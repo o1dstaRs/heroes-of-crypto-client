@@ -93,48 +93,30 @@ export const listSandboxReplays = (storage = getBrowserStorage()): SandboxReplay
 export const loadSandboxReplay = (id: string, storage = getBrowserStorage()): SandboxReplay | undefined =>
     listSandboxReplays(storage).find((replay) => replay.id === id);
 
-const persistReplays = (replays: SandboxReplay[], storage: ReplayStorage): boolean => {
-    let candidate = [...replays].sort((a, b) => b.updatedAtMs - a.updatedAtMs).slice(0, MAX_SAVED_SANDBOX_REPLAYS);
-    for (;;) {
-        let serialized: string;
-        try {
-            serialized = JSON.stringify(candidate);
-        } catch {
-            return false;
-        }
-        try {
-            storage.setItem(SANDBOX_REPLAY_STORAGE_KEY, serialized);
-            return true;
-        } catch {
-            // Quota exceeded (or storage disabled): drop the OLDEST replays and retry. A throw here
-            // used to escape into callers — the debounced persist spammed uncaught
-            // QuotaExceededError, and a synchronous flush() during a sandbox reload aborted the
-            // scene rebuild halfway, leaving destroyed textures bound on the next render.
-            if (candidate.length <= 1) {
-                // Not even the newest replay alone fits. Clear the key so future saves start from
-                // an empty slate instead of failing forever against a stale oversized blob.
-                try {
-                    storage.removeItem(SANDBOX_REPLAY_STORAGE_KEY);
-                } catch {
-                    // nothing further to do; storage is unwritable
-                }
-                return false;
-            }
-            candidate = candidate.slice(0, Math.ceil(candidate.length / 2));
-        }
-    }
-};
-
-export const saveSandboxReplay = (replay: SandboxReplay, storage = getBrowserStorage()): boolean => {
+/**
+ * Store the newest replays that fit. A long fight snapshots the whole board per action and can outgrow the
+ * browser's storage quota; a throwing save used to surface as an uncaught error on every action (37 error
+ * reports from one spectator tab). Older replays are dropped until the write fits, and if even the newest
+ * alone does not, the save is skipped: a local replay is a convenience, never worth an error.
+ */
+export const saveSandboxReplay = (replay: SandboxReplay, storage = getBrowserStorage()): void => {
     if (!storage) {
-        return false;
+        return;
     }
 
     // No defensive clone: the replay is JSON.stringify'd synchronously below, so the stored snapshot
     // is detached regardless. Cloning the whole (growing) replay here was pure per-save overhead.
     const replays = listSandboxReplays(storage).filter((existing) => existing.id !== replay.id);
     replays.unshift(replay);
-    return persistReplays(replays, storage);
+    let kept = replays.sort((a, b) => b.updatedAtMs - a.updatedAtMs).slice(0, MAX_SAVED_SANDBOX_REPLAYS);
+    while (kept.length > 0) {
+        try {
+            storage.setItem(SANDBOX_REPLAY_STORAGE_KEY, JSON.stringify(kept));
+            return;
+        } catch {
+            kept = kept.slice(0, -1);
+        }
+    }
 };
 
 export const deleteSandboxReplay = (id: string, storage = getBrowserStorage()): void => {
@@ -143,7 +125,11 @@ export const deleteSandboxReplay = (id: string, storage = getBrowserStorage()): 
     }
 
     const replays = listSandboxReplays(storage).filter((replay) => replay.id !== id);
-    persistReplays(replays, storage);
+    try {
+        storage.setItem(SANDBOX_REPLAY_STORAGE_KEY, JSON.stringify(replays));
+    } catch {
+        // A smaller list than the one already stored cannot exceed the quota; nothing useful to do if it did.
+    }
 };
 
 export const clearSandboxReplays = (storage = getBrowserStorage()): void => {
