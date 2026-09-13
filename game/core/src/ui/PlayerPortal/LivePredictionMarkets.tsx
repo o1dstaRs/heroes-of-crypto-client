@@ -19,6 +19,7 @@ import { isMockPortalEnabled } from "./mockPortal";
 
 export interface LivePredictionMarketsProps {
     viewerUsername: string;
+    /** The viewer's own live game, if any: it is never offered, and no card offers Spectate while it runs. */
     viewerGameId?: string;
     gold: number;
     onBetPlaced?: () => void | Promise<void>;
@@ -270,7 +271,7 @@ export const LivePredictionMarkets: React.FC<LivePredictionMarketsProps> = ({
                                     >
                                         {draftClock(market.pickEndTime, now)}
                                     </Typography>
-                                    {!gameId && (
+                                    {!gameId && !viewerGameId && (
                                         <Button
                                             component="a"
                                             href={
@@ -368,7 +369,7 @@ export const LivePredictionMarkets: React.FC<LivePredictionMarketsProps> = ({
                                         size="sm"
                                         type="number"
                                         slotProps={{ input: { min: 1, step: 1 } }}
-                                        placeholder={tf("{currency} to bet", { currency: t(currency.name) })}
+                                        placeholder={tf("{currency} to predict", { currency: t(currency.name) })}
                                         value={amount}
                                         onChange={(event) => setAmount(event.target.value)}
                                         onKeyDown={(event) => {
@@ -383,9 +384,17 @@ export const LivePredictionMarkets: React.FC<LivePredictionMarketsProps> = ({
                                         onClick={() => void submit(market)}
                                         sx={{ ...hocPrimaryButtonSx, minWidth: 88, px: 1.2 }}
                                     >
-                                        {busy ? t("Placing…") : armed ? t("Bet") : t("Choose side")}
+                                        {busy ? t("Placing…") : armed ? t("Predict") : t("Choose side")}
                                     </Button>
                                 </Stack>
+                                {!(stake > 0 && chosen) && (
+                                    <Typography level="body-xs" sx={{ color: hocColors.muted }}>
+                                        {tf("Available: {amount} {symbol}", {
+                                            amount: availableGold,
+                                            symbol: currency.symbol,
+                                        })}
+                                    </Typography>
+                                )}
                                 {stake > 0 && chosen && (
                                     <Typography
                                         level="body-xs"

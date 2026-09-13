@@ -357,8 +357,8 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "{currency} on the line": "{currency} на кону",
     "Win ranked games to earn {currency} — then put it on your matches, winner takes all.":
         "Побеждайте в рейтинговых матчах, чтобы получать {currency}, и ставьте их на свои бои — победитель забирает всё.",
-    "{currency} rides your next match. If your opponent puts in too — winner takes the pot, a tie burns it.":
-        "{currency} поставлены на следующий матч. Если соперник тоже сделает ставку, победитель заберёт банк, а при ничьей он сгорит.",
+    "{currency} is your next-match wager. If your opponent sets one too, the winner takes the pot; a draw forfeits it.":
+        "{currency} — ваша ставка на следующий матч. Если соперник тоже сделает ставку, победитель заберёт банк, а при ничьей банк не возвращается.",
     "Put {currency} on your next match. Matched amounts play as-is; if yours is lower you can call or raise when the match is found.":
         "Поставьте {currency} на следующий матч. Равные ставки играются сразу; если ваша ниже, после поиска матча её можно уравнять или повысить.",
     "{currency} to put": "Сколько поставить ({currency})",
@@ -366,16 +366,16 @@ export const RU_TRANSLATIONS: Record<string, string> = {
         "на столе — если соперник тоже поставит, пари откроется прямо здесь.",
     "Put {currency} on THIS match — winner takes the pot.":
         "Поставьте {currency} на ЭТОТ матч — победитель забирает банк.",
-    "If the draft ends first, your wager rides your next match instead.":
+    "If the draft ends first, this becomes your next-match wager instead.":
         "Если драфт закончится раньше, ставка перейдёт на ваш следующий матч.",
-    "Wager locked: {amount} {symbol} each — winner takes {pot} {symbol}":
-        "Ставка зафиксирована: по {amount} {symbol}, победитель получит {pot} {symbol}",
+    "Wager confirmed: {amount} {symbol} each — winner takes {pot} {symbol}":
+        "Ставка подтверждена: по {amount} {symbol}, победитель получит {pot} {symbol}",
     "Wager settled: {amount} {symbol} to the winner": "Ставка рассчитана: победителю {amount} {symbol}",
-    "Draw — the pot of {pot} {symbol} burns": "Ничья — банк {pot} {symbol} сгорает",
+    "Draw — the pot of {pot} {symbol} is forfeited": "Ничья — банк {pot} {symbol} не возвращается",
     "{symbol} each — you already committed it.": "{symbol} с каждого — ваша ставка уже внесена.",
     "Do nothing and the match plays for {pot} {symbol} total.":
         "Если ничего не делать, матч будет сыгран за общий банк {pot} {symbol}.",
-    "{amount} {symbol} · {count} bets": "{amount} {symbol} · ставок: {count}",
+    "{amount} {symbol} · {count} predictions": "{amount} {symbol} · прогнозов: {count}",
     "Not enough {currency}": "Недостаточно: {currency}",
 
     // ~~~ Ranked arena + matchmaking ~~~
@@ -900,12 +900,18 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Live draft: {players}": "Текущий драфт: {players}",
     Spectate: "Наблюдать",
     "Spectate {players} in a new tab": "Наблюдать за матчем {players} в новой вкладке",
-    Bet: "Поставить",
+    Predict: "Сделать прогноз",
     "Could not place the prediction": "Не удалось сделать прогноз",
-    "{currency} to bet": "Ставка ({currency})",
+    "{currency} to predict": "Прогноз ({currency})",
     "{amount} {symbol} pool": "банк {amount} {symbol}",
     "Returns {return} {symbol} (+{profit})": "Выплата {return} {symbol} (+{profit})",
-    Purse: "Баланс",
+    Available: "Доступно",
+    "Available: {amount} {symbol}": "Доступно: {amount} {symbol}",
+    "Your prediction": "Ваш прогноз",
+    Forfeited: "Не возвращено",
+    "Back a side while a game is still drafting. One prediction per game, final once made.":
+        "Поддержите сторону, пока идёт драфт. Один прогноз на игру, изменить нельзя.",
+    "No predictions in play.": "Нет прогнозов в игре.",
     "Your wager": "Ваша ставка",
     Put: "Поставить",
     "Take it back": "Забрать ставку",
@@ -972,8 +978,8 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "The season holds {gold} G across {players} calibrated players — that gold spread over {slots} slots each sets the price. It is charged to the host and never returned; whatever you put on the game itself is separate.":
         "В сезоне {gold} G на {players} откалиброванных игроков — это золото, разделённое на {slots} слотов для каждого, и задаёт цену. Она списывается с создателя и не возвращается; то, что вы ставите на саму игру, — отдельно.",
     "Opening a lobby costs {price} G.": "Открытие лобби стоит {price} G.",
-    "Opening a lobby costs {price} G — your purse holds {purse} G":
-        "Открытие лобби стоит {price} G — в вашем кошельке {purse} G",
+    "Opening a lobby costs {price} G — you have {purse} G available":
+        "Открытие лобби стоит {price} G — вам доступно {purse} G",
     Friend: "Друг",
     "Hosted by": "Создатель:",
     ago: "назад",

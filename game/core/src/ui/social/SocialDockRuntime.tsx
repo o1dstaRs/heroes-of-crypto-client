@@ -25,6 +25,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router";
 
+import { displayedGold } from "../../api/goldDisplay";
 import { images } from "../../generated/image_imports";
 import { ARENA_CHAT_OPEN_KEY } from "../ArenaChatPanel";
 import { registerVolumeSlot, VOLUME_SLOT_PRIORITY } from "../audio/volumeSlot";
@@ -786,7 +787,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage, p
                                         >
                                             {hit.username}
                                         </Typography>
-                                        <GoldBadge amount={hit.gold} />
+                                        <GoldBadge amount={displayedGold(hit)} />
                                         {status ? (
                                             <Typography
                                                 level="body-xs"
@@ -930,7 +931,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage, p
                                             {friend.unreadCount > 99 ? "99+" : friend.unreadCount}
                                         </Chip>
                                     ) : null}
-                                    <GoldBadge amount={friend.gold} />
+                                    <GoldBadge amount={displayedGold(friend)} />
                                 </Stack>
                                 <Stack direction="row" spacing={0.65} alignItems="center" sx={{ mt: 0.9 }}>
                                     <Button
