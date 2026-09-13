@@ -99,6 +99,7 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     Connected: "Подключено",
     Reconnecting: "Переподключение…",
     "Watching as observer": "Режим наблюдателя",
+    "Drag to move · double-click to reset": "Перетащите, чтобы переместить · двойной щелчок — вернуть на место",
     "Fight started!": "Бой начался!",
     "Preparing replay": "Подготовка повтора",
     "Loading replay": "Загрузка повтора",

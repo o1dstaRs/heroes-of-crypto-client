@@ -944,6 +944,8 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
             setPickNearingPlay(true);
         }
     }, []);
+    // A spectator's draft view sees the draft end directly (it never observes AUGMENTS), so hand off now.
+    const handleDraftEnded = useCallback(() => setPickNearingPlay(true), []);
     useEffect(() => {
         setPickNearingPlay(false);
         setObserverMode(false);
@@ -1127,7 +1129,11 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                 <>
                     {routeMode === "pick" &&
                         (observerMode ? (
-                            <ObserverPickView gameId={gameId} onPickPhaseChange={handlePickPhaseChange} />
+                            <ObserverPickView
+                                gameId={gameId}
+                                onPickPhaseChange={handlePickPhaseChange}
+                                onDraftEnded={handleDraftEnded}
+                            />
                         ) : (
                             <PickAndBanView
                                 windowSize={windowSize}

@@ -100,6 +100,7 @@ import { ButtonProvider } from "./context/ButtonContext";
 import { exitFightButtonSx } from "./exitFightButtonSx";
 import { useFullscreenActive } from "./useFullscreenActive";
 import { startVisibleInterval } from "./visibleInterval";
+import { dragObserverPanelOffset, type PanelOffset } from "./observerPanelDrag";
 import { ViewerTeamContext } from "./context/ViewerTeamContext";
 import { SANDBOX_UNREADY_REASON, sandboxCoopSeatStatuses } from "./SandboxCoopControls";
 import { openFriendsPanel } from "./social/openFriendsEvent";
@@ -2581,7 +2582,8 @@ const ObserverSetupPanel: React.FC<{ snapshot: PlaySnapshot }> = ({ snapshot }) 
             <Typography level="body-sm" textColor={hocColors.parchment}>
                 Army setups
             </Typography>
-            <Stack direction="row" spacing={2} flexWrap="wrap">
+            {/* useFlexGap: plain spacing is a left margin, so a wrapped second team kept it and sat indented. */}
+            <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
                 <ObserverTeamSetup
                     label={teamLabel(TeamVals.LEFT)}
                     identityLine={observerIdentityLine(identityFor(TeamVals.LEFT))}
@@ -3074,6 +3076,54 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     const isFullscreen = useFullscreenActive();
     const navigate = useNavigate();
     const [confirmExitOpen, setConfirmExitOpen] = useState(false);
+    // A spectator's FIGHT panel floats bottom-centre over the board (GameSystemControls' centre slot), where it
+    // hides the units it describes — so its header drags it anywhere, and a double-click puts it back.
+    const panelDraggable = isObserver && gameStarted;
+    const panelRef = useRef<HTMLDivElement | null>(null);
+    const [panelOffset, setPanelOffset] = useState<PanelOffset>({ x: 0, y: 0 });
+    const panelDragRef = useRef<{ pointerX: number; pointerY: number; offset: PanelOffset; rect: DOMRect } | null>(
+        null,
+    );
+    const endPanelDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId);
+        }
+        panelDragRef.current = null;
+    };
+    const panelDragHandleProps = panelDraggable
+        ? {
+              title: t("Drag to move · double-click to reset"),
+              onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => {
+                  if (event.button !== 0 || !panelRef.current) {
+                      return;
+                  }
+                  event.currentTarget.setPointerCapture(event.pointerId);
+                  panelDragRef.current = {
+                      pointerX: event.clientX,
+                      pointerY: event.clientY,
+                      offset: panelOffset,
+                      rect: panelRef.current.getBoundingClientRect(),
+                  };
+              },
+              onPointerMove: (event: React.PointerEvent<HTMLDivElement>) => {
+                  const start = panelDragRef.current;
+                  if (!start || !event.currentTarget.hasPointerCapture(event.pointerId)) {
+                      return;
+                  }
+                  setPanelOffset(
+                      dragObserverPanelOffset(
+                          start.offset,
+                          start.rect,
+                          { x: event.clientX - start.pointerX, y: event.clientY - start.pointerY },
+                          { width: window.innerWidth, height: window.innerHeight },
+                      ),
+                  );
+              },
+              onPointerUp: endPanelDrag,
+              onPointerCancel: endPanelDrag,
+              onDoubleClick: () => setPanelOffset({ x: 0, y: 0 }),
+          }
+        : {};
     const [augmentInspectedCreatureId, setAugmentInspectedCreatureId] = useState(0);
     // The doctrine sets the upgrade-point budget (5/6/7 via getUpgradePoints).
     const userDoctrineId = ((userTeam === TeamVals.LEFT ? snapshot?.leftDoctrine : snapshot?.rightDoctrine) ||
@@ -3251,9 +3301,11 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
 
     return (
         <Sheet
+            ref={panelRef}
             variant="plain"
             sx={{
                 position: embedded ? "static" : "fixed",
+                transform: panelDraggable ? `translate(${panelOffset.x}px, ${panelOffset.y}px)` : undefined,
                 top: embedded ? undefined : 12,
                 right: embedded ? undefined : 12,
                 zIndex: embedded ? "auto" : 20,
@@ -3288,7 +3340,23 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
             }}
         >
             <Stack spacing={1} sx={{ height: "100%", minHeight: 0, flex: "1 1 auto" }}>
-                <Stack direction="row" spacing={1} alignItems="center" justifyContent="center">
+                <Stack
+                    direction="row"
+                    spacing={1}
+                    alignItems="center"
+                    justifyContent="center"
+                    {...panelDragHandleProps}
+                    sx={
+                        panelDraggable
+                            ? {
+                                  cursor: "grab",
+                                  touchAction: "none",
+                                  userSelect: "none",
+                                  "&:active": { cursor: "grabbing" },
+                              }
+                            : undefined
+                    }
+                >
                     <Typography
                         level="title-md"
                         textColor={hocColors.parchment}
@@ -3319,10 +3387,15 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                     </Typography>
                 )}
 
-                {(isObserver || currentUnit) && (
+                {/* Two lines, not one: rendered back to back they read "Watching as observerActive: …". */}
+                {isObserver && (
                     <Typography level="body-sm" textColor={hocColors.mutedStrong}>
-                        {isObserver ? t("Watching as observer") : ""}
-                        {currentUnit ? `${t("Active")}: ${currentUnit.name} (${teamLabel(currentUnit.team)})` : ""}
+                        {t("Watching as observer")}
+                    </Typography>
+                )}
+                {currentUnit && (
+                    <Typography level="body-sm" textColor={hocColors.mutedStrong}>
+                        {`${t("Active")}: ${currentUnit.name} (${teamLabel(currentUnit.team)})`}
                     </Typography>
                 )}
 

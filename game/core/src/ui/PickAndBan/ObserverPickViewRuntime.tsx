@@ -223,9 +223,15 @@ interface IObserverPickViewProps {
     gameId: string;
     /** Forwards the live phase so GameRoute can speed up its pick->play handoff poll. */
     onPickPhaseChange?: (phase: number) => void;
+    /**
+     * The snapshot reports the draft is over ("play" or "finished"). The server flips the game to PLAY in the
+     * same write that enters AUGMENTS, so this view practically never sees that phase; without this signal
+     * GameRoute stayed on its slow 15s handoff poll.
+     */
+    onDraftEnded?: () => void;
 }
 
-export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onPickPhaseChange }) => {
+export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onPickPhaseChange, onDraftEnded }) => {
     const [snapshot, setSnapshot] = useState<PickObserveSnapshot | undefined>(undefined);
     const [now, setNow] = useState(() => Date.now());
     // Server/browser clock drift so the countdown tracks the authoritative deadline.
@@ -237,6 +243,12 @@ export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onP
             try {
                 const next = await fetchPickObserveSnapshot(gameId);
                 if (cancelled || !next) {
+                    return;
+                }
+                if (next.stage !== "pick") {
+                    // Keep the finished draft on screen: a stage-only snapshot carries no teams and rendered
+                    // as blank "Left team / Right team" cards until the fight view took over.
+                    onDraftEnded?.();
                     return;
                 }
                 if (typeof next.serverTimeMs === "number") {
@@ -255,7 +267,7 @@ export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onP
             cancelled = true;
             stopPolling();
         };
-    }, [gameId, onPickPhaseChange]);
+    }, [gameId, onPickPhaseChange, onDraftEnded]);
 
     useEffect(() => {
         return startVisibleInterval(() => setNow(Date.now()), 500);
