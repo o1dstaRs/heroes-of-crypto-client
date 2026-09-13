@@ -11,6 +11,7 @@ import {
 } from "../../api/social_client";
 import { playFriendInviteSound, playNotificationSound } from "../audio/uiSounds";
 import { useAuthContext } from "../auth/context/auth_context";
+import { activityForPath } from "./presenceActivity";
 import { currentPresenceAttention, presencePingIntervalMs } from "./presenceCadence";
 
 /**
@@ -36,6 +37,8 @@ interface ISocialContext {
     dismissInviteToast: () => void;
     /** The viewer's own live ranked/lobby game, as the last presence ping reported it. */
     liveGame: ILiveGame | null;
+    /** How many friends are online right now. */
+    friendsOnline: number;
     respond: (requestId: string, accept: boolean) => Promise<void>;
     /** Zero the badge locally (the tray marks seen server-side when opened). */
     clearUnseen: () => void;
@@ -51,6 +54,7 @@ const SocialContext = createContext<ISocialContext>({
     inviteToast: null,
     dismissInviteToast: () => {},
     liveGame: null,
+    friendsOnline: 0,
     respond: async () => {},
     clearUnseen: () => {},
     refreshNow: () => {},
@@ -69,6 +73,7 @@ export const SocialProvider: React.FC<{ children?: React.ReactNode }> = ({ child
     const [pendingIncoming, setPendingIncoming] = useState<PendingIncomingRequest[]>([]);
     const [inviteToast, setInviteToast] = useState<SocialNotification | null>(null);
     const [liveGame, setLiveGame] = useState<ILiveGame | null>(null);
+    const [friendsOnline, setFriendsOnline] = useState(0);
     const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => new Set());
     // Requests/counts we already fired a browser notification for — never nag twice per session.
     const notifiedRequestIds = useRef<Set<string>>(new Set());
@@ -112,12 +117,14 @@ export const SocialProvider: React.FC<{ children?: React.ReactNode }> = ({ child
 
     const ping = useCallback(async (): Promise<void> => {
         try {
-            const result = await presencePing();
+            // Tell friends what this tab is doing (the route says); the server keeps it only while online.
+            const result = await presencePing(activityForPath(window.location.pathname));
             if (!mountedRef.current) {
                 return;
             }
             setUnseenCount(result.unseenCount);
             setPendingIncoming(result.pendingIncoming);
+            setFriendsOnline(result.friendsOnline ?? 0);
             setLiveGame((current) => {
                 const next = result.liveGame ?? null;
                 return current?.gameId === next?.gameId && current?.stage === next?.stage ? current : next;
@@ -173,6 +180,7 @@ export const SocialProvider: React.FC<{ children?: React.ReactNode }> = ({ child
             setPendingIncoming([]);
             setInviteToast(null);
             setLiveGame(null);
+            setFriendsOnline(0);
             pingedOnceRef.current = false;
             return () => {
                 mountedRef.current = false;
@@ -261,6 +269,7 @@ export const SocialProvider: React.FC<{ children?: React.ReactNode }> = ({ child
             inviteToast,
             dismissInviteToast,
             liveGame,
+            friendsOnline,
             respond,
             clearUnseen,
             refreshNow,
@@ -274,6 +283,7 @@ export const SocialProvider: React.FC<{ children?: React.ReactNode }> = ({ child
             inviteToast,
             dismissInviteToast,
             liveGame,
+            friendsOnline,
             respond,
             clearUnseen,
             refreshNow,

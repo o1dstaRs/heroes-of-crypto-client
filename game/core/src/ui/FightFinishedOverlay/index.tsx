@@ -889,6 +889,8 @@ interface FightFinishedOverlayProps {
     // "Close" button for any caller that doesn't wire them (e.g. a future non-vs-AI ranked surface).
     onPlayAgainVsAi?: () => void | Promise<void>;
     onBackToLobby?: () => void;
+    /** Friendly games: open a fresh room with the same seats (the co-op sandbox re-invites the friend). */
+    onRematch?: () => void | Promise<void>;
 }
 
 // =============================================================================
@@ -904,6 +906,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
     backLabel = "Back to Lobby",
     onPlayAgainVsAi,
     onBackToLobby,
+    onRematch,
 }) => {
     const manager = usePixiManager();
     const previewParams = new URLSearchParams(window.location.search);
@@ -1489,10 +1492,26 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                             }}
                         />
                     )}
+                    {!showSandboxActions && onRematch && (
+                        <ActionButton
+                            label={playAgainBusy ? "Opening…" : "⚔ Rematch"}
+                            primary
+                            disabled={playAgainBusy}
+                            onClick={() => {
+                                if (playAgainBusy) return;
+                                setPlayAgainError("");
+                                setPlayAgainBusy(true);
+                                Promise.resolve(onRematch()).catch((err: unknown) => {
+                                    setPlayAgainBusy(false);
+                                    setPlayAgainError(err instanceof Error ? err.message : "Unable to open a rematch");
+                                });
+                            }}
+                        />
+                    )}
                     {!showSandboxActions && onBackToLobby && (
                         <ActionButton
                             label={backLabel}
-                            primary={!onPlayAgainVsAi}
+                            primary={!onPlayAgainVsAi && !onRematch}
                             onClick={() => {
                                 clearReplayTimers();
                                 setDismissed(true);

@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
 
 import { axiosMMInstance, buildApiUrl, endpoints, HOST_MATCHMAKING_API } from "./axios";
+import type { PresenceActivity } from "../ui/social/presenceActivity";
 
 /**
  * Client for the authenticated social API (notifications, friends/blocks, presence). Plain JSON
@@ -28,6 +29,8 @@ export interface PendingIncomingRequest {
 export interface PresencePingResult {
     unseenCount: number;
     pendingIncoming: PendingIncomingRequest[];
+    /** How many friends are online right now (absent from an older server). */
+    friendsOnline?: number;
     /** The viewer's own live ranked/lobby game, for the "return to your match" banner. */
     liveGame?: { gameId: string; stage: FriendGameStage };
 }
@@ -107,7 +110,59 @@ export interface FriendEntry {
     /** The ranked/lobby game the friend is in right now (only while it is live) and where it stands. */
     inGameId?: string;
     gameStage?: FriendGameStage;
+    /** Waiting in the ranked matchmaking queue. */
+    inQueue?: boolean;
+    /** What their client last reported while online; `lobbyOpen` says whether that lobby still takes a guest. */
+    activity?: PresenceActivity & { lobbyOpen?: boolean };
 }
+
+/**
+ * The status word for a friend row, most binding state first: a live game, then the queue, then what their
+ * client reports, then plain online/offline (the caller renders the latter).
+ */
+export const friendActivityLabel = (
+    friend: Pick<FriendEntry, "inGameId" | "gameStage" | "inQueue" | "activity" | "online">,
+): string | undefined => {
+    const inGame = friendGameLabel(friend);
+    if (inGame) {
+        return inGame;
+    }
+    if (!friend.online) {
+        return undefined;
+    }
+    if (friend.inQueue) {
+        return "In the queue";
+    }
+    switch (friend.activity?.kind) {
+        case "lobby":
+            return "In a lobby";
+        case "lobbies":
+            return "Browsing lobbies";
+        case "sandbox":
+            return "In the sandbox";
+        case "coop":
+            return "In a co-op sandbox";
+        case "arena":
+            return "In the arena";
+        case "game":
+            return "Spectating";
+        default:
+            return undefined;
+    }
+};
+
+/** A friend sitting in a joinable lobby can be joined straight from their row, unless you are in a game. */
+export const joinableFriendLobbyId = (
+    friend: Pick<FriendEntry, "inGameId" | "activity" | "online">,
+    viewerInGameId: string | undefined,
+): string | undefined =>
+    friend.online &&
+    !friend.inGameId &&
+    !viewerInGameId &&
+    friend.activity?.kind === "lobby" &&
+    friend.activity.lobbyOpen
+        ? friend.activity.lobbyId
+        : undefined;
 
 export type FriendGameStage = "confirming" | "pick" | "play";
 
@@ -188,7 +243,11 @@ const get = async <T>(path: string): Promise<T> => {
     return response.data as T;
 };
 
-export const presencePing = (): Promise<PresencePingResult> => post(endpoints.social.presencePing);
+export const presencePing = (activity?: PresenceActivity): Promise<PresencePingResult> =>
+    post(
+        endpoints.social.presencePing,
+        activity ? { activity: activity.kind, ...(activity.lobbyId ? { lobbyId: activity.lobbyId } : {}) } : {},
+    );
 
 /** Notification types that mean "a friend is asking for you" — they get the friend-invite sound. */
 export const isFriendInviteNotification = (type: SocialNotification["type"]): boolean =>

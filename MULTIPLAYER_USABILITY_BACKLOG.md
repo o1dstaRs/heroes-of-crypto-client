@@ -45,25 +45,31 @@ Status legend: **done** shipped, **open** not started.
   "· closed"; an accepted one reads "· accepted" while the room stays open.
 - Still open: telling the inviter their invite was accepted, and a decline action.
 
-## 5. No rematch after a friendly game — open
+## 5. No rematch after a friendly game — done (co-op sandbox)
 
-- Ranked has "play again vs AI"; a finished co-op sandbox or lobby game only offers a way back.
-- Approach: a Rematch button on the results overlay that re-opens a sandbox (or lobby) with the same seats
-  and re-invites the friend.
+- Ranked has "play again vs AI"; a finished co-op sandbox only offered a way back.
+- Shipped: a Rematch button on the results overlay for co-op seats — whoever presses it hosts a fresh
+  sandbox with the same friend in the other seat, and the friend gets the usual invite toast.
+- Still open: a lobby rematch (lobby creation charges season gold, so it needs its own confirmation).
 
-## 6. Presence is too coarse for coordinating — open
+## 6. Presence is too coarse for coordinating — done
 
-- Friends show online / offline / in game, but "in a lobby", "in the queue" and "in the sandbox" are
-  invisible, there is no reverse "Join their lobby" action from the friend row, and no friends-online count
-  outside the panel.
-- Approach: extend the presence tracker with an activity kind published by the client on route change.
+- Friends showed online / offline / in game only.
+- Shipped: each presence ping reports what the tab is doing (route-derived: sandbox, co-op sandbox, arena,
+  lobby + its id, browsing lobbies, spectating, portal); the server keeps it while the player is online and
+  reads the matchmaking queue from the player document. The friend row now says "In the queue", "In a
+  lobby" (with a Join lobby button while that room is joinable and you are free), "In the sandbox",
+  "In a co-op sandbox", "In the arena", "Spectating"; the friends dock button carries a green count of
+  friends online, which the ping returns.
 
-## 7. Co-op sandboxes die on deploy — open
+## 7. Co-op sandboxes die on deploy — done
 
-- Ranked fights persist a restart state and resume after a server restart; sandbox sessions live only in
-  memory, so a deploy ends every co-op session with "game not found".
-- Approach: extend `session_state_store` persistence (currently gated on `fromGameDocument`) to sandbox
-  sessions, keyed by session id, with a short TTL.
+- Ranked fights persisted a restart state and resumed after a server restart; sandbox sessions lived only
+  in memory, so a deploy ended every co-op session with "game not found".
+- Shipped: sandbox sessions use the same throttled restart save (their save carries the two seats and the
+  map, since there is no game document); an unknown game id is first checked against a saved sandbox
+  before the game-document lookup, and `sandbox-join` restores on demand. Verified: a restart mid-placement
+  came back with all placed units, ready flags and no placement clock.
 
 ## 8. Smaller co-op gaps — open
 

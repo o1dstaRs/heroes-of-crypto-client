@@ -5,8 +5,10 @@ import {
     canSpectateFriend,
     eligiblePredictionMarkets,
     fetchFriendMessages,
+    friendActivityLabel,
     friendGameLabel,
     inviteStateLabel,
+    joinableFriendLobbyId,
     inviteTarget,
     isFriendInviteNotification,
     chatSegments,
@@ -241,5 +243,34 @@ describe("invite lifecycle", () => {
         expect(inviteStateLabel({ type: "lobby_invite", roomOpen: true, acceptedAt: 5 })).toBe("accepted");
         expect(inviteStateLabel({ type: "lobby_invite", roomOpen: true })).toBeUndefined();
         expect(inviteStateLabel({ type: "friend_request", roomOpen: false })).toBeUndefined();
+    });
+});
+
+describe("friend activity labels", () => {
+    const LOBBY = "11111111-0000-4000-8000-000000000001";
+    test("a live game outranks the queue, which outranks the reported activity", () => {
+        expect(friendActivityLabel({ online: true, inGameId: "g", gameStage: "play", inQueue: true })).toBe(
+            "In game · Fighting",
+        );
+        expect(friendActivityLabel({ online: true, inQueue: true, activity: { kind: "lobby" } })).toBe("In the queue");
+        expect(friendActivityLabel({ online: true, activity: { kind: "lobby", lobbyId: LOBBY } })).toBe("In a lobby");
+        expect(friendActivityLabel({ online: true, activity: { kind: "coop" } })).toBe("In a co-op sandbox");
+        expect(friendActivityLabel({ online: true, activity: { kind: "game" } })).toBe("Spectating");
+        expect(friendActivityLabel({ online: true, activity: { kind: "portal" } })).toBeUndefined();
+        expect(friendActivityLabel({ online: false, activity: { kind: "arena" } })).toBeUndefined();
+    });
+
+    test("a joinable lobby is offered only while the room is open and the viewer is free", () => {
+        const inOpenLobby = { online: true, activity: { kind: "lobby" as const, lobbyId: LOBBY, lobbyOpen: true } };
+        expect(joinableFriendLobbyId(inOpenLobby, undefined)).toBe(LOBBY);
+        expect(joinableFriendLobbyId(inOpenLobby, "my-game")).toBeUndefined();
+        expect(
+            joinableFriendLobbyId(
+                { ...inOpenLobby, activity: { ...inOpenLobby.activity, lobbyOpen: false } },
+                undefined,
+            ),
+        ).toBeUndefined();
+        expect(joinableFriendLobbyId({ ...inOpenLobby, inGameId: "g" }, undefined)).toBeUndefined();
+        expect(joinableFriendLobbyId({ ...inOpenLobby, online: false }, undefined)).toBeUndefined();
     });
 });

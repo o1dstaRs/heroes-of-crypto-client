@@ -42,9 +42,10 @@ import {
     fetchFriends,
     fetchNotifications,
     formatLastSeen,
-    friendGameLabel,
+    friendActivityLabel,
     inviteStateLabel,
     inviteTarget,
+    joinableFriendLobbyId,
     searchHitPresenceLabel,
     markNotificationsSeen,
     removeFriend,
@@ -743,7 +744,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage })
                                             whiteSpace: "nowrap",
                                         }}
                                     >
-                                        {friendGameLabel(friend) ??
+                                        {friendActivityLabel(friend) ??
                                             (friend.online ? "Online" : formatLastSeen(friend.lastOnlineAt))}
                                     </Typography>
                                 </Stack>
@@ -751,6 +752,24 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage })
                                     <Button size="sm" sx={hocPrimaryButtonSx} onClick={() => onMessage(friend)}>
                                         Message
                                     </Button>
+                                    {joinableFriendLobbyId(friend, overview.viewerInGameId) ? (
+                                        <Button
+                                            size="sm"
+                                            variant="outlined"
+                                            sx={hocSoftButtonSx}
+                                            disabled={busy}
+                                            title="Join the lobby they are sitting in"
+                                            onClick={() => {
+                                                const lobbyId = joinableFriendLobbyId(friend, overview.viewerInGameId);
+                                                if (lobbyId) {
+                                                    onClose();
+                                                    navigate(`/lobby/${encodeURIComponent(lobbyId)}`);
+                                                }
+                                            }}
+                                        >
+                                            Join lobby
+                                        </Button>
+                                    ) : null}
                                     {canSpectateFriend(friend, overview.viewerInGameId) && friend.inGameId ? (
                                         <Button
                                             size="sm"
@@ -995,16 +1014,54 @@ export const SocialDock: React.FC = () => {
                 sx={dockButtonSx(dockButtonImages.predictions, predictionsOpen)}
                 onClick={() => setPredictionsOpen((wasOpen) => !wasOpen)}
             />
-            <IconButton
-                aria-label="Friends"
-                aria-pressed={friendsOpen}
-                title="Friends"
-                sx={dockButtonSx(dockButtonImages.friends, friendsOpen)}
-                onClick={() => {
-                    social.requestNotificationPermission();
-                    setFriendsOpen((wasOpen) => !wasOpen);
+            <Box
+                sx={{
+                    position: "relative",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 32,
+                    height: 32,
+                    flex: "0 0 32px",
                 }}
-            />
+            >
+                <IconButton
+                    aria-label="Friends"
+                    aria-pressed={friendsOpen}
+                    title={social.friendsOnline > 0 ? `Friends · ${social.friendsOnline} online` : "Friends"}
+                    sx={dockButtonSx(dockButtonImages.friends, friendsOpen)}
+                    onClick={() => {
+                        social.requestNotificationPermission();
+                        setFriendsOpen((wasOpen) => !wasOpen);
+                    }}
+                />
+                {social.friendsOnline > 0 ? (
+                    <Box
+                        aria-label={`${social.friendsOnline} friends online`}
+                        sx={{
+                            position: "absolute",
+                            top: -4,
+                            right: -4,
+                            minWidth: 18,
+                            height: 18,
+                            px: 0.4,
+                            borderRadius: 9,
+                            bgcolor: hocColors.green,
+                            color: "#06210c",
+                            border: "2px solid #160b07",
+                            boxShadow: "0 3px 10px rgba(0,0,0,0.55)",
+                            fontSize: 10,
+                            fontWeight: 800,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            pointerEvents: "none",
+                        }}
+                    >
+                        {social.friendsOnline > 99 ? "99+" : social.friendsOnline}
+                    </Box>
+                ) : null}
+            </Box>
             <Box
                 sx={{
                     position: "relative",

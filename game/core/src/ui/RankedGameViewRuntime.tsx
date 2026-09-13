@@ -103,7 +103,12 @@ import { openFriendsPanel } from "./social/openFriendsEvent";
 import { clearTurnAlert, isTabUnwatched, signalYourTurn, yourTurnActivationKey } from "./turnAlert";
 import { OpponentConnectionBadge } from "./OpponentConnectionBadge";
 import { playNotificationSound } from "./audio/uiSounds";
-import type { SandboxCoopSession } from "../api/sandbox_coop_client";
+import {
+    createSandboxCoop,
+    sandboxCoopErrorMessage,
+    sandboxCoopPath,
+    type SandboxCoopSession,
+} from "../api/sandbox_coop_client";
 import {
     hocColors,
     hocDangerAlertSx,
@@ -1561,6 +1566,20 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
         !!snapshot &&
         !snapshot.fightStarted &&
         (snapshot.phase === PlayPhase.FINISHED || snapshot.phase === PlayPhase.ABANDONED);
+    // Rematch: whoever presses it hosts a fresh sandbox with the same friend in the other seat; the
+    // friend gets the usual invite toast and follows when ready.
+    const rematchSandboxCoop = useCallback(async () => {
+        if (!sandboxCoop || !myPlayer) {
+            return;
+        }
+        const other = sandboxCoop.host.playerId === myPlayer.playerId ? sandboxCoop.guest : sandboxCoop.host;
+        try {
+            const session = await createSandboxCoop(other.playerId);
+            navigate(sandboxCoopPath(session.gameId));
+        } catch (err) {
+            throw new Error(sandboxCoopErrorMessage(err, "Unable to open a rematch"));
+        }
+    }, [myPlayer, navigate, sandboxCoop]);
     // Leaving concedes if the fight is live (the friend keeps the board) and returns to the offline sandbox.
     const leaveSandboxCoop = useCallback(async () => {
         if (!isObserver && snapshotRef.current && !snapshotRef.current.fightFinished) {
@@ -1902,6 +1921,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                             viewerPlayerId={myPlayer?.playerId}
                             onReplay={replayRankedFight}
                             onPlayAgainVsAi={isVsAiMatch && !isObserver ? handlePlayAgainVsAi : undefined}
+                            onRematch={sandboxCoop && !isObserver ? rematchSandboxCoop : undefined}
                             onBackToLobby={sandboxCoop ? () => navigate("/") : handleBackToLobby}
                         />
                     )}
