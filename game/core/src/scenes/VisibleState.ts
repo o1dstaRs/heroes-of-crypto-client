@@ -77,6 +77,16 @@ export interface IFightStatsSample {
     rightDamage?: number;
     leftDamagePct?: number;
     rightDamagePct?: number;
+    /** Creature groups whose combined deployed stacks reached zero during this sample. */
+    eliminations?: IFightCreatureElimination[];
+}
+
+/** All deployed stacks of one creature type defeated at a specific point in the fight timeline. */
+export interface IFightCreatureElimination {
+    creatureKey: string;
+    name: string;
+    smallTextureName: string;
+    team: TeamType;
 }
 
 /** A single unit type's casualties for one team. */

@@ -468,6 +468,34 @@ const MatchupPlayerCard: React.FC<{
     );
 };
 
+/** The rich player-hover surface shared by the VS bar and post-fight participant portraits. */
+export const MatchupPlayerTooltip: React.FC<{
+    player: MatchupPlayer;
+    profile?: PublicPlayerStats;
+    tone: MatchupTeamTone;
+    placement?: "bottom" | "bottom-start" | "bottom-end";
+    children: React.ReactElement;
+}> = ({ player, profile, tone, placement = "bottom-start", children }) => (
+    <Tooltip
+        arrow
+        enterDelay={160}
+        leaveDelay={110}
+        placement={placement}
+        variant="plain"
+        sx={{
+            "--Tooltip-arrowSize": "8px",
+            zIndex: 18000,
+            maxWidth: "none",
+            p: 0,
+            bgcolor: "transparent",
+            boxShadow: "none",
+        }}
+        title={<MatchupPlayerCard player={player} profile={profile} tone={tone} />}
+    >
+        {children}
+    </Tooltip>
+);
+
 const Side: React.FC<{
     player: MatchupPlayer;
     tone: MatchupTeamTone;
@@ -476,21 +504,11 @@ const Side: React.FC<{
 }> = ({ player, tone, profile, reversed = false }) => {
     const text = profileFor(player, profile);
     return (
-        <Tooltip
-            arrow
-            enterDelay={160}
-            leaveDelay={110}
+        <MatchupPlayerTooltip
+            player={player}
+            profile={profile}
+            tone={tone}
             placement={reversed ? "bottom-end" : "bottom-start"}
-            variant="plain"
-            sx={{
-                "--Tooltip-arrowSize": "8px",
-                zIndex: 18000,
-                maxWidth: "none",
-                p: 0,
-                bgcolor: "transparent",
-                boxShadow: "none",
-            }}
-            title={<MatchupPlayerCard player={player} profile={profile} tone={tone} />}
         >
             <Box
                 tabIndex={0}
@@ -602,7 +620,7 @@ const Side: React.FC<{
                     )}
                 </Box>
             </Box>
-        </Tooltip>
+        </MatchupPlayerTooltip>
     );
 };
 

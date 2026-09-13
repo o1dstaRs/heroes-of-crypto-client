@@ -44,7 +44,13 @@ import type {
 import { getAbilityDisplayMetadata } from "../abilityDisplay";
 import type { SandboxReplay } from "../replay/sandbox_replay";
 import { buildFightDamageEntries } from "./FightStatsTracker";
-import type { IFightDeathEntry, IFightStatsReport, IFightStatsSample, IVisibleState } from "./VisibleState";
+import type {
+    IFightDeathEntry,
+    IFightCreatureElimination,
+    IFightStatsReport,
+    IFightStatsSample,
+    IVisibleState,
+} from "./VisibleState";
 import { UNIT_ID_TO_NAME } from "../ui/unit_ui_constants";
 import {
     Sandbox,
@@ -1392,6 +1398,7 @@ export class RankedPlayScene extends Sandbox {
     private rankedStatsLastLeftDamage = 0;
     private rankedStatsLastRightDamage = 0;
     private rankedStatsSeries: IFightStatsSample[] = [];
+    private readonly rankedStatsAliveCreatureGroups = new Map<string, IFightCreatureElimination>();
     private rankedSceneLogGameId = "";
     private rankedSceneLogSequence = -1;
     // Turn-grouping state for the journal-rebuilt log: the current lap and the unit whose turn header
@@ -3766,6 +3773,7 @@ export class RankedPlayScene extends Sandbox {
         this.rankedStatsLastLeftDamage = 0;
         this.rankedStatsLastRightDamage = 0;
         this.rankedStatsSeries = [];
+        this.rankedStatsAliveCreatureGroups.clear();
         this.rankedStatsLeftRoster.clear();
         this.rankedStatsRightRoster.clear();
         this.rankedStatsCountedUnitIds.clear();
@@ -3861,6 +3869,7 @@ export class RankedPlayScene extends Sandbox {
         this.rankedStatsLastRightKilled = 0;
         this.rankedStatsLastLeftDamage = 0;
         this.rankedStatsLastRightDamage = 0;
+        this.rankedStatsAliveCreatureGroups.clear();
         this.rankedStatsSeries = [
             {
                 lap: 1,
@@ -3927,6 +3936,29 @@ export class RankedPlayScene extends Sandbox {
             return false;
         }
 
+        const currentCreatureGroups = new Map<string, IFightCreatureElimination>();
+        for (const unit of units) {
+            const amountAlive = Math.max(0, Math.floor(unit.properties.amount_alive));
+            if (amountAlive <= 0 || (unit.team !== TeamVals.LEFT && unit.team !== TeamVals.RIGHT)) {
+                continue;
+            }
+            const name = unit.properties.name;
+            const creatureKey = `${unit.team}|${name.trim().toLowerCase()}`;
+            currentCreatureGroups.set(creatureKey, {
+                creatureKey,
+                name,
+                smallTextureName: unit.properties.small_texture_name,
+                team: unit.team,
+            });
+        }
+        const eliminations = Array.from(this.rankedStatsAliveCreatureGroups.entries())
+            .filter(([creatureKey]) => !currentCreatureGroups.has(creatureKey))
+            .map(([, creature]) => creature);
+        this.rankedStatsAliveCreatureGroups.clear();
+        currentCreatureGroups.forEach((creature, creatureKey) =>
+            this.rankedStatsAliveCreatureGroups.set(creatureKey, creature),
+        );
+
         const leftKilled = Math.max(
             0,
             this.rankedStatsLeftStartTotal - this.aliveTotal(units, TeamVals.LEFT as TeamType),
@@ -3947,7 +3979,8 @@ export class RankedPlayScene extends Sandbox {
             leftKilled === this.rankedStatsLastLeftKilled &&
             rightKilled === this.rankedStatsLastRightKilled &&
             leftDamage === this.rankedStatsLastLeftDamage &&
-            rightDamage === this.rankedStatsLastRightDamage
+            rightDamage === this.rankedStatsLastRightDamage &&
+            eliminations.length === 0
         ) {
             return false;
         }
@@ -3966,6 +3999,7 @@ export class RankedPlayScene extends Sandbox {
             rightDamage,
             leftDamagePct: this.percent(leftDamage, this.rankedStatsLeftStartHealthTotal),
             rightDamagePct: this.percent(rightDamage, this.rankedStatsRightStartHealthTotal),
+            ...(eliminations.length > 0 ? { eliminations } : {}),
         });
         return true;
     }
