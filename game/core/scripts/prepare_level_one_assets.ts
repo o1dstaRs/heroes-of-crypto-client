@@ -4,7 +4,8 @@ import path from "node:path";
 import { resolveAnimationsOutputLocation, resolveImagesLocation } from "../src/assetLocations";
 import levelOneAssets from "../src/animations/levelOneAssets.json";
 import environmentAssets from "../src/animations/battlefieldEnvironmentAssets.json";
-const assets = [...levelOneAssets, ...environmentAssets];
+import shotTrajectoryAssets from "../src/pixi/shotTrajectoryAssets.json";
+const assets = [...levelOneAssets, ...environmentAssets, ...shotTrajectoryAssets];
 
 export function prepareLevelOneAssets(destination = path.resolve(import.meta.dir, "../images")): void {
     const roots = {

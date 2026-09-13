@@ -1,3 +1,4 @@
+import shotTrajectoryAssets from "./shotTrajectoryAssets.json";
 import { CREATURE_PORTRAIT_ASSET_KEYS } from "./creaturePortraitAssetKeys";
 import battlefieldEnvironmentAssets from "../animations/battlefieldEnvironmentAssets.json";
 const approvedEnvironmentKeys = new Set(battlefieldEnvironmentAssets.map((asset) => asset.key));
@@ -294,7 +295,7 @@ const LAZY_COMBAT_EFFECT_ASSETS = new Set([
     "shot_range_corner_aaa_v1",
     "shot_range_corner_aaa_v4_green",
     "shot_range_corner_aaa_v4_red",
-    "shot_trajectory_hammered_bronze_casing_sprite_v4",
+    ...shotTrajectoryAssets.map((asset) => asset.key),
     "vfx_dust_smoky_ash_atlas",
 ]);
 

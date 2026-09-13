@@ -1,3 +1,4 @@
+import shotTrajectoryAssets from "./shotTrajectoryAssets.json";
 import { CREATURE_PORTRAIT_ASSET_KEYS } from "./creaturePortraitAssetKeys";
 import battlefieldEnvironmentAssets from "../animations/battlefieldEnvironmentAssets.json";
 import { isDeferredEnvironmentAssetKey } from "./imageAssetTiers";
@@ -141,7 +142,7 @@ const LIVE_PRODUCTION_VERSIONED_UI_ASSETS = new Set([
     "shot_range_corner_aaa_v1",
     "shot_range_corner_aaa_v4_green",
     "shot_range_corner_aaa_v4_red",
-    "shot_trajectory_hammered_bronze_casing_sprite_v4",
+    ...shotTrajectoryAssets.map((asset) => asset.key),
     // Current social dock and both responsive Up Next surfaces.
     "ui_social_friends_redrawn_complete_frame_v2",
     "ui_social_notifications_redrawn_complete_frame_v2",

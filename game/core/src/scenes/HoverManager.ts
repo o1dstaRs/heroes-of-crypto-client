@@ -610,19 +610,19 @@ export class HoverManager {
         });
         this.loadCursorTexture("shot_trajectory_gold_arrowhead_wide_socket_v6", (texture) => {
             // The high-resolution source carries its final gold/bronze palette; never recolor it at runtime.
-            texture.source.scaleMode = "linear";
+            this.prepareShotEndpointTexture(texture);
             this.hoverRangeTargetEdgeTexture = texture;
         });
         this.loadCursorTexture("shot_trajectory_orc_bronze_arrowhead_distant_match_v8", (texture) => {
-            texture.source.scaleMode = "linear";
+            this.prepareShotEndpointTexture(texture);
             this.hoverRangeTargetEdgeOrcTexture = texture;
         });
         this.loadCursorTexture("shot_trajectory_gold_fletching_wide_socket_v6", (texture) => {
-            texture.source.scaleMode = "linear";
+            this.prepareShotEndpointTexture(texture);
             this.hoverShotArrowFletchingTexture = texture;
         });
         this.loadCursorTexture("shot_trajectory_orc_bronze_fletching_distant_match_v8", (texture) => {
-            texture.source.scaleMode = "linear";
+            this.prepareShotEndpointTexture(texture);
             this.hoverShotOrcFletchingTexture = texture;
         });
         this.loadCursorTexture("shot_trajectory_hammered_bronze_casing_sprite_v4", (texture) => {
@@ -650,6 +650,19 @@ export class HoverManager {
                 });
             });
         });
+    }
+    private prepareShotEndpointTexture(texture: Texture): void {
+        // These detailed sprites are much smaller on screen than their source artwork. A mip chain
+        // prevents bright edge texels from alternating with transparent ones as the aim rotates.
+        const source = texture.source;
+        source.scaleMode = "linear";
+        source.style.mipmapFilter = "linear";
+        if (!source.autoGenerateMipmaps) {
+            source.autoGenerateMipmaps = true;
+            // The texture may already be on the GPU when an asynchronous cursor load resolves.
+            // Re-upload once so Pixi allocates the mip levels as well as the base image.
+            source.unload();
+        }
     }
     /** Best-effort cursor art: never let a decoration failure break hover construction. */
     private loadCursorTexture(key: string, apply: (texture: Texture) => void): void {
@@ -1551,7 +1564,7 @@ export class HoverManager {
             new Matrix(transform.a, transform.b, transform.c, transform.d, transform.tx, transform.ty),
         );
         marker.visible = true;
-        marker.roundPixels = true;
+        marker.roundPixels = false;
         marker.tint = 0xffffff;
         marker.alpha = 1;
         marker.filters = null;
@@ -2127,9 +2140,10 @@ export class HoverManager {
                         ),
                     );
                     fletching.visible = true;
-                    fletching.roundPixels = true;
+                    fletching.roundPixels = false;
                     fletching.tint = 0xffffff;
                     fletching.alpha = 1;
+                    fletching.filters = null;
                 }
 
                 const shaftTexture = useOrcPalette

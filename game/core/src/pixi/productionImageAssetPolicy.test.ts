@@ -1,3 +1,5 @@
+import shotTrajectoryAssets from "./shotTrajectoryAssets.json";
+import { isLazyCombatEffectAssetKey, isProductionOmittedAssetKey } from "./imageAssetTiers";
 import { CREATURE_PORTRAIT_ASSET_KEYS } from "./creaturePortraitAssetKeys";
 import { describe, expect, test } from "bun:test";
 import {
@@ -260,4 +262,13 @@ describe("production unreferenced image policy", () => {
             expect(isProductionOmittedUnreferencedAssetKey(key)).toBe(false);
         }
     });
+});
+
+test("all approved aim components survive production pruning and remain demand-loaded", () => {
+    for (const { key } of shotTrajectoryAssets) {
+        expect(isProductionOmittedAssetKey(key), key).toBe(false);
+        expect(isProductionOmittedLegacyUiAssetKey(key), key).toBe(false);
+        expect(isProductionOmittedUnreferencedAssetKey(key), key).toBe(false);
+        expect(isLazyCombatEffectAssetKey(key), key).toBe(true);
+    }
 });

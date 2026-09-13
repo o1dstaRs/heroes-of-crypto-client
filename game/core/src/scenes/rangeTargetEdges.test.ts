@@ -157,7 +157,7 @@ describe("ranged target edge selection", () => {
         expect(source).not.toContain("0x4dff83");
         expect(source).not.toContain("activeUpperEdge");
         expect(source).not.toContain("hoverRangeTargetEdgeOutlineSprites");
-        expect(source).toContain("marker.roundPixels = true");
+        expect(source).toContain("marker.roundPixels = false");
     });
 
     test("snaps to the exact hovered shootable segment and ignores distant pointers", () => {

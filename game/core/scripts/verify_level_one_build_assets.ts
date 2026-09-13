@@ -3,7 +3,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import levelOneAssets from "../src/animations/levelOneAssets.json";
 import environmentAssets from "../src/animations/battlefieldEnvironmentAssets.json";
-const assets = [...levelOneAssets, ...environmentAssets];
+import shotTrajectoryAssets from "../src/pixi/shotTrajectoryAssets.json";
+const assets = [...levelOneAssets, ...environmentAssets, ...shotTrajectoryAssets];
 import { shouldPreloadUnitAnimationAtlas } from "../src/pixi/creatureAnimationSettings";
 
 export function verifyLevelOneBuildAssets(): void {

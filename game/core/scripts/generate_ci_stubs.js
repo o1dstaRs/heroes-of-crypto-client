@@ -33,6 +33,7 @@ const scanImageKeys = (directory) => {
 scanImageKeys(sourceDir);
 for (const { key } of require("../src/animations/battlefieldEnvironmentAssets.json")) imageKeys.add(key);
 for (const { key } of require("../src/animations/levelOneAssets.json")) imageKeys.add(key);
+for (const { key } of require("../src/pixi/shotTrajectoryAssets.json")) imageKeys.add(key);
 for (const key of Object.values(require("../src/pixi/battlefieldTextureKeys.ts").FINAL_STATIC_BATTLEFIELD_TEXTURES))
     imageKeys.add(key);
 for (const key of [
@@ -146,6 +147,7 @@ const knownImageKeys = fs.existsSync(path.join(generatedDir, "image_keys.json"))
           ...new Set([
               ...JSON.parse(fs.readFileSync(path.join(generatedDir, "image_keys.json"), "utf8")),
               ...require("../src/animations/levelOneAssets.json").map((asset) => asset.key),
+              ...require("../src/pixi/shotTrajectoryAssets.json").map((asset) => asset.key),
               ...require("../src/animations/battlefieldEnvironmentAssets.json").map((asset) => asset.key),
               ...Object.values(require("../src/pixi/battlefieldTextureKeys.ts").FINAL_STATIC_BATTLEFIELD_TEXTURES),
               ...require("../src/pixi/creaturePortraitAssetKeys.ts").CREATURE_PORTRAIT_ASSET_KEYS,
