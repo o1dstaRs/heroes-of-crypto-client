@@ -1813,7 +1813,8 @@ export const MatchmakingRoute: React.FC = () => {
                                 <RankedLockPanel conduct={conduct} lock={rankedLock} onChange={refreshConduct} />
                             )}
 
-                            {abandonCooling && (
+                            {/* A lock outlasts the 5-minute cooldown, so "search again in 4:51" would be wrong while one is in force. */}
+                            {abandonCooling && !rankedLock && (
                                 <Alert variant="soft" color="warning" sx={{ textAlign: "left" }}>
                                     {tf("You abandoned your last ranked match. You can search again in {time}.", {
                                         time: formatAwayClock(abandonCooldownMs),
