@@ -96,7 +96,15 @@ export const ReputationCard: React.FC = () => {
                         {reputationBandLabel(reputation.band)}
                     </Chip>
                     {reputation.isNew && (
-                        <Chip size="sm" variant="outlined" sx={{ color: hocColors.muted }}>
+                        <Chip
+                            size="sm"
+                            variant="outlined"
+                            sx={{
+                                color: hocColors.mutedStrong,
+                                bgcolor: "transparent",
+                                borderColor: "rgba(255,255,255,0.22)",
+                            }}
+                        >
                             {t("New account")}
                         </Chip>
                     )}
@@ -137,17 +145,24 @@ export const ReputationCard: React.FC = () => {
                             }}
                         />
                     </Box>
-                    <Stack
-                        direction="row"
-                        justifyContent="space-between"
-                        sx={{ mt: 0.5, fontVariantNumeric: "tabular-nums" }}
-                    >
+                    {/* Each label sits at its own value on the same 0–100 scale as the bands and the marker. */}
+                    <Box sx={{ position: "relative", height: 18, mt: 0.5, fontVariantNumeric: "tabular-nums" }}>
                         {[0, rules.bands.probation, rules.bands.good, rules.bands.honorable, 100].map((tick) => (
-                            <Typography key={tick} level="body-xs" textColor={hocColors.muted}>
+                            <Typography
+                                key={tick}
+                                level="body-xs"
+                                textColor={hocColors.muted}
+                                sx={{
+                                    position: "absolute",
+                                    left: `${tick}%`,
+                                    transform:
+                                        tick === 0 ? "none" : tick === 100 ? "translateX(-100%)" : "translateX(-50%)",
+                                }}
+                            >
                                 {tick}
                             </Typography>
                         ))}
-                    </Stack>
+                    </Box>
                 </Box>
 
                 {limits && (
