@@ -303,6 +303,8 @@ export interface PublicRankedProfile {
     lastOnlineAt: number;
     // The player's pre-game ban preference: the ONE unit they never want offered in their drafts.
     rankedBan: { creatureId: number; name: string } | null;
+    // The one public trace of Reputation: "honorable" for the top band, null otherwise. The score itself stays private.
+    reputationBadge: ReputationBadge | null;
     predictions: PredictionHistory;
     wagers: WagerHistory;
     // Every movement of the purse, newest first — the combined view the sections above only slice.
@@ -314,6 +316,12 @@ export interface PublicRankedProfile {
     recentGames: RankedProfileMatch[];
     playstyle: PlayerPlaystyle | null;
 }
+
+export type ReputationBadge = "honorable";
+
+/** Only the top Reputation band has a public badge; any other value reads as no badge. */
+export const normalizeReputationBadge = (value: unknown): ReputationBadge | null =>
+    value === "honorable" ? "honorable" : null;
 
 /** Percentage of settled ranked games the player personally ended through an exit/disconnect. */
 export const rankedExitRatePct = (exitCount: number, totalGames: number): number => {
@@ -543,6 +551,7 @@ export function normalizePublicRankedProfile(value: unknown): PublicRankedProfil
         online: row.online === true,
         lastOnlineAt: nonNegativeInteger(row.lastOnlineAt),
         rankedBan: normalizeRankedBan(row.rankedBan),
+        reputationBadge: normalizeReputationBadge(row.reputationBadge),
         predictions: normalizePredictions(row.predictions),
         wagers: normalizeWagers(row.wagers),
         goldHistory: normalizeGoldHistory(row.goldHistory),

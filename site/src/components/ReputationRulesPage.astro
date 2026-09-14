@@ -1,0 +1,109 @@
+---
+import { leavingRulesPath } from "../lib/ranked-exit";
+import { content, localPath, type Language } from "../lib/site-data";
+
+interface Props {
+    lang: Language;
+}
+
+const { lang } = Astro.props;
+const rules = content[lang].reputationRules;
+// The rules' numbers are printed as plain text; only the status line waits for the live response.
+const statusCopy = {
+    statusPending: rules.statusPending,
+    statusScheduled: rules.statusScheduled,
+    statusEnforced: rules.statusEnforced,
+};
+---
+
+<section class="subhero">
+    <div class="page-shell">
+        <p class="eyebrow">{rules.eyebrow}</p>
+        <h1>{rules.title}</h1>
+        <p>{rules.description}</p>
+    </div>
+</section>
+
+<section class="section legal-section reputation-rules" data-reputation-rules data-lang={lang}>
+    <article class="page-shell legal-doc">
+        <p class="updated reputation-rules-status" data-reputation-rules-status hidden></p>
+        <p class="lead">{rules.intro}</p>
+        {
+            rules.sections.map((section) => (
+                <section>
+                    <h2>{section.title}</h2>
+                    {section.body.map((paragraph) => (
+                        <p>{paragraph}</p>
+                    ))}
+                    {section.items.length > 0 && (
+                        <ul>
+                            {section.items.map((item) => (
+                                <li>{item}</li>
+                            ))}
+                        </ul>
+                    )}
+                </section>
+            ))
+        }
+        <footer class="reputation-rules-footer">
+            <p>
+                <strong>{rules.relatedTitle}:</strong>
+                <a href={leavingRulesPath(lang)}>{rules.relatedLeaving}</a> ·
+                <a href={localPath(lang, "terms-of-service")}>{rules.relatedTerms}</a>
+            </p>
+        </footer>
+    </article>
+    <script type="application/json" data-reputation-rules-copy set:html={JSON.stringify(statusCopy)}></script>
+</section>
+
+<script>
+    import { fetchReputationRules, reputationRulesStatusText, type ReputationStatusCopy } from "../lib/reputation-rules";
+
+    const root = document.querySelector<HTMLElement>("[data-reputation-rules]");
+    const copyElement = document.querySelector<HTMLElement>("[data-reputation-rules-copy]");
+
+    if (root && copyElement) {
+        const copy = JSON.parse(copyElement.textContent || "{}") as ReputationStatusCopy;
+        const language = root.dataset.lang === "ru" ? "ru" : "en";
+        const status = root.querySelector<HTMLElement>("[data-reputation-rules-status]");
+        const dateFormatter = new Intl.DateTimeFormat(language === "ru" ? "ru-RU" : "en-GB", { dateStyle: "long" });
+
+        fetchReputationRules()
+            .then((rules) => {
+                const text = reputationRulesStatusText(rules, Date.now(), copy, (epochMs) =>
+                    dateFormatter.format(new Date(epochMs)),
+                );
+                if (status && text) {
+                    status.textContent = text;
+                    status.hidden = false;
+                }
+            })
+            // Without the live response the page still reads correctly: the rules are already printed.
+            .catch(() => undefined);
+    }
+</script>
+
+<style>
+    .reputation-rules ul {
+        display: grid;
+        gap: 10px;
+        margin: 14px 0 0;
+        padding-left: 1.25em;
+        color: rgba(251, 244, 232, 0.86);
+    }
+
+    .reputation-rules-status {
+        font-weight: 600;
+    }
+
+    .reputation-rules-footer {
+        display: grid;
+        gap: 8px;
+        padding-top: 28px;
+        border-top: 1px solid var(--line);
+    }
+
+    .reputation-rules-footer p {
+        margin: 0;
+    }
+</style>

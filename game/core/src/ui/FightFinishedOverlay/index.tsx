@@ -24,6 +24,8 @@ import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
 import { GOLD, PARCHMENT, WOOD_DARK, imgSrc, teamColor, teamName } from "../FightStats/CasualtyChart";
 import { CasualtyChartPanel } from "../FightStats/CasualtyChartPanel";
 import { DamageBreakdown } from "../FightStats/DamageBreakdown";
+import { ReportPlayerDialog } from "../Reputation/ReportPlayerDialog";
+import { t } from "../../i18n/i18n";
 
 // Shared logic is migrating LEFT/RIGHT to LOWER/UPPER without changing the numeric wire values.
 // Keep the results preview and live overlay compatible with either checked-out common revision.
@@ -1067,6 +1069,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
     const [replayResult, setReplayResult] = useState(false);
     const [playAgainBusy, setPlayAgainBusy] = useState(false);
     const [playAgainError, setPlayAgainError] = useState("");
+    const [reportOpen, setReportOpen] = useState(false);
     const [rankedMatch, setRankedMatch] = useState<PublicRankedMatch | null>(null);
     const [profiles, setProfiles] = useState<Record<string, PublicPlayerStats>>({});
     const replayInProgress = useRef(false);
@@ -1237,6 +1240,16 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
             profile,
         };
     });
+    // Reports (integrity phase 4): only a seated player, against their human opponent, after a ranked match.
+    const viewerSeated =
+        !!viewerPlayerId && resultParticipants.some((participant) => participant.playerId === viewerPlayerId);
+    const reportTarget =
+        mode === "ranked" && !previewMode && gameId && viewerSeated
+            ? resultParticipants.find(
+                  (participant) =>
+                      !participant.isAi && !!participant.playerId && participant.playerId !== viewerPlayerId,
+              )
+            : undefined;
     const resultsBackground = previewBackground ?? imgSrc("fight_results_moonlit_castle_background");
     const splitBackgroundImage = previewBackground
         ? `url(${resultsBackground})`
@@ -1592,6 +1605,17 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     spacing={2}
                     sx={{ alignItems: "center", justifyContent: "center", mt: 2, pt: 1, flexShrink: 0 }}
                 >
+                    {reportTarget && (
+                        <ActionButton
+                            label={t("Report player")}
+                            labelColor="#dfcf91"
+                            tone="gray"
+                            frameTone="brown"
+                            backgroundOpacity={0.5}
+                            visualOpacity={0.9}
+                            onClick={() => setReportOpen(true)}
+                        />
+                    )}
                     {canReplay && (
                         <ActionButton
                             label="REPLAY"
@@ -1708,6 +1732,14 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     >
                         {playAgainError}
                     </Typography>
+                )}
+                {reportTarget && gameId && (
+                    <ReportPlayerDialog
+                        open={reportOpen}
+                        gameId={gameId}
+                        opponentName={reportTarget.username}
+                        onClose={() => setReportOpen(false)}
+                    />
                 )}
             </Box>
         </Box>

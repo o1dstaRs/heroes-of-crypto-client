@@ -261,7 +261,8 @@ export interface RankedExitRulesUrlOptions {
     production?: boolean;
 }
 
-const runtimeIsProduction = (): boolean => {
+/** Whether the page talks to the production matchmaking API. Shared by every public ranked rules page. */
+export const runtimeIsProduction = (): boolean => {
     const hostname = globalThis.location?.hostname ?? "";
     return (
         hostname === "heroesofcrypto.io" ||
@@ -276,7 +277,8 @@ const sameHostOrigin = (port: string | number | undefined): string | undefined =
     return `${globalThis.location.protocol}//${globalThis.location.hostname}:${port}`;
 };
 
-const runtimeBaseUrl = (production: boolean): string =>
+/** The matchmaking API origin for this page, without a trailing slash. */
+export const runtimeBaseUrl = (production: boolean): string =>
     String(
         sameHostOrigin(import.meta.env.VITE_ARENA_SAME_HOST_API_PORT as string | undefined) ||
             import.meta.env.VITE_HOST_MATCHMAKING_API ||

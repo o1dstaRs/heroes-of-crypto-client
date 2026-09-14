@@ -55,7 +55,7 @@ export interface SocialNotification {
     sandboxId?: string;
     body?: string;
     /** `system` only: what the notice is about, so the tray can word it in the player's language from `params`. */
-    systemKind?: "ranked_lock" | "appeal_decision";
+    systemKind?: "ranked_lock" | "appeal_decision" | "report_actioned" | "report_weight_muted";
     params?: Record<string, unknown>;
     createdAt: number;
     seenAt: number;

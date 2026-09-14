@@ -244,6 +244,9 @@ export const endpoints = {
         rankedConduct: IS_PROD ? "/v1/ranked-conduct" : "/v1/mm/ranked-conduct",
         rankedRulesAccept: IS_PROD ? "/v1/ranked-rules-accept" : "/v1/mm/ranked-rules-accept",
         rankedAppeal: IS_PROD ? "/v1/ranked-appeal" : "/v1/mm/ranked-appeal",
+        reputation: IS_PROD ? "/v1/reputation" : "/v1/mm/reputation",
+        reputationRules: IS_PROD ? "/v1/reputation-rules" : "/v1/mm/reputation-rules",
+        rankedReport: IS_PROD ? "/v1/ranked-report" : "/v1/mm/ranked-report",
         rankedExitRules: IS_PROD ? "/v1/ranked-exit-rules" : "/v1/mm/ranked-exit-rules",
     },
     // Authenticated social layer: notifications tray, friends/blocks, presence heartbeat.

@@ -20,6 +20,7 @@ import { CalibrationProgress, standingEmblem } from "./CalibrationProgress";
 import { LeagueEmblem } from "./LeagueEmblem";
 import { usePlayerPortal } from "./usePlayerPortal";
 import { useRankedStanding } from "./useRankedStanding";
+import { ReputationCard } from "../Reputation/ReputationCard";
 
 const profileBackgroundUrl = new URL("../../../images/background_dark.webp", import.meta.url).toString();
 const logoUrl = new URL("../../../images/logo_hoc.webp", import.meta.url).toString();
@@ -731,6 +732,8 @@ export const PlayerPortalPage: React.FC = () => {
                             <StatCard label={t("Win rate")} value={`${overallPct}%`} color={winRateColor(overallPct)} />
                             <StatCard label={t("Games")} value={data.total_games_played ?? 0} />
                         </Box>
+
+                        <ReputationCard />
 
                         {/* The public profile's strategy-card language, consolidated into one panel so
                             line-ups, winning trios and duos read as one family rather than three widgets. */}

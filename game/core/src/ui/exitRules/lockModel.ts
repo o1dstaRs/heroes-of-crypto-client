@@ -112,5 +112,17 @@ export const systemNoticeText = (
         const note = typeof values.note === "string" ? values.note.trim() : "";
         return note ? `${text} ${tf("Reviewer's note: {note}", { note })}` : text;
     }
+    if (systemKind === "report_actioned") {
+        return t("A player you reported was penalised. Thanks for telling us.");
+    }
+    if (systemKind === "report_weight_muted") {
+        const until = typeof values.until === "number" && values.until > 0 ? values.until : 0;
+        return until
+            ? tf(
+                  "Several of your recent reports were found to have no basis, so your reports count for nothing until {date}.",
+                  { date: new Date(until).toISOString().slice(0, 10) },
+              )
+            : undefined;
+    }
     return undefined;
 };

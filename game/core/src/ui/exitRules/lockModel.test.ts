@@ -82,6 +82,11 @@ describe("ranked lock model", () => {
         expect(systemNoticeText("ranked_lock", { level: 9 })).toBeUndefined();
         expect(systemNoticeText("appeal_decision", { decision: "maybe" })).toBeUndefined();
         expect(systemNoticeText(undefined, undefined)).toBeUndefined();
+        expect(systemNoticeText("report_actioned", {})).toBe(
+            "A player you reported was penalised. Thanks for telling us.",
+        );
+        expect(systemNoticeText("report_weight_muted", { until: Date.UTC(2026, 9, 14) })).toContain("until 2026-10-14");
+        expect(systemNoticeText("report_weight_muted", {})).toBeUndefined();
 
         setLanguage("ru");
         expect(systemNoticeText("ranked_lock", { level: 1, reason: "in_a_row", count: 2 })).toStartWith(

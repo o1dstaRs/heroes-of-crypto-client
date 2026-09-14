@@ -1,6 +1,7 @@
 ---
 import { knowledgePath } from "../lib/knowledge-base";
 import { DEFAULT_RANKED_EXIT_RULES, ruleTokenValue, splitRuleTokens } from "../lib/ranked-exit";
+import { reputationRulesPath } from "../lib/reputation-rules";
 import { content, localPath, type Language } from "../lib/site-data";
 
 interface Props {
@@ -78,6 +79,7 @@ const statusCopy = {
             <p>
                 <strong>{rules.relatedTitle}:</strong>
                 <a href={knowledgePath(lang, { section: "rules" })}>{rules.relatedRules}</a> ·
+                <a href={reputationRulesPath(lang)}>{rules.relatedReputation}</a> ·
                 <a href={localPath(lang, "terms-of-service")}>{rules.relatedTerms}</a>
             </p>
         </footer>

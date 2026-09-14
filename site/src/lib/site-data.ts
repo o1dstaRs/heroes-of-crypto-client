@@ -95,6 +95,7 @@ export const content = {
             terms: "Terms",
             privacy: "Privacy",
             leavingRules: "Leaving rules",
+            reputationRules: "Reputation",
         },
         play: {
             startCta: "Play",
@@ -298,6 +299,8 @@ export const content = {
             exitCauseAbsence: "away time ran out",
             exitCauseAfk: "missed turns",
             exitPreview: "Under the new leaving rules: {label}",
+            reputationBadgeHonorable: "Honorable",
+            reputationBadgeTitle: "Honorable: the top Reputation band, 80–100. Open to see how Reputation works.",
             matchYouAbandoned: "You abandoned",
             matchOpponentAbandoned: "Opponent abandoned",
             publicDivisionUpper: "Upper division",
@@ -663,6 +666,7 @@ export const content = {
             versionLabel: "Rules version",
             relatedTitle: "See also",
             relatedRules: "Game rules",
+            relatedReputation: "Reputation",
             relatedTerms: "Terms of Service",
             sections: [
                 {
@@ -753,6 +757,96 @@ export const content = {
                 {
                     title: "Casual lobbies",
                     body: ["Leaving a casual lobby match never costs rating, penalties or queue time."],
+                    items: [],
+                },
+            ],
+        },
+        reputationRules: {
+            title: "Reputation",
+            eyebrow: "Ranked rules",
+            description:
+                "How Reputation works in ranked Heroes of Crypto: the score from 0 to 100, its bands, what raises and lowers it, reports, and what a Restricted score closes.",
+            intro: "Reputation rewards seeing ranked matches through. Everything that raises or lowers it, and everything a low score closes, is on this page.",
+            statusPending: "The Restricted limits start later: until then your score is shown, but nothing is closed.",
+            statusScheduled: "The Restricted limits apply from {date}.",
+            statusEnforced: "The Restricted limits are in effect.",
+            relatedTitle: "See also",
+            relatedLeaving: "Leaving a ranked match",
+            relatedTerms: "Terms of Service",
+            sections: [
+                {
+                    title: "What Reputation is",
+                    body: [
+                        "Reputation is a score from 0 to 100 that shows how reliably you play ranked. Your profile shows your number, your band and every change with its reason. Everyone starts at 50.",
+                    ],
+                    items: [],
+                },
+                {
+                    title: "Bands",
+                    body: [],
+                    items: [
+                        "Honorable, 80–100: everything is open, and your public profile shows an Honorable badge.",
+                        "Good, 60–79: everything is open.",
+                        "Probation, 40–59: everything is open.",
+                        "Restricted, 0–39: no wagers, no prediction bets, and arena chat is read-only.",
+                        "“New” shows for your first 10 ranked matches.",
+                    ],
+                },
+                {
+                    title: "What raises it",
+                    body: [],
+                    items: [
+                        "+1 for each finished or conceded ranked match, up to 5 a day.",
+                        "+1 for each week your account exists, up to 8 weeks.",
+                        "+4 once your email is confirmed.",
+                        "+3 for signing in with Google.",
+                        "+4 for a linked wallet with at least 90 days of on-chain history.",
+                    ],
+                },
+                {
+                    title: "What lowers it",
+                    body: [],
+                    items: [
+                        "−12 for abandoning a ranked match. The points come back if an appeal forgives it.",
+                        "−4 for playing fewer than 60% of your own turns in a match.",
+                        "−1 for not confirming a found match in time.",
+                        "−3 when match data supports a report against you, or 3 different players report you within 30 days. The points come back if the review finds nothing.",
+                        "−10 when a report against you is upheld.",
+                        "Confirmed AI assistance caps your Reputation at 20.",
+                        "Confirmed win trading or multi-accounting sets it to 0 on every linked account.",
+                        "Conceding never costs Reputation.",
+                    ],
+                },
+                {
+                    title: "What it never changes",
+                    body: [
+                        "Reputation never changes how much rating (MMR) or gold a win gives, and it never decides a prize.",
+                    ],
+                    items: [],
+                },
+                {
+                    title: "Reports",
+                    body: [],
+                    items: [
+                        "Only your opponent can report you, once per ranked match, from the results screen, and each player can send up to 5 reports a day.",
+                        "A report never locks or penalises anyone on its own: a person reviews it with the match's data.",
+                        "If we act on your report, you get a notification. We don't share the details.",
+                        "If 5 of your reports in 30 days are found to have no basis, your reports count for nothing for the next 30 days, and we tell you.",
+                    ],
+                },
+                {
+                    title: "Accounts on the same device",
+                    body: [],
+                    items: [
+                        "Accounts that sign in on the same device never meet in ranked matchmaking and can't place prediction bets on each other's matches.",
+                        "Sharing a network, like home Wi-Fi, a dorm or a café, never blocks anything.",
+                    ],
+                },
+                {
+                    title: "What we look at",
+                    body: [
+                        "We look at match data to find multi-accounting, win trading and AI assistance. We don't publish the exact signals, because that would help cheaters avoid them. They only start a review: a person makes every decision, tells you why, and you can appeal.",
+                    ],
                     items: [],
                 },
             ],
@@ -975,6 +1069,7 @@ export const content = {
             terms: "Условия",
             privacy: "Приватность",
             leavingRules: "Правила выхода",
+            reputationRules: "Репутация",
         },
         play: {
             startCta: "Играть",
@@ -1178,6 +1273,8 @@ export const content = {
             exitCauseAbsence: "закончилось время отсутствия",
             exitCauseAfk: "пропущенные ходы",
             exitPreview: "По новым правилам выхода: {label}",
+            reputationBadgeHonorable: "Почётная репутация",
+            reputationBadgeTitle: "Почётная репутация: высший уровень, 80–100. Откройте, чтобы узнать, как работает репутация.",
             matchYouAbandoned: "Вы покинули матч",
             matchOpponentAbandoned: "Соперник покинул матч",
             publicDivisionUpper: "Верхний дивизион",
@@ -1541,6 +1638,7 @@ export const content = {
             versionLabel: "Версия правил",
             relatedTitle: "См. также",
             relatedRules: "Правила игры",
+            relatedReputation: "Репутация",
             relatedTerms: "Условия использования",
             sections: [
                 {
@@ -1631,6 +1729,96 @@ export const content = {
                 {
                     title: "Обычные лобби",
                     body: ["Выход из матча в обычном лобби никогда не стоит рейтинга, наказаний или времени в очереди."],
+                    items: [],
+                },
+            ],
+        },
+        reputationRules: {
+            title: "Репутация",
+            eyebrow: "Правила рейтинга",
+            description:
+                "Как работает репутация в рейтинговых матчах Heroes of Crypto: оценка от 0 до 100, её уровни, что её повышает и понижает, жалобы и что закрывает ограниченная репутация.",
+            intro: "Репутация вознаграждает тех, кто доигрывает рейтинговые матчи. Всё, что её повышает или понижает, и всё, что закрывает низкая оценка, описано на этой странице.",
+            statusPending: "Ограничения уровня «Ограниченная» начнут действовать позже: до этого ваша оценка видна, но ничего не закрывается.",
+            statusScheduled: "Ограничения уровня «Ограниченная» действуют с {date}.",
+            statusEnforced: "Ограничения уровня «Ограниченная» действуют.",
+            relatedTitle: "См. также",
+            relatedLeaving: "Выход из рейтингового матча",
+            relatedTerms: "Условия использования",
+            sections: [
+                {
+                    title: "Что такое репутация",
+                    body: [
+                        "Репутация — это оценка от 0 до 100, которая показывает, насколько надёжно вы играете рейтинговые матчи. В профиле видно ваше число, уровень и каждое изменение с его причиной. Все начинают с 50.",
+                    ],
+                    items: [],
+                },
+                {
+                    title: "Уровни",
+                    body: [],
+                    items: [
+                        "Почётная, 80–100: всё открыто, а в вашем публичном профиле показывается значок «Почётная репутация».",
+                        "Хорошая, 60–79: всё открыто.",
+                        "Под наблюдением, 40–59: всё открыто.",
+                        "Ограниченная, 0–39: нельзя делать ставки и прогнозы, а чат арены доступен только для чтения.",
+                        "«Новый аккаунт» показывается в ваших первых 10 рейтинговых матчах.",
+                    ],
+                },
+                {
+                    title: "Что её повышает",
+                    body: [],
+                    items: [
+                        "+1 за каждый рейтинговый матч, доигранный или завершённый сдачей, но не больше 5 в день.",
+                        "+1 за каждую неделю существования аккаунта, но не больше 8 недель.",
+                        "+4 один раз, когда ваша почта подтверждена.",
+                        "+3 за вход через Google.",
+                        "+4 за привязанный кошелёк, у которого не меньше 90 дней истории в блокчейне.",
+                    ],
+                },
+                {
+                    title: "Что её понижает",
+                    body: [],
+                    items: [
+                        "−12 за выход из рейтингового матча. Очки возвращаются, если выход прощён по апелляции.",
+                        "−4, если вы сыграли меньше 60% своих ходов в матче.",
+                        "−1, если вы не подтвердили найденный матч вовремя.",
+                        "−3, когда данные матча говорят в пользу жалобы на вас или когда 3 разных игрока пожаловались на вас за 30 дней. Очки возвращаются, если проверка ничего не нашла.",
+                        "−10, когда жалоба на вас подтверждена.",
+                        "Если подтверждена помощь ИИ, репутация не может быть выше 20.",
+                        "Если подтверждены договорные победы или игра с нескольких аккаунтов, репутация становится 0 на всех связанных аккаунтах.",
+                        "Сдача никогда не стоит репутации.",
+                    ],
+                },
+                {
+                    title: "Что она никогда не меняет",
+                    body: [
+                        "Репутация никогда не меняет, сколько рейтинга (MMR) или золота даёт победа, и никогда не решает, кому достанется приз.",
+                    ],
+                    items: [],
+                },
+                {
+                    title: "Жалобы",
+                    body: [],
+                    items: [
+                        "Пожаловаться на вас может только ваш соперник: один раз за рейтинговый матч, с экрана результатов. Каждый игрок может отправить не больше 5 жалоб в день.",
+                        "Жалоба сама по себе никого не блокирует и не наказывает: её проверяет человек по данным матча.",
+                        "Если мы примем меры по вашей жалобе, вы получите уведомление. Подробности мы не сообщаем.",
+                        "Если за 30 дней 5 ваших жалоб признаны необоснованными, следующие 30 дней ваши жалобы ничего не значат, и мы сообщаем вам об этом.",
+                    ],
+                },
+                {
+                    title: "Аккаунты на одном устройстве",
+                    body: [],
+                    items: [
+                        "Аккаунты, в которые входят с одного устройства, никогда не встречаются в рейтинговом матчмейкинге и не могут делать прогнозы на матчи друг друга.",
+                        "Общая сеть, например домашний Wi-Fi, общежитие или кафе, никогда ничего не блокирует.",
+                    ],
+                },
+                {
+                    title: "Что мы проверяем",
+                    body: [
+                        "Мы изучаем данные матчей, чтобы находить игру с нескольких аккаунтов, договорные победы и помощь ИИ. Точные признаки мы не публикуем, потому что это помогло бы нарушителям их обходить. Они только запускают проверку: каждое решение принимает человек, он объясняет вам причину, и вы можете подать апелляцию.",
+                    ],
                     items: [],
                 },
             ],

@@ -18,6 +18,7 @@ import {
     type ArenaChatMessage,
     type PublicPlayerStats,
 } from "../api/social_client";
+import { fetchReputation } from "../api/reputation_client";
 import { siteUrlBase } from "../api/site_origin";
 import { t, tf, useTranslation } from "../i18n/i18n";
 import { hocColors, hocInputSx } from "./hocTheme";
@@ -94,6 +95,8 @@ export const ArenaChatPanel: React.FC<{ selfUsername?: string }> = ({ selfUserna
     const [flashId, setFlashId] = useState("");
     /** The player card opened by clicking a speaker's name; null when closed. One at a time. */
     const [playerCard, setPlayerCard] = useState<PlayerCardState | null>(null);
+    /** Why this player can read but not post (Reputation below the Restricted line once its limits apply); empty otherwise. */
+    const [chatClosedHint, setChatClosedHint] = useState("");
     const mountedRef = useRef(true);
     const newestRef = useRef(0);
     const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -143,6 +146,37 @@ export const ArenaChatPanel: React.FC<{ selfUsername?: string }> = ({ selfUserna
     }, [open]);
 
     useEffect(() => () => window.clearTimeout(flashTimerRef.current), []);
+
+    // Reputation (phase 4): once its limits apply, a Restricted player reads the room but can't post. Say why up front
+    // instead of letting every send bounce off the server.
+    useEffect(() => {
+        if (!selfUsername || !open) {
+            return undefined;
+        }
+        let cancelled = false;
+        fetchReputation()
+            .then((reputation) => {
+                if (cancelled) {
+                    return;
+                }
+                const closed =
+                    reputation.restricted &&
+                    reputation.rules.enforced &&
+                    reputation.rules.restrictedBlocks.includes("chat");
+                setChatClosedHint(
+                    closed
+                        ? tf(
+                              "Arena chat opens again when your Reputation reaches {n} (it is {score}). Finished ranked matches raise it.",
+                              { n: reputation.rules.bands.probation, score: reputation.score },
+                          )
+                        : "",
+                );
+            })
+            .catch(() => undefined);
+        return () => {
+            cancelled = true;
+        };
+    }, [selfUsername, open]);
 
     // Follow the tail only when the reader is already at it, so scrolling back through history is
     // not yanked away by an arriving line.
@@ -658,6 +692,12 @@ export const ArenaChatPanel: React.FC<{ selfUsername?: string }> = ({ selfUserna
                             </Box>
                         ) : null}
 
+                        {chatClosedHint ? (
+                            <Typography level="body-xs" sx={{ color: hocColors.muted }} data-testid="arena-chat-closed">
+                                {chatClosedHint}
+                            </Typography>
+                        ) : null}
+
                         {error ? (
                             <Typography level="body-xs" sx={{ color: hocColors.danger }}>
                                 {error}
@@ -712,6 +752,7 @@ export const ArenaChatPanel: React.FC<{ selfUsername?: string }> = ({ selfUserna
 
                         <Input
                             size="sm"
+                            disabled={!!chatClosedHint}
                             slotProps={{ input: { ref: inputRef } }}
                             placeholder={
                                 replyTo

@@ -1,4 +1,5 @@
 ---
+import { reputationRulesPath } from "../lib/reputation-rules";
 import { content, links, type Language } from "../lib/site-data";
 
 interface Props {
@@ -14,6 +15,7 @@ const arenaHref = isRu ? "/ru/#arena" : "/#arena";
 const arenaLabel = isRu ? "Назад" : "Back";
 // The ranked redirect page (/play/ranked) forwards into the game app; reuse it for the "play" CTAs.
 const rankedApp = links.rankedApp;
+const reputationHref = reputationRulesPath(lang);
 ---
 
 <section class="profile-page">
@@ -27,6 +29,13 @@ const rankedApp = links.rankedApp;
                 <div class="profile-name-row">
                     <h1 class="profile-name" data-profile-name>{copy.title}</h1>
                     <span class="profile-gold" data-profile-gold hidden></span>
+                    <a
+                        class="profile-reputation-badge"
+                        href={reputationHref}
+                        title={copy.reputationBadgeTitle}
+                        data-profile-reputation-badge
+                        hidden>{copy.reputationBadgeHonorable}</a
+                    >
                 </div>
                 <p class="profile-standing-line" data-profile-standing-line hidden></p>
                 <p class="profile-sub" data-profile-subtitle>{copy.subtitle}</p>
@@ -233,6 +242,7 @@ const rankedApp = links.rankedApp;
     const sectionsEl = $("sections");
     const nameEl = $("name");
     const goldEl = $("gold");
+    const reputationBadgeEl = $("reputation-badge");
     const metaEl = $("meta");
     const presenceEl = $("presence");
     const lastSeenEl = $("lastseen");
@@ -851,6 +861,11 @@ const rankedApp = links.rankedApp;
         standingLineEl.hidden = false;
     }
 
+    /** The Honorable badge beside the name: shown only for a profile in the top Reputation band. */
+    function paintReputationBadge(badge: PublicRankedProfile["reputationBadge"]): void {
+        if (reputationBadgeEl) reputationBadgeEl.hidden = badge !== "honorable";
+    }
+
     function publicStateLabel(state: PublicRankedProfile["state"]): string {
         if (state === "placed") return copy.publicStatePlaced;
         if (state === "recalibration") return copy.publicStateRecalibration;
@@ -1216,6 +1231,8 @@ const rankedApp = links.rankedApp;
         // The crest and the standing line belong to a public profile; this view has no standing to show.
         if (headEmblemEl) headEmblemEl.src = HEAD_EMBLEM_FALLBACK;
         if (standingLineEl) standingLineEl.hidden = true;
+        // Like the crest, the badge comes from the public profile; paintOwnStanding() puts it back.
+        paintReputationBadge(null);
         for (const section of selfSections) section.hidden = false;
     }
 
@@ -1255,6 +1272,7 @@ const rankedApp = links.rankedApp;
             goldEl.title = currentCurrency.name;
             goldEl.hidden = false;
         }
+        paintReputationBadge(profile.reputationBadge);
         document.title = `${profile.username} · Heroes of Crypto`;
         if (metaEl) metaEl.hidden = false;
         if (presenceEl) {
@@ -1830,7 +1848,9 @@ const rankedApp = links.rankedApp;
             // signed-in standing says whose profile this is.
             const ownId = await fetchOwnRankedPlayerId(getAuthToken());
             if (!ownId) return;
-            applyStandingToHeader(await fetchPublicRankedProfile(ownId));
+            const standing = await fetchPublicRankedProfile(ownId);
+            applyStandingToHeader(standing);
+            paintReputationBadge(standing.reputationBadge);
         } catch {
             /* no standing on show is strictly better than a wrong one */
         }
@@ -1971,6 +1991,33 @@ const rankedApp = links.rankedApp;
         letter-spacing: 0.04em;
         line-height: 1.05;
         white-space: nowrap;
+    }
+
+    /* Honorable: the top Reputation band, worn beside the nickname in the purse's gold. */
+    .profile-reputation-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 11px;
+        border: 1px solid rgba(242, 199, 93, 0.5);
+        border-radius: 999px;
+        background: rgba(242, 199, 93, 0.1);
+        color: var(--gold, #f2c75d);
+        font-size: clamp(0.78rem, 1.1vw, 0.9rem);
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        line-height: 1.05;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+
+    .profile-reputation-badge:hover,
+    .profile-reputation-badge:focus-visible {
+        border-color: var(--gold, #f2c75d);
+        background: rgba(242, 199, 93, 0.18);
+    }
+
+    .profile-reputation-badge[hidden] {
+        display: none;
     }
 
     /* The standing the header crest stands for: gold against the parchment nickname above it. */

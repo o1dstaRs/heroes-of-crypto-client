@@ -122,6 +122,7 @@ describe("ranked flow localization", () => {
             join(ui, "DraggableToolbar"),
             join(ui, "UpNextOverlay"),
             join(ui, "exitRules"),
+            join(ui, "Reputation"),
             join(ui, "PickExitFightControl.tsx"),
             join(ui, "PlayerPortal", "LivePredictionMarkets.tsx"),
             join(ui, "WagerNegotiator.tsx"),

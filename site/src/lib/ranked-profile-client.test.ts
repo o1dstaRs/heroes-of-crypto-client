@@ -6,6 +6,7 @@ import {
     fetchOwnRankedPlayerId,
     isPublicRankedPlayerId,
     normalizePublicRankedProfile,
+    normalizeReputationBadge,
     publicRankedProfileFallbackFromSearchParams,
     rankedExitRatePct,
 } from "./ranked-profile-client";
@@ -190,6 +191,27 @@ describe("public ranked profile normalization", () => {
         expect(rankedExitRatePct(0, 0)).toBe(0);
         expect(rankedExitRatePct(-1, 10)).toBe(0);
         expect(rankedExitRatePct(12, 10)).toBe(100);
+    });
+});
+
+describe("reputation badge", () => {
+    test("only the top band's badge is kept; anything else, or nothing, reads as no badge", () => {
+        expect(normalizePublicRankedProfile({ playerId: PLAYER_ID, reputationBadge: "honorable" })?.reputationBadge).toBe(
+            "honorable",
+        );
+        for (const reputationBadge of [null, undefined, "good", "Honorable", "restricted", true, 80, { band: "honorable" }]) {
+            expect(normalizePublicRankedProfile({ playerId: PLAYER_ID, reputationBadge })?.reputationBadge).toBeNull();
+        }
+        expect(normalizePublicRankedProfile({ playerId: PLAYER_ID })?.reputationBadge).toBeNull();
+        expect(normalizeReputationBadge("honorable")).toBe("honorable");
+        expect(normalizeReputationBadge("probation")).toBeNull();
+    });
+
+    test("a leaderboard-summary fallback never claims a badge it wasn't sent", () => {
+        const fallback = publicRankedProfileFallbackFromSearchParams(
+            new URLSearchParams({ playerId: PLAYER_ID, username: "Artemis", reputationBadge: "honorable" }),
+        );
+        expect(fallback?.reputationBadge).toBeNull();
     });
 });
 
