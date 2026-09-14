@@ -11,6 +11,20 @@ updates:
       open-pull-requests-limit: 10
       commit-message:
           prefix: chore(deps)
+      # Majors that cannot land yet; revisit when a blocker moves.
+      # - wagmi 3: the wallet UI is RainbowKit, whose latest release still peers wagmi ^2 and imports a connector
+      #   wagmi 3 removed (module-load crash).
+      # - MUI 9: Material icons and components resolve @mui/joy's theme (Joy stays on 5.0.0-beta) and crash at
+      #   render on the missing breakpoint shape. The 2026-08 attempt passed CI and broke production.
+      ignore:
+          - dependency-name: "wagmi"
+            update-types: ["version-update:semver-major"]
+          - dependency-name: "@mui/material"
+            update-types: ["version-update:semver-major"]
+          - dependency-name: "@mui/icons-material"
+            update-types: ["version-update:semver-major"]
+          - dependency-name: "@mui/system"
+            update-types: ["version-update:semver-major"]
     - package-ecosystem: github-actions
       directory: /
       schedule:
