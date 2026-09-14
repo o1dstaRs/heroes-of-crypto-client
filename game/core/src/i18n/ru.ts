@@ -1173,6 +1173,68 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "The match could not be left. Please try again.": "Не удалось покинуть матч. Попробуйте ещё раз.",
     "You abandoned a ranked match — search again in {time}":
         "Вы вышли из рейтингового матча — поиск снова через {time}",
+    "Ranked locked · {time}": "Рейтинг заблокирован · {time}",
+    "RANKED LOCKED": "РЕЙТИНГ ЗАБЛОКИРОВАН",
+    "Ranked locked": "Рейтинг заблокирован",
+    "vs AI, sandbox and casual lobbies stay open.": "Матчи против ИИ, песочница и обычные лобби остаются доступными.",
+    "24 hours": "24 часа",
+    "7 days": "7 дней",
+    "30 days": "30 дней",
+    "You abandoned {count} ranked matches in a row.": "Вы вышли из {count} рейтинговых матчей подряд.",
+    "You abandoned {count} of your recent ranked matches.": "Вы вышли из {count} недавних рейтинговых матчей.",
+    "You abandoned a ranked match within 30 days of a 7-day lock.":
+        "Вы вышли из рейтингового матча в течение 30 дней после 7-дневной блокировки.",
+    "Your ranked suspension for leaving matches is now a timed lock.":
+        "Ваша приостановка рейтинговой игры за выходы из матчей стала блокировкой на срок.",
+    "left the draft": "выход на драфте",
+    "left during placement": "выход во время расстановки",
+    "left at {pct}% casualties, lap {lap}": "выход при потерях {pct}%, круг {lap}",
+    "vs {opponent} on {date}": "против {opponent}, {date}",
+    "We got your appeal. A person will review it and reply in your notifications.":
+        "Мы получили вашу апелляцию. Её проверит человек, ответ придёт в уведомления.",
+    "Your appeal was reviewed and the lock stays.": "Апелляция рассмотрена, блокировка остаётся.",
+    "Your appeal was reviewed and we found no reason to lift the lock.":
+        "Апелляция рассмотрена: оснований снять блокировку нет.",
+    "Your appeal was accepted.": "Апелляция принята.",
+    "Reviewer's note: {note}": "Комментарий проверяющего: {note}",
+    "Appeals are paused on this account until {date}.": "Апелляции для этого аккаунта приостановлены до {date}.",
+    "Something went wrong? Tell us what happened.": "Что-то пошло не так? Расскажите, что случилось.",
+    "At least {min} characters. One message per lock; we reply in your notifications.":
+        "Не меньше {min} символов. Одно сообщение на блокировку, ответ придёт в уведомления.",
+    "{count} / {max} characters": "{count} / {max} символов",
+    "Send for review": "Отправить на проверку",
+    "Couldn't send your appeal. Please try again.": "Не удалось отправить апелляцию. Попробуйте ещё раз.",
+    "Ranked locked for {length}. {cause} vs AI, sandbox and casual lobbies stay open. Something went wrong? Send an appeal from the Ranked Arena.":
+        "Рейтинговая игра заблокирована на {length}. {cause} Матчи против ИИ, песочница и обычные лобби остаются доступными. Что-то пошло не так? Отправьте апелляцию на странице рейтинговой арены.",
+    "Your appeal was reviewed and your ranked lock is lifted. The abandons stay on your record.":
+        "Апелляция рассмотрена, блокировка рейтинговой игры снята. Выходы из матчей остаются в вашей истории.",
+    "Your appeal was reviewed: your ranked lock is lifted and those abandons no longer count.":
+        "Апелляция рассмотрена: блокировка рейтинговой игры снята, и эти выходы больше не засчитываются.",
+    "Your appeal was reviewed and your ranked lock stays.":
+        "Апелляция рассмотрена, блокировка рейтинговой игры остаётся.",
+    "Your appeal was reviewed and we found no reason to lift your ranked lock.":
+        "Апелляция рассмотрена: оснований снять блокировку рейтинговой игры нет.",
+    "2 abandons in a row lock ranked for 24 hours, 3 in a row for 7 days":
+        "2 выхода подряд блокируют рейтинговую игру на 24 часа, 3 подряд — на 7 дней",
+    "2 abandons in a row lock ranked for 24 hours, 3 in a row for 7 days. You can appeal a lock.":
+        "2 выхода подряд блокируют рейтинговую игру на 24 часа, 3 подряд — на 7 дней. Блокировку можно обжаловать.",
+    "Before that, or during the draft or placement, leaving is an Abandon: a loss, and a 5-minute wait before you can queue ranked again.":
+        "До этого, а также во время драфта или расстановки, это выход из матча: поражение и 5 минут ожидания до следующего рейтингового поиска.",
+    "Ranked locks": "Блокировки рейтинговой игры",
+    "Ranked locks apply from {date}: until then, the rule above applies.":
+        "Блокировки рейтинговой игры действуют с {date}: до этого действует правило выше.",
+    "Ranked locks start soon: until then, the rule above applies.":
+        "Блокировки рейтинговой игры скоро вступят в силу: до этого действует правило выше.",
+    "2 abandons in a row lock ranked for 24 hours; 3 in a row lock it for 7 days. A finished match or a Concede resets the count.":
+        "2 выхода подряд блокируют рейтинговую игру на 24 часа, 3 подряд — на 7 дней. Доигранный матч или сдача обнуляют счёт.",
+    "Abandoning often counts too: 3 abandons in your last 10 ranked matches lock ranked for 24 hours, and 5 in your last 20 lock it for 7 days.":
+        "Частые выходы тоже учитываются: 3 выхода за последние 10 рейтинговых матчей блокируют рейтинговую игру на 24 часа, 5 за последние 20 — на 7 дней.",
+    "An abandon within 30 days after a 7-day lock ends locks ranked for 30 days. Abandons stop counting after 30 days without one.":
+        "Выход из матча в течение 30 дней после окончания 7-дневной блокировки блокирует рейтинговую игру на 30 дней. Выходы перестают учитываться после 30 дней без них.",
+    "A lock also closes wagers and prediction bets. vs AI, sandbox and casual lobbies stay open.":
+        "Блокировка также закрывает ставки и прогнозы. Матчи против ИИ, песочница и обычные лобби остаются доступными.",
+    "If a lock was a mistake, send one written appeal from the Ranked Arena. A person reviews it and can lift the lock early.":
+        "Если блокировка ошибочна, отправьте одну письменную апелляцию на странице рейтинговой арены. Её проверит человек, который может снять блокировку досрочно.",
     "RANKED COOLDOWN": "ПАУЗА РЕЙТИНГА",
     "Ranked search reopens in {time}": "Рейтинговый поиск откроется через {time}",
     "You abandoned your last ranked match. Casual lobbies and vs-AI games are open.":

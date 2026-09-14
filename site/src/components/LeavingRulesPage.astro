@@ -21,6 +21,9 @@ const statusCopy = {
     statusScheduled: rules.statusScheduled,
     statusEnforced: rules.statusEnforced,
     statusEnforcedUndated: rules.statusEnforcedUndated,
+    lockStatusPending: rules.lockStatusPending,
+    lockStatusScheduled: rules.lockStatusScheduled,
+    lockStatusEnforced: rules.lockStatusEnforced,
 };
 ---
 
@@ -40,6 +43,9 @@ const statusCopy = {
             rules.sections.map((section) => (
                 <section>
                     <h2>{section.title}</h2>
+                    {"lockStatus" in section && section.lockStatus && (
+                        <p class="updated leaving-rules-status" data-lock-rules-status hidden />
+                    )}
                     {section.body.map((paragraph) => (
                         <p>
                             {segments(paragraph).map((segment) =>
@@ -80,7 +86,13 @@ const statusCopy = {
 </section>
 
 <script>
-    import { fetchRankedExitRules, isRankedRuleToken, rankedExitRulesState, ruleTokenValue } from "../lib/ranked-exit";
+    import {
+        fetchRankedExitRules,
+        isRankedRuleToken,
+        rankedExitRulesState,
+        rankedLockRulesState,
+        ruleTokenValue,
+    } from "../lib/ranked-exit";
 
     const root = document.querySelector<HTMLElement>("[data-leaving-rules]");
     const copyElement = document.querySelector<HTMLElement>("[data-leaving-rules-copy]");
@@ -114,6 +126,20 @@ const statusCopy = {
                 if (status && template) {
                     status.textContent = template.replace("{date}", date);
                     status.hidden = false;
+                }
+                const lockStatus = root.querySelector<HTMLElement>("[data-lock-rules-status]");
+                const lockState = rankedLockRulesState(rules, Date.now());
+                const lockTemplate =
+                    lockState === "enforced"
+                        ? copy.lockStatusEnforced
+                        : lockState === "scheduled"
+                          ? copy.lockStatusScheduled
+                          : copy.lockStatusPending;
+                if (lockStatus && lockTemplate) {
+                    const lockDate =
+                        rules.lockRulesEnforceAtMs > 0 ? dateFormatter.format(new Date(rules.lockRulesEnforceAtMs)) : "";
+                    lockStatus.textContent = lockTemplate.replace("{date}", lockDate);
+                    lockStatus.hidden = false;
                 }
             })
             // Without the live response the page still reads correctly: the published numbers are already printed.

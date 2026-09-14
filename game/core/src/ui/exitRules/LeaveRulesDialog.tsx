@@ -6,8 +6,9 @@ import Typography from "@mui/joy/Typography";
 import React from "react";
 
 import { ExitRulesPreviewNote } from "./ExitRulesPreviewNote";
-import type { IExitRulesInfo } from "./exitRulesModel";
-import { t, useTranslation } from "../../i18n/i18n";
+import { formatRulesDate, type IExitRulesInfo } from "./exitRulesModel";
+import { useRankedExitRules } from "./useRankedExitRules";
+import { t, tf, useTranslation } from "../../i18n/i18n";
 import { hocColors, hocPanelSx, hocSoftButtonSx } from "../hocTheme";
 
 const Heading: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -28,7 +29,10 @@ export const LeaveRulesDialog: React.FC<{ open: boolean; onClose: () => void; ru
     onClose,
     rules,
 }) => {
-    useTranslation();
+    const { language } = useTranslation();
+    const published = useRankedExitRules();
+    const locksOn = published?.lockRulesEnforced === true;
+    const locksFrom = published && published.lockRulesEnforceAtMs > Date.now() ? published.lockRulesEnforceAtMs : 0;
     return (
         <Modal open={open} onClose={onClose}>
             <ModalDialog sx={{ ...hocPanelSx, maxWidth: 560, overflowY: "auto" }}>
@@ -51,12 +55,52 @@ export const LeaveRulesDialog: React.FC<{ open: boolean; onClose: () => void; ru
                         )}
                     </Line>
                     <Line>
-                        {t(
-                            "Before that, or during the draft or placement, leaving is an Abandon: a loss, and a 5-minute wait before you can queue ranked again. 3 abandons in a row suspend your ranked play until support reviews it.",
-                        )}
+                        {locksOn
+                            ? t(
+                                  "Before that, or during the draft or placement, leaving is an Abandon: a loss, and a 5-minute wait before you can queue ranked again.",
+                              )
+                            : t(
+                                  "Before that, or during the draft or placement, leaving is an Abandon: a loss, and a 5-minute wait before you can queue ranked again. 3 abandons in a row suspend your ranked play until support reviews it.",
+                              )}
                     </Line>
                     <Line>
                         {t("The line is the same for every player, and no ending ever halves the rating change.")}
+                    </Line>
+
+                    <Heading>{t("Ranked locks")}</Heading>
+                    {!locksOn && (
+                        <Line>
+                            {locksFrom
+                                ? tf("Ranked locks apply from {date}: until then, the rule above applies.", {
+                                      date: formatRulesDate(locksFrom, language),
+                                  })
+                                : t("Ranked locks start soon: until then, the rule above applies.")}
+                        </Line>
+                    )}
+                    <Line>
+                        {t(
+                            "2 abandons in a row lock ranked for 24 hours; 3 in a row lock it for 7 days. A finished match or a Concede resets the count.",
+                        )}
+                    </Line>
+                    <Line>
+                        {t(
+                            "Abandoning often counts too: 3 abandons in your last 10 ranked matches lock ranked for 24 hours, and 5 in your last 20 lock it for 7 days.",
+                        )}
+                    </Line>
+                    <Line>
+                        {t(
+                            "An abandon within 30 days after a 7-day lock ends locks ranked for 30 days. Abandons stop counting after 30 days without one.",
+                        )}
+                    </Line>
+                    <Line>
+                        {t(
+                            "A lock also closes wagers and prediction bets. vs AI, sandbox and casual lobbies stay open.",
+                        )}
+                    </Line>
+                    <Line>
+                        {t(
+                            "If a lock was a mistake, send one written appeal from the Ranked Arena. A person reviews it and can lift the lock early.",
+                        )}
                     </Line>
 
                     <Heading>{t("During calibration")}</Heading>

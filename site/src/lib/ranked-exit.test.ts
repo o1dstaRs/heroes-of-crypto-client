@@ -12,6 +12,7 @@ import {
     rankedExitLabel,
     rankedExitPreviewLabel,
     rankedExitRulesState,
+    rankedLockRulesState,
     ruleTokenValue,
     splitRuleTokens,
     type RankedExitLabelKey,
@@ -147,5 +148,30 @@ describe("published rule numbers", () => {
         expect(buildRankedExitRulesUrl({ baseUrl: "http://localhost:3001", production: false })).toBe(
             "http://localhost:3001/v1/mm/ranked-exit-rules",
         );
+    });
+});
+
+describe("ranked lock rules", () => {
+    test("reads the lock switch and says whether locks are in effect, dated for later, or not dated yet", () => {
+        const rules = normalizeRankedExitRules({ lockRulesEnforced: false, lockRulesEnforceAtMs: 2_000 });
+        expect(rules?.lockRulesEnforceAtMs).toBe(2_000);
+        expect(rankedLockRulesState(rules ?? DEFAULT_RANKED_EXIT_RULES, 1_000)).toBe("scheduled");
+        expect(rankedLockRulesState(rules ?? DEFAULT_RANKED_EXIT_RULES, 3_000)).toBe("pending");
+        expect(rankedLockRulesState({ ...DEFAULT_RANKED_EXIT_RULES, lockRulesEnforced: true }, 3_000)).toBe("enforced");
+        expect(normalizeRankedExitRules({ lockRulesEnforced: "yes", lockRulesEnforceAtMs: -5 })).toMatchObject({
+            lockRulesEnforced: false,
+            lockRulesEnforceAtMs: 0,
+        });
+    });
+
+    test("both languages publish the lock ladder and appeals, with one lock status line", () => {
+        for (const language of ["en", "ru"] as const) {
+            const page = content[language].leavingRules;
+            expect(page.sections.length).toBe(content.en.leavingRules.sections.length);
+            expect(page.sections.filter((section) => "lockStatus" in section && section.lockStatus)).toHaveLength(1);
+            expect(page.lockStatusScheduled).toContain("{date}");
+            expect(page.lockStatusPending.length).toBeGreaterThan(0);
+            expect(page.lockStatusEnforced.length).toBeGreaterThan(0);
+        }
     });
 });

@@ -9,6 +9,7 @@ import { ExitCasualtyMeter } from "./ExitCasualtyMeter";
 import { ExitRulesPreviewNote } from "./ExitRulesPreviewNote";
 import type { ExitRulesPhase, IExitRulesInfo, IExitStanding, LeaveOutcome } from "./exitRulesModel";
 import { LeaveRulesDialog } from "./LeaveRulesDialog";
+import { useRankedExitRules } from "./useRankedExitRules";
 import { t, useTranslation } from "../../i18n/i18n";
 import { hocColors, hocPanelSx, hocSoftButtonSx } from "../hocTheme";
 
@@ -43,6 +44,7 @@ export const ExitMatchDialog: React.FC<ExitMatchDialogProps> = ({
     onCancel,
 }) => {
     useTranslation();
+    const lockRules = useRankedExitRules();
     const [rulesOpen, setRulesOpen] = useState(false);
     const dangerous = outcome === "abandon" || outcome === "unscored";
 
@@ -103,7 +105,9 @@ export const ExitMatchDialog: React.FC<ExitMatchDialogProps> = ({
                                     {t("You wait 5 minutes before you can queue ranked again")}
                                 </Typography>
                                 <Typography component="li" level="body-sm" textColor={hocColors.mutedStrong}>
-                                    {t("3 abandons in a row suspend your ranked play")}
+                                    {lockRules?.lockRulesEnforced
+                                        ? t("2 abandons in a row lock ranked for 24 hours, 3 in a row for 7 days")
+                                        : t("3 abandons in a row suspend your ranked play")}
                                 </Typography>
                             </Stack>
                         )}

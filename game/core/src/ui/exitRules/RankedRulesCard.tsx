@@ -8,6 +8,7 @@ import React, { useState } from "react";
 import { ExitRulesPreviewNote } from "./ExitRulesPreviewNote";
 import type { IExitRulesInfo } from "./exitRulesModel";
 import { LeaveRulesDialog } from "./LeaveRulesDialog";
+import { useRankedExitRules } from "./useRankedExitRules";
 import { t, useTranslation } from "../../i18n/i18n";
 import { hocColors, hocPanelSx, hocSoftButtonSx } from "../hocTheme";
 
@@ -22,13 +23,16 @@ export const RankedRulesCard: React.FC<{
 }> = ({ open, rules, busy = false, error, onAccept, onClose }) => {
     useTranslation();
     const [fullRulesOpen, setFullRulesOpen] = useState(false);
+    const locksOn = useRankedExitRules()?.lockRulesEnforced === true;
     const points = [
         t(
             "Leave once half the board's XP is destroyed and it's an ordinary loss. Leave before that and it's an Abandon: a loss, and a 5-minute wait before your next ranked search.",
         ),
         t("If you abandon during your calibration matches, the match is unscored for both players."),
         t("You have 5 minutes of away time per match. While you're away, your units only wait or defend."),
-        t("3 abandons in a row suspend your ranked play."),
+        locksOn
+            ? t("2 abandons in a row lock ranked for 24 hours, 3 in a row for 7 days. You can appeal a lock.")
+            : t("3 abandons in a row suspend your ranked play."),
     ];
     return (
         <>

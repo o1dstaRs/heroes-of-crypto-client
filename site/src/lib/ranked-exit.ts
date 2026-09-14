@@ -156,6 +156,9 @@ export interface RankedExitRules {
     afkMissedTurns: number;
     draftAutoPicks: number;
     abandonCooldownMs: number;
+    /** Timed ranked locks (phase 3): whether they apply now, and from when (epoch ms; 0 = not dated yet). */
+    lockRulesEnforced: boolean;
+    lockRulesEnforceAtMs: number;
 }
 
 /** What the rules page prints before (or without) a response. Mirrors the server's phase-2 configuration. */
@@ -169,6 +172,8 @@ export const DEFAULT_RANKED_EXIT_RULES: RankedExitRules = {
     afkMissedTurns: 4,
     draftAutoPicks: 3,
     abandonCooldownMs: 300_000,
+    lockRulesEnforced: false,
+    lockRulesEnforceAtMs: 0,
 };
 
 const positiveOr = (value: unknown, fallback: number): number =>
@@ -188,6 +193,8 @@ export function normalizeRankedExitRules(value: unknown): RankedExitRules | null
         afkMissedTurns: positiveOr(row.afkMissedTurns, defaults.afkMissedTurns),
         draftAutoPicks: positiveOr(row.draftAutoPicks, defaults.draftAutoPicks),
         abandonCooldownMs: positiveOr(row.abandonCooldownMs, defaults.abandonCooldownMs),
+        lockRulesEnforced: row.lockRulesEnforced === true,
+        lockRulesEnforceAtMs: nonNegativeInteger(row.lockRulesEnforceAtMs),
     };
 }
 
@@ -202,6 +209,14 @@ export function rankedExitRulesState(rules: RankedExitRules, now: number): Ranke
         return rules.enforceAtMs >= EARLIEST_REAL_DATE_MS ? "enforced" : "enforced_undated";
     }
     return rules.enforceAtMs > now ? "scheduled" : "pending";
+}
+
+export type RankedLockRulesState = "enforced" | "scheduled" | "pending";
+
+/** The ranked-locks status line: in effect, dated for later, or announced without a date. */
+export function rankedLockRulesState(rules: RankedExitRules, now: number): RankedLockRulesState {
+    if (rules.lockRulesEnforced) return "enforced";
+    return rules.lockRulesEnforceAtMs > now ? "scheduled" : "pending";
 }
 
 export type RankedRuleToken = "threshold" | "absence" | "grace" | "cooldown";

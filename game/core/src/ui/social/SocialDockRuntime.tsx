@@ -84,6 +84,7 @@ import {
     hocSoftButtonSx,
     hocSpinnerSx,
 } from "../hocTheme";
+import { systemNoticeText } from "../exitRules/lockModel";
 
 /**
  * Floating social dock: notification bell, friends list, and direct messages mounted once above
@@ -168,6 +169,10 @@ const notificationText = (notification: SocialNotification): string => {
             return `${notification.fromUsername ?? "Someone"} mentioned you in the Arena chat: ${notification.body ?? ""}`;
         case "chat_reply":
             return `${notification.fromUsername ?? "Someone"} replied to you in the Arena chat: ${notification.body ?? ""}`;
+        case "system":
+            return (
+                systemNoticeText(notification.systemKind, notification.params) ?? notification.body ?? "Notification"
+            );
         default:
             return notification.body ?? "Notification";
     }

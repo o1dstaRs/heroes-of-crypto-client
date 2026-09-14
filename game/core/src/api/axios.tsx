@@ -243,6 +243,8 @@ export const endpoints = {
         // Signed in: the player's own conduct record and the exit rules' numbers; and acknowledging the rules card.
         rankedConduct: IS_PROD ? "/v1/ranked-conduct" : "/v1/mm/ranked-conduct",
         rankedRulesAccept: IS_PROD ? "/v1/ranked-rules-accept" : "/v1/mm/ranked-rules-accept",
+        rankedAppeal: IS_PROD ? "/v1/ranked-appeal" : "/v1/mm/ranked-appeal",
+        rankedExitRules: IS_PROD ? "/v1/ranked-exit-rules" : "/v1/mm/ranked-exit-rules",
     },
     // Authenticated social layer: notifications tray, friends/blocks, presence heartbeat.
     social: {

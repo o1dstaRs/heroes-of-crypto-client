@@ -54,6 +54,9 @@ export interface SocialNotification {
     /** Co-op sandbox session id carried by a `sandbox_invite` — the direct link is /sandbox/<id>. */
     sandboxId?: string;
     body?: string;
+    /** `system` only: what the notice is about, so the tray can word it in the player's language from `params`. */
+    systemKind?: "ranked_lock" | "appeal_decision";
+    params?: Record<string, unknown>;
     createdAt: number;
     seenAt: number;
     /** Invites only: when this player joined the room through the invite. */

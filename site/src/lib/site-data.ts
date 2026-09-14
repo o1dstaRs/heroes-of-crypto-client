@@ -651,12 +651,15 @@ export const content = {
             title: "Leaving a ranked match",
             eyebrow: "Ranked rules",
             description:
-                "How leaving, disconnecting and going idle count in ranked Heroes of Crypto matches: Concede or Abandon, calibration, away time, penalties, wagers and predictions.",
+                "How leaving, disconnecting and going idle count in ranked Heroes of Crypto matches: Concede or Abandon, calibration, away time, penalties, ranked locks, appeals, wagers and predictions.",
             intro: "Ranked only works when both players see matches through. You can always leave, but when you leave decides how it counts. Everything that can cost you rating, gold or queue time is on this page.",
             statusPending: "Starting soon: until then, leaving counts as it does today.",
             statusScheduled: "These rules apply from {date}.",
             statusEnforced: "In effect since {date}.",
             statusEnforcedUndated: "In effect.",
+            lockStatusPending: "Starting later: until then, the suspension rule above applies.",
+            lockStatusScheduled: "Ranked locks apply from {date}.",
+            lockStatusEnforced: "In effect.",
             versionLabel: "Rules version",
             relatedTitle: "See also",
             relatedRules: "Game rules",
@@ -701,8 +704,34 @@ export const content = {
                     body: [],
                     items: [
                         "After any abandon, you wait {cooldown} before you can queue ranked again.",
-                        "3 abandons in a row suspend your ranked play until support reviews your account. A finished match or a Concede resets the count.",
+                        "Until ranked locks start, 3 abandons in a row suspend your ranked play until support reviews your account. A finished match or a Concede resets the count.",
                         "vs AI, sandbox and casual lobbies stay open either way.",
+                    ],
+                },
+                {
+                    title: "Ranked locks",
+                    lockStatus: true,
+                    body: [
+                        "Abandoning again and again locks ranked play for a set time. The Ranked Arena shows how long a lock has left and which matches caused it.",
+                    ],
+                    items: [
+                        "2 abandons in a row lock ranked for 24 hours. 3 in a row lock it for 7 days.",
+                        "Abandoning often counts too, even with finished matches in between: 3 abandons in your last 10 ranked matches lock ranked for 24 hours, and 5 in your last 20 lock it for 7 days.",
+                        "An abandon within 30 days after a 7-day lock ends locks ranked for 30 days.",
+                        "A finished match or a Concede resets the in-a-row count. Abandons stop counting once you go 30 days without one.",
+                        "Voided matches never count, and neither does a match left unscored because your opponent abandoned during calibration.",
+                        "A lock also closes wagers and prediction bets. vs AI, sandbox and casual lobbies stay open.",
+                    ],
+                },
+                {
+                    title: "Appeals",
+                    body: [
+                        "If a lock was a mistake, like a power cut or a bug on our side, send one written appeal per lock from the Ranked Arena. A person reads every appeal and replies in your notifications, and by email if your account has one.",
+                    ],
+                    items: [
+                        "An appeal is 20 to 1,000 characters.",
+                        "A reviewer can lift the lock early and keep the abandons on your record, lift it and clear those abandons so they no longer count, or keep the lock. Either way, you get their note.",
+                        "If 3 appeals within 90 days are found to have no basis, appeals pause on the account for 30 days.",
                     ],
                 },
                 {
@@ -1506,6 +1535,9 @@ export const content = {
             statusScheduled: "Правила действуют с {date}.",
             statusEnforced: "Действуют с {date}.",
             statusEnforcedUndated: "Действуют.",
+            lockStatusPending: "Вступят в силу позже: до этого действует правило о приостановке выше.",
+            lockStatusScheduled: "Блокировки рейтинговой игры действуют с {date}.",
+            lockStatusEnforced: "Действуют.",
             versionLabel: "Версия правил",
             relatedTitle: "См. также",
             relatedRules: "Правила игры",
@@ -1550,8 +1582,34 @@ export const content = {
                     body: [],
                     items: [
                         "После любого выхода из матча нужно подождать {cooldown}, прежде чем снова искать рейтинговый матч.",
-                        "3 выхода из матча подряд приостанавливают вашу рейтинговую игру, пока поддержка не проверит аккаунт. Доигранный матч или сдача обнуляют счёт.",
+                        "До начала блокировок рейтинговой игры 3 выхода из матча подряд приостанавливают её, пока поддержка не проверит аккаунт. Доигранный матч или сдача обнуляют счёт.",
                         "Матчи против ИИ, песочница и обычные лобби остаются доступными в любом случае.",
+                    ],
+                },
+                {
+                    title: "Блокировки рейтинговой игры",
+                    lockStatus: true,
+                    body: [
+                        "Если раз за разом выходить из матчей, рейтинговая игра блокируется на время. Рейтинговая арена показывает, сколько осталось до конца блокировки и какие матчи к ней привели.",
+                    ],
+                    items: [
+                        "2 выхода из матча подряд блокируют рейтинговую игру на 24 часа. 3 подряд — на 7 дней.",
+                        "Частые выходы тоже учитываются, даже если между ними были доигранные матчи: 3 выхода за последние 10 рейтинговых матчей блокируют рейтинговую игру на 24 часа, 5 за последние 20 — на 7 дней.",
+                        "Выход из матча в течение 30 дней после окончания 7-дневной блокировки блокирует рейтинговую игру на 30 дней.",
+                        "Доигранный матч или сдача обнуляют счёт выходов подряд. Выходы перестают учитываться, если вы 30 дней не выходили из матчей.",
+                        "Аннулированные матчи не учитываются никогда, как и матч без результата из-за того, что соперник вышел во время калибровки.",
+                        "Блокировка также закрывает ставки и прогнозы. Матчи против ИИ, песочница и обычные лобби остаются доступными.",
+                    ],
+                },
+                {
+                    title: "Апелляции",
+                    body: [
+                        "Если блокировка ошибочна, например из-за отключения электричества или ошибки на нашей стороне, отправьте одну письменную апелляцию на блокировку на странице рейтинговой арены. Каждую апелляцию читает человек и отвечает в уведомлениях, а также по почте, если она указана в аккаунте.",
+                    ],
+                    items: [
+                        "Апелляция — от 20 до 1000 символов.",
+                        "Проверяющий может снять блокировку досрочно, оставив выходы в вашей истории, снять её и списать эти выходы, чтобы они больше не учитывались, или оставить блокировку. В любом случае вы получите его комментарий.",
+                        "Если за 90 дней 3 апелляции признаны необоснованными, апелляции для аккаунта приостанавливаются на 30 дней.",
                     ],
                 },
                 {
