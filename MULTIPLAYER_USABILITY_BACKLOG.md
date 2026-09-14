@@ -97,3 +97,10 @@ Status legend: **done** shipped, **open** not started.
   fixed 2 s on every route (a sandbox-only minimum applied everywhere), after a poll that checked for the
   play session only every 2 s. The loader now lasts only as long as the assets take on ranked and co-op
   boards, and the handoff poll runs every 0.75 s once the draft reaches its final phase.
+- Reopened 2026-09-13 (owner: "weird loading and music interruption right before Choose your augments"). A
+  recorded local vs-AI handoff still showed a white page for ~6 s, then a black board, before the augment step,
+  and the pre-fight track swapped to the menu playlist and restarted from the top. Now the finished draft
+  ("Preparing placement…") stays on screen while the fight view loads hidden underneath and reports ready (capped
+  at 8 s); its code is preloaded during the draft; core assets start downloading alongside the loader's own art;
+  and the route leaves the music flag to the fight view once play begins, which only changes it once it knows
+  the phase.

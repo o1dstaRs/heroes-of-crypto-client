@@ -49,7 +49,7 @@ import {
     PLAY_MOVE_CONTINUE_TURN_REASON,
 } from "../api/play_protocol";
 import { createInitialPlayerPlacementActions, createModelPlacementActions } from "./rankedPlacementGeometry";
-import { setPrefightMusicActive } from "./audio/prefightMusic";
+import { boardViewPrefightMusic, setPrefightMusicActive } from "./audio/prefightMusic";
 import type { PlayAction, PlaySnapshot, PlayUnitState } from "../api/play_protocol";
 import type { SceneGameActionTransport, SceneGameActionTransportOptions } from "../game_action_transport";
 import { axiosMMInstance, endpoints } from "../api/axios";
@@ -280,6 +280,8 @@ type Props = {
     replayOnly?: boolean;
     /** Friend co-op sandbox (route /sandbox/:id): the two seats and which one is ours. */
     sandboxCoop?: SandboxCoopSession;
+    /** Called once the view has a board (or the reason it cannot load) to show; the draft covers it until then. */
+    onReadyToShow?: () => void;
 };
 
 type PendingAuthoritativePlayback = {
@@ -287,7 +289,14 @@ type PendingAuthoritativePlayback = {
     stateAfterSnapshot?: PlaySnapshot;
 };
 
-export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, replayOnly = false, sandboxCoop }) => {
+export const RankedGameView: React.FC<Props> = ({
+    gameId,
+    userTeam,
+    windowSize,
+    replayOnly = false,
+    sandboxCoop,
+    onReadyToShow,
+}) => {
     // Re-renders the ranked chrome when the profile's language changes; render sites use the module t().
     useTranslation();
     const manager = usePixiManager();
@@ -907,14 +916,25 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
         return () => setBattleSystemControlsActive(false);
     }, [gameStarted]);
 
-    // "Iron and Silk" runs from the match being found until the first turn. The route hands the flag over
-    // once the board is up; from here it is simply "we have a board and the fight has not started", which is
-    // placement. It goes quiet the moment the fight begins, and a replay never plays it — the outcome is
-    // already decided, so there is no tension to score.
+    // "Iron and Silk" runs from the match being found until the first turn: on through placement, off for the fight
+    // and for a replay. Until the first snapshot arrives this view leaves the flag as the draft left it, so the track
+    // plays straight through the handoff instead of cutting out and restarting (see boardViewPrefightMusic).
     useEffect(() => {
-        setPrefightMusicActive(!replayOnly && hasSnapshot && !gameStarted);
+        const next = boardViewPrefightMusic({ replayOnly, hasSnapshot, gameStarted });
+        if (next !== undefined) {
+            setPrefightMusicActive(next);
+        }
     }, [replayOnly, hasSnapshot, gameStarted]);
     useEffect(() => () => setPrefightMusicActive(false), []);
+
+    // The draft route keeps the finished draft on screen while this view loads behind it. Tell it once there is
+    // something real to show: the board (a snapshot with Pixi loaded) or the reason there cannot be one.
+    const readyToShow = gameUnavailable || (hasSnapshot && pixiReady) || (!hasSnapshot && !!error);
+    useEffect(() => {
+        if (readyToShow) {
+            onReadyToShow?.();
+        }
+    }, [onReadyToShow, readyToShow]);
 
     const sendPlayAction = useCallback(
         async (payload: PlayAction, options?: { authorization?: string; silent?: boolean }): Promise<boolean> => {

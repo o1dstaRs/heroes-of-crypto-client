@@ -304,6 +304,21 @@ export class PixiGameManager {
         // Now use the CORRECT CURRENT dimensions after onResize()
         const { width, height } = this.pixiApp.getApplication().renderer;
 
+        // 0. Start the core assets now. The loading screen's own art (~1.5 MB) used to be fetched first, so on a
+        // cold cache the board's download only began once the loader's pictures had arrived.
+        let actualLoadingProgress = 0;
+        let renderCoreProgress = (): void => undefined;
+        const textureLoader = import("./PixiTextureLoader");
+        const coreAssets = textureLoader.then(({ preloadCoreAssets }) =>
+            preloadCoreAssets((p) => {
+                if (!isCurrentLifecycle()) return;
+                actualLoadingProgress = p;
+                renderCoreProgress();
+            }),
+        );
+        // An init superseded before it awaits this must not surface the failure as an unhandled rejection.
+        coreAssets.catch(() => undefined);
+
         // 1. Show Blocking Loading Screen
         const { LoadingScreen } = await import("../scenes/LoadingScreen");
         if (!isCurrentLifecycle()) {
@@ -323,13 +338,14 @@ export class PixiGameManager {
         // waits behind it) shows the loader only as long as the assets actually take. The helper always
         // existed for this split but the constant was used directly, so every route sat through 2 s.
         const minimumDurationMs = minimumLoadingScreenDurationMs(this.sceneTitle);
-        let actualLoadingProgress = 0;
         let minimumDurationElapsed = false;
         const renderLoadingProgress = (now = performance.now()) => {
             if (!isCurrentLifecycle() || !loadingScreen) return;
             const elapsedMs = minimumDurationElapsed ? minimumDurationMs : now - loadingScreenShownAt;
             loadingScreen.setProgress(displayedLoadingProgress(actualLoadingProgress, elapsedMs, minimumDurationMs));
         };
+        renderCoreProgress = renderLoadingProgress;
+        renderLoadingProgress();
         const minimumLoadingScreenDuration = new Promise<void>((resolve) => {
             let animationFrameId = 0;
             let fallbackTimeoutId = 0;
@@ -367,8 +383,7 @@ export class PixiGameManager {
         this._isLoading = true;
         this.onLoadingChanged.emit(true);
 
-        const { preloadCoreAssets, preloadIdleAtlasAssets, preloadAnimationAssets } =
-            await import("./PixiTextureLoader");
+        const { preloadIdleAtlasAssets, preloadAnimationAssets } = await textureLoader;
         const { boardFirstTextureLoads } = await import("./boardFirstTextureLoads");
         if (!isCurrentLifecycle()) {
             cleanupLoadingScreen();
@@ -376,11 +391,7 @@ export class PixiGameManager {
             return;
         }
 
-        this.textures = (await preloadCoreAssets((p) => {
-            if (!isCurrentLifecycle()) return;
-            actualLoadingProgress = p;
-            renderLoadingProgress();
-        })) as PreloadedPixiTextures;
+        this.textures = (await coreAssets) as PreloadedPixiTextures;
         actualLoadingProgress = 1;
         renderLoadingProgress();
         if (!isCurrentLifecycle()) {

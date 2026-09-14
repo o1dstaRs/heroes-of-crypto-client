@@ -69,7 +69,7 @@ import { ThemeMusic } from "./audio/ThemeMusic";
 import { CurrentLobbyProvider } from "./social/CurrentLobbyContext";
 import { SocialDock } from "./social/SocialDock";
 import { SocialProvider } from "./social/SocialProvider";
-import { setPrefightMusicActive } from "./audio/prefightMusic";
+import { draftRoutePrefightMusic, setPrefightMusicActive } from "./audio/prefightMusic";
 import type { SceneGameActionTransport } from "../game_action_transport";
 import { fetchPickObserveSnapshot, fetchRankedPlaySnapshot } from "../api/ranked_play_client";
 import ObserverPickView from "./PickAndBan/ObserverPickView";
@@ -77,7 +77,7 @@ import { t } from "../i18n/i18n";
 import { useStopWatching } from "./useStopWatching";
 import { PlayerPortalPage } from "./PlayerPortal/PlayerPortalPage";
 import { isMockPortalEnabled } from "./PlayerPortal/mockPortal";
-import { RankedGameView } from "./RankedGameView";
+import { preloadRankedGameView, RankedGameView } from "./RankedGameView";
 import { getMarkedVsAiDifficulty, isMarkedVsAiGame, vsAiDifficultyLabel } from "../utils/aiOpponent";
 import { PickExitFightControl } from "./PickExitFightControl";
 
@@ -844,6 +844,14 @@ const pickEventUrl = (gameId: string): string => {
 // server answers a second tab or device with 429 and the event source retries silently, which left a dead screen.
 const DRAFT_STREAM_STALL_MS = 12_000;
 
+// How long the finished draft may cover the loading board. Past this the board's own loader shows instead, so a slow
+// or failing load is never hidden behind a draft that has already ended.
+const DRAFT_HANDOFF_MAX_MS = 8_000;
+// The board view loads behind the finished draft at full size (Pixi measures its canvas) but invisible, which also
+// keeps it out of pointer hit-testing. Once shown, `display: contents` lays it out exactly as it was unwrapped.
+const BOARD_BEHIND_DRAFT_STYLE: React.CSSProperties = { position: "fixed", inset: 0, visibility: "hidden" };
+const BOARD_SHOWN_STYLE: React.CSSProperties = { display: "contents" };
+
 const DraftConnectionWatch: React.FC<{ onStalled?: () => void }> = ({ onStalled }) => {
     const { isConnected } = usePickBanEvents();
     useEffect(() => {
@@ -1014,12 +1022,15 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
         stopWatching();
     }, [authenticated, location.state, navigate, stopWatching]);
 
-    // "Iron and Silk" covers everything between the match being found and the first turn: the match check,
-    // picks and augments here, then placement inside RankedGameView, which takes over the flag once the
-    // board is up (it is the only screen that sees the phase). Cleared on unmount so leaving mid-draft — a
-    // decline, a reload, a navigation away — never leaves the pre-fight track playing over the menus.
+    // "Iron and Silk" covers everything between the match being found and the first turn: the match check and
+    // picks here, then placement inside RankedGameView, which takes the flag over once the match is in play (it is
+    // the only screen that sees the phase). Cleared on unmount so leaving mid-draft — a decline, a reload, a
+    // navigation away — never leaves the pre-fight track playing over the menus.
     useEffect(() => {
-        setPrefightMusicActive(!!gameId && !showOverlay && routeMode !== "play");
+        const next = draftRoutePrefightMusic({ gameId, showOverlay, routeMode });
+        if (next !== undefined) {
+            setPrefightMusicActive(next);
+        }
     }, [gameId, showOverlay, routeMode]);
     useEffect(() => () => setPrefightMusicActive(false), []);
 
@@ -1031,6 +1042,8 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
         if (!gameId || routeMode !== "pick") {
             return undefined;
         }
+        // The board view's code, too, so the handoff does not wait for it.
+        preloadRankedGameView();
         return startBackgroundAssetPrefetch();
     }, [gameId, routeMode]);
     // Set once the live pick-phase SSE (already open inside PickAndBanView) reports one of the two
@@ -1046,9 +1059,22 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
     }, []);
     // A spectator's draft view sees the draft end directly (it never observes AUGMENTS), so hand off now.
     const handleDraftEnded = useCallback(() => setPickNearingPlay(true), []);
+    // The finished draft ("Preparing placement…") stays on screen while the board view loads hidden underneath it,
+    // until the view reports something to show. Switching at once put a blank page, a spinner and the forge loader,
+    // in turn, between the draft and the augment step.
+    const [draftHandoff, setDraftHandoff] = useState(false);
+    const handleBoardReadyToShow = useCallback(() => setDraftHandoff(false), []);
+    useEffect(() => {
+        if (!draftHandoff) {
+            return undefined;
+        }
+        const timer = window.setTimeout(() => setDraftHandoff(false), DRAFT_HANDOFF_MAX_MS);
+        return () => window.clearTimeout(timer);
+    }, [draftHandoff]);
     useEffect(() => {
         setPickNearingPlay(false);
         setObserverMode(false);
+        setDraftHandoff(false);
     }, [gameId]);
 
     useEffect(() => {
@@ -1190,6 +1216,7 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                 // undefined = still drafting (204). Only a real snapshot means the handoff happened.
                 const snapshot = await fetchRankedPlaySnapshot(gameId);
                 if (snapshot && !cancelled) {
+                    setDraftHandoff(true);
                     setRouteMode("play");
                 }
             } catch {
@@ -1206,6 +1233,8 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
             window.clearInterval(intervalId);
         };
     }, [gameId, routeMode, showOverlay, pickNearingPlay]);
+
+    const holdDraft = draftHandoff && routeMode === "play";
 
     return (
         <>
@@ -1252,7 +1281,7 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
             {!showOverlay && gameId && routeMode === "checking" && <MatchLoadingOverlay />}
             {!showOverlay && gameId && routeMode !== "checking" && (
                 <>
-                    {routeMode === "pick" &&
+                    {(routeMode === "pick" || holdDraft) &&
                         (observerMode || draftOpenElsewhere ? (
                             <ObserverPickView
                                 gameId={gameId}
@@ -1267,11 +1296,19 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                                 userTeam={userTeam}
                                 gameId={gameId}
                                 onPickPhaseChange={handlePickPhaseChange}
-                                onConnectionStalled={handleDraftStalled}
+                                // A finished draft's stream may close while it covers the loading board.
+                                onConnectionStalled={holdDraft ? undefined : handleDraftStalled}
                             />
                         ))}
                     {routeMode === "play" && (
-                        <RankedGameView windowSize={windowSize} gameId={gameId} userTeam={userTeam} />
+                        <div style={holdDraft ? BOARD_BEHIND_DRAFT_STYLE : BOARD_SHOWN_STYLE}>
+                            <RankedGameView
+                                windowSize={windowSize}
+                                gameId={gameId}
+                                userTeam={userTeam}
+                                onReadyToShow={handleBoardReadyToShow}
+                            />
+                        </div>
                     )}
                 </>
             )}

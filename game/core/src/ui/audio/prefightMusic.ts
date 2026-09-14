@@ -34,3 +34,44 @@ export const subscribePrefightMusic = (listener: Listener): (() => void) => {
         listeners.delete(listener);
     };
 };
+
+/**
+ * What the draft route does with the flag: on for the match check and the draft, off without a game or behind its
+ * error overlay. Once the match is in play it leaves the flag alone (`undefined`) for the board view, which knows the
+ * phase. Turning it off at the handoff swapped in the menu playlist, and the board then restarted "Iron and Silk"
+ * from its first bar.
+ */
+export const draftRoutePrefightMusic = ({
+    gameId,
+    showOverlay,
+    routeMode,
+}: {
+    gameId?: string;
+    showOverlay: boolean;
+    routeMode: "checking" | "pick" | "play";
+}): boolean | undefined => {
+    if (!gameId || showOverlay) {
+        return false;
+    }
+    return routeMode === "play" ? undefined : true;
+};
+
+/**
+ * What the ranked board view does with the flag: on through placement, off once the fight starts and for a replay
+ * (the outcome is decided, so there is no tension to score). While its first snapshot is still loading it leaves the
+ * flag as the draft left it (`undefined`), so the track plays straight through the handoff.
+ */
+export const boardViewPrefightMusic = ({
+    replayOnly,
+    hasSnapshot,
+    gameStarted,
+}: {
+    replayOnly: boolean;
+    hasSnapshot: boolean;
+    gameStarted: boolean;
+}): boolean | undefined => {
+    if (replayOnly || gameStarted) {
+        return false;
+    }
+    return hasSnapshot ? true : undefined;
+};
