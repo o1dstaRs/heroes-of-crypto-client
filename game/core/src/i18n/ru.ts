@@ -143,6 +143,8 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Player profile summary": "Сводка профиля игрока",
     Refresh: "Обновить",
     "Ranked arena": "Рейтинговая арена",
+    "Exit account": "Выйти из аккаунта",
+    "Signing out…": "Выходим…",
     "Loading your profile…": "Загрузка профиля…",
     "Loading your battle record…": "Загрузка боевой летописи…",
     "Unable to load profile": "Не удалось загрузить профиль",

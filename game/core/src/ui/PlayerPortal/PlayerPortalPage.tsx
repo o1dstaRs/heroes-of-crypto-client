@@ -7,10 +7,12 @@ import { displayedGold } from "../../api/goldDisplay";
 import { t, tf, useTranslation } from "../../i18n/i18n";
 
 import { images } from "../../generated/image_imports";
+import { useAuthContext } from "../auth/context/auth_context";
+import { setSession } from "../auth/context/auth_utils";
 import { CurrencyIcon } from "../GoldCurrencyIcon";
 import { hocColors, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "../hocTheme";
 import { LeagueTransitionReveal } from "../LeagueTransitionReveal";
-import { RankedNavIcon, RefreshNavIcon, SettingsNavIcon } from "../svg/navigation";
+import { ExitNavIcon, RankedNavIcon, RefreshNavIcon, SettingsNavIcon } from "../svg/navigation";
 import { PlayerSettingsPanel } from "../PlayerSettingsPanel";
 import { useRankedSeason } from "../useRankedSeason";
 import { MatchHistory } from "./MatchHistory";
@@ -458,13 +460,53 @@ const ComboRow: React.FC<{ creatureIds: number[]; games: number; wins: number }>
  */
 const STRATEGY_LIST_LENGTH = 6;
 
+/**
+ * Leave the account from the portal. A successful call lets the auth service end the session, but a
+ * network or server failure must not strand the player inside an account they asked to leave: drop this
+ * browser's credentials too, and land on the login screen either way. A missing auth context (mock
+ * portal mode) counts as a failed sign-out rather than a completed one.
+ */
+export const playerPortalExitAccount = async ({
+    logout,
+    clearSession,
+    redirect,
+}: {
+    logout: (() => Promise<void>) | undefined;
+    clearSession: (accessToken: string | null) => void;
+    redirect: () => void;
+}): Promise<void> => {
+    try {
+        if (typeof logout !== "function") {
+            throw new Error("auth context is unavailable");
+        }
+        await logout();
+    } catch {
+        clearSession(null);
+    } finally {
+        redirect();
+    }
+};
+
 export const PlayerPortalPage: React.FC = () => {
     const navigate = useNavigate();
     const [settingsOpen, setSettingsOpen] = useState(false);
+    const [exiting, setExiting] = useState(false);
+    const { logout } = useAuthContext();
     const { data, loading, error, reload } = usePlayerPortal();
     const standing = useRankedStanding(data?.total_games_played ?? 0);
     const { t, language } = useTranslation();
     const { currency, seasons } = useRankedSeason();
+    // Reload this route rather than navigating in place: a full load re-runs the auth bootstrap, so no
+    // session state survives in memory. "/portal" (not "/", which is the sandbox board) renders the login
+    // screen while signed out and returns the player to their profile once they sign back in.
+    const exitAccount = async () => {
+        setExiting(true);
+        await playerPortalExitAccount({
+            logout,
+            clearSession: setSession,
+            redirect: () => window.location.assign("/portal"),
+        });
+    };
 
     const combos = data?.combos ?? [];
     const displayedCombos = useMemo(() => {
@@ -685,6 +727,19 @@ export const PlayerPortalPage: React.FC = () => {
                                 onClick={() => setSettingsOpen(true)}
                             >
                                 {t("Settings")}
+                            </Button>
+                            {/* Sign out lives beside the other in-place actions: the portal is the only
+                                screen that names the logged-in player, so it is where leaving the account
+                                is looked for. */}
+                            <Button
+                                fullWidth
+                                variant="soft"
+                                startDecorator={<ExitNavIcon sx={{ fontSize: 22 }} />}
+                                sx={{ ...hocSoftButtonSx, minWidth: { sm: 126 }, whiteSpace: "nowrap" }}
+                                onClick={exitAccount}
+                                disabled={exiting}
+                            >
+                                {exiting ? t("Signing out…") : t("Exit account")}
                             </Button>
                             <Button
                                 fullWidth
