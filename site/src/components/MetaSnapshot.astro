@@ -23,6 +23,7 @@ const copyByLang = {
         artifactsT1: "Tier 1 artifacts",
         artifactsT2: "Tier 2 artifacts",
         collecting: "Collecting battle data — check back soon.",
+        collectingCombos: "No duo or trio has enough ranked games yet — check back soon.",
         seeUnits: "All units",
         seeArtifacts: "All artifacts",
         winRate: "win rate",
@@ -40,6 +41,7 @@ const copyByLang = {
         artifactsT1: "Артефакты 1 уровня",
         artifactsT2: "Артефакты 2 уровня",
         collecting: "Собираем данные боёв — загляните позже.",
+        collectingCombos: "Ни одна пара или тройка пока не набрала боёв — загляните позже.",
         seeUnits: "Все существа",
         seeArtifacts: "Все артефакты",
         winRate: "процент побед",
@@ -79,6 +81,7 @@ const serializedIcons = JSON.stringify({ units: unitIcons, artifacts: artifactIc
                 <ol class="meta-snapshot__list" data-meta-strongest></ol>
                 <h3 class="meta-snapshot__subhead">{copy.weakest}</h3>
                 <ol class="meta-snapshot__list" data-meta-weakest></ol>
+                <p class="meta-snapshot__panel-note" data-meta-empty="units" hidden>{copy.collecting}</p>
                 <a class="meta-snapshot__more" href={unitsHref}>{copy.seeUnits} →</a>
             </article>
 
@@ -87,6 +90,7 @@ const serializedIcons = JSON.stringify({ units: unitIcons, artifacts: artifactIc
                 <ol class="meta-snapshot__list" data-meta-duos></ol>
                 <h3 class="meta-snapshot__subhead">{copy.trios}</h3>
                 <ol class="meta-snapshot__list" data-meta-trios></ol>
+                <p class="meta-snapshot__panel-note" data-meta-empty="combos" hidden>{copy.collectingCombos}</p>
             </article>
 
             <article class="meta-snapshot__panel">
@@ -94,6 +98,7 @@ const serializedIcons = JSON.stringify({ units: unitIcons, artifacts: artifactIc
                 <ol class="meta-snapshot__list" data-meta-artifacts-t1></ol>
                 <h3 class="meta-snapshot__subhead">{copy.artifactsT2}</h3>
                 <ol class="meta-snapshot__list" data-meta-artifacts-t2></ol>
+                <p class="meta-snapshot__panel-note" data-meta-empty="artifacts" hidden>{copy.collecting}</p>
                 <a class="meta-snapshot__more" href={artifactsHref}>{copy.seeArtifacts} →</a>
             </article>
         </div>
@@ -106,6 +111,7 @@ const serializedIcons = JSON.stringify({ units: unitIcons, artifacts: artifactIc
 
 <script>
     import { fetchMetaStats, metaNameKey, type MetaStats } from "../lib/meta-stats-client";
+    import { emptyMetaPanels, metaPanelRows } from "../lib/meta-stats-panels";
 
     const root = document.querySelector<HTMLElement>("[data-meta-snapshot]");
     if (root) {
@@ -166,44 +172,44 @@ const serializedIcons = JSON.stringify({ units: unitIcons, artifacts: artifactIc
         const unitIcon = (name: string): string => icons.units[metaNameKey(name)] ?? "";
         const artifactIcon = (tier: number, name: string): string => icons.artifacts[`${tier}:${metaNameKey(name)}`] ?? "";
 
-        // Rows need a min-games floor so a 1-game 100% doesn't headline the meta; relax it while data is young.
-        const withFloor = <T extends { games: number }>(rows: T[]): T[] => {
-            const floor = rows.some((r) => r.games >= 8) ? 8 : rows.some((r) => r.games >= 3) ? 3 : 1;
-            return rows.filter((r) => r.games >= floor);
+        // A panel hides each empty list with its heading, so one with nothing to show would render as an
+        // empty box: every panel carries a note instead (the combos panel sat blank while the ladder was
+        // too young for any duo to clear the server's floor).
+        const note = (panel: string, empty: boolean): void => {
+            root.querySelector<HTMLElement>(`[data-meta-empty="${panel}"]`)?.toggleAttribute("hidden", !empty);
         };
 
         const render = (stats: MetaStats): void => {
             if (gamesEl) gamesEl.textContent = String(stats.games);
-            const qualified = withFloor(stats.creatures);
-            const artifactsT1 = withFloor(stats.artifactsTier1);
-            const artifactsT2 = withFloor(stats.artifactsTier2);
+            const rows = metaPanelRows(stats);
             fill(
                 "[data-meta-strongest]",
-                qualified.slice(0, 6).map((c) => row([unitIcon(c.name)], c.name, c.winRatePct, c.games)),
+                rows.strongest.map((c) => row([unitIcon(c.name)], c.name, c.winRatePct, c.games)),
             );
             fill(
                 "[data-meta-weakest]",
-                [...qualified]
-                    .sort((a, b) => a.winRatePct - b.winRatePct || b.games - a.games)
-                    .slice(0, 3)
-                    .map((c) => row([unitIcon(c.name)], c.name, c.winRatePct, c.games)),
+                rows.weakest.map((c) => row([unitIcon(c.name)], c.name, c.winRatePct, c.games)),
             );
             fill(
                 "[data-meta-duos]",
-                stats.pairs.slice(0, 4).map((p) => row(p.names.map(unitIcon), p.names.join(" + "), p.winRatePct, p.games)),
+                rows.duos.map((p) => row(p.names.map(unitIcon), p.names.join(" + "), p.winRatePct, p.games)),
             );
             fill(
                 "[data-meta-trios]",
-                stats.triples.slice(0, 3).map((p) => row(p.names.map(unitIcon), p.names.join(" + "), p.winRatePct, p.games)),
+                rows.trios.map((p) => row(p.names.map(unitIcon), p.names.join(" + "), p.winRatePct, p.games)),
             );
             fill(
                 "[data-meta-artifacts-t1]",
-                artifactsT1.slice(0, 4).map((a) => row([artifactIcon(1, a.name)], a.name, a.winRatePct, a.games)),
+                rows.artifactsTier1.map((a) => row([artifactIcon(1, a.name)], a.name, a.winRatePct, a.games)),
             );
             fill(
                 "[data-meta-artifacts-t2]",
-                artifactsT2.slice(0, 4).map((a) => row([artifactIcon(2, a.name)], a.name, a.winRatePct, a.games)),
+                rows.artifactsTier2.map((a) => row([artifactIcon(2, a.name)], a.name, a.winRatePct, a.games)),
             );
+            const empty = emptyMetaPanels(stats);
+            note("units", empty.units);
+            note("combos", empty.combos);
+            note("artifacts", empty.artifacts);
             const hasAnything = stats.games > 0;
             gridEl?.toggleAttribute("hidden", !hasAnything);
             collectingEl?.toggleAttribute("hidden", hasAnything);
@@ -374,6 +380,13 @@ const serializedIcons = JSON.stringify({ units: unitIcons, artifacts: artifactIc
 
     .meta-snapshot :global(.meta-row[data-trend="weak"] .meta-row__rate b) {
         color: #e08a8a;
+    }
+
+    .meta-snapshot__panel-note {
+        margin: 0;
+        color: var(--muted-2, #8b94a3);
+        font-size: 0.82rem;
+        line-height: 1.45;
     }
 
     .meta-snapshot__more {
