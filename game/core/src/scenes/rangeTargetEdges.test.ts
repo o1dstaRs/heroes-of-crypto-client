@@ -254,6 +254,38 @@ describe("ranged target edge selection", () => {
         expect(optimalRangeTargetEdge([blockedBest], shooter)).toBeUndefined();
     });
 
+    test("a Double Shot may aim through a blocked edge, but a clean edge still wins", () => {
+        const candidate = (
+            id: string,
+            rangeDivisor: number,
+            aimPosition: { x: number; y: number },
+            shootable = true,
+        ) => ({
+            id,
+            rangeDivisor,
+            aimPosition,
+            shootable,
+            cell: { x: 8, y: 8 },
+            side: GridMath.RangeAttackCellSide.LEFT,
+        });
+        const shooter = { x: 0, y: 0 };
+        const closeHalf = candidate("close-half", 2, { x: 10, y: 0 });
+        const blockedBest = candidate("blocked-best", 1, { x: 1, y: 0 }, false);
+        const blockedFar = candidate("blocked-far", 1, { x: 90, y: 0 }, false);
+
+        // Shot one hits whatever screens the target; shot two carries on to it.
+        expect(optimalRangeTargetEdge([blockedBest], shooter, { allowIntercepted: true })?.id).toBe("blocked-best");
+        expect(optimalRangeTargetEdge([blockedFar, blockedBest], shooter, { allowIntercepted: true })?.id).toBe(
+            "blocked-best",
+        );
+        // Never trade a shot that reaches the target for one a screen would eat.
+        expect(optimalRangeTargetEdge([blockedBest, closeHalf], shooter, { allowIntercepted: true })?.id).toBe(
+            "close-half",
+        );
+        // Without the opt-in nothing changes for a single-shot attacker.
+        expect(optimalRangeTargetEdge([blockedBest], shooter)).toBeUndefined();
+    });
+
     test("keeps enumeration order on an exact optimal-edge tie", () => {
         const first = {
             id: "first",

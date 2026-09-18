@@ -11085,22 +11085,26 @@ export class Sandbox extends PixiScene {
                     logicalTo = { x: center.x + half, y: center.y + half };
                     break;
             }
-            const shootable =
-                rangeTargetEdgeIsSelectable(
-                    this.grid.getMatrix(),
-                    gs,
-                    cell,
-                    side,
-                    attacker.getPosition(),
-                    target.getPosition(),
-                    attacker.isSmallSize(),
-                    target.isSmallSize(),
-                    attacker.getTeam(),
-                    throughShot,
-                ) &&
-                !evaluation.attackObstacle &&
-                reachesTarget;
-            if (!shootable) continue;
+            const aimable = rangeTargetEdgeIsSelectable(
+                this.grid.getMatrix(),
+                gs,
+                cell,
+                side,
+                attacker.getPosition(),
+                target.getPosition(),
+                attacker.isSmallSize(),
+                target.isSmallSize(),
+                attacker.getTeam(),
+                throughShot,
+            );
+            const shootable = aimable && !evaluation.attackObstacle && reachesTarget;
+            // A Double Shot may aim past a screen on purpose: shot one hits whatever stands in the way —
+            // a unit or a barrel — and when that dies shot two carries on to the unit this edge belongs to
+            // (attack_handler's switchTargetUnit walks the ray). So keep the edge selectable for a
+            // two-shot attacker, still flagged unshootable: the hover keeps predicting the damage on the
+            // interceptor, and a clean edge always wins the aim. A single shot would simply be eaten, so
+            // nothing changes for one-shot attackers.
+            if (!shootable && !(aimable && AbilityHelper.hasDoubleShotAbility(attacker))) continue;
             const logicalCenter = {
                 x: (logicalFrom.x + logicalTo.x) * 0.5,
                 y: (logicalFrom.y + logicalTo.y) * 0.5,
@@ -13381,7 +13385,11 @@ export class Sandbox extends PixiScene {
                             );
                             arrowEndVisual = arrowEndPos;
                         } else {
-                            optimalRangeEdge = optimalRangeTargetEdge(shootableRangeEdges, arrowStartLogical);
+                            optimalRangeEdge = optimalRangeTargetEdge(shootableRangeEdges, arrowStartLogical, {
+                                // Two-shot attackers may keep an intercepted edge (see rangeTargetEdgeVisuals):
+                                // aim through the screen when no edge reaches the target cleanly.
+                                allowIntercepted: AbilityHelper.hasDoubleShotAbility(this.currentActiveUnit),
+                            });
                             // The one visible arrow is selected by shot quality, not by which edge strip
                             // the pointer happens to cross: retain the most damage first, then use the
                             // nearest edge-center as a deterministic tie-breaker.

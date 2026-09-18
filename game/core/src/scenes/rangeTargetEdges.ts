@@ -27,12 +27,24 @@ export interface OptimalRangeTargetEdgeCandidate extends RangeTargetExteriorEdge
 export function optimalRangeTargetEdge<T extends OptimalRangeTargetEdgeCandidate>(
     edges: readonly T[],
     attackerPosition: HoCMath.XY,
+    options: { allowIntercepted?: boolean } = {},
+): T | undefined {
+    const clean = pickOptimalRangeTargetEdge(edges, attackerPosition, false);
+    // A Double Shot may aim past a screen on purpose: shot one hits whatever stands in the way and shot
+    // two carries on to the unit this edge belongs to. A clean edge still wins whenever one exists.
+    return clean ?? (options.allowIntercepted ? pickOptimalRangeTargetEdge(edges, attackerPosition, true) : undefined);
+}
+
+function pickOptimalRangeTargetEdge<T extends OptimalRangeTargetEdgeCandidate>(
+    edges: readonly T[],
+    attackerPosition: HoCMath.XY,
+    includeIntercepted: boolean,
 ): T | undefined {
     let optimal: T | undefined;
     let optimalDistance = Number.POSITIVE_INFINITY;
 
     for (const edge of edges) {
-        if (!edge.shootable) continue;
+        if (!edge.shootable && !includeIntercepted) continue;
         const distance = Math.hypot(edge.aimPosition.x - attackerPosition.x, edge.aimPosition.y - attackerPosition.y);
         if (
             optimal &&
