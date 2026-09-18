@@ -10,6 +10,9 @@ import { LEGACY_SEASON_CURRENCY, normalizeSeasonCurrency, type SeasonCurrency } 
  *
  * A season has two tables over the same players: the GOLD table — its main result, places by final
  * balance — and the MMR table, the final rating ladder.
+ *
+ * A season can also have a prize pool. Its prize list is built from the gold table when the season closes,
+ * stays provisional while a person checks it, and is then approved by a named admin; see /rules/prizes.
  */
 
 export type SeasonResultsStatus = "upcoming" | "active" | "finished";
@@ -24,6 +27,29 @@ export interface SeasonResultsSeason {
     endsAt: number;
     status: SeasonResultsStatus;
     currency: SeasonCurrency;
+    /** Whether this season plays for a prize pool. Known before the season starts. */
+    hasPrizePool: boolean;
+}
+
+/** A prize list is provisional while a person checks it, then approved by a named admin. */
+export type SeasonPrizeStatus = "review" | "approved";
+
+/** One approved prize place: the place itself, and who holds it. */
+export interface SeasonPrizePlace {
+    place: number;
+    playerId: string;
+    username: string;
+}
+
+/**
+ * A season's prize list, as much of it as the site may show: under review, only that and until when —
+ * the places stay empty on purpose until the list is approved.
+ */
+export interface SeasonPrize {
+    status: SeasonPrizeStatus;
+    /** When the review ends (epoch ms); 0 = undated. */
+    reviewUntil: number;
+    places: SeasonPrizePlace[];
 }
 
 export interface SeasonResultsPlayer {
@@ -81,6 +107,8 @@ export interface SeasonResultsDetail {
     totalGold: number;
     refundedGold: number;
     collapsed: boolean;
+    /** The prize list of a prize season; null when the season has none, or none was built yet. */
+    prize: SeasonPrize | null;
     leagues: SeasonResultsLeague[];
     players: SeasonResultsPlayer[];
 }
@@ -115,6 +143,40 @@ export function normalizeSeasonResultsSeason(value: unknown): SeasonResultsSeaso
         endsAt: wholeNumber(row.endsAt),
         status: asStatus(row.status),
         currency: normalizeSeasonCurrency(row.currency, LEGACY_SEASON_CURRENCY),
+        hasPrizePool: row.hasPrizePool === true,
+    };
+}
+
+const prizePlaces = (value: unknown): SeasonPrizePlace[] =>
+    (Array.isArray(value) ? value : [])
+        .map((placeValue): SeasonPrizePlace | null => {
+            const row = asRecord(placeValue);
+            const place = wholeNumber(row.place);
+            const playerId = asString(row.playerId);
+            // A row without a place or a player can't be listed, so it's dropped rather than shown blank.
+            if (!place || !playerId) {
+                return null;
+            }
+            return { place, playerId, username: asString(row.username, "Unknown") };
+        })
+        .filter((place): place is SeasonPrizePlace => place !== null)
+        .sort((left, right) => left.place - right.place);
+
+/**
+ * Tolerant: anything but a known status reads as no prize information at all, so an unexpected response
+ * shows nothing instead of a half-filled block. Places are kept only once the list is approved — while
+ * it is under review nothing about who holds a place is published.
+ */
+export function normalizeSeasonPrize(value: unknown): SeasonPrize | null {
+    const row = asRecord(value);
+    const status: SeasonPrizeStatus | null = row.status === "review" || row.status === "approved" ? row.status : null;
+    if (!status) {
+        return null;
+    }
+    return {
+        status,
+        reviewUntil: wholeNumber(row.reviewUntil),
+        places: status === "approved" ? prizePlaces(row.places) : [],
     };
 }
 
@@ -187,6 +249,7 @@ export function normalizeSeasonResultsDetail(value: unknown): SeasonResultsDetai
         totalGold: wholeNumber(row.totalGold),
         refundedGold: wholeNumber(row.refundedGold),
         collapsed: row.collapsed === true,
+        prize: normalizeSeasonPrize(row.prize),
         leagues: (Array.isArray(row.leagues) ? row.leagues : [])
             .map((leagueValue) => {
                 const league = asRecord(leagueValue);
@@ -201,6 +264,14 @@ export function normalizeSeasonResultsDetail(value: unknown): SeasonResultsDetai
             .filter((league) => league.league > 0),
         players: players(row.players),
     };
+}
+
+/**
+ * The prize list the results page shows: only a prize season's own list. A season without a prize pool
+ * shows nothing about prizes, whatever the response carries.
+ */
+export function seasonPrizeOf(detail: Pick<SeasonResultsDetail, "season" | "prize">): SeasonPrize | null {
+    return detail.season.hasPrizePool ? detail.prize : null;
 }
 
 /** A player's place in `view`'s table; 0 = no place there. */

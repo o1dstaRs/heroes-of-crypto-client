@@ -80,3 +80,28 @@ describe("season currency", () => {
         );
     });
 });
+
+describe("a season that carries a prize pool", () => {
+    const window = (overrides: Record<string, unknown> = {}) => ({
+        sequence: 4,
+        name: "Season 4",
+        startsAt: 1_000,
+        endsAt: 2_000,
+        currency: { name: "Embers", symbol: "EM", iconSvg: "" },
+        ...overrides,
+    });
+
+    test("the flag travels with each season, and anything but true reads as no prize pool", () => {
+        const catalog = normalizeSeasonCurrencyCatalog({
+            currentSequence: 4,
+            seasons: [window({ hasPrizePool: true }), window({ sequence: 5, startsAt: 2_000, endsAt: 3_000, hasPrizePool: "yes" })],
+        });
+        expect(catalog.seasons.map((season) => season.hasPrizePool)).toEqual([true, false]);
+        expect(catalog.current?.hasPrizePool).toBe(true);
+    });
+
+    test("a season from an older server, with no such field, reads as no prize pool", () => {
+        const catalog = normalizeSeasonCurrencyCatalog({ currentSequence: 4, seasons: [window()] });
+        expect(catalog.seasons[0].hasPrizePool).toBe(false);
+    });
+});

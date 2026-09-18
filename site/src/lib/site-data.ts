@@ -96,6 +96,7 @@ export const content = {
             privacy: "Privacy",
             leavingRules: "Leaving rules",
             reputationRules: "Reputation",
+            prizeRules: "Season prizes",
         },
         play: {
             startCta: "Play",
@@ -337,6 +338,9 @@ export const content = {
             placedLabel: "Placed",
             totalLabel: "Total {currency}",
             returnedLabel: "Gold in play returned",
+            prizeUnderReview: "Prize places are under review until {date}",
+            prizePoolNote: "Prize pool",
+            prizePlacesTitle: "Prize places",
             podiumTitle: "Podium",
             tableTitle: "Final standings",
             rankBy: "Rank by",
@@ -667,6 +671,7 @@ export const content = {
             relatedTitle: "See also",
             relatedRules: "Game rules",
             relatedReputation: "Reputation",
+            relatedPrizes: "Season prizes",
             relatedTerms: "Terms of Service",
             sections: [
                 {
@@ -772,6 +777,7 @@ export const content = {
             statusEnforced: "The Restricted limits are in effect.",
             relatedTitle: "See also",
             relatedLeaving: "Leaving a ranked match",
+            relatedPrizes: "Season prizes",
             relatedTerms: "Terms of Service",
             sections: [
                 {
@@ -848,6 +854,54 @@ export const content = {
                         "We look at match data to find multi-accounting, win trading and AI assistance. We don't publish the exact signals, because that would help cheaters avoid them. They only start a review: a person makes every decision, tells you why, and you can appeal.",
                     ],
                     items: [],
+                },
+            ],
+        },
+        prizeRules: {
+            title: "Season prizes",
+            eyebrow: "Ranked rules",
+            description:
+                "How season prizes work in Heroes of Crypto: prize places follow the gold table, who can take a place, the three-day review, and how a winner claims a prize.",
+            intro: "Some seasons have a prize pool. Whether a season has one is shown on its results page before it starts.",
+            relatedTitle: "See also",
+            relatedLeaving: "Leaving a ranked match",
+            relatedReputation: "Reputation",
+            relatedTerms: "Terms of Service",
+            sections: [
+                {
+                    title: "How places are decided",
+                    body: [],
+                    items: [
+                        "Prize places follow the gold table, the season's main result: your final gold balance at season close.",
+                        "Your rating (MMR) place doesn't decide prizes.",
+                        "Wins over the ranked bots count like any other win.",
+                    ],
+                },
+                {
+                    title: "Who can take a prize place",
+                    body: [],
+                    items: [
+                        "You must have finished your calibration matches.",
+                        "You must have exactly one wallet linked to your account, and it must never have been linked to another account.",
+                        "There is no minimum number of matches, opponents or account age.",
+                    ],
+                },
+                {
+                    title: "The review",
+                    body: [],
+                    items: [
+                        "When a prize season closes, the places are provisional for 3 days while a person checks them.",
+                        "A place that fails the review stays empty; nobody moves up into it.",
+                        "One named admin approves the final list, and the approved list is recorded so it can be checked afterwards.",
+                    ],
+                },
+                {
+                    title: "Getting your prize",
+                    body: [],
+                    items: [
+                        "Prizes are held by the season's smart contract. Once the list is approved, a winner claims their prize to the wallet on their account.",
+                        "The game itself never sends tokens.",
+                    ],
                 },
             ],
         },
@@ -1070,6 +1124,7 @@ export const content = {
             privacy: "Приватность",
             leavingRules: "Правила выхода",
             reputationRules: "Репутация",
+            prizeRules: "Призы сезона",
         },
         play: {
             startCta: "Играть",
@@ -1311,6 +1366,9 @@ export const content = {
             placedLabel: "С местом",
             totalLabel: "Всего: {currency}",
             returnedLabel: "Возвращено ставок",
+            prizeUnderReview: "Призовые места проверяются до {date}",
+            prizePoolNote: "Призовой фонд",
+            prizePlacesTitle: "Призовые места",
             podiumTitle: "Пьедестал",
             tableTitle: "Итоговая таблица",
             rankBy: "Места по",
@@ -1639,6 +1697,7 @@ export const content = {
             relatedTitle: "См. также",
             relatedRules: "Правила игры",
             relatedReputation: "Репутация",
+            relatedPrizes: "Призы сезона",
             relatedTerms: "Условия использования",
             sections: [
                 {
@@ -1744,6 +1803,7 @@ export const content = {
             statusEnforced: "Ограничения уровня «Ограниченная» действуют.",
             relatedTitle: "См. также",
             relatedLeaving: "Выход из рейтингового матча",
+            relatedPrizes: "Призы сезона",
             relatedTerms: "Условия использования",
             sections: [
                 {
@@ -1820,6 +1880,54 @@ export const content = {
                         "Мы изучаем данные матчей, чтобы находить игру с нескольких аккаунтов, договорные победы и помощь ИИ. Точные признаки мы не публикуем, потому что это помогло бы нарушителям их обходить. Они только запускают проверку: каждое решение принимает человек, он объясняет вам причину, и вы можете подать апелляцию.",
                     ],
                     items: [],
+                },
+            ],
+        },
+        prizeRules: {
+            title: "Призы сезона",
+            eyebrow: "Правила рейтинга",
+            description:
+                "Как работают призы сезона в Heroes of Crypto: призовые места определяются по таблице золота, кто может занять место, трёхдневная проверка и как победитель получает приз.",
+            intro: "У некоторых сезонов есть призовой фонд. Есть ли он у сезона, видно на странице его итогов ещё до начала сезона.",
+            relatedTitle: "См. также",
+            relatedLeaving: "Выход из рейтингового матча",
+            relatedReputation: "Репутация",
+            relatedTerms: "Условия использования",
+            sections: [
+                {
+                    title: "Как определяются места",
+                    body: [],
+                    items: [
+                        "Призовые места определяются по таблице золота — главному итогу сезона: по вашему итоговому балансу золота на момент закрытия сезона.",
+                        "Место в таблице рейтинга (MMR) призы не определяет.",
+                        "Победы над рейтинговыми ботами считаются так же, как любые другие победы.",
+                    ],
+                },
+                {
+                    title: "Кто может занять призовое место",
+                    body: [],
+                    items: [
+                        "Вы должны завершить калибровочные матчи.",
+                        "К вашему аккаунту должен быть привязан ровно один кошелёк, и он никогда не должен был быть привязан к другому аккаунту.",
+                        "Минимального числа матчей, соперников или срока существования аккаунта нет.",
+                    ],
+                },
+                {
+                    title: "Проверка",
+                    body: [],
+                    items: [
+                        "Когда призовой сезон закрывается, места остаются предварительными 3 дня, пока их проверяет человек.",
+                        "Место, не прошедшее проверку, остаётся пустым: никто на него не поднимается.",
+                        "Итоговый список утверждает один администратор с именной учётной записью, и утверждённый список сохраняется, чтобы его можно было проверить позже.",
+                    ],
+                },
+                {
+                    title: "Как получить приз",
+                    body: [],
+                    items: [
+                        "Призы хранятся в смарт-контракте сезона. После утверждения списка победитель забирает свой приз на кошелёк, привязанный к его аккаунту.",
+                        "Сама игра никогда не отправляет токены.",
+                    ],
                 },
             ],
         },

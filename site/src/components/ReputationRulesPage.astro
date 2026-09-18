@@ -1,4 +1,5 @@
 ---
+import { prizeRulesPath } from "../lib/prize-rules";
 import { leavingRulesPath } from "../lib/ranked-exit";
 import { content, localPath, type Language } from "../lib/site-data";
 
@@ -49,6 +50,7 @@ const statusCopy = {
             <p>
                 <strong>{rules.relatedTitle}:</strong>
                 <a href={leavingRulesPath(lang)}>{rules.relatedLeaving}</a> ·
+                <a href={prizeRulesPath(lang)}>{rules.relatedPrizes}</a> ·
                 <a href={localPath(lang, "terms-of-service")}>{rules.relatedTerms}</a>
             </p>
         </footer>

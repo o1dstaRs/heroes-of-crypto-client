@@ -12,11 +12,13 @@ import { readFileSync } from "node:fs";
 import {
     buildSeasonResultsDetailUrl,
     buildSeasonResultsListUrl,
+    normalizeSeasonPrize,
     normalizeSeasonResultsDetail,
     normalizeSeasonResultsList,
     placeInView,
     playersInView,
     seasonFromSearch,
+    seasonPrizeOf,
     SeasonResultsNotFoundError,
     viewFromSearch,
 } from "./season-results-client";
@@ -80,6 +82,21 @@ const WIRE_SEASON = {
     endsAt: 1789258176793,
     status: "finished",
     currency: { name: "Gold", symbol: "G", iconSvg: "" },
+    hasPrizePool: false,
+};
+
+/** A season that plays for a prize pool, whose list a person is still checking. */
+const WIRE_PRIZE_SEASON = { ...WIRE_SEASON, sequence: 2, name: "Season 2", hasPrizePool: true };
+
+const WIRE_PRIZE_REVIEW = { status: "review", reviewUntil: 1789517400000, places: [] };
+
+const WIRE_PRIZE_APPROVED = {
+    status: "approved",
+    reviewUntil: 1789517400000,
+    places: [
+        { place: 1, playerId: WIRE_PLAYER.playerId, username: "Valeria" },
+        { place: 2, playerId: WIRE_MMR_LEADER.playerId, username: "Borin" },
+    ],
 };
 
 const WIRE_LIST = {
@@ -106,6 +123,7 @@ const WIRE_DETAIL = {
     totalGold: 18234,
     refundedGold: 640,
     collapsed: false,
+    prize: null,
     leagues: [{ league: 3, playerCount: 4, minMmr: 1500, maxMmr: 1700, leagueName: "Marshal" }],
     // The server sends the gold table's order.
     players: [WIRE_PLAYER, WIRE_MMR_LEADER, WIRE_CALIBRATING, WIRE_EMPTY_PURSE],
@@ -134,6 +152,9 @@ describe("season results wire contract (producer)", () => {
             refundedGold: 640,
             collapsed: false,
         });
+        // A season without a prize pool says so, and carries no prize list.
+        expect(detail?.season.hasPrizePool).toBe(false);
+        expect(detail?.prize).toBeNull();
         expect(detail?.leagues).toEqual([
             { league: 3, leagueName: "Marshal", playerCount: 4, minMmr: 1500, maxMmr: 1700 },
         ]);
@@ -160,6 +181,96 @@ describe("season results wire contract (producer)", () => {
         expect(
             normalizeSeasonResultsDetail({ season: WIRE_SEASON, players: [{ username: "no id" }] })?.players,
         ).toEqual([]);
+    });
+});
+
+describe("season prizes", () => {
+    const prizeDetail = (prize: unknown, season: unknown = WIRE_PRIZE_SEASON) =>
+        normalizeSeasonResultsDetail({ ...WIRE_DETAIL, season, prize });
+
+    test("a prize season under review publishes only that, and until when", () => {
+        const detail = prizeDetail(WIRE_PRIZE_REVIEW);
+        expect(detail?.season.hasPrizePool).toBe(true);
+        expect(detail?.prize).toEqual({ status: "review", reviewUntil: 1789517400000, places: [] });
+        expect(seasonPrizeOf(detail!)?.status).toBe("review");
+    });
+
+    test("an approved list publishes the places, in place order", () => {
+        const detail = prizeDetail(WIRE_PRIZE_APPROVED);
+        expect(detail?.prize).toEqual({
+            status: "approved",
+            reviewUntil: 1789517400000,
+            places: [
+                { place: 1, playerId: WIRE_PLAYER.playerId, username: "Valeria" },
+                { place: 2, playerId: WIRE_MMR_LEADER.playerId, username: "Borin" },
+            ],
+        });
+        // The order is the list's, never the order the rows arrive in.
+        expect(
+            normalizeSeasonPrize({
+                ...WIRE_PRIZE_APPROVED,
+                places: [...WIRE_PRIZE_APPROVED.places].reverse(),
+            })?.places.map((place) => place.place),
+        ).toEqual([1, 2]);
+    });
+
+    test("places never leak while the list is under review, whatever the response carries", () => {
+        expect(normalizeSeasonPrize({ ...WIRE_PRIZE_REVIEW, places: WIRE_PRIZE_APPROVED.places })?.places).toEqual([]);
+    });
+
+    test("an unknown or missing status reads as no prize information at all", () => {
+        for (const value of [undefined, null, "review", 7, [], {}, { status: "provisional" }, { status: "" }]) {
+            expect(normalizeSeasonPrize(value)).toBeNull();
+        }
+        expect(prizeDetail(undefined)?.prize).toBeNull();
+        expect(prizeDetail({ status: "paid", places: WIRE_PRIZE_APPROVED.places })?.prize).toBeNull();
+    });
+
+    test("a missing or negative review date reads as 0, and malformed places are dropped", () => {
+        expect(normalizeSeasonPrize({ status: "review" })?.reviewUntil).toBe(0);
+        expect(normalizeSeasonPrize({ status: "review", reviewUntil: -5 })?.reviewUntil).toBe(0);
+        expect(normalizeSeasonPrize({ status: "review", reviewUntil: "soon" })?.reviewUntil).toBe(0);
+        const prize = normalizeSeasonPrize({
+            status: "approved",
+            reviewUntil: 1789517400000.7,
+            places: [
+                { place: 2, playerId: "p2", username: "  Kept  " },
+                { place: 0, playerId: "p3", username: "no place" },
+                { place: -1, playerId: "p4", username: "negative place" },
+                { place: 1, playerId: "   ", username: "no player" },
+                { place: 3, username: "no player id" },
+                { place: 4, playerId: "p5" },
+                "not a row",
+                null,
+            ],
+        });
+        expect(prize?.reviewUntil).toBe(1789517400000);
+        expect(prize?.places).toEqual([
+            { place: 2, playerId: "p2", username: "Kept" },
+            { place: 4, playerId: "p5", username: "Unknown" },
+        ]);
+        expect(normalizeSeasonPrize({ status: "approved", places: "none" })?.places).toEqual([]);
+    });
+
+    test("a season without a prize pool shows nothing about prizes", () => {
+        const detail = prizeDetail(WIRE_PRIZE_APPROVED, WIRE_SEASON);
+        expect(detail?.prize).not.toBeNull();
+        expect(seasonPrizeOf(detail!)).toBeNull();
+        // A season the results outlived (no season row on the server) reads as no prize pool.
+        expect(normalizeSeasonResultsDetail({ ...WIRE_DETAIL, season: { sequence: 9 } })?.season.hasPrizePool).toBe(
+            false,
+        );
+    });
+
+    test("the list marks which seasons play for a prize pool", () => {
+        const list = normalizeSeasonResultsList({
+            ...WIRE_LIST,
+            seasons: [...WIRE_LIST.seasons, { ...WIRE_LIST.seasons[0], season: WIRE_PRIZE_SEASON }],
+        });
+        expect(list.seasons.map((entry) => [entry.season.sequence, entry.season.hasPrizePool])).toEqual([
+            [2, true],
+            [1, false],
+        ]);
     });
 });
 
@@ -230,6 +341,17 @@ describe("season results wire contract (consumer)", () => {
         expect(reads.length).toBeGreaterThan(20);
         for (const [, variable, key] of reads) {
             expect(key in shapes[variable], `${variable}.${key}`).toBe(true);
+        }
+    });
+
+    // The page throws on a missing hook, so a renamed or forgotten data attribute must fail here instead.
+    test("every element the page looks up exists in its markup", () => {
+        const source = readFileSync(new URL("../components/SeasonResultsPage.astro", import.meta.url), "utf8");
+        const markup = source.slice(0, source.indexOf("<script>"));
+        const hooks = [...source.matchAll(/\bel(?:<[^>]+>)?\("([a-z-]+)"\)/g)].map(([, name]) => name);
+        expect(hooks.length).toBeGreaterThan(10);
+        for (const name of new Set(hooks)) {
+            expect(markup.includes(`data-${name}`), `data-${name}`).toBe(true);
         }
     });
 });

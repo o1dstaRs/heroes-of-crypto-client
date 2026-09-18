@@ -11,6 +11,8 @@ export interface SeasonCurrencyWindow {
     startsAt: number;
     endsAt: number;
     currency: SeasonCurrency;
+    /** Real prizes ride on this season's gold table; shown on the season card before it starts. */
+    hasPrizePool: boolean;
 }
 
 export interface SeasonCurrencyCatalog {
@@ -67,6 +69,7 @@ export function normalizeSeasonCurrencyCatalog(value: unknown): SeasonCurrencyCa
                 startsAt,
                 endsAt,
                 currency: normalizeSeasonCurrency(season.currency),
+                hasPrizePool: season.hasPrizePool === true,
             };
         })
         .filter((season): season is SeasonCurrencyWindow => season !== null)

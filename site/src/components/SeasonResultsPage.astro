@@ -72,6 +72,14 @@ const profileRoot = isRu ? "/ru/profile/" : "/profile/";
 
                 <div data-seasons-season-body hidden>
                     <dl class="seasons-stats" data-seasons-stats></dl>
+                    <!-- Prize seasons only: the review line until the list is approved, then the approved places. -->
+                    <div class="seasons-prize" data-seasons-prize hidden>
+                        <p class="seasons-prize__review" data-seasons-prize-review hidden></p>
+                        <div data-seasons-prize-places hidden>
+                            <h3 class="seasons-table-title">{copy.prizePlacesTitle}</h3>
+                            <ol class="seasons-prize-list" data-seasons-prize-list aria-label={copy.prizePlacesTitle}></ol>
+                        </div>
+                    </div>
                     <div class="seasons-view" role="group" aria-label={copy.rankBy}>
                         <span class="seasons-view__label">{copy.rankBy}</span>
                         <button type="button" class="seasons-view__option" data-seasons-view="gold" aria-pressed="true">
@@ -105,6 +113,7 @@ const profileRoot = isRu ? "/ru/profile/" : "/profile/";
         placeInView,
         playersInView,
         seasonFromSearch,
+        seasonPrizeOf,
         SeasonResultsNotFoundError,
         viewFromSearch,
         type SeasonResultsDetail,
@@ -149,6 +158,10 @@ const profileRoot = isRu ? "/ru/profile/" : "/profile/";
         const rowsEl = el("seasons-rows");
         const viewIconEl = el<HTMLImageElement>("seasons-view-icon");
         const viewCurrencyEl = el("seasons-view-currency");
+        const prizeEl = el("seasons-prize");
+        const prizeReviewEl = el("seasons-prize-review");
+        const prizePlacesEl = el("seasons-prize-places");
+        const prizeListEl = el("seasons-prize-list");
         const viewButtons = [...root.querySelectorAll<HTMLButtonElement>("[data-seasons-view]")];
 
         const details = new Map<number, SeasonResultsDetail>();
@@ -167,7 +180,7 @@ const profileRoot = isRu ? "/ru/profile/" : "/profile/";
             const value = numberFormatter.format(Math.max(0, Math.trunc(amount)));
             return `<span class="currency-amount" aria-label="${escapeHtml(`${currency.name}: ${value}`)}"><img class="currency-icon" src="${escapeHtml(seasonCurrencyIconUrl(currency))}" alt="" aria-hidden="true" width="20" height="20" /><span>${escapeHtml(value)}</span></span>`;
         };
-        const profileHref = (player: SeasonResultsPlayer): string =>
+        const profileHref = (player: Pick<SeasonResultsPlayer, "playerId" | "username">): string =>
             `${profileRoot}?${new URLSearchParams({ playerId: player.playerId, username: player.username }).toString()}`;
         const standingLabel = (player: SeasonResultsPlayer): string => {
             if (player.mmrPlace > 0 && player.league > 0) {
@@ -199,10 +212,11 @@ const profileRoot = isRu ? "/ru/profile/" : "/profile/";
             const shown = running ?? upcoming;
             el<HTMLImageElement>("seasons-current-icon").src = seasonCurrencyIconUrl(shown?.currency ?? null);
             el("seasons-current-name").textContent = running ? running.name : copy.noCurrentSeason;
+            const prizeNote = shown?.hasPrizePool ? ` · ${copy.prizePoolNote}` : "";
             el("seasons-current-meta").textContent = running
-                ? `${fill(copy.currentSeasonEnds, { date: formatDate(running.endsAt) })} · ${running.currency.name}`
+                ? `${fill(copy.currentSeasonEnds, { date: formatDate(running.endsAt) })} · ${running.currency.name}${prizeNote}`
                 : upcoming
-                  ? `${fill(copy.nextSeasonStarts, { date: formatDate(upcoming.startsAt) })} · ${upcoming.name}`
+                  ? `${fill(copy.nextSeasonStarts, { date: formatDate(upcoming.startsAt) })} · ${upcoming.name}${prizeNote}`
                   : "";
             card.hidden = false;
         };
@@ -307,6 +321,35 @@ const profileRoot = isRu ? "/ru/profile/" : "/profile/";
                 : `<tr><td class="seasons-empty-row" colspan="${columns.length}">${escapeHtml(copy.noPlayers)}</td></tr>`;
         };
 
+        /**
+         * A prize season's standing: while the list is under review only that and until when, and once it is
+         * approved the places themselves. A season without a prize pool shows neither.
+         */
+        const renderPrize = (detail: SeasonResultsDetail): void => {
+            const prize = seasonPrizeOf(detail);
+            prizeReviewEl.hidden = true;
+            prizePlacesEl.hidden = true;
+            if (!prize) {
+                prizeEl.hidden = true;
+                return;
+            }
+            if (prize.status === "review") {
+                prizeReviewEl.textContent = fill(copy.prizeUnderReview, { date: formatDate(prize.reviewUntil) });
+                prizeReviewEl.hidden = false;
+                prizeEl.hidden = false;
+                return;
+            }
+            prizeListEl.innerHTML = prize.places
+                .map(
+                    (place) =>
+                        `<li class="prize-place"><span class="prize-place__number">${escapeHtml(numberFormatter.format(place.place))}</span><a class="player-link" href="${escapeHtml(profileHref(place))}">${escapeHtml(place.username)}</a></li>`,
+                )
+                .join("");
+            // An approved list with no place left standing says nothing, so the block stays away.
+            prizePlacesEl.hidden = prize.places.length === 0;
+            prizeEl.hidden = prizePlacesEl.hidden;
+        };
+
         const renderSeason = (detail: SeasonResultsDetail): void => {
             const currency = detail.season.currency;
             seasonIconEl.src = seasonCurrencyIconUrl(currency);
@@ -325,6 +368,7 @@ const profileRoot = isRu ? "/ru/profile/" : "/profile/";
                 .map(([label, value]) => `<div class="seasons-stat"><dt>${escapeHtml(label)}</dt><dd>${value}</dd></div>`)
                 .join("");
 
+            renderPrize(detail);
             viewIconEl.src = seasonCurrencyIconUrl(currency);
             viewCurrencyEl.textContent = currency.name;
             renderStandings(detail);
@@ -621,6 +665,59 @@ const profileRoot = isRu ? "/ru/profile/" : "/profile/";
         margin: 4px 0 0;
         font-size: 1.2rem;
         color: var(--ink-strong);
+    }
+
+    .seasons-prize {
+        margin: 0 0 16px;
+        padding: 12px 14px;
+        border: 1px solid rgba(220, 177, 88, 0.3);
+        border-radius: 12px;
+        background: rgba(220, 177, 88, 0.08);
+    }
+
+    .seasons-prize__review {
+        margin: 0;
+        color: var(--gold-soft);
+    }
+
+    .seasons-prize .seasons-table-title {
+        margin: 0 0 8px;
+    }
+
+    .seasons-prize-list {
+        display: grid;
+        gap: 6px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .seasons-prize-list :global(.prize-place) {
+        display: flex;
+        gap: 10px;
+        align-items: baseline;
+        min-width: 0;
+    }
+
+    .seasons-prize-list :global(.prize-place__number) {
+        min-width: 1.6em;
+        font-family: var(--hoc-font-display);
+        font-variant-numeric: tabular-nums;
+        color: var(--gold);
+    }
+
+    .seasons-prize-list :global(.player-link) {
+        overflow: hidden;
+        color: var(--ink-strong);
+        text-decoration: none;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .seasons-prize-list :global(.player-link:hover),
+    .seasons-prize-list :global(.player-link:focus-visible) {
+        color: var(--gold-soft);
+        text-decoration: underline;
     }
 
     .seasons-view {
