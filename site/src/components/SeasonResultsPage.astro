@@ -9,6 +9,7 @@ const { lang } = Astro.props;
 const copy = content[lang].seasons;
 const isRu = lang === "ru";
 const profileRoot = isRu ? "/ru/profile/" : "/profile/";
+const prizeRulesHref = isRu ? "/ru/rules/prizes/" : "/rules/prizes/";
 ---
 
 <section
@@ -79,6 +80,10 @@ const profileRoot = isRu ? "/ru/profile/" : "/profile/";
                             <h3 class="seasons-table-title">{copy.prizePlacesTitle}</h3>
                             <ol class="seasons-prize-list" data-seasons-prize-list aria-label={copy.prizePlacesTitle}></ol>
                         </div>
+                        <p class="seasons-prize__note">
+                            {copy.prizeClaimNote}{" "}
+                            <a class="seasons-prize__link" href={prizeRulesHref}>{copy.prizeRulesLink}</a>
+                        </p>
                     </div>
                     <div class="seasons-view" role="group" aria-label={copy.rankBy}>
                         <span class="seasons-view__label">{copy.rankBy}</span>
@@ -677,6 +682,16 @@ const profileRoot = isRu ? "/ru/profile/" : "/profile/";
 
     .seasons-prize__review {
         margin: 0;
+        color: var(--gold-soft);
+    }
+
+    .seasons-prize__note {
+        margin: 10px 0 0;
+        font-size: 0.92rem;
+        color: var(--muted);
+    }
+
+    .seasons-prize__link {
         color: var(--gold-soft);
     }
 
