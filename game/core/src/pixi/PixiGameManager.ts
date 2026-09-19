@@ -30,6 +30,7 @@ import {
 } from "../scenes/VisibleState";
 import { MAX_FPS } from "../statics";
 import { boardFitPadding } from "./boardFit";
+import { observeElementBox } from "./observeElementBox";
 import { FpsCalculator } from "./FpsCalculator";
 import { HotKey, hotKeyPress } from "../utils/hotkeys";
 import type { UnitsOverlay } from "../scenes/UnitsOverlay";
@@ -293,6 +294,16 @@ export class PixiGameManager {
 
         this.addInitEventListener(window, "resize", onResize);
         this.addInitEventListener(window, "orientationchange", onResize);
+        // The window is not the only thing that resizes the board. Its wrapper is a flex item sitting next
+        // to the sidebars, so a panel that mounts or grows mid-match — ranked placement mounts several —
+        // re-lays the board out while the window never changes. The canvas then kept the pixel size it was
+        // last given (PixiApp.resize writes explicit px) and the camera stayed fit to that stale box: the
+        // board slid up-left off centre and the sidebar was pushed past the window edge.
+        this.initEventCleanups.push(
+            observeElementBox(wrapper, () => {
+                if (isCurrentLifecycle()) onResize();
+            }),
+        );
         onResize(); // first sizing pass to set correct canvas size
         if (!isCurrentLifecycle()) {
             pixiApp.destroy();
