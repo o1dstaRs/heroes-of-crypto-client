@@ -26,7 +26,7 @@ export interface ReputationLogEntry {
     opponentUsername: string;
 }
 
-/** The published numbers (server reputationRulesSummary). */
+/** The numbers behind a player's own score (server reputationRulesSummary); they travel only on the signed-in route. */
 export interface ReputationRules {
     enforced: boolean;
     enforceAtMs: number;
@@ -175,12 +175,12 @@ export const normalizeReputation = (raw: unknown): Reputation => {
     };
 };
 
+/**
+ * A player's own Reputation, itemized: the score, the band, every change with its reason, and the numbers behind them.
+ * There is no public counterpart to fetch — `reputation-rules` publishes only the scale and its bands (owner, 19 Sep),
+ * so the itemization reaches nobody but the player it belongs to.
+ */
 export const fetchReputation = async (): Promise<Reputation> => {
     const response = await axiosMMInstance.get(endpoints.mm.reputation, { responseType: "json" });
     return normalizeReputation(response.data);
-};
-
-export const fetchReputationRules = async (): Promise<ReputationRules> => {
-    const response = await axiosMMInstance.get(endpoints.mm.reputationRules, { responseType: "json" });
-    return normalizeReputationRules(response.data);
 };

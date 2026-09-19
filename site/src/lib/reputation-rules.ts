@@ -1,6 +1,10 @@
 /**
- * Reputation on the public site: the published numbers behind the 0–100 reliability score (GET reputation-rules)
- * and whether its Restricted limits apply yet. Pure parsing and the status line, used by the rules page.
+ * Reputation on the public site: the 0–100 reliability score's scale and bands (GET reputation-rules) and whether its
+ * Restricted limits apply yet. Pure parsing and the status line, used by the rules page.
+ *
+ * What the score is made of — what each event is worth, the daily cap, the account bonuses, the offence ceilings — is
+ * not published and is not part of this contract (owner, 19 Sep: only the final slider is public). A player reads
+ * their own itemization in the portal, from the signed-in route.
  */
 
 import { runtimeBaseUrl, runtimeIsProduction, type RankedExitRulesUrlOptions } from "./ranked-exit";
@@ -16,28 +20,7 @@ export interface ReputationBands {
     honorable: number;
 }
 
-/** Signed: gains are positive, losses negative. */
-export interface ReputationPoints {
-    match_completed: number;
-    abandon: number;
-    low_participation: number;
-    missed_accept: number;
-    report_early: number;
-    report_upheld: number;
-}
-
-export interface ReputationIdentityPoints {
-    email: number;
-    google: number;
-    wallet: number;
-}
-
-/** The highest Reputation a confirmed offence allows. */
-export interface ReputationCeilings {
-    ai_assistance: number;
-    win_trading: number;
-}
-
+/** The published side of Reputation: the slider — the scale and its bands — and what the lowest band closes. */
 export interface ReputationRules {
     /** Whether the Restricted limits close anything now. */
     enforced: boolean;
@@ -47,50 +30,17 @@ export interface ReputationRules {
     bands: ReputationBands;
     /** "New" shows until this many ranked matches are scored. */
     newUntilScored: number;
-    matchDailyCap: number;
-    points: ReputationPoints;
-    ageWeeksMax: number;
-    identityPoints: ReputationIdentityPoints;
-    walletMinAgeMs: number;
-    ceilings: ReputationCeilings;
     restrictedBlocks: ReputationRestrictedBlock[];
-    reportsPerDay: number;
-    reportCorroborators: number;
-    reportCorroborationWindowMs: number;
-    reportNoBasisLimit: number;
-    reportNoBasisWindowMs: number;
-    reportMuteMs: number;
 }
 
-const DAY_MS = 86_400_000;
-
-/** What the rules page prints before (or without) a response. Mirrors the server's Reputation configuration. */
+/** What the rules page prints before (or without) a response. Mirrors the server's published scale. */
 export const DEFAULT_REPUTATION_RULES: ReputationRules = {
     enforced: false,
     enforceAtMs: 0,
     start: 50,
     bands: { probation: 40, good: 60, honorable: 80 },
     newUntilScored: 10,
-    matchDailyCap: 5,
-    points: {
-        match_completed: 1,
-        abandon: -12,
-        low_participation: -4,
-        missed_accept: -1,
-        report_early: -3,
-        report_upheld: -10,
-    },
-    ageWeeksMax: 8,
-    identityPoints: { email: 4, google: 3, wallet: 4 },
-    walletMinAgeMs: 90 * DAY_MS,
-    ceilings: { ai_assistance: 20, win_trading: 0 },
     restrictedBlocks: ["wagers", "predictions", "chat"],
-    reportsPerDay: 5,
-    reportCorroborators: 3,
-    reportCorroborationWindowMs: 30 * DAY_MS,
-    reportNoBasisLimit: 5,
-    reportNoBasisWindowMs: 30 * DAY_MS,
-    reportMuteMs: 30 * DAY_MS,
 };
 
 type UnknownRecord = Record<string, unknown>;
@@ -99,8 +49,6 @@ const asRecord = (value: unknown): UnknownRecord | null =>
     value !== null && typeof value === "object" && !Array.isArray(value) ? (value as UnknownRecord) : null;
 
 const isFiniteNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
-
-const integerOr = (value: unknown, fallback: number): number => (isFiniteNumber(value) ? Math.trunc(value) : fallback);
 
 const nonNegativeOr = (value: unknown, fallback: number): number =>
     isFiniteNumber(value) && value >= 0 ? Math.trunc(value) : fallback;
@@ -142,19 +90,7 @@ export function normalizeReputationRules(value: unknown): ReputationRules | null
         start: scoreOr(row.start, defaults.start),
         bands: numberGroup(row.bands, defaults.bands, scoreOr),
         newUntilScored: positiveOr(row.newUntilScored, defaults.newUntilScored),
-        matchDailyCap: positiveOr(row.matchDailyCap, defaults.matchDailyCap),
-        points: numberGroup(row.points, defaults.points, integerOr),
-        ageWeeksMax: positiveOr(row.ageWeeksMax, defaults.ageWeeksMax),
-        identityPoints: numberGroup(row.identityPoints, defaults.identityPoints, nonNegativeOr),
-        walletMinAgeMs: positiveOr(row.walletMinAgeMs, defaults.walletMinAgeMs),
-        ceilings: numberGroup(row.ceilings, defaults.ceilings, scoreOr),
         restrictedBlocks: restrictedBlocksOf(row.restrictedBlocks),
-        reportsPerDay: positiveOr(row.reportsPerDay, defaults.reportsPerDay),
-        reportCorroborators: positiveOr(row.reportCorroborators, defaults.reportCorroborators),
-        reportCorroborationWindowMs: positiveOr(row.reportCorroborationWindowMs, defaults.reportCorroborationWindowMs),
-        reportNoBasisLimit: positiveOr(row.reportNoBasisLimit, defaults.reportNoBasisLimit),
-        reportNoBasisWindowMs: positiveOr(row.reportNoBasisWindowMs, defaults.reportNoBasisWindowMs),
-        reportMuteMs: positiveOr(row.reportMuteMs, defaults.reportMuteMs),
     };
 }
 

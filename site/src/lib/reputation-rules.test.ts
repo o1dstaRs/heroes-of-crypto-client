@@ -10,42 +10,19 @@ import {
 } from "./reputation-rules";
 import { content } from "./site-data";
 
-const DAY_MS = 86_400_000;
-
-/** The server's GET reputation-rules response, as published. */
+/** The server's GET reputation-rules response, as published: the slider, and nothing that itemizes it. */
 const SERVER_RESPONSE = {
     enforced: false,
     enforceAtMs: 0,
     start: 50,
     bands: { probation: 40, good: 60, honorable: 80 },
     newUntilScored: 10,
-    matchDailyCap: 5,
-    points: {
-        match_completed: 1,
-        abandon: -12,
-        low_participation: -4,
-        missed_accept: -1,
-        report_early: -3,
-        report_upheld: -10,
-    },
-    ageWeeksMax: 8,
-    identityPoints: { email: 4, google: 3, wallet: 4 },
-    walletMinAgeMs: 7_776_000_000,
-    ceilings: { ai_assistance: 20, win_trading: 0 },
     restrictedBlocks: ["wagers", "predictions", "chat"],
-    reportsPerDay: 5,
-    reportCorroborators: 3,
-    reportCorroborationWindowMs: 2_592_000_000,
-    reportNoBasisLimit: 5,
-    reportNoBasisWindowMs: 2_592_000_000,
-    reportMuteMs: 2_592_000_000,
 };
 
 describe("reputation rules parsing", () => {
-    test("the defaults are the published numbers, and a full response reads back unchanged", () => {
+    test("the defaults are the published scale, and a full response reads back unchanged", () => {
         expect(DEFAULT_REPUTATION_RULES).toEqual(SERVER_RESPONSE);
-        expect(DEFAULT_REPUTATION_RULES.walletMinAgeMs).toBe(90 * DAY_MS);
-        expect(DEFAULT_REPUTATION_RULES.reportMuteMs).toBe(30 * DAY_MS);
         expect(normalizeReputationRules(SERVER_RESPONSE)).toEqual(SERVER_RESPONSE);
         expect(
             normalizeReputationRules({ ...SERVER_RESPONSE, enforced: true, enforceAtMs: 1_790_000_000_000 }),
@@ -54,6 +31,23 @@ describe("reputation rules parsing", () => {
             enforced: true,
             enforceAtMs: 1_790_000_000_000,
         });
+    });
+
+    /**
+     * The owner's rule (19 Sep): only the final slider is public. Nothing on this page, and nothing in what it reads,
+     * may say what a match, an abandon or a confirmed email is worth — a player sees that in their own portal.
+     */
+    test("what itemizes the score is neither read nor kept, even when a server sends it", () => {
+        const withItemization = {
+            ...SERVER_RESPONSE,
+            matchDailyCap: 5,
+            points: { match_completed: 1, abandon: -12 },
+            ageWeeksMax: 8,
+            identityPoints: { email: 4, google: 3, wallet: 4 },
+            ceilings: { ai_assistance: 20, win_trading: 0 },
+        };
+        expect(normalizeReputationRules(withItemization)).toEqual(SERVER_RESPONSE);
+        expect(JSON.stringify(DEFAULT_REPUTATION_RULES)).not.toContain("points");
     });
 
     test("an empty object reads as the defaults", () => {
@@ -73,19 +67,11 @@ describe("reputation rules parsing", () => {
             start: 140,
             bands: { probation: 35, good: "60", honorable: Number.NaN },
             newUntilScored: 0,
-            matchDailyCap: 3.7,
-            points: { abandon: -15, report_upheld: "a lot", match_completed: null },
-            ageWeeksMax: -1,
-            identityPoints: "none",
-            ceilings: { ai_assistance: 101, win_trading: 0 },
             restrictedBlocks: ["chat", "wagers", "queue", 7, "chat"],
-            reportsPerDay: Number.POSITIVE_INFINITY,
         });
         expect(rules).toEqual({
             ...DEFAULT_REPUTATION_RULES,
             bands: { probation: 35, good: 60, honorable: 80 },
-            matchDailyCap: 3,
-            points: { ...DEFAULT_REPUTATION_RULES.points, abandon: -15 },
             restrictedBlocks: ["wagers", "chat"],
         });
     });
@@ -196,9 +182,22 @@ describe("reputation rules copy", () => {
         expect(english).toContain(`Honorable, ${rules.bands.honorable}–100`);
         expect(english).toContain(`Restricted, 0–${rules.bands.probation - 1}`);
         expect(english).toContain(`first ${rules.newUntilScored} ranked matches`);
-        expect(english).toContain(`−${-rules.points.abandon} for abandoning`);
-        expect(english).toContain(`caps your Reputation at ${rules.ceilings.ai_assistance}`);
         // No template tokens: every number is plain text in both languages.
         expect(`${english}\n${text("ru")}`).not.toMatch(/\{\w+\}/);
+    });
+
+    /**
+     * Owner, 19 Sep: the itemization is not public, only the final slider. The page may print the scale, the bands and
+     * the thresholds a player has to know (60% of their turns, 3 reports in 30 days, 90 days of wallet history); it
+     * may not print what any event is worth, so no line carries a signed number.
+     */
+    test("neither language prints what an event is worth", () => {
+        for (const language of ["en", "ru"] as const) {
+            for (const section of content[language].reputationRules.sections) {
+                for (const line of [...section.body, ...section.items]) {
+                    expect(line).not.toMatch(/[+−-]\s?\d/);
+                }
+            }
+        }
     });
 });
