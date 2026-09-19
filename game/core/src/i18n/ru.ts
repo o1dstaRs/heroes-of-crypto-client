@@ -134,6 +134,10 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     Copy: "Копировать",
     Copied: "Скопировано",
     "Copy battle log": "Скопировать журнал боя",
+    // Read out for the fight log's side markers, which are painted dots rather than named colours: a player
+    // fighting in amethyst sees their own dot in amethyst, so "green"/"red" would not describe them.
+    "Left side": "Левая сторона",
+    "Right side": "Правая сторона",
     Calibrating: "На калибровке",
 
     // ~~~ Player portal: header + shell ~~~
