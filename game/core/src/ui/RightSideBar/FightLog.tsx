@@ -314,7 +314,7 @@ export const FightLog = ({ text }: { text: string }) => {
                                 // with no artificial padding after it when scrolled all the way down.
                                 sx={{ pb: groupIdx === groups.length - 1 ? 0 : "4px" }}
                             >
-                                {group.headerEntry && (
+                                {group.headerEntry && group.headerLabel && (
                                     <Box
                                         sx={{
                                             position: "relative",
