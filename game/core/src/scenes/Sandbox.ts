@@ -95,6 +95,7 @@ import {
     throughShotAbilityMultiplier,
     applyThroughShotDamageTail,
     doubleShotAbility,
+    meleeRetaliationEverPossible,
     type IAttackDamageProjection,
     type IAttackDamageProjectionInput,
 } from "@heroesofcrypto/common";
@@ -5428,6 +5429,13 @@ export class Sandbox extends PixiScene {
                 ? findRangeResponseAnimation(attackEvent, attacker.getPosition())
                 : undefined;
         if (attackEvent.attackType === "range" && !responseAnimation) {
+            return undefined;
+        }
+        // A melee counter is inferred from the HP the attacker lost, which is not evidence on its own:
+        // the attacker may have walked into a Fire Wall on its approach, stood in an aura or hit a
+        // reflect. Refuse the counters the rules never allowed — a Fairy carries Shadow Touch, so the
+        // Wolf it struck lunged back on screen having never retaliated at all (owner report 2026-09-19).
+        if (attackEvent.attackType !== "range" && !meleeRetaliationEverPossible(attacker, target)) {
             return undefined;
         }
         // Bill the counter's damage to whoever it actually hit. For an intercepted counter that is the
@@ -11482,7 +11490,13 @@ export class Sandbox extends PixiScene {
                           secondary.reduce((sum, hit) => sum + hit.unitsDied, 0),
                   )
                 : 0;
-            const response = amount > 0 && (!isRange || responseAnimation) ? { amount, unitsDied } : undefined;
+            // The attacker's own HP loss is the only evidence of a melee counter here, and it is not
+            // proof: a Fire Wall on the approach, an aura or a reflect costs it hit points too. Refuse
+            // the counters the rules never allowed, exactly as the replay path does — see
+            // meleeRetaliationEverPossible.
+            const retaliationAllowed = isRange || meleeRetaliationEverPossible(attacker, target);
+            const response =
+                amount > 0 && retaliationAllowed && (!isRange || responseAnimation) ? { amount, unitsDied } : undefined;
             const deadIds = new Set(
                 event.unitIdsDied.filter(
                     (id) => !this.unitsHolder.getAllUnits().get(id) || this.unitsHolder.getAllUnits().get(id)!.isDead(),
