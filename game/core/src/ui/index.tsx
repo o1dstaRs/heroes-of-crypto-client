@@ -1075,6 +1075,9 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
         setPickNearingPlay(false);
         setObserverMode(false);
         setDraftHandoff(false);
+        // Per-game like the rest: a stalled stream in the previous match must not leave the next draft
+        // watching itself read-only.
+        setDraftOpenElsewhere(false);
     }, [gameId]);
 
     useEffect(() => {
