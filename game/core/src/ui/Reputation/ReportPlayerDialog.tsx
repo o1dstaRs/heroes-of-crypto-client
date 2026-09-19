@@ -16,7 +16,7 @@ import {
     type ReportCategory,
 } from "../../api/report_client";
 import { t, tf, useTranslation } from "../../i18n/i18n";
-import { hocColors, hocPanelSx, hocSoftButtonSx } from "../hocTheme";
+import { hocColors, hocFantasyRadioSx, hocInputSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "../hocTheme";
 
 const categoryLabel = (category: ReportCategory): string => {
     switch (category) {
@@ -79,7 +79,9 @@ export const ReportPlayerDialog: React.FC<{
     }).format(new Date());
 
     return (
-        <Modal open={open} onClose={close}>
+        /* The results screen this opens from sits at z-index 9998 with its buttons at 9999, and Joy's modal
+           defaults to 1300 — without this the dialog opens *behind* the results and the button looks dead. */
+        <Modal open={open} onClose={close} sx={{ zIndex: 10030 }}>
             <ModalDialog sx={{ ...hocPanelSx, maxWidth: 440 }} data-testid="report-player-dialog">
                 <Typography level="body-xs" textColor={hocColors.muted}>
                     {tf("Ranked match · {date}", { date })}
@@ -93,7 +95,7 @@ export const ReportPlayerDialog: React.FC<{
                             {t("Thanks. If we act on this, you'll get a notification.")}
                         </Typography>
                         <Stack direction="row" justifyContent="flex-end">
-                            <Button variant="solid" onClick={onClose}>
+                            <Button variant="solid" onClick={onClose} sx={hocPrimaryButtonSx}>
                                 {t("Close")}
                             </Button>
                         </Stack>
@@ -114,7 +116,7 @@ export const ReportPlayerDialog: React.FC<{
                                     value={value}
                                     label={categoryLabel(value)}
                                     disabled={busy}
-                                    sx={{ color: hocColors.mutedStrong }}
+                                    sx={{ color: hocColors.mutedStrong, ...hocFantasyRadioSx }}
                                 />
                             ))}
                         </RadioGroup>
@@ -128,6 +130,7 @@ export const ReportPlayerDialog: React.FC<{
                             value={note}
                             disabled={busy}
                             onChange={(event) => setNote(event.target.value)}
+                            sx={hocInputSx}
                         />
                         <Typography level="body-xs" textColor={hocColors.muted}>
                             {t("Reports never lock anyone on their own: a person reviews them, with the match's data.")}
@@ -141,7 +144,13 @@ export const ReportPlayerDialog: React.FC<{
                             <Button variant="plain" onClick={close} disabled={busy} sx={hocSoftButtonSx}>
                                 {t("Cancel")}
                             </Button>
-                            <Button variant="solid" loading={busy} disabled={!category} onClick={() => void send()}>
+                            <Button
+                                variant="solid"
+                                loading={busy}
+                                disabled={!category}
+                                onClick={() => void send()}
+                                sx={hocPrimaryButtonSx}
+                            >
                                 {t("Send report")}
                             </Button>
                         </Stack>

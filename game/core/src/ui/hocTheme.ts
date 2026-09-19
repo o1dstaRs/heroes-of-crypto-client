@@ -393,6 +393,13 @@ export const hocInputSx = {
     color: hocColors.parchment,
     borderColor: hocColors.orangeBorder,
     "--Input-focusedHighlight": hocColors.orange,
+    // Joy re-declares the focus colour inside this guard, which outranks a plain variable here — so the
+    // focus ring stayed its default blue until it was set under the same selector. Textarea reads its own
+    // variable, so a shared style has to carry both names.
+    '&:not([data-inverted-colors="false"])': {
+        "--Input-focusedHighlight": hocColors.orange,
+        "--Textarea-focusedHighlight": hocColors.orange,
+    },
     "&:hover": {
         borderColor: hocColors.orange,
     },
