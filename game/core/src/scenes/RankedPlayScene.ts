@@ -70,7 +70,7 @@ import { syncRankedTransientTerrain } from "./rankedTransientTerrain";
 import { syncPlacementSynergyUnitCounts } from "../ui/rankedSynergySync";
 import { BARREL_SHADOW_EDITOR_LAYOUT, isBarrelShadowEditorActive } from "../ui/barrelShadowTuning";
 import { projectBattlefieldPoint } from "./sandbox/BattlefieldVisualGrid";
-import { clearPersonalArmyTint, setPersonalArmyTint } from "./personalArmyTint";
+import { clearPersonalArmyTint, personalArmyTintSeat, setPersonalArmyTint } from "./personalArmyTint";
 import { isGreenTeam, teamColor } from "./teamColors";
 
 export const isRankedAuthoritativeRecordAlreadyApplied = (
@@ -1786,9 +1786,13 @@ export class RankedPlayScene extends Sandbox {
             this.updateUnitsOverlayVisibility();
         }
         // A player may tint their OWN army (settings menu). Armed only here, for a live authoritative
-        // fight this client is playing: replays and the sandbox clear it, so a recorded match is always
-        // watched in its true team colours. Team identity is untouched either way.
-        setPersonalArmyTint(this.viewerTeam, !this.replayViewingActive && !this.fullReplayPlaybackActive);
+        // fight this client is playing: replays, observers and sandboxes keep the true team colours, so a
+        // recorded match — or a practice board whose two armies are the same person's — is always watched
+        // green against red. Team identity is untouched either way.
+        setPersonalArmyTint(
+            personalArmyTintSeat(this.viewerTeam, this.sandboxCoop),
+            !this.replayViewingActive && !this.fullReplayPlaybackActive,
+        );
         this.setLocalModelTeamOverride(
             snapshot.localModelTeam === undefined ? undefined : (snapshot.localModelTeam as TeamType),
         );
