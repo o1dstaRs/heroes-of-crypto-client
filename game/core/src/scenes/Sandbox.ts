@@ -6980,7 +6980,8 @@ export class Sandbox extends PixiScene {
     }
     private isAttackBlockedByAggr(
         resolvedPrimaryTarget: Unit | undefined,
-        kind: "melee" | "range" | "area" | "spell",
+        // A splash is judged by its whole blast, through aggrBlockedSplashTarget, never by one primary.
+        kind: "melee" | "range" | "spell",
     ): Unit | undefined {
         const forcedTarget = this.getLiveAggrForcedTarget();
         if (
@@ -7066,6 +7067,22 @@ export class Sandbox extends PixiScene {
         const reason = result.message ?? result.rejectionReason ?? "Action rejected";
         console.warn(`[${what}] engine refused the action: ${reason}`);
         this.sc_sceneLog.updateLog(reason);
+    }
+    /**
+     * The provoker a splash must catch, or undefined when the blast is legal. Shared by the Area Throw /
+     * Large Caliber hover and its click so the cursor and the throw can never judge the same blast
+     * differently — and it asks the engine's question: does the 3x3 actually catch the unit that provoked
+     * this one, never "is the provoker the victim the 3x3 happens to enumerate first".
+     */
+    private aggrBlockedSplashTarget(affectedGroups: readonly Unit[][] | undefined): Unit | undefined {
+        const forcedTarget = this.getLiveAggrForcedTarget();
+        if (!forcedTarget) {
+            return undefined;
+        }
+        const splashTargetIds = (affectedGroups ?? []).flatMap((group) => group.map((unit) => unit.getId()));
+        return isManualAttackBlockedByAggr(forcedTarget.getId(), { kind: "area", splashTargetIds })
+            ? forcedTarget
+            : undefined;
     }
     private getLiveAggrForcedTarget(): Unit | undefined {
         const forcedTargetId = this.currentActiveUnit?.getTarget();
@@ -10426,30 +10443,15 @@ export class Sandbox extends PixiScene {
             return clearInfo();
         }
 
+        // Aggr: an aggravated splash may only be thrown where its blast catches the unit that provoked it.
+        // One gate, shared with the click, and it names the provoker instead of silently drawing no area.
         const affectedGroups = AllAbilities.evaluateAffectedUnits(cells, this.unitsHolder, this.grid) ?? [];
-        // The authoritative range handler checks only the ordered primary ([0][0]); a forced target later
-        // in the splash does not make the throw legal. An empty splash is a legal miss and remains available.
-        {
-            const aggrBlockedAreaTarget = this.isAttackBlockedByAggr(affectedGroups[0]?.[0], "area");
-            if (aggrBlockedAreaTarget) {
-                this.showAggrBlockedActionHint(aggrBlockedAreaTarget);
-                return true;
-            }
-            this.clearAggrBlockedActionHint();
+        const aggrBlockedAreaTarget = this.aggrBlockedSplashTarget(affectedGroups);
+        if (aggrBlockedAreaTarget) {
+            this.showAggrBlockedActionHint(aggrBlockedAreaTarget);
+            return true;
         }
-
-        // Aggr: an aggravated AOE unit can only attack the enemy that aggr'd it. Only preview/allow the throw
-        // when its splash actually covers that forced target; suppress it (no AOE outline) anywhere else.
-        const forcedTargetId = this.currentActiveUnit?.getTarget();
-        if (forcedTargetId) {
-            const forcedTarget = this.unitsHolder.getAllUnits().get(forcedTargetId);
-            if (forcedTarget && !forcedTarget.isDead()) {
-                const coversForcedTarget = affectedGroups.some((g) => g.some((u) => u.getId() === forcedTargetId));
-                if (!coversForcedTarget) {
-                    return clearInfo();
-                }
-            }
-        }
+        this.clearAggrBlockedActionHint();
 
         this.hoverManager.drawAOEArea(cells);
         // Trajectory line to the selected center — the same arrow a single-target ranged hover draws.
@@ -10766,22 +10768,15 @@ export class Sandbox extends PixiScene {
         if (!unit || !cells) {
             return false;
         }
-        // Aggr binds a splash exactly as it binds every other attack surface, and the hover already refuses
-        // here (updateAreaThrowHover): the primary the engine prices must be the unit that provoked this
-        // one, and the splash has to cover it at all. This click had no Aggr gate whatsoever — the only
-        // attack surface without one — so the cursor said "Aggr — must attack X", or drew no area at all,
-        // and the throw went out regardless. Nothing downstream catches it either: the engine's
-        // areaThrowAttack does not re-check the lock, so the illegal throw simply succeeded.
-        const affectedGroups = AllAbilities.evaluateAffectedUnits(cells, this.unitsHolder, this.grid) ?? [];
-        const aggrBlockedAreaTarget = this.isAttackBlockedByAggr(affectedGroups[0]?.[0], "area");
+        // Aggr binds a splash exactly as it binds every other attack surface, and the hover refuses here
+        // through this same gate. This click had no Aggr check whatsoever — the only attack surface without
+        // one — so the cursor said "Aggr — must attack X" and the throw went out regardless, to be refused
+        // by the engine (or, in the sandbox, to simply land).
+        const aggrBlockedAreaTarget = this.aggrBlockedSplashTarget(
+            AllAbilities.evaluateAffectedUnits(cells, this.unitsHolder, this.grid),
+        );
         if (aggrBlockedAreaTarget) {
             this.showAggrBlockedActionHint(aggrBlockedAreaTarget);
-            return true;
-        }
-        const forcedTarget = this.getLiveAggrForcedTarget();
-        if (forcedTarget && !affectedGroups.some((g) => g.some((u) => u.getId() === forcedTarget.getId()))) {
-            // The hover simply shows nothing here; the click says why rather than eating the input.
-            this.showAggrBlockedActionHint(forcedTarget);
             return true;
         }
         const gs = this.sc_sceneSettings.getGridSettings();

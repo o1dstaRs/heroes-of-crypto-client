@@ -21,20 +21,23 @@ describe("Aggr blocked-action hint", () => {
         expect(isManualAttackBlockedByAggr(forcedTargetId, { kind })).toBe(true);
     });
 
-    test("uses the ordered resolved primary for area attacks, not any later splash victim", () => {
+    // A splash is judged by everything its blast catches, never by the victim the 3x3 enumerates first: the
+    // aimed cell is enumerated LAST, so that first entry is whichever stack stands in the RING. Reading it
+    // refused a throw aimed squarely at the provoker for the crime of having a neighbour — and the engine
+    // refused it too, so even the AI, which only ever aims at its provoker, lost those turns
+    // (common attack_handler, handleRangeAttack's AOE branch; fixed 2026-09-19).
+    test("an area attack is judged by its whole blast, not by whichever victim it enumerates first", () => {
+        expect(isManualAttackBlockedByAggr(forcedTargetId, { kind: "area", splashTargetIds: ["squire"] })).toBe(true);
+        expect(isManualAttackBlockedByAggr(forcedTargetId, { kind: "area", splashTargetIds: [forcedTargetId] })).toBe(
+            false,
+        );
+        // The provoker stands in the blast behind a neighbour the ring enumerates first: still a legal throw.
         expect(
-            isManualAttackBlockedByAggr(forcedTargetId, {
-                kind: "area",
-                resolvedPrimaryTargetId: "squire",
-            }),
-        ).toBe(true);
-        expect(
-            isManualAttackBlockedByAggr(forcedTargetId, {
-                kind: "area",
-                resolvedPrimaryTargetId: forcedTargetId,
-            }),
+            isManualAttackBlockedByAggr(forcedTargetId, { kind: "area", splashTargetIds: ["squire", forcedTargetId] }),
         ).toBe(false);
-        expect(isManualAttackBlockedByAggr(forcedTargetId, { kind: "area" })).toBe(false);
+        // A blast that catches nobody catches no provoker either.
+        expect(isManualAttackBlockedByAggr(forcedTargetId, { kind: "area", splashTargetIds: [] })).toBe(true);
+        expect(isManualAttackBlockedByAggr(forcedTargetId, { kind: "area" })).toBe(true);
     });
 
     test("blocks mountain attacks while the forced target is alive", () => {
@@ -69,18 +72,22 @@ describe("Aggr blocked-action hint", () => {
 
     // Every attack surface gates the CLICK on Aggr, not just the cursor. The splash throw was the one
     // exception: its hover refused (hint, or no area drawn at all) while attemptAreaThrowAttack had no Aggr
-    // check of any kind, and the engine's areaThrowAttack does not re-check the lock — so the throw the
-    // cursor had just forbidden simply went out and landed (audit 2026-09-19).
+    // check of any kind, so the throw the cursor had just forbidden went out anyway — to be refused by the
+    // engine, or on a local board to simply land (audit 2026-09-19).
     test("the splash throw gates its click on Aggr, exactly as its siblings do", () => {
         const source = readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
         const click = source.slice(
             source.indexOf("private attemptAreaThrowAttack("),
             source.indexOf("private async performAreaThrow("),
         );
-        // The primary the engine will price must be the provoker...
-        expect(click).toContain('this.isAttackBlockedByAggr(affectedGroups[0]?.[0], "area")');
-        // ...and the splash has to cover it at all, which is the extra rule the hover applies.
-        expect(click).toContain("this.getLiveAggrForcedTarget()");
-        expect(click).toContain("this.showAggrBlockedActionHint(forcedTarget)");
+        // The same gate the hover asks, so the cursor and the throw judge one blast the same way.
+        expect(click).toContain("this.aggrBlockedSplashTarget(");
+        expect(click).toContain("this.showAggrBlockedActionHint(aggrBlockedAreaTarget)");
+
+        const hover = source.slice(
+            source.indexOf("private updateAreaThrowHover("),
+            source.indexOf("private getAreaThrowCells("),
+        );
+        expect(hover).toContain("this.aggrBlockedSplashTarget(affectedGroups)");
     });
 });
