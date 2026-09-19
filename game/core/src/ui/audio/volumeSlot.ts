@@ -25,6 +25,15 @@ export const VOLUME_SLOT_PRIORITY = {
     /** Compatibility alias for existing callers/tests written before the footer became viewport-wide. */
     sidebarFooter: 2,
     draftControls: 3,
+    /**
+     * The social dock's OWN fixed row — the pick screen. It keeps a 32px place for the speaker at the
+     * screen edge, on its own line (bottom 12 / right 10) and at its own 0.82 opacity, so when the draft
+     * row won this slot instead the speaker floated 4px above its neighbours, 6px further out and a shade
+     * brighter, with the dock's reserved place left as a visible hole beside the bell (owner report
+     * 2026-09-19). Outranks the draft row, which claims the slot to beat the GAME row behind its modal —
+     * never to take it off a dock row that is drawing the buttons right next to it.
+     */
+    socialDockRow: 4,
 } as const;
 
 interface IVolumeSlotRegistration {

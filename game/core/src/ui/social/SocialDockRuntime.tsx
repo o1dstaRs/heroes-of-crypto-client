@@ -1241,7 +1241,13 @@ export const SocialDock: React.FC = () => {
         if (!active) {
             return undefined;
         }
-        return registerVolumeSlot(floatingVolumeSlotRef.current, VOLUME_SLOT_PRIORITY.socialDock);
+        // Only the dock's OWN fixed row claims the speaker outright: it is the one that reserves a place
+        // for it in line with the buttons beside it. In the fight the dock either rides inside the game
+        // row (fightDockSlot) or hands the corner to the medallion, and there the game row is the right
+        // host — so those keep the low priority they always had.
+        const priority =
+            systemMenuMode || fightDockSlot ? VOLUME_SLOT_PRIORITY.socialDock : VOLUME_SLOT_PRIORITY.socialDockRow;
+        return registerVolumeSlot(floatingVolumeSlotRef.current, priority);
     }, [fightDockSlot, active, systemMenuMode]);
 
     if (!active) {
