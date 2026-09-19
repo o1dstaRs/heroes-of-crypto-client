@@ -155,6 +155,10 @@ export const authoritativeUnitToSandboxUnitState = (
         attackType: unitState.attackType as AttackType,
         onHourglass: unitState.onHourglass,
         hasHourglassed: unitState.hasHourglassed,
+        // Stun/Blindness never ride the wire as effects, so this flag is the only thing that can put the
+        // stun badge on a rebuilt unit. applyAuthoritativeSnapshot syncs it onto LIVE units; a REPLAY never
+        // takes that path (it hydrates scene states), which is why replayed fights showed no stun at all.
+        skipping: unitState.skipping,
         forcedTargetId: unitState.forcedTargetId,
         forbiddenTargetId: unitState.forbiddenTargetId,
         mechanicalBreakLaps: getAuthoritativeBreakLaps(unitState),
@@ -478,6 +482,10 @@ export const authoritativeSnapshotToSandboxSceneState = (
     // these over its locally-tracked values and re-clears a side at 0.
     obstacleHitsLeftLeft: snapshot.centerObstacleHitsLeft,
     obstacleHitsLeftRight: snapshot.centerObstacleHitsRight,
+    // The server's turn order for THIS snapshot. Live play also syncs it on the scene (applyAuthoritativeSnapshot),
+    // but a replay only ever hydrates scene states — so without it the Up Next strip kept the opening order,
+    // and its hourglass/stun markers with it, for the entire replayed fight.
+    upNext: snapshot.upNext ? [...snapshot.upNext] : undefined,
     units: snapshot.units.flatMap((unit) => {
         if (shouldHidePreFightOpponentUnit(snapshot, unit, options)) {
             return [];
@@ -1683,6 +1691,16 @@ export class RankedPlayScene extends Sandbox {
     }
     protected override getUpNextUnitIds(): string[] | undefined {
         return this.upNextUnitIds;
+    }
+    /**
+     * Ranked reads the queue from its own authoritative copy, so a hydrate has to refresh THAT too — live
+     * snapshots set it alongside (applyAuthoritativeSnapshot), but a replay never runs that path.
+     */
+    protected override applySceneStateUpNext(upNext: string[] | undefined): void {
+        super.applySceneStateUpNext(upNext);
+        if (upNext) {
+            this.upNextUnitIds = [...upNext];
+        }
     }
     /**
      * Diff each unit's active debuffs AND buffs against the previously-seen sets and pop a nice icon +

@@ -492,6 +492,11 @@ export interface SandboxSceneUnitState {
     /** Whether the unit already used its one hourglass (wait) this lap — restored into fightProperties so the
      *  ranked client's canHourglass matches the server (else the AI re-requests a rejected wait → skip). */
     hasHourglassed?: boolean;
+    /** Whether the unit is skipping this turn (Stun / Blindness) — the stun badge. The EFFECT itself is not
+     *  carried into a rebuilt unit (ranked snapshots don't ship effects, and a hydrate rebuilds from
+     *  properties alone), so without this flag the badge vanished on every rebuild — most visibly in a
+     *  REPLAY, which hydrates twice per replayed action and therefore never showed a stun at all. */
+    skipping?: boolean;
     /** Aggr forced target: the unit id this unit is compelled to attack (empty/undefined = none). Restored
      *  on rebuild so attack arrows never point at anyone but the forced target. */
     forcedTargetId?: string;
@@ -517,6 +522,11 @@ export interface SandboxSceneState {
     // (setGridType), so a mountain's HP visibly sprang back to full on the turn after it was hit.
     obstacleHitsLeftLeft?: number;
     obstacleHitsLeftRight?: number;
+    // The turn queue as it stood at this moment. A hydrate resets FightStateManager, so without carrying it
+    // the Up Next strip froze at whatever queue was applied last — in a REPLAY, the fight's opening order,
+    // for the whole fight (nobody has waited or been stunned yet there, so its hourglass and stun markers
+    // stayed dark no matter what the replayed moment showed).
+    upNext?: string[];
     units: SandboxSceneUnitState[];
 }
 
@@ -3078,6 +3088,8 @@ export class Sandbox extends PixiScene {
         fightProps.restoreAlreadyHourglass(
             snapshot.units.filter((unit) => unit.hasHourglassed && !unit.dead).map((unit) => unit.properties.id),
         );
+        // reset() above emptied the turn queue; put this moment's back so the Up Next strip follows a replay.
+        this.applySceneStateUpNext(snapshot.upNext);
 
         this.layoutVersion++;
         this.gridMatrix = this.grid.getMatrix();
@@ -3142,6 +3154,31 @@ export class Sandbox extends PixiScene {
         this.setSelectedUnitProperties(props);
         this.sc_unitPropertiesUpdateNeeded = true;
     }
+    /**
+     * The stun state as the badges see it: the live Stun/Blindness effect (sandbox) OR the flag synced from
+     * a snapshot (ranked and replay, where effects never reach the client). A unit the ENGINE summoned is a
+     * plain Unit until the scene materializes its visuals, so fall back to the effect check for it.
+     */
+    private static skippingForDisplay(unit: Unit): boolean {
+        const renderable = unit as RenderableUnit;
+        return typeof renderable.isSkippingDisplayed === "function"
+            ? renderable.isSkippingDisplayed()
+            : unit.isSkippingThisTurn();
+    }
+    /**
+     * Restore the turn queue a captured/authoritative scene state carried. Ranked keeps its own copy of the
+     * server's order (it overrides the queue everywhere the sandbox reads FightProperties), so it extends
+     * this; the sandbox's own replays are served by the FightProperties queue alone.
+     */
+    protected applySceneStateUpNext(upNext: string[] | undefined): void {
+        if (!upNext?.length) {
+            return;
+        }
+        const fightProps = FightStateManager.getInstance().getFightProperties();
+        for (const unitId of upNext) {
+            fightProps.enqueueUpNext(unitId);
+        }
+    }
     private createRenderableUnitFromSceneState(unitState: SandboxSceneUnitState, summoned = false): RenderableUnit {
         const base = Unit.createUnit(
             // Deep-clone so each restored unit owns its arrays (see createUnitForTeam/split).
@@ -3171,6 +3208,10 @@ export class Sandbox extends PixiScene {
         // Carry the hourglass (wait) state so the icon renders on rebuilt units (ranked snapshots /
         // sandbox replay); the engine sets it live during normal sandbox play.
         renderableUnit.setOnHourglass(unitState.onHourglass ?? false);
+        // Same for the stun badge. "Skipping this turn" comes from a Stun/Blindness EFFECT, and effects are
+        // neither on the ranked wire nor rebuilt from properties — so the rebuilt unit would always look
+        // un-stunned. The flag is the only source a replayed/ranked-rebuilt unit has.
+        renderableUnit.setSkipping(unitState.skipping ?? false);
         // Restore the Aggr forced-target lock so a rebuilt unit still only offers its compelled target
         // (empty string clears it — the source died or the effect expired).
         renderableUnit.setTarget(unitState.forcedTargetId ?? "");
@@ -3195,6 +3236,11 @@ export class Sandbox extends PixiScene {
                 baseCell: { x: baseCell.x, y: baseCell.y },
                 attackType: unit.getAttackTypeSelection(),
                 onHourglass: unit.isOnHourglass(),
+                // The wait/stun state a rebuilt unit cannot derive for itself: fightProperties is reset by a
+                // hydrate, and Stun/Blindness effects don't survive one either. Recording them here is what
+                // lets a SANDBOX replay show the same icons the live board showed.
+                hasHourglassed: fightProps.hasAlreadyHourglass(unit.getId()),
+                skipping: Sandbox.skippingForDisplay(unit),
                 forcedTargetId: unit.getTarget() || undefined,
                 forbiddenTargetId: unit.getForbiddenTarget() || undefined,
                 mechanicalBreakLaps: unit.getEffect("Break")?.getLaps(),
@@ -3213,6 +3259,7 @@ export class Sandbox extends PixiScene {
             centerDried: this.dungeonVisuals.isCenterDried(),
             obstacleHitsLeftLeft: fightProps.getObstacleHitsLeftLeft(),
             obstacleHitsLeftRight: fightProps.getObstacleHitsLeftRight(),
+            upNext: [...fightProps.getUpNextQueueIterable()],
             units,
         };
     }
@@ -17083,7 +17130,9 @@ export class Sandbox extends PixiScene {
                 name: unitNext.getName(),
                 teamType: unitNext.getTeam(),
                 isOnHourglass: unitNext.isOnHourglass(),
-                isSkipping: unitNext.isSkippingThisTurn(),
+                // Display-aware: outside the sandbox the Stun/Blindness effect never reaches the client, so
+                // the effect-only check left the queue's stun marker permanently dark in ranked and replay.
+                isSkipping: Sandbox.skippingForDisplay(unitNext),
                 stackPower: unitNext.getStackPower(),
                 isStackPowered: unitNext.getStackPower() > 0,
             });
@@ -17096,7 +17145,7 @@ export class Sandbox extends PixiScene {
                 name: nextUnit.getName(),
                 teamType: nextUnit.getTeam(),
                 isOnHourglass: nextUnit.isOnHourglass(),
-                isSkipping: nextUnit.isSkippingThisTurn(),
+                isSkipping: Sandbox.skippingForDisplay(nextUnit),
                 stackPower: nextUnit.getStackPower(),
                 isStackPowered: nextUnit.getStackPower() > 0,
             });

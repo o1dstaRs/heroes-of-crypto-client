@@ -2016,3 +2016,73 @@ describe("planScatteredMountainSync", () => {
         expect(plan?.destroyed).toHaveLength(layout.length);
     });
 });
+
+/**
+ * A replay does NOT take the live snapshot path (applyAuthoritativeSnapshot, which syncs these flags onto
+ * the units it finds): it converts each snapshot into a scene state and hydrates it, rebuilding every unit
+ * from scratch. Anything the scene state drops is therefore invisible for the whole replayed fight — which
+ * is what happened to the stun badge (Stun/Blindness are effects, and effects are not on the wire) and to
+ * the Up Next order (frozen at the fight's opening queue, so its markers never lit either).
+ */
+describe("replay carries the turn-status state the icons are drawn from", () => {
+    const fightSnapshot = (units: AuthoritativeUnitState[], upNext: string[] = []): AuthoritativeGameSnapshot => ({
+        ...placementSnapshot(units),
+        phase: 2,
+        fightStarted: true,
+        currentLap: 3,
+        currentUnitId: units[0]?.id ?? "",
+        upNext,
+    });
+
+    test("the waiting unit keeps its hourglass and the stunned unit keeps its stun", () => {
+        const state = authoritativeSnapshotToSandboxSceneState(
+            fightSnapshot([
+                unitState({
+                    id: "waiter",
+                    placed: true,
+                    baseCell: { x: 2, y: 2 },
+                    cells: [{ x: 2, y: 2 }],
+                    onHourglass: true,
+                    hasHourglassed: true,
+                }),
+                unitState({
+                    id: "stunned",
+                    placed: true,
+                    baseCell: { x: 4, y: 2 },
+                    cells: [{ x: 4, y: 2 }],
+                    skipping: true,
+                }),
+            ]),
+        );
+
+        const waiter = state.units.find((unit) => unit.properties.id === "waiter");
+        expect(waiter?.onHourglass).toBe(true);
+        expect(waiter?.hasHourglassed).toBe(true);
+        expect(waiter?.skipping).toBeFalsy();
+
+        const stunned = state.units.find((unit) => unit.properties.id === "stunned");
+        expect(stunned?.skipping).toBe(true);
+        expect(stunned?.onHourglass).toBe(false);
+    });
+
+    test("the turn queue travels with the snapshot, so Up Next follows the replayed moment", () => {
+        const state = authoritativeSnapshotToSandboxSceneState(
+            fightSnapshot(
+                [
+                    unitState({ id: "first", placed: true, baseCell: { x: 1, y: 1 }, cells: [{ x: 1, y: 1 }] }),
+                    unitState({ id: "second", placed: true, baseCell: { x: 3, y: 1 }, cells: [{ x: 3, y: 1 }] }),
+                ],
+                ["second", "first"],
+            ),
+        );
+        expect(state.upNext).toEqual(["second", "first"]);
+    });
+
+    test("a snapshot without a queue leaves the scene state's queue unset rather than empty", () => {
+        const snapshot = fightSnapshot([
+            unitState({ id: "only", placed: true, baseCell: { x: 1, y: 1 }, cells: [{ x: 1, y: 1 }] }),
+        ]);
+        const state = authoritativeSnapshotToSandboxSceneState({ ...snapshot, upNext: undefined });
+        expect(state.upNext).toBeUndefined();
+    });
+});

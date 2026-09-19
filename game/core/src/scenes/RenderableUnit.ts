@@ -5972,6 +5972,14 @@ export class RenderableUnit extends Unit {
         return this.skippingThisTurnSynced || this.isSkippingThisTurn();
     }
     /**
+     * The same answer for callers outside the sprite: the scene-state capture (so a replay can restore the
+     * badge on a rebuilt unit) and the Up Next queue (whose stun marker used the effect-only check and so
+     * never lit up in ranked, where the effect isn't on the wire).
+     */
+    public isSkippingDisplayed(): boolean {
+        return this.isSkippingForDisplay();
+    }
+    /**
      * Whether to draw the stun badge beside the flag. A skipping unit normally shows it — EXCEPT under
      * "Freeze", where the ice crust already reads as "this unit can't act", so the badge would just clutter
      * the frozen shell. The hourglass stays suppressed regardless: that keys off isSkippingForDisplay, which
