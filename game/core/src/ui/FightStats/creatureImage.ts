@@ -13,11 +13,23 @@ const CREATURE_TEXTURE_SIZES = ["512", "256", "128"] as const;
  * missing portrait as a missing creature — the casualty chart used to drop a death marker whenever the lookup
  * failed, so an army that was wiped out showed fewer markers than the creatures that actually fell.
  */
-export const creatureImgSrc = (name: string | undefined): string | undefined => {
+export const creatureImgSrc = (name: string | undefined): string | undefined => resolveCreatureImgSrc(name, imgSrc);
+
+/**
+ * The fallback walk itself, with the art set injected.
+ *
+ * CI replaces the generated image manifest with a stub that answers EVERY key (scripts/generate_ci_stubs.js),
+ * so a missing size can only be exercised through a supplied lookup — asserting it against the real manifest
+ * passes locally and fails on CI.
+ */
+export const resolveCreatureImgSrc = (
+    name: string | undefined,
+    lookup: (key: string) => string | undefined,
+): string | undefined => {
     if (!name) {
         return undefined;
     }
-    const direct = imgSrc(name);
+    const direct = lookup(name);
     if (direct) {
         return direct;
     }
@@ -26,10 +38,10 @@ export const creatureImgSrc = (name: string | undefined): string | undefined => 
         return undefined;
     }
     for (const size of CREATURE_TEXTURE_SIZES) {
-        const alternative = imgSrc(`${base}_${size}`);
+        const alternative = lookup(`${base}_${size}`);
         if (alternative) {
             return alternative;
         }
     }
-    return imgSrc(`${base}_board_128`);
+    return lookup(`${base}_board_128`);
 };
