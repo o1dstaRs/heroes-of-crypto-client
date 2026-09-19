@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { TeamType } from "@heroesofcrypto/common";
 import Avatar from "@mui/joy/Avatar";
 import Box from "@mui/joy/Box";
@@ -8,12 +8,18 @@ import { IVisibleState, IVisibleUnit } from "../../scenes/VisibleState";
 import { unitsOverlayTopBandLayout } from "../../scenes/UnitsOverlay";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { CreaturePortraitImage } from "../CreaturePortraitImage";
-import { CREATURE_PORTRAIT_ASPECT } from "../creaturePortraitVisual";
 import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
 import { resolveUnitImage } from "../unitImage";
 import { getTeamFlagBackground, TeamAmountFlag } from "../TeamAmountFlag";
 import { ACTIVE_TURN_QUEUE_PULSE_MAX_SCALE, useSynchronizedActiveTurnQueuePulse } from "../activeTurnQueuePulse";
 import { upNextWideSmokyChainsBackgroundSurface } from "../upNextBackground";
+import {
+    ACTIVE_TURN_GLOW_MARGIN_PX,
+    type IQueueScrollState,
+    queueScrollState,
+    upNextQueueCardWidth,
+    upNextQueueFit,
+} from "./upNextQueueLayout";
 import { hocColors, hocDisplayFontFamily } from "../hocTheme";
 import { AltExitStrip } from "../exitRules/AltExitStrip";
 import type { IExitStanding } from "../exitRules/exitRulesModel";
@@ -24,7 +30,6 @@ const hourglassImg = new URL("../../../images/hourglass.webp", import.meta.url).
 // Extending its 95%-high rectangle by this ratio lands the Option panel exactly on that seam.
 const OPTION_PANEL_BOTTOM_EXTENSION = 0.045 / 0.95;
 const OPTION_PANEL_BOTTOM_TRIM = 0.002;
-const ACTIVE_TURN_GLOW_MARGIN_PX = 16;
 
 // Copied from UnitStatsListItem.tsx / UpNext.tsx
 const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAura: boolean }> = ({
@@ -69,6 +74,46 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAu
     );
 };
 
+/**
+ * The queue's own scrollbar, drawn rather than borrowed.
+ *
+ * It exists only while the queue really scrolls, sits on the band under the cards, and is always visible —
+ * which the native bar is not on macOS, where it is an overlay that fades out while idle.
+ */
+const QueueScrollBar: React.FC<{ state: IQueueScrollState }> = ({ state }) => (
+    <Box
+        aria-hidden="true"
+        sx={{
+            position: "relative",
+            zIndex: 1,
+            mt: "6px",
+            width: "100%",
+            height: "6px",
+            // The band is a column flex container that can run out of room; without this the track is the
+            // item that shrinks, and a 0px-tall scrollbar is the same as no scrollbar at all.
+            flexShrink: 0,
+            borderRadius: "3px",
+            background: "rgba(19, 12, 8, 0.72)",
+            boxShadow: "inset 0 0 2px rgba(0, 0, 0, 0.9)",
+            overflow: "hidden",
+        }}
+    >
+        <Box
+            sx={{
+                position: "absolute",
+                top: 0,
+                bottom: 0,
+                left: `${state.offset * 100}%`,
+                width: `${Math.max(8, state.thumb * 100)}%`,
+                borderRadius: "3px",
+                background: "linear-gradient(90deg, rgba(112, 76, 29, 0.92), rgba(190, 144, 66, 0.92))",
+                border: "1px solid rgba(218, 174, 91, 0.45)",
+                boxSizing: "border-box",
+            }}
+        />
+    </Box>
+);
+
 /** `exitStanding`: a seated player's exit rules reading, shown under the queue (board casualties, leave outcome). */
 export const UpNextOverlay: React.FC<{ exitStanding?: IExitStanding }> = ({ exitStanding }) => {
     const [visibleState, setVisibleState] = useState<IVisibleState>({} as IVisibleState);
@@ -111,38 +156,56 @@ export const UpNextOverlay: React.FC<{ exitStanding?: IExitStanding }> = ({ exit
     const overlayVisible = altPressed && visibleState.lapNumber > 0;
     const activeTurnPulseRef = useSynchronizedActiveTurnQueuePulse(activeUnitId, overlayVisible);
 
-    if (!overlayVisible) return null;
-
     const topBand = unitsOverlayTopBandLayout(window.innerWidth, window.innerHeight);
     // Keep the approved portrait aspect, but use the whole available band when the queue is short. Once
     // fitting every portrait would make them too small to read, keep a comfortable card size and let the
     // complete queue scroll instead. This also means a scrollbar exists only when it is genuinely useful.
-    const portraitGap = 8;
     const availableRowWidth = Math.max(60, topBand.width - 32);
     const optionPanelHeight = Math.min(
         window.innerHeight - topBand.y,
         topBand.height * (1 + OPTION_PANEL_BOTTOM_EXTENSION - OPTION_PANEL_BOTTOM_TRIM),
     );
     const maxPortraitHeight = Math.max(60, Math.floor((optionPanelHeight - 86) / ACTIVE_TURN_QUEUE_PULSE_MAX_SCALE));
-    const fittedPortraitWidth = displayedUnits.length
-        ? Math.floor(
-              (availableRowWidth - portraitGap * Math.max(0, displayedUnits.length - 1)) /
-                  (displayedUnits.length + ACTIVE_TURN_QUEUE_PULSE_MAX_SCALE - 1),
-          )
-        : Math.round(maxPortraitHeight * CREATURE_PORTRAIT_ASPECT);
-    const fittedPortraitHeight = Math.floor(fittedPortraitWidth / CREATURE_PORTRAIT_ASPECT);
     const minimumReadableHeight = Math.min(maxPortraitHeight, 156);
-    const needsScroll = displayedUnits.length > 0 && fittedPortraitHeight < minimumReadableHeight;
-    const portraitHeight = needsScroll
-        ? Math.min(maxPortraitHeight, 256)
-        : Math.max(60, Math.min(maxPortraitHeight, fittedPortraitHeight));
-    const portraitWidth = Math.round(portraitHeight * CREATURE_PORTRAIT_ASPECT);
-    const cardWidth = portraitWidth + 2;
+    // Sized against the row's real width, borders and active-card glow included — see upNextQueueLayout.
+    const { portraitHeight, needsScroll } = upNextQueueFit(
+        displayedUnits.length,
+        availableRowWidth,
+        maxPortraitHeight,
+        minimumReadableHeight,
+    );
+    const cardWidth = upNextQueueCardWidth(portraitHeight);
     const cardHeight = portraitHeight + 2;
     const activeCardMaxWidth = Math.ceil(cardWidth * ACTIVE_TURN_QUEUE_PULSE_MAX_SCALE);
     const activeCardMaxHeight = Math.ceil(cardHeight * ACTIVE_TURN_QUEUE_PULSE_MAX_SCALE);
     const activeCardSlotWidth = activeCardMaxWidth + ACTIVE_TURN_GLOW_MARGIN_PX * 2;
     const activeCardSlotHeight = activeCardMaxHeight + ACTIVE_TURN_GLOW_MARGIN_PX * 2;
+
+    // How much of the queue is on screen, and where — the numbers the drawn bar needs. Null while the
+    // whole queue fits, which is also when no bar is drawn at all. Re-measured whenever the row's box or
+    // its cards change size, because the portraits settle a frame after the queue itself does.
+    const scrollRowRef = useRef<HTMLDivElement | null>(null);
+    const [queueScroll, setQueueScroll] = useState<IQueueScrollState | null>(null);
+    const handleQueueScroll = useCallback(() => setQueueScroll(queueScrollState(scrollRowRef.current)), []);
+    useLayoutEffect(() => {
+        handleQueueScroll();
+        const row = scrollRowRef.current;
+        if (!overlayVisible || !row) {
+            return undefined;
+        }
+        window.addEventListener("resize", handleQueueScroll);
+        const observer = new ResizeObserver(handleQueueScroll);
+        observer.observe(row);
+        for (const card of Array.from(row.children)) {
+            observer.observe(card);
+        }
+        return () => {
+            window.removeEventListener("resize", handleQueueScroll);
+            observer.disconnect();
+        };
+    }, [handleQueueScroll, overlayVisible, displayedUnits.length, portraitHeight, needsScroll]);
+
+    if (!overlayVisible) return null;
 
     return (
         <Box
@@ -208,28 +271,17 @@ export const UpNextOverlay: React.FC<{ exitStanding?: IExitStanding }> = ({ exit
                     overflowX: needsScroll ? "auto" : "visible",
                     overflowY: needsScroll ? "hidden" : "visible",
                     flexShrink: 0,
-                    scrollbarWidth: needsScroll ? "thin" : "none",
-                    scrollbarColor: needsScroll
-                        ? "rgba(177, 132, 57, 0.82) rgba(19, 12, 8, 0.72)"
-                        : "transparent transparent",
-                    "&::-webkit-scrollbar": {
-                        height: needsScroll ? "6px" : 0,
-                        display: needsScroll ? "block" : "none",
-                    },
-                    "&::-webkit-scrollbar-track": {
-                        background: "rgba(19, 12, 8, 0.72)",
-                        borderRadius: "3px",
-                        boxShadow: "inset 0 0 2px rgba(0, 0, 0, 0.9)",
-                    },
-                    "&::-webkit-scrollbar-thumb": {
-                        background: "linear-gradient(90deg, rgba(112, 76, 29, 0.92), rgba(190, 144, 66, 0.92))",
-                        border: "1px solid rgba(218, 174, 91, 0.45)",
-                        borderRadius: "3px",
-                    },
-                    "&::-webkit-scrollbar-thumb:hover": {
-                        background: "linear-gradient(90deg, rgba(137, 94, 35, 0.96), rgba(212, 166, 78, 0.96))",
-                    },
+                    // The queue draws its OWN bar (QueueScrollBar, below) and hides the native one. A
+                    // styled ::-webkit-scrollbar is an OVERLAY on macOS: it claims no layout space and
+                    // fades out while idle, so it was invisible in exactly the moment it had something to
+                    // say — the queue ran past the band's edge and nothing showed that it continued
+                    // (owner report 2026-09-19). Measured in headless Chromium: a 6px ::-webkit-scrollbar
+                    // and a `scrollbar-width: thin` both reserve 0px there.
+                    scrollbarWidth: "none",
+                    "&::-webkit-scrollbar": { display: "none" },
                 }}
+                ref={scrollRowRef}
+                onScroll={handleQueueScroll}
             >
                 {displayedUnits.map((unit) => {
                     const isActiveTurn = unit.id === activeUnitId;
@@ -341,6 +393,7 @@ export const UpNextOverlay: React.FC<{ exitStanding?: IExitStanding }> = ({ exit
                     );
                 })}
             </Stack>
+            {needsScroll && queueScroll && <QueueScrollBar state={queueScroll} />}
             {exitStanding && <AltExitStrip standing={exitStanding} />}
         </Box>
     );
