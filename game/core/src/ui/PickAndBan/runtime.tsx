@@ -34,6 +34,7 @@ import { getPreGameDoctrine } from "../../utils/preGameDoctrine";
 import { runDraftSubmission, type DraftCommit } from "./draftSubmission";
 import { usePickBanEvents } from "../context/PickBanContext";
 import { useAuthContext } from "../auth/context/auth_context";
+import { abilityImage } from "../abilityImage";
 import { CreaturePortraitImage } from "../CreaturePortraitImage";
 import { hocDisplayFontFamily } from "../hocTheme";
 import { ownArmyAccent } from "../ownArmyAccent";
@@ -400,7 +401,7 @@ export const CreatureDetailPanel: React.FC<{ creatureId: number }> = ({ creature
                                     <>
                                         <Box
                                             component="img"
-                                            src={images[`${ability.toLowerCase().replace(/\s+/g, "_")}_256`]}
+                                            src={abilityImage(ability)}
                                             alt={ability}
                                             sx={{ width: "82%", height: "82%", objectFit: "contain" }}
                                         />
