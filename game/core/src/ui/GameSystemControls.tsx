@@ -16,7 +16,12 @@ export const gameSystemControlsSx = {
     bottom: GAME_SYSTEM_CONTROLS_BOTTOM_INSET,
     display: "grid",
     gridTemplateColumns: "32px minmax(0, 1fr) 32px",
-    alignItems: "center",
+    // END, not centre: the centre cell is whatever the phase puts there — the ranked footer, the ranked
+    // panel, an EXIT FIGHT button — and it alone sets the row's height. Centring floated the 32px side
+    // cells up by half the difference, so in a fight the speaker hovered above the social dock's buttons
+    // while the row's own bottom inset said otherwise (owner report 2026-09-19). Anchoring the sides to
+    // the bottom keeps fullscreen and volume on the dock's line whatever the centre grows to.
+    alignItems: "end",
     pointerEvents: "none",
 } as const;
 

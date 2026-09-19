@@ -18,6 +18,15 @@ describe("game system controls", () => {
         expect(GAME_SYSTEM_CONTROLS_CENTER_WIDTH).toContain("209px");
     });
 
+    /**
+     * The centre cell alone sets the row's height (ranked footer, ranked panel, EXIT FIGHT). Centring the
+     * 32px side cells against it floated them up by half the difference — measured 48px above the row's own
+     * bottom inset with a 96px centre — so in a fight the speaker hovered above the social dock's buttons.
+     */
+    test("keeps fullscreen and sound on the bottom line whatever the centre grows to", () => {
+        expect(gameSystemControlsSx.alignItems).toBe("end");
+    });
+
     test("lets a full-screen draft own the sound control over the hidden sidebar", () => {
         expect(VOLUME_SLOT_PRIORITY.draftControls).toBeGreaterThan(VOLUME_SLOT_PRIORITY.gameControls);
     });
