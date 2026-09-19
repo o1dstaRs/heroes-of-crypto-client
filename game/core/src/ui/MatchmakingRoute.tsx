@@ -12,6 +12,7 @@ import { buildApiUrl, endpoints, HOST_MATCHMAKING_API } from "../api/axios";
 import { createVsAiGame } from "../api/vs_ai_client";
 import { fetchPublicPlayerStats, type PublicPlayerStats } from "../api/social_client";
 import { tf, useTranslation } from "../i18n/i18n";
+import { searchHeadline } from "./matchmakingHeadlines";
 import { acceptRankedRules, fetchRankedConduct, rulesCardDue, type RankedConduct } from "../api/ranked_conduct_client";
 import { formatAwayClock } from "./exitRules/exitRulesModel";
 import { lockActive, lockClock } from "./exitRules/lockModel";
@@ -923,7 +924,9 @@ export const MatchmakingRoute: React.FC = () => {
             return {
                 accent: hocColors.orange,
                 eyebrow: t("MATCHMAKING"),
-                headline: t("Scouting for a worthy rival"),
+                // Rotates every few seconds so a long queue never reads as a frozen screen. The clock
+                // above already repaints twice a second, so no extra timer is needed.
+                headline: t(searchHeadline(searchAnchorMs > 0 ? (nowMs - searchAnchorMs) / 1000 : 0)),
                 description: queueSize
                     ? tf(
                           queueSize === 1
