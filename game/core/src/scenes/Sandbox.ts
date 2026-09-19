@@ -11442,6 +11442,16 @@ export class Sandbox extends PixiScene {
             // rather than sending an aimless action the engine rejects. A replay/authoritative action
             // still goes through: its own recorded aim governs.
             if (!aim && !replayAction) {
+                // The hover has already promised this shot by the time we get here — it drew the bow
+                // cursor, the aim arrow and a damage forecast. Dropping it without a word is what hid a
+                // whole bug class twice over (a two-shot attacker aiming past a screen), so say it out
+                // loud, exactly as the melee click path does when it abandons a strike.
+                console.warn(
+                    `[range] click abandoned: ${attacker.getName()} found no aim edge on ${target.getName()} ` +
+                        `(target cells ${JSON.stringify(target.getCells().map((c) => [c.x, c.y]))}, ` +
+                        `firing from ${attackFrom.x},${attackFrom.y}, ` +
+                        `doubleShot=${AbilityHelper.hasDoubleShotAbility(attacker)})`,
+                );
                 this.sc_moveBlocked = false;
                 return false;
             }
