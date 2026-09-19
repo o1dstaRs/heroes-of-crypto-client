@@ -7047,6 +7047,26 @@ export class Sandbox extends PixiScene {
      * canAttackBy*Targets forced-target filter in updateCurrentMovePath. Returns true (attackable) when there
      * is no active forced target, when the lock has released (target dead/gone), or when this IS the target.
      */
+    /**
+     * A locally-applied action the engine refused. Ranked has always told the player about these — the
+     * authoritative submit logs the reason into the fight log — while the local board dropped them without
+     * a word, which is precisely what turns any hover/click drift into an invisible failure instead of a
+     * complaint with a name on it. A REPLAY is exempt: re-applying an action the server already resolved is
+     * expected to be refused (unit_already_acted, spent shots, fight_finished), and its recorded events
+     * drive the visuals anyway.
+     */
+    private reportRefusedLocalAction(
+        what: string,
+        result: { rejectionReason?: string; message?: string },
+        isReplay: boolean,
+    ): void {
+        if (isReplay) {
+            return;
+        }
+        const reason = result.message ?? result.rejectionReason ?? "Action rejected";
+        console.warn(`[${what}] engine refused the action: ${reason}`);
+        this.sc_sceneLog.updateLog(reason);
+    }
     private getLiveAggrForcedTarget(): Unit | undefined {
         const forcedTargetId = this.currentActiveUnit?.getTarget();
         if (!forcedTargetId) {
@@ -8613,6 +8633,13 @@ export class Sandbox extends PixiScene {
             ) {
                 return undefined;
             }
+            // A free-aimed Through Shot owns its whole ray, the structure at the end included — the hover
+            // already works that way (updateFreeThroughShotHover runs BEFORE the obstacle hover). Taking
+            // the click here instead broke the barrel and left the stack the cursor had just outlined and
+            // priced untouched. attemptFreeThroughShotAttack sends a clean structure shot right back here.
+            if (this.isFreeThroughShotAiming()) {
+                return undefined;
+            }
             // A shot at the mountain needs no attack-from cell: the unit fires from where it stands.
             return { unit, attackType: AttackVals.RANGE, targetPosition };
         }
@@ -9543,6 +9570,13 @@ export class Sandbox extends PixiScene {
         const routes = this.currentActiveKnownPaths?.get((attackFromCell.x << 4) | attackFromCell.y);
         const route = routes?.[0]?.route;
         if (!route?.length) {
+            // The hover promised this strike from this very cell without ever consulting the known paths,
+            // so a mismatch here abandons a click the cursor had already committed to. Its unit-vs-unit
+            // twin — the same lookup on the same key — is loud for exactly that reason; be loud too.
+            console.warn(
+                `[obstacle] click abandoned: ${unit.getName()} has no authorized route to ` +
+                    `${attackFromCell.x},${attackFromCell.y} in known paths`,
+            );
             return false;
         }
 
@@ -9582,6 +9616,7 @@ export class Sandbox extends PixiScene {
         const unitSnapshot = this.snapshotRenderableUnits();
         const result = this.createActionEngine().apply(action);
         if (!result.completed) {
+            this.reportRefusedLocalAction("obstacle", result, false);
             return false;
         }
 
@@ -10731,6 +10766,24 @@ export class Sandbox extends PixiScene {
         if (!unit || !cells) {
             return false;
         }
+        // Aggr binds a splash exactly as it binds every other attack surface, and the hover already refuses
+        // here (updateAreaThrowHover): the primary the engine prices must be the unit that provoked this
+        // one, and the splash has to cover it at all. This click had no Aggr gate whatsoever — the only
+        // attack surface without one — so the cursor said "Aggr — must attack X", or drew no area at all,
+        // and the throw went out regardless. Nothing downstream catches it either: the engine's
+        // areaThrowAttack does not re-check the lock, so the illegal throw simply succeeded.
+        const affectedGroups = AllAbilities.evaluateAffectedUnits(cells, this.unitsHolder, this.grid) ?? [];
+        const aggrBlockedAreaTarget = this.isAttackBlockedByAggr(affectedGroups[0]?.[0], "area");
+        if (aggrBlockedAreaTarget) {
+            this.showAggrBlockedActionHint(aggrBlockedAreaTarget);
+            return true;
+        }
+        const forcedTarget = this.getLiveAggrForcedTarget();
+        if (forcedTarget && !affectedGroups.some((g) => g.some((u) => u.getId() === forcedTarget.getId()))) {
+            // The hover simply shows nothing here; the click says why rather than eating the input.
+            this.showAggrBlockedActionHint(forcedTarget);
+            return true;
+        }
         const gs = this.sc_sceneSettings.getGridSettings();
         const mouseCell = GridMath.getCellForPosition(gs, worldPos);
         if (!mouseCell) {
@@ -10824,6 +10877,7 @@ export class Sandbox extends PixiScene {
         if (!result.completed && !recordedAreaEvent) {
             // Nothing to draw — but a replayed record still owes its deaths and turn advance. The caller
             // reports this action as played, so nobody else will apply them.
+            this.reportRefusedLocalAction("area throw", result, !!replayRecord);
             if (replayRecord) {
                 this.applyReplayEvents(replayRecord.events);
             }
@@ -11297,6 +11351,7 @@ export class Sandbox extends PixiScene {
         };
         const applyAttackActionResult = (result: ReturnType<GameActionEngine["apply"]>): boolean => {
             if (!result.completed) {
+                this.reportRefusedLocalAction("attack", result, !!replayAction);
                 this.sc_moveBlocked = false;
                 return false;
             }
