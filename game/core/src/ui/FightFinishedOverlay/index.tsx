@@ -21,7 +21,7 @@ import { MatchupPlayerTooltip, type MatchupPlayer } from "../MatchupOverlay";
 import { matchupTeamTone } from "../matchupOverlayTone";
 import { LeagueEmblem } from "../PlayerPortal/LeagueEmblem";
 import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
-import { GOLD, PARCHMENT, WOOD_DARK, imgSrc, teamColor, teamName } from "../FightStats/CasualtyChart";
+import { GOLD, PARCHMENT, WOOD_DARK, creatureImgSrc, imgSrc, teamColor, teamName } from "../FightStats/CasualtyChart";
 import { CasualtyChartPanel } from "../FightStats/CasualtyChartPanel";
 import { DamageBreakdown } from "../FightStats/DamageBreakdown";
 import { ReportPlayerDialog } from "../Reputation/ReportPlayerDialog";
@@ -362,7 +362,7 @@ const CasualtyColumn: React.FC<{
                                 />
                             ) : (
                                 <Avatar
-                                    src={imgSrc(d.smallTextureName)}
+                                    src={creatureImgSrc(d.smallTextureName)}
                                     variant="plain"
                                     sx={{
                                         width: 60,

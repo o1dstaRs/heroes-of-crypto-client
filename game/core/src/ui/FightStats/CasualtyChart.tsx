@@ -5,9 +5,9 @@ import Tooltip from "@mui/joy/Tooltip";
 import { motion } from "framer-motion";
 import React, { useId } from "react";
 
-import { images } from "../../generated/image_imports";
 import { IFightStatsSample } from "../../scenes/VisibleState";
 import { t, useTranslation } from "../../i18n/i18n";
+import { creatureImgSrc, imgSrc } from "./creatureImage";
 
 // --- "Heroes" palette (matches the in-game tooltip / overlay aesthetic) ---
 export const GREEN = "#46d160";
@@ -19,7 +19,7 @@ export const WOOD_DARK = "#1c0d03";
 const teamValues = TeamVals as unknown as Record<string, number>;
 const LOWER_TEAM = (teamValues.LEFT ?? teamValues.LOWER ?? 2) as TeamType;
 
-export const imgSrc = (name: string): string | undefined => (images as Record<string, string>)[name];
+export { creatureImgSrc, imgSrc };
 export const teamColor = (team: TeamType): string => (team === LOWER_TEAM ? GREEN : RED);
 export const teamName = (team: TeamType): string => t(team === LOWER_TEAM ? "Green" : "Red");
 
@@ -95,10 +95,12 @@ export const CasualtyChart: React.FC<{
     const finalGreen = accGreen(pts[n - 1]);
     const finalRed = accRed(pts[n - 1]);
     const eliminationMarkers = pts.flatMap((sample, sampleIndex) => {
-        const eliminations = (sample.eliminations ?? []).flatMap((elimination) => {
-            const imageSrc = imgSrc(elimination.smallTextureName);
-            return imageSrc ? [{ elimination, imageSrc }] : [];
-        });
+        // Every elimination gets a marker. A creature whose portrait cannot be resolved still draws its
+        // crossed disc, so a death is never silently missing from the chart.
+        const eliminations = (sample.eliminations ?? []).map((elimination) => ({
+            elimination,
+            imageSrc: creatureImgSrc(elimination.smallTextureName),
+        }));
         const markerGap = 22;
         const markerRadius = 10;
         const availableLeft = ML + markerRadius;
@@ -267,15 +269,17 @@ export const CasualtyChart: React.FC<{
                                 stroke="rgba(0,0,0,.9)"
                                 strokeWidth={3}
                             />
-                            <image
-                                href={marker.imageSrc}
-                                x={marker.centerX - 8}
-                                y={marker.centerY - 8}
-                                width={16}
-                                height={16}
-                                preserveAspectRatio="xMidYMid slice"
-                                clipPath={`url(#${marker.clipId})`}
-                            />
+                            {marker.imageSrc && (
+                                <image
+                                    href={marker.imageSrc}
+                                    x={marker.centerX - 8}
+                                    y={marker.centerY - 8}
+                                    width={16}
+                                    height={16}
+                                    preserveAspectRatio="xMidYMid slice"
+                                    clipPath={`url(#${marker.clipId})`}
+                                />
+                            )}
                             <circle
                                 cx={marker.centerX}
                                 cy={marker.centerY}

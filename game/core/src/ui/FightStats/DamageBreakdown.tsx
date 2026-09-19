@@ -11,7 +11,7 @@ import React from "react";
 import { IFightDamageEntry } from "../../scenes/VisibleState";
 import { CreaturePortraitImage } from "../CreaturePortraitImage";
 import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
-import { GOLD, PARCHMENT, WOOD_DARK, imgSrc, teamColor, teamName } from "./CasualtyChart";
+import { GOLD, PARCHMENT, WOOD_DARK, creatureImgSrc, teamColor, teamName } from "./CasualtyChart";
 
 const fmt = (n: number): string => Math.round(n).toLocaleString("en-US");
 
@@ -21,7 +21,7 @@ const DamageRow: React.FC<{ entry: IFightDamageEntry; max: number; index: number
     // Bars are relative to the single best performer of the fight, so the two armies stay
     // directly comparable on one scale (a per-team scale would make a losing army look equal).
     const share = max > 0 ? Math.max(0, entry.damage / max) : 0;
-    const src = entry.smallTextureName ? imgSrc(entry.smallTextureName) : undefined;
+    const src = creatureImgSrc(entry.smallTextureName);
     const creatureId = UNIT_NAME_TO_ID[entry.name.trim()];
 
     return (
