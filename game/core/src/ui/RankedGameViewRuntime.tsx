@@ -120,6 +120,8 @@ import { useStopWatching } from "./useStopWatching";
 import { takeCoopCarryOver } from "./social/coopCarryOver";
 import { clearTurnAlert, isTabUnwatched, signalYourTurn, yourTurnActivationKey } from "./turnAlert";
 import { OpponentConnectionBadge } from "./OpponentConnectionBadge";
+import { connectionSeatName, opponentConnectionLabel, type OpponentConnectionLabel } from "./opponentConnection";
+import { useOpponentConnectionNotices } from "./useOpponentConnectionNotices";
 import {
     createSandboxCoop,
     sandboxCoopErrorMessage,
@@ -887,6 +889,17 @@ export const RankedGameView: React.FC<Props> = ({
             !snapshot?.fightFinished &&
             (snapshot?.phase === PlayPhase.PLACEMENT || snapshot?.phase === PlayPhase.PLAY),
     );
+    // One presence clock for the whole view: the matchup strip wears it beside each name, and the floating
+    // banner says the same thing in full while that strip is still off screen (ranked placement).
+    const connectionNotices = useOpponentConnectionNotices(snapshot, viewerTeam, aiSeatPlayerId);
+    const connectionBySeat = useMemo(() => {
+        const labels = new Map<string, OpponentConnectionLabel>();
+        for (const notice of connectionNotices) {
+            labels.set(notice.playerId, opponentConnectionLabel(notice, connectionSeatName(notice.team, viewerTeam)));
+        }
+        return labels;
+    }, [connectionNotices, viewerTeam]);
+
     const battleMatchupPlayers = useMemo<readonly MatchupPlayer[]>(
         () =>
             snapshot?.players.map((player) => ({
@@ -896,8 +909,9 @@ export const RankedGameView: React.FC<Props> = ({
                 // making the strip wait on a request that will correctly return 404.
                 label: player.playerId === aiSeatPlayerId ? vsAiOpponentLabel : undefined,
                 isAi: player.playerId === aiSeatPlayerId,
+                connection: connectionBySeat.get(player.playerId),
             })) ?? [],
-        [aiSeatPlayerId, snapshot, vsAiOpponentLabel],
+        [aiSeatPlayerId, connectionBySeat, snapshot, vsAiOpponentLabel],
     );
 
     // Placement and combat share the compact top-right system-controls medallion. Publishing the whole
@@ -1684,10 +1698,12 @@ export const RankedGameView: React.FC<Props> = ({
                                   ? t("Ready")
                                   : t("Not ready"),
                           noteTone: started ? undefined : !live?.connected ? "warn" : live.ready ? "good" : "muted",
+                          // While setting up, the seat's own Ready / Not ready / Away line already says it.
+                          connection: started ? connectionBySeat.get(seat.playerId) : undefined,
                       };
                   })
                 : [],
-        [sandboxCoop, sandboxSeats, snapshot?.fightStarted],
+        [connectionBySeat, sandboxCoop, sandboxSeats, snapshot?.fightStarted],
     );
     const coopMatchupStatus = useMemo(() => {
         if (!sandboxCoop || !snapshot || snapshot.fightStarted) {
@@ -1972,6 +1988,10 @@ export const RankedGameView: React.FC<Props> = ({
             />
         ) : undefined;
 
+    // Where the seats' names live. Once it is up, presence notices ride beside the name they belong to.
+    const matchupStripVisible =
+        pixiReady && (snapshot.phase === PlayPhase.PLAY || (!!sandboxCoop && snapshot.phase === PlayPhase.PLACEMENT));
+
     // A spectator's toolbar mirrors the fight but must not drive it: every button disabled, clicks dropped.
     return (
         <ButtonProvider readOnly={isObserver}>
@@ -2037,42 +2057,35 @@ export const RankedGameView: React.FC<Props> = ({
                         </Box>
                     )}
                     {pixiReady && gameStarted && <UpNextOverlay exitStanding={exitStanding} />}
-                    {pixiReady &&
-                        (snapshot.phase === PlayPhase.PLAY ||
-                            (sandboxCoop && snapshot.phase === PlayPhase.PLACEMENT)) && (
-                            // The co-op sandbox shows the same matchup strip from placement on: who sits on green
-                            // and red, whether they are here and ready, and a Leave button while setting up.
-                            <MatchupOverlay
-                                players={sandboxCoop ? coopMatchupPlayers : battleMatchupPlayers}
-                                placement="fight"
-                                fightStarted={snapshot.fightStarted}
-                                status={sandboxCoop ? coopMatchupStatus : undefined}
-                                windowSize={windowSize}
-                                viewerTeam={viewerTeam}
-                                action={
-                                    sandboxCoop && !gameStarted && !isObserver && !sandboxClosedEarly ? (
-                                        <Button
-                                            size="sm"
-                                            variant="outlined"
-                                            sx={hocSoftButtonSx}
-                                            onClick={() => void leaveSandboxCoop()}
-                                        >
-                                            {t("Leave")}
-                                        </Button>
-                                    ) : undefined
-                                }
-                            />
-                        )}
-                    {pixiReady && gameStarted && <NextLapHazardBadge />}
-                    {/* In a co-op sandbox the matchup strip already reads Away / Not ready per seat while
-                        setting up, so the connection badge only joins once the fight runs. */}
-                    {pixiReady && !replayOnly && !(sandboxCoop && !gameStarted) && (
-                        <OpponentConnectionBadge
-                            snapshot={snapshot}
+                    {matchupStripVisible && (
+                        // The co-op sandbox shows the same matchup strip from placement on: who sits on green
+                        // and red, whether they are here and ready, and a Leave button while setting up.
+                        <MatchupOverlay
+                            players={sandboxCoop ? coopMatchupPlayers : battleMatchupPlayers}
+                            placement="fight"
+                            fightStarted={snapshot.fightStarted}
+                            status={sandboxCoop ? coopMatchupStatus : undefined}
+                            windowSize={windowSize}
                             viewerTeam={viewerTeam}
-                            aiSeatPlayerId={aiSeatPlayerId}
-                            top={gameStarted ? 58 : 14}
+                            action={
+                                sandboxCoop && !gameStarted && !isObserver && !sandboxClosedEarly ? (
+                                    <Button
+                                        size="sm"
+                                        variant="outlined"
+                                        sx={hocSoftButtonSx}
+                                        onClick={() => void leaveSandboxCoop()}
+                                    >
+                                        {t("Leave")}
+                                    </Button>
+                                ) : undefined
+                            }
                         />
+                    )}
+                    {pixiReady && gameStarted && <NextLapHazardBadge />}
+                    {/* While the matchup strip is up it carries these notices beside the player's own name;
+                        this banner covers the stretch before it appears (ranked placement). */}
+                    {pixiReady && !replayOnly && !matchupStripVisible && (
+                        <OpponentConnectionBadge notices={connectionNotices} viewerTeam={viewerTeam} top={14} />
                     )}
                     {pixiReady && gameStarted && (
                         <SeatAiControlNotice

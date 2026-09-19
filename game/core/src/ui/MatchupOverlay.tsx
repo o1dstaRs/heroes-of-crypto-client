@@ -12,6 +12,7 @@ import { readPlayerArmyColorId } from "../settings/playerArmyColor";
 import { CreaturePortraitImage } from "./CreaturePortraitImage";
 import { hocDisplayFontFamily } from "./hocTheme";
 import { MATCHUP_LOWER_TEAM, MATCHUP_UPPER_TEAM, matchupTeamTone, type MatchupTeamTone } from "./matchupOverlayTone";
+import type { OpponentConnectionLabel } from "./opponentConnection";
 import { LeagueEmblem } from "./PlayerPortal/LeagueEmblem";
 import { creatureName, timeAgo } from "./PlayerPortal/portalFormat";
 
@@ -26,6 +27,11 @@ export type MatchupPlayer = Readonly<{
     /** Replaces the record line with a live note (co-op: Ready / Not ready / Away). */
     note?: string;
     noteTone?: "good" | "muted" | "warn";
+    /**
+     * This seat's presence right now — disconnected, AI driving, just back — as a plaque under the name.
+     * It outranks the note and the record: an absent opponent is the one thing worth reading mid-fight.
+     */
+    connection?: OpponentConnectionLabel;
 }>;
 
 type MatchupOverlayProps = Readonly<{
@@ -496,6 +502,79 @@ export const MatchupPlayerTooltip: React.FC<{
     </Tooltip>
 );
 
+const PRESENCE_TONES = {
+    good: { text: "#8de3a1", dot: "#77dd92", border: "rgba(120,214,142,.55)", glow: "rgba(101,212,133,.32)" },
+    warn: { text: "#ffc59a", dot: "#ff9a5c", border: "rgba(226,140,74,.62)", glow: "rgba(236,138,66,.34)" },
+} as const;
+
+/**
+ * The presence plaque that rides beside a player's name: a breathing dot, two words, and the clock that is
+ * actually running. The full sentence stays on the element for screen readers.
+ */
+const SeatPresence: React.FC<{ connection: OpponentConnectionLabel; reversed: boolean }> = ({
+    connection,
+    reversed,
+}) => {
+    const tone = PRESENCE_TONES[connection.tone];
+    return (
+        <Box sx={{ mt: "4px", display: "flex", minWidth: 0, justifyContent: reversed ? "flex-end" : "flex-start" }}>
+            <Box
+                aria-label={connection.full}
+                sx={{
+                    "@keyframes hocSeatPresencePulse": {
+                        "0%, 100%": { opacity: 1, transform: "scale(1)" },
+                        "50%": { opacity: 0.4, transform: "scale(0.78)" },
+                    },
+                    minWidth: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    px: "4px",
+                    py: "2px",
+                    borderRadius: "2px 5px 2px 5px",
+                    border: `1px solid ${tone.border}`,
+                    background: "linear-gradient(180deg, rgba(38,26,16,.92), rgba(14,10,8,.94))",
+                    boxShadow: `inset 0 1px rgba(255,236,196,.08), 0 0 10px ${tone.glow}`,
+                }}
+            >
+                <Box
+                    component="span"
+                    aria-hidden="true"
+                    sx={{
+                        flex: "0 0 auto",
+                        width: 5,
+                        height: 5,
+                        borderRadius: "50%",
+                        bgcolor: tone.dot,
+                        boxShadow: `0 0 6px ${tone.dot}`,
+                        animation: "hocSeatPresencePulse 1.5s ease-in-out infinite",
+                    }}
+                />
+                <Box
+                    component="span"
+                    sx={{
+                        minWidth: 0,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        color: tone.text,
+                        fontFamily: hocDisplayFontFamily,
+                        fontSize: "0.58rem",
+                        fontWeight: 900,
+                        fontVariantNumeric: "lining-nums tabular-nums",
+                        letterSpacing: "0.03em",
+                        lineHeight: 1.15,
+                        textTransform: "uppercase",
+                        textShadow: "0 1px 2px #000",
+                    }}
+                >
+                    {connection.short}
+                </Box>
+            </Box>
+        </Box>
+    );
+};
+
 const Side: React.FC<{
     player: MatchupPlayer;
     tone: MatchupTeamTone;
@@ -548,7 +627,9 @@ const Side: React.FC<{
                     >
                         {text.username}
                     </Typography>
-                    {player.isAi ? null : player.note ? (
+                    {player.connection ? (
+                        <SeatPresence connection={player.connection} reversed={reversed} />
+                    ) : player.isAi ? null : player.note ? (
                         <Typography
                             sx={{
                                 mt: "4px",
@@ -624,62 +705,79 @@ const Side: React.FC<{
     );
 };
 
-const MatchupToggle: React.FC<{ collapsed: boolean; onClick: () => void }> = ({ collapsed, onClick }) => (
-    <Box
-        component="button"
-        type="button"
-        aria-expanded={!collapsed}
-        aria-label={collapsed ? "Show matchup" : "Hide matchup"}
-        title={collapsed ? "Show matchup" : "Hide matchup"}
-        onClick={onClick}
-        sx={{
-            position: "absolute",
-            zIndex: 2,
-            top: collapsed ? 0 : 16,
-            right: collapsed ? 0 : -7,
-            width: collapsed ? 36 : 16,
-            height: collapsed ? 30 : 21,
-            p: 0,
-            pointerEvents: "auto",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "1px",
-            border: "1px solid rgba(208,173,101,.4)",
-            borderLeftColor: "rgba(255,226,158,.3)",
-            borderRadius: collapsed ? "4px 2px 4px 2px" : "2px 4px 4px 2px",
-            color: "rgba(241,213,138,.72)",
-            background: "linear-gradient(180deg, rgba(53,41,25,.86), rgba(16,13,10,.9) 58%, rgba(37,27,18,.88))",
-            boxShadow: "0 2px 6px rgba(0,0,0,.46), inset 0 1px rgba(255,235,183,.08)",
-            fontFamily: hocDisplayFontFamily,
-            fontSize: collapsed ? "0.52rem" : "0.78rem",
-            fontWeight: 700,
-            lineHeight: 1,
-            letterSpacing: collapsed ? "0.04em" : 0,
-            opacity: collapsed ? 0.82 : 0.62,
-            outline: "none",
-            cursor: "var(--hoc-cursor-interactive), pointer",
-            transition: "filter 140ms ease, opacity 140ms ease, transform 140ms ease",
-            "&:focus-visible": {
-                outline: "1px solid rgba(218,182,106,.52)",
-                outlineOffset: "1px",
-            },
-            "&:hover": {
-                filter: "brightness(1.12)",
-                opacity: 1,
-                transform: "translateY(-1px)",
-            },
-            "&:active": { transform: "translateY(1px)" },
-        }}
-    >
-        {collapsed ? "VS" : "›"}
-        {collapsed && (
-            <Box component="span" aria-hidden="true" sx={{ fontSize: "0.62rem", color: "rgba(185,154,88,.7)" }}>
-                ‹
-            </Box>
-        )}
-    </Box>
-);
+const MatchupToggle: React.FC<{
+    collapsed: boolean;
+    /** A presence notice the folded strip is hiding; the tab glows instead of overriding the player's choice. */
+    alert?: Readonly<{ tone: "good" | "warn"; title: string }>;
+    onClick: () => void;
+}> = ({ collapsed, alert, onClick }) => {
+    const tone = alert && collapsed ? PRESENCE_TONES[alert.tone] : undefined;
+    return (
+        <Box
+            component="button"
+            type="button"
+            aria-expanded={!collapsed}
+            aria-label={collapsed ? "Show matchup" : "Hide matchup"}
+            title={tone ? alert!.title : collapsed ? "Show matchup" : "Hide matchup"}
+            onClick={onClick}
+            sx={{
+                "@keyframes hocMatchupAlertGlow": {
+                    "0%, 100%": { boxShadow: `0 2px 6px rgba(0,0,0,.46), 0 0 0 ${tone?.glow ?? "transparent"}` },
+                    "50%": { boxShadow: `0 2px 6px rgba(0,0,0,.46), 0 0 13px ${tone?.glow ?? "transparent"}` },
+                },
+                position: "absolute",
+                zIndex: 2,
+                top: collapsed ? 0 : 16,
+                right: collapsed ? 0 : -7,
+                width: collapsed ? 36 : 16,
+                height: collapsed ? 30 : 21,
+                p: 0,
+                pointerEvents: "auto",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "1px",
+                border: `1px solid ${tone?.border ?? "rgba(208,173,101,.4)"}`,
+                borderLeftColor: tone?.border ?? "rgba(255,226,158,.3)",
+                borderRadius: collapsed ? "4px 2px 4px 2px" : "2px 4px 4px 2px",
+                color: tone?.text ?? "rgba(241,213,138,.72)",
+                background: "linear-gradient(180deg, rgba(53,41,25,.86), rgba(16,13,10,.9) 58%, rgba(37,27,18,.88))",
+                boxShadow: "0 2px 6px rgba(0,0,0,.46), inset 0 1px rgba(255,235,183,.08)",
+                animation: tone ? "hocMatchupAlertGlow 1.6s ease-in-out infinite" : undefined,
+                fontFamily: hocDisplayFontFamily,
+                fontSize: collapsed ? "0.52rem" : "0.78rem",
+                fontWeight: 700,
+                lineHeight: 1,
+                letterSpacing: collapsed ? "0.04em" : 0,
+                opacity: tone ? 1 : collapsed ? 0.82 : 0.62,
+                outline: "none",
+                cursor: "var(--hoc-cursor-interactive), pointer",
+                transition: "filter 140ms ease, opacity 140ms ease, transform 140ms ease",
+                "&:focus-visible": {
+                    outline: "1px solid rgba(218,182,106,.52)",
+                    outlineOffset: "1px",
+                },
+                "&:hover": {
+                    filter: "brightness(1.12)",
+                    opacity: 1,
+                    transform: "translateY(-1px)",
+                },
+                "&:active": { transform: "translateY(1px)" },
+            }}
+        >
+            {collapsed ? "VS" : "›"}
+            {collapsed && (
+                <Box
+                    component="span"
+                    aria-hidden="true"
+                    sx={{ fontSize: "0.62rem", color: tone?.dot ?? "rgba(185,154,88,.7)" }}
+                >
+                    ‹
+                </Box>
+            )}
+        </Box>
+    );
+};
 
 /**
  * Compact matchup strip shared by ranked drafting and battle. Player identity is public ranked data; until
@@ -746,6 +844,8 @@ export const MatchupOverlay: React.FC<MatchupOverlayProps> = ({
     const fightPosition = placement === "fight" && windowSize ? fightMatchupOverlayPosition(windowSize) : undefined;
     const centred = placement === "pick" || (placement === "fight" && fightStarted);
     const fightRightEdge = fightPosition?.right ?? 16;
+    // A presence plaque needs more room beside the name than the record line it replaces.
+    const connectionAlert = players.find((player) => player.connection)?.connection;
     const toggleCollapsed = (): void => {
         setCollapsed((current) => {
             const next = !current;
@@ -764,7 +864,13 @@ export const MatchupOverlay: React.FC<MatchupOverlayProps> = ({
                 top: placement === "fight" ? `${fightPosition?.top ?? 16}px` : 0,
                 left: centred ? "50%" : `calc(100% - ${fightRightEdge}px)`,
                 transform: centred ? "translateX(-50%)" : "translateX(-100%)",
-                width: collapsed ? 36 : action ? "min(400px, calc(100vw - 24px))" : "min(326px, calc(100vw - 24px))",
+                width: collapsed
+                    ? 36
+                    : action
+                      ? "min(400px, calc(100vw - 24px))"
+                      : connectionAlert
+                        ? "min(440px, calc(100vw - 24px))"
+                        : "min(326px, calc(100vw - 24px))",
                 height: collapsed ? 30 : 58,
                 maxWidth:
                     placement === "fight" && !collapsed
@@ -866,7 +972,11 @@ export const MatchupOverlay: React.FC<MatchupOverlayProps> = ({
                     )}
                 </Box>
             )}
-            <MatchupToggle collapsed={collapsed} onClick={toggleCollapsed} />
+            <MatchupToggle
+                collapsed={collapsed}
+                alert={connectionAlert ? { tone: connectionAlert.tone, title: connectionAlert.full } : undefined}
+                onClick={toggleCollapsed}
+            />
         </Box>
     );
 };

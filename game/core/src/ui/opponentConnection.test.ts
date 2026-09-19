@@ -1,7 +1,15 @@
+import { TeamVals } from "@heroesofcrypto/common";
 import { describe, expect, test } from "bun:test";
 
 import { PlayPhase } from "../api/play_protocol";
-import { formatCountdown, opponentConnectionNotices, returnedSeats } from "./opponentConnection";
+import {
+    connectionSeatName,
+    formatCountdown,
+    opponentConnectionLabel,
+    opponentConnectionNotices,
+    returnedSeats,
+    type OpponentConnectionNotice,
+} from "./opponentConnection";
 
 const seat = (playerId: string, team: number, connected: boolean, extra: Record<string, unknown> = {}) => ({
     playerId,
@@ -129,5 +137,56 @@ describe("opponentConnectionNotices", () => {
         expect(formatCountdown(12_400)).toBe("13s");
         expect(formatCountdown(151_000)).toBe("2:31");
         expect(formatCountdown(-5)).toBe("0s");
+    });
+});
+
+// The matchup strip wears these beside the player's own name, so the short form drops the name and keeps
+// the clock. The banner that stands in before that strip appears says the whole sentence.
+describe("opponentConnectionLabel", () => {
+    const notice = (extra: Partial<OpponentConnectionNotice> = {}): OpponentConnectionNotice => ({
+        playerId: "them",
+        team: 1,
+        state: "disconnected",
+        connected: false,
+        ...extra,
+    });
+
+    test("a gone opponent keeps the takeover clock in both forms", () => {
+        expect(opponentConnectionLabel(notice({ takeoverInMs: 12_000 }), "Opponent")).toEqual({
+            full: "Opponent disconnected · AI takes over in 12s",
+            short: "Gone · AI 12s",
+            tone: "warn",
+        });
+    });
+
+    test("an AI-driven seat that is still connected reads as away, and the plaque names the driver", () => {
+        expect(opponentConnectionLabel(notice({ state: "ai", connected: true }), "Red player")).toEqual({
+            full: "Red player is away · the AI is playing their turns",
+            short: "Away · AI plays",
+            tone: "warn",
+        });
+    });
+
+    test("the plaque carries two readings: a takeover seconds away outranks the forfeit clock", () => {
+        expect(opponentConnectionLabel(notice({ takeoverInMs: 9_000, forfeitInMs: 151_000 }), "Opponent")).toEqual({
+            full: "Opponent disconnected · AI takes over in 9s · forfeits in 2:31",
+            short: "Gone · AI 9s",
+            tone: "warn",
+        });
+        expect(opponentConnectionLabel(notice({ forfeitInMs: 151_000 }), "Opponent").short).toBe("Gone · forfeit 2:31");
+    });
+
+    test("a seat back in control is the one good tone, and says nothing else", () => {
+        expect(opponentConnectionLabel(notice({ state: "back", connected: true }), "Green player")).toEqual({
+            full: "Green player is back",
+            short: "Back",
+            tone: "good",
+        });
+    });
+
+    test("an observer is told which colour left; a player only ever hears about the opponent", () => {
+        expect(connectionSeatName(TeamVals.LEFT, undefined)).toBe("Green player");
+        expect(connectionSeatName(TeamVals.RIGHT, undefined)).toBe("Red player");
+        expect(connectionSeatName(TeamVals.LEFT, TeamVals.RIGHT)).toBe("Opponent");
     });
 });

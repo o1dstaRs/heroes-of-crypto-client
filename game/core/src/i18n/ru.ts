@@ -128,6 +128,12 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "the AI is playing their turns": "ИИ ходит за него",
     "forfeits in {time}": "поражение через {time}",
     "{seat} is away": "{seat} не отвечает",
+    // Short forms of the four lines above — the plaque beside a player's name in the matchup strip.
+    Back: "На связи",
+    Gone: "Ушёл",
+    "AI {time}": "ИИ {time}",
+    "AI plays": "Ходит ИИ",
+    "forfeit {time}": "пораж. {time}",
     "You were away — the AI is playing your turns": "Вас не было — ИИ ходит за вас",
     "Make your next move to take back control": "Сделайте ход, чтобы вернуть управление",
     "You're back in control": "Управление снова у вас",

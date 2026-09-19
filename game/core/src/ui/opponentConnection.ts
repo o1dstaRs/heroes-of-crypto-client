@@ -1,4 +1,7 @@
+import { TeamVals } from "@heroesofcrypto/common";
+
 import { PlayPhase, type PlayPlayerState, type PlaySnapshot } from "../api/play_protocol";
+import { t } from "../i18n/i18n";
 import { isAiSeatPlayerId } from "../utils/aiOpponent";
 
 export interface OpponentConnectionNotice {
@@ -84,4 +87,53 @@ export const formatCountdown = (ms: number): string => {
     const minutes = Math.floor(total / 60);
     const seconds = total % 60;
     return minutes > 0 ? `${minutes}:${String(seconds).padStart(2, "0")}` : `${seconds}s`;
+};
+
+/** How to address the seat a notice is about: a player hears "Opponent", an observer hears the colour. */
+export const connectionSeatName = (team: number, viewerTeam: number | undefined): string =>
+    viewerTeam !== undefined ? t("Opponent") : team === TeamVals.LEFT ? t("Green player") : t("Red player");
+
+export interface OpponentConnectionLabel {
+    /** The whole sentence: "Opponent disconnected · AI takes over in 12s". */
+    full: string;
+    /** The same news in a plaque's worth of words: "Disconnected · AI in 12s". */
+    short: string;
+    tone: "good" | "warn";
+}
+
+/**
+ * One presence notice in words. The matchup strip has room beside a player's name for a plaque of about
+ * twenty characters, not a sentence, and the name is already there — so the short form drops it, says the
+ * state in one word and keeps the countdown, which is the part that changes. Both forms come from here so
+ * the strip and the banner never disagree.
+ */
+export const opponentConnectionLabel = (
+    notice: OpponentConnectionNotice,
+    seatName: string,
+): OpponentConnectionLabel => {
+    if (notice.state === "back") {
+        return { full: t("{seat} is back").replace("{seat}", seatName), short: t("Back"), tone: "good" };
+    }
+    const full = [
+        notice.connected ? t("{seat} is away").replace("{seat}", seatName) : `${seatName} ${t("disconnected")}`,
+    ];
+    const short = [notice.connected ? t("Away") : t("Gone")];
+    if (notice.state === "disconnected" && notice.takeoverInMs !== undefined) {
+        const time = formatCountdown(notice.takeoverInMs);
+        full.push(t("AI takes over in {time}").replace("{time}", time));
+        short.push(t("AI {time}").replace("{time}", time));
+    }
+    if (notice.state === "ai") {
+        full.push(t("the AI is playing their turns"));
+        short.push(t("AI plays"));
+    }
+    if (notice.forfeitInMs !== undefined) {
+        const time = formatCountdown(notice.forfeitInMs);
+        full.push(t("forfeits in {time}").replace("{time}", time));
+        // The plaque carries two readings at most; a takeover that is seconds away outranks the forfeit clock.
+        if (short.length < 2) {
+            short.push(t("forfeit {time}").replace("{time}", time));
+        }
+    }
+    return { full: full.join(" · "), short: short.join(" · "), tone: "warn" };
 };

@@ -1,68 +1,28 @@
-import { TeamVals } from "@heroesofcrypto/common";
 import Box from "@mui/joy/Box";
 import Stack from "@mui/joy/Stack";
 import Typography from "@mui/joy/Typography";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React from "react";
 
-import type { PlaySnapshot } from "../api/play_protocol";
-import { t } from "../i18n/i18n";
 import { hocColors } from "./hocTheme";
-import { formatCountdown, opponentConnectionNotices, returnedSeats } from "./opponentConnection";
-import { startVisibleInterval } from "./visibleInterval";
-
-const RETURNED_NOTICE_MS = 5_000;
+import { connectionSeatName, opponentConnectionLabel, type OpponentConnectionNotice } from "./opponentConnection";
 
 /**
- * Presence of the OTHER seats during a fight: "opponent disconnected, AI takes over in 12s", "the AI is
- * playing their turns, they forfeit in 2:31", "opponent is away" when they stayed connected but the server
- * took their seat over after missed turns, and a short "opponent is back". The server emits the
- * connect/disconnect events and runs the takeover and forfeit clocks; without this strip the pause read as
- * the game freezing. Deadlines arrive as server time, so the countdown is measured against the snapshot's
- * server clock plus the local time elapsed since it landed.
+ * Presence of the OTHER seats, spelled out in a floating strip: "opponent disconnected, AI takes over in
+ * 12s", "the AI is playing their turns, they forfeit in 2:31", "opponent is away" when they stayed connected
+ * but the server took their seat over after missed turns, and a short "opponent is back". Without it the
+ * pause read as the game freezing.
+ *
+ * Once the matchup strip is on screen the same notices ride beside the player's name there instead
+ * ({@link MatchupPlayer.connection}); this banner covers the stretch before it appears — ranked placement.
  */
 export const OpponentConnectionBadge: React.FC<{
-    snapshot: PlaySnapshot;
+    notices: readonly OpponentConnectionNotice[];
     viewerTeam: number | undefined;
-    aiSeatPlayerId: string | undefined;
     top: number;
-}> = ({ snapshot, viewerTeam, aiSeatPlayerId, top }) => {
-    const receivedAtRef = useRef(Date.now());
-    const previousPlayersRef = useRef<PlaySnapshot["players"] | undefined>(undefined);
-    const [returned, setReturned] = useState<Set<string>>(() => new Set());
-    const [nowMs, setNowMs] = useState(Date.now());
-
-    useEffect(() => {
-        receivedAtRef.current = Date.now();
-        const back = returnedSeats(previousPlayersRef.current, snapshot.players);
-        previousPlayersRef.current = snapshot.players;
-        if (!back.length) {
-            return undefined;
-        }
-        setReturned((current) => new Set([...current, ...back]));
-        const timer = window.setTimeout(() => {
-            setReturned((current) => {
-                const next = new Set(current);
-                for (const id of back) {
-                    next.delete(id);
-                }
-                return next;
-            });
-        }, RETURNED_NOTICE_MS);
-        return () => window.clearTimeout(timer);
-    }, [snapshot.players]);
-
-    useEffect(() => startVisibleInterval(() => setNowMs(Date.now()), 1000), []);
-
-    const notices = useMemo(() => {
-        const nowServerMs = snapshot.serverTimeMs + (nowMs - receivedAtRef.current);
-        return opponentConnectionNotices(snapshot, viewerTeam, aiSeatPlayerId, nowServerMs, returned);
-    }, [aiSeatPlayerId, nowMs, returned, snapshot, viewerTeam]);
-
+}> = ({ notices, viewerTeam, top }) => {
     if (!notices.length) {
         return null;
     }
-    const seatName = (team: number): string =>
-        viewerTeam !== undefined ? t("Opponent") : team === TeamVals.LEFT ? t("Green player") : t("Red player");
     return (
         <Box
             sx={{
@@ -76,26 +36,8 @@ export const OpponentConnectionBadge: React.FC<{
         >
             <Stack spacing={0.5} alignItems="center">
                 {notices.map((notice) => {
-                    const back = notice.state === "back";
-                    const name = seatName(notice.team);
-                    const parts = [
-                        back
-                            ? t("{seat} is back").replace("{seat}", name)
-                            : notice.connected
-                              ? t("{seat} is away").replace("{seat}", name)
-                              : `${name} ${t("disconnected")}`,
-                    ];
-                    if (notice.state === "disconnected" && notice.takeoverInMs !== undefined) {
-                        parts.push(
-                            t("AI takes over in {time}").replace("{time}", formatCountdown(notice.takeoverInMs)),
-                        );
-                    }
-                    if (notice.state === "ai") {
-                        parts.push(t("the AI is playing their turns"));
-                    }
-                    if (!back && notice.forfeitInMs !== undefined) {
-                        parts.push(t("forfeits in {time}").replace("{time}", formatCountdown(notice.forfeitInMs)));
-                    }
+                    const label = opponentConnectionLabel(notice, connectionSeatName(notice.team, viewerTeam));
+                    const back = label.tone === "good";
                     return (
                         <Typography
                             key={notice.playerId}
@@ -111,7 +53,7 @@ export const OpponentConnectionBadge: React.FC<{
                                 whiteSpace: "nowrap",
                             }}
                         >
-                            {parts.join(" · ")}
+                            {label.full}
                         </Typography>
                     );
                 })}
