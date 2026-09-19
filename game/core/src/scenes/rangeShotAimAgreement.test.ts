@@ -75,10 +75,34 @@ describe("the shot is aimed from where it is fired", () => {
             .filter((line) => !line.trim().startsWith("//") && !line.trim().startsWith("*"))
             .join("\n");
 
+        // Whitespace-insensitive: the call's line breaks are the formatter's business, not this pin's.
+        const dense = code.replace(/\s/g, "");
+
         expect(code).toContain("firedFrom: HoCMath.XY");
-        expect(code).toContain("optimalRangeTargetEdge(this.rangeTargetEdgeVisuals(attacker, target), firedFrom)");
+        expect(dense).toContain("optimalRangeTargetEdge(this.rangeTargetEdgeVisuals(attacker,target),firedFrom");
         // The live position is exactly what made the projectile disagree with the arrow.
-        expect(code).not.toContain("this.rangeTargetEdgeVisuals(attacker, target), attacker.getPosition()");
+        expect(dense).not.toContain("this.rangeTargetEdgeVisuals(attacker,target),attacker.getPosition()");
+    });
+
+    // A disagreement about WHICH EDGES may be aimed at is silent in a way the firing-point one is not: the
+    // fire path finds no edge it accepts, and the click is abandoned with nothing drawn, logged or sent.
+    // The hover learned to aim past a screen (a Double Shot's first arrow takes the screen, the second
+    // carries on) and the shot did not — so a screened creature showed the bow cursor and a damage forecast
+    // while clicking it did nothing at all (owner report 2026-09-19).
+    test("both ask the same aim policy, so the shot takes the edge the cursor offered", () => {
+        const source = sandboxSource();
+        const shotAim = source
+            .slice(
+                source.indexOf("private resolveRangeShotAim("),
+                source.indexOf("private async executeAttackSequence("),
+            )
+            .replace(/\s/g, "");
+        expect(shotAim).toContain("rangeAimOptions(AbilityHelper.hasDoubleShotAbility(attacker))");
+
+        const hoverAim = source.slice(source.indexOf("optimalRangeEdge = optimalRangeTargetEdge(")).replace(/\s/g, "");
+        expect(hoverAim.slice(0, hoverAim.indexOf(");"))).toContain(
+            "rangeAimOptions(AbilityHelper.hasDoubleShotAbility(this.currentActiveUnit))",
+        );
     });
 
     test("the caller hands it the landing cell, through the hover's own transform", () => {

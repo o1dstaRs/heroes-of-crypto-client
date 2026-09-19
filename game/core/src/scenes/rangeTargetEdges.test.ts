@@ -25,6 +25,7 @@ import {
     closestRangeTargetEdge,
     distanceToRangeTargetEdgeSegment,
     optimalRangeTargetEdge,
+    rangeAimOptions,
     rangeTargetEdgeEvaluationAim,
     rangeTargetEdgeIsSelectable,
     rangeTargetEdgeMarkerAngle,
@@ -284,6 +285,11 @@ describe("ranged target edge selection", () => {
         );
         // Without the opt-in nothing changes for a single-shot attacker.
         expect(optimalRangeTargetEdge([blockedBest], shooter)).toBeUndefined();
+    });
+
+    test("one aim policy answers both the single-shot and the two-shot attacker", () => {
+        expect(rangeAimOptions(true)).toEqual({ allowIntercepted: true });
+        expect(rangeAimOptions(false)).toEqual({ allowIntercepted: false });
     });
 
     test("keeps enumeration order on an exact optimal-edge tie", () => {

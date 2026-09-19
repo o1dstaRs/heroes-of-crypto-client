@@ -208,6 +208,7 @@ import type { AuthoritativeGameSnapshot, SceneGameActionTransport } from "../gam
 import { cloneReplayData, SandboxReplayRecorder, type SandboxReplay } from "../replay/sandbox_replay";
 import {
     optimalRangeTargetEdge,
+    rangeAimOptions,
     rangeTargetEdgeEvaluationAim,
     rangeTargetEdgeIsSelectable,
     rangeTargetEdgeMarkerCell,
@@ -11157,7 +11158,15 @@ export class Sandbox extends PixiScene {
             // when the shooter walks before firing, and only when two edges retain the same damage, which is
             // why the flight looked like it ignored the drawn path at random. Same footprint-centre
             // transform as the hover so a large shooter agrees with its own preview too.
-            const edge = optimalRangeTargetEdge(this.rangeTargetEdgeVisuals(attacker, target), firedFrom);
+            const edge = optimalRangeTargetEdge(
+                this.rangeTargetEdgeVisuals(attacker, target),
+                firedFrom,
+                // Take the very edge the cursor offered. A two-shot attacker is shown an edge behind a
+                // screen on purpose (see rangeTargetEdgeVisuals); refusing it here left the shot with no
+                // aim at all, and the click was dropped in silence — the bow cursor and the damage
+                // forecast promised a shot that never left the string.
+                rangeAimOptions(AbilityHelper.hasDoubleShotAbility(attacker)),
+            );
             return edge
                 ? {
                       cell: { ...edge.cell },
@@ -13385,11 +13394,14 @@ export class Sandbox extends PixiScene {
                             );
                             arrowEndVisual = arrowEndPos;
                         } else {
-                            optimalRangeEdge = optimalRangeTargetEdge(shootableRangeEdges, arrowStartLogical, {
+                            optimalRangeEdge = optimalRangeTargetEdge(
+                                shootableRangeEdges,
+                                arrowStartLogical,
                                 // Two-shot attackers may keep an intercepted edge (see rangeTargetEdgeVisuals):
-                                // aim through the screen when no edge reaches the target cleanly.
-                                allowIntercepted: AbilityHelper.hasDoubleShotAbility(this.currentActiveUnit),
-                            });
+                                // aim through the screen when no edge reaches the target cleanly. The shot
+                                // itself asks the same question, so the two cannot drift apart.
+                                rangeAimOptions(AbilityHelper.hasDoubleShotAbility(this.currentActiveUnit)),
+                            );
                             // The one visible arrow is selected by shot quality, not by which edge strip
                             // the pointer happens to cross: retain the most damage first, then use the
                             // nearest edge-center as a deterministic tie-breaker.

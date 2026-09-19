@@ -18,6 +18,17 @@ export interface OptimalRangeTargetEdgeCandidate extends RangeTargetExteriorEdge
 }
 
 /**
+ * One aim policy for one attacker, shared by the cursor and by the shot it fires.
+ *
+ * They resolve the aim edge through separate calls, and when they disagree the click is simply dropped:
+ * the hover promises an attack, the fire path finds no edge it will accept and abandons the shot with
+ * nothing drawn, logged or sent. So both ask here instead of each deciding for itself.
+ */
+export const rangeAimOptions = (attackerHasDoubleShot: boolean): { allowIntercepted: boolean } => ({
+    allowIntercepted: attackerHasDoubleShot,
+});
+
+/**
  * Pick the one edge that gives the player the best actual shot.
  *
  * Damage retention is authoritative: 1/1 beats 1/2, which beats 1/4 and 1/8. When several edges
