@@ -436,7 +436,7 @@ code {
     position: relative;
     z-index: 1;
     display: grid;
-    grid-template-columns: minmax(0, 1.12fr) minmax(400px, 0.88fr);
+    grid-template-columns: minmax(0, 1fr);
     gap: 48px;
     align-items: center;
     min-height: clamp(620px, calc(100svh - 86px), 760px);
@@ -445,6 +445,17 @@ code {
 
 .hero-content {
     max-width: 610px;
+}
+
+/* Ranked ladder card: its own full-width row below the hero, not a hero column. */
+.hero-ladder-band {
+    position: relative;
+    z-index: 2;
+    padding: clamp(38px, 4.6vw, 64px) 0;
+    border-bottom: 1px solid rgba(220, 177, 88, 0.1);
+    background:
+        radial-gradient(circle at 80% 0, rgba(255, 90, 63, 0.06), transparent 40%),
+        linear-gradient(180deg, #070808, rgba(12, 10, 9, 0.98));
 }
 
 /* Hero entrance: staggered fade-rise on load (above the fold, so CSS-only). */
