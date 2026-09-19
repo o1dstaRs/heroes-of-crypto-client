@@ -55,6 +55,21 @@ export const hocPrimaryButtonSx = {
     },
 };
 
+/**
+ * A status chip that is NOT a control. The arena header sits readouts (battle art, players online) right
+ * beside a real button; when all three wore the same gold outline and dark fill, the only thing separating
+ * "press me" from "look at me" was a hover state — which does not exist on a touch screen. Readouts stay
+ * flat and dim, so the outlined, hoverable treatment means the thing does something.
+ */
+export const hocReadoutChipSx = {
+    minHeight: 38,
+    px: 1.15,
+    borderRadius: "10px",
+    color: hocColors.mutedStrong,
+    bgcolor: "rgba(0, 0, 0, 0.18)",
+    border: "1px solid rgba(255, 255, 255, 0.05)",
+};
+
 export const hocSoftButtonSx = {
     color: hocColors.parchment,
     bgcolor: hocColors.orangeSoft,

@@ -39,6 +39,7 @@ import {
     hocDisplayFontFamily,
     hocPanelSx,
     hocPrimaryButtonSx,
+    hocReadoutChipSx,
     hocSoftButtonSx,
 } from "./hocTheme";
 import { DoctrineIcon } from "./DoctrineIcon";
@@ -1172,15 +1173,7 @@ export const MatchmakingRoute: React.FC = () => {
                                             spacing={0.7}
                                             alignItems="center"
                                             aria-label={tf("{count} players online", { count: onlineNow.online })}
-                                            sx={{
-                                                minHeight: 38,
-                                                px: 1.15,
-                                                borderRadius: "10px",
-                                                color: hocColors.parchment,
-                                                bgcolor: "rgba(0,0,0,0.3)",
-                                                border: "1px solid rgba(220,177,88,0.3)",
-                                                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.035)",
-                                            }}
+                                            sx={hocReadoutChipSx}
                                         >
                                             <Box
                                                 aria-hidden="true"
@@ -1220,7 +1213,7 @@ export const MatchmakingRoute: React.FC = () => {
                                 >
                                     <Button
                                         size="sm"
-                                        variant="outlined"
+                                        variant="soft"
                                         aria-label={
                                             profileSummaryOpen ? t("Hide player stats") : t("Show player stats")
                                         }
@@ -1228,20 +1221,23 @@ export const MatchmakingRoute: React.FC = () => {
                                         aria-controls="ranked-profile-summary"
                                         onClick={() => setProfileSummaryOpen((open) => !open)}
                                         startDecorator={<StatsPanelIcon sx={{ fontSize: 22 }} />}
+                                        // The app's own button treatment, next to the deliberately flat readouts:
+                                        // the orange fill and border say this one is pressable without relying on
+                                        // a hover a touch screen never delivers.
                                         sx={{
                                             minHeight: 38,
                                             px: 1.15,
                                             borderRadius: "10px",
-                                            color: hocColors.parchment,
-                                            bgcolor: profileSummaryOpen ? "rgba(255,143,0,0.14)" : "rgba(0,0,0,0.3)",
-                                            borderColor: "rgba(220,177,88,0.3)",
                                             fontSize: "0.72rem",
                                             fontWeight: 750,
-                                            "&:hover": {
-                                                color: hocColors.gold,
-                                                bgcolor: "rgba(255,143,0,0.2)",
-                                                borderColor: hocColors.orangeBorder,
-                                            },
+                                            ...hocSoftButtonSx,
+                                            ...(profileSummaryOpen
+                                                ? {
+                                                      color: hocColors.gold,
+                                                      bgcolor: "rgba(255, 143, 0, 0.3)",
+                                                      borderColor: hocColors.orange,
+                                                  }
+                                                : {}),
                                         }}
                                     >
                                         <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>

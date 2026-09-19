@@ -15,7 +15,7 @@ import React from "react";
 
 import { tf, useTranslation } from "../i18n/i18n";
 import { isAssetPrefetchComplete, useAssetPrefetchProgress } from "./assetPrefetch";
-import { hocColors } from "./hocTheme";
+import { hocColors, hocReadoutChipSx } from "./hocTheme";
 
 /**
  * How much of a match's art this tab has already downloaded (see assetPrefetch.ts): a progress ring with the
@@ -49,15 +49,7 @@ export const ArenaArtReadout = (): React.ReactElement | null => {
                 spacing={0.7}
                 alignItems="center"
                 aria-label={ready ? t("Battle art ready") : tf("Battle art {percent}%", { percent })}
-                sx={{
-                    minHeight: 38,
-                    px: 1.15,
-                    borderRadius: "10px",
-                    color: hocColors.parchment,
-                    bgcolor: "rgba(0,0,0,0.3)",
-                    border: "1px solid rgba(220,177,88,0.3)",
-                    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.035)",
-                }}
+                sx={hocReadoutChipSx}
             >
                 {ready ? (
                     <CheckCircleRoundedIcon sx={{ color: hocColors.green, fontSize: 19 }} />
