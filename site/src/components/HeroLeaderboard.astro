@@ -85,6 +85,13 @@ const topN = Math.max(1, Math.min(100, Math.trunc(requestedTopN)));
         animation: hocRise 0.72s cubic-bezier(0.22, 1, 0.36, 1) 0.14s both;
     }
 
+    /* In the standalone band below the hero the card owns the whole row. */
+    .hero-ladder-band .hero-ranked {
+        width: 100%;
+        justify-self: stretch;
+        animation: none;
+    }
+
     .hero-ranked::before {
         position: absolute;
         z-index: -1;
@@ -651,6 +658,10 @@ const topN = Math.max(1, Math.min(100, Math.trunc(requestedTopN)));
         .hero-ranked {
             width: min(720px, 100%);
             justify-self: start;
+        }
+
+        .hero-ladder-band .hero-ranked {
+            width: 100%;
         }
 
         .hero-ranked__frame {
