@@ -802,7 +802,7 @@ export const secondaryDamageTextStyle = (source: string): { fill: string; stroke
  * The block of cells a cell-targeted spell covers when aimed at `origin`.
  *
  * Meteor Shower's 3x3 is CENTRED on the cursor — an odd-sided footprint pivots about the mouse, the way the
- * Fire Wall's 3-cell line does. Everything else here is 2x2 (Meteorite, Smoke, Craft) and hangs off the
+ * Fire Wall's line does. Everything else here is 2x2 (Meteorite, Smoke, Craft) and hangs off the
  * cursor cell as its bottom-left corner, because an even-sided block has no centre cell to anchor on. Both
  * match what the matching cast handler reads out of `action.targetCell` — a preview whose footprint differs
  * from the cast's is worse than no preview, so this is the ONE place either is derived.
@@ -8447,7 +8447,7 @@ export class Sandbox extends PixiScene {
         );
     }
     /**
-     * Whether the armed spell's footprint can be turned before it is placed. Only Fire Wall's 3-cell line
+     * Whether the armed spell's footprint can be turned before it is placed. Only Fire Wall's 4-cell line
      * today; Craft's and Smoke's 2x2 blocks are rotationally symmetric, so there is nothing to turn.
      */
     private isRotatableAreaSpell(spell?: PixiRenderableSpell): boolean {
@@ -8469,9 +8469,9 @@ export class Sandbox extends PixiScene {
      * Cast the currently-armed CELL-target spell on the clicked cell — Craft (ALLIES_AREA), Smoke and Fire
      * Wall (FREE_CELL) all resolve to a footprint read off `targetCell`, so they share this path. The engine
      * owns what that footprint means: Craft resolves the allies inside its 2x2, Smoke smokes whichever of
-     * those four cells are free, Fire Wall lights the 3-cell line at the orientation the player rotated to.
-     * Returns true if the cast was applied (turn finished), false if the engine rejected it (e.g.
-     * insufficient stack power, or a cell in the footprint occupied).
+     * those four cells are free, Fire Wall lights the free cells of its 4-cell line at the orientation the
+     * player rotated to. Returns true if the cast was applied (turn finished), false if the engine rejected
+     * it (e.g. insufficient stack power, Smoke over an occupied cell, or a Fire Wall line with nothing to light).
      */
     private castAreaSpellAtCell(cell: HoCMath.XY): boolean {
         const caster = this.currentActiveUnit;
@@ -15133,7 +15133,7 @@ export class Sandbox extends PixiScene {
         }
         this.fireWallRotateHintText = this.ensureSplitText(this.fireWallRotateHintText, 20, 0xffe08a);
         this.fireWallRotateHintText.text = "⇧ Shift to rotate";
-        // Below the footprint, clear of the 3-cell line itself whichever way it currently lies.
+        // Below the footprint, clear of the line itself whichever way it currently lies.
         this.fireWallRotateHintText.position.set(pos.x, pos.y + gs.getCellSize() * 1.35);
         this.fireWallRotateHintText.visible = true;
     }
@@ -16179,15 +16179,19 @@ export class Sandbox extends PixiScene {
         }
     }
     /**
-     * Fire Wall aim preview: the 3-cell line a click would set alight, centred on the cell under the cursor
-     * so the wall pivots about the mouse as Shift turns it (see rotateFireWallAim).
+     * Fire Wall aim preview: the 4-cell line a click would lay, pivoting about the cell under the cursor as
+     * Shift turns it (see rotateFireWallAim).
      *
-     * All-or-nothing like Smoke — the engine refuses a partial line, so an illegal placement draws nothing
-     * at all rather than dangling a highlight over a cast that would be rejected. Legality is read from the
-     * ENGINE's own predicate, so the preview can never promise something fireWallCast will refuse.
+     * The wall goes anywhere and lights only the free cells of its line (owner call 2026-09-19), so the
+     * preview says WHICH: a cell that will burn is drawn hot, a cell the flames skip (a creature, the
+     * mountain, a narrowed-away cell) is drawn as a faint outline, and the part of the line past the board
+     * edge is not drawn at all. Which cells burn is read from the ENGINE's own readout (fireWallLitCells),
+     * so the preview can never promise something fireWallCast lays differently. The one placement the engine
+     * refuses — a line that lights nothing — draws nothing, rather than dangling a highlight over a cast
+     * that would be rejected.
      *
-     * Drawn hot (ember red under a bright orange stroke) to match the flames the cast leaves behind, with an
-     * arrowhead on the leading cell so the current orientation is readable at a glance while rotating.
+     * Drawn hot (ember red under a bright orange stroke) to match the flames the cast leaves behind, with a
+     * tick along the wall's axis so the current orientation is readable at a glance while rotating.
      */
     private drawFireWallAim(g: Graphics): void {
         const gs = this.sc_sceneSettings.getGridSettings();
@@ -16195,25 +16199,29 @@ export class Sandbox extends PixiScene {
         if (!anchor) {
             return;
         }
-        const cells = FireWallHelper.fireWallCells(anchor, this.fireWallAimOrientation);
-        if (!cells.every((c) => FireWallHelper.isFireWallableCell(this.grid, GridMath.isCellWithinGrid(gs, c), c))) {
+        const withinGrid = (c: HoCMath.XY) => GridMath.isCellWithinGrid(gs, c);
+        const lit = FireWallHelper.fireWallLitCells(this.grid, withinGrid, anchor, this.fireWallAimOrientation);
+        if (!lit.length) {
             return;
         }
+        const litKeys = new Set(lit.map((c) => `${c.x},${c.y}`));
+        const onBoard = FireWallHelper.fireWallCells(anchor, this.fireWallAimOrientation).filter(withinGrid);
         const size = gs.getCellSize();
         const pulse = (Math.sin(this.hoverGlowPhase) + 1) / 2;
-        for (const c of cells) {
+        for (const c of onBoard) {
+            const burns = litKeys.has(`${c.x},${c.y}`);
             g.poly(tunedCellFillPolygon(c, gs, 1 / size))
-                .fill({ color: 0xb03000, alpha: 0.3 + 0.16 * pulse })
-                .stroke({ width: 2, color: 0xff8a2b, alpha: 0.8 });
+                .fill({ color: 0xb03000, alpha: burns ? 0.3 + 0.16 * pulse : 0.08 })
+                .stroke({ width: 2, color: 0xff8a2b, alpha: burns ? 0.8 : 0.3 });
         }
-        // A tick along the wall's own axis, drawn through all three cells, so a vertical wall and a diagonal
-        // one are told apart instantly instead of by reading three separate squares.
+        // A tick along the wall's own axis, drawn through the on-board run of the line, so a vertical wall
+        // and a diagonal one are told apart instantly instead of by reading separate squares.
         const first = projectBattlefieldPoint(
-            GridMath.getPositionForCell(cells[0], gs.getMinX(), gs.getStep(), gs.getHalfStep()),
+            GridMath.getPositionForCell(onBoard[0], gs.getMinX(), gs.getStep(), gs.getHalfStep()),
             gs,
         );
         const last = projectBattlefieldPoint(
-            GridMath.getPositionForCell(cells[cells.length - 1], gs.getMinX(), gs.getStep(), gs.getHalfStep()),
+            GridMath.getPositionForCell(onBoard[onBoard.length - 1], gs.getMinX(), gs.getStep(), gs.getHalfStep()),
             gs,
         );
         g.moveTo(first.x, first.y)

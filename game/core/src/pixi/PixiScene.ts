@@ -569,7 +569,7 @@ export abstract class PixiScene {
     }
     /**
      * Shift pressed or released, independent of the mouse. Scenes that let Shift modify what is being aimed
-     * (Fire Wall rotates its 3-cell footprint) override this; everyone else ignores it, which is why the
+     * (Fire Wall rotates its 4-cell footprint) override this; everyone else ignores it, which is why the
      * default is a no-op rather than an abstract.
      *
      * Only fires on a real transition — the manager swallows auto-repeat — so an override can treat every
