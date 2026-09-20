@@ -34,7 +34,8 @@ import {
     type PortalMatchData,
     type PortalUnitPerformanceData,
 } from "./matchHistoryModel";
-import { CreatureIcon, creatureName, timeAgo } from "./portalFormat";
+import { augmentEffectSummary } from "./augmentEffect";
+import { CreatureIcon, creatureName, InfoCard, timeAgo } from "./portalFormat";
 
 const RESULT_COLORS: Record<MatchResultTone, string> = {
     draw: hocColors.gold,
@@ -296,13 +297,15 @@ const PerformanceList: React.FC<{
 const SetupChoice: React.FC<{
     alt?: string;
     badge?: string;
+    /** Plain-text summary for assistive tech; the hover card is `tooltip` when given. */
     detail: string;
     fallback?: React.ReactNode;
     image?: string;
     name: string;
     roundImage?: boolean;
-}> = ({ alt = "", badge, detail, fallback, image, name, roundImage = false }) => (
-    <Tooltip title={detail} placement="top" size="sm" variant="soft">
+    tooltip?: React.ReactNode;
+}> = ({ alt = "", badge, detail, fallback, image, name, roundImage = false, tooltip }) => (
+    <Tooltip title={tooltip ?? detail} placement="top" size="sm" variant="soft">
         <Stack
             direction="row"
             spacing={0.65}
@@ -366,14 +369,16 @@ const SetupSummaryIcon: React.FC<{
     alt?: string;
     badge: string;
     compact: boolean;
+    /** Plain-text summary for assistive tech; the hover card is `tooltip` when given. */
     detail: string;
     fallback?: React.ReactNode;
     image?: string;
     roundImage?: boolean;
-}> = ({ alt = "", badge, compact, detail, fallback, image, roundImage = false }) => {
+    tooltip?: React.ReactNode;
+}> = ({ alt = "", badge, compact, detail, fallback, image, roundImage = false, tooltip }) => {
     const size = compact ? 24 : 32;
     return (
-        <Tooltip title={detail} placement="top" size="sm" variant="soft">
+        <Tooltip title={tooltip ?? detail} placement="top" size="sm" variant="soft">
             <Box
                 aria-label={detail}
                 sx={{
@@ -484,6 +489,13 @@ const SetupSummary: React.FC<{
                         fallback={<ExploreRoundedIcon />}
                         image={getDoctrineIconImage(setup.doctrine)}
                         roundImage
+                        tooltip={
+                            <InfoCard
+                                title={doctrine.name}
+                                subtitle={tf("{count} pts", { count: doctrine.upgradePoints })}
+                                lines={[doctrine.description]}
+                            />
+                        }
                     />
                 </SetupSummaryGroup>
                 {artifacts.length > 0 && (
@@ -496,25 +508,42 @@ const SetupSummary: React.FC<{
                                 compact={compact}
                                 detail={`${artifact.name}: ${Artifact.formatArtifactDescription(artifact)}`}
                                 image={(images as Record<string, string>)[artifact.imageKey]}
+                                tooltip={
+                                    <InfoCard
+                                        title={artifact.name}
+                                        subtitle={tf("Tier {tier} artifact", { tier: artifact.tier })}
+                                        lines={[Artifact.formatArtifactDescription(artifact)]}
+                                    />
+                                }
                             />
                         ))}
                     </SetupSummaryGroup>
                 )}
                 {setup.complete && setup.augments.length > 0 && (
                     <SetupSummaryGroup compact={compact} label={t("Augments")}>
-                        {setup.augments.map((augment) => (
-                            <SetupSummaryIcon
-                                key={augment.kind}
-                                alt={tf("{kind} augment", { kind: t(augment.kind) })}
-                                badge={`L${augment.level}`}
-                                compact={compact}
-                                detail={tf("{kind} augment, level {level}", {
-                                    kind: t(augment.kind),
-                                    level: augment.level,
-                                })}
-                                image={images[AUGMENT_IMAGE_KEY[augment.kind]]}
-                            />
-                        ))}
+                        {setup.augments.map((augment) => {
+                            const effect = augmentEffectSummary(augment.kind, augment.level);
+                            return (
+                                <SetupSummaryIcon
+                                    key={augment.kind}
+                                    alt={tf("{kind} augment", { kind: t(augment.kind) })}
+                                    badge={`L${augment.level}`}
+                                    compact={compact}
+                                    detail={`${tf("{kind} augment, level {level}", {
+                                        kind: t(augment.kind),
+                                        level: augment.level,
+                                    })}: ${effect}`}
+                                    image={images[AUGMENT_IMAGE_KEY[augment.kind]]}
+                                    tooltip={
+                                        <InfoCard
+                                            title={tf("{kind} augment", { kind: t(augment.kind) })}
+                                            subtitle={tf("Level {level}", { level: augment.level })}
+                                            lines={[effect]}
+                                        />
+                                    }
+                                />
+                            );
+                        })}
                     </SetupSummaryGroup>
                 )}
                 {setup.complete && setup.synergies.length > 0 && (
@@ -535,6 +564,13 @@ const SetupSummary: React.FC<{
                                     })}
                                     fallback={<AutoAwesomeRoundedIcon />}
                                     image={SYNERGY_KEY_TO_IMAGE[synergy as keyof typeof SYNERGY_KEY_TO_IMAGE]}
+                                    tooltip={
+                                        <InfoCard
+                                            title={name}
+                                            subtitle={tf("Level {level}", { level })}
+                                            lines={[synergyDescription(synergy)]}
+                                        />
+                                    }
                                 />
                             );
                         })}
@@ -594,6 +630,13 @@ const TeamBuildChoices: React.FC<{
                     name={doctrine.name}
                     badge={tf("{count} pts", { count: doctrine.upgradePoints })}
                     roundImage
+                    tooltip={
+                        <InfoCard
+                            title={doctrine.name}
+                            subtitle={tf("{count} pts", { count: doctrine.upgradePoints })}
+                            lines={[doctrine.description]}
+                        />
+                    }
                 />
             </SetupRow>
 
@@ -606,6 +649,13 @@ const TeamBuildChoices: React.FC<{
                         image={(images as Record<string, string>)[artifact.imageKey]}
                         name={artifact.name}
                         badge={`T${artifact.tier}`}
+                        tooltip={
+                            <InfoCard
+                                title={artifact.name}
+                                subtitle={tf("Tier {tier} artifact", { tier: artifact.tier })}
+                                lines={[Artifact.formatArtifactDescription(artifact)]}
+                            />
+                        }
                     />
                 ))}
                 {artifacts.length === 0 && (
@@ -618,19 +668,29 @@ const TeamBuildChoices: React.FC<{
             {setup.complete ? (
                 <>
                     <SetupRow label={t("Augments")}>
-                        {setup.augments.map((augment) => (
-                            <SetupChoice
-                                key={augment.kind}
-                                alt={tf("{kind} augment", { kind: t(augment.kind) })}
-                                detail={tf("{kind} augment, level {level}", {
-                                    kind: t(augment.kind),
-                                    level: augment.level,
-                                })}
-                                image={images[AUGMENT_IMAGE_KEY[augment.kind]]}
-                                name={t(augment.kind)}
-                                badge={`L${augment.level}`}
-                            />
-                        ))}
+                        {setup.augments.map((augment) => {
+                            const effect = augmentEffectSummary(augment.kind, augment.level);
+                            return (
+                                <SetupChoice
+                                    key={augment.kind}
+                                    alt={tf("{kind} augment", { kind: t(augment.kind) })}
+                                    detail={`${tf("{kind} augment, level {level}", {
+                                        kind: t(augment.kind),
+                                        level: augment.level,
+                                    })}: ${effect}`}
+                                    image={images[AUGMENT_IMAGE_KEY[augment.kind]]}
+                                    name={t(augment.kind)}
+                                    badge={`L${augment.level}`}
+                                    tooltip={
+                                        <InfoCard
+                                            title={tf("{kind} augment", { kind: t(augment.kind) })}
+                                            subtitle={tf("Level {level}", { level: augment.level })}
+                                            lines={[effect]}
+                                        />
+                                    }
+                                />
+                            );
+                        })}
                     </SetupRow>
 
                     <SetupRow label={t("Synergies")}>
@@ -648,6 +708,13 @@ const TeamBuildChoices: React.FC<{
                                     image={SYNERGY_KEY_TO_IMAGE[synergy as keyof typeof SYNERGY_KEY_TO_IMAGE]}
                                     name={name}
                                     badge={`L${level}`}
+                                    tooltip={
+                                        <InfoCard
+                                            title={name}
+                                            subtitle={tf("Level {level}", { level })}
+                                            lines={[synergyDescription(synergy)]}
+                                        />
+                                    }
                                 />
                             );
                         })}

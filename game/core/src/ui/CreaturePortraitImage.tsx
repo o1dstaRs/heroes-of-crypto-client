@@ -36,8 +36,12 @@ export interface CreaturePortraitImageProps extends Omit<BoxProps, "children"> {
 /**
  * The single renderer for creature portraits outside the battlefield. Every portrait surface uses the
  * approved per-creature source, crop, scale and offsets from the framing editor.
+ *
+ * The outer box takes a ref: a portrait is what tooltips wrap (the portal's roster strips, the draft
+ * rail), and MUI anchors a tooltip through the child's ref — a plain function component swallowed it,
+ * so those tooltips never opened.
  */
-export const CreaturePortraitImage: React.FC<CreaturePortraitImageProps> = ({
+const CreaturePortraitImageBase = ({
     creatureId,
     alt,
     imageStyle,
@@ -53,8 +57,9 @@ export const CreaturePortraitImage: React.FC<CreaturePortraitImageProps> = ({
     artBaseScale,
     highQualityArt = false,
     sx,
+    forwardedRef,
     ...boxProps
-}) => {
+}: CreaturePortraitImageProps & { forwardedRef?: React.Ref<HTMLDivElement> }) => {
     const visual = resolveCreaturePortraitVisual(creatureId);
     if (!visual) return null;
     const { framing, background: portraitBackground, backgroundOpacity, backgroundShadeAlpha, source } = visual;
@@ -74,6 +79,7 @@ export const CreaturePortraitImage: React.FC<CreaturePortraitImageProps> = ({
 
     return (
         <Box
+            ref={forwardedRef}
             {...boxProps}
             sx={{
                 position: "relative",
@@ -215,3 +221,9 @@ export const CreaturePortraitImage: React.FC<CreaturePortraitImageProps> = ({
         </Box>
     );
 };
+
+export const CreaturePortraitImage = React.forwardRef<HTMLDivElement, CreaturePortraitImageProps>(
+    function CreaturePortraitImage(props, ref) {
+        return <CreaturePortraitImageBase {...props} forwardedRef={ref} />;
+    },
+);

@@ -6,6 +6,7 @@ import { t, tf, useTranslation } from "../../i18n/i18n";
 import { hocFantasyRadioSx } from "../hocTheme";
 import { ArtifactToggler } from "./ArtifactToggler";
 import { AugmentSelections, remainingAugmentPoints } from "./augmentSelectionState";
+import { AUGMENT_DESCRIPTIONS } from "./augmentLabels";
 const augmentBoardImg = new URL("../../../images/board_augment_256.webp", import.meta.url).toString();
 const augmentArmorImg = new URL("../../../images/armor_augment_256.webp", import.meta.url).toString();
 const augmentMightImg = new URL("../../../images/might_augment_256.webp", import.meta.url).toString();
@@ -13,15 +14,6 @@ const augmentEmpowerImg = new URL("../../../images/empower_augment_256.webp", im
 const augmentSniperImg = new URL("../../../images/sniper_augment_256.webp", import.meta.url).toString();
 const augmentMovementImg = new URL("../../../images/movement_augment_256.webp", import.meta.url).toString();
 type AugmentCardOption = { value: number; label: string };
-
-const AUGMENT_DESCRIPTIONS: Record<Augment.AugmentType["type"], string> = {
-    Placement: "Expands the deployment zone before battle.",
-    Armor: "Raises physical Armor and adds flat Magic Armor to every unit.",
-    Might: "Increases every unit's melee attack damage.",
-    Empower: "Increases magic damage from spells, abilities and effects.",
-    Sniper: "Increases ranged attack damage and effective shooting range.",
-    Movement: "Adds movement steps to every unit.",
-};
 
 const PlacementMiniBoard: React.FC<{
     rows: number;

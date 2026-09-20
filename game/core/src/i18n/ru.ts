@@ -357,6 +357,23 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "{kind} augment, level {level}": "{kind}, уровень {level}",
     "{name}, level {level}: {description}": "{name}, уровень {level}: {description}",
     "Level {level}: {description}": "Уровень {level}: {description}",
+    // Portal hover cards: what a creature, an augment, an artifact or a synergy in a recorded build does.
+    "Level {level}": "Уровень {level}",
+    "Stack of {count}": "Отряд из {count}",
+    "Tier {tier} artifact": "Артефакт уровня {tier}",
+    Melee: "Ближний бой",
+    Ranged: "Дальний бой",
+    Flying: "Летающий",
+    "+{value}% armor and +{value} magic armor for every unit":
+        "+{value}% брони и +{value} магической брони каждому отряду",
+    "+{value}% melee damage for every unit": "+{value}% урона в ближнем бою каждому отряду",
+    "+{value}% magic damage from spells, abilities and effects":
+        "+{value}% магического урона от заклинаний, способностей и эффектов",
+    "+{damage}% ranged damage and +{range}% shooting range": "+{damage}% урона стрельбы и +{range}% дальности стрельбы",
+    "+{count} movement steps for every unit": "+{count} к шагам каждому отряду",
+    "Standard deployment zone": "Стандартная зона расстановки",
+    "Wider deployment zone": "Расширенная зона расстановки",
+    "Widest deployment zone, up to the board's edge": "Максимальная зона расстановки — до края поля",
     "{faction} synergy": "синергия: {faction}",
     "Deep reserves": "Глубокие резервы",
     "High spirits": "Боевой дух",

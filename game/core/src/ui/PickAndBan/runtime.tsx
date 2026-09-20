@@ -1,7 +1,6 @@
 import {
     AllAbilities,
     Artifact,
-    CREATURES_JSON,
     CreatureVals,
     getCreatureLevel,
     getCreaturesByLevel,
@@ -36,6 +35,7 @@ import { usePickBanEvents } from "../context/PickBanContext";
 import { useAuthContext } from "../auth/context/auth_context";
 import { abilityImage } from "../abilityImage";
 import { CreaturePortraitImage } from "../CreaturePortraitImage";
+import { creatureCatalogEntry, startingStackAmount } from "../creatureCatalog";
 import { hocDisplayFontFamily } from "../hocTheme";
 import { ownArmyAccent } from "../ownArmyAccent";
 import { SYNERGY_KEY_TO_IMAGE, SYNERGY_NAME_TO_DESCRIPTION } from "../LeftSideBar/SynergiesConstants";
@@ -85,53 +85,9 @@ const creatureName = (creatureId: number): string => UNIT_ID_TO_NAME[creatureId]
 const creatureImage = (creatureId: number): string | undefined => UNIT_ID_TO_IMAGE[creatureId];
 
 // ---- Creature stats + abilities lookup (shared creatures.json / abilities.json) ------------------
-
-interface CreatureFullConfig {
-    name: string;
-    exp: number;
-    hp: number;
-    attack: number;
-    attack_damage_min: number;
-    attack_damage_max: number;
-    armor: number;
-    initiative: number;
-    steps: number;
-    movement_type: string;
-    magic_resist: number;
-    attack_type: string;
-    range_shots: number;
-    shot_distance: number;
-    level: number;
-    size: number;
-    footprint_width?: number;
-    footprint_height?: number;
-    abilities?: string[];
-}
-
-// Ranked turns every drafted creature into a stack worth roughly 1000 creature experience. Keep the
-// draft readout on the same rule as play_session so the amount shown before a pick is the amount that
-// will actually reach placement.
-const STARTING_STACK_EXPERIENCE_BUDGET = 1000;
-
-const startingStackAmount = (config: CreatureFullConfig): number =>
-    config.exp > 0 ? Math.max(1, Math.ceil(STARTING_STACK_EXPERIENCE_BUDGET / config.exp)) : 1;
-
-// Index every creature by name once (creatures.json is faction -> { name -> config }, plus a version key).
-const creatureConfigByName: Map<string, { faction: string; config: CreatureFullConfig }> = (() => {
-    const map = new Map<string, { faction: string; config: CreatureFullConfig }>();
-    for (const faction of Object.keys(CREATURES_JSON)) {
-        const roster = (CREATURES_JSON as Record<string, unknown>)[faction];
-        if (!roster || typeof roster !== "object") {
-            continue; // skip the top-level "version" number
-        }
-        for (const [unitName, cfg] of Object.entries(roster as Record<string, CreatureFullConfig>)) {
-            map.set(unitName, { faction, config: cfg });
-        }
-    }
-    return map;
-})();
-
-const creatureFullConfig = (creatureId: number) => creatureConfigByName.get(creatureName(creatureId));
+// The catalogue index itself lives in ../creatureCatalog, shared with the portal's hover cards so both
+// surfaces quote the same numbers for a creature.
+const creatureFullConfig = creatureCatalogEntry;
 
 // Ability description with the {} power placeholder filled in (mirrors how the game renders it).
 const abilityDescription = (abilityName: string): string => {
