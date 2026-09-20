@@ -80,7 +80,6 @@ const factionLabel = (faction: string) => localizedFactionName(lang, faction);
                 <span class="sr-only">{copy.hero.title}</span>
             </h1>
             <p class="hero-tagline">{copy.hero.tagline}</p>
-            <p class="hero-copy">{copy.hero.body}</p>
             <div class="hero-actions">
                 <a class="button primary hero-play" href={playHref}>
                     <img src="/assets/icons/navbar/joystick.svg" alt="" width="22" height="22" />
@@ -123,6 +122,7 @@ const factionLabel = (faction: string) => localizedFactionName(lang, faction);
         <div class="section-heading centered">
             <p class="eyebrow">{copy.features.eyebrow}</p>
             <h2>{copy.features.title}</h2>
+            <p class="section-lede">{copy.hero.body}</p>
         </div>
         <div class="feature-grid mechanic-grid">
             {
