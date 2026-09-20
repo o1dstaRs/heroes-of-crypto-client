@@ -68,7 +68,6 @@ const factionLabel = (faction: string) => localizedFactionName(lang, faction);
     <div class="hero-shade"></div>
     <div class="hero-grid page-shell">
         <div class="hero-content">
-            <p class="eyebrow">{copy.hero.kicker}</p>
             <h1 class="hero-logo">
                 <img
                     src="/assets/images/home/logo/logo_forged.webp"
@@ -79,23 +78,17 @@ const factionLabel = (faction: string) => localizedFactionName(lang, faction);
                 />
                 <span class="sr-only">{copy.hero.title}</span>
             </h1>
-            <p class="hero-tagline">{copy.hero.tagline}</p>
+            <p class="hero-tagline">{copy.hero.pitch}</p>
+            <ul class="hero-claims">
+                {copy.hero.claims.map((claim) => <li>{claim}</li>)}
+            </ul>
             <div class="hero-actions">
-                <a class="button primary hero-play" href={playHref}>
+                <a class="button hero-play" href={playHref}>
                     <img src="/assets/icons/navbar/joystick.svg" alt="" width="22" height="22" />
                     {copy.hero.primaryCta}
                 </a>
-                <a class="button secondary" href={rulesHref}>
-                    {copy.hero.secondaryCta}
-                </a>
             </div>
         </div>
-    </div>
-</section>
-
-<section class="section hero-ladder-band">
-    <div class="page-shell">
-        <HeroLeaderboard lang={lang} topN={10} />
     </div>
 </section>
 
@@ -109,7 +102,12 @@ const factionLabel = (faction: string) => localizedFactionName(lang, faction);
                 </div>
             ))
         }
-        <a class="proof-action proof-action-primary" href={playHref}>{copy.progress.cta}</a>
+    </div>
+</section>
+
+<section class="section hero-ladder-band">
+    <div class="page-shell">
+        <HeroLeaderboard lang={lang} topN={10} />
     </div>
 </section>
 
