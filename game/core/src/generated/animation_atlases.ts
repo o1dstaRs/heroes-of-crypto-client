@@ -2173,8 +2173,8 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
         20,
         20
       ],
-      "loopDurationMs": 24372,
-      "pauseMs": 9749,
+      "loopDurationMs": 27080,
+      "pauseMs": 0,
       "loop": true,
       "continuousIdle": true,
       "provenance": "arbalester_idle_body20_v11; identical offline motion maps; 362px native artwork padded to 384px; 13 body cycles, 25 cloth cycles per 27.08s",
@@ -2600,8 +2600,8 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
         86.95652173913044
       ],
       "loop": false,
-      "loopDurationMs": 939,
-      "pauseMs": 376
+      "loopDurationMs": 1043.4782608695655,
+      "pauseMs": 0
     },
     "celebrate": {
       "frameWidth": 768,
@@ -2648,8 +2648,8 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
         250
       ],
       "loop": false,
-      "loopDurationMs": 1080,
-      "pauseMs": 432
+      "loopDurationMs": 1200,
+      "pauseMs": 0
     },
     "defend": {
       "frameWidth": 768,
@@ -2708,8 +2708,8 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
         25
       ],
       "loop": false,
-      "loopDurationMs": 540,
-      "pauseMs": 216
+      "loopDurationMs": 600,
+      "pauseMs": 0
     },
     "idle": {
       "frameWidth": 768,
@@ -2847,8 +2847,8 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
         16.666666666666668,
         16.666666666666668
       ],
-      "loopDurationMs": 1800,
-      "pauseMs": 720,
+      "loopDurationMs": 2000,
+      "pauseMs": 0,
       "source": "wandering_mage_idle_contour_fire_v7_20260913",
       "loop": true
     },
@@ -2877,8 +2877,8 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
         70
       ],
       "loop": false,
-      "loopDurationMs": 648,
-      "pauseMs": 259
+      "loopDurationMs": 720,
+      "pauseMs": 0
     },
     "melee_attack_down": {
       "frameWidth": 1024,
@@ -2905,8 +2905,8 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
         70
       ],
       "loop": false,
-      "loopDurationMs": 648,
-      "pauseMs": 259
+      "loopDurationMs": 720,
+      "pauseMs": 0
     },
     "melee_attack_up": {
       "frameWidth": 1024,
@@ -2933,8 +2933,8 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
         70
       ],
       "loop": false,
-      "loopDurationMs": 648,
-      "pauseMs": 259
+      "loopDurationMs": 720,
+      "pauseMs": 0
     },
     "walk": {
       "frameWidth": 768,
@@ -3076,193 +3076,6 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
       "footAnchorY": 0.9661458333333334,
       "loopDurationMs": 405,
       "pauseMs": 162
-    }
-  },
-  "Battle Mage Lab": {
-    "cast": {
-      "frameWidth": 1152,
-      "frameHeight": 1152,
-      "atlasWidth": 3456,
-      "atlasHeight": 3456,
-      "frameCount": 8,
-      "fps": 9.523809523809524,
-      "frameDurationSec": 0.105,
-      "totalDurationSec": 0.84,
-      "layout": {
-        "cols": 3,
-        "rows": 3
-      },
-      "footAnchorY": 0.8003472222222222,
-      "frameDurationsMs": [
-        40,
-        100,
-        100,
-        120,
-        220,
-        100,
-        100,
-        60
-      ],
-      "loopDurationMs": 756,
-      "pauseMs": 302,
-      "geometry": "full-body-redraw"
-    },
-    "death": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3840,
-      "atlasHeight": 1536,
-      "frameCount": 9,
-      "fps": 11.086013793103447,
-      "frameDurationSec": 0.09020374849453056,
-      "totalDurationSec": 0.811833736450775,
-      "layout": {
-        "cols": 5,
-        "rows": 2
-      },
-      "footAnchorY": 0.9505208333333334,
-      "frameDurationsMs": [
-        22.95529875481502,
-        58.78796022574577,
-        95.18050703215982,
-        134.37248051599033,
-        76.70429096121114,
-        84.54268565797726,
-        88.46188300636032,
-        107.49798441279225,
-        143.33064588372304
-      ],
-      "loopDurationMs": 731,
-      "pauseMs": 292,
-      "geometry": "full-body-redraw"
-    },
-    "hit": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3840,
-      "atlasHeight": 1536,
-      "frameCount": 7,
-      "fps": 16.564423076923077,
-      "frameDurationSec": 0.06037034887095838,
-      "totalDurationSec": 0.42259244209670865,
-      "layout": {
-        "cols": 5,
-        "rows": 2
-      },
-      "footAnchorY": 0.9505208333333334,
-      "frameDurationsMs": [
-        32.507110930516056,
-        40.633888663145065,
-        52.824055262088585,
-        89.39455505891914,
-        73.1409995936611,
-        85.33116619260464,
-        48.760666395774074
-      ],
-      "loopDurationMs": 380,
-      "pauseMs": 152,
-      "geometry": "full-body-redraw"
-    },
-    "melee_attack": {
-      "frameWidth": 1152,
-      "frameHeight": 1152,
-      "atlasWidth": 3456,
-      "atlasHeight": 3456,
-      "frameCount": 8,
-      "fps": 12.903225806451612,
-      "frameDurationSec": 0.0775,
-      "totalDurationSec": 0.62,
-      "layout": {
-        "cols": 3,
-        "rows": 3
-      },
-      "footAnchorY": 0.8003472222222222,
-      "frameDurationsMs": [
-        40,
-        80,
-        100,
-        70,
-        110,
-        80,
-        90,
-        50
-      ],
-      "loopDurationMs": 558,
-      "pauseMs": 223,
-      "geometry": "full-body-redraw"
-    },
-    "melee_attack_down": {
-      "frameWidth": 1152,
-      "frameHeight": 1152,
-      "atlasWidth": 3456,
-      "atlasHeight": 3456,
-      "frameCount": 8,
-      "fps": 12.903225806451612,
-      "frameDurationSec": 0.0775,
-      "totalDurationSec": 0.62,
-      "layout": {
-        "cols": 3,
-        "rows": 3
-      },
-      "footAnchorY": 0.8003472222222222,
-      "frameDurationsMs": [
-        40,
-        80,
-        100,
-        70,
-        110,
-        80,
-        90,
-        50
-      ],
-      "loopDurationMs": 558,
-      "pauseMs": 223,
-      "geometry": "full-body-redraw"
-    },
-    "melee_attack_up": {
-      "frameWidth": 1152,
-      "frameHeight": 1152,
-      "atlasWidth": 3456,
-      "atlasHeight": 3456,
-      "frameCount": 8,
-      "fps": 12.903225806451612,
-      "frameDurationSec": 0.0775,
-      "totalDurationSec": 0.62,
-      "layout": {
-        "cols": 3,
-        "rows": 3
-      },
-      "footAnchorY": 0.8003472222222222,
-      "frameDurationsMs": [
-        40,
-        80,
-        100,
-        70,
-        110,
-        80,
-        90,
-        50
-      ],
-      "loopDurationMs": 558,
-      "pauseMs": 223,
-      "geometry": "full-body-redraw"
-    },
-    "walk": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 8,
-      "frameDurationSec": 0.125,
-      "totalDurationSec": 1,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.9583333333333334,
-      "loopDurationMs": 900,
-      "pauseMs": 360
     }
   },
   "Behemoth": {
@@ -3972,6 +3785,57 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
     }
   },
   "Blacksmith": {
+    "attack": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 33.333333333333336,
+      "frameDurationSec": 0.03,
+      "totalDurationSec": 0.24,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9661458333333334,
+      "loopDurationMs": 216,
+      "pauseMs": 86
+    },
+    "attack_down": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 33.333333333333336,
+      "frameDurationSec": 0.03,
+      "totalDurationSec": 0.24,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9661458333333334,
+      "loopDurationMs": 216,
+      "pauseMs": 86
+    },
+    "attack_up": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 33.333333333333336,
+      "frameDurationSec": 0.03,
+      "totalDurationSec": 0.24,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9661458333333334,
+      "loopDurationMs": 216,
+      "pauseMs": 86
+    },
     "cast": {
       "frameWidth": 1024,
       "frameHeight": 1024,
@@ -3996,8 +3860,8 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
         100,
         100
       ],
-      "loopDurationMs": 612,
-      "pauseMs": 245
+      "loopDurationMs": 680,
+      "pauseMs": 0
     },
     "death": {
       "frameWidth": 896,
@@ -4023,8 +3887,8 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
         118.18181818181817,
         204.54545454545453
       ],
-      "loopDurationMs": 736,
-      "pauseMs": 294
+      "loopDurationMs": 818.181818181818,
+      "pauseMs": 0
     },
     "hit": {
       "frameWidth": 768,
@@ -4049,8 +3913,8 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
         85,
         110
       ],
-      "loopDurationMs": 432,
-      "pauseMs": 173
+      "loopDurationMs": 480,
+      "pauseMs": 0
     },
     "idle": {
       "frameWidth": 768,
@@ -4076,8 +3940,8 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
         288.46153846153845,
         288.46153846153845
       ],
-      "loopDurationMs": 2077,
-      "pauseMs": 831
+      "loopDurationMs": 2307.6923076923076,
+      "pauseMs": 0
     },
     "melee_attack": {
       "frameWidth": 1024,
@@ -4103,8 +3967,8 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
         75,
         70
       ],
-      "loopDurationMs": 486,
-      "pauseMs": 194
+      "loopDurationMs": 540,
+      "pauseMs": 0
     },
     "melee_attack_down": {
       "frameWidth": 1024,
@@ -4130,8 +3994,8 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
         75,
         80
       ],
-      "loopDurationMs": 522,
-      "pauseMs": 209
+      "loopDurationMs": 580,
+      "pauseMs": 0
     },
     "melee_attack_up": {
       "frameWidth": 1024,
@@ -4157,8 +4021,8 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
         70,
         70
       ],
-      "loopDurationMs": 486,
-      "pauseMs": 194
+      "loopDurationMs": 540,
+      "pauseMs": 0
     },
     "walk": {
       "frameWidth": 768,
@@ -5642,490 +5506,6 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
       "pauseMs": 162
     }
   },
-  "Elf Lab": {
-    "attack": {
-      "frameWidth": 1664,
-      "frameHeight": 1152,
-      "atlasWidth": 3328,
-      "atlasHeight": 8064,
-      "frameCount": 14,
-      "fps": 10.582010582010582,
-      "frameDurationSec": 0.0945,
-      "totalDurationSec": 1.323,
-      "layout": {
-        "cols": 2,
-        "rows": 7
-      },
-      "footAnchorY": 0.8559027777777778,
-      "frameDurationsMs": [
-        50,
-        73,
-        80,
-        87,
-        80,
-        87,
-        130,
-        94,
-        130,
-        182,
-        32,
-        109,
-        130,
-        59
-      ],
-      "loop": false,
-      "unitName": "Elf Lab",
-      "state": "attack",
-      "productionVersion": "elf-ranged-palette-20260920-v2",
-      "releaseFrameIndex": 10,
-      "projectileOrigin": {
-        "x": 1005.8459220010691,
-        "y": 418.19779579648366
-      },
-      "projectileLength": 350,
-      "projectileDirection": {
-        "x": 0.9986178293325098,
-        "y": 0.05255883312276365
-      },
-      "speedMultiplier": 1.2,
-      "timingVersion": "elf-ranged-speed115-20260920-v3",
-      "speedMultiplierFromPrevious": 1.15,
-      "loopDurationMs": 1191,
-      "pauseMs": 476
-    },
-    "attack_down": {
-      "frameWidth": 1664,
-      "frameHeight": 1152,
-      "atlasWidth": 3328,
-      "atlasHeight": 8064,
-      "frameCount": 14,
-      "fps": 10.582010582010582,
-      "frameDurationSec": 0.0945,
-      "totalDurationSec": 1.323,
-      "layout": {
-        "cols": 2,
-        "rows": 7
-      },
-      "footAnchorY": 0.8559027777777778,
-      "frameDurationsMs": [
-        50,
-        73,
-        80,
-        87,
-        80,
-        87,
-        130,
-        94,
-        130,
-        182,
-        32,
-        109,
-        130,
-        59
-      ],
-      "loop": false,
-      "unitName": "Elf Lab",
-      "state": "attack_down",
-      "productionVersion": "elf-ranged-palette-20260920-v2",
-      "releaseFrameIndex": 10,
-      "projectileOrigin": {
-        "x": 1021.8960086451548,
-        "y": 531.9682961104245
-      },
-      "projectileLength": 350,
-      "projectileDirection": {
-        "x": 0.81474543182262,
-        "y": 0.5798188349167113
-      },
-      "speedMultiplier": 1.2,
-      "timingVersion": "elf-ranged-speed115-20260920-v3",
-      "speedMultiplierFromPrevious": 1.15,
-      "loopDurationMs": 1191,
-      "pauseMs": 476
-    },
-    "attack_up": {
-      "frameWidth": 1664,
-      "frameHeight": 1152,
-      "atlasWidth": 3328,
-      "atlasHeight": 8064,
-      "frameCount": 14,
-      "fps": 10.582010582010582,
-      "frameDurationSec": 0.0945,
-      "totalDurationSec": 1.323,
-      "layout": {
-        "cols": 2,
-        "rows": 7
-      },
-      "footAnchorY": 0.8559027777777778,
-      "frameDurationsMs": [
-        50,
-        73,
-        80,
-        87,
-        80,
-        87,
-        130,
-        94,
-        130,
-        182,
-        32,
-        109,
-        130,
-        59
-      ],
-      "loop": false,
-      "unitName": "Elf Lab",
-      "state": "attack_up",
-      "productionVersion": "elf-ranged-palette-20260920-v2",
-      "releaseFrameIndex": 10,
-      "projectileOrigin": {
-        "x": 953.2127975172054,
-        "y": 399.1187840804984
-      },
-      "projectileLength": 350,
-      "projectileDirection": {
-        "x": 0.924678098474716,
-        "y": -0.3807498052542948
-      },
-      "speedMultiplier": 1.2,
-      "timingVersion": "elf-ranged-speed115-20260920-v3",
-      "speedMultiplierFromPrevious": 1.15,
-      "loopDurationMs": 1191,
-      "pauseMs": 476
-    },
-    "death": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3840,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 7.5829383886255926,
-      "frameDurationSec": 0.131875,
-      "totalDurationSec": 1.055,
-      "layout": {
-        "cols": 5,
-        "rows": 2
-      },
-      "footAnchorY": 0.9505208333333334,
-      "frameDurationsMs": [
-        70,
-        110,
-        130,
-        145,
-        140,
-        120,
-        140,
-        200
-      ],
-      "loop": false,
-      "unitName": "Elf Lab",
-      "state": "death",
-      "productionVersion": "elf-idle-palette-contact-registration-20260920-v4",
-      "loopDurationMs": 950,
-      "pauseMs": 380
-    },
-    "hit": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3840,
-      "atlasHeight": 4608,
-      "frameCount": 28,
-      "fps": 67.49999999999997,
-      "frameDurationSec": 0.014814814814814822,
-      "totalDurationSec": 0.414814814814815,
-      "layout": {
-        "cols": 5,
-        "rows": 6
-      },
-      "footAnchorY": 0.9505208333333334,
-      "frameDurationsMs": [
-        14.814814814814813,
-        14.814814814814813,
-        14.814814814814813,
-        14.814814814814813,
-        14.814814814814813,
-        14.814814814814813,
-        14.814814814814813,
-        14.814814814814813,
-        14.814814814814813,
-        14.814814814814813,
-        14.814814814814813,
-        14.814814814814813,
-        14.814814814814813,
-        14.814814814814813,
-        14.814814814814813,
-        14.814814814814813,
-        14.814814814814813,
-        14.814814814814813,
-        14.814814814814813,
-        14.814814814814813,
-        14.814814814814813,
-        14.814814814814813,
-        14.814814814814813,
-        14.814814814814813,
-        14.814814814814813,
-        14.814814814814813,
-        14.814814814814813,
-        14.814814814814813
-      ],
-      "loop": false,
-      "unitName": "Elf Lab",
-      "state": "hit",
-      "productionVersion": "elf-idle-palette-contact-registration-20260920-v4",
-      "speedMultiplier": 1.35,
-      "timingVersion": "elf-hit-speed135-20260920-v1",
-      "loopDurationMs": 373,
-      "pauseMs": 149
-    },
-    "idle": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 7680,
-      "atlasHeight": 7680,
-      "frameCount": 96,
-      "fps": 28.4375,
-      "frameDurationSec": 0.035164835164835165,
-      "totalDurationSec": 3.375824175824176,
-      "layout": {
-        "cols": 10,
-        "rows": 10
-      },
-      "footAnchorY": 0.9661458333333334,
-      "frameDurationsMs": [
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517,
-        35.16483516483517
-      ],
-      "loopDurationMs": 3038,
-      "pauseMs": 1215,
-      "cycleEndPauseMs": 1000,
-      "unitName": "Elf Lab",
-      "state": "idle",
-      "endpointFrames": [
-        0,
-        95
-      ],
-      "productionVersion": "aaa-painted-yew-bow-v10-pause1000"
-    },
-    "melee_attack": {
-      "frameWidth": 1664,
-      "frameHeight": 1024,
-      "atlasWidth": 3328,
-      "atlasHeight": 4096,
-      "frameCount": 8,
-      "fps": 14.814814814814815,
-      "frameDurationSec": 0.0675,
-      "totalDurationSec": 0.54,
-      "layout": {
-        "cols": 2,
-        "rows": 4
-      },
-      "footAnchorY": 0.837890625,
-      "frameDurationsMs": [
-        35,
-        35,
-        80,
-        65,
-        55,
-        80,
-        110,
-        80
-      ],
-      "loop": false,
-      "unitName": "Elf Lab",
-      "state": "melee_attack",
-      "productionVersion": "elf-idle-palette-rigid-bow-20260920-v6",
-      "loopDurationMs": 486,
-      "pauseMs": 194
-    },
-    "melee_attack_down": {
-      "frameWidth": 1664,
-      "frameHeight": 1024,
-      "atlasWidth": 3328,
-      "atlasHeight": 4096,
-      "frameCount": 8,
-      "fps": 13.559322033898304,
-      "frameDurationSec": 0.07375000000000001,
-      "totalDurationSec": 0.59,
-      "layout": {
-        "cols": 2,
-        "rows": 4
-      },
-      "footAnchorY": 0.837890625,
-      "frameDurationsMs": [
-        35,
-        35,
-        100,
-        80,
-        55,
-        90,
-        110,
-        85
-      ],
-      "loop": false,
-      "unitName": "Elf Lab",
-      "state": "melee_attack_down",
-      "productionVersion": "elf-idle-palette-rigid-bow-20260920-v6",
-      "loopDurationMs": 531,
-      "pauseMs": 212
-    },
-    "melee_attack_up": {
-      "frameWidth": 1664,
-      "frameHeight": 1024,
-      "atlasWidth": 3328,
-      "atlasHeight": 4096,
-      "frameCount": 8,
-      "fps": 14.035087719298245,
-      "frameDurationSec": 0.07125000000000001,
-      "totalDurationSec": 0.57,
-      "layout": {
-        "cols": 2,
-        "rows": 4
-      },
-      "footAnchorY": 0.837890625,
-      "frameDurationsMs": [
-        35,
-        35,
-        90,
-        80,
-        55,
-        85,
-        110,
-        80
-      ],
-      "loop": false,
-      "unitName": "Elf Lab",
-      "state": "melee_attack_up",
-      "productionVersion": "elf-idle-palette-rigid-bow-20260920-v6",
-      "loopDurationMs": 513,
-      "pauseMs": 205
-    },
-    "walk": {
-      "frameWidth": 1024,
-      "frameHeight": 1024,
-      "atlasWidth": 4096,
-      "atlasHeight": 2048,
-      "frameCount": 8,
-      "fps": 8,
-      "frameDurationSec": 0.125,
-      "totalDurationSec": 1,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.9505208333333334,
-      "frameDurationsMs": [
-        125,
-        125,
-        125,
-        125,
-        125,
-        125,
-        125,
-        125
-      ],
-      "loop": true,
-      "unitName": "Elf Lab",
-      "state": "walk",
-      "productionVersion": "elf-idle-palette-contact-registration-20260920-v4",
-      "cycleDistanceCells": 1.3,
-      "loopDurationMs": 900,
-      "pauseMs": 360
-    }
-  },
   "Lava Chasm Glow Level": {
     "1": {
       "frameWidth": 512,
@@ -6601,44 +5981,6 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
       },
       "loopDurationMs": 1188,
       "pauseMs": 475
-    }
-  },
-  "Fire Pit Center": {
-    "fire": {
-      "frameWidth": 512,
-      "frameHeight": 512,
-      "atlasWidth": 1536,
-      "atlasHeight": 1536,
-      "frameCount": 9,
-      "fps": 9,
-      "frameDurationSec": 0.1111111111111111,
-      "totalDurationSec": 1,
-      "layout": {
-        "cols": 3,
-        "rows": 3
-      },
-      "loopDurationMs": 900,
-      "pauseMs": 360
-    }
-  },
-  "Fire Pit Center Fire": {
-    "stable": {
-      "frameWidth": 512,
-      "frameHeight": 512,
-      "atlasWidth": 1536,
-      "atlasHeight": 1536,
-      "frameCount": 9,
-      "fps": 9,
-      "frameDurationSec": 0.1111111111111111,
-      "totalDurationSec": 1,
-      "layout": {
-        "cols": 3,
-        "rows": 3
-      },
-      "geometry": "pixel-locked rectified v3 base",
-      "encoding": "lossless WebP",
-      "loopDurationMs": 900,
-      "pauseMs": 360
     }
   },
   "Frenzied Boar": {
@@ -7461,214 +6803,6 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
       "footAnchorY": 0.9661458333333334,
       "loopDurationMs": 405,
       "pauseMs": 162
-    }
-  },
-  "Healer Lab": {
-    "attack": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 11.428571428571429,
-      "frameDurationSec": 0.0875,
-      "totalDurationSec": 0.7,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.9505208333333334,
-      "frameDurationsMs": [
-        60,
-        90,
-        90,
-        70,
-        70,
-        100,
-        130,
-        90
-      ],
-      "loopDurationMs": 630,
-      "pauseMs": 252
-    },
-    "attack_down": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 11.428571428571429,
-      "frameDurationSec": 0.0875,
-      "totalDurationSec": 0.7,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.9505208333333334,
-      "frameDurationsMs": [
-        60,
-        90,
-        90,
-        70,
-        70,
-        100,
-        130,
-        90
-      ],
-      "loopDurationMs": 630,
-      "pauseMs": 252
-    },
-    "attack_up": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 11.428571428571429,
-      "frameDurationSec": 0.0875,
-      "totalDurationSec": 0.7,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.9505208333333334,
-      "frameDurationsMs": [
-        60,
-        90,
-        90,
-        70,
-        70,
-        100,
-        130,
-        90
-      ],
-      "loopDurationMs": 630,
-      "pauseMs": 252
-    },
-    "cast": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 7.407407407407407,
-      "frameDurationSec": 0.135,
-      "totalDurationSec": 1.08,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.9505208333333334,
-      "frameDurationsMs": [
-        80,
-        120,
-        140,
-        160,
-        180,
-        160,
-        140,
-        100
-      ],
-      "loopDurationMs": 972,
-      "pauseMs": 389
-    },
-    "death": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 6.956521739130435,
-      "frameDurationSec": 0.14375,
-      "totalDurationSec": 1.15,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.96875,
-      "frameDurationsMs": [
-        60,
-        90,
-        130,
-        150,
-        130,
-        130,
-        160,
-        300
-      ],
-      "loopDurationMs": 1035,
-      "pauseMs": 414
-    },
-    "hit": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 6,
-      "fps": 13.333333333333334,
-      "frameDurationSec": 0.075,
-      "totalDurationSec": 0.45,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.96875,
-      "frameDurationsMs": [
-        45,
-        65,
-        95,
-        85,
-        95,
-        65
-      ],
-      "loopDurationMs": 405,
-      "pauseMs": 162
-    },
-    "idle": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3840,
-      "atlasHeight": 1536,
-      "frameCount": 10,
-      "fps": 3.0747126436781613,
-      "frameDurationSec": 0.32523364485981304,
-      "totalDurationSec": 3.2523364485981308,
-      "layout": {
-        "cols": 5,
-        "rows": 2
-      },
-      "footAnchorY": 0.96875,
-      "frameDurationsMs": [
-        654.2056074766355,
-        327.10280373831773,
-        280.3738317757009,
-        205.60747663551402,
-        168.22429906542055,
-        168.22429906542055,
-        205.60747663551402,
-        261.6822429906542,
-        327.10280373831773,
-        654.2056074766355
-      ],
-      "loopDurationMs": 2927,
-      "pauseMs": 1171
-    },
-    "walk": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 8,
-      "frameDurationSec": 0.125,
-      "totalDurationSec": 1,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.96484375,
-      "loopDurationMs": 900,
-      "pauseMs": 360
     }
   },
   "Hydra": {
@@ -8586,201 +7720,6 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
       "pauseMs": 162
     }
   },
-  "Manticore Lab": {
-    "death": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 11.11141552511415,
-      "frameDurationSec": 0.08999753431412842,
-      "totalDurationSec": 0.7199802745130274,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.9505208333333334,
-      "frameDurationsMs": [
-        105.20259718911814,
-        65.75162324319884,
-        59.17646091887895,
-        65.75162324319884,
-        75.61436672967866,
-        92.05227254047837,
-        111.77775951343801,
-        144.65357113503745
-      ],
-      "loopDurationMs": 648,
-      "pauseMs": 259
-    },
-    "hit": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 2304,
-      "frameCount": 9,
-      "fps": 15.967741935483872,
-      "frameDurationSec": 0.06262626262626263,
-      "totalDurationSec": 0.5636363636363636,
-      "layout": {
-        "cols": 4,
-        "rows": 3
-      },
-      "footAnchorY": 0.9505208333333334,
-      "frameDurationsMs": [
-        22.727272727272727,
-        45.45454545454545,
-        54.54545454545454,
-        63.63636363636363,
-        77.27272727272727,
-        77.27272727272727,
-        81.81818181818181,
-        86.36363636363636,
-        54.54545454545454
-      ],
-      "loopDurationMs": 507,
-      "pauseMs": 203
-    },
-    "melee_attack": {
-      "frameWidth": 896,
-      "frameHeight": 896,
-      "atlasWidth": 3584,
-      "atlasHeight": 1792,
-      "frameCount": 8,
-      "fps": 13.43783783783784,
-      "frameDurationSec": 0.0744167337087691,
-      "totalDurationSec": 0.5953338696701528,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.8861607142857143,
-      "frameDurationsMs": [
-        44.24778761061947,
-        76.42799678197909,
-        72.40547063555913,
-        52.292839903459374,
-        68.38294448913918,
-        88.49557522123894,
-        104.58567980691875,
-        88.49557522123894
-      ],
-      "loopDurationMs": 536,
-      "pauseMs": 214
-    },
-    "melee_attack_down": {
-      "frameWidth": 896,
-      "frameHeight": 896,
-      "atlasWidth": 3584,
-      "atlasHeight": 1792,
-      "frameCount": 8,
-      "fps": 11.891891891891893,
-      "frameDurationSec": 0.08409090909090908,
-      "totalDurationSec": 0.6727272727272726,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.8861607142857143,
-      "frameDurationsMs": [
-        49.99999999999999,
-        86.36363636363636,
-        81.81818181818181,
-        59.090909090909086,
-        77.27272727272727,
-        99.99999999999999,
-        118.18181818181817,
-        99.99999999999999
-      ],
-      "loopDurationMs": 605,
-      "pauseMs": 242
-    },
-    "melee_attack_up": {
-      "frameWidth": 896,
-      "frameHeight": 896,
-      "atlasWidth": 3584,
-      "atlasHeight": 1792,
-      "frameCount": 8,
-      "fps": 11.891891891891893,
-      "frameDurationSec": 0.08409090909090908,
-      "totalDurationSec": 0.6727272727272726,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.8861607142857143,
-      "frameDurationsMs": [
-        49.99999999999999,
-        86.36363636363636,
-        81.81818181818181,
-        59.090909090909086,
-        77.27272727272727,
-        99.99999999999999,
-        118.18181818181817,
-        99.99999999999999
-      ],
-      "loopDurationMs": 605,
-      "pauseMs": 242
-    },
-    "walk": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 3840,
-      "frameCount": 18,
-      "fps": 12.587412587412587,
-      "frameDurationSec": 0.07944444444444444,
-      "totalDurationSec": 1.43,
-      "layout": {
-        "cols": 4,
-        "rows": 5
-      },
-      "footAnchorY": 0.8995157877604166,
-      "frameDurationsMs": [
-        100,
-        140,
-        100,
-        60,
-        60,
-        60,
-        60,
-        60,
-        60,
-        60,
-        60,
-        60,
-        60,
-        60,
-        90,
-        80,
-        120,
-        140
-      ],
-      "cycleDistanceCells": 1.3,
-      "phases": {
-        "intro": {
-          "startFrame": 0,
-          "endFrame": 2,
-          "loop": false
-        },
-        "flight": {
-          "startFrame": 3,
-          "endFrame": 13,
-          "loop": true,
-          "cycleDistanceCells": 1.3
-        },
-        "landing": {
-          "startFrame": 14,
-          "endFrame": 17,
-          "loop": false
-        }
-      },
-      "status": "review candidate; not installed",
-      "loopDurationMs": 1287,
-      "pauseMs": 515
-    }
-  },
   "Mantis": {
     "attack": {
       "frameWidth": 768,
@@ -9053,348 +7992,6 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
       "footAnchorY": 0.9661458333333334,
       "loopDurationMs": 405,
       "pauseMs": 162
-    }
-  },
-  "Medusa Lab": {
-    "attack": {
-      "frameWidth": 1024,
-      "frameHeight": 1024,
-      "atlasWidth": 4096,
-      "atlasHeight": 2048,
-      "frameCount": 8,
-      "fps": 13.714285714285714,
-      "frameDurationSec": 0.07291666666666667,
-      "totalDurationSec": 0.5833333333333334,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.849609375,
-      "releaseFrameIndex": 5,
-      "projectileLength": 480,
-      "projectileOrigin": {
-        "x": 814,
-        "y": 328
-      },
-      "projectileDirection": {
-        "x": 1,
-        "y": 0
-      },
-      "frameDurationsMs": [
-        45.833333333333336,
-        75,
-        83.33333333333334,
-        83.33333333333334,
-        66.66666666666667,
-        83.33333333333334,
-        83.33333333333334,
-        62.5
-      ],
-      "loopDurationMs": 525,
-      "pauseMs": 210,
-      "cycleEndPauseMs": 0
-    },
-    "attack_down": {
-      "frameWidth": 1024,
-      "frameHeight": 1024,
-      "atlasWidth": 4096,
-      "atlasHeight": 2048,
-      "frameCount": 8,
-      "fps": 13.714285714285714,
-      "frameDurationSec": 0.07291666666666667,
-      "totalDurationSec": 0.5833333333333334,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.849609375,
-      "releaseFrameIndex": 5,
-      "projectileLength": 480,
-      "projectileOrigin": {
-        "x": 771,
-        "y": 463
-      },
-      "projectileDirection": {
-        "x": 1,
-        "y": 0.47
-      },
-      "frameDurationsMs": [
-        45.833333333333336,
-        75,
-        83.33333333333334,
-        83.33333333333334,
-        66.66666666666667,
-        83.33333333333334,
-        83.33333333333334,
-        62.5
-      ],
-      "loopDurationMs": 525,
-      "pauseMs": 210,
-      "cycleEndPauseMs": 0
-    },
-    "attack_up": {
-      "frameWidth": 1024,
-      "frameHeight": 1024,
-      "atlasWidth": 4096,
-      "atlasHeight": 2048,
-      "frameCount": 8,
-      "fps": 13.714285714285714,
-      "frameDurationSec": 0.07291666666666667,
-      "totalDurationSec": 0.5833333333333334,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.849609375,
-      "releaseFrameIndex": 5,
-      "projectileLength": 480,
-      "projectileOrigin": {
-        "x": 775,
-        "y": 243
-      },
-      "projectileDirection": {
-        "x": 1,
-        "y": -0.62
-      },
-      "frameDurationsMs": [
-        45.833333333333336,
-        75,
-        83.33333333333334,
-        83.33333333333334,
-        66.66666666666667,
-        83.33333333333334,
-        83.33333333333334,
-        62.5
-      ],
-      "loopDurationMs": 525,
-      "pauseMs": 210,
-      "cycleEndPauseMs": 0
-    },
-    "death": {
-      "frameWidth": 1024,
-      "frameHeight": 1024,
-      "atlasWidth": 4096,
-      "atlasHeight": 3072,
-      "frameCount": 9,
-      "fps": 5.691891891891892,
-      "frameDurationSec": 0.17568850902184235,
-      "totalDurationSec": 1.5811965811965811,
-      "layout": {
-        "cols": 4,
-        "rows": 3
-      },
-      "footAnchorY": 0.849609375,
-      "frameDurationsMs": [
-        85.47008547008548,
-        153.84615384615387,
-        153.84615384615387,
-        205.12820512820514,
-        170.94017094017096,
-        128.2051282051282,
-        119.65811965811966,
-        136.75213675213675,
-        427.35042735042737
-      ],
-      "loopDurationMs": 1423,
-      "pauseMs": 569,
-      "cycleEndPauseMs": 0
-    },
-    "hit": {
-      "frameWidth": 1024,
-      "frameHeight": 1024,
-      "atlasWidth": 4096,
-      "atlasHeight": 2048,
-      "frameCount": 6,
-      "fps": 13.043478260869565,
-      "frameDurationSec": 0.07666666666666667,
-      "totalDurationSec": 0.46,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.849609375,
-      "impactFrame": 2,
-      "frameDurationsMs": [
-        35,
-        65,
-        110,
-        100,
-        85,
-        65
-      ],
-      "loopDurationMs": 414,
-      "pauseMs": 166,
-      "cycleEndPauseMs": 0
-    },
-    "idle": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3840,
-      "atlasHeight": 3840,
-      "frameCount": 24,
-      "fps": 11.187,
-      "frameDurationSec": 0.08938946992044337,
-      "totalDurationSec": 2.145347278090641,
-      "layout": {
-        "cols": 5,
-        "rows": 5
-      },
-      "footAnchorY": 0.9661458333333334,
-      "frameDurationsMs": [
-        89.38946992044337,
-        89.38946992044337,
-        89.38946992044337,
-        89.38946992044337,
-        89.38946992044337,
-        89.38946992044337,
-        89.38946992044337,
-        89.38946992044337,
-        89.38946992044337,
-        89.38946992044337,
-        89.38946992044337,
-        89.38946992044337,
-        89.38946992044337,
-        89.38946992044337,
-        89.38946992044337,
-        89.38946992044337,
-        89.38946992044337,
-        89.38946992044337,
-        89.38946992044337,
-        89.38946992044337,
-        89.38946992044337,
-        89.38946992044337,
-        89.38946992044337,
-        89.38946992044337
-      ],
-      "cycleEndPauseMs": 0,
-      "loopDurationMs": 1931,
-      "pauseMs": 772
-    },
-    "melee_attack": {
-      "frameWidth": 1024,
-      "frameHeight": 1024,
-      "atlasWidth": 4096,
-      "atlasHeight": 2048,
-      "frameCount": 6,
-      "fps": 11.320754716981131,
-      "frameDurationSec": 0.08833333333333333,
-      "totalDurationSec": 0.53,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.849609375,
-      "impactFrame": 3,
-      "frameDurationsMs": [
-        65,
-        100,
-        65,
-        110,
-        105,
-        85
-      ],
-      "loopDurationMs": 477,
-      "pauseMs": 191,
-      "cycleEndPauseMs": 0
-    },
-    "melee_attack_down": {
-      "frameWidth": 1024,
-      "frameHeight": 1024,
-      "atlasWidth": 4096,
-      "atlasHeight": 2048,
-      "frameCount": 6,
-      "fps": 11.320754716981131,
-      "frameDurationSec": 0.08833333333333333,
-      "totalDurationSec": 0.53,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.849609375,
-      "impactFrame": 3,
-      "frameDurationsMs": [
-        65,
-        100,
-        65,
-        110,
-        105,
-        85
-      ],
-      "loopDurationMs": 477,
-      "pauseMs": 191,
-      "cycleEndPauseMs": 0
-    },
-    "melee_attack_up": {
-      "frameWidth": 1024,
-      "frameHeight": 1024,
-      "atlasWidth": 4096,
-      "atlasHeight": 2048,
-      "frameCount": 6,
-      "fps": 11.320754716981131,
-      "frameDurationSec": 0.08833333333333333,
-      "totalDurationSec": 0.53,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.849609375,
-      "impactFrame": 3,
-      "frameDurationsMs": [
-        65,
-        100,
-        65,
-        110,
-        105,
-        85
-      ],
-      "loopDurationMs": 477,
-      "pauseMs": 191,
-      "cycleEndPauseMs": 0
-    },
-    "projectile": {
-      "frameWidth": 768,
-      "frameHeight": 384,
-      "atlasWidth": 3072,
-      "atlasHeight": 384,
-      "frameCount": 4,
-      "fps": 12.5,
-      "frameDurationSec": 0.08,
-      "totalDurationSec": 0.32,
-      "layout": {
-        "cols": 4,
-        "rows": 1
-      },
-      "footAnchorY": 0.6927083333333334,
-      "frameDurationsMs": [
-        80,
-        80,
-        80,
-        80
-      ],
-      "loopDurationMs": 288,
-      "pauseMs": 115,
-      "cycleEndPauseMs": 0
-    },
-    "walk": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 2304,
-      "frameCount": 9,
-      "fps": 7.2,
-      "frameDurationSec": 0.1388888888888889,
-      "totalDurationSec": 1.25,
-      "layout": {
-        "cols": 4,
-        "rows": 3
-      },
-      "footAnchorY": 0.9661458333333334,
-      "loopStartFrame": 0,
-      "loopEndFrame": 7,
-      "outroFrame": 8,
-      "cadenceSpeedMultiplier": 0.9,
-      "loopDurationMs": 1125,
-      "pauseMs": 450
     }
   },
   "Mermaid": {
@@ -10690,8 +9287,8 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
       ],
       "registration": "orc-reactions-v1-ground-locked",
       "holdLastFrame": false,
-      "loopDurationMs": 405,
-      "pauseMs": 162
+      "loopDurationMs": 450,
+      "pauseMs": 0
     },
     "idle": {
       "frameWidth": 768,
@@ -10734,8 +9331,8 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
         125
       ],
       "registration": "redrawn-opaque-stable-idle-v3",
-      "loopDurationMs": 2700,
-      "pauseMs": 1080
+      "loopDurationMs": 3000,
+      "pauseMs": 0
     },
     "melee_attack": {
       "frameWidth": 1280,
@@ -10992,8 +9589,8 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
       "atlasWidth": 3072,
       "atlasHeight": 2304,
       "totalDurationSec": 2.004,
-      "loopDurationMs": 1804,
-      "pauseMs": 722
+      "loopDurationMs": 2004,
+      "pauseMs": 0
     },
     "walk": {
       "frameWidth": 768,
@@ -11039,7 +9636,7 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
       },
       "footAnchorY": 0.9505208333333334,
       "loopDurationMs": 1800,
-      "pauseMs": 720
+      "pauseMs": 1000
     }
   },
   "Peasant Left Screen": {
@@ -11217,24 +9814,6 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
       "pauseMs": 210
     }
   },
-  "Pick Phase Floor": {
-    "fog": {
-      "frameWidth": 1280,
-      "frameHeight": 480,
-      "atlasWidth": 6400,
-      "atlasHeight": 960,
-      "frameCount": 10,
-      "fps": 6,
-      "frameDurationSec": 0.166667,
-      "totalDurationSec": 1.666667,
-      "layout": {
-        "cols": 5,
-        "rows": 2
-      },
-      "loopDurationMs": 1500,
-      "pauseMs": 600
-    }
-  },
   "Pikeman": {
     "attack": {
       "frameWidth": 768,
@@ -11370,224 +9949,6 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
       "footAnchorY": 0.962890625,
       "loopDurationMs": 900,
       "pauseMs": 360
-    }
-  },
-  "Pikeman Lab": {
-    "attack": {
-      "frameWidth": 1280,
-      "frameHeight": 768,
-      "atlasWidth": 3840,
-      "atlasHeight": 1536,
-      "frameCount": 6,
-      "fps": 9.333333333333336,
-      "frameDurationSec": 0.10714285714285712,
-      "totalDurationSec": 0.6428571428571428,
-      "layout": {
-        "cols": 3,
-        "rows": 2
-      },
-      "footAnchorY": 0.96875,
-      "frameDurationsMs": [
-        53.57142857142857,
-        107.14285714285714,
-        62.49999999999999,
-        116.07142857142856,
-        169.64285714285714,
-        133.92857142857142
-      ],
-      "loopDurationMs": 579,
-      "pauseMs": 232
-    },
-    "attack_down": {
-      "frameWidth": 1280,
-      "frameHeight": 768,
-      "atlasWidth": 3840,
-      "atlasHeight": 1536,
-      "frameCount": 6,
-      "fps": 9.333333333333336,
-      "frameDurationSec": 0.10714285714285712,
-      "totalDurationSec": 0.6428571428571428,
-      "layout": {
-        "cols": 3,
-        "rows": 2
-      },
-      "footAnchorY": 0.96875,
-      "frameDurationsMs": [
-        53.57142857142857,
-        107.14285714285714,
-        62.49999999999999,
-        116.07142857142856,
-        169.64285714285714,
-        133.92857142857142
-      ],
-      "loopDurationMs": 579,
-      "pauseMs": 232
-    },
-    "attack_up": {
-      "frameWidth": 1280,
-      "frameHeight": 768,
-      "atlasWidth": 3840,
-      "atlasHeight": 1536,
-      "frameCount": 6,
-      "fps": 9.333333333333336,
-      "frameDurationSec": 0.10714285714285712,
-      "totalDurationSec": 0.6428571428571428,
-      "layout": {
-        "cols": 3,
-        "rows": 2
-      },
-      "footAnchorY": 0.96875,
-      "frameDurationsMs": [
-        53.57142857142857,
-        107.14285714285714,
-        62.49999999999999,
-        116.07142857142856,
-        169.64285714285714,
-        133.92857142857142
-      ],
-      "loopDurationMs": 579,
-      "pauseMs": 232
-    },
-    "death": {
-      "frameWidth": 1024,
-      "frameHeight": 768,
-      "atlasWidth": 4096,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 6.4,
-      "frameDurationSec": 0.15625,
-      "totalDurationSec": 1.25,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.96875,
-      "frameDurationsMs": [
-        70,
-        100,
-        130,
-        120,
-        130,
-        140,
-        140,
-        420
-      ],
-      "loopDurationMs": 1125,
-      "pauseMs": 450
-    },
-    "hit": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3840,
-      "atlasHeight": 2304,
-      "frameCount": 12,
-      "fps": 24,
-      "frameDurationSec": 0.041666666666666664,
-      "totalDurationSec": 0.5,
-      "layout": {
-        "cols": 5,
-        "rows": 3
-      },
-      "footAnchorY": 0.96875,
-      "frameDurationsMs": [
-        30,
-        30,
-        35,
-        55,
-        45,
-        45,
-        45,
-        45,
-        45,
-        40,
-        40,
-        45
-      ],
-      "loopDurationMs": 450,
-      "pauseMs": 180
-    },
-    "idle": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 7680,
-      "atlasHeight": 5376,
-      "frameCount": 64,
-      "fps": 22.444726810673444,
-      "frameDurationSec": 0.04455389492753623,
-      "totalDurationSec": 2.851449275362319,
-      "layout": {
-        "cols": 10,
-        "rows": 7
-      },
-      "footAnchorY": 0.96875,
-      "frameDurationsMs": [
-        41.66666666666667,
-        41.66666666666667,
-        41.66666666666667,
-        41.66666666666667,
-        41.66666666666667,
-        41.66666666666667,
-        41.66666666666667,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        45.28985507246377,
-        41.66666666666667,
-        41.66666666666667,
-        41.66666666666667,
-        41.66666666666667,
-        41.66666666666667,
-        41.66666666666667
-      ],
-      "loopDurationMs": 2566,
-      "pauseMs": 1026
     }
   },
   "Satyr": {
@@ -11850,29 +10211,6 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
     }
   },
   "Scavenger": {
-    "death": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 8,
-      "frameDurationSec": 0.125,
-      "totalDurationSec": 1,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.96875,
-      "sourceDirection": "right",
-      "loop": false,
-      "holdLastFrame": true,
-      "visibleHeightRatio": 0.9114583333333334,
-      "scaleReference": "Neutral frame normalized to 700px visible height; one fixed scale across action. Match visible height when integrating with existing 741px walk.",
-      "installedInGame": false,
-      "loopDurationMs": 900,
-      "pauseMs": 360
-    },
     "default": {
       "frameWidth": 512,
       "frameHeight": 512,
@@ -11888,52 +10226,6 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
       },
       "loopDurationMs": 5475,
       "pauseMs": 2190
-    },
-    "hit": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 12.5,
-      "frameDurationSec": 0.08,
-      "totalDurationSec": 0.64,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.96875,
-      "sourceDirection": "right",
-      "loop": false,
-      "holdLastFrame": false,
-      "visibleHeightRatio": 0.9114583333333334,
-      "scaleReference": "Neutral frame normalized to 700px visible height; one fixed scale across action. Match visible height when integrating with existing 741px walk.",
-      "installedInGame": false,
-      "loopDurationMs": 576,
-      "pauseMs": 230
-    },
-    "idle": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 6.25,
-      "frameDurationSec": 0.16,
-      "totalDurationSec": 1.28,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.96875,
-      "sourceDirection": "right",
-      "loop": true,
-      "holdLastFrame": false,
-      "visibleHeightRatio": 0.9114583333333334,
-      "scaleReference": "Neutral frame normalized to 700px visible height; one fixed scale across action. Match visible height when integrating with existing 741px walk.",
-      "installedInGame": false,
-      "loopDurationMs": 1152,
-      "pauseMs": 461
     }
   },
   "Scavenger Homm": {
@@ -12920,204 +11212,6 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
       "pauseMs": 162
     }
   },
-  "Troll Lab": {
-    "cast": {
-      "frameWidth": 1152,
-      "frameHeight": 1152,
-      "atlasWidth": 3456,
-      "atlasHeight": 3456,
-      "frameCount": 8,
-      "fps": 6.451612903225806,
-      "frameDurationSec": 0.155,
-      "totalDurationSec": 1.24,
-      "layout": {
-        "cols": 3,
-        "rows": 3
-      },
-      "footAnchorY": 0.8003472222222222,
-      "frameDurationsMs": [
-        80,
-        160,
-        180,
-        130,
-        300,
-        130,
-        160,
-        100
-      ],
-      "loopDurationMs": 1116,
-      "pauseMs": 446
-    },
-    "death": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 7,
-      "fps": 8.119396551724137,
-      "frameDurationSec": 0.12316186229229709,
-      "totalDurationSec": 0.8621330360460796,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.9505208333333334,
-      "frameDurationsMs": [
-        96.61835748792272,
-        111.48272017837236,
-        104.05053883314754,
-        74.32181345224824,
-        96.61835748792272,
-        118.9149015235972,
-        260.12634708286885
-      ],
-      "loopDurationMs": 776,
-      "pauseMs": 310
-    },
-    "hit": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 768,
-      "frameCount": 4,
-      "fps": 10.666666666666664,
-      "frameDurationSec": 0.09375000000000001,
-      "totalDurationSec": 0.37500000000000006,
-      "layout": {
-        "cols": 4,
-        "rows": 1
-      },
-      "footAnchorY": 0.9505208333333334,
-      "frameDurationsMs": [
-        62.5,
-        97.22222222222223,
-        111.11111111111113,
-        104.16666666666667
-      ],
-      "loopDurationMs": 338,
-      "pauseMs": 135
-    },
-    "idle": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 4.081632653061225,
-      "frameDurationSec": 0.245,
-      "totalDurationSec": 1.96,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.9505208333333334,
-      "frameDurationsMs": [
-        260,
-        160,
-        160,
-        180,
-        340,
-        240,
-        280,
-        340
-      ],
-      "loopDurationMs": 1764,
-      "pauseMs": 706,
-      "cycleEndPauseMs": 1000
-    },
-    "melee_attack": {
-      "frameWidth": 1152,
-      "frameHeight": 1152,
-      "atlasWidth": 3456,
-      "atlasHeight": 2304,
-      "frameCount": 6,
-      "fps": 10,
-      "frameDurationSec": 0.1,
-      "totalDurationSec": 0.6,
-      "layout": {
-        "cols": 3,
-        "rows": 2
-      },
-      "footAnchorY": 0.8003472222222222,
-      "frameDurationsMs": [
-        55,
-        150,
-        75,
-        100,
-        135,
-        85
-      ],
-      "loopDurationMs": 540,
-      "pauseMs": 216
-    },
-    "melee_attack_down": {
-      "frameWidth": 1152,
-      "frameHeight": 1152,
-      "atlasWidth": 3456,
-      "atlasHeight": 2304,
-      "frameCount": 6,
-      "fps": 10,
-      "frameDurationSec": 0.1,
-      "totalDurationSec": 0.6,
-      "layout": {
-        "cols": 3,
-        "rows": 2
-      },
-      "footAnchorY": 0.8003472222222222,
-      "frameDurationsMs": [
-        55,
-        150,
-        75,
-        100,
-        135,
-        85
-      ],
-      "loopDurationMs": 540,
-      "pauseMs": 216
-    },
-    "melee_attack_up": {
-      "frameWidth": 1152,
-      "frameHeight": 1152,
-      "atlasWidth": 3456,
-      "atlasHeight": 2304,
-      "frameCount": 6,
-      "fps": 10,
-      "frameDurationSec": 0.1,
-      "totalDurationSec": 0.6,
-      "layout": {
-        "cols": 3,
-        "rows": 2
-      },
-      "footAnchorY": 0.8003472222222222,
-      "frameDurationsMs": [
-        55,
-        150,
-        75,
-        100,
-        135,
-        85
-      ],
-      "loopDurationMs": 540,
-      "pauseMs": 216
-    },
-    "walk": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 8,
-      "frameDurationSec": 0.125,
-      "totalDurationSec": 1,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.9622395833333334,
-      "loopDurationMs": 900,
-      "pauseMs": 360
-    }
-  },
   "Tsar Cannon": {
     "attack": {
       "frameWidth": 768,
@@ -13529,6 +11623,2741 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
       "pauseMs": 162
     }
   },
+  "White Tiger": {
+    "attack": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 33.333333333333336,
+      "frameDurationSec": 0.03,
+      "totalDurationSec": 0.24,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9661458333333334,
+      "loopDurationMs": 216,
+      "pauseMs": 86
+    },
+    "attack_down": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 33.333333333333336,
+      "frameDurationSec": 0.03,
+      "totalDurationSec": 0.24,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9661458333333334,
+      "loopDurationMs": 216,
+      "pauseMs": 86
+    },
+    "attack_up": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 33.333333333333336,
+      "frameDurationSec": 0.03,
+      "totalDurationSec": 0.24,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9661458333333334,
+      "loopDurationMs": 216,
+      "pauseMs": 86
+    },
+    "death": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 13.333333333333334,
+      "frameDurationSec": 0.075,
+      "totalDurationSec": 0.6,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9661458333333334,
+      "loopDurationMs": 540,
+      "pauseMs": 216
+    },
+    "default": {
+      "frameWidth": 512,
+      "frameHeight": 512,
+      "atlasWidth": 4096,
+      "atlasHeight": 5120,
+      "frameCount": 73,
+      "fps": 12,
+      "frameDurationSec": 0.08333333333333333,
+      "totalDurationSec": 6.083333333333333,
+      "layout": {
+        "cols": 8,
+        "rows": 10
+      },
+      "loopDurationMs": 5475,
+      "pauseMs": 2190
+    },
+    "hit": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 26.666666666666668,
+      "frameDurationSec": 0.0375,
+      "totalDurationSec": 0.3,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9661458333333334,
+      "loopDurationMs": 270,
+      "pauseMs": 108
+    },
+    "idle": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 13.333333333333334,
+      "frameDurationSec": 0.075,
+      "totalDurationSec": 0.6,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9661458333333334,
+      "loopDurationMs": 540,
+      "pauseMs": 216
+    },
+    "walk": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 2304,
+      "atlasHeight": 2304,
+      "frameCount": 9,
+      "fps": 20,
+      "frameDurationSec": 0.05,
+      "totalDurationSec": 0.45,
+      "layout": {
+        "cols": 3,
+        "rows": 3
+      },
+      "footAnchorY": 0.9661458333333334,
+      "loopDurationMs": 405,
+      "pauseMs": 162
+    }
+  },
+  "Wolf": {
+    "attack": {
+      "frameWidth": 2048,
+      "frameHeight": 2048,
+      "atlasWidth": 6144,
+      "atlasHeight": 6144,
+      "frameCount": 9,
+      "fps": 19.148936170212767,
+      "frameDurationSec": 0.05222222222222222,
+      "totalDurationSec": 0.47,
+      "layout": {
+        "cols": 3,
+        "rows": 3
+      },
+      "footAnchorY": 0.837890625,
+      "frameDurationsMs": [
+        30,
+        50,
+        55,
+        50,
+        60,
+        55,
+        65,
+        65,
+        40
+      ],
+      "geometry": "wolf-grounded-bite-v2-canonical768-padded1024",
+      "encoding": "webp-lossless",
+      "contactFrame": 4,
+      "contactTimeMs": 185,
+      "canvasScale": 1.3333333333333333,
+      "loopDurationMs": 423,
+      "pauseMs": 169
+    },
+    "attack_down": {
+      "frameWidth": 2048,
+      "frameHeight": 2048,
+      "atlasWidth": 6144,
+      "atlasHeight": 6144,
+      "frameCount": 9,
+      "fps": 19.148936170212767,
+      "frameDurationSec": 0.05222222222222222,
+      "totalDurationSec": 0.47,
+      "layout": {
+        "cols": 3,
+        "rows": 3
+      },
+      "footAnchorY": 0.837890625,
+      "frameDurationsMs": [
+        30,
+        50,
+        55,
+        50,
+        60,
+        55,
+        65,
+        65,
+        40
+      ],
+      "geometry": "wolf-grounded-bite-v2-canonical768-padded1024",
+      "encoding": "webp-lossless",
+      "contactFrame": 4,
+      "contactTimeMs": 185,
+      "canvasScale": 1.3333333333333333,
+      "loopDurationMs": 423,
+      "pauseMs": 169
+    },
+    "attack_up": {
+      "frameWidth": 2048,
+      "frameHeight": 2048,
+      "atlasWidth": 6144,
+      "atlasHeight": 6144,
+      "frameCount": 9,
+      "fps": 19.148936170212767,
+      "frameDurationSec": 0.05222222222222222,
+      "totalDurationSec": 0.47,
+      "layout": {
+        "cols": 3,
+        "rows": 3
+      },
+      "footAnchorY": 0.837890625,
+      "frameDurationsMs": [
+        30,
+        50,
+        55,
+        50,
+        60,
+        55,
+        65,
+        65,
+        40
+      ],
+      "geometry": "wolf-directional-bite-v1-canonical768-padded1024",
+      "encoding": "webp-lossless",
+      "contactFrame": 4,
+      "contactTimeMs": 185,
+      "canvasScale": 1.3333333333333333,
+      "loopDurationMs": 423,
+      "pauseMs": 169
+    },
+    "death": {
+      "frameWidth": 1536,
+      "frameHeight": 1536,
+      "atlasWidth": 7680,
+      "atlasHeight": 3072,
+      "frameCount": 8,
+      "fps": 8.421052631578947,
+      "frameDurationSec": 0.11875000000000001,
+      "totalDurationSec": 0.95,
+      "layout": {
+        "cols": 5,
+        "rows": 2
+      },
+      "footAnchorY": 0.9505208333333334,
+      "frameDurationsMs": [
+        40,
+        65,
+        90,
+        110,
+        125,
+        140,
+        160,
+        220
+      ],
+      "geometry": "wolf-full-body-hit-death-v1-canonical-768",
+      "encoding": "webp-lossless",
+      "loopDurationMs": 855,
+      "pauseMs": 342
+    },
+    "default": {
+      "frameWidth": 512,
+      "frameHeight": 512,
+      "atlasWidth": 4096,
+      "atlasHeight": 5120,
+      "frameCount": 73,
+      "fps": 12,
+      "frameDurationSec": 0.08333333333333333,
+      "totalDurationSec": 6.083333333333333,
+      "layout": {
+        "cols": 8,
+        "rows": 10
+      },
+      "loopDurationMs": 5475,
+      "pauseMs": 2190
+    },
+    "hit": {
+      "frameWidth": 1536,
+      "frameHeight": 1536,
+      "atlasWidth": 7680,
+      "atlasHeight": 3072,
+      "frameCount": 9,
+      "fps": 21.428571428571427,
+      "frameDurationSec": 0.04666666666666667,
+      "totalDurationSec": 0.42,
+      "layout": {
+        "cols": 5,
+        "rows": 2
+      },
+      "footAnchorY": 0.9505208333333334,
+      "frameDurationsMs": [
+        24,
+        40,
+        40,
+        48,
+        64,
+        54,
+        55,
+        65,
+        30
+      ],
+      "geometry": "wolf-full-body-hit-death-v1-canonical-768",
+      "encoding": "webp-lossless",
+      "loopDurationMs": 378,
+      "pauseMs": 151
+    },
+    "idle": {
+      "frameWidth": 1536,
+      "frameHeight": 1536,
+      "atlasWidth": 12288,
+      "atlasHeight": 6144,
+      "frameCount": 31,
+      "fps": 11.11111111111111,
+      "frameDurationSec": 0.09,
+      "frameDurationsMs": [
+        1200,
+        90,
+        90,
+        90,
+        90,
+        90,
+        90,
+        90,
+        90,
+        480,
+        90,
+        90,
+        90,
+        90,
+        90,
+        90,
+        90,
+        90,
+        700,
+        110,
+        110,
+        110,
+        110,
+        110,
+        110,
+        110,
+        110,
+        110,
+        110,
+        110,
+        1300
+      ],
+      "totalDurationSec": 6.33,
+      "layout": {
+        "cols": 8,
+        "rows": 4
+      },
+      "footAnchorY": 0.9505208333333334,
+      "loopDurationMs": 5697,
+      "pauseMs": 2279
+    },
+    "walk": {
+      "frameWidth": 1152,
+      "frameHeight": 1024,
+      "atlasWidth": 5760,
+      "atlasHeight": 2048,
+      "frameCount": 10,
+      "fps": 13.333333333333334,
+      "frameDurationSec": 0.075,
+      "frameDurationsMs": [
+        78,
+        78,
+        68,
+        78,
+        78,
+        68,
+        78,
+        78,
+        68,
+        78
+      ],
+      "totalDurationSec": 0.75,
+      "layout": {
+        "cols": 5,
+        "rows": 2
+      },
+      "footAnchorY": 1,
+      "loopDurationMs": 675,
+      "pauseMs": 270
+    }
+  },
+  "Wolf Rider": {
+    "attack": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 38.095238095238095,
+      "frameDurationSec": 0.02625,
+      "totalDurationSec": 0.21,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9505208333333334,
+      "frameDurationsMs": [
+        17.5,
+        20,
+        22.5,
+        27.5,
+        32.5,
+        27.5,
+        32.5,
+        30
+      ],
+      "loopDurationMs": 210,
+      "pauseMs": 0
+    },
+    "attack_down": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 38.095238095238095,
+      "frameDurationSec": 0.02625,
+      "totalDurationSec": 0.21,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9505208333333334,
+      "frameDurationsMs": [
+        17.5,
+        20,
+        22.5,
+        27.5,
+        32.5,
+        27.5,
+        32.5,
+        30
+      ],
+      "loopDurationMs": 210,
+      "pauseMs": 0
+    },
+    "attack_up": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 38.095238095238095,
+      "frameDurationSec": 0.02625,
+      "totalDurationSec": 0.21,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9505208333333334,
+      "frameDurationsMs": [
+        17.5,
+        20,
+        22.5,
+        27.5,
+        32.5,
+        27.5,
+        32.5,
+        30
+      ],
+      "loopDurationMs": 210,
+      "pauseMs": 0
+    },
+    "death": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 30.18867924528302,
+      "frameDurationSec": 0.033125,
+      "totalDurationSec": 0.265,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9505208333333334,
+      "frameDurationsMs": [
+        17.5,
+        25,
+        30,
+        37.5,
+        30,
+        25,
+        35,
+        65
+      ],
+      "loopDurationMs": 265,
+      "pauseMs": 0
+    },
+    "default": {
+      "frameWidth": 512,
+      "frameHeight": 512,
+      "atlasWidth": 4096,
+      "atlasHeight": 5120,
+      "frameCount": 73,
+      "fps": 12,
+      "frameDurationSec": 0.08333333333333333,
+      "totalDurationSec": 6.083333333333333,
+      "layout": {
+        "cols": 8,
+        "rows": 10
+      },
+      "loopDurationMs": 5475,
+      "pauseMs": 2190
+    },
+    "hit": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 53.333333333333336,
+      "frameDurationSec": 0.01875,
+      "totalDurationSec": 0.15,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9505208333333334,
+      "frameDurationsMs": [
+        12.5,
+        17.5,
+        22.5,
+        27.5,
+        20,
+        17.5,
+        15,
+        17.5
+      ],
+      "loopDurationMs": 150,
+      "pauseMs": 0
+    },
+    "idle": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 7680,
+      "atlasHeight": 6144,
+      "frameCount": 80,
+      "fps": 23.142857142857146,
+      "frameDurationSec": 0.043209876543209874,
+      "totalDurationSec": 4.151111111111109,
+      "layout": {
+        "cols": 10,
+        "rows": 8
+      },
+      "footAnchorY": 0.9505208333333334,
+      "frameDurationsMs": [
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        43.20987654320987,
+        100,
+        120,
+        120,
+        120,
+        240,
+        120,
+        120,
+        100
+      ],
+      "loopDurationMs": 4151.111111111109,
+      "pauseMs": 0
+    },
+    "walk": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 10,
+      "frameDurationSec": 0.1,
+      "totalDurationSec": 0.8,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9505208333333334,
+      "loopDurationMs": 720,
+      "pauseMs": 288
+    }
+  },
+  "Wyvern": {
+    "attack": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 33.333333333333336,
+      "frameDurationSec": 0.03,
+      "totalDurationSec": 0.24,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9661458333333334,
+      "loopDurationMs": 216,
+      "pauseMs": 86
+    },
+    "attack_down": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 33.333333333333336,
+      "frameDurationSec": 0.03,
+      "totalDurationSec": 0.24,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9661458333333334,
+      "loopDurationMs": 216,
+      "pauseMs": 86
+    },
+    "attack_up": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 33.333333333333336,
+      "frameDurationSec": 0.03,
+      "totalDurationSec": 0.24,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9661458333333334,
+      "loopDurationMs": 216,
+      "pauseMs": 86
+    },
+    "death": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 13.333333333333334,
+      "frameDurationSec": 0.075,
+      "totalDurationSec": 0.6,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9661458333333334,
+      "loopDurationMs": 540,
+      "pauseMs": 216
+    },
+    "hit": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 26.666666666666668,
+      "frameDurationSec": 0.0375,
+      "totalDurationSec": 0.3,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9661458333333334,
+      "loopDurationMs": 270,
+      "pauseMs": 108
+    },
+    "idle": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 13.333333333333334,
+      "frameDurationSec": 0.075,
+      "totalDurationSec": 0.6,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9661458333333334,
+      "loopDurationMs": 540,
+      "pauseMs": 216
+    },
+    "walk": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 2304,
+      "atlasHeight": 2304,
+      "frameCount": 9,
+      "fps": 20,
+      "frameDurationSec": 0.05,
+      "totalDurationSec": 0.45,
+      "layout": {
+        "cols": 3,
+        "rows": 3
+      },
+      "footAnchorY": 0.9661458333333334,
+      "loopDurationMs": 405,
+      "pauseMs": 162
+    }
+  },
+  "Zena": {
+    "attack": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 33.333333333333336,
+      "frameDurationSec": 0.03,
+      "totalDurationSec": 0.24,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9661458333333334,
+      "loopDurationMs": 216,
+      "pauseMs": 86
+    },
+    "attack_down": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 33.333333333333336,
+      "frameDurationSec": 0.03,
+      "totalDurationSec": 0.24,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9661458333333334,
+      "loopDurationMs": 216,
+      "pauseMs": 86
+    },
+    "attack_up": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 33.333333333333336,
+      "frameDurationSec": 0.03,
+      "totalDurationSec": 0.24,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9661458333333334,
+      "loopDurationMs": 216,
+      "pauseMs": 86
+    },
+    "death": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 13.333333333333334,
+      "frameDurationSec": 0.075,
+      "totalDurationSec": 0.6,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9661458333333334,
+      "loopDurationMs": 540,
+      "pauseMs": 216
+    },
+    "hit": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 26.666666666666668,
+      "frameDurationSec": 0.0375,
+      "totalDurationSec": 0.3,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9661458333333334,
+      "loopDurationMs": 270,
+      "pauseMs": 108
+    },
+    "idle": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 13.333333333333334,
+      "frameDurationSec": 0.075,
+      "totalDurationSec": 0.6,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9661458333333334,
+      "loopDurationMs": 540,
+      "pauseMs": 216
+    },
+    "walk": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 2304,
+      "atlasHeight": 2304,
+      "frameCount": 9,
+      "fps": 20,
+      "frameDurationSec": 0.05,
+      "totalDurationSec": 0.45,
+      "layout": {
+        "cols": 3,
+        "rows": 3
+      },
+      "footAnchorY": 0.9661458333333334,
+      "loopDurationMs": 405,
+      "pauseMs": 162
+    }
+  },
+  "Battle Mage Lab": {
+    "cast": {
+      "frameWidth": 1152,
+      "frameHeight": 1152,
+      "atlasWidth": 3456,
+      "atlasHeight": 3456,
+      "frameCount": 8,
+      "fps": 9.523809523809524,
+      "frameDurationSec": 0.105,
+      "totalDurationSec": 0.84,
+      "layout": {
+        "cols": 3,
+        "rows": 3
+      },
+      "footAnchorY": 0.8003472222222222,
+      "frameDurationsMs": [
+        40,
+        100,
+        100,
+        120,
+        220,
+        100,
+        100,
+        60
+      ],
+      "loopDurationMs": 756,
+      "pauseMs": 302,
+      "geometry": "full-body-redraw"
+    },
+    "death": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3840,
+      "atlasHeight": 1536,
+      "frameCount": 9,
+      "fps": 11.086013793103447,
+      "frameDurationSec": 0.09020374849453056,
+      "totalDurationSec": 0.811833736450775,
+      "layout": {
+        "cols": 5,
+        "rows": 2
+      },
+      "footAnchorY": 0.9505208333333334,
+      "frameDurationsMs": [
+        22.95529875481502,
+        58.78796022574577,
+        95.18050703215982,
+        134.37248051599033,
+        76.70429096121114,
+        84.54268565797726,
+        88.46188300636032,
+        107.49798441279225,
+        143.33064588372304
+      ],
+      "loopDurationMs": 731,
+      "pauseMs": 292,
+      "geometry": "full-body-redraw"
+    },
+    "hit": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3840,
+      "atlasHeight": 1536,
+      "frameCount": 7,
+      "fps": 16.564423076923077,
+      "frameDurationSec": 0.06037034887095838,
+      "totalDurationSec": 0.42259244209670865,
+      "layout": {
+        "cols": 5,
+        "rows": 2
+      },
+      "footAnchorY": 0.9505208333333334,
+      "frameDurationsMs": [
+        32.507110930516056,
+        40.633888663145065,
+        52.824055262088585,
+        89.39455505891914,
+        73.1409995936611,
+        85.33116619260464,
+        48.760666395774074
+      ],
+      "loopDurationMs": 380,
+      "pauseMs": 152,
+      "geometry": "full-body-redraw"
+    },
+    "melee_attack": {
+      "frameWidth": 1152,
+      "frameHeight": 1152,
+      "atlasWidth": 3456,
+      "atlasHeight": 3456,
+      "frameCount": 8,
+      "fps": 12.903225806451612,
+      "frameDurationSec": 0.0775,
+      "totalDurationSec": 0.62,
+      "layout": {
+        "cols": 3,
+        "rows": 3
+      },
+      "footAnchorY": 0.8003472222222222,
+      "frameDurationsMs": [
+        40,
+        80,
+        100,
+        70,
+        110,
+        80,
+        90,
+        50
+      ],
+      "loopDurationMs": 558,
+      "pauseMs": 223,
+      "geometry": "full-body-redraw"
+    },
+    "melee_attack_down": {
+      "frameWidth": 1152,
+      "frameHeight": 1152,
+      "atlasWidth": 3456,
+      "atlasHeight": 3456,
+      "frameCount": 8,
+      "fps": 12.903225806451612,
+      "frameDurationSec": 0.0775,
+      "totalDurationSec": 0.62,
+      "layout": {
+        "cols": 3,
+        "rows": 3
+      },
+      "footAnchorY": 0.8003472222222222,
+      "frameDurationsMs": [
+        40,
+        80,
+        100,
+        70,
+        110,
+        80,
+        90,
+        50
+      ],
+      "loopDurationMs": 558,
+      "pauseMs": 223,
+      "geometry": "full-body-redraw"
+    },
+    "melee_attack_up": {
+      "frameWidth": 1152,
+      "frameHeight": 1152,
+      "atlasWidth": 3456,
+      "atlasHeight": 3456,
+      "frameCount": 8,
+      "fps": 12.903225806451612,
+      "frameDurationSec": 0.0775,
+      "totalDurationSec": 0.62,
+      "layout": {
+        "cols": 3,
+        "rows": 3
+      },
+      "footAnchorY": 0.8003472222222222,
+      "frameDurationsMs": [
+        40,
+        80,
+        100,
+        70,
+        110,
+        80,
+        90,
+        50
+      ],
+      "loopDurationMs": 558,
+      "pauseMs": 223,
+      "geometry": "full-body-redraw"
+    },
+    "walk": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 8,
+      "frameDurationSec": 0.125,
+      "totalDurationSec": 1,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9583333333333334,
+      "loopDurationMs": 900,
+      "pauseMs": 360
+    }
+  },
+  "Elf Lab": {
+    "attack": {
+      "frameWidth": 1664,
+      "frameHeight": 1152,
+      "atlasWidth": 3328,
+      "atlasHeight": 8064,
+      "frameCount": 14,
+      "fps": 10.582010582010582,
+      "frameDurationSec": 0.0945,
+      "totalDurationSec": 1.323,
+      "layout": {
+        "cols": 2,
+        "rows": 7
+      },
+      "footAnchorY": 0.8559027777777778,
+      "frameDurationsMs": [
+        50,
+        73,
+        80,
+        87,
+        80,
+        87,
+        130,
+        94,
+        130,
+        182,
+        32,
+        109,
+        130,
+        59
+      ],
+      "loop": false,
+      "unitName": "Elf Lab",
+      "state": "attack",
+      "productionVersion": "elf-ranged-palette-20260920-v2",
+      "releaseFrameIndex": 10,
+      "projectileOrigin": {
+        "x": 1005.8459220010691,
+        "y": 418.19779579648366
+      },
+      "projectileLength": 350,
+      "projectileDirection": {
+        "x": 0.9986178293325098,
+        "y": 0.05255883312276365
+      },
+      "speedMultiplier": 1.2,
+      "timingVersion": "elf-ranged-speed115-20260920-v3",
+      "speedMultiplierFromPrevious": 1.15,
+      "loopDurationMs": 1191,
+      "pauseMs": 476
+    },
+    "attack_down": {
+      "frameWidth": 1664,
+      "frameHeight": 1152,
+      "atlasWidth": 3328,
+      "atlasHeight": 8064,
+      "frameCount": 14,
+      "fps": 10.582010582010582,
+      "frameDurationSec": 0.0945,
+      "totalDurationSec": 1.323,
+      "layout": {
+        "cols": 2,
+        "rows": 7
+      },
+      "footAnchorY": 0.8559027777777778,
+      "frameDurationsMs": [
+        50,
+        73,
+        80,
+        87,
+        80,
+        87,
+        130,
+        94,
+        130,
+        182,
+        32,
+        109,
+        130,
+        59
+      ],
+      "loop": false,
+      "unitName": "Elf Lab",
+      "state": "attack_down",
+      "productionVersion": "elf-ranged-palette-20260920-v2",
+      "releaseFrameIndex": 10,
+      "projectileOrigin": {
+        "x": 1021.8960086451548,
+        "y": 531.9682961104245
+      },
+      "projectileLength": 350,
+      "projectileDirection": {
+        "x": 0.81474543182262,
+        "y": 0.5798188349167113
+      },
+      "speedMultiplier": 1.2,
+      "timingVersion": "elf-ranged-speed115-20260920-v3",
+      "speedMultiplierFromPrevious": 1.15,
+      "loopDurationMs": 1191,
+      "pauseMs": 476
+    },
+    "attack_up": {
+      "frameWidth": 1664,
+      "frameHeight": 1152,
+      "atlasWidth": 3328,
+      "atlasHeight": 8064,
+      "frameCount": 14,
+      "fps": 10.582010582010582,
+      "frameDurationSec": 0.0945,
+      "totalDurationSec": 1.323,
+      "layout": {
+        "cols": 2,
+        "rows": 7
+      },
+      "footAnchorY": 0.8559027777777778,
+      "frameDurationsMs": [
+        50,
+        73,
+        80,
+        87,
+        80,
+        87,
+        130,
+        94,
+        130,
+        182,
+        32,
+        109,
+        130,
+        59
+      ],
+      "loop": false,
+      "unitName": "Elf Lab",
+      "state": "attack_up",
+      "productionVersion": "elf-ranged-palette-20260920-v2",
+      "releaseFrameIndex": 10,
+      "projectileOrigin": {
+        "x": 953.2127975172054,
+        "y": 399.1187840804984
+      },
+      "projectileLength": 350,
+      "projectileDirection": {
+        "x": 0.924678098474716,
+        "y": -0.3807498052542948
+      },
+      "speedMultiplier": 1.2,
+      "timingVersion": "elf-ranged-speed115-20260920-v3",
+      "speedMultiplierFromPrevious": 1.15,
+      "loopDurationMs": 1191,
+      "pauseMs": 476
+    },
+    "death": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3840,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 7.5829383886255926,
+      "frameDurationSec": 0.131875,
+      "totalDurationSec": 1.055,
+      "layout": {
+        "cols": 5,
+        "rows": 2
+      },
+      "footAnchorY": 0.9505208333333334,
+      "frameDurationsMs": [
+        70,
+        110,
+        130,
+        145,
+        140,
+        120,
+        140,
+        200
+      ],
+      "loop": false,
+      "unitName": "Elf Lab",
+      "state": "death",
+      "productionVersion": "elf-idle-palette-contact-registration-20260920-v4",
+      "loopDurationMs": 950,
+      "pauseMs": 380
+    },
+    "hit": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3840,
+      "atlasHeight": 4608,
+      "frameCount": 28,
+      "fps": 67.49999999999997,
+      "frameDurationSec": 0.014814814814814822,
+      "totalDurationSec": 0.414814814814815,
+      "layout": {
+        "cols": 5,
+        "rows": 6
+      },
+      "footAnchorY": 0.9505208333333334,
+      "frameDurationsMs": [
+        14.814814814814813,
+        14.814814814814813,
+        14.814814814814813,
+        14.814814814814813,
+        14.814814814814813,
+        14.814814814814813,
+        14.814814814814813,
+        14.814814814814813,
+        14.814814814814813,
+        14.814814814814813,
+        14.814814814814813,
+        14.814814814814813,
+        14.814814814814813,
+        14.814814814814813,
+        14.814814814814813,
+        14.814814814814813,
+        14.814814814814813,
+        14.814814814814813,
+        14.814814814814813,
+        14.814814814814813,
+        14.814814814814813,
+        14.814814814814813,
+        14.814814814814813,
+        14.814814814814813,
+        14.814814814814813,
+        14.814814814814813,
+        14.814814814814813,
+        14.814814814814813
+      ],
+      "loop": false,
+      "unitName": "Elf Lab",
+      "state": "hit",
+      "productionVersion": "elf-idle-palette-contact-registration-20260920-v4",
+      "speedMultiplier": 1.35,
+      "timingVersion": "elf-hit-speed135-20260920-v1",
+      "loopDurationMs": 373,
+      "pauseMs": 149
+    },
+    "idle": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 7680,
+      "atlasHeight": 7680,
+      "frameCount": 96,
+      "fps": 28.4375,
+      "frameDurationSec": 0.035164835164835165,
+      "totalDurationSec": 3.375824175824176,
+      "layout": {
+        "cols": 10,
+        "rows": 10
+      },
+      "footAnchorY": 0.9661458333333334,
+      "frameDurationsMs": [
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517,
+        35.16483516483517
+      ],
+      "loopDurationMs": 3038,
+      "pauseMs": 1215,
+      "cycleEndPauseMs": 1000,
+      "unitName": "Elf Lab",
+      "state": "idle",
+      "endpointFrames": [
+        0,
+        95
+      ],
+      "productionVersion": "aaa-painted-yew-bow-v10-pause1000"
+    },
+    "melee_attack": {
+      "frameWidth": 1664,
+      "frameHeight": 1024,
+      "atlasWidth": 3328,
+      "atlasHeight": 4096,
+      "frameCount": 8,
+      "fps": 14.814814814814815,
+      "frameDurationSec": 0.0675,
+      "totalDurationSec": 0.54,
+      "layout": {
+        "cols": 2,
+        "rows": 4
+      },
+      "footAnchorY": 0.837890625,
+      "frameDurationsMs": [
+        35,
+        35,
+        80,
+        65,
+        55,
+        80,
+        110,
+        80
+      ],
+      "loop": false,
+      "unitName": "Elf Lab",
+      "state": "melee_attack",
+      "productionVersion": "elf-idle-palette-rigid-bow-20260920-v6",
+      "loopDurationMs": 486,
+      "pauseMs": 194
+    },
+    "melee_attack_down": {
+      "frameWidth": 1664,
+      "frameHeight": 1024,
+      "atlasWidth": 3328,
+      "atlasHeight": 4096,
+      "frameCount": 8,
+      "fps": 13.559322033898304,
+      "frameDurationSec": 0.07375000000000001,
+      "totalDurationSec": 0.59,
+      "layout": {
+        "cols": 2,
+        "rows": 4
+      },
+      "footAnchorY": 0.837890625,
+      "frameDurationsMs": [
+        35,
+        35,
+        100,
+        80,
+        55,
+        90,
+        110,
+        85
+      ],
+      "loop": false,
+      "unitName": "Elf Lab",
+      "state": "melee_attack_down",
+      "productionVersion": "elf-idle-palette-rigid-bow-20260920-v6",
+      "loopDurationMs": 531,
+      "pauseMs": 212
+    },
+    "melee_attack_up": {
+      "frameWidth": 1664,
+      "frameHeight": 1024,
+      "atlasWidth": 3328,
+      "atlasHeight": 4096,
+      "frameCount": 8,
+      "fps": 14.035087719298245,
+      "frameDurationSec": 0.07125000000000001,
+      "totalDurationSec": 0.57,
+      "layout": {
+        "cols": 2,
+        "rows": 4
+      },
+      "footAnchorY": 0.837890625,
+      "frameDurationsMs": [
+        35,
+        35,
+        90,
+        80,
+        55,
+        85,
+        110,
+        80
+      ],
+      "loop": false,
+      "unitName": "Elf Lab",
+      "state": "melee_attack_up",
+      "productionVersion": "elf-idle-palette-rigid-bow-20260920-v6",
+      "loopDurationMs": 513,
+      "pauseMs": 205
+    },
+    "walk": {
+      "frameWidth": 1024,
+      "frameHeight": 1024,
+      "atlasWidth": 4096,
+      "atlasHeight": 2048,
+      "frameCount": 8,
+      "fps": 8,
+      "frameDurationSec": 0.125,
+      "totalDurationSec": 1,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9505208333333334,
+      "frameDurationsMs": [
+        125,
+        125,
+        125,
+        125,
+        125,
+        125,
+        125,
+        125
+      ],
+      "loop": true,
+      "unitName": "Elf Lab",
+      "state": "walk",
+      "productionVersion": "elf-idle-palette-contact-registration-20260920-v4",
+      "cycleDistanceCells": 1.3,
+      "loopDurationMs": 900,
+      "pauseMs": 360
+    }
+  },
+  "Healer Lab": {
+    "attack": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 11.428571428571429,
+      "frameDurationSec": 0.0875,
+      "totalDurationSec": 0.7,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9505208333333334,
+      "frameDurationsMs": [
+        60,
+        90,
+        90,
+        70,
+        70,
+        100,
+        130,
+        90
+      ],
+      "loopDurationMs": 630,
+      "pauseMs": 252
+    },
+    "attack_down": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 11.428571428571429,
+      "frameDurationSec": 0.0875,
+      "totalDurationSec": 0.7,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9505208333333334,
+      "frameDurationsMs": [
+        60,
+        90,
+        90,
+        70,
+        70,
+        100,
+        130,
+        90
+      ],
+      "loopDurationMs": 630,
+      "pauseMs": 252
+    },
+    "attack_up": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 11.428571428571429,
+      "frameDurationSec": 0.0875,
+      "totalDurationSec": 0.7,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9505208333333334,
+      "frameDurationsMs": [
+        60,
+        90,
+        90,
+        70,
+        70,
+        100,
+        130,
+        90
+      ],
+      "loopDurationMs": 630,
+      "pauseMs": 252
+    },
+    "cast": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 7.407407407407407,
+      "frameDurationSec": 0.135,
+      "totalDurationSec": 1.08,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9505208333333334,
+      "frameDurationsMs": [
+        80,
+        120,
+        140,
+        160,
+        180,
+        160,
+        140,
+        100
+      ],
+      "loopDurationMs": 972,
+      "pauseMs": 389
+    },
+    "death": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 6.956521739130435,
+      "frameDurationSec": 0.14375,
+      "totalDurationSec": 1.15,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.96875,
+      "frameDurationsMs": [
+        60,
+        90,
+        130,
+        150,
+        130,
+        130,
+        160,
+        300
+      ],
+      "loopDurationMs": 1035,
+      "pauseMs": 414
+    },
+    "hit": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 6,
+      "fps": 13.333333333333334,
+      "frameDurationSec": 0.075,
+      "totalDurationSec": 0.45,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.96875,
+      "frameDurationsMs": [
+        45,
+        65,
+        95,
+        85,
+        95,
+        65
+      ],
+      "loopDurationMs": 405,
+      "pauseMs": 162
+    },
+    "idle": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3840,
+      "atlasHeight": 1536,
+      "frameCount": 10,
+      "fps": 3.0747126436781613,
+      "frameDurationSec": 0.32523364485981304,
+      "totalDurationSec": 3.2523364485981308,
+      "layout": {
+        "cols": 5,
+        "rows": 2
+      },
+      "footAnchorY": 0.96875,
+      "frameDurationsMs": [
+        654.2056074766355,
+        327.10280373831773,
+        280.3738317757009,
+        205.60747663551402,
+        168.22429906542055,
+        168.22429906542055,
+        205.60747663551402,
+        261.6822429906542,
+        327.10280373831773,
+        654.2056074766355
+      ],
+      "loopDurationMs": 2927,
+      "pauseMs": 1171
+    },
+    "walk": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 8,
+      "frameDurationSec": 0.125,
+      "totalDurationSec": 1,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.96484375,
+      "loopDurationMs": 900,
+      "pauseMs": 360
+    }
+  },
+  "Manticore Lab": {
+    "death": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 11.11141552511415,
+      "frameDurationSec": 0.08999753431412842,
+      "totalDurationSec": 0.7199802745130274,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9505208333333334,
+      "frameDurationsMs": [
+        105.20259718911814,
+        65.75162324319884,
+        59.17646091887895,
+        65.75162324319884,
+        75.61436672967866,
+        92.05227254047837,
+        111.77775951343801,
+        144.65357113503745
+      ],
+      "loopDurationMs": 648,
+      "pauseMs": 259
+    },
+    "hit": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 2304,
+      "frameCount": 9,
+      "fps": 15.967741935483872,
+      "frameDurationSec": 0.06262626262626263,
+      "totalDurationSec": 0.5636363636363636,
+      "layout": {
+        "cols": 4,
+        "rows": 3
+      },
+      "footAnchorY": 0.9505208333333334,
+      "frameDurationsMs": [
+        22.727272727272727,
+        45.45454545454545,
+        54.54545454545454,
+        63.63636363636363,
+        77.27272727272727,
+        77.27272727272727,
+        81.81818181818181,
+        86.36363636363636,
+        54.54545454545454
+      ],
+      "loopDurationMs": 507,
+      "pauseMs": 203
+    },
+    "melee_attack": {
+      "frameWidth": 896,
+      "frameHeight": 896,
+      "atlasWidth": 3584,
+      "atlasHeight": 1792,
+      "frameCount": 8,
+      "fps": 13.43783783783784,
+      "frameDurationSec": 0.0744167337087691,
+      "totalDurationSec": 0.5953338696701528,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.8861607142857143,
+      "frameDurationsMs": [
+        44.24778761061947,
+        76.42799678197909,
+        72.40547063555913,
+        52.292839903459374,
+        68.38294448913918,
+        88.49557522123894,
+        104.58567980691875,
+        88.49557522123894
+      ],
+      "loopDurationMs": 536,
+      "pauseMs": 214
+    },
+    "melee_attack_down": {
+      "frameWidth": 896,
+      "frameHeight": 896,
+      "atlasWidth": 3584,
+      "atlasHeight": 1792,
+      "frameCount": 8,
+      "fps": 11.891891891891893,
+      "frameDurationSec": 0.08409090909090908,
+      "totalDurationSec": 0.6727272727272726,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.8861607142857143,
+      "frameDurationsMs": [
+        49.99999999999999,
+        86.36363636363636,
+        81.81818181818181,
+        59.090909090909086,
+        77.27272727272727,
+        99.99999999999999,
+        118.18181818181817,
+        99.99999999999999
+      ],
+      "loopDurationMs": 605,
+      "pauseMs": 242
+    },
+    "melee_attack_up": {
+      "frameWidth": 896,
+      "frameHeight": 896,
+      "atlasWidth": 3584,
+      "atlasHeight": 1792,
+      "frameCount": 8,
+      "fps": 11.891891891891893,
+      "frameDurationSec": 0.08409090909090908,
+      "totalDurationSec": 0.6727272727272726,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.8861607142857143,
+      "frameDurationsMs": [
+        49.99999999999999,
+        86.36363636363636,
+        81.81818181818181,
+        59.090909090909086,
+        77.27272727272727,
+        99.99999999999999,
+        118.18181818181817,
+        99.99999999999999
+      ],
+      "loopDurationMs": 605,
+      "pauseMs": 242
+    },
+    "walk": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 3840,
+      "frameCount": 18,
+      "fps": 12.587412587412587,
+      "frameDurationSec": 0.07944444444444444,
+      "totalDurationSec": 1.43,
+      "layout": {
+        "cols": 4,
+        "rows": 5
+      },
+      "footAnchorY": 0.8995157877604166,
+      "frameDurationsMs": [
+        100,
+        140,
+        100,
+        60,
+        60,
+        60,
+        60,
+        60,
+        60,
+        60,
+        60,
+        60,
+        60,
+        60,
+        90,
+        80,
+        120,
+        140
+      ],
+      "cycleDistanceCells": 1.3,
+      "phases": {
+        "intro": {
+          "startFrame": 0,
+          "endFrame": 2,
+          "loop": false
+        },
+        "flight": {
+          "startFrame": 3,
+          "endFrame": 13,
+          "loop": true,
+          "cycleDistanceCells": 1.3
+        },
+        "landing": {
+          "startFrame": 14,
+          "endFrame": 17,
+          "loop": false
+        }
+      },
+      "status": "review candidate; not installed",
+      "loopDurationMs": 1287,
+      "pauseMs": 515
+    }
+  },
+  "Medusa Lab": {
+    "attack": {
+      "frameWidth": 1024,
+      "frameHeight": 1024,
+      "atlasWidth": 4096,
+      "atlasHeight": 2048,
+      "frameCount": 8,
+      "fps": 13.714285714285714,
+      "frameDurationSec": 0.07291666666666667,
+      "totalDurationSec": 0.5833333333333334,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.849609375,
+      "releaseFrameIndex": 5,
+      "projectileLength": 480,
+      "projectileOrigin": {
+        "x": 814,
+        "y": 328
+      },
+      "projectileDirection": {
+        "x": 1,
+        "y": 0
+      },
+      "frameDurationsMs": [
+        45.833333333333336,
+        75,
+        83.33333333333334,
+        83.33333333333334,
+        66.66666666666667,
+        83.33333333333334,
+        83.33333333333334,
+        62.5
+      ],
+      "loopDurationMs": 525,
+      "pauseMs": 210,
+      "cycleEndPauseMs": 0
+    },
+    "attack_down": {
+      "frameWidth": 1024,
+      "frameHeight": 1024,
+      "atlasWidth": 4096,
+      "atlasHeight": 2048,
+      "frameCount": 8,
+      "fps": 13.714285714285714,
+      "frameDurationSec": 0.07291666666666667,
+      "totalDurationSec": 0.5833333333333334,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.849609375,
+      "releaseFrameIndex": 5,
+      "projectileLength": 480,
+      "projectileOrigin": {
+        "x": 771,
+        "y": 463
+      },
+      "projectileDirection": {
+        "x": 1,
+        "y": 0.47
+      },
+      "frameDurationsMs": [
+        45.833333333333336,
+        75,
+        83.33333333333334,
+        83.33333333333334,
+        66.66666666666667,
+        83.33333333333334,
+        83.33333333333334,
+        62.5
+      ],
+      "loopDurationMs": 525,
+      "pauseMs": 210,
+      "cycleEndPauseMs": 0
+    },
+    "attack_up": {
+      "frameWidth": 1024,
+      "frameHeight": 1024,
+      "atlasWidth": 4096,
+      "atlasHeight": 2048,
+      "frameCount": 8,
+      "fps": 13.714285714285714,
+      "frameDurationSec": 0.07291666666666667,
+      "totalDurationSec": 0.5833333333333334,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.849609375,
+      "releaseFrameIndex": 5,
+      "projectileLength": 480,
+      "projectileOrigin": {
+        "x": 775,
+        "y": 243
+      },
+      "projectileDirection": {
+        "x": 1,
+        "y": -0.62
+      },
+      "frameDurationsMs": [
+        45.833333333333336,
+        75,
+        83.33333333333334,
+        83.33333333333334,
+        66.66666666666667,
+        83.33333333333334,
+        83.33333333333334,
+        62.5
+      ],
+      "loopDurationMs": 525,
+      "pauseMs": 210,
+      "cycleEndPauseMs": 0
+    },
+    "death": {
+      "frameWidth": 1024,
+      "frameHeight": 1024,
+      "atlasWidth": 4096,
+      "atlasHeight": 3072,
+      "frameCount": 9,
+      "fps": 5.691891891891892,
+      "frameDurationSec": 0.17568850902184235,
+      "totalDurationSec": 1.5811965811965811,
+      "layout": {
+        "cols": 4,
+        "rows": 3
+      },
+      "footAnchorY": 0.849609375,
+      "frameDurationsMs": [
+        85.47008547008548,
+        153.84615384615387,
+        153.84615384615387,
+        205.12820512820514,
+        170.94017094017096,
+        128.2051282051282,
+        119.65811965811966,
+        136.75213675213675,
+        427.35042735042737
+      ],
+      "loopDurationMs": 1423,
+      "pauseMs": 569,
+      "cycleEndPauseMs": 0
+    },
+    "hit": {
+      "frameWidth": 1024,
+      "frameHeight": 1024,
+      "atlasWidth": 4096,
+      "atlasHeight": 2048,
+      "frameCount": 6,
+      "fps": 13.043478260869565,
+      "frameDurationSec": 0.07666666666666667,
+      "totalDurationSec": 0.46,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.849609375,
+      "impactFrame": 2,
+      "frameDurationsMs": [
+        35,
+        65,
+        110,
+        100,
+        85,
+        65
+      ],
+      "loopDurationMs": 414,
+      "pauseMs": 166,
+      "cycleEndPauseMs": 0
+    },
+    "idle": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3840,
+      "atlasHeight": 3840,
+      "frameCount": 24,
+      "fps": 11.187,
+      "frameDurationSec": 0.08938946992044337,
+      "totalDurationSec": 2.145347278090641,
+      "layout": {
+        "cols": 5,
+        "rows": 5
+      },
+      "footAnchorY": 0.9661458333333334,
+      "frameDurationsMs": [
+        89.38946992044337,
+        89.38946992044337,
+        89.38946992044337,
+        89.38946992044337,
+        89.38946992044337,
+        89.38946992044337,
+        89.38946992044337,
+        89.38946992044337,
+        89.38946992044337,
+        89.38946992044337,
+        89.38946992044337,
+        89.38946992044337,
+        89.38946992044337,
+        89.38946992044337,
+        89.38946992044337,
+        89.38946992044337,
+        89.38946992044337,
+        89.38946992044337,
+        89.38946992044337,
+        89.38946992044337,
+        89.38946992044337,
+        89.38946992044337,
+        89.38946992044337,
+        89.38946992044337
+      ],
+      "cycleEndPauseMs": 0,
+      "loopDurationMs": 1931,
+      "pauseMs": 772
+    },
+    "melee_attack": {
+      "frameWidth": 1024,
+      "frameHeight": 1024,
+      "atlasWidth": 4096,
+      "atlasHeight": 2048,
+      "frameCount": 6,
+      "fps": 11.320754716981131,
+      "frameDurationSec": 0.08833333333333333,
+      "totalDurationSec": 0.53,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.849609375,
+      "impactFrame": 3,
+      "frameDurationsMs": [
+        65,
+        100,
+        65,
+        110,
+        105,
+        85
+      ],
+      "loopDurationMs": 477,
+      "pauseMs": 191,
+      "cycleEndPauseMs": 0
+    },
+    "melee_attack_down": {
+      "frameWidth": 1024,
+      "frameHeight": 1024,
+      "atlasWidth": 4096,
+      "atlasHeight": 2048,
+      "frameCount": 6,
+      "fps": 11.320754716981131,
+      "frameDurationSec": 0.08833333333333333,
+      "totalDurationSec": 0.53,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.849609375,
+      "impactFrame": 3,
+      "frameDurationsMs": [
+        65,
+        100,
+        65,
+        110,
+        105,
+        85
+      ],
+      "loopDurationMs": 477,
+      "pauseMs": 191,
+      "cycleEndPauseMs": 0
+    },
+    "melee_attack_up": {
+      "frameWidth": 1024,
+      "frameHeight": 1024,
+      "atlasWidth": 4096,
+      "atlasHeight": 2048,
+      "frameCount": 6,
+      "fps": 11.320754716981131,
+      "frameDurationSec": 0.08833333333333333,
+      "totalDurationSec": 0.53,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.849609375,
+      "impactFrame": 3,
+      "frameDurationsMs": [
+        65,
+        100,
+        65,
+        110,
+        105,
+        85
+      ],
+      "loopDurationMs": 477,
+      "pauseMs": 191,
+      "cycleEndPauseMs": 0
+    },
+    "projectile": {
+      "frameWidth": 768,
+      "frameHeight": 384,
+      "atlasWidth": 3072,
+      "atlasHeight": 384,
+      "frameCount": 4,
+      "fps": 12.5,
+      "frameDurationSec": 0.08,
+      "totalDurationSec": 0.32,
+      "layout": {
+        "cols": 4,
+        "rows": 1
+      },
+      "footAnchorY": 0.6927083333333334,
+      "frameDurationsMs": [
+        80,
+        80,
+        80,
+        80
+      ],
+      "loopDurationMs": 288,
+      "pauseMs": 115,
+      "cycleEndPauseMs": 0
+    },
+    "walk": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 2304,
+      "frameCount": 9,
+      "fps": 7.2,
+      "frameDurationSec": 0.1388888888888889,
+      "totalDurationSec": 1.25,
+      "layout": {
+        "cols": 4,
+        "rows": 3
+      },
+      "footAnchorY": 0.9661458333333334,
+      "loopStartFrame": 0,
+      "loopEndFrame": 7,
+      "outroFrame": 8,
+      "cadenceSpeedMultiplier": 0.9,
+      "loopDurationMs": 1125,
+      "pauseMs": 450
+    }
+  },
+  "Pikeman Lab": {
+    "attack": {
+      "frameWidth": 1280,
+      "frameHeight": 768,
+      "atlasWidth": 3840,
+      "atlasHeight": 1536,
+      "frameCount": 6,
+      "fps": 9.333333333333336,
+      "frameDurationSec": 0.10714285714285712,
+      "totalDurationSec": 0.6428571428571428,
+      "layout": {
+        "cols": 3,
+        "rows": 2
+      },
+      "footAnchorY": 0.96875,
+      "frameDurationsMs": [
+        53.57142857142857,
+        107.14285714285714,
+        62.49999999999999,
+        116.07142857142856,
+        169.64285714285714,
+        133.92857142857142
+      ],
+      "loopDurationMs": 579,
+      "pauseMs": 232
+    },
+    "attack_down": {
+      "frameWidth": 1280,
+      "frameHeight": 768,
+      "atlasWidth": 3840,
+      "atlasHeight": 1536,
+      "frameCount": 6,
+      "fps": 9.333333333333336,
+      "frameDurationSec": 0.10714285714285712,
+      "totalDurationSec": 0.6428571428571428,
+      "layout": {
+        "cols": 3,
+        "rows": 2
+      },
+      "footAnchorY": 0.96875,
+      "frameDurationsMs": [
+        53.57142857142857,
+        107.14285714285714,
+        62.49999999999999,
+        116.07142857142856,
+        169.64285714285714,
+        133.92857142857142
+      ],
+      "loopDurationMs": 579,
+      "pauseMs": 232
+    },
+    "attack_up": {
+      "frameWidth": 1280,
+      "frameHeight": 768,
+      "atlasWidth": 3840,
+      "atlasHeight": 1536,
+      "frameCount": 6,
+      "fps": 9.333333333333336,
+      "frameDurationSec": 0.10714285714285712,
+      "totalDurationSec": 0.6428571428571428,
+      "layout": {
+        "cols": 3,
+        "rows": 2
+      },
+      "footAnchorY": 0.96875,
+      "frameDurationsMs": [
+        53.57142857142857,
+        107.14285714285714,
+        62.49999999999999,
+        116.07142857142856,
+        169.64285714285714,
+        133.92857142857142
+      ],
+      "loopDurationMs": 579,
+      "pauseMs": 232
+    },
+    "death": {
+      "frameWidth": 1024,
+      "frameHeight": 768,
+      "atlasWidth": 4096,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 6.4,
+      "frameDurationSec": 0.15625,
+      "totalDurationSec": 1.25,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.96875,
+      "frameDurationsMs": [
+        70,
+        100,
+        130,
+        120,
+        130,
+        140,
+        140,
+        420
+      ],
+      "loopDurationMs": 1125,
+      "pauseMs": 450
+    },
+    "hit": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3840,
+      "atlasHeight": 2304,
+      "frameCount": 12,
+      "fps": 24,
+      "frameDurationSec": 0.041666666666666664,
+      "totalDurationSec": 0.5,
+      "layout": {
+        "cols": 5,
+        "rows": 3
+      },
+      "footAnchorY": 0.96875,
+      "frameDurationsMs": [
+        30,
+        30,
+        35,
+        55,
+        45,
+        45,
+        45,
+        45,
+        45,
+        40,
+        40,
+        45
+      ],
+      "loopDurationMs": 450,
+      "pauseMs": 180
+    },
+    "idle": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 7680,
+      "atlasHeight": 5376,
+      "frameCount": 64,
+      "fps": 22.444726810673444,
+      "frameDurationSec": 0.04455389492753623,
+      "totalDurationSec": 2.851449275362319,
+      "layout": {
+        "cols": 10,
+        "rows": 7
+      },
+      "footAnchorY": 0.96875,
+      "frameDurationsMs": [
+        41.66666666666667,
+        41.66666666666667,
+        41.66666666666667,
+        41.66666666666667,
+        41.66666666666667,
+        41.66666666666667,
+        41.66666666666667,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        45.28985507246377,
+        41.66666666666667,
+        41.66666666666667,
+        41.66666666666667,
+        41.66666666666667,
+        41.66666666666667,
+        41.66666666666667
+      ],
+      "loopDurationMs": 2566,
+      "pauseMs": 1026
+    }
+  },
+  "Troll Lab": {
+    "cast": {
+      "frameWidth": 1152,
+      "frameHeight": 1152,
+      "atlasWidth": 3456,
+      "atlasHeight": 3456,
+      "frameCount": 8,
+      "fps": 6.451612903225806,
+      "frameDurationSec": 0.155,
+      "totalDurationSec": 1.24,
+      "layout": {
+        "cols": 3,
+        "rows": 3
+      },
+      "footAnchorY": 0.8003472222222222,
+      "frameDurationsMs": [
+        80,
+        160,
+        180,
+        130,
+        300,
+        130,
+        160,
+        100
+      ],
+      "loopDurationMs": 1116,
+      "pauseMs": 446
+    },
+    "death": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 7,
+      "fps": 8.119396551724137,
+      "frameDurationSec": 0.12316186229229709,
+      "totalDurationSec": 0.8621330360460796,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9505208333333334,
+      "frameDurationsMs": [
+        96.61835748792272,
+        111.48272017837236,
+        104.05053883314754,
+        74.32181345224824,
+        96.61835748792272,
+        118.9149015235972,
+        260.12634708286885
+      ],
+      "loopDurationMs": 776,
+      "pauseMs": 310
+    },
+    "hit": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 768,
+      "frameCount": 4,
+      "fps": 10.666666666666664,
+      "frameDurationSec": 0.09375000000000001,
+      "totalDurationSec": 0.37500000000000006,
+      "layout": {
+        "cols": 4,
+        "rows": 1
+      },
+      "footAnchorY": 0.9505208333333334,
+      "frameDurationsMs": [
+        62.5,
+        97.22222222222223,
+        111.11111111111113,
+        104.16666666666667
+      ],
+      "loopDurationMs": 338,
+      "pauseMs": 135
+    },
+    "idle": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 4.081632653061225,
+      "frameDurationSec": 0.245,
+      "totalDurationSec": 1.96,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9505208333333334,
+      "frameDurationsMs": [
+        260,
+        160,
+        160,
+        180,
+        340,
+        240,
+        280,
+        340
+      ],
+      "loopDurationMs": 1764,
+      "pauseMs": 706,
+      "cycleEndPauseMs": 1000
+    },
+    "melee_attack": {
+      "frameWidth": 1152,
+      "frameHeight": 1152,
+      "atlasWidth": 3456,
+      "atlasHeight": 2304,
+      "frameCount": 6,
+      "fps": 10,
+      "frameDurationSec": 0.1,
+      "totalDurationSec": 0.6,
+      "layout": {
+        "cols": 3,
+        "rows": 2
+      },
+      "footAnchorY": 0.8003472222222222,
+      "frameDurationsMs": [
+        55,
+        150,
+        75,
+        100,
+        135,
+        85
+      ],
+      "loopDurationMs": 540,
+      "pauseMs": 216
+    },
+    "melee_attack_down": {
+      "frameWidth": 1152,
+      "frameHeight": 1152,
+      "atlasWidth": 3456,
+      "atlasHeight": 2304,
+      "frameCount": 6,
+      "fps": 10,
+      "frameDurationSec": 0.1,
+      "totalDurationSec": 0.6,
+      "layout": {
+        "cols": 3,
+        "rows": 2
+      },
+      "footAnchorY": 0.8003472222222222,
+      "frameDurationsMs": [
+        55,
+        150,
+        75,
+        100,
+        135,
+        85
+      ],
+      "loopDurationMs": 540,
+      "pauseMs": 216
+    },
+    "melee_attack_up": {
+      "frameWidth": 1152,
+      "frameHeight": 1152,
+      "atlasWidth": 3456,
+      "atlasHeight": 2304,
+      "frameCount": 6,
+      "fps": 10,
+      "frameDurationSec": 0.1,
+      "totalDurationSec": 0.6,
+      "layout": {
+        "cols": 3,
+        "rows": 2
+      },
+      "footAnchorY": 0.8003472222222222,
+      "frameDurationsMs": [
+        55,
+        150,
+        75,
+        100,
+        135,
+        85
+      ],
+      "loopDurationMs": 540,
+      "pauseMs": 216
+    },
+    "walk": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 8,
+      "frameDurationSec": 0.125,
+      "totalDurationSec": 1,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.9622395833333334,
+      "loopDurationMs": 900,
+      "pauseMs": 360
+    }
+  },
   "Valkyrie Lab Current": {
     "cast": {
       "frameWidth": 768,
@@ -13815,143 +14644,6 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
       "pauseMs": 522
     }
   },
-  "White Tiger": {
-    "attack": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 33.333333333333336,
-      "frameDurationSec": 0.03,
-      "totalDurationSec": 0.24,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.9661458333333334,
-      "loopDurationMs": 216,
-      "pauseMs": 86
-    },
-    "attack_down": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 33.333333333333336,
-      "frameDurationSec": 0.03,
-      "totalDurationSec": 0.24,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.9661458333333334,
-      "loopDurationMs": 216,
-      "pauseMs": 86
-    },
-    "attack_up": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 33.333333333333336,
-      "frameDurationSec": 0.03,
-      "totalDurationSec": 0.24,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.9661458333333334,
-      "loopDurationMs": 216,
-      "pauseMs": 86
-    },
-    "death": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 13.333333333333334,
-      "frameDurationSec": 0.075,
-      "totalDurationSec": 0.6,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.9661458333333334,
-      "loopDurationMs": 540,
-      "pauseMs": 216
-    },
-    "default": {
-      "frameWidth": 512,
-      "frameHeight": 512,
-      "atlasWidth": 4096,
-      "atlasHeight": 5120,
-      "frameCount": 73,
-      "fps": 12,
-      "frameDurationSec": 0.08333333333333333,
-      "totalDurationSec": 6.083333333333333,
-      "layout": {
-        "cols": 8,
-        "rows": 10
-      },
-      "loopDurationMs": 5475,
-      "pauseMs": 2190
-    },
-    "hit": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 26.666666666666668,
-      "frameDurationSec": 0.0375,
-      "totalDurationSec": 0.3,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.9661458333333334,
-      "loopDurationMs": 270,
-      "pauseMs": 108
-    },
-    "idle": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 13.333333333333334,
-      "frameDurationSec": 0.075,
-      "totalDurationSec": 0.6,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.9661458333333334,
-      "loopDurationMs": 540,
-      "pauseMs": 216
-    },
-    "walk": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 2304,
-      "atlasHeight": 2304,
-      "frameCount": 9,
-      "fps": 20,
-      "frameDurationSec": 0.05,
-      "totalDurationSec": 0.45,
-      "layout": {
-        "cols": 3,
-        "rows": 3
-      },
-      "footAnchorY": 0.9661458333333334,
-      "loopDurationMs": 405,
-      "pauseMs": 162
-    }
-  },
   "White Tiger Lab": {
     "death": {
       "frameWidth": 768,
@@ -14138,772 +14830,6 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
       "footAnchorY": 0.9296875,
       "loopDurationMs": 900,
       "pauseMs": 360
-    }
-  },
-  "Wolf": {
-    "attack": {
-      "frameWidth": 2048,
-      "frameHeight": 2048,
-      "atlasWidth": 6144,
-      "atlasHeight": 6144,
-      "frameCount": 9,
-      "fps": 19.148936170212767,
-      "frameDurationSec": 0.05222222222222222,
-      "totalDurationSec": 0.47,
-      "layout": {
-        "cols": 3,
-        "rows": 3
-      },
-      "footAnchorY": 0.837890625,
-      "frameDurationsMs": [
-        30,
-        50,
-        55,
-        50,
-        60,
-        55,
-        65,
-        65,
-        40
-      ],
-      "geometry": "wolf-grounded-bite-v2-canonical768-padded1024",
-      "encoding": "webp-lossless",
-      "contactFrame": 4,
-      "contactTimeMs": 185,
-      "canvasScale": 1.3333333333333333,
-      "loopDurationMs": 423,
-      "pauseMs": 169
-    },
-    "attack_down": {
-      "frameWidth": 2048,
-      "frameHeight": 2048,
-      "atlasWidth": 6144,
-      "atlasHeight": 6144,
-      "frameCount": 9,
-      "fps": 19.148936170212767,
-      "frameDurationSec": 0.05222222222222222,
-      "totalDurationSec": 0.47,
-      "layout": {
-        "cols": 3,
-        "rows": 3
-      },
-      "footAnchorY": 0.837890625,
-      "frameDurationsMs": [
-        30,
-        50,
-        55,
-        50,
-        60,
-        55,
-        65,
-        65,
-        40
-      ],
-      "geometry": "wolf-grounded-bite-v2-canonical768-padded1024",
-      "encoding": "webp-lossless",
-      "contactFrame": 4,
-      "contactTimeMs": 185,
-      "canvasScale": 1.3333333333333333,
-      "loopDurationMs": 423,
-      "pauseMs": 169
-    },
-    "attack_up": {
-      "frameWidth": 2048,
-      "frameHeight": 2048,
-      "atlasWidth": 6144,
-      "atlasHeight": 6144,
-      "frameCount": 9,
-      "fps": 19.148936170212767,
-      "frameDurationSec": 0.05222222222222222,
-      "totalDurationSec": 0.47,
-      "layout": {
-        "cols": 3,
-        "rows": 3
-      },
-      "footAnchorY": 0.837890625,
-      "frameDurationsMs": [
-        30,
-        50,
-        55,
-        50,
-        60,
-        55,
-        65,
-        65,
-        40
-      ],
-      "geometry": "wolf-directional-bite-v1-canonical768-padded1024",
-      "encoding": "webp-lossless",
-      "contactFrame": 4,
-      "contactTimeMs": 185,
-      "canvasScale": 1.3333333333333333,
-      "loopDurationMs": 423,
-      "pauseMs": 169
-    },
-    "death": {
-      "frameWidth": 1536,
-      "frameHeight": 1536,
-      "atlasWidth": 7680,
-      "atlasHeight": 3072,
-      "frameCount": 8,
-      "fps": 8.421052631578947,
-      "frameDurationSec": 0.11875000000000001,
-      "totalDurationSec": 0.95,
-      "layout": {
-        "cols": 5,
-        "rows": 2
-      },
-      "footAnchorY": 0.9505208333333334,
-      "frameDurationsMs": [
-        40,
-        65,
-        90,
-        110,
-        125,
-        140,
-        160,
-        220
-      ],
-      "geometry": "wolf-full-body-hit-death-v1-canonical-768",
-      "encoding": "webp-lossless",
-      "loopDurationMs": 855,
-      "pauseMs": 342
-    },
-    "default": {
-      "frameWidth": 512,
-      "frameHeight": 512,
-      "atlasWidth": 4096,
-      "atlasHeight": 5120,
-      "frameCount": 73,
-      "fps": 12,
-      "frameDurationSec": 0.08333333333333333,
-      "totalDurationSec": 6.083333333333333,
-      "layout": {
-        "cols": 8,
-        "rows": 10
-      },
-      "loopDurationMs": 5475,
-      "pauseMs": 2190
-    },
-    "hit": {
-      "frameWidth": 1536,
-      "frameHeight": 1536,
-      "atlasWidth": 7680,
-      "atlasHeight": 3072,
-      "frameCount": 9,
-      "fps": 21.428571428571427,
-      "frameDurationSec": 0.04666666666666667,
-      "totalDurationSec": 0.42,
-      "layout": {
-        "cols": 5,
-        "rows": 2
-      },
-      "footAnchorY": 0.9505208333333334,
-      "frameDurationsMs": [
-        24,
-        40,
-        40,
-        48,
-        64,
-        54,
-        55,
-        65,
-        30
-      ],
-      "geometry": "wolf-full-body-hit-death-v1-canonical-768",
-      "encoding": "webp-lossless",
-      "loopDurationMs": 378,
-      "pauseMs": 151
-    },
-    "idle": {
-      "frameWidth": 1536,
-      "frameHeight": 1536,
-      "atlasWidth": 12288,
-      "atlasHeight": 6144,
-      "frameCount": 31,
-      "fps": 11.11111111111111,
-      "frameDurationSec": 0.09,
-      "frameDurationsMs": [
-        1200,
-        90,
-        90,
-        90,
-        90,
-        90,
-        90,
-        90,
-        90,
-        480,
-        90,
-        90,
-        90,
-        90,
-        90,
-        90,
-        90,
-        90,
-        700,
-        110,
-        110,
-        110,
-        110,
-        110,
-        110,
-        110,
-        110,
-        110,
-        110,
-        110,
-        1300
-      ],
-      "totalDurationSec": 6.33,
-      "layout": {
-        "cols": 8,
-        "rows": 4
-      },
-      "footAnchorY": 0.9505208333333334,
-      "loopDurationMs": 5697,
-      "pauseMs": 2279
-    },
-    "walk": {
-      "frameWidth": 1152,
-      "frameHeight": 1024,
-      "atlasWidth": 5760,
-      "atlasHeight": 2048,
-      "frameCount": 10,
-      "fps": 13.333333333333334,
-      "frameDurationSec": 0.075,
-      "frameDurationsMs": [
-        78,
-        78,
-        68,
-        78,
-        78,
-        68,
-        78,
-        78,
-        68,
-        78
-      ],
-      "totalDurationSec": 0.75,
-      "layout": {
-        "cols": 5,
-        "rows": 2
-      },
-      "footAnchorY": 1,
-      "loopDurationMs": 675,
-      "pauseMs": 270
-    }
-  },
-  "Wolf Rider": {
-    "attack": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 38.095238095238095,
-      "frameDurationSec": 0.02625,
-      "totalDurationSec": 0.21,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.9505208333333334,
-      "frameDurationsMs": [
-        17.5,
-        20,
-        22.5,
-        27.5,
-        32.5,
-        27.5,
-        32.5,
-        30
-      ],
-      "loopDurationMs": 189,
-      "pauseMs": 76
-    },
-    "attack_down": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 38.095238095238095,
-      "frameDurationSec": 0.02625,
-      "totalDurationSec": 0.21,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.9505208333333334,
-      "frameDurationsMs": [
-        17.5,
-        20,
-        22.5,
-        27.5,
-        32.5,
-        27.5,
-        32.5,
-        30
-      ],
-      "loopDurationMs": 189,
-      "pauseMs": 76
-    },
-    "attack_up": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 38.095238095238095,
-      "frameDurationSec": 0.02625,
-      "totalDurationSec": 0.21,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.9505208333333334,
-      "frameDurationsMs": [
-        17.5,
-        20,
-        22.5,
-        27.5,
-        32.5,
-        27.5,
-        32.5,
-        30
-      ],
-      "loopDurationMs": 189,
-      "pauseMs": 76
-    },
-    "death": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 30.18867924528302,
-      "frameDurationSec": 0.033125,
-      "totalDurationSec": 0.265,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.9505208333333334,
-      "frameDurationsMs": [
-        17.5,
-        25,
-        30,
-        37.5,
-        30,
-        25,
-        35,
-        65
-      ],
-      "loopDurationMs": 239,
-      "pauseMs": 96
-    },
-    "default": {
-      "frameWidth": 512,
-      "frameHeight": 512,
-      "atlasWidth": 4096,
-      "atlasHeight": 5120,
-      "frameCount": 73,
-      "fps": 12,
-      "frameDurationSec": 0.08333333333333333,
-      "totalDurationSec": 6.083333333333333,
-      "layout": {
-        "cols": 8,
-        "rows": 10
-      },
-      "loopDurationMs": 5475,
-      "pauseMs": 2190
-    },
-    "hit": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 53.333333333333336,
-      "frameDurationSec": 0.01875,
-      "totalDurationSec": 0.15,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.9505208333333334,
-      "frameDurationsMs": [
-        12.5,
-        17.5,
-        22.5,
-        27.5,
-        20,
-        17.5,
-        15,
-        17.5
-      ],
-      "loopDurationMs": 135,
-      "pauseMs": 54
-    },
-    "idle": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 7680,
-      "atlasHeight": 6144,
-      "frameCount": 80,
-      "fps": 23.142857142857146,
-      "frameDurationSec": 0.043209876543209874,
-      "totalDurationSec": 4.151111111111109,
-      "layout": {
-        "cols": 10,
-        "rows": 8
-      },
-      "footAnchorY": 0.9505208333333334,
-      "frameDurationsMs": [
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        43.20987654320987,
-        100,
-        120,
-        120,
-        120,
-        240,
-        120,
-        120,
-        100
-      ],
-      "loopDurationMs": 3736,
-      "pauseMs": 1494
-    },
-    "walk": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 10,
-      "frameDurationSec": 0.1,
-      "totalDurationSec": 0.8,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.9505208333333334,
-      "loopDurationMs": 720,
-      "pauseMs": 288
-    }
-  },
-  "Wyvern": {
-    "attack": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 33.333333333333336,
-      "frameDurationSec": 0.03,
-      "totalDurationSec": 0.24,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.9661458333333334,
-      "loopDurationMs": 216,
-      "pauseMs": 86
-    },
-    "attack_down": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 33.333333333333336,
-      "frameDurationSec": 0.03,
-      "totalDurationSec": 0.24,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.9661458333333334,
-      "loopDurationMs": 216,
-      "pauseMs": 86
-    },
-    "attack_up": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 33.333333333333336,
-      "frameDurationSec": 0.03,
-      "totalDurationSec": 0.24,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.9661458333333334,
-      "loopDurationMs": 216,
-      "pauseMs": 86
-    },
-    "death": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 13.333333333333334,
-      "frameDurationSec": 0.075,
-      "totalDurationSec": 0.6,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.9661458333333334,
-      "loopDurationMs": 540,
-      "pauseMs": 216
-    },
-    "hit": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 26.666666666666668,
-      "frameDurationSec": 0.0375,
-      "totalDurationSec": 0.3,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.9661458333333334,
-      "loopDurationMs": 270,
-      "pauseMs": 108
-    },
-    "idle": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 13.333333333333334,
-      "frameDurationSec": 0.075,
-      "totalDurationSec": 0.6,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.9661458333333334,
-      "loopDurationMs": 540,
-      "pauseMs": 216
-    },
-    "walk": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 2304,
-      "atlasHeight": 2304,
-      "frameCount": 9,
-      "fps": 20,
-      "frameDurationSec": 0.05,
-      "totalDurationSec": 0.45,
-      "layout": {
-        "cols": 3,
-        "rows": 3
-      },
-      "footAnchorY": 0.9661458333333334,
-      "loopDurationMs": 405,
-      "pauseMs": 162
-    }
-  },
-  "Zena": {
-    "attack": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 33.333333333333336,
-      "frameDurationSec": 0.03,
-      "totalDurationSec": 0.24,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.9661458333333334,
-      "loopDurationMs": 216,
-      "pauseMs": 86
-    },
-    "attack_down": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 33.333333333333336,
-      "frameDurationSec": 0.03,
-      "totalDurationSec": 0.24,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.9661458333333334,
-      "loopDurationMs": 216,
-      "pauseMs": 86
-    },
-    "attack_up": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 33.333333333333336,
-      "frameDurationSec": 0.03,
-      "totalDurationSec": 0.24,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.9661458333333334,
-      "loopDurationMs": 216,
-      "pauseMs": 86
-    },
-    "death": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 13.333333333333334,
-      "frameDurationSec": 0.075,
-      "totalDurationSec": 0.6,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.9661458333333334,
-      "loopDurationMs": 540,
-      "pauseMs": 216
-    },
-    "hit": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 26.666666666666668,
-      "frameDurationSec": 0.0375,
-      "totalDurationSec": 0.3,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.9661458333333334,
-      "loopDurationMs": 270,
-      "pauseMs": 108
-    },
-    "idle": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 13.333333333333334,
-      "frameDurationSec": 0.075,
-      "totalDurationSec": 0.6,
-      "layout": {
-        "cols": 4,
-        "rows": 2
-      },
-      "footAnchorY": 0.9661458333333334,
-      "loopDurationMs": 540,
-      "pauseMs": 216
-    },
-    "walk": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 2304,
-      "atlasHeight": 2304,
-      "frameCount": 9,
-      "fps": 20,
-      "frameDurationSec": 0.05,
-      "totalDurationSec": 0.45,
-      "layout": {
-        "cols": 3,
-        "rows": 3
-      },
-      "footAnchorY": 0.9661458333333334,
-      "loopDurationMs": 405,
-      "pauseMs": 162
     }
   }
 };

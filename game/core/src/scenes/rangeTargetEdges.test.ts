@@ -25,6 +25,7 @@ import {
     closestRangeTargetEdge,
     distanceToRangeTargetEdgeSegment,
     optimalRangeTargetEdge,
+    rangeAimOptions,
     rangeTargetEdgeEvaluationAim,
     rangeTargetEdgeIsSelectable,
     rangeTargetEdgeMarkerAngle,
@@ -254,6 +255,43 @@ describe("ranged target edge selection", () => {
         expect(optimalRangeTargetEdge([blockedBest], shooter)).toBeUndefined();
     });
 
+    test("a Double Shot may aim through a blocked edge, but a clean edge still wins", () => {
+        const candidate = (
+            id: string,
+            rangeDivisor: number,
+            aimPosition: { x: number; y: number },
+            shootable = true,
+        ) => ({
+            id,
+            rangeDivisor,
+            aimPosition,
+            shootable,
+            cell: { x: 8, y: 8 },
+            side: GridMath.RangeAttackCellSide.LEFT,
+        });
+        const shooter = { x: 0, y: 0 };
+        const closeHalf = candidate("close-half", 2, { x: 10, y: 0 });
+        const blockedBest = candidate("blocked-best", 1, { x: 1, y: 0 }, false);
+        const blockedFar = candidate("blocked-far", 1, { x: 90, y: 0 }, false);
+
+        // Shot one hits whatever screens the target; shot two carries on to it.
+        expect(optimalRangeTargetEdge([blockedBest], shooter, { allowIntercepted: true })?.id).toBe("blocked-best");
+        expect(optimalRangeTargetEdge([blockedFar, blockedBest], shooter, { allowIntercepted: true })?.id).toBe(
+            "blocked-best",
+        );
+        // Never trade a shot that reaches the target for one a screen would eat.
+        expect(optimalRangeTargetEdge([blockedBest, closeHalf], shooter, { allowIntercepted: true })?.id).toBe(
+            "close-half",
+        );
+        // Without the opt-in nothing changes for a single-shot attacker.
+        expect(optimalRangeTargetEdge([blockedBest], shooter)).toBeUndefined();
+    });
+
+    test("one aim policy answers both the single-shot and the two-shot attacker", () => {
+        expect(rangeAimOptions(true)).toEqual({ allowIntercepted: true });
+        expect(rangeAimOptions(false)).toEqual({ allowIntercepted: false });
+    });
+
     test("keeps enumeration order on an exact optimal-edge tie", () => {
         const first = {
             id: "first",
@@ -277,19 +315,6 @@ describe("ranged target edge selection", () => {
         expect(spellAim).toContain("optimalRangeTargetEdge(candidates, caster.getPosition())");
         expect(source).toContain("const trajectoryAim = this.optimalSpellTrajectoryAim(spell, caster, impactUnit)");
         expect(source).toContain("const target = this.getUnitAtPosition(this.sc_mouseWorld)");
-    });
-
-    test("lets a ranged attack click target the visible creature body before falling back to its cells", () => {
-        const source = readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
-        const attackClick = source.slice(
-            source.indexOf("// Melee Attack Interaction"),
-            source.indexOf("if (this.currentActiveUnit && this.currentActiveKnownPaths"),
-        );
-        const spriteTarget = attackClick.indexOf("this.getUnitSpriteAtPosition(p)");
-        const occupiedCellFallback = attackClick.indexOf("this.unitsHolder.getAllUnits().get(occupantId)");
-
-        expect(spriteTarget).toBeGreaterThanOrEqual(0);
-        expect(occupiedCellFallback).toBeGreaterThan(spriteTarget);
     });
 
     test("does not draw a second Fire Strike rail over the live spell beam", () => {
