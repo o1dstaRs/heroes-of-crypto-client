@@ -8,7 +8,6 @@ import {
     HoCConstants,
     Doctrine,
     PickPhaseVals,
-    SynergyKeysToPower,
     synergyVariantsForSeed,
     TeamVals,
     type TeamType,
@@ -38,7 +37,8 @@ import { CreaturePortraitImage } from "../CreaturePortraitImage";
 import { creatureCatalogEntry, startingStackAmount } from "../creatureCatalog";
 import { hocDisplayFontFamily } from "../hocTheme";
 import { ownArmyAccent } from "../ownArmyAccent";
-import { SYNERGY_KEY_TO_IMAGE, SYNERGY_NAME_TO_DESCRIPTION } from "../LeftSideBar/SynergiesConstants";
+import { SYNERGY_KEY_TO_IMAGE } from "../LeftSideBar/SynergiesConstants";
+import { SynergyLadderTip } from "../LeftSideBar/SynergyLadderTip";
 import { DoctrineIcon } from "../DoctrineIcon";
 import { UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "../unit_ui_constants";
 import { getDoctrineCopy } from "../doctrineCopy";
@@ -2137,14 +2137,6 @@ export const synergyLevelForFaction = (picked: number[], faction: string): numbe
     return Math.min(Math.floor(units / 2), 3);
 };
 
-// "Improves movement steps by {} cells" + [2] -> "Improves movement steps by 2 cells".
-const describeSynergy = (key: string): string => {
-    const template = SYNERGY_NAME_TO_DESCRIPTION[key as keyof typeof SYNERGY_NAME_TO_DESCRIPTION] ?? "";
-    const powers = SynergyKeysToPower[key] ?? [];
-    let i = 0;
-    return template.replace(/\{\}/g, () => String(powers[i++] ?? ""));
-};
-
 // Human-readable name of a synergy variant, for the badge tooltip.
 const SYNERGY_VARIANT_LABEL: Record<string, string> = {
     "Life:1": "Supply",
@@ -2191,13 +2183,18 @@ export const SynergyDots: React.FC<{
                 const img = SYNERGY_KEY_TO_IMAGE[key as keyof typeof SYNERGY_KEY_TO_IMAGE];
                 const label = t(SYNERGY_VARIANT_LABEL[`${faction}:${variant}`] ?? faction);
                 const units = picked.filter((id) => id && creatureFullConfig(id)?.faction === faction).length;
-                const tip = previewing
-                    ? `Confirming this pick lights ${faction} — ${label} lvl ${previewLevel}: ${describeSynergy(
-                          `${faction}:${variant}:${previewLevel}`,
-                      )}`
-                    : level
-                      ? `${faction} — ${label} (lvl ${level}): ${describeSynergy(`${faction}:${variant}:${level}`)}`
-                      : `${faction} — ${label}: locked, ${2 - units} more ${faction} unit${units === 1 ? "" : "s"} to reach lvl 1`;
+                // The whole ladder, not just the rung the army is on: what this synergy gives now, and the two
+                // numbers it is drafting towards, with the level in force picked out in gold.
+                const tip = (
+                    <SynergyLadderTip
+                        faction={faction}
+                        variant={variant}
+                        label={label}
+                        level={level}
+                        previewLevel={previewLevel}
+                        units={units}
+                    />
+                );
                 return (
                     <Tooltip key={faction} title={tip} variant="soft" placement="top">
                         <Box
