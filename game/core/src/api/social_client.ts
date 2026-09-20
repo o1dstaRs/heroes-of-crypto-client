@@ -262,8 +262,22 @@ export const presencePing = (activity?: PresenceActivity): Promise<PresencePingR
 export const isFriendInviteNotification = (type: SocialNotification["type"]): boolean =>
     type === "friend_request" || type === "lobby_invite" || type === "sandbox_invite";
 
-export const fetchNotifications = (): Promise<{ notifications: SocialNotification[]; unseenCount: number }> =>
-    get(endpoints.social.notifications);
+/**
+ * Which slice of the tray to read.
+ *
+ * "unseen" (the default the server applies when nothing is asked for) is what the player has not been shown
+ * yet, plus any friend request still waiting for an answer. "all" is the read history — fetched only when
+ * the player clicks "Earlier", never on open, because opening the tray marks everything seen and re-serving
+ * that history buried the new items in a week of notices the player had already read.
+ */
+export type NotificationScope = "unseen" | "all";
+
+export const fetchNotifications = (
+    scope: NotificationScope = "unseen",
+): Promise<{ notifications: SocialNotification[]; unseenCount: number; scope?: NotificationScope }> =>
+    // An older server ignores the parameter and answers with everything — the tray still works, it just
+    // shows the history it used to show.
+    get(scope === "all" ? `${endpoints.social.notifications}?scope=all` : endpoints.social.notifications);
 
 export const markNotificationsSeen = (): Promise<{ ok: boolean }> => post(endpoints.social.notificationsSeen);
 
