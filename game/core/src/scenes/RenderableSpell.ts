@@ -467,15 +467,13 @@ export class PixiRenderableSpell extends Spell {
             replaceBy = Math.floor(casterCumulativeMaxHp * RESURRECTION_POWER_FACTOR * healingFactor).toString();
         } else if (isOffensiveSpellMultiplier(this.getMultiplierType())) {
             // Offensive spells: the card shows the FINISHED damage, not the formula, and it comes from the
-            // engine's own helper so the page can never promise a number the cast will not deal. Which shape
-            // it scales by (head-count alone for the Battle Mage's, head-count x stack power for the Magic
-            // Dragon's) is the spell's own business — the helper reads it off the multiplier type.
-            // Pre-resistance by definition: the target is not known until the player aims.
+            // engine's own helper so the page can never promise a number the cast will not deal. Head-count
+            // times power, for every damage spell in the game — stack power is never a factor (owner call
+            // 2026-09-19). Pre-resistance by definition: the target is not known until the player aims.
             const cardDamage = calculateSpellDamage(
                 this.getMultiplierType(),
                 this.getPower(),
                 casterAmountAlive,
-                ownerStackPower,
                 casterMagicDamageBonusPercentage,
             );
             replaceBy = cardDamage.toString();
