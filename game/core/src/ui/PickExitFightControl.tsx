@@ -1,14 +1,14 @@
 import Button from "@mui/joy/Button";
+import Tooltip from "@mui/joy/Tooltip";
 import React, { useState } from "react";
 import { useNavigate } from "react-router";
 
 import { useAuthContext } from "./auth/context/auth_context";
-import { exitFightButtonSx } from "./exitFightButtonSx";
+import { pickExitCloseButtonSx } from "./exitFightButtonSx";
 import { ExitMatchDialog } from "./exitRules/ExitMatchDialog";
 import { leaveOutcomeFor } from "./exitRules/exitRulesModel";
 import { useDraftConduct } from "./exitRules/useDraftConduct";
 import { useLeaveGuard } from "./exitRules/useLeaveGuard";
-import { useFullscreenActive } from "./useFullscreenActive";
 import { t, useTranslation } from "../i18n/i18n";
 
 /**
@@ -18,7 +18,6 @@ import { t, useTranslation } from "../i18n/i18n";
 export const PickExitFightControl: React.FC<{ gameId: string }> = ({ gameId }) => {
     useTranslation();
     const { abandonGame } = useAuthContext();
-    const isFullscreen = useFullscreenActive();
     const navigate = useNavigate();
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [busy, setBusy] = useState(false);
@@ -38,15 +37,20 @@ export const PickExitFightControl: React.FC<{ gameId: string }> = ({ gameId }) =
 
     return (
         <>
-            <Button
-                variant="soft"
-                color="danger"
-                disabled={busy}
-                onClick={() => setConfirmOpen(true)}
-                sx={exitFightButtonSx(isFullscreen)}
-            >
-                {t("EXIT FIGHT")}
-            </Button>
+            {/* The full plate owned the bottom-centre slot the picks themselves want; the same forfeit now
+                reads as a window close in the corner — small, unmistakably red, and out of the cards' way. */}
+            <Tooltip title={t("Exit fight")} variant="soft" size="sm" placement="left">
+                <Button
+                    variant="solid"
+                    color="danger"
+                    aria-label={t("Exit fight")}
+                    disabled={busy}
+                    onClick={() => setConfirmOpen(true)}
+                    sx={pickExitCloseButtonSx}
+                >
+                    ✕
+                </Button>
+            </Tooltip>
             <ExitMatchDialog
                 open={confirmOpen}
                 phase="draft"

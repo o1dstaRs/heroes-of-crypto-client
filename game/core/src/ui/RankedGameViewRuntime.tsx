@@ -109,8 +109,7 @@ import { setBattleSystemControlsActive } from "./social/systemControlsMode";
 import { CreaturePortraitImage } from "./CreaturePortraitImage";
 import { UNIT_ID_TO_NAME } from "./unit_ui_constants";
 import { ButtonProvider } from "./context/ButtonContext";
-import { exitFightButtonSx } from "./exitFightButtonSx";
-import { useFullscreenActive } from "./useFullscreenActive";
+import { GameCornerExitButton, GameCornerSlot } from "./GameCornerExit";
 import { startVisibleInterval } from "./visibleInterval";
 import { eventStreamRetryDelayMs } from "./eventStreamRetry";
 import { dragObserverPanelOffset, type PanelOffset } from "./observerPanelDrag";
@@ -3229,7 +3228,6 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     vsAi = false,
     allowPlacementExit = false,
 }) => {
-    const isFullscreen = useFullscreenActive();
     const navigate = useNavigate();
     const [confirmExitOpen, setConfirmExitOpen] = useState(false);
     // A spectator's FIGHT panel floats bottom-centre over the board (GameSystemControls' centre slot), where it
@@ -3421,15 +3419,9 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     if (gameStarted && !isObserver) {
         return (
             <>
-                <Button
-                    variant="soft"
-                    color="danger"
-                    disabled={busy}
-                    onClick={() => setConfirmExitOpen(true)}
-                    sx={exitFightButtonSx(isFullscreen)}
-                >
-                    EXIT FIGHT
-                </Button>
+                <GameCornerSlot>
+                    <GameCornerExitButton disabled={busy} onClick={() => setConfirmExitOpen(true)} />
+                </GameCornerSlot>
                 {confirmExitModal}
             </>
         );
@@ -3852,6 +3844,13 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                     </Alert>
                 )}
 
+                {/* Setup carries the same corner exit as combat — the confirmation dialog below was
+                    already mounted here with nothing able to open it. */}
+                {!isObserver && (
+                    <GameCornerSlot>
+                        <GameCornerExitButton disabled={busy} onClick={() => setConfirmExitOpen(true)} />
+                    </GameCornerSlot>
+                )}
                 {confirmExitModal}
             </Stack>
         </Sheet>

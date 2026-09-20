@@ -29,6 +29,11 @@ import { displayedGold } from "../../api/goldDisplay";
 import { images } from "../../generated/image_imports";
 import { ARENA_CHAT_OPEN_KEY } from "../ArenaChatPanel";
 import { registerVolumeSlot, VOLUME_SLOT_PRIORITY } from "../audio/volumeSlot";
+import {
+    GAME_SYSTEM_CONTROLS_BOTTOM_INSET,
+    GAME_SYSTEM_CONTROLS_SIDE_INSET,
+    GAME_SYSTEM_CONTROLS_STACK_WIDTH_PX,
+} from "../GameSystemControls";
 import { CurrencyIcon } from "../GoldCurrencyIcon";
 import { isMockPortalEnabled } from "../PlayerPortal/mockPortal";
 import { useRankedSeason } from "../useRankedSeason";
@@ -41,11 +46,18 @@ import { OPEN_FRIENDS_EVENT } from "./openFriendsEvent";
 import { PredictionsPanel } from "./PredictionsPanel";
 import { getSocialDockSlot, getSocialDockSlotServerSnapshot, subscribeSocialDockSlot } from "./socialDockSlot";
 import { useSocial } from "./SocialProvider";
+import { useSmoothedDockImages } from "./useSmoothedDockImages";
 import {
     getBattleSystemControlsActive,
     getBattleSystemControlsServerSnapshot,
     shouldShowSystemMenuLabel,
     subscribeBattleSystemControls,
+    SYSTEM_DOCK_ARTWORK_BACKGROUND_SIZE,
+    SYSTEM_DOCK_BUTTON_SIZE_PX,
+    SYSTEM_DOCK_HOVER_SCALE,
+    SYSTEM_DOCK_PRESSED_SCALE,
+    SYSTEM_DOCK_GAP_PX,
+    SYSTEM_DOCK_STEP_PX,
     SYSTEM_MENU_ITEM_OFFSETS,
 } from "./systemControlsMode";
 import {
@@ -92,7 +104,7 @@ import { systemNoticeText } from "../exitRules/lockModel";
  * popups, while leaving conversations available on demand.
  */
 
-const dockButtonImages = {
+const dockButtonImageSources = {
     systemMenu: images.ui_social_system_menu_redrawn_complete_frame_v3,
     predictions: images.ui_social_predictions_redrawn_complete_frame_v2,
     friends: images.ui_social_friends_redrawn_complete_frame_v2,
@@ -1166,6 +1178,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage, p
 };
 
 export const SocialDock: React.FC = () => {
+    const dockButtonImages = useSmoothedDockImages(dockButtonImageSources);
     const { authenticated, user } = useAuthContext();
     const social = useSocial();
     const location = useLocation();
@@ -1179,7 +1192,7 @@ export const SocialDock: React.FC = () => {
     );
     const [predictionsOpen, setPredictionsOpen] = useState(mockPanel === "predictions");
     const [systemMenuOpen, setSystemMenuOpen] = useState(false);
-    const [systemMenuLabel, setSystemMenuLabel] = useState<{ text: string; top: number; right: number } | null>(null);
+    const [systemMenuLabel, setSystemMenuLabel] = useState<{ text: string; top: number; left: number } | null>(null);
     const systemMenuMode = React.useSyncExternalStore(
         subscribeBattleSystemControls,
         getBattleSystemControlsActive,
@@ -1238,7 +1251,7 @@ export const SocialDock: React.FC = () => {
     // player is active. Without it in the deps the effect would never see that element and the speaker
     // would stay in the corner it collides in.
     React.useLayoutEffect(() => {
-        if (!active) {
+        if (!active && !systemMenuMode) {
             return undefined;
         }
         // Only the dock's OWN fixed row claims the speaker outright: it is the one that reserves a place
@@ -1250,7 +1263,7 @@ export const SocialDock: React.FC = () => {
         return registerVolumeSlot(floatingVolumeSlotRef.current, priority);
     }, [fightDockSlot, active, systemMenuMode]);
 
-    if (!active) {
+    if (!active && !systemMenuMode) {
         return null;
     }
 
@@ -1491,18 +1504,39 @@ export const SocialDock: React.FC = () => {
                 onFocus={showSystemMenu}
                 onBlur={scheduleSystemMenuClose}
                 sx={{
+                    // Anchored to the viewport as one more corner control: the same square as sound and
+                    // fullscreen, sitting on the fullscreen button's own line one gap to its left. The fan
+                    // overflows leftwards out of this box, continuing that line.
                     position: "fixed",
-                    // Anchor the image box directly to the viewport. The asset already contains about
-                    // four rendered pixels of transparent breathing room, which becomes the requested
-                    // small visual gap without adding a second CSS offset on scaled game layouts.
-                    top: 0,
-                    right: 0,
-                    width: 116,
-                    height: 116,
+                    bottom: GAME_SYSTEM_CONTROLS_BOTTOM_INSET,
+                    right: `calc(${GAME_SYSTEM_CONTROLS_SIDE_INSET} + ${
+                        GAME_SYSTEM_CONTROLS_STACK_WIDTH_PX + SYSTEM_DOCK_GAP_PX
+                    }px)`,
+                    width: SYSTEM_DOCK_BUTTON_SIZE_PX,
+                    height: SYSTEM_DOCK_BUTTON_SIZE_PX,
                     zIndex: 1500,
                     pointerEvents: "none",
                 }}
             >
+                <Box
+                    aria-hidden="true"
+                    data-system-menu-backplate="true"
+                    sx={{
+                        position: "absolute",
+                        top: 0,
+                        right: 0,
+                        // Four controls on the shared step: the three children plus the medallion itself.
+                        width: SYSTEM_DOCK_BUTTON_SIZE_PX + 3 * SYSTEM_DOCK_STEP_PX,
+                        height: SYSTEM_DOCK_BUTTON_SIZE_PX,
+                        borderRadius: `${SYSTEM_DOCK_BUTTON_SIZE_PX / 2}px`,
+                        bgcolor: "rgba(8, 7, 5, 0.82)",
+                        opacity: systemMenuOpen ? 1 : 0,
+                        transform: systemMenuOpen ? "scaleX(1)" : "scaleX(0.28)",
+                        transformOrigin: "right center",
+                        transition: "opacity 160ms ease, transform 210ms ease",
+                        pointerEvents: systemMenuOpen ? "auto" : "none",
+                    }}
+                />
                 {systemMenuItems.map((item) => (
                     <Box
                         key={item.key}
@@ -1511,7 +1545,7 @@ export const SocialDock: React.FC = () => {
                             setSystemMenuLabel({
                                 text: item.label,
                                 top: bounds.top + bounds.height / 2,
-                                right: window.innerWidth - bounds.left + 6,
+                                left: bounds.left - 6,
                             });
                         }}
                         onPointerLeave={() => setSystemMenuLabel(null)}
@@ -1520,16 +1554,16 @@ export const SocialDock: React.FC = () => {
                             setSystemMenuLabel({
                                 text: item.label,
                                 top: bounds.top + bounds.height / 2,
-                                right: window.innerWidth - bounds.left + 6,
+                                left: bounds.left - 6,
                             });
                         }}
                         onBlur={() => setSystemMenuLabel(null)}
                         sx={{
                             position: "absolute",
-                            top: 8,
-                            right: 8,
-                            width: 34,
-                            height: 34,
+                            top: 0,
+                            right: 0,
+                            width: SYSTEM_DOCK_BUTTON_SIZE_PX,
+                            height: SYSTEM_DOCK_BUTTON_SIZE_PX,
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
@@ -1544,8 +1578,8 @@ export const SocialDock: React.FC = () => {
                         <Box
                             sx={{
                                 position: "relative",
-                                width: 34,
-                                height: 34,
+                                width: SYSTEM_DOCK_BUTTON_SIZE_PX,
+                                height: SYSTEM_DOCK_BUTTON_SIZE_PX,
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "center",
@@ -1561,8 +1595,17 @@ export const SocialDock: React.FC = () => {
                         >
                             <IconButton
                                 aria-label={item.label}
+                                disabled={!active}
+                                title={!active ? "Sign in to use social controls" : undefined}
                                 aria-pressed={item.active}
-                                sx={dockButtonSx(item.image, item.active)}
+                                sx={{
+                                    ...dockButtonSx(item.image, item.active),
+                                    width: SYSTEM_DOCK_BUTTON_SIZE_PX,
+                                    height: SYSTEM_DOCK_BUTTON_SIZE_PX,
+                                    minWidth: SYSTEM_DOCK_BUTTON_SIZE_PX,
+                                    minHeight: SYSTEM_DOCK_BUTTON_SIZE_PX,
+                                    backgroundSize: SYSTEM_DOCK_ARTWORK_BACKGROUND_SIZE,
+                                }}
                                 onClick={item.onClick}
                             />
                             {item.key === "notifications" && social.unseenCount > 0 ? (
@@ -1600,7 +1643,7 @@ export const SocialDock: React.FC = () => {
                         setSystemMenuLabel({
                             text: "System controls",
                             top: bounds.top + bounds.height / 2,
-                            right: window.innerWidth - bounds.left + 6,
+                            left: bounds.left - 6,
                         });
                     }}
                     onPointerLeave={() => setSystemMenuLabel(null)}
@@ -1609,7 +1652,7 @@ export const SocialDock: React.FC = () => {
                         setSystemMenuLabel({
                             text: "System controls",
                             top: bounds.top + bounds.height / 2,
-                            right: window.innerWidth - bounds.left + 6,
+                            left: bounds.left - 6,
                         });
                     }}
                     onBlur={() => setSystemMenuLabel(null)}
@@ -1617,8 +1660,8 @@ export const SocialDock: React.FC = () => {
                         position: "absolute",
                         top: 0,
                         right: 0,
-                        width: 54,
-                        height: 54,
+                        width: SYSTEM_DOCK_BUTTON_SIZE_PX,
+                        height: SYSTEM_DOCK_BUTTON_SIZE_PX,
                         pointerEvents: "auto",
                         overflow: "visible",
                     }}
@@ -1631,13 +1674,13 @@ export const SocialDock: React.FC = () => {
                             setSystemMenuOpen((wasOpen) => !wasOpen);
                         }}
                         sx={{
-                            // The artwork has transparent breathing room and the control box is slightly
-                            // larger than the visible 48px medallion. Joy can then never crop the forged
-                            // outer ring or its antialiasing at the lower/right cardinal points.
-                            width: 54,
-                            height: 54,
-                            minWidth: 54,
-                            minHeight: 54,
+                            // Exactly the sound and fullscreen square. The artwork is painted slightly
+                            // over that square so its forged ring MATCHES theirs instead of shrinking
+                            // inside its own transparent margin — see the background-size constant.
+                            width: SYSTEM_DOCK_BUTTON_SIZE_PX,
+                            height: SYSTEM_DOCK_BUTTON_SIZE_PX,
+                            minWidth: SYSTEM_DOCK_BUTTON_SIZE_PX,
+                            minHeight: SYSTEM_DOCK_BUTTON_SIZE_PX,
                             p: 0,
                             borderRadius: "50%",
                             overflow: "visible",
@@ -1647,22 +1690,22 @@ export const SocialDock: React.FC = () => {
                             backgroundImage: `url(${dockButtonImages.systemMenu})`,
                             backgroundPosition: "center",
                             backgroundRepeat: "no-repeat",
-                            backgroundSize: "contain",
+                            backgroundSize: SYSTEM_DOCK_ARTWORK_BACKGROUND_SIZE,
                             filter: systemMenuOpen
                                 ? "brightness(1.16) saturate(1.06) drop-shadow(0 0 8px rgba(226, 178, 86, 0.68))"
                                 : predictionsOpen || friendsOpen || trayOpen
                                   ? "brightness(1.1) drop-shadow(0 0 8px rgba(211, 173, 103, 0.34))"
                                   : "drop-shadow(0 6px 9px rgba(0, 0, 0, 0.55))",
-                            transform: systemMenuOpen ? "scale(1.045)" : "scale(1)",
+                            transform: systemMenuOpen ? `scale(${SYSTEM_DOCK_HOVER_SCALE})` : "scale(1)",
                             transition: "transform 160ms ease, filter 160ms ease",
                             "&:hover": {
                                 bgcolor: "transparent",
-                                transform: "scale(1.045)",
+                                transform: `scale(${SYSTEM_DOCK_HOVER_SCALE})`,
                                 // Identical to the open-state highlight. Moving from the master button to
                                 // a child can no longer cause a dim flash between :hover and menu state.
                                 filter: "brightness(1.16) saturate(1.06) drop-shadow(0 0 8px rgba(226, 178, 86, 0.68))",
                             },
-                            "&:active": { transform: "translateY(1px) scale(1.025)" },
+                            "&:active": { transform: `translateY(1px) scale(${SYSTEM_DOCK_PRESSED_SCALE})` },
                         }}
                     />
                     {!systemMenuOpen && social.unseenCount > 0 ? (
@@ -1697,8 +1740,9 @@ export const SocialDock: React.FC = () => {
                         sx={{
                             ...instantDockLabelSx,
                             top: systemMenuLabel.top,
-                            right: systemMenuLabel.right,
-                            transform: "translateY(-50%)",
+                            left: systemMenuLabel.left,
+                            // The dock now hugs the right edge, so the hint grows away from it.
+                            transform: "translate(-100%, -50%)",
                         }}
                     >
                         {systemMenuLabel.text}

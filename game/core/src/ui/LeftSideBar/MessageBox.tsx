@@ -742,10 +742,11 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
         } else if (perspectiveTeam !== undefined) {
             // Frame the turn from the watcher's side instead of by absolute team colours. On the other
             messageBoxTitle = visibleState.teamTypeTurn === perspectiveTeam ? "Your turn" : "Opponent's turn";
-        } else if (visibleState.teamTypeTurn === TeamVals.LEFT) {
-            messageBoxTitle = "Green team's turn";
         } else {
-            messageBoxTitle = "Red team's turn";
+            // Sandbox/observer: the side on the clock is already named by the board, the Up Next queue and
+            // the timer's own fill, and this heading was the one piece of chrome costing the card a whole
+            // row of height — the row the effect wells need to show their icons whole in a browser window.
+            messageBoxTitle = "";
         }
         messageBoxText = "";
     }
@@ -837,18 +838,22 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
                         secondsRemaining={visibleState.secondsRemaining}
                         secondsMax={visibleState.secondsMax}
                         enemyTurn={cannotAct}
+                        // No heading means no heading ROW: an empty Typography still reserved its line,
+                        // which is exactly the height this card was asked to give back.
                         heading={
-                            <Typography
-                                level="title-sm"
-                                sx={{
-                                    // A further 20% increase requested for the active-turn callout.
-                                    fontSize: `${1.0368 * metrics.fontScale}rem`,
-                                    lineHeight: 1.05,
-                                    ...(cannotAct ? {} : { color: hocColors.danger }),
-                                }}
-                            >
-                                {messageBoxTitle}
-                            </Typography>
+                            messageBoxTitle ? (
+                                <Typography
+                                    level="title-sm"
+                                    sx={{
+                                        // A further 20% increase requested for the active-turn callout.
+                                        fontSize: `${1.0368 * metrics.fontScale}rem`,
+                                        lineHeight: 1.05,
+                                        ...(cannotAct ? {} : { color: hocColors.danger }),
+                                    }}
+                                >
+                                    {messageBoxTitle}
+                                </Typography>
+                            ) : undefined
                         }
                         footerIndicator={footerIndicator}
                         footer={

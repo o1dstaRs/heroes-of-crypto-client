@@ -14,6 +14,7 @@ import { hocDisplayFontFamily } from "./hocTheme";
 import { MATCHUP_LOWER_TEAM, MATCHUP_UPPER_TEAM, matchupTeamTone, type MatchupTeamTone } from "./matchupOverlayTone";
 import type { OpponentConnectionLabel } from "./opponentConnection";
 import { LeagueEmblem } from "./PlayerPortal/LeagueEmblem";
+import { useFullscreenActive } from "./useFullscreenActive";
 import { creatureName, timeAgo } from "./PlayerPortal/portalFormat";
 
 export type MatchupPlayer = Readonly<{
@@ -46,6 +47,11 @@ type MatchupOverlayProps = Readonly<{
     viewerTeam?: TeamType;
     /** A control docked at the strip's right edge (pointer events enabled): the co-op sandbox's Leave. */
     action?: React.ReactNode;
+    /**
+     * Drop the strip behind the draft board. The inspector readout shares the header band with it, and the
+     * creature the player is reading beats a scoreboard they are not.
+     */
+    demoted?: boolean;
 }>;
 
 type MatchupProfile = Readonly<{
@@ -66,6 +72,12 @@ const wholeStat = (value: number | undefined): string =>
     typeof value === "number" && Number.isFinite(value) ? String(Math.max(0, Math.trunc(value))) : "—";
 
 const MATCHUP_COLLAPSED_STORAGE_KEY = "hoc.matchupOverlay.collapsed";
+
+/**
+ * Windowed browsers give the draft far less vertical room than fullscreen, and the strip is the one piece of
+ * chrome that overlaps the board's top band there. Fullscreen keeps the authored size.
+ */
+export const MATCHUP_WINDOWED_SCALE = 0.85;
 
 const readMatchupCollapsed = (): boolean => {
     try {
@@ -791,9 +803,11 @@ export const MatchupOverlay: React.FC<MatchupOverlayProps> = ({
     windowSize,
     viewerTeam,
     action,
+    demoted = false,
 }) => {
     const [profiles, setProfiles] = useState<Record<string, PublicPlayerStats>>({});
     const [collapsed, setCollapsed] = useState(readMatchupCollapsed);
+    const isFullscreen = useFullscreenActive();
     const playerKey = players
         .map((player) => `${player.team}:${player.playerId ?? ""}:${player.isAi ? "ai" : "human"}`)
         .sort()
@@ -844,6 +858,8 @@ export const MatchupOverlay: React.FC<MatchupOverlayProps> = ({
     const fightPosition = placement === "fight" && windowSize ? fightMatchupOverlayPosition(windowSize) : undefined;
     const centred = placement === "pick" || (placement === "fight" && fightStarted);
     const fightRightEdge = fightPosition?.right ?? 16;
+    const scale = !isFullscreen && placement === "pick" ? MATCHUP_WINDOWED_SCALE : 1;
+    const placementTransform = centred ? "translateX(-50%)" : "translateX(-100%)";
     // A presence plaque needs more room beside the name than the record line it replaces.
     const connectionAlert = players.find((player) => player.connection)?.connection;
     const toggleCollapsed = (): void => {
@@ -859,11 +875,13 @@ export const MatchupOverlay: React.FC<MatchupOverlayProps> = ({
             data-testid={`matchup-overlay-${placement}`}
             sx={{
                 position: "fixed",
-                zIndex: placement === "fight" ? 7000 : 65,
+                zIndex: placement === "fight" ? 7000 : demoted ? 1 : 65,
                 pointerEvents: "none",
                 top: placement === "fight" ? `${fightPosition?.top ?? 16}px` : 0,
                 left: centred ? "50%" : `calc(100% - ${fightRightEdge}px)`,
-                transform: centred ? "translateX(-50%)" : "translateX(-100%)",
+                transform: scale === 1 ? placementTransform : `${placementTransform} scale(${scale})`,
+                // Scale about the anchored edge so the strip shrinks in place instead of drifting off it.
+                transformOrigin: centred ? "top center" : "top right",
                 width: collapsed
                     ? 36
                     : action
@@ -987,7 +1005,9 @@ export const PickMatchupOverlay: React.FC<{
     userTeam: TeamType;
     opponentLabel?: string;
     status?: string;
-}> = ({ gameId, userTeam, opponentLabel = "Opponent", status = "Draft" }) => {
+    /** True while the header band is showing a creature/artifact readout. */
+    demoted?: boolean;
+}> = ({ gameId, userTeam, opponentLabel = "Opponent", status = "Draft", demoted = false }) => {
     const isBackendFreePreview = !!gameId && (/preview/i.test(gameId) || gameId === "local-playable-draft");
     // Older preview callers currently pass TeamVals.LEFT, which becomes undefined while their local common
     // checkout exposes only LOWER/UPPER. A participant draft can only be one of the two real seats; default
@@ -1063,5 +1083,13 @@ export const PickMatchupOverlay: React.FC<{
         };
     }, [fallbackPlayers, gameId]);
 
-    return <MatchupOverlay players={players} placement="pick" status={status} viewerTeam={normalizedUserTeam} />;
+    return (
+        <MatchupOverlay
+            players={players}
+            placement="pick"
+            status={status}
+            viewerTeam={normalizedUserTeam}
+            demoted={demoted}
+        />
+    );
 };

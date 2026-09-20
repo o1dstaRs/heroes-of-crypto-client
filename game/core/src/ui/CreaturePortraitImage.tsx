@@ -70,7 +70,12 @@ export const CreaturePortraitImage: React.FC<CreaturePortraitImageProps> = ({
     });
     const creatureScale = artPlacement.scale;
     const creatureScaleX = Math.abs(artScaleX);
-    const creatureDirectionX = artScaleX < 0 ? -1 : 1;
+    // A mirrored creature flips its crop offset with it, so the card shows the reviewed portrait exactly
+    // as a mirror would — the faction background behind it is never mirrored. Same rule the sandbox
+    // roster's chips apply (UnitChip's mirrorPortraitX).
+    const mirrorSign = visual.mirrored ? -1 : 1;
+    const creatureDirectionX = (artScaleX < 0 ? -1 : 1) * mirrorSign;
+    const creatureOffsetX = artPlacement.offsetX * mirrorSign;
 
     return (
         <Box
@@ -191,7 +196,7 @@ export const CreaturePortraitImage: React.FC<CreaturePortraitImageProps> = ({
                     ...(highQualityArt
                         ? {
                               inset: "auto",
-                              left: `calc(50% + ${artPlacement.offsetX}%)`,
+                              left: `calc(50% + ${creatureOffsetX}%)`,
                               top: `calc(50% + ${artPlacement.offsetY}%)`,
                               width: `${creatureScale * creatureScaleX * 100}%`,
                               height: `${creatureScale * 100}%`,
@@ -201,7 +206,7 @@ export const CreaturePortraitImage: React.FC<CreaturePortraitImageProps> = ({
                               inset: 0,
                               width: "100%",
                               height: "100%",
-                              transform: `translate(${artPlacement.offsetX}%, ${artPlacement.offsetY}%) scale(${creatureScale}) scaleX(${artScaleX})`,
+                              transform: `translate(${creatureOffsetX}%, ${artPlacement.offsetY}%) scale(${creatureScale}) scaleX(${artScaleX * mirrorSign})`,
                           }),
                     zIndex: 3,
                     display: "block",

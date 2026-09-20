@@ -15,7 +15,6 @@ import List from "@mui/joy/List";
 import Sheet from "@mui/joy/Sheet";
 import Typography from "@mui/joy/Typography";
 import React, { useContext, useEffect, useState, useCallback, useLayoutEffect, useRef } from "react";
-import Button from "@mui/joy/Button";
 import { useNavigate } from "react-router";
 import { useAuthContext } from "../auth/context/auth_context";
 import { usePixiManager } from "../../pixi/PixiGameManager";
@@ -26,9 +25,8 @@ import FightControlToggler from "./FightControlToggler";
 import { WalletLinker } from "../WalletLinker";
 import { IWindowSize } from "../../scenes/VisibleState";
 import { sidebarPlainFrameSideInsetPx, sidebarPlainFrameVerticalInsetPx } from "../LeftSideBar/sidebarMetrics";
-import { exitFightButtonSx } from "../exitFightButtonSx";
-import { useFullscreenActive } from "../useFullscreenActive";
-import { GameSystemControls } from "../GameSystemControls";
+import { GameCornerExitButton, GameCornerSlot } from "../GameCornerExit";
+import { GAME_SYSTEM_CONTROLS_STACK_HEIGHT_PX, GameSystemControls } from "../GameSystemControls";
 
 const DraggableToolbar = React.lazy(() => import("../DraggableToolbar"));
 const FightLog = React.lazy(() => import("./FightLog").then(({ FightLog }) => ({ default: FightLog })));
@@ -72,7 +70,6 @@ export default function RightSideBar({
 }) {
     const navigate = useNavigate();
     const { authenticated } = useAuthContext();
-    const isFullscreen = useFullscreenActive();
     const [unitDamageStatistics, setUnitDamageStatistics] = useState([] as IDamageStatistic[]);
 
     // See the note at the log itself: its height is measured on the first layout and then held, so nothing
@@ -295,61 +292,12 @@ export default function RightSideBar({
                 backgroundPosition: RIGHT_SIDEBAR_BG_POSITION,
             }}
         >
+            {/* Back out of the sandbox. Same plate as every other in-game exit, in the same corner —
+                the sandbox used to spend its own gothic button on this in the bar's title row. */}
             {onClose && (
-                <Box
-                    component="button"
-                    type="button"
-                    aria-label="Close sandbox"
-                    title="Back"
-                    onClick={onClose}
-                    sx={{
-                        position: "absolute",
-                        top: `${Math.max(10, sidebarPlainFrameVerticalInsetPx(windowSize.height) - 4)}px`,
-                        right: `${Math.max(10, sidebarPlainFrameSideInsetPx(barSize) - 4)}px`,
-                        width: "clamp(28px, 2.1vw, 38px)",
-                        height: "clamp(28px, 2.1vw, 38px)",
-                        p: 0,
-                        border: 0,
-                        borderRadius: 0,
-                        backgroundColor: "transparent",
-                        backgroundImage: `url(${images.ui_close_button_square_gothic_frame_v1})`,
-                        // The picture-backed frame is exactly 7% smaller than the old button footprint.
-                        // The X remains a separate image layer so its scale and plate-relative centre stay independent.
-                        backgroundSize: "93% 93%",
-                        backgroundPosition: "center",
-                        backgroundRepeat: "no-repeat",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        cursor: "var(--hoc-cursor-interactive), pointer",
-                        zIndex: 4,
-                        filter: "drop-shadow(0 2px 4px rgba(0, 0, 0, .82))",
-                        transition: "transform .14s ease, filter .14s ease",
-                        "&:hover": {
-                            transform: "scale(1.06)",
-                            filter: "brightness(1.08) drop-shadow(0 2px 4px rgba(0, 0, 0, .82)) drop-shadow(0 0 5px rgba(205, 91, 33, .48))",
-                        },
-                        "&:active": { transform: "scale(.97)" },
-                    }}
-                >
-                    <Box
-                        component="img"
-                        src={images.ui_close_button_sidebar_title_x_v2}
-                        aria-hidden="true"
-                        sx={{
-                            position: "absolute",
-                            left: "50%",
-                            // The lower gothic point is outside the square plate. Its visual centre is at
-                            // about 43% of the complete frame height, rather than the image's 50% midpoint.
-                            top: "43%",
-                            width: "41.4%",
-                            height: "41.4%",
-                            objectFit: "contain",
-                            transform: "translate(-50%, -50%)",
-                            pointerEvents: "none",
-                        }}
-                    />
-                </Box>
+                <GameCornerSlot>
+                    <GameCornerExitButton onClick={onClose} label="Back" />
+                </GameCornerSlot>
             )}
             <Box
                 sx={{
@@ -399,7 +347,8 @@ export default function RightSideBar({
                                 // Fixed, and fixed to the button column rather than to anything's content:
                                 // this row is the one place in the bar whose height would otherwise swing
                                 // with the turn, and everything under it — the log especially — is pinned
-                                // by where it ends. Five slots when the scene offers no AI toggle, six otherwise.
+                                // by where it ends.
+                                // Five slots when the scene offers no AI toggle, six otherwise.
                                 height: `${toolbarColumnHeightPx(toolbarSlots)}px`,
                                 flexShrink: 0,
                                 gap: "6px",
@@ -527,34 +476,34 @@ export default function RightSideBar({
                     {showWallet && <WalletLinker />}
                 </List>
             </Box>
-            {/* These controls belong to the viewport, not the sidebar. Keeping one shared row here makes
-                their positions identical in placement and combat; pick/ban mounts the same row over its
-                full-screen draft and asks this hidden sidebar not to publish a duplicate. */}
+            {/* Reserve space beneath the log for the sidebar's fixed footer row. */}
+            {/* Reserve the full stacked footer height: sound now sits ABOVE fullscreen in the corner. */}
+            {showSystemControls && <Box sx={{ height: `${GAME_SYSTEM_CONTROLS_STACK_HEIGHT_PX}px`, flexShrink: 0 }} />}
             {showSystemControls && (
                 <GameSystemControls
+                    sidebarWidth={barSize}
+                    rightStack
                     center={
                         rankedFooter ? (
                             rankedFooter
                         ) : rankedPanel && gameStarted ? (
                             rankedPanel
                         ) : !rankedPanel && gameStarted ? (
-                            <Button
-                                variant="soft"
-                                color="danger"
-                                // Sandbox exit: an anonymous player has nothing behind /play but the login
-                                // gate, so leaving the fight just resets the sandbox to a fresh placement
-                                // (start over). A signed-in player keeps the trip to the play hub.
-                                onClick={() => {
-                                    if (authenticated) {
-                                        navigate("/play");
-                                    } else {
-                                        manager.StartOver();
-                                    }
-                                }}
-                                sx={exitFightButtonSx(isFullscreen)}
-                            >
-                                EXIT FIGHT
-                            </Button>
+                            // Sandbox exit: an anonymous player has nothing behind /play but the login
+                            // gate, so leaving the fight just resets the sandbox to a fresh placement
+                            // (start over). A signed-in player keeps the trip to the play hub. The control
+                            // itself paints in the shared top-right corner, not in this centre slot.
+                            <GameCornerSlot>
+                                <GameCornerExitButton
+                                    onClick={() => {
+                                        if (authenticated) {
+                                            navigate("/play");
+                                        } else {
+                                            manager.StartOver();
+                                        }
+                                    }}
+                                />
+                            </GameCornerSlot>
                         ) : undefined
                     }
                 />

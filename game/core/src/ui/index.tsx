@@ -46,6 +46,7 @@ import { InviteFriendBadge } from "./InviteFriendBadge";
 import { SandboxCoopRoute } from "./SandboxCoopRoute";
 import { LiveMatchBanner } from "./LiveMatchBanner";
 import { useCurrentLobby } from "./social/CurrentLobbyContext";
+import { setBattleSystemControlsActive } from "./social/systemControlsMode";
 import { LoadingFullscreenToggle } from "./LoadingFullscreenToggle";
 import { MatchupOverlay, type MatchupPlayer } from "./MatchupOverlay";
 import { useGameCursor } from "./cursor/useGameCursor";
@@ -319,12 +320,13 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
         [],
     );
 
-    // OWNER CALL: a logged-in player keeps the full four-button dock in the BOTTOM-RIGHT corner here —
-    // bets, friends, notifications and sound — exactly as on every non-battle screen. The sandbox used to
-    // publish setBattleSystemControlsActive(true), which collapses SocialDock into the compact top-right
-    // medallion and hides those four behind a fan. Ranked still collapses it (RankedGameView), where board
-    // space is genuinely contested; the offline sandbox has room and should not make the player open a menu
-    // to reach controls that sit in the corner everywhere else.
+    // Keep the expandable corner medallion throughout sandbox placement and combat, like ranked: with the
+    // three controls now on the sound/fullscreen line, the compact dock IS the corner row rather than a
+    // menu hiding it, and both screens wear the same one.
+    useEffect(() => {
+        setBattleSystemControlsActive(true);
+        return () => setBattleSystemControlsActive(false);
+    }, []);
 
     const closeSandbox = useCallback(() => {
         if (window.history.length > 1) {
@@ -380,7 +382,7 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
             <div className="container" style={{ display: "flex" }}>
                 <CssVarsProvider>
                     <CssBaseline />
-                    {isLoading && <LoadingFullscreenToggle />}
+                    {isLoading && <LoadingFullscreenToggle onExit={closeSandbox} />}
                     {!isLoading && <LeftSideBar gameStarted={started} windowSize={windowSize} />}
                     {!isLoading && (
                         <RightSideBar
@@ -529,6 +531,54 @@ const LevelTwoPickPreview: React.FC = () => (
             <StainedGlassWindow
                 userTeam={TeamVals.LEFT as TeamType}
                 gameId="level-two-pick-preview"
+                opponentLabel="Opponent"
+                showOpponentRosterDuringAugmentHandoff={false}
+            />
+        </div>
+    </PickBanContext.Provider>
+);
+
+const LEVEL_THREE_PICK_PREVIEW_STATE: PickBanContextType = {
+    ...LEVEL_TWO_PICK_PREVIEW_STATE,
+    picked: [12, 24, 31, 25],
+    requiredLevel: 3,
+};
+
+/** Stable, backend-free canvas for the third creature-pick step, after the map reveal. */
+const LevelThreePickPreview: React.FC = () => (
+    <PickBanContext.Provider value={LEVEL_THREE_PICK_PREVIEW_STATE}>
+        <div className="container" style={{ display: "flex" }}>
+            <CssVarsProvider>
+                <CssBaseline />
+            </CssVarsProvider>
+            <StainedGlassWindow
+                userTeam={TeamVals.LEFT as TeamType}
+                gameId="level-three-pick-preview"
+                opponentLabel="Opponent"
+                showOpponentRosterDuringAugmentHandoff={false}
+            />
+        </div>
+    </PickBanContext.Provider>
+);
+
+const LEVEL_FOUR_PICK_PREVIEW_STATE: PickBanContextType = {
+    ...LEVEL_THREE_PICK_PREVIEW_STATE,
+    picked: [12, 24, 31, 25, 37],
+    // The tier-2 artifact is answered between the third and the fourth creature pick.
+    artifactTier2: 1,
+    requiredLevel: 4,
+};
+
+/** Stable, backend-free canvas for the last creature-pick step. */
+const LevelFourPickPreview: React.FC = () => (
+    <PickBanContext.Provider value={LEVEL_FOUR_PICK_PREVIEW_STATE}>
+        <div className="container" style={{ display: "flex" }}>
+            <CssVarsProvider>
+                <CssBaseline />
+            </CssVarsProvider>
+            <StainedGlassWindow
+                userTeam={TeamVals.LEFT as TeamType}
+                gameId="level-four-pick-preview"
                 opponentLabel="Opponent"
                 showOpponentRosterDuringAugmentHandoff={false}
             />
@@ -1440,6 +1490,10 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
                     />
                     {/* Backend-free visual fixture for the second creature-pick phase. */}
                     <Route path="/preview/picks/level2" element={<LevelTwoPickPreview />} />
+                    {/* Backend-free visual fixture for the third creature-pick phase. */}
+                    <Route path="/preview/picks/level3" element={<LevelThreePickPreview />} />
+                    {/* Backend-free visual fixture for the fourth creature-pick phase. */}
+                    <Route path="/preview/picks/level4" element={<LevelFourPickPreview />} />
                     {/* Four live trajectory treatments; the selected style persists locally and is used by combat. */}
                     <Route
                         path="/dev/shot-trajectories"
