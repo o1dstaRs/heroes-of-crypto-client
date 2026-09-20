@@ -71,6 +71,7 @@ import {
     resolveBattlefieldShadowTuning,
     type BattlefieldShadowTuning,
 } from "../ui/battlefieldShadowTuning";
+import { spellIconTextureKey } from "./spellIcons";
 import { stunBadgeLayout } from "../ui/stunBadgeTuning";
 import { creatureHeadPriorityZone, type CreatureDepthSortCandidate } from "./battlefieldCreatureDepthSort";
 export type TexResolver = (name: string) => Texture | undefined;
@@ -2434,14 +2435,8 @@ export class RenderableUnit extends Unit {
             // Only the ICON is art now — the name is drawn as text (see PixiRenderableSpell.titleText).
             // This used to also require a hand-authored "<spell>_font" strip, and a missing one dropped the
             // spell from the book entirely and silently: that is how Wandering Mage shipped with an empty
-            // spellbook. A new spell now needs one icon and nothing else.
-            const generatedIconKey =
-                spellName === "Fire Strike"
-                    ? "fire_strike_chaos_256_v1"
-                    : spellName === "Meteorite"
-                      ? "meteorite_chaos_256_v1"
-                      : undefined;
-            const iconTex = this.texResolver(generatedIconKey ?? SpellHelper.spellToTextureName(spellName));
+            // spellbook. A new spell now needs one icon and nothing else, resolved in one shared place.
+            const iconTex = this.texResolver(spellIconTextureKey(spellName));
             const cellTex = this.texResolver("spell_cell_260");
             const scrollBadgeTex = this.texResolver("spell_cast_wax_seal_blank_v1");
             const stackRailTex = this.texResolver("spell_stack_rail_variant2");

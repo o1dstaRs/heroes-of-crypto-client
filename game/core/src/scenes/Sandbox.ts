@@ -9282,15 +9282,18 @@ export class Sandbox extends PixiScene {
     }
     /**
      * The units an offensive spell would splash onto BESIDES the one it is aimed at, each taking the same
-     * damage as the primary target. Only Ring of Fire has such a splash today: it burns every cell touching
-     * the target — friend or foe — while sparing the target and the caster (see ringOfFireCast).
+     * damage as the primary target. Two spells splash today, over the same ring of cells touching the
+     * target, friend or foe, sparing the caster: Ring of Fire (which also spares the target, see
+     * ringOfFireCast) and Fireball (which burns it, see fireballCast).
      *
      * Mirrors that handler's geometry exactly, including the SIZE scaling: the ring hugs the target's whole
      * footprint, so a 2x2 enemy is ringed by 12 cells rather than the 8 around its base cell. Reading it off
      * the base cell alone would under-report the preview for every large target.
      */
     private splashedSpellTargets(spell: Spell, caster: Unit, target: Unit): Unit[] {
-        if (spell.getName() !== "Ring of Fire") {
+        // Ring of Fire spares the creature at its centre; Fireball burns it. That difference lives in
+        // spellSparesItsTarget, so both share this list of everyone ELSE the blast catches.
+        if (spell.getName() !== "Ring of Fire" && spell.getName() !== "Fireball") {
             return [];
         }
         const gs = this.sc_sceneSettings.getGridSettings();
@@ -9374,11 +9377,23 @@ export class Sandbox extends PixiScene {
             // the flame. Centre on the aimed CELL, not a victim, so a large target's off-centre sprite does
             // not shift it.
             const isRing = event.spellName === "Ring of Fire";
-            if (isRing && event.targetCell) {
+            // Fireball shares the ring's BLAST but not its throw: the fireball flies once, bursts on the
+            // unit it hit, and the flame spreads to the cells touching it. So it gets a single sweep from
+            // the caster to the impact, a hot burst at the centre, and the same circle of flame — rather
+            // than the per-victim sweep below, which would draw the throw once per creature caught.
+            const isFireball = event.spellName === "Fireball";
+            if ((isRing || isFireball) && event.targetCell) {
                 const ringCenter = projectBattlefieldPoint(
                     GridMath.getPositionForCell(event.targetCell, gs.getMinX(), gs.getStep(), gs.getHalfStep()),
                     gs,
                 );
+                if (isFireball && visualCasterPosition) {
+                    // The throw itself, drawn once, to where it actually burst — a screening enemy may have
+                    // taken it, and the engine reports that unit's cell.
+                    this.combatVisuals.spawnFireSweep(visualCasterPosition, ringCenter, cellSize);
+                    // The detonation, bigger than the per-victim burns that follow it.
+                    this.combatVisuals.spawnFireBurn(ringCenter, cellSize, 1.45);
+                }
                 this.combatVisuals.spawnFireRing(ringCenter, cellSize);
             }
             if (!event.damaged?.length && !secondary?.length) {
@@ -9426,7 +9441,7 @@ export class Sandbox extends PixiScene {
                     }
                     continue;
                 }
-                if (isThrown && !isRing && visualCasterPosition) {
+                if (isThrown && !isRing && !isFireball && visualCasterPosition) {
                     this.combatVisuals.spawnFireSweep(visualCasterPosition, hitPosition, cellSize);
                 }
                 if (isCalledDownLightning) {
