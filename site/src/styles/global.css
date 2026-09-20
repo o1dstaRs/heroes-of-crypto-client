@@ -548,20 +548,12 @@ code {
 .hero-tagline {
     max-width: 700px;
     margin-inline: auto;
-    margin-bottom: 16px;
+    margin-bottom: 26px;
     color: #fff;
     font-size: clamp(1.3rem, 1.8vw + 0.9rem, 2.05rem);
     font-weight: 800;
     line-height: 1.13;
     text-wrap: balance;
-}
-
-.hero-copy {
-    max-width: 620px;
-    margin-inline: auto;
-    margin-bottom: 28px;
-    color: rgba(251, 244, 232, 0.84);
-    font-size: clamp(1rem, 0.4vw + 0.9rem, 1.08rem);
 }
 
 .hero-actions,
@@ -1283,6 +1275,13 @@ code {
     position: relative;
     margin-inline: auto;
     text-align: center;
+}
+
+.section-lede {
+    max-width: 640px;
+    margin: 16px auto 0;
+    color: rgba(251, 244, 232, 0.8);
+    font-size: clamp(1rem, 0.4vw + 0.9rem, 1.08rem);
 }
 
 .section-heading.centered::before {
@@ -2670,8 +2669,7 @@ html.reveal-on .patches-section {
 
     .hero-content,
     .hero h1,
-    .hero-tagline,
-    .hero-copy {
+    .hero-tagline {
         max-width: none;
     }
 
@@ -2734,10 +2732,6 @@ html.reveal-on .patches-section {
 
     .hero-unit-text strong {
         font-size: 0.9rem;
-    }
-
-    .hero-copy {
-        margin-bottom: 22px;
     }
 
     .hero-actions .button {
@@ -3137,12 +3131,6 @@ html.reveal-on .patches-section {
 
     .hero-tagline {
         margin-bottom: 12px;
-    }
-
-    .hero-copy {
-        margin-bottom: 18px;
-        font-size: 0.96rem;
-        line-height: 1.54;
     }
 
     .hero-actions {
