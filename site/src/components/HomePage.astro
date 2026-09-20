@@ -88,20 +88,17 @@ const factionLabel = (faction: string) => localizedFactionName(lang, faction);
                     {copy.hero.primaryCta}
                 </a>
             </div>
+            <ul class="hero-stats" aria-label={homeLabels.gameStats}>
+                {
+                    heroStats.map((stat) => (
+                        <li>
+                            <strong>{stat.value}</strong>
+                            <span>{stat.label}</span>
+                        </li>
+                    ))
+                }
+            </ul>
         </div>
-    </div>
-</section>
-
-<section class="proof-strip" aria-label={homeLabels.gameStats}>
-    <div class="page-shell proof-grid">
-        {
-            heroStats.map((stat) => (
-                <div class="proof-item">
-                    <strong>{stat.value}</strong>
-                    <span>{stat.label}</span>
-                </div>
-            ))
-        }
     </div>
 </section>
 
