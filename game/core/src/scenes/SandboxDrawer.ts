@@ -1,4 +1,4 @@
-import { Container, Graphics, Matrix, Sprite, Texture } from "pixi.js";
+import { BlurFilter, BufferImageSource, Container, Graphics, Matrix, Sprite, Texture } from "pixi.js";
 import {
     FightProperties,
     FightStateManager,
@@ -126,6 +126,27 @@ export const SHOT_RANGE_CORNER_SPRITE_ANCHOR = { x: 0.137, y: 0.891 } as const;
 /** Each shared source needs its downsampling setup once, before its next GPU upload. */
 const stableShotRangeCornerSources = new WeakSet<object>();
 
+let shotRangeRailTexture: Texture | undefined;
+const smoothShotRangeRailTexture = (): Texture => {
+    if (shotRangeRailTexture) return shotRangeRailTexture;
+    const pixels = new Uint8Array(64 * 4);
+    for (let y = 0; y < 64; y += 1) {
+        // Premultiplied white, fading continuously to transparent at both edges of the strip.
+        const alpha = Math.round(255 * Math.sin((y / 63) * Math.PI) ** 2);
+        pixels.fill(alpha, y * 4, y * 4 + 4);
+    }
+    shotRangeRailTexture = new Texture({
+        source: new BufferImageSource({
+            resource: pixels,
+            width: 1,
+            height: 64,
+            scaleMode: "linear",
+            alphaMode: "premultiplied-alpha",
+        }),
+    });
+    return shotRangeRailTexture;
+};
+
 export interface ShotRangeCornerSpritePlacement {
     xy: HoCMath.XY;
     horizontal: HoCMath.XY;
@@ -134,10 +155,11 @@ export interface ShotRangeCornerSpritePlacement {
 
 /** Scene-owned ornament pool reused while animated range frames repaint. */
 export interface ShotRangeCornerSpritePool {
-    sprites: Sprite[];
+    sprites: (Container & { ornament: Sprite; glow: Sprite })[];
     matrices: Matrix[];
     placements: ShotRangeCornerSpritePlacement[];
     used: number;
+    rails?: Sprite[];
 }
 
 const setShotRangeCornerPlacement = (
@@ -260,6 +282,8 @@ export interface IGameplayDrawContext {
     isActiveUnitMoving: boolean;
     gridSettings: GridSettings;
     hoverGlowPhase: number;
+    /** Real-time phase for corner ornaments, independent of the slower simulation clock. */
+    shotRangePulsePhase?: number;
     currentActivePath?: HoCMath.XY[];
     sc_isAnimating: boolean;
     currentActiveUnit?: RenderableUnit;
@@ -343,6 +367,7 @@ export class SandboxDrawer {
             isActiveUnitMoving,
             gridSettings: gs,
             hoverGlowPhase,
+            shotRangePulsePhase = hoverGlowPhase,
             currentActivePath,
             sc_isAnimating,
             currentActiveUnit,
@@ -421,7 +446,7 @@ export class SandboxDrawer {
                 distance,
                 verticalDistance,
                 gs,
-                hoverGlowPhase,
+                shotRangePulsePhase,
                 SHOT_RANGE_COLOR,
                 narrowingLayers,
                 shotRangeCornerContainer,
@@ -444,7 +469,7 @@ export class SandboxDrawer {
                 distance,
                 verticalDistance,
                 gs,
-                hoverGlowPhase,
+                shotRangePulsePhase,
                 color,
                 narrowingLayers,
                 shotRangeCornerContainer,
@@ -472,7 +497,7 @@ export class SandboxDrawer {
                 distance,
                 verticalDistance,
                 gs,
-                hoverGlowPhase,
+                shotRangePulsePhase,
                 color,
                 narrowingLayers,
                 shotRangeCornerContainer,
@@ -530,6 +555,12 @@ export class SandboxDrawer {
         // The silhouette shows the creature, while these cells show the exact board footprint it will
         // occupy after a move or a melee approach. This is especially important for 2x2 creatures.
         ctx.hoverManager.drawHoverBattlefieldFootprint(g);
+
+        if (shotRangeCornerPool?.rails) {
+            for (let index = shotRangeCornerPool.used; index < shotRangeCornerPool.rails.length; index += 1) {
+                shotRangeCornerPool.rails[index].visible = false;
+            }
+        }
 
         // 3. Active unit indication is the pulsing light-wave aura rendered on the unit itself
         //    (see RenderableUnit.updateActiveAura) — no separate highlight glow here.
@@ -697,7 +728,7 @@ export class SandboxDrawer {
         horizontalHalfExtent: number,
         verticalHalfExtent: number,
         gs: GridSettings,
-        _pulsePhase: number,
+        pulsePhase: number,
         color: number,
         narrowingLayers: number,
         cornerContainer?: Container,
@@ -715,20 +746,25 @@ export class SandboxDrawer {
         const { left, bottom, width, height } = bounds;
         const cellSize = gs.getCellSize();
         const lineWidth = Math.max(1.15, cellSize * SHOT_RANGE_LINE_WIDTH_CELLS);
-        const lineAlpha = 0.83;
-        const cornerAlpha = 0.85;
-        // Keep all four rails one screen pixel wide. A world-space stroke shrinks below a pixel under
-        // the board camera, letting horizontal edges disappear between raster rows (especially without MSAA).
-        g.poly(projectedRectPoints(left, bottom, left + width, bottom + height, gs)).stroke({
-            width: lineWidth,
-            pixelLine: true,
-            color,
-            alpha: lineAlpha,
-            cap: "square",
-            join: "miter",
-        });
+        const lineAlpha = 0.75;
+        const cornerAlpha = 0.8;
+        // The dedicated wall-clock phase completes one smooth breath every 2.5 seconds.
+        const cornerPulse = Math.sin(pulsePhase);
+        const cornerScale = 1 + 0.08 * cornerPulse;
+        const hasCornerArtwork = cornerContainer && cornerTexture && cornerTexture !== Texture.EMPTY;
+        // Texture strips provide continuous edge coverage even when the main renderer disables MSAA.
+        // Keep the vector fallback available while corner artwork is loading.
+        if (!hasCornerArtwork)
+            g.poly(projectedRectPoints(left, bottom, left + width, bottom + height, gs)).stroke({
+                width: lineWidth,
+                pixelLine: true,
+                color,
+                alpha: lineAlpha,
+                cap: "square",
+                join: "miter",
+            });
 
-        if (cornerContainer && cornerTexture && cornerTexture !== Texture.EMPTY) {
+        if (hasCornerArtwork) {
             const source = cornerTexture.source;
             if (!stableShotRangeCornerSources.has(source)) {
                 // The 512 px hammered-metal art is rendered at roughly 20-30 px. Mipmaps keep its tiny
@@ -740,27 +776,68 @@ export class SandboxDrawer {
             }
             const spriteSize = cellSize * SHOT_RANGE_CORNER_SPRITE_SIZE_CELLS;
             const textureWidth = Math.max(1, cornerTexture.width);
-            const scale = spriteSize / textureWidth;
-            for (const placement of shotRangeCornerSpritePlacements(bounds, cornerPool?.placements)) {
-                const cornerIndex = cornerPool?.used ?? 0;
+            const scale = (spriteSize / textureWidth) * cornerScale;
+            const placements = shotRangeCornerSpritePlacements(bounds, cornerPool?.placements);
+            const camera = cornerContainer.getGlobalTransform(new Matrix());
+            const rails = cornerPool ? (cornerPool.rails ??= []) : [];
+            for (let index = 0; index < placements.length; index += 1) {
+                const placement = placements[index];
+                const cornerIndex = cornerPool?.used ?? index;
+                let rail = rails[cornerIndex];
+                if (!rail || rail.destroyed) {
+                    rail = new Sprite(smoothShotRangeRailTexture());
+                    rail.anchor.set(0, 0.5);
+                    rail.eventMode = "none";
+                    rail.roundPixels = false;
+                    rails[cornerIndex] = rail;
+                    cornerContainer.addChild(rail);
+                }
+                const [x, y] = projectedPolyline([placement.xy], gs);
+                const [nextX, nextY] = projectedPolyline([placements[(index + 1) % 4].xy], gs);
+                const dx = nextX - x;
+                const dy = nextY - y;
+                const length = Math.hypot(dx, dy);
+                const screenLength = Math.hypot(camera.a * dx + camera.c * dy, camera.b * dx + camera.d * dy);
+                const normalScale =
+                    (Math.abs(camera.a * camera.d - camera.b * camera.c) * length) / Math.max(screenLength, 1e-6);
+                rail.position.set(x, y);
+                rail.rotation = Math.atan2(dy, dx);
+                // 2.4 px including the feathered edges, with a thin bright centre at every camera zoom.
+                rail.scale.set(length, 2.4 / (64 * Math.max(normalScale, 1e-6)));
+                rail.tint = color;
+                rail.alpha = lineAlpha;
+                rail.visible = true;
                 let corner = cornerPool?.sprites[cornerIndex];
                 if (!corner || corner.destroyed) {
-                    corner = new Sprite(cornerTexture);
-                    corner.anchor.set(SHOT_RANGE_CORNER_SPRITE_ANCHOR.x, SHOT_RANGE_CORNER_SPRITE_ANCHOR.y);
+                    const ornament = new Sprite(cornerTexture);
+                    const glow = new Sprite(cornerTexture);
+                    corner = Object.assign(new Container(), { ornament, glow });
+                    ornament.anchor.set(SHOT_RANGE_CORNER_SPRITE_ANCHOR.x, SHOT_RANGE_CORNER_SPRITE_ANCHOR.y);
+                    ornament.eventMode = "none";
                     corner.eventMode = "none";
                     // The projected corners are rotated/sheared. Pixel snapping makes their vertices jump by a
                     // whole screen pixel during small camera movements, which reads as a metallic shimmer.
-                    corner.roundPixels = false;
+                    ornament.roundPixels = false;
+                    glow.anchor.copyFrom(ornament.anchor);
+                    glow.eventMode = "none";
+                    glow.roundPixels = false;
+                    glow.blendMode = "add";
+                    glow.filters = [new BlurFilter({ strength: 3, quality: 3 })];
+                    corner.addChild(ornament, glow);
                     if (cornerPool) cornerPool.sprites[cornerIndex] = corner;
                     cornerContainer.addChild(corner);
                 } else {
-                    corner.texture = cornerTexture;
+                    corner.ornament.texture = cornerTexture;
                     corner.visible = true;
                 }
                 if (cornerPool) cornerPool.used += 1;
                 const matrix = cornerPool ? (cornerPool.matrices[cornerIndex] ??= new Matrix()) : new Matrix();
                 corner.setFromMatrix(shotRangeCornerSpriteMatrix(placement, scale, cellSize, gs, matrix));
                 corner.alpha = cornerAlpha;
+                // Reuse the halo with its parent, including when the pooled corner changes team color.
+                const glow = corner.glow;
+                glow.texture = cornerTexture;
+                glow.alpha = 0.55 + 0.45 * cornerPulse;
             }
         }
     }

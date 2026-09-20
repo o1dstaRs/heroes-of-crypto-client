@@ -3,6 +3,7 @@ import { RenderableUnit as LevelOneRenderableUnit } from "./LevelOneRenderableUn
 import { usesAuthoredRangedRelease, usesApprovedBaseAnimations } from "../pixi/creatureAnimationSettings";
 import { Assets, Sprite, Graphics, Container, Texture, BlurFilter, RenderTexture, Text, TextStyle } from "pixi.js";
 import { PixiDrawer } from "../pixi/PixiDrawer";
+import { usesAuthoredRangedRelease } from "../pixi/creatureAnimationSettings";
 import {
     SandboxDrawer,
     ALLY_MOVEMENT_INSPECTION_COLOR,
@@ -165,7 +166,7 @@ import { WindLayer } from "./sandbox/WindLayer";
 import { TerrainCellSnapshotCache } from "./sandbox/TerrainCellSnapshotCache";
 import { createCinematicFilter } from "./sandbox/CinematicFilter";
 import { LightingLayer } from "./sandbox/LightingLayer";
-import { MoveAnimationManager } from "./sandbox/MoveAnimationManager";
+import { MOVEMENT_PARTICLES_ENABLED, MoveAnimationManager } from "./sandbox/MoveAnimationManager";
 import { CombatVisuals } from "./sandbox/CombatVisuals";
 import {
     RangedProjectiles,
@@ -883,6 +884,7 @@ export class Sandbox extends PixiScene {
     private readonly revealedOpponentUnitIds = new Set<string>();
     private selectedBoardUnit?: RenderableUnit;
     private creatureAnimationLabEnabled = false;
+    private creatureAnimationLabReservedCells?: HoCMath.XY[];
     // Pointer as received from Pixi, before the painted battlefield is mapped back to the square
     // mechanics grid. Board interaction uses sc_mouseWorld (logical); world-space UI such as the
     // spellbook still needs this unmodified visual point.
@@ -1175,8 +1177,10 @@ export class Sandbox extends PixiScene {
         });
 
         // Procedural smoke for movement tracks — its own layer so the fBM shader only touches dust.
-        this.smokeLayer = new SmokeLayer();
-        this.attachToWorldRoot(this.smokeLayer.getContainer(), 50);
+        if (MOVEMENT_PARTICLES_ENABLED) {
+            this.smokeLayer = new SmokeLayer();
+            this.attachToWorldRoot(this.smokeLayer.getContainer(), 50);
+        }
         // Spell smoke (Wandering Mage). Above the movement dust but below the units, so a creature standing in
         // a cloud is still readable — the cloud is a rule about the cell, not something to hide behind.
         this.smokeCloudLayer = new SmokeCloudLayer();
@@ -1189,8 +1193,10 @@ export class Sandbox extends PixiScene {
         // one a player must never miss, but still well under the units for the same reason as the vines.
         this.fireWallLayer = new FireWallLayer();
         this.attachToWorldRoot(this.fireWallLayer.getContainer(), 53);
-        this.windLayer = new WindLayer();
-        this.attachToWorldRoot(this.windLayer.getContainer(), 50);
+        if (MOVEMENT_PARTICLES_ENABLED) {
+            this.windLayer = new WindLayer();
+            this.attachToWorldRoot(this.windLayer.getContainer(), 50);
+        }
 
         // Cinematic full-scene grade + vignette: post-process the whole game world (camera), which
         // leaves the React/DOM UI untouched and limits the blast radius if the shader misbehaves.
@@ -4370,9 +4376,12 @@ export class Sandbox extends PixiScene {
             capturedVisualCenter ?? this.preDeferredActionUnitHp?.get(impact.targetUnitId)?.visualCenter;
         return {
             target: impactUnit ?? (requestedTarget as RenderableUnit),
-            position: resolveRangeProjectilePlaybackPosition(impact, !!impactUnit, preActionVisualCenter),
+            position: impactUnit
+                ? impactUnit.getProjectileImpactPoint(this.sc_sceneSettings.getGridSettings())
+                : (preActionVisualCenter ?? resolveRangeProjectilePlaybackPosition(impact, false)),
         };
     }
+    /** Finish the previous shot or incoming hit before reserving the next authored ranged action. */
     private async waitForProjectileHitReaction(unit: RenderableUnit): Promise<boolean> {
         const busy = (): boolean =>
             ["hit", "attack", "attack_up", "attack_down"].some((state) => unit.isPlayingOneShotAnimation(state));
@@ -4408,7 +4417,7 @@ export class Sandbox extends PixiScene {
                 : dy > 0
                   ? "attack_up"
                   : "attack_down");
-        if (opts.dryadArrow && authoredShooter) {
+        if ((opts.dryadArrow || opts.medusaArmSerpent) && authoredShooter) {
             await this.fireDryadLabProjectile(unit, opts, state);
             return;
         }
@@ -4605,6 +4614,7 @@ export class Sandbox extends PixiScene {
             : undefined;
         return orderCombatExchange(primary, response);
     }
+    /** Play resolved blows serially; the striker and the struck figure animate together at contact. */
     private async playCombatExchange(
         attacker: RenderableUnit,
         target: RenderableUnit,
@@ -5681,7 +5691,7 @@ export class Sandbox extends PixiScene {
             caster.faceBoardTarget(facingTarget);
         }
         if (caster.hasAnimationState("cast")) {
-            await this.playReplayOneShot(caster, "cast", 720);
+            await this.playReplayOneShot(caster, "cast", caster.getName() === "Wandering Mage" ? 1500 : 720);
         }
 
         // Craft (ALLIES_AREA area cast): capture the pre-cast state NOW so the forge result pops can diff it
@@ -12532,7 +12542,14 @@ export class Sandbox extends PixiScene {
         return this.aiControlledTeams.has(team);
     }
     public override setCreatureAnimationLabEnabled(enabled: boolean): void {
+        if (!enabled && this.creatureAnimationLabEnabled) {
+            this.moveAnimManager.forceFinish();
+            this.creatureAnimationLabReservedCells = undefined;
+        }
         this.creatureAnimationLabEnabled = enabled;
+        for (const unit of this.unitsHolder.getAllUnits().values()) {
+            (unit as RenderableUnit).setCreatureAnimationLabPreviewEnabled(enabled);
+        }
         if (enabled) {
             // This mode never starts a fight, so turn clocks, laps and narrowing cannot advance. Also
             // clear any developer narrowing preview and persisted terrain immediately on entry.
@@ -12544,40 +12561,68 @@ export class Sandbox extends PixiScene {
     }
     /**
      * Animation Lab board input: click a creature to select it, then click any free cell to run there.
-     * Overlay placement deliberately falls through to the regular pre-fight placement path.
+     * Portrait placement and movement both use the whole playground, without deployment zones.
      */
     private handleCreatureAnimationLabBoardClick(point: HoCMath.XY): boolean {
         if (!this.creatureAnimationLabEnabled) {
             return false;
         }
-        if (this.moveAnimManager.isMoving()) {
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const targetAnchor = GridMath.getCellForPosition(gs, point);
+        if (!targetAnchor || !GridMath.isCellWithinGrid(gs, targetAnchor)) return false;
+        if (this.selectionFromOverlay) {
+            this.placeCreatureAnimationLabUnit(targetAnchor);
             return true;
         }
-
-        const clickedUnit = this.getUnitAtPosition(point) as RenderableUnit | undefined;
-        if (clickedUnit) {
+        const selectedUnit = this.getCreatureAnimationLabUnit();
+        // Tall artwork must not swallow a destination click on the ground behind it.
+        const clickedUnit = this.getGridUnitAtPosition(point) as RenderableUnit | undefined;
+        if (clickedUnit && clickedUnit !== selectedUnit) {
             this.selectCreatureAnimationLabUnit(clickedUnit);
             this.sc_sceneLog.updateLog(`${clickedUnit.getName()}: selected for endless movement`);
             return true;
-        }
-        // An empty-cell click with a portrait selected is still the initial placement gesture.
-        if (this.selectionFromOverlay) {
-            return false;
         }
 
         const selected = this.creatureAnimationLabPlacedUnit();
         if (!selected.ok || !selected.unit) {
             return false;
         }
-        const targetAnchor = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), point);
-        if (!targetAnchor || !GridMath.isCellWithinGrid(this.sc_sceneSettings.getGridSettings(), targetAnchor)) {
-            return true;
-        }
         const result = this.moveCreatureAnimationLabUnitToAnchor(selected.unit, targetAnchor);
         this.sc_sceneLog.updateLog(result.message);
         return true;
     }
+    private placeCreatureAnimationLabUnit(anchor: HoCMath.XY): void {
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const preview = this.getPlacementPreviewUnit();
+        if (!preview) return;
+        const cells = preview.getFootprintCellsForAnchor(anchor);
+        if (!cells.every((cell) => GridMath.isCellWithinGrid(gs, cell) && !this.grid.getOccupantUnitId(cell))) {
+            this.sc_sceneLog.updateLog("Выберите свободное место для существа");
+            return;
+        }
+        const position = GridMath.getPositionForCells(gs, cells);
+        if (!position) return;
+        const team = anchor.y >= gs.getGridSize() / 2 ? TeamVals.RIGHT : TeamVals.LEFT;
+        const unit = this.createUnitForTeam(team);
+        if (!unit) return;
+        if (!this.grid.occupyCells(cells, unit.getId(), team, unit.getAttackRange(), true, true)) {
+            this.unitsHolder.deleteUnitById(unit.getId());
+            return;
+        }
+        unit.setPosition(position.x, position.y);
+        unit.setVisualScaleMultiplier(1);
+        unit.setBoardFacing(placementFacingDirectionForTeam(team));
+        unit.ensureVisual(this.drawer.getUnitsContainer(), gs);
+        this.selectionFromOverlay = false;
+        this.unitsOverlay.clearSelection(true);
+        this.selectCreatureAnimationLabUnit(unit);
+        this.gridMatrix = this.grid.getMatrix();
+        this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
+        this.layoutVersion++;
+        this.sc_visibleStateUpdateNeeded = true;
+    }
     private selectCreatureAnimationLabUnit(unit: RenderableUnit): void {
+        unit.setCreatureAnimationLabPreviewEnabled(true);
         if (this.selectedBoardUnit && this.selectedBoardUnit !== unit) {
             this.selectedBoardUnit.setBoardSelected(false);
         }
@@ -12610,7 +12655,9 @@ export class Sandbox extends PixiScene {
         if (!unit) {
             return { ok: false, message: "Выберите существо на поле" };
         }
-        const isPlaced = unit.getCells().some((cell) => this.grid.getOccupantUnitId(cell) === unit.getId());
+        const isPlaced =
+            this.moveAnimManager.getMovingUnit() === unit ||
+            unit.getCells().some((cell) => this.grid.getOccupantUnitId(cell) === unit.getId());
         if (!isPlaced) {
             return { ok: false, message: "Сначала поставьте выбранное существо на поле" };
         }
@@ -12623,6 +12670,12 @@ export class Sandbox extends PixiScene {
         const selected = this.creatureAnimationLabPlacedUnit();
         const unit = selected.unit;
         if (!selected.ok || !unit) return selected;
+        if (unit.getName() === "Wolf") {
+            // The melee-only Wolf uses the same attack family in the lab and combat.
+            if (state === "melee_attack") state = "attack";
+            else if (state === "melee_attack_up") state = "attack_up";
+            else if (state === "melee_attack_down") state = "attack_down";
+        }
         if (state === "idle") {
             unit.returnToIdleAnimation();
             return { ok: true, message: `${unit.getName()}: idle` };
@@ -12630,15 +12683,87 @@ export class Sandbox extends PixiScene {
         if (!unit.hasAnimationState(state)) {
             return { ok: false, message: `У ${unit.getName()} нет атласа ${state}` };
         }
+        if (
+            ["Orc", "Arbalester", "Centaur", "Dryad", "Elf", "Medusa"].includes(unit.getName()) &&
+            ["attack", "attack_up", "attack_down"].includes(state)
+        ) {
+            const arbalester = unit.getName() === "Arbalester";
+            const centaur = unit.getName() === "Centaur";
+            const dryad = ["Dryad", "Elf"].includes(unit.getName());
+            const medusa = unit.getName() === "Medusa";
+            if (
+                unit.isPlayingOneShotAnimation() ||
+                this.rangedProjectiles.hasActive() ||
+                (arbalester && unit.hasPendingArbalesterRangedShot()) ||
+                ((dryad || medusa) && unit.hasPendingDryadRangedShot())
+            ) {
+                return { ok: false, message: "Дождитесь окончания выстрела" };
+            }
+            const gs = this.sc_sceneSettings.getGridSettings();
+            const from = unit.getVisualCenter(gs);
+            const dy = state === "attack_up" ? 1 : state === "attack_down" ? -1 : 0;
+            const targets = [...this.unitsHolder.getAllUnits().values()].filter((candidate) => {
+                if (candidate.getId() === unit.getId() || (!arbalester && candidate.getTeam() === unit.getTeam()))
+                    return false;
+                if (
+                    !candidate.getCells().some((cell) => this.grid.getOccupantUnitId(cell) === candidate.getId()) ||
+                    (candidate as RenderableUnit).isPlayingOneShotAnimation("death")
+                )
+                    return false;
+                const delta = candidate.getPosition().y - unit.getPosition().y;
+                return dy === 0 ? Math.abs(delta) < gs.getCellSize() * 0.5 : delta * dy > 0;
+            });
+            targets.sort((a, b) => {
+                // The lab's forced Arbalester preview also uses friendly figures as practice targets.
+                const teamPriority = Number(a.getTeam() === unit.getTeam()) - Number(b.getTeam() === unit.getTeam());
+                return (
+                    teamPriority ||
+                    Math.hypot(a.getPosition().x - unit.getPosition().x, a.getPosition().y - unit.getPosition().y) -
+                        Math.hypot(b.getPosition().x - unit.getPosition().x, b.getPosition().y - unit.getPosition().y)
+                );
+            });
+            const target = targets[0] as RenderableUnit | undefined;
+            const side = from.x < (gs.getMinX() + gs.getMaxX()) / 2 ? 1 : -1;
+            const to = target?.getProjectileImpactPoint(gs) ?? {
+                x: from.x + side * gs.getCellSize() * 4,
+                y: from.y + dy * gs.getCellSize() * 2,
+            };
+            void this.fireUnitProjectile(
+                unit,
+                {
+                    from,
+                    to,
+                    big: false,
+                    orcAxe: !arbalester && !centaur && !dryad && !medusa,
+                    arbalesterBolt: arbalester,
+                    centaurSpear: centaur,
+                    dryadArrow: dryad,
+                    medusaSerpent: medusa,
+                    onImpact: target
+                        ? () => {
+                              if (
+                                  this.isSceneDestroyed() ||
+                                  this.unitsHolder.getAllUnits().get(target.getId()) !== target ||
+                                  target.isPlayingOneShotAnimation("death")
+                              )
+                                  return;
+                              target.playOneShotAnimation("hit", undefined, true);
+                          }
+                        : undefined,
+                },
+                state,
+            );
+            return {
+                ok: true,
+                message: `${unit.getName()}: ${arbalester || dryad || medusa ? "выстрел" : "бросок"} ${dy > 0 ? "↑" : dy < 0 ? "↓" : "→"}`,
+            };
+        }
         const started = unit.playOneShotAnimation(state, undefined, true);
         return started
             ? { ok: true, message: `${unit.getName()}: ${state}` }
             : { ok: false, message: `Не удалось запустить ${state} для ${unit.getName()}` };
     }
     public override moveCreatureAnimationLabSelection(dx: number, dy: number): CreatureAnimationLabResult {
-        if (this.moveAnimManager.isMoving()) {
-            return { ok: false, message: "Дождитесь окончания движения" };
-        }
         const selected = this.creatureAnimationLabPlacedUnit();
         const unit = selected.unit;
         if (!selected.ok || !unit) return selected;
@@ -12711,21 +12836,26 @@ export class Sandbox extends PixiScene {
         unit: RenderableUnit,
         targetAnchor: HoCMath.XY,
     ): CreatureAnimationLabResult {
-        if (this.moveAnimManager.isMoving()) {
-            return { ok: false, message: "Дождитесь окончания движения" };
+        const movingUnit = this.moveAnimManager.getMovingUnit();
+        if (this.moveAnimManager.isMoving() && movingUnit !== unit) {
+            return { ok: false, message: "Сейчас движется другое существо" };
         }
-        unit.returnToIdleAnimation();
         const startPosition = { ...unit.getPosition() };
         const startCell = unit.getBaseCell();
         const route = this.findCreatureAnimationLabRoute(unit, startCell, targetAnchor);
         if (!route) {
             return { ok: false, message: "До этой клетки нет свободного пути" };
         }
-        if (route.length < 2) {
+        if (route.length < 2 && movingUnit !== unit) {
             return { ok: false, message: "Существо уже стоит на этой клетке" };
         }
         const targetCells = unit.getFootprintCellsForAnchor(targetAnchor);
-        const startCells = unit.getCells();
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const targetPosition = GridMath.getPositionForCells(gs, targetCells);
+        if (!targetPosition) {
+            return { ok: false, message: "Не удалось определить клетку назначения" };
+        }
+        const startCells = this.creatureAnimationLabReservedCells ?? unit.getCells();
         this.grid.cleanupAll(unit.getId(), unit.getAttackRange(), unit.isSmallSize());
         // A normal place_unit action is intentionally restricted to each team's deployment zone. The
         // playground is not deployment: restamp the already-existing unit directly so every free board
@@ -12743,25 +12873,26 @@ export class Sandbox extends PixiScene {
             return { ok: false, message: "Клетка занята или находится за пределами карты" };
         }
 
-        const gs = this.sc_sceneSettings.getGridSettings();
-        const targetPosition = GridMath.getPositionForCells(gs, targetCells);
-        if (!targetPosition) {
-            return { ok: false, message: "Не удалось определить клетку назначения" };
-        }
-
+        // Validate and reserve the new route before cancelling the old one. Cancel keeps the current
+        // interpolated position and does not fire the old completion callback or teleport to its end.
+        if (movingUnit === unit) this.moveAnimManager.cancel();
+        unit.returnToIdleAnimation();
+        this.creatureAnimationLabReservedCells = targetCells;
         this.gridMatrix = this.grid.getMatrix();
         this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
         unit.setPosition(startPosition.x, startPosition.y);
         const worldPath = route.map((anchor) => this.footprintCenterForAnchor(unit, anchor));
         worldPath[0] = startPosition;
+        if (worldPath.length === 1) worldPath.push(targetPosition);
         this.moveAnimManager.startMoveAnimation(
             unit,
             worldPath,
-            gs.getCellSize() * Sandbox.CREATURE_ANIMATION_LAB_MOVE_SPEED_FACTOR,
+            gs.getCellSize() * Sandbox.MOVE_SPEED_FACTOR,
             targetAnchor,
             route,
             () => {
                 unit.setPosition(targetPosition.x, targetPosition.y);
+                this.creatureAnimationLabReservedCells = undefined;
                 this.layoutVersion++;
                 this.sc_visibleStateUpdateNeeded = true;
             },
@@ -12769,7 +12900,7 @@ export class Sandbox extends PixiScene {
         this.isActiveUnitMoving = true;
         return {
             ok: true,
-            message: `${unit.getName()}: быстрый бег в клетку ${targetAnchor.x}, ${targetAnchor.y}`,
+            message: `${unit.getName()}: движение в клетку ${targetAnchor.x}, ${targetAnchor.y}`,
         };
     }
     /**
@@ -15590,7 +15721,7 @@ export class Sandbox extends PixiScene {
         for (const unit of this.unitsHolder.getAllUnits().values()) {
             const rUnit = unit as RenderableUnit;
             rUnit.setHoverTurnAura(!fightProps.hasFightStarted() && this.hoverManager.hoveredUnitId === rUnit.getId());
-            if (!fightProps.hasFightStarted()) {
+            if (!fightProps.hasFightStarted() && !this.creatureAnimationLabEnabled) {
                 // Placement is a face-off: red/RIGHT models are mirrored toward the left, while
                 // green/LEFT models keep facing right. Re-assert every frame so dragging or hydration
                 // cannot leave a unit with stale combat-facing from a previous scene state.
@@ -15598,7 +15729,11 @@ export class Sandbox extends PixiScene {
             }
             // Use PixiDrawer's unit container (Z=1000), not worldRoot directly.
             // This ensures units are ALWAYS above terrain (Z=20) and overlay (Z=60) but depth sorted inside.
-            rUnit.syncVisual(this.drawer.getUnitsContainer(), this.sc_sceneSettings.getGridSettings());
+            rUnit.syncVisual(
+                this.drawer.getUnitsContainer(),
+                this.sc_sceneSettings.getGridSettings(),
+                this.moveAnimManager.isUnitMoving(rUnit),
+            );
             depthSortableUnits.push(rUnit);
             // Animation atlases must keep ticking while the unit moves. Previously the moving branch
             // skipped this call and only applied the generic bob/tilt, leaving Wandering Mage's authored

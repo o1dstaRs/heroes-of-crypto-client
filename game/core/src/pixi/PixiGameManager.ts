@@ -23,6 +23,7 @@ import { Signal } from "typed-signals";
 
 import {
     IHoverInfo,
+    IUnitInspection,
     IVisibleButton,
     IVisibleOverallImpact,
     IVisibleState,
@@ -113,6 +114,8 @@ export class PixiGameManager {
     public readonly onVisibleStateUpdated = new Signal<(visibleState: IVisibleState) => void>();
     // public readonly onVisibleOverallImpactUpdated = new Signal<(impact: IVisibleOverallImpact) => void>();
     public readonly onHoverInfoUpdated = new Signal<(hover: IHoverInfo) => void>();
+    public readonly onUnitInspectionUpdated = new Signal<(inspection: IUnitInspection | null) => void>();
+    private lastInspectedUnit: UnitProperties | undefined;
     public readonly onSelectionCombined = new Signal<
         (payload: { unit: UnitProperties | null; impact: IVisibleOverallImpact | null; faction: FactionType }) => void
     >();
@@ -939,6 +942,8 @@ export class PixiGameManager {
         this.disconnectSceneStartListeners();
         this.m_scene?.Destroy();
         this.started = false;
+        this.lastInspectedUnit = undefined;
+        this.onUnitInspectionUpdated.emit(null);
         this.lastAuthoritativeViewportKey = "";
         if (_restartScene) {
             this.onSelectionCombined.emit({
@@ -1174,6 +1179,7 @@ export class PixiGameManager {
 
         // Unit / faction updates
         const scene = this.m_scene;
+        this.updateUnitInspection();
         if (scene) {
             // ✅ Combined selection: unit + impact + faction
             if (scene.sc_unitPropertiesUpdateNeeded || scene.sc_factionNameUpdateNeeded) {
@@ -1237,6 +1243,19 @@ export class PixiGameManager {
             this.onHasButtonsGroupUpdate.emit(this.m_scene?.sc_visibleButtonGroup ?? []);
             this.m_scene.sc_buttonGroupUpdated = false;
         }
+    }
+    private updateUnitInspection(): void {
+        const scene = this.m_scene;
+        const inspectedUnit = this.m_hoveringCanvas
+            ? (getUnitsOverlayFromScene(scene)?.getHoveredUnitProperties() ?? scene?.sc_hoveredUnitProperties)
+            : undefined;
+        if (inspectedUnit === this.lastInspectedUnit && !(inspectedUnit && scene?.sc_unitPropertiesUpdateNeeded)) {
+            return;
+        }
+        this.lastInspectedUnit = inspectedUnit;
+        this.onUnitInspectionUpdated.emit(
+            inspectedUnit && scene ? { unit: inspectedUnit, impact: scene.getUnitVisibleImpact(inspectedUnit) } : null,
+        );
     }
     private sceneHasHoverInfo(): boolean {
         return (

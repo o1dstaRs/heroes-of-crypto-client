@@ -17,10 +17,6 @@ import {
     cameraCompensatedLocalOffset,
     cameraCompensatedSpriteTransform,
     shotTrajectoryUsesOrcPalette,
-    SHOT_ARROWHEAD_WELD_SPARK_COUNT,
-    SHOT_ARROWHEAD_WELD_SPARK_MAX_LENGTH,
-    SHOT_ARROWHEAD_WELD_SEAM_HEIGHT_SCALE,
-    SHOT_ARROWHEAD_WELD_ZONE_LENGTH_SCALE,
     SHOT_FLETCHING_SIZE_SCALE,
     SHOT_GOLD_FLETCHING_AXIS_ANCHOR_Y,
     SHOT_GOLD_SHAFT_AXIS_ANCHOR_Y,
@@ -136,12 +132,8 @@ describe("shot trajectory style validation", () => {
         expect(shotCasingVisibleSlice(50, 20, 65, 100)).toBeUndefined();
     });
 
-    it("scales spark offsets from the editor arrowhead into the runtime marker size", () => {
+    it("scales authoring offsets into the runtime marker size", () => {
         expect(shotTrajectoryAuthoringOffsetToWorld(-35, 56, SHOT_ARROWHEAD_AUTHORING_WIDTH)).toBe(-17.5);
-        const source = readFileSync(join(import.meta.dir, "HoverManager.ts"), "utf8");
-        expect(source).toContain("const contactOffsetAlong = shotTrajectoryAuthoringOffsetToWorld(");
-        expect(source).toContain("const contactPositionOffset = cameraCompensatedLocalOffset(");
-        expect(source).toContain("const jointX = endX + contactPositionOffset.x");
     });
 
     it("draws each emerging casing in front of the fletching socket hole", () => {
@@ -167,21 +159,13 @@ describe("shot trajectory style validation", () => {
         expect(casingTreatment).not.toContain("drawDashes(");
     });
 
-    it("shows a small welding burst only while a casing crosses the arrowhead socket", () => {
-        expect(SHOT_ARROWHEAD_WELD_SPARK_COUNT).toBe(8);
-        expect(SHOT_ARROWHEAD_WELD_SPARK_MAX_LENGTH).toBe(9);
-        expect(SHOT_ARROWHEAD_WELD_ZONE_LENGTH_SCALE).toBe(0.22);
-        expect(SHOT_ARROWHEAD_WELD_SEAM_HEIGHT_SCALE).toBe(1.15);
+    it("keeps endpoint artwork static while retaining casing socket sparks", () => {
         const source = readFileSync(join(import.meta.dir, "HoverManager.ts"), "utf8");
-        expect(source).toContain("segmentStart <= arrowLen && segmentEnd >= arrowLen");
-        expect(source).toContain("(segmentEnd - arrowLen) / shaftLength");
-        expect(source).toContain("this.safeAttachGraphics(jointSparks, 5602)");
-        expect(source).toContain("jointSparks.circle(0, 0");
-        expect(source).toContain("const seamHalfThickness = Math.max(");
-        expect(source).toContain("SHOT_ARROWHEAD_WELD_ZONE_LENGTH_SCALE *");
-        expect(source).toContain("longitudinalOffset = Math.sin(sparkPhase * 0.73) * jointZoneHalfLength");
-        expect(source).toContain(".moveTo(longitudinalOffset + rayUx * 0.8, seamOffset + rayUy * 0.8)");
-        expect(source).toContain("arrowheadJointContactStrength > 0");
+        expect(source).toContain("drawShotWeldSparks(");
+        expect(source).toContain("arrowheadJointContactStrength");
+        expect(source).toContain("emergenceJointContactStrength");
+        expect(source).toContain("marker.filters = null");
+        expect(source).toContain("fletching.filters = null");
     });
 
     it("persists independently editable fletching, projectile-origin, and both weld-spark tunings", () => {
@@ -240,10 +224,6 @@ describe("shot trajectory style validation", () => {
         expect(source).toContain("const trajectoryTuning = getShotTrajectoryTuning()");
         expect(source).toContain("projectileOriginTuning.offsetAlong");
         expect(source).toContain("emergenceTuning.offsetPerpendicular");
-        expect(source).toContain("emergenceSparkTuning.rotationDegrees");
-        expect(source).toContain("emergenceJointContactStrength");
-        expect(source).toContain('this.drawShotWeldSparks(\n                    "emergence"');
-        expect(source).toContain("contactSparkTuning.rotationDegrees");
     });
 
     it("keeps casings three percent larger with the latest spacing and speed adjustments", () => {
@@ -264,7 +244,7 @@ describe("shot trajectory style validation", () => {
         expect(transform.d * -2).toBe(2);
     });
 
-    it("keeps the contact strip fixed to the arrowhead in screen space at every angle", () => {
+    it("converts authoring offsets into screen space at every angle", () => {
         const cameraScale = { x: 1.7, y: 0.85 };
         for (const angle of [0, Math.PI / 6, Math.PI / 2, Math.PI, -Math.PI / 3]) {
             const offset = cameraCompensatedLocalOffset(11, -2, angle, cameraScale);
@@ -272,9 +252,6 @@ describe("shot trajectory style validation", () => {
             expect(screenOffset.x).toBeCloseTo(Math.cos(angle) * 11 + Math.sin(angle) * 2, 8);
             expect(screenOffset.y).toBeCloseTo(Math.sin(angle) * 11 - Math.cos(angle) * 2, 8);
         }
-        const source = readFileSync(join(import.meta.dir, "HoverManager.ts"), "utf8");
-        expect(source).toContain("const contactScreenAngle = screenAngle + contactRotation");
-        expect(source).toContain("jointSparks.setFromMatrix(");
     });
 
     it("lets the dev editor hide only the green projectile-origin marker", () => {

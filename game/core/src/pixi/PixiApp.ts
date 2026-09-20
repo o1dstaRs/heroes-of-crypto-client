@@ -2,7 +2,8 @@
 // Side-effect import: patches PIXI's renderer to use eval-free polyfills for shader/UBO
 // codegen, so it works under a CSP without 'unsafe-eval'. MUST run before Application.init().
 import "pixi.js/unsafe-eval";
-import { Application, Container, TexturePool, Ticker, UPDATE_PRIORITY } from "pixi.js";
+import { Application, Container, Ticker } from "pixi.js";
+import { releaseIdlePixiTextures } from "./releaseIdlePixiTextures";
 
 import { boardFitVerticalShift } from "./boardFit";
 import { renderResolutionForViewport, renderTexturePoolBucket, shouldUseRenderAntialias } from "./renderResolution";
@@ -52,10 +53,6 @@ export class PixiApp {
             background: 0x000000,
         });
         this.renderTexturePoolBucket = renderTexturePoolBucket(width, height, DPR);
-        // Dev-only handle for headless probes (walk the stage after a render error); never set in builds.
-        if (import.meta.env.DEV) {
-            (globalThis as { __hocPixiApp?: Application }).__hocPixiApp = this.app;
-        }
 
         // --- World containers ---
         this.camera = new Container(); // we pan/zoom this one
@@ -91,37 +88,9 @@ export class PixiApp {
         // The simulation advances at MAX_FPS too. ProMotion/high-refresh displays otherwise make Pixi
         // draw the same state two or more times and run every filter again for no visible game update.
         this.ticker.maxFPS = MAX_FPS;
-        this.installGuardedRender();
 
         // Default camera: center world and fit bounds once caller sets zoom
         this.setupRendering(width, height);
-    }
-    private installGuardedRender(): void {
-        // Pixi registers `app.render` on the ticker at LOW priority (TickerPlugin). A single destroyed
-        // texture reaching a bind — an async Assets.unload racing a sprite that still holds a derived
-        // frame (pager page, atlas frame, leased texture) — throws inside renderer.render with
-        // "Cannot read properties of null (reading 'addressModeU')" and, uncaught, kills EVERY
-        // subsequent frame: the canvas goes permanently blank. Re-register the same call behind a
-        // guard so one bad texture only skips the visual frame; the simulation keeps running and
-        // rendering resumes once the emitter is gone (texture re-resolved, scene rebuilt).
-        const app = this.app;
-        app.ticker.remove(app.render, app);
-        let renderFailures = 0;
-        app.ticker.add(
-            () => {
-                try {
-                    app.render();
-                    renderFailures = 0;
-                } catch (error) {
-                    renderFailures += 1;
-                    if (renderFailures === 1 || renderFailures % 600 === 0) {
-                        console.error("[PixiApp] render failed; skipping frame and continuing", error);
-                    }
-                }
-            },
-            undefined,
-            UPDATE_PRIORITY.LOW,
-        );
     }
     private setupRendering(width: number, height: number): void {
         const c = this.app.canvas as HTMLCanvasElement;
@@ -174,7 +143,7 @@ export class PixiApp {
             // Pixi's global filter pool otherwise retains the previous full-screen buffers forever. This
             // runs between animation frames and only at a physical power-of-two boundary, avoiding churn
             // during the many small resize events emitted while a window is dragged.
-            TexturePool.clear();
+            releaseIdlePixiTextures();
         }
         this.renderTexturePoolBucket = nextPoolBucket;
         // Sandbox installs its camera-wide cinematic pass at the renderer resolution that existed when
@@ -201,7 +170,7 @@ export class PixiApp {
         // Filter render targets live in Pixi's process-wide pool, outside Application ownership. Clear
         // the idle pool before losing this renderer so a later game mount cannot retain buffers from the
         // previous WebGL context (including a former fullscreen bucket).
-        TexturePool.clear();
+        releaseIdlePixiTextures();
         // pixi's GlContextSystem.destroy() (run inside app.destroy below) unconditionally calls
         // WEBGL_lose_context.loseContext(), permanently disabling this canvas's WebGL context.
         // Record the context + restore handle FIRST, so a later PixiApp.init() against the same
@@ -235,6 +204,7 @@ export class PixiApp {
         } catch (err) {
             console.warn("Pixi app destroy skipped after partial teardown", err);
         }
+        releaseIdlePixiTextures();
     }
     public setCameraPosition(cx: number, cy: number): void {
         if (!this.app?.renderer || !this.camera) {

@@ -1,4 +1,3 @@
-import { usesApprovedBaseAnimations } from "../../pixi/creatureAnimationSettings";
 import { RenderableUnit } from "../RenderableUnit";
 import { GridSettings, HoCMath, TeamType, GridMath } from "@heroesofcrypto/common";
 import { HoverManager } from "../HoverManager";
@@ -8,6 +7,9 @@ import {
     projectedBattlefieldMetricsAtPoint,
     type MutableProjectedBattlefieldMetrics,
 } from "./BattlefieldVisualGrid";
+
+/** Movement uses the creature animation alone, without ground dust or airborne trails. */
+export const MOVEMENT_PARTICLES_ENABLED = false;
 
 // Rapid Charge: a fast accelerating dash with a motion-blur streak instead of a flat-speed glide.
 const RC_MIN_SPEED_MULT = 0.7; // starts a touch slower than a normal move...
@@ -34,6 +36,7 @@ interface IMoveAnimationState {
     unit: RenderableUnit;
     worldPath: HoCMath.XY[];
     currentSegment: number;
+    walkedDistanceCells: number;
     t: number;
     speed: number;
     destCell: HoCMath.XY;
@@ -46,7 +49,6 @@ interface IMoveAnimationState {
     // Rapid Charge: accelerate toward the destination + leave a blurred afterimage trail.
     rapidCharge: boolean;
     totalSegments: number;
-    walkedDistanceCells: number;
     lastAfterimageWorld: HoCMath.XY;
     nextFootstepDistance: number;
     footstepIndex: number;
@@ -118,6 +120,13 @@ export class MoveAnimationManager {
     }
     public isMoving(): boolean {
         return !!this.moveAnimation || !!this.swapAnimation;
+    }
+    public isUnitMoving(unit: RenderableUnit): boolean {
+        return (
+            this.moveAnimation?.unit === unit ||
+            this.swapAnimation?.a.unit === unit ||
+            this.swapAnimation?.b.unit === unit
+        );
     }
     /**
      * Force any in-flight move/swap animation to its end state immediately, firing its onComplete so
@@ -199,18 +208,16 @@ export class MoveAnimationManager {
             firstHorizontalSegment > 0
                 ? worldPath[firstHorizontalSegment].x - worldPath[firstHorizontalSegment - 1].x
                 : 0;
-        // Every worldPath segment is one accepted board step, matching moveTrackProgress below.
-        const travelDistanceCells = usesApprovedBaseAnimations(unit.getUnitProperties().name)
-            ? worldPath
-                  .slice(1)
-                  .reduce(
-                      (sum, point, index) =>
-                          sum +
-                          Math.hypot(point.x - worldPath[index].x, point.y - worldPath[index].y) /
-                              this.context.getGridSettings().getCellSize(),
-                      0,
-                  )
-            : Math.max(0, worldPath.length - 1);
+        // Measure actual travel, including diagonal and partial segments, in board-cell lengths.
+        const cellSize = this.context.getGridSettings().getCellSize();
+        const travelDistanceCells = worldPath.reduce(
+            (distance, point, index) =>
+                index === 0
+                    ? distance
+                    : distance +
+                      Math.hypot(point.x - worldPath[index - 1].x, point.y - worldPath[index - 1].y) / cellSize,
+            0,
+        );
         unit.startBoardWalkAnimation(initialHorizontalDirection, travelDistanceCells);
         // Rapid Charge dash (accelerate + motion blur) ONLY when this move leads into a melee attack —
         // the caller passes rapidCharge=true for a move+attack approach, never for a plain reposition —
@@ -228,6 +235,7 @@ export class MoveAnimationManager {
             unit,
             worldPath,
             currentSegment: 0,
+            walkedDistanceCells: 0,
             t: 0,
             // Animation cadence is independent from interpolation. Authored walkers travel at the
             // same speed as every other grounded unit; their sprite loop handles short paths itself.
@@ -240,7 +248,6 @@ export class MoveAnimationManager {
             waitingForLanding: false,
             rapidCharge: useRapidCharge,
             totalSegments: Math.max(1, worldPath.length - 1),
-            walkedDistanceCells: 0,
             lastAfterimageWorld: { x: start.x, y: start.y },
             // Frame 0 is an authored support pose. Emit its contact on the first moving tick, then
             // alternate at frame 4 / frame 0 every half gait cycle.
@@ -388,8 +395,8 @@ export class MoveAnimationManager {
             const segLen = Math.sqrt(dx * dx + dy * dy) || 1e-6;
             const segRemaining = (1 - a.t) * segLen;
             const segmentStartProgress = segIndex + a.t;
-            a.walkedDistanceCells += Math.min(remaining, segRemaining) / cellSize;
 
+            a.walkedDistanceCells += Math.min(remaining, segRemaining) / cellSize;
             let newPos: HoCMath.XY;
 
             if (remaining >= segRemaining) {
@@ -409,7 +416,7 @@ export class MoveAnimationManager {
                 remaining = 0;
             }
 
-            if (isLargeUnit && isFlying) {
+            if (MOVEMENT_PARTICLES_ENABLED && isLargeUnit && isFlying) {
                 // Space the large-unit puffs further apart so they read as one cohesive trailing
                 // cloud rather than a dense stream of many small particles.
                 const spacing = cellSize * 1.5;
@@ -432,15 +439,10 @@ export class MoveAnimationManager {
             }
 
             this.moveTrackProgress = a.currentSegment + a.t;
-            // Synchronize spatially-authored phases to path progress: Fairy finishes take-off inside
-            // its opening distance span, while Peasant/Squire/Wandering Mage/Troll keep gait locked to cells.
-            unit.setBoardWalkDistanceCells(
-                usesApprovedBaseAnimations(unit.getUnitProperties().name)
-                    ? a.walkedDistanceCells
-                    : this.moveTrackProgress,
-            );
+            // Keep sprite cadence independent of path segmentation, direction and movement speed.
+            unit.setBoardWalkDistanceCells(a.walkedDistanceCells);
 
-            if (!isFlying) {
+            if (MOVEMENT_PARTICLES_ENABLED && !isFlying) {
                 this.dropWalkDustAtCellCenters(
                     a,
                     segmentStartProgress,
@@ -469,7 +471,13 @@ export class MoveAnimationManager {
                 }
             }
 
-            if (!isLargeUnit && isFlying && this.moveTrackPath && this.moveTrackPath.length > 0) {
+            if (
+                MOVEMENT_PARTICLES_ENABLED &&
+                !isLargeUnit &&
+                isFlying &&
+                this.moveTrackPath &&
+                this.moveTrackPath.length > 0
+            ) {
                 const idx = Math.floor(this.moveTrackProgress);
                 // Skip the final cell (the destination) — dust only trails behind, not where it lands.
                 if (idx >= 0 && idx < this.moveTrackPath.length - 1 && idx !== this.lastTrackDropIndex) {

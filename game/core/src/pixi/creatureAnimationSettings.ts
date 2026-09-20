@@ -2,7 +2,7 @@
 // enabling it does not enable older animation sheets or special flourishes for other creatures.
 export const CREATURE_SPRITE_ANIMATION_SETTINGS = { enabled: false, approvedBaseEnabled: true };
 
-// The approved level-one package uses the same renderer in combat and the animation lab.
+// Approved creature packages use the same renderer in combat and the animation lab.
 // Keep the global switch off so unrelated creature tiers retain their existing presentation.
 const APPROVED_BASE_ANIMATION_UNITS = new Set([
     "Blacksmith",
@@ -11,6 +11,7 @@ const APPROVED_BASE_ANIMATION_UNITS = new Set([
     "Arbalester",
     "Fairy",
     "Dryad",
+    "Elf",
     "Wolf",
     "Leprechaun",
     "Scavenger",
@@ -21,6 +22,13 @@ const APPROVED_BASE_ANIMATION_UNITS = new Set([
     "Berserker",
     "Centaur",
     "Wolf Rider",
+    "White Tiger",
+    "Manticore",
+    "Valkyrie",
+    "Healer",
+    "Battle Mage",
+    "Troll",
+    "Medusa",
 ]);
 
 export const usesApprovedBaseAnimations = (unitName: string): boolean =>
@@ -28,11 +36,69 @@ export const usesApprovedBaseAnimations = (unitName: string): boolean =>
 
 // These shooters release their projectile from an authored frame, in every scene.
 export const usesAuthoredRangedRelease = (unitName: string): boolean =>
-    ["Orc", "Arbalester", "Dryad", "Centaur"].includes(unitName);
+    ["Orc", "Arbalester", "Dryad", "Centaur", "Elf", "Medusa"].includes(unitName);
 
 // Approved movement and Squire reactions must be decoded before their first use in combat,
 // including while the global creature-animation freeze remains in place.
 const UNIT_ATLASES_USED_WHILE_ANIMATIONS_DISABLED = new Set([
+    "white_tiger_lab_walk_atlas",
+    "white_tiger_lab_idle_atlas",
+    "white_tiger_lab_hit_atlas",
+    "white_tiger_lab_death_atlas",
+    "white_tiger_lab_melee_attack_atlas",
+    "white_tiger_lab_melee_attack_up_atlas",
+    "white_tiger_lab_melee_attack_down_atlas",
+    "elf_lab_walk_atlas",
+    "elf_lab_idle_atlas",
+    "elf_lab_hit_atlas",
+    "elf_lab_death_atlas",
+    "elf_lab_melee_attack_atlas",
+    "elf_lab_melee_attack_up_atlas",
+    "elf_lab_melee_attack_down_atlas",
+    "elf_lab_attack_atlas",
+    "elf_lab_attack_up_atlas",
+    "elf_lab_attack_down_atlas",
+    "troll_lab_walk_atlas",
+    "troll_lab_idle_atlas",
+    "troll_lab_hit_atlas",
+    "troll_lab_death_atlas",
+    "troll_lab_cast_atlas",
+    "troll_lab_melee_attack_atlas",
+    "troll_lab_melee_attack_up_atlas",
+    "troll_lab_melee_attack_down_atlas",
+    "battle_mage_lab_walk_atlas",
+    "battle_mage_lab_hit_atlas",
+    "battle_mage_lab_death_atlas",
+    "battle_mage_lab_melee_attack_atlas",
+    "battle_mage_lab_melee_attack_up_atlas",
+    "battle_mage_lab_melee_attack_down_atlas",
+    "battle_mage_lab_cast_atlas",
+    "healer_lab_walk_atlas",
+    "healer_lab_idle_atlas",
+    "healer_lab_hit_atlas",
+    "healer_lab_death_atlas",
+    "healer_lab_attack_atlas",
+    "healer_lab_attack_up_atlas",
+    "healer_lab_attack_down_atlas",
+    "healer_lab_cast_atlas",
+    "pikeman_walk_atlas",
+    "pikeman_lab_idle_atlas",
+    "pikeman_lab_hit_atlas",
+    "pikeman_lab_death_atlas",
+    "pikeman_lab_attack_atlas",
+    "pikeman_lab_attack_up_atlas",
+    "pikeman_lab_attack_down_atlas",
+    "medusa_lab_walk_atlas",
+    "medusa_lab_idle_atlas",
+    "medusa_lab_hit_atlas",
+    "medusa_lab_melee_attack_atlas",
+    "medusa_lab_melee_attack_up_atlas",
+    "medusa_lab_melee_attack_down_atlas",
+    "medusa_lab_death_atlas",
+    "medusa_lab_attack_atlas",
+    "medusa_lab_attack_up_atlas",
+    "medusa_lab_attack_down_atlas",
+    "medusa_lab_projectile_atlas",
     "dryad_lab_walk_atlas",
     "dryad_lab_hit_atlas",
     "dryad_lab_death_atlas",
@@ -42,6 +108,19 @@ const UNIT_ATLASES_USED_WHILE_ANIMATIONS_DISABLED = new Set([
     "dryad_lab_attack_atlas",
     "dryad_lab_attack_up_atlas",
     "dryad_lab_attack_down_atlas",
+    "valkyrie_lab_current_walk_atlas",
+    "valkyrie_lab_current_hit_atlas",
+    "valkyrie_lab_current_death_atlas",
+    "valkyrie_lab_current_cast_atlas",
+    "valkyrie_lab_current_melee_attack_atlas",
+    "valkyrie_lab_current_melee_attack_up_atlas",
+    "valkyrie_lab_current_melee_attack_down_atlas",
+    "manticore_lab_walk_atlas",
+    "manticore_lab_death_atlas",
+    "manticore_lab_hit_atlas",
+    "manticore_lab_melee_attack_atlas",
+    "manticore_lab_melee_attack_up_atlas",
+    "manticore_lab_melee_attack_down_atlas",
     "fairy_lab_walk_atlas",
     "fairy_lab_idle_atlas",
     "fairy_lab_hit_atlas",
@@ -164,20 +243,3 @@ export const shouldPreloadUnitAnimationAtlas = (key: string, animationsEnabled: 
     // The native pager owns a bounded current/next working set, including when all motion is enabled.
     !/^arbalester_idle_page_\d{2}_atlas$/.test(key) &&
     (animationsEnabled || UNIT_ATLASES_USED_WHILE_ANIMATIONS_DISABLED.has(key));
-
-/** Only the visible creature's approved sheets; the idle pager retains its own bounded working set. */
-export const approvedAnimationAssetKeysForUnit = (unitName: string): string[] => {
-    if (!usesApprovedBaseAnimations(unitName)) return [];
-    const prefix = unitName === "Wandering Mage" ? "ash_moth_" : unitName.toLowerCase().replaceAll(" ", "_") + "_";
-    return [...UNIT_ATLASES_USED_WHILE_ANIMATIONS_DISABLED]
-        .filter((key) => key !== "squire_default_atlas_quarter")
-        .filter(
-            (key) =>
-                (key.startsWith(prefix) && !(unitName === "Wolf" && key.startsWith("wolf_rider_"))) ||
-                (unitName === "Scavenger" && key === "thief_walk_atlas_quarter"),
-        )
-        .sort((a, b) => {
-            const priority = (key: string) => (/_(idle|default)_/.test(key) ? 0 : /_walk_/.test(key) ? 1 : 2);
-            return priority(a) - priority(b);
-        });
-};

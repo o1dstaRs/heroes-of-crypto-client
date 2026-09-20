@@ -22,6 +22,7 @@ interface MoveAnimationInternals {
 const makeContext = () => {
     let blocked = false;
     const context = {
+        getGridSettings: () => ({ getCellSize: () => 10 }),
         setMoveBlocked: (value: boolean) => {
             blocked = value;
         },
@@ -53,6 +54,54 @@ const makeMovingUnit = () => {
 };
 
 describe("movement effect allocation", () => {
+    test("measures gait distance along diagonal, partial and corner segments", () => {
+        let distance = 0;
+        let totalDistance = 0;
+        let position = { x: 0, y: 0 };
+        const unit = {
+            startBoardWalkAnimation: (_direction: number, total: number) => {
+                totalDistance = total;
+            },
+            setBoardWalkDistanceCells: (value: number) => {
+                distance = value;
+            },
+            setBoardFacingFromMovement: () => {},
+            setPosition: (x: number, y: number) => {
+                position = { x, y };
+            },
+            getPosition: () => position,
+            isSmallSize: () => true,
+            canFly: () => true,
+            getUnitProperties: () => ({ name: "Fairy" }),
+        };
+        const manager = new MoveAnimationManager({
+            getGridSettings: () => ({ getCellSize: () => 100 }),
+            setMoveBlocked: () => {},
+        } as unknown as IMoveAnimationContext);
+        manager.startMoveAnimation(
+            unit as never,
+            [
+                { x: 0, y: 0 },
+                { x: 100, y: 100 },
+                { x: 100, y: 400 },
+            ],
+            100 / 1.2,
+            { x: 1, y: 4 },
+        );
+        expect(totalDistance).toBeCloseTo(Math.SQRT2 + 3);
+        manager.update(0.65);
+        expect(distance).toBeCloseTo(0.65);
+        manager.update(0);
+        expect(distance).toBeCloseTo(0.65);
+        manager.update(0.65);
+        expect(distance).toBeCloseTo(1.3);
+        expect(position.x).toBeCloseTo(130 / Math.SQRT2);
+        manager.update(1.3);
+        expect(distance).toBeCloseTo(2.6);
+        expect(position.x).toBe(100);
+        expect(position.y).toBeCloseTo(100 + (2.6 - Math.SQRT2) * 100);
+    });
+
     test("compacts afterimages and dust tracks without replacing their arrays", () => {
         const manager = new MoveAnimationManager({} as IMoveAnimationContext);
         const internals = manager as unknown as MoveAnimationInternals;
