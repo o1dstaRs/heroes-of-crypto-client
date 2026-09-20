@@ -1,6 +1,6 @@
 import { Assets, Container, Sprite, Text as PixiText, TextStyle, Texture, Rectangle, Graphics, Matrix } from "pixi.js";
 
-import { GridSettings, HoCMath, GridMath, UnitProperties, UnitsHolder } from "@heroesofcrypto/common";
+import { GridSettings, HoCMath, GridMath, Unit, UnitProperties, UnitsHolder } from "@heroesofcrypto/common";
 import { RenderableUnit } from "../RenderableUnit";
 import { images } from "../../generated/image_imports";
 import { HOC_NUMERIC_ARIAL_FONT_FAMILY } from "../../fontFamilies";
@@ -180,6 +180,34 @@ interface IFireBurnParticle {
 interface IFireBurn {
     container: Container;
     particles: IFireBurnParticle[];
+}
+
+/** A creature on fire after crossing a Fire Wall: embers keep peeling off the moving sprite (see igniteUnit). */
+interface IUnitAblaze {
+    unit: Unit;
+    /** Seconds; negative until the walk animation reaches the first burning cell. */
+    age: number;
+    duration: number;
+    cellSize: number;
+    /** Fractional embers owed by the emission rate; one is born each time it passes 1. */
+    emitDebt: number;
+    emitted: number;
+    /** The scorch wash lands once, the moment the body first touches the flames. */
+    flashed: boolean;
+    container: Container;
+    /** A soft additive halo pinned to the body — what makes it read as ON fire, not merely near sparks. */
+    glow: Sprite;
+    particles: IFireBurnParticle[];
+}
+
+/** A damage number waiting for the moment it belongs to (a burn the walk animation has not reached yet). */
+interface IDelayedFloatingDamage {
+    pos: HoCMath.XY;
+    amount: number;
+    unitsDied: number;
+    remainingSec: number;
+    fill: string;
+    stroke: string;
 }
 
 interface IForgeSpark {
@@ -463,6 +491,24 @@ const RING_SWEEP_S = 0.26; // seconds for the ignition to travel all the way rou
 const RING_FLAME_LIFE = 0.62; // each flame burns a little longer than a plain ember — this is a standing ring
 const RING_RADIUS_CELLS = 0.95; // ring radius in cells; ~1 puts it on the footprint's outer cells
 const RING_SMOKE_COUNT = 10;
+
+// Tuning for a creature crossing a Fire Wall (spawnFireWallCrossing + igniteUnit). Two beats: the sheet of
+// flame a burning cell throws up as the body passes through it — wide and low for a walker wading in,
+// a tall column leaping up under a flyer — and then the flames that cling to the crosser and gutter out
+// as it walks (or flies) on, with soot behind them. Both are scheduled against the move animation, so
+// the fire is on the body when the body is in the fire, not when the engine filed the burn.
+const WALL_CROSS_FLAME_COUNT = 28;
+const WALL_CROSS_SPARK_COUNT = 20;
+const WALL_CROSS_SMOKE_COUNT = 7;
+const WALL_CROSS_RIPPLE_S = 0.28; // the sheet keeps erupting this long — about the time a body takes to cross a cell
+const WALL_CROSS_FLAME_LIFE = 0.78; // seconds a tongue of the sheet burns
+const WALL_CROSS_SPARK_LIFE = 0.9; // seconds a thrown spark flies
+const WALL_CROSS_SMOKE_LIFE = 1.3; // seconds the soot lingers over the crossed cell
+const WALL_CROSS_FLASH_LIFE = 0.3; // the bloom of the sheet catching on the body
+const ABLAZE_EMBERS_PER_SECOND = 44; // how fast embers peel off a burning body at first (they thin out)
+const ABLAZE_EMBER_LIFE = 0.55; // seconds each clinging ember burns
+const ABLAZE_SOOT_EVERY = 5; // one soot puff for this many embers
+const ABLAZE_GLOW_ALPHA = 0.5; // the fire-glow halo on the burning body, before it fades with the burn
 const POISON_PARTICLE_LIFE = 0.95; // seconds each toxic puff lingers (longer than an ember — gas hangs)
 const POISON_RISE = 44; // world px a puff floats up over its life (gas rises further than embers)
 const POISON_TINTS = [0x9be15a, 0x6fd23a, 0x4caf2e, 0xbdf06a]; // toxic lime → poison green
@@ -690,6 +736,8 @@ export class CombatVisuals {
     private deathBlowByUnitId = new Map<string, { kind: DeathBlowKind; dir?: HoCMath.XY }>();
     private fireSweeps: IFireSweep[] = [];
     private fireBurns: IFireBurn[] = [];
+    private unitAblazes: IUnitAblaze[] = [];
+    private delayedFloatingDamage: IDelayedFloatingDamage[] = [];
     private poisonClouds: IFireSweep[] = [];
     private healBursts: IHealBurst[] = [];
     private areaImpacts: IAreaImpact[] = [];
@@ -1557,7 +1605,15 @@ export class CombatVisuals {
                 burn.container.destroy({ children: true });
             }
             this.fireBurns.length = 0;
+            // A burn number still waiting for its moment describes a hit that already landed, like the
+            // burns above.
+            this.delayedFloatingDamage.length = 0;
         }
+        // Clinging flames follow a live sprite; a rebuild replaces the sprites, so they never survive one.
+        for (const ablaze of this.unitAblazes) {
+            ablaze.container.destroy({ children: true });
+        }
+        this.unitAblazes.length = 0;
         for (const cloud of this.poisonClouds) {
             cloud.container.destroy({ children: true });
         }
@@ -1657,6 +1713,8 @@ export class CombatVisuals {
             this.dissolveDeaths.length === 0 &&
             this.fireSweeps.length === 0 &&
             this.fireBurns.length === 0 &&
+            this.unitAblazes.length === 0 &&
+            this.delayedFloatingDamage.length === 0 &&
             this.poisonClouds.length === 0 &&
             this.healBursts.length === 0 &&
             this.areaImpacts.length === 0 &&
@@ -1743,6 +1801,8 @@ export class CombatVisuals {
         this.stepDissolveDeaths(dt);
         this.stepFireSweeps(dt);
         this.stepFireBurns(dt);
+        this.stepUnitAblazes(dt);
+        this.stepDelayedFloatingDamage(dt);
         this.stepPoisonClouds(dt);
         this.stepHealBursts(dt);
         this.stepAreaImpacts(dt);
@@ -2968,42 +3028,329 @@ export class CombatVisuals {
 
         this.fireBurns.push({ container, particles });
     }
+    /**
+     * A body crossing a Fire Wall cell: the sheet of flame the cell throws up as the body passes through
+     * it. Scheduled, not immediate — the engine reports the burn before the walk is drawn, so `delaySec`
+     * is when the move animation actually reaches this cell (see fireWallCrossingSchedule) and every
+     * particle simply waits that long to be born. A walker wades in: a wide, low burst with the sparks
+     * kicked on along its heading. A flyer passes over: a taller, narrower column leaping up under it,
+     * with the sparks thrown high.
+     */
+    public spawnFireWallCrossing(
+        center: HoCMath.XY,
+        cellSize: number,
+        delaySec: number,
+        flying: boolean,
+        direction: HoCMath.XY,
+    ): void {
+        const container = new Container();
+        this.context.attachToWorldRoot(container, FIRE_Z);
+        const tex = this.getFireTexture();
+        const texW = tex.width || 64;
+        const size = Math.max(1, cellSize);
+        const wait = Math.max(0, delaySec);
+        const particles: IFireBurnParticle[] = [];
+
+        const push = (sprite: Sprite, particle: Omit<IFireBurnParticle, "sprite">): void => {
+            sprite.anchor.set(0.5);
+            sprite.scale.set(0.001);
+            sprite.alpha = 0;
+            sprite.visible = false;
+            container.addChild(sprite);
+            particles.push({ sprite, ...particle });
+        };
+        const spread = flying ? 0.34 : 0.7; // how wide the sheet is, in cells
+        const lift = flying ? 2.3 : 1.15; // how high the flames leap, in cells
+
+        // 1. The sheet catching on the body: one hot bloom, wide and low for a walker, tall for a flyer.
+        const flash = new Sprite(tex);
+        flash.blendMode = "add";
+        flash.tint = 0xfff0c0;
+        push(flash, {
+            age: -wait,
+            life: WALL_CROSS_FLASH_LIFE,
+            x: center.x,
+            y: center.y - size * (flying ? 0.45 : 0.05),
+            riseY: size * (flying ? 0.7 : 0.2),
+            driftX: 0,
+            startScale: (size * 0.9) / texW,
+            endScale: (size * (flying ? 2.0 : 2.6)) / texW,
+            peakAlpha: 0.9,
+            fadeInFraction: 0.1,
+            rot: 0,
+            spin: 0,
+        });
+
+        // 2. Flame tongues, erupting in a ripple from the middle of the cell outwards and kept coming for
+        //    about as long as the body takes to cross, so the sheet burns under it rather than puffing once.
+        for (let i = 0; i < WALL_CROSS_FLAME_COUNT; i++) {
+            const rand = Math.random();
+            const across = (Math.random() - 0.5) * 2; // -1..1 across the cell
+            const sprite = new Sprite(tex);
+            sprite.blendMode = "add";
+            sprite.tint = FIRE_TINTS[Math.floor(Math.random() * FIRE_TINTS.length)];
+            push(sprite, {
+                age: -wait - Math.abs(across) * 0.06 - Math.random() * WALL_CROSS_RIPPLE_S,
+                life: WALL_CROSS_FLAME_LIFE * (0.7 + 0.6 * rand),
+                x: center.x + across * size * spread,
+                y: center.y + size * 0.22 - Math.random() * size * 0.12,
+                riseY: size * lift * (0.55 + 0.6 * rand) * (1 - Math.abs(across) * 0.35),
+                driftX: (Math.random() - 0.5) * size * 0.22 + direction.x * size * (flying ? 0.05 : 0.28),
+                startScale: (size * (0.45 + 0.45 * rand)) / texW,
+                endScale: (size * (0.14 + 0.14 * rand)) / texW,
+                peakAlpha: 1,
+                fadeInFraction: 0.07,
+                rot: Math.random() * Math.PI * 2,
+                spin: (Math.random() - 0.5) * 5,
+            });
+        }
+
+        // 3. Sparks: small, bright and thrown far — on and out for a walker kicking through the embers,
+        //    straight up for a flyer.
+        for (let i = 0; i < WALL_CROSS_SPARK_COUNT; i++) {
+            const rand = Math.random();
+            const angle = Math.random() * Math.PI * 2;
+            const throwX = flying ? Math.cos(angle) * 0.4 : direction.x * (0.6 + rand * 0.7) + Math.cos(angle) * 0.35;
+            const sprite = new Sprite(tex);
+            sprite.blendMode = "add";
+            sprite.tint = rand > 0.5 ? 0xfff2c4 : 0xffc861;
+            push(sprite, {
+                age: -wait - Math.random() * WALL_CROSS_RIPPLE_S,
+                life: WALL_CROSS_SPARK_LIFE * (0.6 + 0.7 * rand),
+                x: center.x + (Math.random() - 0.5) * size * 0.35,
+                y: center.y + size * 0.12,
+                riseY: size * (flying ? 1.6 + rand * 1.4 : 0.7 + rand),
+                driftX: throwX * size,
+                startScale: (size * (0.12 + 0.1 * rand)) / texW,
+                endScale: (size * 0.03) / texW,
+                peakAlpha: 1,
+                fadeInFraction: 0.05,
+                rot: 0,
+                spin: 0,
+            });
+        }
+
+        // 4. Soot, born as the flames gutter, drifting up and lingering over the crossed cell.
+        for (let i = 0; i < WALL_CROSS_SMOKE_COUNT; i++) {
+            const rand = Math.random();
+            const sprite = new Sprite(tex);
+            sprite.tint = BURN_SMOKE_TINTS[i % BURN_SMOKE_TINTS.length];
+            push(sprite, {
+                age: -wait - (0.12 + Math.random() * 0.25),
+                life: WALL_CROSS_SMOKE_LIFE * (0.8 + 0.4 * rand),
+                x: center.x + (Math.random() - 0.5) * size * 0.5,
+                y: center.y + (Math.random() - 0.5) * size * 0.2,
+                riseY: size * (0.8 + 0.5 * rand),
+                driftX: (Math.random() - 0.5) * size * 0.5 + direction.x * size * 0.2,
+                startScale: (size * (0.26 + 0.16 * rand)) / texW,
+                endScale: (size * (0.7 + 0.4 * rand)) / texW,
+                peakAlpha: 0.4,
+                fadeInFraction: 0.25,
+                rot: Math.random() * Math.PI * 2,
+                spin: (Math.random() - 0.5) * 1.6,
+            });
+        }
+
+        this.fireBurns.push({ container, particles });
+    }
+    /**
+     * Flames clinging to a creature that went through fire. From `startDelaySec` (when the walk animation
+     * reaches the first burning cell) embers keep peeling off the body for `durationSec`, thinning out as
+     * they go, with soot behind them. The emitter follows the sprite every frame, so the fire walks (or
+     * flies) on with the unit, and the scorch wash lands the moment the body first touches the flames.
+     */
+    public igniteUnit(unit: Unit, startDelaySec: number, durationSec: number, cellSize: number): void {
+        const container = new Container();
+        this.context.attachToWorldRoot(container, FIRE_Z);
+        const glow = new Sprite(this.getFireTexture());
+        glow.anchor.set(0.5);
+        glow.blendMode = "add";
+        glow.tint = 0xff7a1a;
+        glow.alpha = 0;
+        glow.visible = false;
+        container.addChild(glow);
+        this.unitAblazes.push({
+            unit,
+            age: -Math.max(0, startDelaySec),
+            duration: Math.max(0.2, durationSec),
+            cellSize: Math.max(1, cellSize),
+            emitDebt: 0,
+            emitted: 0,
+            flashed: false,
+            container,
+            glow,
+            particles: [],
+        });
+    }
+    /** A damage number that pops `delaySec` from now — for a burn the walk animation has yet to reach. */
+    public showFloatingDamageDelayed(
+        pos: HoCMath.XY,
+        amount: number,
+        unitsDied: number,
+        delaySec: number,
+        fill: string,
+        stroke: string,
+    ): void {
+        this.delayedFloatingDamage.push({
+            pos: { x: pos.x, y: pos.y },
+            amount,
+            unitsDied,
+            remainingSec: Math.max(0, delaySec),
+            fill,
+            stroke,
+        });
+    }
+    private stepDelayedFloatingDamage(dt: number): void {
+        for (let i = this.delayedFloatingDamage.length - 1; i >= 0; i--) {
+            const pending = this.delayedFloatingDamage[i];
+            pending.remainingSec -= dt;
+            if (pending.remainingSec > 0) {
+                continue;
+            }
+            this.delayedFloatingDamage.splice(i, 1);
+            this.showFloatingDamage(
+                pending.pos,
+                pending.amount,
+                undefined,
+                pending.unitsDied,
+                pending.fill,
+                pending.stroke,
+            );
+        }
+    }
+    private stepUnitAblazes(dt: number): void {
+        const gs = this.context.getGridSettings();
+        for (let i = this.unitAblazes.length - 1; i >= 0; i--) {
+            const ablaze = this.unitAblazes[i];
+            ablaze.age += dt;
+            const alive = !ablaze.unit.isDead();
+            const burning = alive && ablaze.age >= 0 && ablaze.age < ablaze.duration;
+            if (burning) {
+                if (!ablaze.flashed) {
+                    ablaze.flashed = true;
+                    // The holder can carry a plain engine Unit (a hydrated ranked snapshot before its sprite
+                    // exists); only a rendered unit has a body to wash.
+                    if (ablaze.unit instanceof RenderableUnit) {
+                        ablaze.unit.flashScorch();
+                    }
+                }
+                const center =
+                    ablaze.unit instanceof RenderableUnit
+                        ? ablaze.unit.getVisualCenter(gs)
+                        : projectBattlefieldPoint(ablaze.unit.getPosition(), gs);
+                const tex = this.getFireTexture();
+                const texW = tex.width || 64;
+                const size = ablaze.cellSize;
+                // The fire dies down over the burn: most embers early, a last few as it gutters out — and
+                // the halo on the body flickers and fades with it.
+                const progress = ablaze.age / ablaze.duration;
+                const flicker = 0.8 + 0.2 * Math.sin(ablaze.age * 23);
+                ablaze.glow.visible = true;
+                ablaze.glow.position.set(center.x, center.y + size * 0.15);
+                ablaze.glow.scale.set((size * 1.5) / texW);
+                ablaze.glow.alpha = ABLAZE_GLOW_ALPHA * (1 - progress) * flicker;
+                ablaze.emitDebt += dt * ABLAZE_EMBERS_PER_SECOND * (1 - progress * 0.7);
+                if (ablaze.emitDebt >= 1) {
+                    while (ablaze.emitDebt >= 1) {
+                        ablaze.emitDebt -= 1;
+                        ablaze.emitted += 1;
+                        const rand = Math.random();
+                        const soot = ablaze.emitted % ABLAZE_SOOT_EVERY === 0;
+                        const sprite = new Sprite(tex);
+                        sprite.anchor.set(0.5);
+                        sprite.scale.set(0.001);
+                        sprite.alpha = 0;
+                        sprite.visible = false;
+                        if (soot) {
+                            sprite.tint = BURN_SMOKE_TINTS[ablaze.emitted % BURN_SMOKE_TINTS.length];
+                        } else {
+                            sprite.blendMode = "add";
+                            sprite.tint = FIRE_TINTS[Math.floor(Math.random() * FIRE_TINTS.length)];
+                        }
+                        ablaze.container.addChild(sprite);
+                        ablaze.particles.push({
+                            sprite,
+                            age: 0,
+                            life: soot ? BURN_SMOKE_LIFE * 0.8 : ABLAZE_EMBER_LIFE * (0.7 + 0.6 * rand),
+                            // Born low on the body and a little behind it, so the trail reads as flames
+                            // licking off the back of something moving.
+                            x: center.x + (Math.random() - 0.5) * size * 0.65,
+                            y: center.y + (Math.random() - 0.15) * size * 0.6,
+                            riseY: size * (soot ? 0.8 : 0.4 + 0.5 * rand),
+                            driftX: (Math.random() - 0.5) * size * 0.3,
+                            startScale: (size * (soot ? 0.28 : 0.26 + 0.24 * rand)) / texW,
+                            endScale: (size * (soot ? 0.65 : 0.05)) / texW,
+                            peakAlpha: soot ? 0.32 : 0.95,
+                            fadeInFraction: soot ? 0.3 : 0.1,
+                            rot: Math.random() * Math.PI * 2,
+                            spin: (Math.random() - 0.5) * (soot ? 1.5 : 5),
+                        });
+                    }
+                }
+            }
+            const anyPending = this.stepBurnParticles(ablaze.particles, dt);
+            // Spent particles are dropped as we go: the emitter keeps adding, and a walk-long burn would
+            // otherwise tick a growing pile of invisible sprites.
+            for (let j = ablaze.particles.length - 1; j >= 0; j--) {
+                const particle = ablaze.particles[j];
+                if (particle.age >= particle.life) {
+                    particle.sprite.destroy();
+                    ablaze.particles.splice(j, 1);
+                }
+            }
+            if (!burning) {
+                ablaze.glow.visible = false;
+            }
+            const stillBurning = alive && ablaze.age < ablaze.duration;
+            if (!anyPending && !stillBurning) {
+                ablaze.container.destroy({ children: true });
+                this.unitAblazes.splice(i, 1);
+            }
+        }
+    }
     private stepFireBurns(dt: number): void {
         for (let i = this.fireBurns.length - 1; i >= 0; i--) {
             const burn = this.fireBurns[i];
-            let anyPending = false;
-            for (const p of burn.particles) {
-                p.age += dt;
-                if (p.age < 0) {
-                    anyPending = true; // not born yet
-                    continue;
-                }
-                if (p.age >= p.life) {
-                    if (p.sprite.visible) {
-                        p.sprite.visible = false;
-                    }
-                    continue;
-                }
-                anyPending = true;
-                const t = p.age / p.life;
-                const e = easeOutCubic(t);
-                p.sprite.visible = true;
-                p.sprite.position.set(p.x + p.driftX * e, p.y + p.riseY * e);
-                const scale = p.startScale + (p.endScale - p.startScale) * e;
-                p.sprite.scale.set(scale, scale);
-                p.rot += p.spin * dt;
-                p.sprite.rotation = p.rot;
-                const alpha =
-                    t < p.fadeInFraction
-                        ? (t / p.fadeInFraction) * p.peakAlpha
-                        : p.peakAlpha * (1 - (t - p.fadeInFraction) / (1 - p.fadeInFraction));
-                p.sprite.alpha = Math.max(0, Math.min(1, alpha));
-            }
-            if (!anyPending) {
+            if (!this.stepBurnParticles(burn.particles, dt)) {
                 burn.container.destroy({ children: true });
                 this.fireBurns.splice(i, 1);
             }
         }
+    }
+    /**
+     * Advance one fire burst's particles; true while any is still unborn or alive. Shared by every effect
+     * built on the ember/soot particle shape (fire bursts, the Fire Wall crossing sheet, clinging flames).
+     */
+    private stepBurnParticles(particles: IFireBurnParticle[], dt: number): boolean {
+        let anyPending = false;
+        for (const p of particles) {
+            p.age += dt;
+            if (p.age < 0) {
+                anyPending = true; // not born yet
+                continue;
+            }
+            if (p.age >= p.life) {
+                if (p.sprite.visible) {
+                    p.sprite.visible = false;
+                }
+                continue;
+            }
+            anyPending = true;
+            const t = p.age / p.life;
+            const e = easeOutCubic(t);
+            p.sprite.visible = true;
+            p.sprite.position.set(p.x + p.driftX * e, p.y + p.riseY * e);
+            const scale = p.startScale + (p.endScale - p.startScale) * e;
+            p.sprite.scale.set(scale, scale);
+            p.rot += p.spin * dt;
+            p.sprite.rotation = p.rot;
+            const alpha =
+                t < p.fadeInFraction
+                    ? (t / p.fadeInFraction) * p.peakAlpha
+                    : p.peakAlpha * (1 - (t - p.fadeInFraction) / (1 - p.fadeInFraction));
+            p.sprite.alpha = Math.max(0, Math.min(1, alpha));
+        }
+        return anyPending;
     }
     private stepFireSweeps(dt: number): void {
         for (let i = this.fireSweeps.length - 1; i >= 0; i--) {

@@ -161,6 +161,7 @@ import { SmokeLayer } from "./sandbox/SmokeLayer";
 import { SmokeCloudLayer, type ISmokeCloudCell } from "./sandbox/SmokeCloudLayer";
 import { VineLayer, type IVineCell } from "./sandbox/VineLayer";
 import { FireWallLayer, type IFireWallCell } from "./sandbox/FireWallLayer";
+import { fireWallCrossingSchedule } from "./sandbox/fireWallCrossing";
 import { WindLayer } from "./sandbox/WindLayer";
 import { TerrainCellSnapshotCache } from "./sandbox/TerrainCellSnapshotCache";
 import { createCinematicFilter } from "./sandbox/CinematicFilter";
@@ -636,6 +637,11 @@ const CHAKRAM_FLIGHTLESS_HOP_MS = 150;
 const LIGHTNING_STRIKE_SPELL_NAME = "Lightning Strike";
 const MIRROR_DAMAGE_FILL = "#bfefff";
 const MIRROR_DAMAGE_STROKE = "#12384d";
+// A Fire Wall burn's number is ember-coloured, and the flames keep clinging to the crosser this long after
+// it leaves the last burning cell.
+const FIRE_WALL_DAMAGE_FILL = "#ffb347";
+const FIRE_WALL_DAMAGE_STROKE = "#5a1500";
+const FIRE_WALL_AFTERBURN_SEC = 1.15;
 
 /**
  * Remaining hit points of each center mountain after an `obstacle_attacked` event.
@@ -665,6 +671,7 @@ export const nextObstacleHits = (
 };
 
 type ObstacleAttackedEvent = Extract<GameEvent, { type: "obstacle_attacked" }>;
+type FireWallBurnedEvent = Extract<GameEvent, { type: "fire_wall_burned" }>;
 
 /** Hover caption for a strike that fells more than one tombstone at once (Double Shot, a pierce, a spin). */
 const multiTombstoneCaption = (count: number): string => `Hit ${count} tombstones`;
@@ -1580,6 +1587,31 @@ export class Sandbox extends PixiScene {
                     unitIsSmall: units[0].isSmallSize(),
                     luckyStrikeBy: [units[0].getId()],
                 });
+                return true;
+            };
+            // And for a Fire Wall crossing: the cell's flare-up, the clinging flames and the delayed burn
+            // number over the first placed unit, as if it had just walked (or, with `flying`, flown)
+            // through a burning cell — a real crossing needs a Nightmare's wall and a unit willing to
+            // step into it.
+            (w as { __hocFireWallVfxTest?: (flying?: boolean) => boolean }).__hocFireWallVfxTest = (flying) => {
+                // Prefer a unit standing on the board over one still on the placement bench (negative x).
+                const units = [...this.unitsHolder.getAllUnits().values()] as RenderableUnit[];
+                const unit = units.find((candidate) => candidate.getBaseCell().x >= 0) ?? units[0];
+                if (!unit || !this.combatVisuals) {
+                    return false;
+                }
+                const world = this.terrainCellToWorld(unit.getBaseCell());
+                const flies = flying ?? unit.canFly();
+                this.combatVisuals.spawnFireWallCrossing(world, world.cellSize, 0, flies, { x: 1, y: 0 });
+                this.combatVisuals.igniteUnit(unit, 0, FIRE_WALL_AFTERBURN_SEC, world.cellSize);
+                this.combatVisuals.showFloatingDamageDelayed(
+                    world,
+                    42,
+                    0,
+                    0.2,
+                    FIRE_WALL_DAMAGE_FILL,
+                    FIRE_WALL_DAMAGE_STROKE,
+                );
                 return true;
             };
             // And for the resurrection burst + head-count label: play it over the first placed unit
@@ -3761,14 +3793,17 @@ export class Sandbox extends PixiScene {
         this.currentActiveUnit = unit;
         unit.setActiveTurn(true);
         unit.syncVisual(this.drawer.getUnitsContainer(), this.sc_sceneSettings.getGridSettings());
-        return this.playRecordedMoveAnimation(unit, moveEvent).then((played) => {
+        // A walk through a Fire Wall carries its burn on this record; the animation owns its flames and
+        // number, so the burn is kept out of the events applied afterwards.
+        const { burn, rest } = this.takeFireWallBurn(record.events, unit.getId());
+        return this.playRecordedMoveAnimation(unit, moveEvent, false, burn).then((played) => {
             if (!played || this.isSceneDestroyed()) {
                 return false;
             }
             // The move animation only plays unit_moved. Apply the rest of the record's events the
             // same way the attack/control replays do, so map narrowing, the dried/cleared center,
             // Armageddon, and system pushes/deaths that ride on a lap-ending move actually render.
-            this.applyReplayEvents(record.events);
+            this.applyReplayEvents(rest);
             return played;
         });
     }
@@ -3776,6 +3811,7 @@ export class Sandbox extends PixiScene {
         unit: RenderableUnit,
         moveEvent: Extract<GameEvent, { type: "unit_moved" }>,
         rapidCharge = false,
+        fireWallBurn?: FireWallBurnedEvent,
     ): Promise<boolean> {
         if (this.isSceneDestroyed()) {
             return Promise.resolve(false);
@@ -3823,6 +3859,9 @@ export class Sandbox extends PixiScene {
                     resolve(false);
                 },
             );
+            if (fireWallBurn) {
+                this.playFireWallCrossingVfx(unit, worldPath, speed, fireWallBurn);
+            }
             this.isActiveUnitMoving = true;
             if (this.sc_visibleState) {
                 this.sc_visibleStateUpdateNeeded = true;
@@ -3858,6 +3897,83 @@ export class Sandbox extends PixiScene {
         this.grid.occupyCells(destCells, unit.getId(), unit.getTeam(), unit.getAttackRange(), true, true);
         this.gridMatrix = this.grid.getMatrix();
         this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
+    }
+    /**
+     * Fire on a creature crossing a Fire Wall: each burning cell it passes through flares up as the walk
+     * animation reaches it, flames then cling to the body and gutter out as it moves on, and the burn's
+     * number pops where and when the body leaves the fire — not at the pre-move spot the engine reported
+     * it from, before the walk was even drawn. Shared by every path that animates a move (live sandbox
+     * moves, replay and ranked move records, the walk into a melee strike): each pulls the burn out of its
+     * event batch with takeFireWallBurn and hands it here alongside the animation it just started.
+     */
+    private playFireWallCrossingVfx(
+        unit: RenderableUnit,
+        worldPath: readonly HoCMath.XY[],
+        speed: number,
+        burn: FireWallBurnedEvent,
+    ): void {
+        const visuals = this.combatVisuals;
+        if (!visuals || this.isSceneDestroyed()) {
+            return;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const flying = unit.canFly();
+        const steps = fireWallCrossingSchedule(
+            worldPath,
+            burn.cells,
+            (cell) => GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep()) ?? undefined,
+            // Mirrors MoveAnimationManager's visual speed: a flyer glides a fifth faster than a walker.
+            flying ? speed * 1.2 : speed,
+        );
+        if (!steps.length) {
+            this.popFireWallBurnDamage(burn);
+            return;
+        }
+        let lastDelay = 0;
+        let lastWorld = this.terrainCellToWorld(steps[0].cell);
+        for (const step of steps) {
+            const world = this.terrainCellToWorld(step.cell);
+            visuals.spawnFireWallCrossing(world, world.cellSize, step.delaySec, flying, step.direction);
+            if (step.delaySec >= lastDelay) {
+                lastDelay = step.delaySec;
+                lastWorld = world;
+            }
+        }
+        visuals.igniteUnit(
+            unit,
+            steps[0].delaySec,
+            lastDelay - steps[0].delaySec + FIRE_WALL_AFTERBURN_SEC,
+            lastWorld.cellSize,
+        );
+        visuals.showFloatingDamageDelayed(
+            lastWorld,
+            burn.amount,
+            burn.unitsDied,
+            lastDelay + 0.2,
+            FIRE_WALL_DAMAGE_FILL,
+            FIRE_WALL_DAMAGE_STROKE,
+        );
+    }
+    /** The plain burn number, at the position the engine captured before the damage landed. */
+    private popFireWallBurnDamage(burn: FireWallBurnedEvent): void {
+        this.combatVisuals?.showFloatingDamage(
+            projectBattlefieldPoint(burn.position, this.sc_sceneSettings.getGridSettings()),
+            burn.amount,
+            undefined,
+            burn.unitsDied,
+            FIRE_WALL_DAMAGE_FILL,
+            FIRE_WALL_DAMAGE_STROKE,
+        );
+    }
+    /** Pull `unitId`'s Fire Wall burn out of an event batch, so the walk animation can own it. */
+    private takeFireWallBurn(
+        events: GameEvent[],
+        unitId: string,
+    ): { burn: FireWallBurnedEvent | undefined; rest: GameEvent[] } {
+        const burn = events.find(
+            (event): event is FireWallBurnedEvent => event.type === "fire_wall_burned" && event.unitId === unitId,
+        );
+        return { burn, rest: burn ? events.filter((event) => event !== burn) : events };
     }
     private createRecordedMoveWorldPath(
         unit: RenderableUnit,
@@ -4474,8 +4590,14 @@ export class Sandbox extends PixiScene {
             return false;
         }
 
+        // A walk into the strike may cross a Fire Wall. The burn rides this record, and the approach
+        // animation owns its flames and number, so it is dropped from the events applied afterwards.
+        const approachBurn =
+            action.type === "melee_attack" && action.attackFrom
+                ? this.takeFireWallBurn(record.events, attacker.getId()).burn
+                : undefined;
         if (action.type === "melee_attack" && action.attackFrom) {
-            const approached = await this.replayMeleeApproach(attacker, action.attackFrom, action.path);
+            const approached = await this.replayMeleeApproach(attacker, action.attackFrom, action.path, approachBurn);
             if (!approached || this.isSceneDestroyed()) return false;
         }
         const teardownEventUnitIds = new Set(
@@ -4547,8 +4669,9 @@ export class Sandbox extends PixiScene {
         // The attack event's kill attribution was consumed by the impact-time death VFX above. Do not
         // record it again here: the later unit_destroyed pass intentionally becomes an idempotent logical
         // cleanup, and re-noting would leave a stale blow that could color a resurrected unit's next death.
-        const replayEvents =
-            destroyedUnitIds.size > 0 ? record.events.filter((event) => event !== attackEvent) : record.events;
+        const replayEvents = record.events.filter(
+            (event) => !(destroyedUnitIds.size > 0 && event === attackEvent) && event !== approachBurn,
+        );
         this.applyReplayEvents(replayEvents, record.stateAfter);
         // The pre-action HP snapshot has now served this exchange; drop it so a later replay falls back
         // to live HP (it only applies to the locally-applied action that captured it).
@@ -4945,6 +5068,7 @@ export class Sandbox extends PixiScene {
         attacker: RenderableUnit,
         attackFrom: HoCMath.XY,
         path?: HoCMath.XY[],
+        fireWallBurn?: FireWallBurnedEvent,
     ): Promise<boolean> {
         const gs = this.sc_sceneSettings.getGridSettings();
         // A multi-cell attacker's anchor cell is NOT its visual center — the center is the middle of the
@@ -4970,6 +5094,11 @@ export class Sandbox extends PixiScene {
                 : this.footprintCenterForAnchor(attacker, path[0]);
         }
         if (Math.abs(fromPos.x - toPos.x) < 0.1 && Math.abs(fromPos.y - toPos.y) < 0.1) {
+            // Nothing to walk, so no crossing to draw — the burn (if the record somehow carries one) still
+            // owes its number.
+            if (fireWallBurn) {
+                this.popFireWallBurnDamage(fireWallBurn);
+            }
             return true; // Already at the attack-from cell — stationary melee, nothing to walk.
         }
         const meleeMove: Extract<GameEvent, { type: "unit_moved" }> = {
@@ -4983,7 +5112,7 @@ export class Sandbox extends PixiScene {
             targetCells,
         };
         // This walk feeds straight into a melee strike → Rapid Charge dash (if the attacker has it).
-        return this.playRecordedMoveAnimation(attacker, meleeMove, true);
+        return this.playRecordedMoveAnimation(attacker, meleeMove, true, fireWallBurn);
     }
     protected shouldPlayReplayDoubleShotProjectile(): boolean {
         return true;
@@ -12533,7 +12662,12 @@ export class Sandbox extends PixiScene {
         // and can emit the mover's own unit_destroyed, which must reach destroyEventDeletedUnit or the
         // corpse stays on the board. Applied now rather than at the end of the walk because the engine has
         // already resolved it — the board must not disagree with the engine for the length of an animation.
-        const collateralEvents = moveResult.events.filter((event) => event.type !== "unit_moved");
+        // The burn itself carries no board state, only its flames and number, and those belong to the walk
+        // animation started below (playFireWallCrossingVfx) rather than to this instant.
+        const { burn: fireWallBurn, rest: collateralEvents } = this.takeFireWallBurn(
+            moveResult.events.filter((event) => event.type !== "unit_moved"),
+            unit.getId(),
+        );
         if (collateralEvents.length) {
             this.applyTurnEngineEvents(collateralEvents, this.snapshotRenderableUnits());
         }
@@ -12646,6 +12780,9 @@ export class Sandbox extends PixiScene {
             rapidCharge,
             onCancel,
         );
+        if (fireWallBurn) {
+            this.playFireWallCrossingVfx(unit, worldPath, moveSpeed, fireWallBurn);
+        }
 
         this.isActiveUnitMoving = true;
         if (this.sc_visibleState) {
@@ -16750,16 +16887,12 @@ export class Sandbox extends PixiScene {
                     break;
                 }
                 case "fire_wall_burned": {
-                    // Read the position off the EVENT, not off the unit: a stack that burned to death is
-                    // already gone from the holder by the time this runs, and it still owes a damage number.
-                    this.combatVisuals?.showFloatingDamage(
-                        projectBattlefieldPoint(event.position, this.sc_sceneSettings.getGridSettings()),
-                        event.amount,
-                        undefined,
-                        event.unitsDied,
-                        "#ffb347",
-                        "#5a1500",
-                    );
+                    // The fallback for a burn no move animation claimed: every path that draws the walk
+                    // pulls its burn out first (takeFireWallBurn) and plays the flames and the number as
+                    // the body crosses (playFireWallCrossingVfx). Read the position off the EVENT, not
+                    // off the unit: a stack that burned to death is already gone from the holder by the
+                    // time this runs, and it still owes a damage number.
+                    this.popFireWallBurnDamage(event);
                     shouldRefreshVisibleState = true;
                     break;
                 }

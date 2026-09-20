@@ -8255,6 +8255,11 @@ export class RenderableUnit extends Unit {
         this.effectFlashStartMs = performance.now();
         this.effectFlashColor = 0xffd94d;
     }
+    /** Ember-orange wash for a body wading or flying through a Fire Wall — same envelope, fire-colored. */
+    public flashScorch(): void {
+        this.effectFlashStartMs = performance.now();
+        this.effectFlashColor = 0xff6a1a;
+    }
     private currentEffectTint(now = performance.now()): number {
         // Frozen (Blacksmith's "Freeze" status): a persistent icy-blue cast so the unit visibly reads as
         // encased in ice, overriding any transient buff/debuff flash for as long as the freeze holds.
