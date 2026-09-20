@@ -202,7 +202,7 @@ export const FIGHT_EVENT_VFX: Record<GameEvent["type"], FightEventVfx> = {
     fire_wall_placed: {
         rendered: true,
         ranked: "snapshot-diff",
-        note: "3 cells catch fire; FireWallLayer reconciles from fightProperties.fireWalls, like smoke",
+        note: "up to 4 cells catch fire (free cells of the line only); FireWallLayer reconciles from fightProperties.fireWalls, like smoke",
     },
     fire_wall_expired: {
         rendered: true,

@@ -383,6 +383,10 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ open, onClose, on
     const navigate = useNavigate();
     const [items, setItems] = useState<SocialNotification[]>([]);
     const [loading, setLoading] = useState(false);
+    // The tray opens on what is NEW. `history` flips only when the player asks for the older notices by
+    // clicking "Earlier", and resets on close so the next open is the short list again.
+    const [history, setHistory] = useState(false);
+    const [historyLoading, setHistoryLoading] = useState(false);
 
     // Which tray entries do something when clicked, and what that is. Messages open the conversation;
     // lobby invites route straight into the lobby room; chat replies and mentions land in the arena
@@ -416,8 +420,31 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ open, onClose, on
         }
     };
 
+    // Pull the older, already-read notices in — only on a click. They are still on the server (nothing is
+    // deleted); they simply stop loading on open, which is the whole point of the default view.
+    const loadHistory = (): void => {
+        if (preview) {
+            setHistory(true);
+            return;
+        }
+        setHistoryLoading(true);
+        void (async () => {
+            try {
+                const result = await fetchNotifications("all");
+                setItems(result.notifications);
+                setHistory(true);
+            } catch {
+                /* leave the short list up; the button stays offered */
+            } finally {
+                setHistoryLoading(false);
+            }
+        })();
+    };
+
     useEffect(() => {
         if (!open) {
+            // Next open starts on what is new again, not on the history this one may have pulled in.
+            setHistory(false);
             return;
         }
         let cancelled = false;
@@ -428,11 +455,14 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ open, onClose, on
                     setItems(MOCK_NOTIFICATIONS);
                     return;
                 }
+                // What is NEW, plus any friend request still waiting for an answer. Everything already read
+                // sits behind the "Earlier" button: opening the tray marks it all seen, so loading it here
+                // meant every later open re-served a week of notices the player had already read.
                 const result = await fetchNotifications();
                 if (!cancelled) {
                     setItems(result.notifications);
                 }
-                // Seen = the badge goes to 0; the entries stay listed (and re-readable) forever.
+                // Seen = the badge goes to 0; the entries stay on the server, readable under "Earlier".
                 await markNotificationsSeen();
                 social.clearUnseen();
             } catch {
@@ -454,7 +484,13 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ open, onClose, on
         <DockPanelShell open={open} onClose={onClose} width={420} maxWidth="94vw" anchorOffset={66}>
             <DockPanelHeader
                 title="Notifications"
-                subtitle={items.length ? `${items.length} recent updates` : "Invites, messages, and mentions"}
+                subtitle={
+                    history
+                        ? `${items.length} earlier ${items.length === 1 ? "update" : "updates"}`
+                        : items.length
+                          ? `${items.length} new ${items.length === 1 ? "update" : "updates"}`
+                          : "Invites, messages, and mentions"
+                }
                 leading={<NotificationsRoundedIcon sx={{ color: hocColors.gold, fontSize: 21 }} />}
                 onClose={onClose}
             />
@@ -464,7 +500,9 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ open, onClose, on
                 </Box>
             ) : items.length === 0 ? (
                 <Typography level="body-sm" sx={{ color: hocColors.muted, py: 2 }}>
-                    Nothing here yet. Friend requests and updates will appear in this tray.
+                    {history
+                        ? "Nothing here yet. Friend requests and updates will appear in this tray."
+                        : "You're all caught up. New invites, messages and mentions land here."}
                 </Typography>
             ) : (
                 <Stack spacing={0.65} sx={{ maxHeight: "55vh", overflowY: "auto", pr: 0.35 }}>
@@ -550,6 +588,21 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ open, onClose, on
                     })}
                 </Stack>
             )}
+            {/* The read history, one click away. Offered whether or not anything is new, because "all
+                caught up" is exactly when a player goes looking for what they read earlier. */}
+            {!loading && !history ? (
+                <Box sx={{ display: "flex", justifyContent: "center", pt: items.length ? 1 : 0.25 }}>
+                    <Button
+                        size="sm"
+                        variant="plain"
+                        loading={historyLoading}
+                        onClick={loadHistory}
+                        sx={{ ...hocSoftButtonSx, minHeight: 30, px: 1.4 }}
+                    >
+                        Earlier notifications
+                    </Button>
+                </Box>
+            ) : null}
         </DockPanelShell>
     );
 };

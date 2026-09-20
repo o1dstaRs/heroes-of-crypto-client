@@ -5,6 +5,7 @@ import {
     canSpectateFriend,
     eligiblePredictionMarkets,
     fetchFriendMessages,
+    fetchNotifications,
     friendActivityLabel,
     friendGameLabel,
     inviteStateLabel,
@@ -201,6 +202,32 @@ describe("arena chat rendering", () => {
 
     test("an email is not a tag", () => {
         expect(chatSegments("write to me@example.com").some((s) => s.kind === "mention")).toBe(false);
+    });
+});
+
+describe("notifications tray scope", () => {
+    // The tray opens on what is new: the read history is a separate, explicit request. Asking for it by
+    // default is what buried new notices under a week of already-read ones (owner report 2026-09-19).
+    test("the default read asks for no scope and the history asks for scope=all", async () => {
+        const get = spyOn(axiosMMInstance, "get").mockResolvedValue({
+            data: { notifications: [], unseenCount: 0 },
+        } as never);
+
+        await fetchNotifications();
+        await fetchNotifications("all");
+
+        expect(get.mock.calls.map((call) => call[0])).toEqual([
+            buildApiUrl(HOST_MATCHMAKING_API, endpoints.social.notifications),
+            buildApiUrl(HOST_MATCHMAKING_API, `${endpoints.social.notifications}?scope=all`),
+        ]);
+        for (const call of get.mock.calls) {
+            expect(call[1]).toEqual({
+                headers: expect.objectContaining({
+                    Authorization: "social-token",
+                    "x-request-id": expect.any(String),
+                }),
+            });
+        }
     });
 });
 

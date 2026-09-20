@@ -173,14 +173,14 @@ export class FireWallLayer {
             const isLastLap = visual.lapsRemaining <= 1;
             const half = localCellSize * 0.5;
             const life = visual.life;
-            // The whole cell breathes on its own phase, so a 3-cell wall never pulses as one block.
+            // The whole cell breathes on its own phase, so a 4-cell wall never pulses as one block.
             const breath = 0.82 + 0.18 * Math.sin(this.time * 6.1 + visual.phase);
             const height = half * (isLastLap ? 0.72 : 1.12) * life * breath;
             const alpha = life * (isLastLap ? 0.6 : 0.95);
             const hot = isLastLap ? DYING_ORANGE : FLAME_ORANGE;
 
             // 1. Heat glow: two additive discs, the inner one hotter. Cheap, and it is what makes a run of
-            //    burning cells read as a continuous wall rather than three separate campfires.
+            //    burning cells read as a continuous wall rather than separate campfires.
             glow.circle(pos.x, pos.y, half * 0.95 * life * breath).fill({
                 color: EMBER_RED,
                 alpha: alpha * 0.34,

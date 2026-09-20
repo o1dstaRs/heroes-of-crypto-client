@@ -223,16 +223,13 @@ import { isGreenTeam } from "./teamColors";
  * Client-side aim projection for an offensive spell: what ONE target actually takes.
  *
  * Delegates to common so the number a player is shown and the number the cast deals come out of the same
- * arithmetic. It used to hard-code the stack-powered shape, which multiplied the Battle Mage's flat
- * per-caster book (Fire Strike, Meteorite) by its stack power and projected up to 5x the real damage; the
- * Magic Dragon's book is stack-powered, so it read correctly and hid the bug. Passing the spell's own
- * multiplier is the fix, and it keeps a future spell in either shape honest for free.
+ * arithmetic. Stack power is no longer part of that arithmetic at all — spell damage is head-count x power
+ * (common af2ea3b) — so it is no longer taken here either.
  */
 export const offensiveSpellPreviewDamage = (
     multiplierType: SpellMultiplierType,
     spellPower: number,
     casterAmountAlive: number,
-    casterStackPower: number,
     casterMagicDamageBonusPercentage: number,
     targetMagicResist: number,
     // The target's own element answers the spell's before resistance does, exactly as the engine resolves it
@@ -244,7 +241,6 @@ export const offensiveSpellPreviewDamage = (
         multiplierType,
         spellPower,
         casterAmountAlive,
-        casterStackPower,
         casterMagicDamageBonusPercentage,
         targetMagicResist,
         elementMultiplier,
@@ -734,24 +730,25 @@ export const splitAreaThrowWaves = (splash: IVisibleDamage["splash"]): NonNullab
  * Which units an attack exchange burns, and how big each burn reads — the rule behind
  * Sandbox.spawnFireDamageVfx, kept pure so it can be unit-tested without a scene.
  *
- * Fire damage arrives on the authoritative `damage.secondary` for the two ability sources (the Efreet's
- * Fire Shield reflect burns whoever struck it; a Black Dragon's breath burns every unit it passes
- * through), while the Fireforged Sword is a BUFF on the attacker rather than its own damage entry — its
- * bonus is the burning blade, so the unit the strike actually landed on ignites. `position` is the
- * engine's impact-time fallback for a unit that no longer exists by the time the burn is drawn.
+ * Fire damage arrives on the authoritative `damage.secondary`: the Efreet's Fire Shield reflect burns
+ * whoever struck it, a Black Dragon's breath burns every unit it passes through, and a Fireforged Sword
+ * burns whoever its enchanted blade hit. All three are read from the engine's own entries, so what burns
+ * on screen is exactly what burned in the fight — the sword used to be INFERRED instead, from the
+ * attacker's buff plus the primary hit, which drew flames on a target the fire never touched (a Fire
+ * Element shrugs the blade off) and drew nothing on the other units a sweep or a volley set alight.
+ * `position` is the engine's impact-time fallback for a unit that no longer exists by the time the burn
+ * is drawn.
  */
 export const fireBurnTargets = (
     damage: IVisibleDamage | undefined,
-    attackerHasFireforgedSword: boolean,
-    fallbackVictimId: string,
-): { unitId: string; position: HoCMath.XY; scale: number }[] => {
+): { unitId: string; position: HoCMath.XY; scale: number; source: string }[] => {
     if (!damage) {
         return [];
     }
-    const burns: { unitId: string; position: HoCMath.XY; scale: number }[] = [];
+    const burns: { unitId: string; position: HoCMath.XY; scale: number; source: string }[] = [];
     const burned = new Set<string>();
     for (const entry of damage.secondary ?? []) {
-        if (entry.source !== "fire_shield" && entry.source !== "fire_breath") {
+        if (entry.source !== "fire_shield" && entry.source !== "fire_breath" && entry.source !== "fireforged_sword") {
             continue;
         }
         if (entry.amount <= 0 && entry.unitsDied <= 0) {
@@ -761,22 +758,14 @@ export const fireBurnTargets = (
             continue;
         }
         burned.add(entry.unitId);
-        // A reflect is a lick of flame off a shield; a dragon's breath is the full burn.
+        // A reflect is a lick of flame off a shield; a dragon's breath is the full burn. The sword brings
+        // its own shape entirely (see spawnFireforgedSwordBurn), so its scale is left at 1.
         burns.push({
             unitId: entry.unitId,
             position: entry.position,
             scale: entry.source === "fire_shield" ? 0.85 : 1,
+            source: entry.source,
         });
-    }
-
-    if (!attackerHasFireforgedSword || damage.missed || damage.amount <= 0) {
-        return burns;
-    }
-    // damage.unitId is the unit the handler ACTUALLY hit — a ranged shot can be intercepted before it
-    // reaches the clicked target — so it wins over the caller's target.
-    const victimId = damage.unitId || fallbackVictimId;
-    if (victimId && !burned.has(victimId)) {
-        burns.push({ unitId: victimId, position: damage.unitPosition, scale: 1 });
     }
     return burns;
 };
@@ -791,6 +780,12 @@ export const secondaryDamageTextStyle = (source: string): { fill: string; stroke
         case "fire_shield":
         case "fire_breath":
             return { fill: "#ffb13c", stroke: "#7a3800" };
+        // The Fireforged blade's fire. Orange like its cousins so fire always reads as fire, but a hotter
+        // ember tone than a shield's lick of flame — it is the sharpest of the three (owner call
+        // 2026-09-20). Before this it had no case at all and fell through to the plain red of an ordinary
+        // hit, so the burn was invisible as fire.
+        case "fireforged_sword":
+            return { fill: "#ff8a2b", stroke: "#6b2400" };
         case "flesh_shield":
             return { fill: "#cdd34a", stroke: "#4a4a00" };
         default:
@@ -802,7 +797,7 @@ export const secondaryDamageTextStyle = (source: string): { fill: string; stroke
  * The block of cells a cell-targeted spell covers when aimed at `origin`.
  *
  * Meteor Shower's 3x3 is CENTRED on the cursor — an odd-sided footprint pivots about the mouse, the way the
- * Fire Wall's 3-cell line does. Everything else here is 2x2 (Meteorite, Smoke, Craft) and hangs off the
+ * Fire Wall's line does. Everything else here is 2x2 (Meteorite, Smoke, Craft) and hangs off the
  * cursor cell as its bottom-left corner, because an even-sided block has no centre cell to anchor on. Both
  * match what the matching cast handler reads out of `action.targetCell` — a preview whose footprint differs
  * from the cast's is worse than no preview, so this is the ONE place either is derived.
@@ -4040,27 +4035,29 @@ export class Sandbox extends PixiScene {
         );
     }
     /**
-     * FIRE damage burst — embers + a soot curl over every unit this exchange burned, so fire damage
-     * reads as burning instead of as a plain red number. Three sources, one look:
-     *   • the Efreet's Fire Shield reflect (`secondary` source "fire_shield"), on whoever struck it;
-     *   • every unit a Black Dragon's breath burns THROUGH (`secondary` source "fire_breath") — the
-     *     line sweep already rushes past them, this is the burn where it lands;
-     *   • a hit from a Fireforged Sword-buffed attacker: its bonus damage is the burning blade, so the
-     *     primary victim ignites too (skipped when that unit already burned from a secondary above).
+     * FIRE damage burst over every unit this exchange burned, so fire damage reads as burning instead of
+     * as a plain red number. Three sources, each read from the engine's own secondary entries:
+     *   • the Efreet's Fire Shield reflect ("fire_shield"), on whoever struck it — a radial burst;
+     *   • every unit a Black Dragon's breath burns THROUGH ("fire_breath") — the line sweep already
+     *     rushes past them, this is the burn where it lands;
+     *   • every unit a Fireforged Sword set alight ("fireforged_sword") — its OWN crescent animation,
+     *     cut across the blow's path, because a blade's fire arrives along an edge rather than bursting
+     *     outward (see CombatVisuals.spawnFireforgedSwordBurn).
      * Positions come from the live unit, falling back to the engine's impact-time position so a unit
-     * killed by the burn still shows it. Gated on a landed hit; shared by sandbox (live) and ranked
-     * (replay) — both call it AT IMPACT, with the damage numbers.
+     * killed by the burn still shows it. Shared by sandbox (live) and ranked (replay) — both call it AT
+     * IMPACT, with the damage numbers.
      */
     protected spawnFireDamageVfx(attacker: RenderableUnit, target: Unit, damage?: IVisibleDamage, delayMs = 0): void {
         if (!this.combatVisuals) {
             return;
         }
-        const burns = fireBurnTargets(damage, attacker.hasStatusBuff("Fireforged Sword"), target.getId());
+        const burns = fireBurnTargets(damage);
         if (!burns.length) {
             return;
         }
         const gs = this.sc_sceneSettings.getGridSettings();
         const cellSize = gs.getCellSize();
+        const attackerCenter = attacker.getVisualCenter(gs);
         for (const burn of burns) {
             const spawn = (): void => {
                 // Resolved at spawn time so a unit that moved in the meantime burns where it is now
@@ -4068,6 +4065,14 @@ export class Sandbox extends PixiScene {
                 const unit = this.unitsHolder.getAllUnits().get(burn.unitId) as RenderableUnit | undefined;
                 const position =
                     unit && !unit.isDead() ? unit.getVisualCenter(gs) : projectBattlefieldPoint(burn.position, gs);
+                if (burn.source === "fireforged_sword") {
+                    // The blade gets its own crescent, cut across the line the blow travelled.
+                    this.combatVisuals?.spawnFireforgedSwordBurn(position, cellSize, {
+                        x: position.x - attackerCenter.x,
+                        y: position.y - attackerCenter.y,
+                    });
+                    return;
+                }
                 this.combatVisuals?.spawnFireBurn(position, cellSize, burn.scale);
             };
             if (delayMs > 0) {
@@ -8447,7 +8452,7 @@ export class Sandbox extends PixiScene {
         );
     }
     /**
-     * Whether the armed spell's footprint can be turned before it is placed. Only Fire Wall's 3-cell line
+     * Whether the armed spell's footprint can be turned before it is placed. Only Fire Wall's 4-cell line
      * today; Craft's and Smoke's 2x2 blocks are rotationally symmetric, so there is nothing to turn.
      */
     private isRotatableAreaSpell(spell?: PixiRenderableSpell): boolean {
@@ -8469,9 +8474,9 @@ export class Sandbox extends PixiScene {
      * Cast the currently-armed CELL-target spell on the clicked cell — Craft (ALLIES_AREA), Smoke and Fire
      * Wall (FREE_CELL) all resolve to a footprint read off `targetCell`, so they share this path. The engine
      * owns what that footprint means: Craft resolves the allies inside its 2x2, Smoke smokes whichever of
-     * those four cells are free, Fire Wall lights the 3-cell line at the orientation the player rotated to.
-     * Returns true if the cast was applied (turn finished), false if the engine rejected it (e.g.
-     * insufficient stack power, or a cell in the footprint occupied).
+     * those four cells are free, Fire Wall lights the free cells of its 4-cell line at the orientation the
+     * player rotated to. Returns true if the cast was applied (turn finished), false if the engine rejected
+     * it (e.g. insufficient stack power, Smoke over an occupied cell, or a Fire Wall line with nothing to light).
      */
     private castAreaSpellAtCell(cell: HoCMath.XY): boolean {
         const caster = this.currentActiveUnit;
@@ -9277,15 +9282,18 @@ export class Sandbox extends PixiScene {
     }
     /**
      * The units an offensive spell would splash onto BESIDES the one it is aimed at, each taking the same
-     * damage as the primary target. Only Ring of Fire has such a splash today: it burns every cell touching
-     * the target — friend or foe — while sparing the target and the caster (see ringOfFireCast).
+     * damage as the primary target. Two spells splash today, over the same ring of cells touching the
+     * target, friend or foe, sparing the caster: Ring of Fire (which also spares the target, see
+     * ringOfFireCast) and Fireball (which burns it, see fireballCast).
      *
      * Mirrors that handler's geometry exactly, including the SIZE scaling: the ring hugs the target's whole
      * footprint, so a 2x2 enemy is ringed by 12 cells rather than the 8 around its base cell. Reading it off
      * the base cell alone would under-report the preview for every large target.
      */
     private splashedSpellTargets(spell: Spell, caster: Unit, target: Unit): Unit[] {
-        if (spell.getName() !== "Ring of Fire") {
+        // Ring of Fire spares the creature at its centre; Fireball burns it. That difference lives in
+        // spellSparesItsTarget, so both share this list of everyone ELSE the blast catches.
+        if (spell.getName() !== "Ring of Fire" && spell.getName() !== "Fireball") {
             return [];
         }
         const gs = this.sc_sceneSettings.getGridSettings();
@@ -9369,11 +9377,23 @@ export class Sandbox extends PixiScene {
             // the flame. Centre on the aimed CELL, not a victim, so a large target's off-centre sprite does
             // not shift it.
             const isRing = event.spellName === "Ring of Fire";
-            if (isRing && event.targetCell) {
+            // Fireball shares the ring's BLAST but not its throw: the fireball flies once, bursts on the
+            // unit it hit, and the flame spreads to the cells touching it. So it gets a single sweep from
+            // the caster to the impact, a hot burst at the centre, and the same circle of flame — rather
+            // than the per-victim sweep below, which would draw the throw once per creature caught.
+            const isFireball = event.spellName === "Fireball";
+            if ((isRing || isFireball) && event.targetCell) {
                 const ringCenter = projectBattlefieldPoint(
                     GridMath.getPositionForCell(event.targetCell, gs.getMinX(), gs.getStep(), gs.getHalfStep()),
                     gs,
                 );
+                if (isFireball && visualCasterPosition) {
+                    // The throw itself, drawn once, to where it actually burst — a screening enemy may have
+                    // taken it, and the engine reports that unit's cell.
+                    this.combatVisuals.spawnFireSweep(visualCasterPosition, ringCenter, cellSize);
+                    // The detonation, bigger than the per-victim burns that follow it.
+                    this.combatVisuals.spawnFireBurn(ringCenter, cellSize, 1.45);
+                }
                 this.combatVisuals.spawnFireRing(ringCenter, cellSize);
             }
             if (!event.damaged?.length && !secondary?.length) {
@@ -9421,7 +9441,7 @@ export class Sandbox extends PixiScene {
                     }
                     continue;
                 }
-                if (isThrown && !isRing && visualCasterPosition) {
+                if (isThrown && !isRing && !isFireball && visualCasterPosition) {
                     this.combatVisuals.spawnFireSweep(visualCasterPosition, hitPosition, cellSize);
                 }
                 if (isCalledDownLightning) {
@@ -11869,6 +11889,15 @@ export class Sandbox extends PixiScene {
                 .filter((entry) => entry.source === "fire_breath")
                 .map((entry) => entry.unitId),
         );
+        // The Fireforged blade's fire, read from the engine's own entries for the same reason Chain
+        // Lightning is (above): the entries carry the unit id outright, where the scene-log line has to be
+        // matched by name and amount. Without this the blade's burn fell through to a plain red number on
+        // the primary victim and read as part of the swing (owner report 2026-09-20).
+        const fireforgedSwordUnitIds = new Set(
+            (damageForAnimation.secondary ?? [])
+                .filter((entry) => entry.source === "fireforged_sword")
+                .map((entry) => entry.unitId),
+        );
         for (const entry of this.sc_sceneLog.getEntriesSince(logSizeBeforeAttack)) {
             const fsMatch = entry.match(/^(.+?) received \((\d+)\) from Fire Shield/);
             if (fsMatch) {
@@ -12114,7 +12143,9 @@ export class Sandbox extends PixiScene {
                       ? "chain_lightning"
                       : isFsBurn || fireBreathUnitIds.has(uId)
                         ? "fire_breath"
-                        : "";
+                        : fireforgedSwordUnitIds.has(uId)
+                          ? "fireforged_sword"
+                          : "";
                 const { fill: fsFill, stroke: fsStroke } = this.getSecondaryDamageStyle(secondarySource);
 
                 if (isPetrified && u instanceof RenderableUnit && primaryAttackDir) {
@@ -15133,7 +15164,7 @@ export class Sandbox extends PixiScene {
         }
         this.fireWallRotateHintText = this.ensureSplitText(this.fireWallRotateHintText, 20, 0xffe08a);
         this.fireWallRotateHintText.text = "⇧ Shift to rotate";
-        // Below the footprint, clear of the 3-cell line itself whichever way it currently lies.
+        // Below the footprint, clear of the line itself whichever way it currently lies.
         this.fireWallRotateHintText.position.set(pos.x, pos.y + gs.getCellSize() * 1.35);
         this.fireWallRotateHintText.visible = true;
     }
@@ -16179,15 +16210,19 @@ export class Sandbox extends PixiScene {
         }
     }
     /**
-     * Fire Wall aim preview: the 3-cell line a click would set alight, centred on the cell under the cursor
-     * so the wall pivots about the mouse as Shift turns it (see rotateFireWallAim).
+     * Fire Wall aim preview: the 4-cell line a click would lay, pivoting about the cell under the cursor as
+     * Shift turns it (see rotateFireWallAim).
      *
-     * All-or-nothing like Smoke — the engine refuses a partial line, so an illegal placement draws nothing
-     * at all rather than dangling a highlight over a cast that would be rejected. Legality is read from the
-     * ENGINE's own predicate, so the preview can never promise something fireWallCast will refuse.
+     * The wall goes anywhere and lights only the free cells of its line (owner call 2026-09-19), so the
+     * preview says WHICH: a cell that will burn is drawn hot, a cell the flames skip (a creature, the
+     * mountain, a narrowed-away cell) is drawn as a faint outline, and the part of the line past the board
+     * edge is not drawn at all. Which cells burn is read from the ENGINE's own readout (fireWallLitCells),
+     * so the preview can never promise something fireWallCast lays differently. The one placement the engine
+     * refuses — a line that lights nothing — draws nothing, rather than dangling a highlight over a cast
+     * that would be rejected.
      *
-     * Drawn hot (ember red under a bright orange stroke) to match the flames the cast leaves behind, with an
-     * arrowhead on the leading cell so the current orientation is readable at a glance while rotating.
+     * Drawn hot (ember red under a bright orange stroke) to match the flames the cast leaves behind, with a
+     * tick along the wall's axis so the current orientation is readable at a glance while rotating.
      */
     private drawFireWallAim(g: Graphics): void {
         const gs = this.sc_sceneSettings.getGridSettings();
@@ -16195,25 +16230,29 @@ export class Sandbox extends PixiScene {
         if (!anchor) {
             return;
         }
-        const cells = FireWallHelper.fireWallCells(anchor, this.fireWallAimOrientation);
-        if (!cells.every((c) => FireWallHelper.isFireWallableCell(this.grid, GridMath.isCellWithinGrid(gs, c), c))) {
+        const withinGrid = (c: HoCMath.XY) => GridMath.isCellWithinGrid(gs, c);
+        const lit = FireWallHelper.fireWallLitCells(this.grid, withinGrid, anchor, this.fireWallAimOrientation);
+        if (!lit.length) {
             return;
         }
+        const litKeys = new Set(lit.map((c) => `${c.x},${c.y}`));
+        const onBoard = FireWallHelper.fireWallCells(anchor, this.fireWallAimOrientation).filter(withinGrid);
         const size = gs.getCellSize();
         const pulse = (Math.sin(this.hoverGlowPhase) + 1) / 2;
-        for (const c of cells) {
+        for (const c of onBoard) {
+            const burns = litKeys.has(`${c.x},${c.y}`);
             g.poly(tunedCellFillPolygon(c, gs, 1 / size))
-                .fill({ color: 0xb03000, alpha: 0.3 + 0.16 * pulse })
-                .stroke({ width: 2, color: 0xff8a2b, alpha: 0.8 });
+                .fill({ color: 0xb03000, alpha: burns ? 0.3 + 0.16 * pulse : 0.08 })
+                .stroke({ width: 2, color: 0xff8a2b, alpha: burns ? 0.8 : 0.3 });
         }
-        // A tick along the wall's own axis, drawn through all three cells, so a vertical wall and a diagonal
-        // one are told apart instantly instead of by reading three separate squares.
+        // A tick along the wall's own axis, drawn through the on-board run of the line, so a vertical wall
+        // and a diagonal one are told apart instantly instead of by reading separate squares.
         const first = projectBattlefieldPoint(
-            GridMath.getPositionForCell(cells[0], gs.getMinX(), gs.getStep(), gs.getHalfStep()),
+            GridMath.getPositionForCell(onBoard[0], gs.getMinX(), gs.getStep(), gs.getHalfStep()),
             gs,
         );
         const last = projectBattlefieldPoint(
-            GridMath.getPositionForCell(cells[cells.length - 1], gs.getMinX(), gs.getStep(), gs.getHalfStep()),
+            GridMath.getPositionForCell(onBoard[onBoard.length - 1], gs.getMinX(), gs.getStep(), gs.getHalfStep()),
             gs,
         );
         g.moveTo(first.x, first.y)

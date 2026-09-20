@@ -31,11 +31,9 @@ describe("fire damage burn targets", () => {
     test("burns whoever the Efreet's Fire Shield reflected onto, at a smaller reflect scale", () => {
         const burns = fireBurnTargets(
             damage({ secondary: [secondary("fire_shield", "attacker", { position: { x: 7, y: 9 } })] }),
-            false,
-            "victim",
         );
 
-        expect(burns).toEqual([{ unitId: "attacker", position: { x: 7, y: 9 }, scale: 0.85 }]);
+        expect(burns).toEqual([{ unitId: "attacker", position: { x: 7, y: 9 }, scale: 0.85, source: "fire_shield" }]);
     });
 
     test("burns every unit a dragon's breath passed through, full size", () => {
@@ -43,8 +41,6 @@ describe("fire damage burn targets", () => {
             damage({
                 secondary: [secondary("fire_breath", "behind-1"), secondary("fire_breath", "behind-2")],
             }),
-            false,
-            "victim",
         );
 
         expect(burns.map((burn) => burn.unitId)).toEqual(["behind-1", "behind-2"]);
@@ -62,8 +58,6 @@ describe("fire damage burn targets", () => {
                     secondary("fire_breath", "unscathed", { amount: 0, unitsDied: 0 }),
                 ],
             }),
-            false,
-            "victim",
         );
 
         expect(burns).toEqual([]);
@@ -72,55 +66,61 @@ describe("fire damage burn targets", () => {
     test("still burns a fire hit that killed without registering damage", () => {
         const burns = fireBurnTargets(
             damage({ secondary: [secondary("fire_shield", "attacker", { amount: 0, unitsDied: 2 })] }),
-            false,
-            "victim",
         );
 
         expect(burns).toHaveLength(1);
     });
 
-    test("a Fireforged Sword attacker sets its own victim alight", () => {
-        const burns = fireBurnTargets(damage(), true, "clicked-target");
+    // The blade is read from the ENGINE's own entry now, not inferred from the attacker's buff plus the
+    // primary hit. That inference drew fire on victims the blade never burned (a Fire Element shrugs it
+    // off entirely) and drew none on the other units a sweep or a volley set alight.
+    test("burns whoever the engine says the Fireforged blade set alight, and marks it as the sword", () => {
+        const burns = fireBurnTargets(
+            damage({ secondary: [secondary("fireforged_sword", "victim", { position: { x: 3, y: 4 } })] }),
+        );
 
-        expect(burns).toEqual([{ unitId: "victim", position: { x: 10, y: 20 }, scale: 1 }]);
+        expect(burns).toEqual([{ unitId: "victim", position: { x: 3, y: 4 }, scale: 1, source: "fireforged_sword" }]);
     });
 
-    test("without the buff the ordinary hit does not burn", () => {
-        expect(fireBurnTargets(damage(), false, "clicked-target")).toEqual([]);
+    test("burns every unit one sweeping Fireforged attack set alight, not only the aimed one", () => {
+        const burns = fireBurnTargets(
+            damage({
+                secondary: [
+                    secondary("fireforged_sword", "aimed"),
+                    secondary("fireforged_sword", "swept-1"),
+                    secondary("fireforged_sword", "swept-2"),
+                ],
+            }),
+        );
+
+        expect(burns.map((burn) => burn.unitId)).toEqual(["aimed", "swept-1", "swept-2"]);
+        expect(burns.every((burn) => burn.source === "fireforged_sword")).toBe(true);
     });
 
-    test("falls back to the caller's target when the engine reported no victim id", () => {
-        const burns = fireBurnTargets(damage({ unitId: undefined }), true, "clicked-target");
-
-        expect(burns.map((burn) => burn.unitId)).toEqual(["clicked-target"]);
-    });
-
-    test("a missed or damageless swing burns nobody, buff or not", () => {
-        expect(fireBurnTargets(damage({ missed: true, amount: 0 }), true, "victim")).toEqual([]);
-        expect(fireBurnTargets(damage({ amount: 0 }), true, "victim")).toEqual([]);
-        expect(fireBurnTargets(undefined, true, "victim")).toEqual([]);
+    test("an ordinary hit with no fire entry burns nobody", () => {
+        expect(fireBurnTargets(damage())).toEqual([]);
+        expect(fireBurnTargets(damage({ missed: true, amount: 0 }))).toEqual([]);
+        expect(fireBurnTargets(undefined)).toEqual([]);
     });
 
     test("never burns the same unit twice in one exchange", () => {
-        // A Fireforged dragon: its breath already burned the primary victim.
         const burns = fireBurnTargets(
-            damage({ secondary: [secondary("fire_breath", "victim"), secondary("fire_breath", "victim")] }),
-            true,
-            "victim",
+            damage({ secondary: [secondary("fire_breath", "victim"), secondary("fireforged_sword", "victim")] }),
         );
 
         expect(burns).toHaveLength(1);
         expect(burns[0].unitId).toBe("victim");
     });
 
-    test("burns the secondary victims AND the Fireforged strike victim when they differ", () => {
+    test("burns a shield reflect and a blade victim together when they differ", () => {
         const burns = fireBurnTargets(
-            damage({ secondary: [secondary("fire_shield", "attacker")] }),
-            true,
-            "clicked-target",
+            damage({
+                secondary: [secondary("fire_shield", "attacker"), secondary("fireforged_sword", "victim")],
+            }),
         );
 
         expect(burns.map((burn) => burn.unitId)).toEqual(["attacker", "victim"]);
+        expect(burns.map((burn) => burn.source)).toEqual(["fire_shield", "fireforged_sword"]);
     });
 });
 
@@ -130,6 +130,15 @@ describe("fire damage text style", () => {
 
         expect(secondaryDamageTextStyle("fire_shield")).toEqual(orange);
         expect(secondaryDamageTextStyle("fire_breath")).toEqual(orange);
+    });
+
+    // The blade's fire is orange too — it used to have no case at all and fell through to the plain red
+    // of an ordinary hit, so the burn never read as fire (owner report 2026-09-20).
+    test("gives the Fireforged blade its own hotter orange, never the plain red of a normal hit", () => {
+        const style = secondaryDamageTextStyle("fireforged_sword");
+
+        expect(style).toEqual({ fill: "#ff8a2b", stroke: "#6b2400" });
+        expect(style).not.toEqual(secondaryDamageTextStyle("magic_mirror"));
     });
 
     test("does not turn ordinary secondary damage orange", () => {
