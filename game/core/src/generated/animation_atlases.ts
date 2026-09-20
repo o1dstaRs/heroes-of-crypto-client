@@ -10211,6 +10211,29 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
     }
   },
   "Scavenger": {
+    "death": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 8,
+      "frameDurationSec": 0.125,
+      "totalDurationSec": 1,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.96875,
+      "sourceDirection": "right",
+      "loop": false,
+      "holdLastFrame": true,
+      "visibleHeightRatio": 0.9114583333333334,
+      "scaleReference": "Neutral frame normalized to 700px visible height; one fixed scale across action. Match visible height when integrating with existing 741px walk.",
+      "installedInGame": false,
+      "loopDurationMs": 900,
+      "pauseMs": 360
+    },
     "default": {
       "frameWidth": 512,
       "frameHeight": 512,
@@ -10226,6 +10249,52 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
       },
       "loopDurationMs": 5475,
       "pauseMs": 2190
+    },
+    "hit": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 12.5,
+      "frameDurationSec": 0.08,
+      "totalDurationSec": 0.64,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.96875,
+      "sourceDirection": "right",
+      "loop": false,
+      "holdLastFrame": false,
+      "visibleHeightRatio": 0.9114583333333334,
+      "scaleReference": "Neutral frame normalized to 700px visible height; one fixed scale across action. Match visible height when integrating with existing 741px walk.",
+      "installedInGame": false,
+      "loopDurationMs": 576,
+      "pauseMs": 230
+    },
+    "idle": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 6.25,
+      "frameDurationSec": 0.16,
+      "totalDurationSec": 1.28,
+      "layout": {
+        "cols": 4,
+        "rows": 2
+      },
+      "footAnchorY": 0.96875,
+      "sourceDirection": "right",
+      "loop": true,
+      "holdLastFrame": false,
+      "visibleHeightRatio": 0.9114583333333334,
+      "scaleReference": "Neutral frame normalized to 700px visible height; one fixed scale across action. Match visible height when integrating with existing 741px walk.",
+      "installedInGame": false,
+      "loopDurationMs": 1152,
+      "pauseMs": 461
     }
   },
   "Scavenger Homm": {
