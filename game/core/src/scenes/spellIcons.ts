@@ -18,15 +18,10 @@ import { SpellHelper } from "@heroesofcrypto/common";
 const SPELL_ICON_KEYS: Readonly<Record<string, string>> = {
     "Fire Strike": "fire_strike_chaos_256_v1",
     Meteorite: "meteorite_chaos_256_v1",
-    // PLACEHOLDER (2026-09-20). Fireball ships before its art: `fireball_256` does not exist in the Drive
-    // yet, and without a texture the spell would be silently absent from the Wandering Mage's book. Fire
-    // Strike's icon is the closest thing on the shelf — same faction, same element, same thrown shape.
-    // Remove this line once fireball_256.webp is published.
-    Fireball: "fire_strike_chaos_256_v1",
 };
 
 export const spellIconTextureKey = (spellName: string): string =>
     SPELL_ICON_KEYS[spellName] ?? SpellHelper.spellToTextureName(spellName);
 
-/** Spells drawn with a stand-in icon, so a missing-art audit can find them. */
-export const SPELLS_AWAITING_OWN_ICON: readonly string[] = ["Fireball"];
+/** Spells drawn with a stand-in icon, so a missing-art audit can find them. Empty is the healthy state. */
+export const SPELLS_AWAITING_OWN_ICON: readonly string[] = [];
