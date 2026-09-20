@@ -519,14 +519,16 @@ code {
     text-shadow: 0 4px 32px rgba(0, 0, 0, 0.55);
 }
 
-/* Logo lockup replacing the plain "Heroes of Crypto" wordmark. */
+/* Logo lockup replacing the plain "Heroes of Crypto" wordmark. The global h1 cap of 820px would
+   hold the lockup in a narrower box than the hero column, pushing it left of the page centre. */
 .hero-logo {
+    max-width: none;
     margin: 0 0 6px;
     line-height: 0;
 }
 
 .hero-logo img {
-    width: min(460px, 80%);
+    width: min(552px, 88%);
     height: auto;
     margin-inline: auto;
     filter: drop-shadow(0 8px 30px rgba(0, 0, 0, 0.6));
