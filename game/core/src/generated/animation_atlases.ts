@@ -12774,7 +12774,7 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
         "rows": 2
       },
       "footAnchorY": 0.9908854166666666,
-      "battlefieldReference": "/Users/pro/Workplace/heroesofcrypto-assets/images/troglodyte_battlefield_side_right_distance_readable_v1.webp",
+      "battlefieldReference": "troglodyte_battlefield_side_right_distance_readable_v1.webp",
       "sourceArchive": "транл.zip",
       "loop": true,
       "headStabilization": "shared frame-01 head; integer translation only; fixed scale and angle",

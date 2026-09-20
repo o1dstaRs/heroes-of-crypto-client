@@ -3012,10 +3012,10 @@ assetTest("White Tiger reactions keep idle scale, recover after a hit and hold t
                 unit.stepOneShotAnimation(animation.frameDurationsMs[i]);
             }
             expect(completed).toBe(1);
-            expect(sprite.texture).toBe(state === "hit" ? resting : animation.frames.at(-1));
+            expect(sprite.texture).toBe(state === "hit" ? resting : animation.frames.at(-1)!);
             if (state === "death") {
                 unit.stepOneShotAnimation(10_000);
-                expect(sprite.texture).toBe(animation.frames.at(-1));
+                expect(sprite.texture).toBe(animation.frames.at(-1)!);
                 expect(sprite.filters ?? []).not.toContain(tail!);
                 expect(completed).toBe(1);
                 unit.returnToIdleAnimation();
@@ -3722,10 +3722,10 @@ assetTest("Centaur lab reactions preserve registration, recover from hits and ho
         expect(sprite.anchor.y).toBeCloseTo(anchor, 8);
         unit.stepOneShotAnimation(duration);
     }
-    expect(sprite.texture).toBe(death.frames.at(-1));
+    expect(sprite.texture).toBe(death.frames.at(-1)!);
     expect(deathsFinished).toBe(1);
     unit.stepOneShotAnimation(10_000);
-    expect(sprite.texture).toBe(death.frames.at(-1));
+    expect(sprite.texture).toBe(death.frames.at(-1)!);
     expect(deathsFinished).toBe(1);
     unit.returnToIdleAnimation();
     expect(sprite.texture).toBe(idle);
@@ -4075,7 +4075,7 @@ assetTest("Medusa lab stone death keeps its scale and holds the final rubble cel
         unit.stepOneShotAnimation(5000);
         unit.ensureVisual(world, gridSettings);
         expect(complete).toBe(1);
-        expect(state.sprite.texture === anim.frames.at(-1)).toBe(true);
+        expect(state.sprite.texture === anim.frames.at(-1)!).toBe(true);
         expect(state.sprite.scale.y).toBeCloseTo(scale, 8);
         unit.returnToIdleAnimation(true);
         unit.ensureVisual(world, gridSettings);
@@ -4346,7 +4346,7 @@ assetTest("cycles Mermaid through all eight slither poses and restores idle whil
     for (let step = 0; step <= 16; step++) {
         unit.setBoardWalkDistanceCells((step * 1.3) / 8);
         expect(internals.walkAnim?.frameIndex).toBe(step % 8);
-        expect(internals.sprite.texture).toBe(internals.walkAnim?.frames[step % 8]);
+        expect(internals.sprite.texture).toBe(internals.walkAnim!.frames[step % 8]!);
     }
     unit.stopBoardWalkAnimation();
     expect(internals.walkAnim).toBeUndefined();

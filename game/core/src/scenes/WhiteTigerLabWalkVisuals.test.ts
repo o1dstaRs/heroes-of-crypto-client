@@ -35,7 +35,7 @@ test("White Tiger preserves visible height and ground contact across frames, sca
         expect(sprite.scale.x).toBe(x);
         expect(sprite.scale.y).toBe(y);
         sharedGrade ??= sprite.filters?.[0];
-        expect(sprite.filters?.[0]).toBe(sharedGrade);
+        expect((sprite.filters as unknown[] | undefined)?.[0]).toBe(sharedGrade);
         expect(sprite.filters?.[1]).toBe(other);
     }
     syncWhiteTigerLabWalk(sprite, -1);

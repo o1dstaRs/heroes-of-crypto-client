@@ -723,14 +723,9 @@ export class HoverManager {
         props: UnitProperties,
         logicalPosition: HoCMath.XY,
         preferredUnit?: Unit,
-        staticPose = false,
     ): BattlefieldUnitPreview | undefined {
         const active = (preferredUnit ?? this.context.getCurrentActiveUnit()) as
             | (Unit & {
-                  getStaticBattlefieldPreviewAt?: (
-                      position: HoCMath.XY,
-                      gridSettings: ReturnType<SceneSettings["getGridSettings"]>,
-                  ) => BattlefieldUnitPreview | undefined;
                   getBattlefieldPreviewAt?: (
                       position: HoCMath.XY,
                       gridSettings: ReturnType<SceneSettings["getGridSettings"]>,
@@ -748,9 +743,6 @@ export class HoverManager {
             footprintHeightOf(activeProps) !== footprintHeightOf(props)
         ) {
             return undefined;
-        }
-        if (staticPose && active.getStaticBattlefieldPreviewAt) {
-            return active.getStaticBattlefieldPreviewAt(logicalPosition, this.context.sceneSettings.getGridSettings());
         }
         return active.getBattlefieldPreviewAt(logicalPosition, this.context.sceneSettings.getGridSettings());
     }
@@ -2646,7 +2638,8 @@ export class HoverManager {
             this.hoverObstacleHighlight.visible = false;
         }
     }
-    // Armed-spell target preview. The selected spell is shown by the toolbar button.
+    // --- Armed-spell on-board preview: a colored beam caster→target plus a persistent icon+name
+    // badge floating above the caster, so the player can always see which spell is about to fire. ---
     private spellBeam?: Graphics;
     private spellBadgeRing?: Graphics;
     private spellBadgeIcon?: Sprite;
@@ -2703,9 +2696,14 @@ export class HoverManager {
     public drawSpellCastPreview(opts: {
         casterPos: HoCMath.XY;
         targetPos?: HoCMath.XY;
+        iconTex: Texture;
+        label: string;
+        color: number;
         beamStyle: "positive" | "negative";
     }): void {
-        // Beam from caster to hovered target (only when a target is hovered).
+        const color = opts.color;
+
+        // 1. Beam from caster to hovered target (only when a target is hovered).
         if (opts.targetPos) {
             const dualHelixVisible = this.drawMagicAimDualHelix(opts.casterPos, opts.targetPos);
             if (dualHelixVisible) {
@@ -2834,8 +2832,12 @@ export class HoverManager {
             });
             this.context.attachToWorldRoot(this.spellBadgeText, 2203);
         } else {
-            this.hideMagicAimDualHelix();
+            this.spellBadgeText.text = opts.label;
         }
+        this.spellBadgeText.visible = true;
+        this.spellBadgeText.anchor.set(0.5, 0.5);
+        this.spellBadgeText.scale.set(1, -1);
+        this.spellBadgeText.position.set(cx, cy - (iconSize / 2 + 18));
     }
     public clearSpellPreview(): void {
         if (this.spellBeam) this.safeClearGraphics(this.spellBeam);
@@ -2924,7 +2926,7 @@ export class HoverManager {
         exactPlacementCopy = false,
     ): void {
         const outlineGrowth = exactPlacementCopy ? 1 : 1.06;
-        const livePreview = this.getLiveUnitPreview(selected, boundsCenter, previewUnit, true);
+        const livePreview = this.getLiveUnitPreview(selected, boundsCenter, previewUnit);
         const texName = unitToTextureName(
             selected.name,
             TextureType.SMALL,
@@ -2999,7 +3001,7 @@ export class HoverManager {
      * does not disturb the local player's hover silhouette; both use the same exact B&W treatment.
      */
     public showOpponentIntentSilhouette(props: UnitProperties, position: HoCMath.XY): void {
-        const livePreview = this.getLiveUnitPreview(props, position, undefined, true);
+        const livePreview = this.getLiveUnitPreview(props, position);
         const texName = unitToTextureName(
             props.name,
             TextureType.SMALL,
@@ -3390,7 +3392,7 @@ export class HoverManager {
             const logicalCenter = GridMath.getPositionForCells(gs, candidateCells);
             if (logicalCenter) {
                 // Placement has no combat-active unit. Use the actual selected board/bench instance so
-                // the preview uses its fixed battlefield pose and framing instead of the legacy portrait.
+                // the preview clones its refreshed idle frame and framing instead of the legacy portrait.
                 this.ensureHoverSilhouetteParams(
                     selected,
                     logicalCenter,

@@ -43,7 +43,9 @@ test("Centaur melee switches grades with poses, preserves other filters and rele
     } as unknown as HTMLCanvasElement);
     try {
         const sprite = new Sprite(Texture.WHITE);
-        const other = new Filter();
+        // A stand-in for "some other filter already on the sprite". Pixi's Filter requires a shader in
+        // its options, and this one is never applied — the test only checks that it survives the sync.
+        const other = new Filter({} as ConstructorParameters<typeof Filter>[0]);
         sprite.filters = [other];
         const scale = sprite.scale.clone(),
             anchor = sprite.anchor.clone(),

@@ -3,7 +3,6 @@ import { RenderableUnit as LevelOneRenderableUnit } from "./LevelOneRenderableUn
 import { usesAuthoredRangedRelease, usesApprovedBaseAnimations } from "../pixi/creatureAnimationSettings";
 import { Assets, Sprite, Graphics, Container, Texture, BlurFilter, RenderTexture, Text, TextStyle } from "pixi.js";
 import { PixiDrawer } from "../pixi/PixiDrawer";
-import { usesAuthoredRangedRelease } from "../pixi/creatureAnimationSettings";
 import {
     SandboxDrawer,
     ALLY_MOVEMENT_INSPECTION_COLOR,

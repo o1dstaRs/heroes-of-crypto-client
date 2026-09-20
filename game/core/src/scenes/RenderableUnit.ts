@@ -10385,4 +10385,7 @@ export class RenderableUnit extends Unit {
             if (visible) this.stackPowerContainer.alpha = 1;
         }
     }
+    public isSkippingDisplayed(): boolean {
+        return this.isSkippingForDisplay();
+    }
 }

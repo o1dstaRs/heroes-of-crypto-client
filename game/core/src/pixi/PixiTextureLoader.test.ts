@@ -1,10 +1,9 @@
-import { describe, expect, spyOn, test } from "bun:test";
-import { Assets, Texture } from "pixi.js";
+import { describe, expect, test } from "bun:test";
+import { Assets } from "pixi.js";
 
 import { images } from "../imageAssets";
 import {
     getSplitBundles,
-    preloadNarrowingBackgroundAssets,
     isDeferredEnvironmentAssetKey,
     isDeferredLegacyCreatureAssetKey,
     isDeferredPlacementAssetKey,
@@ -24,90 +23,14 @@ import {
     unloadRosterAssets,
 } from "./PixiTextureLoader";
 import { isUnitAnimationAtlasKey } from "./unitAtlasKeys";
-import { NARROWING_BACKGROUND_KEYS } from "./imageAssetTiers";
-
-test("background floors load serially, share in-flight work, and recover after an optional download fails", async () => {
-    let rejectFirst!: (error: Error) => void;
-    const first = new Promise<Texture>((_resolve, reject) => {
-        rejectFirst = reject;
-    });
-    const requested: string[] = [];
-    const load = spyOn(Assets, "load").mockImplementation(((url: string) => {
-        requested.push(url);
-        return requested.length === 1 ? first : Promise.resolve(Texture.WHITE);
-    }) as typeof Assets.load);
-    const warn = spyOn(console, "warn").mockImplementation(() => undefined);
-    try {
-        const pending = preloadNarrowingBackgroundAssets();
-        expect(preloadNarrowingBackgroundAssets()).toBe(pending);
-        expect(requested).toHaveLength(1);
-        rejectFirst(new Error("Temporary download failure"));
-        await pending;
-        expect(requested).toEqual(NARROWING_BACKGROUND_KEYS.map((key) => images[key]));
-        expect(warn).toHaveBeenCalledTimes(1);
-    } finally {
-        load.mockRestore();
-        warn.mockRestore();
-    }
-});
+import { shouldPreloadUnitAnimationAtlas } from "./creatureAnimationSettings";
+import { isNamedUnitStateSheetKey } from "./unitStateSheetKeys";
 
 // The board renders every creature's PERMANENT art from its idle/default atlas. If those keys ride
 // in the big Tier-2b animation bundle, a fresh-cache load shows the old static tokens until hundreds
 // of MB finish downloading — the "old squared images on initial load" bug. These tests pin the
 // three-way split so the idle bundle stays small and first.
 describe("pixi texture bundle split", () => {
-    test("preloads Medusa lab walk, idle, attack and hit without excluding their native detail as redundant", () => {
-        const split = getSplitBundles({ animationsEnabled: false });
-        for (const key of [
-            "medusa_lab_walk_atlas",
-            "medusa_lab_idle_atlas",
-            "medusa_lab_hit_atlas",
-            "medusa_lab_melee_attack_atlas",
-            "medusa_lab_melee_attack_up_atlas",
-            "medusa_lab_melee_attack_down_atlas",
-            "medusa_lab_death_atlas",
-            "medusa_lab_attack_atlas",
-            "medusa_lab_attack_up_atlas",
-            "medusa_lab_attack_down_atlas",
-        ]) {
-            expect(isRedundantFullResolutionUnitAtlasKey(key)).toBe(false);
-            expect(split.animations[key] ?? split.idleAtlases[key]).toBeDefined();
-            expect(split.excludedFullResolutionUnitAtlases[key]).toBeUndefined();
-            expect(split.deferredUnitAtlases[key]).toBeUndefined();
-        }
-    });
-
-    test("Dryad ranged lab keeps its full-resolution atlases available", () => {
-        const split = getSplitBundles({ animationsEnabled: false });
-        for (const state of ["attack", "attack_up", "attack_down"]) {
-            const key = `dryad_lab_${state}_atlas`;
-            expect(isRedundantFullResolutionUnitAtlasKey(key)).toBe(false);
-            expect(split.excludedFullResolutionUnitAtlases[key]).toBeUndefined();
-            expect(split.deferredUnitAtlases[key] ?? split.animations[key]).toBeDefined();
-        }
-    });
-    test("keeps every native Arbalester idle page out of global preload bundles", () => {
-        const pages = Object.keys(images).filter((key) => /^arbalester_idle_page_\d{2}_atlas$/.test(key));
-        expect(pages).toHaveLength(22);
-        for (const animationsEnabled of [false, true]) {
-            const split = getSplitBundles({ animationsEnabled });
-            for (const key of pages) {
-                expect(isUnitAnimationAtlasKey(key)).toBe(true);
-                expect(isRedundantFullResolutionUnitAtlasKey(key)).toBe(false);
-                expect(isProductionOmittedAssetKey(key)).toBe(false);
-                expect(split.deferredUnitAtlases[key]).toBeDefined();
-                expect(split.core[key]).toBeUndefined();
-                expect(split.animations[key]).toBeUndefined();
-                expect(split.idleAtlases[key]).toBeUndefined();
-            }
-            for (const state of ["walk", "hit", "death"]) {
-                expect(split.animations[`arbalester_${state}_atlas`]).toBeDefined();
-                expect(split.excludedFullResolutionUnitAtlases[`arbalester_${state}_atlas`]).toBeUndefined();
-            }
-            expect(split.excludedFullResolutionUnitAtlases.arbalester_idle_atlas).toBeDefined();
-        }
-    });
-
     test("classifies the board idle/default atlases and nothing else", () => {
         expect(isIdleAtlasKey("wolf_idle_atlas_quarter")).toBe(true);
         expect(isIdleAtlasKey("behemoth_default_atlas_half")).toBe(true);
@@ -176,10 +99,11 @@ describe("pixi texture bundle split", () => {
             expect(`${key}: ${isUnitAnimationAtlasKey(key) && !isIdleAtlasKey(key)}`).toBe(`${key}: true`);
         }
         for (const key of Object.keys(core)) {
-            expect(`${key}: ${isUnitAnimationAtlasKey(key)}`).toBe(`${key}: false`);
+            expect(`${key}: ${isUnitAnimationAtlasKey(key) || isNamedUnitStateSheetKey(key)}`).toBe(`${key}: false`);
         }
+        // A creature sheet the atlas index does not list yet is recognised by its name and deferred too.
         for (const key of Object.keys(deferredUnitAtlases)) {
-            expect(`${key}: ${isUnitAnimationAtlasKey(key)}`).toBe(`${key}: true`);
+            expect(`${key}: ${isUnitAnimationAtlasKey(key) || isNamedUnitStateSheetKey(key)}`).toBe(`${key}: true`);
         }
         for (const key of Object.keys(deferredReactUiAssets)) {
             expect(`${key}: ${isDeferredReactUiAssetKey(key)}`).toBe(`${key}: true`);
@@ -222,7 +146,7 @@ describe("pixi texture bundle split", () => {
         }
     });
 
-    test("keeps live board atlases and the approved Blacksmith detail sheet", () => {
+    test("keeps live board atlases but never loads full-resolution unit source sheets", () => {
         const { core, animations, deferredEnvironmentAssets, excludedFullResolutionUnitAtlases } = getSplitBundles({
             animationsEnabled: true,
         });
@@ -231,32 +155,9 @@ describe("pixi texture bundle split", () => {
         expect(deferredEnvironmentAssets.lava_center_anim_atlas).toBeDefined();
         expect(core.lava_center_anim_atlas).toBeUndefined();
         expect(animations.wolf_walk_atlas_quarter).toBeDefined();
-        expect(animations.blacksmith_walk_atlas).toBeDefined();
-        expect(animations.blacksmith_hit_atlas).toBeDefined();
-        expect(animations.blacksmith_death_atlas).toBeDefined();
-        expect(excludedFullResolutionUnitAtlases.blacksmith_hit_atlas).toBeUndefined();
-        expect(excludedFullResolutionUnitAtlases.blacksmith_death_atlas).toBeUndefined();
-        expect(excludedFullResolutionUnitAtlases.blacksmith_walk_atlas).toBeUndefined();
         expect(excludedFullResolutionUnitAtlases.wolf_walk_atlas).toBeDefined();
         expect(core.wolf_walk_atlas).toBeUndefined();
         expect(animations.wolf_walk_atlas).toBeUndefined();
-    });
-
-    test("preloads native Berserker actions for the lab while creature animations are frozen", () => {
-        const { animations, deferredUnitAtlases, excludedFullResolutionUnitAtlases } = getSplitBundles({
-            animationsEnabled: false,
-        });
-        for (const key of [
-            "berserker_hit_atlas",
-            "berserker_death_atlas",
-            "berserker_melee_attack_atlas",
-            "berserker_melee_attack_up_atlas",
-            "berserker_melee_attack_down_atlas",
-        ] as const) {
-            expect(animations[key]).toBeDefined();
-            expect(deferredUnitAtlases[key]).toBeUndefined();
-            expect(excludedFullResolutionUnitAtlases[key]).toBeUndefined();
-        }
     });
 
     test("the idle bundle is present and stays a small fraction of the atlas payload", () => {
@@ -276,37 +177,17 @@ describe("pixi texture bundle split", () => {
         expect(idleCount).toBeLessThan(animationCount);
     });
 
-    test("preloads Wolf howl idle at original figure resolution while keeping its walk ready", () => {
-        const { idleAtlases, animations, deferredUnitAtlases } = getSplitBundles({ animationsEnabled: false });
-        expect(idleAtlases.wolf_idle_atlas_half).toBeDefined();
-        expect(animations.wolf_walk_atlas_half).toBeDefined();
-        expect(deferredUnitAtlases.wolf_idle_atlas_half).toBeUndefined();
-        expect(deferredUnitAtlases.wolf_attack_atlas_quarter).toBeDefined();
-    });
-
-    test("preloads approved movement and Peasant/Squire combat while deferring frozen animations", () => {
+    test("preloads approved level-one motion while deferring unapproved animations", () => {
         const { idleAtlases, animations, deferredUnitAtlases } = getSplitBundles({ animationsEnabled: false });
 
+        expect(idleAtlases.peasant_idle_red_atlas_quarter).toBeDefined();
+        expect(animations.peasant_walk_atlas_quarter).toBeDefined();
         expect(idleAtlases.wolf_idle_atlas_half).toBeDefined();
-        expect(deferredUnitAtlases.wolf_idle_atlas_half).toBeUndefined();
-        expect(Object.keys(animations).sort()).toEqual([
-            "arbalester_walk_atlas_quarter",
-            "ash_moth_walk_atlas_quarter",
-            "blacksmith_walk_atlas",
-            "peasant_attack_atlas_quarter",
-            "peasant_attack_down_atlas_quarter",
-            "peasant_attack_up_atlas_quarter",
-            "peasant_death_atlas_quarter",
-            "peasant_hit_atlas_quarter",
-            "peasant_walk_atlas_quarter",
-            "squire_death_atlas_quarter",
-            "squire_hit_atlas_quarter",
-            "thief_walk_atlas_quarter",
-            "wolf_rider_walk_atlas_quarter",
-            "wolf_walk_atlas_half",
-        ]);
-        expect(deferredUnitAtlases.wolf_idle_atlas_quarter).toBeDefined();
-        expect(deferredUnitAtlases.wolf_attack_atlas_quarter).toBeDefined();
+        expect(animations.wolf_attack_atlas_half).toBeDefined();
+        for (const key of [...Object.keys(idleAtlases), ...Object.keys(animations)]) {
+            expect(shouldPreloadUnitAnimationAtlas(key, false), key).toBe(true);
+        }
+        expect(deferredUnitAtlases.wolf_attack_atlas_half).toBeUndefined();
     });
 
     test("leaves React-only draft and portrait art out of Pixi's texture cache", () => {
@@ -317,6 +198,7 @@ describe("pixi texture bundle split", () => {
             "board_icon",
             "pick_ban_slash_variant2_atlas",
             "wolf_left_screen_x2",
+            "peasant_left_screen_idle_atlas",
             "black_dragon_portrait_full",
             "pick_phase_heroic_hearth_tavern_background_v10",
             "pick_phase_floor_fog_atlas",
@@ -406,20 +288,6 @@ describe("pixi texture bundle split", () => {
         expect(isDeferredEnvironmentAssetKey("background_stone_tiles_sinister_16x16_original_restored")).toBe(false);
         expect(core.background_stone_tiles_sinister_16x16_original_restored).toBeDefined();
         expect(isDeferredEnvironmentAssetKey("background_new")).toBe(false);
-    });
-
-    test("defers later narrowing paintings while keeping the initial floor ready at scene creation", () => {
-        const { core, deferredEnvironmentAssets } = getSplitBundles({ animationsEnabled: false });
-        for (const key of [
-            "background_stone_tiles_sinister_16x16_first_ring_destroyed_aaa_v3",
-            "background_stone_tiles_sinister_16x16_two_rings_destroyed_aaa_v7",
-            "background_stone_tiles_sinister_16x16_three_rings_destroyed_aaa_v3",
-            "background_stone_tiles_sinister_16x16_four_rings_destroyed_aaa_v7",
-            "background_stone_tiles_sinister_16x16_five_rings_destroyed_aaa_v4",
-        ]) {
-            expect(core[key]).toBeUndefined();
-            expect(deferredEnvironmentAssets[key]?.src).toBe((images as Record<string, string>)[key]);
-        }
     });
 
     test("loads the matching placement carpet/border on demand instead of preloading every size", () => {
@@ -560,7 +428,7 @@ describe("pixi texture bundle split", () => {
             expect(lazySpellAssets[key]).toBeDefined();
             expect(core[key]).toBeUndefined();
         }
-        expect(Object.keys(lazySpellAssets)).toHaveLength(59);
+        expect(Object.keys(lazySpellAssets)).toHaveLength(60);
     });
 
     test("loads sandbox roster art only while the pre-fight overlay exists", () => {

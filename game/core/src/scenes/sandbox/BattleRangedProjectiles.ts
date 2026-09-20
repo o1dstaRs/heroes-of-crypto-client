@@ -17,7 +17,7 @@ export class RangedProjectiles extends Legacy {
     public override hasActive(): boolean {
         return super.hasActive() || this.approved.hasActive();
     }
-    public prepare(opts: IFireProjectileOptions): Promise<void> {
+    public override prepare(opts: IFireProjectileOptions): Promise<void> {
         return this.usesApproved(opts) ? this.approved.prepare(opts) : Promise.resolve();
     }
     public override fire(opts: IFireProjectileOptions): Promise<void> {

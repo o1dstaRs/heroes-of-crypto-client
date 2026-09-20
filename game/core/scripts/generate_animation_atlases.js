@@ -585,7 +585,18 @@ function main() {
     lines.push(
         "export const animationAtlases: Readonly<Record<string, Readonly<Record<string, IAtlasAnimationMeta>>>> =",
     );
-    lines.push(JSON.stringify(atlasMap, null, 2) + ";");
+    // A meta field may carry the authoring machine's absolute path (some *_meta.json reference their
+    // source that way). Emitting it would bake one person's home directory into a tracked file — and
+    // gameImageAssetPolicy rejects exactly that. Every art reference is a file name, never a location.
+    const withoutAuthoringPaths = (value) => {
+        if (typeof value === "string") return value.startsWith("/") ? value.slice(value.lastIndexOf("/") + 1) : value;
+        if (Array.isArray(value)) return value.map(withoutAuthoringPaths);
+        if (value && typeof value === "object") {
+            return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, withoutAuthoringPaths(v)]));
+        }
+        return value;
+    };
+    lines.push(JSON.stringify(withoutAuthoringPaths(atlasMap), null, 2) + ";");
     lines.push("");
     lines.push("export type AnimationUnitName = string;");
     lines.push("export type AnimationStateName<_U extends AnimationUnitName = AnimationUnitName> = string;");
