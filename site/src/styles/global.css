@@ -521,7 +521,7 @@ code {
 }
 
 .hero-logo img {
-    width: min(460px, 78%);
+    width: min(400px, 74%);
     height: auto;
     filter: drop-shadow(0 8px 30px rgba(0, 0, 0, 0.6));
 }
