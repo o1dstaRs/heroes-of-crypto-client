@@ -223,16 +223,13 @@ import { isGreenTeam } from "./teamColors";
  * Client-side aim projection for an offensive spell: what ONE target actually takes.
  *
  * Delegates to common so the number a player is shown and the number the cast deals come out of the same
- * arithmetic. It used to hard-code the stack-powered shape, which multiplied the Battle Mage's flat
- * per-caster book (Fire Strike, Meteorite) by its stack power and projected up to 5x the real damage; the
- * Magic Dragon's book is stack-powered, so it read correctly and hid the bug. Passing the spell's own
- * multiplier is the fix, and it keeps a future spell in either shape honest for free.
+ * arithmetic. Stack power is no longer part of that arithmetic at all — spell damage is head-count x power
+ * (common af2ea3b) — so it is no longer taken here either.
  */
 export const offensiveSpellPreviewDamage = (
     multiplierType: SpellMultiplierType,
     spellPower: number,
     casterAmountAlive: number,
-    casterStackPower: number,
     casterMagicDamageBonusPercentage: number,
     targetMagicResist: number,
     // The target's own element answers the spell's before resistance does, exactly as the engine resolves it
@@ -244,7 +241,6 @@ export const offensiveSpellPreviewDamage = (
         multiplierType,
         spellPower,
         casterAmountAlive,
-        casterStackPower,
         casterMagicDamageBonusPercentage,
         targetMagicResist,
         elementMultiplier,
@@ -734,24 +730,25 @@ export const splitAreaThrowWaves = (splash: IVisibleDamage["splash"]): NonNullab
  * Which units an attack exchange burns, and how big each burn reads — the rule behind
  * Sandbox.spawnFireDamageVfx, kept pure so it can be unit-tested without a scene.
  *
- * Fire damage arrives on the authoritative `damage.secondary` for the two ability sources (the Efreet's
- * Fire Shield reflect burns whoever struck it; a Black Dragon's breath burns every unit it passes
- * through), while the Fireforged Sword is a BUFF on the attacker rather than its own damage entry — its
- * bonus is the burning blade, so the unit the strike actually landed on ignites. `position` is the
- * engine's impact-time fallback for a unit that no longer exists by the time the burn is drawn.
+ * Fire damage arrives on the authoritative `damage.secondary`: the Efreet's Fire Shield reflect burns
+ * whoever struck it, a Black Dragon's breath burns every unit it passes through, and a Fireforged Sword
+ * burns whoever its enchanted blade hit. All three are read from the engine's own entries, so what burns
+ * on screen is exactly what burned in the fight — the sword used to be INFERRED instead, from the
+ * attacker's buff plus the primary hit, which drew flames on a target the fire never touched (a Fire
+ * Element shrugs the blade off) and drew nothing on the other units a sweep or a volley set alight.
+ * `position` is the engine's impact-time fallback for a unit that no longer exists by the time the burn
+ * is drawn.
  */
 export const fireBurnTargets = (
     damage: IVisibleDamage | undefined,
-    attackerHasFireforgedSword: boolean,
-    fallbackVictimId: string,
-): { unitId: string; position: HoCMath.XY; scale: number }[] => {
+): { unitId: string; position: HoCMath.XY; scale: number; source: string }[] => {
     if (!damage) {
         return [];
     }
-    const burns: { unitId: string; position: HoCMath.XY; scale: number }[] = [];
+    const burns: { unitId: string; position: HoCMath.XY; scale: number; source: string }[] = [];
     const burned = new Set<string>();
     for (const entry of damage.secondary ?? []) {
-        if (entry.source !== "fire_shield" && entry.source !== "fire_breath") {
+        if (entry.source !== "fire_shield" && entry.source !== "fire_breath" && entry.source !== "fireforged_sword") {
             continue;
         }
         if (entry.amount <= 0 && entry.unitsDied <= 0) {
@@ -761,22 +758,14 @@ export const fireBurnTargets = (
             continue;
         }
         burned.add(entry.unitId);
-        // A reflect is a lick of flame off a shield; a dragon's breath is the full burn.
+        // A reflect is a lick of flame off a shield; a dragon's breath is the full burn. The sword brings
+        // its own shape entirely (see spawnFireforgedSwordBurn), so its scale is left at 1.
         burns.push({
             unitId: entry.unitId,
             position: entry.position,
             scale: entry.source === "fire_shield" ? 0.85 : 1,
+            source: entry.source,
         });
-    }
-
-    if (!attackerHasFireforgedSword || damage.missed || damage.amount <= 0) {
-        return burns;
-    }
-    // damage.unitId is the unit the handler ACTUALLY hit — a ranged shot can be intercepted before it
-    // reaches the clicked target — so it wins over the caller's target.
-    const victimId = damage.unitId || fallbackVictimId;
-    if (victimId && !burned.has(victimId)) {
-        burns.push({ unitId: victimId, position: damage.unitPosition, scale: 1 });
     }
     return burns;
 };
@@ -791,6 +780,12 @@ export const secondaryDamageTextStyle = (source: string): { fill: string; stroke
         case "fire_shield":
         case "fire_breath":
             return { fill: "#ffb13c", stroke: "#7a3800" };
+        // The Fireforged blade's fire. Orange like its cousins so fire always reads as fire, but a hotter
+        // ember tone than a shield's lick of flame — it is the sharpest of the three (owner call
+        // 2026-09-20). Before this it had no case at all and fell through to the plain red of an ordinary
+        // hit, so the burn was invisible as fire.
+        case "fireforged_sword":
+            return { fill: "#ff8a2b", stroke: "#6b2400" };
         case "flesh_shield":
             return { fill: "#cdd34a", stroke: "#4a4a00" };
         default:
@@ -4040,27 +4035,29 @@ export class Sandbox extends PixiScene {
         );
     }
     /**
-     * FIRE damage burst — embers + a soot curl over every unit this exchange burned, so fire damage
-     * reads as burning instead of as a plain red number. Three sources, one look:
-     *   • the Efreet's Fire Shield reflect (`secondary` source "fire_shield"), on whoever struck it;
-     *   • every unit a Black Dragon's breath burns THROUGH (`secondary` source "fire_breath") — the
-     *     line sweep already rushes past them, this is the burn where it lands;
-     *   • a hit from a Fireforged Sword-buffed attacker: its bonus damage is the burning blade, so the
-     *     primary victim ignites too (skipped when that unit already burned from a secondary above).
+     * FIRE damage burst over every unit this exchange burned, so fire damage reads as burning instead of
+     * as a plain red number. Three sources, each read from the engine's own secondary entries:
+     *   • the Efreet's Fire Shield reflect ("fire_shield"), on whoever struck it — a radial burst;
+     *   • every unit a Black Dragon's breath burns THROUGH ("fire_breath") — the line sweep already
+     *     rushes past them, this is the burn where it lands;
+     *   • every unit a Fireforged Sword set alight ("fireforged_sword") — its OWN crescent animation,
+     *     cut across the blow's path, because a blade's fire arrives along an edge rather than bursting
+     *     outward (see CombatVisuals.spawnFireforgedSwordBurn).
      * Positions come from the live unit, falling back to the engine's impact-time position so a unit
-     * killed by the burn still shows it. Gated on a landed hit; shared by sandbox (live) and ranked
-     * (replay) — both call it AT IMPACT, with the damage numbers.
+     * killed by the burn still shows it. Shared by sandbox (live) and ranked (replay) — both call it AT
+     * IMPACT, with the damage numbers.
      */
     protected spawnFireDamageVfx(attacker: RenderableUnit, target: Unit, damage?: IVisibleDamage, delayMs = 0): void {
         if (!this.combatVisuals) {
             return;
         }
-        const burns = fireBurnTargets(damage, attacker.hasStatusBuff("Fireforged Sword"), target.getId());
+        const burns = fireBurnTargets(damage);
         if (!burns.length) {
             return;
         }
         const gs = this.sc_sceneSettings.getGridSettings();
         const cellSize = gs.getCellSize();
+        const attackerCenter = attacker.getVisualCenter(gs);
         for (const burn of burns) {
             const spawn = (): void => {
                 // Resolved at spawn time so a unit that moved in the meantime burns where it is now
@@ -4068,6 +4065,14 @@ export class Sandbox extends PixiScene {
                 const unit = this.unitsHolder.getAllUnits().get(burn.unitId) as RenderableUnit | undefined;
                 const position =
                     unit && !unit.isDead() ? unit.getVisualCenter(gs) : projectBattlefieldPoint(burn.position, gs);
+                if (burn.source === "fireforged_sword") {
+                    // The blade gets its own crescent, cut across the line the blow travelled.
+                    this.combatVisuals?.spawnFireforgedSwordBurn(position, cellSize, {
+                        x: position.x - attackerCenter.x,
+                        y: position.y - attackerCenter.y,
+                    });
+                    return;
+                }
                 this.combatVisuals?.spawnFireBurn(position, cellSize, burn.scale);
             };
             if (delayMs > 0) {
@@ -11869,6 +11874,15 @@ export class Sandbox extends PixiScene {
                 .filter((entry) => entry.source === "fire_breath")
                 .map((entry) => entry.unitId),
         );
+        // The Fireforged blade's fire, read from the engine's own entries for the same reason Chain
+        // Lightning is (above): the entries carry the unit id outright, where the scene-log line has to be
+        // matched by name and amount. Without this the blade's burn fell through to a plain red number on
+        // the primary victim and read as part of the swing (owner report 2026-09-20).
+        const fireforgedSwordUnitIds = new Set(
+            (damageForAnimation.secondary ?? [])
+                .filter((entry) => entry.source === "fireforged_sword")
+                .map((entry) => entry.unitId),
+        );
         for (const entry of this.sc_sceneLog.getEntriesSince(logSizeBeforeAttack)) {
             const fsMatch = entry.match(/^(.+?) received \((\d+)\) from Fire Shield/);
             if (fsMatch) {
@@ -12114,7 +12128,9 @@ export class Sandbox extends PixiScene {
                       ? "chain_lightning"
                       : isFsBurn || fireBreathUnitIds.has(uId)
                         ? "fire_breath"
-                        : "";
+                        : fireforgedSwordUnitIds.has(uId)
+                          ? "fireforged_sword"
+                          : "";
                 const { fill: fsFill, stroke: fsStroke } = this.getSecondaryDamageStyle(secondarySource);
 
                 if (isPetrified && u instanceof RenderableUnit && primaryAttackDir) {

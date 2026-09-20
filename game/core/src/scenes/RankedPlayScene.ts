@@ -1280,6 +1280,12 @@ export const rankedSecondarySceneLogLines = (
             case "fire_breath":
                 text = `${name} hit ${entry.amount} by Fire Breath${kills}`;
                 break;
+            // Worded exactly like the engine's own sandbox line, so a ranked fight and a local one read
+            // the same. Without a case here the switch fell through to `default: continue` and the
+            // blade's fire was missing from the ranked log altogether (owner report 2026-09-20).
+            case "fireforged_sword":
+                text = `${name} burned for (${entry.amount}) by Fireforged Sword${kills}`;
+                break;
             case "lightning_spin":
                 text = `${name} hit ${entry.amount} by Lightning Spin${kills}`;
                 break;
