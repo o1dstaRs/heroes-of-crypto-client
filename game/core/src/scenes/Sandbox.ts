@@ -504,6 +504,27 @@ export interface SandboxSceneUnitState {
      *  display-only, but Break must exist in Unit.effects before passive/stat refresh so disabled abilities
      *  (notably Angelic Host Blessing) stay disabled in local previews too. */
     mechanicalBreakLaps?: number;
+    /** Whether this unit has already retaliated this lap — the "responded" tag. Live ranked syncs it onto
+     *  the existing unit; a rebuild (every replay hydrate) starts it false, so it had to travel too. */
+    responded?: boolean;
+}
+
+/**
+ * One cell of transient terrain (a spell's smoke, vine or fire wall) as a scene state carries it.
+ *
+ * The three stores live on FightProperties, which a hydrate RESETS — so terrain that is not recorded here
+ * is wiped by every rebuild. Their render layers read the stores directly each frame, so restoring the
+ * store is all a replay needs to draw them again.
+ */
+export interface SandboxSceneTerrainCell {
+    kind: "smoke" | "vine" | "fire_wall";
+    x: number;
+    y: number;
+    lapsRemaining: number;
+    /** Vines only: the team that threw it — a vine snares the OTHER side alone. */
+    team?: number;
+    /** Fire walls only: the burn share baked in at cast time. */
+    burnPercentage?: number;
 }
 
 export interface SandboxSceneState {
@@ -524,6 +545,18 @@ export interface SandboxSceneState {
     // for the whole fight (nobody has waited or been stunned yet there, so its hourglass and stun markers
     // stayed dark no matter what the replayed moment showed).
     upNext?: string[];
+    // The Cemetery's scattered stones (the barrels) that are still standing, with their art variants. A
+    // hydrate re-carves the CLASSIC mountain pair (refreshWithNewType), so without this every rebuild wiped
+    // the barrels off a scattered board — in a REPLAY, which hydrates twice per action, they were never
+    // visible at all. The FIELD's presence is what says "this board is scattered": an empty array means
+    // every stone has been destroyed, which is not the same as undefined (a classic two-mountain board).
+    scatteredMountains?: { x: number; y: number; variant: number }[];
+    // Smoke, vines and fire walls at this moment. They live in FightProperties stores, which the hydrate's
+    // reset() empties — so, like the queue above, a replay showed a board with no spell terrain on it.
+    terrainCells?: SandboxSceneTerrainCell[];
+    // The cumulative no-progress movement penalty, which also lives in the FightProperties the reset()
+    // replaces. Without it a replayed late lap draws every move range as if the fight had just begun.
+    stepsMoraleMultiplier?: number;
     units: SandboxSceneUnitState[];
 }
 
@@ -2882,6 +2915,16 @@ export class Sandbox extends PixiScene {
             }
         }
 
+        // The barrels and the spell terrain, both of which the two lines above just destroyed:
+        // refreshWithNewType re-carved the classic mountain pair over any scattered layout, and reset()
+        // emptied the smoke/vine/fire-wall stores. Stamped BEFORE the units below occupy their cells, so
+        // the rebuilt board is carved first and populated second, exactly like a fresh one.
+        this.applySceneStateScatteredMountains(snapshot.scatteredMountains);
+        Sandbox.applySceneStateTerrainCells(fightProps, snapshot.terrainCells);
+        if (snapshot.stepsMoraleMultiplier !== undefined) {
+            fightProps.restoreStepsMoraleMultiplier(snapshot.stepsMoraleMultiplier);
+        }
+
         this.currentActiveUnit?.setActiveTurn(false);
         this.currentActiveUnit = undefined;
         this.currentShiftedUnit = undefined;
@@ -3101,6 +3144,7 @@ export class Sandbox extends PixiScene {
             this.refreshSynergyNumbers(TeamVals.RIGHT);
         }
         this.refreshUnits();
+        this.pruneRebuiltWaterShields(snapshot);
         this.refreshVisibleStateIfNeeded(true);
         this.updateUnitsOverlayVisibility();
 
@@ -3123,6 +3167,37 @@ export class Sandbox extends PixiScene {
         // "never override a shift-select" guard cannot help here because currentShiftedUnit was cleared
         // during the teardown above.
         this.restoreInspectedUnit(inspectedUnitId);
+    }
+    /**
+     * Take back the Water Shield a rebuild just re-granted to a unit that has already spent it.
+     *
+     * refreshStackPowerForAllUnits -> trySeedWaterShield re-seeds the shield onto every freshly built
+     * (waterShieldSpent = false) unit with the ability, so a hydrate hands the ring back to units that
+     * absorbed their hit turns ago. The state's own buff list is the truth: a unit whose recorded buffs no
+     * longer carry the shield has used it. Most visible in a REPLAY, which rebuilds twice per action and so
+     * re-lit the ring on every one of them. Only during a started fight — before that the shield is simply
+     * not seeded yet, and an empty buff list means "not yet", not "spent".
+     */
+    private pruneRebuiltWaterShields(snapshot: SandboxSceneState): void {
+        if (!snapshot.fightStarted) {
+            return;
+        }
+        const stillShielded = new Set(
+            snapshot.units
+                .filter((unitState) => (unitState.properties.applied_buffs ?? []).includes("Water Shield"))
+                .map((unitState) => unitState.properties.id),
+        );
+        for (const unit of this.unitsHolder.getAllUnits().values()) {
+            const renderable = unit as RenderableUnit;
+            if (
+                renderable.hasAbilityActive("Water Shield") &&
+                renderable.hasBuffActive("Water Shield") &&
+                !stillShielded.has(renderable.getId())
+            ) {
+                renderable.deleteBuff("Water Shield");
+                renderable.markWaterShieldSpent();
+            }
+        }
     }
     /**
      * Re-open the stack the player was inspecting, on its rebuilt instance.
@@ -3175,6 +3250,69 @@ export class Sandbox extends PixiScene {
             fightProps.enqueueUpNext(unitId);
         }
     }
+    /**
+     * Re-stamp the scattered stones a scene state carried, over the classic pair the hydrate just re-carved.
+     *
+     * `undefined` means the state knows nothing about barrels (a non-scattered board, or a state recorded
+     * before they travelled) and the classic pair is left alone. An EMPTY array is different: it says this
+     * is a scattered board whose every stone has been destroyed, so the pair has to go — otherwise it ghosts
+     * back onto a board where those cells were never obstacles.
+     */
+    protected applySceneStateScatteredMountains(stones: { x: number; y: number; variant: number }[] | undefined): void {
+        if (!stones) {
+            return;
+        }
+        this.grid.setScatteredMountains(stones.map(({ x, y }) => ({ x, y })));
+        if (!stones.length) {
+            this.grid.clearMountainSide(false);
+            this.grid.clearMountainSide(true);
+        }
+        // scatteredMode stays true even with zero stones left, for the same reason.
+        this.dungeonVisuals?.setScatteredMountains(
+            stones.map((stone) => ({ ...stone })),
+            true,
+        );
+    }
+    /**
+     * Re-fill the smoke / vine / fire-wall stores from a scene state. The render layers read those stores
+     * every frame, so this is all a replayed board needs to show the terrain again; the engine reads the
+     * same stores, so a sandbox replay also paths and burns through it exactly as the live board did.
+     */
+    protected static applySceneStateTerrainCells(
+        fightProps: FightProperties,
+        cells: readonly SandboxSceneTerrainCell[] | undefined,
+    ): void {
+        const smokeClouds = fightProps.getSmokeClouds();
+        const vines = fightProps.getVines();
+        const fireWalls = fightProps.getFireWalls();
+        // Wholesale replacement, like the ranked install: a cell the state no longer carries must not linger
+        // from whatever the previous hydrate left behind.
+        smokeClouds.clear();
+        vines.clear();
+        fireWalls.clear();
+        for (const cell of cells ?? []) {
+            if (!Number.isFinite(cell.lapsRemaining) || cell.lapsRemaining <= 0) {
+                continue;
+            }
+            const at = { x: cell.x, y: cell.y };
+            switch (cell.kind) {
+                case "smoke":
+                    smokeClouds.add(at, cell.lapsRemaining);
+                    break;
+                case "vine":
+                    vines.add(at, cell.lapsRemaining, cell.team ?? 0);
+                    break;
+                case "fire_wall":
+                    // Burn share is optional: a state recorded before it travelled replays at the base rate.
+                    if (cell.burnPercentage && cell.burnPercentage > 0) {
+                        fireWalls.add(at, cell.lapsRemaining, cell.burnPercentage);
+                    } else {
+                        fireWalls.add(at, cell.lapsRemaining);
+                    }
+                    break;
+            }
+        }
+    }
     private createRenderableUnitFromSceneState(unitState: SandboxSceneUnitState, summoned = false): RenderableUnit {
         const base = Unit.createUnit(
             // Deep-clone so each restored unit owns its arrays (see createUnitForTeam/split).
@@ -3213,6 +3351,10 @@ export class Sandbox extends PixiScene {
         renderableUnit.setTarget(unitState.forcedTargetId ?? "");
         // Terrifying Gaze is the inverse: restore only the prohibited gazer, never a blanket attack lock.
         renderableUnit.setForbiddenTarget(unitState.forbiddenTargetId ?? "");
+        // Whether this unit has already spent its retaliation. The live ranked path syncs it onto existing
+        // units (reconcileAuraEffectsFromSnapshot); a rebuilt one starts fresh, so without this every
+        // replayed unit looked like it still had a response in hand.
+        renderableUnit.setResponded(unitState.responded ?? false);
         return renderableUnit;
     }
     private captureSceneState(): SandboxSceneState {
@@ -3240,6 +3382,7 @@ export class Sandbox extends PixiScene {
                 forcedTargetId: unit.getTarget() || undefined,
                 forbiddenTargetId: unit.getForbiddenTarget() || undefined,
                 mechanicalBreakLaps: unit.getEffect("Break")?.getLaps(),
+                responded: unit.getResponded(),
             });
         }
 
@@ -3256,8 +3399,62 @@ export class Sandbox extends PixiScene {
             obstacleHitsLeftLeft: fightProps.getObstacleHitsLeftLeft(),
             obstacleHitsLeftRight: fightProps.getObstacleHitsLeftRight(),
             upNext: [...fightProps.getUpNextQueueIterable()],
+            // The board's own terrain, which no rebuilt unit can recompute: the barrels are re-carved as the
+            // classic pair by the hydrate, and the spell terrain stores are emptied by its reset().
+            scatteredMountains: this.captureScatteredMountains(),
+            terrainCells: Sandbox.captureTerrainCells(fightProps),
+            stepsMoraleMultiplier: fightProps.getStepsMoraleMultiplier(),
             units,
         };
+    }
+    /**
+     * The standing barrels, or undefined on a board that never had them (which is what keeps the classic
+     * mountain pair on every non-scattered board). Scattered mode is read from the visuals rather than from
+     * the grid, because a board whose every stone has been destroyed is still a scattered board — the grid
+     * has no stones left to say so.
+     */
+    private captureScatteredMountains(): { x: number; y: number; variant: number }[] | undefined {
+        if (!this.dungeonVisuals?.hasScatteredMountains()) {
+            return undefined;
+        }
+        const standing = new Set(this.grid.getScatteredMountainsStanding().map((cell) => `${cell.x}:${cell.y}`));
+        return this.dungeonVisuals
+            .getScatteredMountains()
+            .filter((mountain) => standing.has(`${mountain.x}:${mountain.y}`));
+    }
+    /** Smoke, vines and fire walls as their stores serialize them (compact {x,y,l} + the per-kind extras). */
+    private static captureTerrainCells(fightProps: FightProperties): SandboxSceneTerrainCell[] {
+        return [
+            ...fightProps
+                .getSmokeClouds()
+                .toJSON()
+                .map((cell) => ({
+                    kind: "smoke" as const,
+                    x: cell.x,
+                    y: cell.y,
+                    lapsRemaining: cell.l,
+                })),
+            ...fightProps
+                .getVines()
+                .toJSON()
+                .map((cell) => ({
+                    kind: "vine" as const,
+                    x: cell.x,
+                    y: cell.y,
+                    lapsRemaining: cell.l,
+                    team: cell.t,
+                })),
+            ...fightProps
+                .getFireWalls()
+                .toJSON()
+                .map((cell) => ({
+                    kind: "fire_wall" as const,
+                    x: cell.x,
+                    y: cell.y,
+                    lapsRemaining: cell.l,
+                    burnPercentage: cell.p,
+                })),
+        ];
     }
     public override getCurrentSandboxReplay(): SandboxReplay | undefined {
         return this.replayRecorder.getCurrentReplay();

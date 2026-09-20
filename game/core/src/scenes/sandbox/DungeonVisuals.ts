@@ -2128,6 +2128,13 @@ export class DungeonVisuals {
     public hasScatteredMountains(): boolean {
         return this.scatteredMountainMode;
     }
+    /**
+     * The stones still standing, with the art variant each was drawn with. Copies, so a caller recording
+     * them (a replay's scene state) cannot mutate the layout being rendered.
+     */
+    public getScatteredMountains(): IScatteredMountain[] {
+        return this.scatteredMountains.map((mountain) => ({ ...mountain }));
+    }
     public ensureCenterTerrainSprite(): void {
         // A layout that arrived before its atlas did has no sprites yet — build them the first frame the
         // texture is available. Once they exist this costs one length comparison; mountainTiles() returns

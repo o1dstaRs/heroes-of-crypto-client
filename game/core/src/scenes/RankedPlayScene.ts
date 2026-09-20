@@ -56,12 +56,13 @@ import {
     Sandbox,
     spellCastSecondaryDamage,
     type SandboxSceneState,
+    type SandboxSceneTerrainCell,
     type SandboxSceneUnitState,
     type SceneActionEngine,
 } from "./Sandbox";
 import { animatableEffectNames, diffUnitEffects } from "./effect_pops";
 import { formatTurnLogHeader } from "./sceneLogTurnHeaders";
-import { PlayActionType } from "../api/play_protocol";
+import { PlayActionType, PlayTransientCellKind } from "../api/play_protocol";
 import type { RenderableUnit } from "./RenderableUnit";
 import type { UnitsOverlay } from "./UnitsOverlay";
 import type { AuthoritativeSnapshotOptions } from "../pixi/PixiScene";
@@ -162,6 +163,9 @@ export const authoritativeUnitToSandboxUnitState = (
         forcedTargetId: unitState.forcedTargetId,
         forbiddenTargetId: unitState.forbiddenTargetId,
         mechanicalBreakLaps: getAuthoritativeBreakLaps(unitState),
+        // Same story as the stun badge: live play syncs the retaliation tag onto the existing unit
+        // (reconcileAuraEffectsFromSnapshot), and a replay only ever rebuilds units from this state.
+        responded: unitState.responded,
     };
 };
 
@@ -465,6 +469,49 @@ export const planScatteredMountainSync = (
     return { standing, destroyed };
 };
 
+/**
+ * The standing barrels for a scene state, or undefined on a board that has none.
+ *
+ * A REPLAY never runs applyScatteredMountainsFromSnapshot (that is the live path); it only ever hydrates
+ * scene states, so unless the stones travel inside one, every hydrate re-carves the classic pair over them
+ * and a scattered board replays as an empty one.
+ */
+const scatteredMountainsForSceneState = (
+    snapshot: AuthoritativeGameSnapshot,
+): { x: number; y: number; variant: number }[] | undefined => {
+    if (snapshot.gridType !== GridVals.BLOCK_CENTER) {
+        return undefined;
+    }
+    return planScatteredMountainSync(snapshot.gameId, snapshot.scatteredStandingCells, snapshot.scatteredStandingCount)
+        ?.standing;
+};
+
+const SCENE_TERRAIN_KIND_BY_WIRE_KIND: ReadonlyMap<number, SandboxSceneTerrainCell["kind"]> = new Map([
+    [PlayTransientCellKind.SMOKE as number, "smoke" as const],
+    [PlayTransientCellKind.VINE as number, "vine" as const],
+    [PlayTransientCellKind.FIRE_WALL as number, "fire_wall" as const],
+]);
+
+/**
+ * Smoke / vines / fire walls for a scene state — the same reasoning as the barrels above: the live path
+ * re-materializes these stores from the snapshot (syncRankedTransientTerrain) AFTER the hydrate emptied
+ * them, and a replay never takes that path.
+ *
+ * Undefined from a server too old to carry the cells; those games only ever had the journal-tail rebuild,
+ * which needs live stores to replay into and so cannot be expressed as a scene state.
+ */
+const terrainCellsForSceneState = (snapshot: AuthoritativeGameSnapshot): SandboxSceneTerrainCell[] | undefined => {
+    if (snapshot.transientCellsCount === undefined) {
+        return undefined;
+    }
+    return (snapshot.transientCells ?? []).flatMap((cell) => {
+        const kind = SCENE_TERRAIN_KIND_BY_WIRE_KIND.get(cell.kind);
+        // Burn share never travels on the wire: ranked does not predict burn damage locally, so a replayed
+        // wall lights at the base percentage and only has to look and block like the one that burned.
+        return kind ? [{ kind, x: cell.x, y: cell.y, lapsRemaining: cell.lapsRemaining, team: cell.team }] : [];
+    });
+};
+
 export const authoritativeSnapshotToSandboxSceneState = (
     snapshot: AuthoritativeGameSnapshot,
     options: { hideOpponentPlacements?: boolean } = {},
@@ -486,6 +533,14 @@ export const authoritativeSnapshotToSandboxSceneState = (
     // but a replay only ever hydrates scene states — so without it the Up Next strip kept the opening order,
     // and its hourglass/stun markers with it, for the entire replayed fight.
     upNext: snapshot.upNext ? [...snapshot.upNext] : undefined,
+    // The board's terrain, for the same reason as the queue above: the live path re-installs these after
+    // every hydrate, a replay hydrates and nothing else — so barrels and spell terrain were invisible for
+    // the whole replayed fight.
+    scatteredMountains: scatteredMountainsForSceneState(snapshot),
+    terrainCells: terrainCellsForSceneState(snapshot),
+    // Restored live by restoreRankedStepsMoraleMultiplier after every hydrate; a replay needs it inside
+    // the state or it draws late-fight move ranges without the penalty the fight actually carried.
+    stepsMoraleMultiplier: snapshot.stepsMoraleMultiplier,
     units: snapshot.units.flatMap((unit) => {
         if (shouldHidePreFightOpponentUnit(snapshot, unit, options)) {
             return [];
@@ -2205,30 +2260,9 @@ export class RankedPlayScene extends Sandbox {
         // scattered layout must be re-stamped from scratch (standing stones only) before anything below
         // paths or activates on the rebuilt board.
         this.applyScatteredMountainsFromSnapshot(snapshot, { reinstallLayout: true });
-        // hydrateSceneState re-runs refreshStackPowerForAllUnits -> trySeedWaterShield, which RE-GRANTS a
-        // Water Shield onto the freshly-built (waterShieldSpent=false) units even when the server already
-        // consumed it. The authoritative `state` is the truth: a unit with the innate Water Shield ability
-        // whose authoritative buffs no longer list it has spent it. Prune the re-seeded buff + mark it spent
-        // so it stays gone (else the ring re-shows on every full rebuild). Only during a started fight —
-        // pre-fight the shield simply isn't seeded yet.
-        if (snapshot.fightStarted) {
-            const authoritativelyShielded = new Set(
-                state.units
-                    .filter((u) => (u.properties.applied_buffs ?? []).includes("Water Shield"))
-                    .map((u) => u.properties.id),
-            );
-            for (const unit of this.unitsHolder.getAllUnits().values()) {
-                const ru = unit as RenderableUnit;
-                if (
-                    ru.hasAbilityActive("Water Shield") &&
-                    ru.hasBuffActive("Water Shield") &&
-                    !authoritativelyShielded.has(ru.getId())
-                ) {
-                    ru.deleteBuff("Water Shield");
-                    ru.markWaterShieldSpent();
-                }
-            }
-        }
+        // The Water Shield the rebuild re-granted to units that already spent it is pruned inside
+        // hydrateSceneState (pruneRebuiltWaterShields) — it reads the same buff lists off the scene state,
+        // so a REPLAY, which only ever hydrates, gets it too.
         // hydrateSceneState resets FightStateManager; reapply the authoritative scalar it just cleared.
         if (restoreRankedStepsMoraleMultiplier(snapshot.stepsMoraleMultiplier)) {
             this.refreshUnits();
