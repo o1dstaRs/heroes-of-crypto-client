@@ -341,8 +341,7 @@ code {
 }
 
 .header-start-primary,
-.footer-play,
-.proof-action-primary {
+.footer-play {
     border: 0;
     border-radius: 0;
     background-color: transparent;
@@ -405,7 +404,7 @@ code {
 .hero {
     position: relative;
     overflow: hidden;
-    min-height: clamp(620px, calc(100svh - 86px), 760px);
+    min-height: clamp(560px, calc(100svh - 120px), 740px);
     background: #050606;
 }
 
@@ -426,25 +425,42 @@ code {
 
 .hero-shade {
     background:
-        radial-gradient(72% 60% at 12% 26%, rgba(239, 74, 63, 0.14), transparent 68%),
-        radial-gradient(46% 44% at 92% 8%, rgba(242, 199, 93, 0.1), transparent 70%),
-        linear-gradient(90deg, rgba(5, 6, 6, 0.96) 0%, rgba(5, 6, 6, 0.78) 42%, rgba(5, 6, 6, 0.36) 100%),
-        linear-gradient(180deg, rgba(5, 6, 6, 0.3) 0%, rgba(5, 6, 6, 0.22) 55%, #070808 100%);
+        radial-gradient(64% 58% at 50% 30%, rgba(239, 74, 63, 0.16), transparent 70%),
+        radial-gradient(40% 40% at 50% 4%, rgba(242, 199, 93, 0.1), transparent 72%),
+        linear-gradient(90deg, rgba(5, 6, 6, 0.86) 0%, rgba(5, 6, 6, 0.54) 50%, rgba(5, 6, 6, 0.86) 100%),
+        linear-gradient(180deg, rgba(5, 6, 6, 0.34) 0%, rgba(5, 6, 6, 0.26) 55%, #070808 100%);
 }
 
 .hero-grid {
     position: relative;
     z-index: 1;
     display: grid;
-    grid-template-columns: minmax(0, 1.12fr) minmax(400px, 0.88fr);
+    grid-template-columns: minmax(0, 1fr);
     gap: 48px;
     align-items: center;
-    min-height: clamp(620px, calc(100svh - 86px), 760px);
+    min-height: clamp(560px, calc(100svh - 120px), 740px);
     padding: 42px 0 46px;
 }
 
 .hero-content {
-    max-width: 610px;
+    max-width: 1160px;
+    margin-inline: auto;
+    text-align: center;
+}
+
+.hero .hero-actions {
+    justify-content: center;
+}
+
+/* Ranked ladder card: its own full-width row below the hero, not a hero column. */
+.hero-ladder-band {
+    position: relative;
+    z-index: 2;
+    padding: clamp(38px, 4.6vw, 64px) 0;
+    border-bottom: 1px solid rgba(220, 177, 88, 0.1);
+    background:
+        radial-gradient(circle at 80% 0, rgba(255, 90, 63, 0.06), transparent 40%),
+        linear-gradient(180deg, #070808, rgba(12, 10, 9, 0.98));
 }
 
 /* Hero entrance: staggered fade-rise on load (above the fold, so CSS-only). */
@@ -503,15 +519,18 @@ code {
     text-shadow: 0 4px 32px rgba(0, 0, 0, 0.55);
 }
 
-/* Logo lockup replacing the plain "Heroes of Crypto" wordmark. */
+/* Logo lockup replacing the plain "Heroes of Crypto" wordmark. The global h1 cap of 820px would
+   hold the lockup in a narrower box than the hero column, pushing it left of the page centre. */
 .hero-logo {
+    max-width: none;
     margin: 0 0 6px;
     line-height: 0;
 }
 
 .hero-logo img {
-    width: min(460px, 78%);
+    width: min(552px, 88%);
     height: auto;
+    margin-inline: auto;
     filter: drop-shadow(0 8px 30px rgba(0, 0, 0, 0.6));
 }
 
@@ -528,8 +547,9 @@ code {
 }
 
 .hero-tagline {
-    max-width: 700px;
-    margin-bottom: 16px;
+    max-width: 1160px;
+    margin-inline: auto;
+    margin-bottom: 26px;
     color: #fff;
     font-size: clamp(1.3rem, 1.8vw + 0.9rem, 2.05rem);
     font-weight: 800;
@@ -537,11 +557,105 @@ code {
     text-wrap: balance;
 }
 
-.hero-copy {
-    max-width: 650px;
-    margin-bottom: 28px;
-    color: rgba(251, 244, 232, 0.84);
-    font-size: clamp(1rem, 0.4vw + 0.9rem, 1.08rem);
+.hero-claims {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 26px;
+    justify-content: center;
+    margin: 0 auto 30px;
+    padding: 0;
+    max-width: 720px;
+    list-style: none;
+}
+
+.hero-claims li {
+    position: relative;
+    color: rgba(251, 244, 232, 0.72);
+    font-family: var(--hoc-font-display);
+    font-size: 0.86rem;
+    font-synthesis: none;
+    letter-spacing: 0.09em;
+    line-height: 1.35;
+    text-transform: uppercase;
+}
+
+.hero-claims li + li::before {
+    position: absolute;
+    top: 0.35em;
+    left: -14px;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: rgba(220, 177, 88, 0.6);
+    content: "";
+}
+
+/* The hero CTA follows the in-game panel buttons rather than the plate-textured pair. */
+.hero .hero-play {
+    width: min(302px, 100%);
+    min-height: 58px;
+    padding: 14px 26px;
+    border: 1px solid #5b4b2a;
+    border-radius: 10px;
+    background-color: #241f16;
+    background-image: none;
+    color: #efe4cc;
+    font-family: var(--hoc-font-display);
+    font-size: 1.04rem;
+    font-synthesis: none;
+    font-weight: 400;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    text-shadow: none;
+    -webkit-text-stroke: 0;
+    box-shadow: inset 0 0 0 1px rgba(220, 177, 88, 0.08);
+}
+
+/* The 4 / 57 / 106 numbers, captioned under the CTA rather than set in their own band. */
+.hero-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 34px;
+    justify-content: center;
+    margin: 26px auto 0;
+    padding: 0;
+    list-style: none;
+}
+
+.hero-stats li {
+    display: flex;
+    gap: 9px;
+    align-items: baseline;
+}
+
+.hero-stats strong {
+    color: var(--gold);
+    font-family: var(--hoc-font-display);
+    font-size: 1.45rem;
+    font-synthesis: none;
+    font-weight: 400;
+    letter-spacing: 0.06em;
+    line-height: 1;
+}
+
+.hero-stats span {
+    color: rgba(251, 244, 232, 0.6);
+    font-size: 0.86rem;
+    letter-spacing: 0.06em;
+}
+
+.hero .hero-play:hover {
+    border-color: #dcb158;
+    background-color: #33291b;
+    color: #ffbf56;
+    filter: none;
+    transform: translateY(-1px);
+}
+
+.hero .hero-play img {
+    width: 22px;
+    height: 22px;
+    opacity: 0.86;
 }
 
 .hero-actions,
@@ -684,8 +798,7 @@ code {
 
 .button.primary:hover,
 .header-start-primary:hover,
-.footer-play:hover,
-.proof-action-primary:hover {
+.footer-play:hover {
     background-color: transparent;
     background-image:
         linear-gradient(rgba(122, 52, 16, 0.54), rgba(122, 52, 16, 0.54)),
@@ -699,8 +812,7 @@ code {
 .button.primary:active,
 .header-start:active,
 .header-login-link:active,
-.footer-play:active,
-.proof-action:active {
+.footer-play:active {
     transform: translateY(1px);
 }
 
@@ -1043,104 +1155,6 @@ code {
     box-shadow: 0 18px 46px rgba(0, 0, 0, 0.52);
 }
 
-.proof-strip {
-    border-bottom: 1px solid rgba(220, 177, 88, 0.1);
-    background:
-        radial-gradient(circle at 20% 0, rgba(255, 90, 63, 0.07), transparent 36%),
-        linear-gradient(180deg, rgba(20, 14, 10, 0.94), rgba(8, 7, 6, 0.98));
-    position: relative;
-    z-index: 2;
-}
-
-.proof-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(190px, 0.65fr);
-    align-items: stretch;
-    gap: 1px;
-}
-
-.proof-item {
-    min-height: 108px;
-    padding: 22px 24px;
-    background: transparent;
-}
-
-.proof-item + .proof-item {
-    border-left: 1px solid rgba(239, 228, 204, 0.08);
-}
-
-.proof-item strong {
-    display: block;
-    color: var(--gold);
-    font-family: var(--hoc-font-display);
-    font-size: 2.1rem;
-    font-synthesis: none;
-    font-weight: 400;
-    letter-spacing: 0.08em;
-    line-height: 1;
-}
-
-.proof-item span {
-    display: block;
-    margin-top: 7px;
-    color: rgba(251, 244, 232, 0.62);
-    font-size: 0.9rem;
-    font-weight: 400;
-    letter-spacing: 0.065em;
-}
-
-.proof-actions {
-    display: grid;
-    grid-template-rows: repeat(2, minmax(0, 1fr));
-    gap: 1px;
-    min-width: 0;
-}
-
-.proof-action {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 0;
-    min-height: 53px;
-    padding: 14px 18px;
-    color: var(--hoc-bronze);
-    font-weight: 840;
-    transition:
-        transform 0.14s ease,
-        box-shadow 0.18s ease,
-        background 0.18s ease;
-}
-
-.proof-strip .proof-action-primary {
-    align-self: center;
-    min-height: 48px;
-    margin: 18px 0 18px 18px;
-    border: 1px solid rgba(220, 177, 88, 0.2);
-    border-radius: 10px;
-    background: linear-gradient(135deg, rgba(138, 67, 24, 0.78), rgba(91, 43, 18, 0.86));
-    color: #f1c978;
-    filter: none;
-    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
-}
-
-.proof-strip .proof-action-primary:hover {
-    border-color: rgba(220, 177, 88, 0.38);
-    background: linear-gradient(135deg, rgba(159, 76, 26, 0.88), rgba(106, 49, 19, 0.92));
-    transform: translateY(-1px);
-}
-
-.proof-action-secondary {
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    background: rgba(255, 255, 255, 0.05);
-    color: rgba(251, 244, 232, 0.9);
-}
-
-.proof-action-secondary:hover {
-    border-color: rgba(242, 199, 93, 0.5);
-    background: rgba(242, 199, 93, 0.12);
-    transform: translateY(-1px);
-}
-
 .faction-rail-section {
     padding: 18px 0 22px;
     border-bottom: 1px solid rgba(112, 75, 42, 0.44);
@@ -1263,6 +1277,13 @@ code {
     position: relative;
     margin-inline: auto;
     text-align: center;
+}
+
+.section-lede {
+    max-width: 640px;
+    margin: 16px auto 0;
+    color: rgba(251, 244, 232, 0.8);
+    font-size: clamp(1rem, 0.4vw + 0.9rem, 1.08rem);
 }
 
 .section-heading.centered::before {
@@ -2482,25 +2503,6 @@ html.reveal-on .patches-section {
         width: min(760px, 100%);
     }
 
-    .proof-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
-    .proof-actions {
-        grid-column: 1 / -1;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        grid-template-rows: auto;
-    }
-
-    .proof-action {
-        grid-column: 1 / -1;
-        min-height: 58px;
-    }
-
-    .proof-strip .proof-action-primary {
-        margin: 0 0 18px;
-    }
-
     .feature-grid,
     .roadmap-grid,
     .release-roster-grid,
@@ -2650,8 +2652,7 @@ html.reveal-on .patches-section {
 
     .hero-content,
     .hero h1,
-    .hero-tagline,
-    .hero-copy {
+    .hero-tagline {
         max-width: none;
     }
 
@@ -2716,10 +2717,6 @@ html.reveal-on .patches-section {
         font-size: 0.9rem;
     }
 
-    .hero-copy {
-        margin-bottom: 22px;
-    }
-
     .hero-actions .button {
         flex: 1 1 190px;
     }
@@ -2748,24 +2745,6 @@ html.reveal-on .patches-section {
         min-height: 46px;
         padding: 11px 13px;
         font-size: 0.92rem;
-    }
-
-    .proof-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
-    .proof-item {
-        min-height: 92px;
-        padding: 16px 10px;
-        text-align: center;
-    }
-
-    .proof-item strong {
-        font-size: 1.5rem;
-    }
-
-    .proof-item span {
-        font-size: 0.78rem;
     }
 
     .faction-rail-section {
@@ -3008,10 +2987,6 @@ html.reveal-on .patches-section {
         scroll-padding-inline: 12px;
     }
 
-    .proof-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
     .faction-rail {
         width: calc(100% + 24px);
         margin-inline: -12px;
@@ -3030,20 +3005,6 @@ html.reveal-on .patches-section {
     .faction-header strong {
         grid-column: 1 / -1;
         width: fit-content;
-    }
-
-    .proof-item,
-    .proof-action {
-        min-height: 64px;
-    }
-
-    .proof-action {
-        min-height: 48px;
-        padding-block: 10px;
-    }
-
-    .proof-actions {
-        grid-template-columns: 1fr;
     }
 
     .section {
@@ -3119,12 +3080,6 @@ html.reveal-on .patches-section {
         margin-bottom: 12px;
     }
 
-    .hero-copy {
-        margin-bottom: 18px;
-        font-size: 0.96rem;
-        line-height: 1.54;
-    }
-
     .hero-actions {
         gap: 10px;
     }
@@ -3148,7 +3103,6 @@ html.reveal-on .patches-section {
     .header-start:hover,
     .header-login-link:hover,
     .footer-play:hover,
-    .proof-action:hover,
     .play-option:hover,
     .feature-card:hover,
     .faction-quick:hover,
