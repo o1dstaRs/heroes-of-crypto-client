@@ -426,10 +426,10 @@ code {
 
 .hero-shade {
     background:
-        radial-gradient(72% 60% at 12% 26%, rgba(239, 74, 63, 0.14), transparent 68%),
-        radial-gradient(46% 44% at 92% 8%, rgba(242, 199, 93, 0.1), transparent 70%),
-        linear-gradient(90deg, rgba(5, 6, 6, 0.96) 0%, rgba(5, 6, 6, 0.78) 42%, rgba(5, 6, 6, 0.36) 100%),
-        linear-gradient(180deg, rgba(5, 6, 6, 0.3) 0%, rgba(5, 6, 6, 0.22) 55%, #070808 100%);
+        radial-gradient(64% 58% at 50% 30%, rgba(239, 74, 63, 0.16), transparent 70%),
+        radial-gradient(40% 40% at 50% 4%, rgba(242, 199, 93, 0.1), transparent 72%),
+        linear-gradient(90deg, rgba(5, 6, 6, 0.86) 0%, rgba(5, 6, 6, 0.54) 50%, rgba(5, 6, 6, 0.86) 100%),
+        linear-gradient(180deg, rgba(5, 6, 6, 0.34) 0%, rgba(5, 6, 6, 0.26) 55%, #070808 100%);
 }
 
 .hero-grid {
@@ -444,7 +444,13 @@ code {
 }
 
 .hero-content {
-    max-width: 610px;
+    max-width: 760px;
+    margin-inline: auto;
+    text-align: center;
+}
+
+.hero .hero-actions {
+    justify-content: center;
 }
 
 /* Ranked ladder card: its own full-width row below the hero, not a hero column. */
@@ -521,8 +527,9 @@ code {
 }
 
 .hero-logo img {
-    width: min(400px, 74%);
+    width: min(460px, 80%);
     height: auto;
+    margin-inline: auto;
     filter: drop-shadow(0 8px 30px rgba(0, 0, 0, 0.6));
 }
 
@@ -540,6 +547,7 @@ code {
 
 .hero-tagline {
     max-width: 700px;
+    margin-inline: auto;
     margin-bottom: 16px;
     color: #fff;
     font-size: clamp(1.3rem, 1.8vw + 0.9rem, 2.05rem);
@@ -549,7 +557,8 @@ code {
 }
 
 .hero-copy {
-    max-width: 650px;
+    max-width: 620px;
+    margin-inline: auto;
     margin-bottom: 28px;
     color: rgba(251, 244, 232, 0.84);
     font-size: clamp(1rem, 0.4vw + 0.9rem, 1.08rem);
