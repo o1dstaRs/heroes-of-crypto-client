@@ -405,7 +405,7 @@ code {
 .hero {
     position: relative;
     overflow: hidden;
-    min-height: clamp(620px, calc(100svh - 86px), 760px);
+    min-height: clamp(520px, calc(100svh - 250px), 660px);
     background: #050606;
 }
 
@@ -439,7 +439,7 @@ code {
     grid-template-columns: minmax(0, 1fr);
     gap: 48px;
     align-items: center;
-    min-height: clamp(620px, calc(100svh - 86px), 760px);
+    min-height: clamp(520px, calc(100svh - 250px), 660px);
     padding: 42px 0 46px;
 }
 
@@ -554,6 +554,74 @@ code {
     font-weight: 800;
     line-height: 1.13;
     text-wrap: balance;
+}
+
+.hero-claims {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 26px;
+    justify-content: center;
+    margin: 0 auto 30px;
+    padding: 0;
+    max-width: 720px;
+    list-style: none;
+}
+
+.hero-claims li {
+    position: relative;
+    color: rgba(251, 244, 232, 0.72);
+    font-family: var(--hoc-font-display);
+    font-size: 0.86rem;
+    font-synthesis: none;
+    letter-spacing: 0.09em;
+    line-height: 1.35;
+    text-transform: uppercase;
+}
+
+.hero-claims li + li::before {
+    position: absolute;
+    top: 0.35em;
+    left: -14px;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: rgba(220, 177, 88, 0.6);
+    content: "";
+}
+
+/* The hero CTA follows the in-game panel buttons rather than the plate-textured pair. */
+.hero .hero-play {
+    width: min(360px, 100%);
+    min-height: 58px;
+    padding: 14px 26px;
+    border: 1px solid rgba(220, 177, 88, 0.3);
+    border-radius: 10px;
+    background-color: rgba(220, 177, 88, 0.1);
+    background-image: none;
+    color: #efe4cc;
+    font-family: var(--hoc-font-display);
+    font-size: 1.04rem;
+    font-synthesis: none;
+    font-weight: 400;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    text-shadow: none;
+    -webkit-text-stroke: 0;
+    box-shadow: inset 0 0 0 1px rgba(220, 177, 88, 0.08);
+}
+
+.hero .hero-play:hover {
+    border-color: #dcb158;
+    background-color: rgba(220, 177, 88, 0.17);
+    color: #ffbf56;
+    filter: none;
+    transform: translateY(-1px);
+}
+
+.hero .hero-play img {
+    width: 22px;
+    height: 22px;
+    opacity: 0.86;
 }
 
 .hero-actions,
@@ -1066,7 +1134,7 @@ code {
 
 .proof-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(190px, 0.65fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     align-items: stretch;
     gap: 1px;
 }
