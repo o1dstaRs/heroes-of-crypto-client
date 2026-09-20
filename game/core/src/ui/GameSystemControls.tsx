@@ -7,6 +7,13 @@ import { FullscreenToggle } from "./RightSideBar/FullscreenToggle";
 
 export const GAME_SYSTEM_CONTROLS_SIDE_INSET = "1rem";
 export const GAME_SYSTEM_CONTROLS_BOTTOM_INSET = "1rem";
+/**
+ * Horizontal room a page must leave in the bottom-left corner for FullscreenCorner: the button itself plus
+ * its inset from the edge plus a small gap. Pages whose content reaches that corner (the arena's chat room)
+ * step their content clear by this much instead of letting the button land on it.
+ */
+export const FULLSCREEN_CORNER_CLEARANCE = "3.5rem";
+
 export const GAME_SYSTEM_CONTROLS_CENTER_WIDTH = "min(209px, calc(100vw - 8rem))";
 
 export const gameSystemControlsSx = {
@@ -24,6 +31,50 @@ export const gameSystemControlsSx = {
     alignItems: "end",
     pointerEvents: "none",
 } as const;
+
+/**
+ * The fullscreen toggle on its own, pinned where the game row puts it.
+ *
+ * Screens outside a match — the arena at /play — have no phase row to hang controls on, but a player who
+ * went fullscreen for a fight still wants the button when they come back out to queue (owner request
+ * 2026-09-20). Sharing GameSystemControls' insets is the point: the button must not shift by a pixel
+ * between the arena and the pick/fight screens, which it would the moment the two carried their own
+ * numbers.
+ *
+ * Only the LEFT cell, deliberately. The full row would also lay an empty, click-catching 32px box in the
+ * bottom-right corner, which on these screens is exactly where the social dock draws its own buttons.
+ * Volume is left to whoever owns the slot there (the dock outranks this row anyway — see volumeSlot).
+ *
+ * Portalled to the body for the same reason the row is: it must not be clipped by a scrolling page.
+ */
+export const FullscreenCorner: React.FC<{ zIndex?: number }> = ({ zIndex = 60 }) => {
+    if (typeof document === "undefined") {
+        return null;
+    }
+    return createPortal(
+        <Box
+            data-fullscreen-corner
+            sx={{
+                position: "fixed",
+                left: GAME_SYSTEM_CONTROLS_SIDE_INSET,
+                bottom: GAME_SYSTEM_CONTROLS_BOTTOM_INSET,
+                display: "flex",
+                pointerEvents: "auto",
+                zIndex,
+                // A scrolling page slides its content under this button on the way past. The medallion is
+                // cut out, so page text showed straight through it; a dark disc behind keeps the control
+                // readable at every scroll position without reading as a second button.
+                borderRadius: "50%",
+                bgcolor: "rgba(10, 8, 6, 0.62)",
+                boxShadow: "0 2px 10px rgba(0, 0, 0, 0.45)",
+                backdropFilter: "blur(2px)",
+            }}
+        >
+            <FullscreenToggle />
+        </Box>,
+        document.body,
+    );
+};
 
 /**
  * One viewport-anchored home for the controls that must not jump when the game changes phase.

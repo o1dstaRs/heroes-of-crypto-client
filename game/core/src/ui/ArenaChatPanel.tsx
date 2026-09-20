@@ -82,7 +82,16 @@ const speakerColor = (username: string): string => {
  * CONSTRUCTION — the server refuses external ones at post time — so this component never has to
  * adjudicate a URL, only display it.
  */
-export const ArenaChatPanel: React.FC<{ selfUsername?: string }> = ({ selfUsername }) => {
+export const ArenaChatPanel: React.FC<{
+    selfUsername?: string;
+    /**
+     * Left inset for the room's HEADER row only, so a control fixed in the screen's bottom-left corner does
+     * not land on the "Arena chat" label — which is also the click target that opens and closes the room.
+     * The panel itself keeps its full width and stays aligned with the card above it; only the label steps
+     * aside. Used by the arena, where the fullscreen button sits in that corner (owner request 2026-09-20).
+     */
+    headerStartInset?: number | string;
+}> = ({ selfUsername, headerStartInset }) => {
     const { language } = useTranslation();
     const [messages, setMessages] = useState<ArenaChatMessage[]>([]);
     const [draft, setDraft] = useState("");
@@ -342,6 +351,7 @@ export const ArenaChatPanel: React.FC<{ selfUsername?: string }> = ({ selfUserna
                     sx={{
                         cursor: "pointer",
                         userSelect: "none",
+                        pl: headerStartInset ?? 0,
                         "&:hover .hoc-chat-caret": { color: hocColors.orange },
                     }}
                 >
