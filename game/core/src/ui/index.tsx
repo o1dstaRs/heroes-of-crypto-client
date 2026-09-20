@@ -22,6 +22,8 @@ import { installClientErrorReporting } from "./clientErrorReport";
 
 import CssBaseline from "@mui/joy/CssBaseline";
 import { CssVarsProvider } from "@mui/joy/styles";
+
+import { hocJoyTheme } from "./hocTheme";
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter as Router, Route, Routes, useLocation, useNavigate, useParams } from "react-router";
@@ -378,7 +380,7 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
     return (
         <ButtonProvider>
             <div className="container" style={{ display: "flex" }}>
-                <CssVarsProvider>
+                <CssVarsProvider theme={hocJoyTheme}>
                     <CssBaseline />
                     {isLoading && <LoadingFullscreenToggle />}
                     {!isLoading && <LeftSideBar gameStarted={started} windowSize={windowSize} />}
@@ -471,7 +473,7 @@ const BundlePickPreview: React.FC = () => {
     return (
         <PickBanContext.Provider value={previewState}>
             <div className="container" style={{ display: "flex" }}>
-                <CssVarsProvider>
+                <CssVarsProvider theme={hocJoyTheme}>
                     <CssBaseline />
                 </CssVarsProvider>
                 <StainedGlassWindow
@@ -499,7 +501,7 @@ const LEVEL_ONE_PICK_PREVIEW_STATE: PickBanContextType = {
 const LevelOnePickPreview: React.FC = () => (
     <PickBanContext.Provider value={LEVEL_ONE_PICK_PREVIEW_STATE}>
         <div className="container" style={{ display: "flex" }}>
-            <CssVarsProvider>
+            <CssVarsProvider theme={hocJoyTheme}>
                 <CssBaseline />
             </CssVarsProvider>
             <StainedGlassWindow
@@ -523,7 +525,7 @@ const LEVEL_TWO_PICK_PREVIEW_STATE: PickBanContextType = {
 const LevelTwoPickPreview: React.FC = () => (
     <PickBanContext.Provider value={LEVEL_TWO_PICK_PREVIEW_STATE}>
         <div className="container" style={{ display: "flex" }}>
-            <CssVarsProvider>
+            <CssVarsProvider theme={hocJoyTheme}>
                 <CssBaseline />
             </CssVarsProvider>
             <StainedGlassWindow
@@ -751,7 +753,7 @@ const LocalPlayableDraft: React.FC = () => {
         <AuthContext.Provider value={authValue}>
             <PickBanContext.Provider value={pickBanValue}>
                 <div className="container" style={{ display: "flex" }}>
-                    <CssVarsProvider>
+                    <CssVarsProvider theme={hocJoyTheme}>
                         <CssBaseline />
                     </CssVarsProvider>
                     <StainedGlassWindow
@@ -904,7 +906,7 @@ const PickAndBanView: React.FC<{
                     // boxShadow: "0 0 150px 500px rgba(0, 0, 0, 0.5) inset",
                 }}
             >
-                <CssVarsProvider>
+                <CssVarsProvider theme={hocJoyTheme}>
                     <CssBaseline />
                     {!isLoading && <LeftSideBar gameStarted={started} windowSize={windowSize} />}
                     {!isLoading && (

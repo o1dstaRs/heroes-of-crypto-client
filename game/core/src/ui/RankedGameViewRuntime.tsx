@@ -133,6 +133,7 @@ import {
     hocDangerAlertSx,
     hocDisplayFontFamily,
     hocDisplayLetterSpacing,
+    hocJoyTheme,
     hocPanelSx,
     hocPrimaryButtonSx,
     hocSidebarImageButtonSx,
@@ -2006,7 +2007,7 @@ export const RankedGameView: React.FC<Props> = ({
                     backgroundColor: "#07090d",
                 }}
             >
-                <CssVarsProvider>
+                <CssVarsProvider theme={hocJoyTheme}>
                     <CssBaseline />
                     {!pixiReady && <LoadingFullscreenToggle />}
                     {/* The gold rule closing the gap between the board and each bar. It was mounted only in
