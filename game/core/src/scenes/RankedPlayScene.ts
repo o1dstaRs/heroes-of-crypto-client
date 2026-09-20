@@ -1211,6 +1211,47 @@ export const spellOutcomeSceneLogLines = (
     return lines;
 };
 
+/**
+ * Damaging spells whose log reports each victim on its own line rather than one summed total.
+ *
+ * A blast lands on a cluster and every creature in it resists separately, so the sum is not a number the
+ * player can act on. Ring of Fire and Meteorite still roll up — change them here if that reads better too.
+ */
+const DAMAGE_PER_VICTIM_SPELLS: ReadonlySet<string> = new Set(["Fireball"]);
+
+export const spellReportsDamagePerVictim = (spellName: string): boolean => DAMAGE_PER_VICTIM_SPELLS.has(spellName);
+
+/**
+ * One scene-log line per creature a BLAST spell damaged, mirroring the engine's own sandbox lines so a
+ * ranked fight and a local one read the same.
+ *
+ * The aggregate line is suppressed for these spells: every victim resists separately, an element can halve
+ * or void the damage outright, and a Water Shield can eat one whole — so a single summed number hides the
+ * only thing the player wants to know (owner report 2026-09-20). Rebounds are skipped here; Magic Mirror
+ * writes its own follow-up line.
+ */
+export const rankedBlastDamageSceneLogLines = (
+    event: GameEvent,
+    unitNames: ReadonlyMap<string, string>,
+    flagForUnit: (unitId: string) => string = () => "",
+): string[] => {
+    if (event.type !== "spell_cast" || !spellReportsDamagePerVictim(event.spellName)) {
+        return [];
+    }
+    const lines: string[] = [];
+    for (const entry of event.damaged ?? []) {
+        if (entry.rebounded) {
+            continue;
+        }
+        const name = unitNames.get(entry.unitId) ?? "Unit";
+        const kills = entry.unitsDied > 0 ? ` 💀${entry.unitsDied}` : "";
+        const text = `${name} burned for (${entry.amount}) by ${event.spellName}${kills}`;
+        const flag = flagForUnit(entry.unitId);
+        lines.push(flag ? `${flag} ${text}` : text);
+    }
+    return lines;
+};
+
 /** Primary spell damage only; Magic Mirror rebounds are reported as their own follow-up lines. */
 export const rankedSpellPrimaryDamageSummary = (
     event: GameEvent,
@@ -3166,6 +3207,11 @@ export class RankedPlayScene extends Sandbox {
                 for (const hitLine of this.multiHitLogLines(event, unitNames)) {
                     lines.push(hitLine);
                 }
+                // A blast (Fireball) reports its damage per victim: the headline above says where it burst,
+                // these say what each creature actually took after its own resistances.
+                for (const blastLine of this.blastDamageLogLines(event, unitNames)) {
+                    lines.push(blastLine);
+                }
                 // Secondary damage (Fire/Flesh Shield, Chain Lightning, Petrifying Gaze) and spell
                 // Magic Mirror rebounds each get their own authoritative follow-up log line.
                 for (const secondaryLine of this.secondaryLogLines(event, unitNames)) {
@@ -3174,6 +3220,10 @@ export class RankedPlayScene extends Sandbox {
             }
         }
         return lines;
+    }
+    /** See rankedBlastDamageSceneLogLines — this only supplies the scene's team flags. */
+    private blastDamageLogLines(event: GameEvent, unitNames: ReadonlyMap<string, string>): string[] {
+        return rankedBlastDamageSceneLogLines(event, unitNames, (unitId) => this.logTeamFlag(unitId));
     }
     /**
      * One scene-log line per unit hit by an AOE range attack (Gargantuan Area Throw / Cyclops Large
@@ -3442,6 +3492,13 @@ export class RankedPlayScene extends Sandbox {
                           ? ` for ${restoredHpTotal} hp`
                           : "";
                 const abilityTransferSuffix = spellAbilityTransferSceneLogSuffix(event);
+                // A blast prices every victim separately, so one summed number says nothing about who took
+                // what. Emit the headline here and let blastDamageLogLines() break the damage out per unit,
+                // exactly as the splash and multi-hit branches above do for attacks. Matches the engine's
+                // own sandbox wording so a ranked fight and a local one read the same.
+                if (spellReportsDamagePerVictim(event.spellName)) {
+                    return `${nameOf(event.casterId)} burst a ${event.spellName} on ${nameOf(event.targetId ?? event.casterId)}`;
+                }
                 // Single-target casts (Riot, Magic Mirror, …) carry the target so the log says on whom
                 // (matching the sandbox engine text); mass casts (Mass Riot, …) have no single target and
                 // read fine from the spell name.

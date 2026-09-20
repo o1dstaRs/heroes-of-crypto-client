@@ -33,7 +33,9 @@ import {
     rankedUnitMechanicsMatch,
     rankedUnitAliveHealth,
     rankedSecondarySceneLogLines,
+    rankedBlastDamageSceneLogLines,
     rankedSpellPrimaryDamageSummary,
+    spellReportsDamagePerVictim,
     rankedSystemMoveSceneLogLine,
     rankedUnitStartAmount,
     rankedUnitStartHealth,
@@ -2084,5 +2086,72 @@ describe("replay carries the turn-status state the icons are drawn from", () => 
         ]);
         const state = authoritativeSnapshotToSandboxSceneState({ ...snapshot, upNext: undefined });
         expect(state.upNext).toBeUndefined();
+    });
+});
+
+// A blast prices every victim separately, so the ranked log breaks the damage out per creature rather than
+// reporting one summed number — matching the engine's own sandbox lines (owner report 2026-09-20).
+describe("blast spell damage lines", () => {
+    const blast = (damaged: { unitId: string; amount: number; unitsDied: number; rebounded?: boolean }[]) =>
+        ({
+            type: "spell_cast",
+            casterId: "mage",
+            spellName: "Fireball",
+            targetId: "centaur",
+            unitIdsDied: [],
+            animations: [],
+            damaged: damaged.map((entry) => ({ ...entry, position: { x: 0, y: 0 } })),
+        }) as unknown as GameEvent;
+
+    const names = new Map([
+        ["mage", "Wandering Mage"],
+        ["centaur", "Centaur"],
+        ["peasant", "Peasant"],
+        ["wolf", "Wolf"],
+    ]);
+
+    test("only a blast reports per victim; ordinary casts keep their single line", () => {
+        expect(spellReportsDamagePerVictim("Fireball")).toBe(true);
+        expect(spellReportsDamagePerVictim("Fire Strike")).toBe(false);
+        expect(spellReportsDamagePerVictim("Ring of Fire")).toBe(false);
+    });
+
+    test("writes one line per creature with its own damage and kills", () => {
+        const lines = rankedBlastDamageSceneLogLines(
+            blast([
+                { unitId: "centaur", amount: 412, unitsDied: 2 },
+                { unitId: "peasant", amount: 300, unitsDied: 0 },
+                { unitId: "wolf", amount: 272, unitsDied: 0 },
+            ]),
+            names,
+        );
+
+        expect(lines).toEqual([
+            "Centaur burned for (412) by Fireball 💀2",
+            "Peasant burned for (300) by Fireball",
+            "Wolf burned for (272) by Fireball",
+        ]);
+        // The number a player could not act on: nothing reports the sum.
+        expect(lines.some((line) => line.includes("984"))).toBe(false);
+    });
+
+    test("leaves a Magic Mirror rebound to its own follow-up line", () => {
+        const lines = rankedBlastDamageSceneLogLines(
+            blast([
+                { unitId: "centaur", amount: 412, unitsDied: 0 },
+                { unitId: "mage", amount: 90, unitsDied: 0, rebounded: true },
+            ]),
+            names,
+        );
+
+        expect(lines).toEqual(["Centaur burned for (412) by Fireball"]);
+    });
+
+    test("ignores events that are not a per-victim blast", () => {
+        const fireStrike = {
+            ...(blast([{ unitId: "centaur", amount: 10, unitsDied: 0 }]) as object),
+            spellName: "Fire Strike",
+        } as GameEvent;
+        expect(rankedBlastDamageSceneLogLines(fireStrike, names)).toEqual([]);
     });
 });
