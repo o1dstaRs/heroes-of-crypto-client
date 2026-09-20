@@ -875,6 +875,7 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     Cancel: "Отмена",
     Forfeit: "Сдаться",
     "EXIT FIGHT": "ВЫЙТИ ИЗ БОЯ",
+    "Exit fight": "Выйти из боя",
     "Exit Replay": "Выйти из повтора",
     // Arena settings menu — the personal army-colour picker. The preset names are looked up through a
     // variable, so they are pinned by the data-driven i18n test rather than the literal scan.
