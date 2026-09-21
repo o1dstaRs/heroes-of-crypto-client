@@ -307,6 +307,56 @@ export interface IGameplayDrawContext {
     movementCellsScratch?: HoCMath.XY[];
 }
 
+/** One pip of a stack-power row, in BOARD coordinates — the caller projects it onto the battlefield. */
+export interface IStackPowerPipRect {
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+    filled: boolean;
+}
+
+/**
+ * Where a unit's stack-power pips sit: a centred row of MAX_UNIT_STACK_POWER, laid along the inside of its
+ * footprint's lower edge, filled up to its power.
+ *
+ * Board coordinates, and pure, because the thing most likely to go wrong here is arithmetic — a row that
+ * drifts off a 2x1 body, or pips that overrun their own footprint — and that is answerable without a GPU.
+ * The row is sized from the footprint so a wide body spreads its pips instead of bunching them.
+ */
+export const stackPowerPipRects = (
+    cells: readonly HoCMath.XY[],
+    gs: GridSettings,
+    stackPower: number,
+): IStackPowerPipRect[] => {
+    const size = gs.getCellSize();
+    let minX = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    for (const cell of cells) {
+        const position = GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+        minX = Math.min(minX, position.x - size / 2);
+        maxX = Math.max(maxX, position.x + size / 2);
+        minY = Math.min(minY, position.y - size / 2);
+    }
+    if (!Number.isFinite(minX) || !Number.isFinite(minY)) {
+        return [];
+    }
+    const total = HoCConstants.MAX_UNIT_STACK_POWER;
+    const filled = Math.max(0, Math.min(total, Math.round(stackPower)));
+    const gap = size * 0.05;
+    const pipWidth = Math.max(2, Math.min(size * 0.15, ((maxX - minX) * 0.82 - gap * (total - 1)) / total));
+    const pipHeight = Math.max(2, size * 0.07);
+    const rowWidth = pipWidth * total + gap * (total - 1);
+    const left = (minX + maxX) / 2 - rowWidth / 2;
+    // The battlefield root is y-up, so the row sits just INSIDE the footprint's lower edge.
+    const bottom = minY + size * 0.1;
+    return Array.from({ length: total }, (_unused, index) => {
+        const x = left + index * (pipWidth + gap);
+        return { x1: x, y1: bottom, x2: x + pipWidth, y2: bottom + pipHeight, filled: index < filled };
+    });
+};
+
 /** One unit under ALT: the ground it holds, the colour of the army holding it, and how full its stack is. */
 export interface IAltInspectFootprint {
     cells: readonly HoCMath.XY[];
@@ -610,33 +660,12 @@ export class SandboxDrawer {
         color: number,
         stackPower: number,
     ): void {
-        const size = gs.getCellSize();
-        let minX = Number.POSITIVE_INFINITY;
-        let maxX = Number.NEGATIVE_INFINITY;
-        let minY = Number.POSITIVE_INFINITY;
-        for (const cell of cells) {
-            const position = GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
-            minX = Math.min(minX, position.x - size / 2);
-            maxX = Math.max(maxX, position.x + size / 2);
-            minY = Math.min(minY, position.y - size / 2);
-        }
-        if (!Number.isFinite(minX) || !Number.isFinite(minY)) return;
-        const total = HoCConstants.MAX_UNIT_STACK_POWER;
-        const filled = Math.max(0, Math.min(total, Math.round(stackPower)));
-        const gap = size * 0.05;
-        const pipWidth = Math.max(2, Math.min(size * 0.15, ((maxX - minX) * 0.82 - gap * (total - 1)) / total));
-        const pipHeight = Math.max(2, size * 0.07);
-        const rowWidth = pipWidth * total + gap * (total - 1);
-        const left = (minX + maxX) / 2 - rowWidth / 2;
-        // The battlefield root is y-up, so the row sits just INSIDE the footprint's lower edge.
-        const bottom = minY + size * 0.1;
-        for (let index = 0; index < total; index++) {
-            const x = left + index * (pipWidth + gap);
-            const pip = projectedRectPoints(x, bottom, x + pipWidth, bottom + pipHeight, gs);
-            if (index < filled) {
-                g.poly(pip).fill({ color, alpha: 0.95 });
+        for (const pip of stackPowerPipRects(cells, gs, stackPower)) {
+            const points = projectedRectPoints(pip.x1, pip.y1, pip.x2, pip.y2, gs);
+            if (pip.filled) {
+                g.poly(points).fill({ color, alpha: 0.95 });
             } else {
-                g.poly(pip).fill({ color: 0x000000, alpha: 0.38 }).stroke({ width: 1, color, alpha: 0.38 });
+                g.poly(points).fill({ color: 0x000000, alpha: 0.38 }).stroke({ width: 1, color, alpha: 0.38 });
             }
         }
     }
