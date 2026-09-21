@@ -554,7 +554,7 @@ function formulaSpecs(): FormulaSpec[] {
                     "`attack` is the attacker's current attack rating; `alive_bodies` is the number of living creatures in the stack.",
                     "`enemy_armor` is the target's armor (its ranged armor against a shot). Piercing Spear reduces it by the ability's percentage.",
                     "`enemy_luck` runs from −10 to +10, so a lucky target takes about 1% less damage per point and an unlucky one about 1% more.",
-                    "`range_divisor` is 1 in melee and at short range; shooting beyond the shot distance doubles it per distance band, up to ×8. Smoke doubles it once more (still capped at 8).",
+                    "`range_divisor` is 1 in melee and at short range; shooting beyond the shot distance doubles it per distance band, up to ×8. Smoke doubles it once more (still capped at 8). Units with the Sniper ability ignore the divisor entirely; the Sniper augment and Farsight Quiver only push the full-damage band further out.",
                     `\`morale_multiplier\` is 1.25 for a positive morale proc, 0.8 for a negative one, otherwise 1.`,
                 ]),
                 "The roll is then multiplied, in this order, and floored once: ×0.5 when a ranged unit without Handyman swings in melee, × the ability multiplier (Through Shot, Area Throw, Double Shot's second volley, …), × (1 + Deep Wounds stacks %) when the attacker inflicts Deep Wounds and the target already carries it, × the elemental multiplier (Fire vs Water, Wind vs Earth: the vulnerable side takes the element ability's percentage more).",
@@ -568,7 +568,7 @@ function formulaSpecs(): FormulaSpec[] {
                     "`атака` — текущая атака атакующего; `живые_существа` — число живых существ в стеке.",
                     "`броня_врага` — броня цели (против выстрела — её броня от дальних атак). Piercing Spear снижает её на процент способности.",
                     "`удача_врага` от −10 до +10: удачливая цель получает примерно на 1% меньше урона за очко, неудачливая — больше.",
-                    "`делитель_дальности` равен 1 в ближнем бою и на короткой дистанции; выстрел дальше дистанции выстрела удваивает его за каждую полосу дальности, максимум ×8. Дым удваивает его ещё раз (предел тот же — 8).",
+                    "`делитель_дальности` равен 1 в ближнем бою и на короткой дистанции; выстрел дальше дистанции выстрела удваивает его за каждую полосу дальности, максимум ×8. Дым удваивает его ещё раз (предел тот же — 8). Юниты со способностью Sniper игнорируют делитель полностью; апгрейд «Стрельба» и Farsight Quiver лишь отодвигают зону полного урона.",
                     "`множитель_морали` равен 1.25 при положительном срабатывании морали, 0.8 при отрицательном, иначе 1.",
                 ]),
                 "Затем бросок умножается в таком порядке и один раз округляется вниз: ×0.5, если стрелок без Handyman бьёт в ближнем бою; × множитель способности (Through Shot, Area Throw, второй выстрел Double Shot и т.д.); × (1 + проценты стаков Deep Wounds), если атакующий наносит Deep Wounds, а цель уже под эффектом; × стихийный множитель (Огонь против Воды, Ветер против Земли: уязвимая сторона получает больше на процент стихийной способности).",
@@ -658,13 +658,13 @@ function formulaSpecs(): FormulaSpec[] {
             text: bullet([
                 `The map narrows every ${NUMBER_OF_LAPS_TILL_NARROWING_NORMAL} laps (every ${NUMBER_OF_LAPS_TILL_NARROWING_BLOCK} on maps with a blocked center): the outer ring of cells turns into holes, up to ${MAX_HOLE_LAYERS} layers.`,
                 "A stack standing on a vanishing cell is pushed inward if there is legal space; otherwise it dies.",
-                `Narrowing stops at lap ${NUMBER_OF_LAPS_TILL_STOP_NARROWING}. The first Armageddon wave hits at the start of lap ${NUMBER_OF_LAPS_FIRST_ARMAGEDDON}; ${NUMBER_OF_ARMAGEDDON_WAVES} escalating waves follow, the first dealing at least ${MIN_ARMAGEDDON_DAMAGE_FIRST_WAVE} damage to every stack.`,
+                `Narrowing stops at lap ${NUMBER_OF_LAPS_TILL_STOP_NARROWING}. Armageddon is ${NUMBER_OF_ARMAGEDDON_WAVES} waves in total, one per lap from lap ${NUMBER_OF_LAPS_FIRST_ARMAGEDDON} to lap ${NUMBER_OF_LAPS_FIRST_ARMAGEDDON + NUMBER_OF_ARMAGEDDON_WAVES - 1}, each stronger than the last; the first wave deals at least ${MIN_ARMAGEDDON_DAMAGE_FIRST_WAVE} damage to every stack.`,
                 "If a wave destroys both armies at once, the fight is a draw.",
             ]),
             textRu: bullet([
                 `Карта сужается каждые ${NUMBER_OF_LAPS_TILL_NARROWING_NORMAL} круга (каждые ${NUMBER_OF_LAPS_TILL_NARROWING_BLOCK} на картах с заблокированным центром): внешнее кольцо клеток превращается в провалы, до ${MAX_HOLE_LAYERS} слоёв.`,
                 "Стек на исчезающей клетке выталкивается внутрь, если есть свободное место; иначе он погибает.",
-                `Сужение прекращается на ${NUMBER_OF_LAPS_TILL_STOP_NARROWING}-м круге. Первая волна Армагеддона бьёт в начале ${NUMBER_OF_LAPS_FIRST_ARMAGEDDON}-го круга; всего ${NUMBER_OF_ARMAGEDDON_WAVES} нарастающие волны, первая наносит каждому стеку минимум ${MIN_ARMAGEDDON_DAMAGE_FIRST_WAVE} урона.`,
+                `Сужение прекращается на ${NUMBER_OF_LAPS_TILL_STOP_NARROWING}-м круге. Армагеддон — это всего ${NUMBER_OF_ARMAGEDDON_WAVES} волны, по одной за круг с ${NUMBER_OF_LAPS_FIRST_ARMAGEDDON}-го по ${NUMBER_OF_LAPS_FIRST_ARMAGEDDON + NUMBER_OF_ARMAGEDDON_WAVES - 1}-й круг, каждая сильнее предыдущей; первая наносит каждому стеку минимум ${MIN_ARMAGEDDON_DAMAGE_FIRST_WAVE} урона.`,
                 "Если волна уничтожает обе армии одновременно, бой заканчивается ничьей.",
             ]),
             keywords: ["map", "narrowing", "armageddon", "laps", "holes", "карта", "сужение", "армагеддон", "круги"],
@@ -899,17 +899,35 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
     for (const [name, raw] of Object.entries(rawEffects)) {
         if (typeof raw !== "object") continue;
         const description = raw.desc.replace(/\{\}/g, String(raw.power));
+        // Only abilities a player can actually meet (the codex roster) count as appliers: abilities.json
+        // also defines retired or unassigned ones, and naming those would send players hunting for a
+        // carrier that does not exist.
+        const abilityNames = new Set(abilities.map((ability) => ability.name));
         const appliers = Object.values(rawAbilities)
-            .filter((entry): entry is RawAbilityEntry => typeof entry === "object" && entry.effect === name)
+            .filter(
+                (entry): entry is RawAbilityEntry =>
+                    typeof entry === "object" && entry.effect === name && abilityNames.has(entry.name),
+            )
             .map((entry) => entry.name);
+        // The card a player should land on: the ability of the same name, else the one ability that
+        // applies the effect, else a search for it in the abilities tab.
+        const linkedAbility = abilityNames.has(name)
+            ? name
+            : appliers.length === 1 && abilityNames.has(appliers[0])
+              ? appliers[0]
+              : undefined;
         graph.add({
             id: nodeId("effect", name),
             type: "effect",
             section: "abilities",
             name,
             aliases: [`${name} effect`],
-            href: knowledgePath("en", { section: "abilities", query: name }),
-            hrefRu: knowledgePath("ru", { section: "abilities", query: name }),
+            href: linkedAbility
+                ? knowledgePath("en", { section: "abilities", entry: linkedAbility })
+                : knowledgePath("en", { section: "abilities", query: name }),
+            hrefRu: linkedAbility
+                ? knowledgePath("ru", { section: "abilities", entry: linkedAbility })
+                : knowledgePath("ru", { section: "abilities", query: name }),
             summary: `Status effect: ${description} Lasts ${raw.laps} lap(s).`,
             summaryRu: `Эффект-состояние: ${description} Длится ${raw.laps} круг(а).`,
             text: [
