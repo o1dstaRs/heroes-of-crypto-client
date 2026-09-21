@@ -999,7 +999,7 @@ const KeyedGameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) =
 
 const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
     const { gameId } = useParams<{ gameId: string }>();
-    const { authenticated, getCurrentGame } = useAuthContext();
+    const { authenticated, loading: authLoading, getCurrentGame } = useAuthContext();
     const navigate = useNavigate();
     const location = useLocation();
     const stopWatching = useStopWatching();
@@ -1132,6 +1132,13 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
         };
 
         const fetchGame = async () => {
+            // "Not signed in YET" is not "not a player". /game/:gameId is the one game route with no auth
+            // gate, so on every hard reload this effect used to run first with authenticated=false, open the
+            // read-only view, and leave a seated player watching their own draft. Wait for the session to
+            // finish restoring; the effect re-runs the moment it has.
+            if (authLoading) {
+                return;
+            }
             if (!authenticated) {
                 if (await openObserverMode()) {
                     return;
@@ -1180,7 +1187,7 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
         };
 
         fetchGame();
-    }, [authenticated, gameId, getCurrentGame]);
+    }, [authLoading, authenticated, gameId, getCurrentGame]);
 
     /**
      * Take the seat back when it was lost to a blip.
