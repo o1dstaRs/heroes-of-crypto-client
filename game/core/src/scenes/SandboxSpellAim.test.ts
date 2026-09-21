@@ -111,7 +111,18 @@ describe("cell-targeted spell aim footprint", () => {
         }
     });
 
-    // Meteorite (and Smoke / Craft) have no centre cell, so their 2x2 hangs up-and-right of the cursor —
+    // Smoke is 3x3 too, and odd-sided means centred: smokeCast reads action.targetCell as the middle of the
+    // cloud. A corner-anchored preview would highlight a block one cell off the one that actually smokes.
+    test("Smoke covers the 3x3 centred on the aimed cell", () => {
+        const cells = cellTargetedSpellBlockCells("Smoke", { x: 6, y: 4 });
+
+        expect(cells).toHaveLength(9);
+        expect(new Set(cells.map(key))).toEqual(
+            new Set(["5,3", "5,4", "5,5", "6,3", "6,4", "6,5", "7,3", "7,4", "7,5"]),
+        );
+    });
+
+    // Meteorite (and Craft) have no centre cell, so their 2x2 hangs up-and-right of the cursor —
     // the corner convention meteoriteCast reads.
     test("Meteorite covers the 2x2 anchored at the aimed cell's bottom-left corner", () => {
         const cells = cellTargetedSpellBlockCells("Meteorite", { x: 4, y: 5 });
@@ -120,8 +131,8 @@ describe("cell-targeted spell aim footprint", () => {
         expect(new Set(cells.map(key))).toEqual(new Set(["4,5", "5,5", "4,6", "5,6"]));
     });
 
-    test("anything that is not Meteor Shower keeps the 2x2 corner footprint", () => {
-        for (const name of ["Smoke", "Craft", "Fire Strike"]) {
+    test("an even-sided spell keeps the 2x2 corner footprint", () => {
+        for (const name of ["Craft", "Fire Strike"]) {
             expect(cellTargetedSpellBlockCells(name, { x: 0, y: 0 })).toHaveLength(4);
         }
     });
