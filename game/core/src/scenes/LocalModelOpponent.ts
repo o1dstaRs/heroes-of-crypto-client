@@ -569,6 +569,12 @@ const getEnemiesWithinMovementRange = (
     if (!activeUnit.canMove()) {
         return undefined;
     }
+    // Castling swaps one cell for one cell. A 2x1, 1x2 or 2x2 caster that inherited the spell has no legal
+    // target however far it can walk, and canCastSpell refuses it — so never hand the engine a list that
+    // describes one.
+    if (!activeUnit.isSmallSize()) {
+        return undefined;
+    }
     const moveCells = pathHelper.getMovePath(
         activeUnit.getBaseCell(),
         grid.getMatrixNoUnits(),

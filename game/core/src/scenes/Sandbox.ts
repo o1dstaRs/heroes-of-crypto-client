@@ -264,6 +264,19 @@ export const spellCastSecondaryDamage = (event: GameEvent): IVisibleDamage["seco
         ? (event as Extract<GameEvent, { type: "spell_cast" }> & { secondary?: IVisibleDamage["secondary"] }).secondary
         : undefined;
 
+/**
+ * Whether `caster` can arm `spell` at all, on grounds of its own BODY.
+ *
+ * A position swap (Castling) trades one cell for one cell, so the engine's canCastSpell demands that both
+ * bodies occupy exactly one — `isSmallSize()`, which reads the FOOTPRINT, so a 2x1 or 1x2 mount is no more
+ * eligible than a 2x2. A bigger creature can still own the spell (Predatory Assimilation hands it to the
+ * 2x2 Arachna Queen, and any mount could inherit it the same way), and every one of its casts would be
+ * refused — so the book turns the pick away instead of arming a spell whose highlights promise a swap that
+ * cannot happen.
+ */
+export const canCasterArmSpell = (spell: Spell, caster: Unit): boolean =>
+    spell.getSpellTargetType() !== SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE || caster.isSmallSize();
+
 export const shouldSuppressInspectedUnitRangesForSpell = (spell: Spell): boolean => {
     const targetType = spell.getSpellTargetType();
     const targetsOneUnit =
@@ -8554,6 +8567,16 @@ export class Sandbox extends PixiScene {
         }
 
         const targetType = hovered.getSpellTargetType();
+
+        // Castling only swaps two single-cell bodies (see canCasterArmSpell).
+        if (!canCasterArmSpell(hovered, caster)) {
+            this.setHoveredSpell(hovered, caster);
+            this.sc_sceneLog.updateLog(
+                `${hovered.getName()} only swaps two single-cell creatures — ${caster.getName()} is too big`,
+            );
+            return;
+        }
+
         const isSingleTarget =
             targetType === SpellTargetType.ANY_ALLY ||
             targetType === SpellTargetType.ANY_ENEMY ||
@@ -8613,7 +8636,15 @@ export class Sandbox extends PixiScene {
         // movement range. canCastSpell — and thus the hover highlight + cast validation — needs the
         // list of those enemies' base cells, so compute it here (parity with the legacy arming path).
         this.currentEnemiesCellsWithinMovementRange = undefined;
-        if (currentCell && targetType === SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE && caster.canMove()) {
+        if (
+            currentCell &&
+            targetType === SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE &&
+            // A 2x1 / 1x2 / 2x2 caster leaves the list undefined and therefore draws NO target highlights —
+            // the same answer the engine gives. The book gate above already turns that pick away; this keeps
+            // the highlight honest for any other caller that arms the spell directly.
+            canCasterArmSpell(hovered, caster) &&
+            caster.canMove()
+        ) {
             const moveCells = this.pathHelper.getMovePath(
                 currentCell,
                 this.gridMatrixNoUnits,

@@ -1389,6 +1389,12 @@ export class AIController {
 
             // Castling (POSITION_CHANGE): swap with a strong small enemy within the caster's reach.
             if (pt === SpellPowerType.POSITION_CHANGE && tt === SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE) {
+                // Both bodies have to be a single cell. A 2x1, 1x2 or 2x2 caster that inherited the spell
+                // (Predatory Assimilation) can never swap, so stop before scoring targets the engine would
+                // refuse as spell_not_available.
+                if (!caster.isSmallSize()) {
+                    continue;
+                }
                 const steps = Math.max(1, Math.ceil(caster.getSteps())) + 1;
                 let target: Unit | undefined;
                 let value = 0;
