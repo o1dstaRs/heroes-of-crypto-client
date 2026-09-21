@@ -17210,17 +17210,26 @@ export class Sandbox extends PixiScene {
             }
         }
     }
-    private renderNarrowingLayers(layers: number): void {
+    /**
+     * Draw the board's narrowing up to `layers`, adding only what is missing so an already-narrowed board
+     * never blinks back to full size. `regrid` re-occupies the cells of layers that are already drawn — a
+     * board rebuild re-carves the grid underneath them, so their holes have to be stamped again.
+     */
+    private renderNarrowingLayers(layers: number, options: { regrid?: boolean } = {}): void {
         this.attachToWorldRoot(this.dungeonVisuals.getHoleContainer(), 20);
         for (let layer = 1; layer <= layers; layer++) {
-            if (this.drawnNarrowingLaps.has(layer)) {
-                continue;
+            const alreadyDrawn = this.drawnNarrowingLaps.has(layer);
+            if (!alreadyDrawn) {
+                this.dungeonVisuals.spawnHoleLayer(layer);
+                this.drawnNarrowingLaps.add(layer);
             }
-            this.dungeonVisuals.spawnHoleLayer(layer);
-            this.occupyNarrowingLayer(layer);
-            this.drawnNarrowingLaps.add(layer);
-            this.moveFiresInward(layer);
+            if (!alreadyDrawn || options.regrid) {
+                this.occupyNarrowingLayer(layer);
+            }
         }
+        // The sconce offset is absolute, so one call with the final depth covers every layer and stays
+        // correct when layers were kept rather than re-spawned.
+        this.moveFiresInward(layers);
         this.dungeonVisuals.setNarrowingLayers(layers);
     }
     /**
