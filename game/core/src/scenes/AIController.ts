@@ -37,7 +37,7 @@ import {
     type LocalModelOpponentConfig,
 } from "./LocalModelOpponent";
 import { markAutoPlayedAction } from "./autoPlayedAction";
-import { alliesAreTransparent, thrownSpellReachesTarget } from "./spell_targeting";
+import { throwTransparencyFor, thrownSpellReachesTarget } from "./spell_targeting";
 
 /**
  * Simple log interface for scene logging.
@@ -1288,9 +1288,11 @@ export class AIController {
                     this.context.getGrid(),
                     caster.getBaseCell(),
                     target.getBaseCell(),
-                    spell.getName() === "Fire Strike"
-                        ? alliesAreTransparent(this.context.getUnitsHolder().getAllUnits(), caster.getTeam())
-                        : undefined,
+                    throwTransparencyFor(
+                        spell.getName(),
+                        this.context.getUnitsHolder().getAllUnits(),
+                        caster.getTeam(),
+                    ),
                 ));
 
         let best: { spellName: string; targetUnitId?: string; targetCell?: HoCMath.XY } | undefined;

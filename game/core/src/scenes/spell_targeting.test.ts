@@ -4,6 +4,7 @@ import type { Grid } from "@heroesofcrypto/common";
 
 import {
     alliesAreTransparent,
+    throwTransparencyFor,
     isTargetedSpellReachable,
     targetedSpellBlockerCell,
     targetedSpellBlockerId,
@@ -106,5 +107,29 @@ describe("client targeted-spell reachability", () => {
     test("reports the screening creature's cell so the preview can stop the lane there", () => {
         expect(targetedSpellBlockerCell("Vine Throw", sightGrid(true), FROM, TO)).toEqual({ x: 2, y: 1 });
         expect(targetedSpellBlockerCell("Vine Throw", sightGrid(false), FROM, TO)).toBeUndefined();
+    });
+
+    // Owner report 2026-09-20: Fireball is thrown exactly like Fire Strike, yet the client spelled the
+    // "arcs over friendlies" list out by hand and left it at Fire Strike — so the preview refused a Fireball
+    // behind the caster's own front line that the server would have thrown over.
+    describe("which throws arc over the caster's own troops", () => {
+        const OWN_TEAM = 2;
+        const units = new Map([["blocking-unit", { getTeam: () => OWN_TEAM }]]);
+
+        test("the intercepted throws see through allies", () => {
+            for (const spellName of ["Fire Strike", "Fireball"]) {
+                const transparent = throwTransparencyFor(spellName, units, OWN_TEAM);
+                expect(transparent?.("blocking-unit")).toBe(true);
+                expect(
+                    thrownSpellImpact(spellName, sightGrid(true), FROM, TO, transparent).interceptedBy,
+                ).toBeUndefined();
+            }
+        });
+
+        test("every other throw is stopped by any body", () => {
+            for (const spellName of ["Vine Throw", "Ring of Fire"]) {
+                expect(throwTransparencyFor(spellName, units, OWN_TEAM)).toBeUndefined();
+            }
+        });
     });
 });

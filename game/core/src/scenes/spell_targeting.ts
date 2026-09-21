@@ -15,6 +15,20 @@ export const alliesAreTransparent =
         units.get(unitId)?.getTeam() === casterTeam;
 
 /**
+ * The transparency a given throw gets: the intercepted throws (Fire Strike, Fireball) arc over the caster's
+ * own troops; Vine Throw and Ring of Fire are stopped by ANY body, friend or foe. One rule for the aim
+ * preview, the local AI and the model opponent, read off the same classification the engine uses — a surface
+ * that spelled the list out by hand refused Fireball behind a friendly front line the server would have
+ * thrown over (owner report 2026-09-20).
+ */
+export const throwTransparencyFor = (
+    spellName: string,
+    units: ReadonlyMap<string, { getTeam: () => number }>,
+    casterTeam: number,
+): TransparencyPredicate | undefined =>
+    SpellHelper.isInterceptedThrownSpell(spellName) ? alliesAreTransparent(units, casterTeam) : undefined;
+
+/**
  * Client-side target reachability for unit-targeted spells.
  *
  * The shared helper owns which spells travel across the board (Vine Throw, Fire Strike, Ring of Fire)

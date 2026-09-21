@@ -10,6 +10,7 @@ import {
     hoveredShotRangeColor,
     movementCellsOutsideUnitFootprint,
     visibleAuraRanges,
+    type IAltInspectFootprint,
     type IFootprintExtent,
     type ShotRangeCornerSpritePool,
     type ShotRangeOverlay,
@@ -99,7 +100,7 @@ import {
     type IAttackDamageProjection,
     type IAttackDamageProjectionInput,
 } from "@heroesofcrypto/common";
-import { clearPersonalArmyTint } from "./personalArmyTint";
+import { clearPersonalArmyTint, personalArmyPresetFor } from "./personalArmyTint";
 import { UnitsOverlay } from "./UnitsOverlay";
 import { DamageStatisticHolder } from "./DamageStats";
 import { FightStatsTracker } from "./FightStatsTracker";
@@ -199,7 +200,7 @@ import {
 } from "./lavaMovementOverlay";
 import { formatCombatRange } from "./combatRange";
 import {
-    alliesAreTransparent,
+    throwTransparencyFor,
     isTargetedSpellReachable,
     targetedSpellBlockerCell,
     targetedSpellBlockerId,
@@ -207,7 +208,12 @@ import {
     type TransparencyPredicate,
 } from "./spell_targeting";
 import type { AuthoritativeGameSnapshot, SceneGameActionTransport } from "../game_action_transport";
-import { cloneReplayData, SandboxReplayRecorder, type SandboxReplay } from "../replay/sandbox_replay";
+import {
+    cloneReplayData,
+    SandboxReplayRecorder,
+    type SandboxReplay,
+    type SandboxReplayActionRecord,
+} from "../replay/sandbox_replay";
 import {
     optimalRangeTargetEdge,
     rangeAimOptions,
@@ -218,7 +224,7 @@ import {
     rangeTargetExteriorEdges,
     rangeTrajectoryFootprintExit,
 } from "./rangeTargetEdges";
-import { isGreenTeam } from "./teamColors";
+import { isGreenTeam, teamColor } from "./teamColors";
 
 /**
  * Client-side aim projection for an offensive spell: what ONE target actually takes.
@@ -631,6 +637,9 @@ export const sandboxBarrelLayoutForSeed = (
  */
 const CHAKRAM_FLIGHTLESS_HOP_MS = 150;
 
+/** ALT's ground wash for a unit belonging to neither side (a summon mid-resolution): the roster's own grey. */
+const NO_TEAM_ALT_INSPECT_COLOR = 0xd0d0d0;
+
 // Magic Mirror rebound damage numbers: cold cyan rather than the usual red, so a hit the caster took off its
 // own reflected spell is instantly distinguishable from the damage it dealt.
 /** The one called-down spell with its own bolt VFX; every other offensive spell shares the fire burst. */
@@ -836,17 +845,13 @@ export const secondaryDamageTextStyle = (source: string): { fill: string; stroke
 /**
  * The block of cells a cell-targeted spell covers when aimed at `origin`.
  *
- * Meteor Shower's 3x3 is CENTRED on the cursor — an odd-sided footprint pivots about the mouse, the way the
- * Fire Wall's line does. Everything else here is 2x2 (Meteorite, Smoke, Craft) and hangs off the
- * cursor cell as its bottom-left corner, because an even-sided block has no centre cell to anchor on. Both
- * match what the matching cast handler reads out of `action.targetCell` — a preview whose footprint differs
- * from the cast's is worse than no preview, so this is the ONE place either is derived.
- *
- * Shared by the aim outline and the damage labels drawn inside it, so the two can never disagree.
+ * This used to be a second copy of the engine's own rule, which is exactly how a preview drifts from the cast
+ * it previews: when Smoke went from a 2x2 corner block to a 3x3 centred one, only one of the two copies would
+ * have moved. It now delegates, so the outline, the damage labels drawn inside it and the cells the cast
+ * actually lays are one and the same answer.
  */
 export function cellTargetedSpellBlockCells(spellName: string, origin: HoCMath.XY): HoCMath.XY[] {
-    const spread = spellName === "Meteor Shower" ? [-1, 0, 1] : [0, 1];
-    return spread.flatMap((dx) => spread.map((dy) => ({ x: origin.x + dx, y: origin.y + dy })));
+    return SpellHelper.cellTargetedSpellBlockCells(spellName, origin);
 }
 
 /** Delay from the first impact until the last impact in a staggered attack. */
@@ -1003,6 +1008,9 @@ export class Sandbox extends PixiScene {
     // while a stack was already in hand — that drag has no held button to release). Track Shift for the latter.
     private splitCommitOnClick = false;
     private shiftHeld = false;
+    // ALT is the "show me everything" key: before the fight it opens every roster amount, and during one it
+    // washes each unit's own ground in its army's colour and spells out its stack power (owner, 20 Sep).
+    private altHeld = false;
     // Live preview of the split-off stack (an actual unit with its real team flag), shown at the target.
     private placementSplitPreviewUnit?: RenderableUnit;
     // Detached visual-only unit for the first hover after selecting a creature from UnitsOverlay. It is
@@ -2984,8 +2992,15 @@ export class Sandbox extends PixiScene {
         this.sc_factionNameUpdateNeeded = true;
         this.sc_moveBlocked = false;
         this.sc_isAnimating = false;
-        this.drawnNarrowingLaps.clear();
-        this.dungeonVisuals.clearHoleLayers();
+        // Keep the hole layers the board already shows whenever the rebuild restores at least as many.
+        // Clearing them here and re-spawning them further down painted one or more frames of a FULLY
+        // un-narrowed board before every layer popped back — the narrowing "flicker". The grid is re-carved
+        // just above, so renderNarrowingLayers re-occupies the kept layers' cells below.
+        const restoredNarrowingLayers = Math.max(0, snapshot.narrowingLayers ?? 0);
+        if (restoredNarrowingLayers < this.drawnNarrowingLaps.size) {
+            this.drawnNarrowingLaps.clear();
+            this.dungeonVisuals.clearHoleLayers();
+        }
         this.dungeonVisuals.setCenterDried(!!snapshot.centerDried);
         if (snapshot.centerDried) {
             this.grid.cleanupCenterObstacle();
@@ -3166,11 +3181,12 @@ export class Sandbox extends PixiScene {
         this.gridMatrix = this.grid.getMatrix();
         this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
         this.unitsHolder.refreshStackPowerForAllUnits();
-        if (snapshot.narrowingLayers) {
-            this.renderNarrowingLayers(snapshot.narrowingLayers);
-            this.gridMatrix = this.grid.getMatrix();
-            this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
-        }
+        // Reconcile unconditionally, including down to zero: the re-carved grid needs the kept layers'
+        // cells occupied again, and a rebuild that un-narrows has to clear the pit rather than leave the
+        // previous state's holes painted on the board.
+        this.renderNarrowingLayers(restoredNarrowingLayers, { regrid: true });
+        this.gridMatrix = this.grid.getMatrix();
+        this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
         if (!snapshot.fightStarted) {
             this.refreshSynergyNumbers(TeamVals.LEFT);
             this.refreshSynergyNumbers(TeamVals.RIGHT);
@@ -3488,6 +3504,18 @@ export class Sandbox extends PixiScene {
                 })),
         ];
     }
+    /**
+     * Just before a replayed action's state is hydrated, with its animation finished and the pre-action
+     * board still standing. Ranked uses it for what can only be seen BEFORE the rebuild — a death the
+     * action's events never announced.
+     */
+    protected onReplayRecordSettling(_record: SandboxReplayActionRecord): void {}
+    /**
+     * Right after a replayed action's state has been hydrated. Ranked uses it to run the presentation the
+     * live snapshot path would have run here — the combat log, the fight-stats series, the turn clock and
+     * the journal-driven VFX — none of which a scene state can carry.
+     */
+    protected onReplayRecordPresented(_record: SandboxReplayActionRecord): void {}
     public override getCurrentSandboxReplay(): SandboxReplay | undefined {
         return this.replayRecorder.getCurrentReplay();
     }
@@ -3540,6 +3568,7 @@ export class Sandbox extends PixiScene {
 
                 if (this.shouldApplyReplayRecordAsCheckpoint(record, index, startFightIndex)) {
                     this.hydrateSceneState(cloneReplayData(record.stateAfter));
+                    this.onReplayRecordPresented(record);
                     continue;
                 }
 
@@ -3554,7 +3583,12 @@ export class Sandbox extends PixiScene {
                 if (!played) {
                     console.warn("Replay could not animate action", record.action.type, record.action);
                 }
+                // While the board still shows the units this action killed — the hydrate below rebuilds
+                // them as corpses with no sprites, and a death with no event of its own has no other
+                // moment at which it can be seen to die.
+                this.onReplayRecordSettling(record);
                 this.hydrateSceneState(cloneReplayData(record.stateAfter));
+                this.onReplayRecordPresented(record);
                 await this.delayReplay(Sandbox.REPLAY_ACTION_GAP_MS);
             }
 
@@ -7923,7 +7957,7 @@ export class Sandbox extends PixiScene {
 
             // --- SPELL CASTING (single-target): a spell is armed, so this click chooses the target. ---
             if (this.currentActiveSpell && this.currentActiveUnit) {
-                // Cell-target spells (Craft, Smoke) resolve to a CELL, not a unit: cast on the clicked 2x2.
+                // Cell-target spells (Craft, Smoke) resolve to a CELL, not a unit: cast on the clicked block.
                 if (
                     this.currentActiveSpell.getSpellTargetType() === SpellTargetType.ALLIES_AREA ||
                     this.currentActiveSpell.getSpellTargetType() === SpellTargetType.FREE_CELL
@@ -8521,7 +8555,7 @@ export class Sandbox extends PixiScene {
 
         // Cell-target spells arm like single-target spells, but the next board click resolves to a CELL
         // rather than a unit: ALLIES_AREA (Craft) reads the 2x2 footprint's top-left, and FREE_CELL
-        // (Smoke) reads the bottom-left of the 2x2 it smokes.
+        // (Smoke) reads the CENTRE of the 3x3 it smokes.
         const isAreaTarget = targetType === SpellTargetType.ALLIES_AREA || targetType === SpellTargetType.FREE_CELL;
 
         if (!isSingleTarget && !isAreaTarget) {
@@ -8779,7 +8813,7 @@ export class Sandbox extends PixiScene {
     }
     /**
      * Whether the armed spell's footprint can be turned before it is placed. Only Fire Wall's 4-cell line
-     * today; Craft's and Smoke's 2x2 blocks are rotationally symmetric, so there is nothing to turn.
+     * today; Craft's 2x2 and Smoke's 3x3 are rotationally symmetric, so there is nothing to turn.
      */
     private isRotatableAreaSpell(spell?: PixiRenderableSpell): boolean {
         return spell?.getName() === "Fire Wall";
@@ -8799,8 +8833,8 @@ export class Sandbox extends PixiScene {
     /**
      * Cast the currently-armed CELL-target spell on the clicked cell — Craft (ALLIES_AREA), Smoke and Fire
      * Wall (FREE_CELL) all resolve to a footprint read off `targetCell`, so they share this path. The engine
-     * owns what that footprint means: Craft resolves the allies inside its 2x2, Smoke smokes whichever of
-     * those four cells are free, Fire Wall lights the free cells of its 4-cell line at the orientation the
+     * owns what that footprint means: Craft resolves the allies inside its 2x2, Smoke smokes its 3x3 (and
+     * only when every one of those nine cells is free), Fire Wall lights the free cells of its line at the
      * player rotated to. Returns true if the cast was applied (turn finished), false if the engine rejected
      * it (e.g. insufficient stack power, Smoke over an occupied cell, or a Fire Wall line with nothing to light).
      */
@@ -15535,6 +15569,7 @@ export class Sandbox extends PixiScene {
         // Add keyboard listeners for Alt key
         window.addEventListener("keydown", this.handleKeyDown);
         window.addEventListener("keyup", this.handleKeyUp);
+        window.addEventListener("blur", this.handleWindowBlur);
 
         if (
             this.unitsHolder.getAllAlliesPlaced(
@@ -15608,10 +15643,12 @@ export class Sandbox extends PixiScene {
         this.releaseWorldRootAttachments();
         window.removeEventListener("keydown", this.handleKeyDown);
         window.removeEventListener("keyup", this.handleKeyUp);
+        window.removeEventListener("blur", this.handleWindowBlur);
     }
     private handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === "Shift") this.shiftHeld = true;
         if (e.key === "Alt" || e.code === "AltLeft" || e.code === "AltRight") {
+            this.altHeld = true;
             const fightProps = FightStateManager.getInstance().getFightProperties();
             if (!fightProps.hasFightStarted()) {
                 this.unitsOverlay.setShowAllAmounts(true);
@@ -15621,8 +15658,19 @@ export class Sandbox extends PixiScene {
     private handleKeyUp = (e: KeyboardEvent) => {
         if (e.key === "Shift") this.shiftHeld = false;
         if (e.key === "Alt") {
+            this.altHeld = false;
             this.unitsOverlay.setShowAllAmounts(false);
         }
+    };
+    /**
+     * Alt is the one modifier the OS can steal mid-press: alt-tabbing away, or the window manager claiming
+     * it for a menu, means the keyup never arrives here. Without this the overlay stays painted over the
+     * board until the next press, which reads as a rendering bug rather than a held key.
+     */
+    private handleWindowBlur = () => {
+        this.shiftHeld = false;
+        this.altHeld = false;
+        this.unitsOverlay.setShowAllAmounts(false);
     };
     // --- Animation State ---
     private ensureGameplayGraphics(): void {
@@ -16210,15 +16258,13 @@ export class Sandbox extends PixiScene {
      * own vinePathCells walk, so the preview cannot promise something vineThrowCast will refuse.
      */
     /**
-     * Bodies a throw flies OVER rather than into. Only Fire Strike arcs over the caster's own troops; Vine
-     * Throw and Ring of Fire are stopped by ANY body, friend or foe. This mirrors the engine exactly — a
-     * client that disagreed would either refuse a cast the server accepts or preview the wrong victim.
+     * Bodies a throw flies OVER rather than into. The intercepted throws (Fire Strike, Fireball) arc over
+     * the caster's own troops; Vine Throw and Ring of Fire are stopped by ANY body, friend or foe. This
+     * mirrors the engine exactly — a client that disagreed would either refuse a cast the server accepts or
+     * preview the wrong victim (it did exactly that for Fireball behind a friendly front line).
      */
     private throwTransparency(spellName: string, caster: Unit): TransparencyPredicate | undefined {
-        if (spellName !== "Fire Strike") {
-            return undefined;
-        }
-        return alliesAreTransparent(this.unitsHolder.getAllUnits(), caster.getTeam());
+        return throwTransparencyFor(spellName, this.unitsHolder.getAllUnits(), caster.getTeam());
     }
     /**
      * One deterministic contact point for a unit-targeted spell, matching ranged targeting semantics.
@@ -16466,9 +16512,9 @@ export class Sandbox extends PixiScene {
         }
     }
     /**
-     * While a CELL-target spell is armed, preview the 2x2 footprint under the cursor. The clicked cell is
-     * the block's corner, so it extends one cell right (+x) and one down (+y) — matching craftCast and
-     * smokeCast in the engine, which use the same footprint.
+     * While a CELL-target spell is armed, preview the footprint under the cursor, read from the engine's own
+     * rule (cellTargetedSpellBlockCells): Smoke's 3x3 is centred on the clicked cell, Craft's and Meteorite's
+     * 2x2 hang off it as their bottom-left corner.
      *
      * The bright cells are the ones that will actually DO something, which differs per spell and is the
      * whole point of the preview: Craft acts on cells holding an ALLY, Smoke only takes hold on cells that
@@ -16506,7 +16552,7 @@ export class Sandbox extends PixiScene {
             const occupant = occupantId ? this.unitsHolder.getAllUnits().get(occupantId) : undefined;
             return !!occupant && !occupant.isDead() && occupant.getTeam() !== casterTeam;
         };
-        // Smoke is all-or-nothing: the engine rejects a partial 2x2, so only draw the footprint where the
+        // Smoke is all-or-nothing: the engine rejects a partial 3x3, so only draw the footprint where the
         // WHOLE block is legal. Anywhere else shows nothing at all, which reads as "you cannot cast here"
         // rather than dangling a highlight over a placement that would be refused.
         if (
@@ -17708,6 +17754,7 @@ export class Sandbox extends PixiScene {
                 !isBattlefieldShadowEditorActive() &&
                 !this.dungeonVisuals.isTestBackground(),
             occupiedFootprints: this.occupiedBoardFootprints(),
+            altInspect: this.altInspectFootprints(),
             gridSettings: this.sc_sceneSettings.getGridSettings(),
         });
         this.drawPlacementSplitOverlay();
@@ -17720,6 +17767,36 @@ export class Sandbox extends PixiScene {
      * actually held. Filtering per cell (rather than trusting getCells()) also drops the stale half of
      * a body mid-move.
      */
+    /**
+     * What ALT paints during a fight: every living unit's own ground, in its army's colour, carrying its
+     * stack power.
+     *
+     * Cells come from the GRID for the same reason the deployment wash takes them there — only the grid
+     * knows which half of a body mid-move is real. The colour is resolved exactly as the unit's own banner
+     * resolves it, so a player who repainted their army sees that paint here too, and never on the enemy.
+     * Empty unless the key is down and the fight is on; the deployment wash owns the pre-fight board.
+     */
+    private altInspectFootprints(): IAltInspectFootprint[] {
+        if (!this.altHeld || !FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
+            return [];
+        }
+        const inspected: IAltInspectFootprint[] = [];
+        for (const unit of this.unitsHolder.getAllUnits().values()) {
+            if (unit.isDead()) continue;
+            const cells = unit.getCells().filter((cell) => this.grid.getOccupantUnitId(cell) === unit.getId());
+            if (!cells.length) continue;
+            const team = unit.getTeam();
+            inspected.push({
+                cells,
+                color:
+                    team === TeamVals.NO_TEAM
+                        ? NO_TEAM_ALT_INSPECT_COLOR
+                        : (personalArmyPresetFor(team)?.color ?? teamColor(team)),
+                stackPower: unit.getStackPower(),
+            });
+        }
+        return inspected;
+    }
     private occupiedBoardFootprints(): HoCMath.XY[][] {
         const groups: HoCMath.XY[][] = [];
         for (const unit of this.unitsHolder.getAllUnits().values()) {
@@ -17995,6 +18072,11 @@ export class Sandbox extends PixiScene {
      */
     private updateLiveFightStats(): void {
         if (!this.sc_visibleState) return;
+        // Once the fight is over, finishFight has published the FINAL report (with the winning team on it).
+        // A later live sample would rebuild it with NO_TEAM as the winner, and the results overlay hides
+        // itself when the report's winner disagrees with the finished team — which is how an armageddon
+        // wipe (many stacks cleaned up at once, so the tracker samples again) lost its overlay entirely.
+        if (this.sc_visibleState.hasFinished) return;
         const fightProps = FightStateManager.getInstance().getFightProperties();
         this.sc_visibleState.fightStats = this.fightStatsTracker.buildReport(
             TeamVals.NO_TEAM,

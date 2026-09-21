@@ -20,7 +20,7 @@ import {
     type Unit,
     type UnitsHolder,
 } from "@heroesofcrypto/common";
-import { alliesAreTransparent, thrownSpellReachesTarget } from "./spell_targeting";
+import { throwTransparencyFor, thrownSpellReachesTarget } from "./spell_targeting";
 
 export interface LocalModelLegalAction {
     id: string;
@@ -680,9 +680,7 @@ const createSpellActions = (options: LocalModelActionOptions, actions: LocalMode
                     grid,
                     activeUnit.getBaseCell(),
                     target.getBaseCell(),
-                    spellName === "Fire Strike"
-                        ? alliesAreTransparent(unitsHolder.getAllUnits(), activeUnit.getTeam())
-                        : undefined,
+                    throwTransparencyFor(spellName, unitsHolder.getAllUnits(), activeUnit.getTeam()),
                 )
             ) {
                 createAction(
