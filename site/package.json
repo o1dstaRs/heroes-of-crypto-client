@@ -5,8 +5,9 @@
     "type": "module",
     "scripts": {
         "astro": "astro",
-        "build": "bun run test && astro build",
-        "build:test": "bun run test && astro build --mode test",
+        "build": "bun run test && astro build && bun run build:knowledge",
+        "build:knowledge": "bun scripts/build_knowledge_graph.ts",
+        "build:test": "bun run test && astro build --mode test && bun run build:knowledge",
         "dev": "astro dev",
         "preview": "astro preview",
         "test": "bun test src/lib",

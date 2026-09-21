@@ -38,6 +38,26 @@ const copy = isRu
           searchHint: "Нажмите /, чтобы начать поиск. Можно вводить несколько слов в любом порядке.",
           aiSearch: "AI-поиск",
           aiSearchDescription: "Понимает смысл запроса и близкие игровые термины",
+          aiAsk: "Спросить ИИ",
+          aiAnswerTitle: "Ответ ИИ",
+          aiHintOn: "Нажмите Enter, чтобы задать вопрос ИИ. Обычные результаты остаются ниже.",
+          aiThinking: "Ищу ответ в базе знаний…",
+          aiSearching: "Ищу",
+          aiReading: "Читаю",
+          aiListing: "Собираю список",
+          aiAnswering: "Отвечаю…",
+          aiDone: "Готово",
+          aiCached: "Готово · из кеша",
+          aiStopped: "Остановлено",
+          aiStop: "Остановить",
+          aiSources: "Источники",
+          aiDisclaimer:
+              "Ответ составлен ИИ по правилам и данным игры и всё же может содержать ошибки — проверяйте по ссылкам.",
+          aiErrorGeneric: "ИИ-помощник сейчас недоступен. Обычный поиск ниже работает как обычно.",
+          aiErrorRate: "Слишком много вопросов подряд. Попробуйте снова через {seconds} с.",
+          aiErrorBusy: "ИИ-помощник занят другими вопросами. Попробуйте через несколько секунд.",
+          aiErrorBudget: "Дневной лимит вопросов к ИИ исчерпан. Обычный поиск ниже работает.",
+          aiErrorLong: "Вопрос слишком длинный. Сократите его до нескольких предложений.",
           clear: "Очистить поиск",
           overview: "Обзор",
           rules: "Правила",
@@ -89,6 +109,26 @@ const copy = isRu
           searchHint: "Press / to search. Use several words in any order to narrow the results.",
           aiSearch: "AI Search",
           aiSearchDescription: "Understands intent and related game terms",
+          aiAsk: "Ask AI",
+          aiAnswerTitle: "AI answer",
+          aiHintOn: "Press Enter to ask the AI a question. The regular results stay below.",
+          aiThinking: "Searching the knowledge base…",
+          aiSearching: "Searching",
+          aiReading: "Reading",
+          aiListing: "Listing",
+          aiAnswering: "Answering…",
+          aiDone: "Done",
+          aiCached: "Done · cached",
+          aiStopped: "Stopped",
+          aiStop: "Stop",
+          aiSources: "Sources",
+          aiDisclaimer:
+              "Written by an AI from the game's own rules and data; it can still make mistakes — follow the links to verify.",
+          aiErrorGeneric: "The AI assistant is unavailable right now. The regular search below still works.",
+          aiErrorRate: "Too many questions in a row. Try again in {seconds} s.",
+          aiErrorBusy: "The AI assistant is busy with other questions. Try again in a few seconds.",
+          aiErrorBudget: "The AI assistant has reached today's question limit. The regular search below still works.",
+          aiErrorLong: "That question is too long. Keep it to a few sentences.",
           clear: "Clear search",
           overview: "Overview",
           rules: "Rules",
@@ -148,6 +188,25 @@ const sectionLabels: Record<KnowledgeSection, string> = {
     abilities: copy.abilities,
     spells: copy.spells,
     artifacts: copy.artifacts,
+};
+// Strings the streaming script needs at runtime; passed through a data attribute because the client bundle
+// cannot read frontmatter values.
+const aiCopy = {
+    hintOn: copy.aiHintOn,
+    hintOff: copy.searchHint,
+    thinking: copy.aiThinking,
+    searching: copy.aiSearching,
+    reading: copy.aiReading,
+    listing: copy.aiListing,
+    answering: copy.aiAnswering,
+    done: copy.aiDone,
+    cached: copy.aiCached,
+    stopped: copy.aiStopped,
+    errorGeneric: copy.aiErrorGeneric,
+    errorRate: copy.aiErrorRate,
+    errorBusy: copy.aiErrorBusy,
+    errorBudget: copy.aiErrorBudget,
+    errorLong: copy.aiErrorLong,
 };
 ---
 
@@ -212,10 +271,41 @@ const sectionLabels: Record<KnowledgeSection, string> = {
                         <span>{copy.aiSearch}</span>
                         <span class="kb-ai-track" aria-hidden="true"><span></span></span>
                     </button>
+                    <button class="kb-ai-ask" data-kb-ai-ask type="button" hidden>
+                        <span class="kb-ai-spark" aria-hidden="true">✦</span>
+                        <span>{copy.aiAsk}</span>
+                    </button>
                 </div>
             </div>
 
             <p id="kb-search-status" class="sr-only" data-kb-status role="status" aria-live="polite"></p>
+        </section>
+    </div>
+
+    <div class="page-shell kb-ai-shell">
+        <section
+            class="kb-ai-panel"
+            data-kb-ai-panel
+            data-kb-ai-copy={JSON.stringify(aiCopy)}
+            aria-labelledby="kb-ai-title"
+            hidden
+        >
+            <header class="kb-ai-panel-head">
+                <h2 class="kb-ai-panel-title" id="kb-ai-title">
+                    <span class="kb-ai-spark" aria-hidden="true">✦</span>
+                    <span>{copy.aiAnswerTitle}</span>
+                </h2>
+                <p class="kb-ai-panel-status" data-kb-ai-status role="status" aria-live="polite"></p>
+                <button class="kb-ai-stop" data-kb-ai-stop type="button" hidden>{copy.aiStop}</button>
+            </header>
+            <p class="kb-ai-question" data-kb-ai-question></p>
+            <div class="kb-ai-answer" data-kb-ai-answer aria-live="polite" aria-busy="false"></div>
+            <p class="kb-ai-error" data-kb-ai-error role="alert" hidden></p>
+            <div class="kb-ai-sources" data-kb-ai-sources hidden>
+                <span class="kb-ai-sources-label">{copy.aiSources}</span>
+                <ul class="kb-ai-source-list" data-kb-ai-source-list></ul>
+            </div>
+            <p class="kb-ai-disclaimer">{copy.aiDisclaimer}</p>
         </section>
     </div>
 
@@ -425,12 +515,19 @@ const sectionLabels: Record<KnowledgeSection, string> = {
 
 <script>
     import {
+        askKnowledgeAi,
+        KnowledgeAiRequestError,
+        type KnowledgeAiHistoryMessage,
+        type KnowledgeAiSource,
+    } from "../lib/knowledge-ai-client";
+    import {
         isKnowledgeSection,
         knowledgeAiSearchRank,
         knowledgeEntryMatches,
         knowledgeSearchRank,
         type KnowledgeSection,
     } from "../lib/knowledge-base";
+    import { renderMarkdown } from "../lib/markdown-lite";
 
     const roots = document.querySelectorAll<HTMLElement>("[data-knowledge-base]");
 
@@ -446,13 +543,185 @@ const sectionLabels: Record<KnowledgeSection, string> = {
         const status = root.querySelector<HTMLElement>("[data-kb-status]");
         const count = root.querySelector<HTMLElement>("[data-kb-visible-count]");
         const empty = root.querySelector<HTMLElement>("[data-kb-empty]");
+        const searchHint = root.querySelector<HTMLElement>("#kb-search-hint");
+        const askButton = root.querySelector<HTMLButtonElement>("[data-kb-ai-ask]");
+        const aiPanel = root.querySelector<HTMLElement>("[data-kb-ai-panel]");
+        const aiStatus = root.querySelector<HTMLElement>("[data-kb-ai-status]");
+        const aiStop = root.querySelector<HTMLButtonElement>("[data-kb-ai-stop]");
+        const aiQuestion = root.querySelector<HTMLElement>("[data-kb-ai-question]");
+        const aiAnswer = root.querySelector<HTMLElement>("[data-kb-ai-answer]");
+        const aiError = root.querySelector<HTMLElement>("[data-kb-ai-error]");
+        const aiSources = root.querySelector<HTMLElement>("[data-kb-ai-sources]");
+        const aiSourceList = root.querySelector<HTMLElement>("[data-kb-ai-source-list]");
         let activeSection: KnowledgeSection = "overview";
         let aiSearchEnabled = false;
+
+        type AiCopy = Record<
+            | "hintOn"
+            | "hintOff"
+            | "thinking"
+            | "searching"
+            | "reading"
+            | "listing"
+            | "answering"
+            | "done"
+            | "cached"
+            | "stopped"
+            | "errorGeneric"
+            | "errorRate"
+            | "errorBusy"
+            | "errorBudget"
+            | "errorLong",
+            string
+        >;
+        let aiCopy: Partial<AiCopy> = {};
+        try {
+            aiCopy = JSON.parse(aiPanel?.dataset.kbAiCopy ?? "{}") as Partial<AiCopy>;
+        } catch {
+            // The panel still works with empty labels.
+        }
+        const aiLang = document.documentElement.lang.toLowerCase().startsWith("ru") ? "ru" : "en";
+        const aiHistory: KnowledgeAiHistoryMessage[] = [];
+        let aiController: AbortController | null = null;
+        let aiMarkdown = "";
+        let aiRenderQueued = false;
+
+        const renderAiAnswer = () => {
+            aiRenderQueued = false;
+            if (aiAnswer) aiAnswer.innerHTML = renderMarkdown(aiMarkdown);
+        };
+
+        const scheduleAiRender = () => {
+            if (aiRenderQueued) return;
+            aiRenderQueued = true;
+            window.requestAnimationFrame(renderAiAnswer);
+        };
+
+        const setAiStatus = (text: string, busy: boolean) => {
+            if (aiStatus) aiStatus.textContent = text;
+            aiPanel?.classList.toggle("busy", busy);
+            aiAnswer?.setAttribute("aria-busy", busy ? "true" : "false");
+            if (aiStop) aiStop.hidden = !busy;
+        };
+
+        const renderAiSources = (items: KnowledgeAiSource[]) => {
+            if (!aiSources || !aiSourceList) return;
+            aiSourceList.replaceChildren();
+            for (const item of items.slice(0, 10)) {
+                const li = document.createElement("li");
+                const link = document.createElement("a");
+                link.href = item.href;
+                link.textContent = item.name;
+                link.dataset.kbAiSource = item.type;
+                li.append(link);
+                aiSourceList.append(li);
+            }
+            aiSources.hidden = items.length === 0;
+        };
+
+        const showAiError = (message: string) => {
+            if (aiError) {
+                aiError.textContent = message;
+                aiError.hidden = false;
+            }
+        };
+
+        const aiErrorMessage = (error: unknown): string => {
+            if (error instanceof KnowledgeAiRequestError) {
+                if (error.code === "rate_limited") {
+                    return (aiCopy.errorRate ?? "").replace("{seconds}", String(error.retryAfterSeconds ?? 60));
+                }
+                if (error.code === "busy") return aiCopy.errorBusy ?? "";
+                if (error.code === "budget_exhausted") return aiCopy.errorBudget ?? "";
+                if (error.code === "question_too_long") return aiCopy.errorLong ?? "";
+            }
+            return aiCopy.errorGeneric ?? "";
+        };
+
+        const stopAi = () => {
+            aiController?.abort();
+            aiController = null;
+        };
+
+        const askAi = (question: string) => {
+            const trimmed = question.trim();
+            if (!trimmed || !aiPanel) return;
+            stopAi();
+            const controller = new AbortController();
+            aiController = controller;
+            aiMarkdown = "";
+            aiPanel.hidden = false;
+            if (aiQuestion) aiQuestion.textContent = trimmed;
+            if (aiAnswer) aiAnswer.replaceChildren();
+            if (aiError) aiError.hidden = true;
+            renderAiSources([]);
+            setAiStatus(aiCopy.thinking ?? "", true);
+            const history = aiHistory.slice(-6);
+            askKnowledgeAi(
+                { question: trimmed, lang: aiLang, history },
+                (event) => {
+                    if (controller.signal.aborted) return;
+                    if (event.type === "status") {
+                        const label =
+                            event.phase === "searching"
+                                ? aiCopy.searching
+                                : event.phase === "reading"
+                                  ? aiCopy.reading
+                                  : event.phase === "listing"
+                                    ? aiCopy.listing
+                                    : event.phase === "answering"
+                                      ? aiCopy.answering
+                                      : aiCopy.thinking;
+                        const detail = event.detail && event.phase !== "answering" && event.phase !== "thinking" ? `: ${event.detail}` : "";
+                        setAiStatus(`${label ?? ""}${detail}`, true);
+                    } else if (event.type === "sources") {
+                        renderAiSources(event.items);
+                    } else if (event.type === "delta") {
+                        aiMarkdown += event.text;
+                        scheduleAiRender();
+                    } else if (event.type === "reset") {
+                        aiMarkdown = "";
+                        scheduleAiRender();
+                    } else if (event.type === "done") {
+                        aiMarkdown = event.answer || aiMarkdown;
+                        renderAiAnswer();
+                        renderAiSources(event.sources);
+                        setAiStatus(event.cached ? (aiCopy.cached ?? "") : (aiCopy.done ?? ""), false);
+                        aiHistory.push({ role: "user", content: trimmed }, { role: "assistant", content: aiMarkdown });
+                        while (aiHistory.length > 6) aiHistory.shift();
+                    } else if (event.type === "error") {
+                        setAiStatus("", false);
+                        showAiError(aiCopy.errorGeneric ?? event.message);
+                    }
+                },
+                { signal: controller.signal },
+            )
+                .catch((error: unknown) => {
+                    if (controller.signal.aborted) {
+                        setAiStatus(aiCopy.stopped ?? "", false);
+                        return;
+                    }
+                    setAiStatus("", false);
+                    showAiError(aiErrorMessage(error));
+                })
+                .finally(() => {
+                    if (aiController === controller) aiController = null;
+                    if (aiStop) aiStop.hidden = true;
+                    aiPanel.classList.remove("busy");
+                });
+        };
 
         const setAiSearchEnabled = (enabled: boolean, syncUrl = true) => {
             aiSearchEnabled = enabled;
             root.dataset.aiSearch = enabled ? "true" : "false";
             aiToggle?.setAttribute("aria-checked", enabled ? "true" : "false");
+            if (askButton) askButton.hidden = !enabled;
+            if (searchHint && (aiCopy.hintOn || aiCopy.hintOff)) searchHint.textContent = (enabled ? aiCopy.hintOn : aiCopy.hintOff) ?? "";
+            if (!enabled) {
+                stopAi();
+                if (aiPanel) aiPanel.hidden = true;
+                aiHistory.length = 0;
+            }
             try {
                 window.localStorage.setItem("hoc.kb.aiSearch", enabled ? "1" : "0");
             } catch {
@@ -657,6 +926,35 @@ const sectionLabels: Record<KnowledgeSection, string> = {
             setAiSearchEnabled(!aiSearchEnabled);
             applySearch(false);
             searchInput?.focus();
+        });
+        askButton?.addEventListener("click", () => askAi(searchInput?.value ?? ""));
+        aiStop?.addEventListener("click", () => {
+            stopAi();
+            setAiStatus(aiCopy.stopped ?? "", false);
+        });
+        searchInput?.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" && aiSearchEnabled && !event.isComposing) {
+                event.preventDefault();
+                askAi(searchInput.value);
+            }
+        });
+        // Links inside the answer and the source chips point at this page's own anchors: open them in place,
+        // the same way a result row does, instead of reloading the page.
+        aiPanel?.addEventListener("click", (event) => {
+            const link = (event.target as HTMLElement | null)?.closest<HTMLAnchorElement>("a[href]");
+            if (!link || event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+            const destination = new URL(link.href, window.location.href);
+            if (destination.origin !== window.location.origin || !/\/knowledge-base\/?$/.test(destination.pathname)) return;
+            if (destination.pathname !== window.location.pathname) return;
+            const target = destination.hash.replace(/^#/, "");
+            const section = sectionFromFragment(destination.hash);
+            if (!target) return;
+            event.preventDefault();
+            if (searchInput) searchInput.value = "";
+            applySearch(false);
+            activateSection(section);
+            window.history.pushState(null, "", `${destination.pathname}${destination.search}${destination.hash}`);
+            window.requestAnimationFrame(() => focusTarget(section === target ? "" : target));
         });
         clearButton?.addEventListener("click", () => {
             if (searchInput) {
@@ -1779,6 +2077,360 @@ const sectionLabels: Record<KnowledgeSection, string> = {
             animation: none;
             outline: 3px solid #f2c75d;
             outline-offset: 3px;
+        }
+    }
+
+    /* ---- AI answer panel ------------------------------------------------------------------- */
+
+    .kb-ai-ask {
+        display: inline-flex;
+        flex: 0 0 auto;
+        gap: 8px;
+        align-items: center;
+        justify-content: center;
+        min-height: 56px;
+        padding: 0 16px;
+        color: #14100b;
+        border: 1px solid rgba(242, 199, 93, 0.7);
+        border-radius: 10px;
+        background: linear-gradient(120deg, #f2c75d, #dcae52);
+        font: inherit;
+        font-size: 0.84rem;
+        font-weight: 760;
+        letter-spacing: 0.03em;
+        cursor: pointer;
+        transition: filter 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+    }
+
+    .kb-ai-ask .kb-ai-spark {
+        color: rgba(20, 16, 11, 0.7);
+    }
+
+    .kb-ai-ask:hover {
+        box-shadow: 0 8px 22px rgba(242, 199, 93, 0.25);
+        filter: brightness(1.05);
+    }
+
+    .kb-ai-ask:focus-visible {
+        outline: 3px solid rgba(242, 199, 93, 0.35);
+        outline-offset: 2px;
+    }
+
+    .kb-ai-shell {
+        margin-top: 18px;
+    }
+
+    .kb-ai-panel {
+        position: relative;
+        padding: 18px 20px 14px;
+        border: 1px solid rgba(242, 199, 93, 0.24);
+        border-radius: 14px;
+        background:
+            linear-gradient(140deg, rgba(22, 15, 9, 0.98), rgba(10, 8, 6, 0.98)),
+            radial-gradient(circle at 0 0, rgba(242, 199, 93, 0.14), transparent 45%);
+        box-shadow: 0 18px 44px rgba(0, 0, 0, 0.38);
+    }
+
+    .kb-ai-panel-head {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 16px;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .kb-ai-panel-title {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        margin: 0;
+        color: #fff4cc;
+        font-size: 0.86rem;
+        font-weight: 760;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+    }
+
+    .kb-ai-panel-title .kb-ai-spark {
+        color: #f2c75d;
+        text-shadow: 0 0 10px rgba(242, 199, 93, 0.55);
+    }
+
+    .kb-ai-panel-status {
+        display: inline-flex;
+        gap: 9px;
+        align-items: center;
+        margin: 0;
+        color: var(--kb-muted);
+        font-size: 0.82rem;
+    }
+
+    .kb-ai-panel-status:empty {
+        display: none;
+    }
+
+    .kb-ai-panel.busy .kb-ai-panel-status::before {
+        content: "";
+        flex: 0 0 auto;
+        width: 12px;
+        height: 12px;
+        border: 2px solid rgba(242, 199, 93, 0.28);
+        border-top-color: #f2c75d;
+        border-radius: 50%;
+        animation: kb-ai-spin 800ms linear infinite;
+    }
+
+    @keyframes kb-ai-spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    .kb-ai-stop {
+        margin-left: auto;
+        padding: 6px 12px;
+        color: rgba(247, 242, 230, 0.78);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.04);
+        font: inherit;
+        font-size: 0.76rem;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .kb-ai-stop:hover {
+        border-color: rgba(242, 199, 93, 0.5);
+        color: #fff4cc;
+    }
+
+    .kb-ai-question {
+        margin: 0 0 12px;
+        padding-left: 12px;
+        color: rgba(246, 241, 230, 0.7);
+        border-left: 2px solid rgba(242, 199, 93, 0.45);
+        font-size: 0.9rem;
+        font-style: italic;
+    }
+
+    .kb-ai-question:empty {
+        display: none;
+    }
+
+    .kb-ai-answer {
+        color: #f5f0e4;
+        font-size: 0.97rem;
+        line-height: 1.6;
+        overflow-wrap: anywhere;
+    }
+
+    .kb-ai-panel.busy .kb-ai-answer:not(:empty)::after {
+        content: "▍";
+        margin-left: 2px;
+        color: #f2c75d;
+        animation: kb-ai-blink 900ms steps(2, start) infinite;
+    }
+
+    @keyframes kb-ai-blink {
+        to {
+            visibility: hidden;
+        }
+    }
+
+    .kb-ai-answer > :first-child {
+        margin-top: 0;
+    }
+
+    .kb-ai-answer p,
+    .kb-ai-answer ul,
+    .kb-ai-answer ol,
+    .kb-ai-answer blockquote,
+    .kb-ai-answer pre {
+        margin: 0 0 12px;
+    }
+
+    .kb-ai-answer h3,
+    .kb-ai-answer h4,
+    .kb-ai-answer h5,
+    .kb-ai-answer h6 {
+        margin: 18px 0 8px;
+        color: #fff4cc;
+        font-family: var(--hoc-font-display);
+        font-size: 1.05rem;
+        font-weight: 700;
+    }
+
+    .kb-ai-answer ul,
+    .kb-ai-answer ol {
+        padding-left: 22px;
+    }
+
+    .kb-ai-answer li {
+        margin: 4px 0;
+    }
+
+    .kb-ai-answer li > ul,
+    .kb-ai-answer li > ol {
+        margin: 4px 0 0;
+    }
+
+    .kb-ai-answer a {
+        color: #f2c75d;
+        text-decoration: underline;
+        text-decoration-color: rgba(242, 199, 93, 0.45);
+        text-underline-offset: 3px;
+    }
+
+    .kb-ai-answer a:hover {
+        color: #fff4cc;
+        text-decoration-color: currentcolor;
+    }
+
+    .kb-ai-answer strong {
+        color: #fff8e8;
+    }
+
+    .kb-ai-answer code {
+        padding: 1px 6px;
+        border-radius: 5px;
+        background: rgba(255, 255, 255, 0.08);
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+        font-size: 0.86em;
+    }
+
+    .kb-ai-answer pre {
+        overflow-x: auto;
+        padding: 12px 14px;
+        border: 1px solid var(--kb-line);
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.35);
+    }
+
+    .kb-ai-answer pre code {
+        padding: 0;
+        background: none;
+    }
+
+    .kb-ai-answer blockquote {
+        padding-left: 12px;
+        color: var(--kb-muted);
+        border-left: 2px solid rgba(242, 199, 93, 0.35);
+    }
+
+    .kb-ai-answer table {
+        display: block;
+        overflow-x: auto;
+        max-width: 100%;
+        margin: 0 0 14px;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+    }
+
+    .kb-ai-answer th,
+    .kb-ai-answer td {
+        padding: 7px 12px;
+        border: 1px solid rgba(220, 177, 88, 0.3);
+        text-align: left;
+        vertical-align: top;
+    }
+
+    .kb-ai-answer tbody tr:nth-child(even) td {
+        background: rgba(255, 255, 255, 0.025);
+    }
+
+    .kb-ai-answer th {
+        color: #fff4cc;
+        background: rgba(242, 199, 93, 0.08);
+        font-weight: 700;
+    }
+
+    .kb-ai-answer hr {
+        margin: 14px 0;
+        border: 0;
+        border-top: 1px solid var(--kb-line);
+    }
+
+    .kb-ai-error {
+        margin: 0 0 10px;
+        padding: 10px 12px;
+        color: #ffd9d2;
+        border: 1px solid rgba(255, 90, 63, 0.35);
+        border-radius: 8px;
+        background: rgba(255, 90, 63, 0.08);
+        font-size: 0.88rem;
+    }
+
+    .kb-ai-sources {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        margin-top: 8px;
+        padding-top: 12px;
+        border-top: 1px solid var(--kb-line);
+    }
+
+    .kb-ai-sources-label {
+        color: var(--kb-muted);
+        font-size: 0.72rem;
+        font-weight: 760;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+    }
+
+    .kb-ai-source-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .kb-ai-source-list a {
+        display: inline-flex;
+        padding: 5px 10px;
+        color: #dfbd65;
+        border: 1px solid rgba(223, 189, 101, 0.22);
+        border-radius: 999px;
+        background: rgba(223, 189, 101, 0.06);
+        font-size: 0.74rem;
+        font-weight: 700;
+        text-decoration: none;
+        transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
+    }
+
+    .kb-ai-source-list a:hover {
+        color: #fff4cc;
+        border-color: rgba(242, 199, 93, 0.5);
+        background: rgba(242, 199, 93, 0.12);
+    }
+
+    .kb-ai-disclaimer {
+        margin: 12px 0 0;
+        color: rgba(246, 241, 230, 0.45);
+        font-size: 0.74rem;
+    }
+
+    @media (max-width: 760px) {
+        .kb-ai-ask {
+            width: 100%;
+            min-height: 48px;
+        }
+
+        .kb-ai-panel {
+            padding: 14px 14px 12px;
+        }
+
+        .kb-ai-stop {
+            margin-left: 0;
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .kb-ai-panel.busy .kb-ai-panel-status::before,
+        .kb-ai-panel.busy .kb-ai-answer:not(:empty)::after {
+            animation: none;
         }
     }
 </style>
