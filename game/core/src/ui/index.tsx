@@ -24,6 +24,7 @@ import CssBaseline from "@mui/joy/CssBaseline";
 import { CssVarsProvider } from "@mui/joy/styles";
 
 import { hocJoyTheme } from "./hocTheme";
+import { SEAT_RECLAIM_ATTEMPTS, SEAT_RECLAIM_INTERVAL_MS, seatReclaimDecision } from "./seatReclaim";
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter as Router, Route, Routes, useLocation, useNavigate, useParams } from "react-router";
@@ -1160,6 +1161,10 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                         setShowOverlay(true);
                         setErrorMessage(t("The game is no longer active or you don't have access to it"));
                     } else {
+                        // Seated. Say so out loud: an earlier attempt in THIS match may have failed to
+                        // confirm the seat and parked the player in the read-only view, and nothing else
+                        // ever takes them out of it.
+                        setObserverMode(false);
                         setRouteMode("checking");
                         setShowOverlay(false);
                     }
@@ -1176,6 +1181,54 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
 
         fetchGame();
     }, [authenticated, gameId, getCurrentGame]);
+
+    /**
+     * Take the seat back when it was lost to a blip.
+     *
+     * Every route into the observer view above is a guess made from one answer: the session was not restored
+     * yet, the lookup threw, or it named another match. On a reconnect all three happen for a second and mean
+     * nothing — but the view they open lasts the whole match, so the player spends their own draft watching it
+     * (owner, 20 Sep). While a signed-in viewer watches, ask again a few times; the moment the server calls
+     * this match theirs, put them back in it. A spectator's lookup never names this match, so they are never
+     * seated by it — they just stop being asked about after the window closes.
+     */
+    useEffect(() => {
+        if (!authenticated || !gameId || !getCurrentGame) {
+            return undefined;
+        }
+        // Both doors into spectating are covered: the draft's read-only view, and a play route that took
+        // NO_TEAM because one lookup came back without a seat on it.
+        if (!observerMode && userTeam !== (TeamVals.NO_TEAM as TeamType)) {
+            return undefined;
+        }
+        let cancelled = false;
+        let attempts = 0;
+        const timer = window.setInterval(() => {
+            attempts += 1;
+            if (attempts > SEAT_RECLAIM_ATTEMPTS) {
+                window.clearInterval(timer);
+                return;
+            }
+            void getCurrentGame()
+                .then((currentGame) => {
+                    if (cancelled || seatReclaimDecision(currentGame, gameId) !== "seat") {
+                        return;
+                    }
+                    window.clearInterval(timer);
+                    setObserverMode(false);
+                    setUserTeam((currentGame?.team as TeamType) ?? (TeamVals.NO_TEAM as TeamType));
+                    setRouteMode("checking");
+                    setShowOverlay(false);
+                    setErrorMessage("");
+                })
+                // A failed ask is exactly the blip this is here for: keep watching, try again next tick.
+                .catch(() => undefined);
+        }, SEAT_RECLAIM_INTERVAL_MS);
+        return () => {
+            cancelled = true;
+            window.clearInterval(timer);
+        };
+    }, [observerMode, userTeam, authenticated, gameId, getCurrentGame]);
 
     // One-shot: resolve "checking" into "pick" or "play" as soon as we know which (e.g. a fresh load
     // or a mid-fight reconnect). Not an interval — the gated poll below picks up from "pick".
