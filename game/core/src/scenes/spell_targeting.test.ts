@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import type { Grid } from "@heroesofcrypto/common";
+import type { Grid, Unit } from "@heroesofcrypto/common";
 
 import {
     alliesAreTransparent,
@@ -10,6 +10,7 @@ import {
     targetedSpellBlockerId,
     thrownSpellImpact,
     thrownSpellReachesTarget,
+    swapTargetCellsWithinMovementRange,
 } from "./spell_targeting";
 
 const sightGrid = (blocked: boolean): Pick<Grid, "getOccupantUnitId" | "getSettings"> =>
@@ -131,5 +132,100 @@ describe("client targeted-spell reachability", () => {
                 expect(throwTransparencyFor(spellName, units, OWN_TEAM)).toBeUndefined();
             }
         });
+    });
+});
+
+describe("Castling target list: same footprint, standing on a reachable anchor", () => {
+    // The swap exchanges ANCHORS, so only two bodies of the same shape land on the cells the other
+    // vacated. Neither half of that rule is visible at 1x1 — a single-cell unit's only cell IS its
+    // anchor — so these cases are the multi-cell ones a stolen Castling opens up.
+    const LOWER = 2;
+    const UPPER = 3;
+
+    const unit = (params: {
+        id: string;
+        team: number;
+        anchor: { x: number; y: number };
+        width: number;
+        height: number;
+        dead?: boolean;
+    }): Unit => {
+        const cells: Array<{ x: number; y: number }> = [];
+        for (let dx = 0; dx < params.width; dx += 1) {
+            for (let dy = 0; dy < params.height; dy += 1) {
+                cells.push({ x: params.anchor.x - dx, y: params.anchor.y - dy });
+            }
+        }
+        return {
+            getId: () => params.id,
+            getTeam: () => params.team,
+            isDead: () => params.dead ?? false,
+            getBaseCell: () => params.anchor,
+            getCells: () => cells,
+            getFootprintWidth: () => params.width,
+            getFootprintHeight: () => params.height,
+            isSmallSize: () => params.width === 1 && params.height === 1,
+        } as unknown as Unit;
+    };
+
+    /** Every cell of every unit resolves to its occupant, exactly as Grid.getOccupantUnitId does. */
+    const boardOf = (units: Unit[]) => {
+        const byCell = new Map<string, Unit>();
+        for (const u of units) {
+            for (const cell of u.getCells()) {
+                byCell.set(`${cell.x},${cell.y}`, u);
+            }
+        }
+        return (cell: { x: number; y: number }) => byCell.get(`${cell.x},${cell.y}`);
+    };
+
+    test("offers only the enemy whose footprint matches the caster's", () => {
+        const queen = unit({ id: "queen", team: LOWER, anchor: { x: 3, y: 3 }, width: 2, height: 2 });
+        const sameShape = unit({ id: "big", team: UPPER, anchor: { x: 7, y: 3 }, width: 2, height: 2 });
+        const small = unit({ id: "small", team: UPPER, anchor: { x: 5, y: 5 }, width: 1, height: 1 });
+        const rectangle = unit({ id: "mount", team: UPPER, anchor: { x: 9, y: 3 }, width: 2, height: 1 });
+        const reach = [sameShape.getBaseCell(), small.getBaseCell(), rectangle.getBaseCell()];
+
+        expect(swapTargetCellsWithinMovementRange(queen, reach, boardOf([sameShape, small, rectangle]))).toEqual([
+            { x: 7, y: 3 },
+        ]);
+    });
+
+    test("a 2x1 swaps with a 2x1 but never with a 1x2 of the same two cells' worth of body", () => {
+        const tiger = unit({ id: "tiger", team: LOWER, anchor: { x: 3, y: 3 }, width: 2, height: 1 });
+        const wolf = unit({ id: "wolf", team: UPPER, anchor: { x: 7, y: 3 }, width: 2, height: 1 });
+        const tall = unit({ id: "tall", team: UPPER, anchor: { x: 9, y: 6 }, width: 1, height: 2 });
+        const reach = [wolf.getBaseCell(), tall.getBaseCell()];
+
+        expect(swapTargetCellsWithinMovementRange(tiger, reach, boardOf([wolf, tall]))).toEqual([{ x: 7, y: 3 }]);
+    });
+
+    test("reaching a multi-cell enemy's far cell is not reaching it: the ANCHOR has to be reachable", () => {
+        const tiger = unit({ id: "tiger", team: LOWER, anchor: { x: 3, y: 3 }, width: 2, height: 1 });
+        const wolf = unit({ id: "wolf", team: UPPER, anchor: { x: 7, y: 3 }, width: 2, height: 1 });
+        const board = boardOf([wolf]);
+
+        // (6,3) is the wolf's second cell, not its anchor — standing there would put this body on
+        // (5,3)-(6,3), cells the wolf never held.
+        expect(swapTargetCellsWithinMovementRange(tiger, [{ x: 6, y: 3 }], board)).toEqual([]);
+        expect(swapTargetCellsWithinMovementRange(tiger, [{ x: 7, y: 3 }], board)).toEqual([{ x: 7, y: 3 }]);
+    });
+
+    test("skips allies and the dead, and never repeats an anchor", () => {
+        const harpy = unit({ id: "harpy", team: LOWER, anchor: { x: 2, y: 2 }, width: 1, height: 1 });
+        const ally = unit({ id: "ally", team: LOWER, anchor: { x: 3, y: 2 }, width: 1, height: 1 });
+        const corpse = unit({ id: "corpse", team: UPPER, anchor: { x: 4, y: 2 }, width: 1, height: 1, dead: true });
+        const enemy = unit({ id: "enemy", team: UPPER, anchor: { x: 5, y: 2 }, width: 1, height: 1 });
+        const reach = [
+            ally.getBaseCell(),
+            corpse.getBaseCell(),
+            enemy.getBaseCell(),
+            enemy.getBaseCell(),
+            { x: 9, y: 9 },
+        ];
+
+        expect(swapTargetCellsWithinMovementRange(harpy, reach, boardOf([ally, corpse, enemy]))).toEqual([
+            { x: 5, y: 2 },
+        ]);
     });
 });

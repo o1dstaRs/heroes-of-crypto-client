@@ -1216,7 +1216,7 @@ export class AIController {
     }
     /**
      * Pick the best spell the caster should cast this turn, or undefined to fall through to move/attack.
-     * Covers ally heals/buffs, enemy debuffs, Castling (swap with a small enemy in move range) and
+     * Covers ally heals/buffs, enemy debuffs, Castling (swap with a same-footprint enemy in move range) and
      * summons. Each candidate is scored on a shared scale and only cast when it beats attacking, and
      * already-applied buffs/debuffs and full-HP heal targets are skipped so the AI can't loop forever.
      */
@@ -1239,7 +1239,9 @@ export class AIController {
         const MASS_VALUE = 12;
         const attackValue = this.estimateAttackValue(caster);
         const threat = (u: Unit): number => Math.max(1, u.getAttackDamageMax()) * Math.max(1, u.getAmountAlive());
-        // Small enemy cells the caster could reach — the "within movement range" set Castling needs.
+        // Anchor cells of the same-footprint enemies the caster could reach — the "within movement range"
+        // set Castling needs. Same footprint because the swap exchanges anchors, so only identical shapes
+        // land each body on the cells the other vacated.
         // Use real pathfinding (mirroring the server's enemiesCellsWithinMovementRangeForActive), NOT
         // straight-line distance: a close-as-the-crow-flies enemy can be unreachable around obstacles or
         // beyond the actual step budget, and the engine's canCastSpell rejects a Castling swap to an
@@ -1263,7 +1265,11 @@ export class AIController {
                 .cells.map((c) => (c.x << 4) | c.y),
         );
         const enemiesInRange = enemies
-            .filter((e) => e.isSmallSize() && castlingReach.has((e.getBaseCell().x << 4) | e.getBaseCell().y))
+            .filter(
+                (e) =>
+                    SpellHelper.hasSwappableFootprint(caster, e) &&
+                    castlingReach.has((e.getBaseCell().x << 4) | e.getBaseCell().y),
+            )
             .map((e) => e.getBaseCell());
         // Authoritative castability gate (same as the engine's handleMagicAttack) so we never pick a
         // single-target cast the server would reject as spell_not_available.
@@ -1387,19 +1393,15 @@ export class AIController {
                 continue;
             }
 
-            // Castling (POSITION_CHANGE): swap with a strong small enemy within the caster's reach.
+            // Castling (POSITION_CHANGE): swap with the strongest same-footprint enemy within reach.
             if (pt === SpellPowerType.POSITION_CHANGE && tt === SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE) {
-                // Both bodies have to be a single cell. A 2x1, 1x2 or 2x2 caster that inherited the spell
-                // (Predatory Assimilation) can never swap, so stop before scoring targets the engine would
-                // refuse as spell_not_available.
-                if (!caster.isSmallSize()) {
-                    continue;
-                }
                 const steps = Math.max(1, Math.ceil(caster.getSteps())) + 1;
                 let target: Unit | undefined;
                 let value = 0;
                 for (const e of enemies) {
-                    if (!e.isSmallSize()) {
+                    // The swap exchanges anchors, so only a body of the caster's own shape is a legal
+                    // target — a 2x2 Queen carrying a stolen Castling swaps with a 2x2, never with a 1x1.
+                    if (!SpellHelper.hasSwappableFootprint(caster, e)) {
                         continue;
                     }
                     const d = HoCMath.getDistance(caster.getBaseCell(), e.getBaseCell());

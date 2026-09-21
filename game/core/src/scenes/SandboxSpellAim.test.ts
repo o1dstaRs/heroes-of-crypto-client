@@ -14,7 +14,6 @@ import {
 } from "@heroesofcrypto/common";
 
 import {
-    canCasterArmSpell,
     cellTargetedSpellBlockCells,
     shouldSuppressInspectedUnitRangesForSpell,
     spellCastSecondaryDamage,
@@ -95,51 +94,6 @@ const unitLike = (params: {
         calculatePossibleLosses: (minusHp: number) => Math.floor(minusHp / (params.hitPoints ?? 10)),
     } as unknown as Unit;
 };
-
-describe("a swap spell may only be armed by a single-cell body", () => {
-    // `isSmallSize()` reads the FOOTPRINT, so a 2x1 mount is as ineligible as a 2x2 — a distinction `size`
-    // alone cannot make. A body of any other shape has no legal Castling target, and the engine refuses
-    // every one of its casts, so the book must turn the pick away before a highlight promises otherwise.
-    const casterOfShape = (width: number, height: number): Unit =>
-        ({
-            isSmallSize: () => width === 1 && height === 1,
-            getFootprintWidth: () => width,
-            getFootprintHeight: () => height,
-        }) as unknown as Unit;
-
-    const castling = spellOf("System", "Castling");
-
-    test("a 1x1 caster can arm Castling", () => {
-        expect(canCasterArmSpell(castling, casterOfShape(1, 1))).toBe(true);
-    });
-
-    test("a 2x1, 1x2 or 2x2 caster cannot", () => {
-        for (const [width, height] of [
-            [2, 1],
-            [1, 2],
-            [2, 2],
-        ]) {
-            expect(canCasterArmSpell(castling, casterOfShape(width, height))).toBe(false);
-        }
-    });
-
-    test("every other spell is unaffected by the caster's body", () => {
-        for (const spell of [
-            spellOf("Life", "Heal"),
-            spellOf("Death", "Weakness"),
-            spellOf("Chaos", "Fire Wall"),
-            spellOf("System", "Vine Throw"),
-        ]) {
-            for (const [width, height] of [
-                [1, 1],
-                [2, 1],
-                [2, 2],
-            ]) {
-                expect(canCasterArmSpell(spell, casterOfShape(width, height))).toBe(true);
-            }
-        }
-    });
-});
 
 describe("cell-targeted spell aim footprint", () => {
     // The engine reads action.targetCell as the CENTRE for Meteor Shower (meteorShowerCast walks -1..1 on

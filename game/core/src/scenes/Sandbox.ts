@@ -206,6 +206,7 @@ import {
     targetedSpellBlockerCell,
     targetedSpellBlockerId,
     thrownSpellImpact,
+    swapTargetCellsWithinMovementRange,
     type TransparencyPredicate,
 } from "./spell_targeting";
 import type { AuthoritativeGameSnapshot, SceneGameActionTransport } from "../game_action_transport";
@@ -263,19 +264,6 @@ export const spellCastSecondaryDamage = (event: GameEvent): IVisibleDamage["seco
     event.type === "spell_cast"
         ? (event as Extract<GameEvent, { type: "spell_cast" }> & { secondary?: IVisibleDamage["secondary"] }).secondary
         : undefined;
-
-/**
- * Whether `caster` can arm `spell` at all, on grounds of its own BODY.
- *
- * A position swap (Castling) trades one cell for one cell, so the engine's canCastSpell demands that both
- * bodies occupy exactly one — `isSmallSize()`, which reads the FOOTPRINT, so a 2x1 or 1x2 mount is no more
- * eligible than a 2x2. A bigger creature can still own the spell (Predatory Assimilation hands it to the
- * 2x2 Arachna Queen, and any mount could inherit it the same way), and every one of its casts would be
- * refused — so the book turns the pick away instead of arming a spell whose highlights promise a swap that
- * cannot happen.
- */
-export const canCasterArmSpell = (spell: Spell, caster: Unit): boolean =>
-    spell.getSpellTargetType() !== SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE || caster.isSmallSize();
 
 export const shouldSuppressInspectedUnitRangesForSpell = (spell: Spell): boolean => {
     const targetType = spell.getSpellTargetType();
@@ -8568,15 +8556,6 @@ export class Sandbox extends PixiScene {
 
         const targetType = hovered.getSpellTargetType();
 
-        // Castling only swaps two single-cell bodies (see canCasterArmSpell).
-        if (!canCasterArmSpell(hovered, caster)) {
-            this.setHoveredSpell(hovered, caster);
-            this.sc_sceneLog.updateLog(
-                `${hovered.getName()} only swaps two single-cell creatures — ${caster.getName()} is too big`,
-            );
-            return;
-        }
-
         const isSingleTarget =
             targetType === SpellTargetType.ANY_ALLY ||
             targetType === SpellTargetType.ANY_ENEMY ||
@@ -8632,19 +8611,12 @@ export class Sandbox extends PixiScene {
             this.updateCurrentMovePath(currentCell);
         }
 
-        // Castling (ENEMY_WITHIN_MOVEMENT_RANGE) swaps the caster with a small enemy inside its
-        // movement range. canCastSpell — and thus the hover highlight + cast validation — needs the
-        // list of those enemies' base cells, so compute it here (parity with the legacy arming path).
+        // Castling (ENEMY_WITHIN_MOVEMENT_RANGE) swaps the caster with an enemy of the SAME footprint
+        // standing inside its movement range. canCastSpell — and thus the hover highlight + cast
+        // validation — needs the list of those enemies' anchor cells, so compute it here (parity with the
+        // legacy arming path).
         this.currentEnemiesCellsWithinMovementRange = undefined;
-        if (
-            currentCell &&
-            targetType === SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE &&
-            // A 2x1 / 1x2 / 2x2 caster leaves the list undefined and therefore draws NO target highlights —
-            // the same answer the engine gives. The book gate above already turns that pick away; this keeps
-            // the highlight honest for any other caller that arms the spell directly.
-            canCasterArmSpell(hovered, caster) &&
-            caster.canMove()
-        ) {
+        if (currentCell && targetType === SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE && caster.canMove()) {
             const moveCells = this.pathHelper.getMovePath(
                 currentCell,
                 this.gridMatrixNoUnits,
@@ -8657,14 +8629,10 @@ export class Sandbox extends PixiScene {
                 caster.getFootprintWidth(),
                 caster.getFootprintHeight(),
             ).cells;
-            const enemies: HoCMath.XY[] = [];
-            for (const c of moveCells) {
-                const enemyId = this.grid.getOccupantUnitId(c);
-                if (!enemyId) continue;
-                const enemy = this.unitsHolder.getAllUnits().get(enemyId);
-                if (!enemy || enemy.getTeam() === caster.getTeam() || !enemy.isSmallSize()) continue;
-                enemies.push(enemy.getBaseCell());
-            }
+            const enemies = swapTargetCellsWithinMovementRange(caster, moveCells, (cell) => {
+                const enemyId = this.grid.getOccupantUnitId(cell);
+                return enemyId ? this.unitsHolder.getAllUnits().get(enemyId) : undefined;
+            });
             this.currentEnemiesCellsWithinMovementRange = enemies.length ? enemies : undefined;
         }
 
@@ -13523,7 +13491,7 @@ export class Sandbox extends PixiScene {
                 let targetCenter: HoCMath.XY | undefined;
                 let trajectoryEnd: HoCMath.XY | undefined;
                 if (isSwap && this.currentEnemiesCellsWithinMovementRange) {
-                    // Highlight every small enemy within movement range so the player sees all options.
+                    // Highlight every swappable enemy within movement range so the player sees all options.
                     for (const c of this.currentEnemiesCellsWithinMovementRange) {
                         const id = this.grid.getOccupantUnitId(c);
                         const u = id ? this.unitsHolder.getAllUnits().get(id) : undefined;

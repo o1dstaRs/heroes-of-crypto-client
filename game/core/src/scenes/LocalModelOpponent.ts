@@ -20,7 +20,7 @@ import {
     type Unit,
     type UnitsHolder,
 } from "@heroesofcrypto/common";
-import { throwTransparencyFor, thrownSpellReachesTarget } from "./spell_targeting";
+import { swapTargetCellsWithinMovementRange, throwTransparencyFor, thrownSpellReachesTarget } from "./spell_targeting";
 
 export interface LocalModelLegalAction {
     id: string;
@@ -569,12 +569,6 @@ const getEnemiesWithinMovementRange = (
     if (!activeUnit.canMove()) {
         return undefined;
     }
-    // Castling swaps one cell for one cell. A 2x1, 1x2 or 2x2 caster that inherited the spell has no legal
-    // target however far it can walk, and canCastSpell refuses it — so never hand the engine a list that
-    // describes one.
-    if (!activeUnit.isSmallSize()) {
-        return undefined;
-    }
     const moveCells = pathHelper.getMovePath(
         activeUnit.getBaseCell(),
         grid.getMatrixNoUnits(),
@@ -587,10 +581,11 @@ const getEnemiesWithinMovementRange = (
         activeUnit.getFootprintWidth(),
         activeUnit.getFootprintHeight(),
     ).cells;
-    const enemies = moveCells.filter((cell) => {
+    // A swap exchanges anchors, so a target qualifies only if its footprint matches the caster's AND the
+    // reachable cell is its own anchor — the cell this body would come to rest on.
+    const enemies = swapTargetCellsWithinMovementRange(activeUnit, moveCells, (cell) => {
         const enemyId = grid.getOccupantUnitId(cell);
-        const enemy = enemyId ? unitsHolder.getAllUnits().get(enemyId) : undefined;
-        return !!enemy && enemy.getTeam() !== activeUnit.getTeam() && enemy.isSmallSize() && !enemy.isDead();
+        return enemyId ? unitsHolder.getAllUnits().get(enemyId) : undefined;
     });
     return enemies.length ? enemies : undefined;
 };
