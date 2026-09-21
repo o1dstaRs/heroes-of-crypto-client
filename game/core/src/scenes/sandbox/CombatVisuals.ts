@@ -4,11 +4,19 @@ import { GridSettings, HoCMath, GridMath, Unit, UnitProperties, UnitsHolder } fr
 import { RenderableUnit } from "../RenderableUnit";
 import { images } from "../../generated/image_imports";
 import { HOC_NUMERIC_ARIAL_FONT_FAMILY } from "../../fontFamilies";
+import { boardVerticalStretch } from "../../pixi/boardFit";
 import { projectBattlefieldPoint } from "./BattlefieldVisualGrid";
 
 export interface ICombatVisualsContext {
     getGridSettings(): GridSettings;
     attachToWorldRoot(obj: Container, zIndex?: number): void;
+    /**
+     * Absolute scale the board applies to everything under it, or undefined where there is no board.
+     *
+     * Optional on purpose: the battle scene supplies it, while previews and unit tests drive these effects
+     * through a bare context and simply get the undeformed (1:1) behaviour they already expected.
+     */
+    getBoardScale?(): { x: number; y: number } | undefined;
     getUnitsHolder(): UnitsHolder;
     getSelectedUnitProperties(): UnitProperties | undefined;
     updateSelectedUnitProperties(props: UnitProperties): void;
@@ -726,6 +734,17 @@ const easeOutBack = (t: number): number => {
 
 export class CombatVisuals {
     private context: ICombatVisualsContext;
+    /**
+     * Cached vertical stretch that makes a world-space square render square on screen.
+     *
+     * The board camera is deliberately flatter on Y than X, so a spell icon or a flame sprite sized from
+     * one `cellSize` on both axes comes out ~40% wider than tall. Cell POSITIONS and cell-area coverage
+     * keep inheriting that deformation on purpose — the board's own cells are drawn wider than tall — but
+     * the artwork must not, exactly as creature art already refuses it via
+     * `legacyBoardChildScaleCompensation`. Effects are short-lived, so this is resolved once per spawn off
+     * the live parent chain rather than tracked through resizes.
+     */
+    private boardStretchCache = 1;
     private floatingTexts: IFloatingText[] = [];
     private shatterGroups: IShatterGroup[] = [];
     private iceBreaks: IIceBreak[] = [];
@@ -775,6 +794,32 @@ export class CombatVisuals {
     private prewarmed = false;
     public constructor(context: ICombatVisualsContext) {
         this.context = context;
+    }
+    /**
+     * Attach a freshly built effect to the board and resolve the camera's vertical stretch from it.
+     *
+     * Reading the stretch here rather than in every spawn function keeps it to one place and one moment:
+     * the container is already parented, so the whole chain up to the camera is walkable, and `scale` is a
+     * plain property that is current from the instant the board was fitted. The returned number is what a
+     * PICTURE's Y scale must be multiplied by to come out square; positions and cell-area coverage are
+     * deliberately left inheriting the board's own deformation.
+     */
+    private attachEffect(obj: Container, zIndex: number): number {
+        this.context.attachToWorldRoot(obj, zIndex);
+        return this.boardStretch();
+    }
+    /**
+     * Live vertical stretch for effect ARTWORK.
+     *
+     * Asked of the scene rather than measured off an attached object, because most spawn functions size
+     * their icons and sprites while the container is still detached — reading the parent chain would be a
+     * frame (and, for the first effect of a match, a whole camera fit) behind. A context without a board
+     * reports nothing and everything stays 1:1.
+     */
+    private boardStretch(): number {
+        const scale = this.context.getBoardScale?.();
+        this.boardStretchCache = scale ? boardVerticalStretch(scale.x, scale.y) : 1;
+        return this.boardStretchCache;
     }
     private getDamageStyle(fill: string, stroke: string): TextStyle {
         const key = `${fill}|${stroke}`;
@@ -974,7 +1019,7 @@ export class CombatVisuals {
         container.scale.set(FT_START_SCALE, -FT_START_SCALE);
         container.alpha = 0;
         container.position.set(startX, startY);
-        this.context.attachToWorldRoot(container, 2000);
+        this.attachEffect(container, 2000);
 
         this.floatingTexts.push({
             container,
@@ -1114,7 +1159,7 @@ export class CombatVisuals {
             const skullSprite = new Sprite(skullTex);
             skullSprite.anchor.set(0.5);
             skullSprite.width = 40;
-            skullSprite.height = 40;
+            skullSprite.height = 40 * this.boardStretch();
 
             const countText = new PixiText({ text: `${unitsDied}`, style: this.getCountStyle() });
             countText.anchor.set(0.5);
@@ -1145,7 +1190,7 @@ export class CombatVisuals {
         const icon = new Sprite(iconTexture);
         icon.anchor.set(0.5);
         icon.width = iconSize;
-        icon.height = iconSize;
+        icon.height = iconSize * this.boardStretch();
 
         const label = new PixiText({
             text: name,
@@ -1163,7 +1208,7 @@ export class CombatVisuals {
         container.position.set(startX, startY);
         // Counter the world root's Y-up flip so the icon + text render upright (same as floating text).
         container.scale.set(DP_START_SCALE, -DP_START_SCALE);
-        this.context.attachToWorldRoot(container, DP_Z);
+        this.attachEffect(container, DP_Z);
 
         this.debuffPops.push({ container, age: 0, life: DP_LIFE, startX, startY, riseY: DP_RISE });
     }
@@ -1275,7 +1320,7 @@ export class CombatVisuals {
         payloadGlow.blendMode = "add";
         payloadGlow.tint = presentation.tint;
         payloadGlow.width = cellSize * 1.05;
-        payloadGlow.height = cellSize * 1.05;
+        payloadGlow.height = cellSize * 1.05 * this.boardStretch();
         payload.addChild(payloadGlow);
 
         const iconSize = cellSize * 0.5;
@@ -1283,7 +1328,7 @@ export class CombatVisuals {
             const icon = new Sprite(iconTexture);
             icon.anchor.set(0.5);
             icon.width = iconSize;
-            icon.height = iconSize;
+            icon.height = iconSize * this.boardStretch();
             const frame = new Graphics();
             frame.roundRect(-iconSize * 0.54, -iconSize * 0.54, iconSize * 1.08, iconSize * 1.08, iconSize * 0.14);
             frame.stroke({ width: Math.max(2, cellSize * 0.035), color: presentation.core, alpha: 0.95 });
@@ -1327,7 +1372,7 @@ export class CombatVisuals {
             y: (from.y + to.y) * 0.5 + ny * bend * bendSign,
         };
 
-        this.context.attachToWorldRoot(container, ABILITY_STEAL_Z);
+        this.attachEffect(container, ABILITY_STEAL_Z);
         this.abilitySteals.push({
             container,
             web,
@@ -1468,7 +1513,7 @@ export class CombatVisuals {
                 mote.visible = true;
                 mote.position.set(point.x, point.y);
                 mote.width = size;
-                mote.height = size;
+                mote.height = size * this.boardStretch();
                 mote.alpha = fade * strength * 0.52;
             }
 
@@ -1544,7 +1589,7 @@ export class CombatVisuals {
         // without any visible flash, then update() destroys it on the next tick.
         container.position.set(-100000, -100000);
         container.alpha = 0.01;
-        this.context.attachToWorldRoot(container, 2000);
+        this.attachEffect(container, 2000);
         this.floatingTexts.push({
             container,
             age: 0,
@@ -1839,7 +1884,7 @@ export class CombatVisuals {
 
         const container = new Container();
         container.visible = true;
-        this.context.attachToWorldRoot(container, 4500);
+        this.attachEffect(container, 4500);
 
         const group: IShatterGroup = { container, shards: [] };
 
@@ -1971,7 +2016,7 @@ export class CombatVisuals {
 
         const container = new Container();
         container.position.set(info.x, info.y);
-        this.context.attachToWorldRoot(container, ICE_BREAK_Z);
+        this.attachEffect(container, ICE_BREAK_Z);
 
         // Preserve the dying unit for a very short crack beat after its live sprite is torn down.
         const body = new Sprite(info.texture);
@@ -2097,7 +2142,7 @@ export class CombatVisuals {
                 iceBreak.crackFlash.visible = burstFlashT < 1;
                 iceBreak.crackFlash.alpha = Math.max(0, (1 - burstFlashT) * 0.62);
                 const flashScale = 1 + Math.min(1, burstFlashT) * 0.18;
-                iceBreak.crackFlash.scale.set(flashScale);
+                iceBreak.crackFlash.scale.set(flashScale, flashScale * this.boardStretchCache);
             }
 
             for (let c = iceBreak.crystals.length - 1; c >= 0; c--) {
@@ -2120,7 +2165,7 @@ export class CombatVisuals {
                 crystal.node.position.set(crystal.x, crystal.y);
                 crystal.node.rotation += crystal.spin * dt;
                 const releaseScale = 0.7 + 0.3 * easeOutCubic(Math.min(1, lifeT / 0.12));
-                crystal.node.scale.set(releaseScale);
+                crystal.node.scale.set(releaseScale, releaseScale * this.boardStretchCache);
                 crystal.node.alpha =
                     lifeT > fadeFrom ? 1 - (lifeT - fadeFrom) / (1 - fadeFrom) : crystal.large ? 0.96 : 0.9;
             }
@@ -2200,7 +2245,7 @@ export class CombatVisuals {
         const worldH = Math.abs(info.scaleY) * frame.height;
 
         const container = new Container();
-        this.context.attachToWorldRoot(container, CLEAVE_Z);
+        this.attachEffect(container, CLEAVE_Z);
         container.position.set(info.x, info.y);
 
         // Shove direction: away from the attacker; sideways at random when the blow's origin is unknown.
@@ -2425,7 +2470,7 @@ export class CombatVisuals {
         const perpY = dx;
 
         const container = new Container();
-        this.context.attachToWorldRoot(container, DISSOLVE_Z);
+        this.attachEffect(container, DISSOLVE_Z);
 
         const COLS = DISSOLVE_COLS;
         const ROWS = DISSOLVE_ROWS;
@@ -2512,7 +2557,7 @@ export class CombatVisuals {
             sprite.anchor.set(0.5);
             sprite.blendMode = "add";
             sprite.tint = DISSOLVE_SPARK_TINT;
-            sprite.scale.set(flashScale * 0.28);
+            sprite.scale.set(flashScale * 0.28, flashScale * 0.28 * this.boardStretchCache);
             container.addChild(sprite);
             const life = 0.2 + Math.random() * 0.15;
             sparkLife = Math.max(sparkLife, life);
@@ -2567,7 +2612,10 @@ export class CombatVisuals {
             // Impact flash: springs open with the hit, then dissipates.
             if (dd.age < DISSOLVE_FLASH_LIFE) {
                 const pop = easeOutCubic(Math.min(1, dd.age / 0.09));
-                dd.flash.scale.set(dd.flashScale * (0.45 + 0.7 * pop));
+                dd.flash.scale.set(
+                    dd.flashScale * (0.45 + 0.7 * pop),
+                    dd.flashScale * (0.45 + 0.7 * pop) * this.boardStretchCache,
+                );
                 dd.flash.alpha = 1 - dd.age / DISSOLVE_FLASH_LIFE;
             } else if (dd.flash.visible) {
                 dd.flash.visible = false;
@@ -2683,7 +2731,7 @@ export class CombatVisuals {
             return;
         }
         const container = new Container();
-        this.context.attachToWorldRoot(container, FIRE_Z);
+        this.attachEffect(container, FIRE_Z);
         const tex = this.getFireTexture();
         const texW = tex.width || 64;
 
@@ -2730,7 +2778,7 @@ export class CombatVisuals {
      */
     public spawnFireBurn(center: HoCMath.XY, cellSize: number, scale = 1): void {
         const container = new Container();
-        this.context.attachToWorldRoot(container, FIRE_Z);
+        this.attachEffect(container, FIRE_Z);
         const tex = this.getFireTexture();
         const texW = tex.width || 64;
         const size = Math.max(1, cellSize * scale);
@@ -2829,7 +2877,7 @@ export class CombatVisuals {
      */
     public spawnFireforgedSwordBurn(center: HoCMath.XY, cellSize: number, dir?: HoCMath.XY): void {
         const container = new Container();
-        this.context.attachToWorldRoot(container, FIRE_Z);
+        this.attachEffect(container, FIRE_Z);
         const tex = this.getFireTexture();
         const texW = tex.width || 64;
         const size = Math.max(1, cellSize);
@@ -2942,7 +2990,7 @@ export class CombatVisuals {
      */
     public spawnFireRing(center: HoCMath.XY, cellSize: number): void {
         const container = new Container();
-        this.context.attachToWorldRoot(container, FIRE_Z);
+        this.attachEffect(container, FIRE_Z);
         const tex = this.getFireTexture();
         const texW = tex.width || 64;
         const size = Math.max(1, cellSize);
@@ -3044,7 +3092,7 @@ export class CombatVisuals {
         direction: HoCMath.XY,
     ): void {
         const container = new Container();
-        this.context.attachToWorldRoot(container, FIRE_Z);
+        this.attachEffect(container, FIRE_Z);
         const tex = this.getFireTexture();
         const texW = tex.width || 64;
         const size = Math.max(1, cellSize);
@@ -3161,7 +3209,7 @@ export class CombatVisuals {
      */
     public igniteUnit(unit: Unit, startDelaySec: number, durationSec: number, cellSize: number): void {
         const container = new Container();
-        this.context.attachToWorldRoot(container, FIRE_Z);
+        this.attachEffect(container, FIRE_Z);
         const glow = new Sprite(this.getFireTexture());
         glow.anchor.set(0.5);
         glow.blendMode = "add";
@@ -3247,7 +3295,7 @@ export class CombatVisuals {
                 const flicker = 0.8 + 0.2 * Math.sin(ablaze.age * 23);
                 ablaze.glow.visible = true;
                 ablaze.glow.position.set(center.x, center.y + size * 0.15);
-                ablaze.glow.scale.set((size * 1.5) / texW);
+                ablaze.glow.scale.set((size * 1.5) / texW, ((size * 1.5) / texW) * this.boardStretchCache);
                 ablaze.glow.alpha = ABLAZE_GLOW_ALPHA * (1 - progress) * flicker;
                 ablaze.emitDebt += dt * ABLAZE_EMBERS_PER_SECOND * (1 - progress * 0.7);
                 if (ablaze.emitDebt >= 1) {
@@ -3341,7 +3389,8 @@ export class CombatVisuals {
             p.sprite.visible = true;
             p.sprite.position.set(p.x + p.driftX * e, p.y + p.riseY * e);
             const scale = p.startScale + (p.endScale - p.startScale) * e;
-            p.sprite.scale.set(scale, scale);
+            // Square on screen, not square in world units — see attachEffect.
+            p.sprite.scale.set(scale, scale * this.boardStretchCache);
             p.rot += p.spin * dt;
             p.sprite.rotation = p.rot;
             const alpha =
@@ -3377,7 +3426,7 @@ export class CombatVisuals {
                 // shrink as it burns out.
                 const scale =
                     t < 0.1 ? p.baseScale * (0.45 + 0.55 * (t / 0.1)) : p.baseScale * (1 - 0.55 * ((t - 0.1) / 0.9));
-                p.sprite.scale.set(scale, scale);
+                p.sprite.scale.set(scale, scale * this.boardStretchCache);
                 p.rot += p.spin * dt;
                 p.sprite.rotation = p.rot;
                 // Near-instant flare in, smooth fade out.
@@ -3425,7 +3474,7 @@ export class CombatVisuals {
      */
     public spawnPoisonCloud(center: HoCMath.XY, cellSize: number): void {
         const container = new Container();
-        this.context.attachToWorldRoot(container, FIRE_Z);
+        this.attachEffect(container, FIRE_Z);
         const tex = this.getPoisonTexture();
         const texW = tex.width || 64;
         const particles: IFireParticle[] = [];
@@ -3478,7 +3527,7 @@ export class CombatVisuals {
                 p.sprite.position.set(p.x + p.driftX * e, p.y + p.riseY * e);
                 // Toxic gas SWELLS as it rises (embers shrink; poison billows out).
                 const scale = p.baseScale * (0.5 + 1.15 * e);
-                p.sprite.scale.set(scale, scale);
+                p.sprite.scale.set(scale, scale * this.boardStretchCache);
                 p.rot += p.spin * dt;
                 p.sprite.rotation = p.rot;
                 const alpha = t < 0.12 ? t / 0.12 : 1 - (t - 0.12) / 0.88;
@@ -3539,7 +3588,7 @@ export class CombatVisuals {
         // screen-style local coordinates (positive y is down) to keep the anvil below the swinging hammer.
         container.scale.set(1, -1);
         container.position.set(center.x, center.y);
-        this.context.attachToWorldRoot(container, CRAFT_Z);
+        this.attachEffect(container, CRAFT_Z);
 
         const [anvilTex, hammerTex] = textures;
 
@@ -3549,7 +3598,7 @@ export class CombatVisuals {
         const anvilW = cellSize * 1.4;
         const anvilH = anvilW * ((anvilTex.height || 1) / (anvilTex.width || 1));
         anvil.width = anvilW;
-        anvil.height = anvilH;
+        anvil.height = anvilH * this.boardStretch();
         const anvilBaseY = cellSize * 0.34;
         anvil.position.set(0, anvilBaseY);
         const anvilTopY = anvilBaseY - anvilH * 0.23; // 0.5 - 0.27 content-top fraction
@@ -3560,7 +3609,7 @@ export class CombatVisuals {
         hammer.anchor.set(0.5, 0.94);
         const hammerH = cellSize * 1.15;
         hammer.width = hammerH * ((hammerTex.width || 1) / (hammerTex.height || 1));
-        hammer.height = hammerH;
+        hammer.height = hammerH * this.boardStretch();
         const contactX = cellSize * 0.02;
         const contactY = anvilTopY + cellSize * 0.025;
         const strikeOffsetX = (0.23 - hammer.anchor.x) * hammer.width;
@@ -3700,7 +3749,7 @@ export class CombatVisuals {
         // worldRoot is y-up; counter-flip so local coords are screen-style (y down) and the icon/text stay upright.
         container.scale.set(1, -1);
         container.position.set(center.x, center.y);
-        this.context.attachToWorldRoot(container, ENCHANT_Z);
+        this.attachEffect(container, ENCHANT_Z);
 
         const ring = new Graphics();
         container.addChild(ring);
@@ -3813,7 +3862,7 @@ export class CombatVisuals {
                     const a = m.ang + e.age * 5;
                     m.gfx.position.set(Math.cos(a) * r, Math.sin(a) * r);
                     m.gfx.alpha = gp;
-                    m.gfx.scale.set(0.5 + gp);
+                    m.gfx.scale.set(0.5 + gp, (0.5 + gp) * this.boardStretchCache);
                 }
             } else {
                 const rp = (e.age - ENCHANT_GATHER) / (ENCHANT_LIFE - ENCHANT_GATHER); // 0..1
@@ -3828,7 +3877,10 @@ export class CombatVisuals {
                     const rr = e.cellSize * (0.42 + easeOutCubic(rp));
                     e.ring.circle(0, 0, rr).stroke({ width: 3 * (1 - rp), color: e.tint, alpha: (1 - rp) * 0.8 });
                     const pop = Math.min(1, rp / 0.28);
-                    e.icon.scale.set(e.iconBaseScale * (0.5 + 0.5 * easeOutBack(pop)));
+                    e.icon.scale.set(
+                        e.iconBaseScale * (0.5 + 0.5 * easeOutBack(pop)),
+                        e.iconBaseScale * (0.5 + 0.5 * easeOutBack(pop)) * this.boardStretchCache,
+                    );
                     e.icon.position.y = -e.cellSize * (0.55 + 0.35 * easeOutCubic(rp));
                     e.icon.alpha = rp < 0.7 ? pop : Math.max(0, 1 - (rp - 0.7) / 0.3);
                     e.label.position.y = e.icon.position.y + e.cellSize * 0.5;
@@ -3841,7 +3893,10 @@ export class CombatVisuals {
                     // Show the (desaturated) rune rising before the "Failed" text, mirroring the success layout,
                     // so a failed cast still reads as a rune attempt rather than a bare label.
                     const fade = rp < 0.65 ? pop : Math.max(0, 1 - (rp - 0.65) / 0.35);
-                    e.icon.scale.set(e.iconBaseScale * (0.5 + 0.5 * easeOutBack(pop)));
+                    e.icon.scale.set(
+                        e.iconBaseScale * (0.5 + 0.5 * easeOutBack(pop)),
+                        e.iconBaseScale * (0.5 + 0.5 * easeOutBack(pop)) * this.boardStretchCache,
+                    );
                     e.icon.position.y = -e.cellSize * (0.55 + 0.3 * easeOutCubic(rp));
                     e.icon.alpha = fade * 0.9;
                     e.label.position.y = e.icon.position.y + e.cellSize * 0.5;
@@ -3877,7 +3932,7 @@ export class CombatVisuals {
             return;
         }
         const container = new Container();
-        this.context.attachToWorldRoot(container, CHAIN_Z);
+        this.attachEffect(container, CHAIN_Z);
         const bolts: IChainBolt[] = [];
         for (let i = 0; i < points.length - 1; i++) {
             const gfx = new Graphics();
@@ -3935,7 +3990,7 @@ export class CombatVisuals {
      */
     public spawnLightningStrike(target: HoCMath.XY, cellSize: number): void {
         const container = new Container();
-        this.context.attachToWorldRoot(container, STRIKE_Z);
+        this.attachEffect(container, STRIKE_Z);
         const flash = new Graphics();
         const bolt = new Graphics();
         const burst = new Graphics();
@@ -4126,7 +4181,7 @@ export class CombatVisuals {
      */
     public spawnMagicMirrorRebound(from: HoCMath.XY, to: HoCMath.XY, cellSize: number): void {
         const container = new Container();
-        this.context.attachToWorldRoot(container, MIRROR_Z);
+        this.attachEffect(container, MIRROR_Z);
         const pane = new Graphics();
         pane.blendMode = "add";
         const beam = new Graphics();
@@ -4234,7 +4289,7 @@ export class CombatVisuals {
             return;
         }
         const container = new Container();
-        this.context.attachToWorldRoot(container, WINDSPEAR_Z);
+        this.attachEffect(container, WINDSPEAR_Z);
         const tex = this.getLightTexture();
         const mkOrb = (): Sprite => {
             const s = new Sprite(tex);
@@ -4313,7 +4368,7 @@ export class CombatVisuals {
             const headPos = this.pointAlong(spear, leadDist);
             spear.head.visible = true;
             spear.head.position.set(headPos.x, headPos.y);
-            spear.head.scale.set(headSize / texW);
+            spear.head.scale.set(headSize / texW, (headSize / texW) * this.boardStretch());
             spear.head.alpha = groupAlpha;
 
             // Each trail orb sits a little further back along the line, shrinking and dimming — a soft
@@ -4330,7 +4385,10 @@ export class CombatVisuals {
                 const pos = this.pointAlong(spear, d);
                 orb.visible = true;
                 orb.position.set(pos.x, pos.y);
-                orb.scale.set((headSize * (0.45 + 0.5 * k)) / texW);
+                orb.scale.set(
+                    (headSize * (0.45 + 0.5 * k)) / texW,
+                    ((headSize * (0.45 + 0.5 * k)) / texW) * this.boardStretch(),
+                );
                 orb.alpha = groupAlpha * 0.55 * k;
             }
         }
@@ -4343,7 +4401,7 @@ export class CombatVisuals {
      */
     public spawnSlash(center: HoCMath.XY, cellSize: number, _dir?: HoCMath.XY): void {
         const container = new Container();
-        this.context.attachToWorldRoot(container, SLASH_Z);
+        this.attachEffect(container, SLASH_Z);
         const gfx = new Graphics();
         gfx.visible = false; // normal blend — blood, not glow
         container.addChild(gfx);
@@ -4460,7 +4518,7 @@ export class CombatVisuals {
         const baseAng = dirLen > 0.001 ? Math.atan2(dir!.y, dir!.x) : Math.PI / 2;
 
         const container = new Container();
-        this.context.attachToWorldRoot(container, BLOOD_SPRAY_Z);
+        this.attachEffect(container, BLOOD_SPRAY_Z);
         const gfx = new Graphics();
         container.addChild(gfx);
 
@@ -4538,7 +4596,7 @@ export class CombatVisuals {
         const spanScale = 0.85 + 0.12 * level; // a deeper wound rakes bigger
 
         const container = new Container();
-        this.context.attachToWorldRoot(container, CLAW_Z);
+        this.attachEffect(container, CLAW_Z);
         const gfx = new Graphics();
         container.addChild(gfx);
 
@@ -4644,7 +4702,7 @@ export class CombatVisuals {
             const skullSprite = new Sprite(skullTex);
             skullSprite.anchor.set(0.5);
             skullSprite.width = 40;
-            skullSprite.height = 40;
+            skullSprite.height = 40 * this.boardStretch();
 
             const countStyle = this.getCountStyle();
             const countText = new PixiText({ text: `${unitsDied}`, style: countStyle });
@@ -4690,7 +4748,7 @@ export class CombatVisuals {
      */
     private spawnHealBurst(pos: HoCMath.XY): void {
         const graphics = new Graphics();
-        this.context.attachToWorldRoot(graphics, HEAL_BURST_Z);
+        this.attachEffect(graphics, HEAL_BURST_Z);
         this.healBursts.push({
             graphics,
             pos: { x: pos.x, y: pos.y },
@@ -4713,7 +4771,7 @@ export class CombatVisuals {
      */
     public spawnResurrectionBurst(pos: HoCMath.XY, cellSize: number): void {
         const graphics = new Graphics();
-        this.context.attachToWorldRoot(graphics, RESURRECT_BURST_Z);
+        this.attachEffect(graphics, RESURRECT_BURST_Z);
         this.resurrectBursts.push({
             graphics,
             pos: { x: pos.x, y: pos.y },
@@ -4793,7 +4851,7 @@ export class CombatVisuals {
      */
     public spawnAreaImpact(pos: HoCMath.XY, cellSize: number, radius = cellSize * 1.6): void {
         const graphics = new Graphics();
-        this.context.attachToWorldRoot(graphics, AREA_IMPACT_Z);
+        this.attachEffect(graphics, AREA_IMPACT_Z);
         this.areaImpacts.push({
             graphics,
             pos: { x: pos.x, y: pos.y },

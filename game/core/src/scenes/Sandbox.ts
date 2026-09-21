@@ -3,6 +3,7 @@ import { RenderableUnit as LevelOneRenderableUnit } from "./LevelOneRenderableUn
 import { usesAuthoredRangedRelease, usesApprovedBaseAnimations } from "../pixi/creatureAnimationSettings";
 import { Assets, Sprite, Graphics, Container, Texture, BlurFilter, RenderTexture, Text, TextStyle } from "pixi.js";
 import { PixiDrawer } from "../pixi/PixiDrawer";
+import { inheritedAbsoluteScaleOf } from "../pixi/boardFit";
 import {
     SandboxDrawer,
     ALLY_MOVEMENT_INSPECTION_COLOR,
@@ -1270,6 +1271,13 @@ export class Sandbox extends PixiScene {
         this.combatVisuals = new CombatVisuals({
             getGridSettings: () => this.sc_sceneSettings.getGridSettings(),
             attachToWorldRoot: (o, z) => this.attachToWorldRoot(o, z ?? 0),
+            // The board camera is deliberately flatter on Y than X (see boardFit). Effect ARTWORK has to
+            // undo that or a spell icon sized from one cellSize renders ~40% wider than tall, the same
+            // deformation creature art already refuses; positions and cell coverage keep inheriting it.
+            getBoardScale: () => {
+                const worldRoot = this.drawer?.getUnitsContainer();
+                return worldRoot ? inheritedAbsoluteScaleOf(worldRoot) : undefined;
+            },
             getUnitsHolder: () => this.unitsHolder,
             getSelectedUnitProperties: () => this.sc_selectedUnitProperties,
             updateSelectedUnitProperties: (p) => {
