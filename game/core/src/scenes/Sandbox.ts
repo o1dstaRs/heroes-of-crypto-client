@@ -1096,6 +1096,11 @@ export class Sandbox extends PixiScene {
     };
     /** Reachable-cell sheet below tall terrain; rings and targeting previews stay in gameplayGraphics above it. */
     private movementGraphics?: Graphics;
+    // ALT's ground wash during a fight. Its own layer because the placement graphics it mirrors are
+    // deliberately hidden and their assets unloaded the moment a fight starts.
+    private altInspectGraphics?: Graphics;
+    // Whether that layer currently holds paint, so releasing ALT clears it exactly once.
+    private altInspectPainted = false;
     /** Lava destinations only, above the fire-pit base and grate but still below units and combat previews. */
     private lavaMovementGraphics?: Graphics;
     /** Prevents invalidating an already-empty movement Graphics buffer on every idle fight tick. */
@@ -15677,7 +15682,12 @@ export class Sandbox extends PixiScene {
         if (!this.gameplayGraphics) this.gameplayGraphics = new Graphics();
         if (!this.movementGraphics) this.movementGraphics = new Graphics();
         if (!this.lavaMovementGraphics) this.lavaMovementGraphics = new Graphics();
+        if (!this.altInspectGraphics) this.altInspectGraphics = new Graphics();
         if (!this.shotRangeCornerContainer) this.shotRangeCornerContainer = new Container();
+        // ALT's ground wash reads as floor paint like the reachable-cell fills, and sits a hair above them
+        // so a held key is never buried under the movement area it is meant to be read beside. Units start
+        // at z=50 and keep standing on top of it.
+        this.attachToWorldRoot(this.altInspectGraphics, 49.6);
         // Reachable-cell fills belong to the floor. Tombstones start at z=50, so their overhanging tops
         // naturally cover the neighbouring-cell sheet instead of being cut by its bright frame.
         this.attachToWorldRoot(this.movementGraphics, 49.5);
@@ -15963,6 +15973,7 @@ export class Sandbox extends PixiScene {
         // RENDERING SYNCHRONIZATION
         // ==========================================================================================
         // this.updateLingeringTracks(timeStep); // Handled by moveAnimManager.update
+        this.drawAltInspectOverlay();
         if (this.gameplayGraphics) {
             this.drawGameplayVisuals(this.gameplayGraphics);
         }
@@ -16190,7 +16201,7 @@ export class Sandbox extends PixiScene {
         // Vine Throw (ANY_ENEMY) aim preview: highlight the lane the vine would cover.
         this.drawVineThrowAim(g);
         // Fire Strike (ANY_ENEMY) aim preview: the projectile's trajectory and who it actually burns.
-        this.drawFireStrikeAim(g);
+        this.drawInterceptedThrowAim(g);
         // "Shift to rotate" under an armed Fire Wall, alongside its footprint preview.
         this.updateFireWallRotateHint();
     }
@@ -16400,8 +16411,18 @@ export class Sandbox extends PixiScene {
         const interceptor = this.unitsHolder.getAllUnits().get(impact.interceptedBy);
         return interceptor && !interceptor.isDead() ? interceptor : aimed;
     }
-    private drawFireStrikeAim(g: Graphics): void {
-        const aim = this.hoveredThrowTarget("Fire Strike");
+    /**
+     * The aim rail for an INTERCEPTED throw (Fire Strike, Fireball — see SpellHelper.isInterceptedThrownSpell):
+     * the refused-by-terrain rail and marker, plus the scattered obstacles the lane crosses. One routine for
+     * both, keyed off the engine's own classification — spelling "Fire Strike" out here left Fireball with no
+     * terrain marker at all (owner report 2026-09-20).
+     */
+    private drawInterceptedThrowAim(g: Graphics): void {
+        const spellName = this.currentActiveSpell?.getName();
+        if (!spellName || !SpellHelper.isInterceptedThrownSpell(spellName)) {
+            return;
+        }
+        const aim = this.hoveredThrowTarget(spellName);
         if (!aim) {
             return;
         }
@@ -16410,13 +16431,7 @@ export class Sandbox extends PixiScene {
         const cellPos = (cell: HoCMath.XY) =>
             GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
 
-        const impact = thrownSpellImpact(
-            "Fire Strike",
-            this.grid,
-            from,
-            to,
-            this.throwTransparency("Fire Strike", caster),
-        );
+        const impact = thrownSpellImpact(spellName, this.grid, from, to, this.throwTransparency(spellName, caster));
         const victim = impact.blockedByTerrain
             ? undefined
             : impact.interceptedBy
@@ -17763,7 +17778,6 @@ export class Sandbox extends PixiScene {
                 !isBattlefieldShadowEditorActive() &&
                 !this.dungeonVisuals.isTestBackground(),
             occupiedFootprints: this.occupiedBoardFootprints(),
-            altInspect: this.altInspectFootprints(),
             gridSettings: this.sc_sceneSettings.getGridSettings(),
         });
         this.drawPlacementSplitOverlay();
@@ -17785,6 +17799,32 @@ export class Sandbox extends PixiScene {
      * resolves it, so a player who repainted their army sees that paint here too, and never on the enemy.
      * Empty unless the key is down and the fight is on; the deployment wash owns the pre-fight board.
      */
+    /**
+     * Paint (or wipe) ALT's ground overlay, once per frame.
+     *
+     * Only while the key is down and the fight is on: the pre-fight board already draws the same wash in
+     * white from the placement layer, which is hidden and unloaded once fighting starts — hence the separate
+     * layer. Releasing the key clears the paint exactly once rather than every frame after.
+     */
+    private drawAltInspectOverlay(): void {
+        const g = this.altInspectGraphics;
+        if (!g) {
+            return;
+        }
+        const footprints = this.altInspectFootprints();
+        if (!footprints.length) {
+            if (this.altInspectPainted) {
+                g.clear();
+                g.visible = false;
+                this.altInspectPainted = false;
+            }
+            return;
+        }
+        g.visible = true;
+        g.clear();
+        SandboxDrawer.drawAltInspect(g, footprints, this.sc_sceneSettings.getGridSettings());
+        this.altInspectPainted = true;
+    }
     private altInspectFootprints(): IAltInspectFootprint[] {
         if (!this.altHeld || !FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
             return [];
