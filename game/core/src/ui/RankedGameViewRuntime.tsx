@@ -1404,6 +1404,10 @@ export const RankedGameView: React.FC<Props> = ({
                 const sandboxReplay = createSandboxReplayFromRankedReplay(replay, {
                     snapshotToState: (playSnapshot) =>
                         authoritativeSnapshotToSandboxSceneState(toSceneSnapshot(playSnapshot)),
+                    // The whole snapshot rides along too: the board comes from the scene state above, but
+                    // the combat log, the stats graph, the turn clock and the journal-driven VFX are fed
+                    // from fields a scene state does not carry.
+                    snapshotToAuthoritative: (playSnapshot) => toSceneSnapshot(playSnapshot),
                 });
 
                 setStatus("Replaying");

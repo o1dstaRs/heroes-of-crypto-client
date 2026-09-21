@@ -8,6 +8,7 @@ import {
     type PlayJournalEntry,
     type PlaySnapshot,
 } from "../api/play_protocol";
+import type { AuthoritativeGameSnapshot } from "../game_action_transport";
 import type { SandboxSceneState } from "../scenes/Sandbox";
 import { SANDBOX_REPLAY_VERSION, type SandboxReplay } from "./sandbox_replay";
 
@@ -208,6 +209,12 @@ export const createSandboxReplayFromRankedReplay = (
     replay: RankedReplay,
     options: {
         snapshotToState: (snapshot: PlaySnapshot) => SandboxSceneState | undefined;
+        /**
+         * The same snapshot, unnarrowed. A replayed record carries it so the ranked scene can run its
+         * presentation steps (log, stats, clock, journal VFX) per action — none of which can be expressed
+         * as a scene state. Optional: without it a replay simply plays the board, as it always did.
+         */
+        snapshotToAuthoritative?: (snapshot: PlaySnapshot) => AuthoritativeGameSnapshot | undefined;
         nowMs?: number;
     },
 ): SandboxReplay | undefined => {
@@ -246,12 +253,14 @@ export const createSandboxReplayFromRankedReplay = (
             return undefined;
         }
 
+        const authoritativeSnapshot = options.snapshotToAuthoritative?.(stateAfterSnapshot);
         actions.push({
             sequence: actionRecord.sequence,
             clientTimeMs: actionRecord.acceptedAtMs || nowMs + actions.length,
             action: cloneReplayData(actionRecord.action),
             events: cloneReplayData(actionRecord.events),
             stateAfter: cloneReplayData(stateAfter),
+            ...(authoritativeSnapshot ? { authoritativeSnapshot: cloneReplayData(authoritativeSnapshot) } : {}),
         });
     }
 

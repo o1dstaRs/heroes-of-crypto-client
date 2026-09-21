@@ -42,7 +42,7 @@ import type {
     SceneGameActionTransport,
 } from "../game_action_transport";
 import { getAbilityDisplayMetadata } from "../abilityDisplay";
-import type { SandboxReplay } from "../replay/sandbox_replay";
+import type { SandboxReplay, SandboxReplayActionRecord } from "../replay/sandbox_replay";
 import { buildFightDamageEntries } from "./FightStatsTracker";
 import type {
     IFightDeathEntry,
@@ -2407,12 +2407,12 @@ export class RankedPlayScene extends Sandbox {
         }
         return changed;
     }
-    public override applyAuthoritativeReplaySnapshot(snapshot: AuthoritativeGameSnapshot): void {
-        this.replayViewingActive = true;
-        this.lastAuthoritativeSequence = snapshot.latestSequence - 1;
-        this.lastBoardSignature = "";
-        this.lastPlacementUnitIdsKey = "";
-        this.lastPlacementStateByUnitId.clear();
+    /**
+     * Re-baseline everything the ranked presentation accumulates, so a replay starts from nothing instead
+     * of continuing the live fight's log / stats / high-water marks. Shared by both replay entry points:
+     * the snapshot-by-snapshot fallback and the full action playback.
+     */
+    private resetRankedReplayPresentation(): void {
         this.resetRankedFightStats();
         this.rankedSceneLogGameId = "";
         this.rankedSceneLogSequence = -1;
@@ -2429,6 +2429,14 @@ export class RankedPlayScene extends Sandbox {
         // Re-baseline effect pops so the replay's first snapshot seeds silently instead of bursting.
         this.effectPopsGameId = "";
         this.effectPopsSequence = -1;
+    }
+    public override applyAuthoritativeReplaySnapshot(snapshot: AuthoritativeGameSnapshot): void {
+        this.replayViewingActive = true;
+        this.lastAuthoritativeSequence = snapshot.latestSequence - 1;
+        this.lastBoardSignature = "";
+        this.lastPlacementUnitIdsKey = "";
+        this.lastPlacementStateByUnitId.clear();
+        this.resetRankedReplayPresentation();
         this.applyAuthoritativeSnapshot(snapshot);
     }
     public override startScene(): boolean {
@@ -2441,17 +2449,62 @@ export class RankedPlayScene extends Sandbox {
     public override canPlayCurrentSandboxReplay(): boolean {
         return false;
     }
+    /**
+     * A replayed action's own snapshot. Present for ranked replays (createSandboxReplayFromRankedReplay
+     * attaches it); absent for a sandbox replay, which has no server snapshots and no ranked presentation.
+     */
+    private static replayRecordSnapshot(record: SandboxReplayActionRecord): AuthoritativeGameSnapshot | undefined {
+        return record.authoritativeSnapshot;
+    }
+    protected override onReplayRecordSettling(record: SandboxReplayActionRecord): void {
+        const snapshot = RankedPlayScene.replayRecordSnapshot(record);
+        if (!snapshot) {
+            return;
+        }
+        // A unit killed without an event of its own — a Flesh Shield bearer dropped by damage it absorbed
+        // for someone else, say — is simply gone from the next state. Shattered here, while its sprite is
+        // still on the board, it dies the same way it died in the fight.
+        this.shatterNewlyDeadUnits(snapshot);
+    }
+    protected override onReplayRecordPresented(record: SandboxReplayActionRecord): void {
+        const snapshot = RankedPlayScene.replayRecordSnapshot(record);
+        if (!snapshot) {
+            return;
+        }
+        // Everything the live snapshot path does around a hydrate that is NOT the board itself. Each of
+        // these is already gated on its own game id + sequence, so replaying them in order behaves exactly
+        // as it did live: seed on the first record, then emit only what is new.
+        this.processDebuffPops(snapshot);
+        this.applyAuthoritativeSceneLog(snapshot);
+        this.renderNewlyAppliedMorale(snapshot);
+        this.renderNewlyAppliedPoison(snapshot);
+        this.renderNewlyAppliedArmageddon(snapshot);
+        this.reconcileAuraEffectsFromSnapshot(snapshot);
+        this.applyRankedTimer(snapshot);
+        this.applyRankedFightStats(snapshot, record.stateAfter.units);
+    }
     /** Mark FULL fight playback (fight-results Replay / replay-only view) so live snapshot polls are
      * dropped for its whole duration — see the guard at the top of applyAuthoritativeSnapshot. */
     public override async playSandboxReplay(replay: SandboxReplay, throughSequence?: number): Promise<boolean> {
         this.fullReplayPlaybackActive = true;
         clearPersonalArmyTint();
+        this.resetRankedReplayPresentation();
+        // With the journal in hand the replay writes the REAL ranked log (team flags, lap headers), so the
+        // engine's own text channel is muted for the duration — exactly as it is during a live ranked
+        // fight. Without a journal (a sandbox replay, or an older record) the engine channel is all there
+        // is, and muting it would leave an empty log.
+        const presenting = replay.actions.some((record) => !!record.authoritativeSnapshot);
+        const wasSceneLogSuppressed = this.sc_sceneLog.isSuppressed();
+        if (presenting) {
+            this.sc_sceneLog.setSuppressed(true);
+        }
         try {
             return await (throughSequence === undefined
                 ? super.playSandboxReplay(replay)
                 : super.playSandboxReplay(replay, throughSequence));
         } finally {
             this.fullReplayPlaybackActive = false;
+            this.sc_sceneLog.setSuppressed(wasSceneLogSuppressed);
         }
     }
     public override playAuthoritativeActionRecord(
