@@ -332,13 +332,6 @@ export interface IPlacementDrawContext {
      * without it. Empty/omitted draws nothing.
      */
     occupiedFootprints?: readonly (readonly HoCMath.XY[])[];
-    /**
-     * What ALT shows while the fight is ON, one entry per living unit. Placement answers "which ground is
-     * taken" in white for both armies at once; mid-fight the same question has a SIDE to it, so the wash is
-     * the unit's own army colour — the viewer's chosen paint on their stacks, the opponent's on theirs —
-     * and each footprint carries its stack power with it (owner, 20 Sep). Empty/omitted draws nothing.
-     */
-    altInspect?: readonly IAltInspectFootprint[];
     /** Grid settings for the occupied-cell wash (the polygons are perspective-projected). */
     gridSettings?: GridSettings;
     /**
@@ -577,9 +570,6 @@ export class SandboxDrawer {
             // the cell the player is about to click, and the hover's own footprint reads on top of it.
             SandboxDrawer.drawOccupiedFootprints(g, ctx.occupiedFootprints, ctx.gridSettings);
             hoverManager.drawHoverPlacementCell(g);
-        } else {
-            // The fight's own version of the same wash, held open by ALT rather than always on.
-            SandboxDrawer.drawAltInspect(g, ctx.altInspect, ctx.gridSettings);
         }
     }
     /**
@@ -590,7 +580,7 @@ export class SandboxDrawer {
      * so "where does this body actually stand" is guesswork from the artwork alone — except that mid-fight
      * the answer belongs to a side, which is why this wash is coloured where placement's is white.
      */
-    private static drawAltInspect(
+    public static drawAltInspect(
         g: Graphics,
         footprints: readonly IAltInspectFootprint[] | undefined,
         gs: GridSettings | undefined,

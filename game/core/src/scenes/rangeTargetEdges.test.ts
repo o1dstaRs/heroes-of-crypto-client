@@ -320,7 +320,7 @@ describe("ranged target edge selection", () => {
     test("does not draw a second Fire Strike rail over the live spell beam", () => {
         const source = readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
         const fireStrikeAim = source.slice(
-            source.indexOf("private drawFireStrikeAim("),
+            source.indexOf("private drawInterceptedThrowAim("),
             source.indexOf("private drawVineThrowAim("),
         );
         expect(fireStrikeAim).toContain("if (refused)");
@@ -331,7 +331,7 @@ describe("ranged target edge selection", () => {
     test("keeps valid Fire Strike targets free of cell fills and target frames", () => {
         const source = readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
         const fireStrikeAim = source.slice(
-            source.indexOf("private drawFireStrikeAim("),
+            source.indexOf("private drawInterceptedThrowAim("),
             source.indexOf("private drawVineThrowAim("),
         );
         const refusedMarker = fireStrikeAim.indexOf("if (refused) {", fireStrikeAim.indexOf("const refused"));
