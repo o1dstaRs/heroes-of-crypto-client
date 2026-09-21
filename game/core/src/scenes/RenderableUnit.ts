@@ -387,7 +387,7 @@ const THIEF_WALK_VISIBLE_HEIGHT_RATIO = 185 / 192;
 const SCAVENGER_ORIGINAL_WALK_VISIBLE_HEIGHT_RATIO = (247 / 256) * ((768 * THIEF_IDLE_VISIBLE_HEIGHT_RATIO) / 757);
 const SCAVENGER_LAB_ACTIONS = ["hit", "death", "attack", "attack_up", "attack_down"];
 const scavengerLabCanvasScale = (state?: string): number => (state?.startsWith("attack") ? 1024 / 768 : 1);
-const SCAVENGER_LAB_VISIBLE_HEIGHT_RATIO = (700 / 768) * ((768 * THIEF_IDLE_VISIBLE_HEIGHT_RATIO) / 757);
+export const SCAVENGER_LAB_VISIBLE_HEIGHT_RATIO = (700 / 768) * ((768 * THIEF_IDLE_VISIBLE_HEIGHT_RATIO) / 757);
 const ORC_UNIT_NAME = "Orc";
 const MERMAID_UNIT_NAME = "Mermaid";
 const TROLL_UNIT_NAME = "Troll";

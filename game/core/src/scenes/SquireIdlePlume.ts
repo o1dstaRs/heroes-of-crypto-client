@@ -52,7 +52,7 @@ void main() {
     finalColor = texture(uTexture, clamp(uv, uInputClamp.xy, uInputClamp.zw));
 }`;
 
-class SquireIdlePlumeFilter extends Filter {
+export class SquireIdlePlumeFilter extends Filter {
     public constructor(private readonly sprite: Sprite) {
         super({
             glProgram: GlProgram.from({ vertex, fragment }),
