@@ -39,6 +39,7 @@ const copy = isRu
           aiSearch: "AI-поиск",
           aiSearchDescription: "Понимает смысл запроса и близкие игровые термины",
           aiAsk: "Спросить ИИ",
+          aiPromptLead: "Спросить ИИ:",
           aiAnswerTitle: "Ответ ИИ",
           aiHintOn: "Нажмите Enter, чтобы задать вопрос ИИ. Обычные результаты остаются ниже.",
           aiThinking: "Ищу ответ в базе знаний…",
@@ -110,6 +111,7 @@ const copy = isRu
           aiSearch: "AI Search",
           aiSearchDescription: "Understands intent and related game terms",
           aiAsk: "Ask AI",
+          aiPromptLead: "Ask the AI:",
           aiAnswerTitle: "AI answer",
           aiHintOn: "Press Enter to ask the AI a question. The regular results stay below.",
           aiThinking: "Searching the knowledge base…",
@@ -192,6 +194,8 @@ const sectionLabels: Record<KnowledgeSection, string> = {
 // Strings the streaming script needs at runtime; passed through a data attribute because the client bundle
 // cannot read frontmatter values.
 const aiCopy = {
+    ask: copy.aiAsk,
+    promptLead: copy.aiPromptLead,
     hintOn: copy.aiHintOn,
     hintOff: copy.searchHint,
     thinking: copy.aiThinking,
@@ -332,6 +336,12 @@ const aiCopy = {
 
         <div class="kb-content" id="kb-content">
             <section class="kb-search-results" data-kb-search-results aria-labelledby="kb-results-title" hidden>
+                <button class="kb-ai-prompt" data-kb-ai-prompt type="button" hidden>
+                    <span class="kb-ai-spark" aria-hidden="true">✦</span>
+                    <span class="kb-ai-prompt-lead">{copy.aiPromptLead}</span>
+                    <span class="kb-ai-prompt-question" data-kb-ai-prompt-question></span>
+                    <span class="kb-ai-prompt-cta">{copy.aiAsk} ↵</span>
+                </button>
                 <header class="kb-panel-header compact">
                     <div class="kb-heading-group">
                         <span class="kb-heading-icon overview" aria-hidden="true"><KnowledgeIcon section="overview" size={36} /></span>
@@ -545,6 +555,8 @@ const aiCopy = {
         const empty = root.querySelector<HTMLElement>("[data-kb-empty]");
         const searchHint = root.querySelector<HTMLElement>("#kb-search-hint");
         const askButton = root.querySelector<HTMLButtonElement>("[data-kb-ai-ask]");
+        const aiPrompt = root.querySelector<HTMLButtonElement>("[data-kb-ai-prompt]");
+        const aiPromptQuestion = root.querySelector<HTMLElement>("[data-kb-ai-prompt-question]");
         const aiPanel = root.querySelector<HTMLElement>("[data-kb-ai-panel]");
         const aiStatus = root.querySelector<HTMLElement>("[data-kb-ai-status]");
         const aiStop = root.querySelector<HTMLButtonElement>("[data-kb-ai-stop]");
@@ -557,6 +569,8 @@ const aiCopy = {
         let aiSearchEnabled = false;
 
         type AiCopy = Record<
+            | "ask"
+            | "promptLead"
             | "hintOn"
             | "hintOff"
             | "thinking"
@@ -585,6 +599,17 @@ const aiCopy = {
         let aiController: AbortController | null = null;
         let aiMarkdown = "";
         let aiRenderQueued = false;
+        let aiLastQuestion = "";
+
+        // The "Ask the AI: <question>" row above the filtered results: shown whenever AI search is on and the
+        // typed question has not been asked yet, so the answer is one click (or Enter) away and never a mystery.
+        const syncAiPrompt = () => {
+            if (!aiPrompt) return;
+            const question = searchInput?.value.trim() ?? "";
+            const show = aiSearchEnabled && Boolean(question) && question !== aiLastQuestion;
+            aiPrompt.hidden = !show;
+            if (aiPromptQuestion) aiPromptQuestion.textContent = question;
+        };
 
         const renderAiAnswer = () => {
             aiRenderQueued = false;
@@ -646,6 +671,8 @@ const aiCopy = {
         const askAi = (question: string) => {
             const trimmed = question.trim();
             if (!trimmed || !aiPanel) return;
+            aiLastQuestion = trimmed;
+            syncAiPrompt();
             stopAi();
             const controller = new AbortController();
             aiController = controller;
@@ -721,7 +748,9 @@ const aiCopy = {
                 stopAi();
                 if (aiPanel) aiPanel.hidden = true;
                 aiHistory.length = 0;
+                aiLastQuestion = "";
             }
+            syncAiPrompt();
             try {
                 window.localStorage.setItem("hoc.kb.aiSearch", enabled ? "1" : "0");
             } catch {
@@ -921,7 +950,11 @@ const aiCopy = {
             });
         });
 
-        searchInput?.addEventListener("input", () => applySearch());
+        searchInput?.addEventListener("input", () => {
+            applySearch();
+            syncAiPrompt();
+        });
+        aiPrompt?.addEventListener("click", () => askAi(searchInput?.value ?? ""));
         aiToggle?.addEventListener("click", () => {
             setAiSearchEnabled(!aiSearchEnabled);
             applySearch(false);
@@ -1005,6 +1038,9 @@ const aiCopy = {
             activateSection(section);
             if (searchInput) searchInput.value = query;
             applySearch(false);
+            syncAiPrompt();
+            // A shared link that carries both the switch and a question asks it straight away.
+            if (params.get("ai") === "1" && query.trim() && query.trim() !== aiLastQuestion) askAi(query);
             const target = window.location.hash.replace(/^#/, "");
             if (target && target !== section && !query) window.requestAnimationFrame(() => focusTarget(target));
         };
@@ -2118,6 +2154,68 @@ const aiCopy = {
 
     .kb-ai-shell {
         margin-top: 18px;
+    }
+
+    .kb-ai-prompt {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 10px;
+        align-items: center;
+        width: 100%;
+        margin: 0 0 14px;
+        padding: 12px 16px;
+        color: #fff4cc;
+        border: 1px solid rgba(242, 199, 93, 0.45);
+        border-radius: 10px;
+        background: linear-gradient(110deg, rgba(242, 199, 93, 0.16), rgba(100, 179, 158, 0.08));
+        font: inherit;
+        font-size: 0.92rem;
+        text-align: left;
+        cursor: pointer;
+        transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+    }
+
+    .kb-ai-prompt:hover {
+        border-color: rgba(242, 199, 93, 0.8);
+        box-shadow: 0 8px 22px rgba(242, 199, 93, 0.16);
+    }
+
+    .kb-ai-prompt:focus-visible {
+        outline: 3px solid rgba(242, 199, 93, 0.35);
+        outline-offset: 2px;
+    }
+
+    .kb-ai-prompt .kb-ai-spark {
+        color: #f2c75d;
+        text-shadow: 0 0 10px rgba(242, 199, 93, 0.55);
+    }
+
+    .kb-ai-prompt-lead {
+        color: rgba(246, 241, 230, 0.7);
+        font-size: 0.78rem;
+        font-weight: 760;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+    }
+
+    .kb-ai-prompt-question {
+        flex: 1 1 200px;
+        min-width: 0;
+        overflow: hidden;
+        font-style: italic;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .kb-ai-prompt-cta {
+        margin-left: auto;
+        padding: 5px 12px;
+        color: #14100b;
+        border-radius: 999px;
+        background: linear-gradient(120deg, #f2c75d, #dcae52);
+        font-size: 0.78rem;
+        font-weight: 760;
+        white-space: nowrap;
     }
 
     .kb-ai-panel {

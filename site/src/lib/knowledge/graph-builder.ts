@@ -94,9 +94,13 @@ interface RawAbilityEntry {
     type: string;
     desc: string[];
     power: number | null;
+    power_type: string;
     effect: string | null;
     aura_effect: string | null;
 }
+
+/** Abilities that apply an effect through their power type rather than an `effect` field. */
+const effectByPowerType: Record<string, string> = { POISON_ON_HIT: "Poison" };
 
 interface RawEffectEntry {
     name: string;
@@ -898,7 +902,12 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
     const rawEffects = effectsJson as unknown as Record<string, RawEffectEntry | number>;
     for (const [name, raw] of Object.entries(rawEffects)) {
         if (typeof raw !== "object") continue;
-        const description = raw.desc.replace(/\{\}/g, String(raw.power));
+        // A zero power means the amount is set by whatever applies the effect (Poison ticks for a share of
+        // the poisoner's damage), so "{}" must not print as 0.
+        const description = raw.desc.replace(
+            /\{\}/g,
+            raw.power > 0 ? String(raw.power) : "an amount set by whatever applied it",
+        );
         // Only abilities a player can actually meet (the codex roster) count as appliers: abilities.json
         // also defines retired or unassigned ones, and naming those would send players hunting for a
         // carrier that does not exist.
@@ -906,7 +915,9 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
         const appliers = Object.values(rawAbilities)
             .filter(
                 (entry): entry is RawAbilityEntry =>
-                    typeof entry === "object" && entry.effect === name && abilityNames.has(entry.name),
+                    typeof entry === "object" &&
+                    (entry.effect === name || effectByPowerType[entry.power_type] === name) &&
+                    abilityNames.has(entry.name),
             )
             .map((entry) => entry.name);
         // The card a player should land on: the ability of the same name, else the one ability that
@@ -1290,6 +1301,55 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
             tags: ["faq"],
             keywords: ["faq", "question", "вопрос"],
         });
+    });
+
+    const playEn = content.en.play;
+    const playRu = content.ru.play;
+    graph.add({
+        id: "faq:game-modes",
+        type: "faq",
+        section: "faq",
+        name: "Game modes: ranked, lobbies with friends, sandbox",
+        nameRu: "Режимы игры: рейтинг, лобби с друзьями, песочница",
+        aliases: ["play with friends", "lobbies", "custom game", "private match", "game modes"],
+        href: "/play/",
+        hrefRu: "/ru/play/",
+        summary: `${playEn.modeBody} ${playEn.lobbiesHint}`,
+        summaryRu: `${playRu.modeBody} ${playRu.lobbiesHint}`,
+        text: bullet([
+            `Ranked: ${playEn.rankedHint.toLowerCase()} — rating, leagues, seasons and prizes apply. Open it from the Play page (/play/ranked/).`,
+            `Lobbies (play with friends): ${playEn.lobbiesHint} Lobby matches are casual: they never move rating and leaving one costs no penalties or queue time. Open lobbies are listed on the Play page (/play/lobbies/).`,
+            `Sandbox beta: ${playEn.sandboxHint} Sandbox fights are yours alone and never touch the ladder.`,
+            "Games against the AI are casual too: they are excluded from the ranked ladder and from prizes.",
+            "Everything runs in a desktop browser with no download; sign in to play ranked or lobby matches.",
+        ]),
+        textRu: bullet([
+            `Рейтинг: ${playRu.rankedHint.toLowerCase()} — действуют рейтинг, лиги, сезоны и призы. Открывается со страницы «Играть» (/ru/play/ranked/).`,
+            `Лобби (игра с друзьями): ${playRu.lobbiesHint} Матчи в лобби — обычные: они не меняют рейтинг, а выход из них не влечёт штрафов и ожидания очереди. Открытые лобби перечислены на странице «Играть» (/ru/play/lobbies/).`,
+            `Песочница (бета): ${playRu.sandboxHint} Бои в песочнице никак не касаются рейтинговой таблицы.`,
+            "Игры против ИИ тоже обычные: они исключены из рейтинговой таблицы и призов.",
+            "Всё работает в браузере на компьютере без установки; для рейтинга и лобби нужно войти в аккаунт.",
+        ]),
+        tags: ["faq", "modes"],
+        keywords: [
+            "friend",
+            "friends",
+            "invite",
+            "private",
+            "custom",
+            "lobby",
+            "lobbies",
+            "multiplayer",
+            "modes",
+            "sandbox",
+            "vs ai",
+            "друг",
+            "друзья",
+            "лобби",
+            "приватный",
+            "режим",
+            "песочница",
+        ],
     });
 
     const token = content.en.token;
