@@ -15,6 +15,8 @@ export interface KnowledgeEntry {
     description: string;
     meta: string;
     image: string;
+    /** Set for creature entries, so the result row can compose a portrait instead of showing bare art. */
+    creatureSlug?: string;
     target: string;
     searchText: string;
 }
@@ -460,6 +462,7 @@ export function buildKnowledgeEntries(language: Language): KnowledgeEntry[] {
             description,
             meta: `${faction} · ${isRu ? "Ур." : "Lv."} ${unit.level}`,
             image: unit.icon,
+            creatureSlug: unit.slug,
             target: unit.name,
             searchText: `${unit.name} ${description} ${unit.faction} ${abilityNames} ${spellNames} ${unit.attackType} ${unit.movementType}`,
         };

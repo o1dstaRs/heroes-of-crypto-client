@@ -1,3 +1,4 @@
+import { portraitArtUrl } from "./portrait";
 import creaturesJson from "@heroesofcrypto/common/src/configuration/creatures.json";
 import abilitiesJson from "@heroesofcrypto/common/src/configuration/abilities.json";
 
@@ -308,6 +309,8 @@ export interface Unit {
     spells: string[];
     abilities: UnitAbility[];
     summonedOnly: boolean;
+    /** Identifies the creature to CreaturePortrait.astro and to the portrait recipe map. */
+    slug: string;
     portrait: string;
     icon: string;
 }
@@ -337,16 +340,15 @@ export const movementLabel = (t: string) => movementTypeLabel[t] ?? t;
 
 const summonedOnlyUnits = new Set(["Arachna Spider"]);
 
-// Public unit portraits are cached by nginx for a day. Bump only the portraits whose bytes change so
-// returning visitors receive the new art immediately without invalidating the entire unit catalogue.
-const portraitRevisions: Record<string, string> = {
-    Abomination: "d1342ae7",
-};
+/* Portrait files are named with a hash of their own bytes by site/scripts/sync_portrait_art.ts, so new
+   art arrives at a new URL and nginx's day-long cache can never serve a stale one. That replaced a
+   hand-maintained revision map, which only ever listed the one portrait somebody remembered to bump. */
 
 function buildUnit(faction: FactionName, raw: RawCreature): Unit {
     const base = slug(raw.name);
-    const revision = portraitRevisions[raw.name];
-    const portrait = `/assets/images/units/units/${base}_512.webp${revision ? `?v=${revision}` : ""}`;
+    /* The creature art on its own, for the handful of places that want a bare image. Anything showing a
+       creature to a reader renders <CreaturePortrait> instead, which composes the full portrait. */
+    const portrait = portraitArtUrl(base);
     const icon = portrait;
 
     const abilities: UnitAbility[] = raw.abilities.map((name) => ({
@@ -380,6 +382,7 @@ function buildUnit(faction: FactionName, raw: RawCreature): Unit {
         spells: raw.spells,
         abilities,
         summonedOnly: summonedOnlyUnits.has(raw.name),
+        slug: base,
         portrait,
         icon,
     };
@@ -411,6 +414,8 @@ export const abilityCount = new Set(allUnits.flatMap((u) => u.abilities.map((a) 
 export interface AbilityUnitRef {
     name: string;
     faction: FactionName;
+    /** Identifies the creature to the composed portrait; see lib/portrait. */
+    slug: string;
     icon: string;
     summonedOnly: boolean;
 }
@@ -475,6 +480,7 @@ export const abilities: Ability[] = (() => {
                 entry.units.push({
                     name: unit.name,
                     faction: unit.faction,
+                    slug: unit.slug,
                     icon: unit.icon,
                     summonedOnly: unit.summonedOnly,
                 });

@@ -61,6 +61,8 @@ interface RawSpell {
 export interface SpellCaster {
     name: string;
     faction: FactionName;
+    /** Identifies the creature to the composed portrait; see lib/portrait. */
+    slug: string;
     icon: string;
     /** How many scrolls of this spell the unit carries into a fight. */
     scrolls: number;
@@ -346,7 +348,7 @@ const castersBySpell = (() => {
         }
         for (const [key, scrolls] of counts) {
             const list = byKey.get(key) ?? [];
-            list.push({ name: unit.name, faction: unit.faction, icon: unit.icon, scrolls });
+            list.push({ name: unit.name, faction: unit.faction, slug: unit.slug, icon: unit.icon, scrolls });
             byKey.set(key, list);
         }
     }

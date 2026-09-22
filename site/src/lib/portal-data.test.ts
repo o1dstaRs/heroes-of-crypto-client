@@ -6,10 +6,12 @@ import { creatureById, factionById, streakLabel, timeAgo, winRateColor, winRateP
 
 describe("profile portal presentation", () => {
     test("resolves protobuf creature and faction ids to the live catalog assets", () => {
-        expect(creatureById(CreatureVals.BERSERKER)).toEqual({
-            name: "Berserker",
-            image: "/assets/images/units/units/berserker_512.webp",
-        });
+        // The art layer of the composed portrait, content-hashed by the sync script — so this asserts the
+        // shape and the slug, and that the file the catalogue points at is one the sync actually published.
+        const berserker = creatureById(CreatureVals.BERSERKER);
+        expect(berserker.name).toBe("Berserker");
+        expect(berserker.slug).toBe("berserker");
+        expect(berserker.image).toMatch(/^\/assets\/images\/units\/portraits\/berserker_512\.[0-9a-f]{8}\.webp$/);
         expect(factionById(FactionVals.MIGHT)).toEqual({
             name: "Might",
             image: "/assets/images/units/factions/might_128.webp",
@@ -20,6 +22,7 @@ describe("profile portal presentation", () => {
     test("keeps unknown server ids readable and uses safe fallback art", () => {
         expect(creatureById(999_999)).toEqual({
             name: "#999999",
+            slug: "unknown_creature",
             image: "/assets/images/units/units/unknown_creature_512.webp",
         });
         expect(factionById(999_999)).toEqual({

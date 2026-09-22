@@ -1,4 +1,5 @@
 ---
+import { portraitMarkup } from "../lib/portrait";
 import { artifacts } from "../lib/artifacts-data";
 import { knowledgePath } from "../lib/knowledge-base";
 import { allUnits } from "../lib/units-data";
@@ -53,9 +54,11 @@ const unitsHref = knowledgePath(lang, { section: "units" });
 const artifactsHref = knowledgePath(lang, { section: "artifacts" });
 
 const nameKey = (name: string): string => name.toLowerCase().replace(/[^a-z0-9]/g, "");
+/* Creatures ship their composed portrait as markup, not an art URL: a bare <img> here would show a
+   different picture from the one the game and the rest of the site show. Artifacts stay plain icons. */
 const unitIcons: Record<string, string> = {};
 for (const unit of allUnits) {
-    unitIcons[nameKey(unit.name)] = unit.icon;
+    unitIcons[nameKey(unit.name)] = portraitMarkup(unit.slug, unit.name, { className: "meta-row__portrait" });
 }
 const artifactIcons: Record<string, string> = {};
 for (const artifact of artifacts) {
@@ -135,9 +138,14 @@ const serializedIcons = JSON.stringify({ units: unitIcons, artifacts: artifactIc
             item.dataset.trend = trend(winRatePct);
             const iconWrap = document.createElement("span");
             iconWrap.className = "meta-row__icons";
-            for (const src of iconSrcs.filter(Boolean).slice(0, 3)) {
+            for (const icon of iconSrcs.filter(Boolean).slice(0, 3)) {
+                // A creature arrives as composed-portrait markup; an artifact as a bare image URL.
+                if (icon.startsWith("<")) {
+                    iconWrap.insertAdjacentHTML("beforeend", icon);
+                    continue;
+                }
                 const img = document.createElement("img");
-                img.src = src;
+                img.src = icon;
                 img.alt = "";
                 img.loading = "lazy";
                 iconWrap.appendChild(img);
@@ -312,16 +320,20 @@ const serializedIcons = JSON.stringify({ units: unitIcons, artifacts: artifactIc
         display: flex;
     }
 
-    .meta-snapshot :global(.meta-row__icons img) {
+    /* A row mixes the two: creatures as composed portraits, artifacts as plain icons. Both wear the same
+       circle, and any tile after the first slides under the one before it into a single stack. */
+    .meta-snapshot :global(.meta-row__icons > img),
+    .meta-snapshot :global(.meta-row__portrait) {
+        flex: 0 0 auto;
         width: 30px;
         height: 30px;
         border-radius: 50%;
-        object-fit: cover;
         border: 2px solid rgba(220, 177, 88, 0.45);
         background: #14181f;
     }
 
-    .meta-snapshot :global(.meta-row__icons img + img) {
+    .meta-snapshot :global(.meta-row__icons > img):not(:first-child),
+    .meta-snapshot :global(.meta-row__portrait):not(:first-child) {
         margin-left: -10px;
     }
 

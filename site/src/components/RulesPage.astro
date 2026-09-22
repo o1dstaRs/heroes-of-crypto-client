@@ -1,4 +1,5 @@
 ---
+import CreaturePortrait from "./CreaturePortrait.astro";
 import {
     ArmorAugment,
     DefaultPlacementLevel1,
@@ -1027,7 +1028,7 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
                             style={`--faction: ${factionColors[unit.faction]}`}
                             aria-label={`${unit.name}, ${factionLabel(unit.faction)}`}
                         >
-                            <img src={unit.icon} alt="" width="512" height="512" loading="eager" />
+                            <CreaturePortrait slug={unit.slug} name="" eager />
                             <span>{unit.name}</span>
                         </a>
                     ))
@@ -1200,7 +1201,7 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
                             class="rules-example-unit"
                             style={`--faction: ${factionColors[unit.faction]}`}
                         >
-                            <img src={unit.icon} alt="" width="512" height="512" loading="lazy" />
+                            <CreaturePortrait slug={unit.slug} name="" />
                             <span>
                                 <strong>{unit.name}</strong>
                                 <em>
@@ -1615,11 +1616,10 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
             #090b0d;
     }
 
-    .rules-hero-unit img {
+    /* The composed portrait owns its own fit and crop, so the tile only sets the shape it fills. */
+    .rules-hero-unit :global(.portrait) {
         width: 100%;
         aspect-ratio: 1 / 1;
-        object-fit: cover;
-        object-position: center 18%;
     }
 
     .rules-hero-unit span {
@@ -2423,14 +2423,11 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
         isolation: isolate;
     }
 
-    .rules-example-unit img {
+    /* Here the portrait is the card's backdrop, sitting behind the copy rather than beside it. */
+    .rules-example-unit :global(.portrait) {
         position: absolute;
         z-index: -1;
         inset: 0;
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        object-position: center 16%;
         opacity: 0.86;
     }
 
@@ -2750,7 +2747,7 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
             align-items: center;
         }
 
-        .rules-hero-unit img {
+        .rules-hero-unit :global(.portrait) {
             width: 72px;
             height: 72px;
         }

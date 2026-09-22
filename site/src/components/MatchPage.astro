@@ -1,4 +1,5 @@
 ---
+import { portraitMarkup } from "../lib/portrait";
 import type { Language } from "../lib/site-data";
 
 interface Props {
@@ -379,7 +380,9 @@ const copy = isRu
                   .map((entry) => {
                       const creature = creatureById(entry.creatureId);
                       const width = Math.max(3, (entry.damageDealt / highest) * 100);
-                      return `<div class="damage-row"><img src="${escapeHtml(creature.image)}" alt="" width="46" height="46" /><span class="damage-unit"><strong>${escapeHtml(creature.name)}</strong><span class="damage-track"><i style="width:${width}%"></i></span></span><b>${numberFormatter.format(entry.damageDealt)}</b></div>`;
+                      return `<div class="damage-row">${portraitMarkup(creature.slug, "", {
+                          className: "damage-portrait",
+                      })}<span class="damage-unit"><strong>${escapeHtml(creature.name)}</strong><span class="damage-track"><i style="width:${width}%"></i></span></span><b>${numberFormatter.format(entry.damageDealt)}</b></div>`;
                   })
                   .join("")
             : `<p class="empty-copy">${escapeHtml(text("noDamage"))}</p>`;
@@ -932,10 +935,14 @@ const copy = isRu
         padding: 0.45rem 0;
     }
 
-    .match-page :global(.damage-row img) {
+    /* The damage row's creature is a composed portrait now, so it carries its own box; the art inside
+       owns its fit and must not be given one here. */
+    .match-page :global(.damage-portrait) {
+        flex: 0 0 auto;
+        width: 46px;
+        height: 46px;
         border: 1px solid rgba(202, 154, 80, 0.25);
         border-radius: 4px;
-        object-fit: cover;
         background: #090806;
     }
 

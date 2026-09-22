@@ -217,6 +217,7 @@ const reputationHref = reputationRulesPath(lang);
         type RankedProfileMatch,
     } from "../lib/ranked-profile-client";
     import { rankedExitLabel } from "../lib/ranked-exit";
+    import { portraitMarkup } from "../lib/portrait";
     import { creatureById, timeAgo, winRateColor, winRatePct } from "../lib/portal-data";
     import {
         fetchSeasonCurrencyCatalog,
@@ -448,12 +449,12 @@ const reputationHref = reputationRulesPath(lang);
     // "icon · name · games · win-rate bar · %" — a flat hairline-separated row rather than a boxed card,
     // so a long list reads as one scannable column. The bar takes the leftover width instead of sitting at a
     // fixed 160px, which is what stops a gap opening between the name and the figures on a wide screen.
-    function barRow(image: string, name: string, wins: number, games: number): string {
+    function barRow(icon: string, name: string, wins: number, games: number): string {
         const pct = winRatePct(wins, games);
         const color = winRateColor(pct);
         return `
             <div class="bar-row">
-                <img class="bar-icon" src="${image}" alt="" width="36" height="36" loading="lazy" ${imgFallback} />
+                ${icon}
                 <span class="bar-name">${escapeHtml(name)}</span>
                 <span class="bar-metrics">
                     <span class="bar-games">${gamesLabelFor(games)}</span>
@@ -465,7 +466,7 @@ const reputationHref = reputationRulesPath(lang);
 
     function creatureRow(id: number, wins: number, games: number): string {
         const c = creatureById(id);
-        return barRow(c.image, c.name, wins, games);
+        return barRow(portraitMarkup(c.slug, "", { className: "bar-icon" }), c.name, wins, games);
     }
 
     /** "Orc + Nomad + Hyena" — the arena's lineup label: unique creatures, in the order they were picked. */
@@ -487,9 +488,7 @@ const reputationHref = reputationRulesPath(lang);
                 // line-up. The overlap stays small because a covered portrait is reduced to its left-hand
                 // strip and a creature is framed centrally.
                 const covered = index === 0 ? "" : " combo-icon--covered";
-                return `<img class="combo-icon${covered}" src="${c.image}" alt="${escapeHtml(c.name)}" title="${escapeHtml(
-                    c.name,
-                )}" width="54" height="54" loading="lazy" ${imgFallback} />`;
+                return portraitMarkup(c.slug, c.name, { className: `combo-icon${covered}`, title: c.name });
             })
             .join("");
         const tone = pct >= 55 ? " combo-row--strong" : pct <= 45 ? " combo-row--weak" : "";
@@ -616,7 +615,10 @@ const reputationHref = reputationRulesPath(lang);
         const icons = ids
             .map((id) => {
                 const creature = creatureById(id);
-                return `<img class="match-roster-icon" src="${escapeHtml(creature.image)}" alt="${escapeHtml(creature.name)}" title="${escapeHtml(creature.name)}" width="32" height="32" loading="lazy" ${imgFallback} />`;
+                return portraitMarkup(creature.slug, creature.name, {
+                    className: "match-roster-icon",
+                    title: creature.name,
+                });
             })
             .join("");
         return `<section class="match-roster"><h4>${escapeHtml(label)}</h4><div>${icons || `<span class="match-unavailable">${escapeHtml(copy.matchNotRecorded)}</span>`}</div></section>`;
@@ -635,7 +637,9 @@ const reputationHref = reputationRulesPath(lang);
             .sort((a, b) => b.damageDealt - a.damageDealt)
             .map((performance) => {
                 const creature = creatureById(performance.creatureId);
-                return `<div class="match-performance-row"><img src="${escapeHtml(creature.image)}" alt="" width="32" height="32" loading="lazy" ${imgFallback} /><span>${escapeHtml(creature.name)}</span><strong>${escapeHtml(formatDamage(performance.damageDealt))}</strong></div>`;
+                return `<div class="match-performance-row">${portraitMarkup(creature.slug, "", {
+                    className: "match-performance-icon",
+                })}<span>${escapeHtml(creature.name)}</span><strong>${escapeHtml(formatDamage(performance.damageDealt))}</strong></div>`;
             })
             .join("");
         return `<section class="match-performance"><h4>${escapeHtml(label)}</h4>${rows || `<p>${escapeHtml(copy.matchNoDamage)}</p>`}</section>`;
@@ -923,7 +927,7 @@ const reputationHref = reputationRulesPath(lang);
 
     interface StrategyArtwork {
         alt: string;
-        src: string;
+        slug: string;
     }
 
     function strategyCard(
@@ -937,10 +941,7 @@ const reputationHref = reputationRulesPath(lang);
         const color = winRateColor(winRate);
         const images = artwork.length
             ? artwork
-                  .map(
-                      (item) =>
-                          `<img src="${escapeHtml(item.src)}" alt="${escapeHtml(item.alt)}" width="54" height="54" loading="lazy" ${imgFallback} />`,
-                  )
+                  .map((item) => portraitMarkup(item.slug, item.alt, { className: "strategy-icon" }))
                   .join("")
             : `<span class="strategy-artwork__fallback" aria-hidden="true">${escapeHtml(badge ?? "?")}</span>`;
         return `
@@ -958,7 +959,7 @@ const reputationHref = reputationRulesPath(lang);
     function creatureArtwork(creatureIds: number[]): StrategyArtwork[] {
         return creatureIds.map((id) => {
             const creature = creatureById(id);
-            return { src: creature.image, alt: creature.name };
+            return { slug: creature.slug, alt: creature.name };
         });
     }
 
@@ -2874,12 +2875,16 @@ const reputationHref = reputationRulesPath(lang);
         background: rgba(220, 177, 88, 0.045);
     }
 
+    /* These tiles hold a composed portrait now, so they carry their own size: the art inside owns its
+       fit and crop, and nothing here may set object-fit on it. */
     .profile-page :global(.bar-icon),
     .profile-page :global(.match-icon) {
+        flex: 0 0 auto;
+        width: 36px;
+        height: 36px;
         border-radius: 7px;
         background: rgba(0, 0, 0, 0.35);
         border: 1px solid rgba(220, 177, 88, 0.32);
-        object-fit: cover;
     }
 
     .profile-page :global(.bar-name) {
@@ -2968,12 +2973,12 @@ const reputationHref = reputationRulesPath(lang);
     }
 
     .profile-page :global(.combo-icon) {
+        flex: 0 0 auto;
         width: 54px;
         height: 54px;
         border-radius: 7px;
         background: rgba(0, 0, 0, 0.35);
         border: 1px solid rgba(220, 177, 88, 0.32);
-        object-fit: cover;
     }
 
     /* 10 of 54px: enough to bind the portraits into one line-up, small enough that a covered creature keeps
@@ -3451,7 +3456,7 @@ const reputationHref = reputationRulesPath(lang);
         min-width: 54px;
     }
 
-    .playstyle :global(.strategy-artwork img),
+    .playstyle :global(.strategy-icon),
     .playstyle :global(.strategy-artwork__fallback) {
         display: grid;
         place-items: center;
@@ -3461,14 +3466,13 @@ const reputationHref = reputationRulesPath(lang);
         border: 1px solid rgba(220, 177, 88, 0.2);
         border-radius: 7px;
         background: linear-gradient(145deg, rgba(62, 37, 18, 0.8), rgba(8, 5, 3, 0.94));
-        object-fit: cover;
     }
 
     /* Overlap enough that a trio reads as one line-up, but no further: each portrait is painted over by
        the next, so all but the last survive only as their left-hand strip — mostly backdrop on a
        centrally framed portrait. At -24px of a 54px tile the middle creature was unidentifiable, which
        is the same bound the in-client portal keeps (PLAYER_PORTAL_STRATEGY_TILE_OVERLAP). */
-    .playstyle :global(.strategy-artwork img + img) {
+    .playstyle :global(.strategy-icon + .strategy-icon) {
         margin-left: -10px;
         box-shadow: -4px 0 10px rgba(0, 0, 0, 0.58);
     }
@@ -3525,7 +3529,7 @@ const reputationHref = reputationRulesPath(lang);
             padding-right: 8px;
         }
 
-        .playstyle :global(.strategy-artwork img),
+        .playstyle :global(.strategy-icon),
         .playstyle :global(.strategy-artwork__fallback) {
             width: 46px;
             height: 46px;
@@ -3536,7 +3540,7 @@ const reputationHref = reputationRulesPath(lang);
             min-width: 46px;
         }
 
-        .playstyle :global(.strategy-artwork img + img) {
+        .playstyle :global(.strategy-icon + .strategy-icon) {
             margin-left: -9px;
         }
     }
@@ -3780,11 +3784,13 @@ const reputationHref = reputationRulesPath(lang);
     }
 
     .profile-page :global(.match-roster-icon),
-    .profile-page :global(.match-performance-row img) {
+    .profile-page :global(.match-performance-icon) {
+        flex: 0 0 auto;
+        width: 32px;
+        height: 32px;
         border: 1px solid rgba(220, 177, 88, 0.34);
         border-radius: 6px;
         background: rgba(0, 0, 0, 0.3);
-        object-fit: cover;
     }
 
     .profile-page :global(.match-details-panel) {
