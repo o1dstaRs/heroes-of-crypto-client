@@ -85,7 +85,7 @@ describe("knowledge graph builder", () => {
     });
 
     test("status effects link back from the abilities that apply them", () => {
-        expect(byId.get("effect:stun")?.text).toContain("Applied by:");
+        expect(byId.get("effect:stun")?.text).toMatch(/Applied by: Stun \([^)]*Squire[^)]*\)/);
         expect(
             graph.edges.some(
                 (edge) => edge.from === "ability:stun" && edge.to === "effect:stun" && edge.rel === "APPLIES",

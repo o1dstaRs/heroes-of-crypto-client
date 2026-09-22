@@ -2527,8 +2527,14 @@ const aiCopy = {
     }
 
     @media (max-width: 760px) {
+        /* The field and the switch share the first line; the ask button takes a full line under them.
+           Without the wrap the button shared the line and pushed the input down to an icon. */
+        .kb-search-controls {
+            flex-wrap: wrap;
+        }
+
         .kb-ai-ask {
-            width: 100%;
+            flex: 1 0 100%;
             min-height: 48px;
         }
 

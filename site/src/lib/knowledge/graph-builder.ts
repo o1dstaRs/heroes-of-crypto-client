@@ -920,6 +920,17 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
                     abilityNames.has(entry.name),
             )
             .map((entry) => entry.name);
+        // "Applied by: Stun (Orc, Squire)" — the carrier is the thing a player can actually draft, so it
+        // travels with the ability instead of needing a second lookup.
+        const carriersOf = (abilityName: string): string =>
+            abilities
+                .find((ability) => ability.name === abilityName)
+                ?.units.map((unit) => unit.name)
+                .join(", ") ?? "";
+        const applierLines = appliers.map((abilityName) => {
+            const carriers = carriersOf(abilityName);
+            return carriers ? `${abilityName} (${carriers})` : abilityName;
+        });
         // The card a player should land on: the ability of the same name, else the one ability that
         // applies the effect, else a search for it in the abilities tab.
         const linkedAbility = abilityNames.has(name)
@@ -945,16 +956,16 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
                 `**${name}** is a status effect applied by abilities.`,
                 description,
                 `Duration: ${raw.laps} lap(s).`,
-                appliers.length
-                    ? `Applied by: ${appliers.join(", ")}.`
+                applierLines.length
+                    ? `Applied by: ${applierLines.join(", ")}.`
                     : "Applied by the game (artifacts, synergies or terrain).",
             ].join("\n\n"),
             textRu: [
                 `**${name}** — эффект-состояние, который накладывают способности.`,
                 description,
                 `Длительность: ${raw.laps} круг(а).`,
-                appliers.length
-                    ? `Накладывается: ${appliers.join(", ")}.`
+                applierLines.length
+                    ? `Накладывается: ${applierLines.join(", ")}.`
                     : "Накладывается игрой (артефакты, синергии или местность).",
             ].join("\n\n"),
             tags: ["effect", "status"],
