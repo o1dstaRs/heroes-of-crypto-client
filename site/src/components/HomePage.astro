@@ -7,6 +7,9 @@ import { abilityCount, factionColors, factionUnits, unitCount } from "../lib/uni
 import HeroLeaderboard from "./HeroLeaderboard.astro";
 import MetaSnapshot from "./MetaSnapshot.astro";
 import RankedArena from "./RankedArena.astro";
+import SwordFire from "./SwordFire.astro";
+import AxeGlow from "./AxeGlow.astro";
+import PlumeWind from "./PlumeWind.astro";
 
 interface Props {
     lang: Language;
@@ -52,6 +55,8 @@ const featureCards = copy.features.items.map((item, index) => ({
     ...item,
     visual: featureVisuals[index] ?? featureVisuals[0],
 }));
+const heroPitchLines =
+    lang === "en" ? copy.hero.pitch.replace(" single‑session", "|single‑session").split("|") : [copy.hero.pitch];
 const rulesHref = knowledgePath(lang, { section: "rules" });
 const playHref = lang === "ru" ? "/ru/play/" : links.play;
 const factionLabel = (faction: string) => localizedFactionName(lang, faction);
@@ -60,61 +65,80 @@ const factionLabel = (faction: string) => localizedFactionName(lang, faction);
 <section class="hero">
     <img
         class="hero-bg"
-        src="/assets/images/background_dark_old.webp"
+        src="/assets/images/home/hero/generated/crusader_berserker_legs_redrawn_20260922.webp"
         alt=""
-        width="1024"
-        height="1024"
+        width="1750"
+        height="899"
         fetchpriority="high"
     />
+    <SwordFire />
+    <AxeGlow />
+    <PlumeWind />
     <div class="hero-shade"></div>
     <div class="hero-grid page-shell">
         <div class="hero-content">
-            <h1 class="hero-logo">
-                <img
-                    src="/assets/images/home/logo/logo_forged.webp"
-                    alt={copy.hero.title}
-                    width="674"
-                    height="484"
-                    fetchpriority="high"
-                />
-                <span class="sr-only">{copy.hero.title}</span>
-            </h1>
-            <p class="hero-tagline">{copy.hero.pitch}</p>
-            <ul class="hero-claims">
-                {copy.hero.claims.map((claim) => <li>{claim}</li>)}
-            </ul>
-            <div class="hero-actions">
-                <a class="button hero-play" href={playHref}>
-                    <img src="/assets/icons/navbar/joystick.svg" alt="" width="22" height="22" />
-                    {copy.hero.primaryCta}
-                </a>
+            <div class="hero-brand-shell">
+                <div class="hero-brand-block">
+                    <h1 class="hero-logo">
+                        <img
+                            src="/assets/images/home/logo/logo_forged.webp"
+                            alt={copy.hero.title}
+                            width="1477"
+                            height="705"
+                            fetchpriority="high"
+                        />
+                        <span class="sr-only">{copy.hero.title}</span>
+                    </h1>
+                    <ul class="hero-stats" aria-label={homeLabels.gameStats}>
+                        {
+                            heroStats.map((stat) => (
+                                <li>
+                                    <strong>{stat.value}</strong>
+                                    <span>{stat.label}</span>
+                                </li>
+                            ))
+                        }
+                    </ul>
+                </div>
             </div>
-            <ul class="hero-stats" aria-label={homeLabels.gameStats}>
-                {
-                    heroStats.map((stat) => (
-                        <li>
-                            <strong>{stat.value}</strong>
-                            <span>{stat.label}</span>
-                        </li>
-                    ))
-                }
-            </ul>
+            <div class="hero-message-shell">
+                <div class="hero-message-block">
+                    <div class="hero-actions">
+                        <a class="button hero-play" href={playHref} aria-label={copy.hero.primaryCta}>
+                            <img
+                                class="hero-play-art"
+                                src="/assets/images/ui/play_now_button_rounded_selected.png"
+                                alt=""
+                                width="1250"
+                                height="308"
+                                aria-hidden="true"
+                            />
+                            <span>{copy.hero.primaryCta}</span>
+                        </a>
+                    </div>
+                    <!-- Reserve the original text height to keep the logo and CTA in place. -->
+                    <p class="hero-tagline hero-tagline-spacer" aria-hidden="true">{copy.hero.pitch}</p>
+                </div>
+            </div>
+            <div class="hero-bottom-copy">
+                <ul class="hero-claims hero-claims-bottom">
+                    {copy.hero.claims.map((claim) => <li>{claim}</li>)}
+                </ul>
+            </div>
         </div>
     </div>
 </section>
 
-<section class="section hero-ladder-band">
-    <div class="page-shell">
-        <HeroLeaderboard lang={lang} topN={10} />
+<section class="feature-section hero-intro-section" id="features">
+    <div class="hero-pitch-band">
+        <div class="page-shell">
+            <p class="hero-tagline hero-tagline-bottom">
+                {heroPitchLines.map((line) => <span>{line}</span>)}
+            </p>
+        </div>
     </div>
-</section>
 
-<RankedArena lang={lang} />
-
-<MetaSnapshot lang={lang} />
-
-<section class="section feature-section" id="features">
-    <div class="page-shell">
+    <div class="page-shell hero-feature-content">
         <div class="section-heading centered">
             <p class="eyebrow">{copy.features.eyebrow}</p>
             <h2>{copy.features.title}</h2>
@@ -182,6 +206,16 @@ const factionLabel = (faction: string) => localizedFactionName(lang, faction);
         </div>
     </div>
 </section>
+
+<section class="section hero-ladder-band">
+    <div class="page-shell">
+        <HeroLeaderboard lang={lang} topN={10} />
+    </div>
+</section>
+
+<RankedArena lang={lang} />
+
+<MetaSnapshot lang={lang} />
 
 <section class="section token-preview">
     <div class="page-shell">

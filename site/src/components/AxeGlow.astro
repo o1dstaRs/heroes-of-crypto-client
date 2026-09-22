@@ -1,0 +1,127 @@
+<axe-glow aria-hidden="true">
+    <canvas width="98" height="175"></canvas>
+</axe-glow>
+
+<style>
+    axe-glow {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        pointer-events: none;
+    }
+
+    canvas {
+        position: absolute;
+        display: none;
+        mix-blend-mode: screen;
+        opacity: 0.95;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        canvas {
+            display: none !important;
+        }
+    }
+
+    @media (min-width: 1081px) {
+        axe-glow {
+            top: -68px;
+        }
+    }
+</style>
+
+<script>
+    class AxeGlow extends HTMLElement {
+        private dispose?: () => void;
+
+        connectedCallback() {
+            const canvas = this.querySelector("canvas");
+            const background = this.parentElement?.querySelector<HTMLImageElement>(".hero-bg");
+            const context = canvas?.getContext("2d");
+            if (!canvas || !background || !context || this.dispose) return;
+
+            const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+            const atlas = new Image();
+            let loaded = false;
+            let visible = false;
+            let frameRequest = 0;
+            let phase = 0;
+            let lastTime = 0;
+            let disposed = false;
+
+            const layout = () => {
+                const imageBox = background.getBoundingClientRect();
+                const box = this.getBoundingClientRect();
+                const scale = Math.max(imageBox.width / 768, imageBox.height / 394.6);
+                const position = getComputedStyle(background).objectPosition.split(" ").map(parseFloat);
+                canvas.style.width = `${98 * scale}px`;
+                canvas.style.height = `${175 * scale}px`;
+                canvas.style.left = `${imageBox.left - box.left + (imageBox.width - 768 * scale) * position[0] / 100 + 670 * scale}px`;
+                canvas.style.top = `${imageBox.top - box.top + (imageBox.height - 394.6 * scale) * position[1] / 100}px`;
+            };
+
+            const draw = (time: number) => {
+                frameRequest = 0;
+                if (!loaded || !visible || document.hidden || reducedMotion.matches || disposed) return;
+                if (lastTime) phase = (phase + Math.min(time - lastTime, 80) * 24 / 1000) % 144;
+                lastTime = time;
+                const frame = Math.floor(phase);
+                const mix = phase - frame;
+                context.clearRect(0, 0, 98, 175);
+                // Extracted 24 fps video emission; blend adjacent frames without moving the static blade.
+                context.globalCompositeOperation = "lighter";
+                for (const [index, weight] of [[frame, 1 - mix], [(frame + 1) % 144, mix]]) {
+                    context.globalAlpha = weight;
+                    context.drawImage(atlas, (index % 12) * 98, Math.floor(index / 12) * 175, 98, 175, 0, 0, 98, 175);
+                }
+                context.globalAlpha = 1;
+                canvas.style.display = "block";
+                this.dataset.frame = String(frame);
+                frameRequest = requestAnimationFrame(draw);
+            };
+
+            const sync = () => {
+                cancelAnimationFrame(frameRequest);
+                lastTime = 0;
+                if (reducedMotion.matches) canvas.style.display = "none";
+                if (loaded && visible && !document.hidden && !reducedMotion.matches) frameRequest = requestAnimationFrame(draw);
+            };
+            const resize = new ResizeObserver(layout);
+            resize.observe(background);
+            const intersection = new IntersectionObserver(([entry]) => {
+                visible = entry.isIntersecting;
+                sync();
+            });
+            intersection.observe(this);
+            document.addEventListener("visibilitychange", sync);
+            reducedMotion.addEventListener("change", sync);
+            atlas.onload = () => {
+                if (disposed) return;
+                loaded = true;
+                layout();
+                sync();
+            };
+            if (!reducedMotion.matches) atlas.src = "/assets/images/home/hero/generated/axe-red-glow-atlas.webp";
+            const loadOnMotionChange = () => {
+                if (!reducedMotion.matches && !atlas.src) atlas.src = "/assets/images/home/hero/generated/axe-red-glow-atlas.webp";
+            };
+            reducedMotion.addEventListener("change", loadOnMotionChange);
+            this.dispose = () => {
+                disposed = true;
+                cancelAnimationFrame(frameRequest);
+                resize.disconnect();
+                intersection.disconnect();
+                document.removeEventListener("visibilitychange", sync);
+                reducedMotion.removeEventListener("change", sync);
+                reducedMotion.removeEventListener("change", loadOnMotionChange);
+            };
+        }
+
+        disconnectedCallback() {
+            this.dispose?.();
+            this.dispose = undefined;
+        }
+    }
+
+    if (!customElements.get("axe-glow")) customElements.define("axe-glow", AxeGlow);
+</script>
