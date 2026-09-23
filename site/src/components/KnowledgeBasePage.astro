@@ -7,6 +7,7 @@ import RulesPage from "./RulesPage.astro";
 import SpellsPage from "./SpellsPage.astro";
 import UnitsPage from "./UnitsPage.astro";
 import { artifactsCount } from "../lib/artifacts-data";
+import { KNOWLEDGE_AI_PANEL_COPY } from "../lib/knowledge-ai-copy";
 import {
     buildKnowledgeEntries,
     knowledgeEntryId,
@@ -32,8 +33,6 @@ const copy = isRu
     ? {
           eyebrow: "Единый справочник игрока",
           title: "База знаний",
-          description:
-              "Правила, юниты, способности, заклинания и артефакты — в одном месте с быстрым поиском и прямыми ссылками.",
           searchLabel: "Поиск по базе знаний",
           searchPlaceholder: "Например: мораль, огонь, дракон, воскрешение...",
           searchHint: "Нажмите /, чтобы начать поиск. Можно вводить несколько слов в любом порядке.",
@@ -41,25 +40,7 @@ const copy = isRu
           aiSearchDescription: "Понимает смысл запроса и близкие игровые термины",
           aiAsk: "Спросить ИИ",
           aiPromptLead: "Спросить ИИ:",
-          aiAnswerTitle: "Ответ ИИ",
           aiHintOn: "Нажмите Enter, чтобы задать вопрос ИИ. Обычные результаты остаются ниже.",
-          aiThinking: "Ищу ответ в базе знаний…",
-          aiSearching: "Ищу",
-          aiReading: "Читаю",
-          aiListing: "Собираю список",
-          aiAnswering: "Отвечаю…",
-          aiDone: "Готово",
-          aiCached: "Готово · из кеша",
-          aiStopped: "Остановлено",
-          aiStop: "Остановить",
-          aiSources: "Источники",
-          aiDisclaimer:
-              "Ответ составлен ИИ по правилам и данным игры и всё же может содержать ошибки — проверяйте по ссылкам.",
-          aiErrorGeneric: "ИИ-помощник сейчас недоступен. Обычный поиск ниже работает как обычно.",
-          aiErrorRate: "Слишком много вопросов подряд. Попробуйте снова через {seconds} с.",
-          aiErrorBusy: "ИИ-помощник занят другими вопросами. Попробуйте через несколько секунд.",
-          aiErrorBudget: "Дневной лимит вопросов к ИИ исчерпан. Обычный поиск ниже работает.",
-          aiErrorLong: "Вопрос слишком длинный. Сократите его до нескольких предложений.",
           clear: "Очистить поиск",
           overview: "Обзор",
           rules: "Правила",
@@ -67,9 +48,6 @@ const copy = isRu
           abilities: "Способности",
           spells: "Заклинания",
           artifacts: "Артефакты",
-          indexed: "материалов в поиске",
-          sections: "разделов",
-          liveData: "единый справочник",
           browseTitle: "Выберите раздел",
           browseBody:
               "Начните с полного руководства или откройте каталог. Внутри каждого каталога есть дополнительные фильтры и подробные карточки.",
@@ -104,8 +82,6 @@ const copy = isRu
     : {
           eyebrow: "Unified player reference",
           title: "Knowledge Base",
-          description:
-              "Rules, units, abilities, spells, and artifacts in one searchable home with direct links to every detail.",
           searchLabel: "Search the Knowledge Base",
           searchPlaceholder: "Try morale, fire, dragon, resurrection...",
           searchHint: "Press / to search. Use several words in any order to narrow the results.",
@@ -113,25 +89,7 @@ const copy = isRu
           aiSearchDescription: "Understands intent and related game terms",
           aiAsk: "Ask AI",
           aiPromptLead: "Ask the AI:",
-          aiAnswerTitle: "AI answer",
           aiHintOn: "Press Enter to ask the AI a question. The regular results stay below.",
-          aiThinking: "Searching the knowledge base…",
-          aiSearching: "Searching",
-          aiReading: "Reading",
-          aiListing: "Listing",
-          aiAnswering: "Answering…",
-          aiDone: "Done",
-          aiCached: "Done · cached",
-          aiStopped: "Stopped",
-          aiStop: "Stop",
-          aiSources: "Sources",
-          aiDisclaimer:
-              "Written by an AI from the game's own rules and data; it can still make mistakes — follow the links to verify.",
-          aiErrorGeneric: "The AI assistant is unavailable right now. The regular search below still works.",
-          aiErrorRate: "Too many questions in a row. Try again in {seconds} s.",
-          aiErrorBusy: "The AI assistant is busy with other questions. Try again in a few seconds.",
-          aiErrorBudget: "The AI assistant has reached today's question limit. The regular search below still works.",
-          aiErrorLong: "That question is too long. Keep it to a few sentences.",
           clear: "Clear search",
           overview: "Overview",
           rules: "Rules",
@@ -139,9 +97,6 @@ const copy = isRu
           abilities: "Abilities",
           spells: "Spells",
           artifacts: "Artifacts",
-          indexed: "searchable references",
-          sections: "sections",
-          liveData: "one source of truth",
           browseTitle: "Choose a section",
           browseBody:
               "Start with the complete guide or open a catalog. Each catalog adds focused filters and descriptive detail cards.",
@@ -199,20 +154,9 @@ const aiCopy = {
     promptLead: copy.aiPromptLead,
     hintOn: copy.aiHintOn,
     hintOff: copy.searchHint,
-    thinking: copy.aiThinking,
-    searching: copy.aiSearching,
-    reading: copy.aiReading,
-    listing: copy.aiListing,
-    answering: copy.aiAnswering,
-    done: copy.aiDone,
-    cached: copy.aiCached,
-    stopped: copy.aiStopped,
-    errorGeneric: copy.aiErrorGeneric,
-    errorRate: copy.aiErrorRate,
-    errorBusy: copy.aiErrorBusy,
-    errorBudget: copy.aiErrorBudget,
-    errorLong: copy.aiErrorLong,
 };
+// The answer panel starts in the page's language and follows the answer's (knowledge-ai-copy.ts).
+const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
 ---
 
 <div
@@ -223,27 +167,11 @@ const aiCopy = {
 >
     <a class="kb-skip-link" href="#kb-search">{copy.searchLabel}</a>
 
-    <header class="kb-hero">
-        <div class="kb-hero-image" aria-hidden="true"></div>
-        <div class="page-shell kb-hero-shell">
-            <div class="kb-hero-copy">
-                <p class="eyebrow">{copy.eyebrow}</p>
-                <h1>{copy.title}</h1>
-                <p>{copy.description}</p>
-            </div>
-            <dl class="kb-hero-stats" aria-label={isRu ? "Содержание базы знаний" : "Knowledge Base contents"}>
-                <div><dt>{copy.indexed}</dt><dd>{totalCount}</dd></div>
-                <div><dt>{copy.sections}</dt><dd>5</dd></div>
-                <div><dt>{copy.liveData}</dt><dd><span aria-hidden="true">✓</span><span class="sr-only">{isRu ? "Да" : "Yes"}</span></dd></div>
-            </dl>
-        </div>
-    </header>
-
-    <div class="page-shell kb-search-shell">
+    <div class="page-shell kb-search-shell" data-kb-search-shell>
         <section class="kb-search-card" id="kb-search" aria-labelledby="kb-search-label">
             <div class="kb-search-main">
                 <div class="kb-search-heading">
-                    <label id="kb-search-label" for="kb-search-input">{copy.searchLabel}</label>
+                    <h1 id="kb-search-label" class="kb-title">{copy.title}</h1>
                     <p id="kb-search-hint" class="kb-search-hint">{copy.searchHint}</p>
                 </div>
                 <div class="kb-search-controls">
@@ -258,6 +186,7 @@ const aiCopy = {
                             type="search"
                             autocomplete="off"
                             placeholder={copy.searchPlaceholder}
+                            aria-label={copy.searchLabel}
                             aria-describedby="kb-search-hint kb-search-status"
                         />
                         <button class="kb-search-clear" data-kb-clear type="button" aria-label={copy.clear} hidden>×</button>
@@ -292,25 +221,26 @@ const aiCopy = {
             class="kb-ai-panel"
             data-kb-ai-panel
             data-kb-ai-copy={JSON.stringify(aiCopy)}
+            lang={lang}
             aria-labelledby="kb-ai-title"
             hidden
         >
             <header class="kb-ai-panel-head">
                 <h2 class="kb-ai-panel-title" id="kb-ai-title">
                     <span class="kb-ai-spark" aria-hidden="true">✦</span>
-                    <span>{copy.aiAnswerTitle}</span>
+                    <span data-kb-ai-title>{panelCopy.title}</span>
                 </h2>
                 <p class="kb-ai-panel-status" data-kb-ai-status role="status" aria-live="polite"></p>
-                <button class="kb-ai-stop" data-kb-ai-stop type="button" hidden>{copy.aiStop}</button>
+                <button class="kb-ai-stop" data-kb-ai-stop type="button" hidden>{panelCopy.stop}</button>
             </header>
             <p class="kb-ai-question" data-kb-ai-question></p>
             <div class="kb-ai-answer" data-kb-ai-answer aria-live="polite" aria-busy="false"></div>
             <p class="kb-ai-error" data-kb-ai-error role="alert" hidden></p>
             <div class="kb-ai-sources" data-kb-ai-sources hidden>
-                <span class="kb-ai-sources-label">{copy.aiSources}</span>
+                <span class="kb-ai-sources-label" data-kb-ai-sources-label>{panelCopy.sources}</span>
                 <ul class="kb-ai-source-list" data-kb-ai-source-list></ul>
             </div>
-            <p class="kb-ai-disclaimer">{copy.aiDisclaimer}</p>
+            <p class="kb-ai-disclaimer" data-kb-ai-disclaimer>{panelCopy.disclaimer}</p>
         </section>
     </div>
 
@@ -532,11 +462,14 @@ const aiCopy = {
 
 <script>
     import {
+        answerLanguageFor,
         askKnowledgeAi,
         KnowledgeAiRequestError,
         type KnowledgeAiHistoryMessage,
+        type KnowledgeAiLanguage,
         type KnowledgeAiSource,
     } from "../lib/knowledge-ai-client";
+    import { KNOWLEDGE_AI_PANEL_COPY } from "../lib/knowledge-ai-copy";
     import {
         isKnowledgeSection,
         knowledgeAiSearchRank,
@@ -572,36 +505,45 @@ const aiCopy = {
         const aiError = root.querySelector<HTMLElement>("[data-kb-ai-error]");
         const aiSources = root.querySelector<HTMLElement>("[data-kb-ai-sources]");
         const aiSourceList = root.querySelector<HTMLElement>("[data-kb-ai-source-list]");
+        const aiTitle = root.querySelector<HTMLElement>("[data-kb-ai-title]");
+        const aiSourcesLabel = root.querySelector<HTMLElement>("[data-kb-ai-sources-label]");
+        const aiDisclaimer = root.querySelector<HTMLElement>("[data-kb-ai-disclaimer]");
+        const backToOverview = root.querySelector<HTMLElement>(".kb-back-overview");
+        const searchShell = root.querySelector<HTMLElement>("[data-kb-search-shell]");
         let activeSection: KnowledgeSection = "overview";
+
+        // The section nav sticks directly under the search card, so its offset has to be the card's real
+        // height — which changes with the viewport and grows a whole row when AI search switches on. A
+        // fixed number was right for exactly one layout and wrong for every other.
+        if (searchShell && "ResizeObserver" in window) {
+            const syncStickyOffset = () =>
+                root.style.setProperty("--kb-search-sticky-offset", `${Math.ceil(searchShell.getBoundingClientRect().height)}px`);
+            new ResizeObserver(syncStickyOffset).observe(searchShell);
+            syncStickyOffset();
+        }
         let aiSearchEnabled = false;
 
-        type AiCopy = Record<
-            | "ask"
-            | "promptLead"
-            | "hintOn"
-            | "hintOff"
-            | "thinking"
-            | "searching"
-            | "reading"
-            | "listing"
-            | "answering"
-            | "done"
-            | "cached"
-            | "stopped"
-            | "errorGeneric"
-            | "errorRate"
-            | "errorBusy"
-            | "errorBudget"
-            | "errorLong",
-            string
-        >;
+        type AiCopy = Record<"ask" | "promptLead" | "hintOn" | "hintOff", string>;
         let aiCopy: Partial<AiCopy> = {};
         try {
             aiCopy = JSON.parse(aiPanel?.dataset.kbAiCopy ?? "{}") as Partial<AiCopy>;
         } catch {
             // The panel still works with empty labels.
         }
-        const aiLang = document.documentElement.lang.toLowerCase().startsWith("ru") ? "ru" : "en";
+        const aiLang: KnowledgeAiLanguage = document.documentElement.lang.toLowerCase().startsWith("ru") ? "ru" : "en";
+        // The panel speaks the language of the answer, which follows the question: a Russian question on the
+        // English page gets a Russian answer, and a Russian status line, source list and errors with it.
+        let panelLang: KnowledgeAiLanguage = aiLang;
+        const panelCopy = () => KNOWLEDGE_AI_PANEL_COPY[panelLang];
+        const setPanelLanguage = (language: KnowledgeAiLanguage) => {
+            panelLang = language;
+            const labels = KNOWLEDGE_AI_PANEL_COPY[language];
+            if (aiPanel) aiPanel.lang = language;
+            if (aiTitle) aiTitle.textContent = labels.title;
+            if (aiSourcesLabel) aiSourcesLabel.textContent = labels.sources;
+            if (aiDisclaimer) aiDisclaimer.textContent = labels.disclaimer;
+            if (aiStop) aiStop.textContent = labels.stop;
+        };
         const aiHistory: KnowledgeAiHistoryMessage[] = [];
         let aiController: AbortController | null = null;
         let aiMarkdown = "";
@@ -618,9 +560,29 @@ const aiCopy = {
             if (aiPromptQuestion) aiPromptQuestion.textContent = question;
         };
 
+        // An opening math delimiter, which is all it takes to start fetching KaTeX — the closing one, and
+        // with it the finished formula, is usually still streaming.
+        const MATH_STARTED = /\$|\\\(|\\\[/;
+        let mathModule: Promise<typeof import("../lib/math-typeset")> | undefined;
+
+        // KaTeX (script + stylesheet + fonts) is pulled in only for an answer that actually contains a
+        // formula, and never for the many questions that have none. Until it lands, every mark shows the
+        // TeX the assistant wrote, so nothing is blank or missing while it loads.
+        const typesetAnswerMath = () => {
+            if (!aiAnswer || !MATH_STARTED.test(aiMarkdown)) return;
+            void (mathModule ??= import("../lib/math-typeset"))
+                .then(({ typesetMath }) => {
+                    if (aiAnswer) typesetMath(aiAnswer);
+                })
+                .catch(() => {
+                    // The answer stays readable as plain TeX.
+                });
+        };
+
         const renderAiAnswer = () => {
             aiRenderQueued = false;
             if (aiAnswer) aiAnswer.innerHTML = renderMarkdown(aiMarkdown);
+            typesetAnswerMath();
         };
 
         const scheduleAiRender = () => {
@@ -661,13 +623,13 @@ const aiCopy = {
         const aiErrorMessage = (error: unknown): string => {
             if (error instanceof KnowledgeAiRequestError) {
                 if (error.code === "rate_limited") {
-                    return (aiCopy.errorRate ?? "").replace("{seconds}", String(error.retryAfterSeconds ?? 60));
+                    return panelCopy().errorRate.replace("{seconds}", String(error.retryAfterSeconds ?? 60));
                 }
-                if (error.code === "busy") return aiCopy.errorBusy ?? "";
-                if (error.code === "budget_exhausted") return aiCopy.errorBudget ?? "";
-                if (error.code === "question_too_long") return aiCopy.errorLong ?? "";
+                if (error.code === "busy") return panelCopy().errorBusy;
+                if (error.code === "budget_exhausted") return panelCopy().errorBudget;
+                if (error.code === "question_too_long") return panelCopy().errorLong;
             }
-            return aiCopy.errorGeneric ?? "";
+            return panelCopy().errorGeneric;
         };
 
         const stopAi = () => {
@@ -689,25 +651,33 @@ const aiCopy = {
             if (aiAnswer) aiAnswer.replaceChildren();
             if (aiError) aiError.hidden = true;
             renderAiSources([]);
-            setAiStatus(aiCopy.thinking ?? "", true);
             const history = aiHistory.slice(-6);
+            setPanelLanguage(answerLanguageFor(trimmed, aiLang, history));
+            setAiStatus(panelCopy().thinking, true);
             askKnowledgeAi(
                 { question: trimmed, lang: aiLang, history },
                 (event) => {
                     if (controller.signal.aborted) return;
-                    if (event.type === "status") {
+                    if (event.type === "meta") {
+                        // The service decides the answer's language; follow it if it disagrees with our guess.
+                        if (event.language !== panelLang) {
+                            setPanelLanguage(event.language);
+                            setAiStatus(panelCopy().thinking, true);
+                        }
+                    } else if (event.type === "status") {
+                        const labels = panelCopy();
                         const label =
                             event.phase === "searching"
-                                ? aiCopy.searching
+                                ? labels.searching
                                 : event.phase === "reading"
-                                  ? aiCopy.reading
+                                  ? labels.reading
                                   : event.phase === "listing"
-                                    ? aiCopy.listing
+                                    ? labels.listing
                                     : event.phase === "answering"
-                                      ? aiCopy.answering
-                                      : aiCopy.thinking;
+                                      ? labels.answering
+                                      : labels.thinking;
                         const detail = event.detail && event.phase !== "answering" && event.phase !== "thinking" ? `: ${event.detail}` : "";
-                        setAiStatus(`${label ?? ""}${detail}`, true);
+                        setAiStatus(`${label}${detail}`, true);
                     } else if (event.type === "sources") {
                         renderAiSources(event.items);
                     } else if (event.type === "delta") {
@@ -720,19 +690,19 @@ const aiCopy = {
                         aiMarkdown = event.answer || aiMarkdown;
                         renderAiAnswer();
                         renderAiSources(event.sources);
-                        setAiStatus(event.cached ? (aiCopy.cached ?? "") : (aiCopy.done ?? ""), false);
+                        setAiStatus(event.cached ? panelCopy().cached : panelCopy().done, false);
                         aiHistory.push({ role: "user", content: trimmed }, { role: "assistant", content: aiMarkdown });
                         while (aiHistory.length > 6) aiHistory.shift();
                     } else if (event.type === "error") {
                         setAiStatus("", false);
-                        showAiError(aiCopy.errorGeneric ?? event.message);
+                        showAiError(panelCopy().errorGeneric);
                     }
                 },
                 { signal: controller.signal },
             )
                 .catch((error: unknown) => {
                     if (controller.signal.aborted) {
-                        setAiStatus(aiCopy.stopped ?? "", false);
+                        setAiStatus(panelCopy().stopped, false);
                         return;
                     }
                     setAiStatus("", false);
@@ -802,6 +772,9 @@ const aiCopy = {
             root.querySelectorAll<HTMLDialogElement>("dialog[open]").forEach((dialog) => dialog.close());
             activeSection = section;
             searchResults?.setAttribute("hidden", "");
+            // "Return to overview" sits below every panel; on the overview itself it was a stray link
+            // floating above the footer with nowhere to go.
+            if (backToOverview) backToOverview.hidden = section === "overview";
             panels.forEach((panel) => {
                 const selected = panel.dataset.kbPanel === section;
                 panel.hidden = !selected;
@@ -970,7 +943,7 @@ const aiCopy = {
         askButton?.addEventListener("click", () => askAi(searchInput?.value ?? ""));
         aiStop?.addEventListener("click", () => {
             stopAi();
-            setAiStatus(aiCopy.stopped ?? "", false);
+            setAiStatus(panelCopy().stopped, false);
         });
         searchInput?.addEventListener("keydown", (event) => {
             if (event.key === "Enter" && aiSearchEnabled && !event.isComposing) {
@@ -1116,47 +1089,6 @@ const aiCopy = {
         transform: none;
     }
 
-    .kb-hero {
-        position: relative;
-        overflow: hidden;
-        border-bottom: 1px solid var(--kb-line);
-        isolation: isolate;
-    }
-
-    .kb-hero-image {
-        position: absolute;
-        z-index: -2;
-        inset: 0;
-        background: url("/assets/images/knowledge-base/codex-war-room-hero.webp") center / cover;
-        filter: saturate(0.82) contrast(1.06);
-        opacity: 0.78;
-    }
-
-    .kb-hero::after {
-        position: absolute;
-        z-index: -1;
-        inset: 0;
-        content: "";
-        background:
-            linear-gradient(90deg, #080605 2%, rgba(8, 6, 5, 0.94) 38%, rgba(8, 6, 5, 0.12) 72%),
-            linear-gradient(0deg, #080605, transparent 45%);
-    }
-
-    .kb-hero-shell {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        gap: 48px;
-        align-items: end;
-        min-height: 340px;
-        padding-top: 78px;
-        padding-bottom: 68px;
-    }
-
-    .kb-hero-copy {
-        max-width: 810px;
-    }
-
-    .kb-hero-copy .eyebrow,
     .kb-panel-header .eyebrow,
     .kb-category-copy .eyebrow {
         margin: 0 0 9px;
@@ -1165,65 +1097,13 @@ const aiCopy = {
         text-transform: uppercase;
     }
 
-    .kb-hero h1 {
-        margin: 0 0 18px;
-        font-size: clamp(3rem, 6vw, 5.1rem);
-        font-weight: 860;
-        line-height: 0.95;
-        letter-spacing: 0.035em;
-    }
-
-    .kb-hero-copy > p:last-child {
-        max-width: 760px;
-        margin: 0;
-        color: rgba(247, 244, 235, 0.76);
-        font-size: clamp(1.05rem, 2vw, 1.28rem);
-        line-height: 1.65;
-    }
-
-    .kb-hero-stats {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(105px, 1fr));
-        gap: 1px;
-        margin: 0;
-        overflow: hidden;
-        border: 1px solid var(--kb-line);
-        border-radius: 14px;
-        background: var(--kb-line);
-        box-shadow: 0 24px 50px rgba(0, 0, 0, 0.28);
-    }
-
-    .kb-hero-stats div {
-        display: flex;
-        flex-direction: column-reverse;
-        justify-content: space-between;
-        min-height: 116px;
-        padding: 17px;
-        background: rgba(10, 7, 5, 0.92);
-    }
-
-    .kb-hero-stats dt {
-        max-width: 110px;
-        color: var(--kb-muted);
-        font-size: 0.72rem;
-        line-height: 1.3;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-    }
-
-    .kb-hero-stats dd {
-        margin: 0;
-        color: #f2c75d;
-        font-family: var(--font-display);
-        font-size: 2.25rem;
-        line-height: 1;
-    }
-
+    /* The search is the first thing on the page now. A margin, not padding, keeps the spacing at rest
+       and lets the card sit flush under the header once it sticks. */
     .kb-search-shell {
         position: sticky;
         z-index: 24;
         top: var(--kb-search-sticky-top);
-        margin-top: -31px;
+        margin-top: 26px;
     }
 
     .kb-search-card {
@@ -1245,11 +1125,14 @@ const aiCopy = {
         margin-bottom: 8px;
     }
 
-    .kb-search-heading label {
+    .kb-title {
         flex: 0 0 auto;
+        margin: 0;
         color: rgba(249, 246, 237, 0.88);
-        font-size: 0.84rem;
+        font-family: var(--font-display);
+        font-size: 1.05rem;
         font-weight: 760;
+        line-height: 1.2;
         letter-spacing: 0.05em;
         text-transform: uppercase;
     }
@@ -1432,7 +1315,7 @@ const aiCopy = {
         gap: 24px;
         align-items: start;
         padding-top: 34px;
-        padding-bottom: 90px;
+        padding-bottom: 56px;
     }
 
     .kb-section-nav {
@@ -1821,10 +1704,16 @@ const aiCopy = {
 
     .kb-back-overview {
         display: inline-flex;
-        margin-top: 17px;
-        padding: 10px 3px;
-        color: rgba(242, 199, 93, 0.78);
+        margin-top: 22px;
+        padding: 10px 14px;
+        color: rgba(242, 199, 93, 0.82);
+        border: 1px solid var(--kb-line);
+        border-radius: 10px;
         text-decoration: none;
+    }
+
+    .kb-back-overview[hidden] {
+        display: none;
     }
 
     .kb-target-highlight {
@@ -1866,15 +1755,6 @@ const aiCopy = {
             --kb-search-sticky-top: 0px;
         }
 
-        .kb-hero-shell {
-            grid-template-columns: 1fr;
-            gap: 28px;
-        }
-
-        .kb-hero-stats {
-            width: min(100%, 520px);
-        }
-
         .kb-layout {
             grid-template-columns: 1fr;
         }
@@ -1899,50 +1779,36 @@ const aiCopy = {
             --kb-search-sticky-offset: 110px;
         }
 
-        .kb-hero-image {
-            background-position: 65% center;
-            opacity: 0.5;
+        .kb-search-shell {
+            margin-top: 14px;
         }
 
-        .kb-hero::after {
-            background:
-                linear-gradient(90deg, rgba(8, 6, 5, 0.96), rgba(8, 6, 5, 0.72)),
-                linear-gradient(0deg, #080605, transparent 48%);
-        }
-
-        .kb-hero-shell {
-            min-height: 0;
-            padding-top: 58px;
-            padding-bottom: 62px;
-        }
-
-        .kb-hero h1 {
-            font-size: clamp(3.15rem, 17vw, 5rem);
-        }
-
-        .kb-hero-stats {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-        }
-
-        .kb-hero-stats div {
-            min-height: 100px;
-            padding: 13px 10px;
-        }
-
-        .kb-hero-stats dd {
-            font-size: 1.7rem;
-        }
-
+        /* On a phone the card is the search field and nothing else: the title and hint go to screen
+           readers only, and the controls sit centred in the card rather than hanging off a heading row. */
         .kb-search-card {
-            padding: 10px;
+            display: grid;
+            align-content: center;
+            padding: 12px;
         }
 
         .kb-search-heading {
-            margin-bottom: 8px;
+            position: absolute;
+            overflow: hidden;
+            width: 1px;
+            height: 1px;
+            margin: 0;
+            clip: rect(0 0 0 0);
+            clip-path: inset(50%);
+            white-space: nowrap;
         }
 
-        .kb-search-hint {
-            display: none;
+        .kb-search-controls {
+            gap: 10px;
+        }
+
+        .kb-search-field {
+            flex: 1 0 100%;
+            min-height: 52px;
         }
 
         .kb-search-field kbd {
@@ -1952,7 +1818,7 @@ const aiCopy = {
         .kb-layout {
             gap: 15px;
             padding-top: 22px;
-            padding-bottom: 60px;
+            padding-bottom: 36px;
         }
 
         .kb-section-nav {
@@ -2084,25 +1950,6 @@ const aiCopy = {
     }
 
     @media (max-width: 440px) {
-        .kb-ai-toggle {
-            min-width: 74px;
-            padding-inline: 9px;
-        }
-
-        .kb-ai-toggle > span:nth-child(2) {
-            position: absolute;
-            overflow: hidden;
-            width: 1px;
-            height: 1px;
-            clip: rect(0 0 0 0);
-            clip-path: inset(50%);
-            white-space: nowrap;
-        }
-
-        .kb-hero-stats dt {
-            font-size: 0.6rem;
-        }
-
         .kb-category-card {
             grid-template-columns: 76px minmax(0, 1fr);
         }
@@ -2425,6 +2272,55 @@ const aiCopy = {
         background: none;
     }
 
+    /*
+     * A formula, in the two states it has: the TeX itself while KaTeX loads (set like code, so it reads as
+     * one), and the typeset version after. A formula cannot break across lines either way, so a long one
+     * scrolls inside its own box — otherwise it pushes the answer wider than the phone and takes the whole
+     * page sideways with it.
+     */
+    .kb-ai-answer .kb-math {
+        display: inline-block;
+        max-width: 100%;
+        overflow-x: auto;
+        overflow-y: hidden;
+        vertical-align: middle;
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+        font-size: 0.9em;
+        color: #fff1cf;
+    }
+
+    /* Once typeset, KaTeX brings its own type — drop the stand-in styling. */
+    .kb-ai-answer .kb-math:has(.katex) {
+        font-family: inherit;
+        font-size: inherit;
+    }
+
+    /* A long formula scrolls sideways on a phone instead of forcing the whole answer to. */
+    .kb-ai-answer .kb-math--display {
+        display: block;
+        overflow-x: auto;
+        overflow-y: hidden;
+        max-width: 100%;
+        margin: 12px 0;
+        padding-bottom: 2px;
+    }
+
+    /* A displayed formula inside a bullet stays on the bullet's line rather than breaking the list. */
+    .kb-ai-answer li .kb-math--display {
+        display: inline-block;
+        margin: 4px 0;
+        vertical-align: middle;
+    }
+
+    .kb-ai-answer .katex {
+        /* KaTeX defaults to 1.21em, which oversets next to this page's body copy. */
+        font-size: 1.05em;
+    }
+
+    .kb-ai-answer .katex-display {
+        margin: 0;
+    }
+
     .kb-ai-answer blockquote {
         padding-left: 12px;
         color: var(--kb-muted);
@@ -2527,14 +2423,21 @@ const aiCopy = {
     }
 
     @media (max-width: 760px) {
-        /* The field and the switch share the first line; the ask button takes a full line under them.
-           Without the wrap the button shared the line and pushed the input down to an icon. */
+        /* The field takes the whole first line; the AI switch and the Ask button share the second, and
+           the switch grows to the full line while Ask is hidden. Sharing the field's line pushed the
+           input down to an icon, and stacking all three left a tall, ragged card. */
         .kb-search-controls {
             flex-wrap: wrap;
         }
 
+        .kb-ai-toggle {
+            flex: 1 1 auto;
+            min-width: 0;
+            min-height: 48px;
+        }
+
         .kb-ai-ask {
-            flex: 1 0 100%;
+            flex: 1.4 1 auto;
             min-height: 48px;
         }
 

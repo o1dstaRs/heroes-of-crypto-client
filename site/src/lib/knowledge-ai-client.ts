@@ -21,11 +21,19 @@ export interface KnowledgeAiHistoryMessage {
 }
 
 export type KnowledgeAiEvent =
+    | { type: "meta"; language: KnowledgeAiLanguage }
     | { type: "status"; phase: "thinking" | "searching" | "reading" | "listing" | "answering"; detail?: string }
     | { type: "sources"; items: KnowledgeAiSource[] }
     | { type: "delta"; text: string }
     | { type: "reset" }
-    | { type: "done"; answer: string; sources: KnowledgeAiSource[]; cached?: boolean; toolCalls?: number }
+    | {
+          type: "done";
+          answer: string;
+          sources: KnowledgeAiSource[];
+          cached?: boolean;
+          toolCalls?: number;
+          language?: KnowledgeAiLanguage;
+      }
     | { type: "error"; code: string; message: string };
 
 export interface KnowledgeAiRequest {
@@ -65,7 +73,46 @@ export interface ParsedSse {
     rest: string;
 }
 
-const KNOWN_EVENTS = new Set(["status", "sources", "delta", "reset", "done", "error"]);
+const KNOWN_EVENTS = new Set(["meta", "status", "sources", "delta", "reset", "done", "error"]);
+
+// The answer-language rule, kept identical to the service's (heroes-of-crypto-server
+// src/knowledge_ai/language.ts) so the panel switches language before the first word arrives; the
+// service still has the last word through its `meta` event.
+const TRANSLIT_RUSSIAN = new Set(
+    "kak chto chego pochemu zachem skolko naskolko kakoy kakoi kakaya kakie kakoe kakih kogo gde kogda kuda mozhno nuzhno nado rabotaet rabotayut rabotat luchshe luchshiy luchshii sposobnost sposobnosti yunit yunita yunity yunitov eto etot etoy etoi ili dlya kto esli igre igry igrat podnyat poluchit zarabotat pobedit uron bronya zdorovie zdorovya udacha reyting reiting zaklinanie zaklinaniya artefakt artefakty podskazhite obyasni rasskazhi".split(
+        " ",
+    ),
+);
+const ENGLISH_MARKERS = new Set(
+    "how what whats what's which who whose why when where does do did is are was were can could should would will much many explain tell my me you your best better happens work works there about difference".split(
+        " ",
+    ),
+);
+
+/** The language a question is written in, or undefined when it cannot tell (a bare name, "MMR?"). */
+export function detectQuestionLanguage(text: string): KnowledgeAiLanguage | undefined {
+    if (/[а-яё]{2,}/i.test(text)) return "ru";
+    const words = text.toLowerCase().match(/[a-z']+/g) ?? [];
+    if (words.some((word) => TRANSLIT_RUSSIAN.has(word))) return "ru";
+    if (words.some((word) => ENGLISH_MARKERS.has(word))) return "en";
+    return undefined;
+}
+
+/** The language the answer will be in: the question's, else the conversation's, else the page's. */
+export function answerLanguageFor(
+    question: string,
+    pageLanguage: KnowledgeAiLanguage,
+    history: readonly KnowledgeAiHistoryMessage[] = [],
+): KnowledgeAiLanguage {
+    const own = detectQuestionLanguage(question);
+    if (own) return own;
+    for (let index = history.length - 1; index >= 0; index -= 1) {
+        if (history[index].role !== "user") continue;
+        const earlier = detectQuestionLanguage(history[index].content);
+        if (earlier) return earlier;
+    }
+    return pageLanguage;
+}
 
 /** Split buffered SSE text into complete events; `rest` holds the incomplete tail for the next chunk. */
 export function parseSseChunk(buffer: string): ParsedSse {

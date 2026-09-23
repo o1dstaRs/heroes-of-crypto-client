@@ -1,10 +1,47 @@
 import { describe, expect, test } from "bun:test";
 
-import { askKnowledgeAi, KnowledgeAiRequestError, parseSseChunk, type KnowledgeAiEvent } from "./knowledge-ai-client";
+import {
+    answerLanguageFor,
+    askKnowledgeAi,
+    detectQuestionLanguage,
+    KnowledgeAiRequestError,
+    parseSseChunk,
+    type KnowledgeAiEvent,
+} from "./knowledge-ai-client";
+import { KNOWLEDGE_AI_PANEL_COPY } from "./knowledge-ai-copy";
 
 const sse = (frames: string[]): string => frames.join("");
 
 describe("knowledge ai client", () => {
+    test("reads the answer language the service announces first", () => {
+        const parsed = parseSseChunk('event: meta\ndata: {"language":"ru"}\n\nevent: done\ndata: {"answer":"Да","sources":[],"language":"ru"}\n\n');
+        expect(parsed.events).toEqual([
+            { type: "meta", language: "ru" },
+            { type: "done", answer: "Да", sources: [], language: "ru" },
+        ]);
+    });
+
+    // The same cases as the service's language.test.ts: both sides must pick the same language.
+    test("answers in the language of the question, then of the conversation, then of the page", () => {
+        expect(detectQuestionLanguage("Как работает способность Медузы?")).toBe("ru");
+        expect(detectQuestionLanguage("Absorb Penalties Aura как?")).toBe("ru");
+        expect(detectQuestionLanguage("kak rabotaet moral v etoy igre")).toBe("ru");
+        expect(detectQuestionLanguage("what's the best level 4 unit")).toBe("en");
+        expect(detectQuestionLanguage("Hydra")).toBeUndefined();
+        expect(detectQuestionLanguage("Made of Fire")).toBeUndefined();
+        expect(detectQuestionLanguage("а Hydra?")).toBeUndefined();
+        expect(answerLanguageFor("Сколько здоровья у Гидры?", "en")).toBe("ru");
+        expect(answerLanguageFor("How much health does Hydra have?", "ru")).toBe("en");
+        expect(answerLanguageFor("Black Dragon?", "en", [{ role: "user", content: "Сколько здоровья у Гидры?" }])).toBe("ru");
+        expect(answerLanguageFor("Black Dragon?", "ru")).toBe("ru");
+    });
+
+    test("the answer panel has every label in both languages", () => {
+        expect(Object.keys(KNOWLEDGE_AI_PANEL_COPY.ru).sort()).toEqual(Object.keys(KNOWLEDGE_AI_PANEL_COPY.en).sort());
+        for (const value of Object.values(KNOWLEDGE_AI_PANEL_COPY.ru)) expect(value).toMatch(/[а-яё]/i);
+        expect(KNOWLEDGE_AI_PANEL_COPY.ru.errorRate).toContain("{seconds}");
+    });
+
     test("parses complete SSE frames and keeps the incomplete tail", () => {
         const first = parseSseChunk(
             ': connected\n\nevent: status\ndata: {"phase":"searching","detail":"Hydra"}\n\nevent: delta\ndata: {"text":"Hy',

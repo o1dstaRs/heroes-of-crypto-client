@@ -17,13 +17,56 @@ const escapeHtml = (value: string): string =>
 
 const isSafeHref = (href: string): boolean => /^(?:https?:\/\/|\/(?!\/)|#)/i.test(href.trim());
 
-/** Inline markup on already-escaped text: code, bold, italics, links. */
+/**
+ * Formulas, in the four delimiters an assistant actually writes: `$$…$$` and `\[…\]` for a formula on
+ * its own line, `$…$` and `\(…\)` inline. Ordered so the doubled delimiters win over the single `$`.
+ *
+ * Nothing is typeset here. This renderer stays dependency-free and synchronous — it runs on every
+ * streamed chunk — so it only marks the formula up and keeps the TeX, both in a `data-tex` attribute and
+ * as readable fallback text. The page hands those marks to KaTeX once, lazily (math-typeset.ts); if that
+ * never loads, the reader still sees the formula as the assistant wrote it rather than a blank.
+ */
+const MATH_PATTERN = /\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]|\$([^$\n]+?)\$|\\\(([\s\S]+?)\\\)/g;
+
+/** Longer than any real formula in an answer — a cap stops a stray `$` swallowing a paragraph. */
+const MAX_TEX_LENGTH = 400;
+
+/**
+ * Whether a `$…$` span is a formula rather than two prices in one sentence ("$5 for $10"). Real TeX does
+ * not hug its delimiters with spaces, and a run of digits and punctuation is money, not maths.
+ */
+const isDollarMath = (tex: string): boolean =>
+    tex.trim() === tex && tex.length <= MAX_TEX_LENGTH && !/^[\d.,\s]+$/.test(tex);
+
+/** Inline markup on already-escaped text: code, formulas, links, bold, italics. */
 export function renderInline(text: string): string {
-    const codeSpans: string[] = [];
-    let html = escapeHtml(text).replace(/`([^`\n]+)`/g, (_match, code: string) => {
-        codeSpans.push(`<code>${code}</code>`);
-        return `\u0000${codeSpans.length - 1}\u0000`;
-    });
+    // Code spans and formulas are both lifted out before the emphasis rules run: `x_1 * y` has to reach
+    // KaTeX as the assistant wrote it, not as <em>-riddled markup.
+    const spans: string[] = [];
+    const lift = (html: string): string => {
+        spans.push(html);
+        return `\u0000${spans.length - 1}\u0000`;
+    };
+    let html = escapeHtml(text).replace(/`([^`\n]+)`/g, (_match, code: string) => lift(`<code>${code}</code>`));
+    html = html.replace(
+        MATH_PATTERN,
+        (
+            match: string,
+            blockDollar: string,
+            blockBracket: string,
+            inlineDollar: string,
+            inlineParen: string,
+        ) => {
+            const display = blockDollar ?? blockBracket;
+            const tex = (display ?? inlineDollar ?? inlineParen ?? "").trim();
+            if (!tex || tex.length > MAX_TEX_LENGTH) return match;
+            if (display === undefined && inlineDollar !== undefined && !isDollarMath(inlineDollar)) return match;
+            // The TeX is already HTML-escaped, which is exactly what an attribute needs; reading it back
+            // through `dataset.tex` hands KaTeX the original characters again.
+            const classes = display === undefined ? "kb-math" : "kb-math kb-math--display";
+            return lift(`<span class="${classes}" data-tex="${tex}">${tex}</span>`);
+        },
+    );
     html = html.replace(/\[([^\]\n]+)\]\(([^)\s]+)\)/g, (match, label: string, href: string) => {
         if (!isSafeHref(href)) return match;
         const external = /^https?:\/\//i.test(href);
@@ -32,7 +75,7 @@ export function renderInline(text: string): string {
     html = html.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
     html = html.replace(/(^|[^*\w])\*([^*\n]+)\*(?!\w)/g, "$1<em>$2</em>");
     html = html.replace(/(^|[^_\w])_([^_\n]+)_(?!\w)/g, "$1<em>$2</em>");
-    return html.replace(/\u0000(\d+)\u0000/g, (_match, index: string) => codeSpans[Number(index)] ?? "");
+    return html.replace(/\u0000(\d+)\u0000/g, (_match, index: string) => spans[Number(index)] ?? "");
 }
 
 const isTableSeparator = (line: string): boolean => /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/.test(line);
