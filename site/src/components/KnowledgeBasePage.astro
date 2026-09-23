@@ -2272,8 +2272,18 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
         background: none;
     }
 
-    /* A formula before KaTeX has typeset it: the TeX itself, set like code so it reads as one. */
+    /*
+     * A formula, in the two states it has: the TeX itself while KaTeX loads (set like code, so it reads as
+     * one), and the typeset version after. A formula cannot break across lines either way, so a long one
+     * scrolls inside its own box — otherwise it pushes the answer wider than the phone and takes the whole
+     * page sideways with it.
+     */
     .kb-ai-answer .kb-math {
+        display: inline-block;
+        max-width: 100%;
+        overflow-x: auto;
+        overflow-y: hidden;
+        vertical-align: middle;
         font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
         font-size: 0.9em;
         color: #fff1cf;
