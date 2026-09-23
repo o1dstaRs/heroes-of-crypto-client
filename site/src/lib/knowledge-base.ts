@@ -517,11 +517,11 @@ export function buildKnowledgeEntries(language: Language): KnowledgeEntry[] {
         key: `artifacts:${artifact.tier}:${artifact.name}`,
         section: "artifacts",
         name: artifact.name,
-        description: artifact.description,
+        description: isRu ? artifact.descriptionRu : artifact.description,
         meta: `${isRu ? "Уровень" : "Tier"} ${artifact.tier}${artifact.cursed ? ` · ${isRu ? "Проклятый" : "Cursed"}` : ""}`,
         image: artifact.icon,
         target: artifact.name,
-        searchText: `${artifact.name} ${artifact.description} tier ${artifact.tier} ${artifact.cursed ? "cursed проклятый" : ""}`,
+        searchText: `${artifact.name} ${isRu ? artifact.descriptionRu : artifact.description} tier ${artifact.tier} ${artifact.cursed ? "cursed проклятый" : ""}`,
     }));
 
     return [...rulesEntries(language), ...unitEntries, ...abilityEntries, ...spellEntries, ...artifactEntries];

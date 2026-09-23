@@ -53,8 +53,10 @@ const tiers = [
     { key: "2", label: labels.tier2 },
 ];
 
+const describe = (artifact: (typeof artifacts)[number]) => (lang === "ru" ? artifact.descriptionRu : artifact.description);
+
 const searchText = (artifact: (typeof artifacts)[number]) =>
-    [artifact.name, artifact.description, tierLabel(artifact.tier), artifact.cursed ? labels.cursed : ""]
+    [artifact.name, describe(artifact), tierLabel(artifact.tier), artifact.cursed ? labels.cursed : ""]
         .join(" ")
         .toLowerCase();
 ---
@@ -134,7 +136,7 @@ const searchText = (artifact: (typeof artifacts)[number]) =>
                                 </div>
                             </div>
                         </header>
-                        <p class="artifact-card-desc">{artifact.description}</p>
+                        <p class="artifact-card-desc">{describe(artifact)}</p>
                     </article>
                 ))
             }

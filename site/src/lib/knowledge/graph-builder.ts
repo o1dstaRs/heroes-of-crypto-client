@@ -112,6 +112,43 @@ interface RawEffectEntry {
 
 const RU_FACTIONS: FactionName[] = ["Life", "Nature", "Chaos", "Might"];
 
+const pluralRu = (count: number, [one, few, many]: [string, string, string]): string => {
+    const mod10 = count % 10;
+    const mod100 = count % 100;
+    if (mod10 === 1 && mod100 !== 11) return one;
+    return mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? few : many;
+};
+
+/** "1 круг", "2 круга", "15 кругов". */
+const lapsRu = (laps: number): string => `${laps} ${pluralRu(laps, ["круг", "круга", "кругов"])}`;
+
+/**
+ * Status effects in Russian (common's effects.json is English only). "{}" takes the effect's power as in
+ * English; the zero-power ones get their own wording, since their amount is set by whatever applied them.
+ */
+const effectDescriptionsRu: Record<string, { text: string; zeroPower?: string }> = {
+    Stun: { text: "Юнит пропускает ход и не может отвечать." },
+    Freeze: { text: "Юнит скован льдом: пропускает ходы и не может отвечать." },
+    Blindness: { text: "Юнит теряет ход и не может совершать никаких действий." },
+    "Boar Saliva": { text: "Юнит с вероятностью {}% промахивается физическими атаками." },
+    "Shatter Armor": { text: "Юнит временно теряет {} брони." },
+    Poison: {
+        text: "Теряет {} здоровья в начале каждого своего хода.",
+        zeroPower: "Теряет здоровье в начале каждого своего хода; сколько — задаёт наложившая яд способность.",
+    },
+    "Pegasus Light": { text: "Каждый юнит, атакующий цель, получает +{} морали." },
+    Paralysis: { text: "Поражённый враг не может двигаться, а его урон снижен на {}%." },
+    "Deep Wounds": {
+        text: "Следующая атака со способностью Deep Wounds нанесёт на {}% больше урона.",
+        zeroPower: "Следующая атака со способностью Deep Wounds нанесёт больше урона; насколько — задаёт уровень способности.",
+    },
+    Aggr: { text: "Заставляет цель отвечать только атакующему, не обращая внимания на других врагов." },
+    Break: { text: "Отключает все способности юнита на два круга." },
+    "Terrifying Gaze": {
+        text: "Слишком напуган, чтобы противостоять чудовищу, которое на него взглянуло: не может ни атаковать, ни отвечать этому врагу, но может бить любого другого.",
+    },
+};
+
 export const slugify = (value: string): string =>
     value
         .normalize("NFKD")
@@ -323,7 +360,7 @@ function spellDurationLabel(spell: Spell, language: Language): string {
     const isRu = language === "ru";
     if (!spell.duration) return isRu ? "длительность не указана" : "no stated duration";
     if (spell.duration.kind === "laps")
-        return isRu ? `${spell.duration.laps} круг(а)` : `${spell.duration.laps} lap(s)`;
+        return isRu ? lapsRu(spell.duration.laps) : `${spell.duration.laps} lap(s)`;
     if (spell.duration.kind === "broken") return isRu ? "пока не разрушится" : "until broken";
     return isRu ? "до конца боя" : "whole fight";
 }
@@ -364,7 +401,7 @@ const artifactText = (artifact: (typeof artifacts)[number], language: Language):
     const isRu = language === "ru";
     return [
         `**${isRu ? ruLabel(artifact.name) : artifact.name}** — ${isRu ? "артефакт уровня" : "Tier"} ${artifact.tier}${artifact.cursed ? (isRu ? " · проклятый (есть недостаток)" : " · cursed (has a downside)") : ""}`,
-        artifact.description,
+        isRu ? artifact.descriptionRu : artifact.description,
         isRu
             ? "Артефакты выбираются во время драфта: каждая команда берёт один артефакт 1-го уровня и один 2-го. Эффект действует на всю армию до конца боя."
             : "Artifacts are chosen during the draft: each team takes one Tier 1 and one Tier 2 artifact. The effect applies to the whole army for the entire fight.",
@@ -969,6 +1006,12 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
             /\{\}/g,
             raw.power > 0 ? String(raw.power) : "an amount set by whatever applied it",
         );
+        const russian = effectDescriptionsRu[name];
+        const descriptionRu = russian
+            ? raw.power > 0 || !russian.zeroPower
+                ? russian.text.replace(/\{\}/g, String(raw.power))
+                : russian.zeroPower
+            : description;
         // Only abilities a player can actually meet (the codex roster) count as appliers: abilities.json
         // also defines retired or unassigned ones, and naming those would send players hunting for a
         // carrier that does not exist.
@@ -1020,7 +1063,7 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
                 ? knowledgePath("ru", { section: "abilities", entry: linkedAbility })
                 : knowledgePath("ru", { section: "abilities", query: name }),
             summary: `Status effect: ${description} Lasts ${raw.laps} lap(s).`,
-            summaryRu: `Эффект-состояние: ${description} Длится ${raw.laps} круг(а).`,
+            summaryRu: `Эффект-состояние: ${descriptionRu} Длится ${lapsRu(raw.laps)}.`,
             text: [
                 `**${name}** is a status effect applied by abilities.`,
                 description,
@@ -1031,8 +1074,8 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
             ].join("\n\n"),
             textRu: [
                 `**${ruLabel(name)}** — эффект-состояние, который накладывают способности.`,
-                description,
-                `Длительность: ${raw.laps} круг(а).`,
+                descriptionRu,
+                `Длительность: ${lapsRu(raw.laps)}.`,
                 applierLines.length
                     ? `Накладывается: ${applierLinesRu.join("; ")}.`
                     : "Накладывается игрой (артефакты, синергии или местность).",
@@ -1096,7 +1139,7 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
             href,
             hrefRu,
             summary: `Tier ${artifact.tier} artifact: ${artifact.description}`,
-            summaryRu: `Артефакт ${artifact.tier}-го уровня: ${artifact.description}`,
+            summaryRu: `Артефакт ${artifact.tier}-го уровня: ${artifact.descriptionRu}`,
             text: artifactText(artifact, "en"),
             textRu: artifactText(artifact, "ru"),
             tags: ["artifact", `tier ${artifact.tier}`, ...(artifact.cursed ? ["cursed"] : [])],
@@ -1146,6 +1189,14 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
     }
 
     for (const doctrine of DOCTRINE_LIST) {
+        // common's doctrine descriptions are English only; the Russian is built from the same data.
+        const points = `${doctrine.upgradePoints} ${pluralRu(doctrine.upgradePoints, ["очко", "очка", "очков"])} апгрейдов`;
+        const descriptionRu =
+            doctrine.revealMode === "all"
+                ? `Показывает все выборы соперника во время драфта. Даёт ${points}.`
+                : doctrine.revealMode === "random3"
+                  ? `Открывает выборы соперника в 3 слотах его армии. Даёт ${points}.`
+                  : `Не показывает ни одного выбора соперника. Даёт ${points}.`;
         graph.add({
             id: nodeId("doctrine", doctrine.name),
             type: "doctrine",
@@ -1156,7 +1207,7 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
             href: knowledgePath("en", { section: "rules", entry: "rules-doctrines" }),
             hrefRu: knowledgePath("ru", { section: "rules", entry: "rules-doctrines" }),
             summary: doctrine.description,
-            summaryRu: doctrine.description,
+            summaryRu: descriptionRu,
             text: [
                 `**${doctrine.name}** is a draft doctrine, the first pick-phase choice made simultaneously by both players.`,
                 doctrine.description,
@@ -1165,7 +1216,7 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
             ].join("\n\n"),
             textRu: [
                 `**${ruLabel(doctrine.name)}** — доктрина драфта, первый выбор фазы пиков, который оба игрока делают одновременно.`,
-                doctrine.description,
+                descriptionRu,
                 `Режим раскрытия: ${doctrine.revealMode === "all" ? "видны все пики соперника" : doctrine.revealMode === "random3" ? "раскрываются 3 случайных слота соперника" : "ничего не раскрывается"}. Очки апгрейдов: ${doctrine.upgradePoints}.`,
                 "Обзор стоит очков: чем меньше вы видите драфт соперника, тем больше бюджет апгрейдов.",
             ].join("\n\n"),

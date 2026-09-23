@@ -654,10 +654,30 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
             const history = aiHistory.slice(-6);
             setPanelLanguage(answerLanguageFor(trimmed, aiLang, history));
             setAiStatus(panelCopy().thinking, true);
+            // The model can take 10–30 s to say its first word when it is busy, and a silent wait read as a
+            // hang: players re-asked, cancelling the answer they were waiting for. After a quiet spell the
+            // status says it is still working, and later that the assistant is busy but the answer is coming.
+            let lastProgressAt = Date.now();
+            let slowStage = 0;
+            const slowWatch = window.setInterval(() => {
+                if (controller.signal.aborted || aiController !== controller || aiMarkdown) return;
+                const quietFor = Date.now() - lastProgressAt;
+                if (slowStage < 2 && quietFor > 18_000) {
+                    slowStage = 2;
+                    setAiStatus(panelCopy().verySlow, true);
+                } else if (slowStage < 1 && quietFor > 7_000) {
+                    slowStage = 1;
+                    setAiStatus(panelCopy().slow, true);
+                }
+            }, 1_000);
             askKnowledgeAi(
                 { question: trimmed, lang: aiLang, history },
                 (event) => {
                     if (controller.signal.aborted) return;
+                    if (event.type === "status" || event.type === "delta") {
+                        lastProgressAt = Date.now();
+                        slowStage = 0;
+                    }
                     if (event.type === "meta") {
                         // The service decides the answer's language; follow it if it disagrees with our guess.
                         if (event.language !== panelLang) {
@@ -709,6 +729,7 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
                     showAiError(aiErrorMessage(error));
                 })
                 .finally(() => {
+                    window.clearInterval(slowWatch);
                     if (aiController === controller) aiController = null;
                     if (aiStop) aiStop.hidden = true;
                     aiPanel.classList.remove("busy");
