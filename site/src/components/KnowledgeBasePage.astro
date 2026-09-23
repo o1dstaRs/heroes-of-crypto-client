@@ -7,6 +7,7 @@ import RulesPage from "./RulesPage.astro";
 import SpellsPage from "./SpellsPage.astro";
 import UnitsPage from "./UnitsPage.astro";
 import { artifactsCount } from "../lib/artifacts-data";
+import { KNOWLEDGE_AI_PANEL_COPY } from "../lib/knowledge-ai-copy";
 import {
     buildKnowledgeEntries,
     knowledgeEntryId,
@@ -41,25 +42,7 @@ const copy = isRu
           aiSearchDescription: "Понимает смысл запроса и близкие игровые термины",
           aiAsk: "Спросить ИИ",
           aiPromptLead: "Спросить ИИ:",
-          aiAnswerTitle: "Ответ ИИ",
           aiHintOn: "Нажмите Enter, чтобы задать вопрос ИИ. Обычные результаты остаются ниже.",
-          aiThinking: "Ищу ответ в базе знаний…",
-          aiSearching: "Ищу",
-          aiReading: "Читаю",
-          aiListing: "Собираю список",
-          aiAnswering: "Отвечаю…",
-          aiDone: "Готово",
-          aiCached: "Готово · из кеша",
-          aiStopped: "Остановлено",
-          aiStop: "Остановить",
-          aiSources: "Источники",
-          aiDisclaimer:
-              "Ответ составлен ИИ по правилам и данным игры и всё же может содержать ошибки — проверяйте по ссылкам.",
-          aiErrorGeneric: "ИИ-помощник сейчас недоступен. Обычный поиск ниже работает как обычно.",
-          aiErrorRate: "Слишком много вопросов подряд. Попробуйте снова через {seconds} с.",
-          aiErrorBusy: "ИИ-помощник занят другими вопросами. Попробуйте через несколько секунд.",
-          aiErrorBudget: "Дневной лимит вопросов к ИИ исчерпан. Обычный поиск ниже работает.",
-          aiErrorLong: "Вопрос слишком длинный. Сократите его до нескольких предложений.",
           clear: "Очистить поиск",
           overview: "Обзор",
           rules: "Правила",
@@ -113,25 +96,7 @@ const copy = isRu
           aiSearchDescription: "Understands intent and related game terms",
           aiAsk: "Ask AI",
           aiPromptLead: "Ask the AI:",
-          aiAnswerTitle: "AI answer",
           aiHintOn: "Press Enter to ask the AI a question. The regular results stay below.",
-          aiThinking: "Searching the knowledge base…",
-          aiSearching: "Searching",
-          aiReading: "Reading",
-          aiListing: "Listing",
-          aiAnswering: "Answering…",
-          aiDone: "Done",
-          aiCached: "Done · cached",
-          aiStopped: "Stopped",
-          aiStop: "Stop",
-          aiSources: "Sources",
-          aiDisclaimer:
-              "Written by an AI from the game's own rules and data; it can still make mistakes — follow the links to verify.",
-          aiErrorGeneric: "The AI assistant is unavailable right now. The regular search below still works.",
-          aiErrorRate: "Too many questions in a row. Try again in {seconds} s.",
-          aiErrorBusy: "The AI assistant is busy with other questions. Try again in a few seconds.",
-          aiErrorBudget: "The AI assistant has reached today's question limit. The regular search below still works.",
-          aiErrorLong: "That question is too long. Keep it to a few sentences.",
           clear: "Clear search",
           overview: "Overview",
           rules: "Rules",
@@ -199,20 +164,9 @@ const aiCopy = {
     promptLead: copy.aiPromptLead,
     hintOn: copy.aiHintOn,
     hintOff: copy.searchHint,
-    thinking: copy.aiThinking,
-    searching: copy.aiSearching,
-    reading: copy.aiReading,
-    listing: copy.aiListing,
-    answering: copy.aiAnswering,
-    done: copy.aiDone,
-    cached: copy.aiCached,
-    stopped: copy.aiStopped,
-    errorGeneric: copy.aiErrorGeneric,
-    errorRate: copy.aiErrorRate,
-    errorBusy: copy.aiErrorBusy,
-    errorBudget: copy.aiErrorBudget,
-    errorLong: copy.aiErrorLong,
 };
+// The answer panel starts in the page's language and follows the answer's (knowledge-ai-copy.ts).
+const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
 ---
 
 <div
@@ -292,25 +246,26 @@ const aiCopy = {
             class="kb-ai-panel"
             data-kb-ai-panel
             data-kb-ai-copy={JSON.stringify(aiCopy)}
+            lang={lang}
             aria-labelledby="kb-ai-title"
             hidden
         >
             <header class="kb-ai-panel-head">
                 <h2 class="kb-ai-panel-title" id="kb-ai-title">
                     <span class="kb-ai-spark" aria-hidden="true">✦</span>
-                    <span>{copy.aiAnswerTitle}</span>
+                    <span data-kb-ai-title>{panelCopy.title}</span>
                 </h2>
                 <p class="kb-ai-panel-status" data-kb-ai-status role="status" aria-live="polite"></p>
-                <button class="kb-ai-stop" data-kb-ai-stop type="button" hidden>{copy.aiStop}</button>
+                <button class="kb-ai-stop" data-kb-ai-stop type="button" hidden>{panelCopy.stop}</button>
             </header>
             <p class="kb-ai-question" data-kb-ai-question></p>
             <div class="kb-ai-answer" data-kb-ai-answer aria-live="polite" aria-busy="false"></div>
             <p class="kb-ai-error" data-kb-ai-error role="alert" hidden></p>
             <div class="kb-ai-sources" data-kb-ai-sources hidden>
-                <span class="kb-ai-sources-label">{copy.aiSources}</span>
+                <span class="kb-ai-sources-label" data-kb-ai-sources-label>{panelCopy.sources}</span>
                 <ul class="kb-ai-source-list" data-kb-ai-source-list></ul>
             </div>
-            <p class="kb-ai-disclaimer">{copy.aiDisclaimer}</p>
+            <p class="kb-ai-disclaimer" data-kb-ai-disclaimer>{panelCopy.disclaimer}</p>
         </section>
     </div>
 
@@ -532,11 +487,14 @@ const aiCopy = {
 
 <script>
     import {
+        answerLanguageFor,
         askKnowledgeAi,
         KnowledgeAiRequestError,
         type KnowledgeAiHistoryMessage,
+        type KnowledgeAiLanguage,
         type KnowledgeAiSource,
     } from "../lib/knowledge-ai-client";
+    import { KNOWLEDGE_AI_PANEL_COPY } from "../lib/knowledge-ai-copy";
     import {
         isKnowledgeSection,
         knowledgeAiSearchRank,
@@ -572,36 +530,33 @@ const aiCopy = {
         const aiError = root.querySelector<HTMLElement>("[data-kb-ai-error]");
         const aiSources = root.querySelector<HTMLElement>("[data-kb-ai-sources]");
         const aiSourceList = root.querySelector<HTMLElement>("[data-kb-ai-source-list]");
+        const aiTitle = root.querySelector<HTMLElement>("[data-kb-ai-title]");
+        const aiSourcesLabel = root.querySelector<HTMLElement>("[data-kb-ai-sources-label]");
+        const aiDisclaimer = root.querySelector<HTMLElement>("[data-kb-ai-disclaimer]");
         let activeSection: KnowledgeSection = "overview";
         let aiSearchEnabled = false;
 
-        type AiCopy = Record<
-            | "ask"
-            | "promptLead"
-            | "hintOn"
-            | "hintOff"
-            | "thinking"
-            | "searching"
-            | "reading"
-            | "listing"
-            | "answering"
-            | "done"
-            | "cached"
-            | "stopped"
-            | "errorGeneric"
-            | "errorRate"
-            | "errorBusy"
-            | "errorBudget"
-            | "errorLong",
-            string
-        >;
+        type AiCopy = Record<"ask" | "promptLead" | "hintOn" | "hintOff", string>;
         let aiCopy: Partial<AiCopy> = {};
         try {
             aiCopy = JSON.parse(aiPanel?.dataset.kbAiCopy ?? "{}") as Partial<AiCopy>;
         } catch {
             // The panel still works with empty labels.
         }
-        const aiLang = document.documentElement.lang.toLowerCase().startsWith("ru") ? "ru" : "en";
+        const aiLang: KnowledgeAiLanguage = document.documentElement.lang.toLowerCase().startsWith("ru") ? "ru" : "en";
+        // The panel speaks the language of the answer, which follows the question: a Russian question on the
+        // English page gets a Russian answer, and a Russian status line, source list and errors with it.
+        let panelLang: KnowledgeAiLanguage = aiLang;
+        const panelCopy = () => KNOWLEDGE_AI_PANEL_COPY[panelLang];
+        const setPanelLanguage = (language: KnowledgeAiLanguage) => {
+            panelLang = language;
+            const labels = KNOWLEDGE_AI_PANEL_COPY[language];
+            if (aiPanel) aiPanel.lang = language;
+            if (aiTitle) aiTitle.textContent = labels.title;
+            if (aiSourcesLabel) aiSourcesLabel.textContent = labels.sources;
+            if (aiDisclaimer) aiDisclaimer.textContent = labels.disclaimer;
+            if (aiStop) aiStop.textContent = labels.stop;
+        };
         const aiHistory: KnowledgeAiHistoryMessage[] = [];
         let aiController: AbortController | null = null;
         let aiMarkdown = "";
@@ -661,13 +616,13 @@ const aiCopy = {
         const aiErrorMessage = (error: unknown): string => {
             if (error instanceof KnowledgeAiRequestError) {
                 if (error.code === "rate_limited") {
-                    return (aiCopy.errorRate ?? "").replace("{seconds}", String(error.retryAfterSeconds ?? 60));
+                    return panelCopy().errorRate.replace("{seconds}", String(error.retryAfterSeconds ?? 60));
                 }
-                if (error.code === "busy") return aiCopy.errorBusy ?? "";
-                if (error.code === "budget_exhausted") return aiCopy.errorBudget ?? "";
-                if (error.code === "question_too_long") return aiCopy.errorLong ?? "";
+                if (error.code === "busy") return panelCopy().errorBusy;
+                if (error.code === "budget_exhausted") return panelCopy().errorBudget;
+                if (error.code === "question_too_long") return panelCopy().errorLong;
             }
-            return aiCopy.errorGeneric ?? "";
+            return panelCopy().errorGeneric;
         };
 
         const stopAi = () => {
@@ -689,25 +644,33 @@ const aiCopy = {
             if (aiAnswer) aiAnswer.replaceChildren();
             if (aiError) aiError.hidden = true;
             renderAiSources([]);
-            setAiStatus(aiCopy.thinking ?? "", true);
             const history = aiHistory.slice(-6);
+            setPanelLanguage(answerLanguageFor(trimmed, aiLang, history));
+            setAiStatus(panelCopy().thinking, true);
             askKnowledgeAi(
                 { question: trimmed, lang: aiLang, history },
                 (event) => {
                     if (controller.signal.aborted) return;
-                    if (event.type === "status") {
+                    if (event.type === "meta") {
+                        // The service decides the answer's language; follow it if it disagrees with our guess.
+                        if (event.language !== panelLang) {
+                            setPanelLanguage(event.language);
+                            setAiStatus(panelCopy().thinking, true);
+                        }
+                    } else if (event.type === "status") {
+                        const labels = panelCopy();
                         const label =
                             event.phase === "searching"
-                                ? aiCopy.searching
+                                ? labels.searching
                                 : event.phase === "reading"
-                                  ? aiCopy.reading
+                                  ? labels.reading
                                   : event.phase === "listing"
-                                    ? aiCopy.listing
+                                    ? labels.listing
                                     : event.phase === "answering"
-                                      ? aiCopy.answering
-                                      : aiCopy.thinking;
+                                      ? labels.answering
+                                      : labels.thinking;
                         const detail = event.detail && event.phase !== "answering" && event.phase !== "thinking" ? `: ${event.detail}` : "";
-                        setAiStatus(`${label ?? ""}${detail}`, true);
+                        setAiStatus(`${label}${detail}`, true);
                     } else if (event.type === "sources") {
                         renderAiSources(event.items);
                     } else if (event.type === "delta") {
@@ -720,19 +683,19 @@ const aiCopy = {
                         aiMarkdown = event.answer || aiMarkdown;
                         renderAiAnswer();
                         renderAiSources(event.sources);
-                        setAiStatus(event.cached ? (aiCopy.cached ?? "") : (aiCopy.done ?? ""), false);
+                        setAiStatus(event.cached ? panelCopy().cached : panelCopy().done, false);
                         aiHistory.push({ role: "user", content: trimmed }, { role: "assistant", content: aiMarkdown });
                         while (aiHistory.length > 6) aiHistory.shift();
                     } else if (event.type === "error") {
                         setAiStatus("", false);
-                        showAiError(aiCopy.errorGeneric ?? event.message);
+                        showAiError(panelCopy().errorGeneric);
                     }
                 },
                 { signal: controller.signal },
             )
                 .catch((error: unknown) => {
                     if (controller.signal.aborted) {
-                        setAiStatus(aiCopy.stopped ?? "", false);
+                        setAiStatus(panelCopy().stopped, false);
                         return;
                     }
                     setAiStatus("", false);
@@ -970,7 +933,7 @@ const aiCopy = {
         askButton?.addEventListener("click", () => askAi(searchInput?.value ?? ""));
         aiStop?.addEventListener("click", () => {
             stopAi();
-            setAiStatus(aiCopy.stopped ?? "", false);
+            setAiStatus(panelCopy().stopped, false);
         });
         searchInput?.addEventListener("keydown", (event) => {
             if (event.key === "Enter" && aiSearchEnabled && !event.isComposing) {

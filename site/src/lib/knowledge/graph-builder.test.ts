@@ -93,6 +93,28 @@ describe("knowledge graph builder", () => {
         ).toBe(true);
     });
 
+    test("everything the game names in English has a Russian name, and the Russian text uses it", () => {
+        const gameNamed = graph.nodes.filter((node) =>
+            ["unit", "ability", "effect", "spell", "artifact", "doctrine"].includes(node.type),
+        );
+        // A new unit, ability, spell or artifact needs its Russian name in names-ru.ts.
+        expect(gameNamed.filter((node) => !node.nameRu).map((node) => `${node.type}: ${node.name}`)).toEqual([]);
+
+        const medusa = byId.get("unit:medusa");
+        expect(medusa?.nameRu).toBe("Медуза");
+        expect(medusa?.textRu).toContain("**Медуза (Medusa)**");
+        expect(medusa?.textRu).toContain("Окаменяющий взгляд (Petrifying Gaze):");
+        expect(byId.get("ability:petrifying-gaze")?.textRu).toContain("Медуза (Medusa, Хаос)");
+        expect(byId.get("effect:stun")?.textRu).toMatch(/Накладывается: Оглушение \(Stun\): [^.]*Оруженосец \(Squire\)/);
+        expect(byId.get("doctrine:battle-trance")?.nameRu).toBe("Боевой транс");
+        expect(byId.get("augment:armor-augment")?.textRu).toContain("Боевой транс (Battle Trance) — 7");
+        // common's codes are spelled out: "MIND" or "ANY_ENEMY" read as English in a Russian answer.
+        for (const node of gameNamed) expect(`${node.textRu} ${node.summaryRu}`).not.toMatch(/\b[A-Z]{3,}(?:_[A-Z]+)*\b(?<!\bMMR|\bAOE|\bHOCAI|\bERC)/);
+        expect(byId.get("ability:petrifying-gaze")?.textRu).toContain("Пассивная · Разум");
+        // The English graph is untouched.
+        for (const node of gameNamed) expect(node.text).not.toMatch(/[а-яё]/i);
+    });
+
     test("augments, doctrines and synergies are derived from the engine tables", () => {
         const armor = byId.get("augment:armor-augment");
         expect(armor?.text).toContain(`Level 1 (1 point): +${getArmorPower(ArmorAugment.LEVEL_1)}% armor`);

@@ -60,6 +60,7 @@ import {
     UNITS_TO_SYNERGY_LEVEL,
 } from "@heroesofcrypto/common/src/synergies/synergy_properties";
 
+import { ruLabel, ruName } from "./names-ru";
 import { extractRuleSections } from "./rules-extractor";
 import { artifacts } from "../artifacts-data";
 import { knowledgePath, type KnowledgeCatalogSection } from "../knowledge-base";
@@ -126,9 +127,15 @@ const hrefFor = (section: KnowledgeCatalogSection, entry: string): { href: strin
     hrefRu: knowledgePath("ru", { section, entry }),
 });
 
-const bullet = (lines: string[]): string => lines.map((line) => `- ${line}`).join("\n");
+const bullet = (lines: readonly string[]): string => lines.map((line) => `- ${line}`).join("\n");
 
 const joinNames = (names: string[]): string => (names.length ? names.join(", ") : "—");
+
+/** "Медуза (Medusa, Хаос)": a Russian name with the in-game English and a detail in one bracket. */
+const ruWithDetail = (name: string, detail: string): string => {
+    const russian = ruName(name);
+    return russian ? `${russian} (${name}, ${detail})` : `${name} (${detail})`;
+};
 
 const attackLabelRu: Record<string, string> = {
     MELEE: "ближняя атака",
@@ -137,6 +144,47 @@ const attackLabelRu: Record<string, string> = {
     MELEE_MAGIC: "ближняя / магическая атака",
 };
 const movementLabelRu: Record<string, string> = { WALK: "пешком", FLY: "полёт", TELEPORT: "телепорт" };
+
+/** common's ability and spell codes as Russian text says them ("MIND" read as English in a Russian answer). */
+const abilityTypeRu: Record<string, string> = {
+    HEAL: "лечение",
+    BUFF_AURA: "аура-бафф",
+    DEBUFF_AURA: "аура-дебафф",
+    MIND: "Разум",
+    STATUS: "Статус",
+    CONTROL: "контроль",
+    MASS_BUFF: "массовый бафф",
+    TEMP_BUFF: "временный бафф",
+    ATTACK: "атака",
+    ADDITIONAL_ATTACK: "дополнительная атака",
+    DEFENCE: "защита",
+    INFO: "свойство",
+    EFFECT: "эффект",
+    SUPPLIES: "запас",
+    REFLECT: "отражение",
+    MOVEMENT: "движение",
+    UNIT_TYPE: "тип юнита",
+    RESPOND: "ответный удар",
+};
+const spellTargetRu: Record<string, string> = {
+    ANY_ALLY: "любой союзник",
+    ALL_ALLIES: "все союзники",
+    ANY_ENEMY: "любой враг",
+    RANDOM_CLOSE_TO_CASTER: "случайная клетка рядом с заклинателем",
+    FREE_CELL: "свободная клетка",
+    ENEMY_WITHIN_MOVEMENT_RANGE: "враг в пределах дистанции движения",
+    AUTO: "автоматически",
+    ALL_FLYING: "все летающие юниты",
+    ALLIES_AREA: "союзники в области",
+};
+const spellBookRu: Record<string, string> = {
+    Life: "Жизнь",
+    Nature: "Природа",
+    Order: "Порядок",
+    Chaos: "Хаос",
+    Death: "Смерть",
+    System: "системная (эффекты игры)",
+};
 
 class GraphAssembler {
     readonly nodes = new Map<string, KnowledgeNode>();
@@ -168,17 +216,18 @@ function unitText(unit: Unit, language: Language): string {
         : movementLabel(unit.movementType);
     const footprint = unit.size === 1 ? "1x1" : unit.size === 2 ? "2x2" : `${unit.size}`;
     const abilityLines = unit.abilities.map(
-        (ability) => `${ability.name}: ${(isRu ? ability.descriptionRu : ability.description).replace(/\s+/g, " ")}`,
+        (ability) =>
+            `${isRu ? ruLabel(ability.name) : ability.name}: ${(isRu ? ability.descriptionRu : ability.description).replace(/\s+/g, " ")}`,
     );
     const spellCounts = new Map<string, number>();
     for (const entry of unit.spells) {
         const name = entry.replace(/^[^:]+:/, "");
         spellCounts.set(name, (spellCounts.get(name) ?? 0) + 1);
     }
-    const spellLines = [...spellCounts].map(([name, count]) => `${name} ×${count}`);
+    const spellLines = [...spellCounts].map(([name, count]) => `${isRu ? ruLabel(name) : name} ×${count}`);
     if (isRu) {
         return [
-            `**${unit.name}** — ${faction}, уровень ${unit.level}${unit.summonedOnly ? " (только призыв, не драфтится)" : ""}.`,
+            `**${ruLabel(unit.name)}** — ${faction}, уровень ${unit.level}${unit.summonedOnly ? " (только призыв, не драфтится)" : ""}.`,
             bullet([
                 `Здоровье: ${unit.hp}`,
                 `Атака: ${unit.attack} (${attack}), урон ${unit.damageMin}–${unit.damageMax}`,
@@ -228,9 +277,15 @@ const abilityKindLabel = (ability: Ability, language: Language): string => {
 
 function abilityText(ability: Ability, language: Language): string {
     const isRu = language === "ru";
-    const carriers = ability.units.map((unit) => `${unit.name} (${localizedFactionName(language, unit.faction)})`);
+    const carriers = ability.units.map((unit) =>
+        isRu
+            ? ruWithDetail(unit.name, localizedFactionName(language, unit.faction))
+            : `${unit.name} (${localizedFactionName(language, unit.faction)})`,
+    );
     const lines = [
-        `**${ability.name}** — ${abilityKindLabel(ability, language)}${ability.type ? ` · ${ability.type}` : ""}${
+        `**${isRu ? ruLabel(ability.name) : ability.name}** — ${abilityKindLabel(ability, language)}${
+            ability.type ? ` · ${isRu ? (abilityTypeRu[ability.type] ?? ability.type) : ability.type}` : ""
+        }${
             ability.isStackPowered ? (isRu ? " · зависит от силы стека" : " · scales with stack power") : ""
         }`,
         isRu ? ability.descriptionRu : ability.description,
@@ -238,7 +293,7 @@ function abilityText(ability: Ability, language: Language): string {
             ? `${isRu ? "Носители" : "Carried by"}: ${carriers.join(", ")}`
             : ability.grantedBy
               ? isRu
-                  ? `Ни один юнит не рождается с этой способностью: её даёт ${ability.grantedBy}.`
+                  ? `Ни один юнит не рождается с этой способностью: её даёт ${ruLabel(ability.grantedBy)}.`
                   : `No unit is born with this ability: it is granted by ${ability.grantedBy}.`
               : isRu
                 ? "Носителей нет."
@@ -275,36 +330,40 @@ function spellDurationLabel(spell: Spell, language: Language): string {
 
 function spellText(spell: Spell, language: Language): string {
     const isRu = language === "ru";
-    const casters = spell.casters.map(
-        (caster) => `${caster.name} (${localizedFactionName(language, caster.faction)}, ×${caster.scrolls})`,
+    const casters = spell.casters.map((caster) =>
+        isRu
+            ? ruWithDetail(caster.name, `${localizedFactionName(language, caster.faction)}, ×${caster.scrolls}`)
+            : `${caster.name} (${localizedFactionName(language, caster.faction)}, ×${caster.scrolls})`,
     );
     const facts = [
-        `${isRu ? "Школа" : "Book"}: ${spell.book}`,
+        `${isRu ? "Школа" : "Book"}: ${isRu ? (spellBookRu[spell.book] ?? spell.book) : spell.book}`,
         `${isRu ? "Тип" : "Kind"}: ${spellKindLabel(spell, language)}${spell.polarity ? ` · ${spellPolarityLabel(spell, language)}` : ""}`,
         `${isRu ? "Уровень" : "Level"}: ${spell.level}`,
-        `${isRu ? "Цель" : "Target"}: ${spell.target}`,
+        `${isRu ? "Цель" : "Target"}: ${isRu ? (spellTargetRu[spell.target] ?? spell.target) : spell.target}`,
         `${isRu ? "Длительность" : "Duration"}: ${spellDurationLabel(spell, language)}`,
         `${isRu ? "Минимальная сила стека заклинателя" : "Minimum caster stack power"}: ${spell.minimalCasterStackPower}`,
         ...(spell.selfCastAllowed ? [isRu ? "Можно применить на себя" : "Can be cast on self"] : []),
         ...(spell.isGiftable ? [isRu ? "Можно подарить" : "Giftable"] : []),
         ...(spell.conflictsWith.length
-            ? [`${isRu ? "Конфликтует с" : "Conflicts with"}: ${spell.conflictsWith.join(", ")}`]
+            ? [`${isRu ? "Конфликтует с" : "Conflicts with"}: ${(isRu ? spell.conflictsWith.map(ruLabel) : spell.conflictsWith).join(", ")}`]
             : []),
     ];
     const source = casters.length
         ? `${isRu ? "Заклинатели" : "Casters"}: ${casters.join(", ")}`
         : spell.appliedBy.length
-          ? `${isRu ? "Применяется способностями" : "Applied by abilities"}: ${spell.appliedBy.join(", ")}`
+          ? `${isRu ? "Применяется способностями" : "Applied by abilities"}: ${(isRu ? spell.appliedBy.map(ruLabel) : spell.appliedBy).join(", ")}`
           : isRu
             ? "Применяется игрой автоматически (состояние, местность или предмет)."
             : "Applied automatically by the game (state, terrain or item).";
-    return [`**${spell.name}**`, isRu ? spell.descriptionRu : spell.description, bullet(facts), source].join("\n\n");
+    return [`**${isRu ? ruLabel(spell.name) : spell.name}**`, isRu ? spell.descriptionRu : spell.description, bullet(facts), source].join(
+        "\n\n",
+    );
 }
 
 const artifactText = (artifact: (typeof artifacts)[number], language: Language): string => {
     const isRu = language === "ru";
     return [
-        `**${artifact.name}** — ${isRu ? "артефакт уровня" : "Tier"} ${artifact.tier}${artifact.cursed ? (isRu ? " · проклятый (есть недостаток)" : " · cursed (has a downside)") : ""}`,
+        `**${isRu ? ruLabel(artifact.name) : artifact.name}** — ${isRu ? "артефакт уровня" : "Tier"} ${artifact.tier}${artifact.cursed ? (isRu ? " · проклятый (есть недостаток)" : " · cursed (has a downside)") : ""}`,
         artifact.description,
         isRu
             ? "Артефакты выбираются во время драфта: каждая команда берёт один артефакт 1-го уровня и один 2-го. Эффект действует на всю армию до конца боя."
@@ -709,8 +768,8 @@ function formulaSpecs(): FormulaSpec[] {
 
 interface RuleSectionCopy {
     title: string;
-    body?: string[];
-    items?: string[];
+    body?: readonly string[];
+    items?: readonly string[];
 }
 
 const fillRuleTokens = (text: string, language: Language): string =>
@@ -821,6 +880,7 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
             type: "unit",
             section: "units",
             name: unit.name,
+            nameRu: ruName(unit.name),
             href,
             hrefRu,
             summary: unitSummary(unit, "en"),
@@ -876,6 +936,7 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
             type: "ability",
             section: "abilities",
             name: ability.name,
+            nameRu: ruName(ability.name),
             href,
             hrefRu,
             summary: ability.description.split("\n")[0],
@@ -931,6 +992,13 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
             const carriers = carriersOf(abilityName);
             return carriers ? `${abilityName} (${carriers})` : abilityName;
         });
+        // Russian: "Оглушение (Stun): Орк (Orc), Оруженосец (Squire)".
+        const applierLinesRu = appliers.map((abilityName) => {
+            const carriers = abilities.find((ability) => ability.name === abilityName)?.units ?? [];
+            return carriers.length
+                ? `${ruLabel(abilityName)}: ${carriers.map((unit) => ruLabel(unit.name)).join(", ")}`
+                : ruLabel(abilityName);
+        });
         // The card a player should land on: the ability of the same name, else the one ability that
         // applies the effect, else a search for it in the abilities tab.
         const linkedAbility = abilityNames.has(name)
@@ -943,6 +1011,7 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
             type: "effect",
             section: "abilities",
             name,
+            nameRu: ruName(name),
             aliases: [`${name} effect`],
             href: linkedAbility
                 ? knowledgePath("en", { section: "abilities", entry: linkedAbility })
@@ -961,11 +1030,11 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
                     : "Applied by the game (artifacts, synergies or terrain).",
             ].join("\n\n"),
             textRu: [
-                `**${name}** — эффект-состояние, который накладывают способности.`,
+                `**${ruLabel(name)}** — эффект-состояние, который накладывают способности.`,
                 description,
                 `Длительность: ${raw.laps} круг(а).`,
                 applierLines.length
-                    ? `Накладывается: ${applierLines.join(", ")}.`
+                    ? `Накладывается: ${applierLinesRu.join("; ")}.`
                     : "Накладывается игрой (артефакты, синергии или местность).",
             ].join("\n\n"),
             tags: ["effect", "status"],
@@ -981,6 +1050,7 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
             type: "spell",
             section: "spells",
             name: spell.name,
+            nameRu: ruName(spell.name),
             href,
             hrefRu,
             summary: spell.description.split("\n")[0],
@@ -1021,6 +1091,7 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
             type: "artifact",
             section: "artifacts",
             name: artifact.name,
+            nameRu: ruName(artifact.name),
             aliases: [artifact.slug.replace(/_/g, " ")],
             href,
             hrefRu,
@@ -1066,7 +1137,7 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
                     ),
                 ),
                 spec.noteRu,
-                `Очки апгрейдов даёт доктрина (5 у Spymaster, 6 у Scout, ${MAX_AUGMENT_POINTS} у Battle Trance); они тратятся при подготовке армии перед расстановкой.`,
+                `Очки апгрейдов даёт доктрина: ${ruLabel("Spymaster")} — 5, ${ruLabel("Scout")} — 6, ${ruLabel("Battle Trance")} — ${MAX_AUGMENT_POINTS}; они тратятся при подготовке армии перед расстановкой.`,
             ].join("\n\n"),
             tags: ["augment", "upgrade"],
             keywords: ["augment", "upgrade", "апгрейд", "усиление", ...spec.keywords],
@@ -1080,6 +1151,7 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
             type: "doctrine",
             section: "rules",
             name: doctrine.name,
+            nameRu: ruName(doctrine.name),
             aliases: [`${doctrine.name} doctrine`],
             href: knowledgePath("en", { section: "rules", entry: "rules-doctrines" }),
             hrefRu: knowledgePath("ru", { section: "rules", entry: "rules-doctrines" }),
@@ -1092,7 +1164,7 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
                 "More vision costs points: the less you see of the opponent's draft, the larger your augment budget.",
             ].join("\n\n"),
             textRu: [
-                `**${doctrine.name}** — доктрина драфта, первый выбор фазы пиков, который оба игрока делают одновременно.`,
+                `**${ruLabel(doctrine.name)}** — доктрина драфта, первый выбор фазы пиков, который оба игрока делают одновременно.`,
                 doctrine.description,
                 `Режим раскрытия: ${doctrine.revealMode === "all" ? "видны все пики соперника" : doctrine.revealMode === "random3" ? "раскрываются 3 случайных слота соперника" : "ничего не раскрывается"}. Очки апгрейдов: ${doctrine.upgradePoints}.`,
                 "Обзор стоит очков: чем меньше вы видите драфт соперника, тем больше бюджет апгрейдов.",
@@ -1205,8 +1277,8 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
     for (const page of rankedPages) {
         const en = content.en[page.key];
         const ru = content.ru[page.key];
-        const sections = en.sections as RuleSectionCopy[];
-        const sectionsRu = ru.sections as RuleSectionCopy[];
+        const sections: readonly RuleSectionCopy[] = en.sections;
+        const sectionsRu: readonly RuleSectionCopy[] = ru.sections;
         sections.forEach((section, index) => {
             const sectionRu = sectionsRu[index];
             graph.add({
