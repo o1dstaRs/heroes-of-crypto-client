@@ -988,7 +988,7 @@ function formulaSpecs(): FormulaSpec[] {
         {
             name: "Retaliation",
             nameRu: "Ответный удар",
-            aliases: ["response", "counterattack", "counter-shot", "ответ", "контратака"],
+            aliases: ["response", "counterattack", "counter-shot", "hit back", "hits back", "strike back", "strikes back", "ответ", "контратака", "бьёт в ответ", "ответка"],
             summary:
                 "A stack answers one attack per lap; the answer is computed before your blow lands, so even a stack you are about to destroy strikes back at full strength.",
             summaryRu:
@@ -1176,6 +1176,46 @@ function formulaSpecs(): FormulaSpec[] {
                 ...["стрелки", "заклинания", "летающие", "по площади"],
             ],
             rule: "rule-mechanics",
+        },
+        {
+            name: "Draft bans",
+            nameRu: "Баны в драфте",
+            aliases: ["ban", "bans", "auto-ban", "autoban", "ban preference", "бан", "баны", "автобан", "забанить"],
+            summary: "Which creatures are banned before the draft, and how your one ranked ban preference works.",
+            summaryRu: "Какие существа банятся перед драфтом и как работает ваше одно предпочтение бана в рейтинге.",
+            text: bullet([
+                "Before every draft the game automatically bans 6 level-1, 6 level-2, 3 level-3 and 5 level-4 creatures; bundle creatures are never auto-banned.",
+                "In the ranked lobby you can save one ban preference beforehand. It adds at most one shared extra ban per match (the same unit from both players is one ban; two different ones are settled by the match) and never replaces an auto-ban. You can't ban during the draft itself.",
+                "The extra ban applies only to a draftable unit and only when at least two non-bundle choices remain at its level. If that unit lands in a generated bundle, the server regenerates the whole draft; after 25 tries the ban is skipped for that match. If the auto-bans already removed it, nothing further is banned.",
+            ]),
+            textRu: bullet([
+                "Перед каждым драфтом игра автоматически банит 6 существ 1 уровня, 6 — 2 уровня, 3 — 3 уровня и 5 — 4 уровня; существ из бандлов автобан не трогает.",
+                "В рейтинговом лобби можно заранее сохранить одно предпочтение бана. Оно добавляет не больше одного общего дополнительного бана на матч (один и тот же юнит у обоих игроков — один бан; два разных решает матч) и не заменяет автобан. Во время самого драфта банить нельзя.",
+                "Дополнительный бан применяется только к драфтовому юниту и только если на его уровне остаются минимум два небандловых варианта. Если этот юнит попал в сгенерированный бандл, сервер заново генерирует весь драфт; после 25 попыток бан в этом матче пропускается. Если автобаны уже убрали этого юнита, больше никого не банят.",
+            ]),
+            keywords: ["ban", "draft", "бан", "драфт"],
+            rule: "rule-draft",
+        },
+        {
+            name: "Barrels map",
+            nameRu: "Карта Barrels (бочки)",
+            aliases: ["barrel", "barrels", "бочка", "бочки", "карта с бочками"],
+            summary: "The Barrels map: where the barrels stand, what they block, how to break them, and when the map narrows.",
+            summaryRu: "Карта Barrels: где стоят бочки, что они блокируют, как их разбить и когда сужается поле.",
+            text: bullet([
+                "Exactly 12 destructible barrels, placed from the match ID across the four central columns; there is no single central block.",
+                "A barrel is a structure: an ordinary shot is stopped by the first barrel in its lane.",
+                "Any unit can attack a barrel directly, in melee or with a shot, and a single hit destroys it. Double Shot spends up to two of its projectiles clearing barrels instead of hitting the target; Cyclops (Large Caliber) and Gargantuan (Area Throw) fly over structures and smash every barrel caught in the 3×3.",
+                "The Barrels map narrows at laps 5 and 9 (Normal and FIRE PIT at 4, 7 and 10).",
+            ]),
+            textRu: bullet([
+                "Ровно 12 разрушаемых бочек, расставленных по четырём центральным колонкам по ID матча; единого блока в центре нет.",
+                "Бочка — постройка: обычный выстрел останавливает первая бочка на линии.",
+                "Любой юнит может атаковать бочку напрямую, в ближнем бою или выстрелом, и один удар её уничтожает. Double Shot тратит до двух своих снарядов на расчистку бочек вместо попадания по цели; Cyclops (Large Caliber) и Gargantuan (Area Throw) летят поверх построек и разбивают все бочки в зоне 3×3.",
+                "Карта Barrels сужается на 5 и 9 кругах (Normal и FIRE PIT — на 4, 7 и 10).",
+            ]),
+            keywords: ["barrels", "map", "obstacle", "бочки", "карта", "препятствие"],
+            rule: "rule-map",
         },
         {
             name: "Draft and placement timers",
