@@ -495,6 +495,8 @@ interface AugmentSpec {
     nameRu: string;
     /** What the game's Russian interface calls it, when the site's name differs (i18n/ru.ts). */
     gameNameRu?: string;
+    /** Which draftable units the bonus actually reaches, when that is not simply everyone. */
+    beneficiaries?: { en: string; ru: string };
     summary: string;
     summaryRu: string;
     levels: { level: number; cost: number; effect: string; effectRu: string }[];
@@ -503,7 +505,23 @@ interface AugmentSpec {
     keywords: string[];
 }
 
+/** Spells and abilities the Empower bonuses raise (common EMPOWERED_MAGIC_ABILITIES + damage spells). */
+const MAGIC_DAMAGE_SPELLS = new Set([
+    ...["Fire Strike", "Fireball", "Meteorite", "Lightning Strike", "Ring of Fire", "Meteor Shower"],
+    ...["Fire Wall", "Fireforged Sword"],
+]);
+const MAGIC_DAMAGE_ABILITIES = new Set(["Chain Lightning", "Fire Breath", "Fire Shield"]);
+
 function augmentSpecs(): AugmentSpec[] {
+    const draftable = allUnits.filter((unit) => !unit.summonedOnly);
+    const shooters = draftable.filter((unit) => unit.attackType === "RANGE").map((unit) => unit.name);
+    const magicDealers = draftable
+        .filter(
+            (unit) =>
+                unit.spells.some((entry) => MAGIC_DAMAGE_SPELLS.has(entry.replace(/^[^:]+:/, ""))) ||
+                unit.abilities.some((ability) => MAGIC_DAMAGE_ABILITIES.has(ability.name)),
+        )
+        .map((unit) => unit.name);
     const armor = [ArmorAugment.LEVEL_1, ArmorAugment.LEVEL_2, ArmorAugment.LEVEL_3].map(getArmorPower);
     const might = [MightAugment.LEVEL_1, MightAugment.LEVEL_2, MightAugment.LEVEL_3].map(getMightPower);
     const empower = [EmpowerAugment.LEVEL_1, EmpowerAugment.LEVEL_2, EmpowerAugment.LEVEL_3].map(getEmpowerPower);
@@ -550,6 +568,10 @@ function augmentSpecs(): AugmentSpec[] {
             name: "Empower Augment",
             nameRu: "Апгрейд «Магия»",
             gameNameRu: "Усиление",
+            beneficiaries: {
+                en: `Only magic damage gains, so it is worth points only to an army with a source of it: ${magicDealers.join(", ")}.`,
+                ru: `Растёт только магический урон, поэтому очки стоит тратить только армии с его источником: ${magicDealers.join(", ")}.`,
+            },
             summary:
                 "Team-wide magic damage bonus: offensive spells, Fire Wall, Fireforged Sword, Chain Lightning, Fire Breath and Fire Shield.",
             summaryRu:
@@ -568,6 +590,10 @@ function augmentSpecs(): AugmentSpec[] {
             name: "Sniper Augment",
             nameRu: "Апгрейд «Стрельба»",
             gameNameRu: "Снайпер",
+            beneficiaries: {
+                en: `It reaches only the shooters: ${shooters.join(", ")}.`,
+                ru: `Действует только на стрелков: ${shooters.join(", ")}.`,
+            },
             summary: "Base-attack and shot-distance bonus for ranged units, only while they shoot.",
             summaryRu: "Бонус к базовой атаке и дистанции выстрела для стрелков — только когда они стреляют.",
             levels: sniper.map(([attack, range], index) => ({
@@ -1599,6 +1625,7 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
                     ),
                 ),
                 spec.note,
+                ...(spec.beneficiaries ? [spec.beneficiaries.en] : []),
                 `Augment points come from the doctrine (5 for Spymaster, 6 for Scout, ${MAX_AUGMENT_POINTS} for Battle Trance) and are spent during Setup, before placement. Each level costs its number in points, the bonus applies to the whole army from the first lap, and points still unspent when Setup ends are spent automatically.`,
             ].join("\n\n"),
             textRu: [
@@ -1610,6 +1637,7 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
                     ),
                 ),
                 spec.noteRu,
+                ...(spec.beneficiaries ? [spec.beneficiaries.ru] : []),
                 `Очки апгрейдов даёт доктрина: ${ruLabel("Spymaster")} — 5, ${ruLabel("Scout")} — 6, ${ruLabel("Battle Trance")} — ${MAX_AUGMENT_POINTS}; они тратятся на этапе Setup перед расстановкой. Каждый уровень стоит столько очков, каков его номер, бонус действует на всю армию с первого круга, а очки, не потраченные к концу Setup, тратятся автоматически.`,
             ].join("\n\n"),
             tags: ["augment", "upgrade"],
