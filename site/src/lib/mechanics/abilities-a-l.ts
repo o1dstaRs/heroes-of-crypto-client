@@ -80,9 +80,9 @@ export const ABILITY_NOTES_A_L: Readonly<Record<string, NoteSpec>> = {
     },
     "Basic Tome of Battle Magic": {
         en: () =>
-            "Spell book: Fire Strike ×3 and Meteorite ×1 per fight; Meteorite needs a full stack (stack power 5). A damage spell deals its power per creature alive in the casting stack — stack power only decides whether it can be cast.",
+            "Spell book: Fire Strike ×3 and Meteorite ×1 per fight; Meteorite needs a full stack (stack power 5, measured against the strongest stack on the board — an enemy stack grown by Life's Supply synergy at level 3 can take it away). A damage spell deals its power per creature alive in the casting stack — stack power only decides whether it can be cast.",
         ru: () =>
-            "Книга заклинаний: Fire Strike ×3 и Meteorite ×1 на бой; для Meteorite нужна полная сила стека (5). Урон заклинания — его сила за каждое живое существо в стеке заклинателя; сила стека лишь решает, можно ли его применить.",
+            "Книга заклинаний: Fire Strike ×3 и Meteorite ×1 на бой; для Meteorite нужна полная сила стека (5; она считается от сильнейшего стека на поле — вражеский стек, выросший от синергии Жизни «Запас» 3 уровня, может её отнять). Урон заклинания — его сила за каждое живое существо в стеке заклинателя; сила стека лишь решает, можно ли его применить.",
     },
     "Battle Roar": {
         en: () =>

@@ -199,9 +199,9 @@ export const ABILITY_NOTES_M_Z: Readonly<Record<string, NoteSpec>> = {
     },
     "Tome of Elements": {
         en: () =>
-            "Spell book: Whirlpool ×1 (stack power 3+), Lightning Strike ×4, Ring of Fire ×2 (stack power 4+) and Meteor Shower ×1 (full stack, stack power 5) per fight. It can't cast while Broken; if the tome is stolen, its remaining charges go with it.",
+            "Spell book: Whirlpool ×1 (stack power 3+), Lightning Strike ×4, Ring of Fire ×2 (stack power 4+) and Meteor Shower ×1 (full stack, stack power 5 — measured against the strongest stack on the board, so an enemy stack grown by Life's Supply synergy at level 3 can take it away) per fight. It can't cast while Broken; if the tome is stolen, its remaining charges go with it.",
         ru: () =>
-            "Книга заклинаний: Whirlpool ×1 (сила стека 3+), Lightning Strike ×4, Ring of Fire ×2 (сила стека 4+) и Meteor Shower ×1 (полная сила стека, 5) на бой. Под Break колдовать нельзя; если книгу украдут, оставшиеся заряды уходят вместе с ней.",
+            "Книга заклинаний: Whirlpool ×1 (сила стека 3+), Lightning Strike ×4, Ring of Fire ×2 (сила стека 4+) и Meteor Shower ×1 (полная сила стека, 5 — она считается от сильнейшего стека на поле, так что вражеский стек, выросший от синергии Жизни «Запас» 3 уровня, может её отнять) на бой. Под Break колдовать нельзя; если книгу украдут, оставшиеся заряды уходят вместе с ней.",
     },
     "Tome of Might": {
         en: () =>
@@ -277,9 +277,9 @@ export const ABILITY_NOTES_M_Z: Readonly<Record<string, NoteSpec>> = {
     },
     "Wind Flow": {
         en: ({ p }) =>
-            `Once per fight, and only at full stack (stack power 5): every flying unit on the board — both sides, the Valkyrie included — gets +${p} base armor and −${p} movement (never below 1) for 3 laps. Flyers with 100% magic resistance or already under Wind Flow are skipped, and enemies can't resist it. With Tome of Amplification in the Valkyrie's army its own flyers get ×1.5 of both halves — +6 armor and −6 movement — while enemy flyers keep ±${p}.`,
+            `Once per fight, and only at full stack (stack power 5, measured against the strongest stack on the board — an enemy stack grown by Life's Supply synergy at level 3 can take it away): every flying unit on the board — both sides, the Valkyrie included — gets +${p} base armor and −${p} movement (never below 1) for 3 laps. Flyers with 100% magic resistance or already under Wind Flow are skipped, and enemies can't resist it. With Tome of Amplification in the Valkyrie's army its own flyers get ×1.5 of both halves — +6 armor and −6 movement — while enemy flyers keep ±${p}.`,
         ru: ({ p }) =>
-            `Раз за бой и только при полной силе стека (5): каждый летающий юнит на поле — обеих сторон, включая Valkyrie, — получает +${p} к базовой броне и −${p} к движению (не ниже 1) на 3 круга. Летающие юниты со 100% сопротивления магии или уже под Wind Flow пропускаются, а враги не могут сопротивляться. С Tome of Amplification в армии Valkyrie её собственные летающие получают обе половины ×1,5 — +6 к броне и −6 к движению, — а вражеские остаются при ±${p}.`,
+            `Раз за бой и только при полной силе стека (5; она считается от сильнейшего стека на поле — вражеский стек, выросший от синергии Жизни «Запас» 3 уровня, может её отнять): каждый летающий юнит на поле — обеих сторон, включая Valkyrie, — получает +${p} к базовой броне и −${p} к движению (не ниже 1) на 3 круга. Летающие юниты со 100% сопротивления магии или уже под Wind Flow пропускаются, а враги не могут сопротивляться. С Tome of Amplification в армии Valkyrie её собственные летающие получают обе половины ×1,5 — +6 к броне и −6 к движению, — а вражеские остаются при ±${p}.`,
     },
     "Wolf Trail Aura": {
         en: ({ p, n }) =>

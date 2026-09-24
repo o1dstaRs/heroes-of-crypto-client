@@ -69,9 +69,9 @@ const SPELL_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     "Meteor Shower": {
         en: ({ p, n }) =>
-            `Hits every enemy in a 3×3 block centred on any cell — no line of sight needed, your own units are safe — for ${n(p)} per creature alive in the casting stack, ${damageTail.en}. The block must be on the board and cover at least one enemy, or the cast is refused without spending the charge. Earth magic: Earth Elements take nothing, Wind Elements ×1.5.`,
+            `Hits every enemy in a 3×3 block centred on any cell — no line of sight needed, your own units are safe — for ${n(p)} per creature alive in the casting stack, ${damageTail.en}. The block must be on the board and cover at least one enemy, or the cast is refused without spending the charge. Earth magic: Earth Elements take nothing, Wind Elements ×1.5. It needs the caster at full stack (stack power 5), measured against the strongest stack on the board: losses or a split lock it, and so can an enemy stack grown by Life's Supply synergy at level 3 (9 Monks, 1,278 experience), which drops untouched stacks of up to 1,022 experience to stack power 4.`,
         ru: ({ p, n }) =>
-            `Бьёт каждого врага в блоке 3×3 с центром в любой клетке — прямая видимость не нужна, ваши юниты в безопасности — на ${n(p)} за каждое живое существо в стеке заклинателя, ${damageTail.ru}. Блок должен быть на поле и накрывать хотя бы одного врага, иначе применение отклоняется без траты заряда. Магия земли: Earth Element не получают урона, Wind Element — ×1,5.`,
+            `Бьёт каждого врага в блоке 3×3 с центром в любой клетке — прямая видимость не нужна, ваши юниты в безопасности — на ${n(p)} за каждое живое существо в стеке заклинателя, ${damageTail.ru}. Блок должен быть на поле и накрывать хотя бы одного врага, иначе применение отклоняется без траты заряда. Магия земли: Earth Element не получают урона, Wind Element — ×1,5. Нужна полная сила стека заклинателя (5), а она считается от сильнейшего стека на поле: потери или разделение закрывают его, как и вражеский стек, выросший от синергии Жизни «Запас» 3 уровня (9 Monk, 1278 опыта), — он опускает нетронутые стеки до 1022 опыта до силы 4.`,
     },
     "Ring of Fire": {
         en: ({ p, n }) =>
@@ -135,9 +135,9 @@ const SPELL_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     Meteorite: {
         en: ({ p, n }) =>
-            `Hits every enemy under a 2×2 block anywhere on the board for ${n(p)} per creature alive in the casting stack, ${damageTail.en}; the block must be on the board and cover an enemy, or the cast is refused. Earth magic: Earth Elements take nothing, Wind Elements ×1.5.`,
+            `Hits every enemy under a 2×2 block anywhere on the board for ${n(p)} per creature alive in the casting stack, ${damageTail.en}; the block must be on the board and cover an enemy, or the cast is refused. Earth magic: Earth Elements take nothing, Wind Elements ×1.5. It needs the caster at full stack (stack power 5), measured against the strongest stack on the board: losses or a split lock it, and so can an enemy stack grown by Life's Supply synergy at level 3 (9 Monks, 1,278 experience), which drops untouched stacks of up to 1,022 experience to stack power 4.`,
         ru: ({ p, n }) =>
-            `Бьёт каждого врага под блоком 2×2 в любом месте поля на ${n(p)} за каждое живое существо в стеке заклинателя, ${damageTail.ru}; блок должен быть на поле и накрывать врага, иначе применение отклоняется. Магия земли: Earth Element не получает урона, Wind Element — ×1,5.`,
+            `Бьёт каждого врага под блоком 2×2 в любом месте поля на ${n(p)} за каждое живое существо в стеке заклинателя, ${damageTail.ru}; блок должен быть на поле и накрывать врага, иначе применение отклоняется. Магия земли: Earth Element не получает урона, Wind Element — ×1,5. Нужна полная сила стека заклинателя (5), а она считается от сильнейшего стека на поле: потери или разделение закрывают его, как и вражеский стек, выросший от синергии Жизни «Запас» 3 уровня (9 Monk, 1278 опыта), — он опускает нетронутые стеки до 1022 опыта до силы 4.`,
     },
     Misfortune: {
         en: () =>
