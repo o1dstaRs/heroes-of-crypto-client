@@ -1,8 +1,10 @@
 ---
 import CreaturePortrait from "./CreaturePortrait.astro";
+import MechanicsNote from "./MechanicsNote.astro";
 import { content, type Language } from "../lib/site-data";
 import { localizedFactionName } from "../lib/localization";
 import { knowledgeEntryId, knowledgePath } from "../lib/knowledge-base";
+import { abilityNote } from "../lib/mechanics";
 import { abilities, abilitiesCount, factionColors } from "../lib/units-data";
 
 interface Props {
@@ -165,6 +167,7 @@ const searchText = (ability: (typeof abilities)[number]) =>
                         <p class="ability-card-desc">
                             {lang === "ru" ? ability.descriptionRu : ability.description}
                         </p>
+                        <MechanicsNote lang={lang} note={abilityNote(ability.name, lang)} />
                         <div class="ability-card-units">
                             <span class="ability-used-by">
                                 {/* An ability nothing is born with (Craft forges it mid-fight) has no roster

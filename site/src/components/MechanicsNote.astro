@@ -1,0 +1,51 @@
+---
+// The engine-checked "How it works" note under a codex card (lib/mechanics). Collapsed by default so the
+// grid stays scannable; the text is in the page either way, for readers, search engines and the AI search.
+import type { Language } from "../lib/site-data";
+
+interface Props {
+    lang: Language;
+    note?: string;
+}
+
+const { lang, note } = Astro.props;
+---
+
+{
+    note && (
+        <details class="mechanics-note">
+            <summary>{lang === "ru" ? "Как это работает" : "How it works"}</summary>
+            <p>{note}</p>
+        </details>
+    )
+}
+
+<style>
+    .mechanics-note {
+        border-top: 1px solid var(--line);
+        padding-top: 10px;
+    }
+
+    .mechanics-note summary {
+        width: fit-content;
+        cursor: pointer;
+        color: rgba(242, 199, 93, 0.9);
+        font-size: 0.74rem;
+        font-weight: 820;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+    }
+
+    .mechanics-note summary:focus-visible {
+        outline: 2px solid rgba(242, 199, 93, 0.9);
+        outline-offset: 3px;
+        border-radius: 3px;
+    }
+
+    .mechanics-note p {
+        margin: 8px 0 0;
+        color: rgba(251, 244, 232, 0.78);
+        font-size: 0.86rem;
+        line-height: 1.5;
+    }
+</style>
