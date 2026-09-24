@@ -878,7 +878,7 @@ function formulaSpecs(): FormulaSpec[] {
                     "Завершение хода после движения или другого действия ничего не стоит.",
                     "Другие источники: синергия Жизни «Мораль и удача» (+6/+13/+20), Crown of Command (+8), Cursed Ward (−6) и удар по врагу с меткой Pegasus Light (+10 плюс удача Pegasus).",
                 ]),
-                "В затянувшемся бою мораль ещё и двигает юнитов: каждый круг, когда карта сужается или ни один стек не стал ближе к ближайшему врагу, добавляет 0.05 шага за очко морали до конца боя (+1 шаг при +20 после одного такого круга), а отрицательная мораль шаги отнимает.",
+                "В затянувшемся бою мораль ещё и двигает юнитов: каждый круг, когда карта сужается или ни один стек не стал ближе к ближайшему врагу, добавляет 0,05 шага за очко морали до конца боя (+1 шаг при +20 после одного такого круга), а отрицательная мораль шаги отнимает.",
             ].join("\n\n"),
             keywords: ["morale", "tempo", "priority", "queue", "dismorale", "мораль", "темп", "очередь"],
             rule: "rule-morale",
@@ -1305,14 +1305,14 @@ function formulaSpecs(): FormulaSpec[] {
             summaryRu: `Кольца провалов сжимают поле на ${normalRings.join(", ")}-м кругах (на Barrels — на ${barrelRings.join(" и ")}-м), раньше, если никто не сближается; волны Армагеддона на ${NUMBER_OF_LAPS_FIRST_ARMAGEDDON}–${lastWave}-м кругах заканчивают любой бой к ${lastWave}-му кругу.`,
             text: bullet([
                 `On schedule, the outer ring of cells turns into holes at the start of laps ${normalRings.join(", ")} on Normal and FIRE PIT, and ${barrelRings.join(" and ")} on Barrels; nothing narrows after lap ${NUMBER_OF_LAPS_TILL_STOP_NARROWING}, and there are never more than ${MAX_HOLE_LAYERS} rings.`,
-                "If no stack of either army ends a lap closer to its nearest enemy, the next ring comes one lap early; if no damage was dealt that lap either, one extra ring is added for the rest of the fight (not on a scheduled narrowing lap). Each such lap also turns morale into movement (+0.05 steps per point).",
+                "If no stack of either army ends a lap closer to its nearest enemy, the next ring comes one lap early; if no damage was dealt that lap either, one extra ring is added for the rest of the fight (not on a scheduled narrowing lap). Every scheduled narrowing lap and every lap in which no stack got closer also turns morale into movement: +0.05 steps per point of morale for the rest of the fight.",
                 "A stack on a vanishing cell is pushed inward, sliding to the nearest free spot; with no room it is destroyed (no self-resurrection). FIRE PIT's lava dries into normal ground at the start of lap 10 (earlier after extra rings).",
                 `Armageddon hits every stack of both armies at the start of laps ${NUMBER_OF_LAPS_FIRST_ARMAGEDDON}–${lastWave}, ignoring armor, luck and magic resistance (a Water Shield absorbs one wave). Counting every creature the stack started with, alive or dead: wave 1 deals 25% of their health (at least ${MIN_ARMAGEDDON_DAMAGE_FIRST_WAVE}), waves 2, 3 and 4 deal 50%, 75% and 100%, rounded up to whole creatures.`,
                 `The first three waves add up to 150%, so a stack that faces them all dies to wave 3 unless Resurrection returned creatures (a Water Shield alone can't save it: it only ever takes wave 1, and waves 2 and 3 together are 125%); wave 4 destroys everything left, so a fight still running at lap ${lastWave} is a draw. Armies that lose their last stacks to the same wave draw; a stack down to half its starting creatures already dies to wave 2.`,
             ]),
             textRu: bullet([
                 `По расписанию внешнее кольцо клеток превращается в провалы в начале ${normalRings.join(", ")}-го кругов на Normal и FIRE PIT и ${barrelRings.join(" и ")}-го на Barrels; после ${NUMBER_OF_LAPS_TILL_STOP_NARROWING}-го круга сужения нет, и колец не бывает больше ${MAX_HOLE_LAYERS}.`,
-                "Если ни один стек обеих армий не закончил круг ближе к ближайшему врагу, следующее кольцо приходит на круг раньше; если за этот круг не было и урона, добавляется ещё одно кольцо до конца боя (не на круге планового сужения). Каждый такой круг ещё и превращает мораль в движение (+0.05 шага за очко).",
+                "Если ни один стек обеих армий не закончил круг ближе к ближайшему врагу, следующее кольцо приходит на круг раньше; если за этот круг не было и урона, добавляется ещё одно кольцо до конца боя (не на круге планового сужения). Каждый круг планового сужения и каждый круг, когда ни один стек не стал ближе, ещё и превращает мораль в движение: +0,05 шага за очко морали до конца боя.",
                 "Стек на исчезающей клетке выталкивается внутрь, сдвигаясь к ближайшему свободному месту; без места он уничтожается (без самовоскрешения). Лава FIRE PIT высыхает в обычную землю в начале 10-го круга (раньше при лишних кольцах).",
                 `Армагеддон бьёт по каждому стеку обеих армий в начале ${NUMBER_OF_LAPS_FIRST_ARMAGEDDON}–${lastWave}-го кругов без учёта брони, удачи и сопротивления магии (Water Shield поглощает одну волну). Если считать всех существ, с которыми стек начинал, живых и погибших: первая волна наносит 25% их здоровья (не меньше ${MIN_ARMAGEDDON_DAMAGE_FIRST_WAVE}), вторая, третья и четвёртая — 50%, 75% и 100%, с округлением вверх до целых существ.`,
                 `Первые три волны вместе — это 150%, поэтому стек, встретивший их все, гибнет от третьей, если Resurrection не вернул существ (один Water Shield его не спасёт: он принимает только первую волну, а вторая и третья вместе — уже 125%); четвёртая уничтожает всех оставшихся, так что бой, доживший до ${lastWave}-го круга, — ничья. Армии, потерявшие последние стеки от одной волны, играют вничью; стек, у которого осталась половина начальных существ или меньше, гибнет уже от второй волны.`,
@@ -1870,7 +1870,7 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
             summary: `${spec.faction} synergy: ${levels.map((entry) => spec.effect(entry.powers)).join(" / ")} at ${levels.map((entry) => entry.units).join("/")} units.`,
             summaryRu: `Синергия фракции ${factionRu}: ${levels.map((entry) => spec.effectRu(entry.powers)).join(" / ")} при ${levels.map((entry) => entry.units).join("/")} юнитах.`,
             text: [
-                `**${spec.name}** is one of the two ${spec.faction} faction synergies. Which of the pair applies in a match is fixed by the match id; both players see the same variant from the first draft screen.`,
+                `**${spec.name}** is one of the two ${spec.faction} faction synergies. Which of the pair applies in a match is fixed by the match id; both players see the same variant from the first draft screen. Only the sandbox lets you pick either variant by hand (in a co-op sandbox each side picks its own).`,
                 bullet(
                     levels.map(
                         (entry) =>
@@ -1882,7 +1882,7 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
                 `How it works: ${spec.detail}`,
             ].join("\n\n"),
             textRu: [
-                `**${spec.nameRu}** — одна из двух синергий фракции ${factionRu}. Какая из пары действует в матче, определяется идентификатором матча; оба игрока видят один и тот же вариант с первого экрана драфта.`,
+                `**${spec.nameRu}** — одна из двух синергий фракции ${factionRu}. Какая из пары действует в матче, определяется идентификатором матча; оба игрока видят один и тот же вариант с первого экрана драфта. Только в песочнице вариант можно выбрать вручную (в совместной песочнице каждая сторона выбирает свой).`,
                 bullet(
                     levels.map(
                         (entry) =>
@@ -2186,12 +2186,13 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
 
     patchNotes.en.forEach((note, index) => {
         const ru = patchNotes.ru[index];
-        const render = (entry: typeof note): string =>
+        const render = (entry: typeof note, current: string): string =>
             [
                 `**${entry.version}** (${entry.date}): ${entry.title}`,
                 entry.impact,
                 ...entry.sections.map((section) => `${section.title}:\n${bullet(section.items)}`),
                 entry.closing,
+                current,
             ]
                 .filter(Boolean)
                 .join("\n\n");
@@ -2206,8 +2207,16 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
             hrefRu: "/ru/patches/",
             summary: `${note.version} (${note.date}): ${note.impact}`,
             summaryRu: ru ? `${ru.version} (${ru.date}): ${ru.impact}` : undefined,
-            text: render(note),
-            textRu: ru ? render(ru) : undefined,
+            text: render(
+                note,
+                "_Patch notes record the game as it was at this release. Where a number here differs from the rules or a unit, ability, spell or augment entry, that entry is the current one._",
+            ),
+            textRu: ru
+                ? render(
+                      ru,
+                      "_Патчноуты описывают игру на момент выхода. Если число здесь расходится с правилами или записью юнита, способности, заклинания или апгрейда, актуальна запись._",
+                  )
+                : undefined,
             tags: ["patch", note.version],
             keywords: ["patch", "update", "changelog", "release", "патч", "обновление", "версия", note.version],
             props: { version: note.version, date: note.date },

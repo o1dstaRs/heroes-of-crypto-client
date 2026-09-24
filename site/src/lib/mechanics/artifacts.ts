@@ -136,9 +136,9 @@ const ARTIFACT_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     "Lava Striders": {
         en: () =>
-            "Every unit may cross and stand in the FIRE PIT's central lava; a move that crosses or ends on lava gives Made of Fire for 2 laps (+10% health, attack, armor, movement, initiative, shot range, magic resistance and ability power), not refreshed while active. It matters only on FIRE PIT and only until the pool dries (at the start of lap 10, earlier when stalled laps add narrowing rings).",
+            "Every unit may cross and stand in the FIRE PIT's central lava — without it, walkers can't enter the lava and flyers can only fly over it, never stopping there; a move that crosses or ends on lava gives Made of Fire for 2 laps (+10% health, attack, armor, movement, initiative, shot range, magic resistance and ability power), not refreshed while active. It matters only on FIRE PIT and only until the pool dries (at the start of lap 10, earlier when stalled laps add narrowing rings).",
         ru: () =>
-            "Каждый юнит может проходить по центральной лаве FIRE PIT и стоять в ней; перемещение через лаву или с остановкой в ней даёт Made of Fire на 2 круга (+10% к здоровью, атаке, броне, движению, инициативе, дистанции выстрела, сопротивлению магии и силе способностей), не обновляясь, пока действует. Полезен только на FIRE PIT и только пока озеро не высохнет (в начале 10-го круга, раньше, если затянутые круги добавили кольца сужения).",
+            "Каждый юнит может проходить по центральной лаве FIRE PIT и стоять в ней — без артефакта наземные юниты в лаву не заходят, а летающие только пролетают над ней, не останавливаясь; перемещение через лаву или с остановкой в ней даёт Made of Fire на 2 круга (+10% к здоровью, атаке, броне, движению, инициативе, дистанции выстрела, сопротивлению магии и силе способностей), не обновляясь, пока действует. Полезен только на FIRE PIT и только пока озеро не высохнет (в начале 10-го круга, раньше, если затянутые круги добавили кольца сужения).",
     },
     "Archmage's Ring": {
         en: ({ n }) =>
