@@ -32,17 +32,32 @@ const abilityCarriers = (names: readonly string[], language: NoteLanguage): stri
         language,
     );
 
+/** Skewer Strike reaches only the unit behind a one-cell target, so the Pikeman is a splash unit only there. */
+const skewerNote = (language: NoteLanguage): string => {
+    const skewers = carriers(["Skewer Strike"]);
+    if (!skewers.length) {
+        return "";
+    }
+    return language === "ru"
+        ? ` (у ${list(skewers, language)} — только для юнита, пронзённого позади одноклеточной цели)`
+        : ` (${list(skewers, language)}: only the unit skewered behind a one-cell target)`;
+};
+
+/** An enemy Giant's Maul against Amulet of Resolve: its impact bonus first, then the status resistance. */
+const maulAgainstAmulet = (language: NoteLanguage): string =>
+    formatNumber(Math.round((1 + A.GIANTS_MAUL_AOE_PERCENT / 100) * (1 - A.AMULET_OF_RESOLVE_RESIST_PERCENT / 100) * 100) / 100, language);
+
 type Fit = (language: NoteLanguage, n: (value: number) => string) => string;
 
 const FITS: Record<string, Fit> = {
     "Veteran Helm": (language, n) =>
         language === "ru"
-            ? `Каждый юнит получает примерно на ${n(100 - 10000 / (100 + A.VETERAN_HELM_PERCENT))}% меньше физического урона (урон делится на броню), какой бы ни была его броня, — небольшая ровная защита; против заклинаний и магического урона способностей не помогает.`
-            : `Every unit takes about ${n(100 - 10000 / (100 + A.VETERAN_HELM_PERCENT))}% less physical damage (damage is divided by armor), whatever its armor — a small, even defense; nothing against spells or ability magic damage.`,
+            ? `Каждый юнит получает примерно на ${n(100 - 10000 / (100 + A.VETERAN_HELM_PERCENT))}% меньше физического урона (урон делится на броню), какой бы ни была его броня, — небольшая ровная защита. Смягчает и Fire Breath, который считается как атака, но не помогает против заклинаний и Fire Shield.`
+            : `Every unit takes about ${n(100 - 10000 / (100 + A.VETERAN_HELM_PERCENT))}% less physical damage (damage is divided by armor), whatever its armor — a small, even defense. It also softens Fire Breath, which is priced like an attack, but does nothing against cast spells or Fire Shield.`,
     "Amulet of Resolve": (language) =>
         language === "ru"
-            ? `Против оглушения и паралича — ${abilityCarriers(["Stun", "Paralysis"], language)} — и физических ударов по площади и по линии: ${list(carriers(SPLASH_ABILITIES), language)}. Ваших юнитов с Mechanism он защищает сильнее всех (их ×1,5 от ударов по площади становится ×1,25). Против ментальных эффектов и магии не помогает.`
-            : `Best against stuns and paralysis — ${abilityCarriers(["Stun", "Paralysis"], language)} — and physical area and line attacks: ${list(carriers(SPLASH_ABILITIES), language)}. It shields your own Mechanism units most (their ×1.5 from splash becomes ×1.25). Nothing against Mind effects or magic.`,
+            ? `Против оглушения и паралича — ${abilityCarriers(["Stun", "Paralysis"], language)} — и физических ударов по площади и по линии: ${list(carriers(SPLASH_ABILITIES), language)}${skewerNote(language)}; вражеский Giant's Maul с ним даёт лишь ×${maulAgainstAmulet(language)}. Ваших юнитов с Mechanism он защищает сильнее всех (их ×1,5 от ударов по площади становится ×1,25). Против ментальных эффектов и магии не помогает.`
+            : `Best against stuns and paralysis — ${abilityCarriers(["Stun", "Paralysis"], language)} — and physical area and line attacks: ${list(carriers(SPLASH_ABILITIES), language)}${skewerNote(language)}; an enemy Giant's Maul nets only ×${maulAgainstAmulet(language)} against it. It shields your own Mechanism units most (their ×1.5 from splash becomes ×1.25). Nothing against Mind effects or magic.`,
     "Swift Boots": (language, n) => {
         const walkers = draftable().filter((unit) => unit.movementType !== "FLY" && unit.attackType === "MELEE");
         const chargers = walkers.filter((unit) => hasAbility(unit, ["Rapid Charge"])).map((unit) => unit.name);
@@ -60,14 +75,17 @@ const FITS: Record<string, Fit> = {
         language === "ru"
             ? `Работает только с Double Punch и Double Shot: ${list(carriers(["Double Punch", "Double Shot"]), language)}. Без них ничего не даёт.`
             : `Only does something with Double Punch or Double Shot: ${list(carriers(["Double Punch", "Double Shot"]), language)}. Nothing without them.`,
-    "Wounding Charm": (language) =>
-        language === "ru"
-            ? "Для армий ближнего боя: раны добавляет каждый удар в ближнем бою, а стрелки и заклинания лишь пользуются уже нанесёнными; удача входит в каждую рану целиком."
-            : "Best with melee armies: every melee hit adds wounds, while shooters and spells only cash them in; luck counts in full in every wound.",
+    "Wounding Charm": (language, n) => {
+        const owners = carriers(["Deep Wounds Level 1"]);
+        const higher = carriers(["Deep Wounds Level 2", "Deep Wounds Level 3"]);
+        return language === "ru"
+            ? `Для армий ближнего боя: раны добавляет каждый удар в ближнем бою, а стрелки (и Fire Breath) лишь пользуются уже нанесёнными — заклинания раны не учитывают; удача входит в каждую рану целиком. ${list(owners, language)} ничего не получает (эта карта у него уже есть); ${list(higher, language)} добавляют её ${n(A.WOUNDING_CHARM_DEEP_WOUNDS_PERCENT)} к своей.`
+            : `Best with melee armies: every melee hit adds wounds, while shooters (and Fire Breath) only cash them in — spells ignore wounds; luck counts in full in every wound. ${list(owners, language)} gains nothing (it already owns this card); ${list(higher, language)} add its ${n(A.WOUNDING_CHARM_DEEP_WOUNDS_PERCENT)} on top of their own.`;
+    },
     "Cursed Ward": (language, n) =>
         language === "ru"
-            ? `Почти бесплатен рядом с синергией Жизни «Мораль и удача» 3 уровня (мораль ограничена +20) и больнее всего там, где мораль и так низкая (у Хаоса стартовая −1: −${n(A.CURSED_WARD_MORALE_PENALTY)} — это частые Dismorale). Его +${n(A.CURSED_WARD_LUCK)} к удаче почти теряются, если удача уже около +10 (Clover of Fortune, Luck Aura).`
-            : `Costs little next to Life's Morale and Luck synergy at level 3 (morale is capped at +20) and hurts most where morale is already low (Chaos starts at −1, so −${n(A.CURSED_WARD_MORALE_PENALTY)} means frequent Dismorale). Its +${n(A.CURSED_WARD_LUCK)} luck is mostly lost where luck is already near +10 (Clover of Fortune, Luck Aura).`,
+            ? `Почти бесплатен рядом с синергией Жизни «Мораль и удача» 3 уровня (мораль ограничена +20, так что армия из одной Жизни теряет лишь 2) и больнее всего там, где мораль и так низкая: каждый круг юнит с отрицательной моралью получает Dismorale с шансом, равным ей в процентах, — у юнита Хаоса (−1) шанс растёт с 1% до ${n(1 + A.CURSED_WARD_MORALE_PENALTY)}%. Его +${n(A.CURSED_WARD_LUCK)} к удаче почти теряются, если удача уже около +10 (Clover of Fortune, Luck Aura).`
+            : `Costs little next to Life's Morale and Luck synergy at level 3 (morale is capped at +20, so an all-Life army loses only 2) and hurts most where morale is already low: each lap a unit with negative morale rolls Dismorale at that many percent, so a Chaos unit (−1) goes from 1% to ${n(1 + A.CURSED_WARD_MORALE_PENALTY)}%. Its +${n(A.CURSED_WARD_LUCK)} luck is mostly lost where luck is already near +10 (Clover of Fortune, Luck Aura).`,
     "Hunter's Longbow": (language) => {
         const shooters = draftable().filter((unit) => unit.attackType === "RANGE" && unit.rangeShots > 0).map((unit) => unit.name);
         return language === "ru"
@@ -80,24 +98,24 @@ const FITS: Record<string, Fit> = {
             : `Against Mind abilities: ${abilityCarriers(MIND_ABILITIES, language)}. Nothing against Mind spells (magic resistance handles those) or Status effects.`,
     "Warlord's Edge": (language, n) =>
         language === "ru"
-            ? `+${n(A.WARLORDS_EDGE_PERCENT)}% базовой атаки каждому юниту, в ближнем бою и выстрелом, сверху — Riot и ауры атаки его не умножают; ровное усиление для любой армии.`
-            : `+${n(A.WARLORDS_EDGE_PERCENT)}% of base attack for every unit, melee and ranged, added on top — Riot and attack auras don't multiply it; an even boost for any army.`,
+            ? `+${n(A.WARLORDS_EDGE_PERCENT)}% базовой атаки каждому юниту, в ближнем бою и выстрелом, сверху — Riot и ауры атаки его не умножают; ровное усиление для любой армии, которая бьёт атаками (заклинания атаку не используют).`
+            : `+${n(A.WARLORDS_EDGE_PERCENT)}% of base attack for every unit, melee and ranged, added on top — Riot and attack auras don't multiply it; an even boost for any army that fights with attacks (spells don't use attack).`,
     "Clover of Fortune": (language, n) =>
         language === "ru"
-            ? `+${n(A.CLOVER_LUCK)} к удаче: каждая атака по вашим юнитам наносит примерно на 1% меньше за очко удачи, а удача целиком входит в Deep Wounds (${list(carriers(["Deep Wounds Level 1", "Deep Wounds Level 2", "Deep Wounds Level 3"]), language)}), Piercing Spear и Boost Health (Centaur), Lucky Strike (Leprechaun) и процентные ауры. Бесполезен для юнитов, которые уже на +10 (Luck Aura у Leprechaun).`
-            : `+${n(A.CLOVER_LUCK)} luck: every attack on your units deals about 1% less per point of luck, and luck counts in full in Deep Wounds (${list(carriers(["Deep Wounds Level 1", "Deep Wounds Level 2", "Deep Wounds Level 3"]), language)}), Piercing Spear and Boost Health (Centaur), Lucky Strike (Leprechaun) and percentage auras. Wasted on units already at +10 (a Leprechaun's Luck Aura).`,
+            ? `+${n(A.CLOVER_LUCK)} к удаче, но удача ограничена +10: юниты Природы начинают с +4 и получают около +6, остальные — около +9. Каждая атака по вашим юнитам наносит примерно на 1% меньше за очко удачи, а удача целиком входит в Deep Wounds (${list(carriers(["Deep Wounds Level 1", "Deep Wounds Level 2", "Deep Wounds Level 3"]), language)}), Piercing Spear и Boost Health (Centaur), Rapid Charge (${list(carriers(["Rapid Charge"]), language)} — при +10 удачи бонус за клетку удваивается) и процентные ауры. Отменяет вражеский Misfortune (удача 0 вместо −10). Бесполезен для Leprechaun и союзников в 2 клетках от него — его Luck Aura уже даёт ровно +10.`
+            : `+${n(A.CLOVER_LUCK)} luck, but luck is capped at +10: Nature units start at +4 and gain about +6, the others about +9. Every attack on your units deals about 1% less per point of luck, and luck counts in full in Deep Wounds (${list(carriers(["Deep Wounds Level 1", "Deep Wounds Level 2", "Deep Wounds Level 3"]), language)}), Piercing Spear and Boost Health (Centaur), Rapid Charge (${list(carriers(["Rapid Charge"]), language)} — +10 luck doubles its per-cell bonus) and percentage auras. It cancels an enemy Misfortune (luck 0 instead of −10). Wasted on a Leprechaun and on allies within 2 cells of it — its Luck Aura already sets exactly +10.`,
     "Crown of Command": (language, n) =>
         language === "ru"
-            ? `+${n(A.CROWN_STEPS)} к движению и +${n(A.CROWN_ARMOR)} к броне всем; +${n(A.CROWN_MORALE)} к морали — это чаще Morale, но рядом с синергией Жизни «Мораль и удача» 3 уровня мораль пропадает (предел +20), а юниты с Madness и Mechanism морали не получают.`
-            : `+${n(A.CROWN_STEPS)} movement and +${n(A.CROWN_ARMOR)} armor for everyone; its +${n(A.CROWN_MORALE)} morale means more Morale rolls, but it is wasted next to Life's Morale and Luck synergy at level 3 (morale caps at +20), and Madness and Mechanism units get none.`,
+            ? `+${n(A.CROWN_STEPS)} к движению и +${n(A.CROWN_ARMOR)} к броне всем; +${n(A.CROWN_MORALE)} к морали — это чаще Morale, но мораль ограничена +20: рядом с синергией Жизни «Мораль и удача» 2 уровня (+13) он добавляет существам Жизни, Силы, Природы и Хаоса лишь 3/5/6/8, а на 3 уровне — ничего; юниты с Madness и Mechanism морали не получают.`
+            : `+${n(A.CROWN_STEPS)} movement and +${n(A.CROWN_ARMOR)} armor for everyone; its +${n(A.CROWN_MORALE)} morale means more Morale rolls, but morale caps at +20: next to Life's Morale and Luck synergy it adds only 3/5/6/8 to Life/Might/Nature/Chaos creatures at level 2 (+13) and nothing at level 3, and Madness and Mechanism units get none.`,
     "Giant's Maul": (language) =>
         language === "ru"
-            ? `Для армий с физическими ударами по площади и по линии: ${list(carriers(SPLASH_ABILITIES), language)}. Держите свои стеки — особенно Tsar Cannon — вне 3×3 вокруг целей ваших ударов по площади.`
-            : `Armies with physical area and line attacks: ${list(carriers(SPLASH_ABILITIES), language)}. Keep your own stacks — a Tsar Cannon above all — out of the 3×3 around your own area targets.`,
+            ? `Для армий с физическими ударами по площади и по линии: ${list(carriers(SPLASH_ABILITIES), language)}${skewerNote(language)}. Amulet of Resolve у соперника почти обнуляет его (×${maulAgainstAmulet(language)}). Держите свои стеки — особенно Tsar Cannon — вне 3×3 вокруг целей ваших ударов по площади.`
+            : `Armies with physical area and line attacks: ${list(carriers(SPLASH_ABILITIES), language)}${skewerNote(language)}. An enemy Amulet of Resolve all but cancels it (×${maulAgainstAmulet(language)}). Keep your own stacks — a Tsar Cannon above all — out of the 3×3 around your own area targets.`,
     "Pendant of Vitality": (language, n) =>
         language === "ru"
-            ? `+${n(A.PENDANT_HP_PERCENT)}% здоровья каждому существу ценой −${n(A.PENDANT_ATTACK_PENALTY_PERCENT)}% базовой атаки: для армий, которые побеждают, выживая, — меньше потерь держит и силу стека; урон всех юнитов при этом ниже.`
-            : `+${n(A.PENDANT_HP_PERCENT)}% health for every creature at −${n(A.PENDANT_ATTACK_PENALTY_PERCENT)}% base attack: for armies that win by lasting — fewer losses also keep stack power up; every unit's damage drops.`,
+            ? `+${n(A.PENDANT_HP_PERCENT)}% здоровья каждому существу ценой −${n(A.PENDANT_ATTACK_PENALTY_PERCENT)}% базовой атаки: для армий, которые побеждают, выживая, — меньше потерь держит и силу стека; урон атак всех юнитов при этом ниже, но заклинания атаку не используют, так что армиям заклинателей он почти ничего не стоит.`
+            : `+${n(A.PENDANT_HP_PERCENT)}% health for every creature at −${n(A.PENDANT_ATTACK_PENALTY_PERCENT)}% base attack: for armies that win by lasting — fewer losses also keep stack power up; every unit's attack damage drops, but spells don't use attack, so it costs a caster army little.`,
     "Farsight Quiver": (language) => {
         const shooters = draftable().filter((unit) => unit.attackType === "RANGE" && unit.rangeShots > 0 && !hasAbility(unit, ["Sniper"]));
         const ranges = shooters
@@ -121,12 +139,12 @@ const FITS: Record<string, Fit> = {
     },
     "Rime Charm": (language) =>
         language === "ru"
-            ? `Для армий, которые много бьют: каждый задетый ударом по площади или пробивающим выстрелом юнит бросает отдельно (${list(carriers(SPLASH_ABILITIES), language)}); −25% движения важнее всего против рывков ближнего боя.`
-            : `Armies that land many hits: every unit struck by splash or a piercing shot rolls separately (${list(carriers(SPLASH_ABILITIES), language)}); −25% movement matters most against melee rushes.`,
+            ? `Для армий, которые бьют много разных стеков: уже замедленный стек нельзя заморозить снова или продлить, а каждый задетый ударом по площади или пробивающим выстрелом юнит бросает отдельно (${list(carriers(SPLASH_ABILITIES), language)}${skewerNote(language)}); −25% движения важнее всего против рывков ближнего боя.`
+            : `Armies that hit many different stacks: a stack that is already slowed can't be chilled again or refreshed, and every unit struck by splash or a piercing shot rolls separately (${list(carriers(SPLASH_ABILITIES), language)}${skewerNote(language)}); −25% movement matters most against melee rushes.`,
     "Lava Striders": (language) =>
         language === "ru"
-            ? "Только на FIRE PIT и только пока лава не высохнет (10-й круг, раньше после затянутых кругов): для армий, которые хотят рано занять центр."
-            : "Only on FIRE PIT and only until the lava dries (lap 10, earlier after stalled laps): for armies that want the centre early.",
+            ? "Только на FIRE PIT и только пока лава не высохнет (10-й круг, раньше после затянутых кругов): для армий, которые хотят рано занять центр, — перемещение через лаву ещё и даёт Made of Fire (+10% к характеристикам и способностям на 2 круга)."
+            : "Only on FIRE PIT and only until the lava dries (lap 10, earlier after stalled laps): for armies that want the centre early — a move through lava also gives Made of Fire (+10% to stats and abilities for 2 laps).",
     "Keen Blade": (language, n) =>
         language === "ru"
             ? `Плоские +${n(A.KEEN_BLADE_FLAT)} к базовой атаке: заметны на стеках с низкой атакой (Arbalester 7 → 7,7, +10%) и почти ничего не дают юнитам 4 уровня (Black Dragon 48, +1,5%).`
@@ -137,8 +155,8 @@ const FITS: Record<string, Fit> = {
             : `A flat +${n(A.IRON_PLATE_FLAT)} base armor: worth most on low-armor stacks (a Peasant's 7 → 8, about 12% less physical damage), little on armored ones (a Black Dragon's 40 → 41, about 2%).`,
     "Titan Plate": (language, n) =>
         language === "ru"
-            ? `+${n(A.TITAN_PLATE_PERCENT)}% базовой брони каждому юниту, сверху (другие бонусы брони его не умножают): примерно на ${n(100 - 10000 / (100 + A.TITAN_PLATE_PERCENT))}% меньше физического урона всем, какой бы ни была броня; против заклинаний и магического урона способностей не помогает.`
-            : `+${n(A.TITAN_PLATE_PERCENT)}% of base armor for every unit, added on top (other armor bonuses don't multiply it): about ${n(100 - 10000 / (100 + A.TITAN_PLATE_PERCENT))}% less physical damage for everyone, whatever their armor; nothing against spells or ability magic damage.`,
+            ? `+${n(A.TITAN_PLATE_PERCENT)}% базовой брони каждому юниту — считается после апгрейда «Броня», Pegasus Might и Wind Flow и добавляется отдельным бонусом, поэтому процентные баффы брони его не умножают: примерно на ${n(100 - 10000 / (100 + A.TITAN_PLATE_PERCENT))}% меньше физического урона всем, какой бы ни была броня. Смягчает и Fire Breath, но не помогает против заклинаний и Fire Shield.`
+            : `+${n(A.TITAN_PLATE_PERCENT)}% of base armor for every unit — counted after the Armor augment, Pegasus Might and Wind Flow, and added as its own bonus, so percentage armor buffs don't multiply it: about ${n(100 - 10000 / (100 + A.TITAN_PLATE_PERCENT))}% less physical damage for everyone, whatever their armor. It also softens Fire Breath, but does nothing against cast spells or Fire Shield.`,
     "Mage's Ring": (language) => magicDealersFit(language),
     "Archmage's Ring": (language) => magicDealersFit(language),
 };
