@@ -256,6 +256,44 @@ class GraphAssembler {
 
 const startingAmount = (unit: Unit): number => unit.draftedAmount;
 
+/**
+ * Where a shooter still hits for full damage. Falloff bands are squares of whole cells around the shooter's
+ * body (king moves: a diagonal counts 1), one band = the shot distance rounded down, and the band's last
+ * cell is still full strength (common attack_handler.getRangeAttackDivisor).
+ */
+const rangeBands = (unit: Unit, language: Language): string => {
+    const isRu = language === "ru";
+    if (unit.abilities.some((ability) => ability.name === "Sniper")) {
+        return isRu
+            ? "Дальность: полный урон на любом расстоянии (Sniper), но выстрел сквозь Smoke — вполовину"
+            : "Range: full damage at any distance (Sniper), though a shot through Smoke is halved";
+    }
+    const band = Math.floor(unit.shotDistance);
+    // A 16×16 board: nothing is farther than 15 cells, so bands past the edge go unlisted.
+    const farthest = 15;
+    const words = isRu ? ["полный урон", "половина", "четверть", "восьмая часть"] : ["full damage", "half", "a quarter", "an eighth"];
+    const parts: string[] = [];
+    for (let step = 0; step < words.length; step += 1) {
+        const upTo = (step + 1) * band;
+        if (step === words.length - 1 || upTo >= farthest) {
+            parts.push(
+                step === 0
+                    ? isRu
+                        ? `${words[0]} по всему полю`
+                        : `${words[0]} anywhere on the board`
+                    : isRu
+                      ? `${words[step]} дальше ${step * band}`
+                      : `${words[step]} beyond ${step * band}`,
+            );
+            break;
+        }
+        parts.push(isRu ? `${words[step]} до ${upTo} клеток` : `${words[step]} up to ${upTo} cells away`);
+    }
+    return isRu
+        ? `Дальность (клетки считаются квадратом, диагональ = 1): ${parts.join(", ")}; апгрейд «Стрельба», Farsight Quiver и Guiding Winds расширяют полосы`
+        : `Range (cells counted as a square, diagonals count 1): ${parts.join(", ")}; the Sniper augment, Farsight Quiver and Guiding Winds widen the bands`;
+};
+
 /** Factions the game's Russian interface names differently from the site (game/core i18n/ru.ts). */
 const GAME_FACTION_NAMES_RU: Record<string, string> = { Might: "Мощь" };
 
@@ -292,7 +330,7 @@ function unitText(unit: Unit, language: Language): string {
                 `Инициатива: ${unit.initiative}, шаги: ${unit.steps} (${movement})`,
                 `Размер: ${footprint}, опыт (ценность стека): ${unit.experience}`,
                 ...(unit.rangeShots > 0
-                    ? [`Выстрелы: ${unit.rangeShots}, дистанция выстрела: ${unit.shotDistance}`]
+                    ? [`Выстрелы: ${unit.rangeShots}, дистанция выстрела: ${unit.shotDistance}`, rangeBands(unit, "ru")]
                     : []),
                 ...(unit.summonedOnly
                     ? []
@@ -313,7 +351,9 @@ function unitText(unit: Unit, language: Language): string {
             `Armor: ${unit.armor}, magic resist: ${unit.magicResist}%`,
             `Initiative: ${unit.initiative}, steps: ${unit.steps} (${movement})`,
             `Size: ${footprint}, experience (stack value): ${unit.experience}`,
-            ...(unit.rangeShots > 0 ? [`Shots: ${unit.rangeShots}, shot distance: ${unit.shotDistance}`] : []),
+            ...(unit.rangeShots > 0
+                ? [`Shots: ${unit.rangeShots}, shot distance: ${unit.shotDistance}`, rangeBands(unit, "en")]
+                : []),
             ...(unit.summonedOnly
                 ? []
                 : [
@@ -1789,14 +1829,14 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
         summary: `Five percentile leagues, worst to best: ${copyEn.leagueNames.join(", ")}; three wealth tiers inside each league: ${copyEn.wealthNames.join(", ")}.`,
         summaryRu: `Пять процентильных лиг, от худшей к лучшей: ${copyRu.leagueNames.join(", ")}; три уровня богатства внутри лиги: ${copyRu.wealthNames.join(", ")}.`,
         text: [
-            `Placed ranked players are split into five leagues by MMR percentile, worst to best: ${copyEn.leagueNames.map((name, index) => `${index + 1}. ${name}`).join(", ")}. The top league is the top 5% of active placed players and its members carry a sequential leaderboard number.`,
+            `Placed ranked players are split into five leagues by MMR percentile, worst to best: ${copyEn.leagueNames.map((name, index) => `${index + 1}. ${name}`).join(", ")}. With all five leagues open the top league is the top 5% of active placed players, and its members carry a sequential leaderboard number.`,
             `Inside each league, players are also cut into three wealth tiers by season gold, poorest to richest: ${copyEn.wealthNames.join(", ")} (for example "Ragged Aspirant" or "Demigod Whale"). Wealth is derived from live gold balances and never stored.`,
-            "Players in calibration have no league yet and show as Unranked; the ladder collapses everyone into the first league while fewer than 20 placed players are active.",
+            "Players in calibration have no league yet and show as Unranked. Leagues open one by one as the ladder fills — the population gate is in the ranked leagues entry — and while only the first is open, every placed player sits in it.",
         ].join("\n\n"),
         textRu: [
-            `Размещённые рейтинговые игроки делятся на пять лиг по процентилю MMR, от худшей к лучшей: ${copyRu.leagueNames.map((name, index) => `${index + 1}. ${name}`).join(", ")}. Высшая лига — это верхние 5% активных размещённых игроков; её участники получают порядковый номер в таблице лидеров.`,
+            `Размещённые рейтинговые игроки делятся на пять лиг по процентилю MMR, от худшей к лучшей: ${copyRu.leagueNames.map((name, index) => `${index + 1}. ${name}`).join(", ")}. Когда открыты все пять лиг, высшая — это верхние 5% активных размещённых игроков; её участники получают порядковый номер в таблице лидеров.`,
             `Внутри каждой лиги игроки также делятся на три уровня богатства по золоту сезона, от беднейших к богатейшим: ${copyRu.wealthNames.join(", ")}. Уровень богатства считается по живому балансу золота и никогда не сохраняется.`,
-            "Игроки на калибровке лиги ещё не имеют и показываются как Unranked; пока активных размещённых игроков меньше 20, все находятся в первой лиге.",
+            "Игроки на калибровке лиги ещё не имеют и показываются как Unranked. Лиги открываются по очереди по мере заполнения таблицы — порог популяции указан в записи о рейтинговых лигах, — и пока открыта только первая, все размещённые игроки находятся в ней.",
         ].join("\n\n"),
         tags: ["ranked", "leagues"],
         keywords: [
