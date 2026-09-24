@@ -296,7 +296,7 @@ function unitText(unit: Unit, language: Language): string {
                 ...(unit.summonedOnly
                     ? []
                     : [
-                          `Стартовый стек: ${startingAmount(unit)} ${pluralRu(startingAmount(unit), ["существо", "существа", "существ"])} (1000 опыта ÷ ${unit.experience}, с округлением вверх)`,
+                          `Стартовый стек: ${startingAmount(unit)} ${pluralRu(startingAmount(unit), ["существо", "существа", "существ"])} (1000 опыта ÷ ${unit.experience}, с округлением вверх), всего ${startingAmount(unit) * unit.hp} здоровья`,
                       ]),
                 `Начальная мораль ${signed(FACTION_MORALE[unit.faction] ?? 0)}, базовая удача ${signed(FACTION_LUCK[unit.faction] ?? 0)} (по фракции)`,
             ]),
@@ -316,7 +316,7 @@ function unitText(unit: Unit, language: Language): string {
             ...(unit.summonedOnly
                 ? []
                 : [
-                      `Starting stack: ${startingAmount(unit)} creature${startingAmount(unit) === 1 ? "" : "s"} (1,000 experience ÷ ${unit.experience}, rounded up)`,
+                      `Starting stack: ${startingAmount(unit)} creature${startingAmount(unit) === 1 ? "" : "s"} (1,000 experience ÷ ${unit.experience}, rounded up), ${startingAmount(unit) * unit.hp} health in total`,
                   ]),
             `Starting morale ${signed(FACTION_MORALE[unit.faction] ?? 0)}, base luck ${signed(FACTION_LUCK[unit.faction] ?? 0)} (from its faction)`,
         ]),
@@ -590,6 +590,23 @@ interface SynergySpec {
     keywords: string[];
 }
 
+/**
+ * "200 Peasant → 238, …" at Life Supply level 3, grown the way the engine does at fight start. Unit names
+ * stay English in both languages; the AI search pairs them with the Russian ones when it answers.
+ */
+const supplyExamples = (): string => {
+    const percent = SynergyKeysToPower[`Life:${LifeSynergy.PLUS_SUPPLY_PERCENTAGE}:3`]?.[0] ?? 0;
+    return ["Peasant", "Centaur", "Beholder", "Monk", "Angel"]
+        .map((name) => allUnits.find((unit) => unit.name === name))
+        .filter((unit): unit is Unit => Boolean(unit))
+        .map((unit) => {
+            const amount = Math.max(1, Math.ceil(1000 / unit.experience));
+            const grown = Math.floor(amount * (1 + percent / 100));
+            return `${amount} ${unit.name} → ${grown}`;
+        })
+        .join(", ");
+};
+
 const synergySpecs: SynergySpec[] = [
     {
         faction: "Life",
@@ -598,8 +615,8 @@ const synergySpecs: SynergySpec[] = [
         nameRu: "Синергия Жизни «Снабжение»",
         effect: ([power]) => `every stack grows ${power}% when the fight starts`,
         effectRu: ([power]) => `каждый стек вырастает на ${power}% в начале боя`,
-        detail: "Applied once, when the fight starts: every stack's size is multiplied and rounded down, so small stacks gain nothing — at level 1 the first extra creature needs 17 in the stack, at level 2 nine, at level 3 six — and level-4 stacks of 1–3 creatures never grow. Creatures summoned later get nothing.",
-        detailRu: "Применяется один раз, в начале боя: размер каждого стека умножается и округляется вниз, поэтому маленькие стеки ничего не получают — на уровне 1 первое лишнее существо появляется при 17 в стеке, на уровне 2 — при 9, на уровне 3 — при 6, — а стеки 4 уровня из 1–3 существ не растут никогда. Призванные позже существа ничего не получают.",
+        detail: `Applied once, when the fight starts: every stack's size is multiplied and rounded down, so small stacks gain nothing — at level 1 the first extra creature needs 17 in the stack, at level 2 nine, at level 3 six — and level-4 stacks of 1–3 creatures never grow. Creatures summoned later get nothing. At level 3: ${supplyExamples()}. It is worth most to armies of big low-level stacks.`,
+        detailRu: `Применяется один раз, в начале боя: размер каждого стека умножается и округляется вниз, поэтому маленькие стеки ничего не получают — на уровне 1 первое лишнее существо появляется при 17 в стеке, на уровне 2 — при 9, на уровне 3 — при 6, — а стеки 4 уровня из 1–3 существ не растут никогда. Призванные позже существа ничего не получают. На уровне 3: ${supplyExamples()}. Больше всего она даёт армиям из больших стеков низкого уровня.`,
         keywords: ["supply", "stack size", "снабжение"],
     },
     {
@@ -812,12 +829,12 @@ function formulaSpecs(): FormulaSpec[] {
             text: [
                 `Stack power compares a stack's experience × living creatures with the largest such value on the board, either army: up to 20% gives 1, up to 40% gives 2, up to 60% gives 3, up to 80% gives 4, above that ${MAX_UNIT_STACK_POWER}. It is recalculated after every action, so losses — or a much bigger stack appearing — lower it.`,
                 "It scales the stack-powered parts of abilities (trigger chances and strengths — see Ability scaling), aura strength, Limited Supply ammo, Heavy Armor and Chakram's target count, and gates spells and cast abilities that need a minimum caster stack power (3, 4 or 5; Craft needs 4, Meteorite and Meteor Shower need 5). Damage spells themselves scale with creatures alive, not with stack power.",
-                "Splitting a unit into several stacks lowers each stack's power, so a split trades ability strength for board presence.",
+                "Every drafted creature arrives as a 1,000-experience stack, so every unsplit stack starts the fight at stack power 5 — Life's Supply synergy makes stacks up to 19% bigger, which still leaves the others above 80%. Split a stack in half and both halves drop to 3 (a Stun that procs 35% at full stack procs 21% there); a stack that has lost 60% of its creatures is down to 2. A split trades ability strength for board presence.",
             ].join("\n\n"),
             textRu: [
                 `Сила стека сравнивает опыт × живые существа стека с наибольшим таким значением на поле среди обеих армий: до 20% — 1, до 40% — 2, до 60% — 3, до 80% — 4, выше — ${MAX_UNIT_STACK_POWER}. Она пересчитывается после каждого действия, поэтому потери — или появление гораздо большего стека — её снижают.`,
                 "Она масштабирует зависящие от силы стека части способностей (шансы и силу — см. «Масштаб способностей»), силу аур, боезапас Limited Supply, Heavy Armor и число целей Chakram, а также открывает заклинания и активные способности с минимальной силой стека заклинателя (3, 4 или 5; Craft требует 4, Meteorite и Meteor Shower — 5). Сам урон заклинаний растёт с числом живых существ, а не с силой стека.",
-                "Разделение юнита на несколько стеков снижает силу каждого из них: разделение меняет силу способностей на присутствие на поле.",
+                "Каждое задрафтованное существо приходит стеком на 1000 опыта, поэтому любой неразделённый стек начинает бой с силой 5 — синергия Жизни «Снабжение» делает стеки до 19% больше, но остальные всё равно остаются выше 80%. Разделите стек пополам — и обе половины опустятся до силы 3 (Stun, срабатывающий на 35% при полной силе, там сработает на 21%); стек, потерявший 60% существ, опускается до 2. Разделение меняет силу способностей на присутствие на поле.",
             ].join("\n\n"),
             keywords: ["stack power", "stack", "сила стека"],
             rule: "rule-morale",
@@ -1277,6 +1294,10 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
                 shotDistance: unit.shotDistance,
                 magicResist: unit.magicResist,
                 summonedOnly: unit.summonedOnly,
+                // What a drafted stack of this creature starts with: its creatures and their pooled health.
+                ...(unit.summonedOnly
+                    ? {}
+                    : { startingAmount: startingAmount(unit), stackHp: startingAmount(unit) * unit.hp }),
             },
         });
     }
