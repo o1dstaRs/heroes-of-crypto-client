@@ -175,6 +175,8 @@ const hrefFor = (section: KnowledgeCatalogSection, entry: string): { href: strin
 });
 
 const bullet = (lines: readonly string[]): string => lines.map((line) => `- ${line}`).join("\n");
+/** A multi-line card text as one line. */
+const oneLine = (text: string): string => text.replace(/\s*\n\s*/g, " ").trim();
 
 const joinNames = (names: string[]): string => (names.length ? names.join(", ") : "—");
 
@@ -1429,8 +1431,10 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
             nameRu: ruName(ability.name),
             href,
             hrefRu,
-            summary: ability.description.split("\n")[0],
-            summaryRu: ability.descriptionRu.split("\n")[0],
+            // The whole card: its lines are soft wraps ("…the following spells:" / "Smoke, Misfortune…"), so
+            // the first line alone can stop mid-sentence. Listings clip it to length.
+            summary: oneLine(ability.description),
+            summaryRu: oneLine(ability.descriptionRu),
             text: abilityText(ability, "en"),
             textRu: abilityText(ability, "ru"),
             tags: [
@@ -1552,8 +1556,8 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
             nameRu: ruName(spell.name),
             href,
             hrefRu,
-            summary: spell.description.split("\n")[0],
-            summaryRu: spell.descriptionRu.split("\n")[0],
+            summary: oneLine(spell.description),
+            summaryRu: oneLine(spell.descriptionRu),
             text: spellText(spell, "en"),
             textRu: spellText(spell, "ru"),
             tags: [
