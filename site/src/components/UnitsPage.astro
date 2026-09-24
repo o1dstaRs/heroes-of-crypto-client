@@ -277,6 +277,7 @@ function unitSearchText(unit: Unit) {
             <dl class="unit-stats">
                 <div><dt>{s.hp}</dt><dd data-stat="hp"></dd></div>
                 <div><dt>{s.experience}</dt><dd data-stat="experience"></dd></div>
+                <div class="unit-stat-wide"><dt>{s.draftedStack}</dt><dd data-stat="draftedStack" data-hp-label={labels.hp}></dd></div>
                 <div><dt>{s.armor}</dt><dd data-stat="armor"></dd></div>
                 <div><dt>{s.attack}</dt><dd data-stat="attack"></dd></div>
                 <div><dt>{s.damage}</dt><dd data-stat="damage"></dd></div>
@@ -318,6 +319,7 @@ function unitSearchText(unit: Unit) {
         level: number;
         size: number;
         experience: number;
+        draftedAmount: number;
         hp: number;
         armor: number;
         attack: number;
@@ -458,6 +460,11 @@ function unitSearchText(unit: Unit) {
 
             statEls.hp.textContent = String(unit.hp);
             statEls.experience.textContent = String(unit.experience);
+            // A drafted stack is worth 1,000 experience: its creatures, and their pooled health.
+            statEls.draftedStack.textContent =
+                unit.draftedAmount > 0
+                    ? `${unit.draftedAmount} · ${(unit.draftedAmount * unit.hp).toLocaleString()} ${statEls.draftedStack.dataset.hpLabel ?? "HP"}`
+                    : "—";
             statEls.armor.textContent = String(unit.armor);
             statEls.attack.textContent = String(unit.attack);
             statEls.damage.textContent = `${unit.damageMin}–${unit.damageMax}`;
@@ -1118,6 +1125,11 @@ function unitSearchText(unit: Unit) {
         border: 1px solid var(--line);
         border-radius: 8px;
         background: var(--surface);
+    }
+
+    /* The drafted stack reads "200 · 1,600 HP": a full row, so it doesn't wrap inside a half-width cell. */
+    .unit-stats > .unit-stat-wide {
+        grid-column: 1 / -1;
     }
 
     .unit-stats dt {

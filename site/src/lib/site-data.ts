@@ -553,6 +553,7 @@ export const content = {
             stats: {
                 hp: "Health",
                 experience: "Experience",
+                draftedStack: "Drafted stack",
                 attack: "Attack",
                 damage: "Damage",
                 armor: "Armor",
@@ -1600,6 +1601,7 @@ export const content = {
             stats: {
                 hp: "Здоровье",
                 experience: "Опыт",
+                draftedStack: "Стек в драфте",
                 attack: "Атака",
                 damage: "Урон",
                 armor: "Броня",

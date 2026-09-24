@@ -407,6 +407,11 @@ export interface Unit {
     spells: string[];
     abilities: UnitAbility[];
     summonedOnly: boolean;
+    /**
+     * Creatures in the stack a draft gives you: every drafted creature arrives as one stack worth
+     * DRAFTED_STACK_EXPERIENCE, so 1,000 ÷ its experience, rounded up. 0 for summon-only creatures.
+     */
+    draftedAmount: number;
     /** Identifies the creature to CreaturePortrait.astro and to the portrait recipe map. */
     slug: string;
     portrait: string;
@@ -441,6 +446,9 @@ const summonedOnlyUnits = new Set(["Arachna Spider"]);
 /* Portrait files are named with a hash of their own bytes by site/scripts/sync_portrait_art.ts, so new
    art arrives at a new URL and nginx's day-long cache can never serve a stale one. That replaced a
    hand-maintained revision map, which only ever listed the one portrait somebody remembered to bump. */
+
+// Mirrors the ranked server's PICK_TO_PLAY_STACK_EXPERIENCE (api/game/v1/play_session_bridge.ts).
+export const DRAFTED_STACK_EXPERIENCE = 1000;
 
 function buildUnit(faction: FactionName, raw: RawCreature): Unit {
     const base = slug(raw.name);
@@ -480,6 +488,7 @@ function buildUnit(faction: FactionName, raw: RawCreature): Unit {
         spells: raw.spells,
         abilities,
         summonedOnly: summonedOnlyUnits.has(raw.name),
+        draftedAmount: summonedOnlyUnits.has(raw.name) ? 0 : Math.max(1, Math.ceil(DRAFTED_STACK_EXPERIENCE / raw.exp)),
         slug: base,
         portrait,
         icon,

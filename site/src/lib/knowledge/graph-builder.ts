@@ -254,9 +254,7 @@ class GraphAssembler {
     }
 }
 
-/** A drafted creature arrives as one stack worth this much experience (server play_session_bridge.ts). */
-const DRAFT_STACK_EXPERIENCE = 1000;
-const startingAmount = (unit: Unit): number => Math.max(1, Math.ceil(DRAFT_STACK_EXPERIENCE / unit.experience));
+const startingAmount = (unit: Unit): number => unit.draftedAmount;
 
 /** Factions the game's Russian interface names differently from the site (game/core i18n/ru.ts). */
 const GAME_FACTION_NAMES_RU: Record<string, string> = { Might: "Мощь" };
@@ -1033,6 +1031,48 @@ function formulaSpecs(): FormulaSpec[] {
                 "Эффекты на поле считают смены кругов: Smoke держится 3 полных круга, а Fire Wall и лоза исчезают на третьей смене круга после применения. Постоянные изменения (руны, исходы Craft, Crusade, Miner, Dulling Defense, Bitter Experience) не истекают никогда.",
             ].join("\n\n"),
             keywords: ["duration", "laps", "effect", "buff", "debuff", "длительность", "круги", "эффект"],
+            rule: "rule-mechanics",
+        },
+        {
+            name: "Counters and interactions",
+            nameRu: "Контры и взаимодействия",
+            aliases: ["how to counter", "what beats", "counter", "как контрить", "чем контрить", "против чего"],
+            summary:
+                "What the engine gives you against shooters, spells, splash, crowd control, flyers, rushes and ability-heavy stacks — each answer is a mechanic described in its own entry.",
+            summaryRu:
+                "Что движок даёт против стрелков, заклинаний, ударов по площади, контроля, летающих, рывков и стеков, живущих способностями, — каждый ответ описан в своей записи.",
+            text: [
+                "Every answer below is a mechanic described in its own entry, checked against the engine.",
+                "#### Shooters\nPut any unit next to them — an enemy in a touching cell stops them shooting. Range Null Field Aura (Griffin) stops enemy shooters within 2 cells from shooting or returning fire; Smoke halves every shot that crosses it, Sniper shots included; Arrows Wingshield Blessing (Angel) gives your army up to +25% armor against shots; Dense Flesh (Abomination) makes each shot at it cost 2 arrows; Rangebane from Spit Ball silences a shooter for a lap.",
+                "#### Spells and magic damage\nMagic resistance multiplies magic damage by (1 − resistance) and resists debuff spells — Armor augment points, Magic Shield, Wardguard, Warding Mane and Arcane Ward blessings all add to it. Enchanted Skin (Black Dragon) is immune to every spell; elements are immune to their own element; Magic Mirror and Magic Reflection send a share back; a Water Shield soaks one hit; Break (Chaos's Break on Attack) stops a Broken unit casting.",
+                "#### Physical splash and piercing\nAgainst Area Throw, Large Caliber, Chakram, Lightning Spin, Through Shot and Skewer Strike, don't stand in 3×3 clumps or in a line; Amulet of Resolve takes 25% off; an Angel with Arrows Wingshield Blessing stops splash and piercing shots at itself; Mechanism units take +50%, so keep a Tsar Cannon out of the splash.",
+                "#### Status and Mind effects\nStun, Freeze and Paralysis: Amulet of Resolve lowers their chance by 25%; Absolving Arrow (Monk) can lift them from allies its arrows fly past. Mind effects (Blindness, Aggr, Boar Saliva, the gazes, Courage, Sadness, Misfortune, Rangebane, Cowardice): Helm of Focus lowers them by 35%; Madness and Mechanism units are immune.",
+                "#### Debuff spells\nMagic resistance resists them, a Peasant's Absorb Penalties Aura can take them onto itself, Absolving Arrow lifts them, Magic Mirror copies them back onto the caster.",
+                "#### Retaliation\nA stack answers once per lap, so a cheap first hit soaks the answer before your main attacker goes in; Shadow Touch and Lightning Spin attackers are never answered; a Stunned, Blinded or Frozen defender can't answer; spells are never answered.",
+                "#### Flyers\nWeb Aura (Arachna Queen) stops enemy flyers that start their turn within 2 cells from moving; Hamstring (Dryad) takes 30% of a flyer's movement; Wind Flow (Valkyrie) takes 4 movement from every flyer on the board, both sides.",
+                "#### Fast melee rushes\nVine Throw (Trent) snares and makes vined cells cost an extra step; Quagmire from Rime Charm or Spit Ball takes 25% of movement; Whirlpool chains one stack for a turn; Paralysis stops movement.",
+                "#### Ability-heavy stacks\nEvery loss lowers their stack power and their abilities with it; Break turns all of a unit's abilities off for 2 laps; Predatory Assimilation (Arachna Queen) steals one for good.",
+                "#### Waiting and stalling\nTime Denial (Nightmare) stops both armies waiting on the Hourglass; a fight where nobody closes in narrows early, and Armageddon ends every fight by lap 15.",
+            ].join("\n\n"),
+            textRu: [
+                "Каждый ответ ниже — механика, описанная в своей записи и сверенная с движком.",
+                "#### Стрелки\nПоставьте рядом с ними любого юнита — враг в соседней клетке не даёт стрелять. Range Null Field Aura (Griffin) не даёт вражеским стрелкам в радиусе 2 клеток ни стрелять, ни отвечать выстрелом; Smoke вдвое ослабляет каждый выстрел сквозь него, даже у Sniper; Arrows Wingshield Blessing (Angel) даёт вашей армии до +25% брони от выстрелов; Dense Flesh (Abomination) заставляет тратить на каждый выстрел по ней 2 стрелы; Rangebane от Spit Ball лишает стрелка выстрелов на круг.",
+                "#### Заклинания и магический урон\nСопротивление магии умножает магический урон на (1 − сопротивление) и отражает дебаффы заклинаний — его повышают очки апгрейда «Броня», Magic Shield, Wardguard, благословения Warding Mane и Arcane Ward. Enchanted Skin (Black Dragon) неуязвим ко всем заклинаниям; стихии неуязвимы к своей стихии; Magic Mirror и Magic Reflection возвращают часть урона; Water Shield поглощает один удар; Break (синергия Хаоса «Разлом при атаке») не даёт юниту колдовать.",
+                "#### Физические удары по площади и насквозь\nПротив Area Throw, Large Caliber, Chakram, Lightning Spin, Through Shot и Skewer Strike не стойте кучей 3×3 и в линию; Amulet of Resolve снимает 25%; Angel с Arrows Wingshield Blessing останавливает на себе удары по площади и пробивающие выстрелы; Mechanism получает +50%, поэтому держите Tsar Cannon подальше от таких ударов.",
+                "#### Эффекты Статуса и Разума\nStun, Freeze и Paralysis: Amulet of Resolve снижает их шанс на 25%; Absolving Arrow (Monk) может снять их с союзников, мимо которых летят его стрелы. Ментальные эффекты (Blindness, Aggr, Boar Saliva, взгляды, Courage, Sadness, Misfortune, Rangebane, Cowardice): Helm of Focus снижает их на 35%; у Madness и Mechanism иммунитет.",
+                "#### Дебаффы заклинаний\nСопротивление магии их отражает, Absorb Penalties Aura у Peasant может забрать их себе, Absolving Arrow снимает, Magic Mirror копирует обратно на заклинателя.",
+                "#### Ответные удары\nСтек отвечает раз за круг, поэтому дешёвый первый удар забирает ответ до того, как пойдёт главный атакующий; на атаки с Shadow Touch и Lightning Spin не отвечают; оглушённый, ослеплённый или замороженный защитник ответить не может; на заклинания не отвечают никогда.",
+                "#### Летающие\nWeb Aura (Arachna Queen) не даёт вражеским летающим, начавшим ход в радиусе 2 клеток, двигаться; Hamstring (Dryad) отнимает у летающего 30% движения; Wind Flow (Valkyrie) отнимает 4 движения у всех летающих на поле, у обеих сторон.",
+                "#### Быстрые рывки ближнего боя\nVine Throw (Trent) опутывает и делает клетки с лозой дороже на шаг; Quagmire от Rime Charm или Spit Ball отнимает 25% движения; Whirlpool приковывает один стек на ход; Paralysis останавливает движение.",
+                "#### Стеки, живущие способностями\nКаждая потеря снижает их силу стека, а с ней и способности; Break отключает все способности юнита на 2 круга; Predatory Assimilation (Arachna Queen) крадёт одну навсегда.",
+                "#### Ожидание и затягивание\nTime Denial (Nightmare) запрещает обеим армиям ждать через Hourglass; бой, где никто не сближается, сужается раньше, а Армагеддон заканчивает любой бой к 15-му кругу.",
+            ].join("\n\n"),
+            keywords: [
+                ...["counter", "counters", "beat", "against", "weakness", "protect", "protection", "stop", "slow"],
+                ...["shooters", "archers", "spells", "splash", "flyers", "rush"],
+                ...["контра", "контрить", "против", "слабость", "защита", "защитить", "защититься", "остановить"],
+                ...["стрелки", "заклинания", "летающие", "по площади"],
+            ],
             rule: "rule-mechanics",
         },
         {
