@@ -16,9 +16,9 @@ const ARTIFACT_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     "Amulet of Resolve": {
         en: ({ n }) =>
-            `${n(A.AMULET_OF_RESOLVE_RESIST_PERCENT)}% status resistance for every unit: Stun, Freeze and Paralysis land ${n(A.AMULET_OF_RESOLVE_RESIST_PERCENT)}% less often (the chance is multiplied by ${n(1 - A.AMULET_OF_RESOLVE_RESIST_PERCENT / 100)}), and physical area damage taken — ${physicalAreaAttacks.en} — is multiplied by ${n(1 - A.AMULET_OF_RESOLVE_RESIST_PERCENT / 100)} (a Mechanism unit's ×1.5 drops to ×${n(1.5 - A.AMULET_OF_RESOLVE_RESIST_PERCENT / 100)}). That cancels most of an opponent's Giant's Maul. It does nothing against magic.`,
+            `${n(A.AMULET_OF_RESOLVE_RESIST_PERCENT)}% status resistance for every unit: Stun, Freeze and Paralysis land ${n(A.AMULET_OF_RESOLVE_RESIST_PERCENT)}% less often (the chance is multiplied by ${n(1 - A.AMULET_OF_RESOLVE_RESIST_PERCENT / 100)}), and physical area damage taken — ${physicalAreaAttacks.en} — is multiplied by ${n(1 - A.AMULET_OF_RESOLVE_RESIST_PERCENT / 100)} (a Mechanism unit's ×1.5 drops to ×${n(1.5 - A.AMULET_OF_RESOLVE_RESIST_PERCENT / 100)}). That cancels most of an opponent's Giant's Maul. On a Mechanism unit both apply: an Orc's 35% Stun on a Tsar Cannon becomes 35 × 1.5 × 0.75 ≈ 39% (52.5% without the Amulet). It does nothing against magic.`,
         ru: ({ n }) =>
-            `${n(A.AMULET_OF_RESOLVE_RESIST_PERCENT)}% сопротивления статусам каждому юниту: Stun, Freeze и Paralysis срабатывают на ${n(A.AMULET_OF_RESOLVE_RESIST_PERCENT)}% реже (шанс умножается на ${n(1 - A.AMULET_OF_RESOLVE_RESIST_PERCENT / 100)}), а получаемый физический урон по площади — ${physicalAreaAttacks.ru} — умножается на ${n(1 - A.AMULET_OF_RESOLVE_RESIST_PERCENT / 100)} (у Mechanism ×1,5 превращается в ×${n(1.5 - A.AMULET_OF_RESOLVE_RESIST_PERCENT / 100)}). Это гасит большую часть Giant's Maul соперника. Против магии не помогает.`,
+            `${n(A.AMULET_OF_RESOLVE_RESIST_PERCENT)}% сопротивления статусам каждому юниту: Stun, Freeze и Paralysis срабатывают на ${n(A.AMULET_OF_RESOLVE_RESIST_PERCENT)}% реже (шанс умножается на ${n(1 - A.AMULET_OF_RESOLVE_RESIST_PERCENT / 100)}), а получаемый физический урон по площади — ${physicalAreaAttacks.ru} — умножается на ${n(1 - A.AMULET_OF_RESOLVE_RESIST_PERCENT / 100)} (у Mechanism ×1,5 превращается в ×${n(1.5 - A.AMULET_OF_RESOLVE_RESIST_PERCENT / 100)}). Это гасит большую часть Giant's Maul соперника. На Mechanism действуют оба множителя: 35% шанс Stun у Orc по Tsar Cannon становится 35 × 1,5 × 0,75 ≈ 39% (52,5% без амулета). Против магии не помогает.`,
     },
     "Keen Blade": {
         en: ({ n }) => `+${n(A.KEEN_BLADE_FLAT)} base attack for every unit, melee and ranged alike.`,
@@ -130,9 +130,9 @@ const ARTIFACT_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     "Rime Charm": {
         en: ({ n }) =>
-            `Every hit your units land — retaliations and each unit struck by splash or a piercing shot included, but not the second punch or arrow of Double Punch and Double Shot — has ${n(A.RIME_PROC_PERCENT)}% to put Quagmire (−25% movement) on the target for ${n(A.RIME_SLOW_LAPS)} laps. It doesn't stack or refresh, and resistances don't reduce it.`,
+            `Every hit your units land — retaliations and each unit struck by splash or a piercing shot included, but not the second punch or arrow of Double Punch and Double Shot — has ${n(A.RIME_PROC_PERCENT)}% to put Quagmire (−25% movement) on the target for ${n(A.RIME_SLOW_LAPS)} laps. It doesn't stack or refresh, and resistances don't reduce it — even 100% magic resistance doesn't stop it, so a Black Dragon is slowed too. With a Dryad's Hamstrung the slows multiply to ×0.525 movement.`,
         ru: ({ n }) =>
-            `Каждое попадание ваших юнитов — включая ответы и каждого, кого задел удар по площади или пробивающий выстрел, но не второй удар или вторую стрелу Double Punch и Double Shot, — с шансом ${n(A.RIME_PROC_PERCENT)}% накладывает на цель Quagmire (−25% движения) на ${n(A.RIME_SLOW_LAPS)} круга. Не складывается и не обновляется, сопротивления его не снижают.`,
+            `Каждое попадание ваших юнитов — включая ответы и каждого, кого задел удар по площади или пробивающий выстрел, но не второй удар или вторую стрелу Double Punch и Double Shot, — с шансом ${n(A.RIME_PROC_PERCENT)}% накладывает на цель Quagmire (−25% движения) на ${n(A.RIME_SLOW_LAPS)} круга. Не складывается и не обновляется, сопротивления его не снижают — даже 100% сопротивления магии не спасают, так что Black Dragon тоже замедляется. С Hamstrung от Dryad замедления перемножаются до ×0,525 движения.`,
     },
     "Lava Striders": {
         en: () =>

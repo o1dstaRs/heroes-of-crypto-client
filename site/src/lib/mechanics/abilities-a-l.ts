@@ -116,9 +116,9 @@ export const ABILITY_NOTES_A_L: Readonly<Record<string, NoteSpec>> = {
     },
     "Boar Saliva": {
         en: ({ n }) =>
-            `Every landed melee hit applies Boar Saliva without a roll unless the target already has it (mind resistance can shrug it off; Madness and Mechanism are immune). For 3 laps the target misses ${n(effectPower("Boar Saliva") / 5)}% of its melee attacks, shots and retaliations per Boar stack power (${n(effectPower("Boar Saliva"))}% at full stack, shifted by luck), rolled separately from other miss chances.`,
+            `Every landed melee hit applies Boar Saliva without a roll unless the target already has it (mind resistance can shrug it off; Madness and Mechanism are immune). For 3 laps the target misses ${n(effectPower("Boar Saliva") / 5)}% of its melee attacks, shots and retaliations per Boar stack power (${n(effectPower("Boar Saliva"))}% at full stack, shifted by luck), rolled separately from other miss chances — against a full Fairy stack (Small Specie, 50% against creatures bigger than one cell) a slobbered Behemoth misses 1 − 0.7 × 0.5 = 65% of the time.`,
         ru: ({ n }) =>
-            `Каждое попадание в ближнем бою накладывает Boar Saliva без броска, если на цели его ещё нет (сопротивление ментальным эффектам может его сбросить; у Madness и Mechanism иммунитет). 3 круга цель промахивается ${n(effectPower("Boar Saliva") / 5)}% своих атак, выстрелов и ответов за единицу силы стека Boar (${n(effectPower("Boar Saliva"))}% при полной силе, с поправкой на удачу) — отдельным броском от других шансов промаха.`,
+            `Каждое попадание в ближнем бою накладывает Boar Saliva без броска, если на цели его ещё нет (сопротивление ментальным эффектам может его сбросить; у Madness и Mechanism иммунитет). 3 круга цель промахивается ${n(effectPower("Boar Saliva") / 5)}% своих атак, выстрелов и ответов за единицу силы стека Boar (${n(effectPower("Boar Saliva"))}% при полной силе, с поправкой на удачу) — отдельным броском от других шансов промаха: по полному стеку Fairy (Small Specie, 50% против существ крупнее одной клетки) Behemoth под Boar Saliva промахивается в 1 − 0,7 × 0,5 = 65% случаев.`,
     },
     "Book of Chaos": {
         en: () =>
@@ -243,9 +243,9 @@ export const ABILITY_NOTES_A_L: Readonly<Record<string, NoteSpec>> = {
     },
     "Enchanted Skin": {
         en: () =>
-            "100% magic resistance: immune to every spell from either side — buffs, heals and mass spells skip it too, though a Blacksmith's Craft still reaches it — and to magic damage (Chain Lightning, Fire Breath, Fire Shield, Fireforged burns). It does not stop on-hit effects (Stun, Blindness, Paralysis, Petrifying Gaze, Break), auras or blessings, and the stack can still be resurrected.",
+            "100% magic resistance: immune to every spell from either side — buffs, heals and mass spells skip it too, though a Blacksmith's Craft still reaches it — and to magic damage (Chain Lightning, Fire Breath, Fire Shield, Fireforged burns). It does not stop on-hit effects (Stun, Blindness, Paralysis, Petrifying Gaze, Break, Rime Charm's slow), auras or blessings, and the stack can still be resurrected.",
         ru: () =>
-            "100% сопротивления магии: иммунитет ко всем заклинаниям обеих сторон — баффы, лечение и массовые заклинания его тоже пропускают, но Craft у Blacksmith до него дотягивается — и к магическому урону (Chain Lightning, Fire Breath, Fire Shield, поджоги Fireforged). Не защищает от эффектов ударов (Stun, Blindness, Paralysis, Petrifying Gaze, Break), аур и благословений, а стек по-прежнему можно воскресить.",
+            "100% сопротивления магии: иммунитет ко всем заклинаниям обеих сторон — баффы, лечение и массовые заклинания его тоже пропускают, но Craft у Blacksmith до него дотягивается — и к магическому урону (Chain Lightning, Fire Breath, Fire Shield, поджоги Fireforged). Не защищает от эффектов ударов (Stun, Blindness, Paralysis, Petrifying Gaze, Break, замедление Rime Charm), аур и благословений, а стек по-прежнему можно воскресить.",
     },
     Enchants: {
         en: () =>
@@ -259,9 +259,9 @@ export const ABILITY_NOTES_A_L: Readonly<Record<string, NoteSpec>> = {
     },
     "Fire Breath": {
         en: ({ p, n }) =>
-            `Each melee attack or retaliation also burns whoever stands directly behind the target on the line of the strike, friend or foe (1 cell behind a 1×1 target, 2 behind a 2×2), for ${n(p / 5)}% per stack power (${n(p)}% at full stack, shifted by luck) of the Dragon's melee damage against them — their armor applies — cut by their magic resistance. Fire Elements and 100%-magic-resistance units take nothing and block it. It fires even if the main blow is dodged, and magic-damage bonuses raise it.`,
+            `Each melee attack or retaliation also burns whoever stands directly behind the target on the line of the strike, friend or foe (1 cell behind a 1×1 target, 2 behind a 2×2), for ${n(p / 5)}% per stack power (${n(p)}% at full stack, shifted by luck) of the Dragon's melee damage against them — their armor applies — cut by their magic resistance. Fire Elements and 100%-magic-resistance units take nothing and block it. It fires even if the main blow is dodged, and magic-damage bonuses raise it. Because it is priced from the Dragon's melee damage, attack bonuses raise it too — the Might augment, attack auras and attack artifacts.`,
         ru: ({ p, n }) =>
-            `Каждая атака или ответ в ближнем бою также обжигает того, кто стоит прямо за целью на линии удара, своего или чужого (на 1 клетку за целью 1×1, на 2 — за целью 2×2), на ${n(p / 5)}% за единицу силы стека (${n(p)}% при полной силе, с поправкой на удачу) урона дракона в ближнем бою по нему — его броня учитывается — с учётом его сопротивления магии. Юниты с Fire Element и со 100% сопротивления магии не получают урона и загораживают огонь. Дыхание срабатывает даже при уклонении от основного удара, а бонусы к магическому урону его усиливают.`,
+            `Каждая атака или ответ в ближнем бою также обжигает того, кто стоит прямо за целью на линии удара, своего или чужого (на 1 клетку за целью 1×1, на 2 — за целью 2×2), на ${n(p / 5)}% за единицу силы стека (${n(p)}% при полной силе, с поправкой на удачу) урона дракона в ближнем бою по нему — его броня учитывается — с учётом его сопротивления магии. Юниты с Fire Element и со 100% сопротивления магии не получают урона и загораживают огонь. Дыхание срабатывает даже при уклонении от основного удара, а бонусы к магическому урону его усиливают. Раз оно считается от урона дракона в ближнем бою, его повышают и бонусы к атаке — апгрейд «Сила», ауры и артефакты атаки.`,
     },
     "Fire Element": {
         en: ({ p }) =>
@@ -277,9 +277,9 @@ export const ABILITY_NOTES_A_L: Readonly<Record<string, NoteSpec>> = {
     },
     "Flesh Shield Aura": {
         en: ({ p, n }) =>
-            `Allies within 2 cells (not the Abomination itself) have ${n(p / 5)}% per stack power (${n(p)}% at full stack, shifted by luck) of each physical hit moved onto the Abomination, re-priced against its armor and capped at the Abomination's remaining health — the rest stays on the ally, and absorbing can finish the Abomination off. Spells and magic damage are never absorbed.`,
+            `Allies within 2 cells (not the Abomination itself) have ${n(p / 5)}% per stack power (${n(p)}% at full stack, shifted by luck) of each physical hit moved onto the Abomination, re-priced against its armor and capped at the Abomination's remaining health — the rest stays on the ally, and absorbing can finish the Abomination off. Spells and magic damage are never absorbed, and only weapon hits are moved — attacks, retaliations, shots, splash, Lightning Spin and Skewer Strike hits; Armageddon, poison and Fire Wall burns land on the ally itself. Petrifying Gaze is priced from the full hit before the aura takes its share, so its extra kills and petrify roll still land on the ally.`,
         ru: ({ p, n }) =>
-            `У союзников в радиусе 2 клеток (кроме самой Abomination) ${n(p / 5)}% за единицу силы стека (${n(p)}% при полной силе, с поправкой на удачу) каждого физического удара переносится на Abomination, пересчитывается под её броню и ограничивается её оставшимся здоровьем — остаток остаётся на союзнике, а поглощение может добить саму Abomination. Заклинания и магический урон не поглощаются никогда.`,
+            `У союзников в радиусе 2 клеток (кроме самой Abomination) ${n(p / 5)}% за единицу силы стека (${n(p)}% при полной силе, с поправкой на удачу) каждого физического удара переносится на Abomination, пересчитывается под её броню и ограничивается её оставшимся здоровьем — остаток остаётся на союзнике, а поглощение может добить саму Abomination. Заклинания и магический урон не поглощаются никогда, а переносятся только удары оружием — атаки, ответы, выстрелы, удары по площади, Lightning Spin и Skewer Strike; Армагеддон, яд и ожоги Fire Wall союзник получает сам. Petrifying Gaze считается от полного удара до того, как аура заберёт свою долю, поэтому добивания и окаменение достаются союзнику целиком.`,
     },
     "Forest Spellbook": {
         en: () => "Spell book: Courage ×3, Helping Hand ×1 (stack power 4+) and Summon Wolves ×2.",
@@ -293,9 +293,9 @@ export const ABILITY_NOTES_A_L: Readonly<Record<string, NoteSpec>> = {
     },
     Hamstring: {
         en: ({ p, n }) =>
-            `Only on the Dryad's own attacks: ${n(p / 5)}% per stack power (${n(p)}% at full stack) plus 1% per point of luck to Hamstring a flying target — −30% movement for its next 3 turns. Magic resistance can resist it, a Peasant's Absorb Penalties can take it (where it does nothing — the Peasant doesn't fly), Magic Mirror can reflect it, and it isn't reapplied while active.`,
+            `Only on the Dryad's own attacks: ${n(p / 5)}% per stack power (${n(p)}% at full stack) plus 1% per point of luck to Hamstring a flying target — −30% movement for its next 3 turns. Magic resistance can resist it, a Peasant's Absorb Penalties can take it (where it does nothing — the Peasant doesn't fly), Magic Mirror can reflect it, and it isn't reapplied while active. With Quagmire (Rime Charm, Spit Ball) the slows multiply: ×0.7 × 0.75 = ×0.525 movement.`,
         ru: ({ p, n }) =>
-            `Только в собственных атаках Dryad: ${n(p / 5)}% за единицу силы стека (${n(p)}% при полной силе) плюс 1% за очко удачи наложить Hamstrung на летающую цель — −30% движения на её следующие 3 хода. Сопротивление магии может его отразить, Absorb Penalties у Peasant — забрать (где он ничего не делает: Peasant не летает), Magic Mirror — вернуть; пока действует, повторно не накладывается.`,
+            `Только в собственных атаках Dryad: ${n(p / 5)}% за единицу силы стека (${n(p)}% при полной силе) плюс 1% за очко удачи наложить Hamstrung на летающую цель — −30% движения на её следующие 3 хода. Сопротивление магии может его отразить, Absorb Penalties у Peasant — забрать (где он ничего не делает: Peasant не летает), Magic Mirror — вернуть; пока действует, повторно не накладывается. С Quagmire (Rime Charm, Spit Ball) замедления перемножаются: ×0,7 × 0,75 = ×0,525 движения.`,
     },
     Handyman: {
         en: () => "This shooter's melee hits — attacks and retaliations — deal full damage instead of half.",
@@ -315,9 +315,9 @@ export const ABILITY_NOTES_A_L: Readonly<Record<string, NoteSpec>> = {
     },
     Infest: {
         en: () =>
-            "When this unit's attack or retaliation wipes out the stack it fought, a one-creature Arachna Spider (from a level 1–3 victim) or Arachna Queen (from a level 4 victim) appears on your side, if there is room.",
+            "When this unit's attack or retaliation wipes out the stack it fought, a one-creature Arachna Spider (from a level 1–3 victim) or Arachna Queen (from a level 4 victim) appears on your side, if there is room. A stack that resurrects (Angel) isn't wiped out, so it gives nothing — killing it again after its Resurrection is spent does.",
         ru: () =>
-            "Когда атака или ответ этого юнита уничтожает стек противника целиком, на вашей стороне появляется Arachna Spider из одного существа (если жертва 1–3 уровня) или Arachna Queen (если жертва 4 уровня), если есть место.",
+            "Когда атака или ответ этого юнита уничтожает стек противника целиком, на вашей стороне появляется Arachna Spider из одного существа (если жертва 1–3 уровня) или Arachna Queen (если жертва 4 уровня), если есть место. Воскресший стек (Angel) не уничтожен, поэтому ничего не даёт — повторное убийство после траты Resurrection даёт.",
     },
     "Large Caliber": {
         en: ({ p, n }) =>

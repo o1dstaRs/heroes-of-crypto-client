@@ -35,9 +35,9 @@ const EFFECT_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     Poison: {
         en: () =>
-            "Lasts the whole fight unless an allied Monk's Absolving Arrow lifts it. At the start of each of its turns — including the second one after an Hourglass wait — the unit loses the poison amount, ignoring armor and magic resistance. A hit from a unit inside a Wyvern's Venom Cloud poisons for 20% of the damage dealt (±1% per point of the hitter's luck); each later poisoning adds half its amount to the tick, or lifts the tick to the new amount if that is higher. Mechanism units are immune.",
+            "Lasts the whole fight unless an allied Monk's Absolving Arrow lifts it. At the start of each of its turns — including the second one after an Hourglass wait — the unit loses the poison amount, ignoring armor and magic resistance. A hit from a unit inside a Wyvern's Venom Cloud poisons for 20% of the damage dealt (±1% per point of the hitter's luck); each later poisoning adds half its amount to the tick, or lifts the tick to the new amount if that is higher — a 40 tick hit by a 30 poison becomes 40 + 15 = 55, by a 100 poison 100. Mechanism units are immune.",
         ru: () =>
-            "Действует до конца боя, если его не снимет Absolving Arrow союзного Monk. В начале каждого своего хода — включая второй после ожидания через Hourglass — юнит теряет величину яда без учёта брони и сопротивления магии. Удар юнита в Venom Cloud у Wyvern отравляет на 20% нанесённого урона (±1% за очко удачи ударившего); каждое следующее отравление добавляет к тику половину своей величины или поднимает тик до новой, если она больше. У Mechanism иммунитет.",
+            "Действует до конца боя, если его не снимет Absolving Arrow союзного Monk. В начале каждого своего хода — включая второй после ожидания через Hourglass — юнит теряет величину яда без учёта брони и сопротивления магии. Удар юнита в Venom Cloud у Wyvern отравляет на 20% нанесённого урона (±1% за очко удачи ударившего); каждое следующее отравление добавляет к тику половину своей величины или поднимает тик до новой, если она больше, — тик 40 после яда 30 становится 40 + 15 = 55, после яда 100 — 100. У Mechanism иммунитет.",
     },
     "Pegasus Light": {
         en: ({ p }) =>

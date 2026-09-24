@@ -28,14 +28,14 @@ const SPELL_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     Blessing: {
         en: () =>
-            "For 3 laps the ally always rolls maximum damage on every attack and retaliation. It beats Curse: a stack that is both Blessed and Cursed still rolls maximum damage.",
-        ru: () => "3 круга союзник всегда наносит максимальный урон каждой атакой и каждым ответом. Сильнее Curse: стек под Blessing и Curse одновременно всё равно наносит максимальный урон.",
+            "For 3 laps the ally always rolls maximum damage on every attack and retaliation. It beats Curse: a stack that is both Blessed and Cursed still rolls maximum damage. It can't be recast on a stack that still carries it — a new cast never refreshes the 3 laps.",
+        ru: () => "3 круга союзник всегда наносит максимальный урон каждой атакой и каждым ответом. Сильнее Curse: стек под Blessing и Curse одновременно всё равно наносит максимальный урон. Нельзя наложить повторно, пока он ещё действует на стеке, — новое применение не обновляет 3 круга.",
     },
     Courage: {
         en: () =>
-            "Fixes the ally's morale at +20 for 3 laps: a 20% Morale roll every lap (acting first with ×1.25 damage) and no morale loss meanwhile. It cancels Sadness; Madness and Mechanism units are immune (Mind). In a stalled fight the +20 also becomes extra movement.",
+            "Fixes the ally's morale at +20 for 3 laps: a 20% Morale roll every lap (acting first with ×1.25 damage) and no morale loss meanwhile. With Sadness also on the stack, morale is fixed at 0 instead — no Morale or Dismorale — until one of them ends; Madness and Mechanism units are immune (Mind). In a stalled fight the +20 also becomes extra movement.",
         ru: () =>
-            "Фиксирует мораль союзника на +20 на 3 круга: каждый круг 20% шанс Morale (ход первым с ×1,25 урона) и никаких потерь морали. Отменяет Sadness; у Madness и Mechanism иммунитет (Разум). В затянувшемся бою +20 ещё и превращается в дополнительное движение.",
+            "Фиксирует мораль союзника на +20 на 3 круга: каждый круг 20% шанс Morale (ход первым с ×1,25 урона) и никаких потерь морали. Если на стеке ещё и Sadness, мораль вместо этого фиксируется на 0 — ни Morale, ни Dismorale, — пока один из них не закончится; у Madness и Mechanism иммунитет (Разум). В затянувшемся бою +20 ещё и превращается в дополнительное движение.",
     },
     "Helping Hand": {
         en: ({ p, n }) =>
@@ -123,9 +123,9 @@ const SPELL_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     "Magic Mirror": {
         en: ({ p, n }) =>
-            `For 3 laps the holder still takes every hit in full, but the attacker also takes ${n(p)}% of the magic damage that landed — reduced by its own element and magic resistance; a Water Shield can absorb it — including Fire Breath, Chain Lightning, Fire Shield and Fireforged burns. A debuff spell (or a Spit Ball or Hamstring debuff) has ${n(p)}% to be copied onto its caster as well; the holder keeps it. Status effects, Castling and the Vine snare aren't mirrored. It doesn't stack with Mass Magic Mirror: whichever is on the unit first stays; Tome of Amplification makes it ${n(amplified(p))}%.`,
+            `For 3 laps the holder still takes every hit in full, but the attacker also takes ${n(p)}% of the magic damage that landed — reduced by its own element and magic resistance; a Water Shield can absorb it — including Fire Breath, Chain Lightning, Fire Shield and Fireforged burns. A debuff spell (or a Spit Ball or Hamstring debuff) has ${n(p)}% to be copied onto its caster as well; the holder keeps it. Status effects, Castling and the Vine snare aren't mirrored. It doesn't stack with Mass Magic Mirror: whichever is on the unit first stays; Tome of Amplification makes it ${n(amplified(p))}%. On a Magic Dragon it doesn't add to Magic Reflection: a damage spell returns Reflection's share when that procs and the Mirror's otherwise.`,
         ru: ({ p, n }) =>
-            `3 круга владелец по-прежнему получает каждый удар целиком, но атакующий тоже получает ${n(p)}% прошедшего магического урона — с учётом своей стихии и сопротивления магии; Water Shield может его поглотить, — включая Fire Breath, Chain Lightning, Fire Shield и поджоги Fireforged. Дебафф заклинания (или Spit Ball и Hamstring) с шансом ${n(p)}% копируется и на заклинателя; у владельца он остаётся. Эффекты Статуса, Castling и захват лозой не отражаются. Не складывается с Mass Magic Mirror: остаётся тот, что наложен первым; с Tome of Amplification — ${n(amplified(p))}%.`,
+            `3 круга владелец по-прежнему получает каждый удар целиком, но атакующий тоже получает ${n(p)}% прошедшего магического урона — с учётом своей стихии и сопротивления магии; Water Shield может его поглотить, — включая Fire Breath, Chain Lightning, Fire Shield и поджоги Fireforged. Дебафф заклинания (или Spit Ball и Hamstring) с шансом ${n(p)}% копируется и на заклинателя; у владельца он остаётся. Эффекты Статуса, Castling и захват лозой не отражаются. Не складывается с Mass Magic Mirror: остаётся тот, что наложен первым; с Tome of Amplification — ${n(amplified(p))}%. На Magic Dragon не складывается с Magic Reflection: заклинание урона возвращается по доле Reflection, если она сработала, иначе по доле Mirror.`,
     },
     "Mass Magic Mirror": {
         en: ({ p, n }) =>
@@ -159,9 +159,9 @@ const SPELL_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     Quagmire: {
         en: ({ p, n }) =>
-            `−${n(p)}% movement for 3 laps, which also shrinks movement bonuses such as Chaos's Movement synergy. Applied by the Beholder's Spit Ball (magic resistance can resist it) and by the Rime Charm artifact (no resist roll).`,
+            `−${n(p)}% movement for 3 laps, which also shrinks movement bonuses such as Chaos's Movement synergy. Applied by the Beholder's Spit Ball (magic resistance can resist it) and by the Rime Charm artifact (no resist roll). It multiplies with Hamstrung: ×0.75 × 0.7 = ×0.525 movement (−47.5%).`,
         ru: ({ p, n }) =>
-            `−${n(p)}% движения на 3 круга; процент урезает и бонусы к движению, например синергию Хаоса «Передвижение». Накладывается Spit Ball у Beholder (сопротивление магии может защитить) и артефактом Rime Charm (без броска сопротивления).`,
+            `−${n(p)}% движения на 3 круга; процент урезает и бонусы к движению, например синергию Хаоса «Передвижение». Накладывается Spit Ball у Beholder (сопротивление магии может защитить) и артефактом Rime Charm (без броска сопротивления). С Hamstrung замедления перемножаются: ×0,75 × 0,7 = ×0,525 движения (−47,5%).`,
     },
     "Weakening Beam": {
         en: ({ p, n }) => `−${n(p)}% base armor for 3 laps; applied by the Beholder's Spit Ball.`,
@@ -179,9 +179,9 @@ const SPELL_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     Sadness: {
         en: () =>
-            "Fixes morale at −20 for 3 laps: a 20% Dismorale roll each lap (acting last with ×0.8 damage). Courage cancels it; Mind — Madness and Mechanism units are immune.",
+            "Fixes morale at −20 for 3 laps: a 20% Dismorale roll each lap (acting last with ×0.8 damage). With Courage also on the stack, morale is fixed at 0 instead — no Morale or Dismorale — until one of them ends; Mind — Madness and Mechanism units are immune.",
         ru: () =>
-            "Фиксирует мораль на −20 на 3 круга: каждый круг 20% шанс Dismorale (ход последним с ×0,8 урона). Courage его отменяет; Разум — у Madness и Mechanism иммунитет.",
+            "Фиксирует мораль на −20 на 3 круга: каждый круг 20% шанс Dismorale (ход последним с ×0,8 урона). Если на стеке ещё и Courage, мораль вместо этого фиксируется на 0 — ни Morale, ни Dismorale, — пока один из них не закончится; Разум — у Madness и Mechanism иммунитет.",
     },
     Cowardice: {
         en: () =>

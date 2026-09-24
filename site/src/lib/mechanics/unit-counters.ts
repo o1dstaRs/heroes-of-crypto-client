@@ -73,6 +73,10 @@ export function unitCounterLines(unit: Unit, language: NoteLanguage): string[] {
     const spellImmune = has("Enchanted Skin") || unit.magicResist >= 100;
     const spells = [...new Set(unit.spells.map((entry) => entry.replace(/^[^:]+:/, "")))];
     const lines: string[] = [];
+    // A draft brings six creatures and level 3 needs six different ones of the faction, so a unit from
+    // another faction can only ever sit in a level-1 or level-2 army of that synergy.
+    const might = unit.faction === "Might";
+    const mightLevel3 = isRu ? " (3 уровень — армия целиком из Силы)" : " (level 3 is an all-Might army)";
 
     if (unit.rangeShots > 0 && unit.attackType === "RANGE") {
         const melee = has("No Melee")
@@ -147,8 +151,8 @@ export function unitCounterLines(unit: Unit, language: NoteLanguage): string[] {
               : `; Hamstring (Dryad) can take 30% of its movement for 3 laps; Wind Flow (Valkyrie, stack power ${windFlowGate}+) gives every flyer +4 armor and −4 movement for 3 laps`;
         lines.push(
             isRu
-                ? `Летающий: Web Aura (Arachna Queen) не даёт ему двигаться, если ход начинается в радиусе 2 клеток от неё${slows}. Помогает синергия Природы «Броня летающих»: +15/24/35% брони в любой армии.`
-                : `Flyer: Web Aura (Arachna Queen) keeps it from moving on a turn it starts within 2 cells of her${slows}. Helper: Nature's Flying Armor synergy gives it +15/24/35% armor in any army.`,
+                ? `Летающий: Web Aura (Arachna Queen) не даёт ему двигаться, если ход начинается в радиусе 2 клеток от неё${slows}. Помогает синергия Природы «Броня летающих»: ${unit.faction === "Nature" ? "+15/24/35% брони" : "+15/24% брони в любой армии (35% требует шести разных существ Природы кроме него — шестое может дать только призыв Природы)"}.`
+                : `Flyer: Web Aura (Arachna Queen) keeps it from moving on a turn it starts within 2 cells of her${slows}. Helper: Nature's Flying Armor synergy gives it ${unit.faction === "Nature" ? "+15/24/35% armor" : "+15/24% armor in any army (35% needs six different Nature creatures besides it — only a Nature summon can bring the sixth)"}.`,
         );
     }
 
@@ -253,15 +257,15 @@ export function unitCounterLines(unit: Unit, language: NoteLanguage): string[] {
             : "";
         lines.push(
             isRu
-                ? `Аура (${auras.join(", ")}): Break отключает её на 2 круга; синергия Силы «Радиус аур» расширяет её на 1/2/3 клетки.${splitNote}`
-                : `Aura (${auras.join(", ")}): Break turns it off for 2 laps; Might's Aura Range synergy widens it by 1/2/3 cells.${splitNote}`,
+                ? `Аура (${auras.join(", ")}): Break отключает её на 2 круга; синергия Силы «Радиус аур» расширяет её на ${might ? "1/2/3 клетки" : `1/2 клетки${mightLevel3}`}.${splitNote}`
+                : `Aura (${auras.join(", ")}): Break turns it off for 2 laps; Might's Aura Range synergy widens it by ${might ? "1/2/3 cells" : `1/2 cells${mightLevel3}`}.${splitNote}`,
         );
     }
     if (has("Disguise Aura")) {
         lines.push(
             isRu
-                ? "Disguise Aura: пока юнит скрыт, его нельзя выбрать целью атаки или заклинания, но удары по площади и по линии его задевают; Break отключает ауру на 2 круга. Враги раскрывают его в радиусе 3 клеток — 3 + 1/2/3, если у его армии есть синергия Силы «Радиус аур»."
-                : "Disguise Aura: while Hidden it can't be singled out by attacks or spells, but area and line attacks still hit it; Break turns the aura off for 2 laps. Enemies reveal it within 3 cells — 3 + 1/2/3 if its own army has Might's Aura Range synergy.",
+                ? "Disguise Aura: пока юнит скрыт, его нельзя выбрать целью атаки или заклинания, но удары по площади и по линии его задевают; Break отключает ауру на 2 круга. Враги раскрывают его в радиусе 3 клеток — 4 или 5, если у его армии есть синергия Силы «Радиус аур» 1 или 2 уровня."
+                : "Disguise Aura: while Hidden it can't be singled out by attacks or spells, but area and line attacks still hit it; Break turns the aura off for 2 laps. Enemies reveal it within 3 cells — 4 or 5 if its own army has Might's Aura Range synergy at level 1 or 2.",
         );
     }
     const blessings = names.filter((name) => name.endsWith(" Blessing"));
@@ -306,13 +310,15 @@ export function unitCounterLines(unit: Unit, language: NoteLanguage): string[] {
                   ? ` ${one ? "слабеет" : "слабеют"}, когда стек теряет существ (сила стека — доля от сильнейшего стека на поле).`
                   : ` ${one ? "weakens" : "weaken"} as the stack loses creatures (stack power is a share of the strongest stack on the board).`;
         const synergy = [
-            ...(full.length ? [isRu ? `+5/+8/+12 очков к ${full.join(", ")}` : `+5/+8/+12 points to ${full.join(", ")}`] : []),
-            ...(tenth.length ? [isRu ? `десятую часть этого (+0,5/+0,8/+1,2) к ${tenth.join(", ")}` : `a tenth of that (+0.5/+0.8/+1.2) to ${tenth.join(", ")}`] : []),
+            ...(full.length ? [isRu ? `${might ? "+5/+8/+12" : "+5/+8"} очков к ${full.join(", ")}` : `${might ? "+5/+8/+12" : "+5/+8"} points to ${full.join(", ")}`] : []),
+            ...(tenth.length
+                ? [isRu ? `десятую часть этого (${might ? "+0,5/+0,8/+1,2" : "+0,5/+0,8"}) к ${tenth.join(", ")}` : `a tenth of that (${might ? "+0.5/+0.8/+1.2" : "+0.5/+0.8"}) to ${tenth.join(", ")}`]
+                : []),
         ];
         const synergyText = synergy.length
             ? isRu
-                ? ` Синергия Силы «Сила способностей» добавляет ${synergy.join(" и ")}.`
-                : ` Might's Abilities power synergy adds ${synergy.join(" and ")}.`
+                ? ` Синергия Силы «Сила способностей» добавляет ${synergy.join(" и ")}${might ? "" : mightLevel3}.`
+                : ` Might's Abilities power synergy adds ${synergy.join(" and ")}${might ? "" : mightLevel3}.`
             : "";
         lines.push(
             isRu
@@ -345,8 +351,8 @@ export function unitCounterLines(unit: Unit, language: NoteLanguage): string[] {
     if (has("Enchanted Skin")) {
         lines.push(
             isRu
-                ? "Enchanted Skin: иммунитет ко всем заклинаниям обеих сторон (Craft у Blacksmith — способность — до него всё же достаёт) и к магическому урону (Chain Lightning, Fire Breath, Fire Shield, поджоги Fireforged); физические атаки, эффекты ударов (Stun, Blindness, Paralysis, Petrifying Gaze, Break), ауры и благословения на него действуют."
-                : "Enchanted Skin: immune to every spell from either side (the Blacksmith's Craft, an ability, still reaches it) and to magic damage (Chain Lightning, Fire Breath, Fire Shield, Fireforged burns); physical attacks, on-hit effects (Stun, Blindness, Paralysis, Petrifying Gaze, Break), auras and blessings still reach it.",
+                ? "Enchanted Skin: иммунитет ко всем заклинаниям обеих сторон (Craft у Blacksmith — способность — до него всё же достаёт) и к магическому урону (Chain Lightning, Fire Breath, Fire Shield, поджоги Fireforged); физические атаки, эффекты ударов (Stun, Blindness, Paralysis, Petrifying Gaze, Break, замедление Rime Charm), ауры и благословения на него действуют."
+                : "Enchanted Skin: immune to every spell from either side (the Blacksmith's Craft, an ability, still reaches it) and to magic damage (Chain Lightning, Fire Breath, Fire Shield, Fireforged burns); physical attacks, on-hit effects (Stun, Blindness, Paralysis, Petrifying Gaze, Break, Rime Charm's slow), auras and blessings still reach it.",
         );
     }
     for (const element of Object.keys(ELEMENT_LINES)) {
