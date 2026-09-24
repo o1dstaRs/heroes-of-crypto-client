@@ -2067,24 +2067,23 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
         section: "faq",
         name: "Community and contact",
         nameRu: "Сообщество и связь с командой",
-        aliases: ["contact", "support", "discord", "telegram", "community", "связаться", "поддержка", "сообщество"],
+        aliases: [
+            ...["contact", "support", "discord", "telegram", "community", "who made the game", "who made this game", "developer", "studio"],
+            ...["связаться", "поддержка", "сообщество", "кто сделал игру", "разработчик", "студия"],
+        ],
         href: localPath("en", "contact-us"),
         hrefRu: localPath("ru", "contact-us"),
         summary: `${contactEn.headline} Discord, Telegram, X and ${contactEn.email}; the code is public on GitHub.`,
         summaryRu: `${contactRu.headline} Discord, Telegram, X и ${contactRu.email}; код открыт на GitHub.`,
         text: [
-            `**Community and contact** — ${contactEn.headline}`,
+            `**Community and contact** — ${studio ? `Heroes of Crypto is made by ${studio}, as the Terms of Service state. ` : ""}${contactEn.headline}`,
             bullet(channels),
-            studio
-                ? `Heroes of Crypto is made by ${studio}, as the Terms of Service state; the site does not list individual developers, and the team answers through these channels.`
-                : "The site does not name the individual developers; the team answers through these channels.",
+            "The site does not list individual developers; the team answers through these channels.",
         ].join("\n\n"),
         textRu: [
-            `**Сообщество и связь с командой** — ${contactRu.headline}`,
+            `**Сообщество и связь с командой** — ${studio ? `Heroes of Crypto делает студия ${studio} — так сказано в Условиях использования. ` : ""}${contactRu.headline}`,
             bullet(channels.map((line) => line.replace("Email", "Почта").replace("(public code)", "(открытый код)"))),
-            studio
-                ? `Heroes of Crypto делает студия ${studio} — так сказано в Условиях использования; отдельных разработчиков сайт не перечисляет, а команда отвечает через эти каналы.`
-                : "Имена разработчиков на сайте не указаны; команда отвечает через эти каналы.",
+            "Отдельных разработчиков сайт не перечисляет; команда отвечает через эти каналы.",
         ].join("\n\n"),
         tags: ["faq", "contact", "community"],
         keywords: ["team", "developer", "developers", "who made", "studio", "company", "команда", "разработчик", "разработчики", "кто сделал", "студия", "компания", "email", "почта", ...(studio ? [studio] : [])],

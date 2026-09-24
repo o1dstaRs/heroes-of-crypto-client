@@ -234,6 +234,13 @@ export function unitCounterLines(unit: Unit, language: NoteLanguage): string[] {
         );
     }
 
+    if (has("AI Driven")) {
+        lines.push(
+            isRu
+                ? "AI Driven: стеком играет игра — в свой ход он бросается на ближайшего достижимого врага; пока на нём Break, им управляете вы."
+                : "AI Driven: the game plays this stack — on its turn it charges the nearest enemy it can reach; while it is Broken, you control it.",
+        );
+    }
     if (has("Mechanism")) {
         lines.push(
             isRu
