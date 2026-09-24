@@ -23,21 +23,21 @@ const EFFECT_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     "Boar Saliva": {
         en: ({ p, n }) =>
-            `For 3 laps the unit misses (${n(p)} + the Boar's luck) × Boar stack power / 5 % of its melee attacks, shots and retaliations (up to ${n(p)}% at full stack), rolled separately from other misses. Every landed melee hit of the Frenzied Boar applies it unless it is already active; it is a Mind effect, so mind resistance can shrug it off and Madness and Mechanism are immune.`,
+            `For 3 laps the unit misses (${n(p)} + the Boar's luck + Might's Abilities power synergy) × Boar stack power / 5 % of its melee attacks, shots and retaliations (${n(p)}% at full stack before luck and synergy), rolled separately from other misses. Every landed melee hit of the Frenzied Boar applies it unless it is already active; it is a Mind effect, so mind resistance can shrug it off and Madness and Mechanism are immune.`,
         ru: ({ p, n }) =>
-            `3 круга юнит промахивается в (${n(p)} + удача Boar) × сила стека Boar / 5 % своих атак, выстрелов и ответов (до ${n(p)}% при полной силе), отдельным броском от других промахов. Каждое попадание Frenzied Boar в ближнем бою накладывает его, если он ещё не действует; это ментальный эффект, поэтому сопротивление ментальным эффектам может его сбросить, а у Madness и Mechanism иммунитет.`,
+            `3 круга юнит промахивается в (${n(p)} + удача Boar + синергия Силы «Сила способностей») × сила стека Boar / 5 % своих атак, выстрелов и ответов (${n(p)}% при полной силе без учёта удачи и синергии), отдельным броском от других промахов. Каждое попадание Frenzied Boar в ближнем бою накладывает его, если он ещё не действует; это ментальный эффект, поэтому сопротивление ментальным эффектам может его сбросить, а у Madness и Mechanism иммунитет.`,
     },
     "Shatter Armor": {
         en: () =>
             "Each melee attack by a Nomad strips stack power + luck / 10 armor (×1.5 against Mechanism) with no resist roll; the amounts stack, each hit resets the total to 3 laps, and armor never drops below 1.",
         ru: () =>
-            "Каждая атака Nomad в ближнем бою снимает сила стека + удача / 10 брони (×1,5 против Mechanism) без броска сопротивления; величины складываются, каждое попадание продлевает сумму на 3 круга, а броня не опускается ниже 1.",
+            "Каждая атака Nomad в ближнем бою снимает сила стека + удача / 10 брони (×1,5 против Mechanism) без броска сопротивления; величины складываются, каждое попадание заново выставляет сумме срок в 3 круга, а броня не опускается ниже 1.",
     },
     Poison: {
         en: () =>
-            "Lasts the whole fight. At the start of each of its turns the unit loses the poison amount, ignoring armor and magic resistance. A hit from a unit inside a Wyvern's Venom Cloud poisons for 20% of the damage dealt (±1% per point of the hitter's luck); each later poisoning adds half its amount to the tick, or lifts the tick to the new amount if that is higher. Mechanism units are immune.",
+            "Lasts the whole fight unless an allied Monk's Absolving Arrow lifts it. At the start of each of its turns — including the second one after an Hourglass wait — the unit loses the poison amount, ignoring armor and magic resistance. A hit from a unit inside a Wyvern's Venom Cloud poisons for 20% of the damage dealt (±1% per point of the hitter's luck); each later poisoning adds half its amount to the tick, or lifts the tick to the new amount if that is higher. Mechanism units are immune.",
         ru: () =>
-            "Действует до конца боя. В начале каждого своего хода юнит теряет величину яда без учёта брони и сопротивления магии. Удар юнита в Venom Cloud у Wyvern отравляет на 20% нанесённого урона (±1% за очко удачи ударившего); каждое следующее отравление добавляет к тику половину своей величины или поднимает тик до новой, если она больше. У Mechanism иммунитет.",
+            "Действует до конца боя, если его не снимет Absolving Arrow союзного Monk. В начале каждого своего хода — включая второй после ожидания через Hourglass — юнит теряет величину яда без учёта брони и сопротивления магии. Удар юнита в Venom Cloud у Wyvern отравляет на 20% нанесённого урона (±1% за очко удачи ударившего); каждое следующее отравление добавляет к тику половину своей величины или поднимает тик до новой, если она больше. У Mechanism иммунитет.",
     },
     "Pegasus Light": {
         en: ({ p }) =>
@@ -47,15 +47,15 @@ const EFFECT_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     Paralysis: {
         en: ({ p, n }) =>
-            `For 1 lap the unit can't move, and all its hits — attacks and retaliations — deal (${n(p)} + the Mantis's luck) × Mantis stack power / 5 % less (up to ${n(p)}% at full stack; ×1.5 against Mechanism). It can still strike adjacent enemies, shoot and cast.`,
+            `For 1 lap the unit can't move, and its weapon hits — attacks, retaliations, shots, second strikes and splash — deal (${n(p)} + the Mantis's luck + Might's Abilities power synergy) × Mantis stack power / 5 % less (${n(p)}% at full stack before luck and synergy; ×1.5 against Mechanism). Spells and Fire Breath keep full damage. It can still strike adjacent enemies, shoot and cast.`,
         ru: ({ p, n }) =>
-            `1 круг юнит не может двигаться, а все его удары — атаки и ответы — наносят на (${n(p)} + удача Mantis) × сила стека Mantis / 5 % меньше урона (до ${n(p)}% при полной силе; ×1,5 против Mechanism). Бить соседних врагов, стрелять и колдовать он по-прежнему может.`,
+            `1 круг юнит не может двигаться, а его удары оружием — атаки, ответы, выстрелы, вторые удары и удары по площади — наносят на (${n(p)} + удача Mantis + синергия Силы «Сила способностей») × сила стека Mantis / 5 % меньше урона (${n(p)}% при полной силе без учёта удачи и синергии; ×1,5 против Mechanism). Заклинания и Fire Breath бьют в полную силу. Бить соседних врагов, стрелять и колдовать он по-прежнему может.`,
     },
     "Deep Wounds": {
         en: () =>
             "Not used up by the next attack: every melee hit or retaliation from a Deep Wounds unit adds its amount to the wounds and resets them to 3 laps, and every attacker holding a Deep Wounds card deals the wound total as extra percent damage to this target. Wounding Charm gives Level 1 to a whole army.",
         ru: () =>
-            "Не тратится следующей атакой: каждый удар или ответ юнита с Deep Wounds добавляет свою величину к ранам и продлевает их на 3 круга, а каждый атакующий с картой Deep Wounds наносит этой цели дополнительный урон в процентах, равный сумме ран. Wounding Charm даёт Level 1 всей армии.",
+            "Не тратится следующей атакой: каждый удар или ответ в ближнем бою юнита с Deep Wounds добавляет свою величину к ранам и заново выставляет им срок в 3 круга, а каждый атакующий с картой Deep Wounds наносит этой цели дополнительный урон в процентах, равный сумме ран. Wounding Charm даёт Level 1 всей армии.",
     },
     Aggr: {
         en: () =>
@@ -65,9 +65,9 @@ const EFFECT_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     Break: {
         en: () =>
-            "For 2 laps all of the unit's abilities are off — including the auras and blessings it projects and its elemental and mind immunities — and it can't cast spells. Only attacks apply it, never spells: Chaos's Break on Attack synergy gives every damaging hit a chance. It can't be re-applied while active; a Broken Efreet or Black Dragon loses Fire Element.",
+            "For 2 laps all of the unit's abilities are off — including the auras and blessings it projects and its elemental and mind immunities — and it can't cast spells. Only attacks apply it, never spells: Chaos's Break on Attack synergy gives every weapon hit a chance. While it is active another Break can't land, except from a retaliation, which can renew it on the attacker; a Broken Efreet or Black Dragon loses Fire Element.",
         ru: () =>
-            "2 круга все способности юнита отключены — включая ауры и благословения, которые он даёт, и его стихийные и ментальные иммунитеты, — и он не может применять заклинания. Накладывается только атаками, не заклинаниями: синергия Хаоса «Разлом при атаке» даёт шанс каждому попаданию с уроном. Пока действует, повторно не накладывается; Efreet или Black Dragon под Break теряют Fire Element.",
+            "2 круга все способности юнита отключены — включая ауры и благословения, которые он даёт, и его стихийные и ментальные иммунитеты, — и он не может применять заклинания. Накладывается только атаками, не заклинаниями: синергия Хаоса «Разлом при атаке» даёт шанс каждому удару оружием. Пока действует, повторно не накладывается — кроме как ответом, который может обновить его на атакующем; Efreet или Black Dragon под Break теряют Fire Element.",
     },
     "Terrifying Gaze": {
         en: () =>
@@ -87,6 +87,6 @@ export const effectNote = (name: string, language: NoteLanguage): string | undef
  * unit carrying it, which is why "3 laps" can outlast three rounds when the unit waits or is skipped.
  */
 export const DURATION_NOTE = {
-    en: "An N-lap effect covers the holder's next N turns: it counts down when the holder ends a turn (a skipped turn counts, an Hourglass wait does not), and gets one lap more when applied to the unit whose turn it is. While a stack is on Morale its buffs don't count down; on Dismorale its debuffs and effects don't. 15 laps means the whole fight.",
-    ru: "Эффект на N кругов покрывает следующие N ходов владельца: он убывает, когда владелец заканчивает ход (пропущенный ход считается, ожидание через Hourglass — нет), и длится на круг дольше, если наложен на юнита, чей сейчас ход. Пока стек под Morale, его баффы не убывают; под Dismorale не убывают его дебаффы и эффекты. 15 кругов — это весь бой.",
+    en: "An N-lap effect covers the holder's next N turns: it counts down when the holder ends a turn (a skipped turn counts, an Hourglass wait does not), and usually gets one lap more when applied to the unit whose turn it is. While a stack is on Morale its buffs don't count down; on Dismorale its debuffs and effects don't. 15 laps means the whole fight.",
+    ru: "Эффект на N кругов покрывает следующие N ходов владельца: он убывает, когда владелец заканчивает ход (пропущенный ход считается, ожидание через Hourglass — нет), и обычно длится на круг дольше, если наложен на юнита, чей сейчас ход. Пока стек под Morale, его баффы не убывают; под Dismorale не убывают его дебаффы и эффекты. 15 кругов — это весь бой.",
 };

@@ -424,7 +424,7 @@ const copy = isRu
               {
                   icon: "/assets/images/units/abilities/might_augment_256.webp",
                   title: "Ближний бой",
-                  text: "+8%, +17% или +27% к базовой атаке при любой атаке, кроме выстрела: удары и ответы в ближнем бою, включая ближний бой стрелков. Это выбор для армий, которые готовы драться лицом к лицу; к выстрелам он не прибавляется — для них есть «Стрельба».",
+                  text: "+8%, +17% или +27% к базовой атаке, пока выбранная атака юнита — не выстрел: каждому юниту ближнего боя и стрелку, переключённому в ближний бой в свой ход. Это выбор для армий, которые готовы драться лицом к лицу; стрелки с выбранной дальней атакой получают бонус «Стрельбы».",
               },
               {
                   icon: "/assets/images/units/abilities/empower_augment_256.webp",
@@ -434,7 +434,7 @@ const copy = isRu
               {
                   icon: "/assets/images/units/abilities/sniper_augment_256.webp",
                   title: "Стрельба",
-                  text: `+${sniperPowers.map(([attack]) => attack).join("/")}% к базовой атаке и +${sniperPowers.map(([, range]) => range).join("/")}% к дистанции выстрела для стрелков — только когда они стреляют. Большая дистанция расширяет каждую полосу дальности, но не отменяет штраф за дальность.`,
+                  text: `+${sniperPowers.map(([attack]) => attack).join("/")}% к базовой атаке и +${sniperPowers.map(([, range]) => range).join("/")}% к дистанции выстрела для стрелков, пока их выбранная атака — выстрел (по умолчанию). Большая дистанция расширяет каждую полосу дальности, но не отменяет штраф за дальность.`,
               },
               {
                   icon: "/assets/images/units/abilities/movement_augment_256.webp",
@@ -487,7 +487,7 @@ const copy = isRu
                   icon: "/assets/images/units/factions/chaos_128.webp",
                   options: [
                       "Передвижение: +1 / +2 / +3 шага каждому юниту",
-                      "Разлом при атаке: каждое попадание с уроном с шансом 6% / 11% / 17% накладывает на цель Break на 2 круга (способности, ауры и заклинания отключены)",
+                      "Разлом при атаке: каждый удар оружием с шансом 6% / 11% / 17% накладывает на цель Break на 2 круга (способности, ауры и заклинания отключены)",
                   ],
               },
               {
@@ -495,7 +495,7 @@ const copy = isRu
                   icon: "/assets/images/units/factions/might_128.webp",
                   options: [
                       "Радиус аур: +1 / +2 / +3 клетки каждой ауре вашей армии",
-                      "Сила способностей: +5 / +8 / +12 очков к шансам и силе способностей каждого юнита — как дополнительная удача",
+                      "Сила способностей: +5 / +8 / +12 очков к шансам и силе почти всех способностей — как дополнительная удача",
                   ],
               },
               {
@@ -514,7 +514,7 @@ const copy = isRu
           turnActions: [
               {
                   title: "Движение",
-                  text: "Путь должен быть легальным и помещаться в запас шагов юнита, а прибытие завершает ход. Если ход закончился ближе к центру вражеской армии, это +3 морали, дальше — −3; нейтрален только ход, закончившийся ровно на том же расстоянии, поэтому шаг вбок обычно стоит 3.",
+                  text: "Путь должен быть легальным и помещаться в запас шагов юнита, а прибытие завершает ход. Если ход закончился ближе к центру вражеской армии, это +3 морали, дальше — −3; нейтрален только ход, закончившийся ровно на том же расстоянии, — расстояние меряется по прямой до центра вражеской армии, поэтому даже шаг вбок считается ближе или дальше.",
               },
               {
                   title: "Ближняя атака",
@@ -542,7 +542,7 @@ const copy = isRu
               "Урон зависит от атаки, количества живых существ в стеке, брони цели, удачи, дальности выстрела, выбранного типа атаки и активных способностей. Поэтому один и тот же юнит может ударить совсем по-разному в разных позициях.",
               "Стек отвечает на атаку один раз за круг (One in the Field — на каждую атаку), и ответ тратится даже при промахе. Ответ считается по стекам в их текущем состоянии и наносится раньше вашего удара, поэтому стек, который вы вот-вот уничтожите, всё равно ударит в ответ в полную силу. Удар в ближнем бою остаётся без ответа, если защитник оглушён, ослеплён или заморожен, у него No Melee, он привязан Aggr к другому стеку, ему запрещает бить этого противника Terrifying Gaze или он под Cowardice против стека с большим суммарным здоровьем; на атаки с Shadow Touch и Lightning Spin не отвечают никогда.",
               "Стрелок отвечает на выстрел, только если мог бы выстрелить прямо сейчас (есть стрелы, рядом нет врага, нет Range Null Field и Rangebane); ответный выстрел летит обратно по линии, попадает в первый вражеский стек на ней и тратит стрелу. Урон по площади от Area Throw, Large Caliber и Chakram наносится раньше ответного выстрела. На заклинания, залпы Through Shot и Area Throw по пустой клетке не отвечают.",
-              "Порядок ходов фиксируется в начале каждого круга. Сначала ходят стеки с сработавшей моралью (Morale); затем армии ходят по очереди по одному стеку, каждая отправляет свой стек с наибольшей инициативой из ещё не ходивших (при равной инициативе порядок случаен), а когда у одной армии стеки кончаются, стеки другой ходят подряд; затем стеки с Dismorale; затем ожидающие через Hourglass — в том порядке, в каком они ждали. В первом круге начинает армия с более высокой средней моралью (затем — с большей максимальной инициативой, затем — жребий).",
+              "Порядок ходов фиксируется в начале каждого круга. Сначала ходят стеки с сработавшей моралью (Morale); затем армии ходят по очереди по одному стеку, каждая отправляет свой стек с наибольшей инициативой из ещё не ходивших (при равной инициативе порядок случаен), а когда у одной армии стеки кончаются, стеки другой ходят подряд; затем стеки с Dismorale; затем ожидающие через Hourglass — в том порядке, в каком они ждали. В первом круге начинает армия с более высокой средней моралью (затем — с большей максимальной инициативой, затем — жребий), если только ни у кого не сработала Morale: тогда очерёдность начинается с армии, противоположной последнему стеку с Morale.",
               "Способности добавляют характер: Lucky Strike может резко поднять урон, Stun и Blindness ломают темп, Petrifying Gaze может добить, Fire Shield возвращает урон, Range Null Field выключает стрельбу вокруг себя.",
           ],
           moraleTitle: "Мораль, удача и сила стека",
@@ -550,7 +550,7 @@ const copy = isRu
               "Мораль ограничена диапазоном −20…+20. В начале каждого круга движок бросает шанс, равный модулю морали. Положительное срабатывание (Morale) ставит стек раньше обычной очереди с 1,25× урона на круг; отрицательное (Dismorale) ставит его после всех обычных стеков с 0,8× урона. В обоих случаях ход у стека остаётся один, а его мораль до конца круга не меняется. Дополнительного действия нет.",
               "Каждое существо начинает с моралью своей фракции: Жизнь +4, Сила +2, Природа +1, Хаос −1. Поднимайте её, двигаясь ближе к геометрическому центру вражеской армии (+3 за перемещение) и уничтожая вражеские стеки (+4 тому стеку, который уничтожил: атакующему, отвечающему защитнику или заклинателю). Движение от этого центра снижает мораль на 3, а гибель стека отнимает 4 у остальных ваших стеков того же юнита. Гибель от Армагеддона, сужения, яда или Fire Wall ничью мораль не меняет.",
               "Удача ограничена диапазоном −10…+10 и меняет входящий урон от атак примерно на 1% за единицу; отрицательная удача его увеличивает. Заклинания, Армагеддон, яд и Fire Wall удачу не учитывают. Каждое очко также добавляет 1 процентный пункт к шансам и силе способностей самого стека. Удача перебрасывается каждый круг: база фракции (Природа +4, Жизнь и Сила +1, Хаос −1) плюс свежие −3…+3 плюс бонусы, поэтому она не накапливается; Luck Shield заменяет бросок на +3 до конца круга.",
-              "Сила стека сравнивает опыт × живые существа стека с сильнейшим таким значением на поле среди обеих армий: до 20% — 1, до 40% — 2, до 60% — 3, до 80% — 4, выше — 5. Она пересчитывается после каждого действия и масштабирует способности и ауры, зависящие от силы стека, боезапас Limited Supply, Heavy Armor и число целей Chakram; часть заклинаний требует минимальной силы стека заклинателя. Каждый задрафтованный стек стоит 1000 опыта, поэтому неразделённый стек начинает бой с силой 5; разделите его пополам — и обе половины опустятся до 3, а потери снижают её дальше.",
+              "Сила стека сравнивает опыт × живые существа стека с сильнейшим таким значением на поле среди обеих армий: до 20% — 1, до 40% — 2, до 60% — 3, до 80% — 4, выше — 5. Она пересчитывается после каждого действия и масштабирует способности и ауры, зависящие от силы стека, боезапас Limited Supply, Heavy Armor и число целей Chakram; часть заклинаний требует минимальной силы стека заклинателя. Каждый задрафтованный стек стоит около 1000 опыта, поэтому неразделённый стек обычно начинает бой с силой 5; разделите его пополам — и обе половины опустятся до 3, а потери снижают её дальше.",
               "В затянувшемся бою мораль превращается в движение: каждый круг, когда карта сужается или ни один стек не стал ближе к ближайшему врагу, добавляет 0,05 шага за очко морали до конца боя (+1 шаг при +20 после одного такого круга), а отрицательная мораль шаги отнимает.",
           ],
           moraleBreakdownTitle: "Точные изменения морали",
@@ -581,7 +581,7 @@ const copy = isRu
               },
               {
                   name: "FIRE PIT",
-                  center: "Центр поля выжжен лавовым озером, которое высыхает на 10-м круге.",
+                  center: "Центр поля выжжен лавовым озером, которое высыхает на 10-м круге (раньше, если затянутые круги добавили кольца сужения).",
                   narrows: "4-й, 7-й и 10-й круги",
                   chance: "1 из 3",
               },
@@ -598,7 +598,7 @@ const copy = isRu
           mapMechanics: [
               {
                   title: "По лаве по умолчанию не ходят",
-                  text: "Наземные юниты не могут проходить по центральной лаве или заканчивать на ней ход, а летающие могут лишь пролетать над ней; врождённая Made of Fire (Efreet) разрешает и то и другое, а артефакт 2-го тира Lava Striders даёт такое право всей армии. Стек, которому можно в лаву и чьё перемещение проходит через лаву или заканчивается в ней, получает Made of Fire на 2 круга: +10% к здоровью, атаке, броне, движению, инициативе, дистанции выстрела, сопротивлению магии и силе способностей. Пока эффект действует, он не обновляется, а озеро высыхает в обычную землю в начале 10-го круга.",
+                  text: "Наземные юниты не могут проходить по центральной лаве или заканчивать на ней ход, а летающие могут лишь пролетать над ней; врождённая Made of Fire (Efreet) разрешает и то и другое, а артефакт 2-го тира Lava Striders даёт такое право всей армии. Стек, которому можно в лаву и чьё перемещение проходит через лаву или заканчивается в ней, получает Made of Fire на 2 круга: +10% к здоровью, атаке, броне, движению, инициативе, дистанции выстрела, сопротивлению магии и силе способностей. Пока эффект действует, он не обновляется, а озеро высыхает в обычную землю в начале 10-го круга — раньше, если затянутые круги добавили кольца сужения.",
               },
               {
                   title: "Стрельба через Barrels",
@@ -606,7 +606,7 @@ const copy = isRu
               },
           ],
           mapArmageddon:
-              "Армагеддон бьёт по каждому стеку обеих армий в начале 12-го, 13-го, 14-го и 15-го кругов. Броня, удача и сопротивление магии его не снижают (Water Shield поглощает одну волну). Если считать всех существ, с которыми стек начинал, живых и погибших, первая волна наносит 25% их здоровья (не меньше 75), а вторая, третья и четвёртая — 50%, 75% и 100%. Первые три вместе — это 150%, поэтому стек, переживший первые две, гибнет от третьей, если Resurrection не вернул ему существ или Water Shield не принял волну, а четвёртая уничтожает всех оставшихся. Армии, потерявшие последние стеки от одной волны, играют вничью.",
+              "Армагеддон бьёт по каждому стеку обеих армий в начале 12-го, 13-го, 14-го и 15-го кругов. Броня, удача и сопротивление магии его не снижают (Water Shield поглощает одну волну). Если считать всех существ, с которыми стек начинал, живых и погибших, первая волна наносит 25% их здоровья (не меньше 75), а вторая, третья и четвёртая — 50%, 75% и 100%. Первые три вместе — это 150%, поэтому стек, переживший первые две, гибнет от третьей, если Resurrection не вернул ему существ (Water Shield может принять только первую волну), а четвёртая уничтожает всех оставшихся. Армии, потерявшие последние стеки от одной волны, играют вничью.",
           examplesTitle: "Мини-шпаргалка по ролям",
           examples: [
               "Black Dragon и Angel показывают силу крупных летающих финишеров, но им нужно место для 2x2 тела.",
@@ -752,7 +752,7 @@ const copy = isRu
               {
                   icon: "/assets/images/units/abilities/might_augment_256.webp",
                   title: "Might",
-                  text: "+8%, +17%, or +27% base attack on every attack that is not a shot: melee blows and retaliations, a shooter's melee included. This is for armies that intend to fight up close; it never adds to shots, which is what Sniper is for.",
+                  text: "+8%, +17%, or +27% base attack while a unit's selected attack is not a shot — every melee unit, and a shooter switched to melee on its turn. This is for armies that intend to fight up close; shooters on their ranged selection get Sniper's bonus instead.",
               },
               {
                   icon: "/assets/images/units/abilities/empower_augment_256.webp",
@@ -762,7 +762,7 @@ const copy = isRu
               {
                   icon: "/assets/images/units/abilities/sniper_augment_256.webp",
                   title: "Sniper",
-                  text: `+${sniperPowers.map(([attack]) => attack).join("/")}% base attack and +${sniperPowers.map(([, range]) => range).join("/")}% shot distance for ranged units, only while they shoot. The longer distance widens every falloff band but does not remove range falloff.`,
+                  text: `+${sniperPowers.map(([attack]) => attack).join("/")}% base attack and +${sniperPowers.map(([, range]) => range).join("/")}% shot distance for ranged units while their selected attack is the shot (the default). The longer distance widens every falloff band but does not remove range falloff.`,
               },
               {
                   icon: "/assets/images/units/abilities/movement_augment_256.webp",
@@ -815,7 +815,7 @@ const copy = isRu
                   icon: "/assets/images/units/factions/chaos_128.webp",
                   options: [
                       "Movement: +1 / +2 / +3 steps for every unit",
-                      "Break on attack: every damaging hit has a 6% / 11% / 17% chance to Break the target for 2 laps (abilities, auras and spells off)",
+                      "Break on attack: every weapon hit has a 6% / 11% / 17% chance to Break the target for 2 laps (abilities, auras and spells off)",
                   ],
               },
               {
@@ -823,7 +823,7 @@ const copy = isRu
                   icon: "/assets/images/units/factions/might_128.webp",
                   options: [
                       "Aura range: +1 / +2 / +3 cells for every aura in your army",
-                      "Abilities power: +5 / +8 / +12 points to every unit's ability chances and strength, like extra luck",
+                      "Abilities power: +5 / +8 / +12 points to nearly every ability's chance and strength, like extra luck",
                   ],
               },
               {
@@ -842,7 +842,7 @@ const copy = isRu
           turnActions: [
               {
                   title: "Move",
-                  text: "The path must be legal and fit inside the unit's Steps, and arriving ends the turn. Ending closer to the centre of the enemy army gives +3 morale and ending farther away −3; only a move that ends exactly as far away is neutral, so a sideways step usually costs 3.",
+                  text: "The path must be legal and fit inside the unit's Steps, and arriving ends the turn. Ending closer to the centre of the enemy army gives +3 morale and ending farther away −3; only a move that ends exactly as far away is neutral — distance is a straight line to the enemy army's centre, so even a sideways step counts as closer or farther.",
               },
               {
                   title: "Melee attack",
@@ -870,7 +870,7 @@ const copy = isRu
               "Damage depends on attack, living bodies in the stack, target armor, luck, range distance, selected attack type, and active abilities. That is why the same unit can hit very differently from two different board states.",
               "A stack answers an attack once per lap (One in the Field: every attack), and the answer is spent even if it misses. The retaliation is computed from the stacks as they stand and lands before your blow, so a stack you are about to destroy still strikes back at full strength. A melee blow goes unanswered when the defender is Stunned, Blinded or Frozen, has No Melee, is Aggr-locked onto another stack, is barred from the attacker by Terrifying Gaze, or is under Cowardice facing a stack with more total health; Shadow Touch and Lightning Spin attacks are never answered.",
               "A shooter answers a shot only when it could shoot right now (arrows left, no enemy touching it, no Range Null Field or Rangebane); its counter-shot flies back along the line, hits the first enemy stack on it and costs an arrow. Splash from Area Throw, Large Caliber and Chakram lands before the counter-shot. Spells, Through Shot volleys and an Area Throw aimed at an empty cell are never answered.",
-              "Turn order is fixed at the start of each lap. Stacks that rolled Morale act first; then the armies alternate one stack at a time, each sending its highest-initiative stack that has not acted (equal initiative is ordered at random), and when one army runs out the other's stacks go back to back; then the Dismorale stacks; then stacks waiting on the Hourglass, in the order they waited. In the first lap the army with the higher average morale starts (then the higher top initiative, then a coin flip).",
+              "Turn order is fixed at the start of each lap. Stacks that rolled Morale act first; then the armies alternate one stack at a time, each sending its highest-initiative stack that has not acted (equal initiative is ordered at random), and when one army runs out the other's stacks go back to back; then the Dismorale stacks; then stacks waiting on the Hourglass, in the order they waited. In the first lap the army with the higher average morale starts (then the higher top initiative, then a coin flip), unless a stack rolled Morale — then the alternation starts with the army opposite the last Morale stack.",
               "Abilities give fights their character: Lucky Strike can spike damage, Stun and Blindness break tempo, Petrifying Gaze can finish a target, Fire Shield returns damage, and Range Null Field shuts down shooting around it.",
           ],
           moraleTitle: "Morale, luck, and stack power",
@@ -878,7 +878,7 @@ const copy = isRu
               "Morale is capped at −20…+20. At the start of each lap, the engine rolls a chance equal to its absolute morale. A positive roll (Morale) moves the stack ahead of the regular turn order with 1.25× damage for the lap; a negative roll (Dismorale) moves it behind every regular stack with 0.8× damage. Either way the stack keeps its one turn, and its morale cannot change until the lap ends. Morale does not grant an extra action.",
               "Every creature starts with its faction's morale: Life +4, Might +2, Nature +1, Chaos −1. Build more by moving toward the enemy army's geometric centroid (+3 per move) and destroying enemy stacks (+4 to whichever stack destroys it: attacker, retaliating defender or caster). Moving away costs 3, and losing a stack costs 4 morale for your other surviving stacks of that same unit. Deaths to Armageddon, narrowing, poison or Fire Wall change nobody's morale.",
               "Luck is capped at −10…+10 and changes incoming attack damage by about 1% per point; negative luck increases it. Spells, Armageddon, poison and Fire Wall ignore it. Each point also adds 1 percentage point to the stack's own ability chances and strength. Luck is re-rolled every lap: the faction base (Nature +4, Life and Might +1, Chaos −1) plus a fresh −3…+3 plus bonuses, so it never accumulates; Luck Shield replaces the roll with +3 for the rest of that lap.",
-              "Stack power compares a stack's experience × living bodies with the strongest such value on the board, either army: up to 20% gives 1, up to 40% gives 2, up to 60% gives 3, up to 80% gives 4, above that 5. It is recalculated after every action and scales stack-powered abilities and auras, Limited Supply ammo, Heavy Armor and Chakram's target count; some spells need a minimum caster stack power. Every drafted stack is worth 1,000 experience, so an unsplit stack starts the fight at 5; split one in half and both halves drop to 3, and losses lower it further.",
+              "Stack power compares a stack's experience × living bodies with the strongest such value on the board, either army: up to 20% gives 1, up to 40% gives 2, up to 60% gives 3, up to 80% gives 4, above that 5. It is recalculated after every action and scales stack-powered abilities and auras, Limited Supply ammo, Heavy Armor and Chakram's target count; some spells need a minimum caster stack power. Every drafted stack is worth about 1,000 experience, so an unsplit stack normally starts the fight at 5; split one in half and both halves drop to 3, and losses lower it further.",
               "In a stalled fight morale turns into movement: every lap in which the map narrows, or no stack ends closer to its nearest enemy, adds 0.05 steps per point of morale for the rest of the fight (+1 step at +20 after one such lap), and negative morale takes steps away.",
           ],
           moraleBreakdownTitle: "Exact morale changes",
@@ -909,7 +909,7 @@ const copy = isRu
               },
               {
                   name: "FIRE PIT",
-                  center: "A lava pool scars the center of the board until it dries at lap 10.",
+                  center: "A lava pool scars the center of the board until it dries at lap 10 (sooner when stalled laps add narrowing rings).",
                   narrows: "laps 4, 7 and 10",
                   chance: "1 in 3",
               },
@@ -926,7 +926,7 @@ const copy = isRu
           mapMechanics: [
               {
                   title: "Lava is not walkable by default",
-                  text: "Walking units cannot cross or finish on central lava and flyers can only fly over it; an innate Made of Fire ability (Efreet) allows both, and the Tier-2 Lava Striders artifact grants that access to the whole army. A lava-capable stack whose move crosses or ends on lava gains Made of Fire for 2 laps: +10% health, attack, armor, movement, initiative, shot range, magic resistance and ability power. It is not refreshed while active, and the pool dries into normal ground at the start of lap 10.",
+                  text: "Walking units cannot cross or finish on central lava and flyers can only fly over it; an innate Made of Fire ability (Efreet) allows both, and the Tier-2 Lava Striders artifact grants that access to the whole army. A lava-capable stack whose move crosses or ends on lava gains Made of Fire for 2 laps: +10% health, attack, armor, movement, initiative, shot range, magic resistance and ability power. It is not refreshed while active, and the pool dries into normal ground at the start of lap 10 — sooner when stalled laps add narrowing rings.",
               },
               {
                   title: "Shooting across Barrels",
@@ -934,7 +934,7 @@ const copy = isRu
               },
           ],
           mapArmageddon:
-              "Armageddon hits every stack of both armies at the start of laps 12, 13, 14 and 15. Armor, luck and magic resistance do not reduce it (a Water Shield absorbs one wave). Counting every body a stack started with, alive or dead, wave 1 deals 25% of their health (at least 75) and waves 2, 3 and 4 deal 50%, 75% and 100%. The first three add up to 150%, so a stack that faces all three dies to wave 3 unless Resurrection returned bodies or a Water Shield took a wave, and wave 4 destroys whatever is left. Armies that lose their last stacks to the same wave draw.",
+              "Armageddon hits every stack of both armies at the start of laps 12, 13, 14 and 15. Armor, luck and magic resistance do not reduce it (a Water Shield absorbs one wave). Counting every body a stack started with, alive or dead, wave 1 deals 25% of their health (at least 75) and waves 2, 3 and 4 deal 50%, 75% and 100%. The first three add up to 150%, so a stack that faces all three dies to wave 3 unless Resurrection returned bodies — a Water Shield can only ever take wave 1 — and wave 4 destroys whatever is left. Armies that lose their last stacks to the same wave draw.",
           examplesTitle: "Role cheat sheet",
           examples: [
               "Black Dragon and Angel show what large flying finishers can do, but both need room for a 2x2 body.",

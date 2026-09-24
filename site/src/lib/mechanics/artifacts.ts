@@ -16,9 +16,9 @@ const ARTIFACT_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     "Amulet of Resolve": {
         en: ({ n }) =>
-            `${n(A.AMULET_OF_RESOLVE_RESIST_PERCENT)}% status resistance for every unit: Stun, Freeze and Paralysis land ${n(A.AMULET_OF_RESOLVE_RESIST_PERCENT)}% less often (the chance is multiplied by ${n(1 - A.AMULET_OF_RESOLVE_RESIST_PERCENT / 100)}), and physical area damage taken — ${physicalAreaAttacks.en} — is multiplied by ${n(1 - A.AMULET_OF_RESOLVE_RESIST_PERCENT / 100)}. That cancels most of an opponent's Giant's Maul. It does nothing against magic.`,
+            `${n(A.AMULET_OF_RESOLVE_RESIST_PERCENT)}% status resistance for every unit: Stun, Freeze and Paralysis land ${n(A.AMULET_OF_RESOLVE_RESIST_PERCENT)}% less often (the chance is multiplied by ${n(1 - A.AMULET_OF_RESOLVE_RESIST_PERCENT / 100)}), and physical area damage taken — ${physicalAreaAttacks.en} — is multiplied by ${n(1 - A.AMULET_OF_RESOLVE_RESIST_PERCENT / 100)} (a Mechanism unit's ×1.5 drops to ×${n(1.5 - A.AMULET_OF_RESOLVE_RESIST_PERCENT / 100)}). That cancels most of an opponent's Giant's Maul. It does nothing against magic.`,
         ru: ({ n }) =>
-            `${n(A.AMULET_OF_RESOLVE_RESIST_PERCENT)}% сопротивления статусам каждому юниту: Stun, Freeze и Paralysis срабатывают на ${n(A.AMULET_OF_RESOLVE_RESIST_PERCENT)}% реже (шанс умножается на ${n(1 - A.AMULET_OF_RESOLVE_RESIST_PERCENT / 100)}), а получаемый физический урон по площади — ${physicalAreaAttacks.ru} — умножается на ${n(1 - A.AMULET_OF_RESOLVE_RESIST_PERCENT / 100)}. Это гасит большую часть Giant's Maul соперника. Против магии не помогает.`,
+            `${n(A.AMULET_OF_RESOLVE_RESIST_PERCENT)}% сопротивления статусам каждому юниту: Stun, Freeze и Paralysis срабатывают на ${n(A.AMULET_OF_RESOLVE_RESIST_PERCENT)}% реже (шанс умножается на ${n(1 - A.AMULET_OF_RESOLVE_RESIST_PERCENT / 100)}), а получаемый физический урон по площади — ${physicalAreaAttacks.ru} — умножается на ${n(1 - A.AMULET_OF_RESOLVE_RESIST_PERCENT / 100)} (у Mechanism ×1,5 превращается в ×${n(1.5 - A.AMULET_OF_RESOLVE_RESIST_PERCENT / 100)}). Это гасит большую часть Giant's Maul соперника. Против магии не помогает.`,
     },
     "Keen Blade": {
         en: ({ n }) => `+${n(A.KEEN_BLADE_FLAT)} base attack for every unit, melee and ranged alike.`,
@@ -56,13 +56,13 @@ const ARTIFACT_NOTES: Readonly<Record<string, NoteSpec>> = {
         en: ({ n }) =>
             `+${n(A.CURSED_WARD_LUCK)} luck and −${n(A.CURSED_WARD_MORALE_PENALTY)} morale for every unit: less damage taken and better ability chances, paid for with more Dismorale rolls.`,
         ru: ({ n }) =>
-            `+${n(A.CURSED_WARD_LUCK)} к удаче и −${n(A.CURSED_WARD_MORALE_PENALTY)} к морали каждому юниту: меньше получаемого урона и выше шансы способностей ценой частых срабатываний Dismorale.`,
+            `+${n(A.CURSED_WARD_LUCK)} к удаче и −${n(A.CURSED_WARD_MORALE_PENALTY)} к морали каждому юниту: меньше получаемого урона и выше шансы способностей ценой более частых срабатываний Dismorale.`,
     },
     "Hunter's Longbow": {
         en: ({ n }) =>
-            `Every ranged unit gets +${n(A.LONGBOW_ATTACK_FLAT_PER_ARCHER)} base attack per ranged stack in the army (counted when the fight starts; split stacks count, deaths don't lower it), only while it shoots. No downside.`,
+            `Every ranged unit gets +${n(A.LONGBOW_ATTACK_FLAT_PER_ARCHER)} base attack per ranged stack alive in the army (recounted after every action: split stacks count, a destroyed one no longer does), while its selected attack is the shot. No downside.`,
         ru: ({ n }) =>
-            `Каждый стрелок получает +${n(A.LONGBOW_ATTACK_FLAT_PER_ARCHER)} к базовой атаке за каждый стек стрелков в армии (считается в начале боя; разделённые стеки считаются, гибель не уменьшает), только когда стреляет. Без недостатков.`,
+            `Каждый стрелок получает +${n(A.LONGBOW_ATTACK_FLAT_PER_ARCHER)} к базовой атаке за каждый живой стек стрелков в армии (пересчитывается после каждого действия: разделённые стеки считаются, уничтоженный — уже нет), пока его выбранная атака — выстрел. Без недостатков.`,
     },
     "Helm of Focus": {
         en: ({ n }) =>
@@ -130,15 +130,15 @@ const ARTIFACT_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     "Rime Charm": {
         en: ({ n }) =>
-            `Every hit your units land — retaliations and each unit struck by splash or a piercing shot included — has ${n(A.RIME_PROC_PERCENT)}% to put Quagmire (−25% movement) on the target for ${n(A.RIME_SLOW_LAPS)} laps. It doesn't stack or refresh, and resistances don't reduce it.`,
+            `Every hit your units land — retaliations and each unit struck by splash or a piercing shot included, but not the second punch or arrow of Double Punch and Double Shot — has ${n(A.RIME_PROC_PERCENT)}% to put Quagmire (−25% movement) on the target for ${n(A.RIME_SLOW_LAPS)} laps. It doesn't stack or refresh, and resistances don't reduce it.`,
         ru: ({ n }) =>
-            `Каждое попадание ваших юнитов — включая ответы и каждого, кого задел удар по площади или пробивающий выстрел, — с шансом ${n(A.RIME_PROC_PERCENT)}% накладывает на цель Quagmire (−25% движения) на ${n(A.RIME_SLOW_LAPS)} круга. Не складывается и не обновляется, сопротивления его не снижают.`,
+            `Каждое попадание ваших юнитов — включая ответы и каждого, кого задел удар по площади или пробивающий выстрел, но не второй удар или вторую стрелу Double Punch и Double Shot, — с шансом ${n(A.RIME_PROC_PERCENT)}% накладывает на цель Quagmire (−25% движения) на ${n(A.RIME_SLOW_LAPS)} круга. Не складывается и не обновляется, сопротивления его не снижают.`,
     },
     "Lava Striders": {
         en: () =>
-            "Every unit may cross and stand in the FIRE PIT's central lava; a move that crosses or ends on lava gives Made of Fire for 2 laps (+10% health, attack, armor, movement, initiative, shot range, magic resistance and ability power), not refreshed while active. It matters only on FIRE PIT and only until the pool dries at the start of lap 10.",
+            "Every unit may cross and stand in the FIRE PIT's central lava; a move that crosses or ends on lava gives Made of Fire for 2 laps (+10% health, attack, armor, movement, initiative, shot range, magic resistance and ability power), not refreshed while active. It matters only on FIRE PIT and only until the pool dries (at the start of lap 10, earlier when stalled laps add narrowing rings).",
         ru: () =>
-            "Каждый юнит может проходить по центральной лаве FIRE PIT и стоять в ней; перемещение через лаву или с остановкой в ней даёт Made of Fire на 2 круга (+10% к здоровью, атаке, броне, движению, инициативе, дистанции выстрела, сопротивлению магии и силе способностей), не обновляясь, пока действует. Полезен только на FIRE PIT и только пока озеро не высохнет в начале 10-го круга.",
+            "Каждый юнит может проходить по центральной лаве FIRE PIT и стоять в ней; перемещение через лаву или с остановкой в ней даёт Made of Fire на 2 круга (+10% к здоровью, атаке, броне, движению, инициативе, дистанции выстрела, сопротивлению магии и силе способностей), не обновляясь, пока действует. Полезен только на FIRE PIT и только пока озеро не высохнет (в начале 10-го круга, раньше, если затянутые круги добавили кольца сужения).",
     },
     "Archmage's Ring": {
         en: ({ n }) =>

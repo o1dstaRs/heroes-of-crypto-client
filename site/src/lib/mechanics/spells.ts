@@ -22,9 +22,9 @@ const SPELL_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     "Spiritual Armor": {
         en: ({ p, n }) =>
-            `+${n(p)}% armor for 3 laps (one lap more when cast on itself) — about ${n(100 - 10000 / (100 + p))}% less physical damage taken, nothing against spells. Tome of Amplification makes it +${n(amplified(p))}%; with Nature's Flying Armor synergy the two multiply.`,
+            `+${n(p)}% armor for 3 laps (one lap more when cast on itself) — about ${n(100 - 10000 / (100 + p))}% less physical damage taken, nothing against spells. Tome of Amplification makes it +${n(amplified(p))}%. On a flyer with Nature's Flying Armor synergy it doesn't add to that bonus: the flyer gets ${n(p)}% × (1 + the flying bonus) instead — +40.5% in place of +35% at synergy level 3.`,
         ru: ({ p, n }) =>
-            `+${n(p)}% брони на 3 круга (на круг дольше, если применено на себя) — примерно на ${n(100 - 10000 / (100 + p))}% меньше физического урона, против заклинаний не помогает. С Tome of Amplification — +${n(amplified(p))}%; с синергией Природы «Броня летающих» они перемножаются.`,
+            `+${n(p)}% брони на 3 круга (на круг дольше, если применено на себя) — примерно на ${n(100 - 10000 / (100 + p))}% меньше физического урона, против заклинаний не помогает. С Tome of Amplification — +${n(amplified(p))}%. На летающем с синергией Природы «Броня летающих» бонусы не складываются: летающий получает ${n(p)}% × (1 + бонус синергии) — +40,5% вместо +35% на 3 уровне синергии.`,
     },
     Blessing: {
         en: () =>
@@ -105,15 +105,15 @@ const SPELL_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     Riot: {
         en: ({ p, n }) =>
-            `+${n(p)}% damage for 3 laps. It doesn't stack with Mass Riot (the stronger counts); Tome of Amplification makes it +${n(amplified(p))}%.`,
+            `+${n(p)}% damage for 3 laps. It doesn't stack with Mass Riot: whichever is on the unit first stays (Riot can't be cast on a unit under Mass Riot, and Mass Riot skips a unit that has Riot); Tome of Amplification makes it +${n(amplified(p))}%.`,
         ru: ({ p, n }) =>
-            `+${n(p)}% урона на 3 круга. Не складывается с Mass Riot (действует более сильный); с Tome of Amplification — +${n(amplified(p))}%.`,
+            `+${n(p)}% урона на 3 круга. Не складывается с Mass Riot: остаётся тот, что наложен первым (Riot нельзя применить к юниту под Mass Riot, а Mass Riot пропускает юнита с Riot); с Tome of Amplification — +${n(amplified(p))}%.`,
     },
     "Mass Riot": {
         en: ({ p, n }) =>
-            `+${n(p)}% damage for every ally for 3 laps. It doesn't stack with Riot (the stronger counts); Tome of Amplification makes it +${n(amplified(p))}%.`,
+            `+${n(p)}% damage for every ally for 3 laps. It doesn't stack with Riot: allies that already have Riot keep it and are skipped; Tome of Amplification makes it +${n(amplified(p))}%.`,
         ru: ({ p, n }) =>
-            `+${n(p)}% урона каждому союзнику на 3 круга. Не складывается с Riot (действует более сильный); с Tome of Amplification — +${n(amplified(p))}%.`,
+            `+${n(p)}% урона каждому союзнику на 3 круга. Не складывается с Riot: союзники, на которых уже есть Riot, сохраняют его и пропускаются; с Tome of Amplification — +${n(amplified(p))}%.`,
     },
     "Fire Wall": {
         en: ({ p, n }) =>
@@ -123,15 +123,15 @@ const SPELL_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     "Magic Mirror": {
         en: ({ p, n }) =>
-            `For 3 laps the holder still takes every hit in full, but the attacker also takes ${n(p)}% of the magic damage that landed — reduced by its own element and magic resistance; a Water Shield can absorb it — including Fire Breath, Chain Lightning, Fire Shield and Fireforged burns. A debuff spell (or a Spit Ball or Hamstring debuff) has ${n(p)}% to be copied onto its caster as well; the holder keeps it. Status effects, Castling and the Vine snare aren't mirrored. It doesn't stack with Mass Magic Mirror (the stronger counts); Tome of Amplification makes it ${n(amplified(p))}%.`,
+            `For 3 laps the holder still takes every hit in full, but the attacker also takes ${n(p)}% of the magic damage that landed — reduced by its own element and magic resistance; a Water Shield can absorb it — including Fire Breath, Chain Lightning, Fire Shield and Fireforged burns. A debuff spell (or a Spit Ball or Hamstring debuff) has ${n(p)}% to be copied onto its caster as well; the holder keeps it. Status effects, Castling and the Vine snare aren't mirrored. It doesn't stack with Mass Magic Mirror: whichever is on the unit first stays; Tome of Amplification makes it ${n(amplified(p))}%.`,
         ru: ({ p, n }) =>
-            `3 круга владелец по-прежнему получает каждый удар целиком, но атакующий тоже получает ${n(p)}% прошедшего магического урона — с учётом своей стихии и сопротивления магии; Water Shield может его поглотить, — включая Fire Breath, Chain Lightning, Fire Shield и поджоги Fireforged. Дебафф заклинания (или Spit Ball и Hamstring) с шансом ${n(p)}% копируется и на заклинателя; у владельца он остаётся. Эффекты Статуса, Castling и захват лозой не отражаются. Не складывается с Mass Magic Mirror (действует более сильный); с Tome of Amplification — ${n(amplified(p))}%.`,
+            `3 круга владелец по-прежнему получает каждый удар целиком, но атакующий тоже получает ${n(p)}% прошедшего магического урона — с учётом своей стихии и сопротивления магии; Water Shield может его поглотить, — включая Fire Breath, Chain Lightning, Fire Shield и поджоги Fireforged. Дебафф заклинания (или Spit Ball и Hamstring) с шансом ${n(p)}% копируется и на заклинателя; у владельца он остаётся. Эффекты Статуса, Castling и захват лозой не отражаются. Не складывается с Mass Magic Mirror: остаётся тот, что наложен первым; с Tome of Amplification — ${n(amplified(p))}%.`,
     },
     "Mass Magic Mirror": {
         en: ({ p, n }) =>
-            `Magic Mirror at ${n(p)}% on every ally for 3 laps: attackers also take ${n(p)}% of the magic damage that lands, and debuffs have ${n(p)}% to be copied onto their caster. It doesn't stack with Magic Mirror (the stronger counts); Tome of Amplification makes it ${n(amplified(p))}%.`,
+            `Magic Mirror at ${n(p)}% on every ally for 3 laps: attackers also take ${n(p)}% of the magic damage that lands, and debuffs have ${n(p)}% to be copied onto their caster. It doesn't stack with Magic Mirror: allies that already have it keep it and are skipped; Tome of Amplification makes it ${n(amplified(p))}%.`,
         ru: ({ p, n }) =>
-            `Magic Mirror в ${n(p)}% на каждом союзнике на 3 круга: атакующие тоже получают ${n(p)}% прошедшего магического урона, а дебаффы с шансом ${n(p)}% копируются на заклинателя. Не складывается с Magic Mirror (действует более сильный); с Tome of Amplification — ${n(amplified(p))}%.`,
+            `Magic Mirror в ${n(p)}% на каждом союзнике на 3 круга: атакующие тоже получают ${n(p)}% прошедшего магического урона, а дебаффы с шансом ${n(p)}% копируются на заклинателя. Не складывается с Magic Mirror: союзники, на которых он уже есть, сохраняют его и пропускаются; с Tome of Amplification — ${n(amplified(p))}%.`,
     },
     Meteorite: {
         en: ({ p, n }) =>
@@ -153,9 +153,9 @@ const SPELL_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     Hamstrung: {
         en: ({ p, n }) =>
-            `−${n(p)}% movement for 3 laps. Only flyers get it (from the Dryad's Hamstring); magic resistance can resist it, and it multiplies with Quagmire (×${n(1 - p / 100)} × 0.75).`,
+            `−${n(p)}% movement for 3 laps. The Dryad's Hamstring gives it only to flyers, though Magic Mirror can copy it back onto the Dryad itself; magic resistance can resist it, and it multiplies with Quagmire (×${n(1 - p / 100)} × 0.75).`,
         ru: ({ p, n }) =>
-            `−${n(p)}% движения на 3 круга. Получают только летающие (от Hamstring у Dryad); сопротивление магии может защитить, а с Quagmire замедления перемножаются (×${n(1 - p / 100)} × 0,75).`,
+            `−${n(p)}% движения на 3 круга. Hamstring у Dryad накладывает его только на летающих, но Magic Mirror может скопировать его обратно на саму Dryad; сопротивление магии может защитить, а с Quagmire замедления перемножаются (×${n(1 - p / 100)} × 0,75).`,
     },
     Quagmire: {
         en: ({ p, n }) =>
@@ -217,26 +217,26 @@ const SPELL_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     Hidden: {
         en: () =>
-            "Granted by the White Tiger's Disguise Aura while no enemy stack stands within 3 cells: the unit can't be chosen as the target of attacks, shots or single-target spells, though splash, area spells, chain arcs and passing shots still hit it.",
+            "Granted by the White Tiger's Disguise Aura while no enemy stack stands within 3 cells (more with Might's Aura Range synergy): the unit can't be chosen as the target of attacks, shots or single-target spells, though splash, area spells, chain arcs and passing shots still hit it.",
         ru: () =>
-            "Даётся Disguise Aura у White Tiger, пока в радиусе 3 клеток нет вражеского стека: юнита нельзя выбрать целью атаки, выстрела или заклинания на одну цель, но удары по площади, заклинания по области, цепные молнии и пролетающие выстрелы его задевают.",
+            "Даётся Disguise Aura у White Tiger, пока в радиусе 3 клеток (больше с синергией Силы «Радиус аур») нет вражеского стека: юнита нельзя выбрать целью атаки, выстрела или заклинания на одну цель, но удары по площади, заклинания по области, цепные молнии и пролетающие выстрелы его задевают.",
     },
     Visible: {
         en: () =>
-            "The White Tiger is Visible while an enemy stack stands within 3 cells of it: its Disguise stops protecting it.",
-        ru: () => "White Tiger видим (Visible), пока в радиусе 3 клеток есть вражеский стек: Disguise Aura его не защищает.",
+            "The White Tiger is Visible while an enemy stack stands within 3 cells of it (more with Might's Aura Range synergy): its Disguise stops protecting it.",
+        ru: () => "White Tiger видим (Visible), пока в радиусе 3 клеток (больше с синергией Силы «Радиус аур») есть вражеский стек: Disguise Aura его не защищает.",
     },
     "Armor Rune": {
         en: () =>
-            "Each cast has a 50% chance to add a permanent +1 armor to the target (the Blacksmith's Enchants carry 5 casts); a failed roll still uses the scroll and the turn.",
+            "Each cast has a 50% chance to add a permanent +1 armor to the target (the Blacksmith's Enchants carry 5 casts); a failed roll still uses the scroll and the turn. An enemy Monk's Borrowed Grace can take the whole rune bonus.",
         ru: () =>
-            "Каждое применение с шансом 50% навсегда добавляет цели +1 к броне (у Enchants Blacksmith 5 применений); неудачный бросок всё равно тратит свиток и ход.",
+            "Каждое применение с шансом 50% навсегда добавляет цели +1 к броне (у Enchants Blacksmith 5 применений); неудачный бросок всё равно тратит свиток и ход. Borrowed Grace вражеского Monk может забрать весь бонус рун.",
     },
     "Weapon Rune": {
         en: () =>
-            "Each cast has a 50% chance to add a permanent +1 attack to the target (the Blacksmith's Enchants carry 5 casts); a failed roll still uses the scroll and the turn.",
+            "Each cast has a 50% chance to add a permanent +1 attack to the target (the Blacksmith's Enchants carry 5 casts); a failed roll still uses the scroll and the turn. An enemy Monk's Borrowed Grace can take the whole rune bonus.",
         ru: () =>
-            "Каждое применение с шансом 50% навсегда добавляет цели +1 к атаке (у Enchants Blacksmith 5 применений); неудачный бросок всё равно тратит свиток и ход.",
+            "Каждое применение с шансом 50% навсегда добавляет цели +1 к атаке (у Enchants Blacksmith 5 применений); неудачный бросок всё равно тратит свиток и ход. Borrowed Grace вражеского Monk может забрать весь бонус рун.",
     },
 };
 

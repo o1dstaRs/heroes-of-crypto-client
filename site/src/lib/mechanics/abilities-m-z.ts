@@ -8,9 +8,9 @@ const effectPower = (name: string): number =>
 export const ABILITY_NOTES_M_Z: Readonly<Record<string, NoteSpec>> = {
     "Made of Fire": {
         en: () =>
-            "On the FIRE PIT map this creature may cross and stand in the central lava. Any move whose path touches lava — starting in it, crossing it or ending in it — gives Made of Fire for 2 laps: +10% max health, attack, armor, movement, initiative, shot range and magic resistance, and its abilities work at 110% of their power. It isn't refreshed while active, standing still in lava does nothing, and the pool dries into normal ground at the start of lap 10.",
+            "On the FIRE PIT map this creature may cross and stand in the central lava. Any move whose path touches lava — starting in it, crossing it or ending in it — gives Made of Fire for 2 laps: +10% max health, attack, armor, movement, initiative, shot range and magic resistance, and its abilities work at 110% of their power. It isn't refreshed while active, standing still in lava does nothing, and the pool dries into normal ground at the start of lap 10 (earlier when stalled laps add extra rings).",
         ru: () =>
-            "На карте FIRE PIT это существо может проходить по центральной лаве и стоять в ней. Любое перемещение, путь которого касается лавы — начинается в ней, пересекает её или заканчивается в ней, — даёт Made of Fire на 2 круга: +10% к максимальному здоровью, атаке, броне, движению, инициативе, дистанции выстрела и сопротивлению магии, а способности работают на 110% силы. Пока эффект действует, он не обновляется, стояние в лаве ничего не даёт, а озеро высыхает в обычную землю в начале 10-го круга.",
+            "На карте FIRE PIT это существо может проходить по центральной лаве и стоять в ней. Любое перемещение, путь которого касается лавы — начинается в ней, пересекает её или заканчивается в ней, — даёт Made of Fire на 2 круга: +10% к максимальному здоровью, атаке, броне, движению, инициативе, дистанции выстрела и сопротивлению магии, а способности работают на 110% силы. Пока эффект действует, он не обновляется, стояние в лаве ничего не даёт, а озеро высыхает в обычную землю в начале 10-го круга (раньше, если затянутые круги добавили кольца сужения).",
     },
     Madness: {
         en: () =>
@@ -26,9 +26,9 @@ export const ABILITY_NOTES_M_Z: Readonly<Record<string, NoteSpec>> = {
     },
     "Magic Shield": {
         en: ({ p, n }) =>
-            `Adds ${n(p / 5)}% magic resistance per stack power (${n(p)}% at full stack, shifted by luck), combined with the unit's own as a separate roll: 15% own + 50% → 57.5%. It lowers magic damage and the chance that debuff spells land, but does nothing against Status or Mind ability effects (Stun, Paralysis, Blindness, the gazes). Off while Broken.`,
+            `Adds ${n(p / 5)}% magic resistance per stack power (${n(p)}% at full stack, shifted by luck), combined with the unit's own as a separate roll: 15% own + 50% → 57.5%. It lowers magic damage and the chance that debuff spells land — Hamstring and the Vine Throw snare included, which roll against magic resistance too — but does nothing against Stun, Freeze, Paralysis, Blindness or the gazes. Off while Broken.`,
         ru: ({ p, n }) =>
-            `Добавляет ${n(p / 5)}% сопротивления магии за единицу силы стека (${n(p)}% при полной силе, с поправкой на удачу), которое складывается с собственным как отдельный бросок: свои 15% + 50% → 57,5%. Снижает магический урон и шанс, что сработает дебафф заклинания, но не защищает от эффектов способностей Статуса и Разума (Stun, Paralysis, Blindness, взгляды). Под Break не работает.`,
+            `Добавляет ${n(p / 5)}% сопротивления магии за единицу силы стека (${n(p)}% при полной силе, с поправкой на удачу), которое складывается с собственным как отдельный бросок: свои 15% + 50% → 57,5%. Снижает магический урон и шанс, что сработает дебафф заклинания, — включая Hamstring и захват Vine Throw, которые тоже бросаются против сопротивления магии, — но не защищает от Stun, Freeze, Paralysis, Blindness и взглядов. Под Break не работает.`,
     },
     Mechanism: {
         en: () =>
@@ -56,9 +56,9 @@ export const ABILITY_NOTES_M_Z: Readonly<Record<string, NoteSpec>> = {
     },
     Paralysis: {
         en: ({ p, n }) =>
-            `Each landed melee hit, retaliations included, has ${n((p * 2) / 5)}% per stack power (${n(p * 2)}% at full stack), plus 2% per point of luck and lowered by status resistance, to paralyse the target for 1 lap: it can't move, and all its damage — retaliation included — is cut by ${n(effectPower("Paralysis") / 5)}% per Mantis stack power (${n(effectPower("Paralysis"))}% at full stack, shifted by luck; ×1.5 against Mechanism). It can still strike adjacent enemies, shoot, cast and retaliate. It doesn't stack or refresh. (The game card shows ${n(p)}% as the damage cut; the engine applies the Paralysis effect's ${n(effectPower("Paralysis"))}%.)`,
+            `Each landed melee hit, retaliations included, has ${n((p * 2) / 5)}% per stack power (${n(p * 2)}% at full stack), plus 2% per point of luck and lowered by status resistance, to paralyse the target for 1 lap: it can't move, and its weapon hits — attacks, retaliations, shots, second strikes and splash — are cut by ${n(effectPower("Paralysis") / 5)}% per Mantis stack power (${n(effectPower("Paralysis"))}% at full stack, shifted by luck; ×1.5 against Mechanism). Spells and Fire Breath keep full damage. It can still strike adjacent enemies, shoot, cast and retaliate. It doesn't stack or refresh. (The game card shows ${n(p)}% as the damage cut; the engine applies the Paralysis effect's ${n(effectPower("Paralysis"))}%.)`,
         ru: ({ p, n }) =>
-            `Каждое попадание в ближнем бою, включая ответы, с шансом ${n((p * 2) / 5)}% за единицу силы стека (${n(p * 2)}% при полной силе), плюс 2% за очко удачи и с учётом сопротивления статусам, парализует цель на 1 круг: она не может двигаться, а весь её урон — включая ответы — снижен на ${n(effectPower("Paralysis") / 5)}% за единицу силы стека Mantis (${n(effectPower("Paralysis"))}% при полной силе, с поправкой на удачу; ×1,5 против Mechanism). Она всё ещё может бить соседних врагов, стрелять, применять заклинания и отвечать. Не складывается и не обновляется. (Карточка в игре показывает снижение урона ${n(p)}%, а движок применяет ${n(effectPower("Paralysis"))}% эффекта Paralysis.)`,
+            `Каждое попадание в ближнем бою, включая ответы, с шансом ${n((p * 2) / 5)}% за единицу силы стека (${n(p * 2)}% при полной силе), плюс 2% за очко удачи и с учётом сопротивления статусам, парализует цель на 1 круг: она не может двигаться, а её удары оружием — атаки, ответы, выстрелы, вторые удары и удары по площади — ослаблены на ${n(effectPower("Paralysis") / 5)}% за единицу силы стека Mantis (${n(effectPower("Paralysis"))}% при полной силе, с поправкой на удачу; ×1,5 против Mechanism). Заклинания и Fire Breath бьют в полную силу. Она всё ещё может бить соседних врагов, стрелять, применять заклинания и отвечать. Не складывается и не обновляется. (Карточка в игре показывает снижение урона ${n(p)}%, а движок применяет ${n(effectPower("Paralysis"))}% эффекта Paralysis.)`,
     },
     "Pegasus Light": {
         en: () =>
@@ -115,9 +115,9 @@ export const ABILITY_NOTES_M_Z: Readonly<Record<string, NoteSpec>> = {
     },
     Resurrection: {
         en: () =>
-            "One use per fight, whichever comes first. (1) When the Angel stack is wiped out, half the fallen Angels (rounded down, at least 1) return at full health with all effects removed — not while Broken. (2) Cast on any allied stack with losses, itself included, it restores health worth 1.5× the Angel stack's total max health (×1.25 on Morale, ×0.8 on Dismorale): the wounded creature first, then the dead, never more than died. Casting it gives up the self-resurrection.",
+            "One use per fight, whichever comes first. (1) When the Angel stack is wiped out in combat, by Fire Wall or by the first Armageddon wave, half the fallen Angels (rounded down, at least 1) return at full health with all effects removed — not while Broken, and not after a death to poison, narrowing or a later Armageddon wave. (2) Cast on any allied stack with losses, itself included, it restores health worth 1.5× the Angel stack's total max health (×1.25 on Morale, ×0.8 on Dismorale): the wounded creature first, then the dead, never more than died. Casting it gives up the self-resurrection.",
         ru: () =>
-            "Один раз за бой — что случится раньше. (1) Когда стек Angel уничтожен, половина павших Angel (с округлением вниз, минимум 1) возвращается с полным здоровьем и без эффектов — но не под Break. (2) Применённая к любому союзному стеку с потерями, включая себя, она восстанавливает здоровье в 1,5× суммарного максимального здоровья стека Angel (×1,25 при Morale, ×0,8 при Dismorale): сначала раненое существо, потом погибшие, не больше, чем погибло. Применение отменяет самовоскрешение.",
+            "Один раз за бой — что случится раньше. (1) Когда стек Angel уничтожен в бою, Fire Wall или первой волной Армагеддона, половина павших Angel (с округлением вниз, минимум 1) возвращается с полным здоровьем и без эффектов — но не под Break и не после гибели от яда, сужения или поздних волн Армагеддона. (2) Применённая к любому союзному стеку с потерями, включая себя, она восстанавливает здоровье в 1,5× суммарного максимального здоровья стека Angel (×1,25 при Morale, ×0,8 при Dismorale): сначала раненое существо, потом погибшие, не больше, чем погибло. Применение отменяет самовоскрешение.",
     },
     "Shadow Touch": {
         en: () => "Its attacks are never answered: the target can't retaliate.",
@@ -133,13 +133,13 @@ export const ABILITY_NOTES_M_Z: Readonly<Record<string, NoteSpec>> = {
         en: ({ p, n }) =>
             `Each landed melee attack (not retaliation) lowers the target's armor by ${n(p / 5)} per stack power (${n(p)} at full stack; ±1 per 10 luck; ×1.5 against Mechanism), with no resist roll. Hits add up, and each new hit resets the total to last 3 laps. Armor never drops below 1, and the lower armor helps every ally that hits that target.`,
         ru: ({ p, n }) =>
-            `Каждая атака в ближнем бою (не ответ) снижает броню цели на ${n(p / 5)} за единицу силы стека (${n(p)} при полной силе; ±1 за 10 удачи; ×1,5 против Mechanism), без броска сопротивления. Попадания складываются, и каждое новое продлевает сумму на 3 круга. Броня не опускается ниже 1, а сниженная броня помогает каждому союзнику, бьющему эту цель.`,
+            `Каждая атака в ближнем бою (не ответ) снижает броню цели на ${n(p / 5)} за единицу силы стека (${n(p)} при полной силе; ±1 за 10 удачи; ×1,5 против Mechanism), без броска сопротивления. Попадания складываются, и каждое новое заново выставляет сумме срок в 3 круга. Броня не опускается ниже 1, а сниженная броня помогает каждому союзнику, бьющему эту цель.`,
     },
     "Skewer Strike": {
         en: ({ p, n }) =>
-            `When it hits a one-cell target, the thrust carries on to the cell directly behind it and strikes the enemy standing there (of any size) with a separate hit — its own dodge roll — for ${n(p / 5)}% per stack power (${n(p)}% at full stack), and the attacker's on-hit effects apply to it too. It never pierces past larger targets and never hits allies. It works on retaliation as well.`,
+            `When it strikes a one-cell target, the thrust carries on to the cell directly behind it — even if the main blow misses — and strikes the enemy standing there (of any size) with a separate hit — its own dodge roll — for ${n(p / 5)}% per stack power (${n(p)}% at full stack), and the attacker's on-hit effects apply to it too. It never pierces past larger targets and never hits allies. It works on retaliation as well.`,
         ru: ({ p, n }) =>
-            `Попав в цель размером в одну клетку, удар проходит дальше в клетку прямо за ней и отдельным попаданием — со своим броском уклонения — бьёт стоящего там врага (любого размера) на ${n(p / 5)}% за единицу силы стека (${n(p)}% при полной силе), и эффекты удара атакующего действуют и на него. Сквозь цели крупнее одной клетки не проходит и союзников не задевает. Работает и при ответе.`,
+            `Нанося удар по цели размером в одну клетку, удар проходит дальше в клетку прямо за ней — даже если основной удар промахнулся — и отдельным попаданием — со своим броском уклонения — бьёт стоящего там врага (любого размера) на ${n(p / 5)}% за единицу силы стека (${n(p)}% при полной силе), и эффекты удара атакующего действуют и на него. Сквозь цели крупнее одной клетки не проходит и союзников не задевает. Работает и при ответе.`,
     },
     "Sky Runner": {
         en: ({ p, n }) => `+${n(p / 5)} movement per stack power (+${n(p)} at full stack; ±1 at ±10 luck).`,
@@ -211,9 +211,9 @@ export const ABILITY_NOTES_M_Z: Readonly<Record<string, NoteSpec>> = {
     },
     "Unyielding Power": {
         en: () =>
-            "Every lap from the first the Behemoth gains +1 movement, +2 base attack, +5 max health and +5 current health, for the rest of the fight.",
+            "Every lap from the first the Behemoth gains +1 movement, +2 base attack, +5 max health and +5 current health, for the rest of the fight. A lap spent under Break gives nothing (that gain is lost), and while Broken the extra max health is gone, so current health is cut down to fit.",
         ru: () =>
-            "Каждый круг, начиная с первого, Behemoth получает +1 к движению, +2 к базовой атаке, +5 к максимальному и +5 к текущему здоровью — до конца боя.",
+            "Каждый круг, начиная с первого, Behemoth получает +1 к движению, +2 к базовой атаке, +5 к максимальному и +5 к текущему здоровью — до конца боя. Круг под Break ничего не даёт (эта прибавка теряется), а пока Break действует, добавленное максимальное здоровье пропадает, и текущее урезается до нового предела.",
     },
     "Venom Cloud Aura": {
         en: ({ p }) =>
@@ -223,21 +223,21 @@ export const ABILITY_NOTES_M_Z: Readonly<Record<string, NoteSpec>> = {
     },
     "Vine Throw": {
         en: ({ p, n }) =>
-            `Once per fight, at Trent stack power 3+: throws a vine at any enemy that no other creature screens — no range limit, terrain doesn't block — unless it has 100% magic resistance or is already snared. Every cell along the throw is vined for 3 laps (not the Trent's own cell, the mountain or holes), and any non-flying creature, from either side, pays 1 extra step to enter a vined cell. The struck enemy loses ${n(p)} movement (never below 1) for 3 laps unless its magic resistance saves it; an enemy that ends an ordinary move on the vine gets the same snare with no save. The vine never snares the Trent's own side.`,
+            `Once per fight, at Trent stack power 3+: throws a vine at any enemy that no other creature screens — no range limit, terrain doesn't block — unless it has 100% magic resistance or is already snared. Every cell along the throw is vined for 3 laps (not the Trent's own cell, the mountain or holes), and any non-flying creature from either side — except the Trent itself — pays 1 extra step to enter a vined cell. The struck enemy loses ${n(p)} movement (never below 1) for 3 laps unless its magic resistance saves it; an enemy that ends an ordinary move on the vine gets the same snare with no save. The vine never snares the Trent's own side.`,
         ru: ({ p, n }) =>
-            `Раз за бой при силе стека Trent 3+: бросает лозу в любого врага, которого не заслоняет другое существо, — без ограничения дальности, местность не мешает, — если у него нет 100% сопротивления магии и он ещё не опутан. Каждая клетка на пути броска покрывается лозой на 3 круга (кроме клетки самого Trent, горы и провалов), и любое нелетающее существо любой стороны тратит 1 лишний шаг на вход в клетку с лозой. Поражённый враг теряет ${n(p)} движения (не ниже 1) на 3 круга, если сопротивление магии его не спасёт; враг, закончивший обычное перемещение на лозе, опутывается так же, без спасброска. Сторону Trent лоза не опутывает никогда.`,
+            `Раз за бой при силе стека Trent 3+: бросает лозу в любого врага, которого не заслоняет другое существо, — без ограничения дальности, местность не мешает, — если у него нет 100% сопротивления магии и он ещё не опутан. Каждая клетка на пути броска покрывается лозой на 3 круга (кроме клетки самого Trent, горы и провалов), и любое нелетающее существо любой стороны — кроме самого Trent — тратит 1 лишний шаг на вход в клетку с лозой. Поражённый враг теряет ${n(p)} движения (не ниже 1) на 3 круга, если сопротивление магии его не спасёт; враг, закончивший обычное перемещение на лозе, опутывается так же, без спасброска. Сторону Trent лоза не опутывает никогда.`,
     },
     "War Anger Aura": {
         en: ({ p, n }) =>
-            `For each enemy stack within 2 cells of the cell the Valkyrie strikes from, she gets +${n(p / 5)}% of her base attack per stack power (+${n(p)}% at full stack; ±1% per point of luck). The bonus also stands for her retaliations.`,
+            `For each enemy stack within 2 cells of the cell the Valkyrie strikes from, she gets +${n(p / 5)}% of her base attack per stack power (+${n(p)}% at full stack; ±1% per point of luck). Her retaliations keep the count from before the attacker moved, so an enemy that walks in from farther away isn't counted for the answer.`,
         ru: ({ p, n }) =>
-            `За каждый вражеский стек в радиусе 2 клеток от клетки, с которой Valkyrie бьёт, она получает +${n(p / 5)}% базовой атаки за единицу силы стека (+${n(p)}% при полной силе; ±1% за очко удачи). Бонус действует и на её ответы.`,
+            `За каждый вражеский стек в радиусе 2 клеток от клетки, с которой Valkyrie бьёт, она получает +${n(p / 5)}% базовой атаки за единицу силы стека (+${n(p)}% при полной силе; ±1% за очко удачи). В ответах она сохраняет счёт, сделанный до того, как атакующий подошёл, поэтому враг, пришедший издалека, в ответе не считается.`,
     },
     Wardguard: {
         en: ({ p, n }) =>
-            `Adds ${n(p / 5)}% magic resistance per stack power (${n(p)}% at full stack, shifted by luck), combined with the unit's own as a separate roll. It lowers magic damage and the chance that debuff spells land, with no effect on Status or Mind ability effects.`,
+            `Adds ${n(p / 5)}% magic resistance per stack power (${n(p)}% at full stack, shifted by luck), combined with the unit's own as a separate roll. It lowers magic damage and the chance that debuff spells land (Hamstring and the Vine Throw snare included), with no effect on Stun, Freeze, Paralysis, Blindness or the gazes.`,
         ru: ({ p, n }) =>
-            `Добавляет ${n(p / 5)}% сопротивления магии за единицу силы стека (${n(p)}% при полной силе, с поправкой на удачу), которое складывается с собственным как отдельный бросок. Снижает магический урон и шанс, что сработает дебафф заклинания, но не защищает от эффектов способностей Статуса и Разума.`,
+            `Добавляет ${n(p / 5)}% сопротивления магии за единицу силы стека (${n(p)}% при полной силе, с поправкой на удачу), которое складывается с собственным как отдельный бросок. Снижает магический урон и шанс, что сработает дебафф заклинания (включая Hamstring и захват Vine Throw), но не защищает от Stun, Freeze, Paralysis, Blindness и взглядов.`,
     },
     "Warding Mane Blessing": {
         en: ({ p, n }) =>
