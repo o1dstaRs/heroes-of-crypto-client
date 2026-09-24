@@ -1433,6 +1433,8 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
         });
     }
 
+    // Irregular plurals the search's stemmer can't reach ("how do I beat Elves").
+    const unitPluralAliases: Record<string, string[]> = { Elf: ["Elves"], Wolf: ["Wolves"], Pegasus: ["Pegasi"] };
     for (const unit of allUnits) {
         const { href, hrefRu } = hrefFor("units", unit.name);
         graph.add({
@@ -1441,6 +1443,7 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
             section: "units",
             name: unit.name,
             nameRu: ruName(unit.name),
+            ...(unitPluralAliases[unit.name] ? { aliases: unitPluralAliases[unit.name] } : {}),
             href,
             hrefRu,
             summary: unitSummary(unit, "en"),
