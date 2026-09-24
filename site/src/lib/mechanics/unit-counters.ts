@@ -327,6 +327,13 @@ export function unitCounterLines(unit: Unit, language: NoteLanguage): string[] {
         );
     }
 
+    if (unit.draftedAmount === 1) {
+        lines.push(
+            isRu
+                ? "Одно существо: вторая волна Армагеддона (13-й круг) убирает его целиком даже при полном здоровье — волны 2–4 убивают существ целиком, с округлением вверх."
+                : "A single creature: Armageddon's second wave (lap 13) removes it even at full health — waves 2–4 kill whole creatures, rounded up.",
+        );
+    }
     if (has("AI Driven")) {
         lines.push(
             isRu
