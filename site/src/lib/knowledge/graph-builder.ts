@@ -258,6 +258,9 @@ class GraphAssembler {
 const DRAFT_STACK_EXPERIENCE = 1000;
 const startingAmount = (unit: Unit): number => Math.max(1, Math.ceil(DRAFT_STACK_EXPERIENCE / unit.experience));
 
+/** Factions the game's Russian interface names differently from the site (game/core i18n/ru.ts). */
+const GAME_FACTION_NAMES_RU: Record<string, string> = { Might: "Мощь" };
+
 /** Starting morale and luck by faction (common configuration/config_provider.ts). */
 const FACTION_MORALE: Record<string, number> = { Life: 4, Might: 2, Nature: 1, Chaos: -1 };
 const FACTION_LUCK: Record<string, number> = { Nature: 4, Life: 1, Might: 1, Chaos: -1 };
@@ -452,6 +455,8 @@ const artifactText = (artifact: (typeof artifacts)[number], language: Language):
 interface AugmentSpec {
     name: string;
     nameRu: string;
+    /** What the game's Russian interface calls it, when the site's name differs (i18n/ru.ts). */
+    gameNameRu?: string;
     summary: string;
     summaryRu: string;
     levels: { level: number; cost: number; effect: string; effectRu: string }[];
@@ -490,6 +495,7 @@ function augmentSpecs(): AugmentSpec[] {
         {
             name: "Might Augment",
             nameRu: "Апгрейд «Сила»",
+            gameNameRu: "Мощь",
             summary: "Base-attack bonus on every attack that is not a shot: melee blows and retaliations, a shooter's melee included.",
             summaryRu: "Бонус к базовой атаке при любой атаке, кроме выстрела: удары и ответы в ближнем бою, включая ближний бой стрелков.",
             levels: might.map((power, index) => ({
@@ -505,6 +511,7 @@ function augmentSpecs(): AugmentSpec[] {
         {
             name: "Empower Augment",
             nameRu: "Апгрейд «Магия»",
+            gameNameRu: "Усиление",
             summary:
                 "Team-wide magic damage bonus: offensive spells, Fire Wall, Fireforged Sword, Chain Lightning, Fire Breath and Fire Shield.",
             summaryRu:
@@ -522,6 +529,7 @@ function augmentSpecs(): AugmentSpec[] {
         {
             name: "Sniper Augment",
             nameRu: "Апгрейд «Стрельба»",
+            gameNameRu: "Снайпер",
             summary: "Base-attack and shot-distance bonus for ranged units, only while they shoot.",
             summaryRu: "Бонус к базовой атаке и дистанции выстрела для стрелков — только когда они стреляют.",
             levels: sniper.map(([attack, range], index) => ({
@@ -537,6 +545,7 @@ function augmentSpecs(): AugmentSpec[] {
         {
             name: "Movement Augment",
             nameRu: "Апгрейд «Движение»",
+            gameNameRu: "Передвижение",
             summary: "Team-wide extra movement steps.",
             summaryRu: "Дополнительные шаги движения для всей команды.",
             levels: movement.map((power, index) => ({
@@ -568,7 +577,7 @@ function augmentSpecs(): AugmentSpec[] {
                         ? `бесплатно: ${depth} клетки вглубь, частичная зона (крайняя боковая колонка и торцы закрыты), до ${stackCaps[index]} стеков`
                         : index === 1
                           ? `${depth} клетки вглубь, полная высота (боковая кромка ещё закрыта), до ${stackCaps[index]} стеков`
-                          : `${depth} клеток вглубь вместе с боковым краем, до ${stackCaps[index]} стеков до синергии Природы «Юниты на поле»`,
+                          : `${depth} клеток вглубь вместе с боковым краем, до ${stackCaps[index]} стеков до синергии Природы «Отряды на поле»`,
             })),
             note: "Level 1 is free; level 2 costs 1 point and level 3 costs 2 points.",
             noteRu: "Уровень 1 бесплатный; уровень 2 стоит 1 очко, уровень 3 — 2 очка.",
@@ -612,12 +621,12 @@ const synergySpecs: SynergySpec[] = [
         faction: "Life",
         variant: LifeSynergy.PLUS_SUPPLY_PERCENTAGE,
         name: "Life Supply Synergy",
-        nameRu: "Синергия Жизни «Снабжение»",
+        nameRu: "Синергия Жизни «Запас»",
         effect: ([power]) => `every stack grows ${power}% when the fight starts`,
         effectRu: ([power]) => `каждый стек вырастает на ${power}% в начале боя`,
         detail: `Applied once, when the fight starts: every stack's size is multiplied and rounded down, so small stacks gain nothing — at level 1 the first extra creature needs 17 in the stack, at level 2 nine, at level 3 six — and level-4 stacks of 1–3 creatures never grow. Creatures summoned later get nothing. At level 3: ${supplyExamples()}. It is worth most to armies of big low-level stacks.`,
         detailRu: `Применяется один раз, в начале боя: размер каждого стека умножается и округляется вниз, поэтому маленькие стеки ничего не получают — на уровне 1 первое лишнее существо появляется при 17 в стеке, на уровне 2 — при 9, на уровне 3 — при 6, — а стеки 4 уровня из 1–3 существ не растут никогда. Призванные позже существа ничего не получают. На уровне 3: ${supplyExamples()}. Больше всего она даёт армиям из больших стеков низкого уровня.`,
-        keywords: ["supply", "stack size", "снабжение"],
+        keywords: ["supply", "stack size", "снабжение", "запас"],
     },
     {
         faction: "Life",
@@ -634,12 +643,12 @@ const synergySpecs: SynergySpec[] = [
         faction: "Chaos",
         variant: ChaosSynergy.MOVEMENT,
         name: "Chaos Movement Synergy",
-        nameRu: "Синергия Хаоса «Движение»",
+        nameRu: "Синергия Хаоса «Передвижение»",
         effect: ([power]) => `+${power} movement step${power === 1 ? "" : "s"} for every unit`,
         effectRu: ([power]) => `+${power} к движению каждому юниту`,
         detail: "Every unit of the army, whatever its faction, moves farther. Percentage slows (Quagmire, Hamstrung) shrink the bonus too.",
         detailRu: "Каждый юнит армии любой фракции ходит дальше. Процентные замедления (Quagmire, Hamstrung) урезают и этот бонус.",
-        keywords: ["movement", "steps", "движение"],
+        keywords: ["movement", "steps", "движение", "передвижение"],
     },
     {
         faction: "Chaos",
@@ -660,30 +669,30 @@ const synergySpecs: SynergySpec[] = [
         effect: ([power]) => `+${power} cell${power === 1 ? "" : "s"} to every aura's range`,
         effectRu: ([power]) => `+${power} к радиусу каждой ауры`,
         detail: "Every aura of your army reaches farther — including enemy-facing ones such as Range Null Field and Web, War Anger's counting radius and Disguise's detection radius (auras reach 2 cells by default, Disguise 3). Blessings are not auras and already cover the whole board.",
-        detailRu: "Каждая аура вашей армии бьёт дальше — включая направленные на врага, такие как Range Null Field и Web, радиус подсчёта War Anger и радиус обнаружения Disguise (ауры по умолчанию достают на 2 клетки, Disguise — на 3). Благословения — не ауры, они и так покрывают всё поле.",
-        keywords: ["aura", "range", "аура"],
+        detailRu: "Каждая аура вашей армии бьёт дальше — включая направленные на врага, такие как Range Null Field Aura и Web Aura, радиус подсчёта War Anger Aura и радиус обнаружения Disguise Aura (ауры по умолчанию достают на 2 клетки, Disguise — на 3). Благословения — не ауры, они и так покрывают всё поле.",
+        keywords: ["aura", "range", "аура", "мощь", "мощи"],
     },
     {
         faction: "Might",
         variant: MightSynergy.PLUS_STACK_ABILITIES_POWER,
         name: "Might Stack Abilities Power Synergy",
-        nameRu: "Синергия Силы «Сила способностей стека»",
+        nameRu: "Синергия Силы «Сила способностей»",
         effect: ([power]) => `+${power} points to every ability's chance and strength`,
         effectRu: ([power]) => `+${power} очков к шансу и силе каждой способности`,
         detail: "Added like extra luck to every ability of every unit in the army: the points go onto trigger chances (Stun, Dodge, Petrifying Gaze…), onto percentage effects, onto Deep Wounds, and a tenth of them onto count abilities (steps, armor taken). Unlike luck it isn't capped, and it works whether or not the ability is stack-powered.",
         detailRu: "Прибавляется как дополнительная удача к каждой способности каждого юнита армии: очки идут к шансам срабатывания (Stun, Dodge, Petrifying Gaze…), к процентным эффектам, к Deep Wounds, а десятая часть — к способностям-счётчикам (шаги, отнятая броня). В отличие от удачи не ограничена пределом и действует независимо от того, зависит ли способность от силы стека.",
-        keywords: ["abilities power", "stack power", "сила способностей"],
+        keywords: ["abilities power", "ability power", "stack power", "сила способностей", "мощь", "мощи"],
     },
     {
         faction: "Nature",
         variant: NatureSynergy.INCREASE_BOARD_UNITS,
         name: "Nature Board Units Synergy",
-        nameRu: "Синергия Природы «Юниты на поле»",
+        nameRu: "Синергия Природы «Отряды на поле»",
         effect: ([power]) => `+${power} fielded stacks (raises the stack cap)`,
         effectRu: ([power]) => `+${power} стека(ов) на поле (повышает лимит стеков)`,
         detail: "Raises the number of stacks you may field — 6, 7 or 8 by Placement tier — for an absolute cap of 12; more stacks means splitting a roster unit without losing a slot.",
         detailRu: "Повышает число стеков, которые можно выставить, — 6, 7 или 8 по уровню «Расстановки», — до абсолютного максимума 12; больше стеков — значит, можно разделить юнита, не теряя места.",
-        keywords: ["stack cap", "more units", "лимит стеков"],
+        keywords: ["stack cap", "more units", "лимит стеков", "юниты на поле", "отряды на поле"],
     },
     {
         faction: "Nature",
@@ -834,7 +843,7 @@ function formulaSpecs(): FormulaSpec[] {
             textRu: [
                 `Сила стека сравнивает опыт × живые существа стека с наибольшим таким значением на поле среди обеих армий: до 20% — 1, до 40% — 2, до 60% — 3, до 80% — 4, выше — ${MAX_UNIT_STACK_POWER}. Она пересчитывается после каждого действия, поэтому потери — или появление гораздо большего стека — её снижают.`,
                 "Она масштабирует зависящие от силы стека части способностей (шансы и силу — см. «Масштаб способностей»), силу аур, боезапас Limited Supply, Heavy Armor и число целей Chakram, а также открывает заклинания и активные способности с минимальной силой стека заклинателя (3, 4 или 5; Craft требует 4, Meteorite и Meteor Shower — 5). Сам урон заклинаний растёт с числом живых существ, а не с силой стека.",
-                "Каждое задрафтованное существо приходит стеком на 1000 опыта, поэтому любой неразделённый стек начинает бой с силой 5 — синергия Жизни «Снабжение» делает стеки до 19% больше, но остальные всё равно остаются выше 80%. Разделите стек пополам — и обе половины опустятся до силы 3 (Stun, срабатывающий на 35% при полной силе, там сработает на 21%); стек, потерявший 60% существ, опускается до 2. Разделение меняет силу способностей на присутствие на поле.",
+                "Каждое задрафтованное существо приходит стеком на 1000 опыта, поэтому любой неразделённый стек начинает бой с силой 5 — синергия Жизни «Запас» делает стеки до 19% больше, но остальные всё равно остаются выше 80%. Разделите стек пополам — и обе половины опустятся до силы 3 (Stun, срабатывающий на 35% при полной силе, там сработает на 21%); стек, потерявший 60% существ, опускается до 2. Разделение меняет силу способностей на присутствие на поле.",
             ].join("\n\n"),
             keywords: ["stack power", "stack", "сила стека"],
             rule: "rule-morale",
@@ -1122,8 +1131,8 @@ function formulaSpecs(): FormulaSpec[] {
             ]),
             textRu: bullet([
                 "За матч вы берёте два юнита 1-го уровня, два — 2-го, один — 3-го и один — 4-го из пула в 56 существ (по 14 на фракцию: 4/4/3/3 по уровням).",
-                "Каждое задрафтованное существо приходит одним стеком на 1000 опыта: число существ — 1000 ÷ опыт одного существа с округлением вверх (Peasant 200, Centaur 73, Beholder 22, Monk 8, Champion 3, Angel 2, Black Dragon 1). Синергия Жизни «Снабжение» добавляет свой процент в начале боя.",
-                `Лимит стеков — 6; апгрейд «Расстановка» поднимает его до 7 или ${MAX_UNITS_PER_TEAM}; синергия Природы «Юниты на поле» добавляет ещё 2/3/4, абсолютный максимум — 12. Разделение юнита на стеки новых существ не создаёт.`,
+                "Каждое задрафтованное существо приходит одним стеком на 1000 опыта: число существ — 1000 ÷ опыт одного существа с округлением вверх (Peasant 200, Centaur 73, Beholder 22, Monk 8, Champion 3, Angel 2, Black Dragon 1). Синергия Жизни «Запас» добавляет свой процент в начале боя.",
+                `Лимит стеков — 6; апгрейд «Расстановка» поднимает его до 7 или ${MAX_UNITS_PER_TEAM}; синергия Природы «Отряды на поле» добавляет ещё 2/3/4, абсолютный максимум — 12. Разделение юнита на стеки новых существ не создаёт.`,
                 `Доктрины дают 5, 6 или ${MAX_AUGMENT_POINTS} очков апгрейдов. «Броня», «Сила», «Магия» и «Стрельба» стоят 1/2/3 очка за уровни 1/2/3, «Движение» — 1/2, а уровни 2 и 3 «Расстановки» — 1 и 2 (уровень 1 бесплатный).`,
                 `Синергии фракций достигают уровня 1/2/3 при ${unitsForLevel(1)}/${unitsForLevel(2)}/${unitsForLevel(3)} разных юнитах фракции (3 — всё ещё уровень 1); разделение юнита на несколько стеков счёт не увеличивает, а уровень фиксируется в начале боя.`,
             ]),
@@ -1228,6 +1237,7 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
             ].join("\n\n"),
             textRu: [
                 `**${factionRu}** выставляет ${units.length} юнитов для драфта (уровни 1–4)${summoned.length ? ` и призываемых ${joinNames(summoned.map((unit) => ruLabel(unit.name)))}` : ""}. 2/4/6 разных юнитов фракции открывают синергию уровня 1/2/3; какая из двух синергий действует, определяется идентификатором матча.`,
+                ...(GAME_FACTION_NAMES_RU[faction] ? [`В русском интерфейсе игры эта фракция называется «${GAME_FACTION_NAMES_RU[faction]}».`] : []),
                 `Каждое существо фракции начинает бой с моралью ${signed(FACTION_MORALE[faction] ?? 0)} и базовой удачей ${signed(FACTION_LUCK[faction] ?? 0)}; удача каждый круг перебрасывается вокруг этой базы.`,
                 `Юниты по уровням:\n${bullet(
                     [1, 2, 3, 4].map(
@@ -1238,7 +1248,7 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
                 `Синергии: ${pair.map((spec) => spec.nameRu).join(" / ")}.`,
             ].join("\n\n"),
             tags: ["faction", faction],
-            keywords: [factionRu, "faction", "фракция"],
+            keywords: [factionRu, "faction", "фракция", ...(GAME_FACTION_NAMES_RU[faction] ? [GAME_FACTION_NAMES_RU[faction].toLowerCase()] : [])],
             props: { units: units.map((unit) => unit.name) },
         });
     }
@@ -1512,7 +1522,7 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
                 `Augment points come from the doctrine (5 for Spymaster, 6 for Scout, ${MAX_AUGMENT_POINTS} for Battle Trance) and are spent during Setup, before placement. Each level costs its number in points, the bonus applies to the whole army from the first lap, and points still unspent when Setup ends are spent automatically.`,
             ].join("\n\n"),
             textRu: [
-                `**${spec.nameRu}** — ${spec.summaryRu}`,
+                `**${spec.nameRu}** — ${spec.summaryRu}${spec.gameNameRu ? ` В игре этот апгрейд называется «${spec.gameNameRu}».` : ""}`,
                 bullet(
                     spec.levels.map(
                         (level) =>
@@ -1523,7 +1533,14 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
                 `Очки апгрейдов даёт доктрина: ${ruLabel("Spymaster")} — 5, ${ruLabel("Scout")} — 6, ${ruLabel("Battle Trance")} — ${MAX_AUGMENT_POINTS}; они тратятся на этапе Setup перед расстановкой. Каждый уровень стоит столько очков, каков его номер, бонус действует на всю армию с первого круга, а очки, не потраченные к концу Setup, тратятся автоматически.`,
             ].join("\n\n"),
             tags: ["augment", "upgrade"],
-            keywords: ["augment", "upgrade", "апгрейд", "усиление", ...spec.keywords],
+            keywords: [
+                "augment",
+                "upgrade",
+                "апгрейд",
+                "усиление",
+                ...(spec.gameNameRu ? [spec.gameNameRu.toLowerCase()] : []),
+                ...spec.keywords,
+            ],
             props: { levels: spec.levels.map((level) => `${level.level}:${level.cost}:${level.effect}`) },
         });
     }

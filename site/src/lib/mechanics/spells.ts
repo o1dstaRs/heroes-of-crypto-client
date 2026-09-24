@@ -161,7 +161,7 @@ const SPELL_NOTES: Readonly<Record<string, NoteSpec>> = {
         en: ({ p, n }) =>
             `−${n(p)}% movement for 3 laps, which also shrinks movement bonuses such as Chaos's Movement synergy. Applied by the Beholder's Spit Ball (magic resistance can resist it) and by the Rime Charm artifact (no resist roll).`,
         ru: ({ p, n }) =>
-            `−${n(p)}% движения на 3 круга; процент урезает и бонусы к движению, например синергию Хаоса «Движение». Накладывается Spit Ball у Beholder (сопротивление магии может защитить) и артефактом Rime Charm (без броска сопротивления).`,
+            `−${n(p)}% движения на 3 круга; процент урезает и бонусы к движению, например синергию Хаоса «Передвижение». Накладывается Spit Ball у Beholder (сопротивление магии может защитить) и артефактом Rime Charm (без броска сопротивления).`,
     },
     "Weakening Beam": {
         en: ({ p, n }) => `−${n(p)}% base armor for 3 laps; applied by the Beholder's Spit Ball.`,
@@ -224,7 +224,7 @@ const SPELL_NOTES: Readonly<Record<string, NoteSpec>> = {
     Visible: {
         en: () =>
             "The White Tiger is Visible while an enemy stack stands within 3 cells of it: its Disguise stops protecting it.",
-        ru: () => "White Tiger видим (Visible), пока в радиусе 3 клеток есть вражеский стек: Disguise его не защищает.",
+        ru: () => "White Tiger видим (Visible), пока в радиусе 3 клеток есть вражеский стек: Disguise Aura его не защищает.",
     },
     "Armor Rune": {
         en: () =>
