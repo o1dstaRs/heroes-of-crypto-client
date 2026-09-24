@@ -129,7 +129,7 @@ describe("knowledge graph builder", () => {
             `Level 1 (2 distinct Life units): every stack grows ${SynergyKeysToPower["Life:1:1"][0]}% when the fight starts`,
         );
         expect(supply?.text).toContain(
-            `Level 3 (6 distinct Life units): every stack grows ${SynergyKeysToPower["Life:1:3"][0]}% when the fight starts`,
+            `Level 3 (6 distinct Life units — the whole draft, so only Life units are in the army): every stack grows ${SynergyKeysToPower["Life:1:3"][0]}% when the fight starts`,
         );
         expect(
             graph.edges.some(
