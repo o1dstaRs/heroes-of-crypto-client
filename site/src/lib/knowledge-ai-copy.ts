@@ -11,6 +11,9 @@ export interface KnowledgeAiPanelCopy {
     sources: string;
     disclaimer: string;
     thinking: string;
+    /** Shown when nothing has arrived for a while: players took a silent wait for a hang and re-asked. */
+    slow: string;
+    verySlow: string;
     searching: string;
     reading: string;
     listing: string;
@@ -33,6 +36,8 @@ export const KNOWLEDGE_AI_PANEL_COPY: Readonly<Record<KnowledgeAiLanguage, Knowl
         disclaimer:
             "Written by an AI from the game's own rules and data; it can still make mistakes — follow the links to verify.",
         thinking: "Searching the knowledge base…",
+        slow: "Still working — this can take a few more seconds…",
+        verySlow: "The assistant is busy right now — your answer is still coming.",
         searching: "Searching",
         reading: "Reading",
         listing: "Listing",
@@ -53,6 +58,8 @@ export const KNOWLEDGE_AI_PANEL_COPY: Readonly<Record<KnowledgeAiLanguage, Knowl
         disclaimer:
             "Ответ составлен ИИ по правилам и данным игры и всё же может содержать ошибки — проверяйте по ссылкам.",
         thinking: "Ищу ответ в базе знаний…",
+        slow: "Ещё работаю — это может занять несколько секунд…",
+        verySlow: "Помощник сейчас загружен — ответ всё равно придёт.",
         searching: "Ищу",
         reading: "Читаю",
         listing: "Собираю список",

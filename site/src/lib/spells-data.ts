@@ -212,6 +212,28 @@ const resolvedDescriptions: Record<string, string> = {
 };
 
 const descriptionsRu: Record<string, string> = {
+    "Nature:Whirlpool":
+        "Открывает под врагом бурлящий водоворот и приковывает его к месту.\nСущество пропускает следующий ход, пока заперто в водовороте.\nМагия воды: юнита с Water Element водоворот не удержит.",
+    // Keyed by the data file's book (Chaos); the page files Empower under Order.
+    "Chaos:Empower": "Добавляет {}% ко всему магическому урону, который наносит цель.",
+    "Chaos:Fireball":
+        "Бросает огненный шар во врага в зоне прямой видимости и наносит {} урона.\nВсё на соседних с ним клетках — свои и чужие — получает столько же.\nМагический: игнорирует броню, но снижается сопротивлением магии.\nМагия огня: юниту с Fire Element он не вредит, а юнит с Water Element горит в полтора раза сильнее.",
+    "Chaos:Fire Wall":
+        "Выкладывает огненную стену на 4 клетки по прямой — в любом месте поля и в любом из четырёх направлений.\nЗажмите Shift при прицеливании, чтобы повернуть её. Загораются только свободные клетки: существо, гора\nили клетка, исчезнувшая при сужении карты, пропускаются, а остальная линия всё равно горит.\nВход на горящую клетку стоит любому существу 1 дополнительный шаг (вдвое дороже обычного)\nи обжигает его на {}% максимального здоровья — и своих, и чужих.",
+    "Death:Curse": "Проклинает врага: он всегда наносит минимально возможный урон.",
+    "System:Angelic Host Blessing":
+        "Angelic Host Blessing даёт +{} к атаке, +{} к защите и +{} к дистанции перемещения.\nДействует, пока жив союзный юнит с Angelic Host Blessing.",
+    "System:Arcane Ward Blessing":
+        "Arcane Ward Blessing даёт {}% защиты от магии.\nДействует, пока жив союзный юнит с Arcane Ward Blessing.",
+    "System:Arrows Wingshield Blessing":
+        "Arrows Wingshield Blessing даёт +{}% к защите от дальних атак.\nДействует, пока жив союзный юнит с Arrows Wingshield Blessing.",
+    "System:Broken Aegis":
+        "Ваши атаки с шансом 20% накладывают на поражённого врага Break (отключают его способности) ценой 4% шанса промаха.",
+    // The data says "reduced by {}" with a power of 0, which printed "by 0"; the amount is whatever Miner's
+    // hits took, so the Russian names the source instead of a wrong number.
+    "System:Miner": "Базовая броня навсегда снижена: её отнимает каждый удар юнита с Miner.",
+    "System:Warding Mane Blessing":
+        "Warding Mane Blessing даёт {}% защиты от магии.\nДействует, пока жив союзный юнит с Warding Mane Blessing.",
     "System:Morale": "Юнит достигает максимальной морали, повышая множитель атаки до 1.25.",
     "System:Dismorale": "Мораль юнита падает до минимума, снижая множитель атаки до 0.8.",
     "System:Dulling Defense":
@@ -314,7 +336,8 @@ function englishDescription(book: SpellBook, raw: RawSpell): string {
 }
 
 function russianDescription(book: SpellBook, raw: RawSpell, english: string): string {
-    return descriptionsRu[`${book}:${raw.name}`] ?? english;
+    // Like the English, a "{}" takes the spell's power, so a rebalance reaches both languages.
+    return descriptionsRu[`${book}:${raw.name}`]?.replace(/\{\}/g, String(raw.power)) ?? english;
 }
 
 function spellPolarity(raw: RawSpell): SpellPolarity {
