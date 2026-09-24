@@ -5,21 +5,21 @@ import { renderNote, type NoteLanguage, type NoteSpec } from "./format";
 const EFFECT_NOTES: Readonly<Record<string, NoteSpec>> = {
     Stun: {
         en: () =>
-            "The unit skips its next turn and can't retaliate until then; an active stun is never extended. Applied by Stun (Orc, Squire) — ×1.5 against Mechanism, lowered by status resistance — and by the stun outcome of a Blacksmith's Craft, which status resistance doesn't lower.",
+            "The unit skips its next turn and can't retaliate until then — the skipped turn costs it 1 morale, like any skip; an active stun is never extended. Applied by Stun (Orc, Squire) — ×1.5 against Mechanism, lowered by status resistance — and by the stun outcome of a Blacksmith's Craft, which status resistance doesn't lower.",
         ru: () =>
-            "Юнит пропускает следующий ход и до него не может отвечать; действующее оглушение не продлевается. Накладывается способностью Stun (Orc, Squire) — ×1,5 против Mechanism, с учётом сопротивления статусам — и исходом «оглушение» у Craft Blacksmith, который сопротивление статусам не снижает.",
+            "Юнит пропускает следующий ход и до него не может отвечать — пропущенный ход стоит ему 1 морали, как любой пропуск; действующее оглушение не продлевается. Накладывается способностью Stun (Orc, Squire) — ×1,5 против Mechanism, с учётом сопротивления статусам — и исходом «оглушение» у Craft Blacksmith, который сопротивление статусам не снижает.",
     },
     Freeze: {
         en: () =>
-            "The unit skips its next 2 turns and can't retaliate. Applied by Craft-forged Frozen Bow and Frozen Sword — ×1.5 against Mechanism, lowered by status resistance; magic resistance doesn't help.",
+            "The unit skips its next 2 turns and can't retaliate; each skipped turn costs it 1 morale. Applied by Craft-forged Frozen Bow and Frozen Sword — ×1.5 against Mechanism, lowered by status resistance; magic resistance doesn't help.",
         ru: () =>
-            "Юнит пропускает 2 следующих хода и не может отвечать. Накладывается выкованными Craft Frozen Bow и Frozen Sword — ×1,5 против Mechanism, с учётом сопротивления статусам; сопротивление магии не помогает.",
+            "Юнит пропускает 2 следующих хода и не может отвечать; каждый пропущенный ход стоит ему 1 морали. Накладывается выкованными Craft Frozen Bow и Frozen Sword — ×1,5 против Mechanism, с учётом сопротивления статусам; сопротивление магии не помогает.",
     },
     Blindness: {
         en: () =>
-            "The unit skips its next 2 turns and can't retaliate; taking damage doesn't wake it. Applied by the Unicorn's Blindness; mind resistance lowers the chance, and Madness and Mechanism units are immune.",
+            "The unit skips its next 2 turns and can't retaliate — each skipped turn costs it 1 morale; taking damage doesn't wake it. Applied by the Unicorn's Blindness; mind resistance lowers the chance, and Madness and Mechanism units are immune.",
         ru: () =>
-            "Юнит пропускает 2 следующих хода и не может отвечать; полученный урон его не будит. Накладывается Blindness у Unicorn; сопротивление ментальным эффектам снижает шанс, у Madness и Mechanism иммунитет.",
+            "Юнит пропускает 2 следующих хода и не может отвечать — каждый пропущенный ход стоит ему 1 морали; полученный урон его не будит. Накладывается Blindness у Unicorn; сопротивление ментальным эффектам снижает шанс, у Madness и Mechanism иммунитет.",
     },
     "Boar Saliva": {
         en: ({ p, n }) =>

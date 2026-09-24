@@ -861,7 +861,7 @@ function formulaSpecs(): FormulaSpec[] {
                 bullet([
                     `+${MORALE_CHANGE_FOR_DISTANCE} for a move that ends closer to the centre of the enemy army (all enemy stacks, unweighted), −${MORALE_CHANGE_FOR_DISTANCE} for one that ends farther away; only a move ending at exactly the same distance is neutral. A melee attack's walk-in counts as a move.`,
                     `+${MORALE_CHANGE_FOR_KILL} to whichever stack destroys an enemy stack — the attacker, a retaliating defender or a caster; −${MORALE_CHANGE_FOR_KILL} to each of your other surviving stacks of a unit whose stack was wiped out. Deaths to Armageddon, narrowing, poison or Fire Wall change nobody's morale.`,
-                    `−${MORALE_CHANGE_FOR_CLOCK} for waiting on the Hourglass, −${MORALE_CHANGE_FOR_SHIELD} for Defend (Luck Shield), −${MORALE_CHANGE_FOR_SKIP} for an actual skipped turn (including a timeout passed to the engine as a skip, or a turn lost to Whirlpool)`,
+                    `−${MORALE_CHANGE_FOR_CLOCK} for waiting on the Hourglass, −${MORALE_CHANGE_FOR_SHIELD} for Defend (Luck Shield), −${MORALE_CHANGE_FOR_SKIP} for an actual skipped turn (including a timeout passed to the engine as a skip, or a turn lost to Stun, Blindness, Freeze or Whirlpool)`,
                     "Ending the turn after moving or another action costs nothing.",
                     "Other sources: the Life Morale and Luck synergy (+6/+13/+20), Crown of Command (+8), Cursed Ward (−6), and hitting an enemy marked by Pegasus Light (+10 plus the Pegasus's luck).",
                 ]),
@@ -874,7 +874,7 @@ function formulaSpecs(): FormulaSpec[] {
                 bullet([
                     `+${MORALE_CHANGE_FOR_DISTANCE} за перемещение, закончившееся ближе к центру вражеской армии (всех вражеских стеков, без весов), −${MORALE_CHANGE_FOR_DISTANCE} за закончившееся дальше; нейтрально только перемещение ровно на то же расстояние. Подход к ближней атаке считается перемещением.`,
                     `+${MORALE_CHANGE_FOR_KILL} тому стеку, который уничтожил вражеский стек, — атакующему, отвечающему защитнику или заклинателю; −${MORALE_CHANGE_FOR_KILL} каждому вашему другому стеку того же юнита, чей стек был уничтожен. Гибель от Армагеддона, сужения, яда или Fire Wall ничью мораль не меняет.`,
-                    `−${MORALE_CHANGE_FOR_CLOCK} за ожидание (Hourglass), −${MORALE_CHANGE_FOR_SHIELD} за защиту (Luck Shield), −${MORALE_CHANGE_FOR_SKIP} за фактический пропуск хода (включая таймаут, переданный движку как пропуск, и ход, потерянный из-за Whirlpool)`,
+                    `−${MORALE_CHANGE_FOR_CLOCK} за ожидание (Hourglass), −${MORALE_CHANGE_FOR_SHIELD} за защиту (Luck Shield), −${MORALE_CHANGE_FOR_SKIP} за фактический пропуск хода (включая таймаут, переданный движку как пропуск, и ход, потерянный из-за Stun, Blindness, Freeze или Whirlpool)`,
                     "Завершение хода после движения или другого действия ничего не стоит.",
                     "Другие источники: синергия Жизни «Мораль и удача» (+6/+13/+20), Crown of Command (+8), Cursed Ward (−6) и удар по врагу с меткой Pegasus Light (+10 плюс удача Pegasus).",
                 ]),
@@ -2124,15 +2124,15 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
         summaryRu: `${playRu.modeBody} ${playRu.lobbiesHint}`,
         text: bullet([
             `Ranked: ${playEn.rankedHint.toLowerCase()} — rating, leagues, seasons and prizes apply. Open it from the Play page (/play/ranked/).`,
-            `Lobbies (play with friends): ${playEn.lobbiesHint} Lobby matches are casual: they never move rating and leaving one costs no penalties or queue time. Open lobbies are listed on the Play page (/play/lobbies/).`,
-            `Sandbox beta: ${playEn.sandboxHint} Sandbox fights are yours alone and never touch the ladder.`,
+            `Lobbies (play with friends): ${playEn.lobbiesHint} Lobby matches are casual: they never move rating and leaving one costs no penalties or queue time, though a gold wager made in a lobby still pays out. Opening a lobby costs the host a gold fee — the season's circulating gold ÷ (calibrated players × 10), rounded up, free while the season has no gold — which is burned and never refunded, even if the lobby is cancelled or nobody joins. Open lobbies are listed on the Play page (/play/lobbies/).`,
+            `Sandbox beta: ${playEn.sandboxHint} Sandbox fights never touch the ladder. Play it alone, or open a co-op sandbox and invite one friend: you take green, they take red (not while either of you is in a live ranked or lobby game).`,
             "Games against the AI are casual too: they are excluded from the ranked ladder and from prizes.",
             "Everything runs in a desktop browser with no download; sign in to play ranked or lobby matches.",
         ]),
         textRu: bullet([
             `Рейтинг: ${playRu.rankedHint.toLowerCase()} — действуют рейтинг, лиги, сезоны и призы. Открывается со страницы «Играть» (/ru/play/ranked/).`,
-            `Лобби (игра с друзьями): ${playRu.lobbiesHint} Матчи в лобби — обычные: они не меняют рейтинг, а выход из них не влечёт штрафов и ожидания очереди. Открытые лобби перечислены на странице «Играть» (/ru/play/lobbies/).`,
-            `Песочница (бета): ${playRu.sandboxHint} Бои в песочнице никак не касаются рейтинговой таблицы.`,
+            `Лобби (игра с друзьями): ${playRu.lobbiesHint} Матчи в лобби — обычные: они не меняют рейтинг, а выход из них не влечёт штрафов и ожидания очереди, хотя ставка золотом, сделанная в лобби, всё равно выплачивается. Открытие лобби стоит хозяину золота — золото сезона в обороте ÷ (откалиброванные игроки × 10), с округлением вверх, бесплатно, пока в сезоне нет золота, — и эта плата сгорает и не возвращается, даже если лобби отменено или никто не пришёл. Открытые лобби перечислены на странице «Играть» (/ru/play/lobbies/).`,
+            `Песочница (бета): ${playRu.sandboxHint} Бои в песочнице никак не касаются рейтинговой таблицы. Играйте одни или откройте совместную песочницу и пригласите одного друга: вы играете за зелёных, он — за красных (но не пока кто-то из вас в живой рейтинговой игре или лобби).`,
             "Игры против ИИ тоже обычные: они исключены из рейтинговой таблицы и призов.",
             "Всё работает в браузере на компьютере без установки; для рейтинга и лобби нужно войти в аккаунт.",
         ]),
