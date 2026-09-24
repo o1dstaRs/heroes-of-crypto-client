@@ -68,7 +68,7 @@ import { localizedFactionName } from "../localization";
 import { patchNotes } from "../patch-notes";
 import { DEFAULT_RANKED_EXIT_RULES, ruleTokenValue, splitRuleTokens } from "../ranked-exit";
 import { rankedArenaCopy } from "../ranked-arena-copy";
-import { content, type Language } from "../site-data";
+import { content, links, localPath, type Language } from "../site-data";
 import { spells, type Spell } from "../spells-data";
 import {
     abilities,
@@ -628,6 +628,8 @@ const unitsForLevel = (level: number): number =>
 interface FormulaSpec {
     name: string;
     nameRu: string;
+    /** The way players ask for it, when that shares no words with the name. */
+    aliases?: string[];
     summary: string;
     summaryRu: string;
     text: string;
@@ -767,7 +769,26 @@ function formulaSpecs(): FormulaSpec[] {
                 `Сужение прекращается на ${NUMBER_OF_LAPS_TILL_STOP_NARROWING}-м круге. Армагеддон — это всего ${NUMBER_OF_ARMAGEDDON_WAVES} волны, по одной за круг с ${NUMBER_OF_LAPS_FIRST_ARMAGEDDON}-го по ${NUMBER_OF_LAPS_FIRST_ARMAGEDDON + NUMBER_OF_ARMAGEDDON_WAVES - 1}-й круг, каждая сильнее предыдущей; первая наносит каждому стеку минимум ${MIN_ARMAGEDDON_DAMAGE_FIRST_WAVE} урона.`,
                 "Если волна уничтожает обе армии одновременно, бой заканчивается ничьей.",
             ]),
-            keywords: ["map", "narrowing", "armageddon", "laps", "holes", "карта", "сужение", "армагеддон", "круги"],
+            // "How long does a match last?" — narrowing and Armageddon are what end a match that nobody ends,
+            // and nobody asks for it by its name.
+            aliases: ["match length", "how long a match lasts", "длительность матча", "сколько длится матч"],
+            keywords: [
+                "map",
+                "narrowing",
+                "armageddon",
+                "laps",
+                "holes",
+                "match length",
+                "duration",
+                "long",
+                "карта",
+                "сужение",
+                "армагеддон",
+                "круги",
+                "длительность",
+                "длится",
+                "конец матча",
+            ],
             rule: "rule-map",
         },
         {
@@ -1279,6 +1300,7 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
             section: "rules",
             name: spec.name,
             nameRu: spec.nameRu,
+            aliases: spec.aliases,
             href: knowledgePath("en", { section: "rules", entry: spec.rule.replace(/^rule-/, "rules-") }),
             hrefRu: knowledgePath("ru", { section: "rules", entry: spec.rule.replace(/^rule-/, "rules-") }),
             summary: spec.summary,
@@ -1416,6 +1438,41 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
         ].join("\n\n"),
         tags: ["ranked", "seasons"],
         keywords: ["season", "seasons", "сезон", "сезоны", "gold", "золото", "prize", "приз"],
+    });
+
+    // The Contact page as knowledge: "who made the game", "is there a Discord", "how do I reach support".
+    const contactEn = content.en.contact;
+    const contactRu = content.ru.contact;
+    const channels = [
+        `Discord: ${links.discord}`,
+        `Telegram: ${links.telegram}`,
+        `X (Twitter): ${links.twitter}`,
+        `Email: ${contactEn.email}`,
+        `GitHub (public code): ${links.github}`,
+    ];
+    graph.add({
+        id: "faq:contact",
+        type: "faq",
+        section: "faq",
+        name: "Community and contact",
+        nameRu: "Сообщество и связь с командой",
+        aliases: ["contact", "support", "discord", "telegram", "community", "связаться", "поддержка", "сообщество"],
+        href: localPath("en", "contact-us"),
+        hrefRu: localPath("ru", "contact-us"),
+        summary: `${contactEn.headline} Discord, Telegram, X and ${contactEn.email}; the code is public on GitHub.`,
+        summaryRu: `${contactRu.headline} Discord, Telegram, X и ${contactRu.email}; код открыт на GitHub.`,
+        text: [
+            `**Community and contact** — ${contactEn.headline}`,
+            bullet(channels),
+            "The site does not name the individual developers; the team answers through these channels.",
+        ].join("\n\n"),
+        textRu: [
+            `**Сообщество и связь с командой** — ${contactRu.headline}`,
+            bullet(channels.map((line) => line.replace("Email", "Почта").replace("(public code)", "(открытый код)"))),
+            "Имена разработчиков на сайте не указаны; команда отвечает через эти каналы.",
+        ].join("\n\n"),
+        tags: ["faq", "contact", "community"],
+        keywords: ["team", "developer", "developers", "who made", "команда", "разработчик", "разработчики", "кто сделал", "email", "почта"],
     });
 
     content.en.faq.forEach((entry, index) => {
