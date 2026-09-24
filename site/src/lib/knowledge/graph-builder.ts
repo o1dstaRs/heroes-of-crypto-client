@@ -1178,6 +1178,27 @@ function formulaSpecs(): FormulaSpec[] {
             rule: "rule-mechanics",
         },
         {
+            name: "Draft and placement timers",
+            nameRu: "Таймеры драфта и расстановки",
+            aliases: ["pick timer", "draft timer", "placement timer", "time to pick", "how long to pick", "таймер драфта", "время на пик", "сколько времени на пик", "время на расстановку", "таймер расстановки"],
+            summary: "How long each draft stage, Setup and Board placement last, and what happens when a clock runs out.",
+            summaryRu: "Сколько длятся этапы драфта, Setup и расстановка на поле и что происходит, когда время вышло.",
+            text: bullet([
+                "Draft stages: Doctrine 30 s, Bundle 30 s, each creature pick 60 s, Tier-2 artifact 60 s. A simultaneous stage ends as soon as both players have chosen; finishing early banks nothing.",
+                "When a draft clock runs out the server chooses for you and says so: Scout for the doctrine, the ranked AI's choice for a bundle, creature or artifact.",
+                "After the draft, Setup (augments) lasts 60 s and Board placement 80 s. Points left unspent are spent for you; stacks still on the bench when the 80 s run out are placed automatically, and the fight starts.",
+                "In the fight each army has its own lap budget and turn clock — see the Turn timer entry.",
+            ]),
+            textRu: bullet([
+                "Этапы драфта: Доктрина 30 с, Бандл 30 с, каждый пик существа 60 с, артефакт 2 тира 60 с. Одновременный этап заканчивается, как только выбрали оба игрока; сэкономленное время не переносится.",
+                "Когда время этапа драфта вышло, сервер выбирает за вас и сообщает об этом: Scout для доктрины, выбор рейтингового ИИ для бандла, существа или артефакта.",
+                "После драфта Setup (апгрейды) длится 60 с, а расстановка на поле — 80 с. Неизрасходованные очки тратятся за вас; стеки, оставшиеся в запасе, когда 80 с истекут, расставляются автоматически, и начинается бой.",
+                "В бою у каждой армии свой бюджет круга и таймер хода — см. запись «Таймер хода».",
+            ]),
+            keywords: ["timer", "timeout", "seconds", "таймер", "время", "секунд", "тайм-аут"],
+            rule: "rule-draft",
+        },
+        {
             name: "Combos and anti-synergies",
             nameRu: "Комбинации и антисинергии",
             aliases: ["combo", "combos", "synergy between", "works well with", "goes well with", "best with", "комбо", "комбинации", "что хорошо сочетается", "с чем брать"],
@@ -1434,8 +1455,9 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
         });
     }
 
-    // Irregular plurals the search's stemmer can't reach ("how do I beat Elves").
-    const unitPluralAliases: Record<string, string[]> = { Elf: ["Elves"], Wolf: ["Wolves"], Pegasus: ["Pegasi"] };
+    // Irregular plurals the search's stemmer can't reach ("how do I beat Elves") and the slang players type
+    // ("хилер" for the Healer, whose Russian name is «Целитель»).
+    const unitPluralAliases: Record<string, string[]> = { Elf: ["Elves"], Wolf: ["Wolves"], Pegasus: ["Pegasi"], Healer: ["хилер", "хиллер"] };
     for (const unit of allUnits) {
         const { href, hrefRu } = hrefFor("units", unit.name);
         graph.add({
@@ -1773,6 +1795,7 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
                 doctrine.description,
                 `Reveal mode: ${doctrine.revealMode === "all" ? "see all of the opponent's picks" : doctrine.revealMode === "random3" ? "3 random opponent slots are revealed" : "nothing is revealed"}. Augment points: ${doctrine.upgradePoints}.`,
                 revealDetail.en,
+                "A creature you see in a watched slot is unavailable to you — no creature is drafted twice — and under any doctrine, trying an opponent's hidden pick is refused, reveals that slot and sends you back to pick again.",
                 "More vision costs points: the less you see of the opponent's draft, the larger your augment budget.",
             ].join("\n\n"),
             textRu: [
@@ -1780,6 +1803,7 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
                 descriptionRu,
                 `Режим раскрытия: ${doctrine.revealMode === "all" ? "видны все пики соперника" : doctrine.revealMode === "random3" ? "раскрываются 3 случайных слота соперника" : "ничего не раскрывается"}. Очки апгрейдов: ${doctrine.upgradePoints}.`,
                 revealDetail.ru,
+                "Существо, которое вы видите в отслеживаемом слоте, для вас недоступно — дважды существо не драфтится, — а при любой доктрине попытка взять скрытый пик соперника отклоняется, раскрывает этот слот и возвращает вас к выбору.",
                 "Обзор стоит очков: чем меньше вы видите драфт соперника, тем больше бюджет апгрейдов.",
             ].join("\n\n"),
             tags: ["doctrine", "draft"],

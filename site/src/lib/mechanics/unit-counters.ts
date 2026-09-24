@@ -157,12 +157,19 @@ export function unitCounterLines(unit: Unit, language: NoteLanguage): string[] {
         lines.push(`${isRu ? "Заклинатель" : "Caster"}: ${parts.join("; ")}.${extras.join("")}`);
     }
 
-    const auras = names.filter((name) => name.endsWith(" Aura") && name !== "Disguise Aura");
-    if (auras.length) {
+    const auraAbilities = unit.abilities.filter((ability) => ability.name.endsWith(" Aura") && ability.name !== "Disguise Aura");
+    if (auraAbilities.length) {
+        const auras = auraAbilities.map((ability) => ability.name);
+        const flat = auraAbilities.filter((ability) => !ability.isStackPowered).map((ability) => ability.name);
+        const splitNote = flat.length
+            ? isRu
+                ? ` ${flat.join(", ")} не ${flat.length === 1 ? "зависит" : "зависят"} от силы стека: разделённый носитель даёт ${flat.length === 1 ? "её" : "их"} в полную силу вокруг каждой части (одна аура на клетке не складывается).`
+                : ` ${flat.join(", ")} ${flat.length === 1 ? "doesn't" : "don't"} depend on stack power, so a split projects ${flat.length === 1 ? "it" : "them"} at full strength around each part (the same aura doesn't add up on a cell).`
+            : "";
         lines.push(
             isRu
-                ? `Аура (${auras.join(", ")}): Break отключает её на 2 круга; синергия Силы «Радиус аур» расширяет её на 1/2/3 клетки.`
-                : `Aura (${auras.join(", ")}): Break turns it off for 2 laps; Might's Aura Range synergy widens it by 1/2/3 cells.`,
+                ? `Аура (${auras.join(", ")}): Break отключает её на 2 круга; синергия Силы «Радиус аур» расширяет её на 1/2/3 клетки.${splitNote}`
+                : `Aura (${auras.join(", ")}): Break turns it off for 2 laps; Might's Aura Range synergy widens it by 1/2/3 cells.${splitNote}`,
         );
     }
     if (has("Disguise Aura")) {

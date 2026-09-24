@@ -86,9 +86,9 @@ export const ABILITY_NOTES_A_L: Readonly<Record<string, NoteSpec>> = {
     },
     "Battle Roar": {
         en: () =>
-            "Once per fight, at stack power 3 or more: for 2 laps (the casting Behemoth included) every ally — except units with 100% magic resistance or already roaring — gets +1 movement per Behemoth alive in the casting stack and always rolls maximum damage. It overrides Curse; Quagmire and Hamstrung cut the extra steps like any movement.",
+            "Once per fight, at stack power 3 or more: for 2 laps (the casting Behemoth included) every ally — except units with 100% magic resistance or already roaring — gets +1 movement per Behemoth alive in the casting stack and always rolls maximum damage — even when Cursed; Quagmire and Hamstrung cut the extra steps like any movement.",
         ru: () =>
-            "Раз за бой при силе стека 3 и выше: на 2 круга (включая самого Behemoth) каждый союзник — кроме юнитов со 100% сопротивления магии и уже ревущих — получает +1 к движению за каждого живого Behemoth в стеке заклинателя и всегда наносит максимальный урон. Перекрывает Curse; Quagmire и Hamstrung урезают добавочные шаги, как и любое движение.",
+            "Раз за бой при силе стека 3 и выше: на 2 круга (включая самого Behemoth) каждый союзник — кроме юнитов со 100% сопротивления магии и уже ревущих — получает +1 к движению за каждого живого Behemoth в стеке заклинателя и всегда наносит максимальный урон — даже под Curse; Quagmire и Hamstrung урезают добавочные шаги, как и любое движение.",
     },
     "Bitter Experience": {
         en: () =>
@@ -343,9 +343,9 @@ export const ABILITY_NOTES_A_L: Readonly<Record<string, NoteSpec>> = {
     },
     "Luck Aura": {
         en: () =>
-            "Allies within 2 cells, the Leprechaun included, have their luck fixed at +10 instead of the lap roll; Misfortune drops them to 0. +10 luck means about 10% less attack damage taken and +10 points on the stack's ability chances.",
+            "Allies within 2 cells, the Leprechaun included, have their luck fixed at +10 instead of the lap roll; Misfortune drops them to 0. +10 luck means about 10% less attack damage taken and +10 points on the stack's ability chances. The aura doesn't depend on stack power, so a split Leprechaun projects it at full strength around both halves (the same aura doesn't add up on a cell), though its own Lucky Strike weakens with the split.",
         ru: () =>
-            "У союзников в радиусе 2 клеток, включая Leprechaun, удача зафиксирована на +10 вместо броска круга; Misfortune опускает её до 0. +10 удачи — это примерно на 10% меньше урона от атак и +10 пунктов к шансам способностей стека.",
+            "У союзников в радиусе 2 клеток, включая Leprechaun, удача зафиксирована на +10 вместо броска круга; Misfortune опускает её до 0. +10 удачи — это примерно на 10% меньше урона от атак и +10 пунктов к шансам способностей стека. Аура не зависит от силы стека, поэтому разделённый Leprechaun даёт её в полную силу вокруг обеих половин (одна и та же аура на клетке не складывается), хотя его собственный Lucky Strike после разделения слабеет.",
     },
     "Lucky Strike": {
         en: ({ p, n }) =>

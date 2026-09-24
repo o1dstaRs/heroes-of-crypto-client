@@ -28,8 +28,8 @@ const SPELL_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     Blessing: {
         en: () =>
-            "For 3 laps the ally always rolls maximum damage on every attack and retaliation. It overrides Curse.",
-        ru: () => "3 круга союзник всегда наносит максимальный урон каждой атакой и каждым ответом. Перекрывает Curse.",
+            "For 3 laps the ally always rolls maximum damage on every attack and retaliation. It beats Curse: a stack that is both Blessed and Cursed still rolls maximum damage.",
+        ru: () => "3 круга союзник всегда наносит максимальный урон каждой атакой и каждым ответом. Сильнее Curse: стек под Blessing и Curse одновременно всё равно наносит максимальный урон.",
     },
     Courage: {
         en: () =>
@@ -173,9 +173,9 @@ const SPELL_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     Curse: {
         en: () =>
-            "For 3 laps the target always rolls its minimum damage. Applied by the Beholder's Spit Ball; Blessing or Battle Roar override it.",
+            "For 3 laps the target always rolls its minimum damage. Applied by the Beholder's Spit Ball. It loses to Blessing and Battle Roar: a stack under either of them still rolls maximum damage, Cursed or not.",
         ru: () =>
-            "3 круга цель всегда наносит минимальный урон. Накладывается Spit Ball у Beholder; Blessing или Battle Roar его перекрывают.",
+            "3 круга цель всегда наносит минимальный урон. Накладывается Spit Ball у Beholder. Проигрывает Blessing и Battle Roar: стек под любым из них всё равно наносит максимальный урон, даже под Curse.",
     },
     Sadness: {
         en: () =>

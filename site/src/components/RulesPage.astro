@@ -353,7 +353,7 @@ const copy = isRu
               },
               {
                   title: "2. Бандл",
-                  text: "Каждый игрок получает свои два бандла втайне от соперника и выбирает один одновременно с ним. В бандле существо 1 уровня, существо 2 уровня и свой артефакт 1 тира; ваши два артефакта различаются, поэтому нужный артефакт может стоить вам нужного существа. Четыре бандла матча не повторяют существ, а существа из бандла, от которого вы отказались, остаются доступными в драфте.",
+                  text: "Каждый игрок получает свои два бандла втайне от соперника и выбирает один одновременно с ним. В бандле существо 1 уровня, существо 2 уровня и свой артефакт 1 тира; ваши два артефакта различаются, поэтому нужный артефакт может стоить вам нужного существа. Четыре бандла матча не повторяют существ, а существа из бандла, от которого вы отказались, остаются доступными в драфте. Бандлы и предложения 2 тира соперника выпадают отдельно от ваших, поэтому у обеих армий может оказаться один и тот же артефакт.",
               },
               {
                   title: "3–4. Пики 1–2 уровней",
@@ -380,9 +380,13 @@ const copy = isRu
               "Квота состава по уровням — 2/2/1/1; выбранный бандл уже закрывает одно существо 1 уровня и одно 2 уровня.",
               "Игра автоматически убирает 6 существ 1 уровня, 6 — 2 уровня, 3 — 3 уровня и 5 — 4 уровня. Рейтинговое предпочтение добавляет сверху не более одного общего бана на матч; оно не заменяет автобан.",
               "Дополнительный бан применяется только к драфтовому юниту и только если после него на этом уровне остаётся минимум два доступных небандловых варианта. Если выбранный юнит попал в сгенерированный бандл, сервер заново генерирует весь драфт (бандлы, предложения артефактов и автобаны); после 25 попыток бан в этом матче пропускается. Если автобаны уже убрали этого юнита, больше никого не банят.",
-              "Доктрина заранее отмечает видимые слоты. Scout открывает один слот уровня 1, один уровня 2 и один из слотов уровня 3 или 4. Независимо от доктрины, попытка взять скрытый пик соперника раскрывает этот конфликт.",
-              "Доктрины раскрывают только существ. Доктрина соперника, его бандлы, артефакты и бюджет апгрейдов скрыты весь драфт; обе армии становятся видны в начале этапа Setup. Место (нижнее/зелёное или верхнее/красное) назначается случайно при создании матча.",
-              "Таймеры этапов: Доктрина 30 с, Бандл 30 с, каждый пик существа 60 с, артефакт 2 тира 60 с; одновременный этап заканчивается, как только выбрали оба игрока, и сэкономленное время не переносится. Когда время вышло, сервер выбирает за вас и сообщает об этом: Scout для доктрины, выбор рейтингового ИИ для бандла, существа или артефакта. После драфта Setup (апгрейды) длится 60 с, а расстановка на поле — 80 с.",
+              "Доктрина заранее отмечает видимые слоты. Scout открывает один слот уровня 1, один уровня 2 и один из слотов уровня 3 или 4. Видимый слот показывает пик соперника сразу, и это существо становится для вас недоступным — дважды существо не драфтится. Независимо от доктрины, попытка взять скрытый пик соперника раскрывает этот конфликт и возвращает вас к выбору.",
+              "Доктрины раскрывают только существ. Доктрина соперника, его бандлы, артефакты и бюджет апгрейдов скрыты весь драфт; в начале этапа Setup становятся видны существа обеих армий и размеры их стеков, а позиции, разделения, артефакты, доктрина и апгрейды остаются скрытыми до начала боя. Место (нижнее/зелёное или верхнее/красное) назначается случайно при создании матча.",
+          ],
+          draftTimers: [
+              "Доктрина 30 с, бандл 30 с, каждый пик существа 60 с, артефакт 2 тира 60 с. Одновременный этап заканчивается, как только выбрали оба игрока; сэкономленное время не переносится.",
+              "Когда время вышло, сервер выбирает за вас и сообщает об этом: Scout для доктрины, выбор рейтингового ИИ для бандла, существа или артефакта.",
+              "После драфта Setup (апгрейды) длится 60 с, а расстановка на поле — 80 с; не выставленные к концу стеки расставляются автоматически.",
           ],
           unitsTitle: "Как читать юнита",
           unitStats: [
@@ -509,6 +513,7 @@ const copy = isRu
               "Вы выбираете юнита из списка, задаёте количество существ в стеке и ставите его в разрешённую зону. Задрафтованный отряд можно разделить на несколько стеков без создания новых существ, а затем двигать, перераспределять или убирать эти стеки до фиксации расстановки.",
               "Размер следа зависит от юнита: обычные фигуры занимают 1x1, крупные могут быть 2x1 или 2x2. Большому следу нужно больше свободных клеток для маршрута и спасения при сужении.",
               "Перед стартом проверьте три вещи: кто получает ауру, кого можно достать первым ходом, и где окажутся ваши стрелки, если враг ворвется в ближний бой.",
+              "Setup (апгрейды) длится 60 с, расстановка на поле — 80 с. Армия начинает этап расстановки уже распределённой по вашей зоне; стеки, оставшиеся в запасе, когда 80 с истекут, расставляются автоматически, и начинается бой. Позиции и разделения соперника до этого скрыты. Повторная трата апгрейда «Расстановка» во время расстановки ничего не уничтожает: стеки сверх нового предела сливаются со стеком того же существа или возвращаются в запас, а стеки вне уменьшившейся зоны переносятся внутрь неё.",
           ],
           turnsTitle: "Ход — это одно действие",
           turnActions: [
@@ -602,7 +607,7 @@ const copy = isRu
               },
               {
                   title: "Стрельба через Barrels",
-                  text: "Бочки — это постройки, и обычную дальнюю атаку останавливает первая же из них на линии. Double Shot тратит до двух своих снарядов на расчистку бочек вместо попадания по цели. Cyclops (Large Caliber) и Gargantuan (Area Throw) игнорируют постройки полностью: их снаряды летят поверх и уничтожают бочки, попавшие в зону, — именно поэтому они и есть ответ на перекрытую линию.",
+                  text: "Бочки — это постройки, и обычную дальнюю атаку останавливает первая же из них на линии. Double Shot тратит до двух своих снарядов на расчистку бочек вместо попадания по цели. Cyclops (Large Caliber) и Gargantuan (Area Throw) игнорируют постройки полностью: их снаряды летят поверх и уничтожают бочки, попавшие в зону, — именно поэтому они и есть ответ на перекрытую линию. Любой юнит может и напрямую атаковать бочку, в ближнем бою или выстрелом, и один удар её уничтожает.",
               },
           ],
           mapArmageddon:
@@ -681,7 +686,7 @@ const copy = isRu
               },
               {
                   title: "2. Bundle",
-                  text: "Each player privately receives two bundles and takes one at the same time as the opponent. A bundle holds a level-1 creature, a level-2 creature and its own Tier-1 artifact; your two artifacts differ, so the artifact you want may cost you the creature you wanted. The four bundles of a match never share a creature, and the creatures of the bundle you skip stay draftable.",
+                  text: "Each player privately receives two bundles and takes one at the same time as the opponent. A bundle holds a level-1 creature, a level-2 creature and its own Tier-1 artifact; your two artifacts differ, so the artifact you want may cost you the creature you wanted. The four bundles of a match never share a creature, and the creatures of the bundle you skip stay draftable. The opponent's bundles and Tier-2 offers are rolled separately from yours, so both armies can end up with the same artifact.",
               },
               {
                   title: "3–4. Level 1–2 picks",
@@ -708,9 +713,13 @@ const copy = isRu
               "The roster quota by level is 2/2/1/1; your selected bundle already supplies one level-1 and one level-2 creature.",
               "The game automatically removes 6 level-1, 6 level-2, 3 level-3, and 5 level-4 creatures. Ranked ban preferences add at most one shared extra ban per match; they do not replace an auto-ban.",
               "The extra ban applies only to a draftable unit and only when at least two non-bundle choices remain at its level. If that unit lands in a generated bundle, the server regenerates the whole draft (bundles, artifact offers and automatic bans); after 25 tries the ban is skipped for that match. If the automatic bans already removed the unit, nothing further is banned.",
-              "Your doctrine preselects watched slots. Scout marks one level-1 slot, one level-2 slot, and either the level-3 or level-4 slot. Under any doctrine, attempting an opponent's hidden pick reveals that collision.",
-              "Doctrines reveal creatures only. The opponent's doctrine, bundle offers, artifacts and augment budget stay hidden for the whole draft; both armies become visible when Setup starts. Your seat (Lower/green or Upper/red) is assigned at random when the match is made.",
-              "Stage timers: Doctrine 30 s, Bundle 30 s, each creature pick 60 s, Tier-2 artifact 60 s; a simultaneous stage ends as soon as both players have chosen, and finishing early banks nothing. When your clock runs out, the server chooses for you and tells you so: Scout for the doctrine, the ranked AI's choice for a bundle, creature or artifact. After the draft, Setup (augments) lasts 60 s and Board placement 80 s.",
+              "Your doctrine preselects watched slots. Scout marks one level-1 slot, one level-2 slot, and either the level-3 or level-4 slot. A watched slot shows the opponent's pick as it happens, and that creature is then unavailable to you — no creature is drafted twice. Under any doctrine, attempting an opponent's hidden pick reveals that collision and sends you back to pick again.",
+              "Doctrines reveal creatures only. The opponent's doctrine, bundle offers, artifacts and augment budget stay hidden for the whole draft; when Setup starts both armies' creatures and drafted stack sizes become visible, while positions, splits, artifacts, doctrine and augments stay hidden until the fight starts. Your seat (Lower/green or Upper/red) is assigned at random when the match is made.",
+          ],
+          draftTimers: [
+              "Doctrine 30 s, Bundle 30 s, each creature pick 60 s, Tier-2 artifact 60 s. A simultaneous stage ends as soon as both players have chosen; finishing early banks nothing.",
+              "When your clock runs out, the server chooses for you and tells you so: Scout for the doctrine, the ranked AI's choice for a bundle, creature or artifact.",
+              "After the draft, Setup (augments) lasts 60 s and Board placement 80 s; stacks still unplaced at the end are placed automatically.",
           ],
           unitsTitle: "How to read a unit",
           unitStats: [
@@ -837,6 +846,7 @@ const copy = isRu
               "Choose a roster unit, set its stack amount, and place it in your deployment zone. A drafted unit may be split into several stacks without creating extra bodies; you can then move, rebalance, or remove those stacks before locking placement.",
               "Footprints are unit-specific: ordinary pieces use 1x1, while large creatures can use 2x1 or 2x2. Larger footprints need more legal cells for routing and for escaping a narrowing edge.",
               "Before pressing start, check three things: who is inside your auras, who can be reached on the first turn, and where your ranged units will stand if the enemy dives them.",
+              "Setup (augments) lasts 60 s and Board placement 80 s. Your army starts the Board stage already spread across your zone; stacks still on the bench when the 80 s run out are placed automatically, and the fight starts. The opponent's positions and splits stay hidden until then. Re-spending the Placement augment while placing never destroys anything: stacks over the new cap merge back into a stack of the same creature or return to the bench, and stacks left outside a smaller zone move inside it.",
           ],
           turnsTitle: "Turns: one action per turn",
           turnActions: [
@@ -930,7 +940,7 @@ const copy = isRu
               },
               {
                   title: "Shooting across Barrels",
-                  text: "Barrels are structures, and an ordinary ranged attack is stopped by the first one in its lane. Double Shot spends up to two of its projectiles clearing barrels instead of hitting the target. Cyclops (Large Caliber) and Gargantuan (Area Throw) ignore structures outright — their shots fly over and destroy the barrels caught in the blast, which is what makes them the answer to a blocked lane.",
+                  text: "Barrels are structures, and an ordinary ranged attack is stopped by the first one in its lane. Double Shot spends up to two of its projectiles clearing barrels instead of hitting the target. Cyclops (Large Caliber) and Gargantuan (Area Throw) ignore structures outright — their shots fly over and destroy the barrels caught in the blast, which is what makes them the answer to a blocked lane. Any unit can also attack a barrel directly, in melee or with a shot, and a single hit destroys it.",
               },
           ],
           mapArmageddon:
@@ -1182,6 +1192,10 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
                     <ItemTitle>{isRu ? "Что важно помнить" : "What to remember"}</ItemTitle>
                     <ul class="rules-clean-list">
                         {copy.draftNotes.map((note) => <li>{note}</li>)}
+                    </ul>
+                    <ItemTitle>{isRu ? "Таймеры и тайм-ауты" : "Timers and timeouts"}</ItemTitle>
+                    <ul class="rules-clean-list">
+                        {copy.draftTimers.map((note) => <li>{note}</li>)}
                     </ul>
                 </div>
                 <div class="rules-table-scroll">
