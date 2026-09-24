@@ -65,7 +65,7 @@ import { extractRuleSections } from "./rules-extractor";
 import { artifacts } from "../artifacts-data";
 import { knowledgePath, type KnowledgeCatalogSection } from "../knowledge-base";
 import { localizedFactionName } from "../localization";
-import { abilityNote, artifactNote, DURATION_NOTE, effectNote, MAGIC_DAMAGE_SPELLS, spellNote, unitCounterLines } from "../mechanics";
+import { abilityNote, artifactFit, artifactNote, DURATION_NOTE, effectNote, MAGIC_DAMAGE_SPELLS, spellNote, unitCounterLines } from "../mechanics";
 import { patchNotes } from "../patch-notes";
 import { DEFAULT_RANKED_EXIT_RULES, ruleTokenValue, splitRuleTokens } from "../ranked-exit";
 import { rankedArenaCopy } from "../ranked-arena-copy";
@@ -497,6 +497,7 @@ const artifactText = (artifact: (typeof artifacts)[number], language: Language):
         `**${isRu ? ruLabel(artifact.name) : artifact.name}** — ${isRu ? "артефакт уровня" : "Tier"} ${artifact.tier}${artifact.cursed ? (isRu ? " · проклятый (есть недостаток)" : " · cursed (has a downside)") : ""}`,
         isRu ? artifact.descriptionRu : artifact.description,
         ...howItWorks(artifactNote(artifact.name, language), language),
+        ...(artifactFit(artifact.name, language) ? [`#### ${isRu ? "С чем брать" : "Best with"}\n${artifactFit(artifact.name, language)}`] : []),
         isRu
             ? "Артефакты выбираются в драфте: артефакт 1-го уровня приходит с бандлом, который вы берёте, а артефакт 2-го уровня — один из трёх, предложенных после пика 3-го уровня. Оба действуют на всю армию с первого круга до конца боя."
             : "Artifacts come from the draft: your Tier 1 artifact arrives with the bundle you take, and your Tier 2 artifact is one of three offered after the Level-3 pick. Both work for the whole army from the first lap to the end of the fight.",

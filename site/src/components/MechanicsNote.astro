@@ -6,15 +6,17 @@ import type { Language } from "../lib/site-data";
 interface Props {
     lang: Language;
     note?: string;
+    /** The label over the note; "How it works" by default. */
+    summary?: { en: string; ru: string };
 }
 
-const { lang, note } = Astro.props;
+const { lang, note, summary } = Astro.props;
 ---
 
 {
     note && (
         <details class="mechanics-note">
-            <summary>{lang === "ru" ? "Как это работает" : "How it works"}</summary>
+            <summary>{summary ? summary[lang === "ru" ? "ru" : "en"] : lang === "ru" ? "Как это работает" : "How it works"}</summary>
             <p>{note}</p>
         </details>
     )

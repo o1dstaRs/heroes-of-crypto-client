@@ -3,7 +3,7 @@ import MechanicsNote from "./MechanicsNote.astro";
 import { content, type Language } from "../lib/site-data";
 import { artifacts, artifactsCount, tier1Count, tier2Count } from "../lib/artifacts-data";
 import { knowledgeEntryId } from "../lib/knowledge-base";
-import { artifactNote } from "../lib/mechanics";
+import { artifactFit, artifactNote } from "../lib/mechanics";
 
 interface Props {
     lang: Language;
@@ -140,6 +140,7 @@ const searchText = (artifact: (typeof artifacts)[number]) =>
                         </header>
                         <p class="artifact-card-desc">{describe(artifact)}</p>
                         <MechanicsNote lang={lang} note={artifactNote(artifact.name, lang)} />
+                        <MechanicsNote lang={lang} note={artifactFit(artifact.name, lang)} summary={{ en: "Best with", ru: "С чем брать" }} />
                     </article>
                 ))
             }

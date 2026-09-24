@@ -9,8 +9,8 @@ import { describe, expect, test } from "bun:test";
 
 import { artifacts } from "../artifacts-data";
 import { spells } from "../spells-data";
-import { abilities } from "../units-data";
-import { abilityNote, artifactNote, effectNote, spellNote, type NoteLanguage } from "./index";
+import { abilities, allUnits } from "../units-data";
+import { abilityNote, artifactFit, artifactNote, effectNote, spellNote, unitCounterLines, type NoteLanguage } from "./index";
 
 const languages: NoteLanguage[] = ["en", "ru"];
 const effectNames = Object.entries(effectsJson as Record<string, unknown>)
@@ -63,3 +63,33 @@ describe("mechanics notes", () => {
         expect(abilityNote("Sharpened Weapons Aura", "ru")).toContain("3,6%");
     });
 });
+
+describe("build advice", () => {
+    test("every artifact says what it suits, in both languages", () => {
+        for (const artifact of artifacts) {
+            for (const language of ["en", "ru"] as const) {
+                const fit = artifactFit(artifact.name, language);
+                expect(fit, `${artifact.name} ${language}`).toBeTruthy();
+                expect(fit).not.toMatch(/undefined|NaN|\$\{/);
+                if (language === "ru") {
+                    expect(fit).toMatch(/[а-яё]/i);
+                }
+            }
+        }
+    });
+
+    test("unit counters never promise what a trait rules out", () => {
+        const byName = new Map(allUnits.map((unit) => [unit.name, unit]));
+        const text = (name: string): string => unitCounterLines(byName.get(name)!, "en").join("\n");
+        expect(text("Black Dragon")).not.toContain("Hamstring (Dryad) can take");
+        expect(text("Tsar Cannon")).not.toContain("Rangebane");
+        expect(text("Arbalester")).not.toContain("Farsight Quiver lengthen");
+        expect(text("Abomination")).not.toContain("Splitting");
+        for (const unit of allUnits) {
+            for (const line of unitCounterLines(unit, "ru")) {
+                expect(line).not.toMatch(/undefined|NaN/);
+            }
+        }
+    });
+});
+
