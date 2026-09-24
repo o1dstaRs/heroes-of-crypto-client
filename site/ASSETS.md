@@ -26,6 +26,12 @@ they are not website payloads.
    Alternatively, set `HOC_SITE_ASSETS_DIR` to that downloaded/synchronized directory. Both `build`
    and `build:test` then import and verify it before building. The importer validates every input
    before updating runtime files and rejects missing or modified assets.
+
+   Importing re-encodes the four masters that were authored as lossless WebP, using the `encode`
+   recipe recorded per asset in `hero-assets.json`; that needs `cwebp`/`dwebp` on PATH
+   (`brew install webp`). It verifies the master's checksum first, so a corrupt or substituted
+   download is still rejected before any runtime file is touched. Builds that only verify the
+   committed exports — which is every build that does not pass a release directory — need no tools.
 4. From the server repository, deploy only the site using the existing deployment tool:
 
    ```sh

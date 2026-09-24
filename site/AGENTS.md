@@ -16,6 +16,16 @@ for site asset handoff; local working files may remain as development copies.
 - Files under `public` are versioned deployment exports of this Drive release, not independent
   source artwork. A clean checkout must build using the verified exports without access to a
   developer's computer, home directory, local dev server, or private browser session.
+- **The export is not always the master byte-for-byte.** Four of the six masters were authored as
+  LOSSLESS WebP, which is roughly twice the density the rest of the site's art ships at (the unit
+  animation atlases run ~0.23 bytes/px), so they are re-encoded on import. Each asset carries the
+  exact `encode` recipe (`[]` means it ships verbatim) and a `source` block pinning the master, so
+  `sync:hero -- <dir>` still verifies the reviewed Drive bytes BEFORE re-encoding, and the result is
+  reproducible rather than a hand-tuned one-off. Re-encoding needs `cwebp`/`dwebp` on PATH
+  (`brew install webp`); verifying the committed exports, which is all `build` does, needs neither.
+- Never crush an animation atlas to a byte target (`cwebp -size`). Size-targeted encoding of a frame
+  atlas is what shipped a visibly broken lava animation once before. Use quality-targeted encoding,
+  and check the frame-edge band against the frame interior before believing a new recipe.
 - Production serves the bundled files through the website's `/assets/` URLs. Do not use `file://`,
   localhost URLs, `/Users/...` paths, Drive preview pages, or authenticated Drive links as browser
   image sources. Drive is the build/handoff source; the deployed site serves the resulting assets.

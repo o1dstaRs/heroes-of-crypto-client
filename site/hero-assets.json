@@ -4,50 +4,109 @@
         {
             "file": "logo_forged.webp",
             "path": "assets/images/home/logo/logo_forged.webp",
-            "sha256": "f504fd8ffdea02913b56b5e5a7ceb870bdcff153b051c0aa217ac78094c1f6c3",
-            "bytes": 422590,
             "width": 1477,
-            "height": 705
+            "height": 705,
+            "bytes": 422590,
+            "sha256": "f504fd8ffdea02913b56b5e5a7ceb870bdcff153b051c0aa217ac78094c1f6c3",
+            "encode": [],
+            "source": {
+                "bytes": 422590,
+                "sha256": "f504fd8ffdea02913b56b5e5a7ceb870bdcff153b051c0aa217ac78094c1f6c3"
+            }
         },
         {
             "file": "play_now_button_rounded_selected.webp",
             "path": "assets/images/ui/play_now_button_rounded_selected.webp",
-            "sha256": "c96bf4fc19823ccbc17b2dd4fe2c07f53daf9e4e7afc00acadd453b5135701f6",
-            "bytes": 330810,
             "width": 1250,
-            "height": 308
+            "height": 308,
+            "bytes": 187176,
+            "sha256": "e5956f37fa9c029dbda7d298e712585778a62122dfd2dd4cfbd01fafa2508171",
+            "encode": [
+                "-near_lossless",
+                "60",
+                "-m",
+                "6"
+            ],
+            "source": {
+                "bytes": 330810,
+                "sha256": "c96bf4fc19823ccbc17b2dd4fe2c07f53daf9e4e7afc00acadd453b5135701f6"
+            }
         },
         {
             "file": "crusader_berserker_legs_redrawn_20260922.webp",
             "path": "assets/images/home/hero/generated/crusader_berserker_legs_redrawn_20260922.webp",
-            "sha256": "04cfb708c2275cb6d3854c3942bfadb2d87715720f6db856cae764cb2bafd28e",
-            "bytes": 459172,
             "width": 1750,
-            "height": 899
+            "height": 899,
+            "bytes": 459172,
+            "sha256": "04cfb708c2275cb6d3854c3942bfadb2d87715720f6db856cae764cb2bafd28e",
+            "encode": [],
+            "source": {
+                "bytes": 459172,
+                "sha256": "04cfb708c2275cb6d3854c3942bfadb2d87715720f6db856cae764cb2bafd28e"
+            }
         },
         {
             "file": "sword-fire-v6-atlas.webp",
             "path": "assets/images/home/hero/generated/sword-fire-v6-atlas.webp",
-            "sha256": "f7eb26837ccdd1036dab0ab79a0771e7c141a0540c003d2bf278bc72dfd1a997",
-            "bytes": 1197808,
             "width": 2000,
-            "height": 1200
+            "height": 1200,
+            "bytes": 262828,
+            "sha256": "071c4841a708d17fb78128227ae1e6a31a05c4506c1ae776e1a1bd714ab8cbf1",
+            "encode": [
+                "-q",
+                "92",
+                "-alpha_q",
+                "100",
+                "-m",
+                "6",
+                "-sharp_yuv"
+            ],
+            "source": {
+                "bytes": 1197808,
+                "sha256": "f7eb26837ccdd1036dab0ab79a0771e7c141a0540c003d2bf278bc72dfd1a997"
+            }
         },
         {
             "file": "axe-red-glow-atlas.webp",
             "path": "assets/images/home/hero/generated/axe-red-glow-atlas.webp",
-            "sha256": "7b941d72cdc4e0f72d5eb22472ab17992a5bc296b372ee4419eb6d3bb429763c",
-            "bytes": 949570,
             "width": 1176,
-            "height": 2100
+            "height": 2100,
+            "bytes": 676232,
+            "sha256": "cc7c4e9b9951c254f8f31a7b5c42b321a5724efa1f4c842054c317088457885d",
+            "encode": [
+                "-q",
+                "92",
+                "-alpha_q",
+                "100",
+                "-m",
+                "6",
+                "-sharp_yuv"
+            ],
+            "source": {
+                "bytes": 949570,
+                "sha256": "7b941d72cdc4e0f72d5eb22472ab17992a5bc296b372ee4419eb6d3bb429763c"
+            }
         },
         {
             "file": "plume-strands-atlas-v2.webp",
             "path": "assets/images/home/hero/generated/plume-strands-atlas-v2.webp",
-            "sha256": "8d229d45de960d6ff6ebf0348f4b4c756ccf5176a359b80b6534ce390530a8f1",
-            "bytes": 6698922,
             "width": 4000,
-            "height": 3600
+            "height": 3600,
+            "bytes": 2518408,
+            "sha256": "172983e944dfedb27e1d82c9fbe4eeeadf2cde54f304ea16ce46b75c1b2bd63b",
+            "encode": [
+                "-q",
+                "92",
+                "-alpha_q",
+                "100",
+                "-m",
+                "6",
+                "-sharp_yuv"
+            ],
+            "source": {
+                "bytes": 6698922,
+                "sha256": "8d229d45de960d6ff6ebf0348f4b4c756ccf5176a359b80b6534ce390530a8f1"
+            }
         }
     ],
     "source": {
@@ -80,5 +139,6 @@
             "frames": 96,
             "fps": 31.2
         }
-    ]
+    ],
+    "note": "public/ holds the web exports actually served. `encode` is the exact cwebp recipe that turns the Drive master into the export; an empty list means the master ships byte-for-byte. `source` pins the master so a re-import from Drive is still verified against the reviewed release."
 }
