@@ -186,8 +186,8 @@ const quickFacts = [
         value: "×8",
         label: isRu ? "макс. штраф дальности" : "max range divisor",
         tip: isRu
-            ? "Урон выстрела делится на 2 во второй полосе дальности, на 4 в третьей и на 8 дальше; ширина полосы — дистанция выстрела юнита. Держите стрелков в радиусе: апгрейд «Стрельба» расширяет каждую полосу, но не отменяет штраф."
-            : "A shot's damage is halved in the second band of its shot distance, quartered in the third and divided by 8 beyond; a band is the unit's shot distance wide. Keep shooters in range: the Sniper augment widens every band but does not remove falloff.",
+            ? "Урон выстрела делится на 2 во второй полосе дальности, на 4 в третьей и на 8 дальше; ширина полосы — дистанция выстрела юнита. Держите стрелков в радиусе: апгрейд «Стрельба» расширяет полосы (целыми клетками), но не отменяет штраф."
+            : "A shot's damage is halved in the second band of its shot distance, quartered in the third and divided by 8 beyond; a band is the unit's shot distance wide. Keep shooters in range: the Sniper augment widens the bands (in whole cells) but does not remove falloff.",
     },
     {
         value: "×0.5",
@@ -409,7 +409,7 @@ const copy = isRu
           ],
           upgradesTitle: "Апгрейды команды: 5-7 очков, настоящие компромиссы",
           upgradesIntro:
-              "Апгрейды не являются косметикой. Они меняют размер зоны расстановки, живучесть армии, дальнюю игру, ближний урон и темп перемещения. Бюджет задаёт доктрина: 5 очков за Spymaster, 6 за Scout, 7 за Battle Trance. Чем меньше видите в драфте соперника, тем больше очков получаете. Каждый уровень стоит столько очков, каков его номер (уровень 3 — 3 очка; первый уровень «Расстановки» бесплатный, следующие стоят 1 и 2), каждый апгрейд действует на всю армию с первого круга, а очки, не потраченные к концу Setup, тратятся за вас.",
+              "Апгрейды не являются косметикой. Они меняют размер зоны расстановки, живучесть армии, дальнюю игру, ближний урон и темп перемещения. Бюджет задаёт доктрина: 5 очков за Spymaster, 6 за Scout, 7 за Battle Trance. Чем меньше видите в драфте соперника, тем больше очков получаете. Каждый уровень стоит столько очков, каков его номер (уровень 3 — 3 очка; первый уровень «Расстановки» бесплатный, следующие стоят 1 и 2), каждый апгрейд действует на всю армию с первого круга, а очки, не потраченные к концу Setup, тратятся за вас. Менять апгрейды можно и во время расстановки — пока вы не нажмёте «Готово».",
           upgrades: [
               {
                   icon: "/assets/images/units/abilities/board_augment_256.webp",
@@ -434,7 +434,7 @@ const copy = isRu
               {
                   icon: "/assets/images/units/abilities/sniper_augment_256.webp",
                   title: "Стрельба",
-                  text: `+${sniperPowers.map(([attack]) => attack).join("/")}% к базовой атаке и +${sniperPowers.map(([, range]) => range).join("/")}% к дистанции выстрела для стрелков, пока их выбранная атака — выстрел (по умолчанию). Большая дистанция расширяет каждую полосу дальности, но не отменяет штраф за дальность.`,
+                  text: `+${sniperPowers.map(([attack]) => attack).join("/")}% к базовой атаке и +${sniperPowers.map(([, range]) => range).join("/")}% к дистанции выстрела для стрелков, пока их выбранная атака — выстрел (по умолчанию). Большая дистанция расширяет полосы дальности, как только добавляет целую клетку, но не отменяет штраф за дальность.`,
               },
               {
                   icon: "/assets/images/units/abilities/movement_augment_256.webp",
@@ -468,7 +468,7 @@ const copy = isRu
               },
           ],
           doctrinesOutro:
-              "Эти очки и есть весь бюджет апгрейдов, который вы тратите до расстановки, поэтому доктрина — решение не только про информацию, но и про размер армии. Если вы выберете скрытое существо, которое противник уже забрал, сервер раскроет конфликт и вернёт вас к выбору; уже видимый дубликат выбрать нельзя.",
+              "Эти очки и есть весь бюджет апгрейдов на бой, поэтому доктрина — решение не только про информацию, но и про размер армии. Если вы выберете скрытое существо, которое противник уже забрал, сервер раскроет конфликт и вернёт вас к выбору; уже видимый дубликат выбрать нельзя.",
           synergiesTitle: "Синергии фракций: 2, 4 и 6 юнитов",
           synergiesIntro:
               "Когда вы задрафтили 2/4/6 разных юнитов одной фракции, эта фракция получает уровень синергии 1/2/3 (3 юнита — всё ещё уровень 1, 5 — уровень 2); разделение одного юнита на несколько стеков счётчик не увеличивает. У каждой фракции есть пара возможных бонусов, а ID матча детерминированно выбирает один вариант из каждой пары. Набор вариантов одинаков для обеих сторон и виден с первого экрана драфта. Синергия усиливает каждого юнита вашей армии, какой бы фракции он ни был. Её уровень фиксируется в начале боя, поэтому потери его не снижают, а призванное посреди боя новое для армии существо может его поднять.",
@@ -522,7 +522,7 @@ const copy = isRu
               },
               {
                   title: "Дальняя атака",
-                  text: "Нужны выстрелы, ни одного вражеского стека в соседних клетках (диагонали тоже считаются) и отсутствие Range Null Field и Rangebane. Стрела летит к видимому краю цели: ваши стеки её не блокируют, первый вражеский стек на линии принимает её на себя, а постройки останавливают. Встроенная способность Sniper полностью отменяет спад дальнего урона; командный апгрейд «Стрельба / Sniper» лишь увеличивает атаку и расширяет каждую полосу дальности, а делитель всё равно может дойти до x8.",
+                  text: "Нужны выстрелы, ни одного вражеского стека в соседних клетках (диагонали тоже считаются) и отсутствие Range Null Field и Rangebane. Стрела летит к видимому краю цели: ваши стеки её не блокируют, первый вражеский стек на линии принимает её на себя, а постройки останавливают. Встроенная способность Sniper полностью отменяет спад дальнего урона; командный апгрейд «Стрельба / Sniper» лишь увеличивает атаку и расширяет полосы дальности (целыми клетками), а делитель всё равно может дойти до x8.",
               },
               {
                   title: "Книга заклинаний",
@@ -737,7 +737,7 @@ const copy = isRu
           ],
           upgradesTitle: "Team upgrades: 5-7 points, real tradeoffs",
           upgradesIntro:
-              "Augments are not cosmetics. They change deployment size, durability, ranged plans, melee damage, and tempo before the first unit acts. Your budget is whatever your draft doctrine paid you: 5 points for Spymaster, 6 for Scout, 7 for Battle Trance. Seeing less of the opponent\u2019s draft is what buys the bigger army. Each level costs its number in points (level 3 = 3 points; Placement's first tier is free, the next two cost 1 and 2), every augment applies to your whole army from the first lap, and points still unspent when Setup ends are spent for you.",
+              "Augments are not cosmetics. They change deployment size, durability, ranged plans, melee damage, and tempo before the first unit acts. Your budget is whatever your draft doctrine paid you: 5 points for Spymaster, 6 for Scout, 7 for Battle Trance. Seeing less of the opponent\u2019s draft is what buys the bigger army. Each level costs its number in points (level 3 = 3 points; Placement's first tier is free, the next two cost 1 and 2), every augment applies to your whole army from the first lap, and points still unspent when Setup ends are spent for you. You can still change augments while placing, until you press Ready.",
           upgrades: [
               {
                   icon: "/assets/images/units/abilities/board_augment_256.webp",
@@ -762,7 +762,7 @@ const copy = isRu
               {
                   icon: "/assets/images/units/abilities/sniper_augment_256.webp",
                   title: "Sniper",
-                  text: `+${sniperPowers.map(([attack]) => attack).join("/")}% base attack and +${sniperPowers.map(([, range]) => range).join("/")}% shot distance for ranged units while their selected attack is the shot (the default). The longer distance widens every falloff band but does not remove range falloff.`,
+                  text: `+${sniperPowers.map(([attack]) => attack).join("/")}% base attack and +${sniperPowers.map(([, range]) => range).join("/")}% shot distance for ranged units while their selected attack is the shot (the default). The longer distance widens the falloff bands once it adds a whole cell, but does not remove range falloff.`,
               },
               {
                   icon: "/assets/images/units/abilities/movement_augment_256.webp",
@@ -796,7 +796,7 @@ const copy = isRu
               },
           ],
           doctrinesOutro:
-              "Those points are the whole augment budget you spend before placement, so doctrine is an army-size decision as much as an information one. If you select a hidden creature already taken by the opponent, the server reveals the collision and sends you back; a duplicate in an already watched slot is unavailable up front.",
+              "Those points are your whole augment budget for the fight, so doctrine is an army-size decision as much as an information one. If you select a hidden creature already taken by the opponent, the server reveals the collision and sends you back; a duplicate in an already watched slot is unavailable up front.",
           synergiesTitle: "Faction synergies: 2, 4, and 6 units",
           synergiesIntro:
               "Drafting 2/4/6 distinct roster units from one faction gives that faction synergy level 1/2/3 (3 units still give level 1, 5 give level 2); splitting one unit into several stacks does not raise the count. Each faction has a pair of possible bonuses, and the match ID deterministically selects one from every pair. Both sides get the same variant set, visible from the first draft screen. A synergy powers every unit in your army, whatever its faction. Its level is locked when the fight starts, so losses never lower it; a creature summoned mid-fight that is new to your army can raise it.",
@@ -850,7 +850,7 @@ const copy = isRu
               },
               {
                   title: "Ranged attack",
-                  text: "You need shots, no enemy stack in any cell touching yours (diagonals count), and no Range Null Field or Rangebane. The arrow flies to a visible edge of the target: your own stacks never block it, the first enemy stack on the line takes it, and structures stop it. The built-in Sniper ability removes falloff entirely; the team Sniper augment only raises attack and widens each distance band, so its range divisor can still reach x8.",
+                  text: "You need shots, no enemy stack in any cell touching yours (diagonals count), and no Range Null Field or Rangebane. The arrow flies to a visible edge of the target: your own stacks never block it, the first enemy stack on the line takes it, and structures stop it. The built-in Sniper ability removes falloff entirely; the team Sniper augment only raises attack and widens the distance bands (in whole cells), so its range divisor can still reach x8.",
               },
               {
                   title: "Spellbook",

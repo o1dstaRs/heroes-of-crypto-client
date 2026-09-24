@@ -604,8 +604,8 @@ function augmentSpecs(): AugmentSpec[] {
                 effect: `+${attack}% base attack and +${range}% shot distance`,
                 effectRu: `+${attack}% к базовой атаке и +${range}% к дистанции выстрела`,
             })),
-            note: "The longer shot distance widens every falloff band — it adds to Farsight Quiver's +50%, both counted from the base distance — but never removes falloff. Units with the Sniper ability already ignore falloff, so for them only the attack bonus counts.",
-            noteRu: "Большая дистанция расширяет каждую полосу дальности — и складывается с +50% Farsight Quiver, оба бонуса считаются от базы, — но штраф за дальность не отменяет. Юниты со способностью Sniper и так его игнорируют, поэтому им важен только бонус к атаке.",
+            note: "The longer shot distance widens the falloff bands — it adds to Farsight Quiver's +50%, both counted from the base distance — but never removes falloff. Bands count whole cells, so a bonus only helps once it adds a full cell: a Centaur's 4 cells stay 4 at level 1 (4.8) and become 5 at level 2. Units with the Sniper ability already ignore falloff, so for them only the attack bonus counts.",
+            noteRu: "Большая дистанция расширяет полосы дальности — и складывается с +50% Farsight Quiver, оба бонуса считаются от базы, — но штраф за дальность не отменяет. Полосы считаются целыми клетками, поэтому бонус помогает, только когда добавляет полную клетку: 4 клетки Centaur на 1 уровне остаются 4 (4,8), а на 2 уровне становятся 5. Юниты со способностью Sniper и так его игнорируют, поэтому им важен только бонус к атаке.",
             keywords: ["ranged", "archer", "range", "стрелок", "дальность"],
         },
         {
@@ -723,8 +723,8 @@ const synergySpecs: SynergySpec[] = [
         nameRu: "Синергия Хаоса «Разлом при атаке»",
         effect: ([power]) => `${power}% chance per weapon hit to Break the target for 2 laps`,
         effectRu: ([power]) => `${power}% шанс при каждом ударе оружием наложить на цель Break на 2 круга`,
-        detail: "Every damaging hit of every unit rolls — attacks, retaliations, second strikes, and each unit struck by splash or a piercing shot; magic follow-ups (Chain Lightning arcs, Fire Breath, Fire Shield, Fireforged burns) never roll. There is no roll against a unit already Broken or when a Water Shield absorbs the hit, and resistances don't lower it. Break shuts off all of the target's abilities, auras, blessings and spellcasting for 2 laps. Spells never Break.",
-        detailRu: "Бросок делает каждое попадание с уроном каждого юнита — атаки, ответы, вторые удары и каждый, кого задел удар по площади или пробивающий выстрел; магические добавки (разряды Chain Lightning, Fire Breath, Fire Shield, поджоги Fireforged) не бросают никогда. Против юнита, уже находящегося под Break, и при поглощении удара Water Shield броска нет, а сопротивления его не снижают. Break отключает все способности, ауры, благословения и заклинания цели на 2 круга. Заклинания Break не накладывают.",
+        detail: "Every damaging hit of every unit rolls — attacks, retaliations, second strikes, and each unit struck by splash or a piercing shot; magic follow-ups (Chain Lightning arcs, Fire Breath, Fire Shield, Fireforged burns) never roll. A unit already Broken is rolled on again only by a retaliation or counter-shot, which can renew its Break; there is no roll when a Water Shield absorbs the hit, and resistances don't lower it. Break shuts off all of the target's abilities, auras, blessings and spellcasting for 2 laps. Spells never Break.",
+        detailRu: "Бросок делает каждое попадание с уроном каждого юнита — атаки, ответы, вторые удары и каждый, кого задел удар по площади или пробивающий выстрел; магические добавки (разряды Chain Lightning, Fire Breath, Fire Shield, поджоги Fireforged) не бросают никогда. Против юнита, уже находящегося под Break, бросают только ответ и ответный выстрел — и могут обновить Break; при поглощении удара Water Shield броска нет, а сопротивления его не снижают. Break отключает все способности, ауры, благословения и заклинания цели на 2 круга. Заклинания Break не накладывают.",
         keywords: ["break", "disable abilities", "разлом"],
     },
     {
@@ -1024,14 +1024,14 @@ function formulaSpecs(): FormulaSpec[] {
                 "The arrow flies to a visible edge of the target. Your own stacks never block it, the first enemy stack on the line takes it, and structures (barrels, the mountain) stop it. Large Caliber and Area Throw fly over structures; Double Shot's two projectiles clear up to two barrels for one arrow.",
                 "Falloff counts whole cells in king moves (diagonals count 1) from the shooter's body; one band is the unit's shot distance rounded down. Within 1 band: full damage; 2 bands: ÷2; 3 bands: ÷4; farther: ÷8.",
                 "A shot that has crossed a Smoke cell has its divisor doubled (at most ÷8) for every target after it, Sniper shots included. The Sniper ability otherwise ignores distance entirely.",
-                "The Sniper augment (+20/40/70% shot distance), Farsight Quiver (+50% of base distance) and Guiding Winds (up to +35%) widen every band; none removes falloff. A shooter hitting in melee deals half damage unless it has Handyman.",
+                "The Sniper augment (+20/40/70% shot distance), Farsight Quiver (+50% of base distance) and Guiding Winds (up to +35%) widen the bands, which count whole cells (a bonus helps once it adds a full cell); none removes falloff. A shooter hitting in melee deals half damage unless it has Handyman.",
             ]),
             textRu: bullet([
                 "Для выстрела стеку нужны стрелы, ни одного вражеского стека в соседних клетках (диагонали считаются) и отсутствие Range Null Field и Rangebane. Выстрел не двигает стрелка: перемещение завершает ход, поэтому стрелок действует с того места, где стоит.",
                 "Стрела летит к видимому краю цели. Ваши стеки её не блокируют, первый вражеский стек на линии принимает её на себя, а постройки (бочки, гора) останавливают. Large Caliber и Area Throw летят поверх построек; два снаряда Double Shot сносят до двух бочек за одну стрелу.",
                 "Штраф считается в целых клетках ходом короля (диагональ = 1) от тела стрелка; одна полоса — дистанция выстрела юнита, округлённая вниз. В пределах 1 полосы — полный урон; 2 полосы — ÷2; 3 полосы — ÷4; дальше — ÷8.",
                 "У выстрела, прошедшего через клетку Smoke, делитель удваивается (максимум ÷8) для всех целей после неё, и у Sniper тоже. В остальном способность Sniper полностью игнорирует расстояние.",
-                "Апгрейд «Стрельба» (+20/40/70% дистанции), Farsight Quiver (+50% от базовой дистанции) и Guiding Winds (до +35%) расширяют каждую полосу; штраф не отменяет ни один из них. Стрелок в ближнем бою наносит половину урона, если у него нет Handyman.",
+                "Апгрейд «Стрельба» (+20/40/70% дистанции), Farsight Quiver (+50% от базовой дистанции) и Guiding Winds (до +35%) расширяют полосы, которые считаются целыми клетками (бонус помогает, когда добавляет полную клетку); штраф не отменяет ни один из них. Стрелок в ближнем бою наносит половину урона, если у него нет Handyman.",
             ]),
             keywords: ["ranged", "range", "falloff", "shot distance", "divisor", "smoke", "стрельба", "дальность", "штраф", "дым"],
             rule: "rule-mechanics",
@@ -1657,7 +1657,7 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
                 ),
                 spec.note,
                 ...(spec.beneficiaries ? [spec.beneficiaries.en] : []),
-                `Augment points come from the doctrine (5 for Spymaster, 6 for Scout, ${MAX_AUGMENT_POINTS} for Battle Trance) and are spent during Setup, before placement. The bonus is in place from the first lap, and points still unspent when Setup ends are spent automatically.`,
+                `Augment points come from the doctrine (5 for Spymaster, 6 for Scout, ${MAX_AUGMENT_POINTS} for Battle Trance) and are spent during Setup; they stay editable while you place your army, until you press Ready. The bonus is in place from the first lap, and points left unspent are spent for you automatically.`,
             ].join("\n\n"),
             textRu: [
                 `**${spec.nameRu}** — ${spec.summaryRu}${spec.gameNameRu ? ` В игре этот апгрейд называется «${spec.gameNameRu}».` : ""}`,
@@ -1669,7 +1669,7 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
                 ),
                 spec.noteRu,
                 ...(spec.beneficiaries ? [spec.beneficiaries.ru] : []),
-                `Очки апгрейдов даёт доктрина: ${ruLabel("Spymaster")} — 5, ${ruLabel("Scout")} — 6, ${ruLabel("Battle Trance")} — ${MAX_AUGMENT_POINTS}; они тратятся на этапе Setup перед расстановкой. Бонус действует с первого круга, а очки, не потраченные к концу Setup, тратятся автоматически.`,
+                `Очки апгрейдов даёт доктрина: ${ruLabel("Spymaster")} — 5, ${ruLabel("Scout")} — 6, ${ruLabel("Battle Trance")} — ${MAX_AUGMENT_POINTS}; они тратятся на этапе Setup, и менять их можно и во время расстановки — пока вы не нажмёте «Готово». Бонус действует с первого круга, а неизрасходованные очки тратятся за вас автоматически.`,
             ].join("\n\n"),
             tags: ["augment", "upgrade"],
             keywords: [
@@ -1691,13 +1691,13 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
             doctrine.revealMode === "all"
                 ? `Показывает все выборы соперника во время драфта. Даёт ${points}.`
                 : doctrine.revealMode === "random3"
-                  ? `Открывает выборы соперника в 3 слотах его армии. Даёт ${points}.`
+                  ? `Открывает выборы соперника в 3 случайных слотах его армии. Даёт ${points}.`
                   : `Не показывает ни одного выбора соперника. Даёт ${points}.`;
         const revealDetail =
             doctrine.revealMode === "all"
                 ? {
-                      en: "Every one of the opponent's six creature picks is shown as it happens; artifacts, bundles and the augment budget stay hidden.",
-                      ru: "Все шесть выборов существ соперника видны по мере того, как он их делает; артефакты, бандлы и бюджет апгрейдов остаются скрытыми.",
+                      en: "Every one of the opponent's six creature picks is shown as it happens, the bundle's two creatures included; artifacts (the bundle's too), the bundle offers and the augment budget stay hidden.",
+                      ru: "Все шесть выборов существ соперника видны по мере того, как он их делает, включая два существа из бандла; артефакты (и артефакт бандла), предложения бандлов и бюджет апгрейдов остаются скрытыми.",
                   }
                 : doctrine.revealMode === "random3"
                   ? {

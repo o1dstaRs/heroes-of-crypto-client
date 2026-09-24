@@ -112,9 +112,9 @@ const ARTIFACT_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     "Farsight Quiver": {
         en: ({ n }) =>
-            `Every shooter's shot distance grows by ${n(A.FARSIGHT_QUIVER_RANGE_PERCENT)}% of its base distance, widening every falloff band; it adds to the Sniper augment's bonus (both count from the base) rather than multiplying it.`,
+            `Every shooter's shot distance grows by ${n(A.FARSIGHT_QUIVER_RANGE_PERCENT)}% of its base distance, widening the falloff bands (they count whole cells); it adds to the Sniper augment's bonus (both count from the base) rather than multiplying it.`,
         ru: ({ n }) =>
-            `Дистанция выстрела каждого стрелка растёт на ${n(A.FARSIGHT_QUIVER_RANGE_PERCENT)}% базовой, расширяя каждую полосу дальности; бонус складывается с апгрейдом «Стрельба» (оба считаются от базы), а не умножается на него.`,
+            `Дистанция выстрела каждого стрелка растёт на ${n(A.FARSIGHT_QUIVER_RANGE_PERCENT)}% базовой, расширяя полосы дальности (они считаются целыми клетками); бонус складывается с апгрейдом «Стрельба» (оба считаются от базы), а не умножается на него.`,
     },
     "Berserker's Bond": {
         en: ({ n }) =>

@@ -65,9 +65,9 @@ const EFFECT_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     Break: {
         en: () =>
-            "For 2 laps all of the unit's abilities are off — including the auras and blessings it projects and its elemental and mind immunities — and it can't cast spells. Only attacks apply it, never spells: Chaos's Break on Attack synergy gives every weapon hit a chance. While it is active another Break can't land, except from a retaliation, which can renew it on the attacker; a Broken Efreet or Black Dragon loses Fire Element.",
+            "For 2 laps all of the unit's abilities are off — including the auras and blessings it projects and its elemental and mind immunities — and it can't cast spells. Only attacks apply it, never spells: Chaos's Break on Attack synergy gives every weapon hit a chance. While it is active another Break can't land, except from a retaliation or counter-shot, which can renew it; a Broken Efreet or Black Dragon loses Fire Element.",
         ru: () =>
-            "2 круга все способности юнита отключены — включая ауры и благословения, которые он даёт, и его стихийные и ментальные иммунитеты, — и он не может применять заклинания. Накладывается только атаками, не заклинаниями: синергия Хаоса «Разлом при атаке» даёт шанс каждому удару оружием. Пока действует, повторно не накладывается — кроме как ответом, который может обновить его на атакующем; Efreet или Black Dragon под Break теряют Fire Element.",
+            "2 круга все способности юнита отключены — включая ауры и благословения, которые он даёт, и его стихийные и ментальные иммунитеты, — и он не может применять заклинания. Накладывается только атаками, не заклинаниями: синергия Хаоса «Разлом при атаке» даёт шанс каждому удару оружием. Пока действует, повторно не накладывается — кроме как ответом или ответным выстрелом, которые могут его обновить; Efreet или Black Dragon под Break теряют Fire Element.",
     },
     "Terrifying Gaze": {
         en: () =>
