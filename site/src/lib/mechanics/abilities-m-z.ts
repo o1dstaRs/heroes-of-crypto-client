@@ -277,9 +277,9 @@ export const ABILITY_NOTES_M_Z: Readonly<Record<string, NoteSpec>> = {
     },
     "Wind Flow": {
         en: ({ p }) =>
-            `Once per fight, and only at full stack (stack power 5): every flying unit on the board — both sides, the Valkyrie included — gets +${p} base armor and −${p} movement (never below 1) for 3 laps. Flyers with 100% magic resistance or already under Wind Flow are skipped, and enemies can't resist it.`,
+            `Once per fight, and only at full stack (stack power 5): every flying unit on the board — both sides, the Valkyrie included — gets +${p} base armor and −${p} movement (never below 1) for 3 laps. Flyers with 100% magic resistance or already under Wind Flow are skipped, and enemies can't resist it. With Tome of Amplification in the Valkyrie's army its own flyers get ×1.5 of both halves — +6 armor and −6 movement — while enemy flyers keep ±${p}.`,
         ru: ({ p }) =>
-            `Раз за бой и только при полной силе стека (5): каждый летающий юнит на поле — обеих сторон, включая Valkyrie, — получает +${p} к базовой броне и −${p} к движению (не ниже 1) на 3 круга. Летающие юниты со 100% сопротивления магии или уже под Wind Flow пропускаются, а враги не могут сопротивляться.`,
+            `Раз за бой и только при полной силе стека (5): каждый летающий юнит на поле — обеих сторон, включая Valkyrie, — получает +${p} к базовой броне и −${p} к движению (не ниже 1) на 3 круга. Летающие юниты со 100% сопротивления магии или уже под Wind Flow пропускаются, а враги не могут сопротивляться. С Tome of Amplification в армии Valkyrie её собственные летающие получают обе половины ×1,5 — +6 к броне и −6 к движению, — а вражеские остаются при ±${p}.`,
     },
     "Wolf Trail Aura": {
         en: ({ p, n }) =>

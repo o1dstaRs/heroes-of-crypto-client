@@ -124,9 +124,9 @@ const ARTIFACT_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     "Tome of Amplification": {
         en: ({ n }) =>
-            `A buff your units cast on your own army — the caster included — works at ${n(100 + A.TOME_BUFF_POWER_PERCENT)}% of its number: Riot 30 → 45%, Spiritual Armor 30 → 45%, Magic Mirror 40 → 60%, Empower 25 → 37.5%, Fireforged Sword 20 → 30%, Helping Hand 30 → 45%. Heal and Resurrection are excluded, and buffs without a number (Blessing, Courage, runes) are unchanged.`,
+            `A buff your units cast on your own army — the caster included — works at ${n(100 + A.TOME_BUFF_POWER_PERCENT)}% of its number, mass casts included: Riot 30 → 45%, Mass Riot 25 → 37.5%, Spiritual Armor 30 → 45%, Magic Mirror 40 → 60%, Mass Magic Mirror 32 → 48%, Empower 25 → 37.5%, Fireforged Sword 20 → 30%, Helping Hand 30 → 45%, Battle Roar +1 → +1.5 movement per Behemoth. Wind Flow counts too, and its one number drives both halves: your own flyers get +6 armor but −6 movement (enemy flyers keep ±4), so cast it once they are in position. Heal and Resurrection are excluded, and buffs without a number (Blessing, Courage, runes) are unchanged.`,
         ru: ({ n }) =>
-            `Бафф, который ваши юниты накладывают на свою армию — включая заклинателя, — действует на ${n(100 + A.TOME_BUFF_POWER_PERCENT)}% своего числа: Riot 30 → 45%, Spiritual Armor 30 → 45%, Magic Mirror 40 → 60%, Empower 25 → 37,5%, Fireforged Sword 20 → 30%, Helping Hand 30 → 45%. Heal и Resurrection не усиливаются, а баффы без числа (Blessing, Courage, руны) не меняются.`,
+            `Бафф, который ваши юниты накладывают на свою армию — включая заклинателя, — действует на ${n(100 + A.TOME_BUFF_POWER_PERCENT)}% своего числа, включая массовые: Riot 30 → 45%, Mass Riot 25 → 37,5%, Spiritual Armor 30 → 45%, Magic Mirror 40 → 60%, Mass Magic Mirror 32 → 48%, Empower 25 → 37,5%, Fireforged Sword 20 → 30%, Helping Hand 30 → 45%, Battle Roar +1 → +1,5 к движению за каждого Behemoth. Wind Flow тоже усиливается, а одно его число задаёт обе половины: ваши летающие получают +6 к броне, но −6 к движению (вражеские — ±4), так что применяйте его, когда они уже на месте. Heal и Resurrection не усиливаются, а баффы без числа (Blessing, Courage, руны) не меняются.`,
     },
     "Rime Charm": {
         en: ({ n }) =>
