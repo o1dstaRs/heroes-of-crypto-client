@@ -8,8 +8,15 @@ import {
     type MutableProjectedBattlefieldMetrics,
 } from "./BattlefieldVisualGrid";
 
-/** Movement uses the creature animation alone, without ground dust or airborne trails. */
-export const MOVEMENT_PARTICLES_ENABLED = false;
+/**
+ * Real fights keep movement dust and flight wind. The animation lab turns this off while it is open,
+ * so an authored walk can be read without the trails drawn over it.
+ */
+export let MOVEMENT_PARTICLES_ENABLED = true;
+
+export const setMovementParticlesEnabled = (enabled: boolean): void => {
+    MOVEMENT_PARTICLES_ENABLED = enabled;
+};
 
 // Rapid Charge: a fast accelerating dash with a motion-blur streak instead of a flat-speed glide.
 const RC_MIN_SPEED_MULT = 0.7; // starts a touch slower than a normal move...

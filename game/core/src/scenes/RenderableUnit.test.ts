@@ -263,15 +263,18 @@ describe("preview placement facing", () => {
     });
 });
 
-describe("all-level generic whole-sprite motion gate", () => {
-    test("disables shared movement/combat overlays for every creature level", () => {
+describe("generic whole-sprite motion gate", () => {
+    test("levels 1 and 2 never take the overlay; higher tiers do, unless the creature has its own package", () => {
         expect(creatureGenericWholeSpriteMotionEnabledForLevel(1)).toBe(false);
         expect(creatureGenericWholeSpriteMotionEnabledForLevel(2)).toBe(false);
-        expect(creatureGenericWholeSpriteMotionEnabledForLevel(3)).toBe(false);
-        expect(creatureGenericWholeSpriteMotionEnabledForLevel(4)).toBe(false);
+        expect(creatureGenericWholeSpriteMotionEnabledForLevel(3)).toBe(true);
+        expect(creatureGenericWholeSpriteMotionEnabledForLevel(4)).toBe(true);
         expect(creatureGenericCombatMotionEnabledForUnit("Squire", 1)).toBe(false);
         expect(creatureGenericCombatMotionEnabledForUnit("Troglodyte", 1)).toBe(false);
         expect(creatureGenericCombatMotionEnabledForUnit("Satyr", 2)).toBe(false);
+        CREATURE_SPRITE_ANIMATION_SETTINGS.approvedBaseEnabled = true;
+        expect(creatureGenericCombatMotionEnabledForUnit("Troll", 4)).toBe(false);
+        expect(creatureGenericCombatMotionEnabledForUnit("Efreet", 4)).toBe(true);
     });
 });
 
@@ -5553,9 +5556,8 @@ describe("refreshed full-body placement scale", () => {
                 BATTLEFIELD_CREATURE_FRAMING[creature].scaleX / BATTLEFIELD_CREATURE_FRAMING[creature].scaleY,
             );
             unit.startSpawnAnimation(0.125);
-            // No creature grows into its landing any more: creatureGenericWholeSpriteMotionEnabledForLevel
-            // is off for every level, so the whole-sprite scale-up never starts. What this test still
-            // guards is that landing leaves the authored proportions and size exactly as they were.
+            // A fitted battlefield figure does not grow into its landing: the scale-up would change the
+            // proportions the art was authored at. An unfitted higher tier still may.
             expect(internals.spawnAnim).toBeUndefined();
             expect(internals.sprite?.scale.x).toBe(initialScaleX);
             expect(internals.sprite?.scale.y).toBe(initialScaleY);
@@ -6916,8 +6918,8 @@ describe("refreshed idle cadence and quadruped scale", () => {
         CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
         expect(creatureGenericWholeSpriteMotionEnabledForLevel(1)).toBe(false);
         expect(creatureGenericWholeSpriteMotionEnabledForLevel(2)).toBe(false);
-        expect(creatureGenericWholeSpriteMotionEnabledForLevel(3)).toBe(false);
-        expect(creatureGenericWholeSpriteMotionEnabledForLevel(4)).toBe(false);
+        expect(creatureGenericWholeSpriteMotionEnabledForLevel(3)).toBe(true);
+        expect(creatureGenericWholeSpriteMotionEnabledForLevel(4)).toBe(true);
         expect(creatureGenericCombatMotionEnabledForUnit("Peasant", 1)).toBe(false);
         expect(creatureGenericCombatMotionEnabledForUnit("Troglodyte", 1)).toBe(false);
         expect(creatureGenericCombatMotionEnabledForUnit("Satyr", 2)).toBe(false);

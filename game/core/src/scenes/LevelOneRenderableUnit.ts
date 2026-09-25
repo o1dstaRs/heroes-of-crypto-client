@@ -97,6 +97,7 @@ import {
 } from "./BattlefieldCreatureContourFilter";
 import { getBattlefieldAlphaHoleFillFilter, shouldFillBattlefieldAlphaHoles } from "./BattlefieldAlphaHoleFillFilter";
 import {
+    BATTLEFIELD_CREATURE_FRAMING,
     BATTLEFIELD_CREATURE_FRAMING_CHANGE_EVENT,
     isBattlefieldCreatureEditorActive,
     publishBattlefieldCreatureVisualBounds,
@@ -1096,14 +1097,27 @@ export function creatureOneShotAnimationEnabledForUnit(unitName: string, stateNa
     );
 }
 
-/** All creatures use authored sprite motion without additional whole-sprite overlays. */
-export function creatureGenericWholeSpriteMotionEnabledForLevel(_unitLevel: number): boolean {
-    return false;
+/**
+ * Levels 1 and 2 are authored sprite packages and never take the generic whole-sprite overlay.
+ * Levels 3 and 4 keep it, so a creature with no package of its own still sways, recoils and dodges.
+ * An approved package is excluded separately, even at those levels — see
+ * {@link creatureGenericCombatMotionEnabledForUnit}.
+ */
+export function creatureGenericWholeSpriteMotionEnabledForLevel(unitLevel: number): boolean {
+    return unitLevel !== 1 && unitLevel !== 2;
 }
 
+/** Approved packages already contain the motion. Layering the generic overlay on top fights the art. */
 export function creatureGenericCombatMotionEnabledForUnit(unitName: string, unitLevel: number): boolean {
-    return creatureGenericWholeSpriteMotionEnabledForLevel(unitLevel) && unitName !== PEASANT_UNIT_NAME;
+    return creatureGenericWholeSpriteMotionEnabledForLevel(unitLevel) && !usesApprovedBaseAnimations(unitName);
 }
+
+/**
+ * The generic landing grow changes a figure's size. Skip it for an approved package and for any
+ * creature whose battlefield scale was fitted by hand (Efreet, Black Dragon, and the rest of that table).
+ */
+const genericLandingGrowEnabled = (unitName: string, unitLevel: number): boolean =>
+    creatureGenericCombatMotionEnabledForUnit(unitName, unitLevel) && !(unitName in BATTLEFIELD_CREATURE_FRAMING);
 // Battlefield units expose their compact team/count ribbon. Stack power remains mechanical state and no
 // longer allocates a separate pip rail.
 const SHOW_BOARD_STACK_DECORATIONS = true;
@@ -3192,7 +3206,7 @@ export class RenderableUnit extends Unit {
         const commonIdleBreathScales =
             COMMON_IDLE_BREATH_SETTINGS.enabled &&
             props.name !== BLACKSMITH_UNIT_NAME &&
-            creatureGenericWholeSpriteMotionEnabledForLevel(props.level) &&
+            creatureGenericCombatMotionEnabledForUnit(props.name, props.level) &&
             !this.walkAnim &&
             !this.oneShotAnim
                 ? commonIdleBreathScalesForElapsed(
@@ -3221,7 +3235,7 @@ export class RenderableUnit extends Unit {
         // The Mage's authored idle already contains local breathing; keep its canvas scale fixed.
         const idleBreathScales =
             COMMON_IDLE_BREATH_SETTINGS.enabled &&
-            creatureGenericWholeSpriteMotionEnabledForLevel(props.level) &&
+            creatureGenericCombatMotionEnabledForUnit(props.name, props.level) &&
             props.name !== WANDERING_MAGE_UNIT_NAME
                 ? usesThiefSilhouette
                     ? (idleThiefBreathScales ?? commonIdleBreathScales)
@@ -3992,9 +4006,9 @@ export class RenderableUnit extends Unit {
         this.depthSortBoundsAreCurrent = false;
         const walkAnim = this.walkAnim;
         const props = this.getUnitProperties();
-        // Level-one creatures now use only their individually authored sprite frames. Do not layer the
-        // legacy whole-cutout tilt/bounce over them, including units that do not yet have a refreshed atlas.
-        if (!creatureGenericWholeSpriteMotionEnabledForLevel(props.level)) {
+        // Level 1 and 2, and any approved package, already contain their own motion. Do not layer the
+        // legacy whole-cutout tilt/bounce over them. A higher tier with no package still sways.
+        if (!creatureGenericCombatMotionEnabledForUnit(props.name, props.level)) {
             sprite.rotation = 0;
             return;
         }
@@ -6002,7 +6016,7 @@ export class RenderableUnit extends Unit {
         if (!this.sprite || !this.shadow) return;
         const props = this.getUnitProperties();
         const unitName = props.name;
-        if (!creatureGenericWholeSpriteMotionEnabledForLevel(props.level)) {
+        if (!genericLandingGrowEnabled(unitName, props.level)) {
             this.spawnAnim = undefined;
             this.sprite.alpha = 1;
             this.shadow.scale.set(1);

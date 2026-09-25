@@ -3,8 +3,11 @@ import Box from "@mui/joy/Box";
 import Typography from "@mui/joy/Typography";
 import { keyframes } from "@emotion/react";
 
+import { TeamVals } from "@heroesofcrypto/common";
+
+import { drawnSideOf } from "../../pixi/boardMirror";
 import { personalArmyCssColor } from "../../scenes/personalArmyTint";
-import { useTranslation } from "../../i18n/i18n";
+import { t, useTranslation } from "../../i18n/i18n";
 import { fightLogClipboardText, groupFightLogEntries } from "./fightLogGrouping";
 import { fightLogMarkTeam, fightLogSegments } from "./fightLogTeamNames";
 import { hocColors, hocDisplayFontFamily } from "../hocTheme";
@@ -64,6 +67,9 @@ const formatFightLogLine = (text: string): string => text.replace(/\bto\s*\(/gi,
 /**
  * Paint the actor's name in its army's colour and drop the bead that used to carry it. The emitted line
  * and the clipboard export are untouched — see fightLogTeamNames.
+ *
+ * The name still announces the side the army is drawn on. On a mirrored board that is the other seat
+ * from the one the mark names, which is the same rule the old bead used.
  */
 const renderFightLogMarkers = (text: string): React.ReactNode =>
     fightLogSegments(text).map((segment, index) => {
@@ -73,8 +79,17 @@ const renderFightLogMarkers = (text: string): React.ReactNode =>
         // and the identity colour stands.
         const team = segment.mark ? fightLogMarkTeam(segment.mark) : undefined;
         const personal = team === undefined ? undefined : personalArmyCssColor(team);
+        const drawnSide = team === undefined ? undefined : drawnSideOf(team);
         return (
-            <span key={index} style={{ color: personal ?? segment.color, fontWeight: 700 }}>
+            <span
+                key={index}
+                style={{ color: personal ?? segment.color, fontWeight: 700 }}
+                aria-label={
+                    drawnSide === undefined
+                        ? undefined
+                        : `${segment.text}, ${drawnSide === TeamVals.LEFT ? t("Left side") : t("Right side")}`
+                }
+            >
                 {segment.text}
             </span>
         );

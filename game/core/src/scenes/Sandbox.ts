@@ -169,7 +169,7 @@ import { WindLayer } from "./sandbox/WindLayer";
 import { TerrainCellSnapshotCache } from "./sandbox/TerrainCellSnapshotCache";
 import { createCinematicFilter } from "./sandbox/CinematicFilter";
 import { LightingLayer } from "./sandbox/LightingLayer";
-import { MOVEMENT_PARTICLES_ENABLED, MoveAnimationManager } from "./sandbox/MoveAnimationManager";
+import { MoveAnimationManager, setMovementParticlesEnabled } from "./sandbox/MoveAnimationManager";
 import { CombatVisuals } from "./sandbox/CombatVisuals";
 import {
     RangedProjectiles,
@@ -1217,10 +1217,9 @@ export class Sandbox extends PixiScene {
         });
 
         // Procedural smoke for movement tracks — its own layer so the fBM shader only touches dust.
-        if (MOVEMENT_PARTICLES_ENABLED) {
-            this.smokeLayer = new SmokeLayer();
-            this.attachToWorldRoot(this.smokeLayer.getContainer(), 50);
-        }
+        // The layer stays mounted; the animation lab only stops new tracks from being fed to it.
+        this.smokeLayer = new SmokeLayer();
+        this.attachToWorldRoot(this.smokeLayer.getContainer(), 50);
         // Spell smoke (Wandering Mage). Above the movement dust but below the units, so a creature standing in
         // a cloud is still readable — the cloud is a rule about the cell, not something to hide behind.
         this.smokeCloudLayer = new SmokeCloudLayer();
@@ -1233,10 +1232,8 @@ export class Sandbox extends PixiScene {
         // one a player must never miss, but still well under the units for the same reason as the vines.
         this.fireWallLayer = new FireWallLayer();
         this.attachToWorldRoot(this.fireWallLayer.getContainer(), 53);
-        if (MOVEMENT_PARTICLES_ENABLED) {
-            this.windLayer = new WindLayer();
-            this.attachToWorldRoot(this.windLayer.getContainer(), 50);
-        }
+        this.windLayer = new WindLayer();
+        this.attachToWorldRoot(this.windLayer.getContainer(), 50);
 
         // Cinematic full-scene grade + vignette: post-process the whole game world (camera), which
         // leaves the React/DOM UI untouched and limits the blast radius if the shader misbehaves.
@@ -12947,6 +12944,7 @@ export class Sandbox extends PixiScene {
             this.creatureAnimationLabReservedCells = undefined;
         }
         this.creatureAnimationLabEnabled = enabled;
+        setMovementParticlesEnabled(!enabled);
         for (const unit of this.unitsHolder.getAllUnits().values()) {
             (unit as RenderableUnit).setCreatureAnimationLabPreviewEnabled(enabled);
         }

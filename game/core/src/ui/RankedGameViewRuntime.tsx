@@ -3429,7 +3429,11 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
         return (
             <>
                 <GameCornerSlot>
-                    <GameCornerExitButton disabled={busy} onClick={() => setConfirmExitOpen(true)} />
+                    <GameCornerExitButton
+                        disabled={busy}
+                        label={t("Exit fight")}
+                        onClick={() => setConfirmExitOpen(true)}
+                    />
                 </GameCornerSlot>
                 {confirmExitModal}
             </>
@@ -3817,17 +3821,8 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                     </Typography>
                 )}
                 {isObserver && <ObserverSetupPanel snapshot={snapshot} />}
-                {allowPlacementExit && !isObserver && !replayOnly && snapshot.phase === PlayPhase.PLACEMENT && (
-                    <Button
-                        variant="plain"
-                        size="sm"
-                        color="danger"
-                        onClick={() => setConfirmExitOpen(true)}
-                        sx={{ alignSelf: "flex-start" }}
-                    >
-                        {t("Leave match")}
-                    </Button>
-                )}
+                {/* The corner button below is the placement exit. It follows allowPlacementExit, so a
+                    co-op sandbox does not grow a second way out. */}
                 {onStopWatching && (
                     <Button
                         variant="soft"
@@ -3853,11 +3848,13 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                     </Alert>
                 )}
 
-                {/* Setup carries the same corner exit as combat — the confirmation dialog below was
-                    already mounted here with nothing able to open it. */}
-                {!isObserver && (
+                {allowPlacementExit && !isObserver && !replayOnly && snapshot.phase === PlayPhase.PLACEMENT && (
                     <GameCornerSlot>
-                        <GameCornerExitButton disabled={busy} onClick={() => setConfirmExitOpen(true)} />
+                        <GameCornerExitButton
+                            disabled={busy}
+                            label={t("Leave match")}
+                            onClick={() => setConfirmExitOpen(true)}
+                        />
                     </GameCornerSlot>
                 )}
                 {confirmExitModal}
