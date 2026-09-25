@@ -1560,6 +1560,8 @@ export class RankedPlayScene extends Sandbox {
         // doesn't write unflagged lines that flash in and then get wiped by the journal rebuild.
         this.sc_sceneLog.setSuppressed(!!transport);
         this.updateUnitsOverlayVisibility();
+        // The transport is what makes this a fight this client PLAYS; the replay page runs without one.
+        this.applyPersonalView();
     }
     protected override updateUnitsOverlayVisibility(): void {
         const started = FightStateManager.getInstance().getFightProperties().hasFightStarted();
@@ -1891,6 +1893,27 @@ export class RankedPlayScene extends Sandbox {
             }
         }
     }
+    /**
+     * A player may tint their OWN army and pick which side of the board they see it on (settings menu).
+     * Both are armed only for a live authoritative fight this client is PLAYING, one it holds an action
+     * transport for. Everything else keeps the true team colours and sides: the results REPLAY, the replay
+     * page (which runs without a transport even though its snapshots name the viewer's seat), observers,
+     * and sandboxes, where the two armies are often the same person's. Team identity is untouched either way.
+     */
+    private applyPersonalView(): void {
+        const personalSeat = personalArmyTintSeat(this.viewerTeam, this.sandboxCoop);
+        const personalView =
+            !!this.sc_gameActionTransport && !this.replayViewingActive && !this.fullReplayPlaybackActive;
+        setPersonalArmyTint(personalSeat, personalView);
+        setBoardMirror(
+            this,
+            shouldMirrorBoard({
+                viewerTeam: personalSeat,
+                preference: readBoardSidePreference(),
+                live: personalView,
+            }),
+        );
+    }
     private applyRankedSnapshotMetadata(snapshot: AuthoritativeGameSnapshot): void {
         // This affects reachability without changing the board, so restore it before the board-signature
         // early return. Otherwise the ranked AI keeps planning with base initiative after no-progress laps.
@@ -1909,23 +1932,7 @@ export class RankedPlayScene extends Sandbox {
         if (this.sandboxCoop || wasSandboxCoop) {
             this.updateUnitsOverlayVisibility();
         }
-        // A player may tint their OWN army (settings menu). Armed only here, for a live authoritative
-        // fight this client is playing: replays, observers and sandboxes keep the true team colours, so a
-        // recorded match — or a practice board whose two armies are the same person's — is always watched
-        // green against red. Team identity is untouched either way.
-        const personalSeat = personalArmyTintSeat(this.viewerTeam, this.sandboxCoop);
-        const personalView = !this.replayViewingActive && !this.fullReplayPlaybackActive;
-        setPersonalArmyTint(personalSeat, personalView);
-        // The same player may also want to see their army on a side of their own choosing (settings menu).
-        // The same gates apply, so a replay, an observer and a sandbox always show the true sides.
-        setBoardMirror(
-            this,
-            shouldMirrorBoard({
-                viewerTeam: personalSeat,
-                preference: readBoardSidePreference(),
-                live: personalView,
-            }),
-        );
+        this.applyPersonalView();
         this.setLocalModelTeamOverride(
             snapshot.localModelTeam === undefined ? undefined : (snapshot.localModelTeam as TeamType),
         );
