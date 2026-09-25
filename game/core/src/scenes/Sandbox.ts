@@ -7602,9 +7602,12 @@ export class Sandbox extends PixiScene {
                     .getFightProperties()
                     .getNumberOfLapsTillNarrowing(),
                 numberOfLapsTillStopNarrowing: HoCConstants.NUMBER_OF_LAPS_TILL_STOP_NARROWING,
-                canRequestAdditionalTime: !!FightStateManager.getInstance()
-                    .getFightProperties()
-                    .requestAdditionalTurnTime(undefined, true),
+                canRequestAdditionalTime:
+                    prevTeamTypeTurn !== undefined &&
+                    fightProps.hasFightStarted() &&
+                    !fightFinished &&
+                    this.canOfferAdditionalTimeForTeam(prevTeamTypeTurn) &&
+                    this.additionalTimeOnOffer(prevTeamTypeTurn),
                 upNext: prevUpNext,
                 lapsNarrowed: FightStateManager.getInstance().getFightProperties().getLapsNarrowed(),
                 // Preserve accumulated fight stats (the ALT-view casualties / "damage dealt")
@@ -7648,6 +7651,14 @@ export class Sandbox extends PixiScene {
      */
     protected canOfferAdditionalTimeForTeam(_team: TeamType): boolean {
         return true;
+    }
+    /**
+     * Whether a request for additional time by `team` would be granted right now. The local sandbox owns its
+     * fight, so it asks its own FightProperties; RankedPlayScene answers from the server's snapshot, because
+     * its local copy never learns that the team already asked this lap.
+     */
+    protected additionalTimeOnOffer(team: TeamType): boolean {
+        return !!FightStateManager.getInstance().getFightProperties().requestAdditionalTurnTime(team, true);
     }
     private clearBoardSelection(_notifyUnitDeselected: boolean = true): void {
         // stop board selection animation if any
@@ -17613,7 +17624,7 @@ export class Sandbox extends PixiScene {
             this.sc_visibleState.canRequestAdditionalTime =
                 fightProps.hasFightStarted() &&
                 this.canOfferAdditionalTimeForTeam(nextUnit.getTeam()) &&
-                !!fightProps.requestAdditionalTurnTime(nextUnit.getTeam(), true);
+                this.additionalTimeOnOffer(nextUnit.getTeam());
             this.sc_visibleStateUpdateNeeded = true;
         }
 

@@ -267,6 +267,17 @@ describe("play protobuf decoder", () => {
         expect(older.transientCellsCount).toBeUndefined();
     });
 
+    test("decodes the additional time on offer from its 1-based field 74, refused as 0 and absent as undefined", () => {
+        const offered = decodePlaySnapshot(new Uint8Array([...stringField(1, "game-1"), ...intField(74, 12_001)]));
+        expect(offered.additionalTimeMs).toBe(12_000);
+
+        const refused = decodePlaySnapshot(new Uint8Array([...stringField(1, "game-1"), ...intField(74, 1)]));
+        expect(refused.additionalTimeMs).toBe(0);
+
+        const older = decodePlaySnapshot(new Uint8Array([...stringField(1, "game-1")]));
+        expect(older.additionalTimeMs).toBeUndefined();
+    });
+
     test("scattered fields absent (older server / classic game) stay undefined", () => {
         const decoded = decodePlaySnapshot(new Uint8Array([...stringField(1, "game-1")]));
 

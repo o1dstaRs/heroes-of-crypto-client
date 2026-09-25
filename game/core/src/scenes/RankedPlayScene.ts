@@ -1537,6 +1537,8 @@ export class RankedPlayScene extends Sandbox {
     private rankedPlacementSecondsMax = 0;
     private rankedTurnStartLocalMs = 0;
     private rankedTurnEndLocalMs = 0;
+    /** The server's "additional time on offer" for the team whose turn it is; undefined from an older server. */
+    private rankedAdditionalTime?: { team: TeamType; ms: number };
     // Raw server tuple used by AIController retry guards. Do not use rankedTurnStartLocalMs: its clock-offset
     // conversion can jitter between snapshots, while the authoritative start is stable for one activation.
     private rankedTurnActivationKey = "";
@@ -3009,6 +3011,35 @@ export class RankedPlayScene extends Sandbox {
     private applyRankedTimer(snapshot: AuthoritativeGameSnapshot): void {
         this.applyRankedPlacementTimer(snapshot);
         this.applyRankedTurnTimer(snapshot);
+        this.applyRankedAdditionalTime(snapshot);
+    }
+    /**
+     * "Use additional time" is offered from the server's answer, not the local FightProperties: those never
+     * learn that the team already asked this lap, so the button came back on its next unit and the request
+     * was refused (additional_time_not_available). Every snapshot re-states it, including the one right
+     * after an accepted request.
+     */
+    private applyRankedAdditionalTime(snapshot: AuthoritativeGameSnapshot): void {
+        if (snapshot.additionalTimeMs === undefined) {
+            this.rankedAdditionalTime = undefined;
+            return;
+        }
+        const team = snapshot.currentTurnTeam as TeamType;
+        this.rankedAdditionalTime = { team, ms: snapshot.additionalTimeMs };
+        if (this.sc_visibleState) {
+            this.sc_visibleState.canRequestAdditionalTime =
+                snapshot.fightStarted &&
+                !snapshot.fightFinished &&
+                this.canOfferAdditionalTimeForTeam(team) &&
+                snapshot.additionalTimeMs > 0;
+            this.sc_visibleStateUpdateNeeded = true;
+        }
+    }
+    protected override additionalTimeOnOffer(team: TeamType): boolean {
+        if (!this.rankedAdditionalTime) {
+            return super.additionalTimeOnOffer(team);
+        }
+        return this.rankedAdditionalTime.team === team && this.rankedAdditionalTime.ms > 0;
     }
     private applyRankedPlacementTimer(snapshot: AuthoritativeGameSnapshot): void {
         if (
