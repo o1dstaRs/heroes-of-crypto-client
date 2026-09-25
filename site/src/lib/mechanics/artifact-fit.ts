@@ -59,11 +59,13 @@ const FITS: Record<string, Fit> = {
             ? `Против оглушения и паралича — ${abilityCarriers(["Stun", "Paralysis"], language)} — и физических ударов по площади и по линии: ${list(carriers(SPLASH_ABILITIES), language)}${skewerNote(language)}; вражеский Giant's Maul с ним даёт лишь ×${maulAgainstAmulet(language)}. Ваших юнитов с Mechanism он защищает сильнее всех (их ×1,5 от ударов по площади становится ×1,25). Против ментальных эффектов и магии не помогает.`
             : `Best against stuns and paralysis — ${abilityCarriers(["Stun", "Paralysis"], language)} — and physical area and line attacks: ${list(carriers(SPLASH_ABILITIES), language)}${skewerNote(language)}; an enemy Giant's Maul nets only ×${maulAgainstAmulet(language)} against it. It shields your own Mechanism units most (their ×1.5 from splash becomes ×1.25). Nothing against Mind effects or magic.`,
     "Swift Boots": (language, n) => {
-        const walkers = draftable().filter((unit) => unit.movementType !== "FLY" && unit.attackType === "MELEE");
+        const walkers = draftable().filter(
+            (unit) => unit.movementType !== "FLY" && (unit.attackType === "MELEE" || unit.attackType === "MELEE_MAGIC"),
+        );
         const chargers = walkers.filter((unit) => hasAbility(unit, ["Rapid Charge"])).map((unit) => unit.name);
         return language === "ru"
-            ? `Даёт +${n(A.SWIFT_BOOTS_STEPS)}% шагов только нелетающим юнитам с обычным ближним боем: ${list(walkers.map((unit) => unit.name), language)}. Лучше всего с Rapid Charge (${list(chargers, language)}), где каждая лишняя клетка — это лишний урон.`
-            : `+${n(A.SWIFT_BOOTS_STEPS)}% steps for non-flying plain-melee units only: ${list(walkers.map((unit) => unit.name), language)}. Best with Rapid Charge (${list(chargers, language)}), where every extra cell is extra damage.`;
+            ? `Даёт +${n(A.SWIFT_BOOTS_STEPS)}% шагов только нелетающим юнитам ближнего боя, включая ближний бой с магией: ${list(walkers.map((unit) => unit.name), language)}. Лучше всего с Rapid Charge (${list(chargers, language)}), где каждая лишняя клетка — это лишний урон.`
+            : `+${n(A.SWIFT_BOOTS_STEPS)}% steps for non-flying melee units only, melee/magic ones included: ${list(walkers.map((unit) => unit.name), language)}. Best with Rapid Charge (${list(chargers, language)}), where every extra cell is extra damage.`;
     },
     "Winged Boots": (language, n) => {
         const flyers = draftable().filter((unit) => unit.movementType === "FLY").map((unit) => unit.name);
@@ -73,8 +75,8 @@ const FITS: Record<string, Fit> = {
     },
     "Dual Strike Charm": (language) =>
         language === "ru"
-            ? `Работает только с Double Punch и Double Shot: ${list(carriers(["Double Punch", "Double Shot"]), language)}. Без них ничего не даёт.`
-            : `Only does something with Double Punch or Double Shot: ${list(carriers(["Double Punch", "Double Shot"]), language)}. Nothing without them.`,
+            ? `Работает только со вторыми атаками — Double Punch, Double Shot и Double Throw: ${list(carriers(["Double Punch", "Double Shot", "Double Throw"]), language)} (и с тем, что выкует Craft). Без них ничего не даёт.`
+            : `Only does something with a second attack — Double Punch, Double Shot or Double Throw: ${list(carriers(["Double Punch", "Double Shot", "Double Throw"]), language)} (and whatever Craft forges). Nothing without them.`,
     "Wounding Charm": (language, n) => {
         const owners = carriers(["Deep Wounds Level 1"]);
         const higher = carriers(["Deep Wounds Level 2", "Deep Wounds Level 3"]);
@@ -134,8 +136,8 @@ const FITS: Record<string, Fit> = {
             .filter((unit) => spellsOf(unit).some((spell) => TOME_BUFF_SPELLS.includes(spell)) || hasAbility(unit, ["Battle Roar"]))
             .map((unit) => unit.name);
         return language === "ru"
-            ? `Для заклинателей баффов: ${list(casters, language)}. С Wind Flow он сильнее замедляет ваших же летающих (−6).`
-            : `Buff casters: ${list(casters, language)}. With Wind Flow it slows your own flyers harder (−6).`;
+            ? `Для заклинателей баффов: ${list(casters, language)}. Wind Flow с ним даёт вашим летающим +6 к броне при прежних −4 к движению.`
+            : `Buff casters: ${list(casters, language)}. With it Wind Flow gives your own flyers +6 armor for the same −4 movement.`;
     },
     "Rime Charm": (language) =>
         language === "ru"

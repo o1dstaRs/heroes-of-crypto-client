@@ -92,9 +92,9 @@ export const ABILITY_NOTES_A_L: Readonly<Record<string, NoteSpec>> = {
     },
     "Bitter Experience": {
         en: () =>
-            "Whenever a single hit kills at least one Peasant and the stack survives, the stack permanently gains +1 base armor and +1 movement — once per hit, however many Peasants it killed. A hit that kills nobody gives nothing (the game card says every hit counts; the engine counts only killing hits).",
+            "Whenever a single hit kills at least one Peasant and the stack survives, the stack permanently gains +1 base armor and +1 movement — once per hit, however many Peasants it killed. A hit that kills nobody gives nothing.",
         ru: () =>
-            "Каждый раз, когда одно попадание убивает хотя бы одного Peasant, а стек выживает, стек навсегда получает +1 к базовой броне и +1 к движению — один раз за попадание, сколько бы Peasant ни погибло. Попадание без убитых ничего не даёт (карточка в игре говорит о каждом попадании, а движок считает только убивающие).",
+            "Каждый раз, когда одно попадание убивает хотя бы одного Peasant, а стек выживает, стек навсегда получает +1 к базовой броне и +1 к движению — один раз за попадание, сколько бы Peasant ни погибло. Попадание без убитых ничего не даёт.",
     },
     "Blacksmith Tools": {
         en: () =>
@@ -162,9 +162,9 @@ export const ABILITY_NOTES_A_L: Readonly<Record<string, NoteSpec>> = {
     },
     Chakram: {
         en: ({ p, n }) =>
-            `The disc can hit one enemy per point of stack power (5 at full stack), the chosen target included, each for (${n(p)}% + luck) × stack power / 5 of a normal hit. From each enemy it hits it turns clockwise from its direction of flight to the first enemy one or two empty cells away — touching units and blocked gaps don't count: across a one-cell gap it keeps full damage, across a two-cell gap it deals half and the flight ends. A dodge ends it too; every enemy is hit at most once, allies never, and an Angel with Arrows Wingshield Blessing stops it. Counter-throws bounce as well. (The game card says "nearest"; the engine turns clockwise.)`,
+            `The disc can hit one enemy per point of stack power (5 at full stack), the chosen target included, each for (${n(p)}% + luck) × stack power / 5 of a normal hit. From each enemy it hits it turns clockwise from its direction of flight to the first enemy one or two empty cells away — touching units and blocked gaps don't count: across a one-cell gap it keeps full damage, across a two-cell gap it deals half and the flight ends. A dodge ends it too; every enemy is hit at most once, allies never, and an Angel with Arrows Wingshield Blessing stops it. Counter-throws bounce as well.`,
         ru: ({ p, n }) =>
-            `Диск может поразить одного врага за каждую единицу силы стека (5 при полной силе), включая выбранную цель, каждого на (${n(p)}% + удача) × сила стека / 5 обычного удара. От каждого поражённого врага он поворачивает по часовой стрелке от направления полёта к первому врагу через одну или две пустые клетки — вплотную стоящие юниты и перекрытые промежутки не считаются: через одну клетку урон остаётся полным, через две — половина, и полёт заканчивается. Уклонение тоже заканчивает полёт; каждого врага диск задевает не больше раза, союзников — никогда, а Angel с Arrows Wingshield Blessing его останавливает. Ответные броски тоже отскакивают. (Карточка в игре говорит «ближайшим», а движок поворачивает по часовой стрелке.)`,
+            `Диск может поразить одного врага за каждую единицу силы стека (5 при полной силе), включая выбранную цель, каждого на (${n(p)}% + удача) × сила стека / 5 обычного удара. От каждого поражённого врага он поворачивает по часовой стрелке от направления полёта к первому врагу через одну или две пустые клетки — вплотную стоящие юниты и перекрытые промежутки не считаются: через одну клетку урон остаётся полным, через две — половина, и полёт заканчивается. Уклонение тоже заканчивает полёт; каждого врага диск задевает не больше раза, союзников — никогда, а Angel с Arrows Wingshield Blessing его останавливает. Ответные броски тоже отскакивают.`,
     },
     Crusade: {
         en: () =>
@@ -174,15 +174,15 @@ export const ABILITY_NOTES_A_L: Readonly<Record<string, NoteSpec>> = {
     },
     "Crafted Double Punch": {
         en: ({ p, n }) =>
-            `Permanent (forged by Craft). After the target's retaliation the unit strikes again for ${n(p / 5)}% per stack power (${n(p)}% at full stack, shifted by luck), with its own dodge roll and on-hit effects. Dual Strike Charm does not boost it.`,
+            `Permanent (forged by Craft). After the target's retaliation the unit strikes again for ${n(p / 5)}% per stack power (${n(p)}% at full stack, shifted by luck), with its own dodge roll and on-hit effects. Dual Strike Charm makes the second strike +${dualStrike}%.`,
         ru: ({ p, n }) =>
-            `Навсегда (выковано Craft). После ответа цели юнит бьёт ещё раз на ${n(p / 5)}% за единицу силы стека (${n(p)}% при полной силе, с поправкой на удачу), со своим броском уклонения и эффектами удара. Dual Strike Charm его не усиливает.`,
+            `Навсегда (выковано Craft). После ответа цели юнит бьёт ещё раз на ${n(p / 5)}% за единицу силы стека (${n(p)}% при полной силе, с поправкой на удачу), со своим броском уклонения и эффектами удара. Dual Strike Charm делает второй удар на ${dualStrike}% сильнее.`,
     },
     "Crafted Double Shot": {
         en: ({ p, n }) =>
-            `Permanent (forged by Craft). On its own shots (not its counter-shots), after the target's counter-shot if there is one, the unit fires a second arrow for ${n(p / 5)}% per stack power (${n(p)}% at full stack, shifted by luck), spending another arrow, with its own dodge roll; if the first arrow killed the stack it hit, the second flies on to the next enemy before the stack you aimed at — none if that was the aimed stack. On a Cyclops or Zena the second shot is a whole second blast or disc throw.`,
+            `Permanent (forged by Craft). On its own shots (not its counter-shots), after the target's counter-shot if there is one, the unit fires a second arrow for ${n(p / 5)}% per stack power (${n(p)}% at full stack, shifted by luck), spending another arrow, with its own dodge roll; if the first arrow killed the stack it hit, the second flies on to the next enemy before the stack you aimed at — none if that was the aimed stack. On a Cyclops or Zena the second shot is a whole second blast or disc throw. Dual Strike Charm makes the second shot +${dualStrike}%.`,
         ru: ({ p, n }) =>
-            `Навсегда (выковано Craft). В собственных выстрелах (не в ответных), после ответного выстрела цели, если он был, юнит стреляет второй раз на ${n(p / 5)}% за единицу силы стека (${n(p)}% при полной силе, с поправкой на удачу), тратя ещё одну стрелу, со своим броском уклонения; если первая стрела убила стек, в который попала, вторая летит в следующего врага перед выбранной целью — или никуда, если убита сама цель. У Cyclops или Zena второй выстрел — это целый второй залп или бросок диска.`,
+            `Навсегда (выковано Craft). В собственных выстрелах (не в ответных), после ответного выстрела цели, если он был, юнит стреляет второй раз на ${n(p / 5)}% за единицу силы стека (${n(p)}% при полной силе, с поправкой на удачу), тратя ещё одну стрелу, со своим броском уклонения; если первая стрела убила стек, в который попала, вторая летит в следующего врага перед выбранной целью — или никуда, если убита сама цель. У Cyclops или Zena второй выстрел — это целый второй залп или бросок диска. Dual Strike Charm делает второй выстрел на ${dualStrike}% сильнее.`,
     },
     "Crafted Frozen Bow": craftedFrozen,
     "Crafted Frozen Sword": craftedFrozen,
@@ -195,9 +195,9 @@ export const ABILITY_NOTES_A_L: Readonly<Record<string, NoteSpec>> = {
     },
     "Devour Essence": {
         en: ({ p, n }) =>
-            `When the Hydra's attack or retaliation (Lightning Spin included) destroys a whole enemy stack, its front Hydra is topped up to ${n(p / 5)}% of one Hydra's max health per stack power (full health at stack power 5, shifted by luck) — nothing if it is already above that. Dead Hydras stay dead.`,
+            `When the Hydra's attack or retaliation (Lightning Spin included) destroys a whole enemy stack — one that will raise itself (an Angel with its Resurrection charge) doesn't count, as with Infest — its front Hydra is topped up to ${n(p / 5)}% of one Hydra's max health per stack power (full health at stack power 5, shifted by luck) — nothing if it is already above that. Dead Hydras stay dead.`,
         ru: ({ p, n }) =>
-            `Когда атака или ответ Hydra (включая Lightning Spin) уничтожает вражеский стек целиком, передняя Hydra восстанавливается до ${n(p / 5)}% максимального здоровья одной Hydra за единицу силы стека (до полного при силе 5, с поправкой на удачу) — ничего, если здоровья уже больше. Погибшие Hydra не возвращаются.`,
+            `Когда атака или ответ Hydra (включая Lightning Spin) уничтожает вражеский стек целиком — стек, который поднимется сам (Angel с зарядом Resurrection), не считается, как и у Infest, — передняя Hydra восстанавливается до ${n(p / 5)}% максимального здоровья одной Hydra за единицу силы стека (до полного при силе 5, с поправкой на удачу) — ничего, если здоровья уже больше. Погибшие Hydra не возвращаются.`,
     },
     "Disguise Aura": {
         en: () =>
@@ -225,9 +225,9 @@ export const ABILITY_NOTES_A_L: Readonly<Record<string, NoteSpec>> = {
     },
     "Double Throw": {
         en: ({ p }) =>
-            `After the first boulder (and the target's counter-shot, if any) a second full Area Throw lands on the same stack: (${p} + luck)% of a normal hit, not scaled by stack power, with fresh dodge rolls. It isn't thrown if the first boulder killed the stack it was aimed at, and if that stack dodges it, the whole second boulder is lost. Each boulder costs a shot. Dual Strike Charm never boosts the second boulder.`,
+            `After the first boulder (and the target's counter-shot, if any) a second full Area Throw lands on the same stack: (${p} + luck)% of a normal hit, not scaled by stack power, with fresh dodge rolls. It isn't thrown if the first boulder killed the stack it was aimed at, and if that stack dodges it, the whole second boulder is lost. Each boulder costs a shot. Dual Strike Charm makes the second boulder +${dualStrike}%, splash included.`,
         ru: ({ p }) =>
-            `После первого валуна (и ответного выстрела цели, если он был) второй полный Area Throw падает на тот же стек: (${p} + удача)% обычного удара, без масштаба силой стека, с новыми бросками уклонения. Его нет, если первый валун убил выбранный стек, а если этот стек уклонился, пропадает весь второй валун. Каждый валун тратит выстрел. Dual Strike Charm второй валун не усиливает.`,
+            `После первого валуна (и ответного выстрела цели, если он был) второй полный Area Throw падает на тот же стек: (${p} + удача)% обычного удара, без масштаба силой стека, с новыми бросками уклонения. Его нет, если первый валун убил выбранный стек, а если этот стек уклонился, пропадает весь второй валун. Каждый валун тратит выстрел. Dual Strike Charm делает второй валун на ${dualStrike}% сильнее, включая удар по площади.`,
     },
     "Dulling Defense": {
         en: ({ p }) =>
@@ -243,9 +243,9 @@ export const ABILITY_NOTES_A_L: Readonly<Record<string, NoteSpec>> = {
     },
     "Enchanted Skin": {
         en: () =>
-            "100% magic resistance: immune to every spell from either side — buffs, heals and mass spells skip it too, though a Blacksmith's Craft still reaches it — and to magic damage (Chain Lightning, Fire Breath, Fire Shield, Fireforged burns). It does not stop on-hit effects (Stun, Blindness, Paralysis, Petrifying Gaze, Break, Rime Charm's slow), auras or blessings, and the stack can still be resurrected.",
+            "100% magic resistance: immune to every spell from either side — buffs, heals and mass spells skip it too, though a Blacksmith's Craft still reaches it — to magic damage (Chain Lightning, Fire Breath, Fire Shield, Fireforged burns, Fire Wall) and to Rime Charm's slow. It does not stop on-hit effects (Stun, Blindness, Paralysis, Petrifying Gaze, Break), auras or blessings, and the stack can still be resurrected.",
         ru: () =>
-            "100% сопротивления магии: иммунитет ко всем заклинаниям обеих сторон — баффы, лечение и массовые заклинания его тоже пропускают, но Craft у Blacksmith до него дотягивается — и к магическому урону (Chain Lightning, Fire Breath, Fire Shield, поджоги Fireforged). Не защищает от эффектов ударов (Stun, Blindness, Paralysis, Petrifying Gaze, Break, замедление Rime Charm), аур и благословений, а стек по-прежнему можно воскресить.",
+            "100% сопротивления магии: иммунитет ко всем заклинаниям обеих сторон — баффы, лечение и массовые заклинания его тоже пропускают, но Craft у Blacksmith до него дотягивается — к магическому урону (Chain Lightning, Fire Breath, Fire Shield, поджоги Fireforged, Fire Wall) и к замедлению Rime Charm. Не защищает от эффектов ударов (Stun, Blindness, Paralysis, Petrifying Gaze, Break), аур и благословений, а стек по-прежнему можно воскресить.",
     },
     Enchants: {
         en: () =>
@@ -277,9 +277,9 @@ export const ABILITY_NOTES_A_L: Readonly<Record<string, NoteSpec>> = {
     },
     "Flesh Shield Aura": {
         en: ({ p, n }) =>
-            `Allies within 2 cells (not the Abomination itself) have ${n(p / 5)}% per stack power (${n(p)}% at full stack, shifted by luck) of each physical hit moved onto the Abomination, re-priced against its armor and capped at the Abomination's remaining health — the rest stays on the ally, and absorbing can finish the Abomination off. Spells and magic damage are never absorbed, and only weapon hits are moved — attacks, retaliations, shots, splash, Lightning Spin and Skewer Strike hits; Armageddon, poison and Fire Wall burns land on the ally itself. Petrifying Gaze is priced from the full hit before the aura takes its share, so its extra kills and petrify roll still land on the ally.`,
+            `Allies within 2 cells (not the Abomination itself) have ${n(p / 5)}% per stack power (${n(p)}% at full stack, shifted by luck) of each physical hit moved onto the Abomination, re-priced against its armor and capped at the Abomination's remaining health — the rest stays on the ally, and absorbing can finish the Abomination off. Spells and magic damage are never absorbed, and only weapon hits are moved — attacks, retaliations, shots, splash, Lightning Spin and Skewer Strike hits; Armageddon, poison and Fire Wall burns land on the ally itself. Petrifying Gaze is priced from the full hit before the aura takes its share, so its extra kills and petrify roll still land on the ally. A hit the ally's own Water Shield will absorb isn't shared at all, and the share the Abomination takes never rolls Break on it.`,
         ru: ({ p, n }) =>
-            `У союзников в радиусе 2 клеток (кроме самой Abomination) ${n(p / 5)}% за единицу силы стека (${n(p)}% при полной силе, с поправкой на удачу) каждого физического удара переносится на Abomination, пересчитывается под её броню и ограничивается её оставшимся здоровьем — остаток остаётся на союзнике, а поглощение может добить саму Abomination. Заклинания и магический урон не поглощаются никогда, а переносятся только удары оружием — атаки, ответы, выстрелы, удары по площади, Lightning Spin и Skewer Strike; Армагеддон, яд и ожоги Fire Wall союзник получает сам. Petrifying Gaze считается от полного удара до того, как аура заберёт свою долю, поэтому добивания и окаменение достаются союзнику целиком.`,
+            `У союзников в радиусе 2 клеток (кроме самой Abomination) ${n(p / 5)}% за единицу силы стека (${n(p)}% при полной силе, с поправкой на удачу) каждого физического удара переносится на Abomination, пересчитывается под её броню и ограничивается её оставшимся здоровьем — остаток остаётся на союзнике, а поглощение может добить саму Abomination. Заклинания и магический урон не поглощаются никогда, а переносятся только удары оружием — атаки, ответы, выстрелы, удары по площади, Lightning Spin и Skewer Strike; Армагеддон, яд и ожоги Fire Wall союзник получает сам. Petrifying Gaze считается от полного удара до того, как аура заберёт свою долю, поэтому добивания и окаменение достаются союзнику целиком. Удар, который поглотит Water Shield самого союзника, не делится вовсе, а доля, принятая Abomination, никогда не накладывает на неё Break.`,
     },
     "Forest Spellbook": {
         en: () => "Spell book: Courage ×3, Helping Hand ×1 (stack power 4+) and Summon Wolves ×2.",
@@ -303,9 +303,9 @@ export const ABILITY_NOTES_A_L: Readonly<Record<string, NoteSpec>> = {
     },
     "Heavy Armor": {
         en: ({ p, n }) =>
-            `+${n(p / 5)}% base armor per stack power (+${n(p)}% at full stack, shifted by luck). The same percentage is added to the damage it takes from Chain Lightning, Fire Breath and Fire Shield only; damage spells hit it normally.`,
+            `+${n(p / 5)}% base armor per stack power (+${n(p)}% at full stack, shifted by luck). The same percentage is added to all magic damage it takes — damage spells, Fire Wall, Fireforged burns, Chain Lightning, Fire Breath and Fire Shield.`,
         ru: ({ p, n }) =>
-            `+${n(p / 5)}% к базовой броне за единицу силы стека (+${n(p)}% при полной силе, с поправкой на удачу). Тот же процент добавляется к урону, который он получает только от Chain Lightning, Fire Breath и Fire Shield; заклинания бьют его как обычно.`,
+            `+${n(p / 5)}% к базовой броне за единицу силы стека (+${n(p)}% при полной силе, с поправкой на удачу). Тот же процент добавляется ко всему магическому урону, который он получает, — от заклинаний урона, Fire Wall, поджогов Fireforged, Chain Lightning, Fire Breath и Fire Shield.`,
     },
     "In Its Own World": {
         en: () =>
@@ -331,9 +331,9 @@ export const ABILITY_NOTES_A_L: Readonly<Record<string, NoteSpec>> = {
     },
     "Lightning Spin": {
         en: () =>
-            "Every attack and retaliation strikes all enemies touching the Hydra, each with its own dodge roll, and the Hydra's attacks can't be answered.",
+            "Every attack and retaliation strikes all enemies touching the Hydra — except a Manticore whose Terrifying Gaze has frightened it — each with its own dodge roll, and the Hydra's attacks can't be answered.",
         ru: () =>
-            "Каждая атака и каждый ответ бьют всех врагов, стоящих вплотную к Hydra, каждого со своим броском уклонения, а на атаки Hydra нельзя ответить.",
+            "Каждая атака и каждый ответ бьют всех врагов, стоящих вплотную к Hydra, — кроме Manticore, чей Terrifying Gaze её напугал, — каждого со своим броском уклонения, а на атаки Hydra нельзя ответить.",
     },
     "Limited Supply": {
         en: () =>

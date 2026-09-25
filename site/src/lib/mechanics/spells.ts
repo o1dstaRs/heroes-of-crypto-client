@@ -117,9 +117,9 @@ const SPELL_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     "Fire Wall": {
         en: ({ p, n }) =>
-            `Lights up to 4 free cells in a straight line anywhere on the board until the third lap change after the cast. Every creature entering a burning cell — friend or foe — pays 1 extra step and loses ${n(p)}% of its stack's total max health (all living creatures, at least 1), raised by the caster's magic-damage bonuses at cast time; armor and magic resistance don't reduce it. Fire Elements are immune, Water Elements take ×1.5, and a Water Shield absorbs one burn. Standing still in the fire is safe, but being pushed in by narrowing burns.`,
+            `Lights up to 4 free cells in a straight line anywhere on the board until the third lap change after the cast. Every creature entering a burning cell — friend or foe — pays 1 extra step and loses ${n(p)}% of its stack's total max health (all living creatures, at least 1), raised by the caster's magic-damage bonuses at cast time. Armor doesn't reduce it; magic resistance does (100% blocks it), and Heavy Armor raises it. Fire Elements are immune, Water Elements take ×1.5, and a Water Shield absorbs one burn. Standing still in the fire is safe, but being pushed in by narrowing burns.`,
         ru: ({ p, n }) =>
-            `Поджигает до 4 свободных клеток по прямой в любом месте поля до третьей смены круга после применения. Каждое существо, входящее в горящую клетку, — своё или чужое — тратит 1 лишний шаг и теряет ${n(p)}% суммарного максимального здоровья своего стека (всех живых существ, минимум 1), с повышением от бонусов заклинателя к магическому урону на момент применения; броня и сопротивление магии его не снижают. Fire Element неуязвим, Water Element получает ×1,5, а Water Shield поглощает одно горение. Стоять в огне безопасно, но выталкивание в него сужением обжигает.`,
+            `Поджигает до 4 свободных клеток по прямой в любом месте поля до третьей смены круга после применения. Каждое существо, входящее в горящую клетку, — своё или чужое — тратит 1 лишний шаг и теряет ${n(p)}% суммарного максимального здоровья своего стека (всех живых существ, минимум 1), с повышением от бонусов заклинателя к магическому урону на момент применения. Броня его не снижает, а сопротивление магии снижает (100% блокирует), Heavy Armor повышает. Fire Element неуязвим, Water Element получает ×1,5, а Water Shield поглощает одно горение. Стоять в огне безопасно, но выталкивание в него сужением обжигает.`,
     },
     "Magic Mirror": {
         en: ({ p, n }) =>
@@ -159,9 +159,9 @@ const SPELL_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     Quagmire: {
         en: ({ p, n }) =>
-            `−${n(p)}% movement for 3 laps, which also shrinks movement bonuses such as Chaos's Movement synergy. Applied by the Beholder's Spit Ball (magic resistance can resist it) and by the Rime Charm artifact (no resist roll). It multiplies with Hamstrung: ×0.75 × 0.7 = ×0.525 movement (−47.5%).`,
+            `−${n(p)}% movement for 3 laps, which also shrinks movement bonuses such as Chaos's Movement synergy. Applied by the Beholder's Spit Ball (magic resistance can resist it) and by the Rime Charm artifact (no resist roll, though 100% magic resistance blocks it). It multiplies with Hamstrung: ×0.75 × 0.7 = ×0.525 movement (−47.5%).`,
         ru: ({ p, n }) =>
-            `−${n(p)}% движения на 3 круга; процент урезает и бонусы к движению, например синергию Хаоса «Передвижение». Накладывается Spit Ball у Beholder (сопротивление магии может защитить) и артефактом Rime Charm (без броска сопротивления). С Hamstrung замедления перемножаются: ×0,75 × 0,7 = ×0,525 движения (−47,5%).`,
+            `−${n(p)}% движения на 3 круга; процент урезает и бонусы к движению, например синергию Хаоса «Передвижение». Накладывается Spit Ball у Beholder (сопротивление магии может защитить) и артефактом Rime Charm (без броска сопротивления, но 100% сопротивления магии его блокирует). С Hamstrung замедления перемножаются: ×0,75 × 0,7 = ×0,525 движения (−47,5%).`,
     },
     "Weakening Beam": {
         en: ({ p, n }) => `−${n(p)}% base armor for 3 laps; applied by the Beholder's Spit Ball.`,

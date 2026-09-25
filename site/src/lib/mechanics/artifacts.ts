@@ -30,9 +30,9 @@ const ARTIFACT_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     "Swift Boots": {
         en: ({ n }) =>
-            `Only non-flying units whose attack is plain melee get +${n(A.SWIFT_BOOTS_STEPS)}% of their steps — not flyers, shooters, casters (Healer, Satyr) or melee/magic units such as the Battle Mage, Troll, Ogre Mage or Behemoth.`,
+            `Only non-flying units that fight in melee get +${n(A.SWIFT_BOOTS_STEPS)}% of their steps — plain melee walkers and melee/magic walkers such as the Battle Mage, Troll, Ogre Mage or Behemoth; not flyers, shooters or casters (Healer, Satyr).`,
         ru: ({ n }) =>
-            `Только нелетающие юниты с обычной ближней атакой получают +${n(A.SWIFT_BOOTS_STEPS)}% своих шагов — не летающие, не стрелки, не маги (Healer, Satyr) и не юниты ближнего боя с магией вроде Battle Mage, Troll, Ogre Mage или Behemoth.`,
+            `Только нелетающие юниты, сражающиеся в ближнем бою, получают +${n(A.SWIFT_BOOTS_STEPS)}% своих шагов — обычные бойцы ближнего боя и юниты ближнего боя с магией вроде Battle Mage, Troll, Ogre Mage или Behemoth; не летающие, не стрелки и не маги (Healer, Satyr).`,
     },
     "Winged Boots": {
         en: ({ n }) =>
@@ -42,9 +42,9 @@ const ARTIFACT_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     "Dual Strike Charm": {
         en: ({ n }) =>
-            `The second strike of Double Punch (Berserker, Crusader, Wolf) and the second arrow of Double Shot (Elf) deal +${n(A.DUAL_STRIKE_SECOND_ATTACK_PERCENT)}%. It does nothing for the Gargantuan's second boulder or a Craft-forged Double Punch, and nothing at all for an army without those abilities.`,
+            `Every second attack deals +${n(A.DUAL_STRIKE_SECOND_ATTACK_PERCENT)}%: the second strike of Double Punch (Berserker, Crusader, Wolf) or of a Craft-forged Double Punch, the second arrow of Double Shot (Elf) or of a Craft-forged Double Shot, and the Gargantuan's second boulder (Double Throw), its splash included. It does nothing for an army without those abilities.`,
         ru: ({ n }) =>
-            `Второй удар Double Punch (Berserker, Crusader, Wolf) и вторая стрела Double Shot (Elf) наносят на ${n(A.DUAL_STRIKE_SECOND_ATTACK_PERCENT)}% больше. Второму валуну Gargantuan и выкованному Craft Double Punch не помогает, а армии без этих способностей не даёт ничего.`,
+            `Каждая вторая атака наносит на ${n(A.DUAL_STRIKE_SECOND_ATTACK_PERCENT)}% больше: второй удар Double Punch (Berserker, Crusader, Wolf) или выкованного Craft Double Punch, вторая стрела Double Shot (Elf) или выкованного Craft Double Shot и второй валун Gargantuan (Double Throw) вместе с ударом по площади. Армии без этих способностей не даёт ничего.`,
     },
     "Wounding Charm": {
         en: () =>
@@ -124,15 +124,15 @@ const ARTIFACT_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     "Tome of Amplification": {
         en: ({ n }) =>
-            `A buff your units cast on your own army — the caster included — works at ${n(100 + A.TOME_BUFF_POWER_PERCENT)}% of its number, mass casts included: Riot 30 → 45%, Mass Riot 25 → 37.5%, Spiritual Armor 30 → 45%, Magic Mirror 40 → 60%, Mass Magic Mirror 32 → 48%, Empower 25 → 37.5%, Fireforged Sword 20 → 30%, Helping Hand 30 → 45%, Battle Roar +1 → +1.5 movement per Behemoth. Wind Flow counts too, and its one number drives both halves: your own flyers get +6 armor but −6 movement (enemy flyers keep ±4), so cast it once they are in position. Heal and Resurrection are excluded, and buffs without a number (Blessing, Courage, runes) are unchanged.`,
+            `A buff your units cast on your own army — the caster included — works at ${n(100 + A.TOME_BUFF_POWER_PERCENT)}% of its number, mass casts included: Riot 30 → 45%, Mass Riot 25 → 37.5%, Spiritual Armor 30 → 45%, Magic Mirror 40 → 60%, Mass Magic Mirror 32 → 48%, Empower 25 → 37.5%, Fireforged Sword 20 → 30%, Helping Hand 30 → 45%, Battle Roar +1 → +1.5 movement per Behemoth. Wind Flow counts too, but only its armor: your own flyers get +6 armor (enemy flyers +4) and every flyer still loses 4 movement. Heal and Resurrection are excluded, and buffs without a number (Blessing, Courage, runes) are unchanged.`,
         ru: ({ n }) =>
-            `Бафф, который ваши юниты накладывают на свою армию — включая заклинателя, — действует на ${n(100 + A.TOME_BUFF_POWER_PERCENT)}% своего числа, включая массовые: Riot 30 → 45%, Mass Riot 25 → 37,5%, Spiritual Armor 30 → 45%, Magic Mirror 40 → 60%, Mass Magic Mirror 32 → 48%, Empower 25 → 37,5%, Fireforged Sword 20 → 30%, Helping Hand 30 → 45%, Battle Roar +1 → +1,5 к движению за каждого Behemoth. Wind Flow тоже усиливается, а одно его число задаёт обе половины: ваши летающие получают +6 к броне, но −6 к движению (вражеские — ±4), так что применяйте его, когда они уже на месте. Heal и Resurrection не усиливаются, а баффы без числа (Blessing, Courage, руны) не меняются.`,
+            `Бафф, который ваши юниты накладывают на свою армию — включая заклинателя, — действует на ${n(100 + A.TOME_BUFF_POWER_PERCENT)}% своего числа, включая массовые: Riot 30 → 45%, Mass Riot 25 → 37,5%, Spiritual Armor 30 → 45%, Magic Mirror 40 → 60%, Mass Magic Mirror 32 → 48%, Empower 25 → 37,5%, Fireforged Sword 20 → 30%, Helping Hand 30 → 45%, Battle Roar +1 → +1,5 к движению за каждого Behemoth. Wind Flow тоже усиливается, но только броня: ваши летающие получают +6 к броне (вражеские — +4), а движения каждый летающий по-прежнему теряет 4. Heal и Resurrection не усиливаются, а баффы без числа (Blessing, Courage, руны) не меняются.`,
     },
     "Rime Charm": {
         en: ({ n }) =>
-            `Every hit your units land — retaliations and each unit struck by splash or a piercing shot included, but not the second punch or arrow of Double Punch and Double Shot — has ${n(A.RIME_PROC_PERCENT)}% to put Quagmire (−25% movement) on the target for ${n(A.RIME_SLOW_LAPS)} laps. It doesn't stack or refresh, and resistances don't reduce it — even 100% magic resistance doesn't stop it, so a Black Dragon is slowed too. With a Dryad's Hamstrung the slows multiply to ×0.525 movement.`,
+            `Every hit your units land — retaliations, second punches and arrows, and each unit struck by splash or a piercing shot included — has ${n(A.RIME_PROC_PERCENT)}% to put Quagmire (−25% movement) on the target for ${n(A.RIME_SLOW_LAPS)} laps. It doesn't stack or refresh, and resistances don't lower the chance, but 100% magic resistance blocks it like every spell debuff, so a Black Dragon (Enchanted Skin) is never slowed. With a Dryad's Hamstrung the slows multiply to ×0.525 movement.`,
         ru: ({ n }) =>
-            `Каждое попадание ваших юнитов — включая ответы и каждого, кого задел удар по площади или пробивающий выстрел, но не второй удар или вторую стрелу Double Punch и Double Shot, — с шансом ${n(A.RIME_PROC_PERCENT)}% накладывает на цель Quagmire (−25% движения) на ${n(A.RIME_SLOW_LAPS)} круга. Не складывается и не обновляется, сопротивления его не снижают — даже 100% сопротивления магии не спасают, так что Black Dragon тоже замедляется. С Hamstrung от Dryad замедления перемножаются до ×0,525 движения.`,
+            `Каждое попадание ваших юнитов — включая ответы, вторые удары и стрелы и каждого, кого задел удар по площади или пробивающий выстрел, — с шансом ${n(A.RIME_PROC_PERCENT)}% накладывает на цель Quagmire (−25% движения) на ${n(A.RIME_SLOW_LAPS)} круга. Не складывается и не обновляется, сопротивления шанс не снижают, но 100% сопротивления магии блокирует его, как любой дебафф заклинания, поэтому Black Dragon (Enchanted Skin) не замедляется никогда. С Hamstrung от Dryad замедления перемножаются до ×0,525 движения.`,
     },
     "Lava Striders": {
         en: () =>

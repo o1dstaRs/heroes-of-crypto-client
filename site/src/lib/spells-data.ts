@@ -211,6 +211,7 @@ const resolvedDescriptions: Record<string, string> = {
         "Calls a meteor shower down on a 3x3 block anywhere on the battlefield, striking every enemy in it. Deals {} damage for every creature alive in the caster's stack, ignores armor, and is cut by magic resistance.",
     "System:Dulling Defense":
         "The enemy permanently loses 2 base attack points each time it attacks the carrier in melee.",
+    "System:Miner": "Base armor permanently reduced: every hit from a unit with Miner takes some of it, never below 1.",
     "System:Armor Rune": "50% chance per cast to add +1 armor to the target. The bonus stacks.",
     "System:Weapon Rune": "50% chance per cast to add +1 attack to the target. The bonus stacks.",
     "System:Armor Augment":
@@ -239,8 +240,8 @@ const descriptionsRu: Record<string, string> = {
     "System:Arrows Wingshield Blessing":
         "Arrows Wingshield Blessing даёт +{}% к защите от дальних атак.\nДействует, пока жив союзный юнит с Arrows Wingshield Blessing.",
     // The data says "reduced by {}" with a power of 0, which printed "by 0"; the amount is whatever Miner's
-    // hits took, so the Russian names the source instead of a wrong number.
-    "System:Miner": "Базовая броня навсегда снижена: её отнимает каждый удар юнита с Miner.",
+    // hits took, so both languages name the source instead of a wrong number.
+    "System:Miner": "Базовая броня навсегда снижена: её отнимает каждый удар юнита с Miner, но не ниже 1.",
     "System:Warding Mane Blessing":
         "Warding Mane Blessing даёт {}% защиты от магии.\nДействует, пока жив союзный юнит с Warding Mane Blessing.",
     "System:Morale": "Юнит достигает максимальной морали, повышая множитель атаки до 1.25.",

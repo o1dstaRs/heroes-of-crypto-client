@@ -95,7 +95,7 @@ const abilityDescriptionOverridesEn: Record<string, string[]> = {
     "Deep Wounds Level 3": [
         "Each melee attack or response adds {}% to the target's Deep Wounds, and every attacker with a Deep Wounds ability deals that much more damage to it. The wounds stack",
     ],
-    "Heavy Armor": ["Has {}% additional base armor, while taking {}% more damage from Chain Lightning, Fire Breath and Fire Shield"],
+    "Heavy Armor": ["Has {}% additional base armor, while taking {}% more damage from magic — spells, Fire Wall, Fireforged burns, Chain Lightning, Fire Breath and Fire Shield"],
     "Magic Reflection": [
         "Rebounds every spell aimed at this creature {}% of the time. The spell still lands on the dragon in full — a rebound strikes the caster with that same share of the damage the dragon took and copies a debuff onto it",
     ],
@@ -187,7 +187,7 @@ const abilityDescriptionRuTemplates: Record<string, string[]> = {
     "Wild Regeneration": [
         "Автоматически восстанавливает здоровье до максимума в начале своего хода. Эффект можно подарить.",
     ],
-    "Heavy Armor": ["Имеет +{}% базовой брони, но получает на {}% больше урона от Chain Lightning, Fire Breath и Fire Shield."],
+    "Heavy Armor": ["Имеет +{}% базовой брони, но получает на {}% больше магического урона — от заклинаний, Fire Wall, поджогов Fireforged, Chain Lightning, Fire Breath и Fire Shield."],
     "No Melee": ["У юнита нет ближней атаки."],
     "Sharpened Weapons Aura": ["Союзники ближнего боя под эффектом получают +{}% к базовой силе атаки."],
     "Range Null Field Aura": ["Вражеские юниты под эффектом не могут использовать дальние атаки."],
@@ -351,7 +351,7 @@ function abilityDescription(name: string, language: "en" | "ru" = "en"): string 
             .replace("{}", String(Math.round((p / 8) * 5)));
     }
     // Paralysis rolls at twice its power, and the damage cut it applies is the Paralysis EFFECT's power
-    // (effects.json), not the ability's — the game's card prints the ability's 50 where the engine cuts 40.
+    // (effects.json), not the ability's — the game's card reads it the same way.
     if (name === "Paralysis") {
         const p = ability.power;
         const cut = (effectsJson as unknown as Record<string, { power?: number }>).Paralysis?.power ?? p;

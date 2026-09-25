@@ -205,7 +205,7 @@ export function unitCounterLines(unit: Unit, language: NoteLanguage): string[] {
                   ...(gated.length ? [` Часть заклинаний требует силы стека (${gated.join(", ")}): потери или разделение могут их закрыть.`] : []),
                   ...(spells.includes("Fire Wall")
                       ? [
-                            " Его Fire Wall сжигает 25% полного здоровья стека, который через неё проходит, своего или чужого, — броня и сопротивление магии этого не снижают; существа с Fire Element (Efreet, Black Dragon) проходят невредимыми, а Water Element (Mermaid) получает в полтора раза больше.",
+                            " Его Fire Wall сжигает 25% полного здоровья стека, который через неё проходит, своего или чужого, — броня этого не снижает, а сопротивление магии снижает; существа с Fire Element (Efreet, Black Dragon) проходят невредимыми, а Water Element (Mermaid) получает в полтора раза больше.",
                         ]
                       : []),
                   ...(damage ? [" Магический урон повышают апгрейд «Магия» (Empower), Mage's Ring и Archmage's Ring."] : []),
@@ -215,7 +215,7 @@ export function unitCounterLines(unit: Unit, language: NoteLanguage): string[] {
                   ...(gated.length ? [` Some spells need stack power (${gated.join(", ")}): losses or a split can lock them.`] : []),
                   ...(spells.includes("Fire Wall")
                       ? [
-                            " Its Fire Wall burns 25% of a crossing stack's full health, friend or foe — armor and magic resistance don't reduce it; Fire Elements (Efreet, Black Dragon) cross it unharmed, and a Water Element (Mermaid) takes half again as much.",
+                            " Its Fire Wall burns 25% of a crossing stack's full health, friend or foe — armor doesn't reduce it, magic resistance does; Fire Elements (Efreet, Black Dragon) cross it unharmed, and a Water Element (Mermaid) takes half again as much.",
                         ]
                       : []),
                   ...(damage ? [" The Empower augment, Mage's Ring and Archmage's Ring raise its magic damage."] : []),
@@ -358,8 +358,8 @@ export function unitCounterLines(unit: Unit, language: NoteLanguage): string[] {
     if (has("Enchanted Skin")) {
         lines.push(
             isRu
-                ? "Enchanted Skin: иммунитет ко всем заклинаниям обеих сторон (Craft у Blacksmith — способность — до него всё же достаёт) и к магическому урону (Chain Lightning, Fire Breath, Fire Shield, поджоги Fireforged); физические атаки, эффекты ударов (Stun, Blindness, Paralysis, Petrifying Gaze, Break, замедление Rime Charm), ауры и благословения на него действуют."
-                : "Enchanted Skin: immune to every spell from either side (the Blacksmith's Craft, an ability, still reaches it) and to magic damage (Chain Lightning, Fire Breath, Fire Shield, Fireforged burns); physical attacks, on-hit effects (Stun, Blindness, Paralysis, Petrifying Gaze, Break, Rime Charm's slow), auras and blessings still reach it.",
+                ? "Enchanted Skin: иммунитет ко всем заклинаниям обеих сторон (Craft у Blacksmith — способность — до него всё же достаёт) к магическому урону (Chain Lightning, Fire Breath, Fire Shield, поджоги Fireforged, Fire Wall) и к замедлению Rime Charm; физические атаки, эффекты ударов (Stun, Blindness, Paralysis, Petrifying Gaze, Break), ауры и благословения на него действуют."
+                : "Enchanted Skin: immune to every spell from either side (the Blacksmith's Craft, an ability, still reaches it) to magic damage (Chain Lightning, Fire Breath, Fire Shield, Fireforged burns, Fire Wall) and to Rime Charm's slow; physical attacks, on-hit effects (Stun, Blindness, Paralysis, Petrifying Gaze, Break), auras and blessings still reach it.",
         );
     }
     for (const element of Object.keys(ELEMENT_LINES)) {
@@ -377,8 +377,8 @@ export function unitCounterLines(unit: Unit, language: NoteLanguage): string[] {
     if (has("Heavy Armor")) {
         lines.push(
             isRu
-                ? "Heavy Armor: Chain Lightning, Fire Breath и Fire Shield наносят ему до 50% больше (по его силе стека и удаче); заклинания урона бьют как обычно."
-                : "Heavy Armor: Chain Lightning, Fire Breath and Fire Shield deal it up to 50% more (by its stack power and luck); damage spells hit it normally.",
+                ? "Heavy Armor: вся магия бьёт его до 50% сильнее (по его силе стека и удаче) — заклинания урона, Fire Wall, поджоги Fireforged, Chain Lightning, Fire Breath и Fire Shield."
+                : "Heavy Armor: all magic hits it up to 50% harder (by its stack power and luck) — damage spells, Fire Wall, Fireforged burns, Chain Lightning, Fire Breath and Fire Shield.",
         );
     }
     if (has("Leather Armor")) {
