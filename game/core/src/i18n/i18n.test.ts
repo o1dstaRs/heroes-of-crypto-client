@@ -1,5 +1,7 @@
 import { describe, expect, it, afterEach } from "bun:test";
+import { GridVals } from "@heroesofcrypto/common";
 import { ARMY_COLOR_PRESETS } from "../settings/playerArmyColor";
+import { getMapDisplay } from "../ui/PickAndBan/mapDisplay";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
@@ -153,14 +155,28 @@ describe("ranked flow localization", () => {
             "Half their army, spread across every tier",
             "The whole enemy draft, live",
             "Draft blind, field the strongest army",
-            "Standard",
+            "Normal",
             "FIRE PIT",
-            "Cemetery",
+            "Barrels",
             "Water",
+            "Open stone field — no central hazard.",
+            "A lava pool scars the center of the board.",
+            "Destructible barrels obstruct routes across the board.",
+            "A pool of water splits the center of the board.",
             "Armageddon next lap",
             "Map narrows next lap",
         ];
         expect(dynamicKeys.filter((key) => !(key in RU_TRANSLATIONS))).toEqual([]);
+    });
+
+    it("has Russian for every map name and blurb the map reveal shows", () => {
+        // The reveal reads these off getMapDisplay at runtime, so a renamed map (Standard -> Normal,
+        // Cemetery -> Barrels) left the Russian behind without the literal scan noticing.
+        const missing = [GridVals.NORMAL, GridVals.LAVA_CENTER, GridVals.BLOCK_CENTER, GridVals.WATER_CENTER]
+            .map((mapType) => getMapDisplay(mapType))
+            .flatMap((display) => (display ? [display.name, display.blurb] : ["<no display>"]))
+            .filter((key) => !(key in RU_TRANSLATIONS));
+        expect(missing).toEqual([]);
     });
 
     it("covers the league and wealth names the server renders into a standing", () => {
