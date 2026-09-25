@@ -8688,6 +8688,12 @@ export class Sandbox extends PixiScene {
             targetCell: targetUnit.getBaseCell(),
         };
         if (this.shouldDeferActionToAuthoritativeReplay(action)) {
+            // A local cast is refused by the engine and keeps the spell armed with a reason; a ranked one
+            // used to go out regardless and come back spell_not_available (a Troll gifting Wild
+            // Regeneration to itself or to a level-4 ally). The server runs this same rule, so ask first.
+            if (!this.canArmedSpellTarget(targetUnit)) {
+                return false;
+            }
             return this.submitActionForAuthoritativeReplay(action);
         }
         const unitSnapshot = this.snapshotRenderableUnits();
