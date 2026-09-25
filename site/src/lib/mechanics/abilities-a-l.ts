@@ -243,9 +243,9 @@ export const ABILITY_NOTES_A_L: Readonly<Record<string, NoteSpec>> = {
     },
     "Enchanted Skin": {
         en: () =>
-            "100% magic resistance: immune to every spell from either side — buffs, heals and mass spells skip it too, though a Blacksmith's Craft still reaches it — to magic damage (Chain Lightning, Fire Breath, Fire Shield, Fireforged burns, Fire Wall) and to Rime Charm's slow. It does not stop on-hit effects (Stun, Blindness, Paralysis, Petrifying Gaze, Break), auras or blessings, and the stack can still be resurrected.",
+            "100% magic resistance: immune to every spell from either side — buffs, heals and mass spells skip it too, though a Blacksmith's Craft still reaches it — to magic damage (Chain Lightning, Fire Breath, Fire Shield, Fireforged burns, Fire Wall) and to Rime Charm's slow. It does not stop on-hit effects (Stun, Blindness, Paralysis, Petrifying Gaze, Break), auras or blessings, and the stack can still be resurrected. Break takes it away for 2 laps, leaving only the unit's own magic resistance.",
         ru: () =>
-            "100% сопротивления магии: иммунитет ко всем заклинаниям обеих сторон — баффы, лечение и массовые заклинания его тоже пропускают, но Craft у Blacksmith до него дотягивается — к магическому урону (Chain Lightning, Fire Breath, Fire Shield, поджоги Fireforged, Fire Wall) и к замедлению Rime Charm. Не защищает от эффектов ударов (Stun, Blindness, Paralysis, Petrifying Gaze, Break), аур и благословений, а стек по-прежнему можно воскресить.",
+            "100% сопротивления магии: иммунитет ко всем заклинаниям обеих сторон — баффы, лечение и массовые заклинания его тоже пропускают, но Craft у Blacksmith до него дотягивается — к магическому урону (Chain Lightning, Fire Breath, Fire Shield, поджоги Fireforged, Fire Wall) и к замедлению Rime Charm. Не защищает от эффектов ударов (Stun, Blindness, Paralysis, Petrifying Gaze, Break), аур и благословений, а стек по-прежнему можно воскресить. Break отключает её на 2 круга — остаётся лишь собственное сопротивление магии юнита.",
     },
     Enchants: {
         en: () =>
@@ -331,9 +331,9 @@ export const ABILITY_NOTES_A_L: Readonly<Record<string, NoteSpec>> = {
     },
     "Lightning Spin": {
         en: () =>
-            "Every attack and retaliation strikes all enemies touching the Hydra — except a Manticore whose Terrifying Gaze has frightened it — each with its own dodge roll, and the Hydra's attacks can't be answered.",
+            "Every attack and retaliation strikes all enemies touching the Hydra — except a Manticore whose Terrifying Gaze has frightened it — each with its own dodge roll, and the Hydra's attacks can't be answered while it isn't Broken.",
         ru: () =>
-            "Каждая атака и каждый ответ бьют всех врагов, стоящих вплотную к Hydra, — кроме Manticore, чей Terrifying Gaze её напугал, — каждого со своим броском уклонения, а на атаки Hydra нельзя ответить.",
+            "Каждая атака и каждый ответ бьют всех врагов, стоящих вплотную к Hydra, — кроме Manticore, чей Terrifying Gaze её напугал, — каждого со своим броском уклонения, а на атаки Hydra нельзя ответить, пока она не под Break.",
     },
     "Limited Supply": {
         en: () =>

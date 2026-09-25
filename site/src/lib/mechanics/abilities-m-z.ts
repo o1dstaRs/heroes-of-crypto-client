@@ -120,8 +120,8 @@ export const ABILITY_NOTES_M_Z: Readonly<Record<string, NoteSpec>> = {
             "Один раз за бой — что случится раньше. (1) Когда стек Angel уничтожен в бою, Fire Wall или первой волной Армагеддона, половина павших Angel (с округлением вниз, минимум 1) возвращается с полным здоровьем и без эффектов — но не под Break и не после гибели от яда, сужения или поздних волн Армагеддона. (2) Применённая к любому союзному стеку с потерями, включая себя, она восстанавливает здоровье в 1,5× суммарного максимального здоровья стека Angel (×1,25 при Morale, ×0,8 при Dismorale): сначала раненое существо, потом погибшие, не больше, чем погибло. Применение отменяет самовоскрешение. Вернувшийся стек не считается уничтоженным, поэтому вражеский Infest ничего с него не получает.",
     },
     "Shadow Touch": {
-        en: () => "Its attacks are never answered: the target can't retaliate.",
-        ru: () => "На его атаки никогда не отвечают: цель не может нанести ответный удар.",
+        en: () => "Its attacks are never answered: the target can't retaliate — unless it is Broken, which switches this off for 2 laps.",
+        ru: () => "На его атаки никогда не отвечают: цель не может нанести ответный удар — если только он не под Break, который отключает это на 2 круга.",
     },
     "Sharpened Weapons Aura": {
         en: ({ p, n }) =>
@@ -223,15 +223,15 @@ export const ABILITY_NOTES_M_Z: Readonly<Record<string, NoteSpec>> = {
     },
     "Vine Throw": {
         en: ({ p, n }) =>
-            `Once per fight, at Trent stack power 3+: throws a vine at any enemy that no other creature screens — no range limit, terrain doesn't block — unless it has 100% magic resistance or is already snared. Every cell along the throw is vined for 3 laps (not the Trent's own cell, the mountain or holes), and any non-flying creature from either side — except the Trent itself — pays 1 extra step to enter a vined cell. The struck enemy loses ${n(p)} movement (never below 1) for 3 laps unless its magic resistance saves it; an enemy that ends an ordinary move on the vine gets the same snare with no save. The vine never snares the Trent's own side.`,
+            `Once per fight, at Trent stack power 3+: throws a vine at any enemy that no other creature screens — no range limit, terrain doesn't block — unless it has 100% magic resistance or is already snared. Every cell along the throw is vined for 3 laps (not the Trent's own cell, the mountain or holes), and any non-flying creature from either side — except the Trent itself — pays 1 extra step to enter a vined cell. The struck enemy loses ${n(p)} movement (never below 1) for 3 laps unless its magic resistance saves it; an enemy that ends a move on the vine — walking in to strike included — gets the same snare with no save. The vine never snares the Trent's own side.`,
         ru: ({ p, n }) =>
-            `Раз за бой при силе стека Trent 3+: бросает лозу в любого врага, которого не заслоняет другое существо, — без ограничения дальности, местность не мешает, — если у него нет 100% сопротивления магии и он ещё не опутан. Каждая клетка на пути броска покрывается лозой на 3 круга (кроме клетки самого Trent, горы и провалов), и любое нелетающее существо любой стороны — кроме самого Trent — тратит 1 лишний шаг на вход в клетку с лозой. Поражённый враг теряет ${n(p)} движения (не ниже 1) на 3 круга, если сопротивление магии его не спасёт; враг, закончивший обычное перемещение на лозе, опутывается так же, без спасброска. Сторону Trent лоза не опутывает никогда.`,
+            `Раз за бой при силе стека Trent 3+: бросает лозу в любого врага, которого не заслоняет другое существо, — без ограничения дальности, местность не мешает, — если у него нет 100% сопротивления магии и он ещё не опутан. Каждая клетка на пути броска покрывается лозой на 3 круга (кроме клетки самого Trent, горы и провалов), и любое нелетающее существо любой стороны — кроме самого Trent — тратит 1 лишний шаг на вход в клетку с лозой. Поражённый враг теряет ${n(p)} движения (не ниже 1) на 3 круга, если сопротивление магии его не спасёт; враг, закончивший перемещение на лозе, — в том числе подходя для удара, — опутывается так же, без спасброска. Сторону Trent лоза не опутывает никогда.`,
     },
     "War Anger Aura": {
         en: ({ p, n }) =>
-            `For each enemy stack within 2 cells of the cell the Valkyrie strikes from, she gets +${n(p / 5)}% of her base attack per stack power (+${n(p)}% at full stack; ±1% per point of luck). Her retaliations keep the count from before the attacker moved, so an enemy that walks in from farther away isn't counted for the answer.`,
+            `For each enemy stack within 2 cells of the cell the Valkyrie strikes from, she gets +${n(p / 5)}% of her base attack per stack power (+${n(p)}% at full stack; ±1% per point of luck). Her retaliations keep the count from before the attacker moved, so an enemy that walks in from farther away isn't counted for the answer. Off while Broken.`,
         ru: ({ p, n }) =>
-            `За каждый вражеский стек в радиусе 2 клеток от клетки, с которой Valkyrie бьёт, она получает +${n(p / 5)}% базовой атаки за единицу силы стека (+${n(p)}% при полной силе; ±1% за очко удачи). В ответах она сохраняет счёт, сделанный до того, как атакующий подошёл, поэтому враг, пришедший издалека, в ответе не считается.`,
+            `За каждый вражеский стек в радиусе 2 клеток от клетки, с которой Valkyrie бьёт, она получает +${n(p / 5)}% базовой атаки за единицу силы стека (+${n(p)}% при полной силе; ±1% за очко удачи). В ответах она сохраняет счёт, сделанный до того, как атакующий подошёл, поэтому враг, пришедший издалека, в ответе не считается. Под Break не работает.`,
     },
     Wardguard: {
         en: ({ p, n }) =>
@@ -253,9 +253,9 @@ export const ABILITY_NOTES_M_Z: Readonly<Record<string, NoteSpec>> = {
     },
     "Water Shield": {
         en: () =>
-            "Once per battle, the first damage the Mermaid takes from any source — attack, retaliation, spell, splash, poison tick, Fire Wall, even an Armageddon wave — is reduced to 0 and the shield breaks; that hit's on-hit effects (stun, poison, petrify…) are cancelled too. Damage from Fire Element creatures ignores the shield without breaking it. It never comes back.",
+            "Once per battle, the first damage the Mermaid takes from any source — attack, retaliation, spell, splash, poison tick, Fire Wall, even an Armageddon wave — is reduced to 0 and the shield breaks; that hit's on-hit effects (stun, poison, petrify…) are cancelled too. Damage from Fire Element creatures ignores the shield without breaking it. While the Mermaid is Broken the shield neither absorbs nor breaks; it works again once Break wears off. Once broken it never comes back.",
         ru: () =>
-            "Один раз за бой первый урон, который Mermaid получает из любого источника — атака, ответ, заклинание, удар по площади, тик яда, Fire Wall, даже волна Армагеддона, — становится 0, и щит разрушается; эффекты этого удара (оглушение, яд, окаменение…) тоже отменяются. Урон от существ с Fire Element проходит сквозь щит, не разрушая его. Щит не восстанавливается.",
+            "Один раз за бой первый урон, который Mermaid получает из любого источника — атака, ответ, заклинание, удар по площади, тик яда, Fire Wall, даже волна Армагеддона, — становится 0, и щит разрушается; эффекты этого удара (оглушение, яд, окаменение…) тоже отменяются. Урон от существ с Fire Element проходит сквозь щит, не разрушая его. Пока Mermaid под Break, щит не поглощает урон и не разрушается — он снова работает, когда Break закончится. Разрушенный щит не восстанавливается.",
     },
     "Web Aura": {
         en: ({ p }) =>

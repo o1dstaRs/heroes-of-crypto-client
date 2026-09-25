@@ -160,8 +160,8 @@ export function unitCounterLines(unit: Unit, language: NoteLanguage): string[] {
     if (neverAnswered.length) {
         lines.push(
             isRu
-                ? `На атаки с ${neverAnswered.join(" и ")} не отвечают: он обменивается ударами без ответного урона.`
-                : `Its ${neverAnswered.join(" and ")} attacks are never answered, so it trades blows without taking retaliation.`,
+                ? `На атаки с ${neverAnswered.join(" и ")} не отвечают: он обменивается ударами без ответного урона; Break снимает это на 2 круга.`
+                : `Its ${neverAnswered.join(" and ")} attacks are never answered, so it trades blows without taking retaliation; Break lifts that for 2 laps.`,
         );
     }
     if (has("No Melee")) {
@@ -358,8 +358,8 @@ export function unitCounterLines(unit: Unit, language: NoteLanguage): string[] {
     if (has("Enchanted Skin")) {
         lines.push(
             isRu
-                ? "Enchanted Skin: иммунитет ко всем заклинаниям обеих сторон (Craft у Blacksmith — способность — до него всё же достаёт) к магическому урону (Chain Lightning, Fire Breath, Fire Shield, поджоги Fireforged, Fire Wall) и к замедлению Rime Charm; физические атаки, эффекты ударов (Stun, Blindness, Paralysis, Petrifying Gaze, Break), ауры и благословения на него действуют."
-                : "Enchanted Skin: immune to every spell from either side (the Blacksmith's Craft, an ability, still reaches it) to magic damage (Chain Lightning, Fire Breath, Fire Shield, Fireforged burns, Fire Wall) and to Rime Charm's slow; physical attacks, on-hit effects (Stun, Blindness, Paralysis, Petrifying Gaze, Break), auras and blessings still reach it.",
+                ? "Enchanted Skin: иммунитет ко всем заклинаниям обеих сторон (Craft у Blacksmith — способность — до него всё же достаёт) к магическому урону (Chain Lightning, Fire Breath, Fire Shield, поджоги Fireforged, Fire Wall) и к замедлению Rime Charm; физические атаки, эффекты ударов (Stun, Blindness, Paralysis, Petrifying Gaze, Break), ауры и благословения на него действуют, а Break снимает иммунитет на 2 круга."
+                : "Enchanted Skin: immune to every spell from either side (the Blacksmith's Craft, an ability, still reaches it) to magic damage (Chain Lightning, Fire Breath, Fire Shield, Fireforged burns, Fire Wall) and to Rime Charm's slow; physical attacks, on-hit effects (Stun, Blindness, Paralysis, Petrifying Gaze, Break), auras and blessings still reach it, and Break takes the immunity away for 2 laps.",
         );
     }
     for (const element of Object.keys(ELEMENT_LINES)) {
