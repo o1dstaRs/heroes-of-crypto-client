@@ -6,6 +6,7 @@ import { Application, Container, TexturePool, Ticker, UPDATE_PRIORITY } from "pi
 
 import { boardFitVerticalShift } from "./boardFit";
 import { renderResolutionForViewport, renderTexturePoolBucket, shouldUseRenderAntialias } from "./renderResolution";
+import { releaseIdlePooledTextures } from "./texturePoolRelease";
 import { ensureCanvasContextUsable, recordContextAboutToBeLost } from "./webglContextGuard";
 import { MAX_FPS } from "../statics";
 
@@ -173,8 +174,9 @@ export class PixiApp {
         ) {
             // Pixi's global filter pool otherwise retains the previous full-screen buffers forever. This
             // runs between animation frames and only at a physical power-of-two boundary, avoiding churn
-            // during the many small resize events emitted while a window is dragged.
-            TexturePool.clear();
+            // during the many small resize events emitted while a window is dragged. Idle buffers only:
+            // live Text textures are still checked out and must find their bucket when handed back.
+            releaseIdlePooledTextures();
         }
         this.renderTexturePoolBucket = nextPoolBucket;
         // Sandbox installs its camera-wide cinematic pass at the renderer resolution that existed when
@@ -198,10 +200,10 @@ export class PixiApp {
         }
         this.destroyed = true;
         this.ticker?.stop();
-        // Filter render targets live in Pixi's process-wide pool, outside Application ownership. Clear
-        // the idle pool before losing this renderer so a later game mount cannot retain buffers from the
-        // previous WebGL context (including a former fullscreen bucket).
-        TexturePool.clear();
+        // Filter render targets live in Pixi's process-wide pool, outside Application ownership. Release
+        // the idle ones before losing this renderer; the buckets stay, because the texts and filters torn
+        // down below still hand their textures back, and a missing bucket makes that hand-back throw.
+        releaseIdlePooledTextures();
         // pixi's GlContextSystem.destroy() (run inside app.destroy below) unconditionally calls
         // WEBGL_lose_context.loseContext(), permanently disabling this canvas's WebGL context.
         // Record the context + restore handle FIRST, so a later PixiApp.init() against the same
@@ -235,6 +237,9 @@ export class PixiApp {
         } catch (err) {
             console.warn("Pixi app destroy skipped after partial teardown", err);
         }
+        // Everything this app handed back during teardown is idle now: drop it and the buckets, so a later
+        // game mount cannot retain buffers from this WebGL context (including a former fullscreen bucket).
+        TexturePool.clear();
     }
     public setCameraPosition(cx: number, cy: number): void {
         if (!this.app?.renderer || !this.camera) {

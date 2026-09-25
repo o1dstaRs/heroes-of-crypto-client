@@ -4,8 +4,9 @@ import { Application, Ticker, TexturePool, UPDATE_PRIORITY } from "pixi.js";
 import { PixiApp } from "./PixiApp";
 
 describe("PixiApp teardown", () => {
-    test("releases process-wide filter targets before destroying the renderer", () => {
+    test("releases idle filter targets first and empties the pool only once the renderer is gone", () => {
         const order: string[] = [];
+        const heldByText = TexturePool.getOptimalTexture(64, 64, 1, false);
         const clearPool = spyOn(TexturePool, "clear").mockImplementation(() => {
             order.push("pool");
         });
@@ -17,15 +18,20 @@ describe("PixiApp teardown", () => {
         internals.ticker = { stop: () => order.push("ticker") };
         internals.app = {
             renderer: {},
-            destroy: () => order.push("app"),
+            // Tearing a Text down hands its pooled canvas texture back; its bucket has to still be there.
+            destroy: () => {
+                TexturePool.returnTexture(heldByText);
+                order.push("app");
+            },
         };
 
         app.destroy();
         app.destroy();
 
-        expect(order).toEqual(["ticker", "pool", "app"]);
+        expect(order).toEqual(["ticker", "app", "pool"]);
         expect(clearPool).toHaveBeenCalledTimes(1);
         clearPool.mockRestore();
+        TexturePool.clear();
     });
 });
 
