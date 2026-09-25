@@ -175,8 +175,9 @@ export class PixiApp {
             // Pixi's global filter pool otherwise retains the previous full-screen buffers forever. This
             // runs between animation frames and only at a physical power-of-two boundary, avoiding churn
             // during the many small resize events emitted while a window is dragged. Idle buffers only:
-            // live Text textures are still checked out and must find their bucket when handed back.
-            releaseIdlePooledTextures();
+            // live Text textures are still checked out and must find their bucket when handed back, and
+            // the filter stack must forget the ones it still points at from the last frame.
+            releaseIdlePooledTextures(this.app.renderer);
         }
         this.renderTexturePoolBucket = nextPoolBucket;
         // Sandbox installs its camera-wide cinematic pass at the renderer resolution that existed when
@@ -203,7 +204,7 @@ export class PixiApp {
         // Filter render targets live in Pixi's process-wide pool, outside Application ownership. Release
         // the idle ones before losing this renderer; the buckets stay, because the texts and filters torn
         // down below still hand their textures back, and a missing bucket makes that hand-back throw.
-        releaseIdlePooledTextures();
+        releaseIdlePooledTextures(this.app?.renderer);
         // pixi's GlContextSystem.destroy() (run inside app.destroy below) unconditionally calls
         // WEBGL_lose_context.loseContext(), permanently disabling this canvas's WebGL context.
         // Record the context + restore handle FIRST, so a later PixiApp.init() against the same
