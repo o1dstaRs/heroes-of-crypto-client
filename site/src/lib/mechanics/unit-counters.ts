@@ -344,8 +344,8 @@ export function unitCounterLines(unit: Unit, language: NoteLanguage): string[] {
     if (has("Mechanism")) {
         lines.push(
             isRu
-                ? "Mechanism: иммунитет к ментальным способностям и заклинаниям и к яду, мораль всегда 0; лечить нельзя (Resurrection работает); шанс Stun и Freeze ×1,5, Paralysis и Shatter Armor на 50% сильнее, а от физических атак по площади и по линии — на 50% больше урона (Amulet of Resolve частично это гасит). Break снимает всё это на 2 круга."
-                : "Mechanism: immune to Mind abilities and spells and to poison, morale always 0; can't be healed (Resurrection still works); Stun and Freeze land 1.5× as often, Paralysis and Shatter Armor are 50% stronger, and it takes 50% more from physical area and line attacks (Amulet of Resolve offsets part of it). Break lifts all of this for 2 laps.",
+                ? "Mechanism: иммунитет к ментальным способностям и заклинаниям и к яду, мораль всегда 0; лечить и воскрешать нельзя; шанс Stun и Freeze ×1,5, Paralysis и Shatter Armor на 50% сильнее, а от физических атак по площади и по линии — на 50% больше урона (Amulet of Resolve частично это гасит). Break снимает всё это на 2 круга."
+                : "Mechanism: immune to Mind abilities and spells and to poison, morale always 0; can't be healed or resurrected; Stun and Freeze land 1.5× as often, Paralysis and Shatter Armor are 50% stronger, and it takes 50% more from physical area and line attacks (Amulet of Resolve offsets part of it). Break lifts all of this for 2 laps.",
         );
     }
     if (has("Madness")) {

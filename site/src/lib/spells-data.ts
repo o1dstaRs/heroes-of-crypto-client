@@ -196,7 +196,7 @@ const resolvedDescriptions: Record<string, string> = {
     "System:Battle Roar":
         "All allies gain one additional movement step per creature alive in the caster's stack, and are ensured to deal maximum damage with each attack.",
     "System:Resurrection":
-        "Restores an allied stack with losses — the Angel's own included — by up to 1.5× the Angel stack's total maximum health: the wounded creature first, then fallen ones, never more than died. One use per fight, shared with the Angel's own self-resurrection.",
+        "Restores an allied stack with losses — the Angel's own included, never a Mechanism unit such as the Tsar Cannon — by up to 1.5× the Angel stack's total maximum health: the wounded creature first, then fallen ones, never more than died. One use per fight, shared with the Angel's own self-resurrection.",
     "Chaos:Fire Strike":
         "Sends a small fireball at an enemy in line of sight. Deals {} damage for every creature alive in the caster's stack, ignores armor, and is cut by magic resistance. Stack power does not change the damage — it only gates the cast.",
     "Chaos:Fireball":
@@ -258,7 +258,7 @@ const descriptionsRu: Record<string, string> = {
     "System:Castling":
         "Меняется местами с противником точно такого же размера в пределах дистанции движения заклинателя.",
     "System:Resurrection":
-        "Восстанавливает союзный стек с потерями — включая самих Angel — на величину до 1,5× суммарного максимального здоровья стека Angel: сначала раненое существо, потом павшие, не больше, чем погибло. Один раз за бой, общий заряд с самовоскрешением Angel.",
+        "Восстанавливает союзный стек с потерями — включая самих Angel, но никогда не юнита с Mechanism вроде Tsar Cannon — на величину до 1,5× суммарного максимального здоровья стека Angel: сначала раненое существо, потом павшие, не больше, чем погибло. Один раз за бой, общий заряд с самовоскрешением Angel.",
     "System:Armor Augment":
         "Повышает базовую броню всей команды в процентах и добавляет столько же очков к магической броне. Уровень 1: +6% брони и +6 магической брони. Уровень 2: +13% и +13. Уровень 3: +21% и +21.",
     "System:Might Augment": "Повышает базовую атаку всей команды. Уровень 1: +8%. Уровень 2: +17%. Уровень 3: +27%.",

@@ -100,7 +100,7 @@ const abilityDescriptionOverridesEn: Record<string, string[]> = {
         "Rebounds every spell aimed at this creature {}% of the time. The spell still lands on the dragon in full — a rebound strikes the caster with that same share of the damage the dragon took and copies a debuff onto it",
     ],
     Mechanism: [
-        "Immune to Mind attacks and spells and to poison. 50% more vulnerable to Status attacks and to physical area attacks. Cannot be healed, though it can be resurrected, and always has 0 morale",
+        "Immune to Mind attacks and spells and to poison. 50% more vulnerable to Status attacks and to physical area attacks. Cannot be healed or resurrected, and always has 0 morale",
     ],
     "Penetrating Bite": ["Melee attacks deal additional damage equal to {}% of one target creature's max health"],
     "Petrifying Gaze": [
@@ -251,7 +251,7 @@ const abilityDescriptionRuTemplates: Record<string, string[]> = {
     "Blind Fury": ["Сила атаки юнита растет пропорционально потерянным существам. Текущая сила: {}%."],
     Miner: ["Навсегда крадет {} базовой брони у врага при ударе. Базовая броня цели не опускается ниже 1."],
     Mechanism: [
-        "Неуязвим к атакам и заклинаниям Разума и к яду, но на 50% уязвимее к атакам Статуса и к физическим атакам по площади. Не может лечиться, но может быть воскрешён, и всегда имеет 0 морали.",
+        "Неуязвим к атакам и заклинаниям Разума и к яду, но на 50% уязвимее к атакам Статуса и к физическим атакам по площади. Не может лечиться и воскрешаться и всегда имеет 0 морали.",
     ],
     Aggr: ["При срабатывании с шансом {}% Aggr (Разум) заставляет врага 1 ход только отвечать на атаки."],
     "Skewer Strike": ["Ближние атаки также задевают врагов рядом с меньшими целями с {}% силы атаки."],
