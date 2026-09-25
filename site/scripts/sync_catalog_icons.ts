@@ -12,7 +12,7 @@
  * Site-only art (the home page, knowledge-base screenshots, league emblems) has no counterpart in the art
  * source and is left alone — this only touches files that exist on both sides.
  */
-import { copyFileSync, existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
 const SITE = new URL("..", import.meta.url).pathname;
@@ -65,11 +65,15 @@ for (const file of walk(IMAGE_ROOT)) {
     const sourceBytes = readFileSync(source);
     if (sourceBytes.equals(readFileSync(file))) {
         matched += 1;
+        // Art copied off Drive is mode 600. Leave it that way and the next site rsync ships a file
+        // nginx cannot read, which is a 403 on the live page rather than a missing icon.
+        if ((statSync(file).mode & 0o044) !== 0o044) chmodSync(file, 0o644);
         continue;
     }
     drifted.push(relative(IMAGE_ROOT, file));
     if (!checkOnly) {
         copyFileSync(source, file);
+        chmodSync(file, 0o644);
     }
 }
 
