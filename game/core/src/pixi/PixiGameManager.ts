@@ -30,6 +30,7 @@ import {
 } from "../scenes/VisibleState";
 import { MAX_FPS } from "../statics";
 import { boardFitPadding } from "./boardFit";
+import { resizeBoard } from "./boardResize";
 import { observeElementBox } from "./observeElementBox";
 import { FpsCalculator } from "./FpsCalculator";
 import { HotKey, hotKeyPress } from "../utils/hotkeys";
@@ -286,10 +287,13 @@ export class PixiGameManager {
                 debugCanvas.height = h;
             }
 
-            this.pixiApp!.resize(w, h);
-            this.m_scene?.Resize(w, h); // Resize scene first
-            loadingScreen?.resize(w, h); // Resize loader if active
-            this.fitViewToWindow();
+            // The camera is fitted even if the scene's resize throws; see resizeBoard.
+            resizeBoard({
+                resizeCanvas: () => this.pixiApp!.resize(w, h),
+                resizeScene: () => this.m_scene?.Resize(w, h),
+                resizeLoader: () => loadingScreen?.resize(w, h),
+                fitCamera: () => this.fitViewToWindow(),
+            });
         };
 
         this.addInitEventListener(window, "resize", onResize);
