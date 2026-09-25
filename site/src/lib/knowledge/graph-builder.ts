@@ -65,10 +65,11 @@ import { extractRuleSections } from "./rules-extractor";
 import { artifacts } from "../artifacts-data";
 import { knowledgePath, type KnowledgeCatalogSection } from "../knowledge-base";
 import { localizedFactionName } from "../localization";
+import { abilityNote, artifactFit, artifactNote, DURATION_NOTE, effectNote, MAGIC_DAMAGE_SPELLS, spellNote, unitCounterLines } from "../mechanics";
 import { patchNotes } from "../patch-notes";
 import { DEFAULT_RANKED_EXIT_RULES, ruleTokenValue, splitRuleTokens } from "../ranked-exit";
 import { rankedArenaCopy } from "../ranked-arena-copy";
-import { content, type Language } from "../site-data";
+import { content, links, localPath, type Language } from "../site-data";
 import { spells, type Spell } from "../spells-data";
 import {
     abilities,
@@ -99,6 +100,15 @@ interface RawAbilityEntry {
     effect: string | null;
     aura_effect: string | null;
 }
+
+/**
+ * English effect text where common's effects.json says something the engine does not do: Deep Wounds is not
+ * spent by "the next attack" — every Deep Wounds attacker reads the whole wound total, hit after hit.
+ */
+const EFFECT_DESCRIPTION_OVERRIDES: Record<string, string> = {
+    "Deep Wounds":
+        "Every attack by a unit with a Deep Wounds ability deals extra damage to this target: the wound total, as a percentage.",
+};
 
 /** Abilities that apply an effect through their power type rather than an `effect` field. */
 const effectByPowerType: Record<string, string> = { POISON_ON_HIT: "Poison" };
@@ -139,8 +149,8 @@ const effectDescriptionsRu: Record<string, { text: string; zeroPower?: string }>
     "Pegasus Light": { text: "Каждый юнит, атакующий цель, получает +{} морали." },
     Paralysis: { text: "Поражённый враг не может двигаться, а его урон снижен на {}%." },
     "Deep Wounds": {
-        text: "Следующая атака со способностью Deep Wounds нанесёт на {}% больше урона.",
-        zeroPower: "Следующая атака со способностью Deep Wounds нанесёт больше урона; насколько — задаёт уровень способности.",
+        text: "Каждая атака юнита со способностью Deep Wounds наносит на {}% больше урона.",
+        zeroPower: "Каждая атака юнита со способностью Deep Wounds наносит этой цели больше урона — на сумму её ран в процентах.",
     },
     Aggr: { text: "Заставляет цель отвечать только атакующему, не обращая внимания на других врагов." },
     Break: { text: "Отключает все способности юнита на два круга." },
@@ -165,6 +175,8 @@ const hrefFor = (section: KnowledgeCatalogSection, entry: string): { href: strin
 });
 
 const bullet = (lines: readonly string[]): string => lines.map((line) => `- ${line}`).join("\n");
+/** A multi-line card text as one line. */
+const oneLine = (text: string): string => text.replace(/\s*\n\s*/g, " ").trim();
 
 const joinNames = (names: string[]): string => (names.length ? names.join(", ") : "—");
 
@@ -244,6 +256,59 @@ class GraphAssembler {
     }
 }
 
+const startingAmount = (unit: Unit): number => unit.draftedAmount;
+
+/**
+ * Where a shooter still hits for full damage. Falloff bands are squares of whole cells around the shooter's
+ * body (king moves: a diagonal counts 1), one band = the shot distance rounded down, and the band's last
+ * cell is still full strength (common attack_handler.getRangeAttackDivisor).
+ */
+const rangeBands = (unit: Unit, language: Language): string => {
+    const isRu = language === "ru";
+    if (unit.abilities.some((ability) => ability.name === "Sniper")) {
+        return isRu
+            ? "Дальность: полный урон на любом расстоянии (Sniper), но выстрел сквозь Smoke — вполовину"
+            : "Range: full damage at any distance (Sniper), though a shot through Smoke is halved";
+    }
+    const band = Math.floor(unit.shotDistance);
+    // A 16×16 board: nothing is farther than 15 cells, so bands past the edge go unlisted.
+    const farthest = 15;
+    const words = isRu ? ["полный урон", "половина", "четверть", "восьмая часть"] : ["full damage", "half", "a quarter", "an eighth"];
+    const parts: string[] = [];
+    for (let step = 0; step < words.length; step += 1) {
+        const upTo = (step + 1) * band;
+        if (step === words.length - 1 || upTo >= farthest) {
+            parts.push(
+                step === 0
+                    ? isRu
+                        ? `${words[0]} по всему полю`
+                        : `${words[0]} anywhere on the board`
+                    : isRu
+                      ? `${words[step]} дальше ${step * band}`
+                      : `${words[step]} beyond ${step * band}`,
+            );
+            break;
+        }
+        parts.push(isRu ? `${words[step]} до ${upTo} клеток` : `${words[step]} up to ${upTo} cells away`);
+    }
+    return isRu
+        ? `Дальность (клетки считаются квадратом, диагональ = 1): ${parts.join(", ")}; апгрейд «Стрельба», Farsight Quiver и Guiding Winds расширяют полосы`
+        : `Range (cells counted as a square, diagonals count 1): ${parts.join(", ")}; the Sniper augment, Farsight Quiver and Guiding Winds widen the bands`;
+};
+
+/** Factions the game's Russian interface names differently from the site (game/core i18n/ru.ts). */
+const GAME_FACTION_NAMES_RU: Record<string, string> = { Might: "Мощь" };
+
+/** Starting morale and luck by faction (common configuration/config_provider.ts). */
+const FACTION_MORALE: Record<string, number> = { Life: 4, Might: 2, Nature: 1, Chaos: -1 };
+const FACTION_LUCK: Record<string, number> = { Nature: 4, Life: 1, Might: 1, Chaos: -1 };
+const signed = (value: number): string => (value > 0 ? `+${value}` : value < 0 ? `−${-value}` : "0");
+
+function countersAndHelpers(unit: Unit, language: Language): string | undefined {
+    const lines = unitCounterLines(unit, language);
+    return lines.length ? `#### ${language === "ru" ? "Контры и помощники" : "Counters and helpers"}\n${bullet(lines)}` : undefined;
+}
+
 function unitText(unit: Unit, language: Language): string {
     const isRu = language === "ru";
     const faction = localizedFactionName(language, unit.faction);
@@ -272,12 +337,21 @@ function unitText(unit: Unit, language: Language): string {
                 `Инициатива: ${unit.initiative}, шаги: ${unit.steps} (${movement})`,
                 `Размер: ${footprint}, опыт (ценность стека): ${unit.experience}`,
                 ...(unit.rangeShots > 0
-                    ? [`Выстрелы: ${unit.rangeShots}, дистанция выстрела: ${unit.shotDistance}`]
+                    ? [`Выстрелы: ${unit.rangeShots}, дистанция выстрела: ${unit.shotDistance}`, rangeBands(unit, "ru")]
                     : []),
+                ...(unit.summonedOnly
+                    ? []
+                    : [
+                          `Стартовый стек: ${startingAmount(unit)} ${pluralRu(startingAmount(unit), ["существо", "существа", "существ"])} (1000 опыта ÷ ${unit.experience}, с округлением вверх), всего ${startingAmount(unit) * unit.hp} здоровья`,
+                      ]),
+                `Начальная мораль ${signed(FACTION_MORALE[unit.faction] ?? 0)}, базовая удача ${signed(FACTION_LUCK[unit.faction] ?? 0)} (по фракции)`,
             ]),
             `Способности:\n${abilityLines.length ? bullet(abilityLines) : "- нет"}`,
             spellLines.length ? `Книга заклинаний: ${spellLines.join(", ")}` : "Заклинаний нет.",
-        ].join("\n\n");
+            countersAndHelpers(unit, "ru"),
+        ]
+            .filter(Boolean)
+            .join("\n\n");
     }
     return [
         `**${unit.name}** — ${faction}, level ${unit.level}${unit.summonedOnly ? " (summon-only, not draftable)" : ""}.`,
@@ -287,11 +361,22 @@ function unitText(unit: Unit, language: Language): string {
             `Armor: ${unit.armor}, magic resist: ${unit.magicResist}%`,
             `Initiative: ${unit.initiative}, steps: ${unit.steps} (${movement})`,
             `Size: ${footprint}, experience (stack value): ${unit.experience}`,
-            ...(unit.rangeShots > 0 ? [`Shots: ${unit.rangeShots}, shot distance: ${unit.shotDistance}`] : []),
+            ...(unit.rangeShots > 0
+                ? [`Shots: ${unit.rangeShots}, shot distance: ${unit.shotDistance}`, rangeBands(unit, "en")]
+                : []),
+            ...(unit.summonedOnly
+                ? []
+                : [
+                      `Starting stack: ${startingAmount(unit)} creature${startingAmount(unit) === 1 ? "" : "s"} (1,000 experience ÷ ${unit.experience}, rounded up), ${startingAmount(unit) * unit.hp} health in total`,
+                  ]),
+            `Starting morale ${signed(FACTION_MORALE[unit.faction] ?? 0)}, base luck ${signed(FACTION_LUCK[unit.faction] ?? 0)} (from its faction)`,
         ]),
         `Abilities:\n${abilityLines.length ? bullet(abilityLines) : "- none"}`,
         spellLines.length ? `Spell book: ${spellLines.join(", ")}` : "No spells.",
-    ].join("\n\n");
+        countersAndHelpers(unit, "en"),
+    ]
+        .filter(Boolean)
+        .join("\n\n");
 }
 
 function unitSummary(unit: Unit, language: Language): string {
@@ -312,6 +397,10 @@ const abilityKindLabel = (ability: Ability, language: Language): string => {
     return ability.kind === "aura" ? "Aura" : ability.kind === "active" ? "Active" : "Passive";
 };
 
+/** "How it works: …" — the engine-checked mechanics under a card, when one is written for it. */
+const howItWorks = (note: string | undefined, language: Language): string[] =>
+    note ? [`${language === "ru" ? "Как это работает" : "How it works"}: ${note}`] : [];
+
 function abilityText(ability: Ability, language: Language): string {
     const isRu = language === "ru";
     const carriers = ability.units.map((unit) =>
@@ -326,6 +415,7 @@ function abilityText(ability: Ability, language: Language): string {
             ability.isStackPowered ? (isRu ? " · зависит от силы стека" : " · scales with stack power") : ""
         }`,
         isRu ? ability.descriptionRu : ability.description,
+        ...howItWorks(abilityNote(ability.name, language), language),
         carriers.length
             ? `${isRu ? "Носители" : "Carried by"}: ${carriers.join(", ")}`
             : ability.grantedBy
@@ -392,9 +482,13 @@ function spellText(spell: Spell, language: Language): string {
           : isRu
             ? "Применяется игрой автоматически (состояние, местность или предмет)."
             : "Applied automatically by the game (state, terrain or item).";
-    return [`**${isRu ? ruLabel(spell.name) : spell.name}**`, isRu ? spell.descriptionRu : spell.description, bullet(facts), source].join(
-        "\n\n",
-    );
+    return [
+        `**${isRu ? ruLabel(spell.name) : spell.name}**`,
+        isRu ? spell.descriptionRu : spell.description,
+        ...howItWorks(spellNote(spell.name, language), language),
+        bullet(facts),
+        source,
+    ].join("\n\n");
 }
 
 const artifactText = (artifact: (typeof artifacts)[number], language: Language): string => {
@@ -402,15 +496,21 @@ const artifactText = (artifact: (typeof artifacts)[number], language: Language):
     return [
         `**${isRu ? ruLabel(artifact.name) : artifact.name}** — ${isRu ? "артефакт уровня" : "Tier"} ${artifact.tier}${artifact.cursed ? (isRu ? " · проклятый (есть недостаток)" : " · cursed (has a downside)") : ""}`,
         isRu ? artifact.descriptionRu : artifact.description,
+        ...howItWorks(artifactNote(artifact.name, language), language),
+        ...(artifactFit(artifact.name, language) ? [`#### ${isRu ? "С чем брать" : "Best with"}\n${artifactFit(artifact.name, language)}`] : []),
         isRu
-            ? "Артефакты выбираются во время драфта: каждая команда берёт один артефакт 1-го уровня и один 2-го. Эффект действует на всю армию до конца боя."
-            : "Artifacts are chosen during the draft: each team takes one Tier 1 and one Tier 2 artifact. The effect applies to the whole army for the entire fight.",
+            ? "Артефакты выбираются в драфте: артефакт 1-го уровня приходит с бандлом, который вы берёте, а артефакт 2-го уровня — один из трёх, предложенных после пика 3-го уровня. Оба действуют с первого круга до конца боя — на тех юнитов, которых называет их описание (у большинства это вся армия)."
+            : "Artifacts come from the draft: your Tier 1 artifact arrives with the bundle you take, and your Tier 2 artifact is one of three offered after the Level-3 pick. Both are active from the first lap to the end of the fight, for the units their text names (most name the whole army).",
     ].join("\n\n");
 };
 
 interface AugmentSpec {
     name: string;
     nameRu: string;
+    /** What the game's Russian interface calls it, when the site's name differs (i18n/ru.ts). */
+    gameNameRu?: string;
+    /** Which draftable units the bonus actually reaches, when that is not simply everyone. */
+    beneficiaries?: { en: string; ru: string };
     summary: string;
     summaryRu: string;
     levels: { level: number; cost: number; effect: string; effectRu: string }[];
@@ -419,7 +519,18 @@ interface AugmentSpec {
     keywords: string[];
 }
 
+const MAGIC_DAMAGE_ABILITIES = new Set(["Chain Lightning", "Fire Breath", "Fire Shield"]);
+
 function augmentSpecs(): AugmentSpec[] {
+    const draftable = allUnits.filter((unit) => !unit.summonedOnly);
+    const shooters = draftable.filter((unit) => unit.attackType === "RANGE").map((unit) => unit.name);
+    const magicDealers = draftable
+        .filter(
+            (unit) =>
+                unit.spells.some((entry) => MAGIC_DAMAGE_SPELLS.has(entry.replace(/^[^:]+:/, ""))) ||
+                unit.abilities.some((ability) => MAGIC_DAMAGE_ABILITIES.has(ability.name)),
+        )
+        .map((unit) => unit.name);
     const armor = [ArmorAugment.LEVEL_1, ArmorAugment.LEVEL_2, ArmorAugment.LEVEL_3].map(getArmorPower);
     const might = [MightAugment.LEVEL_1, MightAugment.LEVEL_2, MightAugment.LEVEL_3].map(getMightPower);
     const empower = [EmpowerAugment.LEVEL_1, EmpowerAugment.LEVEL_2, EmpowerAugment.LEVEL_3].map(getEmpowerPower);
@@ -434,36 +545,42 @@ function augmentSpecs(): AugmentSpec[] {
             name: "Armor Augment",
             nameRu: "Апгрейд «Броня»",
             summary:
-                "Team-wide armor bonus: a percentage of physical armor plus the same number of flat magic armor points.",
-            summaryRu: "Командный бонус к броне: процент физической брони и столько же очков магической брони.",
+                "Every unit gets a percentage of its base armor plus the same number of flat magic-resistance points.",
+            summaryRu: "Каждый юнит получает процент к базовой броне и столько же очков сопротивления магии.",
             levels: armor.map((power, index) => ({
                 level: index + 1,
                 cost: index + 1,
-                effect: `+${power}% armor and +${power} magic armor`,
-                effectRu: `+${power}% брони и +${power} магической брони`,
+                effect: `+${power}% base armor and +${power} magic resistance`,
+                effectRu: `+${power}% базовой брони и +${power} сопротивления магии`,
             })),
-            note: "Physical armor scales with the unit's own stat; magic armor gains the points outright because base magic armor is 0/5/10/15 by creature level.",
-            noteRu: "Физическая броня растёт в процентах от собственной характеристики юнита; магическая броня получает очки напрямую, потому что базовая магическая броня равна 0/5/10/15 по уровню существа.",
+            note: "Armor grows by a percentage of the unit's own base armor (before flat artifact armor); magic resistance gains the points outright, because creatures start with 0 / 5 / 8–12 / 15 by level — the flat bonus matters most to low-level creatures.",
+            noteRu: "Броня растёт на процент от собственной базовой брони юнита (до плоской брони артефактов); сопротивление магии получает очки напрямую, потому что у существ оно изначально 0 / 5 / 8–12 / 15 по уровням, — плоский бонус важнее всего для существ низкого уровня.",
             keywords: ["defense", "защита", "armour"],
         },
         {
             name: "Might Augment",
             nameRu: "Апгрейд «Сила»",
-            summary: "Team-wide melee attack bonus.",
-            summaryRu: "Командный бонус к атаке в ближнем бою.",
+            gameNameRu: "Мощь",
+            summary: "Base-attack bonus while a unit's selected attack is not a shot: every melee unit, and a shooter switched to melee on its turn.",
+            summaryRu: "Бонус к базовой атаке, пока выбранная атака юнита — не выстрел: каждому юниту ближнего боя и стрелку, переключённому в ближний бой в свой ход.",
             levels: might.map((power, index) => ({
                 level: index + 1,
                 cost: index + 1,
-                effect: `+${power}% melee attack`,
-                effectRu: `+${power}% к атаке ближнего боя`,
+                effect: `+${power}% base attack while the selected attack is not a shot`,
+                effectRu: `+${power}% к базовой атаке, пока выбранная атака — не выстрел`,
             })),
-            note: "For armies that intend to fight up close.",
-            noteRu: "Для армий, которые собираются драться вплотную.",
+            note: "For armies that intend to fight up close. The bonus follows the attack a unit has selected (set on its own turn), not the blow: a shooter on its ranged selection retaliates in melee with the Sniper augment's bonus rather than this one. It also raises what is priced from the attack, such as the Black Dragon's Fire Breath.",
+            noteRu: "Для армий, которые собираются драться вплотную. Бонус следует за выбранной атакой юнита (она выбирается в его ход), а не за ударом: стрелок с выбранной дальней атакой отвечает в ближнем бою с бонусом «Стрельбы», а не этим. Он повышает и то, что считается от атаки, например Fire Breath у Black Dragon.",
             keywords: ["melee", "attack", "ближний бой", "атака"],
         },
         {
             name: "Empower Augment",
             nameRu: "Апгрейд «Магия»",
+            gameNameRu: "Усиление",
+            beneficiaries: {
+                en: `Only magic damage gains, so it is worth points only to an army with a source of it: ${magicDealers.join(", ")}.`,
+                ru: `Растёт только магический урон, поэтому очки стоит тратить только армии с его источником: ${magicDealers.join(", ")}.`,
+            },
             summary:
                 "Team-wide magic damage bonus: offensive spells, Fire Wall, Fireforged Sword, Chain Lightning, Fire Breath and Fire Shield.",
             summaryRu:
@@ -474,28 +591,34 @@ function augmentSpecs(): AugmentSpec[] {
                 effect: `+${power}% magic damage`,
                 effectRu: `+${power}% магического урона`,
             })),
-            note: "Does not touch healing, buffs or control spells (Heal, Whirlpool, Magic Mirror). Stacks additively with Mage's Ring, Archmage's Ring and the Empower scroll.",
-            noteRu: "Не влияет на лечение, баффы и контроль (Heal, Whirlpool, Magic Mirror). Складывается аддитивно с Mage's Ring, Archmage's Ring и свитком Empower.",
+            note: "Does not touch healing, buffs or control spells (Heal, Whirlpool, Magic Mirror). Stacks additively with Mage's Ring, Archmage's Ring, the Empower scroll and Sylvan Focus: all of them form one sum.",
+            noteRu: "Не влияет на лечение, баффы и контроль (Heal, Whirlpool, Magic Mirror). Складывается аддитивно с Mage's Ring, Archmage's Ring, свитком Empower и Sylvan Focus: все они дают одну сумму.",
             keywords: ["magic", "spell damage", "магия", "магический урон"],
         },
         {
             name: "Sniper Augment",
             nameRu: "Апгрейд «Стрельба»",
-            summary: "Team-wide ranged attack and shot-range bonus.",
-            summaryRu: "Командный бонус к дальней атаке и дистанции выстрела.",
+            gameNameRu: "Снайпер",
+            beneficiaries: {
+                en: `It reaches only the shooters: ${shooters.join(", ")}.`,
+                ru: `Действует только на стрелков: ${shooters.join(", ")}.`,
+            },
+            summary: "Base-attack and shot-distance bonus for ranged units while their selected attack is the shot (the default).",
+            summaryRu: "Бонус к базовой атаке и дистанции выстрела для стрелков, пока их выбранная атака — выстрел (по умолчанию).",
             levels: sniper.map(([attack, range], index) => ({
                 level: index + 1,
                 cost: index + 1,
-                effect: `+${attack}% ranged attack and +${range}% shot distance`,
-                effectRu: `+${attack}% дальней атаки и +${range}% дистанции выстрела`,
+                effect: `+${attack}% base attack and +${range}% shot distance`,
+                effectRu: `+${attack}% к базовой атаке и +${range}% к дистанции выстрела`,
             })),
-            note: "Extends the full-damage band but does not remove range falloff.",
-            noteRu: "Расширяет зону полного урона, но не отменяет штраф за дальность.",
+            note: "The longer shot distance widens the falloff bands — it adds to Farsight Quiver's +50%, both counted from the base distance — but never removes falloff. Bands count whole cells, so a bonus only helps once it adds a full cell: a Centaur's 4 cells stay 4 at level 1 (4.8) and become 5 at level 2. Units with the Sniper ability already ignore falloff, so for them only the attack bonus counts.",
+            noteRu: "Большая дистанция расширяет полосы дальности — и складывается с +50% Farsight Quiver, оба бонуса считаются от базы, — но штраф за дальность не отменяет. Полосы считаются целыми клетками, поэтому бонус помогает, только когда добавляет полную клетку: 4 клетки Centaur на 1 уровне остаются 4 (4,8), а на 2 уровне становятся 5. Юниты со способностью Sniper и так его игнорируют, поэтому им важен только бонус к атаке.",
             keywords: ["ranged", "archer", "range", "стрелок", "дальность"],
         },
         {
             name: "Movement Augment",
             nameRu: "Апгрейд «Движение»",
+            gameNameRu: "Передвижение",
             summary: "Team-wide extra movement steps.",
             summaryRu: "Дополнительные шаги движения для всей команды.",
             levels: movement.map((power, index) => ({
@@ -527,7 +650,7 @@ function augmentSpecs(): AugmentSpec[] {
                         ? `бесплатно: ${depth} клетки вглубь, частичная зона (крайняя боковая колонка и торцы закрыты), до ${stackCaps[index]} стеков`
                         : index === 1
                           ? `${depth} клетки вглубь, полная высота (боковая кромка ещё закрыта), до ${stackCaps[index]} стеков`
-                          : `${depth} клеток вглубь вместе с боковым краем, до ${stackCaps[index]} стеков до синергии Природы «Юниты на поле»`,
+                          : `${depth} клеток вглубь вместе с боковым краем, до ${stackCaps[index]} стеков до синергии Природы «Отряды на поле»`,
             })),
             note: "Level 1 is free; level 2 costs 1 point and level 3 costs 2 points.",
             noteRu: "Уровень 1 бесплатный; уровень 2 стоит 1 очко, уровень 3 — 2 очка.",
@@ -543,44 +666,73 @@ interface SynergySpec {
     nameRu: string;
     effect: (powers: number[]) => string;
     effectRu: (powers: number[]) => string;
+    /** How the engine applies it, checked against common; the levels' numbers come from SynergyKeysToPower. */
+    detail: string;
+    detailRu: string;
     keywords: string[];
 }
+
+/**
+ * "200 Peasant → 238, …" at Life Supply level 3, grown the way the engine does at fight start. Unit names
+ * stay English in both languages; the AI search pairs them with the Russian ones when it answers.
+ */
+const supplyExamples = (): string => {
+    const percent = SynergyKeysToPower[`Life:${LifeSynergy.PLUS_SUPPLY_PERCENTAGE}:3`]?.[0] ?? 0;
+    // Level 3 is an all-Life army, so the examples are Life creatures only.
+    return ["Peasant", "Arbalester", "Healer", "Monk", "Angel"]
+        .map((name) => allUnits.find((unit) => unit.name === name))
+        .filter((unit): unit is Unit => Boolean(unit))
+        .map((unit) => {
+            const amount = Math.max(1, Math.ceil(1000 / unit.experience));
+            const grown = Math.floor(amount * (1 + percent / 100));
+            return `${amount} ${unit.name} → ${grown}`;
+        })
+        .join(", ");
+};
 
 const synergySpecs: SynergySpec[] = [
     {
         faction: "Life",
         variant: LifeSynergy.PLUS_SUPPLY_PERCENTAGE,
         name: "Life Supply Synergy",
-        nameRu: "Синергия Жизни «Снабжение»",
-        effect: ([power]) => `+${power}% bodies in each stack`,
-        effectRu: ([power]) => `+${power}% существ в каждом стеке`,
-        keywords: ["supply", "stack size", "снабжение"],
+        nameRu: "Синергия Жизни «Запас»",
+        effect: ([power]) => `every stack grows ${power}% when the fight starts`,
+        effectRu: ([power]) => `каждый стек вырастает на ${power}% в начале боя`,
+        detail: `Applied once, when the fight starts: every stack's size is multiplied and rounded down, so small stacks gain nothing — at level 1 the first extra creature needs 17 in the stack, at level 2 nine, at level 3 six — and level-4 stacks of 1–3 creatures never grow. Creatures summoned later get nothing. At level 3: ${supplyExamples()}. It is worth most to armies of big low-level stacks. Level 3 takes six different Life creatures — an all-Life army — and, when its level-3 pick is the Monk, moves stack power for everyone: its Monk stack grows past 1,250 experience (8 → 9, 1,278) and becomes the board's strongest, so while all nine live, every enemy stack worth 1,022 experience or less and your own level-4 stacks of 1–3 creatures (they don't grow) sit at stack power 4 — a fifth off their stack-powered abilities, and no Meteorite, Meteor Shower or Wind Flow, which need 5. One Monk's death (1,136) ends it. Without the Monk the biggest grown stack is a Pikeman stack at about 1,220 experience, which leaves every stack of 1,000 or more at stack power 5.`,
+        detailRu: `Применяется один раз, в начале боя: размер каждого стека умножается и округляется вниз, поэтому маленькие стеки ничего не получают — на уровне 1 первое лишнее существо появляется при 17 в стеке, на уровне 2 — при 9, на уровне 3 — при 6, — а стеки 4 уровня из 1–3 существ не растут никогда. Призванные позже существа ничего не получают. На уровне 3: ${supplyExamples()}. Больше всего она даёт армиям из больших стеков низкого уровня. 3 уровень требует шести разных существ Жизни — армии целиком из Жизни — и, если её пик 3 уровня — Monk, меняет силу стека для всех: её стек Monk вырастает больше 1250 опыта (8 → 9, 1278) и становится сильнейшим на поле, поэтому пока живы все девять, каждый вражеский стек на 1022 опыта и меньше и ваши стеки 4 уровня из 1–3 существ (они не растут) держатся на силе 4 — способности от силы стека слабее на пятую часть, а Meteorite, Meteor Shower и Wind Flow, требующие 5, недоступны. Гибель одного Monk (1136) это прекращает. Без Monk самый большой выросший стек — Pikeman, около 1220 опыта, и все стеки от 1000 опыта остаются на силе 5.`,
+        keywords: ["supply", "stack size", "снабжение", "запас"],
     },
     {
         faction: "Life",
         variant: LifeSynergy.PLUS_MORALE_AND_LUCK,
         name: "Life Morale and Luck Synergy",
         nameRu: "Синергия Жизни «Мораль и удача»",
-        effect: ([morale, luck]) => `+${morale} morale and +${luck} luck`,
-        effectRu: ([morale, luck]) => `+${morale} морали и +${luck} удачи`,
+        effect: ([morale, luck]) => `+${morale} morale and +${luck} luck for every unit`,
+        effectRu: ([morale, luck]) => `+${morale} морали и +${luck} удачи каждому юниту`,
+        detail: "Every unit of the army, whatever its faction, gets the bonus. Morale is capped at +20 and luck at +10, so part of it is wasted on stacks already near the caps (Luck Aura, Clover of Fortune); Madness and Mechanism units stay at 0 morale.",
+        detailRu: "Бонус получает каждый юнит армии любой фракции. Мораль ограничена +20, удача +10, поэтому часть бонуса пропадает у стеков, уже близких к пределам (Luck Aura, Clover of Fortune); у Madness и Mechanism мораль остаётся 0.",
         keywords: ["morale", "luck", "мораль", "удача"],
     },
     {
         faction: "Chaos",
         variant: ChaosSynergy.MOVEMENT,
         name: "Chaos Movement Synergy",
-        nameRu: "Синергия Хаоса «Движение»",
-        effect: ([power]) => `+${power} movement cell${power === 1 ? "" : "s"}`,
-        effectRu: ([power]) => `+${power} клетка(и) движения`,
-        keywords: ["movement", "steps", "движение"],
+        nameRu: "Синергия Хаоса «Передвижение»",
+        effect: ([power]) => `+${power} movement step${power === 1 ? "" : "s"} for every unit`,
+        effectRu: ([power]) => `+${power} к движению каждому юниту`,
+        detail: "Every unit of the army, whatever its faction, moves farther. Percentage slows (Quagmire, Hamstrung) shrink the bonus too.",
+        detailRu: "Каждый юнит армии любой фракции ходит дальше. Процентные замедления (Quagmire, Hamstrung) урезают и этот бонус.",
+        keywords: ["movement", "steps", "движение", "передвижение"],
     },
     {
         faction: "Chaos",
         variant: ChaosSynergy.BREAK_ON_ATTACK,
         name: "Chaos Break on Attack Synergy",
         nameRu: "Синергия Хаоса «Разлом при атаке»",
-        effect: ([power]) => `${power}% chance on attack to Break the target (shut off its abilities)`,
-        effectRu: ([power]) => `${power}% шанс при атаке наложить Break (отключить способности цели)`,
+        effect: ([power]) => `${power}% chance per weapon hit to Break the target for 2 laps`,
+        effectRu: ([power]) => `${power}% шанс при каждом ударе оружием наложить на цель Break на 2 круга`,
+        detail: "Every damaging hit of every unit rolls — attacks, retaliations, second strikes, and each unit struck by splash or a piercing shot; magic follow-ups (Chain Lightning arcs, Fire Breath, Fire Shield, Fireforged burns) and the extra damage one hit spreads (Petrifying Gaze's extra kills, the share Flesh Shield Aura moves onto the Abomination) never roll. A unit already Broken is rolled on again only by a retaliation or counter-shot, which can renew its Break; there is no roll when a Water Shield absorbs the hit, and resistances don't lower it. Break shuts off all of the target's abilities, auras, blessings and spellcasting for 2 laps. Spells never Break.",
+        detailRu: "Бросок делает каждое попадание с уроном каждого юнита — атаки, ответы, вторые удары и каждый, кого задел удар по площади или пробивающий выстрел; магические добавки (разряды Chain Lightning, Fire Breath, Fire Shield, поджоги Fireforged) и дополнительный урон от того же удара (добивания Petrifying Gaze, доля, которую Flesh Shield Aura переносит на Abomination) не бросают никогда. Против юнита, уже находящегося под Break, бросают только ответ и ответный выстрел — и могут обновить Break; при поглощении удара Water Shield броска нет, а сопротивления его не снижают. Break отключает все способности, ауры, благословения и заклинания цели на 2 круга. Заклинания Break не накладывают.",
         keywords: ["break", "disable abilities", "разлом"],
     },
     {
@@ -588,35 +740,43 @@ const synergySpecs: SynergySpec[] = [
         variant: MightSynergy.PLUS_AURAS_RANGE,
         name: "Might Aura Range Synergy",
         nameRu: "Синергия Силы «Радиус аур»",
-        effect: ([power]) => `+${power} aura range cell${power === 1 ? "" : "s"}`,
-        effectRu: ([power]) => `+${power} клетка(и) к радиусу аур`,
-        keywords: ["aura", "range", "аура"],
+        effect: ([power]) => `+${power} cell${power === 1 ? "" : "s"} to every aura's range`,
+        effectRu: ([power]) => `+${power} к радиусу каждой ауры`,
+        detail: "Every aura of your army reaches farther — including enemy-facing ones such as Range Null Field and Web, War Anger's counting radius and Disguise's detection radius (auras reach 2 cells by default, Disguise 3). Blessings are not auras and already cover the whole board.",
+        detailRu: "Каждая аура вашей армии бьёт дальше — включая направленные на врага, такие как Range Null Field Aura и Web Aura, радиус подсчёта War Anger Aura и радиус обнаружения Disguise Aura (ауры по умолчанию достают на 2 клетки, Disguise — на 3). Благословения — не ауры, они и так покрывают всё поле.",
+        keywords: ["aura", "range", "аура", "мощь", "мощи"],
     },
     {
         faction: "Might",
         variant: MightSynergy.PLUS_STACK_ABILITIES_POWER,
         name: "Might Stack Abilities Power Synergy",
-        nameRu: "Синергия Силы «Сила способностей стека»",
-        effect: ([power]) => `+${power}% power to stack-powered abilities`,
-        effectRu: ([power]) => `+${power}% к силе способностей, зависящих от стека`,
-        keywords: ["abilities power", "stack power", "сила способностей"],
+        nameRu: "Синергия Силы «Сила способностей»",
+        effect: ([power]) => `+${power} points to ability chances and strength`,
+        effectRu: ([power]) => `+${power} очков к шансам и силе способностей`,
+        detail: "Added like extra luck to nearly every ability of every unit in the army: the points go onto trigger chances (Stun, Dodge, Blindness…), onto percentage effects and most auras, onto Deep Wounds, and a tenth of them onto count abilities (steps, armor taken). Magic Reflection, Guiding Winds, Sylvan Focus and the creature blessings don't use it. Unlike luck it isn't capped, and it works whether or not the ability is stack-powered.",
+        detailRu: "Прибавляется как дополнительная удача почти к каждой способности каждого юнита армии: очки идут к шансам срабатывания (Stun, Dodge, Blindness…), к процентным эффектам и большинству аур, к Deep Wounds, а десятая часть — к способностям-счётчикам (шаги, отнятая броня). Magic Reflection, Guiding Winds, Sylvan Focus и благословения существ её не используют. В отличие от удачи не ограничена пределом и действует независимо от того, зависит ли способность от силы стека.",
+        keywords: ["abilities power", "ability power", "stack power", "сила способностей", "мощь", "мощи"],
     },
     {
         faction: "Nature",
         variant: NatureSynergy.INCREASE_BOARD_UNITS,
         name: "Nature Board Units Synergy",
-        nameRu: "Синергия Природы «Юниты на поле»",
+        nameRu: "Синергия Природы «Отряды на поле»",
         effect: ([power]) => `+${power} fielded stacks (raises the stack cap)`,
         effectRu: ([power]) => `+${power} стека(ов) на поле (повышает лимит стеков)`,
-        keywords: ["stack cap", "more units", "лимит стеков"],
+        detail: "Raises the number of stacks you may field — 6, 7 or 8 by Placement tier — for an absolute cap of 12; more stacks means splitting a roster unit without losing a slot.",
+        detailRu: "Повышает число стеков, которые можно выставить, — 6, 7 или 8 по уровню «Расстановки», — до абсолютного максимума 12; больше стеков — значит, можно разделить юнита, не теряя места.",
+        keywords: ["stack cap", "more units", "лимит стеков", "юниты на поле", "отряды на поле"],
     },
     {
         faction: "Nature",
         variant: NatureSynergy.PLUS_FLY_ARMOR,
         name: "Nature Flying Armor Synergy",
         nameRu: "Синергия Природы «Броня летающих»",
-        effect: ([power]) => `+${power}% armor for flying units`,
-        effectRu: ([power]) => `+${power}% брони летающим юнитам`,
+        effect: ([power]) => `+${power}% base armor for every flyer`,
+        effectRu: ([power]) => `+${power}% базовой брони каждому летающему`,
+        detail: "Every flying unit of the army, whatever its faction, gets the armor. Spiritual Armor on such a flyer doesn't add to it: the flyer gets Spiritual Armor's 30% × (1 + this bonus) instead — +40.5% in place of +35% at level 3.",
+        detailRu: "Броню получает каждый летающий юнит армии любой фракции. Spiritual Armor на таком летающем к ней не добавляется: летающий получает 30% Spiritual Armor × (1 + этот бонус) — +40,5% вместо +35% на 3 уровне.",
         keywords: ["flying", "fly", "armor", "летающие", "броня"],
     },
 ];
@@ -628,6 +788,8 @@ const unitsForLevel = (level: number): number =>
 interface FormulaSpec {
     name: string;
     nameRu: string;
+    /** The way players ask for it, when that shares no words with the name. */
+    aliases?: string[];
     summary: string;
     summaryRu: string;
     text: string;
@@ -638,6 +800,15 @@ interface FormulaSpec {
 
 function formulaSpecs(): FormulaSpec[] {
     const minutes = TOTAL_TIME_TO_MAKE_TURN_MILLIS / 60_000;
+    const minTurn = MIN_TIME_TO_MAKE_TURN_MILLIS / 1000;
+    const maxTurn = MAX_TIME_TO_MAKE_TURN_MILLIS / 1000;
+    const lastWave = NUMBER_OF_LAPS_FIRST_ARMAGEDDON + NUMBER_OF_ARMAGEDDON_WAVES - 1;
+    const scheduledRings = (every: number): number[] =>
+        Array.from({ length: NUMBER_OF_LAPS_TILL_STOP_NARROWING }, (_, index) => index + 1).filter(
+            (lap) => lap > every && lap % every === 1,
+        );
+    const normalRings = scheduledRings(NUMBER_OF_LAPS_TILL_NARROWING_NORMAL);
+    const barrelRings = scheduledRings(NUMBER_OF_LAPS_TILL_NARROWING_BLOCK);
     return [
         {
             name: "Attack damage formula",
@@ -650,92 +821,85 @@ function formulaSpecs(): FormulaSpec[] {
                 "Every attack rolls one integer inside a band. Each end of the band is computed as:",
                 "`ceil( damage_roll × attack × alive_bodies / enemy_armor × (1 − enemy_luck / 100) / range_divisor × morale_multiplier )`, minimum 1.",
                 bullet([
-                    "`damage_roll` is the unit's min or max damage (the roll lands between them).",
+                    "`damage_roll` is the unit's min or max damage. The roll is a whole number from the band's lower end up to one less than its upper end, so the very top is never rolled unless both ends are equal (Blessing and Battle Roar force the top, Curse the bottom).",
                     "`attack` is the attacker's current attack rating; `alive_bodies` is the number of living creatures in the stack.",
-                    "`enemy_armor` is the target's armor (its ranged armor against a shot). Piercing Spear reduces it by the ability's percentage.",
-                    "`enemy_luck` runs from −10 to +10, so a lucky target takes about 1% less damage per point and an unlucky one about 1% more.",
-                    "`range_divisor` is 1 in melee and at short range; shooting beyond the shot distance doubles it per distance band, up to ×8. Smoke doubles it once more (still capped at 8). Units with the Sniper ability ignore the divisor entirely; the Sniper augment and Farsight Quiver only push the full-damage band further out.",
-                    `\`morale_multiplier\` is 1.25 for a positive morale proc, 0.8 for a negative one, otherwise 1.`,
+                    "`enemy_armor` is the target's armor (its ranged armor against a shot). Piercing Spear ignores 10% of it per stack power (50% at full stack).",
+                    "`enemy_luck` runs from −10 to +10, so a lucky target takes about 1% less damage per point and an unlucky one about 1% more. Only attacks read the target's luck; spells, poison, Fire Wall and Armageddon ignore it.",
+                    "`range_divisor` is 1 in melee and inside the first band of shot distance, then 2, 4 and at most 8; Smoke doubles it once more (still capped at 8). Units with the Sniper ability ignore distance, but not Smoke.",
+                    "`morale_multiplier` is 1.25 while the attacker is on Morale, 0.8 on Dismorale, otherwise 1 — retaliations included.",
                 ]),
-                "The roll is then multiplied, in this order, and floored once: ×0.5 when a ranged unit without Handyman swings in melee, × the ability multiplier (Through Shot, Area Throw, Double Shot's second volley, …), × (1 + Deep Wounds stacks %) when the attacker inflicts Deep Wounds and the target already carries it, × the elemental multiplier (Fire vs Water, Wind vs Earth: the vulnerable side takes the element ability's percentage more).",
-                "A ranged attack with an empty quiver deals 0. Stack losses are then the damage divided through the target's per-body health.",
+                "The roll is then multiplied, in this order, and floored once: ×0.5 when a shooter without Handyman hits in melee (attacks and retaliations), × the ability multiplier (Through Shot, Area Throw, Double Shot's second arrow, Rapid Charge…), ×(100 − power)% when the attacker is Paralysed, × (1 + wound total %) when the attacker holds any Deep Wounds card and the target carries wounds, × the elemental multiplier (Fire and Water against each other, Earth and Wind against each other: ×1.5). After that single floor only a few things still change the hit: Lucky Strike, Penetrating Bite's flat bonus, Flesh Shield redirecting part of it, a Water Shield absorbing it — and on splash and bounce hits their own rounded multipliers (Chakram's half-damage bounce, Giant's Maul, status resistance or the Mechanism penalty). The band ends are at least 1, but the floored hit can reach 0.",
+                "A ranged attack with an empty quiver deals 0. Stack losses are the damage divided through the target's per-creature health, the wounded front creature first. Spells use their own formula (see Spell damage).",
             ].join("\n\n"),
             textRu: [
                 "Каждая атака бросает одно целое число внутри диапазона. Каждая граница диапазона считается так:",
                 "`ceil( урон × атака × живые_существа / броня_врага × (1 − удача_врага / 100) / делитель_дальности × множитель_морали )`, минимум 1.",
                 bullet([
-                    "`урон` — минимальный или максимальный урон юнита (бросок ложится между ними).",
+                    "`урон` — минимальный или максимальный урон юнита. Бросок — целое число от нижней границы до верхней минус один, поэтому самый верх выпадает, только если границы равны (Blessing и Battle Roar дают верхнюю границу, Curse — нижнюю).",
                     "`атака` — текущая атака атакующего; `живые_существа` — число живых существ в стеке.",
-                    "`броня_врага` — броня цели (против выстрела — её броня от дальних атак). Piercing Spear снижает её на процент способности.",
-                    "`удача_врага` от −10 до +10: удачливая цель получает примерно на 1% меньше урона за очко, неудачливая — больше.",
-                    "`делитель_дальности` равен 1 в ближнем бою и на короткой дистанции; выстрел дальше дистанции выстрела удваивает его за каждую полосу дальности, максимум ×8. Дым удваивает его ещё раз (предел тот же — 8). Юниты со способностью Sniper игнорируют делитель полностью; апгрейд «Стрельба» и Farsight Quiver лишь отодвигают зону полного урона.",
-                    "`множитель_морали` равен 1.25 при положительном срабатывании морали, 0.8 при отрицательном, иначе 1.",
+                    "`броня_врага` — броня цели (против выстрела — её броня от дальних атак). Piercing Spear игнорирует 10% брони за единицу силы стека (50% при полной силе).",
+                    "`удача_врага` от −10 до +10: удачливая цель получает примерно на 1% меньше урона за очко, неудачливая — больше. Удачу цели учитывают только атаки; заклинания, яд, Fire Wall и Армагеддон её игнорируют.",
+                    "`делитель_дальности` равен 1 в ближнем бою и в первой полосе дистанции выстрела, затем 2, 4 и максимум 8; Smoke удваивает его ещё раз (предел тот же — 8). Юниты со способностью Sniper игнорируют расстояние, но не Smoke.",
+                    "`множитель_морали` равен 1.25, пока атакующий под Morale, 0.8 под Dismorale, иначе 1 — и для ответных ударов тоже.",
                 ]),
-                "Затем бросок умножается в таком порядке и один раз округляется вниз: ×0.5, если стрелок без Handyman бьёт в ближнем бою; × множитель способности (Through Shot, Area Throw, второй выстрел Double Shot и т.д.); × (1 + проценты стаков Deep Wounds), если атакующий наносит Deep Wounds, а цель уже под эффектом; × стихийный множитель (Огонь против Воды, Ветер против Земли: уязвимая сторона получает больше на процент стихийной способности).",
-                "Дальняя атака с пустым колчаном наносит 0. Потери стека — это урон, поделённый на здоровье одного существа цели.",
+                "Затем бросок умножается в таком порядке и один раз округляется вниз: ×0.5, если стрелок без Handyman бьёт в ближнем бою (атаки и ответы); × множитель способности (Through Shot, Area Throw, вторая стрела Double Shot, Rapid Charge…); ×(100 − сила)%, если атакующий под Paralysis; × (1 + сумма ран %), если у атакующего есть любая карта Deep Wounds, а на цели раны; × стихийный множитель (Огонь и Вода друг против друга, Земля и Ветер друг против друга: ×1.5). После этого округления удар меняют лишь Lucky Strike, плоский бонус Penetrating Bite, Flesh Shield, забирающий часть удара, Water Shield, поглощающий его, — а удары по площади и отскоки получают ещё свои округлённые множители (половина урона у отскока Chakram, Giant's Maul, сопротивление статусам или штраф Mechanism). Границы диапазона не меньше 1, но итоговый удар после округления может стать 0.",
+                "Дальняя атака с пустым колчаном наносит 0. Потери стека — это урон, поделённый на здоровье одного существа цели, начиная с раненого переднего. У заклинаний своя формула (см. «Урон заклинаний»).",
             ].join("\n\n"),
-            keywords: [
-                "damage",
-                "formula",
-                "calculation",
-                "armor",
-                "attack",
-                "урон",
-                "формула",
-                "расчёт",
-                "броня",
-                "атака",
-            ],
+            keywords: ["damage", "formula", "calculation", "armor", "attack", "урон", "формула", "расчёт", "броня", "атака"],
             rule: "rule-mechanics",
         },
         {
             name: "Morale",
             nameRu: "Мораль",
             summary:
-                "Morale runs from −20 to +20, procs at lap start with a chance equal to its absolute value, and changes with every move, kill and skip.",
+                "Morale runs from −20 to +20 and rolls at lap start: Morale acts first with ×1.25 damage, Dismorale acts late with ×0.8 — neither adds or removes a turn.",
             summaryRu:
-                "Мораль от −20 до +20, срабатывает в начале круга с шансом, равным её модулю, и меняется от каждого хода, убийства и пропуска.",
+                "Мораль от −20 до +20 и бросается в начале круга: Morale ходит первым с ×1.25 урона, Dismorale — поздно с ×0.8; ход ни добавляется, ни пропадает.",
             text: [
-                `Morale is capped at ±${MORALE_MAX_VALUE_TOTAL}. At the start of each lap the engine rolls a chance equal to the unit's absolute morale: a positive proc puts the unit in the priority queue and gives it ×1.25 attack for the lap; a negative proc sends it to the back of the queue, sets ×0.8 attack and skips its turn. Morale never grants an extra action.`,
+                `Morale is capped at ±${MORALE_MAX_VALUE_TOTAL}. Every creature starts with its faction's morale: Life +4, Might +2, Nature +1, Chaos −1. At the start of each lap the engine rolls a chance equal to the stack's absolute morale. A positive roll (Morale) puts it ahead of the regular turn order with ×1.25 damage for the lap; a negative roll (Dismorale) puts it after every regular stack — only Hourglass waiters come later — with ×0.8 damage. Either way the stack still takes exactly one turn. The multiplier also covers its retaliations and the damage spells, Heal and Resurrection it casts that lap.`,
+                "While a stack is on Morale or Dismorale — or under Courage (+20), Sadness (−20) or both at once (0) — its morale cannot change; on Morale its buffs don't count down that lap, on Dismorale its debuffs and effects don't. Madness and Mechanism units sit at 0 and never roll (unless Broken, when those abilities are off).",
                 "Exact changes:",
                 bullet([
-                    `+${MORALE_CHANGE_FOR_DISTANCE} for moving closer to the enemy army's centroid, −${MORALE_CHANGE_FOR_DISTANCE} for moving away`,
-                    `+${MORALE_CHANGE_FOR_KILL} to the attacker for destroying an enemy stack; −${MORALE_CHANGE_FOR_KILL} to each of your other surviving stacks of a unit whose stack was wiped out`,
-                    `−${MORALE_CHANGE_FOR_CLOCK} for waiting on the Hourglass, −${MORALE_CHANGE_FOR_SHIELD} for Defend (Luck Shield), −${MORALE_CHANGE_FOR_SKIP} for an actual skipped turn (including a timeout passed to the engine as a skip)`,
+                    `+${MORALE_CHANGE_FOR_DISTANCE} for a move that ends closer to the centre of the enemy army (all enemy stacks, unweighted), −${MORALE_CHANGE_FOR_DISTANCE} for one that ends farther away; only a move ending at exactly the same distance is neutral. A melee attack's walk-in counts as a move.`,
+                    `+${MORALE_CHANGE_FOR_KILL} to whichever stack destroys an enemy stack — the attacker, a retaliating defender or a caster; −${MORALE_CHANGE_FOR_KILL} to each of your other surviving stacks of a unit whose stack was wiped out. Deaths to Armageddon, narrowing, poison or Fire Wall change nobody's morale.`,
+                    `−${MORALE_CHANGE_FOR_CLOCK} for waiting on the Hourglass, −${MORALE_CHANGE_FOR_SHIELD} for Defend (Luck Shield), −${MORALE_CHANGE_FOR_SKIP} for an actual skipped turn (including a timeout passed to the engine as a skip, or a turn lost to Stun, Blindness, Freeze or Whirlpool)`,
                     "Ending the turn after moving or another action costs nothing.",
+                    "Other sources: the Life Morale and Luck synergy (+6/+13/+20), Crown of Command (+8), Cursed Ward (−6), and hitting an enemy marked by Pegasus Light (+10 plus the Pegasus's luck).",
                 ]),
-                "Madness and Mechanism units always sit at 0 morale.",
+                `In a stalled fight morale also moves units: every lap in which the map narrows, or no stack ends closer to its nearest enemy, adds 0.05 steps per point of morale for the rest of the fight (+1 step at +20 after one such lap), and negative morale takes steps away.`,
             ].join("\n\n"),
             textRu: [
-                `Мораль ограничена ±${MORALE_MAX_VALUE_TOTAL}. В начале каждого круга движок бросает шанс, равный модулю морали юнита: положительное срабатывание ставит юнита в очередь приоритета и даёт ×1.25 к атаке на круг; отрицательное отправляет его в конец очереди, ставит ×0.8 к атаке и пропускает ход. Дополнительного действия мораль не даёт.`,
+                `Мораль ограничена ±${MORALE_MAX_VALUE_TOTAL}. Каждое существо начинает с моралью своей фракции: Жизнь +4, Сила +2, Природа +1, Хаос −1. В начале каждого круга движок бросает шанс, равный модулю морали стека. Положительный результат (Morale) ставит его раньше обычной очереди с ×1.25 урона на круг; отрицательный (Dismorale) — после всех обычных стеков (позже ходят только ожидающие через Hourglass) с ×0.8 урона. В обоих случаях у стека ровно один ход. Множитель действует и на его ответы, и на заклинания урона, Heal и Resurrection, применённые в этом круге.`,
+                "Пока стек под Morale или Dismorale — или под Courage (+20), Sadness (−20) или обоими сразу (0), — его мораль не меняется; под Morale его баффы в этом круге не убывают, под Dismorale не убывают дебаффы и эффекты. Юниты с Madness и Mechanism имеют 0 морали и не бросают её (кроме как под Break, когда эти способности отключены).",
                 "Точные изменения:",
                 bullet([
-                    `+${MORALE_CHANGE_FOR_DISTANCE} за движение к центру вражеской армии, −${MORALE_CHANGE_FOR_DISTANCE} за движение от него`,
-                    `+${MORALE_CHANGE_FOR_KILL} атакующему за уничтожение вражеского стека; −${MORALE_CHANGE_FOR_KILL} каждому вашему другому стеку того же юнита, чей стек был уничтожен`,
-                    `−${MORALE_CHANGE_FOR_CLOCK} за ожидание (Hourglass), −${MORALE_CHANGE_FOR_SHIELD} за защиту (Luck Shield), −${MORALE_CHANGE_FOR_SKIP} за фактический пропуск хода (включая таймаут, переданный движку как пропуск)`,
+                    `+${MORALE_CHANGE_FOR_DISTANCE} за перемещение, закончившееся ближе к центру вражеской армии (всех вражеских стеков, без весов), −${MORALE_CHANGE_FOR_DISTANCE} за закончившееся дальше; нейтрально только перемещение ровно на то же расстояние. Подход к ближней атаке считается перемещением.`,
+                    `+${MORALE_CHANGE_FOR_KILL} тому стеку, который уничтожил вражеский стек, — атакующему, отвечающему защитнику или заклинателю; −${MORALE_CHANGE_FOR_KILL} каждому вашему другому стеку того же юнита, чей стек был уничтожен. Гибель от Армагеддона, сужения, яда или Fire Wall ничью мораль не меняет.`,
+                    `−${MORALE_CHANGE_FOR_CLOCK} за ожидание (Hourglass), −${MORALE_CHANGE_FOR_SHIELD} за защиту (Luck Shield), −${MORALE_CHANGE_FOR_SKIP} за фактический пропуск хода (включая таймаут, переданный движку как пропуск, и ход, потерянный из-за Stun, Blindness, Freeze или Whirlpool)`,
                     "Завершение хода после движения или другого действия ничего не стоит.",
+                    "Другие источники: синергия Жизни «Мораль и удача» (+6/+13/+20), Crown of Command (+8), Cursed Ward (−6) и удар по врагу с меткой Pegasus Light (+10 плюс удача Pegasus).",
                 ]),
-                "Юниты с Madness и Mechanism всегда имеют 0 морали.",
+                "В затянувшемся бою мораль ещё и двигает юнитов: каждый круг, когда карта сужается или ни один стек не стал ближе к ближайшему врагу, добавляет 0,05 шага за очко морали до конца боя (+1 шаг при +20 после одного такого круга), а отрицательная мораль шаги отнимает.",
             ].join("\n\n"),
-            keywords: ["morale", "tempo", "priority", "queue", "мораль", "темп", "очередь"],
+            keywords: ["morale", "tempo", "priority", "queue", "dismorale", "мораль", "темп", "очередь"],
             rule: "rule-morale",
         },
         {
             name: "Luck",
             nameRu: "Удача",
             summary:
-                "Luck runs from −10 to +10, drifts by up to ±3 each lap, and mostly reduces (or increases) incoming damage.",
+                "Luck runs from −10 to +10, is re-rolled every lap around the faction base, cuts attack damage taken by ~1% per point and adds to the stack's ability chances.",
             summaryRu:
-                "Удача от −10 до +10, каждый круг сдвигается до ±3 и в основном снижает (или повышает) входящий урон.",
+                "Удача от −10 до +10, перебрасывается каждый круг вокруг базы фракции, снижает урон от атак примерно на 1% за очко и добавляется к шансам способностей стека.",
             text: [
-                `Luck is capped at ±${LUCK_MAX_VALUE_TOTAL}. Ordinary incoming damage changes by about 1% per point (positive luck reduces it, negative luck increases it), and luck also changes the power or proc chance of many stack-powered abilities.`,
-                `At lap start every stack receives a random modifier from −${LUCK_MAX_CHANGE_FOR_TURN} to +${LUCK_MAX_CHANGE_FOR_TURN}; Defend (Luck Shield) replaces that roll with +${LUCK_CHANGE_FOR_SHIELD} for the rest of the lap at the cost of the turn and ${MORALE_CHANGE_FOR_SHIELD} morale.`,
-                "Luck Aura grants maximum luck to allies in range; Clover of Fortune adds +10 army-wide; Cursed Ward trades morale for luck; Misfortune drops a target's luck to the minimum.",
+                `Luck is capped at ±${LUCK_MAX_VALUE_TOTAL}. Each lap it is re-rolled: the faction base (Nature +4, Life +1, Might +1, Chaos −1), plus a fresh −${LUCK_MAX_CHANGE_FOR_TURN}…+${LUCK_MAX_CHANGE_FOR_TURN}, plus synergy and artifact bonuses — it never accumulates from lap to lap. Defend (Luck Shield) replaces the roll with +${LUCK_CHANGE_FOR_SHIELD} for the rest of the lap at the cost of the turn and ${MORALE_CHANGE_FOR_SHIELD} morale.`,
+                "What it does: incoming attack damage changes by about 1% per point (positive luck reduces it); spells, poison, Fire Wall and Armageddon ignore it. Each point also adds 1 percentage point to the stack's own ability chances (Stun, Dodge, Blindness…) and shifts the strength of many abilities and auras.",
+                "Luck Aura fixes luck at exactly +10 for allies in range; Clover of Fortune adds +10 army-wide (so most units sit at the +10 cap); Cursed Ward gives +3 luck for −6 morale; the Life Morale and Luck synergy gives +2/+5/+9. Misfortune sets luck to −10 for 3 laps — to 0 on a unit with Luck Aura or Clover — and blocks both the lap roll and Luck Shield's bonus.",
             ].join("\n\n"),
             textRu: [
-                `Удача ограничена ±${LUCK_MAX_VALUE_TOTAL}. Обычный входящий урон меняется примерно на 1% за очко (положительная удача снижает его, отрицательная повышает); удача также меняет силу или шанс срабатывания многих способностей, зависящих от стека.`,
-                `В начале круга каждый стек получает случайный модификатор от −${LUCK_MAX_CHANGE_FOR_TURN} до +${LUCK_MAX_CHANGE_FOR_TURN}; защита (Luck Shield) заменяет этот бросок на +${LUCK_CHANGE_FOR_SHIELD} до конца круга ценой хода и ${MORALE_CHANGE_FOR_SHIELD} морали.`,
-                "Luck Aura даёт союзникам в радиусе максимальную удачу; Clover of Fortune добавляет +10 всей армии; Cursed Ward меняет мораль на удачу; Misfortune опускает удачу цели до минимума.",
+                `Удача ограничена ±${LUCK_MAX_VALUE_TOTAL}. Каждый круг она перебрасывается: база фракции (Природа +4, Жизнь +1, Сила +1, Хаос −1) плюс свежие −${LUCK_MAX_CHANGE_FOR_TURN}…+${LUCK_MAX_CHANGE_FOR_TURN} плюс бонусы синергий и артефактов — от круга к кругу она не накапливается. Защита (Luck Shield) заменяет бросок на +${LUCK_CHANGE_FOR_SHIELD} до конца круга ценой хода и ${MORALE_CHANGE_FOR_SHIELD} морали.`,
+                "Что она делает: входящий урон от атак меняется примерно на 1% за очко (положительная удача его снижает); заклинания, яд, Fire Wall и Армагеддон её игнорируют. Каждое очко также добавляет 1 процентный пункт к шансам способностей самого стека (Stun, Dodge, Blindness…) и сдвигает силу многих способностей и аур.",
+                "Luck Aura фиксирует удачу союзников в радиусе ровно на +10; Clover of Fortune добавляет +10 всей армии (поэтому большинство юнитов стоит на пределе +10); Cursed Ward даёт +3 удачи за −6 морали; синергия Жизни «Мораль и удача» — +2/+5/+9. Misfortune ставит удачу в −10 на 3 круга — в 0 у юнита с Luck Aura или Clover — и блокирует и бросок круга, и бонус Luck Shield.",
             ].join("\n\n"),
             keywords: ["luck", "critical", "удача"],
             rule: "rule-morale",
@@ -743,61 +907,483 @@ function formulaSpecs(): FormulaSpec[] {
         {
             name: "Stack power",
             nameRu: "Сила стека",
-            summary: `A ${MIN_UNIT_STACK_POWER}–${MAX_UNIT_STACK_POWER} rating of a stack's board value that scales stack-powered abilities and gates some spells.`,
-            summaryRu: `Оценка ${MIN_UNIT_STACK_POWER}–${MAX_UNIT_STACK_POWER} ценности стека на поле, которая усиливает зависящие от стека способности и открывает некоторые заклинания.`,
-            text: `Stack power is recalculated from board value: unit experience × living amount, compared with the largest stack present. It ranges from ${MIN_UNIT_STACK_POWER} to ${MAX_UNIT_STACK_POWER} and affects only mechanics marked as stack-powered (ability proc chances and powers, Chakram's target count, Craft's requirement of stack power 4, spell minimum caster stack power).`,
-            textRu: `Сила стека пересчитывается из ценности на поле: опыт юнита × число живых, относительно крупнейшего стека. Она лежит в диапазоне ${MIN_UNIT_STACK_POWER}–${MAX_UNIT_STACK_POWER} и влияет только на механики, помеченные как зависящие от силы стека (шансы и сила способностей, число целей Chakram, требование силы стека 4 для Craft, минимальная сила стека для заклинаний).`,
+            summary: `A ${MIN_UNIT_STACK_POWER}–${MAX_UNIT_STACK_POWER} rating of a stack's share of the strongest stack on the board; it scales stack-powered abilities and auras and gates some spells.`,
+            summaryRu: `Оценка ${MIN_UNIT_STACK_POWER}–${MAX_UNIT_STACK_POWER}: доля стека от сильнейшего стека на поле; масштабирует способности и ауры, зависящие от силы стека, и открывает часть заклинаний.`,
+            text: [
+                `Stack power compares a stack's experience × living creatures with the largest such value on the board, either army: up to 20% gives 1, up to 40% gives 2, up to 60% gives 3, up to 80% gives 4, above that ${MAX_UNIT_STACK_POWER}. It is recalculated after every action, so losses — or a much bigger stack appearing — lower it.`,
+                "It scales the stack-powered parts of abilities (trigger chances and strengths — see Ability scaling), aura strength, Limited Supply ammo, Heavy Armor and Chakram's target count, and gates spells and cast abilities that need a minimum caster stack power (3, 4 or 5; Craft needs 4, Meteorite and Meteor Shower need 5). Damage spells themselves scale with creatures alive, not with stack power.",
+                "Every drafted creature arrives as a stack worth 1,000–1,136 experience (its creature count is rounded up), so an unsplit stack normally starts the fight at stack power 5. Life's Supply synergy at level 3 (an all-Life army) grows a Monk stack past 1,250 (8 → 9, 1,278), and while all nine live, the opponent's stacks worth 1,022 or less — every exactly-1,000 stack among them — and your own level-4 stacks of 1–3 creatures (which don't grow) start at 4. Split a stack in half and both halves drop to 3 — 2 next to such a Supply stack — so a Stun that procs 35% at full stack procs 21%; a stack that has lost 60% of its creatures is down to 2. A split trades ability strength for board presence.",
+            ].join("\n\n"),
+            textRu: [
+                `Сила стека сравнивает опыт × живые существа стека с наибольшим таким значением на поле среди обеих армий: до 20% — 1, до 40% — 2, до 60% — 3, до 80% — 4, выше — ${MAX_UNIT_STACK_POWER}. Она пересчитывается после каждого действия, поэтому потери — или появление гораздо большего стека — её снижают.`,
+                "Она масштабирует зависящие от силы стека части способностей (шансы и силу — см. «Масштаб способностей»), силу аур, боезапас Limited Supply, Heavy Armor и число целей Chakram, а также открывает заклинания и активные способности с минимальной силой стека заклинателя (3, 4 или 5; Craft требует 4, Meteorite и Meteor Shower — 5). Сам урон заклинаний растёт с числом живых существ, а не с силой стека.",
+                "Каждое задрафтованное существо приходит стеком на 1000–1136 опыта (число существ округляется вверх), поэтому неразделённый стек обычно начинает бой с силой 5. Синергия Жизни «Запас» 3 уровня (армия целиком из Жизни) растит стек Monk больше 1250 (8 → 9, 1278), и пока живы все девять, стеки соперника на 1022 опыта и меньше — включая каждый стек ровно на 1000 — и ваши стеки 4 уровня из 1–3 существ (они не растут) начинают с 4. Разделите стек пополам — и обе половины опустятся до силы 3 (до 2 рядом с таким стеком «Запаса»), так что Stun, срабатывающий на 35% при полной силе, сработает на 21%; стек, потерявший 60% существ, опускается до 2. Разделение меняет силу способностей на присутствие на поле.",
+            ].join("\n\n"),
             keywords: ["stack power", "stack", "сила стека"],
             rule: "rule-morale",
         },
         {
-            name: "Map narrowing and Armageddon",
-            nameRu: "Сужение карты и Армагеддон",
-            summary: `The battlefield shrinks every ${NUMBER_OF_LAPS_TILL_NARROWING_NORMAL} laps (${NUMBER_OF_LAPS_TILL_NARROWING_BLOCK} on block-center maps) and ${NUMBER_OF_ARMAGEDDON_WAVES} Armageddon waves start at lap ${NUMBER_OF_LAPS_FIRST_ARMAGEDDON}.`,
-            summaryRu: `Поле сужается каждые ${NUMBER_OF_LAPS_TILL_NARROWING_NORMAL} круга (${NUMBER_OF_LAPS_TILL_NARROWING_BLOCK} на картах с заблокированным центром), а ${NUMBER_OF_ARMAGEDDON_WAVES} волны Армагеддона начинаются на ${NUMBER_OF_LAPS_FIRST_ARMAGEDDON}-м круге.`,
+            name: "Ability scaling",
+            nameRu: "Масштаб способностей",
+            aliases: ["how abilities scale", "ability chance", "как считаются способности", "шанс способности"],
+            summary:
+                "How stack power, luck and the Might ability synergy turn an ability's card value into the chance or strength a stack actually gets.",
+            summaryRu:
+                "Как сила стека, удача и синергия Силы превращают число на карточке способности в реальный шанс или силу стека.",
+            text: [
+                "The Knowledge Base's ability cards print the full-stack value (stack power 5, luck 0); in the game many cards (Double Shot, Area Throw, Large Caliber, Chakram, Paralysis, Chain Lightning, the blessings…) already show the live value for the stack in front of you, so don't scale those again. A stack at stack power SP gets:",
+                bullet([
+                    "Trigger chances (Stun, Blindness, Dodge, Aggr, Hamstring, Terrifying Gaze, Spit Ball, Predatory Assimilation, Magic Reflection…): card value ÷ 5 × SP, plus 1 percentage point per point of luck, plus the Might ability synergy (+5/+8/+12; not for Magic Reflection). Paralysis rolls twice that; Petrifying Gaze turns a random ⅔ to all of that number into extra kills; its petrify roll is a quarter of it plus 4 per target level above 1 (at most 35%), ×0.75 per range band beyond the first — 15% against level 1 and 27% against level 4 at full stack.",
+                    "Stack-powered percentages (Double Punch and Double Shot's second hits, Piercing Spear, Magic Shield, Fire Breath, Heavy Armor…): (card value + luck + synergy) ÷ 100 × SP ÷ 5 — the luck and synergy points shrink with the stack too.",
+                    "\"+X% more\" bonuses (Backstab, Rapid Charge, Lucky Strike's bonus, Sharpened Weapons, War Anger; Penetrating Bite takes that percentage of one target creature's health): card value ÷ 5 × SP percent, plus luck and synergy at full value.",
+                    "Count abilities (Sky Runner steps, Miner armor, Shatter Armor): card value ÷ 5 × SP, plus a tenth of luck and synergy. Deep Wounds adds luck and synergy at full value.",
+                    "Abilities that aren't stack-powered (Area Throw, Through Shot, Double Throw, Sylvan Focus, auras with flat numbers) deliver their full value from any stack size, shifted by luck where the card says so.",
+                ]),
+                "Made of Fire adds 10% of an ability's own power on top (1% for count abilities). Break turns every ability of the unit off for 2 laps.",
+            ].join("\n\n"),
+            textRu: [
+                "Карточки способностей в Базе знаний показывают значение при полной силе стека (5) и нулевой удаче; в игре многие карточки (Double Shot, Area Throw, Large Caliber, Chakram, Paralysis, Chain Lightning, благословения…) уже показывают текущее значение для этого стека — не пересчитывайте их повторно. Стек с силой SP получает:",
+                bullet([
+                    "Шансы срабатывания (Stun, Blindness, Dodge, Aggr, Hamstring, Terrifying Gaze, Spit Ball, Predatory Assimilation, Magic Reflection…): значение ÷ 5 × SP плюс 1 процентный пункт за очко удачи плюс синергия Силы «Сила способностей» (+5/+8/+12; кроме Magic Reflection). Paralysis бросает удвоенный шанс; Petrifying Gaze превращает в дополнительные убийства случайные от ⅔ до всего этого числа; бросок окаменения — четверть его плюс 4 за каждый уровень цели выше первого (не больше 35%), ×0,75 за каждую полосу дальности после первой — 15% против 1 уровня и 27% против 4 уровня при полной силе.",
+                    "Проценты, зависящие от силы стека (второй удар Double Punch и Double Shot, Piercing Spear, Magic Shield, Fire Breath, Heavy Armor…): (значение + удача + синергия) ÷ 100 × SP ÷ 5 — очки удачи и синергии уменьшаются вместе со стеком.",
+                    "Бонусы «+X% урона» (Backstab, Rapid Charge, бонус Lucky Strike, Sharpened Weapons, War Anger; Penetrating Bite берёт этот процент от здоровья одного существа цели): значение ÷ 5 × SP процентов плюс удача и синергия целиком.",
+                    "Способности-счётчики (шаги Sky Runner, броня Miner, Shatter Armor): значение ÷ 5 × SP плюс десятая часть удачи и синергии. Deep Wounds добавляет удачу и синергию целиком.",
+                    "Способности, не зависящие от силы стека (Area Throw, Through Shot, Double Throw, Sylvan Focus, ауры с фиксированными числами), дают полное значение при любом размере стека, со сдвигом от удачи, где это указано.",
+                ]),
+                "Made of Fire добавляет сверху 10% собственной силы способности (1% у способностей-счётчиков). Break отключает все способности юнита на 2 круга.",
+            ].join("\n\n"),
+            keywords: ["ability", "scaling", "chance", "stack power", "luck", "способность", "шанс", "масштаб"],
+            rule: "rule-morale",
+        },
+        {
+            name: "Turn order",
+            nameRu: "Порядок ходов",
+            aliases: ["who moves first", "initiative", "кто ходит первым", "инициатива"],
+            summary:
+                "Fixed at lap start: Morale stacks first, then the armies alternate one stack at a time by initiative, then Dismorale stacks, then Hourglass waiters.",
+            summaryRu:
+                "Фиксируется в начале круга: сначала стеки с Morale, затем армии по очереди по одному стеку по инициативе, затем стеки с Dismorale, затем ожидающие через Hourglass.",
+            text: [
+                "At the start of each lap — after Armageddon, narrowing and the morale rolls — the whole order is fixed:",
+                bullet([
+                    "Stacks that rolled Morale act first, highest initiative first.",
+                    "Then the two armies alternate one stack at a time; each sends its highest-initiative stack that hasn't acted yet, and equal initiative is ordered at random. When one army has no stacks left to act, the other army's remaining stacks go back to back.",
+                    "Then the stacks that rolled Dismorale.",
+                    "Last, stacks that waited on the Hourglass, in the order they waited.",
+                ]),
+                "In the first lap the army with the higher average morale starts (then the one with the higher top initiative, then a coin flip) . In every lap, stacks that rolled Morale act first and the alternation then starts with the army opposite the last of them; with no Morale roll, a lap starts with the army opposite the stack that acted last in the previous lap (a Dismorale stack or an Hourglass waiter included). Initiative therefore orders stacks only within their own army — a Morale roll is the only way to act ahead of the alternation. Each turn is one action: move (arriving ends the turn), melee attack (walking in first if needed), shoot, cast, Hourglass, Luck Shield or skip.",
+            ].join("\n\n"),
+            textRu: [
+                "В начале каждого круга — после Армагеддона, сужения и бросков морали — весь порядок фиксируется:",
+                bullet([
+                    "Сначала ходят стеки с сработавшей Morale, от большей инициативы к меньшей.",
+                    "Затем армии ходят по очереди по одному стеку; каждая отправляет свой стек с наибольшей инициативой из ещё не ходивших, а при равной инициативе порядок случаен. Когда у одной армии не остаётся стеков, стеки другой ходят подряд.",
+                    "Затем стеки с сработавшей Dismorale.",
+                    "Последними — ожидающие через Hourglass, в том порядке, в каком они ждали.",
+                ]),
+                "В первом круге начинает армия с более высокой средней моралью (затем — с большей максимальной инициативой, затем — жребий). В каждом круге стеки с сработавшей Morale ходят первыми, а очерёдность затем начинается с армии, противоположной последнему из них; без Morale круг начинается с армии, противоположной стеку, который ходил последним в прошлом круге (включая стек с Dismorale или ожидающий через Hourglass). Поэтому инициатива упорядочивает стеки только внутри своей армии — сработавшая Morale единственный способ походить раньше очереди. Каждый ход — одно действие: перемещение (прибытие завершает ход), ближняя атака (с подходом, если нужно), выстрел, заклинание, Hourglass, Luck Shield или пропуск.",
+            ].join("\n\n"),
+            keywords: ["turn order", "initiative", "queue", "first", "порядок ходов", "инициатива", "очередь"],
+            rule: "rule-mechanics",
+        },
+        {
+            name: "Retaliation",
+            nameRu: "Ответный удар",
+            aliases: ["response", "counterattack", "counter-shot", "hit back", "hits back", "strike back", "strikes back", "ответ", "контратака", "бьёт в ответ", "ответка"],
+            summary:
+                "A stack answers one attack per lap; the answer is computed before your blow lands, so even a stack you are about to destroy strikes back at full strength.",
+            summaryRu:
+                "Стек отвечает на одну атаку за круг; ответ считается до вашего удара, поэтому даже стек, который вы вот-вот уничтожите, отвечает в полную силу.",
+            text: [
+                "A stack answers an attack once per lap (One in the Field: every melee attack). The answer is spent even if it misses, and it resets every lap.",
+                bullet([
+                    "Timing: both hits are computed from the stacks as they stand, and the retaliation is applied first — you can't weaken a counterattack by hitting harder. The exception is an Area Throw, Large Caliber or Chakram shot: its whole volley, the target included, lands first, and only the survivors shoot back.",
+                    "A melee blow goes unanswered when the defender is Stunned, Blinded or Frozen, has No Melee, is Aggr-locked onto another stack, is barred from this attacker by Terrifying Gaze, or is under Cowardice facing a stack with more total health. Shadow Touch and Lightning Spin attacks are never answered. Size doesn't matter.",
+                    "A shooter retaliating in melee deals half damage unless it has Handyman.",
+                    "A shot is answered only by a shooter that could shoot right now: arrows left, no enemy touching it, no Range Null Field or Rangebane. Through Shot units never answer. The counter-shot flies back along its line, hits the first enemy stack on it, has its own falloff and Smoke, and costs an arrow; splash from Area Throw, Large Caliber and Chakram lands before it, and a shooter the splash wipes out doesn't answer.",
+                    "Never answered: spells, Through Shot volleys, an Area Throw aimed at an empty cell.",
+                ]),
+                "What avoids a counterattack: no-response attackers, spells, splash, or hitting a defender that already answered this lap — which is why a cheap first hit can soak the answer before your main attacker goes in.",
+            ].join("\n\n"),
+            textRu: [
+                "Стек отвечает на атаку один раз за круг (One in the Field — на каждую атаку в ближнем бою). Ответ тратится даже при промахе и восстанавливается каждый круг.",
+                bullet([
+                    "Время: оба удара считаются по стекам в текущем состоянии, и ответ наносится первым — ослабить контратаку более сильным ударом нельзя. Исключение — выстрел Area Throw, Large Caliber или Chakram: весь залп, включая цель, приходится первым, и отвечают выстрелом только выжившие.",
+                    "Удар в ближнем бою остаётся без ответа, если защитник оглушён, ослеплён или заморожен, у него No Melee, он привязан Aggr к другому стеку, Terrifying Gaze запрещает ему бить этого атакующего или он под Cowardice против стека с большим суммарным здоровьем. На атаки с Shadow Touch и Lightning Spin не отвечают никогда. Размер значения не имеет.",
+                    "Стрелок, отвечающий в ближнем бою, наносит половину урона, если у него нет Handyman.",
+                    "На выстрел отвечает только стрелок, который мог бы выстрелить прямо сейчас: есть стрелы, рядом нет врага, нет Range Null Field и Rangebane. Юниты с Through Shot не отвечают никогда. Ответный выстрел летит обратно по линии, попадает в первый вражеский стек на ней, имеет свой штраф дальности и Smoke и тратит стрелу; урон по площади от Area Throw, Large Caliber и Chakram наносится раньше него, и стрелок, уничтоженный этим уроном, не отвечает.",
+                    "Без ответа всегда: заклинания, залпы Through Shot, Area Throw по пустой клетке.",
+                ]),
+                "Избежать контратаки помогают атакующие без ответа, заклинания, удары по площади или удар по защитнику, который уже ответил в этом круге, — поэтому дешёвый первый удар может забрать ответ до того, как пойдёт главный атакующий.",
+            ].join("\n\n"),
+            keywords: ["retaliation", "response", "counter", "answer", "ответ", "ответный удар", "контратака"],
+            rule: "rule-mechanics",
+        },
+        {
+            name: "Ranged attacks and range falloff",
+            nameRu: "Дальние атаки и штраф дальности",
+            aliases: ["range penalty", "shooting", "штраф за дальность", "стрельба"],
+            summary:
+                "Shooting needs arrows and no enemy touching the shooter; damage halves per band of shot distance (÷2, ÷4, at most ÷8), and Smoke doubles the divisor.",
+            summaryRu:
+                "Для выстрела нужны стрелы и ни одного врага вплотную; урон делится на 2 за каждую полосу дистанции (÷2, ÷4, максимум ÷8), а Smoke удваивает делитель.",
             text: bullet([
-                `The map narrows every ${NUMBER_OF_LAPS_TILL_NARROWING_NORMAL} laps (every ${NUMBER_OF_LAPS_TILL_NARROWING_BLOCK} on maps with a blocked center): the outer ring of cells turns into holes, up to ${MAX_HOLE_LAYERS} layers.`,
-                "A stack standing on a vanishing cell is pushed inward if there is legal space; otherwise it dies.",
-                `Narrowing stops at lap ${NUMBER_OF_LAPS_TILL_STOP_NARROWING}. Armageddon is ${NUMBER_OF_ARMAGEDDON_WAVES} waves in total, one per lap from lap ${NUMBER_OF_LAPS_FIRST_ARMAGEDDON} to lap ${NUMBER_OF_LAPS_FIRST_ARMAGEDDON + NUMBER_OF_ARMAGEDDON_WAVES - 1}, each stronger than the last; the first wave deals at least ${MIN_ARMAGEDDON_DAMAGE_FIRST_WAVE} damage to every stack.`,
-                "If a wave destroys both armies at once, the fight is a draw.",
+                "To shoot, a stack needs arrows, no enemy stack in any cell touching it (diagonals count), and no Range Null Field or Rangebane. Shots never move the shooter: moving ends the turn, so a shooter acts from where it stands.",
+                "The arrow flies to a visible edge of the target. Your own stacks never block it, the first enemy stack on the line takes it, and structures (barrels, the mountain) stop it. Large Caliber and Area Throw fly over structures; Double Shot's two projectiles clear up to two barrels for one arrow.",
+                "Falloff counts whole cells in king moves (diagonals count 1) from the shooter's body; one band is the unit's shot distance rounded down. Within 1 band: full damage; 2 bands: ÷2; 3 bands: ÷4; farther: ÷8.",
+                "A shot that has crossed a Smoke cell has its divisor doubled (at most ÷8) for every target after it, Sniper shots included. The Sniper ability otherwise ignores distance entirely.",
+                "Area Throw, Large Caliber and Chakram apply the target's distance divisor to every unit they catch; a Through Shot gives each pierced unit its own distance and Smoke divisor. Large Caliber and Chakram damage also scales with stack power on every unit hit, the target included (a split stack at stack power 3 deals 60%), while Area Throw and Through Shot keep full power at any stack size.",
+                "The Sniper augment (+20/40/70% shot distance), Farsight Quiver (+50% of base distance) and Guiding Winds (up to +35%) widen the bands, which count whole cells (a bonus helps once it adds a full cell); none removes falloff. A shooter hitting in melee deals half damage unless it has Handyman.",
             ]),
             textRu: bullet([
-                `Карта сужается каждые ${NUMBER_OF_LAPS_TILL_NARROWING_NORMAL} круга (каждые ${NUMBER_OF_LAPS_TILL_NARROWING_BLOCK} на картах с заблокированным центром): внешнее кольцо клеток превращается в провалы, до ${MAX_HOLE_LAYERS} слоёв.`,
-                "Стек на исчезающей клетке выталкивается внутрь, если есть свободное место; иначе он погибает.",
-                `Сужение прекращается на ${NUMBER_OF_LAPS_TILL_STOP_NARROWING}-м круге. Армагеддон — это всего ${NUMBER_OF_ARMAGEDDON_WAVES} волны, по одной за круг с ${NUMBER_OF_LAPS_FIRST_ARMAGEDDON}-го по ${NUMBER_OF_LAPS_FIRST_ARMAGEDDON + NUMBER_OF_ARMAGEDDON_WAVES - 1}-й круг, каждая сильнее предыдущей; первая наносит каждому стеку минимум ${MIN_ARMAGEDDON_DAMAGE_FIRST_WAVE} урона.`,
-                "Если волна уничтожает обе армии одновременно, бой заканчивается ничьей.",
+                "Для выстрела стеку нужны стрелы, ни одного вражеского стека в соседних клетках (диагонали считаются) и отсутствие Range Null Field и Rangebane. Выстрел не двигает стрелка: перемещение завершает ход, поэтому стрелок действует с того места, где стоит.",
+                "Стрела летит к видимому краю цели. Ваши стеки её не блокируют, первый вражеский стек на линии принимает её на себя, а постройки (бочки, гора) останавливают. Large Caliber и Area Throw летят поверх построек; два снаряда Double Shot сносят до двух бочек за одну стрелу.",
+                "Штраф считается в целых клетках ходом короля (диагональ = 1) от тела стрелка; одна полоса — дистанция выстрела юнита, округлённая вниз. В пределах 1 полосы — полный урон; 2 полосы — ÷2; 3 полосы — ÷4; дальше — ÷8.",
+                "У выстрела, прошедшего через клетку Smoke, делитель удваивается (максимум ÷8) для всех целей после неё, и у Sniper тоже. В остальном способность Sniper полностью игнорирует расстояние.",
+                "Area Throw, Large Caliber и Chakram применяют делитель дистанции цели ко всем задетым юнитам; Through Shot считает для каждого пробитого юнита свою дистанцию и свой Smoke. Урон Large Caliber и Chakram к тому же зависит от силы стека по каждому задетому, включая цель (разделённый стек с силой 3 наносит 60%), а Area Throw и Through Shot бьют в полную силу при любом размере стека.",
+                "Апгрейд «Стрельба» (+20/40/70% дистанции), Farsight Quiver (+50% от базовой дистанции) и Guiding Winds (до +35%) расширяют полосы, которые считаются целыми клетками (бонус помогает, когда добавляет полную клетку); штраф не отменяет ни один из них. Стрелок в ближнем бою наносит половину урона, если у него нет Handyman.",
             ]),
-            keywords: ["map", "narrowing", "armageddon", "laps", "holes", "карта", "сужение", "армагеддон", "круги"],
+            keywords: ["ranged", "range", "falloff", "shot distance", "divisor", "smoke", "стрельба", "дальность", "штраф", "дым"],
+            rule: "rule-mechanics",
+        },
+        {
+            name: "Resistances",
+            nameRu: "Сопротивления",
+            aliases: ["magic resistance", "status resistance", "mind resistance", "сопротивление магии"],
+            summary:
+                "Magic resistance cuts magic damage and resists debuff spells; status resistance lowers Stun/Freeze/Paralysis and physical splash; mind resistance lowers Mind effects.",
+            summaryRu:
+                "Сопротивление магии снижает магический урон и отражает дебаффы заклинаний; сопротивление статусам снижает Stun/Freeze/Paralysis и физический урон по площади; ментальное — эффекты Разума.",
+            text: bullet([
+                "Magic resistance: magic damage is multiplied by (1 − resistance); a debuff spell — and the Spit Ball, Hamstring and Vine Throw debuffs — is resisted when a d100 roll lands under it (the scroll is spent either way). Creatures start with 0 / 5 / 8–12 / 15 by level; Armor augment points add to that base directly (15 + 21 = 36), and Magic Shield, Wardguard and the Warding Mane and Arcane Ward blessings then add as separate rolls: 1 − (1 − own)(1 − bonus). Armor never reduces spell damage; Fire Breath, though, is rolled like a melee hit on each unit it reaches (its armor and luck count) before magic resistance, and Chain Lightning, Fire Shield and Fireforged burns are shares of hits that armor already reduced.",
+                "100% magic resistance (Enchanted Skin): immune to every spell from either side — buffs, heals and mass spells skip it — and to ability magic damage (Chain Lightning, Fire Breath, Fire Shield, Fireforged burns, Fire Wall); Spit Ball, Hamstring, Vine Throw and Rime Charm debuffs always fail on it. Not immune to on-hit status effects (Stun, Blindness, Paralysis, Petrifying Gaze…), auras, blessings, Craft or Resurrection.",
+                "Status resistance (Amulet of Resolve, 25%): Stun, Freeze and Paralysis chances are multiplied by (1 − resistance), and so is physical area damage taken. Mechanism units count −50 here, so they take +50% from physical area attacks; Stun and Freeze are also 1.5× as likely to land on them, and Paralysis and Shatter Armor hit them 1.5× harder.",
+                "Mind resistance (Helm of Focus, 35%): Blindness, Aggr, Boar Saliva, Terrifying Gaze and the petrify roll of Petrifying Gaze are multiplied by (1 − resistance). Madness and Mechanism units are fully immune to Mind abilities and spells.",
+                "Elements: a unit is immune to its own element (Fire, Water, Earth, Wind) and can't be targeted by that element's spells; the opposed element (Fire↔Water, Earth↔Wind) deals it ×1.5.",
+            ]),
+            textRu: bullet([
+                "Сопротивление магии: магический урон умножается на (1 − сопротивление); дебафф заклинания — а также дебаффы Spit Ball, Hamstring и Vine Throw — отражается, если бросок d100 меньше него (свиток тратится в любом случае). У существ оно изначально 0 / 5 / 8–12 / 15 по уровням; очки апгрейда «Броня» прибавляются к этой базе напрямую (15 + 21 = 36), а Magic Shield, Wardguard и благословения Warding Mane и Arcane Ward затем добавляются как отдельные броски: 1 − (1 − своё)(1 − бонус). Броня урон заклинаний не снижает; но Fire Breath считается как удар в ближнем бою по каждому задетому юниту (его броня и удача учитываются) до сопротивления магии, а Chain Lightning, Fire Shield и поджоги Fireforged — доли ударов, уже сниженных бронёй.",
+                "100% сопротивления магии (Enchanted Skin): иммунитет ко всем заклинаниям обеих сторон — баффы, лечение и массовые заклинания его пропускают — и к магическому урону способностей (Chain Lightning, Fire Breath, Fire Shield, поджоги Fireforged, Fire Wall); дебаффы Spit Ball, Hamstring, Vine Throw и Rime Charm на него никогда не ложатся. Нет иммунитета к эффектам ударов (Stun, Blindness, Paralysis, Petrifying Gaze…), аурам, благословениям, Craft и Resurrection.",
+                "Сопротивление статусам (Amulet of Resolve, 25%): шансы Stun, Freeze и Paralysis умножаются на (1 − сопротивление), как и получаемый физический урон по площади. У Mechanism здесь −50, поэтому они получают +50% от физических атак по площади; кроме того, Stun и Freeze срабатывают на них в 1,5 раза чаще, а Paralysis и Shatter Armor действуют в 1,5 раза сильнее.",
+                "Сопротивление ментальным эффектам (Helm of Focus, 35%): Blindness, Aggr, Boar Saliva, Terrifying Gaze и бросок окаменения Petrifying Gaze умножаются на (1 − сопротивление). Юниты с Madness и Mechanism полностью неуязвимы к ментальным способностям и заклинаниям.",
+                "Стихии: юнит неуязвим к своей стихии (Огонь, Вода, Земля, Ветер) и не может быть целью её заклинаний; противоположная стихия (Огонь↔Вода, Земля↔Ветер) наносит ему ×1.5.",
+            ]),
+            keywords: ["magic resist", "resistance", "status resist", "mind resist", "element", "сопротивление", "стихия", "иммунитет"],
+            rule: "rule-unit-stats",
+        },
+        {
+            name: "Spell damage",
+            nameRu: "Урон заклинаний",
+            aliases: ["how spells scale", "spell formula", "формула заклинаний"],
+            summary:
+                "A damage spell deals its power per creature alive in the casting stack, raised by magic-damage bonuses and morale, then cut by element and magic resistance; armor never counts.",
+            summaryRu:
+                "Заклинание урона наносит свою силу за каждое живое существо в стеке заклинателя, с бонусами к магическому урону и моралью, затем режется стихией и сопротивлением магии; броня не учитывается.",
+            text: [
+                "Lightning Strike, Ring of Fire, Meteor Shower, Fire Strike, Fireball and Meteorite: raw damage = floor(creatures alive in the casting stack × spell power × (1 + magic-damage bonus / 100) × morale factor). The bonus is one plain sum of the Empower augment (7/15/24), the Empower scroll (25), Sylvan Focus (15 + the Satyr's luck), Mage's Ring (10) and Archmage's Ring (20); the morale factor is 1.25 on Morale and 0.8 on Dismorale.",
+                "Per victim: Heavy Armor's magic multiplier first (up to ×1.5), then the element (its own element deals 0 and can't be targeted; the opposed element ×1.5), then × (1 − magic resistance). Armor and luck never count, a Water Shield absorbs the hit, and spells never cause Break. Stack power only decides whether the spell can be cast.",
+                "Heal (5 per Healer), Mass Heal (2.5 per Healer) and Resurrection (1.5 × the Angel stack's total health) follow the same per-creature rule; Heal and Resurrection also get the morale factor.",
+            ].join("\n\n"),
+            textRu: [
+                "Lightning Strike, Ring of Fire, Meteor Shower, Fire Strike, Fireball и Meteorite: исходный урон = floor(живые существа в стеке заклинателя × сила заклинания × (1 + бонус к магическому урону / 100) × множитель морали). Бонус — одна простая сумма апгрейда «Магия» (7/15/24), свитка Empower (25), Sylvan Focus (15 + удача Satyr), Mage's Ring (10) и Archmage's Ring (20); множитель морали — 1.25 под Morale и 0.8 под Dismorale.",
+                "Для каждой жертвы: сначала магический множитель Heavy Armor (до ×1.5), затем стихия (своя стихия — 0 урона и нельзя выбрать целью; противоположная — ×1.5), затем × (1 − сопротивление магии). Броня и удача не учитываются никогда, Water Shield поглощает удар, а заклинания никогда не накладывают Break. Сила стека лишь решает, можно ли применить заклинание.",
+                "Heal (5 за Healer), Mass Heal (2.5 за Healer) и Resurrection (1.5 × суммарного здоровья стека Angel) следуют тому же правилу «за существо»; Heal и Resurrection получают и множитель морали.",
+            ].join("\n\n"),
+            keywords: ["spell damage", "spell", "magic damage", "empower", "урон заклинаний", "магический урон", "заклинание"],
+            rule: "rule-mechanics",
+        },
+        {
+            name: "Effect durations",
+            nameRu: "Длительность эффектов",
+            aliases: ["how long effects last", "laps", "сколько длится эффект"],
+            summary:
+                "An N-lap effect covers the holder's next N turns; it counts down when the holder ends a turn, and 15 laps means the whole fight.",
+            summaryRu:
+                "Эффект на N кругов покрывает следующие N ходов владельца; он убывает, когда владелец заканчивает ход, а 15 кругов — это весь бой.",
+            text: [
+                DURATION_NOTE.en,
+                "Board effects count lap changes instead: Smoke lasts up to 3 full laps (a creature that ends its move on smoked cells clears the smoke there), and Fire Wall and vines disappear at the third lap change after they were cast. Permanent changes (runes, Craft's second attack and frozen weapons, Crusade, Miner, Dulling Defense, Bitter Experience) never expire.",
+                "A spell can't be cast on a stack that still carries it (the same buff or the same debuff), so recasting never refreshes or stacks a duration — only the Blacksmith's Armor and Weapon Runes stack. An active Stun, Blindness or Freeze isn't extended either.",
+            ].join("\n\n"),
+            textRu: [
+                DURATION_NOTE.ru,
+                "Эффекты на поле считают смены кругов: Smoke держится до 3 полных кругов (существо, закончившее перемещение на клетках с дымом, рассеивает его там), а Fire Wall и лоза исчезают на третьей смене круга после применения. Постоянные изменения (руны, вторая атака и замороженное оружие от Craft, Crusade, Miner, Dulling Defense, Bitter Experience) не истекают никогда.",
+                "Заклинание нельзя наложить на стек, на котором оно ещё действует (тот же бафф или тот же дебафф), поэтому повторное применение никогда не обновляет и не складывает длительность — складываются только руны Blacksmith (Armor Rune и Weapon Rune). Действующие Stun, Blindness и Freeze тоже не продлеваются.",
+            ].join("\n\n"),
+            keywords: ["duration", "laps", "effect", "buff", "debuff", "длительность", "круги", "эффект"],
+            rule: "rule-mechanics",
+        },
+        {
+            name: "Glossary",
+            nameRu: "Словарь терминов",
+            aliases: ["what is a stack", "what is a lap", "terms", "термины", "что такое стек", "что такое круг"],
+            summary: "Stack, creature, lap, turn, stack power, footprint, retaliation — what the game's basic words mean.",
+            summaryRu: "Стек, существо, круг, ход, сила стека, размер на поле, ответ — что значат основные слова игры.",
+            text: [
+                "The words the rules and cards use, in the engine's sense.",
+                "#### Stack\nA group of identical creatures that acts as one unit: one turn, one attack, one retaliation per lap. Damage first takes the front creature's remaining health, then kills whole creatures; attack damage grows with the creatures alive. When none are left, the stack is destroyed. Every drafted creature arrives as one stack worth 1,000 experience (200 Peasants, 2 Angels…); during placement a stack can be split into several without creating creatures.",
+                "#### Creature\nOne member of a stack. A unit card's health, damage and armor are one creature's; the whole stack's health is creatures × health.",
+                "#### Lap and turn\nA lap is one round in which every stack gets exactly one turn, in the order fixed at its start (Morale stacks, then the armies alternating, then Dismorale stacks, then Hourglass waiters). A turn is one stack's single action: move, melee attack, shoot, cast, wait, defend or skip. Effect durations count laps as the holder's own turns.",
+                "#### Stack power\nA 1–5 rating of a stack's experience × creatures alive against the strongest stack on the board; it scales abilities and auras and gates some spells. An unsplit drafted stack usually starts at 5.",
+                "#### Footprint\nThe cells a stack occupies: 1×1, 2×1 or 2×2. Bigger bodies need more room to move, to be placed and to escape narrowing.",
+                "#### Retaliation\nThe answer a stack gives to an attack — once per lap, computed before the attacker's blow lands.",
+            ].join("\n\n"),
+            textRu: [
+                "Слова, которыми пользуются правила и карточки, в том смысле, в каком их понимает движок.",
+                "#### Стек\nГруппа одинаковых существ, действующая как один юнит: один ход, одна атака, один ответ за круг. Урон сначала снимает оставшееся здоровье переднего существа, затем убивает существ целиком; урон атаки растёт с числом живых существ. Когда существ не осталось, стек уничтожен. Каждое задрафтованное существо приходит одним стеком на 1000 опыта (200 Peasant, 2 Angel…); при расстановке стек можно разделить на несколько, новых существ при этом не появляется.",
+                "#### Существо\nОдин член стека. Здоровье, урон и броня на карточке юнита — это значения одного существа; здоровье всего стека — существа × здоровье.",
+                "#### Круг и ход\nКруг — это раунд, в котором каждый стек получает ровно один ход в порядке, зафиксированном в его начале (стеки с Morale, затем армии по очереди, затем стеки с Dismorale, затем ожидающие через Hourglass). Ход — одно действие одного стека: перемещение, ближняя атака, выстрел, заклинание, ожидание, защита или пропуск. Длительность эффектов считается кругами в ходах самого владельца.",
+                "#### Сила стека\nОценка 1–5: опыт × живые существа стека относительно сильнейшего стека на поле; масштабирует способности и ауры и открывает часть заклинаний. Неразделённый задрафтованный стек обычно начинает с 5.",
+                "#### Размер на поле\nКлетки, которые занимает стек: 1×1, 2×1 или 2×2. Крупным телам нужно больше места, чтобы двигаться, встать при расстановке и уйти от сужения.",
+                "#### Ответ\nОтветный удар стека на атаку — один раз за круг, рассчитывается до того, как удар атакующего нанесён.",
+            ].join("\n\n"),
+            keywords: ["glossary", "terms", "stack", "creature", "lap", "turn", "footprint", "словарь", "термины", "стек", "существо", "круг", "ход"],
+            rule: "rule-victory",
+        },
+        {
+            name: "Counters and interactions",
+            nameRu: "Контры и взаимодействия",
+            aliases: ["how to counter", "what beats", "counter", "как контрить", "чем контрить", "против чего"],
+            summary:
+                "What the engine gives you against shooters, spells, splash, crowd control, flyers, rushes and ability-heavy stacks — each answer is a mechanic described in its own entry.",
+            summaryRu:
+                "Что движок даёт против стрелков, заклинаний, ударов по площади, контроля, летающих, рывков и стеков, живущих способностями, — каждый ответ описан в своей записи.",
+            text: [
+                "Every answer below is a mechanic described in its own entry, checked against the engine.",
+                "#### Shooters\nPut any unit next to them — an enemy in a touching cell stops them shooting. Range Null Field Aura (Griffin) stops enemy shooters within 2 cells from shooting or returning fire; Smoke halves every shot that crosses it, Sniper shots included; Arrows Wingshield Blessing (Angel) gives your army +25% armor against shots at full stack (a little more with luck); Dense Flesh (Abomination) makes most shots at it cost 2 arrows; Rangebane from Spit Ball silences a shooter for a lap.",
+                "#### Spells and magic damage\nMagic resistance multiplies magic damage by (1 − resistance) and resists debuff spells — Armor augment points, Magic Shield, Wardguard, Warding Mane and Arcane Ward blessings all add to it. Enchanted Skin (Black Dragon) is immune to every spell; elements are immune to their own element; Magic Mirror and Magic Reflection send a share back; a Water Shield soaks one hit; Break (Chaos's Break on Attack) stops a Broken unit casting.",
+                "#### Physical splash and piercing\nArea Throw and Large Caliber punish 3×3 clumps, Through Shot and Skewer Strike lines, Lightning Spin whatever touches the Hydra; a Chakram only bounces across one or two empty cells, so a tight formation starves it. Amulet of Resolve takes 25% off all of them; Area Throw or Large Caliber landing on an Angel with Arrows Wingshield Blessing hits the Angel alone, a Through Shot stops at it, and a Chakram can't bounce onto it; Mechanism units take +50%, so keep a Tsar Cannon out of the splash.",
+                "#### Status and Mind effects\nStun, Freeze and Paralysis: Amulet of Resolve lowers their chance by 25%; Absolving Arrow (Monk) can lift them from allies its arrows fly past. Mind abilities (Blindness, Aggr, Boar Saliva, the gazes): Helm of Focus lowers them by 35%. Madness and Mechanism units are immune to them and to the Mind spells (Courage, Sadness, Misfortune, Rangebane, Cowardice), which otherwise only magic resistance resists.",
+                "#### Debuff spells\nMagic resistance resists them, a Peasant's Absorb Penalties Aura can take them onto itself, Absolving Arrow lifts them, Magic Mirror may copy them back onto the caster (40%, Mass Magic Mirror 32%).",
+                "#### Retaliation\nA stack answers once per lap, so a cheap first hit soaks the answer before your main attacker goes in (not against One in the Field); Shadow Touch and Lightning Spin attackers are never answered; a Stunned, Blinded or Frozen defender can't answer; spells are never answered.",
+                "#### Flyers\nWeb Aura (Arachna Queen) stops enemy flyers that start their turn within 2 cells from moving; Hamstring (Dryad) takes 30% of a flyer's movement; Wind Flow (Valkyrie) takes 4 movement from every flyer on the board, both sides, while giving each of them +4 armor (flyers with 100% magic resistance are skipped).",
+                "#### Fast melee rushes\nVine Throw (Trent) snares and makes vined cells cost an extra step; Quagmire from Rime Charm or Spit Ball takes 25% of movement; Whirlpool chains one stack for a turn; Paralysis stops movement.",
+                "#### Ability-heavy stacks\nLosses lower their stack power — a share of the strongest stack on the board — and their abilities with it; Break turns all of a unit's abilities off for 2 laps; Predatory Assimilation (Arachna Queen) steals one for good.",
+                "#### Waiting and stalling\nTime Denial (Nightmare) stops both armies waiting on the Hourglass; a fight where nobody closes in narrows early, and Armageddon ends every fight by lap 15.",
+            ].join("\n\n"),
+            textRu: [
+                "Каждый ответ ниже — механика, описанная в своей записи и сверенная с движком.",
+                "#### Стрелки\nПоставьте рядом с ними любого юнита — враг в соседней клетке не даёт стрелять. Range Null Field Aura (Griffin) не даёт вражеским стрелкам в радиусе 2 клеток ни стрелять, ни отвечать выстрелом; Smoke вдвое ослабляет каждый выстрел сквозь него, даже у Sniper; Arrows Wingshield Blessing (Angel) даёт вашей армии +25% брони от выстрелов при полной силе стека (с удачей чуть больше); Dense Flesh (Abomination) заставляет тратить на большинство выстрелов по ней 2 стрелы; Rangebane от Spit Ball лишает стрелка выстрелов на круг.",
+                "#### Заклинания и магический урон\nСопротивление магии умножает магический урон на (1 − сопротивление) и отражает дебаффы заклинаний — его повышают очки апгрейда «Броня», Magic Shield, Wardguard, благословения Warding Mane и Arcane Ward. Enchanted Skin (Black Dragon) неуязвим ко всем заклинаниям; стихии неуязвимы к своей стихии; Magic Mirror и Magic Reflection возвращают часть урона; Water Shield поглощает один удар; Break (синергия Хаоса «Разлом при атаке») не даёт юниту колдовать.",
+                "#### Физические удары по площади и насквозь\nArea Throw и Large Caliber наказывают кучу 3×3, Through Shot и Skewer Strike — линию, Lightning Spin — всех, кто стоит вплотную к Hydra; Chakram отскакивает только через одну-две пустые клетки, поэтому плотный строй его обесточивает. Amulet of Resolve снимает 25% со всех них; Area Throw или Large Caliber, попавшие в Angel с Arrows Wingshield Blessing, бьют только его, Through Shot на нём останавливается, а Chakram не может на него отскочить; Mechanism получает +50%, поэтому держите Tsar Cannon подальше от таких ударов.",
+                "#### Эффекты Статуса и Разума\nStun, Freeze и Paralysis: Amulet of Resolve снижает их шанс на 25%; Absolving Arrow (Monk) может снять их с союзников, мимо которых летят его стрелы. Ментальные способности (Blindness, Aggr, Boar Saliva, взгляды): Helm of Focus снижает их на 35%. У Madness и Mechanism иммунитет к ним и к ментальным заклинаниям (Courage, Sadness, Misfortune, Rangebane, Cowardice), которым иначе противостоит только сопротивление магии.",
+                "#### Дебаффы заклинаний\nСопротивление магии их отражает, Absorb Penalties Aura у Peasant может забрать их себе, Absolving Arrow снимает, Magic Mirror может скопировать их обратно на заклинателя (40%, Mass Magic Mirror — 32%).",
+                "#### Ответные удары\nСтек отвечает раз за круг, поэтому дешёвый первый удар забирает ответ до того, как пойдёт главный атакующий, — но не против One in the Field; на атаки с Shadow Touch и Lightning Spin не отвечают; оглушённый, ослеплённый или замороженный защитник ответить не может; на заклинания не отвечают никогда.",
+                "#### Летающие\nWeb Aura (Arachna Queen) не даёт вражеским летающим, начавшим ход в радиусе 2 клеток, двигаться; Hamstring (Dryad) отнимает у летающего 30% движения; Wind Flow (Valkyrie) отнимает 4 движения у всех летающих на поле, у обеих сторон, но даёт каждому из них +4 к броне (летающие со 100% сопротивления магии пропускаются).",
+                "#### Быстрые рывки ближнего боя\nVine Throw (Trent) опутывает и делает клетки с лозой дороже на шаг; Quagmire от Rime Charm или Spit Ball отнимает 25% движения; Whirlpool приковывает один стек на ход; Paralysis останавливает движение.",
+                "#### Стеки, живущие способностями\nПотери снижают их силу стека — долю от сильнейшего стека на поле, — а с ней и способности; Break отключает все способности юнита на 2 круга; Predatory Assimilation (Arachna Queen) крадёт одну навсегда.",
+                "#### Ожидание и затягивание\nTime Denial (Nightmare) запрещает обеим армиям ждать через Hourglass; бой, где никто не сближается, сужается раньше, а Армагеддон заканчивает любой бой к 15-му кругу.",
+            ].join("\n\n"),
+            keywords: [
+                ...["counter", "counters", "beat", "against", "weakness", "protect", "protection", "stop", "slow"],
+                ...["shooters", "archers", "spells", "splash", "flyers", "rush"],
+                ...["контра", "контрить", "против", "слабость", "защита", "защитить", "защититься", "остановить"],
+                ...["стрелки", "заклинания", "летающие", "по площади"],
+            ],
+            rule: "rule-mechanics",
+        },
+        {
+            name: "Draft bans",
+            nameRu: "Баны в драфте",
+            aliases: ["ban", "bans", "auto-ban", "autoban", "ban preference", "бан", "баны", "автобан", "забанить"],
+            summary: "Which creatures are banned before the draft, and how your one ranked ban preference works.",
+            summaryRu: "Какие существа банятся перед драфтом и как работает ваше одно предпочтение бана в рейтинге.",
+            text: bullet([
+                "Before every draft the game automatically bans 6 level-1, 6 level-2, 3 level-3 and 5 level-4 creatures; bundle creatures are never auto-banned.",
+                "In the ranked lobby you can save one ban preference beforehand. It adds at most one shared extra ban per match (the same unit from both players is one ban; two different ones are settled by the match) and never replaces an auto-ban. You can't ban during the draft itself.",
+                "The extra ban applies only to a draftable unit and only when at least two non-bundle choices remain at its level. If that unit lands in a generated bundle, the server regenerates the whole draft; after 25 tries the ban is skipped for that match. If the auto-bans already removed it, nothing further is banned.",
+            ]),
+            textRu: bullet([
+                "Перед каждым драфтом игра автоматически банит 6 существ 1 уровня, 6 — 2 уровня, 3 — 3 уровня и 5 — 4 уровня; существ из бандлов автобан не трогает.",
+                "В рейтинговом лобби можно заранее сохранить одно предпочтение бана. Оно добавляет не больше одного общего дополнительного бана на матч (один и тот же юнит у обоих игроков — один бан; два разных решает матч) и не заменяет автобан. Во время самого драфта банить нельзя.",
+                "Дополнительный бан применяется только к драфтовому юниту и только если на его уровне остаются минимум два небандловых варианта. Если этот юнит попал в сгенерированный бандл, сервер заново генерирует весь драфт; после 25 попыток бан в этом матче пропускается. Если автобаны уже убрали этого юнита, больше никого не банят.",
+            ]),
+            keywords: ["ban", "draft", "бан", "драфт"],
+            rule: "rule-draft",
+        },
+        {
+            name: "Barrels map",
+            nameRu: "Карта Barrels (бочки)",
+            aliases: ["barrel", "barrels", "бочка", "бочки", "карта с бочками"],
+            summary: "The Barrels map: where the barrels stand, what they block, how to break them, and when the map narrows.",
+            summaryRu: "Карта Barrels: где стоят бочки, что они блокируют, как их разбить и когда сужается поле.",
+            text: bullet([
+                "The ranked map — Normal, Barrels or FIRE PIT, equally likely — is fixed when the draft is created and revealed to both players during the draft. On Barrels: exactly 12 destructible barrels, placed from the match ID across the four central columns; there is no single central block.",
+                "A barrel is a structure: an ordinary shot is stopped by the first barrel in its lane.",
+                "Any unit can attack a barrel directly, in melee or with a shot, and a single hit destroys it. Double Shot spends up to two of its projectiles clearing barrels instead of hitting the target; Cyclops (Large Caliber) and Gargantuan (Area Throw) fly over structures and smash every barrel caught in the 3×3.",
+                "The Barrels map narrows at laps 5 and 9 (Normal and FIRE PIT at 4, 7 and 10).",
+            ]),
+            textRu: bullet([
+                "Рейтинговая карта — Normal, Barrels или FIRE PIT, с равными шансами — определяется при создании драфта и видна обоим игрокам во время драфта. На Barrels ровно 12 разрушаемых бочек, расставленных по четырём центральным колонкам по ID матча; единого блока в центре нет.",
+                "Бочка — постройка: обычный выстрел останавливает первая бочка на линии.",
+                "Любой юнит может атаковать бочку напрямую, в ближнем бою или выстрелом, и один удар её уничтожает. Double Shot тратит до двух своих снарядов на расчистку бочек вместо попадания по цели; Cyclops (Large Caliber) и Gargantuan (Area Throw) летят поверх построек и разбивают все бочки в зоне 3×3.",
+                "Карта Barrels сужается на 5 и 9 кругах (Normal и FIRE PIT — на 4, 7 и 10).",
+            ]),
+            keywords: ["barrels", "map", "obstacle", "бочки", "карта", "препятствие"],
+            rule: "rule-map",
+        },
+        {
+            name: "Draft and placement timers",
+            nameRu: "Таймеры драфта и расстановки",
+            aliases: ["pick timer", "draft timer", "placement timer", "time to pick", "how long to pick", "таймер драфта", "время на пик", "сколько времени на пик", "время на расстановку", "таймер расстановки"],
+            summary: "How long each draft stage, Setup and Board placement last, and what happens when a clock runs out.",
+            summaryRu: "Сколько длятся этапы драфта, Setup и расстановка на поле и что происходит, когда время вышло.",
+            text: bullet([
+                "Draft stages: Doctrine 30 s, Bundle 30 s, each creature pick 60 s, Tier-2 artifact 60 s. A simultaneous stage ends as soon as both players have chosen; finishing early banks nothing.",
+                "When a draft clock runs out the server chooses for you and says so: Scout for the doctrine, the ranked AI's choice for a bundle, creature or artifact.",
+                "After the draft, Setup (augments) lasts 60 s and Board placement 80 s. Points left unspent are spent for you; stacks still on the bench when the 80 s run out are placed automatically, and the fight starts.",
+                "In the fight each army has its own lap budget and turn clock — see the Turn timer entry.",
+            ]),
+            textRu: bullet([
+                "Этапы драфта: Доктрина 30 с, Бандл 30 с, каждый пик существа 60 с, артефакт 2 тира 60 с. Одновременный этап заканчивается, как только выбрали оба игрока; сэкономленное время не переносится.",
+                "Когда время этапа драфта вышло, сервер выбирает за вас и сообщает об этом: Scout для доктрины, выбор рейтингового ИИ для бандла, существа или артефакта.",
+                "После драфта Setup (апгрейды) длится 60 с, а расстановка на поле — 80 с. Неизрасходованные очки тратятся за вас; стеки, оставшиеся в запасе, когда 80 с истекут, расставляются автоматически, и начинается бой.",
+                "В бою у каждой армии свой бюджет круга и таймер хода — см. запись «Таймер хода».",
+            ]),
+            keywords: ["timer", "timeout", "seconds", "таймер", "время", "секунд", "тайм-аут"],
+            rule: "rule-draft",
+        },
+        {
+            name: "Combos and anti-synergies",
+            nameRu: "Комбинации и антисинергии",
+            aliases: ["combo", "combos", "synergy between", "works well with", "goes well with", "best with", "комбо", "комбинации", "что хорошо сочетается", "с чем брать"],
+            summary:
+                "Which abilities, auras, artifacts, augments, spells and synergies strengthen each other, which ones cancel out, and the numbers behind each — checked in the engine's code.",
+            summaryRu:
+                "Какие способности, ауры, артефакты, апгрейды, заклинания и синергии усиливают друг друга, какие мешают — и числа за каждым сочетанием, проверенные в коде движка.",
+            text: [
+                "What works together and what works against itself — each interaction checked in the engine's code (common @ 9442995). Numbers are at full stack power unless stated.",
+                "#### Deep Wounds, luck and many attackers\nEvery melee hit by a Deep Wounds holder adds (card value ÷ 5 × stack power) + luck + Might's Abilities power synergy to the target's wounds, and every attacker holding a Deep Wounds card deals the wound total as extra percent damage. Luck counts in full, so on the smaller cards it adds more than the card: a Wolf's 6 per hit becomes 16 at +10 luck (a Leprechaun's Luck Aura sets allies within 2 cells to exactly +10) and 24 with Abilities power level 2 as well (level 3 is an all-Might army, with no room for a Wolf); level-2 cards (Griffin, White Tiger, Manticore) go 13 → 23, the Behemoth's 21 → 31. A Wolf's Double Punch lays two wounds in one attack — the second punch is already priced with the wound the first one made. Wounding Charm gives every unit a level-1 card, so every melee hit adds wounds and every attacker — shooters too — cashes them in.",
+                "#### Luck and auras\nPercentage auras add their carrier's luck and Might's Abilities power in full: at +10 luck and Abilities power level 2 — the most a Life carrier can have, since level 3 is an all-Might army — Sharpened Weapons (Crusader) goes 18 → 36% base attack for melee allies, War Anger (Valkyrie) 10 → 28% per enemy stack nearby, Absorb Penalties (Peasant) 50 → 68% (Guiding Winds and Sylvan Focus take the luck but not the synergy; Venom Cloud is a flat 20% plus the luck of the ally that lands the hit, so the Wyvern's own luck doesn't matter). A Leprechaun standing next to an aura carrier therefore strengthens the aura for every ally inside it — and its Luck Aura covers itself: its Lucky Strike goes from a 50% chance of +50% (about ×1.25 on average) to 58% for +58% with Abilities power level 2 (a Nature Leprechaun can't be in the all-Might army level 3 needs). Luck also makes the Blacksmith's Craft safe: its self-stun chance is 10% minus luck, so at +10 it never backfires and the Frozen outcome rises to 20%.",
+                "#### Aura rules\nAuras of the same name never stack: every cell keeps the strongest source. Flat auras don't depend on stack power — Luck, Range Null Field, Web, Pegasus Might (+2), Tie up the Horses (+2), Venom Cloud (20%), Rallying Volley (+2 shots), Sylvan Focus, and the Angelic Host and Arcane Ward blessings — so a split carrier projects them at full strength in two places (its other stack-powered abilities still drop with the split). Stack-powered ones (Sharpened Weapons, War Anger, Absorb Penalties, Wolf Trail, Guiding Winds, Flesh Shield; the Warding Mane and Arrows Wingshield blessings) weaken when split, so keep those carriers whole. Might's Aura Range synergy adds 1/2/3 cells to every aura, enemy-facing ones included: a 2×2 carrier's 6×6 area grows to 10×10 — 100 of the board's 256 cells — at level 2, the most a Griffin (Life) or an Arachna Queen (Nature) can get, which turns its Range Null Field or Web into a much bigger threat (level 3's 12×12 needs an all-Might army); it also widens the White Tiger's Disguise detection area (8×8 → 12×12 at level 2), so the Tiger is visible far more often. Flesh Shield pays most on fragile allies: the share it takes is re-priced against the Abomination's 45 armor, so it saves a low-armor shooter far more than a tank.",
+                "#### Locks and retaliation\nUnicorn: One in the Field answers every melee attack, not just the first each lap, and every answer rolls Blindness — 25% at full stack, 33% with Abilities power level 2 (the most a Nature Unicorn can get), 43% with +10 luck as well; a blinded attacker skips 2 turns and loses its Double Punch follow-up. Attack it with shooters, spells or Mind-immune units (Madness, Mechanism); Helm of Focus cuts the roll to ×0.65. Pikeman: Aggr (50% at full stack) makes the target answer only the Pikeman for a lap, so every other ally hits it unanswered, and Skewer Strike rolls the whole on-hit package on the unit behind a single-cell target too — one attack can lock two stacks; act with the Pikeman first. Stun, Blindness and Freeze don't refresh while active and different ones count down together, so a Stun on a stack that is already Blinded is wasted — spread disables across targets. A retaliation lands before a Double Punch's second punch, so a Stun rolled by the answering Squire or Orc cancels that punch and a Mantis's Paralysis cuts it by 40%. Misfortune (Wandering Mage) drops a stack's luck to −10, but a stack under a Leprechaun's Luck Aura or Clover of Fortune ends at 0 instead.",
+                "#### Breaking armor\nDamage divides by armor, so armor cuts multiply. Piercing Spear ignores (50 + luck + Abilities power)% of whatever armor is left after Shatter Armor (Nomad, −5 per attack, stacking) and other cuts: a full-stack Centaur deals ×2 damage against armor, ×2.5 at +10 luck, ×3.57 with Abilities power level 3 as well, and its Boost Health uses the same formula (+50% → +72% health). Armor never drops below 1. Centaur armies gain more from luck and Abilities power than any other; send the Nomad in first against high-armor targets.",
+                "#### Movement is damage\nRapid Charge adds its per-cell percentage for every cell of the charge, the starting cell included: 10% per cell at full stack, 20% at +10 luck, 32% with Abilities power level 3 too (an all-Might army: Wolf Rider or Nomad; a Life Champion tops out at level 2, 28%) — walking 6 cells counts 7, so ×1.7, ×2.4 or ×3.24. Attacks only, not retaliations. Everything that lengthens the route — the Movement augment, Swift Boots (+25%, applied after the augment), Chaos Movement, Crown of Command, Wolf Trail, Tie up the Horses, Battle Roar — is a damage bonus for the Wolf Rider, Nomad and Champion, and the Champion's Crusade adds a permanent +0.5 attack and armor per cell walked (up to 50).",
+                "#### Artifacts that reward a build\n- Hunter's Longbow: +1 base attack per ranged stack, added after the Sniper augment's percentage — with 5 ranged stacks an Arbalester goes 7 → 12 (+71%), a Tsar Cannon only 46 → 51 (+11%). It is an artifact for swarms of cheap shooters.\n- Farsight Quiver, Guiding Winds and the Sniper augment's range do nothing for the Arbalester (its Sniper ability already ignores falloff); they matter for short-range shooters — a Centaur's 4 cells become 6 with Farsight Quiver and 8 with Sniper level 3 as well.\n- Tome of Amplification strengthens every numbered buff your units cast on your own side: Riot 30 → 45%, Mass Riot 25 → 37.5%, Magic Mirror 40 → 60%, Mass Magic Mirror 32 → 48%, Battle Roar +1 → +1.5 movement per Behemoth — and Wind Flow, which then gives your own flyers +6 armor but −6 movement (enemy flyers keep ±4): cast it only once your flyers are in position.\n- Fireforged Sword burns the unit a hit damages for 20% of that damage (30% with Tome); a Tsar Cannon's Through Shot burns every unit on its line, so the sword is worth most there.\n- Rallying Volley (Zena) gives each ranged stack within 2 cells +2 shots once: Tsar Cannon and Centaur 4 → 6, Orc 6 → 8; every split stack gets its own +2.\n- Pegasus Might's flat +2 attack and armor comes before the percentage bonuses, so it matters most on level-1 stacks: a Peasant's 9/7 becomes 11/9 (+22%/+29%), a Black Dragon's 48/40 barely moves.\n- Giant's Maul multiplies physical area damage on every unit hit — your own stacks in the ring of your Area Throw or Large Caliber included (a Tsar Cannon there takes ×1.4 × 1.5 = ×2.1), so keep them out of the 3×3 around your own targets.\n- Amulet of Resolve's 25% status resistance also cuts physical area and line damage, so an enemy Giant's Maul (×1.4) nets only ×1.05 against it.",
+                "#### Augments\nThe Armor augment's magic resistance points are added to the base, and Magic Shield, Wardguard, Warding Mane and Arcane Ward then combine as separate rolls: a Frenzied Boar's 15% plus the augment's 21 points is 36%, then 68% with Magic Shield, 76% with Warding Mane and 78.4% with Arcane Ward. Might (+8/17/27% base attack) works on every unit whose selected attack isn't a shot — melee units, casters and shooters switched to melee — while Sniper helps shooters only while they shoot; an engaged shooter loses both Sniper and Hunter's Longbow, but Centaur and Zena (Handyman) keep hitting at full strength in melee and profit from Might.",
+                "#### Spells\nBlessing and Battle Roar force the top damage roll, so they are worth most on units with a wide damage range — about +60% for a Scavenger, +43% for Wolf, Orc and Battle Mage, +33% for the Troll, but only +5–6% for Pikeman and Griffin; Curse hurts the wide-range units most. No spell from either side reaches a Black Dragon (Enchanted Skin) — not even your own Blessing, buffs or Wind Flow — while auras, blessings, artifacts and augments do. Its Fire Breath is built from its own attack, so it grows with attack bonuses (the Might augment, attack auras and artifacts), with luck and Abilities power, and with the magic-damage bonuses (the Empower augment, Mage's or Archmage's Ring, Sylvan Focus). Life's Supply synergy grows casters whose spells scale with creature count: at level 3 (an all-Life army) a Healer stack 40 → 47 heals 200 → 235 and Battle Mages 50 → 59 cast Fire Strike for 300 → 354; at level 2 (+12%) two other creatures can come along — Wandering Mages 164 → 183 throw Fireball for 366 instead of 328, Satyrs 36 → 40 summon 60 Wolves instead of 54; two-creature level-4 casters don't grow.",
+                "#### Anti-synergies and traps\n- Life's Supply at level 3 needs six different Life creatures — an all-Life army — and then only a Monk stack passes 1,250 experience (8 → 9 Monks, 1,278). While all nine live, every enemy stack worth 1,022 experience or less — many unsplit level-1 and level-2 stacks, the Nightmare and Mantis, every exact-1,000 stack — drops to stack power 4: its stack-powered abilities lose a fifth, and whatever needs stack power 5 (Meteorite, Meteor Shower, Wind Flow) is locked. Your own stacks grow with the synergy and stay at 5, except level-4 stacks of 1–3 creatures, which don't grow. It ends when one Monk falls (1,136).\n- Morale is capped at ±20 and luck at +10. Life's Morale and Luck synergy at level 3 (+20 morale, +9 luck) means an all-Life army, whose creatures start at +4 morale and +1 luck, so a fresh stack sits at the +20 cap: Crown of Command's +8 adds nothing at first, but synergy and artifacts are re-added to the stack's own morale after every gain or loss, so the Crown keeps it at +20 through 12 points of morale loss instead of 4 (take it for that and for its movement and armor). Cursed Ward's −6 costs only 2 at first but leaves no margin, and the luck of Cursed Ward (+3) and Clover of Fortune (+10) is mostly lost to the cap. At level 2 (+13 morale) the cap already bites: Crown adds only 3/5/6/8 morale to Life/Might/Nature/Chaos creatures.\n- Madness and Mechanism units (Troglodyte, Tsar Cannon) sit at 0 morale, so morale sources do nothing for them; the Tsar Cannon also can't be healed. Break lifts both rules for 2 laps.\n- Chaos's Break on Attack is best aimed at blessing and aura carriers: a Broken carrier stops counting, so its Warding Mane, Arcane Ward, Arrows Wingshield or Angelic Host vanishes from the whole army unless another unbroken carrier lives, and a Broken unit projects no auras. A second Squire stack keeps Arcane Ward alive through a Break.\n- An Angel soaks area shots: a Large Caliber or Area Throw shot that lands on an unbroken Angel doesn't splash, and a Through Shot or a Chakram stops at it — shoot the Angel's neighbours instead, or Break it first.",
+                "#### Summons and synergy level\nThe synergy level is set at fight start; a summon that brings a creature the army didn't have — an Arachna Spider from an Infest kill, Wolves from Summon Wolves without a drafted Wolf — can lift Nature from 5 to 6 different creatures (level 2 → 3) mid-fight, and the level falls back once those summons are gone. It matters when the match drew Nature's Flying Armor variant (24% → 35% armor for every flyer)."
+            ].join("\n\n"),
+            textRu: [
+                "Что работает вместе и что само себе мешает — каждое взаимодействие проверено в коде движка (common @ 9442995). Числа даны для полной силы стека, если не сказано иное.",
+                "#### Deep Wounds, удача и много атакующих\nКаждый удар в ближнем бою юнита с Deep Wounds добавляет к ранам цели (значение карты ÷ 5 × сила стека) + удача + синергия Силы «Сила способностей», а каждый атакующий с картой Deep Wounds наносит сумму ран как дополнительный урон в процентах. Удача входит целиком, поэтому на маленьких картах она даёт больше самой карты: 6 за удар у Wolf становятся 16 при удаче +10 (Luck Aura у Leprechaun ставит союзникам в радиусе 2 клеток ровно +10) и 24 вместе с «Силой способностей» 2 уровня (3 уровень — это армия целиком из Силы, где Wolf нет места); карты 2 уровня (Griffin, White Tiger, Manticore) — 13 → 23, у Behemoth — 21 → 31. Double Punch у Wolf кладёт две раны за одну атаку: второй удар уже считается с раной, которую нанёс первый. Wounding Charm даёт каждому юниту карту 1 уровня: каждый удар в ближнем бою добавляет раны, а пользуется ими каждый атакующий — и стрелки тоже.",
+                "#### Удача и ауры\nПроцентные ауры прибавляют удачу своего носителя и синергию «Сила способностей» целиком: при удаче +10 и «Силе способностей» 2 уровня — больше носителю из Жизни не получить, ведь 3 уровень — это армия целиком из Силы, — Sharpened Weapons (Crusader) растёт с 18 до 36% базовой атаки союзников ближнего боя, War Anger (Valkyrie) — с 10 до 28% за каждый вражеский стек рядом, Absorb Penalties (Peasant) — с 50 до 68% (Guiding Winds и Sylvan Focus берут удачу, но не синергию; Venom Cloud — это ровно 20% плюс удача союзника, наносящего удар, так что удача самой Wyvern не важна). Поэтому Leprechaun рядом с носителем ауры усиливает ауру для всех союзников в ней — а его Luck Aura действует и на него самого: Lucky Strike идёт от 50% шанса на +50% (в среднем около ×1,25) до 58% на +58% с «Силой способностей» 2 уровня (Leprechaun из Природы не попадёт в армию целиком из Силы, которой требует 3 уровень). Удача делает безопасным и Craft у Blacksmith: шанс оглушить себя — 10% минус удача, так что при +10 он не срабатывает против вас, а шанс Frozen растёт до 20%.",
+                "#### Правила аур\nАуры с одинаковым названием не складываются: каждая клетка берёт сильнейший источник. Плоские ауры не зависят от силы стека — Luck, Range Null Field, Web, Pegasus Might (+2), Tie up the Horses (+2), Venom Cloud (20%), Rallying Volley (+2 выстрела), Sylvan Focus, благословения Angelic Host и Arcane Ward, — поэтому разделённый носитель даёт их в полную силу в двух местах (остальные его способности от силы стека после разделения слабеют). Ауры от силы стека (Sharpened Weapons, War Anger, Absorb Penalties, Wolf Trail, Guiding Winds, Flesh Shield; благословения Warding Mane и Arrows Wingshield) при разделении слабеют — таких носителей держите целыми. Синергия Силы «Радиус аур» добавляет 1/2/3 клетки каждой ауре, в том числе направленной на врага: зона носителя 2×2 растёт с 6×6 до 10×10 — 100 из 256 клеток поля — на 2 уровне, а больше Griffin (Жизнь) или Arachna Queen (Природа) не получить, и их Range Null Field или Web становятся куда опаснее (12×12 на 3 уровне требует армии целиком из Силы); заодно растёт зона обнаружения Disguise у White Tiger (8×8 → 12×12 на 2 уровне), и Tiger куда чаще видим. Flesh Shield выгоднее всего на хрупких союзниках: забранная доля пересчитывается против брони Abomination (45), поэтому стрелка с низкой бронёй он спасает куда сильнее, чем танка.",
+                "#### Контроль и ответы\nUnicorn: One in the Field отвечает на каждую атаку в ближнем бою, а не только на первую за круг, и каждый ответ бросает Blindness — 25% при полной силе, 33% с «Силой способностей» 2 уровня (больше Unicorn из Природы не получить), 43% ещё и с удачей +10; ослеплённый атакующий пропускает 2 хода и теряет второй удар Double Punch. Бейте его стрелками, заклинаниями или юнитами с иммунитетом к Разуму (Madness, Mechanism); Helm of Focus умножает шанс на 0,65. Pikeman: Aggr (50% при полной силе) заставляет цель отвечать на круг только ему, поэтому все остальные союзники бьют её без ответа, а Skewer Strike бросает весь набор эффектов удара и по юниту позади цели размером в одну клетку — одна атака может связать два стека; ходите Pikeman первым. Stun, Blindness и Freeze не обновляются, пока действуют, а разные эффекты убывают одновременно, поэтому Stun на уже ослеплённом стеке пропадает зря — распределяйте контроль по разным целям. Ответ наносится до второго удара Double Punch, поэтому Stun от отвечающего Squire или Orc отменяет этот удар, а Paralysis от Mantis ослабляет его на 40%. Misfortune (Wandering Mage) опускает удачу стека до −10, но стек под Luck Aura от Leprechaun или с Clover of Fortune получает 0.",
+                "#### Пробитие брони\nУрон делится на броню, поэтому снижения брони перемножаются. Piercing Spear игнорирует (50 + удача + «Сила способностей»)% брони, оставшейся после Shatter Armor (Nomad, −5 за атаку, складывается) и других снижений: Centaur при полной силе наносит ×2 урона, при удаче +10 — ×2,5, а вместе с «Силой способностей» 3 уровня — ×3,57; его Boost Health считается так же (+50% → +72% здоровья). Броня не опускается ниже 1. Армии с Centaur получают от удачи и «Силы способностей» больше всех; против бронированных целей пускайте Nomad первым.",
+                "#### Движение — это урон\nRapid Charge добавляет свой процент за каждую клетку разбега, считая клетку старта: 10% за клетку при полной силе, 20% при удаче +10, 32% ещё и с «Силой способностей» 3 уровня (армия целиком из Силы: Wolf Rider или Nomad; Champion из Жизни получает максимум 2 уровень — 28%) — 6 пройденных клеток считаются как 7, то есть ×1,7, ×2,4 или ×3,24. Только в атаке, не в ответах. Всё, что удлиняет путь, — апгрейд «Движение», Swift Boots (+25%, после апгрейда), синергия Хаоса «Передвижение», Crown of Command, Wolf Trail, Tie up the Horses, Battle Roar — это бонус к урону для Wolf Rider, Nomad и Champion, а Crusade у Champion навсегда добавляет +0,5 к атаке и броне за каждую пройденную клетку (до 50).",
+                "#### Артефакты под сборку\n- Hunter's Longbow: +1 к базовой атаке за каждый стек стрелков, прибавляется после процента апгрейда «Стрельба» — при 5 стеках стрелков Arbalester растёт с 7 до 12 (+71%), а Tsar Cannon — лишь с 46 до 51 (+11%). Это артефакт для стай дешёвых стрелков.\n- Farsight Quiver, Guiding Winds и дальность апгрейда «Стрельба» ничего не дают Arbalester (его Sniper и так отменяет штраф за дальность); они важны стрелкам с короткой дистанцией — 4 клетки Centaur становятся 6 с Farsight Quiver и 8 ещё и со «Стрельбой» 3 уровня.\n- Tome of Amplification усиливает каждый числовой бафф, который ваши юниты накладывают на свою сторону: Riot 30 → 45%, Mass Riot 25 → 37,5%, Magic Mirror 40 → 60%, Mass Magic Mirror 32 → 48%, Battle Roar +1 → +1,5 к движению за каждого Behemoth — и Wind Flow, который тогда даёт вашим летающим +6 к броне, но −6 к движению (вражеские остаются при ±4): применяйте его, только когда ваши летающие уже на месте.\n- Fireforged Sword поджигает юнита, которому удар нанёс урон, на 20% этого урона (30% с Tome); Through Shot у Tsar Cannon поджигает каждого на линии, поэтому меч ценнее всего на нём.\n- Rallying Volley (Zena) даёт каждому стеку стрелков в радиусе 2 клеток +2 выстрела один раз: Tsar Cannon и Centaur 4 → 6, Orc 6 → 8; каждый разделённый стек получает свои +2.\n- Плоские +2 к атаке и броне от Pegasus Might прибавляются до процентных бонусов, поэтому важнее всего на стеках 1 уровня: 9/7 у Peasant становятся 11/9 (+22%/+29%), а 48/40 у Black Dragon почти не меняются.\n- Giant's Maul умножает физический урон по площади по каждому поражённому — включая ваши стеки в кольце вашего Area Throw или Large Caliber (Tsar Cannon там получает ×1,4 × 1,5 = ×2,1), поэтому держите их вне 3×3 вокруг своих целей.\n- 25% сопротивления статусу от Amulet of Resolve режут и физический урон по площади и по линии, поэтому вражеский Giant's Maul (×1,4) даёт против него лишь ×1,05.",
+                "#### Апгрейды\nОчки сопротивления магии от апгрейда «Броня» прибавляются к базе, а Magic Shield, Wardguard, Warding Mane и Arcane Ward затем складываются как отдельные броски: 15% у Frenzied Boar плюс 21 очко апгрейда — это 36%, затем 68% с Magic Shield, 76% с Warding Mane и 78,4% с Arcane Ward. «Сила» (+8/17/27% к базовой атаке) действует на каждого юнита, чья выбранная атака — не выстрел: юнитов ближнего боя, заклинателей и стрелков, переключённых в ближний бой, — а «Стрельба» помогает стрелкам, только пока они стреляют; связанный боем стрелок теряет и «Стрельбу», и Hunter's Longbow, но Centaur и Zena (Handyman) бьют в ближнем бою в полную силу и получают пользу от «Силы».",
+                "#### Заклинания\nBlessing и Battle Roar заставляют выпасть максимальный урон, поэтому они ценнее всего на юнитах с широким разбросом урона — около +60% у Scavenger, +43% у Wolf, Orc и Battle Mage, +33% у Troll, и всего +5–6% у Pikeman и Griffin; Curse сильнее всего бьёт по юнитам с широким разбросом. Ни одно заклинание обеих сторон не действует на Black Dragon (Enchanted Skin) — даже ваши Blessing, баффы и Wind Flow, — а ауры, благословения, артефакты и апгрейды действуют. Его Fire Breath строится из его собственной атаки, поэтому растёт от бонусов к атаке (апгрейд «Сила», ауры и артефакты атаки), от удачи и «Силы способностей», а также от бонусов к магическому урону (апгрейд «Магия», Mage's или Archmage's Ring, Sylvan Focus). Синергия Жизни «Запас» растит заклинателей, чьи заклинания зависят от числа существ: на 3 уровне (армия целиком из Жизни) стек Healer 40 → 47 лечит на 200 → 235, а Battle Mage 50 → 59 бьют Fire Strike на 300 → 354; на 2 уровне (+12%) в армии есть место двум другим существам — Wandering Mage 164 → 183 бросают Fireball на 366 вместо 328, Satyr 36 → 40 призывают 60 Wolf вместо 54; заклинатели 4 уровня из двух существ не растут.",
+                "#### Антисинергии и ловушки\n- Синергии Жизни «Запас» 3 уровня нужны шесть разных существ Жизни — армия целиком из Жизни, — и тогда 1250 опыта превышает только стек Monk (8 → 9 Monk, 1278). Пока живы все девять, каждый вражеский стек на 1022 опыта и меньше — многие неразделённые стеки 1 и 2 уровня, Nightmare и Mantis, каждый стек ровно на 1000 — опускается до силы 4: способности от силы стека теряют пятую часть, а то, что требует силы 5 (Meteorite, Meteor Shower, Wind Flow), недоступно. Ваши стеки растут вместе с синергией и остаются при 5, кроме стеков 4 уровня из 1–3 существ, которые не растут. Всё кончается, когда погибает один Monk (1136).\n- Мораль ограничена ±20, а удача — +10. Синергия Жизни «Мораль и удача» 3 уровня (+20 морали, +9 удачи) означает армию целиком из Жизни, чьи существа начинают с +4 морали и +1 удачи, так что свежий стек сразу упирается в предел +20: мораль +8 от Короны командования (Crown of Command) поначалу ничего не добавляет, но синергия и артефакты заново прибавляются к собственной морали стека после каждого изменения, поэтому корона держит его на +20 при потере до 12 очков морали вместо 4 (берите её ради этого, а также движения и брони). −6 от Проклятого оберега (Cursed Ward) поначалу стоят лишь 2 морали, но не оставляют запаса, а удача оберега (+3) и Клевера удачи (Clover of Fortune, +10) в основном срезается пределом. На 2 уровне (+13 морали) предел уже мешает: корона добавляет существам Жизни, Силы, Природы и Хаоса лишь 3/5/6/8 морали.\n- Юниты с Madness и Mechanism (Troglodyte, Tsar Cannon) всегда при морали 0, так что источники морали им ничего не дают; Tsar Cannon к тому же нельзя лечить. Break снимает оба правила на 2 круга.\n- «Разлом при атаке» Хаоса лучше всего направлять на носителей благословений и аур: носитель под Break перестаёт учитываться, и его Warding Mane, Arcane Ward, Arrows Wingshield или Angelic Host пропадает у всей армии, если нет другого живого носителя без Break, а юнит под Break не даёт аур. Второй стек Squire сохраняет Arcane Ward при Break.\n- Angel гасит выстрелы по площади: выстрел Large Caliber или Area Throw, попавший в Angel без Break, не задевает соседей, а Through Shot и Chakram на нём останавливаются — стреляйте по соседям Angel или сначала наложите на него Break.",
+                "#### Призывы и уровень синергии\nУровень синергии задаётся в начале боя; призыв существа, которого в армии не было, — Arachna Spider после убийства через Infest, Wolf от Summon Wolves без задрафтованного Wolf, — может поднять Природу с 5 до 6 разных существ (с уровня 2 до 3) прямо в бою, а когда призванных не станет, уровень вернётся. Это важно, если в матче выпал вариант синергии Природы «Броня летающих» (24% → 35% брони каждому летающему)."
+            ].join("\n\n"),
+            keywords: ["combo", "combination", "synergy", "anti-synergy", "trap", "комбо", "сочетание", "синергия", "антисинергия", "ловушка"],
+            rule: "rule-mechanics",
+        },
+        {
+            name: "Waiting and defending",
+            nameRu: "Ожидание и защита",
+            aliases: ["Hourglass", "Luck Shield", "wait", "defend", "ждать", "защита"],
+            summary:
+                "Hourglass: act again at the very end of the lap for −3 morale, once per lap. Luck Shield: luck +3 for the lap, −2 morale, ends the turn.",
+            summaryRu:
+                "Hourglass: походить снова в самом конце круга за −3 морали, раз за круг. Luck Shield: удача +3 на круг, −2 морали, ход заканчивается.",
+            text: bullet([
+                `Hourglass (wait): the stack gives up its place and acts again at the very end of the lap, after the Dismorale stacks; several waiters keep their order. It costs ${MORALE_CHANGE_FOR_CLOCK} morale, works once per lap, isn't available to your last stack still to act, and nobody on either side can wait while a stack with Time Denial is alive. Time spent before waiting isn't charged to your turn clock.`,
+                `Luck Shield (defend): replaces this lap's luck roll with +${LUCK_CHANGE_FOR_SHIELD} (never above +10), costs ${MORALE_CHANGE_FOR_SHIELD} morale and ends the turn. Misfortune blocks the bonus.`,
+                `Skip: ending the turn without acting — or losing it to a timeout passed as a skip — costs ${MORALE_CHANGE_FOR_SKIP} morale; ending after a move or another action costs nothing.`,
+            ]),
+            textRu: bullet([
+                `Hourglass (ожидание): стек уступает своё место и ходит снова в самом конце круга, после стеков с Dismorale; несколько ожидающих сохраняют порядок. Стоит ${MORALE_CHANGE_FOR_CLOCK} морали, доступно раз за круг, недоступно вашему последнему ещё не ходившему стеку, и никто из обеих армий не может ждать, пока жив стек с Time Denial. Время, потраченное до ожидания, не списывается с вашего таймера.`,
+                `Luck Shield (защита): заменяет бросок удачи этого круга на +${LUCK_CHANGE_FOR_SHIELD} (не выше +10), стоит ${MORALE_CHANGE_FOR_SHIELD} морали и завершает ход. Misfortune блокирует бонус.`,
+                `Пропуск: завершить ход без действия — или потерять его из-за таймаута, переданного как пропуск, — стоит ${MORALE_CHANGE_FOR_SKIP} морали; завершение после перемещения или другого действия ничего не стоит.`,
+            ]),
+            keywords: ["hourglass", "wait", "luck shield", "defend", "skip", "ожидание", "защита", "пропуск"],
+            rule: "rule-mechanics",
+        },
+        {
+            name: "Map narrowing and Armageddon",
+            nameRu: "Сужение карты и Армагеддон",
+            summary: `Rings of holes close in at laps ${normalRings.join(", ")} (${barrelRings.join(" and ")} on Barrels), sooner if nobody engages; Armageddon waves at laps ${NUMBER_OF_LAPS_FIRST_ARMAGEDDON}–${lastWave} end every fight by lap ${lastWave}.`,
+            summaryRu: `Кольца провалов сжимают поле на ${normalRings.join(", ")}-м кругах (на Barrels — на ${barrelRings.join(" и ")}-м), раньше, если никто не сближается; волны Армагеддона на ${NUMBER_OF_LAPS_FIRST_ARMAGEDDON}–${lastWave}-м кругах заканчивают любой бой к ${lastWave}-му кругу.`,
+            text: bullet([
+                `On schedule, the outer ring of cells turns into holes at the start of laps ${normalRings.join(", ")} on Normal and FIRE PIT, and ${barrelRings.join(" and ")} on Barrels; nothing narrows after lap ${NUMBER_OF_LAPS_TILL_STOP_NARROWING}, and there are never more than ${MAX_HOLE_LAYERS} rings.`,
+                "If no stack of either army ends a lap closer to its nearest enemy, the next ring comes one lap early; if no damage was dealt that lap either, one extra ring is added for the rest of the fight (not on a scheduled narrowing lap). Every scheduled narrowing lap and every lap in which no stack got closer also turns morale into movement: +0.05 steps per point of morale for the rest of the fight.",
+                "A stack on a vanishing cell is pushed inward, sliding to the nearest free spot; with no room it is destroyed (no self-resurrection). FIRE PIT's lava dries into normal ground at the start of lap 10 (earlier after extra rings).",
+                `Armageddon hits every stack of both armies at the start of laps ${NUMBER_OF_LAPS_FIRST_ARMAGEDDON}–${lastWave}, ignoring armor, luck and magic resistance (a Water Shield absorbs one wave). Counting every creature the stack started with, alive or dead: wave 1 deals 25% of their health (at least ${MIN_ARMAGEDDON_DAMAGE_FIRST_WAVE}), waves 2, 3 and 4 kill 50%, 75% and 100% of those creatures, rounded up to whole creatures — so a one-creature stack loses its only creature to wave 2.`,
+                `The first three waves add up to 150%, so a stack that faces them all dies to wave 3 unless Resurrection returned creatures (a Water Shield alone can't save it: it only ever takes wave 1, and waves 2 and 3 together are 125%); wave 4 destroys everything left, so a fight still running at lap ${lastWave} is a draw. Armies that lose their last stacks to the same wave draw. Waves 2–4 remove whole creatures (that share of the starting count, rounded up — a lone Black Dragon loses its one creature, all 300 health, to wave 2), so one-creature stacks (Black Dragon, Abomination, any one-creature split) and any stack at three-quarters of its starting health or less already die to wave 2.`,
+            ]),
+            textRu: bullet([
+                `По расписанию внешнее кольцо клеток превращается в провалы в начале ${normalRings.join(", ")}-го кругов на Normal и FIRE PIT и ${barrelRings.join(" и ")}-го на Barrels; после ${NUMBER_OF_LAPS_TILL_STOP_NARROWING}-го круга сужения нет, и колец не бывает больше ${MAX_HOLE_LAYERS}.`,
+                "Если ни один стек обеих армий не закончил круг ближе к ближайшему врагу, следующее кольцо приходит на круг раньше; если за этот круг не было и урона, добавляется ещё одно кольцо до конца боя (не на круге планового сужения). Каждый круг планового сужения и каждый круг, когда ни один стек не стал ближе, ещё и превращает мораль в движение: +0,05 шага за очко морали до конца боя.",
+                "Стек на исчезающей клетке выталкивается внутрь, сдвигаясь к ближайшему свободному месту; без места он уничтожается (без самовоскрешения). Лава FIRE PIT высыхает в обычную землю в начале 10-го круга (раньше при лишних кольцах).",
+                `Армагеддон бьёт по каждому стеку обеих армий в начале ${NUMBER_OF_LAPS_FIRST_ARMAGEDDON}–${lastWave}-го кругов без учёта брони, удачи и сопротивления магии (Water Shield поглощает одну волну). Если считать всех существ, с которыми стек начинал, живых и погибших: первая волна наносит 25% их здоровья (не меньше ${MIN_ARMAGEDDON_DAMAGE_FIRST_WAVE}), вторая, третья и четвёртая убивают 50%, 75% и 100% этих существ, с округлением вверх до целых — поэтому стек из одного существа теряет его во второй волне.`,
+                `Первые три волны вместе — это 150%, поэтому стек, встретивший их все, гибнет от третьей, если Resurrection не вернул существ (один Water Shield его не спасёт: он принимает только первую волну, а вторая и третья вместе — уже 125%); четвёртая уничтожает всех оставшихся, так что бой, доживший до ${lastWave}-го круга, — ничья. Армии, потерявшие последние стеки от одной волны, играют вничью. Волны 2–4 убирают существ целиком (эту долю начального числа, с округлением вверх — одиночный Black Dragon теряет своё единственное существо, все 300 здоровья, во второй волне), поэтому стеки из одного существа (Black Dragon, Abomination, любая одиночная часть разделения) и любой стек с тремя четвертями начального здоровья или меньше гибнут уже от второй волны.`,
+            ]),
+            // "How long does a match last?" — narrowing and Armageddon are what end a match that nobody ends,
+            // and nobody asks for it by its name.
+            aliases: ["match length", "how long a match lasts", "длительность матча", "сколько длится матч"],
+            keywords: [
+                "map",
+                "narrowing",
+                "armageddon",
+                "laps",
+                "holes",
+                "match length",
+                "duration",
+                "long",
+                "draw",
+                "карта",
+                "сужение",
+                "армагеддон",
+                "круги",
+                "длительность",
+                "длится",
+                "конец матча",
+                "ничья",
+            ],
             rule: "rule-map",
         },
         {
             name: "Turn timer",
             nameRu: "Таймер хода",
-            summary: `${MIN_TIME_TO_MAKE_TURN_MILLIS / 1000}–${MAX_TIME_TO_MAKE_TURN_MILLIS / 1000} seconds per turn from a ${minutes}-minute budget per team per lap.`,
-            summaryRu: `${MIN_TIME_TO_MAKE_TURN_MILLIS / 1000}–${MAX_TIME_TO_MAKE_TURN_MILLIS / 1000} секунд на ход из ${minutes}-минутного бюджета команды на круг.`,
-            text: `The engine allocates ${MIN_TIME_TO_MAKE_TURN_MILLIS / 1000}–${MAX_TIME_TO_MAKE_TURN_MILLIS / 1000} seconds per turn from each team's ${minutes}-minute budget for the lap. In ranked play the first missed deadline is protected by Hourglass/Luck Shield; later misses are played by the AI, and two consecutive misses enable AI control of the seat.`,
-            textRu: `Движок выделяет ${MIN_TIME_TO_MAKE_TURN_MILLIS / 1000}–${MAX_TIME_TO_MAKE_TURN_MILLIS / 1000} секунд на ход из ${minutes}-минутного бюджета команды на круг. В рейтинге первый пропуск таймера страхуется Hourglass/Luck Shield; следующие пропуски играет ИИ, а два пропуска подряд включают управление ИИ.`,
-            keywords: ["timer", "time", "seconds", "timeout", "таймер", "время"],
+            summary: `Up to ${maxTurn} seconds per turn from each army's ${minutes}-minute budget per lap, always leaving ${minTurn} seconds for every stack still to act.`,
+            summaryRu: `До ${maxTurn} секунд на ход из ${minutes}-минутного бюджета армии на круг; каждому ещё не ходившему стеку всегда остаётся ${minTurn} секунд.`,
+            text: bullet([
+                `Each army has ${minutes} minutes per lap. A turn lasts min(${maxTurn} s, remaining budget ÷ its living stacks still to act), always leaving ${minTurn} s for each of them — an army with 8 stacks alive gets about 30 s per turn at the start of a lap, one with 4 or fewer ${maxTurn} s. Losses lengthen the turns of the stacks left, and summoned stacks share the budget too. Time spent before an Hourglass wait isn't charged.`,
+                `Once per lap you may ask for additional time on your own turn: + min(${maxTurn} s, remaining budget ÷ stacks still to act).`,
+                "In ranked, your first missed deadline of the fight plays Hourglass (or Luck Shield, or End Turn); later misses are played by the AI, and two misses in a row put your seat under AI control until you act again (once the ranked exit rules are enforced, an absent player's turns are only waited, defended or skipped — see Leaving a ranked match). If the AI can't act, the turn is skipped for 1 morale.",
+            ]),
+            textRu: bullet([
+                `У каждой армии ${minutes} минуты на круг. Ход длится min(${maxTurn} с, остаток бюджета ÷ её живые стеки, которые ещё не ходили), и каждому из них всегда остаётся ${minTurn} с — армия с 8 живыми стеками в начале круга получает около 30 с на ход, с 4 и меньше — ${maxTurn} с. Потери удлиняют ходы оставшихся стеков, а призванные стеки тоже делят бюджет. Время до ожидания через Hourglass не списывается.`,
+                `Раз за круг в свой ход можно попросить дополнительное время: + min(${maxTurn} с, остаток бюджета ÷ стеки, которые ещё не ходили).`,
+                "В рейтинге первый пропуск таймера за бой играет Hourglass (или Luck Shield, или конец хода); следующие пропуски играет ИИ, а два пропуска подряд передают ваши стеки ИИ, пока вы снова не сделаете ход (когда правила выхода из рейтинговых матчей вступят в силу, за отсутствующего игрока ходы только ждут, защищаются или пропускаются — см. «Выход из рейтингового матча»). Если ИИ не может действовать, ход пропускается за 1 мораль.",
+            ]),
+            keywords: ["timer", "time", "seconds", "timeout", "additional time", "таймер", "время", "таймаут"],
             rule: "rule-mechanics",
         },
         {
             name: "Army limits",
             nameRu: "Лимиты армии",
-            summary: `Draft 2/2/1/1 units by level, at most ${MAX_UNITS_PER_TEAM} stacks per team before Nature bonuses, ${MAX_AUGMENT_POINTS} augment points at most, synergies at 2/4/6 units.`,
-            summaryRu: `Драфт 2/2/1/1 юнитов по уровням, не более ${MAX_UNITS_PER_TEAM} стеков в команде до бонусов Природы, максимум ${MAX_AUGMENT_POINTS} очков апгрейдов, синергии при 2/4/6 юнитах.`,
+            summary: `Draft 2/2/1/1 units by level, each a 1,000-experience stack; 6–${MAX_UNITS_PER_TEAM} stacks by Placement tier (up to 12 with Nature), 5–${MAX_AUGMENT_POINTS} augment points, synergies at 2/4/6 units.`,
+            summaryRu: `Драфт 2/2/1/1 юнитов по уровням, каждый — стек на 1000 опыта; 6–${MAX_UNITS_PER_TEAM} стеков по уровню «Расстановки» (до 12 с Природой), 5–${MAX_AUGMENT_POINTS} очков апгрейдов, синергии при 2/4/6 юнитах.`,
             text: bullet([
-                "Each match you draft two level-1 units, two level-2, one level-3 and one level-4 unit.",
-                `The baseline stack cap is 6, raised to 7 or ${MAX_UNITS_PER_TEAM} by the Placement augment; Nature's Board Units synergy adds another 2/3/4, for an absolute cap of 12.`,
-                `Doctrines pay 5, 6 or ${MAX_AUGMENT_POINTS} augment points; every augment level costs as many points as its level (Placement level 1 is free).`,
-                `Faction synergies reach level 1/2/3 at ${unitsForLevel(1)}/${unitsForLevel(2)}/${unitsForLevel(3)} distinct roster units of that faction; splitting a unit into several stacks does not raise the count.`,
+                "Each match you draft two level-1 units, two level-2, one level-3 and one level-4 unit from a pool of 56 (14 per faction: 4/4/3/3 by level).",
+                "Every drafted creature arrives as one stack worth 1,000 experience: its creature count is 1,000 ÷ its experience value, rounded up (Peasant 200, Centaur 73, Beholder 22, Monk 8, Champion 3, Angel 2, Black Dragon 1). Life's Supply synergy adds its percentage when the fight starts.",
+                `The stack cap is 6, raised to 7 or ${MAX_UNITS_PER_TEAM} by the Placement augment; Nature's Board Units synergy adds another 2/3/4, for an absolute cap of 12. Splitting a unit into more stacks creates no creatures, arrows or spell charges: the parts share the stack's arrows and charges (the new part's share is rounded down, so a single charge such as Resurrection stays with the original), and merging a part back returns them.`,
+                `Doctrines pay 5, 6 or ${MAX_AUGMENT_POINTS} augment points. Armor, Might, Empower and Sniper cost 1/2/3 points for levels 1/2/3, Movement 1/2, and Placement tiers 2 and 3 cost 1 and 2 (tier 1 is free).`,
+                `Faction synergies reach level 1/2/3 at ${unitsForLevel(1)}/${unitsForLevel(2)}/${unitsForLevel(3)} distinct roster units of that faction (3 still give level 1); splitting a unit into several stacks does not raise the count, and the level is locked when the fight starts.`,
             ]),
             textRu: bullet([
-                "За матч вы берёте два юнита 1-го уровня, два — 2-го, один — 3-го и один — 4-го.",
-                `Базовый лимит стеков — 6; апгрейд «Расстановка» поднимает его до 7 или ${MAX_UNITS_PER_TEAM}; синергия Природы «Юниты на поле» добавляет ещё 2/3/4, абсолютный максимум — 12.`,
-                `Доктрины дают 5, 6 или ${MAX_AUGMENT_POINTS} очков апгрейдов; каждый уровень апгрейда стоит столько очков, каков его уровень (уровень 1 «Расстановки» бесплатный).`,
-                `Синергии фракций достигают уровня 1/2/3 при ${unitsForLevel(1)}/${unitsForLevel(2)}/${unitsForLevel(3)} разных юнитах фракции; разделение юнита на несколько стеков счёт не увеличивает.`,
+                "За матч вы берёте два юнита 1-го уровня, два — 2-го, один — 3-го и один — 4-го из пула в 56 существ (по 14 на фракцию: 4/4/3/3 по уровням).",
+                "Каждое задрафтованное существо приходит одним стеком на 1000 опыта: число существ — 1000 ÷ опыт одного существа с округлением вверх (Peasant 200, Centaur 73, Beholder 22, Monk 8, Champion 3, Angel 2, Black Dragon 1). Синергия Жизни «Запас» добавляет свой процент в начале боя.",
+                `Лимит стеков — 6; апгрейд «Расстановка» поднимает его до 7 или ${MAX_UNITS_PER_TEAM}; синергия Природы «Отряды на поле» добавляет ещё 2/3/4, абсолютный максимум — 12. Разделение юнита на стеки не создаёт ни существ, ни стрел, ни зарядов заклинаний: части делят стрелы и заряды стека (доля новой части округляется вниз, поэтому единственный заряд — например, Resurrection — остаётся у исходного стека), а при обратном объединении они возвращаются.`,
+                `Доктрины дают 5, 6 или ${MAX_AUGMENT_POINTS} очков апгрейдов. «Броня», «Сила», «Магия» и «Стрельба» стоят 1/2/3 очка за уровни 1/2/3, «Движение» — 1/2, а уровни 2 и 3 «Расстановки» — 1 и 2 (уровень 1 бесплатный).`,
+                `Синергии фракций достигают уровня 1/2/3 при ${unitsForLevel(1)}/${unitsForLevel(2)}/${unitsForLevel(3)} разных юнитах фракции (3 — всё ещё уровень 1); разделение юнита на несколько стеков счёт не увеличивает, а уровень фиксируется в начале боя.`,
             ]),
-            keywords: ["draft", "limits", "roster", "cap", "points", "драфт", "лимит", "состав"],
+            keywords: ["draft", "limits", "roster", "cap", "points", "stack size", "драфт", "лимит", "состав", "размер стека"],
             rule: "rule-draft",
         },
     ];
@@ -871,7 +1457,8 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
     const factions: FactionName[] = RU_FACTIONS;
 
     for (const faction of factions) {
-        const units = allUnits.filter((unit) => unit.faction === faction);
+        const units = allUnits.filter((unit) => unit.faction === faction && !unit.summonedOnly);
+        const summoned = allUnits.filter((unit) => unit.faction === faction && unit.summonedOnly);
         const pair = synergySpecs.filter((spec) => spec.faction === faction);
         const factionRu = localizedFactionName("ru", faction);
         graph.add({
@@ -882,10 +1469,11 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
             nameRu: factionRu,
             href: knowledgePath("en", { section: "units", faction }),
             hrefRu: knowledgePath("ru", { section: "units", faction }),
-            summary: `${faction} faction: ${units.length} units. Synergy pair: ${pair.map((spec) => spec.name).join(" or ")}.`,
-            summaryRu: `Фракция ${factionRu}: ${units.length} юнитов. Пара синергий: ${pair.map((spec) => spec.nameRu).join(" или ")}.`,
+            summary: `${faction} faction: ${units.length} draftable units, starting morale ${signed(FACTION_MORALE[faction] ?? 0)} and luck ${signed(FACTION_LUCK[faction] ?? 0)}. Synergy pair: ${pair.map((spec) => spec.name).join(" or ")}.`,
+            summaryRu: `Фракция ${factionRu}: ${units.length} юнитов для драфта, начальная мораль ${signed(FACTION_MORALE[faction] ?? 0)} и удача ${signed(FACTION_LUCK[faction] ?? 0)}. Пара синергий: ${pair.map((spec) => spec.nameRu).join(" или ")}.`,
             text: [
-                `**${faction}** fields ${units.length} units (levels 1–4). Drafting 2/4/6 distinct ${faction} units unlocks the faction synergy at level 1/2/3; which of the two synergies applies is fixed per match by the match id.`,
+                `**${faction}** fields ${units.length} draftable units (levels 1–4)${summoned.length ? `, plus the summon-only ${joinNames(summoned.map((unit) => unit.name))}` : ""}. Drafting 2/4/6 distinct ${faction} units unlocks the faction synergy at level 1/2/3; which of the two synergies applies is fixed per match by the match id.`,
+                `Every ${faction} creature starts the fight with ${signed(FACTION_MORALE[faction] ?? 0)} morale and ${signed(FACTION_LUCK[faction] ?? 0)} base luck; luck is re-rolled around that base every lap.`,
                 `Units by level:\n${bullet(
                     [1, 2, 3, 4].map(
                         (level) =>
@@ -895,7 +1483,9 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
                 `Synergies: ${pair.map((spec) => spec.name).join(" / ")}.`,
             ].join("\n\n"),
             textRu: [
-                `**${factionRu}** выставляет ${units.length} юнитов (уровни 1–4). 2/4/6 разных юнитов фракции открывают синергию уровня 1/2/3; какая из двух синергий действует, определяется идентификатором матча.`,
+                `**${factionRu}** выставляет ${units.length} юнитов для драфта (уровни 1–4)${summoned.length ? ` и призываемых ${joinNames(summoned.map((unit) => ruLabel(unit.name)))}` : ""}. 2/4/6 разных юнитов фракции открывают синергию уровня 1/2/3; какая из двух синергий действует, определяется идентификатором матча.`,
+                ...(GAME_FACTION_NAMES_RU[faction] ? [`В русском интерфейсе игры эта фракция называется «${GAME_FACTION_NAMES_RU[faction]}».`] : []),
+                `Каждое существо фракции начинает бой с моралью ${signed(FACTION_MORALE[faction] ?? 0)} и базовой удачей ${signed(FACTION_LUCK[faction] ?? 0)}; удача каждый круг перебрасывается вокруг этой базы.`,
                 `Юниты по уровням:\n${bullet(
                     [1, 2, 3, 4].map(
                         (level) =>
@@ -905,11 +1495,22 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
                 `Синергии: ${pair.map((spec) => spec.nameRu).join(" / ")}.`,
             ].join("\n\n"),
             tags: ["faction", faction],
-            keywords: [factionRu, "faction", "фракция"],
+            keywords: [factionRu, "faction", "фракция", ...(GAME_FACTION_NAMES_RU[faction] ? [GAME_FACTION_NAMES_RU[faction].toLowerCase()] : [])],
             props: { units: units.map((unit) => unit.name) },
         });
     }
 
+    // Irregular plurals the search's stemmer can't reach ("how do I beat Elves") and the slang players type
+    // ("хилер" for the Healer, whose Russian name is «Целитель»).
+    const unitPluralAliases: Record<string, string[]> = {
+        Elf: ["Elves"],
+        Wolf: ["Wolves"],
+        Pegasus: ["Pegasi"],
+        Fairy: ["Fairies"],
+        Harpy: ["Harpies"],
+        Cyclops: ["Cyclopes"],
+        Healer: ["хилер", "хиллер"],
+    };
     for (const unit of allUnits) {
         const { href, hrefRu } = hrefFor("units", unit.name);
         graph.add({
@@ -918,6 +1519,7 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
             section: "units",
             name: unit.name,
             nameRu: ruName(unit.name),
+            ...(unitPluralAliases[unit.name] ? { aliases: unitPluralAliases[unit.name] } : {}),
             href,
             hrefRu,
             summary: unitSummary(unit, "en"),
@@ -961,6 +1563,10 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
                 shotDistance: unit.shotDistance,
                 magicResist: unit.magicResist,
                 summonedOnly: unit.summonedOnly,
+                // What a drafted stack of this creature starts with: its creatures and their pooled health.
+                ...(unit.summonedOnly
+                    ? {}
+                    : { startingAmount: startingAmount(unit), stackHp: startingAmount(unit) * unit.hp }),
             },
         });
     }
@@ -976,8 +1582,10 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
             nameRu: ruName(ability.name),
             href,
             hrefRu,
-            summary: ability.description.split("\n")[0],
-            summaryRu: ability.descriptionRu.split("\n")[0],
+            // The whole card: its lines are soft wraps ("…the following spells:" / "Smoke, Misfortune…"), so
+            // the first line alone can stop mid-sentence. Listings clip it to length.
+            summary: oneLine(ability.description),
+            summaryRu: oneLine(ability.descriptionRu),
             text: abilityText(ability, "en"),
             textRu: abilityText(ability, "ru"),
             tags: [
@@ -1002,10 +1610,11 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
         if (typeof raw !== "object") continue;
         // A zero power means the amount is set by whatever applies the effect (Poison ticks for a share of
         // the poisoner's damage), so "{}" must not print as 0.
-        const description = raw.desc.replace(
+        const description = (EFFECT_DESCRIPTION_OVERRIDES[name] ?? raw.desc).replace(
             /\{\}/g,
             raw.power > 0 ? String(raw.power) : "an amount set by whatever applied it",
         );
+        const wholeFight = raw.laps >= 15;
         const russian = effectDescriptionsRu[name];
         const descriptionRu = russian
             ? raw.power > 0 || !russian.zeroPower
@@ -1062,12 +1671,13 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
             hrefRu: linkedAbility
                 ? knowledgePath("ru", { section: "abilities", entry: linkedAbility })
                 : knowledgePath("ru", { section: "abilities", query: name }),
-            summary: `Status effect: ${description} Lasts ${raw.laps} lap(s).`,
-            summaryRu: `Эффект-состояние: ${descriptionRu} Длится ${lapsRu(raw.laps)}.`,
+            summary: `Status effect: ${description} Lasts ${wholeFight ? "the whole fight" : `${raw.laps} lap(s)`}.`,
+            summaryRu: `Эффект-состояние: ${descriptionRu} Длится ${wholeFight ? "до конца боя" : lapsRu(raw.laps)}.`,
             text: [
                 `**${name}** is a status effect applied by abilities.`,
                 description,
-                `Duration: ${raw.laps} lap(s).`,
+                ...howItWorks(effectNote(name, "en"), "en"),
+                `Duration: ${wholeFight ? "the whole fight" : `${raw.laps} lap(s)`}. ${DURATION_NOTE.en}`,
                 applierLines.length
                     ? `Applied by: ${applierLines.join(", ")}.`
                     : "Applied by the game (artifacts, synergies or terrain).",
@@ -1075,7 +1685,8 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
             textRu: [
                 `**${ruLabel(name)}** — эффект-состояние, который накладывают способности.`,
                 descriptionRu,
-                `Длительность: ${lapsRu(raw.laps)}.`,
+                ...howItWorks(effectNote(name, "ru"), "ru"),
+                `Длительность: ${wholeFight ? "до конца боя" : lapsRu(raw.laps)}. ${DURATION_NOTE.ru}`,
                 applierLines.length
                     ? `Накладывается: ${applierLinesRu.join("; ")}.`
                     : "Накладывается игрой (артефакты, синергии или местность).",
@@ -1096,8 +1707,8 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
             nameRu: ruName(spell.name),
             href,
             hrefRu,
-            summary: spell.description.split("\n")[0],
-            summaryRu: spell.descriptionRu.split("\n")[0],
+            summary: oneLine(spell.description),
+            summaryRu: oneLine(spell.descriptionRu),
             text: spellText(spell, "en"),
             textRu: spellText(spell, "ru"),
             tags: [
@@ -1169,10 +1780,11 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
                     ),
                 ),
                 spec.note,
-                `Augment points come from the doctrine (5 for Spymaster, 6 for Scout, ${MAX_AUGMENT_POINTS} for Battle Trance) and are spent during army setup before placement.`,
+                ...(spec.beneficiaries ? [spec.beneficiaries.en] : []),
+                `Augment points come from the doctrine (5 for Spymaster, 6 for Scout, ${MAX_AUGMENT_POINTS} for Battle Trance) and are spent during Setup; they stay editable while you place your army, until you press Ready. The bonus is in place from the first lap, and points left unspent are spent for you automatically.`,
             ].join("\n\n"),
             textRu: [
-                `**${spec.nameRu}** — ${spec.summaryRu}`,
+                `**${spec.nameRu}** — ${spec.summaryRu}${spec.gameNameRu ? ` В игре этот апгрейд называется «${spec.gameNameRu}».` : ""}`,
                 bullet(
                     spec.levels.map(
                         (level) =>
@@ -1180,10 +1792,18 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
                     ),
                 ),
                 spec.noteRu,
-                `Очки апгрейдов даёт доктрина: ${ruLabel("Spymaster")} — 5, ${ruLabel("Scout")} — 6, ${ruLabel("Battle Trance")} — ${MAX_AUGMENT_POINTS}; они тратятся при подготовке армии перед расстановкой.`,
+                ...(spec.beneficiaries ? [spec.beneficiaries.ru] : []),
+                `Очки апгрейдов даёт доктрина: ${ruLabel("Spymaster")} — 5, ${ruLabel("Scout")} — 6, ${ruLabel("Battle Trance")} — ${MAX_AUGMENT_POINTS}; они тратятся на этапе Setup, и менять их можно и во время расстановки — пока вы не нажмёте «Готово». Бонус действует с первого круга, а неизрасходованные очки тратятся за вас автоматически.`,
             ].join("\n\n"),
             tags: ["augment", "upgrade"],
-            keywords: ["augment", "upgrade", "апгрейд", "усиление", ...spec.keywords],
+            keywords: [
+                "augment",
+                "upgrade",
+                "апгрейд",
+                "усиление",
+                ...(spec.gameNameRu ? [spec.gameNameRu.toLowerCase()] : []),
+                ...spec.keywords,
+            ],
             props: { levels: spec.levels.map((level) => `${level.level}:${level.cost}:${level.effect}`) },
         });
     }
@@ -1195,8 +1815,23 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
             doctrine.revealMode === "all"
                 ? `Показывает все выборы соперника во время драфта. Даёт ${points}.`
                 : doctrine.revealMode === "random3"
-                  ? `Открывает выборы соперника в 3 слотах его армии. Даёт ${points}.`
+                  ? `Открывает выборы соперника в 3 случайных слотах его армии. Даёт ${points}.`
                   : `Не показывает ни одного выбора соперника. Даёт ${points}.`;
+        const revealDetail =
+            doctrine.revealMode === "all"
+                ? {
+                      en: "Every one of the opponent's six creature picks is shown as it happens, the bundle's two creatures included; artifacts (the bundle's too), the bundle offers and the augment budget stay hidden.",
+                      ru: "Все шесть выборов существ соперника видны по мере того, как он их делает, включая два существа из бандла; артефакты (и артефакт бандла), предложения бандлов и бюджет апгрейдов остаются скрытыми.",
+                  }
+                : doctrine.revealMode === "random3"
+                  ? {
+                        en: "Watches three of the opponent's creature slots, drawn at random: one of the two level-1 slots, one of the two level-2 slots, and either the level-3 or the level-4 slot. Artifacts stay hidden.",
+                        ru: "Следит за тремя случайными слотами существ соперника: одним из двух слотов 1 уровня, одним из двух слотов 2 уровня и слотом 3 или 4 уровня. Артефакты скрыты.",
+                    }
+                  : {
+                        en: "Nothing is watched in advance. Like every doctrine, a pick that collides with a creature the opponent already took is refused and reveals that slot.",
+                        ru: "Заранее ничего не видно. Как и при любой доктрине, выбор существа, уже взятого соперником, отклоняется и раскрывает этот слот.",
+                    };
         graph.add({
             id: nodeId("doctrine", doctrine.name),
             type: "doctrine",
@@ -1212,12 +1847,16 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
                 `**${doctrine.name}** is a draft doctrine, the first pick-phase choice made simultaneously by both players.`,
                 doctrine.description,
                 `Reveal mode: ${doctrine.revealMode === "all" ? "see all of the opponent's picks" : doctrine.revealMode === "random3" ? "3 random opponent slots are revealed" : "nothing is revealed"}. Augment points: ${doctrine.upgradePoints}.`,
+                revealDetail.en,
+                "A creature you see in a watched slot is unavailable to you — no creature is drafted twice — and under any doctrine, trying an opponent's hidden pick is refused, reveals that slot and sends you back to pick again.",
                 "More vision costs points: the less you see of the opponent's draft, the larger your augment budget.",
             ].join("\n\n"),
             textRu: [
                 `**${ruLabel(doctrine.name)}** — доктрина драфта, первый выбор фазы пиков, который оба игрока делают одновременно.`,
                 descriptionRu,
                 `Режим раскрытия: ${doctrine.revealMode === "all" ? "видны все пики соперника" : doctrine.revealMode === "random3" ? "раскрываются 3 случайных слота соперника" : "ничего не раскрывается"}. Очки апгрейдов: ${doctrine.upgradePoints}.`,
+                revealDetail.ru,
+                "Существо, которое вы видите в отслеживаемом слоте, для вас недоступно — дважды существо не драфтится, — а при любой доктрине попытка взять скрытый пик соперника отклоняется, раскрывает этот слот и возвращает вас к выбору.",
                 "Обзор стоит очков: чем меньше вы видите драфт соперника, тем больше бюджет апгрейдов.",
             ].join("\n\n"),
             tags: ["doctrine", "draft"],
@@ -1244,24 +1883,28 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
             summary: `${spec.faction} synergy: ${levels.map((entry) => spec.effect(entry.powers)).join(" / ")} at ${levels.map((entry) => entry.units).join("/")} units.`,
             summaryRu: `Синергия фракции ${factionRu}: ${levels.map((entry) => spec.effectRu(entry.powers)).join(" / ")} при ${levels.map((entry) => entry.units).join("/")} юнитах.`,
             text: [
-                `**${spec.name}** is one of the two ${spec.faction} faction synergies. Which of the pair applies in a match is fixed by the match id; both players see the same variant from the first draft screen.`,
+                `**${spec.name}** is one of the two ${spec.faction} faction synergies. Which of the pair applies in a match is fixed by the match id; both players see the same variant from the first draft screen. Only the sandbox lets you pick either variant by hand (in a co-op sandbox each side picks its own).`,
                 bullet(
                     levels.map(
                         (entry) =>
-                            `Level ${entry.level} (${entry.units} distinct ${spec.faction} units): ${spec.effect(entry.powers)}`,
+                            `Level ${entry.level} (${entry.units} distinct ${spec.faction} units${entry.level === 3 ? ` — the whole draft, so only ${spec.faction} units are in the army` : ""}): ${spec.effect(entry.powers)}`,
                     ),
                 ),
                 "Splitting one unit into several stacks does not raise the unit count.",
+                `The bonus applies to every unit in your army, whatever its faction. The level is the number of different creatures of the faction ÷ 2, rounded down (3 creatures still give level 1), locked when the fight starts — losses never lower it. Only Nature has summons (Wolves, Arachna Spider or Queen): one new to your army can raise Nature's level mid-fight. A draft brings exactly six creatures (2/2/1/1), so level 3 means every drafted creature belongs to this faction.`,
+                `How it works: ${spec.detail}`,
             ].join("\n\n"),
             textRu: [
-                `**${spec.nameRu}** — одна из двух синергий фракции ${factionRu}. Какая из пары действует в матче, определяется идентификатором матча; оба игрока видят один и тот же вариант с первого экрана драфта.`,
+                `**${spec.nameRu}** — одна из двух синергий фракции ${factionRu}. Какая из пары действует в матче, определяется идентификатором матча; оба игрока видят один и тот же вариант с первого экрана драфта. Только в песочнице вариант можно выбрать вручную (в совместной песочнице каждая сторона выбирает свой).`,
                 bullet(
                     levels.map(
                         (entry) =>
-                            `Уровень ${entry.level} (${entry.units} разных юнитов фракции): ${spec.effectRu(entry.powers)}`,
+                            `Уровень ${entry.level} (${entry.units} разных юнитов фракции${entry.level === 3 ? " — весь драфт, так что в армии только юниты этой фракции" : ""}): ${spec.effectRu(entry.powers)}`,
                     ),
                 ),
                 "Разделение одного юнита на несколько стеков счёт юнитов не увеличивает.",
+                "Бонус действует на каждого юнита вашей армии, какой бы фракции он ни был. Уровень — число разных существ фракции ÷ 2 с округлением вниз (3 существа — всё ещё уровень 1); он фиксируется в начале боя, потери его не снижают. Призывы есть только у Природы (Wolf, Arachna Spider или Queen): новое для армии призванное существо может поднять уровень Природы посреди боя. Драфт даёт ровно шесть существ (2/2/1/1), поэтому 3 уровень означает, что все задрафтованные существа — этой фракции.",
+                `Как это работает: ${spec.detailRu}`,
             ].join("\n\n"),
             tags: ["synergy", spec.faction],
             keywords: ["synergy", "синергия", factionRu, ...spec.keywords],
@@ -1279,6 +1922,7 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
             section: "rules",
             name: spec.name,
             nameRu: spec.nameRu,
+            aliases: spec.aliases,
             href: knowledgePath("en", { section: "rules", entry: spec.rule.replace(/^rule-/, "rules-") }),
             hrefRu: knowledgePath("ru", { section: "rules", entry: spec.rule.replace(/^rule-/, "rules-") }),
             summary: spec.summary,
@@ -1370,14 +2014,14 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
         summary: `Five percentile leagues, worst to best: ${copyEn.leagueNames.join(", ")}; three wealth tiers inside each league: ${copyEn.wealthNames.join(", ")}.`,
         summaryRu: `Пять процентильных лиг, от худшей к лучшей: ${copyRu.leagueNames.join(", ")}; три уровня богатства внутри лиги: ${copyRu.wealthNames.join(", ")}.`,
         text: [
-            `Placed ranked players are split into five leagues by MMR percentile, worst to best: ${copyEn.leagueNames.map((name, index) => `${index + 1}. ${name}`).join(", ")}. The top league is the top 5% of active placed players and its members carry a sequential leaderboard number.`,
+            `Placed ranked players are split into five leagues by MMR percentile, worst to best: ${copyEn.leagueNames.map((name, index) => `${index + 1}. ${name}`).join(", ")}. With all five leagues open the top league is the top 5% of active placed players, and its members carry a sequential leaderboard number.`,
             `Inside each league, players are also cut into three wealth tiers by season gold, poorest to richest: ${copyEn.wealthNames.join(", ")} (for example "Ragged Aspirant" or "Demigod Whale"). Wealth is derived from live gold balances and never stored.`,
-            "Players in calibration have no league yet and show as Unranked; the ladder collapses everyone into the first league while fewer than 20 placed players are active.",
+            "Players in calibration have no league yet and show as Unranked. Leagues open one by one as the ladder fills — the population gate is in the ranked leagues entry — and while only the first is open, every placed player sits in it.",
         ].join("\n\n"),
         textRu: [
-            `Размещённые рейтинговые игроки делятся на пять лиг по процентилю MMR, от худшей к лучшей: ${copyRu.leagueNames.map((name, index) => `${index + 1}. ${name}`).join(", ")}. Высшая лига — это верхние 5% активных размещённых игроков; её участники получают порядковый номер в таблице лидеров.`,
+            `Размещённые рейтинговые игроки делятся на пять лиг по процентилю MMR, от худшей к лучшей: ${copyRu.leagueNames.map((name, index) => `${index + 1}. ${name}`).join(", ")}. Когда открыты все пять лиг, высшая — это верхние 5% активных размещённых игроков; её участники получают порядковый номер в таблице лидеров.`,
             `Внутри каждой лиги игроки также делятся на три уровня богатства по золоту сезона, от беднейших к богатейшим: ${copyRu.wealthNames.join(", ")}. Уровень богатства считается по живому балансу золота и никогда не сохраняется.`,
-            "Игроки на калибровке лиги ещё не имеют и показываются как Unranked; пока активных размещённых игроков меньше 20, все находятся в первой лиге.",
+            "Игроки на калибровке лиги ещё не имеют и показываются как Unranked. Лиги открываются по очереди по мере заполнения таблицы — порог популяции указан в записи о рейтинговых лигах, — и пока открыта только первая, все размещённые игроки находятся в ней.",
         ].join("\n\n"),
         tags: ["ranked", "leagues"],
         keywords: [
@@ -1418,6 +2062,46 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
         keywords: ["season", "seasons", "сезон", "сезоны", "gold", "золото", "prize", "приз"],
     });
 
+    // The Contact page as knowledge: "who made the game", "is there a Discord", "how do I reach support".
+    const contactEn = content.en.contact;
+    const contactRu = content.ru.contact;
+    // "Who made the game?" — the Terms of Service name the studio ("... made by Old Stars Gaming ('OSG', ...").
+    const studio = /made by ([^('"]+?)\s*\(/.exec(content.en.legal.terms.intro)?.[1];
+    const channels = [
+        `Discord: ${links.discord}`,
+        `Telegram: ${links.telegram}`,
+        `X (Twitter): ${links.twitter}`,
+        `Email: ${contactEn.email}`,
+        `GitHub (public code): ${links.github}`,
+    ];
+    graph.add({
+        id: "faq:contact",
+        type: "faq",
+        section: "faq",
+        name: "Community and contact",
+        nameRu: "Сообщество и связь с командой",
+        aliases: [
+            ...["contact", "support", "discord", "telegram", "community", "who made the game", "who made this game", "developer", "studio"],
+            ...["связаться", "поддержка", "сообщество", "кто сделал игру", "разработчик", "студия"],
+        ],
+        href: localPath("en", "contact-us"),
+        hrefRu: localPath("ru", "contact-us"),
+        summary: `${contactEn.headline} Discord, Telegram, X and ${contactEn.email}; the code is public on GitHub.`,
+        summaryRu: `${contactRu.headline} Discord, Telegram, X и ${contactRu.email}; код открыт на GitHub.`,
+        text: [
+            `**Community and contact** — ${studio ? `Heroes of Crypto is made by ${studio}, as the Terms of Service state. ` : ""}${contactEn.headline}`,
+            bullet(channels),
+            "The site does not list individual developers; the team answers through these channels.",
+        ].join("\n\n"),
+        textRu: [
+            `**Сообщество и связь с командой** — ${studio ? `Heroes of Crypto делает студия ${studio} — так сказано в Условиях использования. ` : ""}${contactRu.headline}`,
+            bullet(channels.map((line) => line.replace("Email", "Почта").replace("(public code)", "(открытый код)"))),
+            "Отдельных разработчиков сайт не перечисляет; команда отвечает через эти каналы.",
+        ].join("\n\n"),
+        tags: ["faq", "contact", "community"],
+        keywords: ["team", "developer", "developers", "who made", "studio", "company", "команда", "разработчик", "разработчики", "кто сделал", "студия", "компания", "email", "почта", ...(studio ? [studio] : [])],
+    });
+
     content.en.faq.forEach((entry, index) => {
         const ru = content.ru.faq[index];
         graph.add({
@@ -1452,15 +2136,15 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
         summaryRu: `${playRu.modeBody} ${playRu.lobbiesHint}`,
         text: bullet([
             `Ranked: ${playEn.rankedHint.toLowerCase()} — rating, leagues, seasons and prizes apply. Open it from the Play page (/play/ranked/).`,
-            `Lobbies (play with friends): ${playEn.lobbiesHint} Lobby matches are casual: they never move rating and leaving one costs no penalties or queue time. Open lobbies are listed on the Play page (/play/lobbies/).`,
-            `Sandbox beta: ${playEn.sandboxHint} Sandbox fights are yours alone and never touch the ladder.`,
+            `Lobbies (play with friends): ${playEn.lobbiesHint} Lobby matches are casual: they never move rating and leaving one costs no penalties or queue time, though a gold wager made in a lobby still pays out. Opening a lobby costs the host a gold fee — the season's circulating gold ÷ (calibrated players × 10), rounded up, free while the season has no gold — which is burned and never refunded, even if the lobby is cancelled or nobody joins. Open lobbies are listed on the Play page (/play/lobbies/).`,
+            `Sandbox beta: ${playEn.sandboxHint} Sandbox fights never touch the ladder. Play it alone, or open a co-op sandbox and invite one friend: you take green, they take red (not while either of you is in a live ranked or lobby game).`,
             "Games against the AI are casual too: they are excluded from the ranked ladder and from prizes.",
             "Everything runs in a desktop browser with no download; sign in to play ranked or lobby matches.",
         ]),
         textRu: bullet([
             `Рейтинг: ${playRu.rankedHint.toLowerCase()} — действуют рейтинг, лиги, сезоны и призы. Открывается со страницы «Играть» (/ru/play/ranked/).`,
-            `Лобби (игра с друзьями): ${playRu.lobbiesHint} Матчи в лобби — обычные: они не меняют рейтинг, а выход из них не влечёт штрафов и ожидания очереди. Открытые лобби перечислены на странице «Играть» (/ru/play/lobbies/).`,
-            `Песочница (бета): ${playRu.sandboxHint} Бои в песочнице никак не касаются рейтинговой таблицы.`,
+            `Лобби (игра с друзьями): ${playRu.lobbiesHint} Матчи в лобби — обычные: они не меняют рейтинг, а выход из них не влечёт штрафов и ожидания очереди, хотя ставка золотом, сделанная в лобби, всё равно выплачивается. Открытие лобби стоит хозяину золота — золото сезона в обороте ÷ (откалиброванные игроки × 10), с округлением вверх, бесплатно, пока в сезоне нет золота, — и эта плата сгорает и не возвращается, даже если лобби отменено или никто не пришёл. Открытые лобби перечислены на странице «Играть» (/ru/play/lobbies/).`,
+            `Песочница (бета): ${playRu.sandboxHint} Бои в песочнице никак не касаются рейтинговой таблицы. Играйте одни или откройте совместную песочницу и пригласите одного друга: вы играете за зелёных, он — за красных (но не пока кто-то из вас в живой рейтинговой игре или лобби).`,
             "Игры против ИИ тоже обычные: они исключены из рейтинговой таблицы и призов.",
             "Всё работает в браузере на компьютере без установки; для рейтинга и лобби нужно войти в аккаунт.",
         ]),
@@ -1515,12 +2199,13 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
 
     patchNotes.en.forEach((note, index) => {
         const ru = patchNotes.ru[index];
-        const render = (entry: typeof note): string =>
+        const render = (entry: typeof note, current: string): string =>
             [
                 `**${entry.version}** (${entry.date}): ${entry.title}`,
                 entry.impact,
                 ...entry.sections.map((section) => `${section.title}:\n${bullet(section.items)}`),
                 entry.closing,
+                current,
             ]
                 .filter(Boolean)
                 .join("\n\n");
@@ -1535,8 +2220,16 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
             hrefRu: "/ru/patches/",
             summary: `${note.version} (${note.date}): ${note.impact}`,
             summaryRu: ru ? `${ru.version} (${ru.date}): ${ru.impact}` : undefined,
-            text: render(note),
-            textRu: ru ? render(ru) : undefined,
+            text: render(
+                note,
+                "_Patch notes record the game as it was at this release. Where a number here differs from the rules or a unit, ability, spell or augment entry, that entry is the current one._",
+            ),
+            textRu: ru
+                ? render(
+                      ru,
+                      "_Патчноуты описывают игру на момент выхода. Если число здесь расходится с правилами или записью юнита, способности, заклинания или апгрейда, актуальна запись._",
+                  )
+                : undefined,
             tags: ["patch", note.version],
             keywords: ["patch", "update", "changelog", "release", "патч", "обновление", "версия", note.version],
             props: { version: note.version, date: note.date },

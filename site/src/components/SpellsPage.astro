@@ -1,8 +1,10 @@
 ---
 import CreaturePortrait from "./CreaturePortrait.astro";
+import MechanicsNote from "./MechanicsNote.astro";
 import { content, type Language } from "../lib/site-data";
 import { localizedFactionName } from "../lib/localization";
 import { knowledgeEntryId, knowledgePath } from "../lib/knowledge-base";
+import { spellNote } from "../lib/mechanics";
 import {
     bookColors,
     buffCount,
@@ -306,6 +308,7 @@ const metaRows = (spell: Spell) => {
                         </header>
 
                         <p class="spell-card-desc">{description(spell)}</p>
+                        <MechanicsNote lang={lang} note={spellNote(spell.name, lang)} />
 
                         <dl class="spell-meta">
                             {metaRows(spell).map((row) => (

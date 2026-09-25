@@ -9,6 +9,7 @@
 // drafted, not cast, so a codex of castable spells is the wrong place for them.
 
 import spellsJson from "@heroesofcrypto/common/src/configuration/spells.json";
+import { TIER1_ARTIFACTS, TIER2_ARTIFACTS } from "@heroesofcrypto/common/src/artifacts/artifact_properties";
 import { getSniperPower, SniperAugment } from "@heroesofcrypto/common/src/augments/augment_properties";
 
 import { allUnits, factionColors, type FactionName } from "./units-data";
@@ -109,6 +110,7 @@ const spellIconOverrides: Readonly<Record<string, string>> = {
 };
 
 const damageSpells = new Set([
+    "Fireball",
     "Fire Strike",
     "Fire Wall",
     "Lightning Strike",
@@ -155,12 +157,17 @@ const abilityCastSpells = new Set([
 // rather than in the data files; every entry here is an ability name shown in the Knowledge Base.
 const appliedByAbility: Record<string, string[]> = {
     "Dulling Defense": ["Dulling Defense"],
-    "Angelic Host": ["Angelic Host"],
+    Miner: ["Miner"],
+    "Angelic Host Blessing": ["Angelic Host Blessing"],
+    "Arcane Ward Blessing": ["Arcane Ward Blessing"],
+    "Arrows Wingshield Blessing": ["Arrows Wingshield Blessing"],
+    "Warding Mane Blessing": ["Warding Mane Blessing"],
     "Made of Fire": ["Made of Fire"],
     "Water Shield": ["Water Shield"],
     "Wild Regeneration": ["Wild Regeneration"],
     Hidden: ["Disguise Aura"],
     Visible: ["Disguise Aura"],
+    Curse: ["Spit Ball"],
     Sadness: ["Spit Ball"],
     Quagmire: ["Spit Ball", "Rime Charm"],
     Hamstrung: ["Hamstring"],
@@ -179,27 +186,32 @@ const appliedByAbility: Record<string, string[]> = {
 
 // The client fills a spell description's "{}" at cast time with a caster-scaled number (hit points
 // healed, wolves summoned, ...), which a static codex cannot show. These rewrites state the scaling
-// rule instead. Augment descriptions get the per-level values from augments/augment_properties.ts.
+// rule instead; a "{}" in them still takes the spell's configured power, so a rebalance reaches the card.
+// Augment descriptions get the per-level values from augments/augment_properties.ts.
 const resolvedDescriptions: Record<string, string> = {
-    "Life:Heal": "Heals an ally for 5 health points per creature alive in the caster's stack.",
+    "Life:Heal":
+        "Heals an ally's wounded front creature by {} health points per creature alive in the caster's stack — never above its maximum health, and never raising the dead.",
     "Life:Mass Heal": "Heals every ally for 2.5 health points per creature alive in the caster's stack.",
     "Nature:Summon Wolves": "Summons 1.5 wolves per creature alive in the caster's stack to fight for your team.",
     "System:Battle Roar":
         "All allies gain one additional movement step per creature alive in the caster's stack, and are ensured to deal maximum damage with each attack.",
     "System:Resurrection":
-        "Resurrects fallen ally units on the battlefield, up to the caster stack's cumulative maximum hit points.",
+        "Restores an allied stack with losses — the Angel's own included — by up to 1.5× the Angel stack's total maximum health: the wounded creature first, then fallen ones, never more than died. One use per fight, shared with the Angel's own self-resurrection.",
     "Chaos:Fire Strike":
-        "Sends a small fireball at an enemy in line of sight. Deals 6 damage for every creature alive in the caster's stack, ignores armor, and is cut by magic resistance. Stack power does not change the damage — it only gates the cast.",
+        "Sends a small fireball at an enemy in line of sight. Deals {} damage for every creature alive in the caster's stack, ignores armor, and is cut by magic resistance. Stack power does not change the damage — it only gates the cast.",
+    "Chaos:Fireball":
+        "Hurls a fireball at an enemy in line of sight. It and every unit on a cell touching it — friend or foe, never the caster — take {} damage for every creature alive in the caster's stack; it ignores armor and is cut by magic resistance. Fire magic: a Fire Element is untouched, a Water Element burns half again as hard.",
     "Chaos:Meteorite":
-        "Calls a meteorite down on any 2x2 block of the battlefield, burning every enemy caught under it. Deals 4 damage for every creature alive in the caster's stack — less than Fire Strike, because it strikes them all at once.",
+        "Calls a meteorite down on any 2x2 block of the battlefield, burning every enemy caught under it. Deals {} damage for every creature alive in the caster's stack — less than Fire Strike, because it strikes them all at once.",
     "Nature:Lightning Strike":
-        "Calls lightning down on an enemy anywhere on the battlefield — no wall, body or mountain can block it. Deals 150 damage for every creature alive in the caster's stack, ignores armor, and is cut by magic resistance.",
+        "Calls lightning down on an enemy anywhere on the battlefield — no wall, body or mountain can block it. Deals {} damage for every creature alive in the caster's stack, ignores armor, and is cut by magic resistance.",
     "Nature:Ring of Fire":
-        "Bursts into flame around an enemy in line of sight. Every unit on a cell touching the target — friend or foe — burns for the same amount: 125 damage for every creature alive in the caster's stack.",
+        "Bursts into flame around an enemy in line of sight. Every other unit on a cell touching the target — friend or foe — burns for {} damage for every creature alive in the caster's stack; the aimed enemy itself is not hurt.",
     "Nature:Meteor Shower":
-        "Calls a meteor shower down on the battlefield. Deals 100 damage for every creature alive in the caster's stack, ignores armor, and is cut by magic resistance.",
+        "Calls a meteor shower down on a 3x3 block anywhere on the battlefield, striking every enemy in it. Deals {} damage for every creature alive in the caster's stack, ignores armor, and is cut by magic resistance.",
     "System:Dulling Defense":
         "The enemy permanently loses 2 base attack points each time it attacks the carrier in melee.",
+    "System:Miner": "Base armor permanently reduced: every hit from a unit with Miner takes some of it, never below 1.",
     "System:Armor Rune": "50% chance per cast to add +1 armor to the target. The bonus stacks.",
     "System:Weapon Rune": "50% chance per cast to add +1 attack to the target. The bonus stacks.",
     "System:Armor Augment":
@@ -217,7 +229,7 @@ const descriptionsRu: Record<string, string> = {
     // Keyed by the data file's book (Chaos); the page files Empower under Order.
     "Chaos:Empower": "Добавляет {}% ко всему магическому урону, который наносит цель.",
     "Chaos:Fireball":
-        "Бросает огненный шар во врага в зоне прямой видимости и наносит {} урона.\nВсё на соседних с ним клетках — свои и чужие — получает столько же.\nМагический: игнорирует броню, но снижается сопротивлением магии.\nМагия огня: юниту с Fire Element он не вредит, а юнит с Water Element горит в полтора раза сильнее.",
+        "Бросает огненный шар во врага в зоне прямой видимости.\nОн и все на соседних с ним клетках — свои и чужие, но не заклинатель — получают {} урона за каждое живое существо в стеке заклинателя.\nМагический: игнорирует броню, но снижается сопротивлением магии.\nМагия огня: юниту с Fire Element он не вредит, а юнит с Water Element горит в полтора раза сильнее.",
     "Chaos:Fire Wall":
         "Выкладывает огненную стену на 4 клетки по прямой — в любом месте поля и в любом из четырёх направлений.\nЗажмите Shift при прицеливании, чтобы повернуть её. Загораются только свободные клетки: существо, гора\nили клетка, исчезнувшая при сужении карты, пропускаются, а остальная линия всё равно горит.\nВход на горящую клетку стоит любому существу 1 дополнительный шаг (вдвое дороже обычного)\nи обжигает его на {}% максимального здоровья — и своих, и чужих.",
     "Death:Curse": "Проклинает врага: он всегда наносит минимально возможный урон.",
@@ -227,11 +239,9 @@ const descriptionsRu: Record<string, string> = {
         "Arcane Ward Blessing даёт {}% защиты от магии.\nДействует, пока жив союзный юнит с Arcane Ward Blessing.",
     "System:Arrows Wingshield Blessing":
         "Arrows Wingshield Blessing даёт +{}% к защите от дальних атак.\nДействует, пока жив союзный юнит с Arrows Wingshield Blessing.",
-    "System:Broken Aegis":
-        "Ваши атаки с шансом 20% накладывают на поражённого врага Break (отключают его способности) ценой 4% шанса промаха.",
     // The data says "reduced by {}" with a power of 0, which printed "by 0"; the amount is whatever Miner's
-    // hits took, so the Russian names the source instead of a wrong number.
-    "System:Miner": "Базовая броня навсегда снижена: её отнимает каждый удар юнита с Miner.",
+    // hits took, so both languages name the source instead of a wrong number.
+    "System:Miner": "Базовая броня навсегда снижена: её отнимает каждый удар юнита с Miner, но не ниже 1.",
     "System:Warding Mane Blessing":
         "Warding Mane Blessing даёт {}% защиты от магии.\nДействует, пока жив союзный юнит с Warding Mane Blessing.",
     "System:Morale": "Юнит достигает максимальной морали, повышая множитель атаки до 1.25.",
@@ -242,12 +252,13 @@ const descriptionsRu: Record<string, string> = {
         "Дает способность восстанавливать здоровье до максимума в начале своего хода. Эффект можно подарить.",
     "System:Wind Flow": "Все летающие юниты получают +4 к базовой броне и теряют 4 очка перемещения, включая врагов.",
     "System:Vine Throw":
-        "Бросает лозу во врага в пределах прямой видимости, оставляя её на каждой клетке по пути. Нелетающее существо тратит 1 дополнительный шаг, чтобы пересечь клетку с лозой. Поражённое существо теряет ещё 1.5 шага — если только его магическая броня не стряхнёт захват. Лоза ложится на клетки в любом случае. Действует 3 круга.",
+        "Бросает лозу в любого врага, которого не заслоняет другое существо, оставляя её на каждой клетке по пути. Нелетающее существо тратит 1 дополнительный шаг, чтобы пересечь клетку с лозой. Поражённое существо теряет ещё 1.5 шага — если только его магическая броня не стряхнёт захват. Лоза ложится на клетки в любом случае. Действует 3 круга.",
     "System:Battle Roar":
         "Все союзники получают по одному дополнительному шагу за каждое живое существо в стеке заклинателя и гарантированно наносят максимальный урон каждой атакой.",
-    "System:Castling": "Меняется местами с малым противником в пределах дистанции движения заклинателя.",
+    "System:Castling":
+        "Меняется местами с противником точно такого же размера в пределах дистанции движения заклинателя.",
     "System:Resurrection":
-        "Воскрешает павших союзников на поле боя — суммарно до совокупного максимального запаса здоровья стека заклинателя.",
+        "Восстанавливает союзный стек с потерями — включая самих Angel — на величину до 1,5× суммарного максимального здоровья стека Angel: сначала раненое существо, потом павшие, не больше, чем погибло. Один раз за бой, общий заряд с самовоскрешением Angel.",
     "System:Armor Augment":
         "Повышает базовую броню всей команды в процентах и добавляет столько же очков к магической броне. Уровень 1: +6% брони и +6 магической брони. Уровень 2: +13% и +13. Уровень 3: +21% и +21.",
     "System:Might Augment": "Повышает базовую атаку всей команды. Уровень 1: +8%. Уровень 2: +17%. Уровень 3: +27%.",
@@ -265,7 +276,8 @@ const descriptionsRu: Record<string, string> = {
         "Полностью поглощает первую входящую атаку в бою (0 полученного урона), после чего разрушается.",
     "System:Visible": "Юнит полностью видим для вражеской команды.",
     "System:Hidden": "Юнит не может быть выбран целью вражеской командой.",
-    "Life:Heal": "Лечит союзника на 5 единиц здоровья за каждое живое существо в стеке заклинателя.",
+    "Life:Heal":
+        "Лечит раненое переднее существо союзника на {} единиц здоровья за каждое живое существо в стеке заклинателя — не выше максимального здоровья и без воскрешения погибших.",
     "Life:Spiritual Armor": "Дает союзнику дополнительные 30% брони.",
     "Life:Blessing": "Благословляет союзника, чтобы он всегда наносил максимально возможный урон.",
     "Life:Helping Hand": "Передает союзнику 30% максимального здоровья и базовой брони заклинателя.",
@@ -276,29 +288,30 @@ const descriptionsRu: Record<string, string> = {
     "Chaos:Riot": "Добавляет союзнику 30% дополнительного урона.",
     "Chaos:Mass Riot": "Добавляет всем союзникам 25% дополнительного урона.",
     "Chaos:Magic Mirror":
-        "Отражает 30% полученного магического урона обратно в атакующего.\nДает 30% шанс отразить любой дебафф.",
+        "Отражает {}% полученного магического урона обратно в атакующего.\nДаёт {}% шанс отразить любой дебафф.",
     "Chaos:Smoke":
         "Бросает облако дыма 3x3 на свободные клетки в любой точке поля боя.\nЛюбая дальняя атака (с обеих сторон), траектория которой пересекает задымленную клетку, наносит ВДВОЕ меньше урона (делитель дальности удваивается: полный → 1/2, 1/2 → 1/4).\nСущество, вставшее на задымленную клетку, рассеивает дым с этой клетки.",
     "Chaos:Misfortune":
         "Снижает удачу пораженного юнита до минимума. Цель с бафом удачи (Luck Aura, Clover of Fortune) вместо этого обнуляется.",
-    "Chaos:Fireforged Sword": "Добавляет союзнику 10% дополнительного урона.",
+    "Chaos:Fireforged Sword":
+        "Атаки союзника поджигают цель на {}% нанесённого урона.\nЭто огненный урон: броня его не останавливает, сопротивление магии снижает.\nПо водным существам — на 50% больше, огненные существа невосприимчивы.",
     "Chaos:Mass Magic Mirror":
-        "Отражает 25% полученного магического урона обратно в атакующего.\nДает 25% шанс отразить любой дебафф.",
+        "Отражает {}% полученного магического урона обратно в атакующего.\nДаёт {}% шанс отразить любой дебафф.",
     "Death:Sadness": "Мораль пораженного юнита падает до минимума.",
     "Death:Quagmire": "Дистанция перемещения юнита снижена на 25%.",
     "Death:Hamstrung": "Дистанция перемещения юнита снижена на 30%.",
     "Death:Weakening Beam": "Базовая броня юнита снижена на 24%.",
     "Death:Weakness": "Базовая атака юнита снижена на 30%.",
     "Chaos:Fire Strike":
-        "Запускает небольшой огненный шар во врага в зоне видимости.\nУрон = 6 за каждое живое существо в стеке заклинателя.\nСила стека не меняет урон — она лишь определяет, можно ли вообще применить заклинание.\nМагический: игнорирует броню, но снижается сопротивлением магии.",
+        "Запускает небольшой огненный шар во врага в зоне видимости.\nУрон = {} за каждое живое существо в стеке заклинателя.\nСила стека не меняет урон — она лишь определяет, можно ли вообще применить заклинание.\nМагический: игнорирует броню, но снижается сопротивлением магии.",
     "Chaos:Meteorite":
-        "Обрушивает метеорит на любой участок поля боя 2x2 клетки, поражая всех врагов под ним.\nУрон = 4 за каждое живое существо в стеке заклинателя — меньше, чем у «Удара огнем», потому что бьет по всем сразу.",
+        "Обрушивает метеорит на любой участок поля боя 2x2 клетки, поражая всех врагов под ним.\nУрон = {} за каждое живое существо в стеке заклинателя — меньше, чем у «Удара огнем», потому что бьет по всем сразу.",
     "Nature:Lightning Strike":
-        "Призывает молнию на любого врага на поле боя — ни стена, ни тела, ни гора её не остановят.\nУрон = 150 за каждое живое существо в стеке заклинателя.\nМагический: игнорирует броню, но снижается сопротивлением магии.",
+        "Призывает молнию на любого врага на поле боя — ни стена, ни тела, ни гора её не остановят.\nУрон = {} за каждое живое существо в стеке заклинателя.\nМагический: игнорирует броню, но снижается сопротивлением магии.",
     "Nature:Ring of Fire":
-        "Вспыхивает пламенем вокруг врага в зоне видимости. Каждый юнит на соседней клетке — свой или чужой — горит так же.\nУрон = 125 за каждое живое существо в стеке заклинателя.",
+        "Вспыхивает пламенем вокруг врага в зоне видимости. Горит каждый другой юнит на соседней с ним клетке — свой или чужой; сам выбранный враг урона не получает.\nУрон = {} за каждое живое существо в стеке заклинателя.",
     "Nature:Meteor Shower":
-        "Обрушивает метеоритный дождь на поле боя.\nУрон = 100 за каждое живое существо в стеке заклинателя.\nМагический: игнорирует броню, но снижается сопротивлением магии.",
+        "Обрушивает метеоритный дождь на блок 3x3 в любом месте поля боя, поражая каждого врага в нём.\nУрон = {} за каждое живое существо в стеке заклинателя.\nМагический: игнорирует броню, но снижается сопротивлением магии.",
     "Order:Rangebane": "Пораженный юнит не может совершать дальние атаки.",
     "Order:Cowardice": "Пораженный юнит не может физически атаковать врагов с большим совокупным здоровьем.",
 };
@@ -330,7 +343,7 @@ function parseDuration(desc: string[]): SpellDuration {
 function englishDescription(book: SpellBook, raw: RawSpell): string {
     const override = resolvedDescriptions[`${book}:${raw.name}`];
     if (override) {
-        return override;
+        return override.replace(/\{\}/g, String(raw.power));
     }
     return stripDurationLine(raw.desc).join("\n").replace(/\{\}/g, String(raw.power));
 }
@@ -380,7 +393,14 @@ const castersBySpell = (() => {
 
 const rawBooks = spellsJson as unknown as { version: number } & Record<SpellBook, Record<string, RawSpell>>;
 
-const isArtifactSpell = (raw: RawSpell): boolean => raw.desc.some((line) => /^Artifact\./i.test(line.trim()));
+// Every artifact buff, offered or retired: Broken Aegis's text lacks the "Artifact." marker, and a disabled
+// artifact must not reappear here as a spell a player could look for in the game.
+const artifactBuffNames = new Set(
+    [...Object.values(TIER1_ARTIFACTS), ...Object.values(TIER2_ARTIFACTS)].map((artifact) => artifact.buffName),
+);
+
+const isArtifactSpell = (raw: RawSpell): boolean =>
+    artifactBuffNames.has(raw.name) || raw.desc.some((line) => /^Artifact\./i.test(line.trim()));
 
 export const spells: Spell[] = bookOrder
     .filter((book) => rawBooks[book])

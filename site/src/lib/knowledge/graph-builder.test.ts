@@ -109,7 +109,9 @@ describe("knowledge graph builder", () => {
         expect(byId.get("doctrine:battle-trance")?.nameRu).toBe("Боевой транс");
         expect(byId.get("augment:armor-augment")?.textRu).toContain("Боевой транс (Battle Trance) — 7");
         // common's codes are spelled out: "MIND" or "ANY_ENEMY" read as English in a Russian answer.
-        for (const node of gameNamed) expect(`${node.textRu} ${node.summaryRu}`).not.toMatch(/\b[A-Z]{3,}(?:_[A-Z]+)*\b(?<!\bMMR|\bAOE|\bHOCAI|\bERC)/);
+        // FIRE PIT is the map's own name, printed in capitals in the game in every language.
+        for (const node of gameNamed)
+            expect(`${node.textRu} ${node.summaryRu}`.replace(/FIRE PIT/g, "")).not.toMatch(/\b[A-Z]{3,}(?:_[A-Z]+)*\b(?<!\bMMR|\bAOE|\bHOCAI|\bERC)/);
         expect(byId.get("ability:petrifying-gaze")?.textRu).toContain("Пассивная · Разум");
         // The English graph is untouched.
         for (const node of gameNamed) expect(node.text).not.toMatch(/[а-яё]/i);
@@ -117,17 +119,17 @@ describe("knowledge graph builder", () => {
 
     test("augments, doctrines and synergies are derived from the engine tables", () => {
         const armor = byId.get("augment:armor-augment");
-        expect(armor?.text).toContain(`Level 1 (1 point): +${getArmorPower(ArmorAugment.LEVEL_1)}% armor`);
-        expect(armor?.text).toContain(`Level 3 (3 points): +${getArmorPower(ArmorAugment.LEVEL_3)}% armor`);
+        expect(armor?.text).toContain(`Level 1 (1 point): +${getArmorPower(ArmorAugment.LEVEL_1)}% base armor`);
+        expect(armor?.text).toContain(`Level 3 (3 points): +${getArmorPower(ArmorAugment.LEVEL_3)}% base armor`);
         expect(byId.get("augment:placement-augment")?.text).toContain("Level 1 (free)");
         expect(byId.get("doctrine:scout")?.props?.upgradePoints).toBe(6);
         expect(byId.get("doctrine:battle-trance")?.props?.upgradePoints).toBe(7);
         const supply = byId.get("synergy:life-supply-synergy");
         expect(supply?.text).toContain(
-            `Level 1 (2 distinct Life units): +${SynergyKeysToPower["Life:1:1"][0]}% bodies`,
+            `Level 1 (2 distinct Life units): every stack grows ${SynergyKeysToPower["Life:1:1"][0]}% when the fight starts`,
         );
         expect(supply?.text).toContain(
-            `Level 3 (6 distinct Life units): +${SynergyKeysToPower["Life:1:3"][0]}% bodies`,
+            `Level 3 (6 distinct Life units — the whole draft, so only Life units are in the army): every stack grows ${SynergyKeysToPower["Life:1:3"][0]}% when the fight starts`,
         );
         expect(
             graph.edges.some(
@@ -137,7 +139,7 @@ describe("knowledge graph builder", () => {
                     edge.rel === "SYNERGY_OF",
             ),
         ).toBe(true);
-        expect(byId.get("formula:morale")?.text).toContain("+3 for moving closer");
+        expect(byId.get("formula:morale")?.text).toContain("+3 for a move that ends closer");
     });
 
     test("rules come from the rendered pages in both languages and mention the entities they name", () => {

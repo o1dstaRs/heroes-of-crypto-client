@@ -715,6 +715,19 @@ export class AIController {
             // An intermediate move (one that precedes another productive action) must NOT end the turn:
             // a bare move leaves the unit active in the engine, so the follow-up acts from the landed cell.
             if (action.type === "move_unit" && !isLast) {
+                if (this.moveEndsTurn(currentUnit, action)) {
+                    // Ranked: the server ends a turn on every move, as it does for a human. A planned strike
+                    // becomes the walk-in melee a human would make; any other follow-up can't happen — the
+                    // move is the whole turn.
+                    const next = payload[i + 1];
+                    if (next?.type === "melee_attack" && !next.path?.length && action.path?.length) {
+                        return this.executeStrategyAction(currentUnit, { ...next, path: action.path }, wasAIActive);
+                    }
+                    console.warn(
+                        `AI strategy sequence: move ends the turn in ranked — skipped ${payload.length - 1 - i} planned follow-up(s)`,
+                    );
+                    return this.executeStrategyAction(currentUnit, action, wasAIActive);
+                }
                 const moved = await this.executeStrategyMoveStep(currentUnit, action);
                 if (!moved) {
                     if (!landedAny) {
@@ -753,14 +766,24 @@ export class AIController {
         this.finishAIAction(wasAIActive);
         return true;
     }
+    /** True where the authoritative server ends the turn on every move (ranked, co-op sandbox). */
+    private moveEndsTurn(currentUnit: RenderableUnit, action: Extract<GameAction, { type: "move_unit" }>): boolean {
+        const moveAction = this.modelAction(currentUnit, {
+            type: "move_unit",
+            unitId: currentUnit.getId(),
+            path: action.path,
+            targetCells: action.targetCells,
+            hasLavaCell: action.hasLavaCell,
+            hasWaterCell: action.hasWaterCell,
+        });
+        return this.context.isAuthoritativeAction?.(moveAction) ?? false;
+    }
     /**
      * Drive an INTERMEDIATE strategy move — a move_unit that precedes another productive action in the
-     * same plan — without ending the turn. Resolves true once the move has been driven far enough for the
-     * next action to submit: in ranked the deferred submit is synchronous + in-order (the server sequences
-     * the follow-up right behind it, and a bare move keeps the unit active server-side); in sandbox the
-     * engine applies the move immediately and we wait for the walk animation so the follow-up fires from
-     * the landed position. Resolves false when the move can't start or its animation stalls past the move
-     * watchdog window — the caller then stops the sequence gracefully.
+     * same plan — without ending the turn, in the local sandbox engine (where a bare move leaves the unit
+     * active): resolves true once the walk animation lands, so the follow-up fires from the landed cell.
+     * Resolves false when the move can't start or its animation stalls past the move watchdog window — the
+     * caller then stops the sequence gracefully. Ranked never gets here: its moves end the turn.
      */
     private executeStrategyMoveStep(
         currentUnit: RenderableUnit,
@@ -777,22 +800,6 @@ export class AIController {
             hasLavaCell: action.hasLavaCell,
             hasWaterCell: action.hasWaterCell,
         });
-        const isAuthoritative = this.context.isAuthoritativeAction?.(moveAction) ?? false;
-        if (isAuthoritative) {
-            // Ranked: the deferred path submits and returns WITHOUT firing onComplete (see
-            // executeStrategyMove); the follow-up action is dispatched right after, in order.
-            return Promise.resolve(
-                this.context.executeMoveSequence(
-                    currentUnit,
-                    action.path,
-                    action.targetCells,
-                    undefined,
-                    moveAction,
-                    false,
-                    true,
-                ),
-            );
-        }
         return new Promise((resolve) => {
             let settled = false;
             const settle = (ok: boolean): void => {

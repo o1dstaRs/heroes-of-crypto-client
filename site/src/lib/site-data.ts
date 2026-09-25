@@ -553,6 +553,7 @@ export const content = {
             stats: {
                 hp: "Health",
                 experience: "Experience",
+                draftedStack: "Drafted stack",
                 attack: "Attack",
                 damage: "Damage",
                 armor: "Armor",
@@ -650,6 +651,18 @@ export const content = {
             {
                 question: "What happened to the treasury page?",
                 answer: "The treasury section is intentionally not part of this minimal site. This site focuses on the game, token basics, community, and legal pages.",
+            },
+            {
+                question: "Do I need a crypto wallet?",
+                answer: "No. The game is free, and you can sign in with email and password or with Google. A wallet is optional: link one to claim season prizes (it must be the only wallet on your account and never linked to another account) or to use token features. A wallet with at least 90 days of on-chain history also raises your reputation.",
+            },
+            {
+                question: "How do I link or unlink a wallet?",
+                answer: "Press Connect Wallet on the game's sign-in screen to sign in with a wallet — you only sign a message, no transaction is sent. Already signed in? Press Connect Wallet in the account panel on the right of the game screen to add a wallet to your account. The same panel adds email, password or Google sign-in, and has an Unlink button next to Google and each linked wallet. Unlinking is refused while it would leave the account with no way to sign in, so a wallet-only account has to add another wallet, a password or Google sign-in before it can drop its wallet.",
+            },
+            {
+                question: "How do I contact the team?",
+                answer: "Use the official channels on the Contact page: Discord, Telegram, X (Twitter) or email support@heroesofcrypto.io. The game's code is public on GitHub.",
             },
         ],
         contact: {
@@ -1588,6 +1601,7 @@ export const content = {
             stats: {
                 hp: "Здоровье",
                 experience: "Опыт",
+                draftedStack: "Стек в драфте",
                 attack: "Атака",
                 damage: "Урон",
                 armor: "Броня",
@@ -1684,6 +1698,18 @@ export const content = {
             {
                 question: "Где раздел казны?",
                 answer: "Раздел казны намеренно не включен в этот минимальный сайт. Сейчас сайт сфокусирован на игре, токене, сообществе и правовых страницах.",
+            },
+            {
+                question: "Нужен ли криптокошелёк?",
+                answer: "Нет. Игра бесплатная, войти можно по почте и паролю или через Google. Кошелёк нужен по желанию: чтобы получать призы сезона (на аккаунте должен быть ровно один кошелёк, который никогда не был привязан к другому аккаунту) или пользоваться функциями токена. Кошелёк с историей в блокчейне от 90 дней также повышает репутацию.",
+            },
+            {
+                question: "Как привязать или отвязать кошелёк?",
+                answer: "Нажмите Connect Wallet на экране входа в игру, чтобы войти через кошелёк, — вы только подписываете сообщение, транзакция не отправляется. Уже вошли? Нажмите Connect Wallet в панели аккаунта справа на игровом экране, чтобы добавить кошелёк к аккаунту. В той же панели можно добавить вход по почте, паролю или через Google, а рядом с Google и каждым привязанным кошельком есть кнопка Unlink. Отвязать последний способ входа нельзя: аккаунт, который входит только через кошелёк, сначала должен добавить другой кошелёк, пароль или вход через Google.",
+            },
+            {
+                question: "Как связаться с командой?",
+                answer: "Через официальные каналы на странице «Контакты»: Discord, Telegram, X (Twitter) или почта support@heroesofcrypto.io. Код игры открыт на GitHub.",
             },
         ],
         contact: {

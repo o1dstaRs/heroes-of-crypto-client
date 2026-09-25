@@ -24,6 +24,7 @@ const castableAbilityNames = Object.values(abilitiesJson as Record<string, { nam
 describe("spell codex", () => {
     test("labels offensive magic as damage rather than debuffs", () => {
         for (const name of [
+            "Fireball",
             "Fire Strike",
             "Fire Wall",
             "Lightning Strike",
@@ -50,6 +51,8 @@ describe("spell codex", () => {
             .map((entry) => entry.name);
 
         expect(spells.find((entry) => entry.name === "Holy Cross")).toBeUndefined();
+        // Retired artifacts whose text lacks the "Artifact." marker are filtered by name.
+        expect(spells.find((entry) => entry.name === "Broken Aegis")).toBeUndefined();
         expect(spells.filter((entry) => rawArtifactNames.includes(entry.name))).toEqual([]);
     });
 

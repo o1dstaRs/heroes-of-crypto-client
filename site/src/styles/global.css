@@ -3337,6 +3337,10 @@ html.reveal-on .patches-section {
     height: 100%;
     /* The ground the art was authored against; it shows wherever a transparent cutout does not cover. */
     background: #090806;
+    /* The layers below stack among THEMSELVES only. Without this their z-indexes join the surrounding
+       surface's stacking context, and the art (z 3) painted over a codex card's scrim (z 2) and its name
+       and stats (z 1) — the spider across "Arachna Spider" in the owner's screenshot. */
+    isolation: isolate;
 }
 
 .portrait__bg,

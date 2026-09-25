@@ -14258,6 +14258,7 @@ export class Sandbox extends PixiScene {
                                       targetMagicResist: victim.getMagicResist(),
                                       targetIsFireElement: victim.hasAbilityActive("Fire Element"),
                                       targetIsWaterElement: victim.hasAbilityActive("Water Element"),
+                                      targetMagicDamageTakenMultiplier: victim.getMagicDamageTakenMultiplier(),
                                   })
                                 : 0;
 
@@ -14430,13 +14431,17 @@ export class Sandbox extends PixiScene {
                             }
                             // The second wave is the same area attack again (it re-enters
                             // processRangeAOEAbility with the AOE ability's own multiplier — the Double Shot
-                            // multiplier and the Dual Strike Charm do NOT reach it), and it dies with the
-                            // quiver: the first wave spends its arrows via spendShotsAgainst.
+                            // multiplier does NOT reach it, the Dual Strike Charm does, on every unit it
+                            // catches), and it dies with the quiver: the first wave spends its arrows via
+                            // spendShotsAgainst. Each wave carries the victim's own Chakram bounce factor.
                             const aoeWaves =
                                 doubleShotHoverAbility &&
                                 this.currentActiveUnit.projectRangeShotsAfterVolleys(aoeVictims[0], 1) > 0
                                     ? 2
                                     : 1;
+                            const aoeAttacker = this.currentActiveUnit;
+                            const secondWaveCharm =
+                                aoeWaves === 2 ? AbilityHelper.withDualStrikeCharm(1, aoeAttacker) : 1;
                             for (const victim of aoeVictims) {
                                 const band = projectAttackDamageBand({
                                     ...projectionBase,
@@ -14449,22 +14454,23 @@ export class Sandbox extends PixiScene {
                                     ),
                                 });
                                 const perUnitDamageFactor = secondaryDamageFactorById.get(victim.getId());
-                                let victimMin =
-                                    aoeWaves *
+                                const waves = (damage: number): number =>
                                     applyAoeDamageTail({
-                                        attacker: this.currentActiveUnit,
+                                        attacker: aoeAttacker,
                                         victim,
-                                        damage: band.min,
+                                        damage,
                                         perUnitDamageFactor,
-                                    });
-                                let victimMax =
-                                    aoeWaves *
-                                    applyAoeDamageTail({
-                                        attacker: this.currentActiveUnit,
-                                        victim,
-                                        damage: withLuckyStrike(band.max),
-                                        perUnitDamageFactor,
-                                    });
+                                    }) +
+                                    (aoeWaves === 2
+                                        ? applyAoeDamageTail({
+                                              attacker: aoeAttacker,
+                                              victim,
+                                              damage,
+                                              perUnitDamageFactor: (perUnitDamageFactor ?? 1) * secondWaveCharm,
+                                          })
+                                        : 0);
+                                let victimMin = waves(band.min);
+                                let victimMax = waves(withLuckyStrike(band.max));
                                 if (victim.getId() === damageUnit.getId()) {
                                     victimMin += fireforgedBurn(victim, victimMin);
                                     victimMax += fireforgedBurn(victim, victimMax);

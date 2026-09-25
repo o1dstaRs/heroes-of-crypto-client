@@ -7178,18 +7178,6 @@ export class RenderableUnit extends Unit {
             );
         }
 
-        // Paralysis
-        const paralysisAbility = this.getAbility("Paralysis");
-        if (paralysisAbility) {
-            const description = paralysisAbility.getDesc().join("\n");
-            const reduction = this.calculateAbilityApplyChance(paralysisAbility, _synergyAbilityPowerIncrease);
-            const chance = Math.min(100, reduction * 2);
-            const updatedDescription = description
-                .replace("{}", Number(chance.toFixed(2)).toString())
-                .replace("{}", Number(reduction.toFixed(2)).toString());
-            this.refreshAbiltyDescription(paralysisAbility.getName(), updatedDescription);
-        }
-
         // Deep Wounds Levels 0..3 — same card shape at four strengths, and a unit can hold more than one
         // (the Wounding Charm artifact grants Level 1 on top of a higher native card). They resolve as a
         // SINGLE application whose powers stack with luck counted once, so every card shows that one total
