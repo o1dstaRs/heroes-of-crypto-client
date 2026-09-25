@@ -1,9 +1,12 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+    GAME_SYSTEM_CONTROL_SIZE_PX,
     GAME_SYSTEM_CONTROLS_BOTTOM_INSET,
     GAME_SYSTEM_CONTROLS_CENTER_WIDTH,
+    GAME_SYSTEM_CONTROLS_CORNER_FLANK_PX,
     GAME_SYSTEM_CONTROLS_SIDE_INSET,
+    GAME_SYSTEM_CONTROLS_STACK_GAP_PX,
     gameSystemControlsSx,
 } from "./GameSystemControls";
 import { VOLUME_SLOT_PRIORITY } from "./audio/volumeSlot";
@@ -25,6 +28,12 @@ describe("game system controls", () => {
      */
     test("keeps fullscreen and sound on the bottom line whatever the centre grows to", () => {
         expect(gameSystemControlsSx.alignItems).toBe("end");
+    });
+
+    test("the centred plate's empty flank matches the social, sound and fullscreen row", () => {
+        expect(GAME_SYSTEM_CONTROLS_CORNER_FLANK_PX).toBe(
+            GAME_SYSTEM_CONTROL_SIZE_PX * 3 + GAME_SYSTEM_CONTROLS_STACK_GAP_PX * 2,
+        );
     });
 
     test("lets a full-screen draft own the sound control over the hidden sidebar", () => {

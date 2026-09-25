@@ -35,8 +35,15 @@ export const GAME_SYSTEM_CONTROLS_CENTER_MIN_WIDTH_PX = 209;
  */
 export const GAME_SYSTEM_CONTROLS_STACK_HEIGHT_PX =
     GAME_SYSTEM_CONTROL_SIZE_PX + GAME_SYSTEM_CONTROLS_STACK_GAP_PX + GAME_SYSTEM_CONTROLS_CENTER_HEIGHT_PX;
-/** Width of that row — the grid reserves it on BOTH flanks so the centre slot stays centred. */
+/** Sound and fullscreen, the pair the social dock measures from. */
 export const GAME_SYSTEM_CONTROLS_STACK_WIDTH_PX = GAME_SYSTEM_CONTROL_SIZE_PX * 2 + GAME_SYSTEM_CONTROLS_STACK_GAP_PX;
+/**
+ * The whole right-hand corner: the social medallion, sound and fullscreen, with the same gap between
+ * each. A centred plate reserves an empty flank of this width on the left so the plate stays on the
+ * row's midpoint instead of centring in whatever space is left of the buttons.
+ */
+export const GAME_SYSTEM_CONTROLS_CORNER_FLANK_PX =
+    GAME_SYSTEM_CONTROL_SIZE_PX * 3 + GAME_SYSTEM_CONTROLS_STACK_GAP_PX * 2;
 export const gameSystemControlsStackSx = {
     display: "flex",
     flexDirection: "row",
@@ -127,7 +134,20 @@ export const GameSystemControls: React.FC<{
     zIndex?: number;
     /** Stack sound above fullscreen in the right corner instead of splitting them across the row. */
     rightStack?: boolean;
-}> = ({ center, sidebarWidth, priority = VOLUME_SLOT_PRIORITY.gameControls, zIndex = 60, rightStack = false }) => {
+    /**
+     * Centre `center` on the row. The corner controls stay on the right; an equal empty flank on the
+     * left keeps the plate on the midpoint. Off for a centre that must use all the width beside the
+     * buttons (the ranked fight panel).
+     */
+    centerInRow?: boolean;
+}> = ({
+    center,
+    sidebarWidth,
+    priority = VOLUME_SLOT_PRIORITY.gameControls,
+    zIndex = 60,
+    rightStack = false,
+    centerInRow = false,
+}) => {
     const volumeSlotRef = useRef<HTMLDivElement>(null);
 
     useLayoutEffect(() => registerVolumeSlot(volumeSlotRef.current, priority), [priority]);
@@ -144,8 +164,13 @@ export const GameSystemControls: React.FC<{
             sx={{
                 ...gameSystemControlsStackSx,
                 // The social dock's medallion continues this row one control further left, but it is a
-                // fixed element of its own and takes no space here. Reserve its slot so the footer plate
-                // beside it stops short of the medallion instead of sliding underneath it.
+                // fixed element of its own and takes no space here. The padding is its slot, and the
+                // fixed width is that slot plus sound and fullscreen, so a matching empty flank can
+                // centre the plate.
+                boxSizing: "border-box",
+                width: GAME_SYSTEM_CONTROLS_CORNER_FLANK_PX,
+                flexShrink: 0,
+                gap: `${GAME_SYSTEM_CONTROLS_STACK_GAP_PX}px`,
                 pl: `${GAME_SYSTEM_CONTROL_SIZE_PX + GAME_SYSTEM_CONTROLS_STACK_GAP_PX}px`,
             }}
         >
@@ -155,11 +180,9 @@ export const GameSystemControls: React.FC<{
     );
 
     /**
-     * One line: the footer plate takes the space left of the corner controls, the controls keep the
-     * corner. The plate caps itself at this slot's width, so it can never cross the host's left edge.
-     * Where the host is too narrow for both — the plate is 209px of authored artwork — the row wraps and
-     * the plate gets the full width on the line above rather than shrinking to a sliver. The slot is a
-     * size container either way, so the lettering scales with the plate instead of outgrowing it.
+     * One line. The corner controls keep the right edge. A plate that asks to be centred
+     * (`centerInRow`) sits on the row's midpoint, with an empty flank matching the corner; anything
+     * else uses the width beside the buttons.
      */
     const controls = rightStack ? (
         <Box
@@ -179,23 +202,53 @@ export const GameSystemControls: React.FC<{
                 ...anchorSx,
             }}
         >
-            <Box
-                sx={{
-                    flex: "1 1 auto",
-                    // Its own line as soon as the plate cannot keep its authored width beside the
-                    // controls; below that threshold this slot no longer fits, and the row wraps.
-                    minWidth: `min(100%, ${GAME_SYSTEM_CONTROLS_CENTER_MIN_WIDTH_PX}px)`,
-                    containerType: "inline-size",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    // An empty centre slot must not swallow clicks aimed at whatever sits behind it.
-                    pointerEvents: center ? "auto" : "none",
-                }}
-            >
-                {center}
-            </Box>
-            {cornerRow}
+            {centerInRow ? (
+                <Box
+                    sx={{
+                        display: "grid",
+                        flex: "1 1 100%",
+                        width: "100%",
+                        minWidth: 0,
+                        gridTemplateColumns: `${GAME_SYSTEM_CONTROLS_CORNER_FLANK_PX}px minmax(0, 1fr) ${GAME_SYSTEM_CONTROLS_CORNER_FLANK_PX}px`,
+                        alignItems: "end",
+                    }}
+                >
+                    <Box aria-hidden />
+                    <Box
+                        sx={{
+                            minWidth: 0,
+                            containerType: "inline-size",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            pointerEvents: center ? "auto" : "none",
+                        }}
+                    >
+                        {center}
+                    </Box>
+                    {cornerRow}
+                </Box>
+            ) : (
+                <>
+                    <Box
+                        sx={{
+                            flex: "1 1 auto",
+                            // Its own line as soon as the plate cannot keep its authored width beside the
+                            // controls; below that threshold this slot no longer fits, and the row wraps.
+                            minWidth: `min(100%, ${GAME_SYSTEM_CONTROLS_CENTER_MIN_WIDTH_PX}px)`,
+                            containerType: "inline-size",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            // An empty centre slot must not swallow clicks aimed at whatever sits behind it.
+                            pointerEvents: center ? "auto" : "none",
+                        }}
+                    >
+                        {center}
+                    </Box>
+                    {cornerRow}
+                </>
+            )}
         </Box>
     ) : (
         <Box data-game-system-controls sx={{ ...gameSystemControlsSx, ...anchorSx }}>

@@ -483,6 +483,7 @@ export default function RightSideBar({
                 <GameSystemControls
                     sidebarWidth={barSize}
                     rightStack
+                    centerInRow={Boolean(rankedFooter)}
                     center={
                         rankedFooter ? (
                             rankedFooter
