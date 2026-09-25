@@ -4,6 +4,7 @@ import { usesAuthoredRangedRelease, usesApprovedBaseAnimations } from "../pixi/c
 import { Assets, Sprite, Graphics, Container, Texture, BlurFilter, RenderTexture, Text, TextStyle } from "pixi.js";
 import { PixiDrawer } from "../pixi/PixiDrawer";
 import { inheritedAbsoluteScaleOf } from "../pixi/boardFit";
+import { glyphScaleX } from "../pixi/boardMirror";
 import {
     SandboxDrawer,
     ALLY_MOVEMENT_INSPECTION_COLOR,
@@ -1184,7 +1185,7 @@ export class Sandbox extends PixiScene {
 
         // --- Init Sub-Managers (Early) ---
         this.dungeonVisuals = new DungeonVisuals({
-            getStage: () => this.pixiApp.getApplication().stage,
+            getStage: () => this.pixiApp.getBoardRoot(),
             getWorldRoot: () => this.pixiApp.getWorldRoot(),
             getViewportSize: () => this.getViewportSize(),
             getGridSettings: () => this.sc_sceneSettings.getGridSettings(),
@@ -15451,7 +15452,11 @@ export class Sandbox extends PixiScene {
         this.splitDragAmount = 1;
     }
     private ensureSplitText(existing: Text | undefined, fontSize: number, fill: number): Text {
-        if (existing) return existing;
+        if (existing) {
+            // Re-read on every use: the board can turn around mid-scene (a replay shows the true sides).
+            existing.scale.x = glyphScaleX(1);
+            return existing;
+        }
         const t = new Text({
             text: "",
             style: new TextStyle({
@@ -15462,7 +15467,8 @@ export class Sandbox extends PixiScene {
             }),
         });
         t.anchor.set(0.5);
-        t.scale.y = -1; // world Y is inverted (see RenderableUnit.ensureBadge)
+        // World Y is inverted (see RenderableUnit.ensureBadge), and X is too on a board mirrored for this viewer.
+        t.scale.set(glyphScaleX(1), -1);
         this.attachToWorldRoot(t, 2650);
         return t;
     }

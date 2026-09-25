@@ -111,6 +111,7 @@ import { UNIT_ID_TO_NAME } from "./unit_ui_constants";
 import { ButtonProvider } from "./context/ButtonContext";
 import { exitFightButtonSx } from "./exitFightButtonSx";
 import { useFullscreenActive } from "./useFullscreenActive";
+import { useBoardMirrored } from "./useBoardMirrored";
 import { startVisibleInterval } from "./visibleInterval";
 import { eventStreamRetryDelayMs } from "./eventStreamRetry";
 import { dragObserverPanelOffset, type PanelOffset } from "./observerPanelDrag";
@@ -1787,6 +1788,8 @@ export const RankedGameView: React.FC<Props> = ({
         }
         navigate("/");
     }, [isObserver, navigate, submitProtocolAction]);
+    // The scene mirrors the board when this player wants their army on the other side; the strip follows it.
+    const boardMirrored = useBoardMirrored();
 
     useEffect(() => {
         if (
@@ -2072,6 +2075,7 @@ export const RankedGameView: React.FC<Props> = ({
                             status={sandboxCoop ? coopMatchupStatus : undefined}
                             windowSize={windowSize}
                             viewerTeam={viewerTeam}
+                            mirrored={boardMirrored}
                             action={
                                 sandboxCoop && !gameStarted && !isObserver && !sandboxClosedEarly ? (
                                     <Button

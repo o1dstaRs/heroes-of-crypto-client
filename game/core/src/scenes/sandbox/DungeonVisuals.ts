@@ -71,6 +71,11 @@ import {
 } from "./lavaChasmGlow";
 
 export interface IDungeonVisualsContext {
+    /**
+     * Parent for the floor's SCREEN-SPACE layers (the painting, its braziers and lights), sorted under the
+     * camera by zIndex. In the game this is PixiApp's board root rather than the bare stage, so the painting
+     * mirrors together with the world when a player sees the board mirrored.
+     */
     getStage(): Container;
     getWorldRoot(): Container;
     getViewportSize(): { width: number; height: number };

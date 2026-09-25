@@ -35,6 +35,7 @@ import {
 import { PixiRenderableSpell } from "./RenderableSpell";
 import { staticBattlefieldTextureNameForUnit, TextureType, unitToTextureName } from "@/pixi/PixiUnitsFactory";
 import { legacyBoardChildScaleCompensation } from "@/pixi/boardFit";
+import { glyphScaleX, screenFacing } from "@/pixi/boardMirror";
 import { CREATURE_SPRITE_ANIMATION_SETTINGS } from "@/pixi/creatureAnimationSettings";
 import { animationAtlases, AnimationUnitName, type AnimationAtlasMeta } from "../generated/animation_atlases";
 import { images, type ImageKey } from "../imageAssets";
@@ -3507,7 +3508,8 @@ export class RenderableUnit extends Unit {
         candidate.bounds.top = bounds.y;
         candidate.bounds.right = bounds.x + bounds.width;
         candidate.bounds.bottom = bounds.y + bounds.height;
-        creatureHeadPriorityZone(candidate.bounds, this.facingDirection, candidate.headZone);
+        // The bounds are screen-space, so the head sits on the side the creature faces ON SCREEN.
+        creatureHeadPriorityZone(candidate.bounds, screenFacing(this.facingDirection), candidate.headZone);
         return candidate;
     }
     /** Raise the live figure and its foreground indicators without lifting its ground shadow/aura. */
@@ -5668,8 +5670,11 @@ export class RenderableUnit extends Unit {
             y -= (flagFraming.flagOffsetYCells ?? 0) * gs.getCellSize();
         }
         if (container.x !== x || container.y !== y) container.position.set(x, y);
-        if (container.scale.x !== renderedBadgeScale || container.scale.y !== renderedBadgeScale) {
-            container.scale.set(renderedBadgeScale, renderedBadgeScale);
+        // The banner, its count and its status icons are read, not looked at: on a mirrored board the whole
+        // ribbon is drawn upright while its anchor above the creature still mirrors with the unit.
+        const badgeScaleX = glyphScaleX(renderedBadgeScale);
+        if (container.scale.x !== badgeScaleX || container.scale.y !== renderedBadgeScale) {
+            container.scale.set(badgeScaleX, renderedBadgeScale);
         }
         if (container.visible !== visible) container.visible = visible;
     }

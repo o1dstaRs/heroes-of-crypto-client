@@ -19,6 +19,7 @@ import { nextLapHazard } from "../nextLapHazard";
 import { IVisibleState, IWindowSize } from "../../scenes/VisibleState";
 import { hocColors, hocDisplayFontFamily, hocDisplayLetterSpacing } from "../hocTheme";
 import { useIsSpectator, useViewerTeam } from "../context/ViewerTeamContext";
+import { useBoardMirrored } from "../useBoardMirrored";
 import { meteorIconDataUrl } from "../meteorIcon";
 import {
     COUNTDOWN_FRAME_LINE_KEYS,
@@ -184,6 +185,8 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
         import.meta.env.DEV ? readStoredCountdownFrameTuning() : DEFAULT_COUNTDOWN_FRAME_TUNING,
     );
     const countdownFrameSvgId = useId().replaceAll(":", "");
+    // The frame traces the painted board's rim, so it turns around with a board mirrored for this viewer.
+    const boardMirrored = useBoardMirrored();
     const countdownInterval = useRef<NodeJS.Timeout | null>(null);
     const manager = usePixiManager();
     const metrics = useSidebarMetrics();
@@ -311,6 +314,8 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
                         position: "absolute",
                         inset: 0,
                         overflow: "visible",
+                        // Mirrored about the window's centre, which is the board's centre too.
+                        transform: boardMirrored ? "scaleX(-1)" : undefined,
                         animation:
                             countdown !== null ? "countdown-tick-enter 220ms cubic-bezier(0.2, 0.8, 0.2, 1)" : "none",
                     }}

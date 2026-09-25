@@ -5,6 +5,7 @@ import { RenderableUnit } from "../RenderableUnit";
 import { images } from "../../generated/image_imports";
 import { HOC_NUMERIC_ARIAL_FONT_FAMILY } from "../../fontFamilies";
 import { boardVerticalStretch } from "../../pixi/boardFit";
+import { glyphScaleX } from "../../pixi/boardMirror";
 import { projectBattlefieldPoint } from "./BattlefieldVisualGrid";
 
 export interface ICombatVisualsContext {
@@ -1016,7 +1017,7 @@ export class CombatVisuals {
         }
         if (stack > 0 && !flagTopAnchor) driftX += (stack % 2 === 0 ? 1 : -1) * 10 * stack;
 
-        container.scale.set(FT_START_SCALE, -FT_START_SCALE);
+        container.scale.set(glyphScaleX(FT_START_SCALE), -FT_START_SCALE);
         container.alpha = 0;
         container.position.set(startX, startY);
         this.attachEffect(container, 2000);
@@ -1207,7 +1208,7 @@ export class CombatVisuals {
         const startY = pos.y + cell * 0.55 + stackIndex * cell * 0.5;
         container.position.set(startX, startY);
         // Counter the world root's Y-up flip so the icon + text render upright (same as floating text).
-        container.scale.set(DP_START_SCALE, -DP_START_SCALE);
+        container.scale.set(glyphScaleX(DP_START_SCALE), -DP_START_SCALE);
         this.attachEffect(container, DP_Z);
 
         this.debuffPops.push({ container, age: 0, life: DP_LIFE, startX, startY, riseY: DP_RISE });
@@ -1347,14 +1348,14 @@ export class CombatVisuals {
             abilityLabel.scale.set(maxLabelWidth / estimatedLabelWidth);
         }
         payload.addChild(abilityLabel);
-        payload.scale.set(0.45, -0.45);
+        payload.scale.set(glyphScaleX(0.45), -0.45);
         container.addChild(payload);
 
         const labelPosition = presentation.labelAtDestination ? to : from;
         const stolenLabel = new PixiText({ text: presentation.label, style: this.getStolenLabelStyle() });
         stolenLabel.anchor.set(0.5);
         stolenLabel.position.set(labelPosition.x, labelPosition.y + cellSize * 0.62);
-        stolenLabel.scale.set(0.5, -0.5);
+        stolenLabel.scale.set(glyphScaleX(0.5), -0.5);
         stolenLabel.alpha = 0;
         container.addChild(stolenLabel);
 
@@ -1495,7 +1496,7 @@ export class CombatVisuals {
             steal.payload.position.set(payloadPoint.x, payloadPoint.y);
             const pop = Math.min(1, steal.age / 0.14);
             const payloadScale = 0.45 + 0.55 * easeOutBack(pop);
-            steal.payload.scale.set(payloadScale, -payloadScale);
+            steal.payload.scale.set(glyphScaleX(payloadScale), -payloadScale);
             steal.payload.alpha = Math.max(0, fade);
             steal.payloadGlow.rotation += dt * 2.8;
             steal.payloadGlow.alpha = 0.72 + Math.sin(steal.age * 28) * 0.2;
@@ -1519,7 +1520,7 @@ export class CombatVisuals {
 
             const labelPop = Math.min(1, steal.age / 0.12);
             const labelScale = 0.5 + 0.5 * easeOutBack(labelPop);
-            steal.stolenLabel.scale.set(labelScale, -labelScale);
+            steal.stolenLabel.scale.set(glyphScaleX(labelScale), -labelScale);
             steal.stolenLabel.y =
                 steal.labelPosition.y + steal.cellSize * (0.62 + 0.2 * easeOutCubic(steal.age / steal.life));
             steal.stolenLabel.alpha = Math.max(0, Math.min(1, steal.age / 0.07)) * fade;
@@ -1798,7 +1799,7 @@ export class CombatVisuals {
             if (ft.age < FT_POP_DUR) {
                 scale = FT_START_SCALE + (1 - FT_START_SCALE) * easeOutBack(ft.age / FT_POP_DUR);
             }
-            ft.container.scale.set(scale, -scale);
+            ft.container.scale.set(glyphScaleX(scale), -scale);
 
             // Fade in quickly, hold, then fade out smoothly.
             let alpha = 1;
@@ -1829,7 +1830,7 @@ export class CombatVisuals {
                 // Evaporate: the icon + name swell slightly as they dissolve upward and fade out.
                 scale = 1 + 0.2 * ((t - DP_FADE_OUT_FROM) / (1 - DP_FADE_OUT_FROM));
             }
-            dp.container.scale.set(scale, -scale);
+            dp.container.scale.set(glyphScaleX(scale), -scale);
 
             let alpha = 1;
             if (dp.age < DP_FADE_IN) {
@@ -3586,7 +3587,7 @@ export class CombatVisuals {
         const container = new Container();
         // worldRoot is y-up. Counter-flip the forge art so both source images stay upright, then use ordinary
         // screen-style local coordinates (positive y is down) to keep the anvil below the swinging hammer.
-        container.scale.set(1, -1);
+        container.scale.set(glyphScaleX(1), -1);
         container.position.set(center.x, center.y);
         this.attachEffect(container, CRAFT_Z);
 
@@ -3747,7 +3748,7 @@ export class CombatVisuals {
     ): number {
         const container = new Container();
         // worldRoot is y-up; counter-flip so local coords are screen-style (y down) and the icon/text stay upright.
-        container.scale.set(1, -1);
+        container.scale.set(glyphScaleX(1), -1);
         container.position.set(center.x, center.y);
         this.attachEffect(container, ENCHANT_Z);
 

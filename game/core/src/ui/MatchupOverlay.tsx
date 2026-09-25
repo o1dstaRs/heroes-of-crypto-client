@@ -9,6 +9,7 @@ import { fetchPublicPlayerStats, type PublicPlayerStats } from "../api/social_cl
 import { images } from "../generated/image_imports";
 import { battleSidebarWidth } from "../pixi/boardFit";
 import { readPlayerArmyColorId } from "../settings/playerArmyColor";
+import { readBoardSidePreference, shouldMirrorBoard } from "../settings/playerBoardSide";
 import { CreaturePortraitImage } from "./CreaturePortraitImage";
 import { hocDisplayFontFamily } from "./hocTheme";
 import { MATCHUP_LOWER_TEAM, MATCHUP_UPPER_TEAM, matchupTeamTone, type MatchupTeamTone } from "./matchupOverlayTone";
@@ -44,6 +45,11 @@ type MatchupOverlayProps = Readonly<{
     windowSize?: { width: number; height: number };
     /** The locally-controlled seat. Undefined for observers/replays, which retain canonical team colours. */
     viewerTeam?: TeamType;
+    /**
+     * The viewer sees the board mirrored (settings/playerBoardSide): their army stands on the other side from
+     * the one the match seated them on, so the strip swaps its two sides to agree with the board under it.
+     */
+    mirrored?: boolean;
     /** A control docked at the strip's right edge (pointer events enabled): the co-op sandbox's Leave. */
     action?: React.ReactNode;
 }>;
@@ -780,6 +786,25 @@ const MatchupToggle: React.FC<{
 };
 
 /**
+ * The two seats in the order they appear across the strip, left of the VS first: the LEFT seat on the left,
+ * the way the board is dealt, unless this viewer sees the board mirrored.
+ */
+export const matchupScreenOrder = (
+    players: readonly MatchupPlayer[],
+    mirrored = false,
+): readonly [MatchupPlayer, MatchupPlayer] => {
+    const lower = players.find((player) => player.team === MATCHUP_LOWER_TEAM) ?? {
+        team: MATCHUP_LOWER_TEAM,
+        label: "Green",
+    };
+    const upper = players.find((player) => player.team === MATCHUP_UPPER_TEAM) ?? {
+        team: MATCHUP_UPPER_TEAM,
+        label: "Red",
+    };
+    return mirrored ? [upper, lower] : [lower, upper];
+};
+
+/**
  * Compact matchup strip shared by ranked drafting and battle. Player identity is public ranked data; until
  * it arrives (or for an AI/unranked player) the panel remains stable with honest fallbacks.
  */
@@ -790,6 +815,7 @@ export const MatchupOverlay: React.FC<MatchupOverlayProps> = ({
     status,
     windowSize,
     viewerTeam,
+    mirrored = false,
     action,
 }) => {
     const [profiles, setProfiles] = useState<Record<string, PublicPlayerStats>>({});
@@ -829,15 +855,7 @@ export const MatchupOverlay: React.FC<MatchupOverlayProps> = ({
         // `playerKey` intentionally captures the stable player identity rather than the freshly-created array.
     }, [playerKey]);
 
-    const ordered = useMemo(
-        () => [
-            players.find((player) => player.team === MATCHUP_LOWER_TEAM),
-            players.find((player) => player.team === MATCHUP_UPPER_TEAM),
-        ],
-        [players],
-    );
-    const left = ordered[0] ?? { team: MATCHUP_LOWER_TEAM, label: "Green" };
-    const right = ordered[1] ?? { team: MATCHUP_UPPER_TEAM, label: "Red" };
+    const [left, right] = useMemo(() => matchupScreenOrder(players, mirrored), [players, mirrored]);
     const presetId = readPlayerArmyColorId();
     const leftTone = matchupTeamTone(left.team, viewerTeam, presetId);
     const rightTone = matchupTeamTone(right.team, viewerTeam, presetId);
@@ -1063,5 +1081,21 @@ export const PickMatchupOverlay: React.FC<{
         };
     }, [fallbackPlayers, gameId]);
 
-    return <MatchupOverlay players={players} placement="pick" status={status} viewerTeam={normalizedUserTeam} />;
+    // No board exists yet, but this is the same strip the fight shows. Seat the player on the side they chose to
+    // see their army on, so the strip does not swap sides the moment the fight starts.
+    const mirrored = shouldMirrorBoard({
+        viewerTeam: normalizedUserTeam,
+        preference: readBoardSidePreference(),
+        live: true,
+    });
+
+    return (
+        <MatchupOverlay
+            players={players}
+            placement="pick"
+            status={status}
+            viewerTeam={normalizedUserTeam}
+            mirrored={mirrored}
+        />
+    );
 };

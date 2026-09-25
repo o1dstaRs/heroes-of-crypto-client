@@ -146,6 +146,10 @@ refresh (vite serves common via the `src` alias).
   - One-off local convenience paths belong in your shell profile or an untracked `.env`, not the repo.
 - `RenderableUnit.fromBase()` uses `Object.setPrototypeOf` — class field defaults don't run. Always explicitly initialize new fields in `fromBase()` or they'll be `undefined`.
 - World root has `scale.y = -1` (y-up). All world-space graphics/text must account for the flip.
+- A seated player can see the board mirrored left-to-right (settings → "Your side of the battlefield";
+  `pixi/boardMirror.ts`). World-space text and other glyphs that are read rather than looked at take their x
+  scale from `glyphScaleX()` (or `keepGlyphRowUpright()` for an icon-and-number row), and code comparing a
+  unit's facing with screen-space bounds uses `screenFacing()`. Otherwise the text renders backwards.
 - Pixi z-index: terrain ~20, gameplay graphics ~55, units ~4000 (sorted by Y), overlays ~5500+.
 - The `@heroesofcrypto/common` submodule tracks `main`. Run `git submodule update --remote` to pull latest.
 - **No two tracked paths may differ only by letter case** (`ui/liveMatchBanner.ts` next to `ui/LiveMatchBanner.tsx`).

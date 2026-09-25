@@ -34,6 +34,7 @@ import {
 } from "./shotTrajectoryTuning";
 import { tunedCellFillPolygon } from "./movementAreaVisual";
 import { placementZonePolygon } from "../pixi/PixiDrawablePlacement";
+import { glyphScaleX, keepGlyphRowUpright } from "../pixi/boardMirror";
 
 const approachValue = (from: number, to: number, speed: number, dt: number): number => {
     if (from === to) return from;
@@ -1412,6 +1413,17 @@ export class HoverManager {
 
             positionDamageRow(centerY);
         }
+        // Both rows are laid out left-to-right around the target; keep them reading that way on a board
+        // mirrored for this viewer. Only the glyphs positioned above may be passed in.
+        keepGlyphRowUpright(
+            [
+                damageText,
+                hasRangeModifierIcon ? this.hoverRangeModifierIcon : undefined,
+                hasKills ? this.hoverKillText : undefined,
+                hasKills && hasKillIcon ? this.hoverDamageIcon : undefined,
+            ],
+            position.x,
+        );
     }
     public clearAttackVisuals(preserveDamagePredictionAnchor = false): void {
         if (this.hoverAttackArrow) {
@@ -1775,7 +1787,7 @@ export class HoverManager {
         label.visible = true;
         // The world root is Y-inverted (see drawDamagePrediction / the silhouettes) — a negative Y scale
         // keeps the number upright instead of mirrored.
-        label.scale.set(scale, -scale);
+        label.scale.set(glyphScaleX(scale), -scale);
         label.position.set(position.x, position.y);
         this.aoeDamageLabels.push(label);
     }
@@ -1866,6 +1878,14 @@ export class HoverManager {
             if (visual.killText) visual.killText.visible = false;
             if (visual.killIcon) visual.killIcon.visible = false;
         }
+        keepGlyphRowUpright(
+            [
+                visual.damageText,
+                hasKills ? visual.killText : undefined,
+                hasKills && killIconPath ? visual.killIcon : undefined,
+            ],
+            position.x,
+        );
 
         this.aoeDamagePredictions.push(visual);
     }
@@ -2814,7 +2834,7 @@ export class HoverManager {
         }
         const texW = opts.iconTex.width || iconSize;
         this.spellBadgeIcon.visible = true;
-        this.spellBadgeIcon.scale.set(iconSize / texW, -iconSize / texW);
+        this.spellBadgeIcon.scale.set(glyphScaleX(iconSize / texW), -iconSize / texW);
         this.spellBadgeIcon.position.set(cx, cy);
         this.spellBadgeIcon.tint = 0xffffff;
 
@@ -2836,7 +2856,7 @@ export class HoverManager {
         }
         this.spellBadgeText.visible = true;
         this.spellBadgeText.anchor.set(0.5, 0.5);
-        this.spellBadgeText.scale.set(1, -1);
+        this.spellBadgeText.scale.set(glyphScaleX(1), -1);
         this.spellBadgeText.position.set(cx, cy - (iconSize / 2 + 18));
     }
     public clearSpellPreview(): void {

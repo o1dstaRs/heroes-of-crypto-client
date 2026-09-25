@@ -8,6 +8,7 @@ import { TeamType, TeamVals } from "@heroesofcrypto/common";
 import { fightLogClipboardText, groupFightLogEntries } from "./fightLogGrouping";
 import { fightLogDotColor, splitFightLogTeamDots } from "./fightLogTeamDots";
 import { personalArmyCssColor } from "../../scenes/personalArmyTint";
+import { drawnSideOf } from "../../pixi/boardMirror";
 import { t, useTranslation } from "../../i18n/i18n";
 import { hocColors, hocDisplayFontFamily } from "../hocTheme";
 import { ImageScrollbar } from "./ImageScrollbar";
@@ -77,7 +78,8 @@ const FightLogLine = ({ text }: { text: string }): React.ReactElement => (
                     key={index}
                     component="span"
                     role="img"
-                    aria-label={segment.team === TeamVals.LEFT ? t("Left side") : t("Right side")}
+                    // Named by where the army is drawn, which on a board mirrored for this viewer is the other side.
+                    aria-label={drawnSideOf(segment.team) === TeamVals.LEFT ? t("Left side") : t("Right side")}
                     sx={{
                         display: "inline-block",
                         width: "8px",

@@ -73,6 +73,8 @@ import { BARREL_SHADOW_EDITOR_LAYOUT, isBarrelShadowEditorActive } from "../ui/b
 import { projectBattlefieldPoint } from "./sandbox/BattlefieldVisualGrid";
 import { clearPersonalArmyTint, personalArmyTintSeat, setPersonalArmyTint } from "./personalArmyTint";
 import { isGreenTeam, teamColor } from "./teamColors";
+import { setBoardMirror } from "../pixi/boardMirror";
+import { readBoardSidePreference, shouldMirrorBoard } from "../settings/playerBoardSide";
 
 export const isRankedAuthoritativeRecordAlreadyApplied = (
     lastAppliedSequence: number,
@@ -1911,9 +1913,18 @@ export class RankedPlayScene extends Sandbox {
         // fight this client is playing: replays, observers and sandboxes keep the true team colours, so a
         // recorded match — or a practice board whose two armies are the same person's — is always watched
         // green against red. Team identity is untouched either way.
-        setPersonalArmyTint(
-            personalArmyTintSeat(this.viewerTeam, this.sandboxCoop),
-            !this.replayViewingActive && !this.fullReplayPlaybackActive,
+        const personalSeat = personalArmyTintSeat(this.viewerTeam, this.sandboxCoop);
+        const personalView = !this.replayViewingActive && !this.fullReplayPlaybackActive;
+        setPersonalArmyTint(personalSeat, personalView);
+        // The same player may also want to see their army on a side of their own choosing (settings menu).
+        // The same gates apply, so a replay, an observer and a sandbox always show the true sides.
+        setBoardMirror(
+            this,
+            shouldMirrorBoard({
+                viewerTeam: personalSeat,
+                preference: readBoardSidePreference(),
+                live: personalView,
+            }),
         );
         this.setLocalModelTeamOverride(
             snapshot.localModelTeam === undefined ? undefined : (snapshot.localModelTeam as TeamType),
@@ -2490,6 +2501,8 @@ export class RankedPlayScene extends Sandbox {
     public override async playSandboxReplay(replay: SandboxReplay, throughSequence?: number): Promise<boolean> {
         this.fullReplayPlaybackActive = true;
         clearPersonalArmyTint();
+        // A replay shows the match as it was dealt: green on the left, red on the right.
+        setBoardMirror(this, false);
         this.resetRankedReplayPresentation();
         // With the journal in hand the replay writes the REAL ranked log (team flags, lap headers), so the
         // engine's own text channel is muted for the duration — exactly as it is during a live ranked

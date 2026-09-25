@@ -911,7 +911,15 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Unmute sound effects": "Включить звуковые эффекты",
     "Interface sounds, like the wager chips.": "Звуки интерфейса, например фишки ставок.",
     Gameplay: "Игровой процесс",
-    "Nothing to configure here yet.": "Здесь пока нечего настраивать.",
+    // The Gameplay section: which side of the battlefield the player sees their own army on. The two sides reuse
+    // "Left side" / "Right side" from the fight log's markers.
+    "Your side of the battlefield": "Ваша сторона поля боя",
+    "Only you see this. Your board is mirrored so your army stands where you like it; replays and spectators keep the true sides.":
+        "Видно только вам. Поле отражается так, чтобы ваша армия стояла там, где вам удобнее; в повторах и у зрителей стороны остаются настоящими.",
+    Random: "Случайно",
+    "You play from whichever side the match seats you on.": "Вы играете с той стороны, на которую вас посадит матч.",
+    "Your army always stands on the left.": "Ваша армия всегда стоит слева.",
+    "Your army always stands on the right.": "Ваша армия всегда стоит справа.",
     "Only you see this. Your opponent's army turns red, and replays keep the true colours.":
         "Видно только вам. Армия соперника становится красной, а в повторах сохраняются истинные цвета.",
     "Team colours": "Цвета сторон",

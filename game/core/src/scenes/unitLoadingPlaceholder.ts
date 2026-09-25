@@ -2,6 +2,7 @@ import { Container, Graphics, Text, TextStyle } from "pixi.js";
 import type { TeamType } from "@heroesofcrypto/common";
 
 import { HOC_NUMERIC_FONT_FAMILY } from "../fontFamilies";
+import { glyphScaleX } from "../pixi/boardMirror";
 import { teamColor } from "./teamColors";
 
 /**
@@ -76,8 +77,9 @@ export class UnitLoadingPlaceholder {
         }
 
         this.container.position.set(state.x, state.y);
-        // The board is y-up (unit sprites flip their Y too), so flip the token to keep the count upright.
-        this.container.scale.set(state.compensation.x, -state.compensation.y);
+        // The board is y-up (unit sprites flip their Y too), so flip the token to keep the count upright, and
+        // turn it back on a board mirrored for this viewer.
+        this.container.scale.set(glyphScaleX(state.compensation.x), -state.compensation.y);
         this.container.zIndex = 4000 - state.y;
     }
     public get isShown(): boolean {
