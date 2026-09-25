@@ -14439,28 +14439,21 @@ export class Sandbox extends PixiScene {
                                     ),
                                 });
                                 const perUnitDamageFactor = secondaryDamageFactorById.get(victim.getId());
-                                const waves = (damage: number): number =>
-                                    applyAoeDamageTail({
+                                // Every wave burns every unit it damages on that wave's own damage (Fireforged
+                                // Sword), the aimed unit and the splash alike, as the engine does.
+                                const wave = (damage: number, factor: number | undefined): number => {
+                                    const dealt = applyAoeDamageTail({
                                         attacker: aoeAttacker,
                                         victim,
                                         damage,
-                                        perUnitDamageFactor,
-                                    }) +
-                                    (aoeWaves === 2
-                                        ? applyAoeDamageTail({
-                                              attacker: aoeAttacker,
-                                              victim,
-                                              damage,
-                                              perUnitDamageFactor: (perUnitDamageFactor ?? 1) * secondWaveCharm,
-                                          })
-                                        : 0);
-                                let victimMin = waves(band.min);
-                                let victimMax = waves(withLuckyStrike(band.max));
-                                if (victim.getId() === damageUnit.getId()) {
-                                    victimMin += fireforgedBurn(victim, victimMin);
-                                    victimMax += fireforgedBurn(victim, victimMax);
-                                }
-                                addProjectedDamage(victim, victimMin, victimMax);
+                                        perUnitDamageFactor: factor,
+                                    });
+                                    return dealt + fireforgedBurn(victim, dealt);
+                                };
+                                const waves = (damage: number): number =>
+                                    wave(damage, perUnitDamageFactor) +
+                                    (aoeWaves === 2 ? wave(damage, (perUnitDamageFactor ?? 1) * secondWaveCharm) : 0);
+                                addProjectedDamage(victim, waves(band.min), waves(withLuckyStrike(band.max)));
                             }
                         } else if (isRangeAttackContext) {
                             // Plain shot. projectDoubleShotAttack fires BOTH volleys the way the engine does —
