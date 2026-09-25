@@ -77,6 +77,8 @@ const unitLike = (params: {
         getStackPower: () => params.stackPower ?? 1,
         getLuck: () => params.luck ?? 0,
         getMagicResist: () => params.magicResist ?? 0,
+        // Heavy Armor's +magic damage taken; none of these fixtures wear it.
+        getMagicDamageTakenMultiplier: () => 1,
         getMagicDamageBonusPercentage: () => 0,
         getAbilityPower: () => params.magicReflectionPower ?? 0,
         hasAbilityActive: (name: string) => abilities.has(name),

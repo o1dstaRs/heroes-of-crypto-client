@@ -14258,6 +14258,7 @@ export class Sandbox extends PixiScene {
                                       targetMagicResist: victim.getMagicResist(),
                                       targetIsFireElement: victim.hasAbilityActive("Fire Element"),
                                       targetIsWaterElement: victim.hasAbilityActive("Water Element"),
+                                      targetMagicDamageTakenMultiplier: victim.getMagicDamageTakenMultiplier(),
                                   })
                                 : 0;
 
