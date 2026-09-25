@@ -692,21 +692,6 @@ const isMultiTombstoneCaption = (caption: string | undefined): boolean =>
 /** A melee rider that lands a hit of its own on a unit beyond the swing — priced by projectMeleeRiderDamage. */
 type MeleeRiderSource = "Fire Breath" | "Skewer Strike" | "Lightning Spin";
 
-/** Heavy Armor's coefficient on the magic damage a unit takes (Fire Breath, Chain Lightning). */
-const heavyArmorDamageMultiplier = (unit: Unit): number => {
-    const heavyArmorAbility = unit.getAbility("Heavy Armor");
-    if (!heavyArmorAbility) {
-        return 1;
-    }
-    return Number(
-        (
-            ((heavyArmorAbility.getPower() + unit.getLuck()) / 100 / HoCConstants.MAX_UNIT_STACK_POWER) *
-                unit.getStackPower() +
-            1
-        ).toFixed(2),
-    );
-};
-
 /** ARTIFACT Broken Aegis: the victim takes reduced damage from area attacks. */
 const withBrokenAegisCut = (unit: Unit, damage: number): number => {
     const aegisShieldBuff = unit.getBuff("Broken Aegis");
@@ -10296,7 +10281,7 @@ export class Sandbox extends PixiScene {
                     ? attacker.calculateAbilityMultiplier(fireBreathAbility, abilityPower)
                     : 1,
             });
-            const magicCut = (1 - victim.getMagicResist() / 100) * heavyArmorDamageMultiplier(victim);
+            const magicCut = (1 - victim.getMagicResist() / 100) * victim.getMagicDamageTakenMultiplier();
             return {
                 min: withBrokenAegisCut(victim, Math.floor(band.min * magicCut)),
                 max: withBrokenAegisCut(victim, Math.floor(band.max * magicCut)),
@@ -14670,7 +14655,9 @@ export class Sandbox extends PixiScene {
                                 targetIsEarthElement: enemy.hasAbilityActive("Earth Element"),
                             });
                             const chainCut =
-                                chainElement * (1 - enemy.getMagicResist() / 100) * heavyArmorDamageMultiplier(enemy);
+                                chainElement *
+                                (1 - enemy.getMagicResist() / 100) *
+                                enemy.getMagicDamageTakenMultiplier();
                             addProjectedDamage(
                                 enemy,
                                 Math.floor(chainMultiplier * primaryHitMin * chainCut),
