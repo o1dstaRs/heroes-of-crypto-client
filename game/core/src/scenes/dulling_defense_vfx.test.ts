@@ -20,13 +20,13 @@ describe("Dulling Defense VFX wiring", () => {
         expect(FIGHT_EVENT_VFX.effects_applied.note).toContain("impact");
     });
 
-    test("fires at the initiating hit in sandbox and ranked replay", () => {
+    test("does not play on the attacker when the knight is only being hit", () => {
         const source = sandboxSource();
-        const live = sliceFrom(source, "private async executeAttackSequence(", 25_000);
-        const replay = sliceFrom(source, "private async playReplayAttackRecord(", 12_000);
 
-        expect(live).toContain("this.popDullingDefenseApplications(attackActionEvents, attacker.getId())");
-        expect(replay).toContain("this.popDullingDefenseApplications(record.events, attacker.getId())");
+        expect(source).not.toContain("popDullingDefenseApplications(attackActionEvents, attacker.getId())");
+        expect(source).not.toContain("popDullingDefenseApplications(record.events, attacker.getId())");
+        expect(source).toContain("popDullingDefenseApplications(attackActionEvents, target.getId())");
+        expect(source).toContain("popDullingDefenseApplications(record.events, target.getId())");
     });
 
     test("fires on the responder only when the response impact is replayed", () => {

@@ -47,6 +47,11 @@ import {
     readPlayerArmyColorId,
     writePlayerArmyColorId,
 } from "../settings/playerArmyColor";
+import {
+    type BoardSidePreference,
+    readBoardSidePreference,
+    writeBoardSidePreference,
+} from "../settings/playerBoardSide";
 
 const hex = (color: number): string => `#${color.toString(16).padStart(6, "0")}`;
 
@@ -75,15 +80,6 @@ const SectionHeading: React.FC<{ children: React.ReactNode }> = ({ children }) =
     >
         {children}
     </Typography>
-);
-
-const EmptySection: React.FC<{ title: string }> = ({ title }) => (
-    <Box>
-        <SectionHeading>{title}</SectionHeading>
-        <Typography level="body-xs" sx={{ color: "rgba(239,228,204,0.42)", mt: 0.5, fontStyle: "italic" }}>
-            {t("Nothing to configure here yet.")}
-        </Typography>
-    </Box>
 );
 
 /** Locale is a player preference, so it lives with the other device-local settings on every arena page. */
@@ -224,6 +220,134 @@ const ArmyColorSetting: React.FC = () => {
 };
 
 /**
+ * A small battlefield: the player's army is the gold column, standing where this choice puts it. "Random"
+ * shows both columns half-lit with the swap between them, because the match decides.
+ */
+const BoardSideGlyph: React.FC<{ side: BoardSidePreference }> = ({ side }) => {
+    const own = hocColors.gold;
+    const other = "rgba(239,228,204,0.16)";
+    const left = side === "right" ? other : own;
+    const right = side === "left" ? other : own;
+    const random = side === "seat";
+    return (
+        <svg width="56" height="34" viewBox="0 0 56 34" aria-hidden="true">
+            <rect
+                x="1"
+                y="1"
+                width="54"
+                height="32"
+                rx="4"
+                fill="rgba(255,255,255,0.04)"
+                stroke="rgba(220,177,88,0.38)"
+            />
+            <line x1="28" y1="5" x2="28" y2="29" stroke="rgba(220,177,88,0.22)" strokeDasharray="2 2" />
+            <rect x="5" y="6" width="11" height="22" rx="2" fill={left} opacity={random ? 0.55 : 1} />
+            <rect x="40" y="6" width="11" height="22" rx="2" fill={right} opacity={random ? 0.55 : 1} />
+            {random && (
+                <path
+                    d="M21 17 H35 M24 14 L21 17 L24 20 M32 14 L35 17 L32 20"
+                    fill="none"
+                    stroke={own}
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                />
+            )}
+        </svg>
+    );
+};
+
+const BoardSideTile: React.FC<{
+    side: BoardSidePreference;
+    label: string;
+    selected: boolean;
+    onSelect: () => void;
+}> = ({ side, label, selected, onSelect }) => (
+    <Box
+        component="button"
+        type="button"
+        aria-pressed={selected}
+        onClick={onSelect}
+        sx={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 0.6,
+            minWidth: 0,
+            px: 0.5,
+            py: 0.8,
+            borderRadius: "10px",
+            cursor: "pointer",
+            background: selected ? "rgba(220,177,88,0.1)" : "rgba(255,255,255,0.03)",
+            border: selected ? `2px solid ${hocColors.gold}` : "1px solid rgba(255,255,255,0.2)",
+            boxShadow: selected ? `0 0 0 3px rgba(255,143,0,0.22)` : "none",
+            color: selected ? hocColors.parchment : "rgba(239,228,204,0.72)",
+            font: "inherit",
+            transition: "transform 120ms ease, box-shadow 120ms ease",
+            "&:hover": { transform: "translateY(-1px)", boxShadow: "0 0 0 3px rgba(255,143,0,0.14)" },
+        }}
+    >
+        <BoardSideGlyph side={side} />
+        <Typography level="body-xs" sx={{ color: "inherit", fontWeight: 750, lineHeight: 1.2 }}>
+            {label}
+        </Typography>
+    </Box>
+);
+
+/**
+ * Which side of the battlefield the player sees their own army on. Display only: the match still seats them
+ * where it does, and the board is mirrored for them alone (settings/playerBoardSide, pixi/boardMirror).
+ */
+const BoardSideSetting: React.FC = () => {
+    const [selected, setSelected] = useState<BoardSidePreference>(() => readBoardSidePreference());
+
+    const choose = useCallback((side: BoardSidePreference) => {
+        writeBoardSidePreference(side);
+        setSelected(side);
+    }, []);
+
+    // Built here, not in a module constant, so every label is a literal t() key the i18n scan can see.
+    const options: readonly { side: BoardSidePreference; label: string; hint: string }[] = [
+        { side: "seat", label: t("Random"), hint: t("You play from whichever side the match seats you on.") },
+        { side: "left", label: t("Left side"), hint: t("Your army always stands on the left.") },
+        { side: "right", label: t("Right side"), hint: t("Your army always stands on the right.") },
+    ];
+    const hint = options.find((option) => option.side === selected)?.hint ?? "";
+
+    return (
+        <Box>
+            <SectionHeading>{t("Gameplay")}</SectionHeading>
+            <Typography level="body-sm" sx={{ color: hocColors.parchment, fontWeight: 750, mt: 0.7 }}>
+                {t("Your side of the battlefield")}
+            </Typography>
+            <Typography level="body-xs" sx={{ color: "rgba(239,228,204,0.58)", mt: 0.2, lineHeight: 1.45 }}>
+                {t(
+                    "Only you see this. Your board is mirrored so your army stands where you like it; replays and spectators keep the true sides.",
+                )}
+            </Typography>
+            <Box
+                role="group"
+                aria-label={t("Your side of the battlefield")}
+                sx={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 1, mt: 1.3 }}
+            >
+                {options.map((option) => (
+                    <BoardSideTile
+                        key={option.side}
+                        side={option.side}
+                        label={option.label}
+                        selected={selected === option.side}
+                        onSelect={() => choose(option.side)}
+                    />
+                ))}
+            </Box>
+            <Typography level="body-xs" sx={{ color: hocColors.parchment, mt: 1, fontWeight: 700 }}>
+                {hint}
+            </Typography>
+        </Box>
+    );
+};
+
+/**
  * One level: a mute toggle, the name, the reading, and the slider under them.
  *
  * The mute is a real second piece of state rather than "drag it to zero", so a player can silence a
@@ -357,7 +481,7 @@ export const PlayerSettingsPanel: React.FC<{ open: boolean; onClose: () => void 
                     <LanguageSetting />
                     <ArmyColorSetting />
                     <AudioSettings />
-                    <EmptySection title={t("Gameplay")} />
+                    <BoardSideSetting />
                 </Stack>
             </ModalDialog>
         </Modal>

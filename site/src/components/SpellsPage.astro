@@ -1,7 +1,10 @@
 ---
+import CreaturePortrait from "./CreaturePortrait.astro";
+import MechanicsNote from "./MechanicsNote.astro";
 import { content, type Language } from "../lib/site-data";
 import { localizedFactionName } from "../lib/localization";
 import { knowledgeEntryId, knowledgePath } from "../lib/knowledge-base";
+import { spellNote } from "../lib/mechanics";
 import {
     bookColors,
     buffCount,
@@ -305,6 +308,7 @@ const metaRows = (spell: Spell) => {
                         </header>
 
                         <p class="spell-card-desc">{description(spell)}</p>
+                        <MechanicsNote lang={lang} note={spellNote(spell.name, lang)} />
 
                         <dl class="spell-meta">
                             {metaRows(spell).map((row) => (
@@ -332,14 +336,7 @@ const metaRows = (spell: Spell) => {
                                             style={`--faction: ${factionColors[caster.faction]}`}
                                             title={`${caster.name} · ${localizedFactionName(lang, caster.faction)}`}
                                         >
-                                            <img
-                                                src={caster.icon}
-                                                alt=""
-                                                width="34"
-                                                height="34"
-                                                loading="lazy"
-                                                onerror="this.onerror=null;this.src='/assets/images/units/units/unknown_creature_512.webp'"
-                                            />
+                                            <CreaturePortrait slug={caster.slug} name="" />
                                             <span>{caster.name}</span>
                                             <em>{scrollsLabel(caster.scrolls)}</em>
                                         </a>
@@ -774,12 +771,11 @@ const metaRows = (spell: Spell) => {
         background: rgba(0, 0, 0, 0.4);
     }
 
-    .spell-caster-chip img {
+    .spell-caster-chip img :global(.portrait) {
+        flex: 0 0 auto;
         width: 28px;
         height: 28px;
         border-radius: 50%;
-        object-fit: cover;
-        object-position: center top;
         background: #0b0d0f;
     }
 

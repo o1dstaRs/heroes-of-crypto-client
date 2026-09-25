@@ -295,11 +295,18 @@ export const getEnemiesWithinMovementRange = (
     ).cells;
     const enemies: Array<{ x: number; y: number }> = [];
 
+    // A swap exchanges anchors, so a target qualifies only when its footprint matches the caster's AND the
+    // reachable cell is its own anchor — the cell this body would come to rest on. Both are invisible at
+    // 1x1 and decide every multi-cell case (a 2x2 Queen with a stolen Castling swaps with a 2x2).
     for (const cell of moveCells) {
         const enemyId = grid.getOccupantUnitId(cell);
         const enemy = enemyId ? unitsHolder.getAllUnits().get(enemyId) : undefined;
-        if (enemy && enemy.getTeam() !== activeUnit.getTeam() && enemy.isSmallSize() && !enemy.isDead()) {
-            enemies.push(enemy.getBaseCell());
+        if (!enemy || enemy.isDead() || enemy.getTeam() === activeUnit.getTeam()) {
+            continue;
+        }
+        const anchor = enemy.getBaseCell();
+        if (anchor.x === cell.x && anchor.y === cell.y && SpellHelper.hasSwappableFootprint(activeUnit, enemy)) {
+            enemies.push(anchor);
         }
     }
 

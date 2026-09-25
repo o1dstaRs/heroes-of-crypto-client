@@ -69,6 +69,21 @@ describe("UnitsOverlay chip visibility", () => {
         overlay.destroy();
     });
 
+    test("survives a resize before its roster is built, as in a ranked fight that never builds it", () => {
+        const app = {
+            renderer: { height: 900, width: 1600 },
+            stage: new Container(),
+            ticker: { add: () => undefined, remove: () => undefined },
+        } as unknown as ConstructorParameters<typeof UnitsOverlay>[0];
+        const overlay = new UnitsOverlay(app, () => Texture.EMPTY);
+
+        expect(() => overlay.onResize(1080, 2200)).not.toThrow();
+
+        overlay.build();
+        expect(() => overlay.onResize(1600, 900)).not.toThrow();
+        expect((overlay as unknown as OverlayInternals).rowsContainer.children.length).toBeGreaterThan(0);
+    });
+
     test("pauses the roster glow ticker while the overlay is hidden", () => {
         const registered = new Set<unknown>();
         const app = {

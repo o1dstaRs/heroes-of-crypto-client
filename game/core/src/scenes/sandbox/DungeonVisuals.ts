@@ -71,6 +71,11 @@ import {
 } from "./lavaChasmGlow";
 
 export interface IDungeonVisualsContext {
+    /**
+     * Parent for the floor's SCREEN-SPACE layers (the painting, its braziers and lights), sorted under the
+     * camera by zIndex. In the game this is PixiApp's board root rather than the bare stage, so the painting
+     * mirrors together with the world when a player sees the board mirrored.
+     */
     getStage(): Container;
     getWorldRoot(): Container;
     getViewportSize(): { width: number; height: number };
@@ -2127,6 +2132,13 @@ export class DungeonVisuals {
     }
     public hasScatteredMountains(): boolean {
         return this.scatteredMountainMode;
+    }
+    /**
+     * The stones still standing, with the art variant each was drawn with. Copies, so a caller recording
+     * them (a replay's scene state) cannot mutate the layout being rendered.
+     */
+    public getScatteredMountains(): IScatteredMountain[] {
+        return this.scatteredMountains.map((mountain) => ({ ...mountain }));
     }
     public ensureCenterTerrainSprite(): void {
         // A layout that arrived before its atlas did has no sprites yet — build them the first frame the

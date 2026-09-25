@@ -180,6 +180,9 @@ jobs:
                   test -f site/dist/game/index.html
                   test -f site/dist/knowledge-base/index.html
                   test -f site/dist/ru/knowledge-base/index.html
+                  test -f site/dist/knowledge-graph.json
+                  grep -Fq '"id":"unit:hydra"' site/dist/knowledge-graph.json
+                  grep -Fq '"id":"rule:rule-morale"' site/dist/knowledge-graph.json
                   test -f site/dist/rules/index.html
                   grep -Fq '/knowledge-base/#rules' site/dist/rules/index.html
                   grep -Fq '<loc>https://heroesofcrypto.io/knowledge-base/</loc>' site/dist/sitemap-0.xml

@@ -22,6 +22,12 @@ describe("spell book icons", () => {
             expect(key).not.toBe(`${spellName.toLowerCase()}_256`);
             expect(key.length).toBeGreaterThan(0);
         }
-        expect(spellIconTextureKey("Fireball")).toBe("fire_strike_chaos_256_v1");
+    });
+
+    // Fireball's own art landed the day it shipped, so it resolves by name like any other spell and no
+    // longer borrows Fire Strike's icon.
+    test("Fireball uses its own published icon", () => {
+        expect(spellIconTextureKey("Fireball")).toBe("fireball_256");
+        expect(SPELLS_AWAITING_OWN_ICON).toHaveLength(0);
     });
 });

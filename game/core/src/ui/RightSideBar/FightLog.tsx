@@ -4,9 +4,9 @@ import Typography from "@mui/joy/Typography";
 import { keyframes } from "@emotion/react";
 
 import { personalArmyCssColor } from "../../scenes/personalArmyTint";
-import { fightLogClipboardText, groupFightLogEntries } from "./fightLogGrouping";
-import { fightLogSegments, fightLogMarkTeam } from "./fightLogTeamNames";
 import { useTranslation } from "../../i18n/i18n";
+import { fightLogClipboardText, groupFightLogEntries } from "./fightLogGrouping";
+import { fightLogMarkTeam, fightLogSegments } from "./fightLogTeamNames";
 import { hocColors, hocDisplayFontFamily } from "../hocTheme";
 import { ImageScrollbar } from "./ImageScrollbar";
 import { FIGHT_LOG_SCROLLBAR_LANE_WIDTH_PX } from "./fightLogLayout";

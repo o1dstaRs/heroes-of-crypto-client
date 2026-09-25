@@ -36,9 +36,9 @@ export interface IAtlasAnimationMeta {
     geometry?: string;
     encoding?: string;
     phases?: {
-        intro: { startFrame: number; endFrame: number; loop: boolean; distanceCells?: number; speedMultiplier?: number };
+        intro: { startFrame: number; endFrame: number; loop: boolean; distanceCells?: number; cycleDistanceCells?: number; speedMultiplier?: number };
         flight: { startFrame: number; endFrame: number; loop: boolean; distanceCells?: number; cycleDistanceCells?: number; speedMultiplier?: number };
-        landing: { startFrame: number; endFrame: number; loop: boolean; distanceCells?: number; speedMultiplier?: number };
+        landing: { startFrame: number; endFrame: number; loop: boolean; distanceCells?: number; cycleDistanceCells?: number; speedMultiplier?: number };
     };
     loopDurationMs: number;
     pauseMs: number;
@@ -3445,8 +3445,8 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
         150,
         650
       ],
-      "loopDurationMs": 1152,
-      "pauseMs": 461
+      "loopDurationMs": 1280,
+      "pauseMs": 0
     },
     "default": {
       "frameWidth": 512,
@@ -3487,8 +3487,8 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
         90,
         110
       ],
-      "loopDurationMs": 432,
-      "pauseMs": 173
+      "loopDurationMs": 480,
+      "pauseMs": 0
     },
     "idle": {
       "frameWidth": 768,
@@ -3530,8 +3530,8 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
         115,
         100
       ],
-      "loopDurationMs": 504,
-      "pauseMs": 202,
+      "loopDurationMs": 560,
+      "pauseMs": 0,
       "impactFrame": 3
     },
     "melee_attack_down": {
@@ -3557,8 +3557,8 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
         120,
         105
       ],
-      "loopDurationMs": 585,
-      "pauseMs": 234,
+      "loopDurationMs": 650,
+      "pauseMs": 0,
       "impactFrame": 3
     },
     "melee_attack_up": {
@@ -3584,8 +3584,8 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
         115,
         100
       ],
-      "loopDurationMs": 522,
-      "pauseMs": 209,
+      "loopDurationMs": 580,
+      "pauseMs": 0,
       "impactFrame": 3
     },
     "walk": {
@@ -10295,6 +10295,45 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
       "installedInGame": false,
       "loopDurationMs": 1152,
       "pauseMs": 461
+    }
+  },
+  "Scavenger Homm": {
+    "idle": {
+      "frameWidth": 768,
+      "frameHeight": 768,
+      "atlasWidth": 3072,
+      "atlasHeight": 2304,
+      "frameCount": 12,
+      "fps": 10,
+      "frameDurationSec": 0.1,
+      "totalDurationSec": 3.03,
+      "frameDurationsMs": [
+        100,
+        100,
+        100,
+        100,
+        180,
+        220,
+        130,
+        100,
+        100,
+        100,
+        100,
+        1700
+      ],
+      "layout": {
+        "cols": 4,
+        "rows": 3
+      },
+      "footAnchorY": 0.96875,
+      "sourceDirection": "right",
+      "loop": true,
+      "holdLastFrame": false,
+      "visibleHeightRatio": 0.9114583333333334,
+      "scaleReference": "Neutral frame normalized to 700px visible height; one fixed scale across action. Match visible height when integrating with existing 741px walk.",
+      "installedInGame": true,
+      "loopDurationMs": 2727,
+      "pauseMs": 1091
     }
   },
   "Scavenger Homm": {

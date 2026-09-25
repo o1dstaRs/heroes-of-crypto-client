@@ -20,7 +20,7 @@ import {
     type Unit,
     type UnitsHolder,
 } from "@heroesofcrypto/common";
-import { alliesAreTransparent, thrownSpellReachesTarget } from "./spell_targeting";
+import { swapTargetCellsWithinMovementRange, throwTransparencyFor, thrownSpellReachesTarget } from "./spell_targeting";
 
 export interface LocalModelLegalAction {
     id: string;
@@ -581,10 +581,11 @@ const getEnemiesWithinMovementRange = (
         activeUnit.getFootprintWidth(),
         activeUnit.getFootprintHeight(),
     ).cells;
-    const enemies = moveCells.filter((cell) => {
+    // A swap exchanges anchors, so a target qualifies only if its footprint matches the caster's AND the
+    // reachable cell is its own anchor — the cell this body would come to rest on.
+    const enemies = swapTargetCellsWithinMovementRange(activeUnit, moveCells, (cell) => {
         const enemyId = grid.getOccupantUnitId(cell);
-        const enemy = enemyId ? unitsHolder.getAllUnits().get(enemyId) : undefined;
-        return !!enemy && enemy.getTeam() !== activeUnit.getTeam() && enemy.isSmallSize() && !enemy.isDead();
+        return enemyId ? unitsHolder.getAllUnits().get(enemyId) : undefined;
     });
     return enemies.length ? enemies : undefined;
 };
@@ -680,9 +681,7 @@ const createSpellActions = (options: LocalModelActionOptions, actions: LocalMode
                     grid,
                     activeUnit.getBaseCell(),
                     target.getBaseCell(),
-                    spellName === "Fire Strike"
-                        ? alliesAreTransparent(unitsHolder.getAllUnits(), activeUnit.getTeam())
-                        : undefined,
+                    throwTransparencyFor(spellName, unitsHolder.getAllUnits(), activeUnit.getTeam()),
                 )
             ) {
                 createAction(

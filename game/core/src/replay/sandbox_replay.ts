@@ -1,5 +1,6 @@
 import type { GameAction, GameEvent, IGameActionResult } from "@heroesofcrypto/common";
 
+import type { AuthoritativeGameSnapshot } from "../game_action_transport";
 import type { SandboxSceneState } from "../scenes/Sandbox";
 
 export const SANDBOX_REPLAY_VERSION = 1;
@@ -18,6 +19,13 @@ export interface SandboxReplayActionRecord {
     action: GameAction;
     events: GameEvent[];
     stateAfter: SandboxSceneState;
+    /**
+     * Ranked only: the authoritative snapshot this action settled on, kept whole beside the narrowed scene
+     * state. The scene state is what the BOARD is rebuilt from; this is what the ranked presentation layer
+     * (combat log, fight stats, turn clock, journal-driven VFX) is fed, because those read fields — the
+     * journal tail, damage stats, server clocks — that a scene state deliberately does not carry.
+     */
+    authoritativeSnapshot?: AuthoritativeGameSnapshot;
 }
 
 export interface SandboxReplay {

@@ -15,6 +15,8 @@ export interface KnowledgeEntry {
     description: string;
     meta: string;
     image: string;
+    /** Set for creature entries, so the result row can compose a portrait instead of showing bare art. */
+    creatureSlug?: string;
     target: string;
     searchText: string;
 }
@@ -326,13 +328,13 @@ const rulesEntries = (language: Language): KnowledgeEntry[] => {
               ],
               [
                   "Ходы и бой",
-                  "Движение, атаки, заклинания, Hourglass, ответные удары и сопротивления.",
+                  "Движение, атаки, заклинания, порядок ходов, Hourglass, ответные удары и сопротивления.",
                   "rules-mechanics",
                   "механики действия",
               ],
               [
                   "Мораль и удача",
-                  "Приоритет и пропуски ходов, модификаторы атаки, удача, защита и сила стека.",
+                  "Ход первым или последним в круге, модификаторы атаки, удача, защита и сила стека.",
                   "rules-morale",
                   "темп luck morale",
               ],
@@ -394,13 +396,13 @@ const rulesEntries = (language: Language): KnowledgeEntry[] => {
               ],
               [
                   "Turns and combat",
-                  "Movement, attacks, spells, Hourglass, responses, and three resistance types.",
+                  "Movement, attacks, spells, turn order, Hourglass, responses, and three resistance types.",
                   "rules-mechanics",
                   "actions mechanics",
               ],
               [
                   "Morale and luck",
-                  "Turn priority and skips, attack modifiers, luck, defense, and stack power.",
+                  "Acting first or last in a lap, attack modifiers, luck, defense, and stack power.",
                   "rules-morale",
                   "tempo",
               ],
@@ -460,6 +462,7 @@ export function buildKnowledgeEntries(language: Language): KnowledgeEntry[] {
             description,
             meta: `${faction} · ${isRu ? "Ур." : "Lv."} ${unit.level}`,
             image: unit.icon,
+            creatureSlug: unit.slug,
             target: unit.name,
             searchText: `${unit.name} ${description} ${unit.faction} ${abilityNames} ${spellNames} ${unit.attackType} ${unit.movementType}`,
         };
@@ -514,11 +517,11 @@ export function buildKnowledgeEntries(language: Language): KnowledgeEntry[] {
         key: `artifacts:${artifact.tier}:${artifact.name}`,
         section: "artifacts",
         name: artifact.name,
-        description: artifact.description,
+        description: isRu ? artifact.descriptionRu : artifact.description,
         meta: `${isRu ? "Уровень" : "Tier"} ${artifact.tier}${artifact.cursed ? ` · ${isRu ? "Проклятый" : "Cursed"}` : ""}`,
         image: artifact.icon,
         target: artifact.name,
-        searchText: `${artifact.name} ${artifact.description} tier ${artifact.tier} ${artifact.cursed ? "cursed проклятый" : ""}`,
+        searchText: `${artifact.name} ${isRu ? artifact.descriptionRu : artifact.description} tier ${artifact.tier} ${artifact.cursed ? "cursed проклятый" : ""}`,
     }));
 
     return [...rulesEntries(language), ...unitEntries, ...abilityEntries, ...spellEntries, ...artifactEntries];

@@ -1,0 +1,25 @@
+---
+/*
+ * One creature portrait, composed the way the game composes it.
+ *
+ * The markup comes from portraitMarkup() in ../lib/portrait so this component and the pages that assemble
+ * rows as HTML strings share one implementation; see that module for why a portrait is three layers and
+ * not a single <img>.
+ *
+ * The portrait fills whatever box its parent sizes, so each surface keeps its own dimensions, radius and
+ * crop shape and only swaps what goes inside.
+ */
+import { portraitMarkup } from "../lib/portrait";
+
+interface Props {
+    /** Creature slug, as units-data/portal-data build it: lowercased, non-alphanumerics to "_". */
+    slug: string;
+    name: string;
+    eager?: boolean;
+    class?: string;
+}
+
+const { slug, name, eager = false, class: className } = Astro.props;
+---
+
+<Fragment set:html={portraitMarkup(slug, name, { className, eager })} />

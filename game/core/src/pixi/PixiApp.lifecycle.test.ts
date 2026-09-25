@@ -5,11 +5,10 @@ import { PixiApp } from "./PixiApp";
 import { releaseIdlePixiTextures } from "./releaseIdlePixiTextures";
 
 describe("PixiApp teardown", () => {
-    test("releases process-wide filter targets before destroying the renderer", () => {
+    test("releases idle filter targets first and empties the pool only once the renderer is gone", () => {
         const order: string[] = [];
-        const pooledTexture = TexturePool.getOptimalTexture(37, 41, 1, false);
-        TexturePool.returnTexture(pooledTexture);
-        const clearPool = spyOn(pooledTexture, "destroy").mockImplementation(() => {
+        const heldByText = TexturePool.getOptimalTexture(64, 64, 1, false);
+        const clearPool = spyOn(TexturePool, "clear").mockImplementation(() => {
             order.push("pool");
         });
         const app = new PixiApp();
@@ -20,15 +19,20 @@ describe("PixiApp teardown", () => {
         internals.ticker = { stop: () => order.push("ticker") };
         internals.app = {
             renderer: {},
-            destroy: () => order.push("app"),
+            // Tearing a Text down hands its pooled canvas texture back; its bucket has to still be there.
+            destroy: () => {
+                TexturePool.returnTexture(heldByText);
+                order.push("app");
+            },
         };
 
         app.destroy();
         app.destroy();
 
-        expect(order).toEqual(["ticker", "pool", "app"]);
+        expect(order).toEqual(["ticker", "app", "pool"]);
         expect(clearPool).toHaveBeenCalledTimes(1);
         clearPool.mockRestore();
+        TexturePool.clear();
     });
 
     test("resizing releases idle targets while text can return a texture borrowed before cleanup", () => {

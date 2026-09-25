@@ -1,4 +1,5 @@
 ---
+import CreaturePortrait from "./CreaturePortrait.astro";
 import AbilitiesPage from "./AbilitiesPage.astro";
 import ArtifactsPage from "./ArtifactsPage.astro";
 import KnowledgeIcon from "./KnowledgeIcon.astro";
@@ -6,6 +7,7 @@ import RulesPage from "./RulesPage.astro";
 import SpellsPage from "./SpellsPage.astro";
 import UnitsPage from "./UnitsPage.astro";
 import { artifactsCount } from "../lib/artifacts-data";
+import { KNOWLEDGE_AI_PANEL_COPY } from "../lib/knowledge-ai-copy";
 import {
     buildKnowledgeEntries,
     knowledgeEntryId,
@@ -31,13 +33,14 @@ const copy = isRu
     ? {
           eyebrow: "Единый справочник игрока",
           title: "База знаний",
-          description:
-              "Правила, юниты, способности, заклинания и артефакты — в одном месте с быстрым поиском и прямыми ссылками.",
           searchLabel: "Поиск по базе знаний",
           searchPlaceholder: "Например: мораль, огонь, дракон, воскрешение...",
           searchHint: "Нажмите /, чтобы начать поиск. Можно вводить несколько слов в любом порядке.",
           aiSearch: "AI-поиск",
           aiSearchDescription: "Понимает смысл запроса и близкие игровые термины",
+          aiAsk: "Спросить ИИ",
+          aiPromptLead: "Спросить ИИ:",
+          aiHintOn: "Нажмите Enter, чтобы задать вопрос ИИ. Обычные результаты остаются ниже.",
           clear: "Очистить поиск",
           overview: "Обзор",
           rules: "Правила",
@@ -45,9 +48,6 @@ const copy = isRu
           abilities: "Способности",
           spells: "Заклинания",
           artifacts: "Артефакты",
-          indexed: "материалов в поиске",
-          sections: "разделов",
-          liveData: "единый справочник",
           browseTitle: "Выберите раздел",
           browseBody:
               "Начните с полного руководства или откройте каталог. Внутри каждого каталога есть дополнительные фильтры и подробные карточки.",
@@ -82,13 +82,14 @@ const copy = isRu
     : {
           eyebrow: "Unified player reference",
           title: "Knowledge Base",
-          description:
-              "Rules, units, abilities, spells, and artifacts in one searchable home with direct links to every detail.",
           searchLabel: "Search the Knowledge Base",
           searchPlaceholder: "Try morale, fire, dragon, resurrection...",
           searchHint: "Press / to search. Use several words in any order to narrow the results.",
           aiSearch: "AI Search",
           aiSearchDescription: "Understands intent and related game terms",
+          aiAsk: "Ask AI",
+          aiPromptLead: "Ask the AI:",
+          aiHintOn: "Press Enter to ask the AI a question. The regular results stay below.",
           clear: "Clear search",
           overview: "Overview",
           rules: "Rules",
@@ -96,9 +97,6 @@ const copy = isRu
           abilities: "Abilities",
           spells: "Spells",
           artifacts: "Artifacts",
-          indexed: "searchable references",
-          sections: "sections",
-          liveData: "one source of truth",
           browseTitle: "Choose a section",
           browseBody:
               "Start with the complete guide or open a catalog. Each catalog adds focused filters and descriptive detail cards.",
@@ -149,6 +147,16 @@ const sectionLabels: Record<KnowledgeSection, string> = {
     spells: copy.spells,
     artifacts: copy.artifacts,
 };
+// Strings the streaming script needs at runtime; passed through a data attribute because the client bundle
+// cannot read frontmatter values.
+const aiCopy = {
+    ask: copy.aiAsk,
+    promptLead: copy.aiPromptLead,
+    hintOn: copy.aiHintOn,
+    hintOff: copy.searchHint,
+};
+// The answer panel starts in the page's language and follows the answer's (knowledge-ai-copy.ts).
+const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
 ---
 
 <div
@@ -159,27 +167,11 @@ const sectionLabels: Record<KnowledgeSection, string> = {
 >
     <a class="kb-skip-link" href="#kb-search">{copy.searchLabel}</a>
 
-    <header class="kb-hero">
-        <div class="kb-hero-image" aria-hidden="true"></div>
-        <div class="page-shell kb-hero-shell">
-            <div class="kb-hero-copy">
-                <p class="eyebrow">{copy.eyebrow}</p>
-                <h1>{copy.title}</h1>
-                <p>{copy.description}</p>
-            </div>
-            <dl class="kb-hero-stats" aria-label={isRu ? "Содержание базы знаний" : "Knowledge Base contents"}>
-                <div><dt>{copy.indexed}</dt><dd>{totalCount}</dd></div>
-                <div><dt>{copy.sections}</dt><dd>5</dd></div>
-                <div><dt>{copy.liveData}</dt><dd><span aria-hidden="true">✓</span><span class="sr-only">{isRu ? "Да" : "Yes"}</span></dd></div>
-            </dl>
-        </div>
-    </header>
-
-    <div class="page-shell kb-search-shell">
+    <div class="page-shell kb-search-shell" data-kb-search-shell>
         <section class="kb-search-card" id="kb-search" aria-labelledby="kb-search-label">
             <div class="kb-search-main">
                 <div class="kb-search-heading">
-                    <label id="kb-search-label" for="kb-search-input">{copy.searchLabel}</label>
+                    <h1 id="kb-search-label" class="kb-title">{copy.title}</h1>
                     <p id="kb-search-hint" class="kb-search-hint">{copy.searchHint}</p>
                 </div>
                 <div class="kb-search-controls">
@@ -194,6 +186,7 @@ const sectionLabels: Record<KnowledgeSection, string> = {
                             type="search"
                             autocomplete="off"
                             placeholder={copy.searchPlaceholder}
+                            aria-label={copy.searchLabel}
                             aria-describedby="kb-search-hint kb-search-status"
                         />
                         <button class="kb-search-clear" data-kb-clear type="button" aria-label={copy.clear} hidden>×</button>
@@ -212,10 +205,42 @@ const sectionLabels: Record<KnowledgeSection, string> = {
                         <span>{copy.aiSearch}</span>
                         <span class="kb-ai-track" aria-hidden="true"><span></span></span>
                     </button>
+                    <button class="kb-ai-ask" data-kb-ai-ask type="button" hidden>
+                        <span class="kb-ai-spark" aria-hidden="true">✦</span>
+                        <span>{copy.aiAsk}</span>
+                    </button>
                 </div>
             </div>
 
             <p id="kb-search-status" class="sr-only" data-kb-status role="status" aria-live="polite"></p>
+        </section>
+    </div>
+
+    <div class="page-shell kb-ai-shell">
+        <section
+            class="kb-ai-panel"
+            data-kb-ai-panel
+            data-kb-ai-copy={JSON.stringify(aiCopy)}
+            lang={lang}
+            aria-labelledby="kb-ai-title"
+            hidden
+        >
+            <header class="kb-ai-panel-head">
+                <h2 class="kb-ai-panel-title" id="kb-ai-title">
+                    <span class="kb-ai-spark" aria-hidden="true">✦</span>
+                    <span data-kb-ai-title>{panelCopy.title}</span>
+                </h2>
+                <p class="kb-ai-panel-status" data-kb-ai-status role="status" aria-live="polite"></p>
+                <button class="kb-ai-stop" data-kb-ai-stop type="button" hidden>{panelCopy.stop}</button>
+            </header>
+            <p class="kb-ai-question" data-kb-ai-question></p>
+            <div class="kb-ai-answer" data-kb-ai-answer aria-live="polite" aria-busy="false"></div>
+            <p class="kb-ai-error" data-kb-ai-error role="alert" hidden></p>
+            <div class="kb-ai-sources" data-kb-ai-sources hidden>
+                <span class="kb-ai-sources-label" data-kb-ai-sources-label>{panelCopy.sources}</span>
+                <ul class="kb-ai-source-list" data-kb-ai-source-list></ul>
+            </div>
+            <p class="kb-ai-disclaimer" data-kb-ai-disclaimer>{panelCopy.disclaimer}</p>
         </section>
     </div>
 
@@ -242,6 +267,12 @@ const sectionLabels: Record<KnowledgeSection, string> = {
 
         <div class="kb-content" id="kb-content">
             <section class="kb-search-results" data-kb-search-results aria-labelledby="kb-results-title" hidden>
+                <button class="kb-ai-prompt" data-kb-ai-prompt type="button" hidden>
+                    <span class="kb-ai-spark" aria-hidden="true">✦</span>
+                    <span class="kb-ai-prompt-lead">{copy.aiPromptLead}</span>
+                    <span class="kb-ai-prompt-question" data-kb-ai-prompt-question></span>
+                    <span class="kb-ai-prompt-cta">{copy.aiAsk} ↵</span>
+                </button>
                 <header class="kb-panel-header compact">
                     <div class="kb-heading-group">
                         <span class="kb-heading-icon overview" aria-hidden="true"><KnowledgeIcon section="overview" size={36} /></span>
@@ -276,7 +307,13 @@ const sectionLabels: Record<KnowledgeSection, string> = {
                                     >
                                         <td data-label={copy.name}>
                                             <span class="kb-result-name">
-                                                <img src={entry.image} alt="" width="46" height="46" loading="lazy" />
+                                                {
+                                                    entry.creatureSlug ? (
+                                                        <CreaturePortrait slug={entry.creatureSlug} name="" />
+                                                    ) : (
+                                                        <img src={entry.image} alt="" width="46" height="46" loading="lazy" />
+                                                    )
+                                                }
                                                 <strong>{entry.name}</strong>
                                             </span>
                                         </td>
@@ -425,12 +462,22 @@ const sectionLabels: Record<KnowledgeSection, string> = {
 
 <script>
     import {
+        answerLanguageFor,
+        askKnowledgeAi,
+        KnowledgeAiRequestError,
+        type KnowledgeAiHistoryMessage,
+        type KnowledgeAiLanguage,
+        type KnowledgeAiSource,
+    } from "../lib/knowledge-ai-client";
+    import { KNOWLEDGE_AI_PANEL_COPY } from "../lib/knowledge-ai-copy";
+    import {
         isKnowledgeSection,
         knowledgeAiSearchRank,
         knowledgeEntryMatches,
         knowledgeSearchRank,
         type KnowledgeSection,
     } from "../lib/knowledge-base";
+    import { renderMarkdown } from "../lib/markdown-lite";
 
     const roots = document.querySelectorAll<HTMLElement>("[data-knowledge-base]");
 
@@ -446,13 +493,262 @@ const sectionLabels: Record<KnowledgeSection, string> = {
         const status = root.querySelector<HTMLElement>("[data-kb-status]");
         const count = root.querySelector<HTMLElement>("[data-kb-visible-count]");
         const empty = root.querySelector<HTMLElement>("[data-kb-empty]");
+        const searchHint = root.querySelector<HTMLElement>("#kb-search-hint");
+        const askButton = root.querySelector<HTMLButtonElement>("[data-kb-ai-ask]");
+        const aiPrompt = root.querySelector<HTMLButtonElement>("[data-kb-ai-prompt]");
+        const aiPromptQuestion = root.querySelector<HTMLElement>("[data-kb-ai-prompt-question]");
+        const aiPanel = root.querySelector<HTMLElement>("[data-kb-ai-panel]");
+        const aiStatus = root.querySelector<HTMLElement>("[data-kb-ai-status]");
+        const aiStop = root.querySelector<HTMLButtonElement>("[data-kb-ai-stop]");
+        const aiQuestion = root.querySelector<HTMLElement>("[data-kb-ai-question]");
+        const aiAnswer = root.querySelector<HTMLElement>("[data-kb-ai-answer]");
+        const aiError = root.querySelector<HTMLElement>("[data-kb-ai-error]");
+        const aiSources = root.querySelector<HTMLElement>("[data-kb-ai-sources]");
+        const aiSourceList = root.querySelector<HTMLElement>("[data-kb-ai-source-list]");
+        const aiTitle = root.querySelector<HTMLElement>("[data-kb-ai-title]");
+        const aiSourcesLabel = root.querySelector<HTMLElement>("[data-kb-ai-sources-label]");
+        const aiDisclaimer = root.querySelector<HTMLElement>("[data-kb-ai-disclaimer]");
+        const backToOverview = root.querySelector<HTMLElement>(".kb-back-overview");
+        const searchShell = root.querySelector<HTMLElement>("[data-kb-search-shell]");
         let activeSection: KnowledgeSection = "overview";
+
+        // The section nav sticks directly under the search card, so its offset has to be the card's real
+        // height — which changes with the viewport and grows a whole row when AI search switches on. A
+        // fixed number was right for exactly one layout and wrong for every other.
+        if (searchShell && "ResizeObserver" in window) {
+            const syncStickyOffset = () =>
+                root.style.setProperty("--kb-search-sticky-offset", `${Math.ceil(searchShell.getBoundingClientRect().height)}px`);
+            new ResizeObserver(syncStickyOffset).observe(searchShell);
+            syncStickyOffset();
+        }
         let aiSearchEnabled = false;
+
+        type AiCopy = Record<"ask" | "promptLead" | "hintOn" | "hintOff", string>;
+        let aiCopy: Partial<AiCopy> = {};
+        try {
+            aiCopy = JSON.parse(aiPanel?.dataset.kbAiCopy ?? "{}") as Partial<AiCopy>;
+        } catch {
+            // The panel still works with empty labels.
+        }
+        const aiLang: KnowledgeAiLanguage = document.documentElement.lang.toLowerCase().startsWith("ru") ? "ru" : "en";
+        // The panel speaks the language of the answer, which follows the question: a Russian question on the
+        // English page gets a Russian answer, and a Russian status line, source list and errors with it.
+        let panelLang: KnowledgeAiLanguage = aiLang;
+        const panelCopy = () => KNOWLEDGE_AI_PANEL_COPY[panelLang];
+        const setPanelLanguage = (language: KnowledgeAiLanguage) => {
+            panelLang = language;
+            const labels = KNOWLEDGE_AI_PANEL_COPY[language];
+            if (aiPanel) aiPanel.lang = language;
+            if (aiTitle) aiTitle.textContent = labels.title;
+            if (aiSourcesLabel) aiSourcesLabel.textContent = labels.sources;
+            if (aiDisclaimer) aiDisclaimer.textContent = labels.disclaimer;
+            if (aiStop) aiStop.textContent = labels.stop;
+        };
+        const aiHistory: KnowledgeAiHistoryMessage[] = [];
+        let aiController: AbortController | null = null;
+        let aiMarkdown = "";
+        let aiRenderQueued = false;
+        let aiLastQuestion = "";
+
+        // The "Ask the AI: <question>" row above the filtered results: shown whenever AI search is on and the
+        // typed question has not been asked yet, so the answer is one click (or Enter) away and never a mystery.
+        const syncAiPrompt = () => {
+            if (!aiPrompt) return;
+            const question = searchInput?.value.trim() ?? "";
+            const show = aiSearchEnabled && Boolean(question) && question !== aiLastQuestion;
+            aiPrompt.hidden = !show;
+            if (aiPromptQuestion) aiPromptQuestion.textContent = question;
+        };
+
+        // An opening math delimiter, which is all it takes to start fetching KaTeX — the closing one, and
+        // with it the finished formula, is usually still streaming.
+        const MATH_STARTED = /\$|\\\(|\\\[/;
+        let mathModule: Promise<typeof import("../lib/math-typeset")> | undefined;
+
+        // KaTeX (script + stylesheet + fonts) is pulled in only for an answer that actually contains a
+        // formula, and never for the many questions that have none. Until it lands, every mark shows the
+        // TeX the assistant wrote, so nothing is blank or missing while it loads.
+        const typesetAnswerMath = () => {
+            if (!aiAnswer || !MATH_STARTED.test(aiMarkdown)) return;
+            void (mathModule ??= import("../lib/math-typeset"))
+                .then(({ typesetMath }) => {
+                    if (aiAnswer) typesetMath(aiAnswer);
+                })
+                .catch(() => {
+                    // The answer stays readable as plain TeX.
+                });
+        };
+
+        const renderAiAnswer = () => {
+            aiRenderQueued = false;
+            if (aiAnswer) aiAnswer.innerHTML = renderMarkdown(aiMarkdown);
+            typesetAnswerMath();
+        };
+
+        const scheduleAiRender = () => {
+            if (aiRenderQueued) return;
+            aiRenderQueued = true;
+            window.requestAnimationFrame(renderAiAnswer);
+        };
+
+        const setAiStatus = (text: string, busy: boolean) => {
+            if (aiStatus) aiStatus.textContent = text;
+            aiPanel?.classList.toggle("busy", busy);
+            aiAnswer?.setAttribute("aria-busy", busy ? "true" : "false");
+            if (aiStop) aiStop.hidden = !busy;
+        };
+
+        const renderAiSources = (items: KnowledgeAiSource[]) => {
+            if (!aiSources || !aiSourceList) return;
+            aiSourceList.replaceChildren();
+            for (const item of items.slice(0, 10)) {
+                const li = document.createElement("li");
+                const link = document.createElement("a");
+                link.href = item.href;
+                link.textContent = item.name;
+                link.dataset.kbAiSource = item.type;
+                li.append(link);
+                aiSourceList.append(li);
+            }
+            aiSources.hidden = items.length === 0;
+        };
+
+        const showAiError = (message: string) => {
+            if (aiError) {
+                aiError.textContent = message;
+                aiError.hidden = false;
+            }
+        };
+
+        const aiErrorMessage = (error: unknown): string => {
+            if (error instanceof KnowledgeAiRequestError) {
+                if (error.code === "rate_limited") {
+                    return panelCopy().errorRate.replace("{seconds}", String(error.retryAfterSeconds ?? 60));
+                }
+                if (error.code === "busy") return panelCopy().errorBusy;
+                if (error.code === "budget_exhausted") return panelCopy().errorBudget;
+                if (error.code === "question_too_long") return panelCopy().errorLong;
+            }
+            return panelCopy().errorGeneric;
+        };
+
+        const stopAi = () => {
+            aiController?.abort();
+            aiController = null;
+        };
+
+        const askAi = (question: string) => {
+            const trimmed = question.trim();
+            if (!trimmed || !aiPanel) return;
+            aiLastQuestion = trimmed;
+            syncAiPrompt();
+            stopAi();
+            const controller = new AbortController();
+            aiController = controller;
+            aiMarkdown = "";
+            aiPanel.hidden = false;
+            if (aiQuestion) aiQuestion.textContent = trimmed;
+            if (aiAnswer) aiAnswer.replaceChildren();
+            if (aiError) aiError.hidden = true;
+            renderAiSources([]);
+            const history = aiHistory.slice(-6);
+            setPanelLanguage(answerLanguageFor(trimmed, aiLang, history));
+            setAiStatus(panelCopy().thinking, true);
+            // The model can take 10–30 s to say its first word when it is busy, and a silent wait read as a
+            // hang: players re-asked, cancelling the answer they were waiting for. After a quiet spell the
+            // status says it is still working, and later that the assistant is busy but the answer is coming.
+            let lastProgressAt = Date.now();
+            let slowStage = 0;
+            const slowWatch = window.setInterval(() => {
+                if (controller.signal.aborted || aiController !== controller || aiMarkdown) return;
+                const quietFor = Date.now() - lastProgressAt;
+                if (slowStage < 2 && quietFor > 18_000) {
+                    slowStage = 2;
+                    setAiStatus(panelCopy().verySlow, true);
+                } else if (slowStage < 1 && quietFor > 7_000) {
+                    slowStage = 1;
+                    setAiStatus(panelCopy().slow, true);
+                }
+            }, 1_000);
+            askKnowledgeAi(
+                { question: trimmed, lang: aiLang, history },
+                (event) => {
+                    if (controller.signal.aborted) return;
+                    if (event.type === "status" || event.type === "delta") {
+                        lastProgressAt = Date.now();
+                        slowStage = 0;
+                    }
+                    if (event.type === "meta") {
+                        // The service decides the answer's language; follow it if it disagrees with our guess.
+                        if (event.language !== panelLang) {
+                            setPanelLanguage(event.language);
+                            setAiStatus(panelCopy().thinking, true);
+                        }
+                    } else if (event.type === "status") {
+                        const labels = panelCopy();
+                        const label =
+                            event.phase === "searching"
+                                ? labels.searching
+                                : event.phase === "reading"
+                                  ? labels.reading
+                                  : event.phase === "listing"
+                                    ? labels.listing
+                                    : event.phase === "answering"
+                                      ? labels.answering
+                                      : labels.thinking;
+                        const detail = event.detail && event.phase !== "answering" && event.phase !== "thinking" ? `: ${event.detail}` : "";
+                        setAiStatus(`${label}${detail}`, true);
+                    } else if (event.type === "sources") {
+                        renderAiSources(event.items);
+                    } else if (event.type === "delta") {
+                        aiMarkdown += event.text;
+                        scheduleAiRender();
+                    } else if (event.type === "reset") {
+                        aiMarkdown = "";
+                        scheduleAiRender();
+                    } else if (event.type === "done") {
+                        aiMarkdown = event.answer || aiMarkdown;
+                        renderAiAnswer();
+                        renderAiSources(event.sources);
+                        setAiStatus(event.cached ? panelCopy().cached : panelCopy().done, false);
+                        aiHistory.push({ role: "user", content: trimmed }, { role: "assistant", content: aiMarkdown });
+                        while (aiHistory.length > 6) aiHistory.shift();
+                    } else if (event.type === "error") {
+                        setAiStatus("", false);
+                        showAiError(panelCopy().errorGeneric);
+                    }
+                },
+                { signal: controller.signal },
+            )
+                .catch((error: unknown) => {
+                    if (controller.signal.aborted) {
+                        setAiStatus(panelCopy().stopped, false);
+                        return;
+                    }
+                    setAiStatus("", false);
+                    showAiError(aiErrorMessage(error));
+                })
+                .finally(() => {
+                    window.clearInterval(slowWatch);
+                    if (aiController === controller) aiController = null;
+                    if (aiStop) aiStop.hidden = true;
+                    aiPanel.classList.remove("busy");
+                });
+        };
 
         const setAiSearchEnabled = (enabled: boolean, syncUrl = true) => {
             aiSearchEnabled = enabled;
             root.dataset.aiSearch = enabled ? "true" : "false";
             aiToggle?.setAttribute("aria-checked", enabled ? "true" : "false");
+            if (askButton) askButton.hidden = !enabled;
+            if (searchHint && (aiCopy.hintOn || aiCopy.hintOff)) searchHint.textContent = (enabled ? aiCopy.hintOn : aiCopy.hintOff) ?? "";
+            if (!enabled) {
+                stopAi();
+                if (aiPanel) aiPanel.hidden = true;
+                aiHistory.length = 0;
+                aiLastQuestion = "";
+            }
+            syncAiPrompt();
             try {
                 window.localStorage.setItem("hoc.kb.aiSearch", enabled ? "1" : "0");
             } catch {
@@ -497,6 +793,9 @@ const sectionLabels: Record<KnowledgeSection, string> = {
             root.querySelectorAll<HTMLDialogElement>("dialog[open]").forEach((dialog) => dialog.close());
             activeSection = section;
             searchResults?.setAttribute("hidden", "");
+            // "Return to overview" sits below every panel; on the overview itself it was a stray link
+            // floating above the footer with nowhere to go.
+            if (backToOverview) backToOverview.hidden = section === "overview";
             panels.forEach((panel) => {
                 const selected = panel.dataset.kbPanel === section;
                 panel.hidden = !selected;
@@ -652,11 +951,44 @@ const sectionLabels: Record<KnowledgeSection, string> = {
             });
         });
 
-        searchInput?.addEventListener("input", () => applySearch());
+        searchInput?.addEventListener("input", () => {
+            applySearch();
+            syncAiPrompt();
+        });
+        aiPrompt?.addEventListener("click", () => askAi(searchInput?.value ?? ""));
         aiToggle?.addEventListener("click", () => {
             setAiSearchEnabled(!aiSearchEnabled);
             applySearch(false);
             searchInput?.focus();
+        });
+        askButton?.addEventListener("click", () => askAi(searchInput?.value ?? ""));
+        aiStop?.addEventListener("click", () => {
+            stopAi();
+            setAiStatus(panelCopy().stopped, false);
+        });
+        searchInput?.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" && aiSearchEnabled && !event.isComposing) {
+                event.preventDefault();
+                askAi(searchInput.value);
+            }
+        });
+        // Links inside the answer and the source chips point at this page's own anchors: open them in place,
+        // the same way a result row does, instead of reloading the page.
+        aiPanel?.addEventListener("click", (event) => {
+            const link = (event.target as HTMLElement | null)?.closest<HTMLAnchorElement>("a[href]");
+            if (!link || event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+            const destination = new URL(link.href, window.location.href);
+            if (destination.origin !== window.location.origin || !/\/knowledge-base\/?$/.test(destination.pathname)) return;
+            if (destination.pathname !== window.location.pathname) return;
+            const target = destination.hash.replace(/^#/, "");
+            const section = sectionFromFragment(destination.hash);
+            if (!target) return;
+            event.preventDefault();
+            if (searchInput) searchInput.value = "";
+            applySearch(false);
+            activateSection(section);
+            window.history.pushState(null, "", `${destination.pathname}${destination.search}${destination.hash}`);
+            window.requestAnimationFrame(() => focusTarget(section === target ? "" : target));
         });
         clearButton?.addEventListener("click", () => {
             if (searchInput) {
@@ -707,6 +1039,9 @@ const sectionLabels: Record<KnowledgeSection, string> = {
             activateSection(section);
             if (searchInput) searchInput.value = query;
             applySearch(false);
+            syncAiPrompt();
+            // A shared link that carries both the switch and a question asks it straight away.
+            if (params.get("ai") === "1" && query.trim() && query.trim() !== aiLastQuestion) askAi(query);
             const target = window.location.hash.replace(/^#/, "");
             if (target && target !== section && !query) window.requestAnimationFrame(() => focusTarget(target));
         };
@@ -775,47 +1110,6 @@ const sectionLabels: Record<KnowledgeSection, string> = {
         transform: none;
     }
 
-    .kb-hero {
-        position: relative;
-        overflow: hidden;
-        border-bottom: 1px solid var(--kb-line);
-        isolation: isolate;
-    }
-
-    .kb-hero-image {
-        position: absolute;
-        z-index: -2;
-        inset: 0;
-        background: url("/assets/images/knowledge-base/codex-war-room-hero.webp") center / cover;
-        filter: saturate(0.82) contrast(1.06);
-        opacity: 0.78;
-    }
-
-    .kb-hero::after {
-        position: absolute;
-        z-index: -1;
-        inset: 0;
-        content: "";
-        background:
-            linear-gradient(90deg, #080605 2%, rgba(8, 6, 5, 0.94) 38%, rgba(8, 6, 5, 0.12) 72%),
-            linear-gradient(0deg, #080605, transparent 45%);
-    }
-
-    .kb-hero-shell {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        gap: 48px;
-        align-items: end;
-        min-height: 340px;
-        padding-top: 78px;
-        padding-bottom: 68px;
-    }
-
-    .kb-hero-copy {
-        max-width: 810px;
-    }
-
-    .kb-hero-copy .eyebrow,
     .kb-panel-header .eyebrow,
     .kb-category-copy .eyebrow {
         margin: 0 0 9px;
@@ -824,65 +1118,13 @@ const sectionLabels: Record<KnowledgeSection, string> = {
         text-transform: uppercase;
     }
 
-    .kb-hero h1 {
-        margin: 0 0 18px;
-        font-size: clamp(3rem, 6vw, 5.1rem);
-        font-weight: 860;
-        line-height: 0.95;
-        letter-spacing: 0.035em;
-    }
-
-    .kb-hero-copy > p:last-child {
-        max-width: 760px;
-        margin: 0;
-        color: rgba(247, 244, 235, 0.76);
-        font-size: clamp(1.05rem, 2vw, 1.28rem);
-        line-height: 1.65;
-    }
-
-    .kb-hero-stats {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(105px, 1fr));
-        gap: 1px;
-        margin: 0;
-        overflow: hidden;
-        border: 1px solid var(--kb-line);
-        border-radius: 14px;
-        background: var(--kb-line);
-        box-shadow: 0 24px 50px rgba(0, 0, 0, 0.28);
-    }
-
-    .kb-hero-stats div {
-        display: flex;
-        flex-direction: column-reverse;
-        justify-content: space-between;
-        min-height: 116px;
-        padding: 17px;
-        background: rgba(10, 7, 5, 0.92);
-    }
-
-    .kb-hero-stats dt {
-        max-width: 110px;
-        color: var(--kb-muted);
-        font-size: 0.72rem;
-        line-height: 1.3;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-    }
-
-    .kb-hero-stats dd {
-        margin: 0;
-        color: #f2c75d;
-        font-family: var(--font-display);
-        font-size: 2.25rem;
-        line-height: 1;
-    }
-
+    /* The search is the first thing on the page now. A margin, not padding, keeps the spacing at rest
+       and lets the card sit flush under the header once it sticks. */
     .kb-search-shell {
         position: sticky;
         z-index: 24;
         top: var(--kb-search-sticky-top);
-        margin-top: -31px;
+        margin-top: 26px;
     }
 
     .kb-search-card {
@@ -904,11 +1146,14 @@ const sectionLabels: Record<KnowledgeSection, string> = {
         margin-bottom: 8px;
     }
 
-    .kb-search-heading label {
+    .kb-title {
         flex: 0 0 auto;
+        margin: 0;
         color: rgba(249, 246, 237, 0.88);
-        font-size: 0.84rem;
+        font-family: var(--font-display);
+        font-size: 1.05rem;
         font-weight: 760;
+        line-height: 1.2;
         letter-spacing: 0.05em;
         text-transform: uppercase;
     }
@@ -1091,7 +1336,7 @@ const sectionLabels: Record<KnowledgeSection, string> = {
         gap: 24px;
         align-items: start;
         padding-top: 34px;
-        padding-bottom: 90px;
+        padding-bottom: 56px;
     }
 
     .kb-section-nav {
@@ -1424,6 +1669,8 @@ const sectionLabels: Record<KnowledgeSection, string> = {
         color: #fcf7e9;
     }
 
+    /* Ability, spell and artifact rows still show a bare icon, letterboxed; a creature row shows the
+       composed portrait, which owns its own fit and must not be given one here. */
     .kb-result-name img {
         flex: 0 0 auto;
         width: 46px;
@@ -1431,6 +1678,13 @@ const sectionLabels: Record<KnowledgeSection, string> = {
         object-fit: contain;
         border-radius: 8px;
         background: rgba(255, 255, 255, 0.035);
+    }
+
+    .kb-result-name :global(.portrait) {
+        flex: 0 0 auto;
+        width: 46px;
+        height: 46px;
+        border-radius: 8px;
     }
 
     .kb-type-badge {
@@ -1471,10 +1725,16 @@ const sectionLabels: Record<KnowledgeSection, string> = {
 
     .kb-back-overview {
         display: inline-flex;
-        margin-top: 17px;
-        padding: 10px 3px;
-        color: rgba(242, 199, 93, 0.78);
+        margin-top: 22px;
+        padding: 10px 14px;
+        color: rgba(242, 199, 93, 0.82);
+        border: 1px solid var(--kb-line);
+        border-radius: 10px;
         text-decoration: none;
+    }
+
+    .kb-back-overview[hidden] {
+        display: none;
     }
 
     .kb-target-highlight {
@@ -1516,15 +1776,6 @@ const sectionLabels: Record<KnowledgeSection, string> = {
             --kb-search-sticky-top: 0px;
         }
 
-        .kb-hero-shell {
-            grid-template-columns: 1fr;
-            gap: 28px;
-        }
-
-        .kb-hero-stats {
-            width: min(100%, 520px);
-        }
-
         .kb-layout {
             grid-template-columns: 1fr;
         }
@@ -1549,50 +1800,36 @@ const sectionLabels: Record<KnowledgeSection, string> = {
             --kb-search-sticky-offset: 110px;
         }
 
-        .kb-hero-image {
-            background-position: 65% center;
-            opacity: 0.5;
+        .kb-search-shell {
+            margin-top: 14px;
         }
 
-        .kb-hero::after {
-            background:
-                linear-gradient(90deg, rgba(8, 6, 5, 0.96), rgba(8, 6, 5, 0.72)),
-                linear-gradient(0deg, #080605, transparent 48%);
-        }
-
-        .kb-hero-shell {
-            min-height: 0;
-            padding-top: 58px;
-            padding-bottom: 62px;
-        }
-
-        .kb-hero h1 {
-            font-size: clamp(3.15rem, 17vw, 5rem);
-        }
-
-        .kb-hero-stats {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-        }
-
-        .kb-hero-stats div {
-            min-height: 100px;
-            padding: 13px 10px;
-        }
-
-        .kb-hero-stats dd {
-            font-size: 1.7rem;
-        }
-
+        /* On a phone the card is the search field and nothing else: the title and hint go to screen
+           readers only, and the controls sit centred in the card rather than hanging off a heading row. */
         .kb-search-card {
-            padding: 10px;
+            display: grid;
+            align-content: center;
+            padding: 12px;
         }
 
         .kb-search-heading {
-            margin-bottom: 8px;
+            position: absolute;
+            overflow: hidden;
+            width: 1px;
+            height: 1px;
+            margin: 0;
+            clip: rect(0 0 0 0);
+            clip-path: inset(50%);
+            white-space: nowrap;
         }
 
-        .kb-search-hint {
-            display: none;
+        .kb-search-controls {
+            gap: 10px;
+        }
+
+        .kb-search-field {
+            flex: 1 0 100%;
+            min-height: 52px;
         }
 
         .kb-search-field kbd {
@@ -1602,7 +1839,7 @@ const sectionLabels: Record<KnowledgeSection, string> = {
         .kb-layout {
             gap: 15px;
             padding-top: 22px;
-            padding-bottom: 60px;
+            padding-bottom: 36px;
         }
 
         .kb-section-nav {
@@ -1734,25 +1971,6 @@ const sectionLabels: Record<KnowledgeSection, string> = {
     }
 
     @media (max-width: 440px) {
-        .kb-ai-toggle {
-            min-width: 74px;
-            padding-inline: 9px;
-        }
-
-        .kb-ai-toggle > span:nth-child(2) {
-            position: absolute;
-            overflow: hidden;
-            width: 1px;
-            height: 1px;
-            clip: rect(0 0 0 0);
-            clip-path: inset(50%);
-            white-space: nowrap;
-        }
-
-        .kb-hero-stats dt {
-            font-size: 0.6rem;
-        }
-
         .kb-category-card {
             grid-template-columns: 76px minmax(0, 1fr);
         }
@@ -1779,6 +1997,484 @@ const sectionLabels: Record<KnowledgeSection, string> = {
             animation: none;
             outline: 3px solid #f2c75d;
             outline-offset: 3px;
+        }
+    }
+
+    /* ---- AI answer panel ------------------------------------------------------------------- */
+
+    .kb-ai-ask {
+        display: inline-flex;
+        flex: 0 0 auto;
+        gap: 8px;
+        align-items: center;
+        justify-content: center;
+        min-height: 56px;
+        padding: 0 16px;
+        color: #14100b;
+        border: 1px solid rgba(242, 199, 93, 0.7);
+        border-radius: 10px;
+        background: linear-gradient(120deg, #f2c75d, #dcae52);
+        font: inherit;
+        font-size: 0.84rem;
+        font-weight: 760;
+        letter-spacing: 0.03em;
+        cursor: pointer;
+        transition: filter 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+    }
+
+    .kb-ai-ask .kb-ai-spark {
+        color: rgba(20, 16, 11, 0.7);
+    }
+
+    .kb-ai-ask:hover {
+        box-shadow: 0 8px 22px rgba(242, 199, 93, 0.25);
+        filter: brightness(1.05);
+    }
+
+    .kb-ai-ask:focus-visible {
+        outline: 3px solid rgba(242, 199, 93, 0.35);
+        outline-offset: 2px;
+    }
+
+    .kb-ai-shell {
+        margin-top: 18px;
+    }
+
+    .kb-ai-prompt {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 10px;
+        align-items: center;
+        width: 100%;
+        margin: 0 0 14px;
+        padding: 12px 16px;
+        color: #fff4cc;
+        border: 1px solid rgba(242, 199, 93, 0.45);
+        border-radius: 10px;
+        background: linear-gradient(110deg, rgba(242, 199, 93, 0.16), rgba(100, 179, 158, 0.08));
+        font: inherit;
+        font-size: 0.92rem;
+        text-align: left;
+        cursor: pointer;
+        transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+    }
+
+    .kb-ai-prompt:hover {
+        border-color: rgba(242, 199, 93, 0.8);
+        box-shadow: 0 8px 22px rgba(242, 199, 93, 0.16);
+    }
+
+    .kb-ai-prompt:focus-visible {
+        outline: 3px solid rgba(242, 199, 93, 0.35);
+        outline-offset: 2px;
+    }
+
+    .kb-ai-prompt .kb-ai-spark {
+        color: #f2c75d;
+        text-shadow: 0 0 10px rgba(242, 199, 93, 0.55);
+    }
+
+    .kb-ai-prompt-lead {
+        color: rgba(246, 241, 230, 0.7);
+        font-size: 0.78rem;
+        font-weight: 760;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+    }
+
+    .kb-ai-prompt-question {
+        flex: 1 1 200px;
+        min-width: 0;
+        overflow: hidden;
+        font-style: italic;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .kb-ai-prompt-cta {
+        margin-left: auto;
+        padding: 5px 12px;
+        color: #14100b;
+        border-radius: 999px;
+        background: linear-gradient(120deg, #f2c75d, #dcae52);
+        font-size: 0.78rem;
+        font-weight: 760;
+        white-space: nowrap;
+    }
+
+    .kb-ai-panel {
+        position: relative;
+        padding: 18px 20px 14px;
+        border: 1px solid rgba(242, 199, 93, 0.24);
+        border-radius: 14px;
+        background:
+            linear-gradient(140deg, rgba(22, 15, 9, 0.98), rgba(10, 8, 6, 0.98)),
+            radial-gradient(circle at 0 0, rgba(242, 199, 93, 0.14), transparent 45%);
+        box-shadow: 0 18px 44px rgba(0, 0, 0, 0.38);
+    }
+
+    .kb-ai-panel-head {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 16px;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .kb-ai-panel-title {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        margin: 0;
+        color: #fff4cc;
+        font-size: 0.86rem;
+        font-weight: 760;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+    }
+
+    .kb-ai-panel-title .kb-ai-spark {
+        color: #f2c75d;
+        text-shadow: 0 0 10px rgba(242, 199, 93, 0.55);
+    }
+
+    .kb-ai-panel-status {
+        display: inline-flex;
+        gap: 9px;
+        align-items: center;
+        margin: 0;
+        color: var(--kb-muted);
+        font-size: 0.82rem;
+    }
+
+    .kb-ai-panel-status:empty {
+        display: none;
+    }
+
+    .kb-ai-panel.busy .kb-ai-panel-status::before {
+        content: "";
+        flex: 0 0 auto;
+        width: 12px;
+        height: 12px;
+        border: 2px solid rgba(242, 199, 93, 0.28);
+        border-top-color: #f2c75d;
+        border-radius: 50%;
+        animation: kb-ai-spin 800ms linear infinite;
+    }
+
+    @keyframes kb-ai-spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    .kb-ai-stop {
+        margin-left: auto;
+        padding: 6px 12px;
+        color: rgba(247, 242, 230, 0.78);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.04);
+        font: inherit;
+        font-size: 0.76rem;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .kb-ai-stop:hover {
+        border-color: rgba(242, 199, 93, 0.5);
+        color: #fff4cc;
+    }
+
+    .kb-ai-question {
+        margin: 0 0 12px;
+        padding-left: 12px;
+        color: rgba(246, 241, 230, 0.7);
+        border-left: 2px solid rgba(242, 199, 93, 0.45);
+        font-size: 0.9rem;
+        font-style: italic;
+    }
+
+    .kb-ai-question:empty {
+        display: none;
+    }
+
+    .kb-ai-answer {
+        color: #f5f0e4;
+        font-size: 0.97rem;
+        line-height: 1.6;
+        overflow-wrap: anywhere;
+    }
+
+    .kb-ai-panel.busy .kb-ai-answer:not(:empty)::after {
+        content: "▍";
+        margin-left: 2px;
+        color: #f2c75d;
+        animation: kb-ai-blink 900ms steps(2, start) infinite;
+    }
+
+    @keyframes kb-ai-blink {
+        to {
+            visibility: hidden;
+        }
+    }
+
+    .kb-ai-answer > :first-child {
+        margin-top: 0;
+    }
+
+    .kb-ai-answer p,
+    .kb-ai-answer ul,
+    .kb-ai-answer ol,
+    .kb-ai-answer blockquote,
+    .kb-ai-answer pre {
+        margin: 0 0 12px;
+    }
+
+    .kb-ai-answer h3,
+    .kb-ai-answer h4,
+    .kb-ai-answer h5,
+    .kb-ai-answer h6 {
+        margin: 18px 0 8px;
+        color: #fff4cc;
+        font-family: var(--hoc-font-display);
+        font-size: 1.05rem;
+        font-weight: 700;
+    }
+
+    .kb-ai-answer ul,
+    .kb-ai-answer ol {
+        padding-left: 22px;
+    }
+
+    .kb-ai-answer li {
+        margin: 4px 0;
+    }
+
+    .kb-ai-answer li > ul,
+    .kb-ai-answer li > ol {
+        margin: 4px 0 0;
+    }
+
+    .kb-ai-answer a {
+        color: #f2c75d;
+        text-decoration: underline;
+        text-decoration-color: rgba(242, 199, 93, 0.45);
+        text-underline-offset: 3px;
+    }
+
+    .kb-ai-answer a:hover {
+        color: #fff4cc;
+        text-decoration-color: currentcolor;
+    }
+
+    .kb-ai-answer strong {
+        color: #fff8e8;
+    }
+
+    .kb-ai-answer code {
+        padding: 1px 6px;
+        border-radius: 5px;
+        background: rgba(255, 255, 255, 0.08);
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+        font-size: 0.86em;
+    }
+
+    .kb-ai-answer pre {
+        overflow-x: auto;
+        padding: 12px 14px;
+        border: 1px solid var(--kb-line);
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.35);
+    }
+
+    .kb-ai-answer pre code {
+        padding: 0;
+        background: none;
+    }
+
+    /*
+     * A formula, in the two states it has: the TeX itself while KaTeX loads (set like code, so it reads as
+     * one), and the typeset version after. A formula cannot break across lines either way, so a long one
+     * scrolls inside its own box — otherwise it pushes the answer wider than the phone and takes the whole
+     * page sideways with it.
+     */
+    .kb-ai-answer .kb-math {
+        display: inline-block;
+        max-width: 100%;
+        overflow-x: auto;
+        overflow-y: hidden;
+        vertical-align: middle;
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+        font-size: 0.9em;
+        color: #fff1cf;
+    }
+
+    /* Once typeset, KaTeX brings its own type — drop the stand-in styling. */
+    .kb-ai-answer .kb-math:has(.katex) {
+        font-family: inherit;
+        font-size: inherit;
+    }
+
+    /* A long formula scrolls sideways on a phone instead of forcing the whole answer to. */
+    .kb-ai-answer .kb-math--display {
+        display: block;
+        overflow-x: auto;
+        overflow-y: hidden;
+        max-width: 100%;
+        margin: 12px 0;
+        padding-bottom: 2px;
+    }
+
+    /* A displayed formula inside a bullet stays on the bullet's line rather than breaking the list. */
+    .kb-ai-answer li .kb-math--display {
+        display: inline-block;
+        margin: 4px 0;
+        vertical-align: middle;
+    }
+
+    .kb-ai-answer .katex {
+        /* KaTeX defaults to 1.21em, which oversets next to this page's body copy. */
+        font-size: 1.05em;
+    }
+
+    .kb-ai-answer .katex-display {
+        margin: 0;
+    }
+
+    .kb-ai-answer blockquote {
+        padding-left: 12px;
+        color: var(--kb-muted);
+        border-left: 2px solid rgba(242, 199, 93, 0.35);
+    }
+
+    .kb-ai-answer table {
+        display: block;
+        overflow-x: auto;
+        max-width: 100%;
+        margin: 0 0 14px;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+    }
+
+    .kb-ai-answer th,
+    .kb-ai-answer td {
+        padding: 7px 12px;
+        border: 1px solid rgba(220, 177, 88, 0.3);
+        text-align: left;
+        vertical-align: top;
+    }
+
+    .kb-ai-answer tbody tr:nth-child(even) td {
+        background: rgba(255, 255, 255, 0.025);
+    }
+
+    .kb-ai-answer th {
+        color: #fff4cc;
+        background: rgba(242, 199, 93, 0.08);
+        font-weight: 700;
+    }
+
+    .kb-ai-answer hr {
+        margin: 14px 0;
+        border: 0;
+        border-top: 1px solid var(--kb-line);
+    }
+
+    .kb-ai-error {
+        margin: 0 0 10px;
+        padding: 10px 12px;
+        color: #ffd9d2;
+        border: 1px solid rgba(255, 90, 63, 0.35);
+        border-radius: 8px;
+        background: rgba(255, 90, 63, 0.08);
+        font-size: 0.88rem;
+    }
+
+    .kb-ai-sources {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        margin-top: 8px;
+        padding-top: 12px;
+        border-top: 1px solid var(--kb-line);
+    }
+
+    .kb-ai-sources-label {
+        color: var(--kb-muted);
+        font-size: 0.72rem;
+        font-weight: 760;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+    }
+
+    .kb-ai-source-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .kb-ai-source-list a {
+        display: inline-flex;
+        padding: 5px 10px;
+        color: #dfbd65;
+        border: 1px solid rgba(223, 189, 101, 0.22);
+        border-radius: 999px;
+        background: rgba(223, 189, 101, 0.06);
+        font-size: 0.74rem;
+        font-weight: 700;
+        text-decoration: none;
+        transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
+    }
+
+    .kb-ai-source-list a:hover {
+        color: #fff4cc;
+        border-color: rgba(242, 199, 93, 0.5);
+        background: rgba(242, 199, 93, 0.12);
+    }
+
+    .kb-ai-disclaimer {
+        margin: 12px 0 0;
+        color: rgba(246, 241, 230, 0.45);
+        font-size: 0.74rem;
+    }
+
+    @media (max-width: 760px) {
+        /* The field takes the whole first line; the AI switch and the Ask button share the second, and
+           the switch grows to the full line while Ask is hidden. Sharing the field's line pushed the
+           input down to an icon, and stacking all three left a tall, ragged card. */
+        .kb-search-controls {
+            flex-wrap: wrap;
+        }
+
+        .kb-ai-toggle {
+            flex: 1 1 auto;
+            min-width: 0;
+            min-height: 48px;
+        }
+
+        .kb-ai-ask {
+            flex: 1.4 1 auto;
+            min-height: 48px;
+        }
+
+        .kb-ai-panel {
+            padding: 14px 14px 12px;
+        }
+
+        .kb-ai-stop {
+            margin-left: 0;
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .kb-ai-panel.busy .kb-ai-panel-status::before,
+        .kb-ai-panel.busy .kb-ai-answer:not(:empty)::after {
+            animation: none;
         }
     }
 </style>

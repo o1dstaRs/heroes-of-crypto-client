@@ -1,14 +1,23 @@
 import { Assets, Container, Sprite, Text as PixiText, TextStyle, Texture, Rectangle, Graphics, Matrix } from "pixi.js";
 
-import { GridSettings, HoCMath, GridMath, UnitProperties, UnitsHolder } from "@heroesofcrypto/common";
+import { GridSettings, HoCMath, GridMath, Unit, UnitProperties, UnitsHolder } from "@heroesofcrypto/common";
 import { RenderableUnit } from "../RenderableUnit";
 import { images } from "../../generated/image_imports";
 import { HOC_NUMERIC_ARIAL_FONT_FAMILY } from "../../fontFamilies";
+import { boardVerticalStretch } from "../../pixi/boardFit";
+import { glyphScaleX } from "../../pixi/boardMirror";
 import { projectBattlefieldPoint } from "./BattlefieldVisualGrid";
 
 export interface ICombatVisualsContext {
     getGridSettings(): GridSettings;
     attachToWorldRoot(obj: Container, zIndex?: number): void;
+    /**
+     * Absolute scale the board applies to everything under it, or undefined where there is no board.
+     *
+     * Optional on purpose: the battle scene supplies it, while previews and unit tests drive these effects
+     * through a bare context and simply get the undeformed (1:1) behaviour they already expected.
+     */
+    getBoardScale?(): { x: number; y: number } | undefined;
     getUnitsHolder(): UnitsHolder;
     getSelectedUnitProperties(): UnitProperties | undefined;
     updateSelectedUnitProperties(props: UnitProperties): void;
@@ -180,6 +189,34 @@ interface IFireBurnParticle {
 interface IFireBurn {
     container: Container;
     particles: IFireBurnParticle[];
+}
+
+/** A creature on fire after crossing a Fire Wall: embers keep peeling off the moving sprite (see igniteUnit). */
+interface IUnitAblaze {
+    unit: Unit;
+    /** Seconds; negative until the walk animation reaches the first burning cell. */
+    age: number;
+    duration: number;
+    cellSize: number;
+    /** Fractional embers owed by the emission rate; one is born each time it passes 1. */
+    emitDebt: number;
+    emitted: number;
+    /** The scorch wash lands once, the moment the body first touches the flames. */
+    flashed: boolean;
+    container: Container;
+    /** A soft additive halo pinned to the body — what makes it read as ON fire, not merely near sparks. */
+    glow: Sprite;
+    particles: IFireBurnParticle[];
+}
+
+/** A damage number waiting for the moment it belongs to (a burn the walk animation has not reached yet). */
+interface IDelayedFloatingDamage {
+    pos: HoCMath.XY;
+    amount: number;
+    unitsDied: number;
+    remainingSec: number;
+    fill: string;
+    stroke: string;
 }
 
 interface IForgeSpark {
@@ -463,6 +500,24 @@ const RING_SWEEP_S = 0.26; // seconds for the ignition to travel all the way rou
 const RING_FLAME_LIFE = 0.62; // each flame burns a little longer than a plain ember — this is a standing ring
 const RING_RADIUS_CELLS = 0.95; // ring radius in cells; ~1 puts it on the footprint's outer cells
 const RING_SMOKE_COUNT = 10;
+
+// Tuning for a creature crossing a Fire Wall (spawnFireWallCrossing + igniteUnit). Two beats: the sheet of
+// flame a burning cell throws up as the body passes through it — wide and low for a walker wading in,
+// a tall column leaping up under a flyer — and then the flames that cling to the crosser and gutter out
+// as it walks (or flies) on, with soot behind them. Both are scheduled against the move animation, so
+// the fire is on the body when the body is in the fire, not when the engine filed the burn.
+const WALL_CROSS_FLAME_COUNT = 28;
+const WALL_CROSS_SPARK_COUNT = 20;
+const WALL_CROSS_SMOKE_COUNT = 7;
+const WALL_CROSS_RIPPLE_S = 0.28; // the sheet keeps erupting this long — about the time a body takes to cross a cell
+const WALL_CROSS_FLAME_LIFE = 0.78; // seconds a tongue of the sheet burns
+const WALL_CROSS_SPARK_LIFE = 0.9; // seconds a thrown spark flies
+const WALL_CROSS_SMOKE_LIFE = 1.3; // seconds the soot lingers over the crossed cell
+const WALL_CROSS_FLASH_LIFE = 0.3; // the bloom of the sheet catching on the body
+const ABLAZE_EMBERS_PER_SECOND = 44; // how fast embers peel off a burning body at first (they thin out)
+const ABLAZE_EMBER_LIFE = 0.55; // seconds each clinging ember burns
+const ABLAZE_SOOT_EVERY = 5; // one soot puff for this many embers
+const ABLAZE_GLOW_ALPHA = 0.5; // the fire-glow halo on the burning body, before it fades with the burn
 const POISON_PARTICLE_LIFE = 0.95; // seconds each toxic puff lingers (longer than an ember — gas hangs)
 const POISON_RISE = 44; // world px a puff floats up over its life (gas rises further than embers)
 const POISON_TINTS = [0x9be15a, 0x6fd23a, 0x4caf2e, 0xbdf06a]; // toxic lime → poison green
@@ -680,6 +735,17 @@ const easeOutBack = (t: number): number => {
 
 export class CombatVisuals {
     private context: ICombatVisualsContext;
+    /**
+     * Cached vertical stretch that makes a world-space square render square on screen.
+     *
+     * The board camera is deliberately flatter on Y than X, so a spell icon or a flame sprite sized from
+     * one `cellSize` on both axes comes out ~40% wider than tall. Cell POSITIONS and cell-area coverage
+     * keep inheriting that deformation on purpose — the board's own cells are drawn wider than tall — but
+     * the artwork must not, exactly as creature art already refuses it via
+     * `legacyBoardChildScaleCompensation`. Effects are short-lived, so this is resolved once per spawn off
+     * the live parent chain rather than tracked through resizes.
+     */
+    private boardStretchCache = 1;
     private floatingTexts: IFloatingText[] = [];
     private shatterGroups: IShatterGroup[] = [];
     private iceBreaks: IIceBreak[] = [];
@@ -690,6 +756,8 @@ export class CombatVisuals {
     private deathBlowByUnitId = new Map<string, { kind: DeathBlowKind; dir?: HoCMath.XY }>();
     private fireSweeps: IFireSweep[] = [];
     private fireBurns: IFireBurn[] = [];
+    private unitAblazes: IUnitAblaze[] = [];
+    private delayedFloatingDamage: IDelayedFloatingDamage[] = [];
     private poisonClouds: IFireSweep[] = [];
     private healBursts: IHealBurst[] = [];
     private areaImpacts: IAreaImpact[] = [];
@@ -727,6 +795,32 @@ export class CombatVisuals {
     private prewarmed = false;
     public constructor(context: ICombatVisualsContext) {
         this.context = context;
+    }
+    /**
+     * Attach a freshly built effect to the board and resolve the camera's vertical stretch from it.
+     *
+     * Reading the stretch here rather than in every spawn function keeps it to one place and one moment:
+     * the container is already parented, so the whole chain up to the camera is walkable, and `scale` is a
+     * plain property that is current from the instant the board was fitted. The returned number is what a
+     * PICTURE's Y scale must be multiplied by to come out square; positions and cell-area coverage are
+     * deliberately left inheriting the board's own deformation.
+     */
+    private attachEffect(obj: Container, zIndex: number): number {
+        this.context.attachToWorldRoot(obj, zIndex);
+        return this.boardStretch();
+    }
+    /**
+     * Live vertical stretch for effect ARTWORK.
+     *
+     * Asked of the scene rather than measured off an attached object, because most spawn functions size
+     * their icons and sprites while the container is still detached — reading the parent chain would be a
+     * frame (and, for the first effect of a match, a whole camera fit) behind. A context without a board
+     * reports nothing and everything stays 1:1.
+     */
+    private boardStretch(): number {
+        const scale = this.context.getBoardScale?.();
+        this.boardStretchCache = scale ? boardVerticalStretch(scale.x, scale.y) : 1;
+        return this.boardStretchCache;
     }
     private getDamageStyle(fill: string, stroke: string): TextStyle {
         const key = `${fill}|${stroke}`;
@@ -923,10 +1017,10 @@ export class CombatVisuals {
         }
         if (stack > 0 && !flagTopAnchor) driftX += (stack % 2 === 0 ? 1 : -1) * 10 * stack;
 
-        container.scale.set(FT_START_SCALE, -FT_START_SCALE);
+        container.scale.set(glyphScaleX(FT_START_SCALE), -FT_START_SCALE);
         container.alpha = 0;
         container.position.set(startX, startY);
-        this.context.attachToWorldRoot(container, 2000);
+        this.attachEffect(container, 2000);
 
         this.floatingTexts.push({
             container,
@@ -1066,7 +1160,7 @@ export class CombatVisuals {
             const skullSprite = new Sprite(skullTex);
             skullSprite.anchor.set(0.5);
             skullSprite.width = 40;
-            skullSprite.height = 40;
+            skullSprite.height = 40 * this.boardStretch();
 
             const countText = new PixiText({ text: `${unitsDied}`, style: this.getCountStyle() });
             countText.anchor.set(0.5);
@@ -1097,7 +1191,7 @@ export class CombatVisuals {
         const icon = new Sprite(iconTexture);
         icon.anchor.set(0.5);
         icon.width = iconSize;
-        icon.height = iconSize;
+        icon.height = iconSize * this.boardStretch();
 
         const label = new PixiText({
             text: name,
@@ -1114,8 +1208,8 @@ export class CombatVisuals {
         const startY = pos.y + cell * 0.55 + stackIndex * cell * 0.5;
         container.position.set(startX, startY);
         // Counter the world root's Y-up flip so the icon + text render upright (same as floating text).
-        container.scale.set(DP_START_SCALE, -DP_START_SCALE);
-        this.context.attachToWorldRoot(container, DP_Z);
+        container.scale.set(glyphScaleX(DP_START_SCALE), -DP_START_SCALE);
+        this.attachEffect(container, DP_Z);
 
         this.debuffPops.push({ container, age: 0, life: DP_LIFE, startX, startY, riseY: DP_RISE });
     }
@@ -1227,7 +1321,7 @@ export class CombatVisuals {
         payloadGlow.blendMode = "add";
         payloadGlow.tint = presentation.tint;
         payloadGlow.width = cellSize * 1.05;
-        payloadGlow.height = cellSize * 1.05;
+        payloadGlow.height = cellSize * 1.05 * this.boardStretch();
         payload.addChild(payloadGlow);
 
         const iconSize = cellSize * 0.5;
@@ -1235,7 +1329,7 @@ export class CombatVisuals {
             const icon = new Sprite(iconTexture);
             icon.anchor.set(0.5);
             icon.width = iconSize;
-            icon.height = iconSize;
+            icon.height = iconSize * this.boardStretch();
             const frame = new Graphics();
             frame.roundRect(-iconSize * 0.54, -iconSize * 0.54, iconSize * 1.08, iconSize * 1.08, iconSize * 0.14);
             frame.stroke({ width: Math.max(2, cellSize * 0.035), color: presentation.core, alpha: 0.95 });
@@ -1254,14 +1348,14 @@ export class CombatVisuals {
             abilityLabel.scale.set(maxLabelWidth / estimatedLabelWidth);
         }
         payload.addChild(abilityLabel);
-        payload.scale.set(0.45, -0.45);
+        payload.scale.set(glyphScaleX(0.45), -0.45);
         container.addChild(payload);
 
         const labelPosition = presentation.labelAtDestination ? to : from;
         const stolenLabel = new PixiText({ text: presentation.label, style: this.getStolenLabelStyle() });
         stolenLabel.anchor.set(0.5);
         stolenLabel.position.set(labelPosition.x, labelPosition.y + cellSize * 0.62);
-        stolenLabel.scale.set(0.5, -0.5);
+        stolenLabel.scale.set(glyphScaleX(0.5), -0.5);
         stolenLabel.alpha = 0;
         container.addChild(stolenLabel);
 
@@ -1279,7 +1373,7 @@ export class CombatVisuals {
             y: (from.y + to.y) * 0.5 + ny * bend * bendSign,
         };
 
-        this.context.attachToWorldRoot(container, ABILITY_STEAL_Z);
+        this.attachEffect(container, ABILITY_STEAL_Z);
         this.abilitySteals.push({
             container,
             web,
@@ -1402,7 +1496,7 @@ export class CombatVisuals {
             steal.payload.position.set(payloadPoint.x, payloadPoint.y);
             const pop = Math.min(1, steal.age / 0.14);
             const payloadScale = 0.45 + 0.55 * easeOutBack(pop);
-            steal.payload.scale.set(payloadScale, -payloadScale);
+            steal.payload.scale.set(glyphScaleX(payloadScale), -payloadScale);
             steal.payload.alpha = Math.max(0, fade);
             steal.payloadGlow.rotation += dt * 2.8;
             steal.payloadGlow.alpha = 0.72 + Math.sin(steal.age * 28) * 0.2;
@@ -1420,13 +1514,13 @@ export class CombatVisuals {
                 mote.visible = true;
                 mote.position.set(point.x, point.y);
                 mote.width = size;
-                mote.height = size;
+                mote.height = size * this.boardStretch();
                 mote.alpha = fade * strength * 0.52;
             }
 
             const labelPop = Math.min(1, steal.age / 0.12);
             const labelScale = 0.5 + 0.5 * easeOutBack(labelPop);
-            steal.stolenLabel.scale.set(labelScale, -labelScale);
+            steal.stolenLabel.scale.set(glyphScaleX(labelScale), -labelScale);
             steal.stolenLabel.y =
                 steal.labelPosition.y + steal.cellSize * (0.62 + 0.2 * easeOutCubic(steal.age / steal.life));
             steal.stolenLabel.alpha = Math.max(0, Math.min(1, steal.age / 0.07)) * fade;
@@ -1496,7 +1590,7 @@ export class CombatVisuals {
         // without any visible flash, then update() destroys it on the next tick.
         container.position.set(-100000, -100000);
         container.alpha = 0.01;
-        this.context.attachToWorldRoot(container, 2000);
+        this.attachEffect(container, 2000);
         this.floatingTexts.push({
             container,
             age: 0,
@@ -1557,7 +1651,15 @@ export class CombatVisuals {
                 burn.container.destroy({ children: true });
             }
             this.fireBurns.length = 0;
+            // A burn number still waiting for its moment describes a hit that already landed, like the
+            // burns above.
+            this.delayedFloatingDamage.length = 0;
         }
+        // Clinging flames follow a live sprite; a rebuild replaces the sprites, so they never survive one.
+        for (const ablaze of this.unitAblazes) {
+            ablaze.container.destroy({ children: true });
+        }
+        this.unitAblazes.length = 0;
         for (const cloud of this.poisonClouds) {
             cloud.container.destroy({ children: true });
         }
@@ -1657,6 +1759,8 @@ export class CombatVisuals {
             this.dissolveDeaths.length === 0 &&
             this.fireSweeps.length === 0 &&
             this.fireBurns.length === 0 &&
+            this.unitAblazes.length === 0 &&
+            this.delayedFloatingDamage.length === 0 &&
             this.poisonClouds.length === 0 &&
             this.healBursts.length === 0 &&
             this.areaImpacts.length === 0 &&
@@ -1695,7 +1799,7 @@ export class CombatVisuals {
             if (ft.age < FT_POP_DUR) {
                 scale = FT_START_SCALE + (1 - FT_START_SCALE) * easeOutBack(ft.age / FT_POP_DUR);
             }
-            ft.container.scale.set(scale, -scale);
+            ft.container.scale.set(glyphScaleX(scale), -scale);
 
             // Fade in quickly, hold, then fade out smoothly.
             let alpha = 1;
@@ -1726,7 +1830,7 @@ export class CombatVisuals {
                 // Evaporate: the icon + name swell slightly as they dissolve upward and fade out.
                 scale = 1 + 0.2 * ((t - DP_FADE_OUT_FROM) / (1 - DP_FADE_OUT_FROM));
             }
-            dp.container.scale.set(scale, -scale);
+            dp.container.scale.set(glyphScaleX(scale), -scale);
 
             let alpha = 1;
             if (dp.age < DP_FADE_IN) {
@@ -1743,6 +1847,8 @@ export class CombatVisuals {
         this.stepDissolveDeaths(dt);
         this.stepFireSweeps(dt);
         this.stepFireBurns(dt);
+        this.stepUnitAblazes(dt);
+        this.stepDelayedFloatingDamage(dt);
         this.stepPoisonClouds(dt);
         this.stepHealBursts(dt);
         this.stepAreaImpacts(dt);
@@ -1779,7 +1885,7 @@ export class CombatVisuals {
 
         const container = new Container();
         container.visible = true;
-        this.context.attachToWorldRoot(container, 4500);
+        this.attachEffect(container, 4500);
 
         const group: IShatterGroup = { container, shards: [] };
 
@@ -1911,7 +2017,7 @@ export class CombatVisuals {
 
         const container = new Container();
         container.position.set(info.x, info.y);
-        this.context.attachToWorldRoot(container, ICE_BREAK_Z);
+        this.attachEffect(container, ICE_BREAK_Z);
 
         // Preserve the dying unit for a very short crack beat after its live sprite is torn down.
         const body = new Sprite(info.texture);
@@ -2037,7 +2143,7 @@ export class CombatVisuals {
                 iceBreak.crackFlash.visible = burstFlashT < 1;
                 iceBreak.crackFlash.alpha = Math.max(0, (1 - burstFlashT) * 0.62);
                 const flashScale = 1 + Math.min(1, burstFlashT) * 0.18;
-                iceBreak.crackFlash.scale.set(flashScale);
+                iceBreak.crackFlash.scale.set(flashScale, flashScale * this.boardStretchCache);
             }
 
             for (let c = iceBreak.crystals.length - 1; c >= 0; c--) {
@@ -2060,7 +2166,7 @@ export class CombatVisuals {
                 crystal.node.position.set(crystal.x, crystal.y);
                 crystal.node.rotation += crystal.spin * dt;
                 const releaseScale = 0.7 + 0.3 * easeOutCubic(Math.min(1, lifeT / 0.12));
-                crystal.node.scale.set(releaseScale);
+                crystal.node.scale.set(releaseScale, releaseScale * this.boardStretchCache);
                 crystal.node.alpha =
                     lifeT > fadeFrom ? 1 - (lifeT - fadeFrom) / (1 - fadeFrom) : crystal.large ? 0.96 : 0.9;
             }
@@ -2140,7 +2246,7 @@ export class CombatVisuals {
         const worldH = Math.abs(info.scaleY) * frame.height;
 
         const container = new Container();
-        this.context.attachToWorldRoot(container, CLEAVE_Z);
+        this.attachEffect(container, CLEAVE_Z);
         container.position.set(info.x, info.y);
 
         // Shove direction: away from the attacker; sideways at random when the blow's origin is unknown.
@@ -2365,7 +2471,7 @@ export class CombatVisuals {
         const perpY = dx;
 
         const container = new Container();
-        this.context.attachToWorldRoot(container, DISSOLVE_Z);
+        this.attachEffect(container, DISSOLVE_Z);
 
         const COLS = DISSOLVE_COLS;
         const ROWS = DISSOLVE_ROWS;
@@ -2452,7 +2558,7 @@ export class CombatVisuals {
             sprite.anchor.set(0.5);
             sprite.blendMode = "add";
             sprite.tint = DISSOLVE_SPARK_TINT;
-            sprite.scale.set(flashScale * 0.28);
+            sprite.scale.set(flashScale * 0.28, flashScale * 0.28 * this.boardStretchCache);
             container.addChild(sprite);
             const life = 0.2 + Math.random() * 0.15;
             sparkLife = Math.max(sparkLife, life);
@@ -2507,7 +2613,10 @@ export class CombatVisuals {
             // Impact flash: springs open with the hit, then dissipates.
             if (dd.age < DISSOLVE_FLASH_LIFE) {
                 const pop = easeOutCubic(Math.min(1, dd.age / 0.09));
-                dd.flash.scale.set(dd.flashScale * (0.45 + 0.7 * pop));
+                dd.flash.scale.set(
+                    dd.flashScale * (0.45 + 0.7 * pop),
+                    dd.flashScale * (0.45 + 0.7 * pop) * this.boardStretchCache,
+                );
                 dd.flash.alpha = 1 - dd.age / DISSOLVE_FLASH_LIFE;
             } else if (dd.flash.visible) {
                 dd.flash.visible = false;
@@ -2623,7 +2732,7 @@ export class CombatVisuals {
             return;
         }
         const container = new Container();
-        this.context.attachToWorldRoot(container, FIRE_Z);
+        this.attachEffect(container, FIRE_Z);
         const tex = this.getFireTexture();
         const texW = tex.width || 64;
 
@@ -2670,7 +2779,7 @@ export class CombatVisuals {
      */
     public spawnFireBurn(center: HoCMath.XY, cellSize: number, scale = 1): void {
         const container = new Container();
-        this.context.attachToWorldRoot(container, FIRE_Z);
+        this.attachEffect(container, FIRE_Z);
         const tex = this.getFireTexture();
         const texW = tex.width || 64;
         const size = Math.max(1, cellSize * scale);
@@ -2769,7 +2878,7 @@ export class CombatVisuals {
      */
     public spawnFireforgedSwordBurn(center: HoCMath.XY, cellSize: number, dir?: HoCMath.XY): void {
         const container = new Container();
-        this.context.attachToWorldRoot(container, FIRE_Z);
+        this.attachEffect(container, FIRE_Z);
         const tex = this.getFireTexture();
         const texW = tex.width || 64;
         const size = Math.max(1, cellSize);
@@ -2882,7 +2991,7 @@ export class CombatVisuals {
      */
     public spawnFireRing(center: HoCMath.XY, cellSize: number): void {
         const container = new Container();
-        this.context.attachToWorldRoot(container, FIRE_Z);
+        this.attachEffect(container, FIRE_Z);
         const tex = this.getFireTexture();
         const texW = tex.width || 64;
         const size = Math.max(1, cellSize);
@@ -2968,42 +3077,330 @@ export class CombatVisuals {
 
         this.fireBurns.push({ container, particles });
     }
+    /**
+     * A body crossing a Fire Wall cell: the sheet of flame the cell throws up as the body passes through
+     * it. Scheduled, not immediate — the engine reports the burn before the walk is drawn, so `delaySec`
+     * is when the move animation actually reaches this cell (see fireWallCrossingSchedule) and every
+     * particle simply waits that long to be born. A walker wades in: a wide, low burst with the sparks
+     * kicked on along its heading. A flyer passes over: a taller, narrower column leaping up under it,
+     * with the sparks thrown high.
+     */
+    public spawnFireWallCrossing(
+        center: HoCMath.XY,
+        cellSize: number,
+        delaySec: number,
+        flying: boolean,
+        direction: HoCMath.XY,
+    ): void {
+        const container = new Container();
+        this.attachEffect(container, FIRE_Z);
+        const tex = this.getFireTexture();
+        const texW = tex.width || 64;
+        const size = Math.max(1, cellSize);
+        const wait = Math.max(0, delaySec);
+        const particles: IFireBurnParticle[] = [];
+
+        const push = (sprite: Sprite, particle: Omit<IFireBurnParticle, "sprite">): void => {
+            sprite.anchor.set(0.5);
+            sprite.scale.set(0.001);
+            sprite.alpha = 0;
+            sprite.visible = false;
+            container.addChild(sprite);
+            particles.push({ sprite, ...particle });
+        };
+        const spread = flying ? 0.34 : 0.7; // how wide the sheet is, in cells
+        const lift = flying ? 2.3 : 1.15; // how high the flames leap, in cells
+
+        // 1. The sheet catching on the body: one hot bloom, wide and low for a walker, tall for a flyer.
+        const flash = new Sprite(tex);
+        flash.blendMode = "add";
+        flash.tint = 0xfff0c0;
+        push(flash, {
+            age: -wait,
+            life: WALL_CROSS_FLASH_LIFE,
+            x: center.x,
+            y: center.y - size * (flying ? 0.45 : 0.05),
+            riseY: size * (flying ? 0.7 : 0.2),
+            driftX: 0,
+            startScale: (size * 0.9) / texW,
+            endScale: (size * (flying ? 2.0 : 2.6)) / texW,
+            peakAlpha: 0.9,
+            fadeInFraction: 0.1,
+            rot: 0,
+            spin: 0,
+        });
+
+        // 2. Flame tongues, erupting in a ripple from the middle of the cell outwards and kept coming for
+        //    about as long as the body takes to cross, so the sheet burns under it rather than puffing once.
+        for (let i = 0; i < WALL_CROSS_FLAME_COUNT; i++) {
+            const rand = Math.random();
+            const across = (Math.random() - 0.5) * 2; // -1..1 across the cell
+            const sprite = new Sprite(tex);
+            sprite.blendMode = "add";
+            sprite.tint = FIRE_TINTS[Math.floor(Math.random() * FIRE_TINTS.length)];
+            push(sprite, {
+                age: -wait - Math.abs(across) * 0.06 - Math.random() * WALL_CROSS_RIPPLE_S,
+                life: WALL_CROSS_FLAME_LIFE * (0.7 + 0.6 * rand),
+                x: center.x + across * size * spread,
+                y: center.y + size * 0.22 - Math.random() * size * 0.12,
+                riseY: size * lift * (0.55 + 0.6 * rand) * (1 - Math.abs(across) * 0.35),
+                driftX: (Math.random() - 0.5) * size * 0.22 + direction.x * size * (flying ? 0.05 : 0.28),
+                startScale: (size * (0.45 + 0.45 * rand)) / texW,
+                endScale: (size * (0.14 + 0.14 * rand)) / texW,
+                peakAlpha: 1,
+                fadeInFraction: 0.07,
+                rot: Math.random() * Math.PI * 2,
+                spin: (Math.random() - 0.5) * 5,
+            });
+        }
+
+        // 3. Sparks: small, bright and thrown far — on and out for a walker kicking through the embers,
+        //    straight up for a flyer.
+        for (let i = 0; i < WALL_CROSS_SPARK_COUNT; i++) {
+            const rand = Math.random();
+            const angle = Math.random() * Math.PI * 2;
+            const throwX = flying ? Math.cos(angle) * 0.4 : direction.x * (0.6 + rand * 0.7) + Math.cos(angle) * 0.35;
+            const sprite = new Sprite(tex);
+            sprite.blendMode = "add";
+            sprite.tint = rand > 0.5 ? 0xfff2c4 : 0xffc861;
+            push(sprite, {
+                age: -wait - Math.random() * WALL_CROSS_RIPPLE_S,
+                life: WALL_CROSS_SPARK_LIFE * (0.6 + 0.7 * rand),
+                x: center.x + (Math.random() - 0.5) * size * 0.35,
+                y: center.y + size * 0.12,
+                riseY: size * (flying ? 1.6 + rand * 1.4 : 0.7 + rand),
+                driftX: throwX * size,
+                startScale: (size * (0.12 + 0.1 * rand)) / texW,
+                endScale: (size * 0.03) / texW,
+                peakAlpha: 1,
+                fadeInFraction: 0.05,
+                rot: 0,
+                spin: 0,
+            });
+        }
+
+        // 4. Soot, born as the flames gutter, drifting up and lingering over the crossed cell.
+        for (let i = 0; i < WALL_CROSS_SMOKE_COUNT; i++) {
+            const rand = Math.random();
+            const sprite = new Sprite(tex);
+            sprite.tint = BURN_SMOKE_TINTS[i % BURN_SMOKE_TINTS.length];
+            push(sprite, {
+                age: -wait - (0.12 + Math.random() * 0.25),
+                life: WALL_CROSS_SMOKE_LIFE * (0.8 + 0.4 * rand),
+                x: center.x + (Math.random() - 0.5) * size * 0.5,
+                y: center.y + (Math.random() - 0.5) * size * 0.2,
+                riseY: size * (0.8 + 0.5 * rand),
+                driftX: (Math.random() - 0.5) * size * 0.5 + direction.x * size * 0.2,
+                startScale: (size * (0.26 + 0.16 * rand)) / texW,
+                endScale: (size * (0.7 + 0.4 * rand)) / texW,
+                peakAlpha: 0.4,
+                fadeInFraction: 0.25,
+                rot: Math.random() * Math.PI * 2,
+                spin: (Math.random() - 0.5) * 1.6,
+            });
+        }
+
+        this.fireBurns.push({ container, particles });
+    }
+    /**
+     * Flames clinging to a creature that went through fire. From `startDelaySec` (when the walk animation
+     * reaches the first burning cell) embers keep peeling off the body for `durationSec`, thinning out as
+     * they go, with soot behind them. The emitter follows the sprite every frame, so the fire walks (or
+     * flies) on with the unit, and the scorch wash lands the moment the body first touches the flames.
+     */
+    public igniteUnit(unit: Unit, startDelaySec: number, durationSec: number, cellSize: number): void {
+        const container = new Container();
+        this.attachEffect(container, FIRE_Z);
+        const glow = new Sprite(this.getFireTexture());
+        glow.anchor.set(0.5);
+        glow.blendMode = "add";
+        glow.tint = 0xff7a1a;
+        glow.alpha = 0;
+        glow.visible = false;
+        container.addChild(glow);
+        this.unitAblazes.push({
+            unit,
+            age: -Math.max(0, startDelaySec),
+            duration: Math.max(0.2, durationSec),
+            cellSize: Math.max(1, cellSize),
+            emitDebt: 0,
+            emitted: 0,
+            flashed: false,
+            container,
+            glow,
+            particles: [],
+        });
+    }
+    /** A damage number that pops `delaySec` from now — for a burn the walk animation has yet to reach. */
+    public showFloatingDamageDelayed(
+        pos: HoCMath.XY,
+        amount: number,
+        unitsDied: number,
+        delaySec: number,
+        fill: string,
+        stroke: string,
+    ): void {
+        this.delayedFloatingDamage.push({
+            pos: { x: pos.x, y: pos.y },
+            amount,
+            unitsDied,
+            remainingSec: Math.max(0, delaySec),
+            fill,
+            stroke,
+        });
+    }
+    private stepDelayedFloatingDamage(dt: number): void {
+        for (let i = this.delayedFloatingDamage.length - 1; i >= 0; i--) {
+            const pending = this.delayedFloatingDamage[i];
+            pending.remainingSec -= dt;
+            if (pending.remainingSec > 0) {
+                continue;
+            }
+            this.delayedFloatingDamage.splice(i, 1);
+            this.showFloatingDamage(
+                pending.pos,
+                pending.amount,
+                undefined,
+                pending.unitsDied,
+                pending.fill,
+                pending.stroke,
+            );
+        }
+    }
+    private stepUnitAblazes(dt: number): void {
+        const gs = this.context.getGridSettings();
+        for (let i = this.unitAblazes.length - 1; i >= 0; i--) {
+            const ablaze = this.unitAblazes[i];
+            ablaze.age += dt;
+            const alive = !ablaze.unit.isDead();
+            const burning = alive && ablaze.age >= 0 && ablaze.age < ablaze.duration;
+            if (burning) {
+                if (!ablaze.flashed) {
+                    ablaze.flashed = true;
+                    // The holder can carry a plain engine Unit (a hydrated ranked snapshot before its sprite
+                    // exists); only a rendered unit has a body to wash.
+                    if (ablaze.unit instanceof RenderableUnit) {
+                        ablaze.unit.flashScorch();
+                    }
+                }
+                const center =
+                    ablaze.unit instanceof RenderableUnit
+                        ? ablaze.unit.getVisualCenter(gs)
+                        : projectBattlefieldPoint(ablaze.unit.getPosition(), gs);
+                const tex = this.getFireTexture();
+                const texW = tex.width || 64;
+                const size = ablaze.cellSize;
+                // The fire dies down over the burn: most embers early, a last few as it gutters out — and
+                // the halo on the body flickers and fades with it.
+                const progress = ablaze.age / ablaze.duration;
+                const flicker = 0.8 + 0.2 * Math.sin(ablaze.age * 23);
+                ablaze.glow.visible = true;
+                ablaze.glow.position.set(center.x, center.y + size * 0.15);
+                ablaze.glow.scale.set((size * 1.5) / texW, ((size * 1.5) / texW) * this.boardStretchCache);
+                ablaze.glow.alpha = ABLAZE_GLOW_ALPHA * (1 - progress) * flicker;
+                ablaze.emitDebt += dt * ABLAZE_EMBERS_PER_SECOND * (1 - progress * 0.7);
+                if (ablaze.emitDebt >= 1) {
+                    while (ablaze.emitDebt >= 1) {
+                        ablaze.emitDebt -= 1;
+                        ablaze.emitted += 1;
+                        const rand = Math.random();
+                        const soot = ablaze.emitted % ABLAZE_SOOT_EVERY === 0;
+                        const sprite = new Sprite(tex);
+                        sprite.anchor.set(0.5);
+                        sprite.scale.set(0.001);
+                        sprite.alpha = 0;
+                        sprite.visible = false;
+                        if (soot) {
+                            sprite.tint = BURN_SMOKE_TINTS[ablaze.emitted % BURN_SMOKE_TINTS.length];
+                        } else {
+                            sprite.blendMode = "add";
+                            sprite.tint = FIRE_TINTS[Math.floor(Math.random() * FIRE_TINTS.length)];
+                        }
+                        ablaze.container.addChild(sprite);
+                        ablaze.particles.push({
+                            sprite,
+                            age: 0,
+                            life: soot ? BURN_SMOKE_LIFE * 0.8 : ABLAZE_EMBER_LIFE * (0.7 + 0.6 * rand),
+                            // Born low on the body and a little behind it, so the trail reads as flames
+                            // licking off the back of something moving.
+                            x: center.x + (Math.random() - 0.5) * size * 0.65,
+                            y: center.y + (Math.random() - 0.15) * size * 0.6,
+                            riseY: size * (soot ? 0.8 : 0.4 + 0.5 * rand),
+                            driftX: (Math.random() - 0.5) * size * 0.3,
+                            startScale: (size * (soot ? 0.28 : 0.26 + 0.24 * rand)) / texW,
+                            endScale: (size * (soot ? 0.65 : 0.05)) / texW,
+                            peakAlpha: soot ? 0.32 : 0.95,
+                            fadeInFraction: soot ? 0.3 : 0.1,
+                            rot: Math.random() * Math.PI * 2,
+                            spin: (Math.random() - 0.5) * (soot ? 1.5 : 5),
+                        });
+                    }
+                }
+            }
+            const anyPending = this.stepBurnParticles(ablaze.particles, dt);
+            // Spent particles are dropped as we go: the emitter keeps adding, and a walk-long burn would
+            // otherwise tick a growing pile of invisible sprites.
+            for (let j = ablaze.particles.length - 1; j >= 0; j--) {
+                const particle = ablaze.particles[j];
+                if (particle.age >= particle.life) {
+                    particle.sprite.destroy();
+                    ablaze.particles.splice(j, 1);
+                }
+            }
+            if (!burning) {
+                ablaze.glow.visible = false;
+            }
+            const stillBurning = alive && ablaze.age < ablaze.duration;
+            if (!anyPending && !stillBurning) {
+                ablaze.container.destroy({ children: true });
+                this.unitAblazes.splice(i, 1);
+            }
+        }
+    }
     private stepFireBurns(dt: number): void {
         for (let i = this.fireBurns.length - 1; i >= 0; i--) {
             const burn = this.fireBurns[i];
-            let anyPending = false;
-            for (const p of burn.particles) {
-                p.age += dt;
-                if (p.age < 0) {
-                    anyPending = true; // not born yet
-                    continue;
-                }
-                if (p.age >= p.life) {
-                    if (p.sprite.visible) {
-                        p.sprite.visible = false;
-                    }
-                    continue;
-                }
-                anyPending = true;
-                const t = p.age / p.life;
-                const e = easeOutCubic(t);
-                p.sprite.visible = true;
-                p.sprite.position.set(p.x + p.driftX * e, p.y + p.riseY * e);
-                const scale = p.startScale + (p.endScale - p.startScale) * e;
-                p.sprite.scale.set(scale, scale);
-                p.rot += p.spin * dt;
-                p.sprite.rotation = p.rot;
-                const alpha =
-                    t < p.fadeInFraction
-                        ? (t / p.fadeInFraction) * p.peakAlpha
-                        : p.peakAlpha * (1 - (t - p.fadeInFraction) / (1 - p.fadeInFraction));
-                p.sprite.alpha = Math.max(0, Math.min(1, alpha));
-            }
-            if (!anyPending) {
+            if (!this.stepBurnParticles(burn.particles, dt)) {
                 burn.container.destroy({ children: true });
                 this.fireBurns.splice(i, 1);
             }
         }
+    }
+    /**
+     * Advance one fire burst's particles; true while any is still unborn or alive. Shared by every effect
+     * built on the ember/soot particle shape (fire bursts, the Fire Wall crossing sheet, clinging flames).
+     */
+    private stepBurnParticles(particles: IFireBurnParticle[], dt: number): boolean {
+        let anyPending = false;
+        for (const p of particles) {
+            p.age += dt;
+            if (p.age < 0) {
+                anyPending = true; // not born yet
+                continue;
+            }
+            if (p.age >= p.life) {
+                if (p.sprite.visible) {
+                    p.sprite.visible = false;
+                }
+                continue;
+            }
+            anyPending = true;
+            const t = p.age / p.life;
+            const e = easeOutCubic(t);
+            p.sprite.visible = true;
+            p.sprite.position.set(p.x + p.driftX * e, p.y + p.riseY * e);
+            const scale = p.startScale + (p.endScale - p.startScale) * e;
+            // Square on screen, not square in world units — see attachEffect.
+            p.sprite.scale.set(scale, scale * this.boardStretchCache);
+            p.rot += p.spin * dt;
+            p.sprite.rotation = p.rot;
+            const alpha =
+                t < p.fadeInFraction
+                    ? (t / p.fadeInFraction) * p.peakAlpha
+                    : p.peakAlpha * (1 - (t - p.fadeInFraction) / (1 - p.fadeInFraction));
+            p.sprite.alpha = Math.max(0, Math.min(1, alpha));
+        }
+        return anyPending;
     }
     private stepFireSweeps(dt: number): void {
         for (let i = this.fireSweeps.length - 1; i >= 0; i--) {
@@ -3030,7 +3427,7 @@ export class CombatVisuals {
                 // shrink as it burns out.
                 const scale =
                     t < 0.1 ? p.baseScale * (0.45 + 0.55 * (t / 0.1)) : p.baseScale * (1 - 0.55 * ((t - 0.1) / 0.9));
-                p.sprite.scale.set(scale, scale);
+                p.sprite.scale.set(scale, scale * this.boardStretchCache);
                 p.rot += p.spin * dt;
                 p.sprite.rotation = p.rot;
                 // Near-instant flare in, smooth fade out.
@@ -3078,7 +3475,7 @@ export class CombatVisuals {
      */
     public spawnPoisonCloud(center: HoCMath.XY, cellSize: number): void {
         const container = new Container();
-        this.context.attachToWorldRoot(container, FIRE_Z);
+        this.attachEffect(container, FIRE_Z);
         const tex = this.getPoisonTexture();
         const texW = tex.width || 64;
         const particles: IFireParticle[] = [];
@@ -3131,7 +3528,7 @@ export class CombatVisuals {
                 p.sprite.position.set(p.x + p.driftX * e, p.y + p.riseY * e);
                 // Toxic gas SWELLS as it rises (embers shrink; poison billows out).
                 const scale = p.baseScale * (0.5 + 1.15 * e);
-                p.sprite.scale.set(scale, scale);
+                p.sprite.scale.set(scale, scale * this.boardStretchCache);
                 p.rot += p.spin * dt;
                 p.sprite.rotation = p.rot;
                 const alpha = t < 0.12 ? t / 0.12 : 1 - (t - 0.12) / 0.88;
@@ -3190,9 +3587,9 @@ export class CombatVisuals {
         const container = new Container();
         // worldRoot is y-up. Counter-flip the forge art so both source images stay upright, then use ordinary
         // screen-style local coordinates (positive y is down) to keep the anvil below the swinging hammer.
-        container.scale.set(1, -1);
+        container.scale.set(glyphScaleX(1), -1);
         container.position.set(center.x, center.y);
-        this.context.attachToWorldRoot(container, CRAFT_Z);
+        this.attachEffect(container, CRAFT_Z);
 
         const [anvilTex, hammerTex] = textures;
 
@@ -3202,7 +3599,7 @@ export class CombatVisuals {
         const anvilW = cellSize * 1.4;
         const anvilH = anvilW * ((anvilTex.height || 1) / (anvilTex.width || 1));
         anvil.width = anvilW;
-        anvil.height = anvilH;
+        anvil.height = anvilH * this.boardStretch();
         const anvilBaseY = cellSize * 0.34;
         anvil.position.set(0, anvilBaseY);
         const anvilTopY = anvilBaseY - anvilH * 0.23; // 0.5 - 0.27 content-top fraction
@@ -3213,7 +3610,7 @@ export class CombatVisuals {
         hammer.anchor.set(0.5, 0.94);
         const hammerH = cellSize * 1.15;
         hammer.width = hammerH * ((hammerTex.width || 1) / (hammerTex.height || 1));
-        hammer.height = hammerH;
+        hammer.height = hammerH * this.boardStretch();
         const contactX = cellSize * 0.02;
         const contactY = anvilTopY + cellSize * 0.025;
         const strikeOffsetX = (0.23 - hammer.anchor.x) * hammer.width;
@@ -3351,9 +3748,9 @@ export class CombatVisuals {
     ): number {
         const container = new Container();
         // worldRoot is y-up; counter-flip so local coords are screen-style (y down) and the icon/text stay upright.
-        container.scale.set(1, -1);
+        container.scale.set(glyphScaleX(1), -1);
         container.position.set(center.x, center.y);
-        this.context.attachToWorldRoot(container, ENCHANT_Z);
+        this.attachEffect(container, ENCHANT_Z);
 
         const ring = new Graphics();
         container.addChild(ring);
@@ -3466,7 +3863,7 @@ export class CombatVisuals {
                     const a = m.ang + e.age * 5;
                     m.gfx.position.set(Math.cos(a) * r, Math.sin(a) * r);
                     m.gfx.alpha = gp;
-                    m.gfx.scale.set(0.5 + gp);
+                    m.gfx.scale.set(0.5 + gp, (0.5 + gp) * this.boardStretchCache);
                 }
             } else {
                 const rp = (e.age - ENCHANT_GATHER) / (ENCHANT_LIFE - ENCHANT_GATHER); // 0..1
@@ -3481,7 +3878,10 @@ export class CombatVisuals {
                     const rr = e.cellSize * (0.42 + easeOutCubic(rp));
                     e.ring.circle(0, 0, rr).stroke({ width: 3 * (1 - rp), color: e.tint, alpha: (1 - rp) * 0.8 });
                     const pop = Math.min(1, rp / 0.28);
-                    e.icon.scale.set(e.iconBaseScale * (0.5 + 0.5 * easeOutBack(pop)));
+                    e.icon.scale.set(
+                        e.iconBaseScale * (0.5 + 0.5 * easeOutBack(pop)),
+                        e.iconBaseScale * (0.5 + 0.5 * easeOutBack(pop)) * this.boardStretchCache,
+                    );
                     e.icon.position.y = -e.cellSize * (0.55 + 0.35 * easeOutCubic(rp));
                     e.icon.alpha = rp < 0.7 ? pop : Math.max(0, 1 - (rp - 0.7) / 0.3);
                     e.label.position.y = e.icon.position.y + e.cellSize * 0.5;
@@ -3494,7 +3894,10 @@ export class CombatVisuals {
                     // Show the (desaturated) rune rising before the "Failed" text, mirroring the success layout,
                     // so a failed cast still reads as a rune attempt rather than a bare label.
                     const fade = rp < 0.65 ? pop : Math.max(0, 1 - (rp - 0.65) / 0.35);
-                    e.icon.scale.set(e.iconBaseScale * (0.5 + 0.5 * easeOutBack(pop)));
+                    e.icon.scale.set(
+                        e.iconBaseScale * (0.5 + 0.5 * easeOutBack(pop)),
+                        e.iconBaseScale * (0.5 + 0.5 * easeOutBack(pop)) * this.boardStretchCache,
+                    );
                     e.icon.position.y = -e.cellSize * (0.55 + 0.3 * easeOutCubic(rp));
                     e.icon.alpha = fade * 0.9;
                     e.label.position.y = e.icon.position.y + e.cellSize * 0.5;
@@ -3530,7 +3933,7 @@ export class CombatVisuals {
             return;
         }
         const container = new Container();
-        this.context.attachToWorldRoot(container, CHAIN_Z);
+        this.attachEffect(container, CHAIN_Z);
         const bolts: IChainBolt[] = [];
         for (let i = 0; i < points.length - 1; i++) {
             const gfx = new Graphics();
@@ -3588,7 +3991,7 @@ export class CombatVisuals {
      */
     public spawnLightningStrike(target: HoCMath.XY, cellSize: number): void {
         const container = new Container();
-        this.context.attachToWorldRoot(container, STRIKE_Z);
+        this.attachEffect(container, STRIKE_Z);
         const flash = new Graphics();
         const bolt = new Graphics();
         const burst = new Graphics();
@@ -3779,7 +4182,7 @@ export class CombatVisuals {
      */
     public spawnMagicMirrorRebound(from: HoCMath.XY, to: HoCMath.XY, cellSize: number): void {
         const container = new Container();
-        this.context.attachToWorldRoot(container, MIRROR_Z);
+        this.attachEffect(container, MIRROR_Z);
         const pane = new Graphics();
         pane.blendMode = "add";
         const beam = new Graphics();
@@ -3887,7 +4290,7 @@ export class CombatVisuals {
             return;
         }
         const container = new Container();
-        this.context.attachToWorldRoot(container, WINDSPEAR_Z);
+        this.attachEffect(container, WINDSPEAR_Z);
         const tex = this.getLightTexture();
         const mkOrb = (): Sprite => {
             const s = new Sprite(tex);
@@ -3966,7 +4369,7 @@ export class CombatVisuals {
             const headPos = this.pointAlong(spear, leadDist);
             spear.head.visible = true;
             spear.head.position.set(headPos.x, headPos.y);
-            spear.head.scale.set(headSize / texW);
+            spear.head.scale.set(headSize / texW, (headSize / texW) * this.boardStretch());
             spear.head.alpha = groupAlpha;
 
             // Each trail orb sits a little further back along the line, shrinking and dimming — a soft
@@ -3983,7 +4386,10 @@ export class CombatVisuals {
                 const pos = this.pointAlong(spear, d);
                 orb.visible = true;
                 orb.position.set(pos.x, pos.y);
-                orb.scale.set((headSize * (0.45 + 0.5 * k)) / texW);
+                orb.scale.set(
+                    (headSize * (0.45 + 0.5 * k)) / texW,
+                    ((headSize * (0.45 + 0.5 * k)) / texW) * this.boardStretch(),
+                );
                 orb.alpha = groupAlpha * 0.55 * k;
             }
         }
@@ -3996,7 +4402,7 @@ export class CombatVisuals {
      */
     public spawnSlash(center: HoCMath.XY, cellSize: number, _dir?: HoCMath.XY): void {
         const container = new Container();
-        this.context.attachToWorldRoot(container, SLASH_Z);
+        this.attachEffect(container, SLASH_Z);
         const gfx = new Graphics();
         gfx.visible = false; // normal blend — blood, not glow
         container.addChild(gfx);
@@ -4113,7 +4519,7 @@ export class CombatVisuals {
         const baseAng = dirLen > 0.001 ? Math.atan2(dir!.y, dir!.x) : Math.PI / 2;
 
         const container = new Container();
-        this.context.attachToWorldRoot(container, BLOOD_SPRAY_Z);
+        this.attachEffect(container, BLOOD_SPRAY_Z);
         const gfx = new Graphics();
         container.addChild(gfx);
 
@@ -4191,7 +4597,7 @@ export class CombatVisuals {
         const spanScale = 0.85 + 0.12 * level; // a deeper wound rakes bigger
 
         const container = new Container();
-        this.context.attachToWorldRoot(container, CLAW_Z);
+        this.attachEffect(container, CLAW_Z);
         const gfx = new Graphics();
         container.addChild(gfx);
 
@@ -4297,7 +4703,7 @@ export class CombatVisuals {
             const skullSprite = new Sprite(skullTex);
             skullSprite.anchor.set(0.5);
             skullSprite.width = 40;
-            skullSprite.height = 40;
+            skullSprite.height = 40 * this.boardStretch();
 
             const countStyle = this.getCountStyle();
             const countText = new PixiText({ text: `${unitsDied}`, style: countStyle });
@@ -4343,7 +4749,7 @@ export class CombatVisuals {
      */
     private spawnHealBurst(pos: HoCMath.XY): void {
         const graphics = new Graphics();
-        this.context.attachToWorldRoot(graphics, HEAL_BURST_Z);
+        this.attachEffect(graphics, HEAL_BURST_Z);
         this.healBursts.push({
             graphics,
             pos: { x: pos.x, y: pos.y },
@@ -4366,7 +4772,7 @@ export class CombatVisuals {
      */
     public spawnResurrectionBurst(pos: HoCMath.XY, cellSize: number): void {
         const graphics = new Graphics();
-        this.context.attachToWorldRoot(graphics, RESURRECT_BURST_Z);
+        this.attachEffect(graphics, RESURRECT_BURST_Z);
         this.resurrectBursts.push({
             graphics,
             pos: { x: pos.x, y: pos.y },
@@ -4446,7 +4852,7 @@ export class CombatVisuals {
      */
     public spawnAreaImpact(pos: HoCMath.XY, cellSize: number, radius = cellSize * 1.6): void {
         const graphics = new Graphics();
-        this.context.attachToWorldRoot(graphics, AREA_IMPACT_Z);
+        this.attachEffect(graphics, AREA_IMPACT_Z);
         this.areaImpacts.push({
             graphics,
             pos: { x: pos.x, y: pos.y },

@@ -5,17 +5,23 @@
     "type": "module",
     "scripts": {
         "astro": "astro",
-        "build": "bun run test && astro build",
-        "build:test": "bun run test && astro build --mode test",
+        "build": "bun run test && astro build && bun run build:knowledge",
+        "build:knowledge": "bun scripts/build_knowledge_graph.ts",
+        "build:test": "bun run test && astro build --mode test && bun run build:knowledge",
+        "check:art": "bun scripts/sync_catalog_icons.ts --check",
         "dev": "astro dev",
         "preview": "astro preview",
-        "test": "bun test src/lib",
+        "sync:art": "bun run sync:portraits && bun run sync:icons",
+        "sync:icons": "bun scripts/sync_catalog_icons.ts",
+        "sync:portraits": "bun scripts/sync_portrait_art.ts",
+        "test": "bun run check:art && bun test src/lib",
         "test:assets": "bun test src/lib/catalog-assets.test.ts"
     },
     "dependencies": {
         "@astrojs/sitemap": "^3.7.1",
         "@heroesofcrypto/common": "workspace:*",
         "astro": "^7.0.7",
+        "katex": "^0.16.25",
         "mermaid": "^11.15.0"
     },
     "engines": {

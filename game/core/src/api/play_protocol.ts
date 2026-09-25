@@ -288,6 +288,9 @@ export interface PlaySnapshot {
     transientCellsCount?: number;
     /** Server-authoritative cumulative multiplier applied to morale when deriving movement steps. */
     stepsMoraleMultiplier?: number;
+    /** What "Use additional time" would add to the running turn right now, in ms (wire field 74, 1-based);
+     * 0 = the server would refuse it. Undefined from an older server. */
+    additionalTimeMs?: number;
     upNext: string[];
     damageStats: PlayDamageStatistic[];
     /** Each team's army totals captured at fight start (units + cumulative HP), so the fight-results
@@ -1006,6 +1009,9 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
             snapshot.afkMissedTurnsLimit = reader.varintNumber();
         } else if (field === 73) {
             snapshot.exit = decodeExitResolution(reader.bytesValue());
+        } else if (field === 74) {
+            // 1-based on the wire so "refused" (1) survives proto3's zero-default; absent = older server.
+            snapshot.additionalTimeMs = Math.max(0, reader.varintNumber() - 1);
         } else {
             reader.skip(wireType);
         }

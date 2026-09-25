@@ -20,6 +20,8 @@ import { GridVals, HoCConstants, Doctrine, TeamType, TeamVals } from "@heroesofc
 import { Box, Stack } from "@mui/joy";
 import CssBaseline from "@mui/joy/CssBaseline";
 import { CssVarsProvider } from "@mui/joy/styles";
+
+import { hocJoyTheme } from "./hocTheme";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { PixiGameManager, PixiManagerContext } from "../pixi/PixiGameManager";
@@ -122,7 +124,7 @@ export const AugmentStepPreview: React.FC = () => {
 
     return (
         <PixiManagerContext.Provider value={PREVIEW_MANAGER}>
-            <CssVarsProvider>
+            <CssVarsProvider theme={hocJoyTheme}>
                 <CssBaseline />
                 <Box sx={draftShellSx}>
                     <PickLanternFire slot={0} />

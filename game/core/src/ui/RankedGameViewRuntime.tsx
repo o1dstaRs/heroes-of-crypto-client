@@ -110,6 +110,7 @@ import { CreaturePortraitImage } from "./CreaturePortraitImage";
 import { UNIT_ID_TO_NAME } from "./unit_ui_constants";
 import { ButtonProvider } from "./context/ButtonContext";
 import { GameCornerExitButton, GameCornerSlot } from "./GameCornerExit";
+import { useBoardMirrored } from "./useBoardMirrored";
 import { startVisibleInterval } from "./visibleInterval";
 import { eventStreamRetryDelayMs } from "./eventStreamRetry";
 import { dragObserverPanelOffset, type PanelOffset } from "./observerPanelDrag";
@@ -132,6 +133,7 @@ import {
     hocDangerAlertSx,
     hocDisplayFontFamily,
     hocDisplayLetterSpacing,
+    hocJoyTheme,
     hocPanelSx,
     hocPrimaryButtonSx,
     hocSidebarImageButtonSx,
@@ -1402,6 +1404,10 @@ export const RankedGameView: React.FC<Props> = ({
                 const sandboxReplay = createSandboxReplayFromRankedReplay(replay, {
                     snapshotToState: (playSnapshot) =>
                         authoritativeSnapshotToSandboxSceneState(toSceneSnapshot(playSnapshot)),
+                    // The whole snapshot rides along too: the board comes from the scene state above, but
+                    // the combat log, the stats graph, the turn clock and the journal-driven VFX are fed
+                    // from fields a scene state does not carry.
+                    snapshotToAuthoritative: (playSnapshot) => toSceneSnapshot(playSnapshot),
                 });
 
                 setStatus("Replaying");
@@ -1781,6 +1787,8 @@ export const RankedGameView: React.FC<Props> = ({
         }
         navigate("/");
     }, [isObserver, navigate, submitProtocolAction]);
+    // The scene mirrors the board when this player wants their army on the other side; the strip follows it.
+    const boardMirrored = useBoardMirrored();
 
     useEffect(() => {
         if (
@@ -2005,7 +2013,7 @@ export const RankedGameView: React.FC<Props> = ({
                     backgroundColor: "#07090d",
                 }}
             >
-                <CssVarsProvider>
+                <CssVarsProvider theme={hocJoyTheme}>
                     <CssBaseline />
                     {!pixiReady && <LoadingFullscreenToggle />}
                     {/* The gold rule closing the gap between the board and each bar. It was mounted only in
@@ -2066,6 +2074,7 @@ export const RankedGameView: React.FC<Props> = ({
                             status={sandboxCoop ? coopMatchupStatus : undefined}
                             windowSize={windowSize}
                             viewerTeam={viewerTeam}
+                            mirrored={boardMirrored}
                             action={
                                 sandboxCoop && !gameStarted && !isObserver && !sandboxClosedEarly ? (
                                     <Button

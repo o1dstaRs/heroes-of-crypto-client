@@ -247,9 +247,24 @@ describe("hasOffGridSubmitCell", () => {
         ).toBe(true);
     });
 
-    test("every other action's targetCell is bounds-checked", () => {
-        expect(hasOffGridSubmitCell({ type: PlayActionType.RANGE_ATTACK, targetCell: { x: -320, y: 960 } })).toBe(true);
-        expect(hasOffGridSubmitCell({ type: PlayActionType.RANGE_ATTACK, targetCell: { x: 3, y: 15 } })).toBe(false);
+    test("a shot at a chosen stack is bounds-checked: its targetCell is the aim cell on the grid", () => {
+        const targeted = { type: PlayActionType.RANGE_ATTACK, targetUnitId: "target-1" };
+        expect(hasOffGridSubmitCell({ ...targeted, targetCell: { x: -320, y: 960 } })).toBe(true);
+        expect(hasOffGridSubmitCell({ ...targeted, targetCell: { x: 3, y: 15 } })).toBe(false);
+    });
+
+    test("a free-aimed Through Shot's targetCell is exempt — it carries the Tsar Cannon's world aim point", () => {
+        // A ranked cannon click aimed through the Hydra and the Valkyrie: no target stack, the world point rides
+        // targetCell. Bounds-checking it dropped every free-aimed shot before it was sent — the line was drawn,
+        // the click did nothing, and the server never saw a request.
+        const freeAim = {
+            type: PlayActionType.RANGE_ATTACK,
+            targetCell: { x: -514.1474726208248, y: 1013.3117908038705 },
+        };
+        expect(hasOffGridSubmitCell(freeAim)).toBe(false);
+        expect(hasOffGridSubmitCell({ ...freeAim, targetUnitId: "" })).toBe(false);
+        // Its real grid fields are still validated.
+        expect(hasOffGridSubmitCell({ ...freeAim, attackFrom: { x: 16, y: 2 } })).toBe(true);
     });
 
     test("in-bounds cells across all fields pass", () => {

@@ -392,6 +392,7 @@ export const toAuthoritativeGameSnapshot = (
     transientCells: snapshot.transientCells,
     transientCellsCount: snapshot.transientCellsCount,
     stepsMoraleMultiplier: snapshot.stepsMoraleMultiplier,
+    additionalTimeMs: snapshot.additionalTimeMs,
     units: snapshot.units,
     upNext: snapshot.upNext,
     leftStartUnits: snapshot.leftStartUnits,

@@ -20,6 +20,7 @@ import { RankedLockPanel } from "./exitRules/RankedLockPanel";
 import { RankedRulesCard } from "./exitRules/RankedRulesCard";
 import { markVsAiGame } from "../utils/aiOpponent";
 import { getPreGameDoctrine, setPreGameDoctrine } from "../utils/preGameDoctrine";
+import { FULLSCREEN_CORNER_CLEARANCE, FullscreenCorner } from "./GameSystemControls";
 import { ArenaChatPanel } from "./ArenaChatPanel";
 import {
     clearMatchReadyAlert,
@@ -206,6 +207,9 @@ const PracticeVsAiButton: React.FC<{ loading: boolean; onClick: () => void }> = 
         </Tooltip>
     );
 };
+
+/** How far the room's label steps right to clear the fullscreen button pinned in the corner beneath it. */
+const ARENA_CHAT_HEADER_INSET = FULLSCREEN_CORNER_CLEARANCE;
 
 export const MatchmakingRoute: React.FC = () => {
     const navigate = useNavigate();
@@ -1039,6 +1043,11 @@ export const MatchmakingRoute: React.FC = () => {
                     width: profileSummaryOpen ? "min(1480px, calc(100% - 32px))" : "min(1040px, calc(100% - 32px))",
                     mx: "auto",
                     py: { xs: 2, md: 3 },
+                    // Clearance for the fixed fullscreen button in the bottom-left corner: without it the
+                    // page's last row (the arena chat header) comes to rest underneath the button and the
+                    // two overlap. The arena scrolls, unlike the pick and fight screens this control comes
+                    // from, so the corner has to be kept clear rather than assumed empty.
+                    pb: { xs: 8, md: 9 },
                     display: "grid",
                     gridTemplateColumns: {
                         xs: "minmax(0, 1fr)",
@@ -1889,10 +1898,18 @@ export const MatchmakingRoute: React.FC = () => {
                     press Find reads as a bug (it once did, via a state gate that hid it mid-search). */}
                 {!needsActivation ? (
                     <Box sx={{ gridColumn: "1 / -1", minWidth: 0 }}>
-                        <ArenaChatPanel selfUsername={user?.username} />
+                        {/* The room reaches the screen's left edge whenever the stats sidebar widens the
+                            page, which is exactly where the fullscreen button sits. Step the label clear of
+                            it rather than moving either one: the button belongs in that corner and the room
+                            belongs at full width. */}
+                        <ArenaChatPanel selfUsername={user?.username} headerStartInset={ARENA_CHAT_HEADER_INSET} />
                     </Box>
                 ) : null}
             </Box>
+            {/* Same button, same corner, same insets as the pick and fight screens — a player who went
+                fullscreen for a match should not have to leave the arena to get back out of it, or hunt
+                for the control in a different place. The social dock owns the opposite corner here. */}
+            <FullscreenCorner />
         </Box>
     );
 };

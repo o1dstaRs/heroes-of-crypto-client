@@ -426,7 +426,7 @@ export class PixiRenderableSpell extends Spell {
                     kind: "buff",
                     label: "Bonus fire damage",
                     value: `${bonus}% of hit`,
-                    detail: "Added to every attack",
+                    detail: "Melee, ranged and area",
                 },
             };
         }

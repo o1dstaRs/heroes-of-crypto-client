@@ -51,6 +51,7 @@ import { PixiDrawer } from "./PixiDrawer";
 import { SimplePhysicsManager } from "./SimplePhysicsManager";
 import { PreloadedPixiTextures } from "./PixiTextureLoader";
 import { boardFitHeight, boardFitWidth } from "./boardFit";
+import { releaseBoardMirror } from "./boardMirror";
 import {
     isLazyBattlefieldCreatureAssetKey,
     isLazyAbilityAssetKey,
@@ -970,6 +971,9 @@ export abstract class PixiScene {
         // interaction blocker under this app-owned container; LoadGame reuses the app, so leaving its
         // children attached retained the complete prior spellbook after every New Battle.
         destroyContainerChildren(this.pixiApp.getUIContainer());
+        // The board root survives scene replacement too. A fight that mirrored it for its seated player
+        // hands it back unmirrored, so the next scene (the sandbox, say) starts with the true sides.
+        releaseBoardMirror(this);
         if (this.drawer) this.drawer.destroy();
     }
     // ------- Delegates from Manager -------

@@ -172,6 +172,9 @@ export interface AuthoritativeGameSnapshot {
     transientCellsCount?: number;
     /** Cumulative server movement penalty used with unit morale when calculating effective initiative. */
     stepsMoraleMultiplier?: number;
+    /** What "Use additional time" would add to the running turn right now, in ms; 0 = the server would refuse
+     * it (already used this lap, or no budget left). Undefined from an older server, which never sent it. */
+    additionalTimeMs?: number;
     units: AuthoritativeUnitState[];
     upNext?: string[];
     damageStats?: IDamageStatistic[];

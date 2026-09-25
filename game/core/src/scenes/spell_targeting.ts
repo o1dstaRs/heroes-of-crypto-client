@@ -1,4 +1,4 @@
-import { GridMath, SpellHelper, type Grid, type HoCMath } from "@heroesofcrypto/common";
+import { GridMath, SpellHelper, type Grid, type HoCMath, type Unit } from "@heroesofcrypto/common";
 
 type ClientSpellSightGrid = Pick<Grid, "getOccupantUnitId" | "getSettings">;
 
@@ -13,6 +13,20 @@ export const alliesAreTransparent =
     (units: ReadonlyMap<string, { getTeam: () => number }>, casterTeam: number): TransparencyPredicate =>
     (unitId: string) =>
         units.get(unitId)?.getTeam() === casterTeam;
+
+/**
+ * The transparency a given throw gets: the intercepted throws (Fire Strike, Fireball) arc over the caster's
+ * own troops; Vine Throw and Ring of Fire are stopped by ANY body, friend or foe. One rule for the aim
+ * preview, the local AI and the model opponent, read off the same classification the engine uses — a surface
+ * that spelled the list out by hand refused Fireball behind a friendly front line the server would have
+ * thrown over (owner report 2026-09-20).
+ */
+export const throwTransparencyFor = (
+    spellName: string,
+    units: ReadonlyMap<string, { getTeam: () => number }>,
+    casterTeam: number,
+): TransparencyPredicate | undefined =>
+    SpellHelper.isInterceptedThrownSpell(spellName) ? alliesAreTransparent(units, casterTeam) : undefined;
 
 /**
  * Client-side target reachability for unit-targeted spells.
@@ -131,4 +145,45 @@ export const targetedSpellBlockerCell = (
         to,
         isTransparentUnit,
     )?.cell;
+};
+
+/**
+ * The enemies a position swap (Castling) may exchange bodies with, as their ANCHOR cells — the list the
+ * engine's canCastSpell is re-validated against, so it has to answer exactly what the engine would
+ * (common's `getEnemiesCellsWithinMovementRange` is the same rule on the other side of the wire).
+ *
+ * Two conditions, both about the anchor. The enemy's footprint must match the caster's, because the swap
+ * exchanges anchors and only identical shapes land each body on the cells the other vacated; and the
+ * enemy's own anchor must be a cell this body could stand on, not merely one it could touch. Neither
+ * distinction is visible at 1x1 — a single-cell unit's only cell IS its anchor — but both decide the
+ * multi-cell case a stolen Castling opens up: a 2x2 Arachna Queen swaps with a 2x2, a 2x1 mount with a
+ * 2x1, and a 2x1 that can reach a 2x1 enemy's far cell but not its anchor cannot swap with it at all.
+ */
+export const swapTargetCellsWithinMovementRange = (
+    caster: Unit,
+    moveCells: HoCMath.XY[],
+    occupantAt: (cell: HoCMath.XY) => Unit | undefined,
+): HoCMath.XY[] => {
+    const cells: HoCMath.XY[] = [];
+    const seen = new Set<string>();
+    for (const cell of moveCells) {
+        const enemy = occupantAt(cell);
+        if (!enemy || enemy.isDead() || enemy.getTeam() === caster.getTeam()) {
+            continue;
+        }
+        const anchor = enemy.getBaseCell();
+        if (anchor.x !== cell.x || anchor.y !== cell.y) {
+            continue;
+        }
+        if (!SpellHelper.hasSwappableFootprint(caster, enemy)) {
+            continue;
+        }
+        const key = `${anchor.x},${anchor.y}`;
+        if (seen.has(key)) {
+            continue;
+        }
+        seen.add(key);
+        cells.push(anchor);
+    }
+    return cells;
 };

@@ -2,11 +2,12 @@
 // Side-effect import: patches PIXI's renderer to use eval-free polyfills for shader/UBO
 // codegen, so it works under a CSP without 'unsafe-eval'. MUST run before Application.init().
 import "pixi.js/unsafe-eval";
-import { Application, Container, Ticker } from "pixi.js";
-import { releaseIdlePixiTextures } from "./releaseIdlePixiTextures";
+import { Application, Container, TexturePool, Ticker, UPDATE_PRIORITY } from "pixi.js";
 
 import { boardFitVerticalShift } from "./boardFit";
+import { isBoardMirrored, subscribeBoardMirror } from "./boardMirror";
 import { renderResolutionForViewport, renderTexturePoolBucket, shouldUseRenderAntialias } from "./renderResolution";
+import { releaseIdlePooledTextures } from "./texturePoolRelease";
 import { ensureCanvasContextUsable, recordContextAboutToBeLost } from "./webglContextGuard";
 import { MAX_FPS } from "../statics";
 
@@ -14,6 +15,11 @@ export class PixiApp {
     private app!: Application;
     private stage!: Container;
     private ticker!: Ticker;
+    // The painted battlefield as one piece: the floor's screen-space layers and the camera over them. It is
+    // what gets mirrored when a player sees their army on the other side (boardMirror.ts); the screen-space
+    // UI and the unit roster stay outside it and never turn around.
+    private boardRoot!: Container;
+    private unsubscribeBoardMirror?: () => void;
     private camera!: Container; // pans/zooms
     private worldRoot!: Container; // Y-up (scaleY = -1)
     private cursorOverlayRoot!: Container; // Y-up, always rendered after the battlefield
@@ -53,6 +59,10 @@ export class PixiApp {
             background: 0x000000,
         });
         this.renderTexturePoolBucket = renderTexturePoolBucket(width, height, DPR);
+        // Dev-only handle for headless probes (walk the stage after a render error); never set in builds.
+        if (import.meta.env.DEV) {
+            (globalThis as { __hocPixiApp?: Application }).__hocPixiApp = this.app;
+        }
 
         // --- World containers ---
         this.camera = new Container(); // we pan/zoom this one
@@ -82,15 +92,49 @@ export class PixiApp {
         // large zIndex inside worldRoot is still part of the world's depth sort and can be obscured by
         // later composite layers; sibling order makes the foreground guarantee structural.
         this.camera.addChild(this.worldRoot, this.cursorOverlayRoot);
-        this.stage.addChild(this.camera, this.uiContainer);
+        this.boardRoot = new Container();
+        // The floor painting and its lights sit below the camera by zIndex (DungeonVisuals).
+        this.boardRoot.sortableChildren = true;
+        this.boardRoot.addChild(this.camera);
+        this.stage.addChild(this.boardRoot, this.uiContainer);
+        this.unsubscribeBoardMirror = subscribeBoardMirror(() => this.applyBoardMirror());
+        this.applyBoardMirror();
 
         this.ticker = this.app.ticker;
         // The simulation advances at MAX_FPS too. ProMotion/high-refresh displays otherwise make Pixi
         // draw the same state two or more times and run every filter again for no visible game update.
         this.ticker.maxFPS = MAX_FPS;
+        this.installGuardedRender();
 
         // Default camera: center world and fit bounds once caller sets zoom
         this.setupRendering(width, height);
+    }
+    private installGuardedRender(): void {
+        // Pixi registers `app.render` on the ticker at LOW priority (TickerPlugin). A single destroyed
+        // texture reaching a bind — an async Assets.unload racing a sprite that still holds a derived
+        // frame (pager page, atlas frame, leased texture) — throws inside renderer.render with
+        // "Cannot read properties of null (reading 'addressModeU')" and, uncaught, kills EVERY
+        // subsequent frame: the canvas goes permanently blank. Re-register the same call behind a
+        // guard so one bad texture only skips the visual frame; the simulation keeps running and
+        // rendering resumes once the emitter is gone (texture re-resolved, scene rebuilt).
+        const app = this.app;
+        app.ticker.remove(app.render, app);
+        let renderFailures = 0;
+        app.ticker.add(
+            () => {
+                try {
+                    app.render();
+                    renderFailures = 0;
+                } catch (error) {
+                    renderFailures += 1;
+                    if (renderFailures === 1 || renderFailures % 600 === 0) {
+                        console.error("[PixiApp] render failed; skipping frame and continuing", error);
+                    }
+                }
+            },
+            undefined,
+            UPDATE_PRIORITY.LOW,
+        );
     }
     private setupRendering(width: number, height: number): void {
         const c = this.app.canvas as HTMLCanvasElement;
@@ -113,6 +157,10 @@ export class PixiApp {
     }
     public getCamera(): Container {
         return this.camera;
+    }
+    /** Parent of the floor's screen-space layers: they mirror together with the camera (see boardRoot). */
+    public getBoardRoot(): Container {
+        return this.boardRoot;
     }
     public getWorldRoot(): Container {
         return this.worldRoot;
@@ -142,8 +190,10 @@ export class PixiApp {
         ) {
             // Pixi's global filter pool otherwise retains the previous full-screen buffers forever. This
             // runs between animation frames and only at a physical power-of-two boundary, avoiding churn
-            // during the many small resize events emitted while a window is dragged.
-            releaseIdlePixiTextures();
+            // during the many small resize events emitted while a window is dragged. Idle buffers only:
+            // live Text textures are still checked out and must find their bucket when handed back, and
+            // the filter stack must forget the ones it still points at from the last frame.
+            releaseIdlePooledTextures(this.app.renderer);
         }
         this.renderTexturePoolBucket = nextPoolBucket;
         // Sandbox installs its camera-wide cinematic pass at the renderer resolution that existed when
@@ -160,17 +210,30 @@ export class PixiApp {
         const c = this.app.canvas as HTMLCanvasElement;
         c.style.width = `${width}px`;
         c.style.height = `${height}px`;
+        // A mirrored board turns about the centre of the screen, which just moved.
+        this.applyBoardMirror();
+    }
+    /** Flip the painted battlefield about the screen's vertical centre line while boardMirror says so. */
+    private applyBoardMirror(): void {
+        if (!this.boardRoot || !this.app?.renderer) {
+            return;
+        }
+        const mirrored = isBoardMirrored();
+        this.boardRoot.scale.x = mirrored ? -1 : 1;
+        this.boardRoot.x = mirrored ? this.app.renderer.width : 0;
     }
     public destroy(): void {
         if (this.destroyed) {
             return;
         }
         this.destroyed = true;
+        this.unsubscribeBoardMirror?.();
+        this.unsubscribeBoardMirror = undefined;
         this.ticker?.stop();
-        // Filter render targets live in Pixi's process-wide pool, outside Application ownership. Clear
-        // the idle pool before losing this renderer so a later game mount cannot retain buffers from the
-        // previous WebGL context (including a former fullscreen bucket).
-        releaseIdlePixiTextures();
+        // Filter render targets live in Pixi's process-wide pool, outside Application ownership. Release
+        // the idle ones before losing this renderer; the buckets stay, because the texts and filters torn
+        // down below still hand their textures back, and a missing bucket makes that hand-back throw.
+        releaseIdlePooledTextures(this.app?.renderer);
         // pixi's GlContextSystem.destroy() (run inside app.destroy below) unconditionally calls
         // WEBGL_lose_context.loseContext(), permanently disabling this canvas's WebGL context.
         // Record the context + restore handle FIRST, so a later PixiApp.init() against the same
@@ -204,7 +267,9 @@ export class PixiApp {
         } catch (err) {
             console.warn("Pixi app destroy skipped after partial teardown", err);
         }
-        releaseIdlePixiTextures();
+        // Everything this app handed back during teardown is idle now: drop it and the buckets, so a later
+        // game mount cannot retain buffers from this WebGL context (including a former fullscreen bucket).
+        TexturePool.clear();
     }
     public setCameraPosition(cx: number, cy: number): void {
         if (!this.app?.renderer || !this.camera) {
@@ -254,8 +319,11 @@ export class PixiApp {
         }
         const zoomX = this.camera.scale.x || 1;
         const zoomY = this.camera.scale.y || 1;
+        // Undo the board root first: on a mirrored board a click on the left of the screen lands on the
+        // right of the world, which is where the unit drawn under the pointer actually stands.
+        const boardX = this.boardRoot ? (sx - this.boardRoot.x) / (this.boardRoot.scale.x || 1) : sx;
         return {
-            x: (sx - this.camera.position.x) / zoomX,
+            x: (boardX - this.camera.position.x) / zoomX,
             y: (this.camera.position.y - sy) / zoomY, // note the minus
         };
     }
@@ -265,8 +333,9 @@ export class PixiApp {
         }
         const zoomX = this.camera.scale.x || 1;
         const zoomY = this.camera.scale.y || 1;
+        const boardX = this.camera.position.x + wx * zoomX;
         return {
-            x: this.camera.position.x + wx * zoomX,
+            x: this.boardRoot ? this.boardRoot.x + this.boardRoot.scale.x * boardX : boardX,
             y: this.camera.position.y - wy * zoomY, // note the minus
         };
     }

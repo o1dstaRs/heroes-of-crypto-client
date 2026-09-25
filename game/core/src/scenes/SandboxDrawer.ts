@@ -2,6 +2,7 @@ import { BlurFilter, BufferImageSource, Container, Graphics, Matrix, Sprite, Tex
 import {
     FightProperties,
     FightStateManager,
+    GridMath,
     GridSettings,
     HoCConstants,
     HoCMath,
@@ -330,6 +331,63 @@ export interface IGameplayDrawContext {
     movementCellsScratch?: HoCMath.XY[];
 }
 
+/** One pip of a stack-power row, in BOARD coordinates — the caller projects it onto the battlefield. */
+export interface IStackPowerPipRect {
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+    filled: boolean;
+}
+
+/**
+ * Where a unit's stack-power pips sit: a centred row of MAX_UNIT_STACK_POWER, laid along the inside of its
+ * footprint's lower edge, filled up to its power.
+ *
+ * Board coordinates, and pure, because the thing most likely to go wrong here is arithmetic — a row that
+ * drifts off a 2x1 body, or pips that overrun their own footprint — and that is answerable without a GPU.
+ * The row is sized from the footprint so a wide body spreads its pips instead of bunching them.
+ */
+export const stackPowerPipRects = (
+    cells: readonly HoCMath.XY[],
+    gs: GridSettings,
+    stackPower: number,
+): IStackPowerPipRect[] => {
+    const size = gs.getCellSize();
+    let minX = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    for (const cell of cells) {
+        const position = GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+        minX = Math.min(minX, position.x - size / 2);
+        maxX = Math.max(maxX, position.x + size / 2);
+        minY = Math.min(minY, position.y - size / 2);
+    }
+    if (!Number.isFinite(minX) || !Number.isFinite(minY)) {
+        return [];
+    }
+    const total = HoCConstants.MAX_UNIT_STACK_POWER;
+    const filled = Math.max(0, Math.min(total, Math.round(stackPower)));
+    const gap = size * 0.05;
+    const pipWidth = Math.max(2, Math.min(size * 0.15, ((maxX - minX) * 0.82 - gap * (total - 1)) / total));
+    const pipHeight = Math.max(2, size * 0.07);
+    const rowWidth = pipWidth * total + gap * (total - 1);
+    const left = (minX + maxX) / 2 - rowWidth / 2;
+    // The battlefield root is y-up, so the row sits just INSIDE the footprint's lower edge.
+    const bottom = minY + size * 0.1;
+    return Array.from({ length: total }, (_unused, index) => {
+        const x = left + index * (pipWidth + gap);
+        return { x1: x, y1: bottom, x2: x + pipWidth, y2: bottom + pipHeight, filled: index < filled };
+    });
+};
+
+/** One unit under ALT: the ground it holds, the colour of the army holding it, and how full its stack is. */
+export interface IAltInspectFootprint {
+    cells: readonly HoCMath.XY[];
+    color: number;
+    stackPower: number;
+}
+
 export interface IPlacementDrawContext {
     fightProps: FightProperties;
     placementManager: PlacementManager;
@@ -593,6 +651,53 @@ export class SandboxDrawer {
             // the cell the player is about to click, and the hover's own footprint reads on top of it.
             SandboxDrawer.drawOccupiedFootprints(g, ctx.occupiedFootprints, ctx.gridSettings);
             hoverManager.drawHoverPlacementCell(g);
+        }
+    }
+    /**
+     * ALT during a fight: the ground each unit holds, painted in its own army's colour, with its stack
+     * power spelled out along the bottom edge.
+     *
+     * Same question placement answers — a tall silhouette covers far more board than the cells beneath it,
+     * so "where does this body actually stand" is guesswork from the artwork alone — except that mid-fight
+     * the answer belongs to a side, which is why this wash is coloured where placement's is white.
+     */
+    public static drawAltInspect(
+        g: Graphics,
+        footprints: readonly IAltInspectFootprint[] | undefined,
+        gs: GridSettings | undefined,
+    ): void {
+        if (!footprints?.length || !gs) return;
+        const size = gs.getCellSize();
+        for (const { cells, color, stackPower } of footprints) {
+            if (!cells.length) continue;
+            g.poly(placementZonePolygon(cells, gs))
+                .fill({ color, alpha: 0.18 })
+                .stroke({ width: Math.max(1, size * 0.025), color, alpha: 0.55 });
+            SandboxDrawer.drawStackPowerPips(g, cells, gs, color, stackPower);
+        }
+    }
+    /**
+     * Five pips along the bottom of a footprint, filled up to the stack's power.
+     *
+     * The banner beside a unit already carries its power in five sections, but that answers for one stack
+     * at a time and only for whoever is looking closely. On the ground, in the army's colour, the whole
+     * board can be compared at a glance — which is what ALT is for. Drawn as projected rectangles like
+     * every other ground mark, so the pips lie ON the board instead of floating over it.
+     */
+    private static drawStackPowerPips(
+        g: Graphics,
+        cells: readonly HoCMath.XY[],
+        gs: GridSettings,
+        color: number,
+        stackPower: number,
+    ): void {
+        for (const pip of stackPowerPipRects(cells, gs, stackPower)) {
+            const points = projectedRectPoints(pip.x1, pip.y1, pip.x2, pip.y2, gs);
+            if (pip.filled) {
+                g.poly(points).fill({ color, alpha: 0.95 });
+            } else {
+                g.poly(points).fill({ color: 0x000000, alpha: 0.38 }).stroke({ width: 1, color, alpha: 0.38 });
+            }
         }
     }
     /**

@@ -16,12 +16,18 @@ export const shouldPlayAuthoritativeAction = (action: Pick<GameAction, "type">):
 
 // Never submit an action carrying an off-grid / non-integer cell: the server rejects it as
 // invalid_cell (validateActionShape) and a jammed unit that keeps retrying storms the player with
-// errors — drop the doomed submit locally instead. OBSTACLE_ATTACK's targetCell is the one
-// exemption, mirroring the server: it carries a WORLD position (the struck point on the mountain),
-// not a grid cell, so bounds-checking it dropped every legitimate ranked mountain attack.
+// errors — drop the doomed submit locally instead. Two actions are exempt, mirroring the server:
+// OBSTACLE_ATTACK and a freely aimed Through Shot (RANGE_ATTACK with no target unit) carry a WORLD
+// position in targetCell — the struck point on the mountain, or the Tsar Cannon's aim point — not a
+// grid cell. Bounds-checking them dropped every ranked mountain attack (until 5cc58eb5) and every
+// free-aimed cannon shot: the click showed the line, then nothing was ever sent.
+const carriesWorldPosition = (payload: Pick<PlayAction, "type"> & Partial<Pick<PlayAction, "targetUnitId">>): boolean =>
+    payload.type === PlayActionType.OBSTACLE_ATTACK ||
+    (payload.type === PlayActionType.RANGE_ATTACK && !payload.targetUnitId);
+
 export const hasOffGridSubmitCell = (
     payload: Pick<PlayAction, "type"> &
-        Partial<Pick<PlayAction, "cells" | "path" | "targetCells" | "attackFrom" | "targetCell">>,
+        Partial<Pick<PlayAction, "cells" | "path" | "targetCells" | "attackFrom" | "targetCell" | "targetUnitId">>,
 ): boolean => {
     const cellInBounds = (c?: { x: number; y: number }): boolean =>
         !c ||
@@ -36,7 +42,7 @@ export const hasOffGridSubmitCell = (
         ...(payload.path ?? []),
         ...(payload.targetCells ?? []),
         payload.attackFrom,
-        ...(payload.type === PlayActionType.OBSTACLE_ATTACK ? [] : [payload.targetCell]),
+        ...(carriesWorldPosition(payload) ? [] : [payload.targetCell]),
     ];
     return !submittedCells.every(cellInBounds);
 };

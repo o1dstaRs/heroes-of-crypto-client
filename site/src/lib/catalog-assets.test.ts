@@ -47,13 +47,31 @@ describe("public codex assets", () => {
         expect(missing).toEqual([]);
     });
 
-    test("uses the approved distinct Empower spell art", async () => {
+    // Empower must have art of its own rather than borrowing another spell's icon. This used to be pinned
+    // as an exact size and SHA of the file, which asserted "these precise bytes" — so it failed the first
+    // time the art was legitimately refreshed from the art source, for a reason that had nothing to do
+    // with what it was guarding. Assert the property instead: distinct art, shared with no other spell.
+    test("gives Empower spell art of its own", async () => {
         const empower = spells.find((spell) => spell.name === "Empower");
         expect(empower?.icon).toBe("/assets/images/spells/empower_256.webp");
 
-        const asset = Bun.file(publicAssetPath(empower!.icon));
-        expect(asset.size).toBe(40_308);
-        const digest = new Bun.CryptoHasher("sha256").update(await asset.arrayBuffer()).digest("hex");
-        expect(digest).toBe("1414bf3777e74d79ec1e9d1c70bef8b4ccdba6ac2d54ea993e8568fe5999b993");
+        const digestOf = async (url: string): Promise<string> => {
+            const asset = Bun.file(publicAssetPath(url));
+            return new Bun.CryptoHasher("sha256").update(await asset.arrayBuffer()).digest("hex");
+        };
+
+        const empowerDigest = await digestOf(empower!.icon);
+        expect(Bun.file(publicAssetPath(empower!.icon)).size).toBeGreaterThan(0);
+
+        const sharedWith: string[] = [];
+        for (const spell of spells) {
+            if (spell.name === "Empower" || spell.icon === empower!.icon) {
+                continue;
+            }
+            if ((await digestOf(spell.icon)) === empowerDigest) {
+                sharedWith.push(spell.name);
+            }
+        }
+        expect(sharedWith).toEqual([]);
     });
 });

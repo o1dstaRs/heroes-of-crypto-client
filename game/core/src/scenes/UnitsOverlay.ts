@@ -1058,7 +1058,12 @@ export class UnitsOverlay {
 
         // --- Creature buckets: the open level fills the grid, full height ---
         for (let b = 0; b < levelCols; b++) {
-            const rowCont = this.rowsContainer.children[b] as Container;
+            // No rows before build(): a ranked fight constructs this overlay and never builds it, and a phone
+            // rotating (or its address bar collapsing) still resizes the scene — reading a missing row threw.
+            const rowCont = this.rowsContainer.children[b] as Container | undefined;
+            if (!rowCont) {
+                continue;
+            }
             const isSelected = b + 1 === this.selectedLevel;
             // The selected row is one horizontal scroll strip; each faction bucket follows the previous one.
             rowCont.position.set(0, 0);
@@ -1091,7 +1096,10 @@ export class UnitsOverlay {
                 let bucketX = rowStartX;
                 let visibleBucketsPlaced = 0;
                 for (let f = 0; f < this.factions.length; f++) {
-                    const bucketCont = rowCont.children[f] as Container;
+                    const bucketCont = rowCont.children[f] as Container | undefined;
+                    if (!bucketCont) {
+                        continue;
+                    }
                     const chips = bucketCont.children as unknown as UnitChip[];
                     const n = chips.length;
                     if (!n) continue;

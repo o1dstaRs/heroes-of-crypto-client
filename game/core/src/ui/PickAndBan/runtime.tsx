@@ -1,7 +1,6 @@
 import {
     AllAbilities,
     Artifact,
-    CREATURES_JSON,
     CreatureVals,
     getCreatureLevel,
     getCreaturesByLevel,
@@ -9,7 +8,6 @@ import {
     HoCConstants,
     Doctrine,
     PickPhaseVals,
-    SynergyKeysToPower,
     synergyVariantsForSeed,
     TeamVals,
     type TeamType,
@@ -36,9 +34,11 @@ import { runDraftSubmission, type DraftCommit } from "./draftSubmission";
 import { usePickBanEvents } from "../context/PickBanContext";
 import { useAuthContext } from "../auth/context/auth_context";
 import { CreaturePortraitImage } from "../CreaturePortraitImage";
+import { creatureCatalogEntry, startingStackAmount } from "../creatureCatalog";
 import { hocDisplayFontFamily } from "../hocTheme";
 import { ownArmyAccent } from "../ownArmyAccent";
-import { SYNERGY_KEY_TO_IMAGE, SYNERGY_NAME_TO_DESCRIPTION } from "../LeftSideBar/SynergiesConstants";
+import { SYNERGY_KEY_TO_IMAGE } from "../LeftSideBar/SynergiesConstants";
+import { SynergyLadderTip } from "../LeftSideBar/SynergyLadderTip";
 import { DoctrineIcon } from "../DoctrineIcon";
 import { UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "../unit_ui_constants";
 import { getDoctrineCopy } from "../doctrineCopy";
@@ -103,53 +103,9 @@ const creatureName = (creatureId: number): string => UNIT_ID_TO_NAME[creatureId]
 const creatureImage = (creatureId: number): string | undefined => UNIT_ID_TO_IMAGE[creatureId];
 
 // ---- Creature stats + abilities lookup (shared creatures.json / abilities.json) ------------------
-
-interface CreatureFullConfig {
-    name: string;
-    exp: number;
-    hp: number;
-    attack: number;
-    attack_damage_min: number;
-    attack_damage_max: number;
-    armor: number;
-    initiative: number;
-    steps: number;
-    movement_type: string;
-    magic_resist: number;
-    attack_type: string;
-    range_shots: number;
-    shot_distance: number;
-    level: number;
-    size: number;
-    footprint_width?: number;
-    footprint_height?: number;
-    abilities?: string[];
-}
-
-// Ranked turns every drafted creature into a stack worth roughly 1000 creature experience. Keep the
-// draft readout on the same rule as play_session so the amount shown before a pick is the amount that
-// will actually reach placement.
-const STARTING_STACK_EXPERIENCE_BUDGET = 1000;
-
-const startingStackAmount = (config: CreatureFullConfig): number =>
-    config.exp > 0 ? Math.max(1, Math.ceil(STARTING_STACK_EXPERIENCE_BUDGET / config.exp)) : 1;
-
-// Index every creature by name once (creatures.json is faction -> { name -> config }, plus a version key).
-const creatureConfigByName: Map<string, { faction: string; config: CreatureFullConfig }> = (() => {
-    const map = new Map<string, { faction: string; config: CreatureFullConfig }>();
-    for (const faction of Object.keys(CREATURES_JSON)) {
-        const roster = (CREATURES_JSON as Record<string, unknown>)[faction];
-        if (!roster || typeof roster !== "object") {
-            continue; // skip the top-level "version" number
-        }
-        for (const [unitName, cfg] of Object.entries(roster as Record<string, CreatureFullConfig>)) {
-            map.set(unitName, { faction, config: cfg });
-        }
-    }
-    return map;
-})();
-
-const creatureFullConfig = (creatureId: number) => creatureConfigByName.get(creatureName(creatureId));
+// The catalogue index itself lives in ../creatureCatalog, shared with the portal's hover cards so both
+// surfaces quote the same numbers for a creature.
+const creatureFullConfig = creatureCatalogEntry;
 
 // Ability description with the {} power placeholder filled in (mirrors how the game renders it).
 const abilityDescription = (abilityName: string): string => {
@@ -2249,14 +2205,6 @@ export const synergyLevelForFaction = (picked: number[], faction: string): numbe
     return Math.min(Math.floor(units / 2), 3);
 };
 
-// "Improves movement steps by {} cells" + [2] -> "Improves movement steps by 2 cells".
-const describeSynergy = (key: string): string => {
-    const template = SYNERGY_NAME_TO_DESCRIPTION[key as keyof typeof SYNERGY_NAME_TO_DESCRIPTION] ?? "";
-    const powers = SynergyKeysToPower[key] ?? [];
-    let i = 0;
-    return template.replace(/\{\}/g, () => String(powers[i++] ?? ""));
-};
-
 // Human-readable name of a synergy variant, for the badge tooltip.
 const SYNERGY_VARIANT_LABEL: Record<string, string> = {
     "Life:1": "Supply",
@@ -2303,13 +2251,18 @@ export const SynergyDots: React.FC<{
                 const img = SYNERGY_KEY_TO_IMAGE[key as keyof typeof SYNERGY_KEY_TO_IMAGE];
                 const label = t(SYNERGY_VARIANT_LABEL[`${faction}:${variant}`] ?? faction);
                 const units = picked.filter((id) => id && creatureFullConfig(id)?.faction === faction).length;
-                const tip = previewing
-                    ? `Confirming this pick lights ${faction} — ${label} lvl ${previewLevel}: ${describeSynergy(
-                          `${faction}:${variant}:${previewLevel}`,
-                      )}`
-                    : level
-                      ? `${faction} — ${label} (lvl ${level}): ${describeSynergy(`${faction}:${variant}:${level}`)}`
-                      : `${faction} — ${label}: locked, ${2 - units} more ${faction} unit${units === 1 ? "" : "s"} to reach lvl 1`;
+                // The whole ladder, not just the rung the army is on: what this synergy gives now, and the two
+                // numbers it is drafting towards, with the level in force picked out in gold.
+                const tip = (
+                    <SynergyLadderTip
+                        faction={faction}
+                        variant={variant}
+                        label={label}
+                        level={level}
+                        previewLevel={previewLevel}
+                        units={units}
+                    />
+                );
                 return (
                     <Tooltip key={faction} title={tip} variant="soft" placement="top">
                         <Box

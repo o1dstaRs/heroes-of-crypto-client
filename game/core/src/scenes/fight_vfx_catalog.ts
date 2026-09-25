@@ -214,6 +214,6 @@ export const FIGHT_EVENT_VFX: Record<GameEvent["type"], FightEventVfx> = {
     fire_wall_burned: {
         rendered: true,
         ranked: "replay",
-        note: "a creature walked into the flames; pops the damage it took over the crossing",
+        note: "a creature walked (or flew) through the flames: every burning cell flares up as the walk animation reaches it (spawnFireWallCrossing — a low wading burst for a walker, a column leaping up under a flyer), flames cling to the body and gutter out as it moves on (igniteUnit + flashScorch), and the burn number pops where the body leaves the fire. Timed by fireWallCrossingSchedule off the same worldPath the animation walks; every move path (live, replay/ranked records, melee approach) hands its burn to playFireWallCrossingVfx, the bare event case is only the fallback number",
     },
 };

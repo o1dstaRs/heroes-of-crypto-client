@@ -9,6 +9,7 @@ import { wolfGeometryRegisteredSourcePoint } from "./WolfIdleGeometry";
 import { WOLF_LOCAL_PALETTE_GRID, WOLF_LOCAL_PALETTE_GAINS } from "./WolfIdleLocalPalette";
 import { WOLF_HEAD_FRAMES, wolfHeadGeometryGlsl } from "./WolfIdleHeadGeometry";
 import { WOLF_HEAD_PALETTE_GLSL } from "./WolfIdleHeadPalette";
+import { isFlippedOnScreen } from "../pixi/boardMirror";
 
 export const WOLF_IDLE_PLAYBACK_RATE = 1.3;
 export const wolfIdlePlaybackDurations = (durations: readonly number[]): number[] =>
@@ -481,7 +482,8 @@ export function syncWolfIdleVisuals(
         const motion = wolfTailMotion(elapsedMs, durations);
         tail.resources.tail.uniforms.uPhase = motion.phase;
         tail.resources.tail.uniforms.uEnvelope = motion.envelope;
-        tail.resources.tail.uniforms.uMirror = sprite.scale.x < 0 ? 1 : 0;
+        // Screen-space shader: it needs the flip the viewer sees, board mirror included.
+        tail.resources.tail.uniforms.uMirror = isFlippedOnScreen(sprite.scale.x) ? 1 : 0;
     }
     const installed = sprite.filters ?? [];
     const desired = fullIdle ? howl : tailEnabled ? tail : undefined;

@@ -25,6 +25,13 @@ describe("PixiScene teardown", () => {
         expect(destroy.indexOf("getUIContainer()")).toBeLessThan(destroy.indexOf("this.drawer.destroy()"));
     });
 
+    test("hands a board it mirrored back, so the next scene starts with the true sides", () => {
+        const source = readFileSync(join(import.meta.dir, "PixiScene.ts"), "utf8");
+        const destroy = source.slice(source.indexOf("public Destroy()"), source.indexOf("// ------- Delegates"));
+
+        expect(destroy).toContain("releaseBoardMirror(this)");
+    });
+
     test("cancels scene-owned delayed work before tearing down Pixi resources", () => {
         const source = readFileSync(join(import.meta.dir, "PixiScene.ts"), "utf8");
         const destroy = source.slice(source.indexOf("public Destroy()"), source.indexOf("// ------- Delegates"));

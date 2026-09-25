@@ -69,6 +69,7 @@ import { applyScavengerHitRegistration, clearScavengerHitRegistration } from "./
 import { UnitLoadingPlaceholder } from "./unitLoadingPlaceholder";
 import { staticBattlefieldTextureNameForUnit, TextureType, unitToTextureName } from "@/pixi/PixiUnitsFactory";
 import { legacyBoardChildScaleCompensation } from "@/pixi/boardFit";
+import { glyphScaleX, screenFacing } from "@/pixi/boardMirror";
 import {
     CREATURE_SPRITE_ANIMATION_SETTINGS,
     usesApprovedBaseAnimations,
@@ -4064,7 +4065,8 @@ export class RenderableUnit extends Unit {
         candidate.bounds.top = bounds.y;
         candidate.bounds.right = bounds.x + bounds.width;
         candidate.bounds.bottom = bounds.y + bounds.height;
-        creatureHeadPriorityZone(candidate.bounds, this.facingDirection, candidate.headZone);
+        // The bounds are screen-space, so the head sits on the side the creature faces ON SCREEN.
+        creatureHeadPriorityZone(candidate.bounds, screenFacing(this.facingDirection), candidate.headZone);
         return candidate;
     }
     /** Raise the live figure and its foreground indicators without lifting its ground shadow/aura. */
@@ -7602,8 +7604,11 @@ export class RenderableUnit extends Unit {
             }
         }
         if (container.x !== x || container.y !== y) container.position.set(x, y);
-        if (container.scale.x !== renderedBadgeScale || container.scale.y !== renderedBadgeScale) {
-            container.scale.set(renderedBadgeScale, renderedBadgeScale);
+        // The banner, its count and its status icons are read, not looked at: on a mirrored board the whole
+        // ribbon is drawn upright while its anchor above the creature still mirrors with the unit.
+        const badgeScaleX = glyphScaleX(renderedBadgeScale);
+        if (container.scale.x !== badgeScaleX || container.scale.y !== renderedBadgeScale) {
+            container.scale.set(badgeScaleX, renderedBadgeScale);
         }
         if (container.visible !== visible) container.visible = visible;
     }
@@ -8254,6 +8259,11 @@ export class RenderableUnit extends Unit {
     public flashLuckyStrike(): void {
         this.effectFlashStartMs = performance.now();
         this.effectFlashColor = 0xffd94d;
+    }
+    /** Ember-orange wash for a body wading or flying through a Fire Wall — same envelope, fire-colored. */
+    public flashScorch(): void {
+        this.effectFlashStartMs = performance.now();
+        this.effectFlashColor = 0xff6a1a;
     }
     private currentEffectTint(now = performance.now()): number {
         // Frozen (Blacksmith's "Freeze" status): a persistent icy-blue cast so the unit visibly reads as
@@ -9105,18 +9115,6 @@ export class RenderableUnit extends Unit {
                 pegasusLightAbility.getName(),
                 pegasusLightAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
-        }
-
-        // Paralysis
-        const paralysisAbility = this.getAbility("Paralysis");
-        if (paralysisAbility) {
-            const description = paralysisAbility.getDesc().join("\n");
-            const reduction = this.calculateAbilityApplyChance(paralysisAbility, _synergyAbilityPowerIncrease);
-            const chance = Math.min(100, reduction * 2);
-            const updatedDescription = description
-                .replace("{}", Number(chance.toFixed(2)).toString())
-                .replace("{}", Number(reduction.toFixed(2)).toString());
-            this.refreshAbiltyDescription(paralysisAbility.getName(), updatedDescription);
         }
 
         // Deep Wounds Levels 0..3 — same card shape at four strengths, and a unit can hold more than one
