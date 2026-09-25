@@ -132,7 +132,7 @@ describe("Cemetery barrel danger highlights", () => {
         expect(hover).toContain('riderHits.push({ unit: burnedBehind, source: "Fire Breath" })');
         expect(hover).toContain("this.drawObstacleStrikeRiderPredictions(unit, attackFromCell, riderHits)");
 
-        const predictions = sliceFrom(source, "private drawObstacleStrikeRiderPredictions(", 3_000);
+        const predictions = sliceFrom(source, "private drawObstacleStrikeRiderPredictions(", 4_500);
         expect(predictions).toContain("this.projectMeleeRiderDamage(");
         expect(predictions).toContain("projectKillBand(struck.unit, struck.min, struck.max)");
         expect(predictions).toContain("this.hoverManager.addAOEDamagePrediction(");

@@ -4689,7 +4689,6 @@ export class Sandbox extends PixiScene {
         // Fire damage burns AT IMPACT too (Fire Shield reflect / dragon-breath burn / Fireforged Sword).
         this.spawnFireDamageVfx(attacker, target, attackEvent.damage);
         this.showReplayAttackDamage(attacker, target, attackEvent, record, presentedUnitIds);
-        this.popDullingDefenseApplications(record.events, attacker.getId());
         this.spawnAbilityStealVfx(record.events, attacker.getId());
         // Shatter Armor: red wound gashes across the target, at impact (with the damage number).
         this.spawnShatterArmorSlashVfx(attacker, target, attackEvent.damage);
@@ -4698,6 +4697,8 @@ export class Sandbox extends PixiScene {
         // attacker. Applied AFTER applyReplayAttackRecoil so the wind-up lunge overrides the plain recoil.
         this.spawnSkewerWindSpearVfx(attacker, target, attackEvent.damage);
         this.destroyReplayAttackUnitsAtImpact([...destroyedUnitIds].filter((id) => !shownDeaths.has(id)));
+        // The knight's own attack: the enemy who struck him back. Not the attacker — that pop played
+        // on every hit the knight took, including when he never responded.
         this.popDullingDefenseApplications(record.events, target.getId());
         this.spawnAbilityStealVfx(record.events, target.getId());
         // The attack event's kill attribution was consumed by the impact-time death VFX above. Do not
@@ -10388,6 +10389,20 @@ export class Sandbox extends PixiScene {
             luckyStrikeAbility
                 ? Math.floor(damage * attacker.calculateAbilityMultiplier(luckyStrikeAbility, abilityPower))
                 : damage;
+        const sword = attacker.getBuff(AllAbilities.FIREFORGED_SWORD_BUFF_NAME);
+        const burnShare = (victim: Unit, damage: number): number =>
+            sword
+                ? fireforgedSwordDamage({
+                      damageDealt: damage,
+                      swordPercentage: fireforgedSwordPower(sword.getPower(), attacker.getEmpowerPercentage()),
+                      targetMagicResist: victim.getMagicResist(),
+                      targetIsFireElement: victim.hasAbilityActive("Fire Element"),
+                      targetIsWaterElement: victim.hasAbilityActive("Water Element"),
+                      targetIsWindElement: victim.hasAbilityActive("Wind Element"),
+                      targetIsEarthElement: victim.hasAbilityActive("Earth Element"),
+                      targetMagicDamageTakenMultiplier: victim.getMagicDamageTakenMultiplier(),
+                  })
+                : 0;
         const projectedByUnit = new Map<string, { unit: Unit; min: number; max: number }>();
         for (const hit of hits) {
             const band = this.projectMeleeRiderDamage(
@@ -10397,12 +10412,14 @@ export class Sandbox extends PixiScene {
                 attackFromCell,
                 withLuckyStrike,
             );
+            const min = band.min + burnShare(hit.unit, band.min);
+            const max = band.max + burnShare(hit.unit, band.max);
             const alreadyStruck = projectedByUnit.get(hit.unit.getId());
             if (alreadyStruck) {
-                alreadyStruck.min += band.min;
-                alreadyStruck.max += band.max;
+                alreadyStruck.min += min;
+                alreadyStruck.max += max;
             } else {
-                projectedByUnit.set(hit.unit.getId(), { unit: hit.unit, min: band.min, max: band.max });
+                projectedByUnit.set(hit.unit.getId(), { unit: hit.unit, min, max });
             }
         }
         for (const struck of projectedByUnit.values()) {
@@ -12048,7 +12065,6 @@ export class Sandbox extends PixiScene {
             // Deep Wounds: one orange claw slash per application recorded on this strike (a double-punch
             // wounder shows two). Shared helper — the ranked replay fires the same one in showReplayAttackDamage.
             this.spawnDeepWoundsClaws(skewerAttackEvent?.damage?.deepWounds);
-            this.popDullingDefenseApplications(attackActionEvents, attacker.getId());
             // IMPACT (live melee) — same contract as the replay path: pops land with the strike.
             this.flushEffectPops();
         }
@@ -12292,6 +12308,8 @@ export class Sandbox extends PixiScene {
 
         const stackLost = Math.max(0, attackerBefore.amount - attackerAfter.amount);
         const hpLost = attackerBefore.health - attackerAfter.health;
+        // Dulling Defense's animation is the knight's own attack (the enemy who hit him back).
+        // Popping the attacker showed it on every incoming hit, even when the knight did not respond.
         this.popDullingDefenseApplications(attackActionEvents, target.getId());
 
         if (stackLost > 0 || hpLost > 0) {
@@ -14346,20 +14364,20 @@ export class Sandbox extends PixiScene {
                                             volleyMultiplier,
                                         ),
                                     });
-                                    pierceMin += applyThroughShotDamageTail({
+                                    // Each pierced unit burns for its own volley, the same way the engine
+                                    // prices a Tsar Cannon's line — not only the creature the shot was aimed at.
+                                    const tailMin = applyThroughShotDamageTail({
                                         attacker: this.currentActiveUnit,
                                         victim: piercedUnit,
                                         damage: band.min,
                                     });
-                                    pierceMax += applyThroughShotDamageTail({
+                                    const tailMax = applyThroughShotDamageTail({
                                         attacker: this.currentActiveUnit,
                                         victim: piercedUnit,
                                         damage: withLuckyStrike(band.max),
                                     });
-                                }
-                                if (piercedUnit.getId() === damageUnit.getId()) {
-                                    pierceMin += fireforgedBurn(piercedUnit, pierceMin);
-                                    pierceMax += fireforgedBurn(piercedUnit, pierceMax);
+                                    pierceMin += tailMin + fireforgedBurn(piercedUnit, tailMin);
+                                    pierceMax += tailMax + fireforgedBurn(piercedUnit, tailMax);
                                 }
                                 addProjectedDamage(piercedUnit, pierceMin, pierceMax);
                             }
@@ -14376,18 +14394,20 @@ export class Sandbox extends PixiScene {
                                         abilityPower,
                                     ),
                                 });
+                                const tailMin = applyThroughShotDamageTail({
+                                    attacker: this.currentActiveUnit,
+                                    victim: damageUnit,
+                                    damage: band.min,
+                                });
+                                const tailMax = applyThroughShotDamageTail({
+                                    attacker: this.currentActiveUnit,
+                                    victim: damageUnit,
+                                    damage: withLuckyStrike(band.max),
+                                });
                                 addProjectedDamage(
                                     damageUnit,
-                                    applyThroughShotDamageTail({
-                                        attacker: this.currentActiveUnit,
-                                        victim: damageUnit,
-                                        damage: band.min,
-                                    }),
-                                    applyThroughShotDamageTail({
-                                        attacker: this.currentActiveUnit,
-                                        victim: damageUnit,
-                                        damage: withLuckyStrike(band.max),
-                                    }),
+                                    tailMin + fireforgedBurn(damageUnit, tailMin),
+                                    tailMax + fireforgedBurn(damageUnit, tailMax),
                                 );
                             }
                         } else if (isRangeAttackContext && aoeHoverAbility) {
@@ -14484,20 +14504,28 @@ export class Sandbox extends PixiScene {
                                 target: damageUnit,
                                 divisor: rangeDivisor,
                             });
-                            const shotMin = doubleShot.first.min + doubleShot.second.min;
-                            const shotMax =
-                                withLuckyStrike(doubleShot.first.max) + withLuckyStrike(doubleShot.second.max);
-                            // The blade burns off the FIRST shot only — the engine's on-hit block runs once
-                            // per attack, on the damage that shot dealt.
+                            const firstMin = doubleShot.first.min;
+                            const firstMax = withLuckyStrike(doubleShot.first.max);
+                            const secondMin = doubleShot.second.min;
+                            const secondMax = withLuckyStrike(doubleShot.second.max);
+                            // Each shot that lands burns on its own damage. A second shot is a second attack.
                             addProjectedDamage(
                                 damageUnit,
-                                shotMin + fireforgedBurn(damageUnit, doubleShot.first.min),
-                                shotMax + fireforgedBurn(damageUnit, withLuckyStrike(doubleShot.first.max)),
+                                firstMin +
+                                    secondMin +
+                                    fireforgedBurn(damageUnit, firstMin) +
+                                    fireforgedBurn(damageUnit, secondMin),
+                                firstMax +
+                                    secondMax +
+                                    fireforgedBurn(damageUnit, firstMax) +
+                                    fireforgedBurn(damageUnit, secondMax),
                             );
-                        } else {
+                        } else if (!this.currentActiveUnit.hasAbilityActive("Lightning Spin")) {
                             // Melee swing. One projection for the whole engine pipeline: the band, the
                             // ranged-poke penalty, the ability chain built above, the victim's Deep Wounds
                             // amplification and the Fire/Water affinity, all under the engine's single floor.
+                            // A Lightning Spin replaces this swing outright (attack_handler skips it once the
+                            // spin has landed), so a Hydra's outline is the radial hits below and nothing else.
                             const swing = projectAttackDamage({
                                 ...projectionBase,
                                 target: damageUnit,
@@ -14559,10 +14587,10 @@ export class Sandbox extends PixiScene {
                                     attackFromCell,
                                 );
                                 for (const enemy of enemiesAround) {
-                                    // The spin hits EVERY adjacent enemy, the swung-at one included: the
-                                    // engine's own enemy list is allEnemiesAroundUnit with no exclusion, so
-                                    // the primary takes its swing AND a spin hit. Only the red highlight has
-                                    // to skip it (it is outlined as the primary already).
+                                    // The spin hits EVERY adjacent enemy, the one the blow was aimed at
+                                    // included, and that spin is the whole attack — the engine does not also
+                                    // land a separate swing. The aimed unit stays outlined as the primary;
+                                    // its number comes from this hit.
                                     if (!enemy.isDead()) {
                                         secondaryHits.push({ unit: enemy, source: "Lightning Spin" });
                                     }
@@ -14638,7 +14666,13 @@ export class Sandbox extends PixiScene {
                                     attackFromCell,
                                     withLuckyStrike,
                                 );
-                                addProjectedDamage(enemy, band.min, band.max);
+                                // A spin, a skewer and a breath are attacks of their own. Each creature they
+                                // damage burns for that creature's share, not only the one the swing was aimed at.
+                                addProjectedDamage(
+                                    enemy,
+                                    band.min + fireforgedBurn(enemy, band.min),
+                                    band.max + fireforgedBurn(enemy, band.max),
+                                );
                                 continue;
                             }
                             // Chain Lightning: the arc is a SHARE of the swing that triggered it, decaying by

@@ -29,7 +29,8 @@ const SPELL_NOTES: Readonly<Record<string, NoteSpec>> = {
     Blessing: {
         en: () =>
             "For 3 laps the ally always rolls maximum damage on every attack and retaliation. It beats Curse: a stack that is both Blessed and Cursed still rolls maximum damage. It can't be recast on a stack that still carries it — a new cast never refreshes the 3 laps.",
-        ru: () => "3 круга союзник всегда наносит максимальный урон каждой атакой и каждым ответом. Сильнее Curse: стек под Blessing и Curse одновременно всё равно наносит максимальный урон. Нельзя наложить повторно, пока он ещё действует на стеке, — новое применение не обновляет 3 круга.",
+        ru: () =>
+            "3 круга союзник всегда наносит максимальный урон каждой атакой и каждым ответом. Сильнее Curse: стек под Blessing и Curse одновременно всё равно наносит максимальный урон. Нельзя наложить повторно, пока он ещё действует на стеке, — новое применение не обновляет 3 круга.",
     },
     Courage: {
         en: () =>
@@ -99,9 +100,9 @@ const SPELL_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     "Fireforged Sword": {
         en: ({ p, n }) =>
-            `For 3 laps the ally's damaging hits — retaliations included — set every unit they damage alight for ${n(p)}% of the damage dealt, as fire: armor doesn't reduce it, magic resistance does; Water Elements take ×1.5, Fire Elements nothing. The ally's own magic-damage bonuses raise the percentage; Tome of Amplification makes it ${n(amplified(p))}%.`,
+            `For 3 laps the ally's melee and ranged attacks — retaliations included — set every unit they damage alight for ${n(p)}% of the damage that landed. Area attacks count: a pierce, a splash, a spin or a bounce burns each creature for its own share. Fire: armor doesn't reduce it, magic resistance does; Water Elements take ×1.5, Fire Elements nothing. The ally's own magic-damage bonuses raise the percentage; Tome of Amplification makes it ${n(amplified(p))}%.`,
         ru: ({ p, n }) =>
-            `3 круга атаки союзника — включая ответы — поджигают каждого, по кому прошёл урон, на ${n(p)}% нанесённого урона, как огонь: броня его не снижает, сопротивление магии снижает; Water Element получает ×1,5, Fire Element — ничего. Собственные бонусы союзника к магическому урону повышают процент; с Tome of Amplification — ${n(amplified(p))}%.`,
+            `3 круга атаки союзника в ближнем и дальнем бою — включая ответы — поджигают каждого, по кому прошёл урон, на ${n(p)}% нанесённого урона. Удары по площади тоже: пробивание, залп, вращение и отскок поджигают каждое задетое существо на его собственную долю. Это огонь: броня его не снижает, сопротивление магии снижает; Water Element получает ×1,5, Fire Element — ничего. Собственные бонусы союзника к магическому урону повышают процент; с Tome of Amplification — ${n(amplified(p))}%.`,
     },
     Riot: {
         en: ({ p, n }) =>
@@ -224,7 +225,8 @@ const SPELL_NOTES: Readonly<Record<string, NoteSpec>> = {
     Visible: {
         en: () =>
             "The White Tiger is Visible while an enemy stack stands within 3 cells of it (more with Might's Aura Range synergy): its Disguise stops protecting it.",
-        ru: () => "White Tiger видим (Visible), пока в радиусе 3 клеток (больше с синергией Силы «Радиус аур») есть вражеский стек: Disguise Aura его не защищает.",
+        ru: () =>
+            "White Tiger видим (Visible), пока в радиусе 3 клеток (больше с синергией Силы «Радиус аур») есть вражеский стек: Disguise Aura его не защищает.",
     },
     "Armor Rune": {
         en: () =>
