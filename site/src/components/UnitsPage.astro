@@ -286,6 +286,7 @@ function unitSearchText(unit: Unit) {
                 <div><dt>{s.initiative}</dt><dd data-stat="initiative"></dd></div>
                 <div><dt>{s.steps}</dt><dd data-stat="steps"></dd></div>
                 <div><dt>{s.rangeShots}</dt><dd data-stat="rangeShots"></dd></div>
+                <div><dt>{s.shotDistance}</dt><dd data-stat="shotDistance"></dd></div>
                 <div><dt>{s.magicResist}</dt><dd data-stat="magicResist"></dd></div>
                 <div><dt>{s.attackType}</dt><dd data-stat="attackType"></dd></div>
                 <div><dt>{s.movement}</dt><dd data-stat="movement"></dd></div>
@@ -482,6 +483,7 @@ function unitSearchText(unit: Unit) {
             statEls.initiative.textContent = String(unit.initiative);
             statEls.steps.textContent = String(unit.steps);
             statEls.rangeShots.textContent = unit.rangeShots > 0 ? String(unit.rangeShots) : "—";
+            statEls.shotDistance.textContent = unit.rangeShots > 0 ? String(unit.shotDistance) : "—";
             statEls.magicResist.textContent = unit.magicResist > 0 ? `${unit.magicResist}%` : "—";
             statEls.attackType.textContent = ATTACK_LABEL[unit.attackType] ?? unit.attackType;
             statEls.movement.textContent = MOVE_LABEL[unit.movementType] ?? unit.movementType;
