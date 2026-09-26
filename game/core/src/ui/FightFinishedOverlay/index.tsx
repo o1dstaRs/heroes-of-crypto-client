@@ -1074,6 +1074,10 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
     const [profiles, setProfiles] = useState<Record<string, PublicPlayerStats>>({});
     const replayInProgress = useRef(false);
     const replayTimers = useRef<number[]>([]);
+    // The last results frame whose winner agreed with the finished team. A later sample can disagree for
+    // a moment (the tracker rebuilds with no winner while stacks are cleaned up). Dropping the panel for
+    // that moment and mounting it again is the up, then down, then up the player sees after the fight.
+    const finishedView = useRef<{ state: IVisibleState; stats: IFightStatsReport } | null>(null);
 
     useEffect(() => {
         setVisibleState(manager.GetCurrentVisibleState());
@@ -1096,11 +1100,11 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
         };
     }, [manager]);
 
-    const renderedState = previewMode ? RESULTS_PREVIEW_STATE : visibleState;
-    const stats: IFightStatsReport | undefined = renderedState.fightStats;
+    const liveState = previewMode ? RESULTS_PREVIEW_STATE : visibleState;
+    const liveStats: IFightStatsReport | undefined = liveState.fightStats;
 
     useEffect(() => {
-        if (previewMode || mode !== "ranked" || !gameId || !renderedState.hasFinished) {
+        if (previewMode || mode !== "ranked" || !gameId || !liveState.hasFinished) {
             return undefined;
         }
         let cancelled = false;
@@ -1123,7 +1127,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
             cancelled = true;
             if (retryTimer !== undefined) window.clearTimeout(retryTimer);
         };
-    }, [gameId, mode, previewMode, renderedState.hasFinished]);
+    }, [gameId, mode, previewMode, liveState.hasFinished]);
 
     const activeMatch = previewMode ? RESULTS_PREVIEW_MATCH : rankedMatch;
     const profileCandidates = activeMatch
@@ -1179,15 +1183,16 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
     // on that would silently swallow the results overlay. The percentage math (percent() / CasualtyRoster)
     // already guards against a 0 total, so a missing start total just degrades that team's casualty
     // figures rather than hiding the whole overlay.
-    if (
-        !renderedState.hasFinished ||
-        !stats ||
-        dismissed ||
-        renderedState.teamWin === undefined ||
-        stats.winner !== renderedState.teamWin
-    ) {
+    if (!liveState.hasFinished) {
+        finishedView.current = null;
+    } else if (liveStats && liveState.teamWin !== undefined && liveStats.winner === liveState.teamWin) {
+        finishedView.current = { state: liveState, stats: liveStats };
+    }
+    const finished = liveState.hasFinished ? finishedView.current : null;
+    if (!finished || dismissed) {
         return null;
     }
+    const stats = finished.stats;
 
     const isDraw = stats.winner === TeamVals.NO_TEAM;
     // Exit rules: the settled record's exit is authoritative (the ladder confirms calibration); the snapshot's is instant.
@@ -1331,9 +1336,9 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
 
             <Box
                 component={motion.div}
-                initial={{ opacity: 0, scale: 0.9, y: 24 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                transition={{ type: "spring", stiffness: 220, damping: 24 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
                 sx={{
                     position: "relative",
                     zIndex: 2,

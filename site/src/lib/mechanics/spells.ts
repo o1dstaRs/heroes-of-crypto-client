@@ -82,9 +82,9 @@ const SPELL_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     Empower: {
         en: ({ p, n }) =>
-            `For 3 laps the ally deals +${n(p)}% magic damage — spells, Fire Wall burns (fixed when the wall is cast), Fireforged Sword, Chain Lightning, Fire Breath and Fire Shield — added to other magic-damage bonuses (the augment, the Mage's rings, Sylvan Focus) as one sum. Tome of Amplification makes it +${n(amplified(p))}%.`,
+            `For 3 laps the ally deals +${n(p)}% magic damage — spells, Fire Wall burns (fixed when the wall is cast), Chain Lightning, Fire Breath and Fire Shield — added to other magic-damage bonuses (the augment, the Mage's rings, Sylvan Focus) as one sum. Tome of Amplification makes it +${n(amplified(p))}%. Fireforged Sword is not raised.`,
         ru: ({ p, n }) =>
-            `3 круга союзник наносит на ${n(p)}% больше магического урона — заклинания, горение Fire Wall (фиксируется при создании стены), Fireforged Sword, Chain Lightning, Fire Breath и Fire Shield, — в одной сумме с другими бонусами к магическому урону (апгрейд, кольца магов, Sylvan Focus). С Tome of Amplification — +${n(amplified(p))}%.`,
+            `3 круга союзник наносит на ${n(p)}% больше магического урона — заклинания, горение Fire Wall (фиксируется при создании стены), Chain Lightning, Fire Breath и Fire Shield, — в одной сумме с другими бонусами к магическому урону (апгрейд, кольца магов, Sylvan Focus). С Tome of Amplification — +${n(amplified(p))}%. Fireforged Sword не усиливается.`,
     },
     "Fire Strike": {
         en: ({ p, n }) =>
@@ -100,9 +100,9 @@ const SPELL_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     "Fireforged Sword": {
         en: ({ p, n }) =>
-            `For 3 laps the ally's melee and ranged attacks — retaliations included — set every unit they damage alight for ${n(p)}% of the damage that landed. Area attacks count: a pierce, a splash, a spin or a bounce burns each creature for its own share. Fire: armor doesn't reduce it, magic resistance does; Water Elements take ×1.5, Fire Elements nothing. The ally's own magic-damage bonuses raise the percentage; Tome of Amplification makes it ${n(amplified(p))}%.`,
+            `For 3 laps the ally's melee and ranged attacks — retaliations included — set every unit they damage alight for ${n(p)}% of the damage that landed. Area attacks count: a pierce, a splash, a spin or a bounce burns each creature for its own share. Fire: armor doesn't reduce it, magic resistance does; Water Elements take ×1.5, Fire Elements nothing. Magic-damage bonuses do not raise the percentage. Tome of Amplification makes it ${n(amplified(p))}%.`,
         ru: ({ p, n }) =>
-            `3 круга атаки союзника в ближнем и дальнем бою — включая ответы — поджигают каждого, по кому прошёл урон, на ${n(p)}% нанесённого урона. Удары по площади тоже: пробивание, залп, вращение и отскок поджигают каждое задетое существо на его собственную долю. Это огонь: броня его не снижает, сопротивление магии снижает; Water Element получает ×1,5, Fire Element — ничего. Собственные бонусы союзника к магическому урону повышают процент; с Tome of Amplification — ${n(amplified(p))}%.`,
+            `3 круга атаки союзника в ближнем и дальнем бою — включая ответы — поджигают каждого, по кому прошёл урон, на ${n(p)}% нанесённого урона. Удары по площади тоже: пробивание, залп, вращение и отскок поджигают каждое задетое существо на его собственную долю. Это огонь: броня его не снижает, сопротивление магии снижает; Water Element получает ×1,5, Fire Element — ничего. Бонусы к магическому урону процент не повышают. С Tome of Amplification — ${n(amplified(p))}%.`,
     },
     Riot: {
         en: ({ p, n }) =>

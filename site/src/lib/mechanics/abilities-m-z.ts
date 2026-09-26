@@ -171,9 +171,9 @@ export const ABILITY_NOTES_M_Z: Readonly<Record<string, NoteSpec>> = {
     },
     "Sylvan Focus Aura": {
         en: ({ p }) =>
-            `Allies within 2 cells of the Satyr, itself included, deal +${p}% magic damage, ±1% per point of the Satyr's luck (never below 0); stack size doesn't change it. It adds to Empower, the augment and the Mage's rings as one sum and raises spells, Fire Breath, Fire Shield, Chain Lightning, Fire Wall and Fireforged Sword. Several Satyrs don't stack.`,
+            `Allies within 2 cells of the Satyr, itself included, deal +${p}% magic damage, ±1% per point of the Satyr's luck (never below 0); stack size doesn't change it. It adds to Empower, the augment and the Mage's rings as one sum and raises spells, Fire Breath, Fire Shield, Chain Lightning and Fire Wall. Fireforged Sword is not raised. Several Satyrs don't stack.`,
         ru: ({ p }) =>
-            `Союзники в радиусе 2 клеток от Satyr, включая его, наносят на ${p}% больше магического урона, ±1% за очко удачи Satyr (не ниже 0); от размера стека не зависит. Складывается с Empower, апгрейдом и кольцами магов в одну сумму и усиливает заклинания, Fire Breath, Fire Shield, Chain Lightning, Fire Wall и Fireforged Sword. Несколько Satyr не складываются.`,
+            `Союзники в радиусе 2 клеток от Satyr, включая его, наносят на ${p}% больше магического урона, ±1% за очко удачи Satyr (не ниже 0); от размера стека не зависит. Складывается с Empower, апгрейдом и кольцами магов в одну сумму и усиливает заклинания, Fire Breath, Fire Shield, Chain Lightning и Fire Wall. Fireforged Sword не усиливается. Несколько Satyr не складываются.`,
     },
     "Terrifying Gaze": {
         en: ({ p, n }) =>

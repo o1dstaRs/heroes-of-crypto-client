@@ -59,6 +59,18 @@ describe("spell hover wiring reaches the Popover", () => {
     }
 });
 
+describe("the spellbook card reads the caster's Tome of Amplification", () => {
+    test("Sandbox passes the tome power into the card", () => {
+        const sandbox = src("Sandbox.ts");
+        const start = sandbox.indexOf("private setSpellHoverInfo(");
+        expect(start).toBeGreaterThan(-1);
+        const nextMethod = sandbox.slice(start + 1).search(/\n {4}(?:private|public|protected) /);
+        const body = sandbox.slice(start, nextMethod > -1 ? start + 1 + nextMethod : undefined);
+        // Drop this argument and the card tests still pass while the open book goes back to the base number.
+        expect(body).toContain('getBuffPower("Tome of Amplification")');
+    });
+});
+
 describe("offensive spell cards state the band, not a bare figure", () => {
     const detailsOf = (faction: string, name: string) => {
         const layer = new Container();
