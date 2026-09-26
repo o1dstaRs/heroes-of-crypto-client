@@ -1,5 +1,5 @@
 import Box from "@mui/joy/Box";
-import React, { useLayoutEffect, useRef } from "react";
+import React, { useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 
 import { registerVolumeSlot, VOLUME_SLOT_PRIORITY } from "./audio/volumeSlot";
@@ -148,9 +148,17 @@ export const GameSystemControls: React.FC<{
     rightStack = false,
     centerInRow = false,
 }) => {
-    const volumeSlotRef = useRef<HTMLDivElement>(null);
-
-    useLayoutEffect(() => registerVolumeSlot(volumeSlotRef.current, priority), [priority]);
+    // The corner row is rebuilt when the footer changes shape (placement plate → fight). A layout
+    // effect keyed only on priority would keep publishing the detached node, and the speaker —
+    // portaled into that node — vanishes for the rest of the fight.
+    const releaseVolumeSlot = useRef<() => void>(() => {});
+    const volumeSlotRef = useCallback(
+        (element: HTMLDivElement | null) => {
+            releaseVolumeSlot.current();
+            releaseVolumeSlot.current = element ? registerVolumeSlot(element, priority) : () => {};
+        },
+        [priority],
+    );
 
     const anchorSx = {
         ...(sidebarWidth !== undefined
@@ -226,29 +234,30 @@ export const GameSystemControls: React.FC<{
                     >
                         {center}
                     </Box>
-                    {cornerRow}
+                    <Box aria-hidden />
                 </Box>
             ) : (
-                <>
-                    <Box
-                        sx={{
-                            flex: "1 1 auto",
-                            // Its own line as soon as the plate cannot keep its authored width beside the
-                            // controls; below that threshold this slot no longer fits, and the row wraps.
-                            minWidth: `min(100%, ${GAME_SYSTEM_CONTROLS_CENTER_MIN_WIDTH_PX}px)`,
-                            containerType: "inline-size",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            // An empty centre slot must not swallow clicks aimed at whatever sits behind it.
-                            pointerEvents: center ? "auto" : "none",
-                        }}
-                    >
-                        {center}
-                    </Box>
-                    {cornerRow}
-                </>
+                <Box
+                    sx={{
+                        flex: "1 1 auto",
+                        // Its own line as soon as the plate cannot keep its authored width beside the
+                        // controls; below that threshold this slot no longer fits, and the row wraps.
+                        minWidth: `min(100%, ${GAME_SYSTEM_CONTROLS_CENTER_MIN_WIDTH_PX}px)`,
+                        // The corner row is taken out of flow so the speaker's host node survives a
+                        // phase change. This padding is the space it still occupies.
+                        paddingRight: `${GAME_SYSTEM_CONTROLS_CORNER_FLANK_PX}px`,
+                        containerType: "inline-size",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        // An empty centre slot must not swallow clicks aimed at whatever sits behind it.
+                        pointerEvents: center ? "auto" : "none",
+                    }}
+                >
+                    {center}
+                </Box>
             )}
+            <Box sx={{ position: "absolute", right: 0, bottom: 0 }}>{cornerRow}</Box>
         </Box>
     ) : (
         <Box data-game-system-controls sx={{ ...gameSystemControlsSx, ...anchorSx }}>
