@@ -10426,7 +10426,7 @@ export class Sandbox extends PixiScene {
             sword
                 ? fireforgedSwordDamage({
                       damageDealt: damage,
-                      swordPercentage: fireforgedSwordPower(sword.getPower(), attacker.getEmpowerPercentage()),
+                      swordPercentage: fireforgedSwordPower(sword.getPower()),
                       targetMagicResist: victim.getMagicResist(),
                       targetIsFireElement: victim.hasAbilityActive("Fire Element"),
                       targetIsWaterElement: victim.hasAbilityActive("Water Element"),
@@ -14304,10 +14304,7 @@ export class Sandbox extends PixiScene {
                             fireforgedSwordBuff
                                 ? fireforgedSwordDamage({
                                       damageDealt: damage,
-                                      swordPercentage: fireforgedSwordPower(
-                                          fireforgedSwordBuff.getPower(),
-                                          attackerUnit.getEmpowerPercentage(),
-                                      ),
+                                      swordPercentage: fireforgedSwordPower(fireforgedSwordBuff.getPower()),
                                       targetMagicResist: victim.getMagicResist(),
                                       targetIsFireElement: victim.hasAbilityActive("Fire Element"),
                                       targetIsWaterElement: victim.hasAbilityActive("Water Element"),
@@ -15782,9 +15779,9 @@ export class Sandbox extends PixiScene {
         this.attachToWorldRoot(this.shotRangeCornerContainer, 55.1);
     }
     private clearShotRangeCornerSprites(): void {
-        if (this.shotRangeCornerPool.used === 0) return;
         this.shotRangeCornerPool.used = 0;
         for (const corner of this.shotRangeCornerPool.sprites) corner.visible = false;
+        for (const rail of this.shotRangeCornerPool.rails ?? []) rail.visible = false;
     }
     private hasAnySceneUnits(): boolean {
         return this.unitsHolder.getAllUnits().size > 0;

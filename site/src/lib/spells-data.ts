@@ -218,7 +218,7 @@ const resolvedDescriptions: Record<string, string> = {
         "Boosts the entire team's base armor by a percentage and adds the same number of points straight onto its magic armor. Level 1: +6% armor, +6 magic armor. Level 2: +13% and +13. Level 3: +21% and +21.",
     "System:Might Augment": "Increases the entire team's base attack. Level 1: +8%. Level 2: +17%. Level 3: +27%.",
     "System:Empower Augment":
-        "Increases all magic damage the entire team deals — offensive spells, Fire Wall, Fireforged Sword, Chain Lightning, Fire Breath and Fire Shield. Level 1: +7%. Level 2: +15%. Level 3: +24%.",
+        "Increases all magic damage the entire team deals — offensive spells, Fire Wall, Chain Lightning, Fire Breath and Fire Shield. Fireforged Sword is not raised. Level 1: +7%. Level 2: +15%. Level 3: +24%.",
     "System:Sniper Augment": `Increases the team's ranged base attack and shot range. Level 1: +${sniperAugmentPowers[0][0]}% attack, +${sniperAugmentPowers[0][1]}% range. Level 2: +${sniperAugmentPowers[1][0]}% attack, +${sniperAugmentPowers[1][1]}% range. Level 3: +${sniperAugmentPowers[2][0]}% attack, +${sniperAugmentPowers[2][1]}% range.`,
     "System:Movement Augment": "Boosts the entire team's movement steps. Level 1: +1 step. Level 2: +2 steps.",
 };
@@ -263,7 +263,7 @@ const descriptionsRu: Record<string, string> = {
         "Повышает базовую броню всей команды в процентах и добавляет столько же очков к магической броне. Уровень 1: +6% брони и +6 магической брони. Уровень 2: +13% и +13. Уровень 3: +21% и +21.",
     "System:Might Augment": "Повышает базовую атаку всей команды. Уровень 1: +8%. Уровень 2: +17%. Уровень 3: +27%.",
     "System:Empower Augment":
-        "Повышает весь магический урон команды — атакующие заклинания, Огненную стену, Огненный меч, Цепную молнию, Огненное дыхание и Огненный щит. Уровень 1: +7%. Уровень 2: +15%. Уровень 3: +24%.",
+        "Повышает весь магический урон команды — атакующие заклинания, Огненную стену, Цепную молнию, Огненное дыхание и Огненный щит. Огненный меч не усиливается. Уровень 1: +7%. Уровень 2: +15%. Уровень 3: +24%.",
     "System:Sniper Augment": `Повышает базовую атаку и дальность стрелков команды. Уровень 1: +${sniperAugmentPowers[0][0]}% атаки, +${sniperAugmentPowers[0][1]}% дальности. Уровень 2: +${sniperAugmentPowers[1][0]}% атаки, +${sniperAugmentPowers[1][1]}% дальности. Уровень 3: +${sniperAugmentPowers[2][0]}% атаки, +${sniperAugmentPowers[2][1]}% дальности.`,
     "System:Movement Augment": "Повышает перемещение всей команды. Уровень 1: +1 шаг. Уровень 2: +2 шага.",
     "System:Angelic Host": "Дает +1 к атаке, +1 к защите и +1 к дистанции перемещения.",

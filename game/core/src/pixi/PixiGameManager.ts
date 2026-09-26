@@ -668,14 +668,13 @@ export class PixiGameManager {
         }
     }
     private shouldFitAuthoritativeSnapshot(snapshot: AuthoritativeGameSnapshot, wasStarted: boolean): boolean {
-        const viewportKey = [
-            snapshot.gridType,
-            snapshot.fightStarted ? 1 : 0,
-            snapshot.fightFinished ? 1 : 0,
-            snapshot.narrowingLayers ?? 0,
-            snapshot.centerDried ? 1 : 0,
-        ].join(":");
-        const shouldFit = viewportKey !== this.lastAuthoritativeViewportKey || wasStarted !== this.started;
+        // The board itself does not move when a fight ends. Refitting then — started flips off, and the
+        // results panel is mounting in the same turn — read a transient viewport and slid the whole
+        // battlefield up-left. Fit when the grid, the narrowing, or the dried centre actually changes,
+        // and once when the fight begins. Ending it leaves the camera where the fight put it.
+        const viewportKey = [snapshot.gridType, snapshot.narrowingLayers ?? 0, snapshot.centerDried ? 1 : 0].join(":");
+        const fightBeginning = !wasStarted && this.started;
+        const shouldFit = viewportKey !== this.lastAuthoritativeViewportKey || fightBeginning;
         this.lastAuthoritativeViewportKey = viewportKey;
         return shouldFit;
     }

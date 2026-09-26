@@ -72,9 +72,9 @@ const ARTIFACT_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     "Mage's Ring": {
         en: ({ n }) =>
-            `+${n(A.MAGES_RING_MAGIC_PERCENT)}% magic damage for the army — spells, Fire Wall, Fireforged Sword, Chain Lightning, Fire Breath and Fire Shield — added to the Empower augment, the Empower scroll and Sylvan Focus as one sum.`,
+            `+${n(A.MAGES_RING_MAGIC_PERCENT)}% magic damage for the army — spells, Fire Wall, Chain Lightning, Fire Breath and Fire Shield — added to the Empower augment, the Empower scroll and Sylvan Focus as one sum.`,
         ru: ({ n }) =>
-            `+${n(A.MAGES_RING_MAGIC_PERCENT)}% к магическому урону армии — заклинания, Fire Wall, Fireforged Sword, Chain Lightning, Fire Breath и Fire Shield — в одной сумме с апгрейдом «Магия», свитком Empower и Sylvan Focus.`,
+            `+${n(A.MAGES_RING_MAGIC_PERCENT)}% к магическому урону армии — заклинания, Fire Wall, Chain Lightning, Fire Breath и Fire Shield — в одной сумме с апгрейдом «Магия», свитком Empower и Sylvan Focus.`,
     },
     "Warlord's Edge": {
         en: ({ n }) =>
@@ -142,9 +142,9 @@ const ARTIFACT_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     "Archmage's Ring": {
         en: ({ n }) =>
-            `+${n(A.ARCHMAGES_RING_MAGIC_PERCENT)}% magic damage for the army — spells, Fire Wall, Fireforged Sword, Chain Lightning, Fire Breath and Fire Shield — added to the Empower augment, the Empower scroll and Sylvan Focus as one sum (with Empower level 3 that is +44%).`,
+            `+${n(A.ARCHMAGES_RING_MAGIC_PERCENT)}% magic damage for the army — spells, Fire Wall, Chain Lightning, Fire Breath and Fire Shield — added to the Empower augment, the Empower scroll and Sylvan Focus as one sum (with Empower level 3 that is +44%).`,
         ru: ({ n }) =>
-            `+${n(A.ARCHMAGES_RING_MAGIC_PERCENT)}% к магическому урону армии — заклинания, Fire Wall, Fireforged Sword, Chain Lightning, Fire Breath и Fire Shield — в одной сумме с апгрейдом «Магия», свитком Empower и Sylvan Focus (с «Магией» 3 уровня это +44%).`,
+            `+${n(A.ARCHMAGES_RING_MAGIC_PERCENT)}% к магическому урону армии — заклинания, Fire Wall, Chain Lightning, Fire Breath и Fire Shield — в одной сумме с апгрейдом «Магия», свитком Empower и Sylvan Focus (с «Магией» 3 уровня это +44%).`,
     },
 };
 

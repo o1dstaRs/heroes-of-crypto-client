@@ -270,7 +270,16 @@ describe("PixiRenderableSpell effect summary", () => {
             "Reflects 48%",
         );
 
-        expect(summaryOf("Chaos", "Fireforged Sword", 1, 2, 1, 0, 0, tome)?.value).toBe("30% of hit");
+        expect(summaryOf("Chaos", "Fireforged Sword", 1, 2)?.value).toBe("20% of hit");
+        // Empower, the rings and Sylvan Focus arrive as the magic-damage bonus. They do not move the blade.
+        expect(summaryOf("Chaos", "Fireforged Sword", 1, 2, 1, 40)?.value).toBe("20% of hit");
+        expect(summaryOf("Chaos", "Fireforged Sword", 1, 2, 1, 40, 0, tome)?.value).toBe("30% of hit");
+        expect(detailsOf("Chaos", "Fireforged Sword", 1, 2, 1, 40, 0, tome).information.join("\n")).toContain(
+            "for 30%",
+        );
+        const helpingHand = detailsOf("Life", "Helping Hand", 4, 2, 1, 0, 0, tome).information.join("\n");
+        expect(helpingHand).toContain("Gives 45%");
+        expect(helpingHand).toContain("The caster still loses 30%.");
         expect(detailsOf("System", "Wind Flow", 5, 1, 1, 0, 0, tome).information.join("\n")).toContain(
             "gain 6 of base armor points while losing 4 movement",
         );

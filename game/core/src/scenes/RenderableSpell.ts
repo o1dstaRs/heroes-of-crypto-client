@@ -351,6 +351,8 @@ export class PixiRenderableSpell extends Spell {
      *        the engine uses, so the card cannot promise a different number from the cast.
      * @param casterHealingBonusPercentage artifact-driven healing and resurrection bonus (Holy Cross).
      * @param casterTomeBuffPercentage Tome of Amplification's stored percent. 0 when the army has no tome.
+     *        Non-healing buffs are shown at that raise, the same multiply the cast stores. A Fireforged
+     *        Sword's 20 becomes 30 at 50. Magic-damage bonuses do not enter that percentage.
      */
     public getHoverInfo(
         ownerStackPower: number,
@@ -460,9 +462,8 @@ export class PixiRenderableSpell extends Spell {
                 },
             };
         }
-        // Fireforged Sword grants a percentage of extra (burning) damage, raised by Empower like every other
-        // magic source. It is a NO_MULTIPLIER spell, so it never reached the caster-scaled branch below and
-        // used to print an empty placeholder — "Adds % of additional damage".
+        // Fireforged Sword's share starts at its own power. Tome of Amplification raises that stored
+        // power (20 → 30), and the Empower bonus then scales it the same way the hit does.
         if (this.getName() === "Fireforged Sword") {
             const bonus = fireforgedSwordPower(
                 this.shownBuffPower(casterTomeBuffPercentage),

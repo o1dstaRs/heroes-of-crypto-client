@@ -825,9 +825,11 @@ export class HoverManager {
         if (this.isGraphicsUsable(this.hoverShotEmergenceSparks))
             this.safeAttachGraphics(this.hoverShotEmergenceSparks, 5602);
         if (this.isGraphicsUsable(this.hoverShotJointSparks)) this.safeAttachGraphics(this.hoverShotJointSparks, 5602);
-        if (this.isGraphicsUsable(this.spellBadgeRing)) this.safeAttachGraphics(this.spellBadgeRing, 2202);
-        if (this.spellBadgeIcon) this.context.attachToWorldRoot(this.spellBadgeIcon, 2203);
-        if (this.spellBadgeText) this.context.attachToWorldRoot(this.spellBadgeText, 2203);
+        if (this.isGraphicsUsable(this.spellBadgeRing)) this.safeAttachGraphics(this.spellBadgeRing, 5600);
+        if (this.isGraphicsUsable(this.spellBadgeMask)) this.safeAttachGraphics(this.spellBadgeMask, 5600);
+        if (this.isGraphicsUsable(this.spellBadgeLight)) this.safeAttachGraphics(this.spellBadgeLight, 5602);
+        if (this.spellBadgeIcon) this.context.attachToWorldRoot(this.spellBadgeIcon, 5601);
+        if (this.spellBadgeText) this.context.attachToWorldRoot(this.spellBadgeText, 5603);
     }
     public clearAuraVisuals(): void {
         this.safeClearGraphics(this.auraGraphics);
@@ -932,6 +934,7 @@ export class HoverManager {
             !!this.hoverBattlefieldFootprintCells?.length;
         if (hasPulsingHover) this.hoverGlowPhase += dt * (5 / 3);
         this.updateMagicAimDualHelixAnimation(dt);
+        this.updateSpellCasterBadge(dt);
         if (this.animatedRangeArrow) {
             const arrow = this.animatedRangeArrow;
             this.drawAttackArrow(arrow.from, arrow.to, arrow.continuationTo, arrow.smokeFrom, "arrow", false);
@@ -2662,8 +2665,20 @@ export class HoverManager {
     // badge floating above the caster, so the player can always see which spell is about to fire. ---
     private spellBeam?: Graphics;
     private spellBadgeRing?: Graphics;
+    /** Clips the sheen to the nameplate so the light stays inside the card. */
+    private spellBadgeMask?: Graphics;
+    /** Additive sheen that rakes across the nameplate. */
+    private spellBadgeLight?: Graphics;
     private spellBadgeIcon?: Sprite;
     private spellBadgeText?: Text;
+    private spellBadgePhase = 0;
+    private spellBadgeLayout?: {
+        cx: number;
+        cy: number;
+        color: number;
+        plateW: number;
+        plateH: number;
+    };
     /** Draw a directed spell aim as one animated atlas tile repeated along the whole ray. */
     private drawMagicAimDualHelix(casterPos: HoCMath.XY, targetPos: HoCMath.XY): boolean {
         if (!this.magicAimDualHelixFrames.length) return false;
@@ -2807,62 +2822,144 @@ export class HoverManager {
             this.hideMagicAimDualHelix();
         }
 
-        // 2. Badge above the caster (world is y-up, so +Y floats it higher on screen).
+        // 2. A nameplate on the upper body. The sprite origin is the feet, so a small lift
+        // used to drop the caption onto the hem, where it disappeared into the dress.
+        // World is y-up: +Y is toward the head.
+        const cell = this.context.sceneSettings.getGridSettings().getCellSize();
         const cx = opts.casterPos.x;
-        const cy = opts.casterPos.y + 96;
-        const iconSize = 46;
+        const cy = opts.casterPos.y + cell * 1.05;
+        const iconSize = 30;
         if (!this.isGraphicsUsable(this.spellBadgeRing)) {
             this.spellBadgeRing = new Graphics();
-            if (!this.safeAttachGraphics(this.spellBadgeRing, 2202)) {
+            if (!this.safeAttachGraphics(this.spellBadgeRing, 5600)) {
                 this.spellBadgeRing.destroy();
                 this.spellBadgeRing = undefined;
                 return;
             }
         }
-        const ring = this.spellBadgeRing;
-        ring.clear();
-        ring.visible = true;
-        ring.circle(cx, cy, iconSize / 2 + 7).fill({ color: 0x000000, alpha: 0.5 });
-        ring.circle(cx, cy, iconSize / 2 + 7).stroke({ width: 3, color, alpha: 0.95 });
-
-        if (!this.spellBadgeIcon) {
-            this.spellBadgeIcon = new Sprite(opts.iconTex);
-            this.spellBadgeIcon.anchor.set(0.5);
-            this.context.attachToWorldRoot(this.spellBadgeIcon, 2203);
-        } else {
-            this.spellBadgeIcon.texture = opts.iconTex;
+        if (!this.isGraphicsUsable(this.spellBadgeLight)) {
+            this.spellBadgeLight = new Graphics();
+            this.spellBadgeLight.blendMode = "add";
+            if (!this.safeAttachGraphics(this.spellBadgeLight, 5602)) {
+                this.spellBadgeLight.destroy();
+                this.spellBadgeLight = undefined;
+                return;
+            }
         }
-        const texW = opts.iconTex.width || iconSize;
-        this.spellBadgeIcon.visible = true;
-        this.spellBadgeIcon.scale.set(glyphScaleX(iconSize / texW), -iconSize / texW);
-        this.spellBadgeIcon.position.set(cx, cy);
-        this.spellBadgeIcon.tint = 0xffffff;
+        if (!this.isGraphicsUsable(this.spellBadgeMask)) {
+            this.spellBadgeMask = new Graphics();
+            if (!this.safeAttachGraphics(this.spellBadgeMask, 5600)) {
+                this.spellBadgeMask.destroy();
+                this.spellBadgeMask = undefined;
+                return;
+            }
+        }
+        this.spellBadgeLight.mask = this.spellBadgeMask;
 
         if (!this.spellBadgeText) {
             this.spellBadgeText = new Text({
                 text: opts.label,
                 style: {
                     fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
-                    fontSize: 18,
-                    fill: 0xffffff,
-                    stroke: { color: 0x000000, width: 4, join: "round" },
-                    align: "center",
+                    fontSize: 16,
+                    fill: 0xfff8ec,
+                    align: "left",
                     fontWeight: "bold",
                 },
             });
-            this.context.attachToWorldRoot(this.spellBadgeText, 2203);
+            this.context.attachToWorldRoot(this.spellBadgeText, 5603);
         } else {
+            this.spellBadgeText.style.fontSize = 16;
+            this.spellBadgeText.style.wordWrap = false;
             this.spellBadgeText.text = opts.label;
         }
         this.spellBadgeText.visible = true;
         this.spellBadgeText.anchor.set(0.5, 0.5);
         this.spellBadgeText.scale.set(glyphScaleX(1), -1);
-        this.spellBadgeText.position.set(cx, cy - (iconSize / 2 + 18));
+
+        const textW = Math.max(24, Math.abs(this.spellBadgeText.width));
+        const plateH = 40;
+        const plateW = 10 + iconSize + 8 + textW + 12;
+        const left = cx - plateW / 2;
+        const iconX = left + 8 + iconSize / 2;
+        this.spellBadgeText.position.set(iconX + iconSize / 2 + 8 + textW / 2, cy);
+        this.spellBadgeLayout = { cx, cy, color, plateW, plateH };
+
+        if (!this.spellBadgeIcon) {
+            this.spellBadgeIcon = new Sprite(opts.iconTex);
+            this.spellBadgeIcon.anchor.set(0.5);
+            this.context.attachToWorldRoot(this.spellBadgeIcon, 5601);
+        } else {
+            this.spellBadgeIcon.texture = opts.iconTex;
+        }
+        const texW = opts.iconTex.width || iconSize;
+        const texH = opts.iconTex.height || iconSize;
+        const fit = iconSize / Math.max(texW, texH);
+        this.spellBadgeIcon.visible = true;
+        this.spellBadgeIcon.scale.set(glyphScaleX(fit), -fit);
+        this.spellBadgeIcon.position.set(iconX, cy);
+        this.spellBadgeIcon.tint = 0xffffff;
+        this.paintSpellCasterBadge(this.spellBadgePhase);
+    }
+    /** Keep the nameplate's light moving while the pointer is still. */
+    private updateSpellCasterBadge(dt: number): void {
+        if (!this.spellBadgeLayout || !this.spellBadgeRing?.visible) return;
+        this.spellBadgePhase += Math.max(0, dt);
+        this.paintSpellCasterBadge(this.spellBadgePhase);
+    }
+    /**
+     * Dark plate so the spell name stays readable on the figure, with a sheen that
+     * rakes across the whole card (переливание). The pass fades out at both edges.
+     */
+    private paintSpellCasterBadge(phase: number): void {
+        const layout = this.spellBadgeLayout;
+        const ring = this.spellBadgeRing;
+        const light = this.spellBadgeLight;
+        const mask = this.spellBadgeMask;
+        if (!layout || !this.isGraphicsUsable(ring) || !this.isGraphicsUsable(light) || !this.isGraphicsUsable(mask)) {
+            return;
+        }
+
+        const { cx, cy, color, plateW, plateH } = layout;
+        const left = cx - plateW / 2;
+        const bottom = cy - plateH / 2;
+        const breathe = 0.5 + 0.5 * Math.sin(phase * 2.2);
+        ring.clear();
+        ring.visible = true;
+        ring.roundRect(left - 3, bottom - 3, plateW + 6, plateH + 6, 14).stroke({
+            width: 8,
+            color,
+            alpha: 0.16 + breathe * 0.1,
+        });
+        ring.roundRect(left, bottom, plateW, plateH, 12).fill({ color: 0x100e0c, alpha: 0.9 });
+        ring.roundRect(left, bottom, plateW, plateH, 12).stroke({ width: 1.5, color, alpha: 0.9 });
+
+        mask.clear();
+        mask.roundRect(left, bottom, plateW, plateH, 12).fill({ color: 0xffffff });
+
+        light.clear();
+        light.visible = true;
+        const sweep = (phase % 2.4) / 2.4;
+        const fade = Math.sin(sweep * Math.PI);
+        const sheenX = left + plateW * sweep;
+        const half = plateH * 0.42;
+        light
+            .moveTo(sheenX - 10, cy - half)
+            .lineTo(sheenX + 6, cy + half)
+            .stroke({ width: 16, color, alpha: 0.28 * fade, cap: "round" });
+        light
+            .moveTo(sheenX - 4, cy - half)
+            .lineTo(sheenX + 2, cy + half)
+            .stroke({ width: 3, color: 0xfff8ea, alpha: 0.7 * fade, cap: "round" });
     }
     public clearSpellPreview(): void {
         if (this.spellBeam) this.safeClearGraphics(this.spellBeam);
         this.hideMagicAimDualHelix();
+        this.spellBadgeLayout = undefined;
+        if (this.spellBadgeLight) this.spellBadgeLight.mask = null;
         if (this.spellBadgeRing) this.safeClearGraphics(this.spellBadgeRing);
+        if (this.spellBadgeMask) this.safeClearGraphics(this.spellBadgeMask);
+        if (this.spellBadgeLight) this.safeClearGraphics(this.spellBadgeLight);
         if (this.spellBadgeIcon) this.spellBadgeIcon.visible = false;
         if (this.spellBadgeText) this.spellBadgeText.visible = false;
     }
