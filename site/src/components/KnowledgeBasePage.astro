@@ -693,21 +693,39 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
                 // attribute plus the site-wide block image rule drops the picture onto its own line.
                 image.removeAttribute("width");
                 image.removeAttribute("height");
+                // Lazy catalog rows never load. A cloned lazy image stays a blank chip until it
+                // happens to scroll into view, which on a phone is most of a long answer.
+                image.loading = "eager";
+                image.decoding = "async";
             };
             if (copy instanceof HTMLImageElement) clear(copy);
             copy.querySelectorAll("img").forEach(clear);
             return copy;
         };
 
+        const iconFor = (figure: AnswerFigure): HTMLSpanElement => {
+            const icon = document.createElement("span");
+            icon.className = "kb-ai-inline";
+            icon.dataset.kind = figure.kind;
+            const art = cloneArt(figure.art);
+            icon.append(art);
+            const images = [...icon.querySelectorAll("img")];
+            const dropIfBlank = () => {
+                if (images.length > 0 && images.every((image) => image.complete && image.naturalWidth === 0)) {
+                    icon.remove();
+                }
+            };
+            for (const image of images) image.addEventListener("error", dropIfBlank);
+            return icon;
+        };
+
         const nameLink = (figure: AnswerFigure, label: string): HTMLAnchorElement => {
             const link = document.createElement("a");
             link.className = "kb-ai-name";
             link.href = figure.href;
-            const icon = document.createElement("span");
-            icon.className = "kb-ai-inline";
-            icon.dataset.kind = figure.kind;
-            icon.append(cloneArt(figure.art));
-            link.append(icon, document.createTextNode(label));
+            const text = document.createElement("span");
+            text.textContent = label;
+            link.append(iconFor(figure), text);
             return link;
         };
 
@@ -735,7 +753,10 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
             while (walker.nextNode()) {
                 const node = walker.currentNode;
                 const parent = node.parentElement;
-                if (!node.nodeValue?.trim() || !parent || parent.closest("table, pre, code, a, .kb-math")) continue;
+                // An existing markdown link still gets a picture; nesting a second link inside it would not.
+                if (!node.nodeValue?.trim() || !parent || parent.closest("table, pre, code, .kb-math, .kb-ai-name")) {
+                    continue;
+                }
                 textNodes.push(node as Text);
             }
             for (const textNode of textNodes) {
@@ -759,12 +780,31 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
                     if (!match || !textNode.parentNode) break;
                     seen.add(match.figure);
                     const parent = textNode.parentNode;
+                    const insideLink = Boolean(textNode.parentElement?.closest("a"));
                     if (match.index > 0) parent.insertBefore(document.createTextNode(value.slice(0, match.index)), textNode);
-                    parent.insertBefore(nameLink(match.figure, match.label), textNode);
+                    if (insideLink) {
+                        parent.insertBefore(iconFor(match.figure), textNode);
+                        parent.insertBefore(document.createTextNode(match.label), textNode);
+                    } else {
+                        parent.insertBefore(nameLink(match.figure, match.label), textNode);
+                    }
                     textNode.nodeValue = value.slice(match.index + match.label.length);
                 }
             }
+            window.requestAnimationFrame(markOverflowingTables);
         };
+
+        const markOverflowingTables = () => {
+            root.querySelectorAll<HTMLElement>(".kb-ai-table-scroll").forEach((wrap) => {
+                if (!wrap.dataset.kbOverflow) {
+                    wrap.dataset.kbOverflow = "1";
+                    wrap.addEventListener("scroll", markOverflowingTables, { passive: true });
+                }
+                wrap.classList.toggle("is-overflowing-end", wrap.scrollWidth - wrap.clientWidth - wrap.scrollLeft > 8);
+                wrap.classList.toggle("is-overflowing-start", wrap.scrollLeft > 8);
+            });
+        };
+        window.addEventListener("resize", markOverflowingTables);
 
         const renderAiSources = (items: KnowledgeAiSource[]) => {
             if (!aiSources || !aiSourceList) return;
@@ -2625,8 +2665,24 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
 
     .kb-ai-answer .kb-ai-table-scroll {
         max-width: 100%;
+        min-width: 0;
         margin: 0 0 14px;
         overflow-x: auto;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(220, 177, 88, 0.45) transparent;
+    }
+
+    /* A clipped column should look like there is more, not like the table was cut off. */
+    .kb-ai-answer .kb-ai-table-scroll.is-overflowing-end {
+        mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+    }
+
+    .kb-ai-answer .kb-ai-table-scroll.is-overflowing-start.is-overflowing-end {
+        mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent);
+    }
+
+    .kb-ai-answer .kb-ai-table-scroll.is-overflowing-start:not(.is-overflowing-end) {
+        mask-image: linear-gradient(to right, transparent, #000 28px);
     }
 
     .kb-ai-answer table {
@@ -2646,15 +2702,16 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
         white-space: nowrap;
         overflow-wrap: normal;
         word-break: normal;
+        background: #100c09;
     }
 
     .kb-ai-answer tbody tr:nth-child(even) td {
-        background: rgba(255, 255, 255, 0.025);
+        background: #16130f;
     }
 
     .kb-ai-answer th {
         color: #fff4cc;
-        background: rgba(242, 199, 93, 0.08);
+        background: #1c1810;
         font-weight: 700;
     }
 
@@ -2669,6 +2726,7 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
         display: inline-flex;
         gap: 8px;
         align-items: center;
+        max-width: 100%;
         color: inherit;
         font-weight: inherit;
         text-decoration: none;
@@ -2676,16 +2734,31 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
         vertical-align: middle;
     }
 
+    .kb-ai-answer p a.kb-ai-name,
+    .kb-ai-answer li a.kb-ai-name,
+    .kb-ai-answer h3 a.kb-ai-name,
+    .kb-ai-answer h4 a.kb-ai-name,
+    .kb-ai-answer h5 a.kb-ai-name,
+    .kb-ai-answer h6 a.kb-ai-name {
+        white-space: normal;
+    }
+
+    .kb-ai-answer p a.kb-ai-name > span,
+    .kb-ai-answer li a.kb-ai-name > span {
+        min-width: 0;
+    }
+
     .kb-ai-answer a.kb-ai-name:hover {
         color: #fff4cc;
     }
 
     .kb-ai-answer .kb-ai-inline {
-        display: block;
+        display: inline-block;
         flex: 0 0 auto;
         width: 28px;
         height: 28px;
         overflow: hidden;
+        vertical-align: middle;
         border-radius: 5px;
         background: #090806;
         box-shadow: 0 0 0 1px rgba(220, 177, 88, 0.35);
@@ -2695,6 +2768,23 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
     .kb-ai-answer .kb-ai-inline[data-kind="unit"] {
         width: 34px;
         height: 46px;
+    }
+
+    @media (max-width: 720px) {
+        .kb-ai-answer .kb-ai-inline {
+            width: 24px;
+            height: 24px;
+        }
+
+        .kb-ai-answer .kb-ai-inline[data-kind="unit"] {
+            width: 28px;
+            height: 38px;
+        }
+
+        .kb-ai-answer th,
+        .kb-ai-answer td {
+            padding: 5px 8px;
+        }
     }
 
     .kb-ai-answer .kb-ai-inline > img {
