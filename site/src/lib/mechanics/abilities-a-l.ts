@@ -231,9 +231,9 @@ export const ABILITY_NOTES_A_L: Readonly<Record<string, NoteSpec>> = {
     },
     "Dulling Defense": {
         en: ({ p }) =>
-            `Every landed melee hit on the Goblin Knight — including a retaliation against its own attack, second strikes and Lightning Spin hits — permanently lowers the striker's base attack by ${p} (never below 1). Stack power doesn't change the amount.`,
+            `The Goblin Knight's own melee attack and its retaliation each permanently lower the struck unit's base attack by ${p} (never below 1). A hit on the knight that he does not answer does nothing. A second strike, Skewer Strike or Lightning Spin counts only when he is the one swinging. Stack power doesn't change the amount.`,
         ru: ({ p }) =>
-            `Каждое попадание в Goblin Knight в ближнем бою — включая ответ на его собственную атаку, вторые удары и удары Lightning Spin — навсегда снижает базовую атаку ударившего на ${p} (не ниже 1). Сила стека на величину не влияет.`,
+            `Собственная атака Goblin Knight в ближнем бою и его ответ навсегда снижают базовую атаку поражённого на ${p} (не ниже 1). Удар по рыцарю, на который он не отвечает, ничего не делает. Второй удар, Skewer Strike и Lightning Spin считаются, только если бьёт он. Сила стека на величину не влияет.`,
     },
     "Earth Element": {
         en: ({ p }) =>

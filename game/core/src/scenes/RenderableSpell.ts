@@ -462,13 +462,10 @@ export class PixiRenderableSpell extends Spell {
                 },
             };
         }
-        // Fireforged Sword's share starts at its own power. Tome of Amplification raises that stored
-        // power (20 → 30), and the Empower bonus then scales it the same way the hit does.
+        // Fireforged Sword's share is its own power. Magic-damage bonuses do not raise it. Tome of
+        // Amplification does: the cast stores 30 instead of 20, and the card has to say that.
         if (this.getName() === "Fireforged Sword") {
-            const bonus = fireforgedSwordPower(
-                this.shownBuffPower(casterTomeBuffPercentage),
-                casterMagicDamageBonusPercentage,
-            );
+            const bonus = fireforgedSwordPower(this.shownBuffPower(casterTomeBuffPercentage));
             return {
                 information: [...lines, ...this.getDesc().map((line) => line.replace(/\{\}/g, bonus.toString()))],
                 effectSummary: {

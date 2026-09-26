@@ -20,19 +20,29 @@ describe("Dulling Defense VFX wiring", () => {
         expect(FIGHT_EVENT_VFX.effects_applied.note).toContain("impact");
     });
 
-    test("does not play on the attacker when the knight is only being hit", () => {
+    test("pops whoever the action dulled, at the strike and again for anyone the exchange did not draw", () => {
         const source = sandboxSource();
 
-        expect(source).not.toContain("popDullingDefenseApplications(attackActionEvents, attacker.getId())");
-        expect(source).not.toContain("popDullingDefenseApplications(record.events, attacker.getId())");
-        expect(source).toContain("popDullingDefenseApplications(attackActionEvents, target.getId())");
-        expect(source).toContain("popDullingDefenseApplications(record.events, target.getId())");
+        expect(source).toContain("this.popRecordedDullingDefense(");
+        expect(source).toContain("new Set([strike.attackerId, strike.targetId])");
+        expect(source).not.toContain("popDullingDefenseApplications(attackActionEvents, target.getId())");
+        expect(source).not.toContain("popDullingDefenseApplications(record.events, target.getId())");
     });
 
-    test("fires on the responder only when the response impact is replayed", () => {
-        const response = sliceFrom(sandboxSource(), "private async playReplayRetaliation(", 5_000);
+    test("still shows the icon when the dulled stack is already dead", () => {
+        const source = sandboxSource();
+        const pop = sliceFrom(source, "protected popDullingDefenseApplications(", 700);
 
-        expect(response).toContain("this.popDullingDefenseApplications(record.events, target.getId())");
-        expect(response.indexOf("showFloatingDamage")).toBeLessThan(response.indexOf("popDullingDefenseApplications"));
+        expect(pop).not.toContain("unit.isDead()");
+    });
+
+    test("the ability card prints the flat attack loss, not a stack-and-luck count", () => {
+        for (const file of ["RenderableUnit.ts", "LevelOneRenderableUnit.ts"]) {
+            const source = readFileSync(join(import.meta.dir, file), "utf8");
+            const block = sliceFrom(source, "Dulling Defense removes a flat amount", 450);
+
+            expect(block).toContain("getPower()");
+            expect(block).not.toContain("calculateAbilityCount");
+        }
     });
 });

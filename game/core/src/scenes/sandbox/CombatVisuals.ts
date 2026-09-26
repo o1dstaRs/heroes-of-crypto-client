@@ -440,7 +440,9 @@ const DP_POP_DUR = 0.2; // seconds of the spawn "pop" (icon scales in with overs
 const DP_START_SCALE = 0.25; // scale the pop springs in from
 const DP_FADE_IN = 0.1; // seconds to fade in
 const DP_FADE_OUT_FROM = 0.48; // fraction of life after which it fades out (earlier = quicker evaporate)
-const DP_Z = 2100; // above the damage numbers (2000) so the debuff reads on top
+// Unit sprites sort near `4000 - worldY`, so a pop at 2100 drew underneath the creature and read as
+// "nothing happened". Sit above every figure; the spellbook is a separate UI layer and is unaffected.
+const DP_Z = 8000;
 
 // Tuning for Predatory Assimilation's ability transfer. Three lime strands cinch the stolen card out
 // of the victim and carry it into Arachna Queen. The palette deliberately matches the permanent

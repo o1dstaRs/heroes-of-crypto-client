@@ -380,7 +380,7 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
                 </div>
             </section>
 
-            <section class="kb-panel" id="rules" data-kb-panel="rules" aria-labelledby="kb-tab-rules">
+            <section class="kb-panel" id="rules" data-kb-panel="rules" aria-labelledby="kb-tab-rules" hidden>
                 <header class="kb-panel-header">
                     <div class="kb-heading-group">
                         <span class="kb-heading-icon rules" aria-hidden="true"><KnowledgeIcon section="rules" size={36} /></span>
@@ -395,7 +395,7 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
                 <RulesPage lang={lang} embedded />
             </section>
 
-            <section class="kb-panel" id="units" data-kb-panel="units" aria-labelledby="kb-tab-units">
+            <section class="kb-panel" id="units" data-kb-panel="units" aria-labelledby="kb-tab-units" hidden>
                 <header class="kb-panel-header">
                     <div class="kb-heading-group">
                         <span class="kb-heading-icon units" aria-hidden="true"><KnowledgeIcon section="units" size={36} /></span>
@@ -410,7 +410,7 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
                 <UnitsPage lang={lang} embedded />
             </section>
 
-            <section class="kb-panel" id="abilities" data-kb-panel="abilities" aria-labelledby="kb-tab-abilities">
+            <section class="kb-panel" id="abilities" data-kb-panel="abilities" aria-labelledby="kb-tab-abilities" hidden>
                 <header class="kb-panel-header">
                     <div class="kb-heading-group">
                         <span class="kb-heading-icon abilities" aria-hidden="true"><KnowledgeIcon section="abilities" size={36} /></span>
@@ -425,7 +425,7 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
                 <AbilitiesPage lang={lang} embedded />
             </section>
 
-            <section class="kb-panel" id="spells" data-kb-panel="spells" aria-labelledby="kb-tab-spells">
+            <section class="kb-panel" id="spells" data-kb-panel="spells" aria-labelledby="kb-tab-spells" hidden>
                 <header class="kb-panel-header">
                     <div class="kb-heading-group">
                         <span class="kb-heading-icon spells" aria-hidden="true"><KnowledgeIcon section="spells" size={36} /></span>
@@ -440,7 +440,7 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
                 <SpellsPage lang={lang} embedded />
             </section>
 
-            <section class="kb-panel" id="artifacts" data-kb-panel="artifacts" aria-labelledby="kb-tab-artifacts">
+            <section class="kb-panel" id="artifacts" data-kb-panel="artifacts" aria-labelledby="kb-tab-artifacts" hidden>
                 <header class="kb-panel-header">
                     <div class="kb-heading-group">
                         <span class="kb-heading-icon artifacts" aria-hidden="true"><KnowledgeIcon section="artifacts" size={36} /></span>
@@ -455,7 +455,44 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
                 <ArtifactsPage lang={lang} embedded />
             </section>
 
-            <a class="kb-back-overview" href={knowledgePath(lang)} data-kb-section-link="overview">← {copy.returnToOverview}</a>
+            <a class="kb-back-overview" href={knowledgePath(lang)} data-kb-section-link="overview" hidden>← {copy.returnToOverview}</a>
+            <!-- Synchronous, so the open section is chosen before the first paint. The catalog script is deferred. -->
+            <script is:inline>
+                (() => {
+                    const root = document.currentScript && document.currentScript.closest("[data-knowledge-base]");
+                    if (!root) return;
+                    let hash = location.hash.replace(/^#/, "");
+                    try {
+                        hash = decodeURIComponent(hash);
+                    } catch {
+                        hash = "";
+                    }
+                    const known = ["overview", "rules", "units", "abilities", "spells", "artifacts"];
+                    let section = "overview";
+                    if (known.indexOf(hash) !== -1) section = hash;
+                    else if (hash.indexOf("rule-") === 0) section = "rules";
+                    else if (hash.indexOf("unit-") === 0) section = "units";
+                    else if (hash.indexOf("ability-") === 0) section = "abilities";
+                    else if (hash.indexOf("spell-") === 0) section = "spells";
+                    else if (hash.indexOf("artifact-") === 0) section = "artifacts";
+                    const panels = root.querySelectorAll("[data-kb-panel]");
+                    for (let i = 0; i < panels.length; i += 1) {
+                        panels[i].hidden = panels[i].getAttribute("data-kb-panel") !== section;
+                    }
+                    const back = root.querySelector(".kb-back-overview");
+                    if (back) back.hidden = section === "overview";
+                })();
+            </script>
+            <noscript>
+                <style>
+                    .knowledge-base .kb-panel[hidden] {
+                        display: block !important;
+                    }
+                    .knowledge-base .kb-back-overview[hidden] {
+                        display: inline-flex !important;
+                    }
+                </style>
+            </noscript>
         </div>
     </div>
 </div>
@@ -477,6 +514,8 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
         knowledgeSearchRank,
         type KnowledgeSection,
     } from "../lib/knowledge-base";
+    import { factionImagePath, isVisualKnowledgeSource } from "../lib/knowledge-ai-figures";
+    import { RU_NAMES } from "../lib/knowledge/names-ru";
     import { renderMarkdown } from "../lib/markdown-lite";
 
     const roots = document.querySelectorAll<HTMLElement>("[data-knowledge-base]");
@@ -581,7 +620,10 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
 
         const renderAiAnswer = () => {
             aiRenderQueued = false;
-            if (aiAnswer) aiAnswer.innerHTML = renderMarkdown(aiMarkdown);
+            if (aiAnswer) {
+                aiAnswer.innerHTML = renderMarkdown(aiMarkdown);
+                decorateAiAnswer(aiAnswer);
+            }
             typesetAnswerMath();
         };
 
@@ -598,10 +640,179 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
             if (aiStop) aiStop.hidden = !busy;
         };
 
+        const normalizeFigureName = (value: string): string => value.trim().toLocaleLowerCase();
+        const sectionKind: Record<string, "unit" | "ability" | "spell" | "artifact"> = {
+            units: "unit",
+            abilities: "ability",
+            spells: "spell",
+            artifacts: "artifact",
+        };
+        interface AnswerFigure {
+            kind: "unit" | "ability" | "spell" | "artifact" | "faction";
+            href: string;
+            art: HTMLElement;
+            labels: string[];
+        }
+        const figuresByName = new Map<string, AnswerFigure>();
+        const proseFigures: AnswerFigure[] = [];
+        const rememberFigure = (figure: AnswerFigure, prose: boolean) => {
+            for (const label of figure.labels) figuresByName.set(normalizeFigureName(label), figure);
+            if (prose) proseFigures.push(figure);
+        };
+        for (const row of resultRows) {
+            const kind = sectionKind[row.dataset.section ?? ""];
+            const name = row.dataset.name ?? "";
+            const art = row.querySelector<HTMLElement>(".kb-result-name .portrait, .kb-result-name img");
+            const href = row.querySelector<HTMLAnchorElement>("[data-kb-result-link]")?.href ?? "";
+            if (!kind || !name || !art || !href) continue;
+            const russian = RU_NAMES[name];
+            rememberFigure({ kind, href, art, labels: russian && russian !== name ? [name, russian] : [name] }, true);
+        }
+        const unitsPage = document.documentElement.lang === "ru" ? "/ru/knowledge-base/#units" : "/knowledge-base/#units";
+        for (const faction of [
+            { en: "Life", ru: "Жизнь", slug: "life" },
+            { en: "Chaos", ru: "Хаос", slug: "chaos" },
+            { en: "Might", ru: "Сила", slug: "might" },
+            { en: "Nature", ru: "Природа", slug: "nature" },
+        ]) {
+            const image = document.createElement("img");
+            image.src = factionImagePath({ id: `faction:${faction.slug}`, name: faction.en }) ?? "";
+            image.alt = "";
+            rememberFigure({ kind: "faction", href: unitsPage, art: image, labels: [faction.en, faction.ru] }, false);
+        }
+        proseFigures.sort(
+            (a, b) =>
+                Math.max(...b.labels.map((label) => label.length)) - Math.max(...a.labels.map((label) => label.length)),
+        );
+
+        const cloneArt = (art: HTMLElement): HTMLElement => {
+            const copy = art.cloneNode(true) as HTMLElement;
+            const clear = (image: HTMLImageElement) => {
+                image.alt = "";
+                // The catalog sizes these with attributes. In the answer the chip does, or a 46px
+                // attribute plus the site-wide block image rule drops the picture onto its own line.
+                image.removeAttribute("width");
+                image.removeAttribute("height");
+                // Lazy catalog rows never load. A cloned lazy image stays a blank chip until it
+                // happens to scroll into view, which on a phone is most of a long answer.
+                image.loading = "eager";
+                image.decoding = "async";
+            };
+            if (copy instanceof HTMLImageElement) clear(copy);
+            copy.querySelectorAll("img").forEach(clear);
+            return copy;
+        };
+
+        const iconFor = (figure: AnswerFigure): HTMLSpanElement => {
+            const icon = document.createElement("span");
+            icon.className = "kb-ai-inline";
+            icon.dataset.kind = figure.kind;
+            const art = cloneArt(figure.art);
+            icon.append(art);
+            const images = [...icon.querySelectorAll("img")];
+            const dropIfBlank = () => {
+                if (images.length > 0 && images.every((image) => image.complete && image.naturalWidth === 0)) {
+                    icon.remove();
+                }
+            };
+            for (const image of images) image.addEventListener("error", dropIfBlank);
+            return icon;
+        };
+
+        const nameLink = (figure: AnswerFigure, label: string): HTMLAnchorElement => {
+            const link = document.createElement("a");
+            link.className = "kb-ai-name";
+            link.href = figure.href;
+            const text = document.createElement("span");
+            text.textContent = label;
+            link.append(iconFor(figure), text);
+            return link;
+        };
+
+        const escapeName = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+        const decorateAiAnswer = (answer: HTMLElement) => {
+            // A block-level table cannot scroll sideways without giving up its columns. The wrapper scrolls.
+            answer.querySelectorAll("table").forEach((table) => {
+                if (table.parentElement?.classList.contains("kb-ai-table-scroll")) return;
+                const wrap = document.createElement("div");
+                wrap.className = "kb-ai-table-scroll";
+                table.replaceWith(wrap);
+                wrap.append(table);
+            });
+            answer.querySelectorAll("td, th").forEach((cell) => {
+                if (cell.querySelector(".kb-ai-inline")) return;
+                const label = cell.textContent?.trim() ?? "";
+                const figure = figuresByName.get(normalizeFigureName(label));
+                if (!figure || !label) return;
+                cell.replaceChildren(nameLink(figure, label));
+            });
+            const seen = new Set<AnswerFigure>();
+            const textNodes: Text[] = [];
+            const walker = document.createTreeWalker(answer, NodeFilter.SHOW_TEXT);
+            while (walker.nextNode()) {
+                const node = walker.currentNode;
+                const parent = node.parentElement;
+                // An existing markdown link still gets a picture; nesting a second link inside it would not.
+                if (!node.nodeValue?.trim() || !parent || parent.closest("table, pre, code, .kb-math, .kb-ai-name")) {
+                    continue;
+                }
+                textNodes.push(node as Text);
+            }
+            for (const textNode of textNodes) {
+                for (let guard = 0; textNode.nodeValue && guard < 12; guard += 1) {
+                    const value = textNode.nodeValue;
+                    let match: { index: number; label: string; figure: AnswerFigure } | undefined;
+                    for (const figure of proseFigures) {
+                        if (seen.has(figure)) continue;
+                        for (const label of figure.labels) {
+                            const found = new RegExp(
+                                `(?:^|[^\\p{L}\\p{N}])${escapeName(label)}(?![\\p{L}\\p{N}])`,
+                                "iu",
+                            ).exec(value);
+                            if (!found) continue;
+                            const index = found.index + found[0].length - label.length;
+                            if (!match || index < match.index) {
+                                match = { index, label: value.slice(index, index + label.length), figure };
+                            }
+                        }
+                    }
+                    if (!match || !textNode.parentNode) break;
+                    seen.add(match.figure);
+                    const parent = textNode.parentNode;
+                    const insideLink = Boolean(textNode.parentElement?.closest("a"));
+                    if (match.index > 0) parent.insertBefore(document.createTextNode(value.slice(0, match.index)), textNode);
+                    if (insideLink) {
+                        parent.insertBefore(iconFor(match.figure), textNode);
+                        parent.insertBefore(document.createTextNode(match.label), textNode);
+                    } else {
+                        parent.insertBefore(nameLink(match.figure, match.label), textNode);
+                    }
+                    textNode.nodeValue = value.slice(match.index + match.label.length);
+                }
+            }
+            window.requestAnimationFrame(markOverflowingTables);
+        };
+
+        const markOverflowingTables = () => {
+            root.querySelectorAll<HTMLElement>(".kb-ai-table-scroll").forEach((wrap) => {
+                if (!wrap.dataset.kbOverflow) {
+                    wrap.dataset.kbOverflow = "1";
+                    wrap.addEventListener("scroll", markOverflowingTables, { passive: true });
+                }
+                wrap.classList.toggle("is-overflowing-end", wrap.scrollWidth - wrap.clientWidth - wrap.scrollLeft > 8);
+                wrap.classList.toggle("is-overflowing-start", wrap.scrollLeft > 8);
+            });
+        };
+        window.addEventListener("resize", markOverflowingTables);
+
         const renderAiSources = (items: KnowledgeAiSource[]) => {
             if (!aiSources || !aiSourceList) return;
             aiSourceList.replaceChildren();
-            for (const item of items.slice(0, 10)) {
+            // Pictures sit beside the name in the answer. Chips are only for entries with no picture.
+            for (const item of items) {
+                if (isVisualKnowledgeSource(item.type)) continue;
+                if (aiSourceList.childElementCount >= 8) break;
                 const li = document.createElement("li");
                 const link = document.createElement("a");
                 link.href = item.href;
@@ -610,7 +821,7 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
                 li.append(link);
                 aiSourceList.append(li);
             }
-            aiSources.hidden = items.length === 0;
+            aiSources.hidden = aiSourceList.childElementCount === 0;
         };
 
         const showAiError = (message: string) => {
@@ -864,6 +1075,9 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
                 if (searchResults) searchResults.hidden = true;
                 activateSection(activeSection);
             }
+            // AI mode still filters the catalog. A sentence that names nothing ("tell me how combat works")
+            // must not open an empty "Search results / 0 / No matches" table under the Ask button.
+            searchResults?.classList.toggle("kb-ai-waiting", aiSearchEnabled && searching && visible === 0);
 
             if (clearButton) clearButton.hidden = !searching;
             if (count) count.textContent = String(visible);
@@ -1443,6 +1657,7 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
         padding: 0;
     }
 
+    .kb-panel[hidden],
     .knowledge-base[data-enhanced="true"] .kb-panel[hidden],
     .kb-search-results[hidden],
     [data-kb-result][hidden],
@@ -1721,6 +1936,12 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
         padding: 52px 24px;
         color: var(--kb-muted);
         text-align: center;
+    }
+
+    .kb-search-results.kb-ai-waiting .kb-panel-header,
+    .kb-search-results.kb-ai-waiting .kb-results-table-wrap,
+    .kb-search-results.kb-ai-waiting .kb-empty {
+        display: none;
     }
 
     .kb-back-overview {
@@ -2219,168 +2440,6 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
         }
     }
 
-    .kb-ai-answer > :first-child {
-        margin-top: 0;
-    }
-
-    .kb-ai-answer p,
-    .kb-ai-answer ul,
-    .kb-ai-answer ol,
-    .kb-ai-answer blockquote,
-    .kb-ai-answer pre {
-        margin: 0 0 12px;
-    }
-
-    .kb-ai-answer h3,
-    .kb-ai-answer h4,
-    .kb-ai-answer h5,
-    .kb-ai-answer h6 {
-        margin: 18px 0 8px;
-        color: #fff4cc;
-        font-family: var(--hoc-font-display);
-        font-size: 1.05rem;
-        font-weight: 700;
-    }
-
-    .kb-ai-answer ul,
-    .kb-ai-answer ol {
-        padding-left: 22px;
-    }
-
-    .kb-ai-answer li {
-        margin: 4px 0;
-    }
-
-    .kb-ai-answer li > ul,
-    .kb-ai-answer li > ol {
-        margin: 4px 0 0;
-    }
-
-    .kb-ai-answer a {
-        color: #f2c75d;
-        text-decoration: underline;
-        text-decoration-color: rgba(242, 199, 93, 0.45);
-        text-underline-offset: 3px;
-    }
-
-    .kb-ai-answer a:hover {
-        color: #fff4cc;
-        text-decoration-color: currentcolor;
-    }
-
-    .kb-ai-answer strong {
-        color: #fff8e8;
-    }
-
-    .kb-ai-answer code {
-        padding: 1px 6px;
-        border-radius: 5px;
-        background: rgba(255, 255, 255, 0.08);
-        font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-        font-size: 0.86em;
-    }
-
-    .kb-ai-answer pre {
-        overflow-x: auto;
-        padding: 12px 14px;
-        border: 1px solid var(--kb-line);
-        border-radius: 8px;
-        background: rgba(0, 0, 0, 0.35);
-    }
-
-    .kb-ai-answer pre code {
-        padding: 0;
-        background: none;
-    }
-
-    /*
-     * A formula, in the two states it has: the TeX itself while KaTeX loads (set like code, so it reads as
-     * one), and the typeset version after. A formula cannot break across lines either way, so a long one
-     * scrolls inside its own box — otherwise it pushes the answer wider than the phone and takes the whole
-     * page sideways with it.
-     */
-    .kb-ai-answer .kb-math {
-        display: inline-block;
-        max-width: 100%;
-        overflow-x: auto;
-        overflow-y: hidden;
-        vertical-align: middle;
-        font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-        font-size: 0.9em;
-        color: #fff1cf;
-    }
-
-    /* Once typeset, KaTeX brings its own type — drop the stand-in styling. */
-    .kb-ai-answer .kb-math:has(.katex) {
-        font-family: inherit;
-        font-size: inherit;
-    }
-
-    /* A long formula scrolls sideways on a phone instead of forcing the whole answer to. */
-    .kb-ai-answer .kb-math--display {
-        display: block;
-        overflow-x: auto;
-        overflow-y: hidden;
-        max-width: 100%;
-        margin: 12px 0;
-        padding-bottom: 2px;
-    }
-
-    /* A displayed formula inside a bullet stays on the bullet's line rather than breaking the list. */
-    .kb-ai-answer li .kb-math--display {
-        display: inline-block;
-        margin: 4px 0;
-        vertical-align: middle;
-    }
-
-    .kb-ai-answer .katex {
-        /* KaTeX defaults to 1.21em, which oversets next to this page's body copy. */
-        font-size: 1.05em;
-    }
-
-    .kb-ai-answer .katex-display {
-        margin: 0;
-    }
-
-    .kb-ai-answer blockquote {
-        padding-left: 12px;
-        color: var(--kb-muted);
-        border-left: 2px solid rgba(242, 199, 93, 0.35);
-    }
-
-    .kb-ai-answer table {
-        display: block;
-        overflow-x: auto;
-        max-width: 100%;
-        margin: 0 0 14px;
-        border-collapse: collapse;
-        font-size: 0.9rem;
-    }
-
-    .kb-ai-answer th,
-    .kb-ai-answer td {
-        padding: 7px 12px;
-        border: 1px solid rgba(220, 177, 88, 0.3);
-        text-align: left;
-        vertical-align: top;
-    }
-
-    .kb-ai-answer tbody tr:nth-child(even) td {
-        background: rgba(255, 255, 255, 0.025);
-    }
-
-    .kb-ai-answer th {
-        color: #fff4cc;
-        background: rgba(242, 199, 93, 0.08);
-        font-weight: 700;
-    }
-
-    .kb-ai-answer hr {
-        margin: 14px 0;
-        border: 0;
-        border-top: 1px solid var(--kb-line);
-    }
-
     .kb-ai-error {
         margin: 0 0 10px;
         padding: 10px 12px;
@@ -2476,5 +2535,268 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
         .kb-ai-panel.busy .kb-ai-answer:not(:empty)::after {
             animation: none;
         }
+    }
+</style>
+
+<style is:global>
+    /*
+     * The answer is markdown the browser inserts after load, and the pictures are cloned into it.
+     * A scoped rule would only match nodes that carry this component's attribute, so none of it
+     * would reach the answer: no pictures in the lines, no table, no headings.
+     */
+    .kb-ai-answer > :first-child {
+        margin-top: 0;
+    }
+
+    .kb-ai-answer p,
+    .kb-ai-answer ul,
+    .kb-ai-answer ol,
+    .kb-ai-answer blockquote,
+    .kb-ai-answer pre {
+        margin: 0 0 12px;
+    }
+
+    .kb-ai-answer h3,
+    .kb-ai-answer h4,
+    .kb-ai-answer h5,
+    .kb-ai-answer h6 {
+        margin: 18px 0 8px;
+        color: #fff4cc;
+        font-family: var(--hoc-font-display);
+        font-size: 1.05rem;
+        font-weight: 700;
+    }
+
+    .kb-ai-answer ul,
+    .kb-ai-answer ol {
+        padding-left: 22px;
+    }
+
+    .kb-ai-answer li {
+        margin: 4px 0;
+    }
+
+    .kb-ai-answer li > ul,
+    .kb-ai-answer li > ol {
+        margin: 4px 0 0;
+    }
+
+    .kb-ai-answer a {
+        color: #f2c75d;
+        text-decoration: underline;
+        text-decoration-color: rgba(242, 199, 93, 0.45);
+        text-underline-offset: 3px;
+    }
+
+    .kb-ai-answer a:hover {
+        color: #fff4cc;
+        text-decoration-color: currentcolor;
+    }
+
+    .kb-ai-answer strong {
+        color: #fff8e8;
+    }
+
+    .kb-ai-answer code {
+        padding: 1px 6px;
+        border-radius: 5px;
+        background: rgba(255, 255, 255, 0.08);
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+        font-size: 0.86em;
+    }
+
+    .kb-ai-answer pre {
+        overflow-x: auto;
+        padding: 12px 14px;
+        border: 1px solid var(--kb-line);
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.35);
+    }
+
+    .kb-ai-answer pre code {
+        padding: 0;
+        background: none;
+    }
+
+    .kb-ai-answer .kb-math {
+        display: inline-block;
+        max-width: 100%;
+        overflow-x: auto;
+        overflow-y: hidden;
+        vertical-align: middle;
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+        font-size: 0.9em;
+        color: #fff1cf;
+    }
+
+    .kb-ai-answer .kb-math:has(.katex) {
+        font-family: inherit;
+        font-size: inherit;
+    }
+
+    .kb-ai-answer .kb-math--display {
+        display: block;
+        overflow-x: auto;
+        overflow-y: hidden;
+        max-width: 100%;
+        margin: 12px 0;
+        padding-bottom: 2px;
+    }
+
+    .kb-ai-answer li .kb-math--display {
+        display: inline-block;
+        margin: 4px 0;
+        vertical-align: middle;
+    }
+
+    .kb-ai-answer .katex {
+        font-size: 1.05em;
+    }
+
+    .kb-ai-answer .katex-display {
+        margin: 0;
+    }
+
+    .kb-ai-answer blockquote {
+        padding-left: 12px;
+        color: var(--kb-muted);
+        border-left: 2px solid rgba(242, 199, 93, 0.35);
+    }
+
+    .kb-ai-answer .kb-ai-table-scroll {
+        max-width: 100%;
+        min-width: 0;
+        margin: 0 0 14px;
+        overflow-x: auto;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(220, 177, 88, 0.45) transparent;
+    }
+
+    /* A clipped column should look like there is more, not like the table was cut off. */
+    .kb-ai-answer .kb-ai-table-scroll.is-overflowing-end {
+        mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+    }
+
+    .kb-ai-answer .kb-ai-table-scroll.is-overflowing-start.is-overflowing-end {
+        mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent);
+    }
+
+    .kb-ai-answer .kb-ai-table-scroll.is-overflowing-start:not(.is-overflowing-end) {
+        mask-image: linear-gradient(to right, transparent, #000 28px);
+    }
+
+    .kb-ai-answer table {
+        width: max-content;
+        min-width: 100%;
+        margin: 0;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+    }
+
+    .kb-ai-answer th,
+    .kb-ai-answer td {
+        padding: 6px 12px;
+        border: 1px solid rgba(220, 177, 88, 0.3);
+        text-align: left;
+        vertical-align: middle;
+        white-space: nowrap;
+        overflow-wrap: normal;
+        word-break: normal;
+        background: #100c09;
+    }
+
+    .kb-ai-answer tbody tr:nth-child(even) td {
+        background: #16130f;
+    }
+
+    .kb-ai-answer th {
+        color: #fff4cc;
+        background: #1c1810;
+        font-weight: 700;
+    }
+
+    .kb-ai-answer hr {
+        margin: 14px 0;
+        border: 0;
+        border-top: 1px solid var(--kb-line);
+    }
+
+    /* The picture and the name are one piece of the sentence, not a card sitting above it. */
+    .kb-ai-answer a.kb-ai-name {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        max-width: 100%;
+        color: inherit;
+        font-weight: inherit;
+        text-decoration: none;
+        white-space: nowrap;
+        vertical-align: middle;
+    }
+
+    .kb-ai-answer p a.kb-ai-name,
+    .kb-ai-answer li a.kb-ai-name,
+    .kb-ai-answer h3 a.kb-ai-name,
+    .kb-ai-answer h4 a.kb-ai-name,
+    .kb-ai-answer h5 a.kb-ai-name,
+    .kb-ai-answer h6 a.kb-ai-name {
+        white-space: normal;
+    }
+
+    .kb-ai-answer p a.kb-ai-name > span,
+    .kb-ai-answer li a.kb-ai-name > span {
+        min-width: 0;
+    }
+
+    .kb-ai-answer a.kb-ai-name:hover {
+        color: #fff4cc;
+    }
+
+    .kb-ai-answer .kb-ai-inline {
+        display: inline-block;
+        flex: 0 0 auto;
+        width: 28px;
+        height: 28px;
+        overflow: hidden;
+        vertical-align: middle;
+        border-radius: 5px;
+        background: #090806;
+        box-shadow: 0 0 0 1px rgba(220, 177, 88, 0.35);
+    }
+
+    /* The game portrait is 190×256. A square box cover-crops the body and reads as a stray slice. */
+    .kb-ai-answer .kb-ai-inline[data-kind="unit"] {
+        width: 34px;
+        height: 46px;
+    }
+
+    @media (max-width: 720px) {
+        .kb-ai-answer .kb-ai-inline {
+            width: 24px;
+            height: 24px;
+        }
+
+        .kb-ai-answer .kb-ai-inline[data-kind="unit"] {
+            width: 28px;
+            height: 38px;
+        }
+
+        .kb-ai-answer th,
+        .kb-ai-answer td {
+            padding: 5px 8px;
+        }
+    }
+
+    .kb-ai-answer .kb-ai-inline > img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        max-width: none;
+        object-fit: contain;
+    }
+
+    .kb-ai-answer .kb-ai-inline > .portrait {
+        width: 100%;
+        height: 100%;
     }
 </style>
