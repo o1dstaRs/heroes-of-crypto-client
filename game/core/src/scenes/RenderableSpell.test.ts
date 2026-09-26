@@ -128,7 +128,7 @@ describe("PixiRenderableSpell card hit area", () => {
 });
 
 describe("PixiRenderableSpell effect summary", () => {
-    const summaryOf = (
+    const detailsOf = (
         faction: string,
         name: string,
         ownerStackPower: number,
@@ -136,6 +136,7 @@ describe("PixiRenderableSpell effect summary", () => {
         casterCumulativeMaxHp = 1,
         magicDamageBonusPercentage = 0,
         healingBonusPercentage = 0,
+        tomeBuffPercentage = 0,
     ) => {
         const layer = new Container();
         const spell = new PixiRenderableSpell(
@@ -154,12 +155,33 @@ describe("PixiRenderableSpell effect summary", () => {
                 0,
                 magicDamageBonusPercentage,
                 healingBonusPercentage,
-            ).effectSummary;
+                tomeBuffPercentage,
+            );
         } finally {
             spell.destroy();
             layer.destroy();
         }
     };
+    const summaryOf = (
+        faction: string,
+        name: string,
+        ownerStackPower: number,
+        casterAmountAlive: number,
+        casterCumulativeMaxHp = 1,
+        magicDamageBonusPercentage = 0,
+        healingBonusPercentage = 0,
+        tomeBuffPercentage = 0,
+    ) =>
+        detailsOf(
+            faction,
+            name,
+            ownerStackPower,
+            casterAmountAlive,
+            casterCumulativeMaxHp,
+            magicDamageBonusPercentage,
+            healingBonusPercentage,
+            tomeBuffPercentage,
+        ).effectSummary;
 
     test("highlights calculated spell damage", () => {
         expect(summaryOf("Nature", "Lightning Strike", 5, 2, 1, 15)).toEqual({
@@ -213,5 +235,49 @@ describe("PixiRenderableSpell effect summary", () => {
 
     test("does not invent a percentage for non-numeric status spells", () => {
         expect(summaryOf("Chaos", "Misfortune", 1, 2)).toBeUndefined();
+    });
+
+    test("Tome of Amplification raises the buff the card promises, including armor and both mirrors", () => {
+        const tome = 50;
+        expect(summaryOf("Life", "Spiritual Armor", 1, 2, 1, 0, 0, tome)).toEqual({
+            kind: "buff",
+            label: "Buff",
+            value: "+45%",
+        });
+        expect(detailsOf("Life", "Spiritual Armor", 1, 2, 1, 0, 0, tome).information.join("\n")).toContain(
+            "additional 45% armor",
+        );
+
+        expect(summaryOf("Chaos", "Riot", 1, 2, 1, 0, 0, tome)?.value).toBe("+45%");
+        expect(detailsOf("Chaos", "Riot", 1, 2, 1, 0, 0, tome).information.join("\n")).toContain("Adds 45%");
+
+        expect(summaryOf("Chaos", "Mass Riot", 4, 2, 1, 0, 0, tome)?.value).toBe("+37.5%");
+        expect(detailsOf("Chaos", "Mass Riot", 4, 2, 1, 0, 0, tome).information.join("\n")).toContain("Adds 37.5%");
+
+        // Flat, not stack-scaled: a stack-1 Ogre still reflects the whole 40, and the tome makes it 60.
+        expect(summaryOf("Chaos", "Magic Mirror", 1, 2)).toEqual({
+            kind: "buff",
+            label: "Reflection",
+            value: "40%",
+            detail: "Damage and debuff reflection",
+        });
+        expect(summaryOf("Chaos", "Magic Mirror", 1, 2, 1, 0, 0, tome)?.value).toBe("60%");
+        expect(detailsOf("Chaos", "Magic Mirror", 1, 2, 1, 0, 0, tome).information.join("\n")).toContain(
+            "Reflects 60%",
+        );
+        expect(summaryOf("Chaos", "Mass Magic Mirror", 4, 2, 1, 0, 0, tome)?.value).toBe("48%");
+        expect(detailsOf("Chaos", "Mass Magic Mirror", 4, 2, 1, 0, 0, tome).information.join("\n")).toContain(
+            "Reflects 48%",
+        );
+
+        expect(summaryOf("Chaos", "Fireforged Sword", 1, 2, 1, 0, 0, tome)?.value).toBe("30% of hit");
+        expect(detailsOf("System", "Wind Flow", 5, 1, 1, 0, 0, tome).information.join("\n")).toContain(
+            "gain 6 of base armor points while losing 4 movement",
+        );
+    });
+
+    test("Tome of Amplification does not raise heals or enemy debuffs", () => {
+        expect(summaryOf("Life", "Heal", 1, 2, 1, 0, 0, 50)?.value).toBe("10 HP");
+        expect(summaryOf("Death", "Quagmire", 1, 2, 1, 0, 0, 50)?.value).toBe("−25%");
     });
 });

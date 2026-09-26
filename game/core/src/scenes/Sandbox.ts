@@ -8491,6 +8491,9 @@ export class Sandbox extends PixiScene {
                       caster.getLuck(),
                       caster.getMagicDamageBonusPercentage(),
                       caster.getBuff("Holy Cross")?.getPower() ?? 0,
+                      // Ranked hydrates artifact buffs into the display arrays without live AppliedSpell
+                      // objects, so the book has to read the power the same way the engine does.
+                      caster.getBuffPower("Tome of Amplification") ?? 0,
                   )
                 : { information: [], effectSummary: undefined };
         const key = `${details.information.join("\n")}\n${JSON.stringify(details.effectSummary)}`;

@@ -96,6 +96,23 @@ const BOOK_CARD_LAYOUT_SCALE = 1.148;
 const HOVER_CARD_SCALE = 1.02;
 const BOOK_PAGE_TILT_RADIANS = Math.PI / 720;
 
+/** Same rounding the engine uses when it stores a Tome-amplified buff power. */
+const formatShownPower = (power: number): string => String(Number(power.toFixed(4)));
+
+/**
+ * Tome of Amplification's multiply, matching the cast. 50 on a power of 30 is 45.
+ * A missing or non-positive tome leaves the power alone.
+ */
+const amplifiedBuffPower = (basePower: number, tomePercent: number): number => {
+    if (!Number.isFinite(basePower) || basePower === 0) {
+        return basePower;
+    }
+    if (!Number.isFinite(tomePercent) || tomePercent <= 0) {
+        return basePower;
+    }
+    return Number((basePower * (1 + tomePercent / 100)).toFixed(4));
+};
+
 export type DigitTextureMap = Map<number, Texture>;
 
 export interface ISpellHoverDetails {
@@ -298,10 +315,42 @@ export class PixiRenderableSpell extends Spell {
         return this.amountRemaining > 0 && ownerStackPower >= this.getMinimalCasterStackPower();
     }
     /**
+     * Power a non-healing buff is stored at after Tome of Amplification. Healing, resurrection and
+     * debuffs keep the configured number. A missing tome leaves the power alone.
+     */
+    private shownBuffPower(tomePercent: number): number {
+        if (
+            !this.isBuff() ||
+            this.getPowerType() === SpellPowerType.HEAL ||
+            this.getPowerType() === SpellPowerType.RESURRECT
+        ) {
+            return this.getPower();
+        }
+        return amplifiedBuffPower(this.getPower(), tomePercent);
+    }
+    /**
+     * Rewrite a hardcoded base power ("Adds 30%") to the amplified one. The last line is the duration
+     * and stays put, the same way the cast rewrites the applied buff. "{}" is filled by the caller.
+     */
+    private withAmplifiedPowerText(descriptions: readonly string[], tomePercent: number): string[] {
+        const base = this.getPower();
+        const shown = this.shownBuffPower(tomePercent);
+        if (shown === base) {
+            return descriptions.slice();
+        }
+        const source = formatShownPower(base);
+        const amplified = formatShownPower(shown);
+        const pattern = new RegExp(`\\b${source.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "g");
+        return descriptions.map((description, index) =>
+            index === descriptions.length - 1 ? description : description.replace(pattern, amplified),
+        );
+    }
+    /**
      * @param casterMagicDamageBonusPercentage the caster's total magic-damage bonus (Empower augment/spell
      *        plus Sylvan Focus). Every damage figure printed below is raised by it through the same helpers
      *        the engine uses, so the card cannot promise a different number from the cast.
      * @param casterHealingBonusPercentage artifact-driven healing and resurrection bonus (Holy Cross).
+     * @param casterTomeBuffPercentage Tome of Amplification's stored percent. 0 when the army has no tome.
      */
     public getHoverInfo(
         ownerStackPower: number,
@@ -310,6 +359,7 @@ export class PixiRenderableSpell extends Spell {
         casterLuck?: number,
         casterMagicDamageBonusPercentage = 0,
         casterHealingBonusPercentage = 0,
+        casterTomeBuffPercentage = 0,
     ): string[] {
         return this.getHoverDetails(
             ownerStackPower,
@@ -318,6 +368,7 @@ export class PixiRenderableSpell extends Spell {
             casterLuck,
             casterMagicDamageBonusPercentage,
             casterHealingBonusPercentage,
+            casterTomeBuffPercentage,
         ).information;
     }
     /**
@@ -331,6 +382,7 @@ export class PixiRenderableSpell extends Spell {
         casterLuck?: number,
         casterMagicDamageBonusPercentage = 0,
         casterHealingBonusPercentage = 0,
+        casterTomeBuffPercentage = 0,
     ): ISpellHoverDetails {
         const lines = [this.getName(), `Scrolls: ${this.amountRemaining}`];
         if (this.amountRemaining <= 0) {
@@ -378,18 +430,11 @@ export class PixiRenderableSpell extends Spell {
                 },
             };
         }
-        // Magic Mirror is stack-powered and luck-scaled, so the card must show what the holder will ACTUALLY
-        // reflect (15/30/45/60/75 by stack, plus luck) rather than the flat configured 75. Mirrors the
-        // engine's getMagicMirrorPower exactly — the two must never disagree about the promised number.
+        // Magic Mirror and Mass Magic Mirror reflect a flat share of the buff's power (40 / 32), not a
+        // stack-scaled chance — that scaling belongs to the Magic Dragon's Magic Reflection ability.
+        // Tome of Amplification raises the stored power (40 → 60, 32 → 48). getMagicMirrorPower floors it.
         if (this.getName() === "Magic Mirror" || this.getName() === "Mass Magic Mirror") {
-            const stack = Math.max(0, Math.min(HoCConstants.MAX_UNIT_STACK_POWER, ownerStackPower));
-            const reflected = Math.max(
-                0,
-                Math.min(
-                    100,
-                    Math.floor((this.getPower() / HoCConstants.MAX_UNIT_STACK_POWER) * stack + (casterLuck ?? 0)),
-                ),
-            );
+            const reflected = Math.max(0, Math.min(100, Math.floor(this.shownBuffPower(casterTomeBuffPercentage))));
             return {
                 information: [...lines, ...this.getDesc().map((line) => line.replace(/\{\}/g, reflected.toString()))],
                 effectSummary: {
@@ -419,7 +464,10 @@ export class PixiRenderableSpell extends Spell {
         // magic source. It is a NO_MULTIPLIER spell, so it never reached the caster-scaled branch below and
         // used to print an empty placeholder — "Adds % of additional damage".
         if (this.getName() === "Fireforged Sword") {
-            const bonus = fireforgedSwordPower(this.getPower(), casterMagicDamageBonusPercentage);
+            const bonus = fireforgedSwordPower(
+                this.shownBuffPower(casterTomeBuffPercentage),
+                casterMagicDamageBonusPercentage,
+            );
             return {
                 information: [...lines, ...this.getDesc().map((line) => line.replace(/\{\}/g, bonus.toString()))],
                 effectSummary: {
@@ -441,6 +489,40 @@ export class PixiRenderableSpell extends Spell {
                 },
             };
         }
+        // Wind Flow's armor is amplified for the caster's own flyers; the movement penalty stays at the
+        // spell's own power. Both numbers are the same digit, so a blanket replace would speed the slow up too.
+        if (this.getName() === "Wind Flow") {
+            const armor = formatShownPower(this.shownBuffPower(casterTomeBuffPercentage));
+            const slow = formatShownPower(this.getPower());
+            return {
+                information: [
+                    ...lines,
+                    ...this.getDesc().map((line) =>
+                        line
+                            .replace(/gain \d+(?:\.\d+)?/, `gain ${armor}`)
+                            .replace(/losing \d+(?:\.\d+)?/, `losing ${slow}`),
+                    ),
+                ],
+            };
+        }
+        // Helping Hand's gift is amplified and the caster's own loss is not. The one number in the
+        // text is the gift, so say what the caster still pays or the card reads as if both moved.
+        if (this.getName() === "Helping Hand") {
+            const gift = this.shownBuffPower(casterTomeBuffPercentage);
+            const paid = this.getPower();
+            const body = this.withAmplifiedPowerText(this.getDesc(), casterTomeBuffPercentage);
+            if (gift !== paid) {
+                body.splice(Math.max(0, body.length - 1), 0, `The caster still loses ${formatShownPower(paid)}%.`);
+            }
+            return {
+                information: [...lines, ...body],
+                effectSummary: {
+                    kind: "buff",
+                    label: "Buff",
+                    value: `+${formatShownPower(gift)}%`,
+                },
+            };
+        }
 
         // Fill the description's "{}" placeholder with the caster-scaled value (the actual hp healed,
         // wolves summoned, etc.), matching how the legacy spell book rendered it.
@@ -449,13 +531,22 @@ export class PixiRenderableSpell extends Spell {
         // this the placeholder resolved to an empty string and the card read "Adds % to all magic damage"
         // — every existing flat spell hid the gap by hardcoding the figure in its text instead of using a
         // placeholder, so Empower was the first to expose it.
-        let replaceBy = this.getPower() ? this.getPower().toString() : "";
+        const shownPower = this.shownBuffPower(casterTomeBuffPercentage);
+        let replaceBy = shownPower ? formatShownPower(shownPower) : "";
         // Appended after the description: what the printed damage is NOT. See the offensive branch below.
         let damageBand: string | undefined;
         let effectSummary: ISpellEffectSummary | undefined;
         const healingFactor = 1 + casterHealingBonusPercentage / 100;
         if (this.getMultiplierType() === SpellMultiplierType.UNIT_AMOUNT) {
-            replaceBy = casterAmountAlive.toString();
+            // Battle Roar stores one step per creature in the stack, then the tome scales that total.
+            const heads = casterAmountAlive;
+            replaceBy = formatShownPower(
+                this.isBuff() &&
+                    this.getPowerType() !== SpellPowerType.HEAL &&
+                    this.getPowerType() !== SpellPowerType.RESURRECT
+                    ? amplifiedBuffPower(heads, casterTomeBuffPercentage)
+                    : heads,
+            );
         } else if (this.getMultiplierType() === SpellMultiplierType.UNIT_AMOUNT_POWER) {
             const factor = this.getPowerType() === SpellPowerType.HEAL ? healingFactor : 1;
             replaceBy = Math.floor(casterAmountAlive * this.getPower() * factor).toString();
@@ -495,7 +586,9 @@ export class PixiRenderableSpell extends Spell {
                 elemental ? "element and " : ""
             }magic resistance.`;
         }
-        const desc = this.getDesc().map((descStr) => descStr.replace(/\{\}/g, replaceBy));
+        const desc = this.withAmplifiedPowerText(this.getDesc(), casterTomeBuffPercentage).map((descStr) =>
+            descStr.replace(/\{\}/g, replaceBy),
+        );
         if (this.getPowerType() === SpellPowerType.HEAL) {
             effectSummary = {
                 kind: "healing",
@@ -516,7 +609,7 @@ export class PixiRenderableSpell extends Spell {
             effectSummary = {
                 kind: this.isBuff() ? "buff" : "debuff",
                 label: this.isBuff() ? "Buff" : "Debuff",
-                value: `${this.isBuff() ? "+" : "−"}${this.getPower()}%`,
+                value: `${this.isBuff() ? "+" : "−"}${formatShownPower(shownPower)}%`,
             };
         }
         return { information: [...lines, ...desc, ...(damageBand ? [damageBand] : [])], effectSummary };
