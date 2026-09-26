@@ -106,6 +106,7 @@ export class PixiGameManager {
     public readonly onTestBoardBackgroundChanged = new Signal<(enabled: boolean) => void>();
     public readonly onTestBoardNarrowingLevelChanged = new Signal<(level: number) => void>();
     public readonly onAttackLanded = new Signal<(attackMessage: string) => void>();
+    public readonly onPlayerNotice = new Signal<(message: string) => void>();
     public readonly onDamageReceived = new Signal<(attackDamage: number) => void>();
     // public readonly onUnitSelected = new Signal<(unitProperties: UnitProperties) => void>();
     public readonly onDamageStatisticsUpdated = new Signal<(damageStats: IDamageStatistic[]) => void>();
@@ -1174,6 +1175,12 @@ export class PixiGameManager {
         // Logs
         if (this.m_scene?.sc_sceneLog.hasBeenUpdated()) {
             this.onAttackLanded.emit(this.m_scene.sc_sceneLog.getLog());
+        }
+        const noticeScene = this.m_scene;
+        const playerNotice = noticeScene?.sc_playerNotice;
+        if (noticeScene && playerNotice) {
+            noticeScene.sc_playerNotice = "";
+            this.onPlayerNotice.emit(playerNotice);
         }
 
         // Unit / faction updates

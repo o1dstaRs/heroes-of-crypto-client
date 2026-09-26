@@ -8947,19 +8947,33 @@ export class Sandbox extends PixiScene {
      * (RANDOM_CLOSE_TO_CASTER) immediately on selection. Ports the legacy dispatch
      * (test_heroes.ts:3771-4007). Ends the turn if anything was applied.
      */
+    /** Fight log plus the red banner. Ranked suppresses the ordinary log channel, so the banner is what the player sees. */
+    private tellPlayer(message: string): void {
+        this.sc_sceneLog.pushLine(message);
+        this.sc_playerNotice = message;
+    }
     private castMassOrSummonSpell(spell: PixiRenderableSpell, caster: RenderableUnit): void {
         const gs = this.sc_sceneSettings.getGridSettings();
-        const team = caster.getTeam();
 
         // 1. Summon path (e.g. RANDOM_CLOSE_TO_CASTER summon spells).
-        const randomCell = GridMath.getRandomGridCellAroundPosition(gs, this.gridMatrix, team, caster.getPosition());
+        // Seat the creature's real body. A Wolf is 2×1, so one empty cell next to the caster is not
+        // room — say so here, before the click becomes a rejected action the player can't read.
         const amountToSummon = Math.floor(caster.getAmountAlive() * spell.getPower());
-        if (amountToSummon > 0 && SpellHelper.canCastSummon(spell, this.gridMatrix, randomCell)) {
+        const summonFootprint = spell.isSummon() ? SpellHelper.summonFootprintOf(spell) : undefined;
+        const summonSeat =
+            amountToSummon > 0 && summonFootprint
+                ? SpellHelper.resolveSummonAnchor(
+                      spell,
+                      this.gridMatrix,
+                      GridMath.getCellsAroundFootprint(gs, caster.getCells()),
+                  )
+                : undefined;
+        if (amountToSummon > 0 && summonSeat) {
             const action: GameAction = {
                 type: "cast_spell",
                 casterId: caster.getId(),
                 spellName: spell.getName(),
-                targetCell: randomCell,
+                targetCell: summonSeat,
             };
             if (this.shouldDeferActionToAuthoritativeReplay(action)) {
                 this.submitActionForAuthoritativeReplay(action);
@@ -8976,6 +8990,21 @@ export class Sandbox extends PixiScene {
                 this.sc_sceneLog.updateLog(result.message ?? `Cannot cast ${spell.getName()}`);
                 this.currentActiveSpell = undefined;
             }
+            return;
+        }
+        if (spell.isSummon()) {
+            const footprint = summonFootprint ?? { width: 1, height: 1 };
+            this.tellPlayer(
+                amountToSummon > 0
+                    ? SpellHelper.noSpaceToSummonMessage(
+                          caster.getName(),
+                          spell.getSummonUnitName(),
+                          footprint.width,
+                          footprint.height,
+                      )
+                    : `${spell.getName()} summons nothing from this stack`,
+            );
+            this.currentActiveSpell = undefined;
             return;
         }
 

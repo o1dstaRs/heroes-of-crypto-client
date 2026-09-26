@@ -145,6 +145,7 @@ import {
 } from "./hocTheme";
 import {
     hasOffGridSubmitCell,
+    playerFacingRejection,
     rejectionErrorFromPlayEvent,
     resolveEffectiveLocalModelOpponentConfig,
     shouldApplyActionResponseSnapshotToViewer,
@@ -571,6 +572,17 @@ export const RankedGameView: React.FC<Props> = ({
     useEffect(() => {
         const connection = manager.onLoadingChanged.connect((loading) => {
             setPixiReady(!loading);
+        });
+        return () => {
+            connection.disconnect();
+        };
+    }, [manager]);
+
+    useEffect(() => {
+        const connection = manager.onPlayerNotice.connect((message) => {
+            if (message) {
+                setError(message);
+            }
         });
         return () => {
             connection.disconnect();
@@ -1053,7 +1065,7 @@ export const RankedGameView: React.FC<Props> = ({
                     // scared players with an alarming red "fight_not_started" banner for a condition that
                     // silently self-heals. Every other rejection reason is still shown as-is.
                     if (reason !== "fight_not_started") {
-                        setError(reason);
+                        setError(playerFacingRejection(result.rejectionReason, result.message) || reason);
                     }
 
                     const continuedMoveUnitId = pendingMoveFollowUpUnitIdRef.current;

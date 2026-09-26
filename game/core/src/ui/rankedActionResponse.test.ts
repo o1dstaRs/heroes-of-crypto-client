@@ -65,6 +65,18 @@ describe("ranked action response snapshots", () => {
         );
     });
 
+    test("says there is no space when a summon is refused for room, instead of the raw reason code", () => {
+        expect(
+            rejectionErrorFromPlayEvent({
+                rejectionReason: "spell_not_available",
+                message: "No space next to Satyr. Wolf needs 2×1 free cells.",
+            }),
+        ).toBe("No space next to Satyr. Wolf needs 2×1 free cells.");
+        expect(rejectionErrorFromPlayEvent({ rejectionReason: "spell_not_available", message: "" })).toBe(
+            "spell_not_available",
+        );
+    });
+
     test("recovers a rejected continued-move follow-up but not its move, ping, or recovery end", () => {
         expect(
             shouldRecoverRejectedMoveFollowUp("unit-1", {

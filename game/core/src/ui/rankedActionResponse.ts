@@ -62,8 +62,24 @@ export const shouldApplyActionResponseSnapshotToViewer = (
 // this client didn't submit. Surfacing `message` in the danger-styled error banner flashed that raw
 // enum label in the HUD after every turn. Only `rejectionReason` — non-empty exclusively on a real
 // rejection — belongs there.
+/**
+ * The red banner shows `rejectionReason`. A summon that does not fit used to land there as the raw
+ * code `spell_not_available`, which reads as a bug. When the engine names the missing space, show that
+ * sentence instead. An accepted action's message is an action-type label and must stay hidden — that
+ * path has an empty rejection reason.
+ */
+export const playerFacingRejection = (rejectionReason: string, message: string): string => {
+    if (!rejectionReason) {
+        return "";
+    }
+    if (rejectionReason === "spell_not_available" && message.startsWith("No space ")) {
+        return message;
+    }
+    return rejectionReason;
+};
+
 export const rejectionErrorFromPlayEvent = (event: { rejectionReason: string; message: string }): string =>
-    event.rejectionReason;
+    playerFacingRejection(event.rejectionReason, event.message);
 
 export const shouldRecoverRejectedMoveFollowUp = (
     pendingUnitId: string | undefined,
