@@ -4,6 +4,7 @@ import {
     animatableEffectNames,
     diffUnitEffects,
     dullingDefenseApplicationCount,
+    dullingDefenseRecipientIds,
     isAuraEffectName,
 } from "./effect_pops";
 import type { GameEvent } from "@heroesofcrypto/common";
@@ -89,6 +90,18 @@ describe("dullingDefenseApplicationCount", () => {
             ]),
         ];
         expect(dullingDefenseApplicationCount(events, "orc")).toBe(2);
+    });
+
+    test("names each dulled unit once, attacker or target", () => {
+        const events = [
+            applied([
+                { unitId: "orc", name: "Dulling Defense", kind: "debuff", laps: 15 },
+                { unitId: "knight", name: "Dulling Defense", kind: "debuff", laps: 15 },
+                { unitId: "orc", name: "Dulling Defense", kind: "debuff", laps: 15 },
+            ]),
+        ];
+        expect(dullingDefenseRecipientIds(events)).toEqual(["orc", "knight"]);
+        expect(dullingDefenseRecipientIds(undefined)).toEqual([]);
     });
 });
 

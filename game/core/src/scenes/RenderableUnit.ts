@@ -7245,20 +7245,14 @@ export class RenderableUnit extends Unit {
             );
         }
 
-        // Dulling Defense
+        // Dulling Defense removes a flat amount of base attack. The blow uses the ability's own power;
+        // stack power and luck do not change it.
         const dullingDefenseAbility = this.getAbility("Dulling Defense");
         if (dullingDefenseAbility) {
+            const attackLoss = Number(dullingDefenseAbility.getPower().toFixed(1));
             this.refreshAbiltyDescription(
                 dullingDefenseAbility.getName(),
-                dullingDefenseAbility
-                    .getDesc()
-                    .join("\n")
-                    .replace(
-                        /\{\}/g,
-                        Number(
-                            this.calculateAbilityCount(dullingDefenseAbility, _synergyAbilityPowerIncrease).toFixed(1),
-                        ).toString(),
-                    ),
+                dullingDefenseAbility.getDesc().join("\n").replace(/\{\}/g, attackLoss.toString()),
             );
         }
 

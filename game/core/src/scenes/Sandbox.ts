@@ -124,6 +124,7 @@ import {
     animatableEffectNames,
     diffUnitEffects,
     dullingDefenseApplicationCount,
+    dullingDefenseRecipientIds,
     type EffectFlash,
 } from "./effect_pops";
 import { formatTurnLogHeader } from "./sceneLogTurnHeaders";
@@ -935,6 +936,8 @@ export class Sandbox extends PixiScene {
     // sight so fight start doesn't burst every existing effect.
     private readonly shownDebuffsByUnit = new Map<string, Set<string>>();
     private readonly shownBuffsByUnit = new Map<string, Set<string>>();
+    /** Recipients already given a Dulling Defense pop for the attack currently on screen. */
+    private dullingPopShownForAction = new Set<string>();
     // Buff/debuff pops whose strike hasn't connected yet — see queueOrPlayEffectPops. Held while an
     // attack animation is in flight (projectile still travelling, melee still approaching) and released
     // at impact by flushEffectPops, so an effect never pops before the blow that applied it lands.
@@ -4575,6 +4578,7 @@ export class Sandbox extends PixiScene {
         }
     }
     private async playReplayAttackRecord(record: SandboxReplay["actions"][number]): Promise<boolean> {
+        this.beginDullingDefensePresentation();
         const action = cloneReplayData(record.action);
         if (action.type !== "melee_attack" && action.type !== "range_attack") {
             return false;
@@ -4670,8 +4674,14 @@ export class Sandbox extends PixiScene {
         if (attackEvent.attackType === "melee") this.spawnFireBreathVfx(attacker, target, attackEvent.damage);
         if (destroyedUnitIds.size)
             this.noteDeathBlowsFromAttackEvent({ ...attackEvent, unitIdsDied: [...destroyedUnitIds] });
-        const shownDeaths = await this.playCombatExchange(attacker, target, attackEvent, exchange, (unit) =>
-            this.destroyReplayAttackUnitsAtImpact([unit.getId()]),
+        const shownDeaths = await this.playCombatExchange(
+            attacker,
+            target,
+            attackEvent,
+            exchange,
+            (unit) => this.destroyReplayAttackUnitsAtImpact([unit.getId()]),
+            undefined,
+            record.events,
         );
 
         if (attackEvent.damage.missed) {
@@ -4699,7 +4709,7 @@ export class Sandbox extends PixiScene {
         this.destroyReplayAttackUnitsAtImpact([...destroyedUnitIds].filter((id) => !shownDeaths.has(id)));
         // The knight's own attack: the enemy who struck him back. Not the attacker — that pop played
         // on every hit the knight took, including when he never responded.
-        this.popDullingDefenseApplications(record.events, target.getId());
+        this.popRecordedDullingDefense(record.events);
         this.spawnAbilityStealVfx(record.events, target.getId());
         // The attack event's kill attribution was consumed by the impact-time death VFX above. Do not
         // record it again here: the later unit_destroyed pass intentionally becomes an idempotent logical
@@ -4967,6 +4977,7 @@ export class Sandbox extends PixiScene {
         plan: readonly CombatExchangeStrike[],
         onDeath: (unit: RenderableUnit) => void,
         capturedUnits?: ReadonlyMap<string, RenderableUnit>,
+        dullingEvents?: readonly GameEvent[],
     ): Promise<Set<string>> {
         const gs = this.sc_sceneSettings.getGridSettings();
         const shownDeaths = new Set<string>();
@@ -5000,6 +5011,8 @@ export class Sandbox extends PixiScene {
             const impact = (): void => {
                 if (impacted || this.isSceneDestroyed()) return;
                 impacted = true;
+                // The knight's own swing or answer. Show it on the unit that blow struck, while the figure is still up.
+                this.popRecordedDullingDefense(dullingEvents, new Set([strike.attackerId, strike.targetId]));
                 const from = source.getVisualCenter(gs);
                 const to = renderedVictim
                     ? victim.getVisualCenter(gs)
@@ -5885,7 +5898,7 @@ export class Sandbox extends PixiScene {
             undefined,
             attacker.getDamagePredictionAnchor(gs),
         );
-        this.popDullingDefenseApplications(record.events, target.getId());
+        this.popRecordedDullingDefense(record.events);
         spawnResponseAbilitySteal();
         onImpact?.();
 
@@ -9928,18 +9941,74 @@ export class Sandbox extends PixiScene {
             this.popEffectOnUnit(entry.unit, name, stackIndex++, "buff");
         }
     }
+    /** The figure to hang a pop on, including one the engine already killed but the exchange is still drawing. */
+    private renderableForEffectPop(unitId: string): RenderableUnit | undefined {
+        const live = this.unitsHolder.getAllUnits().get(unitId) as RenderableUnit | undefined;
+        if (live) {
+            return live;
+        }
+        for (const dying of this.dyingVisualUnits) {
+            if (dying.getId() === unitId) {
+                return dying;
+            }
+        }
+        return undefined;
+    }
+    private beginDullingDefensePresentation(): void {
+        this.dullingPopShownForAction = new Set();
+    }
+    /**
+     * Dulling Defense lands on the unit the knight's own attack or retaliation struck. Pop that unit,
+     * not whoever the action called "target". A killing blow has already marked them dead by the time
+     * the picture plays; still show the icon.
+     */
+    protected popRecordedDullingDefense(
+        events: readonly GameEvent[] | undefined,
+        onlyUnitIds?: ReadonlySet<string>,
+    ): void {
+        let refreshSelection = false;
+        for (const unitId of dullingDefenseRecipientIds(events)) {
+            if (onlyUnitIds && !onlyUnitIds.has(unitId)) {
+                continue;
+            }
+            if (this.dullingPopShownForAction.has(unitId)) {
+                continue;
+            }
+            this.dullingPopShownForAction.add(unitId);
+            this.popDullingDefenseApplications(events, unitId);
+            if (this.sc_selectedUnitProperties?.id === unitId) {
+                refreshSelection = true;
+            }
+        }
+        if (refreshSelection) {
+            this.refreshSelectedUnitCard();
+        }
+    }
+    /** Rebuild the open sidebar from the live unit so a debuff that just landed is on the card. */
+    private refreshSelectedUnitCard(): void {
+        const selectedId = this.sc_selectedUnitProperties?.id;
+        if (!selectedId) {
+            return;
+        }
+        const unit = this.unitsHolder.getAllUnits().get(selectedId);
+        if (!unit) {
+            return;
+        }
+        const props = unit.getUnitProperties();
+        this.sc_selectedUnitProperties = props;
+        this.setSelectedUnitProperties(props);
+        this.sc_unitPropertiesUpdateNeeded = true;
+    }
     protected popDullingDefenseApplications(events: readonly GameEvent[] | undefined, unitId: string): void {
         const count = dullingDefenseApplicationCount(events, unitId);
-        const unit = this.unitsHolder.getAllUnits().get(unitId) as RenderableUnit | undefined;
-        if (!count || !unit || unit.isDead()) {
+        const unit = this.renderableForEffectPop(unitId);
+        if (!count || !unit) {
             return;
         }
         for (let index = 0; index < count; index++) {
             const pop = (): void => {
-                if (!unit.isDead()) {
-                    unit.flashDebuffDarken();
-                    this.popEffectOnUnit(unit, "Dulling Defense", index, "debuff");
-                }
+                unit.flashDebuffDarken();
+                this.popEffectOnUnit(unit, "Dulling Defense", index, "debuff");
             };
             if (index === 0) {
                 pop();
@@ -11744,6 +11813,7 @@ export class Sandbox extends PixiScene {
         replayAction?: Extract<GameAction, { type: "melee_attack" }> | Extract<GameAction, { type: "range_attack" }>,
     ): Promise<boolean> {
         this.sc_moveBlocked = true;
+        this.beginDullingDefensePresentation();
         // The click has committed the attack. Drop the aim silhouette, directional sword, damage
         // prediction and attack cursor immediately instead of leaving them over the board until impact.
         this.clearCommittedBoardActionPreview();
@@ -11975,6 +12045,7 @@ export class Sandbox extends PixiScene {
                         else this.playCustomDeathAnimation(unit);
                     },
                     actionEventSnapshot,
+                    attackActionEvents,
                 );
             } finally {
                 scheduleAttackCleanupWatchdog();
@@ -12340,9 +12411,9 @@ export class Sandbox extends PixiScene {
 
         const stackLost = Math.max(0, attackerBefore.amount - attackerAfter.amount);
         const hpLost = attackerBefore.health - attackerAfter.health;
-        // Dulling Defense's animation is the knight's own attack (the enemy who hit him back).
-        // Popping the attacker showed it on every incoming hit, even when the knight did not respond.
-        this.popDullingDefenseApplications(attackActionEvents, target.getId());
+        // Whoever the recorded action actually dulled: the enemy who opened on the knight, or the enemy
+        // who answered the knight's own swing. The strike impact already popped the ones it drew.
+        this.popRecordedDullingDefense(attackActionEvents);
 
         if (stackLost > 0 || hpLost > 0) {
             const maxHp = attacker.getMaxHp();
