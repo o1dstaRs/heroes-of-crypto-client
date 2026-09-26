@@ -309,37 +309,23 @@ export const FightLog = ({ text }: { text: string }) => {
                                 {group.headerEntry && (
                                     <Box
                                         sx={{
-                                            position: "relative",
-                                            mt: groupIdx === 0 ? 0 : "5px",
-                                            mx: "5px",
-                                            px: "10px",
-                                            pr: "28px",
-                                            py: "5px",
+                                            mt: groupIdx === 0 ? 0 : "6px",
+                                            mx: "8px",
+                                            px: "2px",
+                                            pt: "2px",
+                                            pb: "3px",
                                             fontSize: "10.5px",
-                                            fontWeight: 700,
+                                            fontWeight: 600,
                                             lineHeight: 1.3,
-                                            letterSpacing: "0.05em",
-                                            color: "#d9b36c",
+                                            letterSpacing: "0.04em",
+                                            color: "rgba(217, 179, 108, 0.82)",
                                             whiteSpace: "normal",
                                             wordBreak: "break-word",
-                                            background:
-                                                "repeating-linear-gradient(135deg, rgba(255,255,255,.012) 0 1px, transparent 1px 7px), linear-gradient(180deg, rgba(31,29,25,.94), rgba(10,9,8,.98))",
-                                            border: "1px solid rgba(139, 98, 56, .72)",
-                                            borderRadius: "3px",
-                                            boxShadow:
-                                                "inset 0 1px 0 rgba(220,177,88,.09), inset 0 0 12px rgba(0,0,0,.7), 0 1px 3px rgba(0,0,0,.62)",
-                                            "&::after": {
-                                                content: '"⌄"',
-                                                position: "absolute",
-                                                right: "10px",
-                                                top: "50%",
-                                                transform: "translateY(-58%)",
-                                                fontSize: "13px",
-                                                fontWeight: 400,
-                                                color: "rgba(205,151,67,.72)",
-                                            },
-                                            // The plaque keeps its carved shadow after arriving; the regular ember
-                                            // animation replaces box-shadow, so headers use only the drop-in motion.
+                                            background: "none",
+                                            border: "none",
+                                            borderBottom: "1px solid rgba(186, 148, 90, 0.22)",
+                                            borderRadius: 0,
+                                            boxShadow: "none",
                                             animation: `${rowAppear} 280ms cubic-bezier(0.22, 1, 0.36, 1)`,
                                         }}
                                     >
