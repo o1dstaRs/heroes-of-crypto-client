@@ -491,14 +491,14 @@ export const content = {
             kicker: "Free browser strategy",
             title: "Heroes of Crypto",
             tagline: "Click play. Build an army. Win the board.",
-            pitch: "The world's first session-based esports turn-based strategy, where real earnings are decided by skill alone",
+            pitch: "The world's first turn-based strategy built around single‑session matches, where anyone can earn on skill alone.",
             claims: [
                 "Turn-based strategy",
                 "Free to play",
-                "Earn USDT/HOCAI crypto with no deposit",
+                "Earn rewards with no deposit",
             ],
             body: "A tactical battle game where positioning, faction synergies, and 75+ spells and abilities decide every fight. No download, no wallet gate - click play and choose ranked or the sandbox beta.",
-            primaryCta: "Play",
+            primaryCta: "Play Now",
             secondaryCta: "Read rules",
             availability: "Ranked and sandbox beta",
             stats: [
@@ -1547,7 +1547,7 @@ export const content = {
                 "Возможность получать криптовалюту USDT/HOCAI без вложений",
             ],
             body: "Тактические бои, где позиционирование, фракционные синергии и 75+ заклинаний и способностей решают исход каждой схватки. Без скачивания и без привязки кошелька: нажмите «Играть» и выберите рейтинг или песочницу.",
-            primaryCta: "Играть",
+            primaryCta: "Играть сейчас",
             secondaryCta: "Читать правила",
             availability: "Рейтинг и песочница",
             stats: [
