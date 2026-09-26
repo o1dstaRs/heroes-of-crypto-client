@@ -650,48 +650,90 @@ const ScrollWell: React.FC<{
     );
 };
 
-// Fixed-height icon well. Abilities/debuffs remain horizontal strips; Buffs opts into a wrapped vertical
-// well whose scrollbar sits on the right, so a normal mouse-wheel gesture reaches additional rows.
+// Fixed-height icon well. Abilities remain horizontal strips; Buffs and Debuffs opt into a wrapped
+// vertical well whose scrollbar sits on the right, so a normal mouse-wheel gesture reaches additional rows.
+//
+// `rowStepPx` makes that well page by whole rows: one wheel notch advances exactly one row, and a drag of
+// the thumb settles on a row boundary the moment it stops. A well this short (barely one row tall) can
+// otherwise come to rest showing the bottom of one row and the top of the next, which reads as clipped art
+// rather than as a row of effects.
 const IconScrollWell: React.FC<{
     height: number;
     children: React.ReactNode;
     offsetY?: number;
     vertical?: boolean;
-}> = ({ height, children, offsetY = 0, vertical = false }) => (
-    <Box
-        onWheel={
-            vertical
-                ? (event) => {
-                      const well = event.currentTarget;
-                      if (well.scrollHeight <= well.clientHeight) return;
-                      well.scrollTop += event.deltaY;
-                      event.stopPropagation();
-                  }
-                : undefined
-        }
-        sx={{
-            position: "relative",
-            // Keep the vertical rail inside the sidebar's decorative right frame instead of painting
-            // underneath it, where the thumb looked absent even while the well was scrollable.
-            width: vertical ? "calc(100% - 8px)" : "100%",
-            mr: vertical ? "8px" : 0,
-            height: `${height}px`,
-            boxSizing: "border-box",
-            overflowX: vertical ? "hidden" : "auto",
-            overflowY: vertical ? "scroll" : "hidden",
-            whiteSpace: vertical ? "normal" : "nowrap",
-            pr: vertical ? "5px" : 0,
-            scrollbarGutter: vertical ? "stable" : "auto",
-            overscrollBehaviorY: vertical ? "contain" : "auto",
-            touchAction: vertical ? "pan-y" : "auto",
-            transform: offsetY ? `translateY(${offsetY}px)` : "none",
-            ...hocScrollSx,
-            "&::-webkit-scrollbar": vertical ? { width: "7px" } : { height: "5px" },
-        }}
-    >
-        {children}
-    </Box>
-);
+    rowStepPx?: number;
+}> = ({ height, children, offsetY = 0, vertical = false, rowStepPx = 0 }) => {
+    const wellRef = React.useRef<HTMLDivElement | null>(null);
+    const settleRef = React.useRef<number | undefined>(undefined);
+
+    const snapToRow = React.useCallback(() => {
+        const well = wellRef.current;
+        if (!well || rowStepPx <= 0) return;
+        const limit = well.scrollHeight - well.clientHeight;
+        if (limit <= 0) return;
+        const settled = Math.max(0, Math.min(limit, Math.round(well.scrollTop / rowStepPx) * rowStepPx));
+        if (Math.abs(settled - well.scrollTop) < 0.5) return;
+        well.scrollTo({ top: settled, behavior: "smooth" });
+    }, [rowStepPx]);
+
+    // The thumb is dragged continuously; only where it is LEFT matters, so the snap waits for the stream
+    // of scroll events to stop instead of fighting the drag.
+    const onScroll = React.useCallback(() => {
+        if (rowStepPx <= 0) return;
+        window.clearTimeout(settleRef.current);
+        settleRef.current = window.setTimeout(snapToRow, 120);
+    }, [rowStepPx, snapToRow]);
+
+    React.useEffect(() => () => window.clearTimeout(settleRef.current), []);
+
+    return (
+        <Box
+            ref={wellRef}
+            onScroll={vertical && rowStepPx > 0 ? onScroll : undefined}
+            onWheel={
+                vertical
+                    ? (event) => {
+                          const well = event.currentTarget;
+                          const limit = well.scrollHeight - well.clientHeight;
+                          if (limit <= 0) return;
+                          if (rowStepPx > 0) {
+                              const row = Math.round(well.scrollTop / rowStepPx) + (event.deltaY > 0 ? 1 : -1);
+                              well.scrollTo({
+                                  top: Math.max(0, Math.min(limit, row * rowStepPx)),
+                                  behavior: "smooth",
+                              });
+                          } else {
+                              well.scrollTop += event.deltaY;
+                          }
+                          event.stopPropagation();
+                      }
+                    : undefined
+            }
+            sx={{
+                position: "relative",
+                // Keep the vertical rail inside the sidebar's decorative right frame instead of painting
+                // underneath it, where the thumb looked absent even while the well was scrollable.
+                width: vertical ? "calc(100% - 8px)" : "100%",
+                mr: vertical ? "8px" : 0,
+                height: `${height}px`,
+                boxSizing: "border-box",
+                overflowX: vertical ? "hidden" : "auto",
+                overflowY: vertical ? "scroll" : "hidden",
+                whiteSpace: vertical ? "normal" : "nowrap",
+                pr: vertical ? "5px" : 0,
+                scrollbarGutter: vertical ? "stable" : "auto",
+                overscrollBehaviorY: vertical ? "contain" : "auto",
+                touchAction: vertical ? "pan-y" : "auto",
+                transform: offsetY ? `translateY(${offsetY}px)` : "none",
+                ...hocScrollSx,
+                "&::-webkit-scrollbar": vertical ? { width: "7px" } : { height: "5px" },
+            }}
+        >
+            {children}
+        </Box>
+    );
+};
 
 // Section caption + the 2px rule under it. Used for Abilities / Buffs / Debuffs here and for Up next in
 // the sidebar itself, so all four headings read as one family.
@@ -749,7 +791,8 @@ export const SectionTitle: React.FC<{
                                   position: "absolute",
                                   left: "100%",
                                   top: 0,
-                                  width: "6px",
+                                  // Bridge the flex gap and the plaque's clipped corner.
+                                  width: "13px",
                                   height: "1px",
                                   background: "rgba(132,91,52,.58)",
                               },
@@ -788,6 +831,8 @@ export const SectionTitle: React.FC<{
                               alignItems: "center",
                               justifyContent: "center",
                           }),
+                    position: "relative",
+                    zIndex: 1,
                     minWidth: namePlaque ? "58.8%" : "42%",
                     textAlign: "center",
                     clipPath: "polygon(7px 0, calc(100% - 7px) 0, 100% 50%, calc(100% - 7px) 100%, 7px 100%, 0 50%)",
@@ -819,7 +864,8 @@ export const SectionTitle: React.FC<{
                                   position: "absolute",
                                   right: "100%",
                                   top: 0,
-                                  width: "6px",
+                                  // Bridge the flex gap and the plaque's clipped corner.
+                                  width: "13px",
                                   height: "1px",
                                   background: "rgba(132,91,52,.58)",
                               },
@@ -874,7 +920,10 @@ const PanelSection: React.FC<{
                           height: `${Math.round(metrics.gapPx)}px`,
                           transform: `translateY(calc(-50% - ${Math.round(metrics.gapPx * 0.5)}px))`,
                       }
-                    : undefined
+                    : // The wells below are lifted into their plaque and carry transforms of their own, so
+                      // they open a later stacking context and used to paint over the caption. The plaque
+                      // owns that overlap: it stays legible and the tile that reaches it slides beneath.
+                      { position: "relative", zIndex: 7 }
             }
         >
             <SectionTitle
@@ -1380,6 +1429,8 @@ const UnitStatsLayout: React.FC<{
     // The shared effect size also applies to synergy/augment markers. The extra band holds their level
     // dots and the scrollbar without changing the section's position.
     const effectWellHeight = effectTileSize(metrics) + 9;
+    // One wrapped row of tiles plus the gap under it: what a wheel notch or a released thumb moves by.
+    const effectRowStep = Math.round(effectTileSize(metrics) + metrics.gapPx * 0.6);
     // This is only the PAINT viewport inside the fixed-height Debuffs layout slot. It is deliberately
     // taller than the tile + frame + scrollbar, so the complete unscaled art can move upward without the
     // scrolling element clipping its lower edge. The outer wrapper below keeps the layout height unchanged.
@@ -1501,7 +1552,7 @@ const UnitStatsLayout: React.FC<{
                                     position: "relative",
                                     width: "100%",
                                     height: "100%",
-                                    clipPath: `polygon(0 0, 100% 0, 100% calc(100% - ${abilityRightStepPx}px), 71% calc(100% - ${abilityRightStepPx}px), 71% 100%, 29% 100%, 29% calc(100% - ${abilityRightStepPx}px), 0 calc(100% - ${abilityRightStepPx}px))`,
+                                    clipPath: `inset(0 0 ${abilityRightStepPx}px 0)`,
                                 }}
                             >
                                 <CreaturePortraitImage
@@ -1510,7 +1561,6 @@ const UnitStatsLayout: React.FC<{
                                     artScale={sidebarPortraitTuning.artScale}
                                     artScaleX={0.96 * (sidebarPortraitArt.artScaleX ?? 1)}
                                     backgroundFit="fill"
-                                    animateBackground
                                     artOffsetX={sidebarPortraitTuning.artOffsetX}
                                     artOffsetY={sidebarPortraitTuning.artOffsetY}
                                     artSource={sidebarPortraitArt.source}
@@ -1591,9 +1641,8 @@ const UnitStatsLayout: React.FC<{
                             // to the frame on the Abilities divider. Its top and stat positions stay fixed.
                             bottom: `${-abilityDividerCenterExtensionPx}px`,
                             zIndex: 2,
-                            // Match the portrait's stepped lower edge so the translucent stat surface cannot
-                            // leave a dark patterned remnant below either raised divider segment.
-                            clipPath: `polygon(0 0, 100% 0, 100% calc(100% - ${abilityRightStepPx}px), 71% calc(100% - ${abilityRightStepPx}px), 71% 100%, 29% 100%, 29% calc(100% - ${abilityRightStepPx}px), 0 calc(100% - ${abilityRightStepPx}px))`,
+                            // Clip both surfaces at the divider, including beneath the plaque corners.
+                            clipPath: `inset(0 0 ${abilityRightStepPx}px 0)`,
                             ...stonePlateSx,
                             paddingBottom: `calc(10px + ${abilityDividerCenterExtensionPx}px)`,
                             // Twenty-five percent transparent: the creature continues visibly behind the plate,
@@ -1664,7 +1713,12 @@ const UnitStatsLayout: React.FC<{
                 }}
             >
                 <PanelSection title="Buffs" metrics={metrics} titleHeightScale={UNIT_SECTION_PLAQUE_HEIGHT_SCALE}>
-                    <IconScrollWell height={effectWellHeight} offsetY={-Math.round(metrics.gapPx)} vertical>
+                    <IconScrollWell
+                        height={effectWellHeight}
+                        offsetY={-Math.round(metrics.gapPx)}
+                        vertical
+                        rowStepPx={effectRowStep}
+                    >
                         {/* Additional buffs wrap into rows inside this fixed-height vertically scrolling well. */}
                         <Box
                             sx={{
@@ -1716,8 +1770,25 @@ const UnitStatsLayout: React.FC<{
                             transform: "translateY(-17.5%)",
                         }}
                     >
-                        <IconScrollWell height={debuffPaintWellHeight}>
-                            <EffectTiles effects={orderedDebuffs} title="Debuffs" metrics={metrics} />
+                        {/* The same wrapped, row-paged well the Buffs section uses. Debuffs used to be a
+                            horizontal strip with a thin bottom rail of its own, so the two sections read as
+                            two different controls and the overflowing tiles were reachable only sideways. */}
+                        <IconScrollWell height={debuffPaintWellHeight} vertical rowStepPx={effectRowStep}>
+                            <Box
+                                sx={{
+                                    display: "flex",
+                                    flexDirection: "row",
+                                    flexWrap: "wrap",
+                                    alignItems: "flex-start",
+                                    alignContent: "flex-start",
+                                    width: "100%",
+                                    height: "max-content",
+                                    minWidth: 0,
+                                    gap: `${metrics.gapPx * 0.6}px`,
+                                }}
+                            >
+                                <EffectTiles effects={orderedDebuffs} title="Debuffs" metrics={metrics} inline />
+                            </Box>
                         </IconScrollWell>
                     </Box>
                 </PanelSection>

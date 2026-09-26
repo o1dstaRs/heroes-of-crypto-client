@@ -211,6 +211,61 @@ describe("UnitsOverlay chip visibility", () => {
         overlay.destroy();
     });
 
+    test("restores hover icons after a cold-cache load, including newly selected levels", () => {
+        let iconsLoaded = false;
+        const app = {
+            renderer: { height: 900, width: 1600 },
+            stage: new Container(),
+            ticker: { add: () => undefined, remove: () => undefined },
+        } as unknown as ConstructorParameters<typeof UnitsOverlay>[0];
+        const overlay = new UnitsOverlay(app, (key) =>
+            key.startsWith("pick_attack_") || key.startsWith("pick_movement_")
+                ? iconsLoaded
+                    ? Texture.WHITE
+                    : undefined
+                : Texture.EMPTY,
+        );
+        overlay.build();
+        const internals = overlay as unknown as OverlayInternals;
+        const peasant = internals.allChips.find((chip) => chip.nameKey === "Peasant")!;
+        const parts = peasant as unknown as {
+            typeOverlay: Container;
+            attackTypeIcon?: Sprite;
+            movementTypeIcon?: Sprite;
+        };
+        peasant.setHovered(true);
+        expect(parts.typeOverlay.visible).toBe(false);
+        expect(parts.attackTypeIcon).toBeUndefined();
+
+        iconsLoaded = true;
+        overlay.refreshLazyTextures();
+        expect(parts.typeOverlay.visible).toBe(true);
+        expect(parts.attackTypeIcon?.texture).toBe(Texture.WHITE);
+        expect(parts.movementTypeIcon?.texture).toBe(Texture.WHITE);
+        expect(parts.typeOverlay.children).toHaveLength(3);
+        expect(parts.typeOverlay.children[0]).toBeInstanceOf(Graphics);
+        expect(parts.attackTypeIcon!.width).toBeGreaterThan(0);
+        overlay.refreshLazyTextures();
+        expect(parts.typeOverlay.children).toHaveLength(3);
+        peasant.setHovered(false);
+        expect(parts.typeOverlay.visible).toBe(false);
+
+        for (const level of [2, 3, 4]) {
+            internals.setSelectedLevel(level);
+            const visible = internals.allChips.filter((chip) =>
+                isVisibleThroughAncestor(chip, internals.rowsContainer),
+            );
+            expect(visible.length).toBeGreaterThan(0);
+            for (const chip of visible) {
+                chip.setHovered(true);
+                expect((chip as unknown as { typeOverlay: Container }).typeOverlay.visible).toBe(true);
+                chip.setHovered(false);
+            }
+        }
+        overlay.destroy();
+        expect(() => overlay.refreshLazyTextures()).not.toThrow();
+    });
+
     test("requests portraits only for the visible level and loads a new level on selection", () => {
         const requestedTextures = new Set<string>();
         const app = {

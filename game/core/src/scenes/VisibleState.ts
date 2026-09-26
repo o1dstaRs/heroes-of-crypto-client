@@ -9,7 +9,12 @@
  * -----------------------------------------------------------------------------
  */
 
-import { TeamType, MovementType, AttackType, SpellElement } from "@heroesofcrypto/common";
+import { TeamType, MovementType, AttackType, SpellElement, type UnitProperties } from "@heroesofcrypto/common";
+
+export interface IUnitInspection {
+    unit: UnitProperties;
+    impact: IVisibleOverallImpact;
+}
 
 export interface IVisibleUnit {
     id: string;

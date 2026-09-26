@@ -1,7 +1,8 @@
 import { describe, expect, spyOn, test } from "bun:test";
-import { Application, Ticker, TexturePool, UPDATE_PRIORITY } from "pixi.js";
+import { Application, TexturePool, Ticker, UPDATE_PRIORITY } from "pixi.js";
 
 import { PixiApp } from "./PixiApp";
+import { releaseIdlePixiTextures } from "./releaseIdlePixiTextures";
 
 describe("PixiApp teardown", () => {
     test("releases idle filter targets first and empties the pool only once the renderer is gone", () => {
@@ -32,6 +33,20 @@ describe("PixiApp teardown", () => {
         expect(clearPool).toHaveBeenCalledTimes(1);
         clearPool.mockRestore();
         TexturePool.clear();
+    });
+
+    test("resizing releases idle targets while text can return a texture borrowed before cleanup", () => {
+        const borrowed = TexturePool.getOptimalTexture(77, 43, 1, false);
+        const idle = TexturePool.getOptimalTexture(77, 43, 1, false);
+        TexturePool.returnTexture(idle);
+        releaseIdlePixiTextures();
+        expect(idle.destroyed).toBe(true);
+        expect(borrowed.destroyed).toBe(false);
+        expect(() => TexturePool.returnTexture(borrowed)).not.toThrow();
+        const reused = TexturePool.getOptimalTexture(77, 43, 1, false);
+        expect(reused).toBe(borrowed);
+        TexturePool.returnTexture(reused);
+        releaseIdlePixiTextures();
     });
 });
 

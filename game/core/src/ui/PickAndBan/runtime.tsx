@@ -26,13 +26,13 @@ import {
 } from "@mui/joy";
 import React, { useEffect, useState } from "react";
 
+import { abilityImage } from "../abilityImage";
 import { images as rawImages } from "../../generated/image_imports";
 import { t, useTranslation } from "../../i18n/i18n";
 import { getPreGameDoctrine } from "../../utils/preGameDoctrine";
 import { runDraftSubmission, type DraftCommit } from "./draftSubmission";
 import { usePickBanEvents } from "../context/PickBanContext";
 import { useAuthContext } from "../auth/context/auth_context";
-import { abilityImage } from "../abilityImage";
 import { CreaturePortraitImage } from "../CreaturePortraitImage";
 import { creatureCatalogEntry, startingStackAmount } from "../creatureCatalog";
 import { hocDisplayFontFamily } from "../hocTheme";
@@ -48,8 +48,21 @@ import { PickLanternFire } from "./PickLanternFire";
 import { Timer } from "./Timer";
 import { draftAttackIconKind } from "./attackTypeIcon";
 import { creatureFootprint, creatureFootprintLabel } from "./creatureFootprint";
+import {
+    HOVER_SWITCH_DELAY_MS,
+    inspectClearDelayMs,
+    isClimbingToHeader,
+    shouldDeferInspectSwitch,
+    type CursorSample,
+} from "./draftHoverIntent";
 import { isAugmentHandoffPhase, shouldShowOpponentDraftRail } from "./draftPhaseVisibility";
-import { GameSystemControls } from "../GameSystemControls";
+import { GameCornerSlot } from "../GameCornerExit";
+import {
+    GAME_SYSTEM_CONTROL_SIZE_PX,
+    GAME_SYSTEM_CONTROLS_BOTTOM_INSET,
+    GameSystemControls,
+} from "../GameSystemControls";
+import { setBattleSystemControlsActive } from "../social/systemControlsMode";
 import { VOLUME_SLOT_PRIORITY } from "../audio/volumeSlot";
 
 const images = rawImages as Record<string, string>;
@@ -58,6 +71,11 @@ const draftBackgroundImage = images.pick_phase_heroic_hearth_tavern_background_v
 const pickCommitTextureImage = images.ui_draft_action_stone_texture_v1;
 const OPPONENT_ARMY_BACKGROUND = "linear-gradient(90deg, rgba(31,5,8,.65), rgba(68,8,13,.55) 50%, rgba(31,5,8,.65))";
 const OPPONENT_ARMY_TEXT_COLOR = "#f0e7e9";
+/**
+ * What the commit plate says once the choice is out of the player's hands. The draft title above the board
+ * shows the very same words at the very same moment, so the two never disagree about who is acting.
+ */
+const COMMIT_WAITING_LABEL = "WAITING OPPONENT";
 
 const DRAFT_TOOLTIP_SX = {
     bgcolor: "#171a1c",
@@ -565,7 +583,11 @@ export const DraftTitle: React.FC<{ children: React.ReactNode; subtitle?: React.
             py: "6px",
         }}
     >
+        {/* Each new wording flies in from the foreground: it lands oversized and settles back to the band's
+            own size, so a phase (or turn) change is impossible to miss. Keyed on the text so the animation
+            replays on every change instead of only on the first mount. */}
         <Typography
+            key={typeof children === "string" ? children : undefined}
             sx={{
                 fontSize: "46px",
                 fontWeight: 400,
@@ -575,6 +597,21 @@ export const DraftTitle: React.FC<{ children: React.ReactNode; subtitle?: React.
                 textAlign: "center",
                 textTransform: "uppercase",
                 textShadow: "0 2px 2px #000, 0 0 14px rgba(210,160,90,.16)",
+                animation: "hocDraftTitleZoom 440ms cubic-bezier(.16,.84,.34,1) both",
+                willChange: "transform, opacity",
+                // Kept modest on purpose: the band is 158px tall and the matchup ribbon sits right above
+                // it, so a bigger starting scale would push the first frames behind the ribbon.
+                //
+                // Transform and opacity ONLY. A phase change re-renders the whole portrait grid in the
+                // same frame, and anything the compositor cannot animate on its own (a blur, a shadow)
+                // stalls on that work — the title then sits invisible at its 0% frame for as long as the
+                // grid takes, which reads as a missing title rather than an entrance.
+                "@keyframes hocDraftTitleZoom": {
+                    "0%": { transform: "scale(1.22)", opacity: 0 },
+                    "55%": { opacity: 1 },
+                    "100%": { transform: "scale(1)", opacity: 1 },
+                },
+                "@media (prefers-reduced-motion: reduce)": { animation: "none" },
             }}
         >
             {children}
@@ -853,6 +890,19 @@ export const DraftStepper: React.FC<{ step: number; userTeam?: TeamType }> = ({ 
     </Box>
 );
 
+/** Authored height of the stepper rail before `draftScale` shrinks it. */
+const DRAFT_STEPPER_ROW_HEIGHT_PX = 46;
+
+/**
+ * Sit the stepper on the system-control row rather than floating above it: its scaled midline matches the
+ * corner medallions' midline, so the rail reads as one bottom bar at any draft scale. `max()` keeps it on
+ * screen if a scale ever grows the rail past the inset.
+ */
+export const draftStepperBottom = (draftScale: number): string =>
+    `max(0px, calc(${GAME_SYSTEM_CONTROLS_BOTTOM_INSET} + ${GAME_SYSTEM_CONTROL_SIZE_PX / 2}px - ${
+        (DRAFT_STEPPER_ROW_HEIGHT_PX / 2) * draftScale
+    }px))`;
+
 /** Fixed draft footer shared by every phase, including the separate augment screen. */
 export const DraftBottomControls: React.FC<{
     step: number;
@@ -866,10 +916,10 @@ export const DraftBottomControls: React.FC<{
                 sx={{
                     position: "fixed",
                     left: "50%",
-                    bottom: "4.25rem",
+                    bottom: draftStepperBottom(draftScale),
                     zIndex: 55,
                     width: "1040px",
-                    height: "46px",
+                    height: `${DRAFT_STEPPER_ROW_HEIGHT_PX}px`,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -880,7 +930,12 @@ export const DraftBottomControls: React.FC<{
             >
                 <DraftStepper step={step} userTeam={userTeam} />
             </Box>
-            <GameSystemControls center={centerControl} priority={VOLUME_SLOT_PRIORITY.draftControls} zIndex={1400} />
+            <GameSystemControls
+                center={centerControl}
+                priority={VOLUME_SLOT_PRIORITY.draftControls}
+                zIndex={1400}
+                rightStack
+            />
         </>
     );
 };
@@ -1475,7 +1530,7 @@ export const PickCommitButton: React.FC<{
                         zIndex: 2,
                     }}
                 >
-                    {waiting ? "WAITING OPPONENT" : label}
+                    {waiting ? COMMIT_WAITING_LABEL : label}
                 </Box>
                 {extra !== undefined && (
                     <Box
@@ -2112,6 +2167,19 @@ const doctrineName = (doctrineId: number): string =>
     Doctrine.getDoctrineProperties(doctrineId as Doctrine.Doctrine)?.name ?? "";
 
 // A hairline between the groups a rail carries: doctrine | synergies | the army | artifacts.
+/**
+ * The doctrine crest opening each army rail. It lost the gold ring that used to pad it out, so the
+ * artwork's own frame carries the glyph: 30px -> +13% -> +16% again, by owner review.
+ */
+const DRAFT_RAIL_DOCTRINE_ICON_SIZE_PX = 39.32;
+/**
+ * The rail centres its complete row, so the free space ends up split evenly OUTSIDE the row instead of
+ * around this first icon: it sat ~22px from the rail's edge but only ~8px from the divider beside it.
+ * Half that difference, applied as an optical shift, centres the crest between the two without moving
+ * the divider or anything after it.
+ */
+const DRAFT_RAIL_DOCTRINE_ICON_CENTERING_NUDGE_PX = 5.6;
+
 const BarDivider: React.FC<{ strong?: boolean }> = ({ strong }) => (
     <Box
         sx={{
@@ -2397,17 +2465,19 @@ export const MyDraftBar: React.FC<{
                 >
                     <Box
                         sx={{
-                            width: 30,
-                            height: 30,
+                            width: DRAFT_RAIL_DOCTRINE_ICON_SIZE_PX,
+                            height: DRAFT_RAIL_DOCTRINE_ICON_SIZE_PX,
                             flex: "0 0 auto",
-                            borderRadius: "50%",
                             display: "grid",
                             placeItems: "center",
                             fontSize: 22,
                             lineHeight: 1,
-                            overflow: "hidden",
-                            bgcolor: "rgba(255,255,255,0.06)",
-                            border: "1px solid rgba(220,177,88,0.45)",
+                            // The doctrine artwork carries its own forged ring, so the extra gold circle and
+                            // its tinted disc only fenced it in and made it read smaller than the crests.
+                            // Nudged left purely optically: the rail centres its whole row, which left this
+                            // icon hugging the divider with all the slack on its outer side.
+                            position: "relative",
+                            left: `-${DRAFT_RAIL_DOCTRINE_ICON_CENTERING_NUDGE_PX}px`,
                         }}
                     >
                         <DoctrineIcon doctrineId={visibleDoctrine} />
@@ -2529,7 +2599,7 @@ interface StainedGlassProps {
     height?: number;
     /** Ranked/private games hide the opponent rail while the final augment event hands off to Setup. */
     showOpponentRosterDuringAugmentHandoff?: boolean;
-    /** Optional pick-phase action occupying the same bottom-centre slot as combat's EXIT FIGHT. */
+    /** Optional pick-phase action pinned to the top-right corner (the compact exit control). */
     systemControl?: React.ReactNode;
 }
 
@@ -2711,6 +2781,12 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
 }) => {
     // Re-renders the whole draft when the profile's language changes; children use the module t().
     useTranslation();
+    // The draft is part of a live match, so it carries the same compact corner medallion as placement and
+    // combat instead of the full social dock.
+    useEffect(() => {
+        setBattleSystemControlsActive(true);
+        return () => setBattleSystemControlsActive(false);
+    }, []);
     const {
         pickPhase,
         phaseIdentity,
@@ -2760,36 +2836,130 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
     const [inspectedId, setInspectedId] = useState<number>(0);
     const [inspectedArtifact, setInspectedArtifact] = useState<Artifact.ArtifactProperties | undefined>();
     const inspectTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    // Reading a card means walking the cursor from the pool up to that header readout, and the walk crosses
+    // every row above the card being read. draftHoverIntent tells those rows apart from a real hover: while
+    // the cursor is climbing they wait their turn instead of stealing the panel, and the panel itself is
+    // held through the gutters between them so it is still there when the cursor arrives.
+    const cursorTrail = React.useRef<CursorSample | null>(null);
+    const climbing = React.useRef<boolean>(false);
+    // What the readout is showing right now, mirrored so the hover callbacks below can stay identity-stable
+    // across every hover instead of re-rendering the whole board on each one.
+    const shown = React.useRef<{ creatureId: number; artifact: boolean }>({ creatureId: 0, artifact: false });
+    // A card the cursor crossed mid-climb, waiting to see whether the cursor actually stops on it.
+    const deferredInspect = React.useRef<{ timer: ReturnType<typeof setTimeout>; show: () => void } | null>(null);
     const cancelInspectEnd = React.useCallback(() => {
         if (inspectTimer.current) {
             clearTimeout(inspectTimer.current);
             inspectTimer.current = null;
         }
     }, []);
+    const cancelDeferredInspect = React.useCallback(() => {
+        if (deferredInspect.current) {
+            clearTimeout(deferredInspect.current.timer);
+            deferredInspect.current = null;
+        }
+    }, []);
+    const settleDeferredInspect = React.useCallback(() => {
+        const pending = deferredInspect.current;
+        if (!pending) {
+            return;
+        }
+        clearTimeout(pending.timer);
+        deferredInspect.current = null;
+        pending.show();
+    }, []);
+    const showCreature = React.useCallback((creatureId: number) => {
+        shown.current = { creatureId, artifact: false };
+        setInspectedArtifact(undefined);
+        setInspectedId(creatureId);
+    }, []);
+    const showArtifact = React.useCallback((artifact: Artifact.ArtifactProperties) => {
+        shown.current = { creatureId: 0, artifact: true };
+        setInspectedId(0);
+        setInspectedArtifact(artifact);
+    }, []);
+    const hideReadout = React.useCallback(() => {
+        shown.current = { creatureId: 0, artifact: false };
+        setInspectedId(0);
+        setInspectedArtifact(undefined);
+    }, []);
+    const inspectOrDefer = React.useCallback(
+        (sameTarget: boolean, show: () => void) => {
+            cancelInspectEnd();
+            cancelDeferredInspect();
+            if (
+                !shouldDeferInspectSwitch({
+                    climbing: climbing.current,
+                    hasReadout: !!(shown.current.creatureId || shown.current.artifact),
+                    sameTarget,
+                })
+            ) {
+                show();
+                return;
+            }
+            const timer = setTimeout(() => {
+                deferredInspect.current = null;
+                show();
+            }, HOVER_SWITCH_DELAY_MS);
+            deferredInspect.current = { timer, show };
+        },
+        [cancelDeferredInspect, cancelInspectEnd],
+    );
     const beginInspect = React.useCallback(
         (creatureId: number) => {
-            cancelInspectEnd();
-            setInspectedArtifact(undefined);
-            setInspectedId(creatureId);
+            inspectOrDefer(shown.current.creatureId === creatureId, () => showCreature(creatureId));
         },
-        [cancelInspectEnd],
+        [inspectOrDefer, showCreature],
     );
     const beginArtifactInspect = React.useCallback(
         (artifact: Artifact.ArtifactProperties) => {
-            cancelInspectEnd();
-            setInspectedId(0);
-            setInspectedArtifact(artifact);
+            inspectOrDefer(false, () => showArtifact(artifact));
         },
-        [cancelInspectEnd],
+        [inspectOrDefer, showArtifact],
     );
-    const endInspect = React.useCallback(() => {
+    const scheduleInspectEnd = React.useCallback(() => {
         cancelInspectEnd();
         inspectTimer.current = setTimeout(() => {
-            setInspectedId(0);
-            setInspectedArtifact(undefined);
-        }, 90);
-    }, [cancelInspectEnd]);
-    useEffect(() => cancelInspectEnd, [cancelInspectEnd]);
+            inspectTimer.current = null;
+            hideReadout();
+        }, inspectClearDelayMs(climbing.current));
+    }, [cancelInspectEnd, hideReadout]);
+    const endInspect = React.useCallback(() => {
+        // A card left mid-climb never gets its turn: the cursor was only passing over it.
+        cancelDeferredInspect();
+        scheduleInspectEnd();
+    }, [cancelDeferredInspect, scheduleInspectEnd]);
+    // The header is where the climb was going. Arriving there freezes the readout the player set out to
+    // read, so its stat and ability tooltips can be hovered for as long as they like.
+    const holdInspect = React.useCallback(() => {
+        cancelInspectEnd();
+        cancelDeferredInspect();
+    }, [cancelDeferredInspect, cancelInspectEnd]);
+    const trackCursor = React.useCallback(
+        (event: React.MouseEvent) => {
+            const sample: CursorSample = { x: event.clientX, y: event.clientY, t: Date.now() };
+            climbing.current = isClimbingToHeader(cursorTrail.current, sample);
+            cursorTrail.current = sample;
+            if (climbing.current) {
+                // Still climbing — push the pending clear out again so the gap between two rows cannot
+                // expire the readout the cursor is carrying up to the header.
+                if (inspectTimer.current) {
+                    scheduleInspectEnd();
+                }
+                return;
+            }
+            // The climb ended on a card it crossed: show it now rather than sitting out the rest of the wait.
+            settleDeferredInspect();
+        },
+        [scheduleInspectEnd, settleDeferredInspect],
+    );
+    useEffect(
+        () => () => {
+            cancelInspectEnd();
+            cancelDeferredInspect();
+        },
+        [cancelDeferredInspect, cancelInspectEnd],
+    );
     // Opponent picks are fully hidden by the server. The ONLY way we learn a unit is taken is by picking it
     // and getting a 409 collision back — we remember those locally so they grey out and we don't re-try them.
     const [collided, setCollided] = useState<number[]>([]);
@@ -2814,9 +2984,9 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
         setCommittedBundle(-1);
         // The hovered creature goes with it: the tile under the cursor is gone, so its mouseleave never
         // fires and the stat panel would otherwise hang around for the whole next phase.
-        setInspectedId(0);
-        setInspectedArtifact(undefined);
-    }, [phaseIdentity]);
+        cancelDeferredInspect();
+        hideReadout();
+    }, [phaseIdentity, cancelDeferredInspect, hideReadout]);
 
     const send = async (value: number, fn: () => Promise<void>): Promise<boolean> => {
         if (busy) return false;
@@ -2939,6 +3109,41 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
     // Otherwise the short gap before the next SSE frame lets a second creature/artifact be selected.
     const creatureSelectionLocked = selectedValue > 0;
     const artifactSelectionLocked = artifactTier2 > 0 || selectedValue > 0;
+    // The single wording the bottom commit plate carries right now. The header title reuses it verbatim
+    // while the opponent is choosing, so the two lines can never disagree about whose turn it is.
+    const commitLabel = !isYourTurn
+        ? pickPhase === PickPhaseVals.PICK && requiredLevel > 0
+            ? `Opponent's turn — Lvl ${requiredLevel}`
+            : t("Opponent's turn")
+        : pickPhase === PickPhaseVals.ARTIFACT_2
+          ? pendingArtifact > 0
+              ? `Confirm ${Artifact.getTier2ArtifactProperties(pendingArtifact as Artifact.Tier2Artifact).name}`
+              : t("Pick an artifact")
+          : pickPhase === PickPhaseVals.INITIAL_PICK
+            ? pendingBundle >= 0
+                ? t("Confirm bundle")
+                : t("Pick a bundle")
+            : pendingPick > 0
+              ? `Confirm ${creatureName(pendingPick)}`
+              : t("Pick a creature");
+    // The same rule the commit plate applies to its own caption (PickCommitButton's `waiting`): the
+    // opponent is choosing, or our own choice is already on its way / locked in for this phase. The
+    // per-phase "locked" flags above are exactly that condition, so reuse them instead of re-deriving it.
+    const commitWaiting =
+        !isYourTurn ||
+        busy ||
+        (pickPhase === PickPhaseVals.INITIAL_PICK
+            ? bundleSelectionLocked
+            : pickPhase === PickPhaseVals.ARTIFACT_2
+              ? artifactSelectionLocked
+              : creatureSelectionLocked);
+    // The phase title ("Pick a Level N creature") belongs to the player's own turn — it asks for an action.
+    // The moment the action is no longer available the band echoes the plate's own wording instead.
+    const headerTitle = isPreparing
+        ? t("Preparing the draft…")
+        : isCommitPhase && userTeam && commitWaiting
+          ? COMMIT_WAITING_LABEL
+          : title(pickPhase, requiredLevel);
 
     let panel: React.ReactNode = <CircularProgress />;
     if (pickPhase < 0) {
@@ -3032,10 +3237,17 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
         <Sheet variant="solid" sx={draftShellSx}>
             <PickLanternFire slot={0} />
             <PickLanternFire slot={1} />
-            <PickMatchupOverlay gameId={gameId} userTeam={userTeam} opponentLabel={opponentLabel} />
+            {/* While a card is being read, the stats own the header band: the strip drops behind the board
+                instead of sitting on top of the readout. */}
+            <PickMatchupOverlay
+                gameId={gameId}
+                userTeam={userTeam}
+                opponentLabel={opponentLabel}
+                demoted={!!(inspectedId || inspectedArtifact)}
+            />
             {/* One fixed-size board. The shell around it only paints background, so enlarging the window
                 (or going fullscreen) adds empty background around this box and never reflows it. */}
-            <Box sx={draftBoardSx(draftScale)} onMouseLeave={endInspect}>
+            <Box sx={draftBoardSx(draftScale)} onMouseMove={trackCursor} onMouseLeave={endInspect}>
                 {/* The header reserves the inspector's height even when no unit is hovered. That keeps the
                 cards stable under the cursor, and the readout replaces the draft title instead of covering it. */}
                 <Box
@@ -3051,34 +3263,27 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                         justifyContent: "center",
                         overflow: "hidden",
                     }}
-                    onMouseEnter={cancelInspectEnd}
+                    onMouseEnter={holdInspect}
                     onMouseLeave={endInspect}
                 >
-                    {inspectedId || inspectedArtifact ? (
-                        <>
-                            <Box sx={{ display: { xs: "flex", md: "none" }, justifyContent: "center" }}>
-                                <DraftTitle
-                                    subtitle={
-                                        hint && !isCommitPhase && !isPreparing ? (
-                                            <Typography
-                                                level="body-sm"
-                                                sx={{ opacity: 0.7, textAlign: "center", maxWidth: 560 }}
-                                            >
-                                                {hint}
-                                            </Typography>
-                                        ) : undefined
-                                    }
-                                >
-                                    {isPreparing ? t("Preparing the draft…") : title(pickPhase, requiredLevel)}
-                                </DraftTitle>
-                            </Box>
-                            {inspectedArtifact ? (
-                                <ArtifactDetailPanel artifact={inspectedArtifact} />
-                            ) : (
-                                <CreatureDetailPanel creatureId={inspectedId} />
-                            )}
-                        </>
-                    ) : (
+                    {/* ONE title element for both states. A second copy inside the inspected branch would
+                        remount on every hover, and so would `display: none` — both restart the entrance
+                        animation, making the title pop each time the cursor leaves a portrait. Taking it
+                        out of flow and hiding it keeps the very same element (and its finished animation)
+                        alive while the read-out owns the band on wide screens. */}
+                    <Box
+                        sx={{
+                            display: "flex",
+                            justifyContent: "center",
+                            ...(inspectedId || inspectedArtifact
+                                ? {
+                                      position: { xs: "static", md: "absolute" },
+                                      visibility: { xs: "visible", md: "hidden" },
+                                      pointerEvents: "none",
+                                  }
+                                : {}),
+                        }}
+                    >
                         <DraftTitle
                             subtitle={
                                 hint && !isCommitPhase && !isPreparing ? (
@@ -3091,9 +3296,14 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                                 ) : undefined
                             }
                         >
-                            {isPreparing ? t("Preparing the draft…") : title(pickPhase, requiredLevel)}
+                            {headerTitle}
                         </DraftTitle>
-                    )}
+                    </Box>
+                    {inspectedArtifact ? (
+                        <ArtifactDetailPanel artifact={inspectedArtifact} />
+                    ) : inspectedId ? (
+                        <CreatureDetailPanel creatureId={inspectedId} />
+                    ) : null}
                 </Box>
 
                 <Box
@@ -3214,23 +3424,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                     {userTeam && isCommitPhase && pickPhase >= 0 && (
                         <PickCommitButton
                             key={phaseIdentity}
-                            label={
-                                !isYourTurn
-                                    ? pickPhase === PickPhaseVals.PICK && requiredLevel > 0
-                                        ? `Opponent's turn — Lvl ${requiredLevel}`
-                                        : t("Opponent's turn")
-                                    : pickPhase === PickPhaseVals.ARTIFACT_2
-                                      ? pendingArtifact > 0
-                                          ? `Confirm ${Artifact.getTier2ArtifactProperties(pendingArtifact as Artifact.Tier2Artifact).name}`
-                                          : t("Pick an artifact")
-                                      : pickPhase === PickPhaseVals.INITIAL_PICK
-                                        ? pendingBundle >= 0
-                                            ? t("Confirm bundle")
-                                            : t("Pick a bundle")
-                                        : pendingPick > 0
-                                          ? `Confirm ${creatureName(pendingPick)}`
-                                          : t("Pick a creature")
-                            }
+                            label={commitLabel}
                             tone="green"
                             armed={
                                 !!isYourTurn &&
@@ -3287,9 +3481,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                 step={currentStep(pickPhase, requiredLevel)}
                 userTeam={userTeam}
                 draftScale={draftScale}
-                centerControl={systemControl}
             />
-            <Tooltip title={t("Open the full How-to-Play guide in a new tab")} variant="soft" placement="left">
+            <Tooltip title={t("Open the full How-to-Play guide in a new tab")} variant="soft" placement="right">
                 <Typography
                     component="a"
                     href={RULES_URL}
@@ -3299,7 +3492,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                     sx={{
                         position: "fixed",
                         top: "1rem",
-                        right: "1rem",
+                        left: "1rem",
                         zIndex: 60,
                         color: "#9fd0ff",
                         textDecoration: "none",
@@ -3313,6 +3506,9 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                     📖 {t("Rules")}
                 </Typography>
             </Tooltip>
+            {/* The corner the Rules link used to own: the draft's only destructive action, kept small and
+                far away from the cards it would otherwise sit under. */}
+            {systemControl && <GameCornerSlot>{systemControl}</GameCornerSlot>}
         </Sheet>
     );
 };

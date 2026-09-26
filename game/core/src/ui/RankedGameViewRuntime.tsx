@@ -109,8 +109,7 @@ import { setBattleSystemControlsActive } from "./social/systemControlsMode";
 import { CreaturePortraitImage } from "./CreaturePortraitImage";
 import { UNIT_ID_TO_NAME } from "./unit_ui_constants";
 import { ButtonProvider } from "./context/ButtonContext";
-import { exitFightButtonSx } from "./exitFightButtonSx";
-import { useFullscreenActive } from "./useFullscreenActive";
+import { GameCornerExitButton, GameCornerSlot } from "./GameCornerExit";
 import { useBoardMirrored } from "./useBoardMirrored";
 import { startVisibleInterval } from "./visibleInterval";
 import { eventStreamRetryDelayMs } from "./eventStreamRetry";
@@ -3250,7 +3249,6 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     vsAi = false,
     allowPlacementExit = false,
 }) => {
-    const isFullscreen = useFullscreenActive();
     const navigate = useNavigate();
     const [confirmExitOpen, setConfirmExitOpen] = useState(false);
     // A spectator's FIGHT panel floats bottom-centre over the board (GameSystemControls' centre slot), where it
@@ -3442,15 +3440,13 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     if (gameStarted && !isObserver) {
         return (
             <>
-                <Button
-                    variant="soft"
-                    color="danger"
-                    disabled={busy}
-                    onClick={() => setConfirmExitOpen(true)}
-                    sx={exitFightButtonSx(isFullscreen)}
-                >
-                    EXIT FIGHT
-                </Button>
+                <GameCornerSlot>
+                    <GameCornerExitButton
+                        disabled={busy}
+                        label={t("Exit fight")}
+                        onClick={() => setConfirmExitOpen(true)}
+                    />
+                </GameCornerSlot>
                 {confirmExitModal}
             </>
         );
@@ -3837,17 +3833,8 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                     </Typography>
                 )}
                 {isObserver && <ObserverSetupPanel snapshot={snapshot} />}
-                {allowPlacementExit && !isObserver && !replayOnly && snapshot.phase === PlayPhase.PLACEMENT && (
-                    <Button
-                        variant="plain"
-                        size="sm"
-                        color="danger"
-                        onClick={() => setConfirmExitOpen(true)}
-                        sx={{ alignSelf: "flex-start" }}
-                    >
-                        {t("Leave match")}
-                    </Button>
-                )}
+                {/* The corner button below is the placement exit. It follows allowPlacementExit, so a
+                    co-op sandbox does not grow a second way out. */}
                 {onStopWatching && (
                     <Button
                         variant="soft"
@@ -3873,6 +3860,15 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                     </Alert>
                 )}
 
+                {allowPlacementExit && !isObserver && !replayOnly && snapshot.phase === PlayPhase.PLACEMENT && (
+                    <GameCornerSlot>
+                        <GameCornerExitButton
+                            disabled={busy}
+                            label={t("Leave match")}
+                            onClick={() => setConfirmExitOpen(true)}
+                        />
+                    </GameCornerSlot>
+                )}
                 {confirmExitModal}
             </Stack>
         </Sheet>

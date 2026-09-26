@@ -326,6 +326,16 @@ export class UnitsOverlay {
     private btnRadius = 0;
     private levelBuckets: LevelBucket[] = [];
     private onUnitSelected?: (unitProperties: UnitProperties | null) => void;
+    private hoveredChip?: UnitChip;
+    private hoveredUnitProperties: UnitProperties | undefined;
+    public getHoveredUnitProperties(): UnitProperties | undefined {
+        return this.container.visible &&
+            this.isOpen &&
+            this.hoveredChip &&
+            isVisibleThroughAncestor(this.hoveredChip, this.rowsContainer)
+            ? this.hoveredUnitProperties
+            : undefined;
+    }
     public constructor(
         app: Application,
         getTexture: GetTexture,
@@ -535,10 +545,36 @@ export class UnitsOverlay {
 
         return false;
     }
-    /** Forwarded by the transparent interaction canvas while dragging the visible horizontal thumb. */
+    /** The transparent interaction canvas also owns hover; native Pixi pointerover may never fire. */
     public handlePointerMove(globalX: number, globalY: number): boolean {
-        if (!this.scrollbarDragging || this.maxScrollX <= 0) return false;
         const local = this.container.toLocal({ x: globalX, y: globalY });
+        const insideRoster =
+            this.container.visible &&
+            this.isOpen &&
+            !this.scrollbarDragging &&
+            local.x >= this.scrollViewportX &&
+            local.x <= this.panelDisplayW &&
+            local.y >= 0 &&
+            local.y <= this.panelDisplayH;
+        const hoveredChip = insideRoster
+            ? this.allChips.find((chip) => {
+                  if (!isVisibleThroughAncestor(chip, this.rowsContainer)) return false;
+                  const bounds = chip.getBounds();
+                  return (
+                      globalX >= bounds.x &&
+                      globalX <= bounds.x + bounds.width &&
+                      globalY >= bounds.y &&
+                      globalY <= bounds.y + bounds.height
+                  );
+              })
+            : undefined;
+        if (hoveredChip !== this.hoveredChip) {
+            this.hoveredChip?.setHovered(false);
+            hoveredChip?.setHovered(true);
+            this.hoveredChip = hoveredChip;
+            this.hoveredUnitProperties = hoveredChip ? this.getUnitProperties(hoveredChip.nameKey) : undefined;
+        }
+        if (!this.scrollbarDragging || this.maxScrollX <= 0) return false;
         const ratio = (local.x - this.scrollbarDragOffset - this.scrollTrackX) / this.scrollThumbTravel;
         this.setScrollX(ratio * this.maxScrollX);
         return true;
@@ -769,12 +805,20 @@ export class UnitsOverlay {
         this.onResize(this.app.renderer.width, this.app.renderer.height);
         this.container.sortChildren();
     }
-    /** Fill any roster cards whose on-demand portrait/background has just entered Pixi's cache. */
+    /** Refresh portraits and hover pictograms as their deferred textures enter Pixi's cache. */
     public refreshLazyTextures(): void {
         if (this.container.destroyed) return;
         this.refreshToggleTexture();
         for (const chip of this.allChips) {
             if (this.chipLevels.get(chip) !== this.selectedLevel) continue;
+            const typePresentation = creatureTypePresentation(chip.nameKey);
+            if (typePresentation) {
+                const attack = this.getTex(ROSTER_ATTACK_TYPE_ICON_KEY[typePresentation.attack]);
+                const movement = this.getTex(ROSTER_MOVEMENT_TYPE_ICON_KEY[typePresentation.movement]);
+                if (attack && movement) {
+                    chip.setTypeIcons(attack, movement, typePresentation.movement === "FLY" ? 220 / 170 : 1);
+                }
+            }
             const creatureId = UNIT_NAME_TO_ID[chip.nameKey];
             const visual = creatureId === undefined ? undefined : resolveCreaturePortraitVisual(creatureId);
             if (!visual) continue;

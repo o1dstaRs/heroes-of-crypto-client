@@ -3,13 +3,13 @@ import Box from "@mui/joy/Box";
 import Typography from "@mui/joy/Typography";
 import { keyframes } from "@emotion/react";
 
-import { TeamType, TeamVals } from "@heroesofcrypto/common";
+import { TeamVals } from "@heroesofcrypto/common";
 
-import { fightLogClipboardText, groupFightLogEntries } from "./fightLogGrouping";
-import { fightLogDotColor, splitFightLogTeamDots } from "./fightLogTeamDots";
-import { personalArmyCssColor } from "../../scenes/personalArmyTint";
 import { drawnSideOf } from "../../pixi/boardMirror";
+import { personalArmyCssColor } from "../../scenes/personalArmyTint";
 import { t, useTranslation } from "../../i18n/i18n";
+import { fightLogClipboardText, groupFightLogEntries } from "./fightLogGrouping";
+import { fightLogMarkTeam, fightLogSegments } from "./fightLogTeamNames";
 import { hocColors, hocDisplayFontFamily } from "../hocTheme";
 import { ImageScrollbar } from "./ImageScrollbar";
 import { FIGHT_LOG_SCROLLBAR_LANE_WIDTH_PX } from "./fightLogLayout";
@@ -61,49 +61,39 @@ interface ILogEntry {
 // real fights produce a few hundred lines, far below it.
 const MAX_ENTRIES = 5000;
 
-/**
- * One log line, with the scenes' 🟢/🔴 side markers drawn as dots instead of emoji.
- *
- * An emoji cannot be recoloured, so a player fighting in amethyst used to read a green dot beside the units
- * the board paints purple. The dot resolves the SAME personal tint the board does, so the two always agree;
- * with no tint armed (sandbox, replay, observer) it is the canonical team colour, exactly as before. Only the
- * painted marker moves: the stored line, the clipboard export and every surface that NAMES a side are
- * untouched.
- */
-const FightLogLine = ({ text }: { text: string }): React.ReactElement => (
-    <>
-        {splitFightLogTeamDots(text).map((segment, index) =>
-            segment.kind === "dot" ? (
-                <Box
-                    key={index}
-                    component="span"
-                    role="img"
-                    // Named by where the army is drawn, which on a board mirrored for this viewer is the other side.
-                    aria-label={drawnSideOf(segment.team) === TeamVals.LEFT ? t("Left side") : t("Right side")}
-                    sx={{
-                        display: "inline-block",
-                        width: "8px",
-                        height: "8px",
-                        borderRadius: "50%",
-                        verticalAlign: "middle",
-                        position: "relative",
-                        top: "-1px",
-                        bgcolor: fightLogDotColor(segment.team, personalArmyCssColor(segment.team as TeamType)),
-                        // The emoji it replaces is a lit sphere; the ring keeps a pale preset (bone) from
-                        // dissolving into the parchment text, and the sheen keeps the dot from reading flat.
-                        boxShadow:
-                            "inset 0 0 0 1px rgba(0,0,0,.5), inset 1px 1px 1px rgba(255,255,255,.45), 0 0 3px rgba(0,0,0,.55)",
-                    }}
-                />
-            ) : (
-                <React.Fragment key={index}>{segment.text}</React.Fragment>
-            ),
-        )}
-    </>
-);
-
 const splitLines = (text: string): string[] => (text ? text.split("\n").filter((l) => l.length > 0) : []);
 const formatFightLogLine = (text: string): string => text.replace(/\bto\s*\(/gi, "TO (");
+
+/**
+ * Paint the actor's name in its army's colour and drop the bead that used to carry it. The emitted line
+ * and the clipboard export are untouched — see fightLogTeamNames.
+ *
+ * The name still announces the side the army is drawn on. On a mirrored board that is the other seat
+ * from the one the mark names, which is the same rule the old bead used.
+ */
+const renderFightLogMarkers = (text: string): React.ReactNode =>
+    fightLogSegments(text).map((segment, index) => {
+        if (!segment.color) return segment.text;
+        // A player who chose a personal army colour sees the name in THAT colour, exactly as the board,
+        // the stack flags and the stat pips paint the same army. Without a choice this returns undefined
+        // and the identity colour stands.
+        const team = segment.mark ? fightLogMarkTeam(segment.mark) : undefined;
+        const personal = team === undefined ? undefined : personalArmyCssColor(team);
+        const drawnSide = team === undefined ? undefined : drawnSideOf(team);
+        return (
+            <span
+                key={index}
+                style={{ color: personal ?? segment.color, fontWeight: 700 }}
+                aria-label={
+                    drawnSide === undefined
+                        ? undefined
+                        : `${segment.text}, ${drawnSide === TeamVals.LEFT ? t("Left side") : t("Right side")}`
+                }
+            >
+                {segment.text}
+            </span>
+        );
+    });
 
 export const FightLog = ({ text }: { text: string }) => {
     const [entries, setEntries] = useState<ILogEntry[]>([]);
@@ -316,44 +306,30 @@ export const FightLog = ({ text }: { text: string }) => {
                                 // with no artificial padding after it when scrolled all the way down.
                                 sx={{ pb: groupIdx === groups.length - 1 ? 0 : "4px" }}
                             >
-                                {group.headerEntry && group.headerLabel && (
+                                {group.headerEntry && (
                                     <Box
                                         sx={{
-                                            position: "relative",
-                                            mt: groupIdx === 0 ? 0 : "5px",
-                                            mx: "5px",
-                                            px: "10px",
-                                            pr: "28px",
-                                            py: "5px",
+                                            mt: groupIdx === 0 ? 0 : "6px",
+                                            mx: "8px",
+                                            px: "2px",
+                                            pt: "2px",
+                                            pb: "3px",
                                             fontSize: "10.5px",
-                                            fontWeight: 700,
+                                            fontWeight: 600,
                                             lineHeight: 1.3,
-                                            letterSpacing: "0.05em",
-                                            color: "#d9b36c",
+                                            letterSpacing: "0.04em",
+                                            color: "rgba(217, 179, 108, 0.82)",
                                             whiteSpace: "normal",
                                             wordBreak: "break-word",
-                                            background:
-                                                "repeating-linear-gradient(135deg, rgba(255,255,255,.012) 0 1px, transparent 1px 7px), linear-gradient(180deg, rgba(31,29,25,.94), rgba(10,9,8,.98))",
-                                            border: "1px solid rgba(139, 98, 56, .72)",
-                                            borderRadius: "3px",
-                                            boxShadow:
-                                                "inset 0 1px 0 rgba(220,177,88,.09), inset 0 0 12px rgba(0,0,0,.7), 0 1px 3px rgba(0,0,0,.62)",
-                                            "&::after": {
-                                                content: '"⌄"',
-                                                position: "absolute",
-                                                right: "10px",
-                                                top: "50%",
-                                                transform: "translateY(-58%)",
-                                                fontSize: "13px",
-                                                fontWeight: 400,
-                                                color: "rgba(205,151,67,.72)",
-                                            },
-                                            // The plaque keeps its carved shadow after arriving; the regular ember
-                                            // animation replaces box-shadow, so headers use only the drop-in motion.
+                                            background: "none",
+                                            border: "none",
+                                            borderBottom: "1px solid rgba(186, 148, 90, 0.22)",
+                                            borderRadius: 0,
+                                            boxShadow: "none",
                                             animation: `${rowAppear} 280ms cubic-bezier(0.22, 1, 0.36, 1)`,
                                         }}
                                     >
-                                        <FightLogLine text={group.headerLabel} />
+                                        {renderFightLogMarkers(group.headerLabel ?? "")}
                                     </Box>
                                 )}
                                 {group.entries.map((entry) => (
@@ -361,9 +337,8 @@ export const FightLog = ({ text }: { text: string }) => {
                                         key={entry.id}
                                         sx={{
                                             position: "relative",
-                                            // Turn rows sit indented under their header, hanging off a faint
-                                            // sequence of nodes; the pre-turn block (no header) keeps the flush layout.
-                                            pl: group.headerEntry ? "23px" : "10px",
+                                            // Keep events indented beneath their turn header without decorative bullets.
+                                            pl: "10px",
                                             ml: group.headerEntry ? "14px" : 0,
                                             pr: "10px",
                                             py: "3px",
@@ -373,26 +348,6 @@ export const FightLog = ({ text }: { text: string }) => {
                                             color: "rgba(220, 177, 100, .94)",
                                             whiteSpace: "normal",
                                             wordBreak: "break-word",
-                                            ...(group.headerEntry
-                                                ? {
-                                                      "&::before": {
-                                                          content: '""',
-                                                          position: "absolute",
-                                                          // Keep the turn node visually attached to its event instead of
-                                                          // stranded against the outer rail. The remaining gap leaves the
-                                                          // marker clear of both plain text and leading status icons.
-                                                          left: "10px",
-                                                          top: "50%",
-                                                          width: "5px",
-                                                          height: "5px",
-                                                          borderRadius: "50%",
-                                                          border: "1px solid rgba(205,151,67,.92)",
-                                                          background: "#d6a44b",
-                                                          boxShadow: "none",
-                                                          transform: "translateY(-50%)",
-                                                      },
-                                                  }
-                                                : {}),
                                             // The very newest line glows a touch hotter than the rest.
                                             ...(entry.id === newestEntryId
                                                 ? {
@@ -405,7 +360,7 @@ export const FightLog = ({ text }: { text: string }) => {
                                             animation: `${rowAppear} 280ms cubic-bezier(0.22, 1, 0.36, 1), ${emberFlash} 1200ms ease-out`,
                                         }}
                                     >
-                                        <FightLogLine text={formatFightLogLine(entry.text)} />
+                                        {renderFightLogMarkers(formatFightLogLine(entry.text))}
                                     </Box>
                                 ))}
                             </Box>

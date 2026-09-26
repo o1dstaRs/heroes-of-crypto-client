@@ -1,6 +1,7 @@
-import { Assets, Container, Graphics, Sprite, Texture } from "pixi.js";
+import { Assets, Container, Graphics, Rectangle, Sprite, Texture } from "pixi.js";
 import { GridSettings, HoCMath } from "@heroesofcrypto/common";
 import { images } from "../../generated/image_imports";
+import { animationAtlases } from "../../generated/animation_atlases";
 
 /**
  * Renders flying projectiles for ranged attacks. Each projectile is a single
@@ -32,29 +33,38 @@ export interface IRangedProjectilesContext {
 export const BIG_PROJECTILE_UNITS = new Set<string>(["cyclops", "tsar cannon", "gargantuan"]);
 
 export interface IFireProjectileOptions {
-    /** Fired on contact, never when scene teardown cancels the projectile. */
-    onImpact?: () => void;
     from: HoCMath.XY;
     to: HoCMath.XY;
     big: boolean;
+    /** Optional cancellation for an individual lab shot, including a pending texture load. */
+    signal?: AbortSignal;
+    /** Invoked only on arrival; cancellation and scene teardown never count as a hit. */
+    onImpact?: () => void;
     /** Zena's Chakram: a spinning bladed disc rather than a bolt or a cannonball. */
     chakram?: boolean;
     /** Trent's Vine Throw: a braided, thorn-clawed length of living wood. */
     vine?: boolean;
     /** Orc's physical throwing axe: a broad double crescent that spins through the whole flight. */
     orcAxe?: boolean;
+    orcAppearance?: { length: number; rotation: number; facing: number };
     /** Arbalester's selected cyan-silver bolt. */
     arbalesterBolt?: boolean;
     /** Centaur's selected long, leather-gripped spear. */
     centaurSpear?: boolean;
     /** Dryad's selected living thorn dart. */
     dryadDart?: boolean;
+    /** Physical arrow released by the lab bow; length matches its held sprite. */
+    dryadArrow?: boolean;
+    arrowLength?: number;
     /** Beholder's selected compact purple psychic eye. */
     beholderEye?: boolean;
     /** Elf's selected emerald leaf-fletched arrow. */
     elfArrow?: boolean;
     /** Medusa's selected spectral serpent projectile. */
     medusaSerpent?: boolean;
+    /** Painted physical serpent released from the lab figure's forearm. */
+    medusaArmSerpent?: boolean;
+    serpentLength?: number;
     /** Cyclops's selected heavy chipped boulder. */
     cyclopsRock?: boolean;
     /** Monk's selected golden solar energy orb. */
@@ -79,12 +89,15 @@ interface IProjectile {
     chakram: boolean;
     vine: boolean;
     orcAxe: boolean;
+    orcAppearance?: { length: number; rotation: number; facing: number };
     arbalesterBolt: boolean;
     centaurSpear: boolean;
     dryadDart: boolean;
+    dryadArrow: boolean;
     beholderEye: boolean;
     elfArrow: boolean;
     medusaSerpent: boolean;
+    medusaArmSerpent: boolean;
     cyclopsRock: boolean;
     monkOrb: boolean;
     tsarCannonball: boolean;
@@ -94,6 +107,7 @@ interface IProjectile {
     spin: number; // radians of blade rotation accumulated in flight
     resolve: () => void;
     onImpact?: () => void;
+    removeAbortListener?: () => void;
 }
 
 interface IRockImpact {
@@ -166,9 +180,11 @@ export class RangedProjectiles {
     private arbalesterCyanBoltTexture?: Texture;
     private centaurSpearTexture?: Texture;
     private dryadThornDartTexture?: Texture;
+    private dryadArrowTexture?: Texture;
     private beholderPurpleEyeTexture?: Texture;
     private elfEmeraldArrowTexture?: Texture;
     private medusaSpectralSerpentTexture?: Texture;
+    private medusaArmSerpentFrames?: Texture[];
     private cyclopsHeavyBoulderTexture?: Texture;
     private monkSolarOrbTexture?: Texture;
     private tsarCannonMoltenBallTexture?: Texture;
@@ -184,79 +200,117 @@ export class RangedProjectiles {
         this.context.attachToWorldRoot(this.lifecycleMarker, PROJECTILE_Z);
     }
     private async ensureProjectileTexture(opts: IFireProjectileOptions): Promise<void> {
-        const request = opts.orcAxe
-            ? {
-                  current: this.orcThrowingAxeTexture,
-                  url: images.orc_throwing_axe,
-                  assign: (texture: Texture) => (this.orcThrowingAxeTexture = texture),
-              }
-            : opts.arbalesterBolt
-              ? {
-                    current: this.arbalesterCyanBoltTexture,
-                    url: images.arbalester_cyan_bolt,
-                    assign: (texture: Texture) => (this.arbalesterCyanBoltTexture = texture),
+        if (opts.medusaArmSerpent) {
+            if (this.medusaArmSerpentFrames) return;
+            const url = images.medusa_lab_projectile_atlas;
+            try {
+                const atlas = await Assets.load<Texture>(url);
+                if (this.destroyed) {
+                    void Assets.unload(url).catch(() => undefined);
+                    return;
                 }
-              : opts.centaurSpear
+                this.loadedProjectileUrls.add(url);
+                const meta = animationAtlases["Medusa Lab"].projectile;
+                atlas.source.scaleMode = "linear";
+                // Preserve the thin painted silhouette when the native atlas is minified on the board.
+                atlas.source.autoGenerateMipmaps = true;
+                this.medusaArmSerpentFrames ??= Array.from(
+                    { length: meta.frameCount },
+                    (_, i) =>
+                        new Texture({
+                            source: atlas.source,
+                            frame: new Rectangle(
+                                (i % meta.layout.cols) * meta.frameWidth,
+                                Math.floor(i / meta.layout.cols) * meta.frameHeight,
+                                meta.frameWidth,
+                                meta.frameHeight,
+                            ),
+                        }),
+                );
+            } catch {
+                // The normal projectile fallback still resolves interrupted or unavailable previews.
+            }
+            return;
+        }
+        const request = opts.dryadArrow
+            ? {
+                  current: this.dryadArrowTexture,
+                  url: images.dryad_lab_arrow,
+                  assign: (texture: Texture) => (this.dryadArrowTexture = texture),
+              }
+            : opts.orcAxe
+              ? {
+                    current: this.orcThrowingAxeTexture,
+                    url: images.orc_throwing_axe,
+                    assign: (texture: Texture) => (this.orcThrowingAxeTexture = texture),
+                }
+              : opts.arbalesterBolt
                 ? {
-                      current: this.centaurSpearTexture,
-                      url: images.centaur_spear_variant_4,
-                      assign: (texture: Texture) => (this.centaurSpearTexture = texture),
+                      current: this.arbalesterCyanBoltTexture,
+                      url: images.arbalester_cyan_bolt,
+                      assign: (texture: Texture) => (this.arbalesterCyanBoltTexture = texture),
                   }
-                : opts.dryadDart
+                : opts.centaurSpear
                   ? {
-                        current: this.dryadThornDartTexture,
-                        url: images.dryad_thorn_dart,
-                        assign: (texture: Texture) => (this.dryadThornDartTexture = texture),
+                        current: this.centaurSpearTexture,
+                        url: images.centaur_spear_variant_4,
+                        assign: (texture: Texture) => (this.centaurSpearTexture = texture),
                     }
-                  : opts.beholderEye
+                  : opts.dryadDart
                     ? {
-                          current: this.beholderPurpleEyeTexture,
-                          url: images.beholder_purple_eye_orb,
-                          assign: (texture: Texture) => (this.beholderPurpleEyeTexture = texture),
+                          current: this.dryadThornDartTexture,
+                          url: images.dryad_thorn_dart,
+                          assign: (texture: Texture) => (this.dryadThornDartTexture = texture),
                       }
-                    : opts.elfArrow
+                    : opts.beholderEye
                       ? {
-                            current: this.elfEmeraldArrowTexture,
-                            url: images.elf_emerald_arrow,
-                            assign: (texture: Texture) => (this.elfEmeraldArrowTexture = texture),
+                            current: this.beholderPurpleEyeTexture,
+                            url: images.beholder_purple_eye_orb,
+                            assign: (texture: Texture) => (this.beholderPurpleEyeTexture = texture),
                         }
-                      : opts.medusaSerpent
+                      : opts.elfArrow
                         ? {
-                              current: this.medusaSpectralSerpentTexture,
-                              url: images.medusa_spectral_serpent,
-                              assign: (texture: Texture) => (this.medusaSpectralSerpentTexture = texture),
+                              current: this.elfEmeraldArrowTexture,
+                              url: images.elf_emerald_arrow,
+                              assign: (texture: Texture) => (this.elfEmeraldArrowTexture = texture),
                           }
-                        : opts.cyclopsRock
+                        : opts.medusaSerpent
                           ? {
-                                current: this.cyclopsHeavyBoulderTexture,
-                                url: images.cyclops_heavy_boulder,
-                                assign: (texture: Texture) => (this.cyclopsHeavyBoulderTexture = texture),
+                                current: this.medusaSpectralSerpentTexture,
+                                url: images.medusa_spectral_serpent,
+                                assign: (texture: Texture) => (this.medusaSpectralSerpentTexture = texture),
                             }
-                          : opts.monkOrb
+                          : opts.cyclopsRock
                             ? {
-                                  current: this.monkSolarOrbTexture,
-                                  url: images.monk_solar_orb,
-                                  assign: (texture: Texture) => (this.monkSolarOrbTexture = texture),
+                                  current: this.cyclopsHeavyBoulderTexture,
+                                  url: images.cyclops_heavy_boulder,
+                                  assign: (texture: Texture) => (this.cyclopsHeavyBoulderTexture = texture),
                               }
-                            : opts.tsarCannonball
+                            : opts.monkOrb
                               ? {
-                                    current: this.tsarCannonMoltenBallTexture,
-                                    url: images.tsar_cannon_molten_ball,
-                                    assign: (texture: Texture) => (this.tsarCannonMoltenBallTexture = texture),
+                                    current: this.monkSolarOrbTexture,
+                                    url: images.monk_solar_orb,
+                                    assign: (texture: Texture) => (this.monkSolarOrbTexture = texture),
                                 }
-                              : opts.gargantuanRock
+                              : opts.tsarCannonball
                                 ? {
-                                      current: this.gargantuanRootBoulderTexture,
-                                      url: images.gargantuan_root_boulder,
-                                      assign: (texture: Texture) => (this.gargantuanRootBoulderTexture = texture),
+                                      current: this.tsarCannonMoltenBallTexture,
+                                      url: images.tsar_cannon_molten_ball,
+                                      assign: (texture: Texture) => (this.tsarCannonMoltenBallTexture = texture),
                                   }
-                                : !opts.big && !opts.chakram && !opts.vine
+                                : opts.gargantuanRock
                                   ? {
-                                        current: this.armorPiercingBoltTexture,
-                                        url: images.armor_piercing_bolt,
-                                        assign: (texture: Texture) => (this.armorPiercingBoltTexture = texture),
+                                        current: this.gargantuanRootBoulderTexture,
+                                        url: images.gargantuan_root_boulder,
+                                        assign: (texture: Texture) => (this.gargantuanRootBoulderTexture = texture),
                                     }
-                                  : undefined;
+                                  : !opts.big && !opts.chakram && !opts.vine
+                                    ? {
+                                          current: this.armorPiercingBoltTexture,
+                                          url: images.armor_piercing_bolt,
+                                          assign: (texture: Texture) => (this.armorPiercingBoltTexture = texture),
+                                      }
+                                    : undefined;
         if (!request || request.current) return;
 
         try {
@@ -272,6 +326,9 @@ export class RangedProjectiles {
         } catch {
             // The existing vector fallbacks keep combat moving if an optional projectile image fails.
         }
+    }
+    public async prepare(opts: IFireProjectileOptions): Promise<void> {
+        if (!this.destroyed) await this.ensureProjectileTexture(opts);
     }
     public hasActive(): boolean {
         return this.projectiles.length > 0;
@@ -289,15 +346,23 @@ export class RangedProjectiles {
         }
     }
     public async fire(opts: IFireProjectileOptions): Promise<void> {
-        if (this.destroyed) return;
+        if (this.destroyed || opts.signal?.aborted) return;
         await this.ensureProjectileTexture(opts);
         // New Battle may have destroyed the lifecycle marker while the optional art above was decoding.
         // Never attach an orphaned projectile to the app-owned world root after that boundary.
-        if (this.destroyed) return;
+        if (this.destroyed || opts.signal?.aborted) return;
         this.context.onProjectileFired?.();
         const cell = this.context.getGridSettings().getCellSize();
         const from = { x: opts.from.x, y: opts.from.y };
         const to = { x: opts.to.x, y: opts.to.y };
+        if (opts.orcAxe && opts.orcAppearance && this.orcThrowingAxeTexture) {
+            const appearance = opts.orcAppearance;
+            const scale = appearance.length / this.orcThrowingAxeTexture.width;
+            const localX = this.orcThrowingAxeTexture.width * 0.24 * scale * appearance.facing;
+            const localY = this.orcThrowingAxeTexture.height * 0.32 * scale;
+            from.x += localX * Math.cos(appearance.rotation) - localY * Math.sin(appearance.rotation);
+            from.y += localX * Math.sin(appearance.rotation) + localY * Math.cos(appearance.rotation);
+        }
         const dx = to.x - from.x;
         const dy = to.y - from.y;
         const dist = Math.hypot(dx, dy);
@@ -308,62 +373,103 @@ export class RangedProjectiles {
 
         return new Promise<void>((resolve) => {
             const projectile: IProjectile = {
-                onImpact: opts.onImpact,
                 g,
                 from,
                 to,
                 angle,
                 dist,
                 traveled: 0,
-                speed: cell * (opts.chakram ? CHAKRAM_SPEED_FACTOR : PROJECTILE_SPEED_FACTOR),
+                speed:
+                    cell *
+                    (opts.medusaArmSerpent
+                        ? 20
+                        : opts.dryadArrow
+                          ? 32
+                          : opts.orcAxe
+                            ? 52.2
+                            : opts.chakram
+                              ? CHAKRAM_SPEED_FACTOR
+                              : PROJECTILE_SPEED_FACTOR),
                 big: opts.big,
                 arc: opts.big ? cell * BIG_ARC_FACTOR : 0,
                 cell,
                 chakram: !!opts.chakram,
                 vine: !!opts.vine,
                 orcAxe: !!opts.orcAxe,
+                orcAppearance: opts.orcAppearance,
                 arbalesterBolt: !!opts.arbalesterBolt,
                 centaurSpear: !!opts.centaurSpear,
                 dryadDart: !!opts.dryadDart,
+                dryadArrow: !!opts.dryadArrow,
                 beholderEye: !!opts.beholderEye,
                 elfArrow: !!opts.elfArrow,
                 medusaSerpent: !!opts.medusaSerpent,
+                medusaArmSerpent: !!opts.medusaArmSerpent,
                 cyclopsRock: !!opts.cyclopsRock,
                 monkOrb: !!opts.monkOrb,
                 tsarCannonball: !!opts.tsarCannonball,
                 gargantuanRock: !!opts.gargantuanRock,
-                sprite: opts.orcAxe
-                    ? this.makeOrcThrowingAxeSprite(cell)
-                    : opts.vine
-                      ? this.makeVineSprite(cell)
-                      : opts.arbalesterBolt
-                        ? this.makeArbalesterCyanBoltSprite(cell)
-                        : opts.centaurSpear
-                          ? this.makeCentaurSpearSprite(cell)
-                          : opts.dryadDart
-                            ? this.makeDryadThornDartSprite(cell)
-                            : opts.beholderEye
-                              ? this.makeBeholderPurpleEyeSprite(cell)
-                              : opts.elfArrow
-                                ? this.makeElfEmeraldArrowSprite(cell)
-                                : opts.medusaSerpent
-                                  ? this.makeMedusaSpectralSerpentSprite(cell)
-                                  : opts.cyclopsRock
-                                    ? this.makeCyclopsHeavyBoulderSprite(cell)
-                                    : opts.monkOrb
-                                      ? this.makeMonkSolarOrbSprite(cell)
-                                      : opts.tsarCannonball
-                                        ? this.makeTsarCannonMoltenBallSprite(cell)
-                                        : opts.gargantuanRock
-                                          ? this.makeGargantuanRootBoulderSprite(cell)
-                                          : !opts.big && !opts.chakram
-                                            ? this.makeArmorPiercingBoltSprite(cell)
-                                            : undefined,
+                sprite:
+                    opts.dryadArrow && this.dryadArrowTexture
+                        ? this.makeDirectionalSprite(this.dryadArrowTexture, opts.arrowLength ?? cell * 0.75)
+                        : opts.orcAxe
+                          ? this.makeOrcThrowingAxeSprite(cell, opts.orcAppearance)
+                          : opts.vine
+                            ? this.makeVineSprite(cell)
+                            : opts.arbalesterBolt
+                              ? this.makeArbalesterCyanBoltSprite(cell)
+                              : opts.centaurSpear
+                                ? this.makeCentaurSpearSprite(cell)
+                                : opts.dryadDart
+                                  ? this.makeDryadThornDartSprite(cell)
+                                  : opts.beholderEye
+                                    ? this.makeBeholderPurpleEyeSprite(cell)
+                                    : opts.elfArrow
+                                      ? this.makeElfEmeraldArrowSprite(cell)
+                                      : opts.medusaSerpent
+                                        ? this.makeMedusaSpectralSerpentSprite(cell)
+                                        : opts.cyclopsRock
+                                          ? this.makeCyclopsHeavyBoulderSprite(cell)
+                                          : opts.monkOrb
+                                            ? this.makeMonkSolarOrbSprite(cell)
+                                            : opts.tsarCannonball
+                                              ? this.makeTsarCannonMoltenBallSprite(cell)
+                                              : opts.gargantuanRock
+                                                ? this.makeGargantuanRootBoulderSprite(cell)
+                                                : !opts.big && !opts.chakram
+                                                  ? this.makeArmorPiercingBoltSprite(cell)
+                                                  : undefined,
                 spin: 0,
                 resolve,
+                onImpact: opts.onImpact,
             };
+            if (opts.medusaArmSerpent && this.medusaArmSerpentFrames?.length) {
+                projectile.sprite?.destroy();
+                projectile.sprite = this.makeDirectionalSprite(
+                    this.medusaArmSerpentFrames[0],
+                    opts.serpentLength ?? cell * 0.65,
+                );
+                projectile.sprite.anchor.set(0.04, 0.5);
+            }
+            // The shaft is subpixel at board scale. Keep its held length while giving the
+            // flying arrow enough thickness to survive minification against the floor.
+            if (projectile.dryadArrow && projectile.sprite) projectile.sprite.scale.y *= 1.8;
             this.draw(projectile, from.x, from.y);
             this.projectiles.push(projectile);
+            if (opts.signal) {
+                const cancel = (): void => {
+                    const index = this.projectiles.indexOf(projectile);
+                    if (index < 0) return;
+                    this.projectiles.splice(index, 1);
+                    projectile.removeAbortListener?.();
+                    projectile.sprite?.destroy();
+                    projectile.g.destroy();
+                    projectile.resolve();
+                };
+                opts.signal.addEventListener("abort", cancel, { once: true });
+                projectile.removeAbortListener = () => opts.signal?.removeEventListener("abort", cancel);
+                if (opts.signal.aborted) cancel();
+            }
         });
     }
     public update(dt: number): void {
@@ -389,6 +495,7 @@ export class RangedProjectiles {
                 p.sprite?.destroy();
                 p.g.destroy();
                 this.projectiles.splice(i, 1);
+                p.removeAbortListener?.();
                 try {
                     p.onImpact?.();
                 } finally {
@@ -413,6 +520,7 @@ export class RangedProjectiles {
             return;
         }
         for (const p of this.projectiles) {
+            p.removeAbortListener?.();
             p.sprite?.destroy();
             p.g.destroy();
             p.resolve();
@@ -437,9 +545,12 @@ export class RangedProjectiles {
         this.arbalesterCyanBoltTexture = undefined;
         this.centaurSpearTexture = undefined;
         this.dryadThornDartTexture = undefined;
+        this.dryadArrowTexture = undefined;
         this.beholderPurpleEyeTexture = undefined;
         this.elfEmeraldArrowTexture = undefined;
         this.medusaSpectralSerpentTexture = undefined;
+        for (const frame of this.medusaArmSerpentFrames ?? []) frame.destroy(false);
+        this.medusaArmSerpentFrames = undefined;
         this.cyclopsHeavyBoulderTexture = undefined;
         this.monkSolarOrbTexture = undefined;
         this.tsarCannonMoltenBallTexture = undefined;
@@ -453,6 +564,14 @@ export class RangedProjectiles {
     private draw(p: IProjectile, x: number, y: number): void {
         const g = p.g;
         g.clear();
+        if (p.medusaArmSerpent && p.sprite && this.medusaArmSerpentFrames?.length) {
+            const meta = animationAtlases["Medusa Lab"].projectile;
+            const flightMs = (p.traveled / p.speed) * 4000;
+            const index = Math.floor(flightMs / (meta.frameDurationSec * 1000)) % this.medusaArmSerpentFrames.length;
+            p.sprite.texture = this.medusaArmSerpentFrames[index];
+            this.drawDirectionalSprite(p, x, y);
+            return;
+        }
         if (p.chakram) {
             this.drawChakram(p, x, y);
             return;
@@ -482,7 +601,13 @@ export class RangedProjectiles {
             return;
         }
         if (
-            (p.arbalesterBolt || p.centaurSpear || p.dryadDart || p.beholderEye || p.elfArrow || p.medusaSerpent) &&
+            (p.arbalesterBolt ||
+                p.centaurSpear ||
+                p.dryadDart ||
+                p.dryadArrow ||
+                p.beholderEye ||
+                p.elfArrow ||
+                p.medusaSerpent) &&
             p.sprite
         ) {
             this.drawDirectionalSprite(p, x, y);
@@ -1073,70 +1198,25 @@ export class RangedProjectiles {
             });
         }
     }
-    private makeOrcThrowingAxeSprite(cell: number): Sprite | undefined {
+    private makeOrcThrowingAxeSprite(
+        cell: number,
+        appearance?: IFireProjectileOptions["orcAppearance"],
+    ): Sprite | undefined {
         if (!this.orcThrowingAxeTexture) return undefined;
         const sprite = new Sprite(this.orcThrowingAxeTexture);
+        // Flight starts with the grip at the hand, then spins about the weapon centre.
         sprite.anchor.set(0.5);
-        // 12.5% larger than the previous 1.13-cell weapon.
-        const targetLength = cell * 1.27125;
-        sprite.scale.set(targetLength / Math.max(1, this.orcThrowingAxeTexture.width));
+        const scale = (appearance?.length ?? cell * 1.1) / Math.max(1, this.orcThrowingAxeTexture.width);
+        sprite.scale.set(scale * (appearance?.facing ?? 1), -scale);
         return sprite;
     }
     private drawOrcThrowingAxe(p: IProjectile, x: number, y: number): void {
         const sprite = p.sprite!;
         if (!sprite.parent) this.context.attachToWorldRoot(sprite, PROJECTILE_Z);
         sprite.position.set(x, y);
-        // Start along the shot, then rotate the complete silhouette end-over-end around its centre.
-        const weaponAngle = p.angle + p.spin;
-        sprite.rotation = weaponAngle;
+        sprite.rotation = (p.orcAppearance?.rotation ?? p.angle) + p.spin * (p.orcAppearance?.facing ?? 1);
         sprite.visible = true;
-
-        // The source handle is very fine at board scale. A leather-and-wood reinforcement directly behind
-        // only the shaft makes it about 25% broader without stretching either axe head. It shares the live
-        // spin angle, so no backing line is left behind as the weapon turns.
-        const ca = Math.cos(weaponAngle);
-        const sa = Math.sin(weaponAngle);
-        const weaponLength = p.cell * 1.27125;
-        const handleStart = weaponLength * -0.47;
-        const handleEnd = weaponLength * 0.14;
-        const startX = x + ca * handleStart;
-        const startY = y + sa * handleStart;
-        const endX = x + ca * handleEnd;
-        const endY = y + sa * handleEnd;
-        p.g
-            .moveTo(startX, startY)
-            .lineTo(endX, endY)
-            .stroke({ width: Math.max(3, p.cell * 0.11), color: 0x1a0e09, alpha: 0.98, cap: "round" })
-            .moveTo(startX, startY)
-            .lineTo(endX, endY)
-            .stroke({ width: Math.max(2, p.cell * 0.086), color: 0x51301e, alpha: 0.96, cap: "round" });
-
-        // A restrained pair of bronze motion ghosts makes the rotation readable without turning the
-        // physical weapon into a glowing spell.
-        const r = p.cell * 0.26;
-        for (let ghost = 1; ghost <= 2; ghost += 1) {
-            p.g.circle(x, y, r * (0.8 + ghost * 0.13)).stroke({
-                width: Math.max(1, p.cell * 0.018),
-                color: 0xa97a4c,
-                alpha: 0.13 / ghost,
-            });
-        }
     }
-    /**
-     * Zena's chakram: a spinning bronze ring with blade cut-outs, wrapped in the motion blur a disc thrown
-     * this hard would actually leave. Drawn rather than sprited so it can spin at any angle without a
-     * texture rotation, and so the trail can be redrawn per frame from the live spin.
-     */
-    /**
-     * Trent's Vine Throw: a braided length of living wood thrown like a whip, clawed at the head.
-     *
-     * Drawn rather than sprited for the same reason as the chakram — it has to squirm and re-aim every
-     * frame at any angle. Built from the reference art in four reads, outside in: red speed streaks (this
-     * thing is FAST, and the streaks are what says so), a braid of interwoven strands rather than one stick,
-     * the heat glowing out from between the strands, and a pair of hooked bone-pale claws at the head. A
-     * couple of caps and moss ride along, because the thing tore itself off a living tree.
-     */
-    /** The dart's art, if it has been supplied. Sized to the cell and pivoted so it points along flight. */
     private makeVineSprite(cell: number): Sprite | undefined {
         const texture = this.context.texAny?.("vine_dart_256");
         if (!texture) {
