@@ -10336,45 +10336,6 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
       "pauseMs": 1091
     }
   },
-  "Scavenger Homm": {
-    "idle": {
-      "frameWidth": 768,
-      "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 2304,
-      "frameCount": 12,
-      "fps": 10,
-      "frameDurationSec": 0.1,
-      "totalDurationSec": 3.03,
-      "frameDurationsMs": [
-        100,
-        100,
-        100,
-        100,
-        180,
-        220,
-        130,
-        100,
-        100,
-        100,
-        100,
-        1700
-      ],
-      "layout": {
-        "cols": 4,
-        "rows": 3
-      },
-      "footAnchorY": 0.96875,
-      "sourceDirection": "right",
-      "loop": true,
-      "holdLastFrame": false,
-      "visibleHeightRatio": 0.9114583333333334,
-      "scaleReference": "Neutral frame normalized to 700px visible height; one fixed scale across action. Match visible height when integrating with existing 741px walk.",
-      "installedInGame": true,
-      "loopDurationMs": 2727,
-      "pauseMs": 1091
-    }
-  },
   "Squire": {
     "attack": {
       "frameWidth": 1792,

@@ -4734,6 +4734,7 @@ export class Sandbox extends PixiScene {
     }
     /** Finish the previous shot or incoming hit before reserving the next authored ranged action. */
     private async waitForProjectileHitReaction(unit: RenderableUnit): Promise<boolean> {
+        if (typeof unit.isPlayingOneShotAnimation !== "function") return true;
         const busy = (): boolean =>
             ["hit", "attack", "attack_up", "attack_down"].some((state) => unit.isPlayingOneShotAnimation(state));
         for (let frame = 0; frame < 300 && busy(); frame++) {
@@ -4749,18 +4750,30 @@ export class Sandbox extends PixiScene {
     ): Promise<void> {
         const unit = sourceUnit as unknown as LevelOneRenderableUnit;
         const authoredShooter = usesAuthoredRangedRelease(unit.getName());
+        // Combat still names an Elf shot elfArrow and a Medusa shot medusaSerpent. The authored
+        // release plays them as the dryad arrow and the arm serpent.
+        const authoredOpts: IFireProjectileOptions = {
+            ...opts,
+            elfArrow: false,
+            dryadArrow: !!opts.dryadArrow || !!opts.elfArrow,
+            medusaArmSerpent: !!opts.medusaArmSerpent || !!opts.medusaSerpent,
+        };
         if (
             !authoredShooter ||
-            (!opts.orcAxe && !opts.centaurSpear && !opts.arbalesterBolt && !opts.dryadArrow) ||
+            (!authoredOpts.orcAxe &&
+                !authoredOpts.centaurSpear &&
+                !authoredOpts.arbalesterBolt &&
+                !authoredOpts.dryadArrow &&
+                !authoredOpts.medusaArmSerpent) ||
             !unit.hasAnimationState("attack")
         ) {
             await this.rangedProjectiles.fire(opts);
             return;
         }
-        await this.rangedProjectiles.prepare(opts);
+        await this.rangedProjectiles.prepare(authoredOpts);
         if (!(await this.waitForProjectileHitReaction(sourceUnit))) return;
         const center = unit.getProjectileImpactPoint(this.sc_sceneSettings.getGridSettings());
-        const dy = opts.to.y - center.y;
+        const dy = authoredOpts.to.y - center.y;
         const state =
             previewState ??
             (Math.abs(dy) < this.sc_sceneSettings.getGridSettings().getCellSize() * 0.35
@@ -4768,8 +4781,8 @@ export class Sandbox extends PixiScene {
                 : dy > 0
                   ? "attack_up"
                   : "attack_down");
-        if ((opts.dryadArrow || opts.medusaArmSerpent) && authoredShooter) {
-            await this.fireDryadLabProjectile(unit, opts, state);
+        if ((authoredOpts.dryadArrow || authoredOpts.medusaArmSerpent) && authoredShooter) {
+            await this.fireDryadLabProjectile(unit, authoredOpts, state);
             return;
         }
         if (opts.arbalesterBolt && authoredShooter) {
@@ -4857,7 +4870,14 @@ export class Sandbox extends PixiScene {
                     settle(undefined);
             });
             if (!origin || shot.signal.aborted || this.isSceneDestroyed()) return;
-            await this.rangedProjectiles.fire({ ...opts, from: origin, arrowLength, signal: shot.signal });
+            const measuredLength = arrowLength ?? unit.getDryadArrowLength();
+            await this.rangedProjectiles.fire({
+                ...opts,
+                from: origin,
+                arrowLength: measuredLength,
+                serpentLength: opts.medusaArmSerpent ? measuredLength : opts.serpentLength,
+                signal: shot.signal,
+            });
         } finally {
             this.clearSceneTimeout(timeout);
             unit.finishDryadRangedShot(shot);
@@ -5034,7 +5054,7 @@ export class Sandbox extends PixiScene {
                 } else if (strike.amount > 0 && renderedVictim) {
                     // Final engine HP can already be zero after a later blow. This hit still precedes it.
                     reaction = this.playReplayOneShot(victim, "hit", 3000, true);
-                    if (victim.getUnitProperties().level > 2) {
+                    if ((victim.getUnitProperties?.().level ?? 0) > 2) {
                         this.applyReplayHitKnockback(victim, source);
                         reaction = Promise.all([reaction, this.delayReplay(330)]).then(() => {});
                     }
@@ -5042,12 +5062,12 @@ export class Sandbox extends PixiScene {
             };
             if (melee) {
                 const attack = this.playReplayOneShot(source, attackState, 5000, true);
-                if (source.getUnitProperties().level > 2) this.applyReplayLunge(source, victim);
+                if ((source.getUnitProperties?.().level ?? 0) > 2) this.applyReplayLunge(source, victim);
                 impact();
                 await Promise.all([
                     attack,
                     reaction,
-                    source.getUnitProperties().level > 2 ? this.delayReplay(220) : Promise.resolve(),
+                    (source.getUnitProperties?.().level ?? 0) > 2 ? this.delayReplay(220) : Promise.resolve(),
                 ]);
             } else {
                 const attack = usesAuthoredRangedRelease(source.getName())

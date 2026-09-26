@@ -785,7 +785,9 @@ describe("full-body model ground line", () => {
                 expect(unit.playOneShotAnimation(state)).toBe(true);
                 unit.ensureVisual(world, gridSettings);
                 expect(internals.sprite?.y).toBeCloseTo(expectedY);
-                expect(internals.sprite?.anchor.y).toBe(tallBoardModelFootAnchorY(name, state));
+                expect(internals.sprite?.anchor.y).toBe(
+                    tallBoardModelFootAnchorY(name, state, animationAtlases[name]?.[state]),
+                );
             }
         }
     });

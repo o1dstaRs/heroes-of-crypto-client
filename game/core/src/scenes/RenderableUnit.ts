@@ -110,8 +110,13 @@ import { syncBerserkerIdleVisuals } from "./BerserkerIdleVisuals";
 import { applyScavengerHitRegistration, clearScavengerHitRegistration } from "./ScavengerHitRegistration";
 import { staticBattlefieldTextureNameForUnit, TextureType, unitToTextureName } from "@/pixi/PixiUnitsFactory";
 import { legacyBoardChildScaleCompensation } from "@/pixi/boardFit";
+import { UnitLoadingPlaceholder } from "./unitLoadingPlaceholder";
 import { glyphScaleX, screenFacing } from "@/pixi/boardMirror";
-import { CREATURE_SPRITE_ANIMATION_SETTINGS, usesApprovedBaseAnimations } from "@/pixi/creatureAnimationSettings";
+import {
+    approvedAnimationAssetKeysForUnit,
+    CREATURE_SPRITE_ANIMATION_SETTINGS,
+    usesApprovedBaseAnimations,
+} from "@/pixi/creatureAnimationSettings";
 import { animationAtlases, AnimationUnitName, type AnimationAtlasMeta } from "../generated/animation_atlases";
 import { images, type ImageKey } from "../imageAssets";
 import { buildAtlasPingPongTiming, AtlasPingPongTiming } from "./atlasAnimationTiming";
@@ -1234,7 +1239,6 @@ export function squireActionCanvasScale(stateName: string | undefined): number {
 
 export function oneShotAnimationDurationMultiplier(unitName: string, stateName: string): number {
     const isAttack = isAttackAnimationStateName(stateName);
-    if (unitName === ORC_UNIT_NAME && isOrcAuthoredAction(stateName)) return 1;
 
     // Troglodyte actions preserve the same authored timing in combat and the local preview.
     if (unitName === TROGLODYTE_UNIT_NAME && isTroglodyteAuthoredAction(stateName)) {
@@ -1279,6 +1283,9 @@ export function oneShotAnimationDurationMultiplier(unitName: string, stateName: 
 
     // Reactions carry their own authored timing; retain the existing cadence for other Mage actions.
     if (unitName === WANDERING_MAGE_UNIT_NAME) {
+        // Cast and the melee set keep authored timing. The ranged attack stays at half duration, and
+        // death keeps that half plus the approved extra 15%.
+        if (stateName === "death") return WANDERING_MAGE_COMBAT_ANIMATION_DURATION_MULTIPLIER / 1.15;
         return isWanderingMageAuthoredAction(stateName) ? 1 : WANDERING_MAGE_COMBAT_ANIMATION_DURATION_MULTIPLIER;
     }
 
@@ -1866,7 +1873,7 @@ function getDefaultAnimationConfig(
     const meta = unitStates[preferredState];
     const imageKey = atlasImageKeyFromUnitAndState(normalized, preferredState, footprintWidth, footprintHeight);
     if (!imageKey) return null;
-    const imageSrc = images[imageKey];
+    const imageSrc = images[imageKey] ?? "";
     if (!imageSrc) return null;
     const cacheKey = `${normalized}::${preferredState}`;
     return { meta, imageSrc, imageKey, cacheKey, cacheAcrossScenes: true };
@@ -1902,7 +1909,7 @@ function getAnimationStateConfig(
     if (!meta) return null;
     const imageKey = atlasImageKeyFromUnitAndState(normalized, resolvedState, footprintWidth, footprintHeight);
     if (!imageKey) return null;
-    const imageSrc = images[imageKey];
+    const imageSrc = images[imageKey] ?? "";
     if (!imageSrc) return null;
     return {
         meta,
@@ -2171,14 +2178,14 @@ function cachedAtlasFrames(
  */
 function framesForAtlasConfig(config: UnitAtlasConfig, texResolver: TexResolver): Texture[] {
     const resolvedTexture = texResolver(config.imageKey);
+    // Static battlefield art is already one complete frame. Reuse the scene-leased texture itself rather
+    // than creating a wrapper that can outlive the lease and keep the decoded source resident. A multi-frame
+    // sheet still has to be cut, even when the whole atlas texture is already in hand.
+    if (config.meta.frameCount <= 1 && resolvedTexture) return [resolvedTexture];
     if (config.cacheAcrossScenes) {
         return cachedAtlasFrames(config.cacheKey, config.meta, config.imageSrc, config.imageKey, resolvedTexture);
     }
-    // Static battlefield art is already one complete frame. Reuse the scene-leased texture itself rather
-    // than creating a wrapper that can outlive the lease and keep the decoded source resident.
-    return resolvedTexture
-        ? [resolvedTexture]
-        : buildAtlasFrames(config.meta, config.imageSrc, config.imageKey, resolvedTexture);
+    return buildAtlasFrames(config.meta, config.imageSrc, config.imageKey, resolvedTexture);
 }
 interface SpawnAnimState {
     startScaleX: number;
@@ -2690,6 +2697,8 @@ export class RenderableUnit extends Unit {
     private depthSortBoundsCacheState?: CreatureBoundsCacheState;
     private depthSortCandidate?: CreatureDepthSortCandidate;
     private inheritedScaleScratch?: HoCMath.XY;
+    private loadingPlaceholder?: UnitLoadingPlaceholder;
+    private animationAssetsRequested = false;
     private projectedPositionScratch?: HoCMath.XY;
     private groundReferenceScratch?: HoCMath.XY;
     private previewCurrentGroundScratch?: HoCMath.XY;
@@ -2899,6 +2908,8 @@ export class RenderableUnit extends Unit {
         ru.depthSortBoundsCacheState = undefined;
         ru.depthSortCandidate = undefined;
         ru.inheritedScaleScratch = undefined;
+        ru.loadingPlaceholder = undefined;
+        ru.animationAssetsRequested = false;
         ru.projectedPositionScratch = undefined;
         ru.groundReferenceScratch = undefined;
         ru.previewCurrentGroundScratch = undefined;
@@ -3105,7 +3116,29 @@ export class RenderableUnit extends Unit {
         const tallBoardModel = usesTallBoardModel(props, texName, hasAuthoredIdle);
         const refreshedFullBodyScale = usesRefreshedFullBodyScale(props, hasAuthoredIdle);
         const baseTex = this.resolveBaseTexture();
-        if (!baseTex) return;
+        if (!baseTex) {
+            // No board image yet: a team token and the stack count stand in until the cutout arrives.
+            const inheritedScale = inheritedAbsoluteScale(worldRoot, this.inheritedScaleScratch);
+            this.inheritedScaleScratch = inheritedScale;
+            const perspectiveScale = this.useBattlefieldVisualProjection
+                ? battlefieldCreaturePerspectiveScale(logicalPos.y, footprintHeight, gs)
+                : 1;
+            (this.loadingPlaceholder ??= new UnitLoadingPlaceholder()).sync(worldRoot, {
+                x: pos.x,
+                y: pos.y,
+                side: gs.getCellSize() * Math.min(footprintWidth, footprintHeight) * perspectiveScale,
+                team: this.getTeam(),
+                amount: this.badgeAmountOverride ?? this.getAmountAlive(),
+                compensation: legacyBoardChildScaleCompensation(inheritedScale.x, inheritedScale.y),
+            });
+            return;
+        }
+        this.loadingPlaceholder?.destroy();
+        this.loadingPlaceholder = undefined;
+        if (!this.animationAssetsRequested) {
+            this.animationAssetsRequested = true;
+            for (const key of approvedAnimationAssetKeysForUnit(props.name)) this.texResolver(key);
+        }
         // --- sprite ---
         if (!this.sprite) {
             // first time: use base texture
@@ -4939,8 +4972,8 @@ export class RenderableUnit extends Unit {
             return null;
         const meta = animationAtlases["Medusa Lab"]?.[authoredState];
         const imageKey = `medusa_lab_${authoredState}_atlas` as ImageKey;
-        const imageSrc = images[imageKey];
-        if (!meta || !imageSrc) return null;
+        const imageSrc = images[imageKey] ?? "";
+        if (!meta) return null;
         return {
             meta,
             imageKey,
@@ -4965,8 +4998,8 @@ export class RenderableUnit extends Unit {
             return null;
         const meta = animationAtlases["Troll Lab"]?.[state];
         const imageKey = `troll_lab_${state}_atlas` as ImageKey;
-        const imageSrc = images[imageKey];
-        if (!meta || !imageSrc) return null;
+        const imageSrc = images[imageKey] ?? "";
+        if (!meta) return null;
         return {
             meta,
             imageKey,
@@ -4992,8 +5025,8 @@ export class RenderableUnit extends Unit {
             return null;
         const meta = animationAtlases["White Tiger Lab"]?.[authoredState];
         const imageKey = `white_tiger_lab_${authoredState}_atlas` as ImageKey;
-        const imageSrc = images[imageKey];
-        if (!meta || !imageSrc) return null;
+        const imageSrc = images[imageKey] ?? "";
+        if (!meta) return null;
         return {
             meta,
             imageKey,
@@ -5028,8 +5061,8 @@ export class RenderableUnit extends Unit {
             return null;
         const meta = animationAtlases["Elf Lab"]?.[state];
         const imageKey = `elf_lab_${state}_atlas` as ImageKey;
-        const imageSrc = images[imageKey];
-        if (!meta || !imageSrc) return null;
+        const imageSrc = images[imageKey] ?? "";
+        if (!meta) return null;
         return {
             meta: {
                 ...meta,
@@ -5074,8 +5107,8 @@ export class RenderableUnit extends Unit {
                   : state;
         const meta = animationAtlases["Dryad Lab"]?.[authoredState];
         const imageKey = `dryad_lab_${authoredState}_atlas` as ImageKey;
-        const imageSrc = images[imageKey];
-        if (!meta || !imageSrc) return null;
+        const imageSrc = images[imageKey] ?? "";
+        if (!meta) return null;
         return {
             meta,
             imageKey,
@@ -5100,8 +5133,8 @@ export class RenderableUnit extends Unit {
             return null;
         const meta = animationAtlases["Leprechaun Lab"]?.[state];
         const imageKey = `leprechaun_lab_${state}_atlas` as ImageKey;
-        const imageSrc = images[imageKey];
-        if (!meta || !imageSrc) return null;
+        const imageSrc = images[imageKey] ?? "";
+        if (!meta) return null;
         return {
             // Attacks add 128px padding around the same-size standing figure.
             meta: {
@@ -5134,8 +5167,8 @@ export class RenderableUnit extends Unit {
             return null;
         const meta = animationAtlases["Pikeman Lab"]?.[authoredState];
         const imageKey = `pikeman_lab_${authoredState}_atlas` as ImageKey;
-        const imageSrc = images[imageKey];
-        if (!meta || !imageSrc) return null;
+        const imageSrc = images[imageKey] ?? "";
+        if (!meta) return null;
         return {
             meta: { ...meta, footAnchorY: STATIC_BATTLEFIELD_IDLE_META.footAnchorY },
             imageKey,
@@ -5154,8 +5187,8 @@ export class RenderableUnit extends Unit {
             return null;
         const meta = animationAtlases["Healer Lab"]?.[authoredState];
         const imageKey = `healer_lab_${authoredState}_atlas` as ImageKey;
-        const imageSrc = images[imageKey];
-        if (!meta || !imageSrc) return null;
+        const imageSrc = images[imageKey] ?? "";
+        if (!meta) return null;
         return {
             meta: { ...meta, footAnchorY: STATIC_BATTLEFIELD_IDLE_META.footAnchorY },
             imageKey,
@@ -5182,8 +5215,8 @@ export class RenderableUnit extends Unit {
             return null;
         const meta = animationAtlases["Centaur Lab"]?.[state];
         const imageKey = `centaur_lab_${state}_atlas` as ImageKey;
-        const imageSrc = images[imageKey];
-        if (!meta || !imageSrc) return null;
+        const imageSrc = images[imageKey] ?? "";
+        if (!meta) return null;
         return {
             meta,
             imageKey,
@@ -5198,8 +5231,8 @@ export class RenderableUnit extends Unit {
         const imageKey = (
             state === "idle" ? "scavenger_homm_idle_atlas_quarter" : `scavenger_combat_${state}_atlas_quarter`
         ) as ImageKey;
-        const imageSrc = images[imageKey];
-        if (!meta || !imageSrc) return null;
+        const imageSrc = images[imageKey] ?? "";
+        if (!meta) return null;
         return {
             // Match the static figure's ground registration, including its existing 38px sole offset.
             meta: state === "idle" ? { ...meta, footAnchorY: (744 - (38 * 700) / 757) / 768 } : meta,
@@ -7205,7 +7238,7 @@ export class RenderableUnit extends Unit {
         if (!["hit", "death", "melee_attack", "melee_attack_up", "melee_attack_down"].includes(state)) return null;
         const meta = animationAtlases["Manticore Lab"]?.[state];
         const imageKey = `manticore_lab_${state}_atlas` as ImageKey;
-        const imageSrc = images[imageKey];
+        const imageSrc = images[imageKey] ?? "";
         return meta && imageSrc
             ? { meta, imageKey, imageSrc, cacheKey: `Manticore::lab-${state}-20260920-v4`, cacheAcrossScenes: true }
             : null;
@@ -7226,7 +7259,7 @@ export class RenderableUnit extends Unit {
             return null;
         const meta = animationAtlases["Battle Mage Lab"]?.[state];
         const imageKey = `battle_mage_lab_${state}_atlas` as ImageKey;
-        const imageSrc = images[imageKey];
+        const imageSrc = images[imageKey] ?? "";
         if (meta && imageSrc) {
             return {
                 meta,
@@ -7267,8 +7300,8 @@ export class RenderableUnit extends Unit {
             return null;
         const meta = animationAtlases["Valkyrie Lab Current"]?.[state];
         const imageKey = `valkyrie_lab_current_${state}_atlas` as ImageKey;
-        const imageSrc = images[imageKey];
-        if (!meta || !imageSrc) return null;
+        const imageSrc = images[imageKey] ?? "";
+        if (!meta) return null;
         const playbackSpeed = state === "death" ? VALKYRIE_DEATH_SPEED : state === "hit" ? VALKYRIE_HIT_SPEED : 1;
         return {
             meta: {
@@ -7292,8 +7325,8 @@ export class RenderableUnit extends Unit {
             return null;
         const meta = animationAtlases["Fairy Lab"]?.[state];
         const imageKey = `fairy_lab_${state}_atlas` as ImageKey;
-        const imageSrc = images[imageKey];
-        if (!meta || !imageSrc) return null;
+        const imageSrc = images[imageKey] ?? "";
+        if (!meta) return null;
         return {
             meta,
             imageSrc,
@@ -8044,6 +8077,8 @@ export class RenderableUnit extends Unit {
     public destroyVisuals(): void {
         if (this.isDestroyed) return;
         this.isDestroyed = true;
+        this.loadingPlaceholder?.destroy();
+        this.loadingPlaceholder = undefined;
         this.releaseVisualLifecycleResources();
 
         if (this.dodgeAnim) {
@@ -9143,11 +9178,6 @@ export class RenderableUnit extends Unit {
      */
     public playDodgeAnimation(dx: number, dy: number): void {
         if (!this.sprite || this.isDestroyed) return;
-        const props = this.getUnitProperties();
-        if (!creatureGenericCombatMotionEnabledForUnit(props.name, props.level)) {
-            this.clearGenericDodgeAnimation();
-            return;
-        }
         this.suppressActiveTurnPointer();
         // Lean INTO the dodge: tip the sprite toward the escape direction so the sidestep reads as a
         // committed lean rather than a horizontal teleport. Screen-x sign picks the tilt side.

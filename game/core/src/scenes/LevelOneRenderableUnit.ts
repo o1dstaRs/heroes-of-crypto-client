@@ -1157,8 +1157,6 @@ export function squireActionCanvasScale(stateName: string | undefined): number {
 
 export function oneShotAnimationDurationMultiplier(unitName: string, stateName: string): number {
     const isAttack = isAttackAnimationStateName(stateName);
-    if (unitName === ORC_UNIT_NAME && isOrcAuthoredAction(stateName)) return 1;
-
     // Troglodyte actions preserve the same authored timing in combat and the local preview.
     if (unitName === TROGLODYTE_UNIT_NAME && isTroglodyteAuthoredAction(stateName)) {
         const meta = animationAtlases[TROGLODYTE_UNIT_NAME]?.[stateName];
@@ -1202,6 +1200,7 @@ export function oneShotAnimationDurationMultiplier(unitName: string, stateName: 
 
     // Reactions carry their own authored timing; retain the existing cadence for other Mage actions.
     if (unitName === WANDERING_MAGE_UNIT_NAME) {
+        if (stateName === "death") return WANDERING_MAGE_COMBAT_ANIMATION_DURATION_MULTIPLIER / 1.15;
         return isWanderingMageAuthoredAction(stateName) ? 1 : WANDERING_MAGE_COMBAT_ANIMATION_DURATION_MULTIPLIER;
     }
 
@@ -2038,14 +2037,14 @@ function cachedAtlasFrames(
  */
 function framesForAtlasConfig(config: UnitAtlasConfig, texResolver: TexResolver): Texture[] {
     const resolvedTexture = texResolver(config.imageKey);
+    // Static battlefield art is already one complete frame. Reuse the scene-leased texture itself rather
+    // than creating a wrapper that can outlive the lease and keep the decoded source resident. A multi-frame
+    // sheet still has to be cut, even when the whole atlas texture is already in hand.
+    if (config.meta.frameCount <= 1 && resolvedTexture) return [resolvedTexture];
     if (config.cacheAcrossScenes) {
         return cachedAtlasFrames(config.cacheKey, config.meta, config.imageSrc, config.imageKey, resolvedTexture);
     }
-    // Static battlefield art is already one complete frame. Reuse the scene-leased texture itself rather
-    // than creating a wrapper that can outlive the lease and keep the decoded source resident.
-    return resolvedTexture
-        ? [resolvedTexture]
-        : buildAtlasFrames(config.meta, config.imageSrc, config.imageKey, resolvedTexture);
+    return buildAtlasFrames(config.meta, config.imageSrc, config.imageKey, resolvedTexture);
 }
 interface SpawnAnimState {
     startScaleX: number;
@@ -8061,11 +8060,6 @@ export class RenderableUnit extends Unit {
      */
     public playDodgeAnimation(dx: number, dy: number): void {
         if (!this.sprite || this.isDestroyed) return;
-        const props = this.getUnitProperties();
-        if (!creatureGenericCombatMotionEnabledForUnit(props.name, props.level)) {
-            this.clearGenericDodgeAnimation();
-            return;
-        }
         this.suppressActiveTurnPointer();
         // Lean INTO the dodge: tip the sprite toward the escape direction so the sidestep reads as a
         // committed lean rather than a horizontal teleport. Screen-x sign picks the tilt side.
