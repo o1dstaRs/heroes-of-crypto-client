@@ -20,7 +20,7 @@ import ListItemContent from "@mui/joy/ListItemContent";
 import Stack from "@mui/joy/Stack";
 import Tooltip from "@mui/joy/Tooltip";
 import Typography from "@mui/joy/Typography";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { images, type ImageKey } from "../../generated/image_imports";
 import { buildAtlasPingPongTiming } from "../../scenes/atlasAnimationTiming";
@@ -45,6 +45,7 @@ import {
     isAuraRangeSynergy,
     isFlyArmorSynergy,
 } from "./SynergiesConstants";
+import { effectIconsPerLane, effectLaneWellHeight, planEffectLanes } from "./effectLanes";
 import { orderSidebarBuffs, orderSidebarDebuffs } from "./effectOrder";
 import { formatSidebarStat, useSidebarMetrics, type ISidebarMetrics } from "./sidebarMetrics";
 
@@ -657,7 +658,9 @@ const IconScrollWell: React.FC<{
     children: React.ReactNode;
     offsetY?: number;
     vertical?: boolean;
-}> = ({ height, children, offsetY = 0, vertical = false }) => (
+    /** Keep the last icon clear of the sidebar's right rail, which paints over the row. */
+    edgeInset?: number;
+}> = ({ height, children, offsetY = 0, vertical = false, edgeInset = 0 }) => (
     <Box
         onWheel={
             vertical
@@ -673,8 +676,8 @@ const IconScrollWell: React.FC<{
             position: "relative",
             // Keep the vertical rail inside the sidebar's decorative right frame instead of painting
             // underneath it, where the thumb looked absent even while the well was scrollable.
-            width: vertical ? "calc(100% - 8px)" : "100%",
-            mr: vertical ? "8px" : 0,
+            width: edgeInset > 0 ? `calc(100% - ${edgeInset}px)` : "100%",
+            mr: edgeInset > 0 ? `${edgeInset}px` : 0,
             height: `${height}px`,
             boxSizing: "border-box",
             overflowX: vertical ? "hidden" : "auto",
@@ -1372,6 +1375,60 @@ const UnitStatsLayout: React.FC<{
     // army-wide augments settle at the far end.
     const orderedBuffs = orderSidebarBuffs(buffs);
     const orderedDebuffs = orderSidebarDebuffs(debuffs);
+    const effectTile = effectTileSize(metrics);
+    const effectGap = metrics.gapPx * 0.6;
+    // The right rail is drawn over the row. An icon that only fits by sliding under it belongs on the next line.
+    const effectEdgeInset = Math.max(8, Math.min(13, Math.round(metrics.barSize * 0.03 * 0.7)));
+    const layoutRootRef = useRef<HTMLDivElement | null>(null);
+    const effectBlockRef = useRef<HTMLDivElement | null>(null);
+    const buffWellRef = useRef<HTMLDivElement | null>(null);
+    const appliedExtraRef = useRef(0);
+    const [laneRoom, setLaneRoom] = useState({ perLane: 1, extraSlots: 0 });
+    useLayoutEffect(() => {
+        const root = layoutRootRef.current;
+        const block = effectBlockRef.current;
+        if (!root || !block) return;
+        const measure = () => {
+            const card = root.closest(".SidebarCard");
+            const scaleRaw = card ? Number(getComputedStyle(card).getPropertyValue("--sidebar-card-fit-scale")) : 1;
+            const fitScale = Number.isFinite(scaleRaw) && scaleRaw > 0 ? scaleRaw : 1;
+            // A card that is already scaled down has no spare height. Another lane would only
+            // make the icons smaller.
+            if (fitScale < 0.995) {
+                setLaneRoom((current) => (current.extraSlots === 0 ? current : { ...current, extraSlots: 0 }));
+                return;
+            }
+            const wellWidth = buffWellRef.current?.clientWidth ?? 0;
+            // The well has not been laid out yet. Guessing one icon per line would open a lane per buff.
+            if (wellWidth <= 0) return;
+            const perLane = effectIconsPerLane(wellWidth, effectTile, effectGap);
+            let contentBottom = 0;
+            let node: HTMLElement | null = block;
+            while (node && node !== root) {
+                contentBottom += node.offsetTop;
+                node = node.offsetParent as HTMLElement | null;
+            }
+            contentBottom += block.offsetHeight;
+            const footer = root.closest(".Sidebar")?.querySelector("[data-sidebar-footer]");
+            let covered = 0;
+            if (footer instanceof HTMLElement) {
+                const overlap = (root.getBoundingClientRect().bottom - footer.getBoundingClientRect().top) / fitScale;
+                if (overlap > 0) covered = overlap;
+            }
+            const leftover = root.clientHeight - contentBottom - covered + appliedExtraRef.current;
+            const stride = effectTile + effectGap;
+            const extraSlots = stride > 0 ? Math.max(0, Math.floor(leftover / stride)) : 0;
+            setLaneRoom((current) =>
+                current.perLane === perLane && current.extraSlots === extraSlots ? current : { perLane, extraSlots },
+            );
+        };
+        const observer = new ResizeObserver(measure);
+        observer.observe(root);
+        const footer = root.closest(".Sidebar")?.querySelector("[data-sidebar-footer]");
+        if (footer) observer.observe(footer);
+        measure();
+        return () => observer.disconnect();
+    }, [effectGap, effectTile, orderedBuffs.length, orderedDebuffs.length, shownSynergies.length]);
     // Three stat rows, always — the well below scrolls if a creature carries more than nine.
     const statRowHeight = Math.round(metrics.statIconPx + 12);
     const statWellHeight = statRowHeight * 3 + STAT_ROW_GAP * 2;
@@ -1379,11 +1436,22 @@ const UnitStatsLayout: React.FC<{
     const abilityWellHeight = abilityTileSize(metrics) + 6;
     // The shared effect size also applies to synergy/augment markers. The extra band holds their level
     // dots and the scrollbar without changing the section's position.
-    const effectWellHeight = effectTileSize(metrics) + 9;
+    const lanePlan = planEffectLanes({
+        perLane: laneRoom.perLane,
+        buffItems: shownSynergies.length + orderedBuffs.length,
+        debuffItems: orderedDebuffs.length,
+        extraSlots: laneRoom.extraSlots,
+    });
+    const effectChrome = 9;
+    const effectWellHeight = effectLaneWellHeight(lanePlan.buffLanes, effectTile, effectGap, effectChrome);
+    appliedExtraRef.current = (lanePlan.buffLanes - 1 + lanePlan.debuffLanes - 1) * (effectTile + effectGap);
     // This is only the PAINT viewport inside the fixed-height Debuffs layout slot. It is deliberately
     // taller than the tile + frame + scrollbar, so the complete unscaled art can move upward without the
     // scrolling element clipping its lower edge. The outer wrapper below keeps the layout height unchanged.
-    const debuffPaintWellHeight = effectTileSize(metrics) + 20;
+    const debuffPaintWellHeight =
+        lanePlan.debuffLanes > 1
+            ? effectLaneWellHeight(lanePlan.debuffLanes, effectTile, effectGap, effectChrome)
+            : effectTile + 20;
     const layout = bannerLayout(metrics);
     const portraitHeight = layout.portraitHeight;
     // The frame itself closes on the centre of the Abilities divider. PanelSection first advances by the
@@ -1399,6 +1467,7 @@ const UnitStatsLayout: React.FC<{
 
     return (
         <Box
+            ref={layoutRootRef}
             sx={{
                 position: "relative",
                 width: "100%",
@@ -1655,6 +1724,7 @@ const UnitStatsLayout: React.FC<{
                 the extra empty band below the ability tiles and makes it match the plaque-to-tiles gap
                 above them. Keeping both sections in this wrapper preserves their authored relationship. */}
             <Box
+                ref={effectBlockRef}
                 sx={{
                     width: "100%",
                     display: "flex",
@@ -1664,9 +1734,15 @@ const UnitStatsLayout: React.FC<{
                 }}
             >
                 <PanelSection title="Buffs" metrics={metrics} titleHeightScale={UNIT_SECTION_PLAQUE_HEIGHT_SCALE}>
-                    <IconScrollWell height={effectWellHeight} offsetY={-Math.round(metrics.gapPx)} vertical>
+                    <IconScrollWell
+                        height={effectWellHeight}
+                        offsetY={-Math.round(metrics.gapPx)}
+                        vertical
+                        edgeInset={effectEdgeInset}
+                    >
                         {/* Additional buffs wrap into rows inside this fixed-height vertically scrolling well. */}
                         <Box
+                            ref={buffWellRef}
                             sx={{
                                 display: "flex",
                                 flexDirection: "row",
@@ -1705,21 +1781,41 @@ const UnitStatsLayout: React.FC<{
                     offsetY={-Math.round(metrics.gapPx * 3)}
                     titleHeightScale={UNIT_SECTION_PLAQUE_HEIGHT_SCALE}
                 >
-                    <Box
-                        sx={{
-                            position: "relative",
-                            width: "100%",
-                            height: `${effectWellHeight}px`,
-                            overflow: "visible",
-                            // Move the complete original-size row. The scrolling/clipping viewport itself
-                            // is no longer transformed, which prevents its lower edge slicing the artwork.
-                            transform: "translateY(-17.5%)",
-                        }}
-                    >
-                        <IconScrollWell height={debuffPaintWellHeight}>
-                            <EffectTiles effects={orderedDebuffs} title="Debuffs" metrics={metrics} />
+                    {lanePlan.debuffLanes > 1 ? (
+                        <IconScrollWell height={debuffPaintWellHeight} vertical edgeInset={effectEdgeInset}>
+                            <Box
+                                sx={{
+                                    display: "flex",
+                                    flexDirection: "row",
+                                    flexWrap: "wrap",
+                                    alignItems: "flex-start",
+                                    alignContent: "flex-start",
+                                    width: "100%",
+                                    height: "max-content",
+                                    minWidth: 0,
+                                    gap: `${effectGap}px`,
+                                }}
+                            >
+                                <EffectTiles effects={orderedDebuffs} title="Debuffs" metrics={metrics} inline />
+                            </Box>
                         </IconScrollWell>
-                    </Box>
+                    ) : (
+                        <Box
+                            sx={{
+                                position: "relative",
+                                width: "100%",
+                                height: `${effectTile + effectChrome}px`,
+                                overflow: "visible",
+                                // Move the complete original-size row. The scrolling/clipping viewport itself
+                                // is no longer transformed, which prevents its lower edge slicing the artwork.
+                                transform: "translateY(-17.5%)",
+                            }}
+                        >
+                            <IconScrollWell height={debuffPaintWellHeight} edgeInset={effectEdgeInset}>
+                                <EffectTiles effects={orderedDebuffs} title="Debuffs" metrics={metrics} />
+                            </IconScrollWell>
+                        </Box>
+                    )}
                 </PanelSection>
             </Box>
         </Box>
