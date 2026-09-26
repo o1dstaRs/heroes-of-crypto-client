@@ -687,10 +687,15 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
 
         const cloneArt = (art: HTMLElement): HTMLElement => {
             const copy = art.cloneNode(true) as HTMLElement;
-            if (copy instanceof HTMLImageElement) copy.alt = "";
-            copy.querySelectorAll("img").forEach((image) => {
+            const clear = (image: HTMLImageElement) => {
                 image.alt = "";
-            });
+                // The catalog sizes these with attributes. In the answer the chip does, or a 46px
+                // attribute plus the site-wide block image rule drops the picture onto its own line.
+                image.removeAttribute("width");
+                image.removeAttribute("height");
+            };
+            if (copy instanceof HTMLImageElement) clear(copy);
+            copy.querySelectorAll("img").forEach(clear);
             return copy;
         };
 
@@ -709,6 +714,14 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
         const escapeName = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
         const decorateAiAnswer = (answer: HTMLElement) => {
+            // A block-level table cannot scroll sideways without giving up its columns. The wrapper scrolls.
+            answer.querySelectorAll("table").forEach((table) => {
+                if (table.parentElement?.classList.contains("kb-ai-table-scroll")) return;
+                const wrap = document.createElement("div");
+                wrap.className = "kb-ai-table-scroll";
+                table.replaceWith(wrap);
+                wrap.append(table);
+            });
             answer.querySelectorAll("td, th").forEach((cell) => {
                 if (cell.querySelector(".kb-ai-inline")) return;
                 const label = cell.textContent?.trim() ?? "";
@@ -2367,46 +2380,6 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
         display: none;
     }
 
-    .kb-ai-name {
-        color: inherit;
-        font-weight: inherit;
-        text-decoration: none;
-        white-space: nowrap;
-    }
-
-    .kb-ai-name:hover {
-        color: #fff4cc;
-    }
-
-    .kb-ai-inline {
-        display: inline-block;
-        width: 22px;
-        height: 22px;
-        margin-right: 6px;
-        overflow: hidden;
-        vertical-align: -5px;
-        border-radius: 4px;
-        background: rgba(0, 0, 0, 0.35);
-    }
-
-    .kb-ai-inline[data-kind="unit"] {
-        width: 26px;
-        height: 34px;
-        vertical-align: -11px;
-        border-radius: 5px;
-    }
-
-    .kb-ai-inline img,
-    .kb-ai-inline :global(.portrait) {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-
-    .kb-ai-answer td {
-        vertical-align: middle;
-    }
-
     .kb-ai-answer {
         color: #f5f0e4;
         font-size: 0.97rem;
@@ -2425,168 +2398,6 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
         to {
             visibility: hidden;
         }
-    }
-
-    .kb-ai-answer > :first-child {
-        margin-top: 0;
-    }
-
-    .kb-ai-answer p,
-    .kb-ai-answer ul,
-    .kb-ai-answer ol,
-    .kb-ai-answer blockquote,
-    .kb-ai-answer pre {
-        margin: 0 0 12px;
-    }
-
-    .kb-ai-answer h3,
-    .kb-ai-answer h4,
-    .kb-ai-answer h5,
-    .kb-ai-answer h6 {
-        margin: 18px 0 8px;
-        color: #fff4cc;
-        font-family: var(--hoc-font-display);
-        font-size: 1.05rem;
-        font-weight: 700;
-    }
-
-    .kb-ai-answer ul,
-    .kb-ai-answer ol {
-        padding-left: 22px;
-    }
-
-    .kb-ai-answer li {
-        margin: 4px 0;
-    }
-
-    .kb-ai-answer li > ul,
-    .kb-ai-answer li > ol {
-        margin: 4px 0 0;
-    }
-
-    .kb-ai-answer a {
-        color: #f2c75d;
-        text-decoration: underline;
-        text-decoration-color: rgba(242, 199, 93, 0.45);
-        text-underline-offset: 3px;
-    }
-
-    .kb-ai-answer a:hover {
-        color: #fff4cc;
-        text-decoration-color: currentcolor;
-    }
-
-    .kb-ai-answer strong {
-        color: #fff8e8;
-    }
-
-    .kb-ai-answer code {
-        padding: 1px 6px;
-        border-radius: 5px;
-        background: rgba(255, 255, 255, 0.08);
-        font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-        font-size: 0.86em;
-    }
-
-    .kb-ai-answer pre {
-        overflow-x: auto;
-        padding: 12px 14px;
-        border: 1px solid var(--kb-line);
-        border-radius: 8px;
-        background: rgba(0, 0, 0, 0.35);
-    }
-
-    .kb-ai-answer pre code {
-        padding: 0;
-        background: none;
-    }
-
-    /*
-     * A formula, in the two states it has: the TeX itself while KaTeX loads (set like code, so it reads as
-     * one), and the typeset version after. A formula cannot break across lines either way, so a long one
-     * scrolls inside its own box — otherwise it pushes the answer wider than the phone and takes the whole
-     * page sideways with it.
-     */
-    .kb-ai-answer .kb-math {
-        display: inline-block;
-        max-width: 100%;
-        overflow-x: auto;
-        overflow-y: hidden;
-        vertical-align: middle;
-        font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-        font-size: 0.9em;
-        color: #fff1cf;
-    }
-
-    /* Once typeset, KaTeX brings its own type — drop the stand-in styling. */
-    .kb-ai-answer .kb-math:has(.katex) {
-        font-family: inherit;
-        font-size: inherit;
-    }
-
-    /* A long formula scrolls sideways on a phone instead of forcing the whole answer to. */
-    .kb-ai-answer .kb-math--display {
-        display: block;
-        overflow-x: auto;
-        overflow-y: hidden;
-        max-width: 100%;
-        margin: 12px 0;
-        padding-bottom: 2px;
-    }
-
-    /* A displayed formula inside a bullet stays on the bullet's line rather than breaking the list. */
-    .kb-ai-answer li .kb-math--display {
-        display: inline-block;
-        margin: 4px 0;
-        vertical-align: middle;
-    }
-
-    .kb-ai-answer .katex {
-        /* KaTeX defaults to 1.21em, which oversets next to this page's body copy. */
-        font-size: 1.05em;
-    }
-
-    .kb-ai-answer .katex-display {
-        margin: 0;
-    }
-
-    .kb-ai-answer blockquote {
-        padding-left: 12px;
-        color: var(--kb-muted);
-        border-left: 2px solid rgba(242, 199, 93, 0.35);
-    }
-
-    .kb-ai-answer table {
-        display: block;
-        overflow-x: auto;
-        max-width: 100%;
-        margin: 0 0 14px;
-        border-collapse: collapse;
-        font-size: 0.9rem;
-    }
-
-    .kb-ai-answer th,
-    .kb-ai-answer td {
-        padding: 7px 12px;
-        border: 1px solid rgba(220, 177, 88, 0.3);
-        text-align: left;
-        vertical-align: top;
-    }
-
-    .kb-ai-answer tbody tr:nth-child(even) td {
-        background: rgba(255, 255, 255, 0.025);
-    }
-
-    .kb-ai-answer th {
-        color: #fff4cc;
-        background: rgba(242, 199, 93, 0.08);
-        font-weight: 700;
-    }
-
-    .kb-ai-answer hr {
-        margin: 14px 0;
-        border: 0;
-        border-top: 1px solid var(--kb-line);
     }
 
     .kb-ai-error {
@@ -2684,5 +2495,218 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
         .kb-ai-panel.busy .kb-ai-answer:not(:empty)::after {
             animation: none;
         }
+    }
+</style>
+
+<style is:global>
+    /*
+     * The answer is markdown the browser inserts after load, and the pictures are cloned into it.
+     * A scoped rule would only match nodes that carry this component's attribute, so none of it
+     * would reach the answer: no pictures in the lines, no table, no headings.
+     */
+    .kb-ai-answer > :first-child {
+        margin-top: 0;
+    }
+
+    .kb-ai-answer p,
+    .kb-ai-answer ul,
+    .kb-ai-answer ol,
+    .kb-ai-answer blockquote,
+    .kb-ai-answer pre {
+        margin: 0 0 12px;
+    }
+
+    .kb-ai-answer h3,
+    .kb-ai-answer h4,
+    .kb-ai-answer h5,
+    .kb-ai-answer h6 {
+        margin: 18px 0 8px;
+        color: #fff4cc;
+        font-family: var(--hoc-font-display);
+        font-size: 1.05rem;
+        font-weight: 700;
+    }
+
+    .kb-ai-answer ul,
+    .kb-ai-answer ol {
+        padding-left: 22px;
+    }
+
+    .kb-ai-answer li {
+        margin: 4px 0;
+    }
+
+    .kb-ai-answer li > ul,
+    .kb-ai-answer li > ol {
+        margin: 4px 0 0;
+    }
+
+    .kb-ai-answer a {
+        color: #f2c75d;
+        text-decoration: underline;
+        text-decoration-color: rgba(242, 199, 93, 0.45);
+        text-underline-offset: 3px;
+    }
+
+    .kb-ai-answer a:hover {
+        color: #fff4cc;
+        text-decoration-color: currentcolor;
+    }
+
+    .kb-ai-answer strong {
+        color: #fff8e8;
+    }
+
+    .kb-ai-answer code {
+        padding: 1px 6px;
+        border-radius: 5px;
+        background: rgba(255, 255, 255, 0.08);
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+        font-size: 0.86em;
+    }
+
+    .kb-ai-answer pre {
+        overflow-x: auto;
+        padding: 12px 14px;
+        border: 1px solid var(--kb-line);
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.35);
+    }
+
+    .kb-ai-answer pre code {
+        padding: 0;
+        background: none;
+    }
+
+    .kb-ai-answer .kb-math {
+        display: inline-block;
+        max-width: 100%;
+        overflow-x: auto;
+        overflow-y: hidden;
+        vertical-align: middle;
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+        font-size: 0.9em;
+        color: #fff1cf;
+    }
+
+    .kb-ai-answer .kb-math:has(.katex) {
+        font-family: inherit;
+        font-size: inherit;
+    }
+
+    .kb-ai-answer .kb-math--display {
+        display: block;
+        overflow-x: auto;
+        overflow-y: hidden;
+        max-width: 100%;
+        margin: 12px 0;
+        padding-bottom: 2px;
+    }
+
+    .kb-ai-answer li .kb-math--display {
+        display: inline-block;
+        margin: 4px 0;
+        vertical-align: middle;
+    }
+
+    .kb-ai-answer .katex {
+        font-size: 1.05em;
+    }
+
+    .kb-ai-answer .katex-display {
+        margin: 0;
+    }
+
+    .kb-ai-answer blockquote {
+        padding-left: 12px;
+        color: var(--kb-muted);
+        border-left: 2px solid rgba(242, 199, 93, 0.35);
+    }
+
+    .kb-ai-answer .kb-ai-table-scroll {
+        max-width: 100%;
+        margin: 0 0 14px;
+        overflow-x: auto;
+    }
+
+    .kb-ai-answer table {
+        width: max-content;
+        min-width: 100%;
+        margin: 0;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+    }
+
+    .kb-ai-answer th,
+    .kb-ai-answer td {
+        padding: 6px 12px;
+        border: 1px solid rgba(220, 177, 88, 0.3);
+        text-align: left;
+        vertical-align: middle;
+        white-space: nowrap;
+        overflow-wrap: normal;
+        word-break: normal;
+    }
+
+    .kb-ai-answer tbody tr:nth-child(even) td {
+        background: rgba(255, 255, 255, 0.025);
+    }
+
+    .kb-ai-answer th {
+        color: #fff4cc;
+        background: rgba(242, 199, 93, 0.08);
+        font-weight: 700;
+    }
+
+    .kb-ai-answer hr {
+        margin: 14px 0;
+        border: 0;
+        border-top: 1px solid var(--kb-line);
+    }
+
+    /* The picture and the name are one piece of the sentence, not a card sitting above it. */
+    .kb-ai-answer a.kb-ai-name {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        color: inherit;
+        font-weight: inherit;
+        text-decoration: none;
+        white-space: nowrap;
+        vertical-align: middle;
+    }
+
+    .kb-ai-answer a.kb-ai-name:hover {
+        color: #fff4cc;
+    }
+
+    .kb-ai-answer .kb-ai-inline {
+        display: block;
+        flex: 0 0 auto;
+        width: 28px;
+        height: 28px;
+        overflow: hidden;
+        border-radius: 5px;
+        background: #090806;
+        box-shadow: 0 0 0 1px rgba(220, 177, 88, 0.35);
+    }
+
+    /* The game portrait is 190×256. A square box cover-crops the body and reads as a stray slice. */
+    .kb-ai-answer .kb-ai-inline[data-kind="unit"] {
+        width: 34px;
+        height: 46px;
+    }
+
+    .kb-ai-answer .kb-ai-inline > img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        max-width: none;
+        object-fit: contain;
+    }
+
+    .kb-ai-answer .kb-ai-inline > .portrait {
+        width: 100%;
+        height: 100%;
     }
 </style>
