@@ -59,6 +59,11 @@ describe("knowledge base index", () => {
         expect(knowledgeAiSearchRank("Лечение", "Восстанавливает здоровье", "кто может лечить")).toBeLessThan(
             Number.POSITIVE_INFINITY,
         );
+        // A question to the assistant is not a list of required words. "tell" must not hide Medusa.
+        expect(
+            knowledgeAiSearchRank("Medusa", "Medusa Chaos petrify gaze", "tell me about medusa"),
+        ).toBeLessThan(Number.POSITIVE_INFINITY);
+        expect(knowledgeAiSearchRank("Hydra", "Hydra Chaos", "tell me about medusa")).toBe(Number.POSITIVE_INFINITY);
     });
 });
 

@@ -984,6 +984,9 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
                 if (searchResults) searchResults.hidden = true;
                 activateSection(activeSection);
             }
+            // AI mode still filters the catalog. A sentence that names nothing ("tell me how combat works")
+            // must not open an empty "Search results / 0 / No matches" table under the Ask button.
+            searchResults?.classList.toggle("kb-ai-waiting", aiSearchEnabled && searching && visible === 0);
 
             if (clearButton) clearButton.hidden = !searching;
             if (count) count.textContent = String(visible);
@@ -1842,6 +1845,12 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
         padding: 52px 24px;
         color: var(--kb-muted);
         text-align: center;
+    }
+
+    .kb-search-results.kb-ai-waiting .kb-panel-header,
+    .kb-search-results.kb-ai-waiting .kb-results-table-wrap,
+    .kb-search-results.kb-ai-waiting .kb-empty {
+        display: none;
     }
 
     .kb-back-overview {
