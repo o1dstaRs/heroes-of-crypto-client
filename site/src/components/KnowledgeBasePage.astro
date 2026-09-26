@@ -234,6 +234,7 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
                 <button class="kb-ai-stop" data-kb-ai-stop type="button" hidden>{panelCopy.stop}</button>
             </header>
             <p class="kb-ai-question" data-kb-ai-question></p>
+            <div class="kb-ai-figures" data-kb-ai-figures hidden></div>
             <div class="kb-ai-answer" data-kb-ai-answer aria-live="polite" aria-busy="false"></div>
             <p class="kb-ai-error" data-kb-ai-error role="alert" hidden></p>
             <div class="kb-ai-sources" data-kb-ai-sources hidden>
@@ -514,6 +515,7 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
         knowledgeSearchRank,
         type KnowledgeSection,
     } from "../lib/knowledge-base";
+    import { englishNameInSource, factionImagePath, isVisualKnowledgeSource, knowledgeSourceTarget } from "../lib/knowledge-ai-figures";
     import { renderMarkdown } from "../lib/markdown-lite";
 
     const roots = document.querySelectorAll<HTMLElement>("[data-knowledge-base]");
@@ -538,6 +540,7 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
         const aiStatus = root.querySelector<HTMLElement>("[data-kb-ai-status]");
         const aiStop = root.querySelector<HTMLButtonElement>("[data-kb-ai-stop]");
         const aiQuestion = root.querySelector<HTMLElement>("[data-kb-ai-question]");
+        const aiFigures = root.querySelector<HTMLElement>("[data-kb-ai-figures]");
         const aiAnswer = root.querySelector<HTMLElement>("[data-kb-ai-answer]");
         const aiError = root.querySelector<HTMLElement>("[data-kb-ai-error]");
         const aiSources = root.querySelector<HTMLElement>("[data-kb-ai-sources]");
@@ -635,10 +638,90 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
             if (aiStop) aiStop.hidden = !busy;
         };
 
+        const normalizeFigureName = (value: string): string => value.trim().toLocaleLowerCase();
+        const catalogByTarget = new Map<string, HTMLTableRowElement>();
+        const catalogByName = new Map<string, HTMLTableRowElement>();
+        for (const row of resultRows) {
+            const target = row.querySelector<HTMLAnchorElement>("[data-kb-result-link]")?.dataset.target;
+            if (target) catalogByTarget.set(target, row);
+            const name = row.dataset.name;
+            if (name) catalogByName.set(normalizeFigureName(name), row);
+        }
+        const factionLabel = document.documentElement.lang === "ru" ? "Фракция" : "Faction";
+
+        const catalogRowFor = (item: KnowledgeAiSource): HTMLTableRowElement | undefined =>
+            catalogByTarget.get(knowledgeSourceTarget(item)) ??
+            catalogByName.get(normalizeFigureName(englishNameInSource(item.name)));
+
+        const figureArt = (item: KnowledgeAiSource, row: HTMLTableRowElement | undefined): HTMLElement | undefined => {
+            if (item.type === "faction") {
+                const src = factionImagePath(item);
+                if (!src) return undefined;
+                const image = document.createElement("img");
+                image.src = src;
+                image.alt = "";
+                image.width = 64;
+                image.height = 64;
+                return image;
+            }
+            const existing = row?.querySelector<HTMLElement>(".kb-result-name .portrait, .kb-result-name img");
+            if (!existing) return undefined;
+            const copy = existing.cloneNode(true) as HTMLElement;
+            copy.querySelectorAll("img").forEach((image) => {
+                image.alt = "";
+            });
+            if (copy instanceof HTMLImageElement) copy.alt = "";
+            return copy;
+        };
+
+        const renderAiFigures = (items: KnowledgeAiSource[]) => {
+            if (!aiFigures) return;
+            aiFigures.replaceChildren();
+            const seen = new Set<string>();
+            for (const item of items) {
+                if (!isVisualKnowledgeSource(item.type) || seen.has(item.id)) continue;
+                const row = catalogRowFor(item);
+                const art = figureArt(item, row);
+                if (!art) continue;
+                seen.add(item.id);
+                const link = document.createElement("a");
+                link.className = "kb-ai-figure";
+                link.href = row?.querySelector<HTMLAnchorElement>("[data-kb-result-link]")?.href || item.href;
+                link.dataset.kind = item.type;
+                link.dataset.sourceId = item.id;
+                const frame = document.createElement("span");
+                frame.className = "kb-ai-figure-art";
+                frame.append(art);
+                const copy = document.createElement("span");
+                copy.className = "kb-ai-figure-copy";
+                const title = document.createElement("strong");
+                title.textContent = row?.dataset.name || englishNameInSource(item.name) || item.name;
+                const meta = document.createElement("em");
+                meta.textContent =
+                    item.type === "faction" ? factionLabel : (row?.querySelector(".kb-result-meta")?.textContent?.trim() ?? "");
+                copy.append(title);
+                if (meta.textContent) copy.append(meta);
+                link.append(frame, copy);
+                aiFigures.append(link);
+                if (aiFigures.childElementCount >= 8) break;
+            }
+            aiFigures.hidden = aiFigures.childElementCount === 0;
+        };
+
         const renderAiSources = (items: KnowledgeAiSource[]) => {
+            renderAiFigures(items);
             if (!aiSources || !aiSourceList) return;
             aiSourceList.replaceChildren();
-            for (const item of items.slice(0, 10)) {
+            const pictured = new Set(
+                Array.from(aiFigures?.querySelectorAll<HTMLAnchorElement>(".kb-ai-figure") ?? []).map(
+                    (figure) => figure.dataset.sourceId,
+                ),
+            );
+            // Cards already show the pictured entries. Chips keep only what has no picture, so a unit
+            // is not named twice and a rule still has somewhere to go.
+            for (const item of items) {
+                if (pictured.has(item.id)) continue;
+                if (aiSourceList.childElementCount >= 8) break;
                 const li = document.createElement("li");
                 const link = document.createElement("a");
                 link.href = item.href;
@@ -647,7 +730,7 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
                 li.append(link);
                 aiSourceList.append(li);
             }
-            aiSources.hidden = items.length === 0;
+            aiSources.hidden = aiSourceList.childElementCount === 0;
         };
 
         const showAiError = (message: string) => {
@@ -2235,6 +2318,82 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
 
     .kb-ai-question:empty {
         display: none;
+    }
+
+    .kb-ai-figures {
+        display: flex;
+        gap: 10px;
+        margin: 0 0 14px;
+        overflow-x: auto;
+        scrollbar-width: thin;
+    }
+
+    .kb-ai-figure {
+        display: flex;
+        flex: 0 0 auto;
+        gap: 10px;
+        align-items: center;
+        width: min(232px, 78vw);
+        padding: 8px 12px 8px 8px;
+        color: #f8f4e8;
+        border: 1px solid var(--kb-line);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.03);
+        text-decoration: none;
+    }
+
+    .kb-ai-figure:hover {
+        border-color: rgba(242, 199, 93, 0.45);
+        background: rgba(242, 199, 93, 0.06);
+    }
+
+    .kb-ai-figure-art {
+        display: grid;
+        flex: 0 0 auto;
+        width: 52px;
+        height: 52px;
+        overflow: hidden;
+        place-items: center;
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.28);
+    }
+
+    .kb-ai-figure[data-kind="unit"] .kb-ai-figure-art {
+        width: 48px;
+        height: 64px;
+    }
+
+    .kb-ai-figure-art img,
+    .kb-ai-figure-art :global(.portrait) {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+    }
+
+    .kb-ai-figure-copy {
+        min-width: 0;
+    }
+
+    .kb-ai-figure-copy strong {
+        display: block;
+        overflow: hidden;
+        font-size: 0.86rem;
+        font-weight: 740;
+        line-height: 1.25;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .kb-ai-figure-copy em {
+        display: -webkit-box;
+        overflow: hidden;
+        margin-top: 2px;
+        color: var(--kb-muted);
+        font-size: 0.72rem;
+        font-style: normal;
+        line-height: 1.3;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
     }
 
     .kb-ai-answer {
