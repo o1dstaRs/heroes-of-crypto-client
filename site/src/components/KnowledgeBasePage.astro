@@ -380,7 +380,7 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
                 </div>
             </section>
 
-            <section class="kb-panel" id="rules" data-kb-panel="rules" aria-labelledby="kb-tab-rules">
+            <section class="kb-panel" id="rules" data-kb-panel="rules" aria-labelledby="kb-tab-rules" hidden>
                 <header class="kb-panel-header">
                     <div class="kb-heading-group">
                         <span class="kb-heading-icon rules" aria-hidden="true"><KnowledgeIcon section="rules" size={36} /></span>
@@ -395,7 +395,7 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
                 <RulesPage lang={lang} embedded />
             </section>
 
-            <section class="kb-panel" id="units" data-kb-panel="units" aria-labelledby="kb-tab-units">
+            <section class="kb-panel" id="units" data-kb-panel="units" aria-labelledby="kb-tab-units" hidden>
                 <header class="kb-panel-header">
                     <div class="kb-heading-group">
                         <span class="kb-heading-icon units" aria-hidden="true"><KnowledgeIcon section="units" size={36} /></span>
@@ -410,7 +410,7 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
                 <UnitsPage lang={lang} embedded />
             </section>
 
-            <section class="kb-panel" id="abilities" data-kb-panel="abilities" aria-labelledby="kb-tab-abilities">
+            <section class="kb-panel" id="abilities" data-kb-panel="abilities" aria-labelledby="kb-tab-abilities" hidden>
                 <header class="kb-panel-header">
                     <div class="kb-heading-group">
                         <span class="kb-heading-icon abilities" aria-hidden="true"><KnowledgeIcon section="abilities" size={36} /></span>
@@ -425,7 +425,7 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
                 <AbilitiesPage lang={lang} embedded />
             </section>
 
-            <section class="kb-panel" id="spells" data-kb-panel="spells" aria-labelledby="kb-tab-spells">
+            <section class="kb-panel" id="spells" data-kb-panel="spells" aria-labelledby="kb-tab-spells" hidden>
                 <header class="kb-panel-header">
                     <div class="kb-heading-group">
                         <span class="kb-heading-icon spells" aria-hidden="true"><KnowledgeIcon section="spells" size={36} /></span>
@@ -440,7 +440,7 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
                 <SpellsPage lang={lang} embedded />
             </section>
 
-            <section class="kb-panel" id="artifacts" data-kb-panel="artifacts" aria-labelledby="kb-tab-artifacts">
+            <section class="kb-panel" id="artifacts" data-kb-panel="artifacts" aria-labelledby="kb-tab-artifacts" hidden>
                 <header class="kb-panel-header">
                     <div class="kb-heading-group">
                         <span class="kb-heading-icon artifacts" aria-hidden="true"><KnowledgeIcon section="artifacts" size={36} /></span>
@@ -455,7 +455,44 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
                 <ArtifactsPage lang={lang} embedded />
             </section>
 
-            <a class="kb-back-overview" href={knowledgePath(lang)} data-kb-section-link="overview">← {copy.returnToOverview}</a>
+            <a class="kb-back-overview" href={knowledgePath(lang)} data-kb-section-link="overview" hidden>← {copy.returnToOverview}</a>
+            <!-- Synchronous, so the open section is chosen before the first paint. The catalog script is deferred. -->
+            <script is:inline>
+                (() => {
+                    const root = document.currentScript && document.currentScript.closest("[data-knowledge-base]");
+                    if (!root) return;
+                    let hash = location.hash.replace(/^#/, "");
+                    try {
+                        hash = decodeURIComponent(hash);
+                    } catch {
+                        hash = "";
+                    }
+                    const known = ["overview", "rules", "units", "abilities", "spells", "artifacts"];
+                    let section = "overview";
+                    if (known.indexOf(hash) !== -1) section = hash;
+                    else if (hash.indexOf("rule-") === 0) section = "rules";
+                    else if (hash.indexOf("unit-") === 0) section = "units";
+                    else if (hash.indexOf("ability-") === 0) section = "abilities";
+                    else if (hash.indexOf("spell-") === 0) section = "spells";
+                    else if (hash.indexOf("artifact-") === 0) section = "artifacts";
+                    const panels = root.querySelectorAll("[data-kb-panel]");
+                    for (let i = 0; i < panels.length; i += 1) {
+                        panels[i].hidden = panels[i].getAttribute("data-kb-panel") !== section;
+                    }
+                    const back = root.querySelector(".kb-back-overview");
+                    if (back) back.hidden = section === "overview";
+                })();
+            </script>
+            <noscript>
+                <style>
+                    .knowledge-base .kb-panel[hidden] {
+                        display: block !important;
+                    }
+                    .knowledge-base .kb-back-overview[hidden] {
+                        display: inline-flex !important;
+                    }
+                </style>
+            </noscript>
         </div>
     </div>
 </div>
@@ -1443,6 +1480,7 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
         padding: 0;
     }
 
+    .kb-panel[hidden],
     .knowledge-base[data-enhanced="true"] .kb-panel[hidden],
     .kb-search-results[hidden],
     [data-kb-result][hidden],
