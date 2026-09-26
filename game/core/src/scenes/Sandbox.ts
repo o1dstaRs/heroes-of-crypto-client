@@ -15781,7 +15781,6 @@ export class Sandbox extends PixiScene {
     private clearShotRangeCornerSprites(): void {
         this.shotRangeCornerPool.used = 0;
         for (const corner of this.shotRangeCornerPool.sprites) corner.visible = false;
-        for (const rail of this.shotRangeCornerPool.rails ?? []) rail.visible = false;
     }
     private hasAnySceneUnits(): boolean {
         return this.unitsHolder.getAllUnits().size > 0;
