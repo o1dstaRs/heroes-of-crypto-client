@@ -63,6 +63,8 @@ export interface IFireProjectileOptions {
     medusaSerpent?: boolean;
     /** The arm serpent is fired by the legacy path; the option travels through the shared type. */
     medusaArmSerpent?: boolean;
+    /** Painted length of that serpent. The legacy renderer reads it; the approved path does not. */
+    serpentLength?: number;
     /** Cyclops's selected heavy chipped boulder. */
     cyclopsRock?: boolean;
     /** Monk's selected golden solar energy orb. */

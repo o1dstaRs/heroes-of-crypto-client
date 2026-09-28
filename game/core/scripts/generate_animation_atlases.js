@@ -344,8 +344,10 @@ const PINNED_ATLAS_SHA256 = Object.freeze({
     "arbalester_melee_attack_down_atlas.webp": "63e5053dfd3647666c370e6516913c76f431a3f3a81fdc00449300c82350ce07",
     "arbalester_melee_attack_down_atlas_quarter.webp":
         "3b6abdebc64dffce39c9257b329d57363cbc342922a6c13e9efa2367ea79f180",
-    "peasant_hit_atlas.webp": "a9b6e075473b3efbb8c631b14578992e7c7c59d4783fbeb7e4532560d77de5f2",
-    "peasant_hit_atlas_quarter.webp": "1edaf0abe3dd89f82d9e5426315935eacabb718c2d7b36f74e196be48eaff71a",
+    // These match levelOneAssets.json and the files on the art Drive. The previous pin
+    // (a9b6e075 / 1edaf0ab) was never uploaded, so every image build refused the only revision that exists.
+    "peasant_hit_atlas.webp": "e7a70e5bbbcee4c5fff666ff67ff54d07d0dbb133d0f0ed1c33eda311b08c355",
+    "peasant_hit_atlas_quarter.webp": "68dae9a288e292a935e0d3fa4837d37e9c7cbdcd4c31fb77e1cf4d8fdbfd5d4c",
     "squire_death_atlas.webp": "5473794426ccf536bcaf7b55417308c2f231dbd41bf357be14465c31af835878",
     "squire_death_atlas_quarter.webp": "b7f9bffde0ccb82d066bd83183999913863f4f3f647f8405873a2951a647f8c0",
     "squire_walk_atlas.webp": "c916b803fa2c5a51bc44cd6326c3be1c699540e4848dc2d2baaedca9a039eddb",
