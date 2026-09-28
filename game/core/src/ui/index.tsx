@@ -1155,9 +1155,8 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                             return true;
                         }
                         if (draft?.stage === "finished") {
-                            // Over before anyone could watch: say so, with a way out, not "not available yet".
-                            setShowOverlay(true);
-                            setErrorMessage(t("This match has ended"));
+                            // The live board is gone. The stored replay is what this link is for.
+                            navigate(`/game/${encodeURIComponent(gameId)}/replay`, { replace: true });
                             return true;
                         }
                     } catch (draftErr) {
@@ -1237,7 +1236,7 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
         };
 
         fetchGame();
-    }, [authLoading, authenticated, gameId, getCurrentGame]);
+    }, [authLoading, authenticated, gameId, getCurrentGame, navigate]);
 
     /**
      * Take the seat back when it was lost to a blip.
@@ -1687,7 +1686,7 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
                 path="/game/:gameId/replay"
                 element={
                     <WalletProvider>
-                        {activated ? <RankedReplayRoute windowSize={windowSize} /> : <LoginScreen />}
+                        <RankedReplayRoute windowSize={windowSize} />
                     </WalletProvider>
                 }
             />

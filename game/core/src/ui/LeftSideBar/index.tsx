@@ -409,6 +409,7 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
                     begins, the timer and queue become one bottom overlay instead of taking height away
                     from the selected card. The card therefore keeps exactly its pre-fight fit scale. */}
                 <Box
+                    data-sidebar-footer
                     sx={
                         gameStarted
                             ? {
