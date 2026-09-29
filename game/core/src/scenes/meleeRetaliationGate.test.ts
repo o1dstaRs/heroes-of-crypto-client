@@ -97,4 +97,35 @@ describe("a replayed melee counter is only shown when the rules allow one", () =
             ),
         ).toEqual({ amount: 30, unitsDied: 3 });
     });
+
+    test("a counter that moved no hit points still plays when it dulled the attacker", () => {
+        const attacker = unit("attacker");
+        const scene = sceneWith(attacker);
+        const record = {
+            stateAfter: {
+                units: [{ properties: { id: "attacker", amount_alive: 10, hp: 10, max_hp: 10 } }],
+            },
+            events: [
+                {
+                    type: "effects_applied",
+                    applications: [{ unitId: "attacker", name: "Dulling Defense", kind: "debuff", laps: 15 }],
+                },
+            ],
+        };
+        expect(scene.getReplayRetaliationDamage(attacker, unit("defender"), meleeEvent, record)).toEqual({
+            amount: 0,
+            unitsDied: 0,
+        });
+    });
+
+    test("no hit points and no dulling is still not a counter", () => {
+        const attacker = unit("attacker");
+        const scene = sceneWith(attacker);
+        const record = {
+            stateAfter: {
+                units: [{ properties: { id: "attacker", amount_alive: 10, hp: 10, max_hp: 10 } }],
+            },
+        };
+        expect(scene.getReplayRetaliationDamage(attacker, unit("defender"), meleeEvent, record)).toBeUndefined();
+    });
 });

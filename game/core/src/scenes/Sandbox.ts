@@ -4707,8 +4707,8 @@ export class Sandbox extends PixiScene {
         // attacker. Applied AFTER applyReplayAttackRecoil so the wind-up lunge overrides the plain recoil.
         this.spawnSkewerWindSpearVfx(attacker, target, attackEvent.damage);
         this.destroyReplayAttackUnitsAtImpact([...destroyedUnitIds].filter((id) => !shownDeaths.has(id)));
-        // The knight's own attack: the enemy who struck him back. Not the attacker — that pop played
-        // on every hit the knight took, including when he never responded.
+        // A skewer or a spin dulls someone this exchange never drew. The blow itself already popped
+        // the unit it struck.
         this.popRecordedDullingDefense(record.events);
         this.spawnAbilityStealVfx(record.events, target.getId());
         // The attack event's kill attribution was consumed by the impact-time death VFX above. Do not
@@ -5011,8 +5011,9 @@ export class Sandbox extends PixiScene {
             const impact = (): void => {
                 if (impacted || this.isSceneDestroyed()) return;
                 impacted = true;
-                // The knight's own swing or answer. Show it on the unit that blow struck, while the figure is still up.
-                this.popRecordedDullingDefense(dullingEvents, new Set([strike.attackerId, strike.targetId]));
+                // The unit this blow struck. The incoming hit lists both fighters too, and popping there
+                // showed Dulling Defense before the knight had answered.
+                this.popRecordedDullingDefense(dullingEvents, new Set([strike.targetId]));
                 const from = source.getVisualCenter(gs);
                 const to = renderedVictim
                     ? victim.getVisualCenter(gs)
@@ -5838,14 +5839,18 @@ export class Sandbox extends PixiScene {
             amount: Math.max(0, totalResponseDamage.amount - secondaryOnAttacker.amount),
             unitsDied: Math.max(0, totalResponseDamage.unitsDied - secondaryOnAttacker.unitsDied),
         };
-        return responseDamage.amount > 0 ? responseDamage : undefined;
+        // His blow can move no hit points — Flesh Shield took all of it, or the swing was reduced to
+        // nothing — and still dull. Hiding that answer showed the debuff on the hit he never returned.
+        if (responseDamage.amount <= 0 && !dullingDefenseRecipientIds(record.events).includes(responseVictimId)) {
+            return undefined;
+        }
+        return responseDamage;
     }
     /**
      * Replay the defender's counterattack so an exchange animates on both sides, not just the
      * initiating attacker. The engine emits the attacker's strike but conveys the response only as
-     * damage, so here we play the return strike (ranged projectile or melee lunge) and its response
-     * damage. Detection is purely data-driven: a positive
-     * HP loss on the attacker during its own action means it was struck back.
+     * damage, or as a Dulling Defense application when that blow moved no hit points. Play the
+     * return strike (ranged projectile or melee lunge) and its response damage.
      */
     private async playReplayRetaliation(
         attacker: RenderableUnit,
@@ -12007,10 +12012,15 @@ export class Sandbox extends PixiScene {
             // The attacker's own HP loss is the only evidence of a melee counter here, and it is not
             // proof: a Fire Wall on the approach, an aura or a reflect costs it hit points too. Refuse
             // the counters the rules never allowed, exactly as the replay path does — see
-            // meleeRetaliationEverPossible.
+            // meleeRetaliationEverPossible. A dulling application is the other proof: his blow landed
+            // even when it moved no hit points.
             const retaliationAllowed = isRange || meleeRetaliationEverPossible(attacker, target);
+            const answeredWithoutHpLoss =
+                amount <= 0 && dullingDefenseRecipientIds(attackActionEvents).includes(responseVictimId);
             const response =
-                amount > 0 && retaliationAllowed && (!isRange || responseAnimation) ? { amount, unitsDied } : undefined;
+                (amount > 0 || answeredWithoutHpLoss) && retaliationAllowed && (!isRange || responseAnimation)
+                    ? { amount, unitsDied }
+                    : undefined;
             const deadIds = new Set(
                 event.unitIdsDied.filter(
                     (id) => !this.unitsHolder.getAllUnits().get(id) || this.unitsHolder.getAllUnits().get(id)!.isDead(),
@@ -12411,8 +12421,8 @@ export class Sandbox extends PixiScene {
 
         const stackLost = Math.max(0, attackerBefore.amount - attackerAfter.amount);
         const hpLost = attackerBefore.health - attackerAfter.health;
-        // Whoever the recorded action actually dulled: the enemy who opened on the knight, or the enemy
-        // who answered the knight's own swing. The strike impact already popped the ones it drew.
+        // A skewer or a spin dulls someone the exchange never drew. The blow itself already popped
+        // the unit it struck.
         this.popRecordedDullingDefense(attackActionEvents);
 
         if (stackLost > 0 || hpLost > 0) {

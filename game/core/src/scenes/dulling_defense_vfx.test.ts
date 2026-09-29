@@ -24,7 +24,8 @@ describe("Dulling Defense VFX wiring", () => {
         const source = sandboxSource();
 
         expect(source).toContain("this.popRecordedDullingDefense(");
-        expect(source).toContain("new Set([strike.attackerId, strike.targetId])");
+        expect(source).toContain("new Set([strike.targetId])");
+        expect(source).not.toContain("new Set([strike.attackerId, strike.targetId])");
         expect(source).not.toContain("popDullingDefenseApplications(attackActionEvents, target.getId())");
         expect(source).not.toContain("popDullingDefenseApplications(record.events, target.getId())");
     });
