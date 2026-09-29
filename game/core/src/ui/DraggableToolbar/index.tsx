@@ -17,6 +17,7 @@ const luckShieldIconImage = images.combat_toolbar_ember_luck;
 const activeOptionIconImage = new URL("../../../images/icon_active_option.webp", import.meta.url).toString();
 const inactiveOptionIconImage = new URL("../../../images/icon_inactive_option.webp", import.meta.url).toString();
 const DENIED_SLASH_FRAME_COUNT = 14;
+import { useTranslation } from "../../i18n/i18n";
 import { IVisibleButton, VisibleButtonState } from "../../scenes/VisibleState";
 import { useButtonContext } from "../context/ButtonContext";
 
@@ -197,6 +198,9 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
     showOnBadge = false,
     showDeniedSlash = false,
 }) => {
+    // Subscribe here, not in the memoized toolbar column: a language change has to repaint the tooltip
+    // even when the button list itself did not change.
+    const { t } = useTranslation();
     const [rotationDegrees, setRotationDegrees] = useState(0);
     const [transfusionEffect, setTransfusionEffect] = useState(false);
 
@@ -269,12 +273,18 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
                     zIndex: 3,
                 }}
             >
-                <Tooltip title={text} placement="top">
-                    {/* A disabled native button does not emit hover events. Keep the descriptive wrapper so
-                        Time Denial (and every other disabled combat control) still explains itself. */}
-                    <Box component="span" sx={{ display: "inline-flex", position: "relative" }}>
+                <Tooltip title={t(text)} placement="top">
+                    {/* A disabled native button does not emit hover or click events. The wrapper keeps the
+                        tooltip, and a greyed spellbook still receives the click so the scene can say why
+                        the book will not open. pointer-events: none lets that click land on the wrapper;
+                        the :disabled face stays, so the button still looks unavailable. */}
+                    <Box
+                        component="span"
+                        onClick={isDisabled && iconImage === spellbookIconImage ? handleClick : undefined}
+                        sx={{ display: "inline-flex", position: "relative" }}
+                    >
                         <StyledIconButton
-                            onClick={handleClick}
+                            onClick={isDisabled && iconImage === spellbookIconImage ? undefined : handleClick}
                             disabled={isDisabled}
                             rotationDegrees={isHourglass ? rotationDegrees : initialRotation}
                             clickEffectNeeded={iconImage !== spellbookIconImage && iconImage !== hourglassIconImage}
@@ -287,6 +297,9 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
                                     "--hoc-glyph-inset": `${glyphCrop.inset}%`,
                                     width: 57 * SCREEN_RATIO,
                                     height: 57 * SCREEN_RATIO,
+                                    ...(isDisabled && iconImage === spellbookIconImage
+                                        ? { pointerEvents: "none" }
+                                        : {}),
                                     ...(transfusionEffect
                                         ? {
                                               animation: "transfusion 1.5s linear",

@@ -125,6 +125,107 @@ describe("PixiRenderableSpell card hit area", () => {
             layer.destroy();
         }
     });
+
+    test("a one-creature Wandering Mage can hit each spell name, and a locked card does not cover the next", () => {
+        const layer = new Container();
+        const names = ["Smoke", "Misfortune", "Fireforged Sword", "Fireball"] as const;
+        const spells = names.map(
+            (name) =>
+                new PixiRenderableSpell(
+                    {
+                        spellProperties: HoCConfig.getSpellConfig("Chaos", name),
+                        amount: name === "Fireforged Sword" ? 2 : 1,
+                    },
+                    layer,
+                    { spell_cell_260: Texture.WHITE },
+                    Texture.WHITE,
+                    new Map(),
+                ),
+        );
+        try {
+            spells.forEach((spell, index) => spell.renderOnPage(index + 1, 1));
+            const titlePoint = (spell: PixiRenderableSpell): { x: number; y: number } => {
+                const title = (
+                    spell as unknown as {
+                        titleText: {
+                            x: number;
+                            y: number;
+                            parent: { toGlobal: (point: { x: number; y: number }) => { x: number; y: number } };
+                        };
+                    }
+                ).titleText;
+                return title.parent.toGlobal({ x: title.x, y: title.y + 12 });
+            };
+            const rows = names.map((name, index) => {
+                const spell = spells[index]!;
+                const point = titlePoint(spell);
+                const iconBounds = spell.getSprite().getBounds();
+                const iconPoint = {
+                    x: (iconBounds.minX + iconBounds.maxX) / 2,
+                    y: (iconBounds.minY + iconBounds.maxY) / 2,
+                };
+                return {
+                    name,
+                    canUse: spell.canUse(1),
+                    titleHit: spell.isHover(point, 1, true),
+                    titleHitWhenLockedOut: spell.isHover(point, 1, false),
+                    iconHit: spell.isHover(iconPoint, 1, true),
+                    coveredBy: spells
+                        .filter((other, otherIndex) => otherIndex !== index && other.isHover(point, 1, true))
+                        .map((other) => other.getName()),
+                };
+            });
+            expect(rows).toEqual([
+                {
+                    name: "Smoke",
+                    canUse: false,
+                    titleHit: true,
+                    titleHitWhenLockedOut: false,
+                    iconHit: true,
+                    coveredBy: [],
+                },
+                {
+                    name: "Misfortune",
+                    canUse: true,
+                    titleHit: true,
+                    titleHitWhenLockedOut: true,
+                    iconHit: true,
+                    coveredBy: [],
+                },
+                {
+                    name: "Fireforged Sword",
+                    canUse: true,
+                    titleHit: true,
+                    titleHitWhenLockedOut: true,
+                    iconHit: true,
+                    coveredBy: [],
+                },
+                {
+                    name: "Fireball",
+                    canUse: false,
+                    titleHit: true,
+                    titleHitWhenLockedOut: false,
+                    iconHit: true,
+                    coveredBy: [],
+                },
+            ]);
+            const misfortune = spells[1]!;
+            const title = (
+                misfortune as unknown as {
+                    titleText: {
+                        x: number;
+                        y: number;
+                        parent: { toGlobal: (point: { x: number; y: number }) => { x: number; y: number } };
+                    };
+                }
+            ).titleText;
+            const gap = title.parent.toGlobal({ x: title.x, y: title.y + 50 });
+            expect(spells.some((spell) => spell.isHover(gap, 1, true))).toBe(false);
+        } finally {
+            for (const spell of spells) spell.destroy();
+            layer.destroy();
+        }
+    });
 });
 
 describe("PixiRenderableSpell effect summary", () => {

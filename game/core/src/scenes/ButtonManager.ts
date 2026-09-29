@@ -184,6 +184,7 @@ export class ButtonManager {
         const baseAttackType: IVisibleButton = { ...this.selectedAttackTypeButton, isDisabled: true };
         const baseSpellBook: IVisibleButton = {
             ...this.spellBookButton,
+            text: "Select spell",
             isDisabled: true,
             customSpriteName: undefined,
         };
@@ -257,9 +258,15 @@ export class ButtonManager {
 
             hourglassButton.isDisabled = !this.checkHourglassCondition();
             // OWNER (2026-08-01): the book is greyed out when the unit has nothing to cast — an active
-            // button promising an empty book reads worse than a disabled one. The click handler keeps its
-            // "why not" scene-log guard for the overlay-open edge, but the primary signal is the state.
+            // button promising an empty book reads worse than a disabled one. The tooltip says why, because
+            // a greyed button that still reads "Select spell" looks broken. Stack power is not this gate:
+            // a one-creature mage keeps Misfortune and Fireforged Sword, and the book has to open so those
+            // cards can be picked. Smoke and Fireball refuse inside the book.
             spellBookButton.isDisabled = !(fightStarted && hasActiveUnit && this.checkCastCondition());
+            if (fightStarted && hasActiveUnit && spellBookButton.isDisabled && currentActiveUnit) {
+                spellBookButton.text =
+                    currentActiveUnit.getSpellsCount() > 0 ? "Cannot cast spells right now" : "No spells to cast";
+            }
 
             if (hasActiveUnit) {
                 const active = currentActiveUnit!;

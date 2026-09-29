@@ -4,7 +4,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { Container, Graphics, Sprite as PixiSprite, Text, TextStyle, Texture } from "pixi.js";
+import { Container, Graphics, Point, Sprite as PixiSprite, Text, TextStyle, Texture } from "pixi.js";
 import {
     AllAbilities,
     calculateSpellDamage,
@@ -156,6 +156,12 @@ export class PixiRenderableSpell extends Spell {
     private yMin = 0;
     private yMax = 0;
     /**
+     * Full card in the card container's local space, including the printed name and the wax-seal overhang.
+     * The inner frame stops above the name, so a name click used to miss and close the book.
+     */
+    private cardHitLocal?: { left: number; top: number; right: number; bottom: number };
+    private readonly hoverProbe = new Point();
+    /**
      * @param spellParams ISpellParams used by the game logic
      * @param layer Container to attach all sub-sprites
      * @param textures Must include spell_cell_260. stack_green/red are optional and unused in this Pixi version.
@@ -292,6 +298,7 @@ export class PixiRenderableSpell extends Spell {
         this.amountText.visible = false;
         this.highlighted = false;
         this.lastFrameRender = undefined;
+        this.cardHitLocal = undefined;
         this.cardContainer.pivot.set(0, 0);
         this.cardContainer.position.set(0, 0);
         this.cardContainer.scale.set(1);
@@ -624,13 +631,20 @@ export class PixiRenderableSpell extends Spell {
             globalMouse.y >= bounds.minY &&
             globalMouse.y <= bounds.maxY;
 
-        // The caller deliberately supplies screen/global coordinates. Compare them directly with the
-        // transformed sprite bounds in that same coordinate system; do not convert through the rotated
-        // container again. The transparent ornament's rectangular sprite is the primary full-card target.
+        // The caller deliberately supplies screen/global coordinates. The card rect is stored in the
+        // container's local space and converted here, so the page tilt and hover scale stay in the test.
+        if (this.pointerInCard(globalMouse)) return true;
         if (this.innerFrameSprite && containsPointer(this.innerFrameSprite.getBounds())) return true;
         if (containsPointer(this.iconSprite.getBounds())) return true;
         if (this.stackRailSprite && containsPointer(this.stackRailSprite.getBounds())) return true;
         return this.amountScrollSprite ? containsPointer(this.amountScrollSprite.getBounds()) : false;
+    }
+    /** True when the pointer is inside the whole card, name included, after the container's transform. */
+    private pointerInCard(globalMouse: HoCMath.XY): boolean {
+        const hit = this.cardHitLocal;
+        if (!hit) return false;
+        const local = this.cardContainer.toLocal(globalMouse, undefined, this.hoverProbe);
+        return local.x >= hit.left && local.x <= hit.right && local.y >= hit.top && local.y <= hit.bottom;
     }
     public getOnPagePosition(): HoCMath.XY[] {
         return [
@@ -897,6 +911,14 @@ export class PixiRenderableSpell extends Spell {
         };
         drawRule(leftStart, leftEnd, Math.max(leftStart + 4, leftEnd - 10));
         drawRule(rightStart, rightEnd, Math.min(rightEnd - 4, rightStart + 10));
+        // The seal is centred 12px inside the frame's right edge and hangs past it by the rest of its radius.
+        const sealOverhang = Math.max(0, BOOK_AMOUNT_SEAL_SIZE / 2 - 12);
+        this.cardHitLocal = {
+            left: cardLeft,
+            top: cardTop,
+            right: cardLeft + cardWidth + sealOverhang,
+            bottom: cardTop + height,
+        };
     }
     private renderDisabledOverlay(xPos: number, yPos: number, disabled: boolean): void {
         this.disabledOverlayGfx.clear();

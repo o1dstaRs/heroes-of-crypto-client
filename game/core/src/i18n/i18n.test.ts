@@ -165,6 +165,8 @@ describe("ranked flow localization", () => {
             "A pool of water splits the center of the board.",
             "Armageddon next lap",
             "Map narrows next lap",
+            "No spells to cast",
+            "Cannot cast spells right now",
         ];
         expect(dynamicKeys.filter((key) => !(key in RU_TRANSLATIONS))).toEqual([]);
     });

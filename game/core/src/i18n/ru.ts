@@ -798,6 +798,8 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Switch AI state": "Включить или выключить ИИ",
     "Switch attack type": "Сменить тип атаки",
     "Select spell": "Выбрать заклинание",
+    "No spells to cast": "Нет заклинаний для применения",
+    "Cannot cast spells right now": "Сейчас нельзя применять заклинания",
     "Time Denial — an active holder prevents either side from using Hourglass.":
         "Отрицание времени — пока носитель активен, обе стороны не могут отложить ход.",
     ON: "ВКЛ",
