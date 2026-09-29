@@ -36,7 +36,13 @@ import {
 } from "../leftSidebarPortraitTuning";
 import { resolveLeftSidebarPortraitArt } from "../leftSidebarPortraitArt";
 import { resolveLeftSidebarPortraitAnimation } from "../leftSidebarPortraitAnimation";
-import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
+import {
+    displayedSidebarCreatureId,
+    isLeftSidebarPortraitReady,
+    pinLeftSidebarPortrait,
+    warmLeftSidebarPortrait,
+} from "../leftSidebarPortraitWarm";
+import { UNIT_ID_TO_NAME, UNIT_NAME_TO_ID } from "../unit_ui_constants";
 import Toggler from "../Toggler";
 import SynergiesRow from "./SynergiesRow";
 import {
@@ -1198,27 +1204,63 @@ const UnitStatsLayout: React.FC<{
     team,
 }) => {
     const creatureId = UNIT_NAME_TO_ID[unitProperties.name.trim()];
-    const sidebarPortraitArt = creatureId === undefined ? {} : resolveLeftSidebarPortraitArt(creatureId);
-    const portraitAnimationConfig = creatureId === undefined ? null : resolveLeftSidebarPortraitAnimation(creatureId);
-    const [portraitAnimationReady, setPortraitAnimationReady] = useState(false);
+    // The cutout and the faction background are different files, and the cutout is large enough that a
+    // synchronous decode lets the background paint first. Keep the previous pair on screen until both
+    // new files have decoded, then swap them on the same frame. The name and the stats still follow the
+    // live unit.
+    const portraitReady = creatureId !== undefined && isLeftSidebarPortraitReady(creatureId);
+    const [heldPortraitId, setHeldPortraitId] = useState<number | undefined>(undefined);
     useEffect(() => {
-        setPortraitAnimationReady(false);
-    }, [portraitAnimationConfig?.src]);
+        if (creatureId === undefined) {
+            setHeldPortraitId(undefined);
+            return;
+        }
+        let cancelled = false;
+        void warmLeftSidebarPortrait(creatureId).then(() => {
+            if (!cancelled) setHeldPortraitId(creatureId);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [creatureId]);
+    const displayedCreatureId = displayedSidebarCreatureId(creatureId, heldPortraitId, portraitReady);
+    useEffect(() => {
+        if (displayedCreatureId !== undefined) pinLeftSidebarPortrait(displayedCreatureId);
+    }, [displayedCreatureId]);
+    const sidebarPortraitArt =
+        displayedCreatureId === undefined ? {} : resolveLeftSidebarPortraitArt(displayedCreatureId);
+    const portraitAnimationConfig =
+        displayedCreatureId === undefined ? null : resolveLeftSidebarPortraitAnimation(displayedCreatureId);
+    const atlasSrc = portraitAnimationConfig?.src;
+    const [atlasReadySrc, setAtlasReadySrc] = useState<string | undefined>(() =>
+        atlasSrc && isAtlasReady(atlasSrc) ? atlasSrc : undefined,
+    );
+    useEffect(() => {
+        if (!atlasSrc) return;
+        let cancelled = false;
+        void warmAtlas(atlasSrc).then(() => {
+            if (!cancelled) setAtlasReadySrc(atlasSrc);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [atlasSrc]);
+    const portraitAnimationReady = !!atlasSrc && (isAtlasReady(atlasSrc) || atlasReadySrc === atlasSrc);
     const handlePortraitAnimationLoaded = useCallback(() => {
-        setPortraitAnimationReady(true);
+        if (atlasSrc) setAtlasReadySrc(atlasSrc);
         onImageLoaded();
-    }, [onImageLoaded]);
+    }, [atlasSrc, onImageLoaded]);
     const [sidebarPortraitTuning, setSidebarPortraitTuning] = useState<LeftSidebarPortraitTuning>(() =>
-        creatureId === undefined
+        displayedCreatureId === undefined
             ? { ...DEFAULT_LEFT_SIDEBAR_PORTRAIT_TUNING }
-            : resolveLeftSidebarPortraitTuning(creatureId),
+            : resolveLeftSidebarPortraitTuning(displayedCreatureId),
     );
     useEffect(() => {
         const syncTuning = () =>
             setSidebarPortraitTuning(
-                creatureId === undefined
+                displayedCreatureId === undefined
                     ? { ...DEFAULT_LEFT_SIDEBAR_PORTRAIT_TUNING }
-                    : resolveLeftSidebarPortraitTuning(creatureId),
+                    : resolveLeftSidebarPortraitTuning(displayedCreatureId),
             );
         const syncStoredTuning = (event: StorageEvent) => {
             if (event.key === LEFT_SIDEBAR_PORTRAIT_TUNING_STORAGE_KEY) syncTuning();
@@ -1231,7 +1273,7 @@ const UnitStatsLayout: React.FC<{
             window.removeEventListener(LEFT_SIDEBAR_PORTRAIT_TUNING_EVENT, syncTuning);
             window.removeEventListener("storage", syncStoredTuning);
         };
-    }, [creatureId]);
+    }, [displayedCreatureId]);
     const animationConfig = creatureId === undefined ? getDefaultAnimationConfig(unitProperties.name) : null;
     const showRangedStats =
         unitProperties.attack_type === AttackVals.RANGE ||
@@ -1564,7 +1606,7 @@ const UnitStatsLayout: React.FC<{
                             justifyContent: "center",
                         }}
                     >
-                        {creatureId !== undefined ? (
+                        {displayedCreatureId !== undefined ? (
                             <Box
                                 sx={{
                                     position: "relative",
@@ -1574,8 +1616,8 @@ const UnitStatsLayout: React.FC<{
                                 }}
                             >
                                 <CreaturePortraitImage
-                                    creatureId={creatureId}
-                                    alt={unitProperties.name}
+                                    creatureId={displayedCreatureId}
+                                    alt={UNIT_ID_TO_NAME[displayedCreatureId] ?? unitProperties.name}
                                     artScale={sidebarPortraitTuning.artScale}
                                     artScaleX={0.96 * (sidebarPortraitArt.artScaleX ?? 1)}
                                     backgroundFit="fill"
@@ -1587,6 +1629,7 @@ const UnitStatsLayout: React.FC<{
                                     artFit={sidebarPortraitArt.fit}
                                     artBaseScale={sidebarPortraitArt.baseScale}
                                     highQualityArt
+                                    decodeAsync
                                     sx={{
                                         width: "100%",
                                         height: "100%",
@@ -1600,7 +1643,7 @@ const UnitStatsLayout: React.FC<{
                                 />
                                 {portraitAnimationConfig && (
                                     <Box
-                                        aria-label={`${unitProperties.name} animated portrait`}
+                                        aria-label={`${UNIT_ID_TO_NAME[displayedCreatureId] ?? unitProperties.name} animated portrait`}
                                         sx={{
                                             position: "absolute",
                                             inset: 0,
@@ -1622,6 +1665,10 @@ const UnitStatsLayout: React.FC<{
                                     </Box>
                                 )}
                             </Box>
+                        ) : creatureId !== undefined ? (
+                            // Waiting on the cutout and the plate together. A lone large-texture fallback
+                            // here is a third image that pops in and then gets replaced.
+                            <Box sx={{ position: "absolute", inset: 0, bgcolor: "#090806" }} />
                         ) : animationConfig ? (
                             <AtlasAnimation
                                 meta={animationConfig.meta}

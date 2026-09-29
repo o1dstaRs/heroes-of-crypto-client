@@ -31,6 +31,11 @@ export interface CreaturePortraitImageProps extends Omit<BoxProps, "children"> {
     artBaseScale?: number;
     /** Layout at the final CSS size instead of enlarging a smaller compositor layer. */
     highQualityArt?: boolean;
+    /**
+     * Decode off the main thread. The left sidebar sets this: a synchronous decode of the full cutout
+     * freezes the card while the smaller faction background has already painted.
+     */
+    decodeAsync?: boolean;
 }
 
 /**
@@ -56,6 +61,7 @@ const CreaturePortraitImageBase = ({
     artFit,
     artBaseScale,
     highQualityArt = false,
+    decodeAsync = false,
     sx,
     forwardedRef,
     ...boxProps
@@ -190,7 +196,7 @@ const CreaturePortraitImageBase = ({
             <img
                 src={creatureSource}
                 alt={alt ?? UNIT_ID_TO_NAME[creatureId] ?? `Creature ${creatureId}`}
-                decoding={highQualityArt ? "sync" : undefined}
+                decoding={decodeAsync ? "async" : highQualityArt ? "sync" : undefined}
                 fetchPriority={highQualityArt ? "high" : undefined}
                 style={{
                     position: "absolute",

@@ -20,6 +20,7 @@ import { UnitChip } from "./UnitChip";
 import { images } from "../imageAssets";
 import { resolveCreaturePortraitVisual } from "../ui/creaturePortraitVisual";
 import { creatureTypePresentation } from "../ui/creatureTypePresentation";
+import { enqueueLeftSidebarPortraits } from "../ui/leftSidebarPortraitWarm";
 import { UNIT_ID_TO_NAME, UNIT_NAME_TO_ID } from "../ui/unit_ui_constants";
 
 import {
@@ -768,6 +769,7 @@ export class UnitsOverlay {
 
         this.onResize(this.app.renderer.width, this.app.renderer.height);
         this.container.sortChildren();
+        this.warmVisibleSidebarPortraits();
     }
     /** Fill any roster cards whose on-demand portrait/background has just entered Pixi's cache. */
     public refreshLazyTextures(): void {
@@ -815,6 +817,17 @@ export class UnitsOverlay {
         }
         this.onResize(this.app.renderer.width, this.app.renderer.height);
         this.refreshLazyTextures();
+        this.warmVisibleSidebarPortraits();
+    }
+    /** The open level is the set of portraits a placement click will put on the left card. */
+    private warmVisibleSidebarPortraits(): void {
+        const creatureIds: number[] = [];
+        for (const chip of this.allChips) {
+            if (this.chipLevels.get(chip) !== this.selectedLevel) continue;
+            const creatureId = UNIT_NAME_TO_ID[chip.nameKey];
+            if (creatureId !== undefined) creatureIds.push(creatureId);
+        }
+        enqueueLeftSidebarPortraits(creatureIds);
     }
     public onResize(stageW: number, stageH: number): void {
         if (stageW <= 0 || stageH <= 0) return;

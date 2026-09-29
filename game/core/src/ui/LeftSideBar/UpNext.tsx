@@ -14,10 +14,11 @@ import { getTeamFlagBackground, TeamAmountFlag } from "../TeamAmountFlag";
 import { useSynchronizedActiveTurnQueuePulse } from "../activeTurnQueuePulse";
 import { CreaturePortraitImage } from "../CreaturePortraitImage";
 import { CREATURE_PORTRAIT_ASPECT } from "../creaturePortraitVisual";
+import { enqueueLeftSidebarPortraits } from "../leftSidebarPortraitWarm";
 import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
 import { resolveUnitImage } from "../unitImage";
-import { prefetchUnitAtlas } from "./unitAtlas";
 import { useSidebarMetrics } from "./sidebarMetrics";
+import { prefetchUnitAtlas } from "./unitAtlas";
 
 import { commonTooltipSx } from "./tooltipStyles";
 const stopImg = new URL("../../../images/stop.webp", import.meta.url).toString();
@@ -150,6 +151,13 @@ export const UpNext: React.FC = () => {
             ((cb: () => void) => window.setTimeout(cb, 200));
         const handle = schedule(() => {
             for (const n of names) prefetchUnitAtlas(n);
+            const creatureIds = names.flatMap((name) => {
+                const creatureId = UNIT_NAME_TO_ID[name.trim()];
+                return creatureId === undefined ? [] : [creatureId];
+            });
+            // The queue is who gets inspected next. Decode their sidebar cutout and faction plate
+            // before the click, or the two files arrive on different frames.
+            enqueueLeftSidebarPortraits(creatureIds);
         });
         return () => {
             if ((window as unknown as { cancelIdleCallback?: (h: number) => void }).cancelIdleCallback) {

@@ -1,5 +1,6 @@
 import { animationAtlases, type AnimationAtlasMeta, type AnimationUnitName } from "../../generated/animation_atlases";
 import { images, type ImageKey } from "../../generated/image_imports";
+import { isDecodedImageReady, warmDecodedImage } from "../decodedImageCache";
 
 export type SidebarAtlasMeta = AnimationAtlasMeta;
 
@@ -111,20 +112,18 @@ const readyAtlasSrcs = new Set<string>();
 export function warmAtlas(src: string): Promise<void> {
     let existing = decodedImageCache.get(src);
     if (!existing) {
-        existing = new Promise<void>((resolve) => {
-            const img = new Image();
-            img.decoding = "async";
-            img.src = src;
-            img.decode().then(resolve, resolve);
+        // Same retained bitmap as the stills. A decoded atlas that nothing holds is collected, and the
+        // next selection decodes the sheet again.
+        existing = warmDecodedImage(src).then(() => {
+            readyAtlasSrcs.add(src);
         });
         decodedImageCache.set(src, existing);
-        existing.then(() => readyAtlasSrcs.add(src));
     }
     return existing;
 }
 
 export function isAtlasReady(src: string): boolean {
-    return readyAtlasSrcs.has(src);
+    return readyAtlasSrcs.has(src) || isDecodedImageReady(src);
 }
 
 /** Pre-decode a unit's sidebar animation atlas so selecting it later is instant. */
