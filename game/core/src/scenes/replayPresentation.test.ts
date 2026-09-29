@@ -121,4 +121,23 @@ describe("replay presentation", () => {
     test("the view hands the replay builder the unnarrowed snapshot", () => {
         expect(runtime).toContain("snapshotToAuthoritative: (playSnapshot) => toSceneSnapshot(playSnapshot)");
     });
+
+    test("a snapshot skipped mid-animation still updates the battle log", () => {
+        const apply = sliceBetween(
+            ranked,
+            "public override applyAuthoritativeSnapshot(",
+            "public override applyAuthoritativeReplaySnapshot(",
+        );
+        const log = apply.indexOf("this.applyAuthoritativeSceneLog(snapshot)");
+        const bail = apply.indexOf("this.isPlayingActionAnimation()");
+        expect(log).toBeGreaterThanOrEqual(0);
+        expect(bail).toBeGreaterThan(log);
+    });
+
+    test("replay playback opens the fight chrome once the fight is on screen", () => {
+        // The React snapshot stays on the opening board, so the battle log (mounted with the fight
+        // chrome) has to follow the scene, and only while that playback is running.
+        expect(runtime).toContain("replayPlaybackActive && replayFightVisible");
+        expect(ranked).toContain("replayFightVisible");
+    });
 });

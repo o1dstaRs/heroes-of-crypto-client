@@ -26,8 +26,9 @@ const musicOnControlImage = images.ui_control_music_on_forged_bronze_v1;
  * walking from matchmaking to the lobby list and on to the portal does not restart the track, which is
  * exactly what re-mounting per route would do.
  *
- * Which screens sing is decided here (see SINGING_ROUTES) — the fight itself is deliberately silent, and so
- * is the offline sandbox at "/".
+ * Which menu screens sing is decided here (see SINGING_ROUTES). A ranked match is not one of those routes:
+ * it plays "Iron and Silk" from the moment it is found until the player leaves, fight included. The offline
+ * sandbox at "/" stays quiet.
  *
  * The site (heroesofcrypto.io) plays the same track on mode select and profile through its own copy of this,
  * site/src/components/ThemeMusic.astro. It is a DIFFERENT ORIGIN and cannot see this localStorage, so the
@@ -53,18 +54,19 @@ const PLAYLIST = [
 ] as const;
 
 /**
- * The pre-fight track. It replaces the menu playlist from the moment a ranked match is found until the fight
- * starts — match check, picks, augments, placement — then hands back to silence when the first turn begins.
- * A single track rather than a list: that stretch is a few minutes at most and wants one continuous mood.
+ * The match track. It replaces the menu playlist from the moment a ranked match is found and stays there
+ * through the fight — match check, picks, augments, placement, combat — until the player leaves. A single
+ * track rather than a list: the match wants one continuous mood, and a fight can run long enough that
+ * swapping tracks at the first turn is the thing that used to make the room go quiet.
  */
 const PREFIGHT_TRACK = { webm: "/audio/iron_and_silk.webm", mp3: "/audio/iron_and_silk.mp3" } as const;
 
-/** Route prefixes that carry the theme. Everything else — the fight, the sandbox — stays quiet.
+/** Route prefixes that carry the menu theme. A ranked match sings via the match-track flag instead, and
+ * the offline sandbox stays quiet.
  *
  * Note this governs what PLAYS, not where the speaker is offered: the control sits in the bottom-right
  * corner on every screen, the silent ones included. It is a setting, not a now-playing indicator — muting
- * or setting the level mid-fight is exactly when a player reaches for it, and the choice is stored, so it
- * is already in force by the time the music comes back. */
+ * or setting the level mid-fight is exactly when a player reaches for it, and the choice is stored. */
 const SINGING_ROUTES = ["/play", "/lobbies", "/lobby/", "/portal"] as const;
 
 const clamp01 = (value: number): number => Math.min(1, Math.max(0, value));
@@ -122,7 +124,7 @@ export const ThemeMusic: React.FC = () => {
 
     useEffect(() => subscribePrefightMusic(setPrefight), []);
 
-    // The pre-fight stretch sings wherever it happens — it lives under /game, which is otherwise silent.
+    // The match sings wherever it happens — it lives under /game, which is otherwise silent.
     const singing = prefight || shouldSing(pathname);
     const effectiveVolume = muted ? 0 : volume;
     effectiveVolumeRef.current = effectiveVolume;
@@ -245,7 +247,8 @@ export const ThemeMusic: React.FC = () => {
         };
     }, [effectiveVolume, needsUnlock, singing, start]);
 
-    // Leaving for the fight silences it; coming back picks it up again.
+    // Leaving the match silences it; coming back to a menu picks the playlist up again. The fight itself
+    // does not: the match flag stays on, so this fade never runs at the first turn.
     useEffect(() => {
         const audio = audioRef.current;
         const player = playerRef.current;

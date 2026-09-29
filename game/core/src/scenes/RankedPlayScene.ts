@@ -2083,6 +2083,14 @@ export class RankedPlayScene extends Sandbox {
             this.applyRankedFightStats(snapshot, finishedState.units);
         }
 
+        // The battle log does not touch the board. Apply it before the animation bail below, or a snapshot
+        // that arrives while an action is still playing never reaches the log — and the next quiet apply
+        // can be late enough that those lines have already fallen out of the 64-entry tail. Spectators hit
+        // this for a whole fight: their snapshots land during the animation they just watched.
+        if (snapshot.latestSequence >= this.lastAuthoritativeSequence) {
+            this.applyAuthoritativeSceneLog(snapshot);
+        }
+
         // The 4s fallback poll can fetch the post-move state and apply it (without skipBoardRebuild)
         // while a move/attack animation is still in flight. hydrateSceneState would then recreate every
         // unit at its final cell and snap the in-progress slide. Ignore such full rebuilds while
@@ -2115,7 +2123,6 @@ export class RankedPlayScene extends Sandbox {
                 ? `${snapshot.gameId}:${snapshot.currentLap}:${snapshot.currentUnitId}:${snapshot.currentTurnStartMs}`
                 : "";
         this.applyRankedTimer(snapshot);
-        this.applyAuthoritativeSceneLog(snapshot);
         this.lastAuthoritativeSequence = snapshot.latestSequence;
         this.applyRankedSnapshotMetadata(snapshot);
         // (Effect pops already diffed at the top of this method, before the animation/board guards.)
@@ -2449,14 +2456,27 @@ export class RankedPlayScene extends Sandbox {
         // Re-baseline effect pops so the replay's first snapshot seeds silently instead of bursting.
         this.effectPopsGameId = "";
         this.effectPopsSequence = -1;
+        if (this.sc_visibleState?.replayFightVisible) {
+            this.sc_visibleState.replayFightVisible = false;
+            this.sc_visibleStateUpdateNeeded = true;
+        }
     }
     public override applyAuthoritativeReplaySnapshot(snapshot: AuthoritativeGameSnapshot): void {
+        // Stepping a replay one snapshot at a time used to re-baseline on every step, which wiped the log
+        // back to that snapshot's tail. Continue once this playback has already started the same game and
+        // the sequence is still moving forward; a new playback (lower sequence, other game) still resets.
+        const continuing =
+            this.replayViewingActive &&
+            this.rankedSceneLogGameId === snapshot.gameId &&
+            snapshot.latestSequence > this.rankedSceneLogSequence;
         this.replayViewingActive = true;
         this.lastAuthoritativeSequence = snapshot.latestSequence - 1;
         this.lastBoardSignature = "";
         this.lastPlacementUnitIdsKey = "";
         this.lastPlacementStateByUnitId.clear();
-        this.resetRankedReplayPresentation();
+        if (!continuing) {
+            this.resetRankedReplayPresentation();
+        }
         this.applyAuthoritativeSnapshot(snapshot);
     }
     public override startScene(): boolean {
@@ -2526,6 +2546,7 @@ export class RankedPlayScene extends Sandbox {
                 : super.playSandboxReplay(replay, throughSequence));
         } finally {
             this.fullReplayPlaybackActive = false;
+            this.replayViewingActive = false;
             this.sc_sceneLog.setSuppressed(wasSceneLogSuppressed);
         }
     }
@@ -3184,7 +3205,20 @@ export class RankedPlayScene extends Sandbox {
             // Storage full/unavailable — best-effort cache only, never fatal.
         }
     }
+    /** The fight sidebar, battle log included, follows playback. Live snapshots already drive that from React. */
+    private publishReplayFightChrome(snapshot: AuthoritativeGameSnapshot): void {
+        if (!this.fullReplayPlaybackActive && !this.replayViewingActive) {
+            return;
+        }
+        const visible = snapshot.fightStarted;
+        if (!this.sc_visibleState || this.sc_visibleState.replayFightVisible === visible) {
+            return;
+        }
+        this.sc_visibleState.replayFightVisible = visible;
+        this.sc_visibleStateUpdateNeeded = true;
+    }
     private applyAuthoritativeSceneLog(snapshot: AuthoritativeGameSnapshot): void {
+        this.publishReplayFightChrome(snapshot);
         const journalTail = snapshot.journalTail;
         if (!journalTail) {
             return;

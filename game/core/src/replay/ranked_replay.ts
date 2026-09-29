@@ -41,6 +41,12 @@ export interface RankedReplay {
     initialSnapshot?: PlaySnapshot;
     currentSnapshot?: PlaySnapshot;
     events: PlayEvent[];
+    /**
+     * The whole journal. Stored replays strip `journalTail` off every snapshot (the tail is a live-view
+     * window, and duplicating it into each snapshot blows the record up), so this list is what a replay
+     * has to put back before the battle log can read a snapshot.
+     */
+    journal: PlayJournalEntry[];
     actions: RankedReplayActionRecord[];
 }
 
@@ -154,11 +160,42 @@ export const createRankedReplayFromJournal = ({
         initialSnapshot,
         currentSnapshot,
         events: sortedEvents,
+        journal: sortedEntries,
         actions: sortedEntries.flatMap((entry) => {
             const record = parseRankedReplayAction(entry);
             return record ? [record] : [];
         }),
     };
+};
+
+/**
+ * Fill empty snapshot tails from the replay journal.
+ *
+ * The first empty snapshot gets every entry up to its sequence: playback clears the log after the opening
+ * board, so the first presented snapshot has to carry the history or those lines never come back. Each
+ * later snapshot gets only the entries since the previous one — appending, not copying the whole journal
+ * onto every record.
+ */
+export const withReplayJournalTails = (
+    snapshots: readonly PlaySnapshot[],
+    journal: readonly PlayJournalEntry[],
+): PlaySnapshot[] => {
+    const sorted = journal.length > 1 ? [...journal].sort((left, right) => left.sequence - right.sequence) : journal;
+    let coveredThrough = -1;
+    let seeded = false;
+    return snapshots.map((snapshot) => {
+        const end = snapshot.latestSequence;
+        if (snapshot.journalTail.length > 0 || sorted.length === 0) {
+            seeded = true;
+            coveredThrough = Math.max(coveredThrough, end);
+            return snapshot;
+        }
+        const from = seeded ? coveredThrough : -1;
+        seeded = true;
+        coveredThrough = Math.max(coveredThrough, end);
+        const journalTail = sorted.filter((entry) => entry.sequence > from && entry.sequence <= end);
+        return journalTail.length > 0 ? { ...snapshot, journalTail } : snapshot;
+    });
 };
 
 export const createRankedReplayFromSnapshot = (
@@ -237,7 +274,11 @@ export const createSandboxReplayFromRankedReplay = (
     }
 
     const nowMs = options.nowMs ?? Date.now();
-    const actions: SandboxReplay["actions"] = [];
+    const pending: {
+        action: RankedReplayActionRecord;
+        snapshot: PlaySnapshot;
+        stateAfter: SandboxSceneState;
+    }[] = [];
     for (const actionRecord of replay.actions) {
         if (actionRecord.sequence <= initialSnapshot.latestSequence) {
             continue;
@@ -252,14 +293,27 @@ export const createSandboxReplayFromRankedReplay = (
         if (!stateAfter) {
             return undefined;
         }
+        pending.push({ action: actionRecord, snapshot: stateAfterSnapshot, stateAfter });
+    }
 
-        const authoritativeSnapshot = options.snapshotToAuthoritative?.(stateAfterSnapshot);
+    const stamped = withReplayJournalTails(
+        pending.map((item) => item.snapshot),
+        replay.journal,
+    );
+    const actions: SandboxReplay["actions"] = [];
+    for (let index = 0; index < pending.length; index += 1) {
+        const item = pending[index];
+        const snapshot = stamped[index];
+        if (!item || !snapshot) {
+            continue;
+        }
+        const authoritativeSnapshot = options.snapshotToAuthoritative?.(snapshot);
         actions.push({
-            sequence: actionRecord.sequence,
-            clientTimeMs: actionRecord.acceptedAtMs || nowMs + actions.length,
-            action: cloneReplayData(actionRecord.action),
-            events: cloneReplayData(actionRecord.events),
-            stateAfter: cloneReplayData(stateAfter),
+            sequence: item.action.sequence,
+            clientTimeMs: item.action.acceptedAtMs || nowMs + actions.length,
+            action: cloneReplayData(item.action.action),
+            events: cloneReplayData(item.action.events),
+            stateAfter: cloneReplayData(item.stateAfter),
             ...(authoritativeSnapshot ? { authoritativeSnapshot: cloneReplayData(authoritativeSnapshot) } : {}),
         });
     }

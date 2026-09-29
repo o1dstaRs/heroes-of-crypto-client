@@ -61,6 +61,7 @@ import {
     collectRankedReplaySnapshots,
     createSandboxReplayFromRankedReplay,
     parseRankedReplayAction,
+    withReplayJournalTails,
     type RankedReplay,
     type RankedReplayActionRecord,
 } from "../replay/ranked_replay";
@@ -316,6 +317,9 @@ export const RankedGameView: React.FC<Props> = ({
     const [selectedUnitId, setSelectedUnitId] = useState("");
     const [aiToggleOn, setAiToggleOn] = useState(false);
     const [replayPlaybackActive, setReplayPlaybackActive] = useState(false);
+    // Playback does not advance `snapshot` (that rewound the board). This follows the scene instead,
+    // and only while playback is running, so a finished replay does not pin the fight chrome on afterwards.
+    const [replayFightVisible, setReplayFightVisible] = useState(false);
     const [busy, setBusy] = useState(false);
     const [status, setStatus] = useState(replayOnly ? "Loading replay" : "Connecting");
     const [error, setError] = useState("");
@@ -383,6 +387,7 @@ export const RankedGameView: React.FC<Props> = ({
         const connection = manager.onVisibleStateUpdated.connect((state) => {
             setAiToggleOn(!!state.aiToggleOn);
             setReplayPlaybackActive(!!state.replayPlaybackActive);
+            setReplayFightVisible(!!state.replayFightVisible);
         });
         return () => {
             connection.disconnect();
@@ -887,9 +892,12 @@ export const RankedGameView: React.FC<Props> = ({
     const ready = !isObserver && !!myPlayer && !!snapshot?.readyPlayerIds.includes(myPlayer.playerId);
     const canSubmit = !!snapshot && !isObserver && !!myPlayer && !busy;
     const hasSnapshot = !!snapshot;
-    const gameStarted =
+    const snapshotFightStarted =
         !!snapshot &&
         (snapshot.fightStarted || snapshot.phase === PlayPhase.PLAY || snapshot.phase === PlayPhase.FINISHED);
+    // A replay seeds React with the opening snapshot and leaves it there until playback ends, so the
+    // battle log (mounted only once the fight chrome is up) never appeared while you were watching.
+    const gameStarted = snapshotFightStarted || (replayPlaybackActive && replayFightVisible);
     // Exit rules (plan §5): what leaving counts as for this seat right now, for the dialogs, the Alt strip and the toast.
     const exitStanding = useMemo<IExitStanding | undefined>(
         () => (snapshot && myPlayer && !isObserver ? exitStandingFromSnapshot(snapshot, myPlayer.playerId) : undefined),
@@ -944,15 +952,15 @@ export const RankedGameView: React.FC<Props> = ({
         return () => setBattleSystemControlsActive(false);
     }, [gameStarted]);
 
-    // "Iron and Silk" runs from the match being found until the first turn: on through placement, off for the fight
-    // and for a replay. Until the first snapshot arrives this view leaves the flag as the draft left it, so the track
-    // plays straight through the handoff instead of cutting out and restarting (see boardViewPrefightMusic).
+    // "Iron and Silk" runs for the whole match: on through placement and the fight, off for a replay. Until the
+    // first snapshot arrives this view leaves the flag as the draft left it, so the track plays straight through
+    // the handoff instead of cutting out and restarting (see boardViewPrefightMusic).
     useEffect(() => {
-        const next = boardViewPrefightMusic({ replayOnly, hasSnapshot, gameStarted });
+        const next = boardViewPrefightMusic({ replayOnly, hasSnapshot });
         if (next !== undefined) {
             setPrefightMusicActive(next);
         }
-    }, [replayOnly, hasSnapshot, gameStarted]);
+    }, [replayOnly, hasSnapshot]);
     useEffect(() => () => setPrefightMusicActive(false), []);
 
     // The draft route keeps the finished draft on screen while this view loads behind it. Tell it once there is
@@ -1407,7 +1415,7 @@ export const RankedGameView: React.FC<Props> = ({
             setError("");
 
             try {
-                const replaySnapshots = collectRankedReplaySnapshots(replay);
+                const replaySnapshots = withReplayJournalTails(collectRankedReplaySnapshots(replay), replay.journal);
                 const initialSnapshot = replaySnapshots[0] ?? replay.currentSnapshot;
                 if (initialSnapshot) {
                     applySnapshot(initialSnapshot, { forceBoardRebuild: true });

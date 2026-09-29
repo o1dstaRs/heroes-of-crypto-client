@@ -1025,10 +1025,10 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
         stopWatching();
     }, [authenticated, location.state, navigate, stopWatching]);
 
-    // "Iron and Silk" covers everything between the match being found and the first turn: the match check and
-    // picks here, then placement inside RankedGameView, which takes the flag over once the match is in play (it is
-    // the only screen that sees the phase). Cleared on unmount so leaving mid-draft — a decline, a reload, a
-    // navigation away — never leaves the pre-fight track playing over the menus.
+    // "Iron and Silk" covers the whole match: the match check and picks here, then placement and the fight
+    // inside RankedGameView, which takes the flag over once the match is in play (it is the only screen that
+    // sees the phase). Cleared on unmount so leaving — a decline, a reload, a navigation away — never leaves
+    // the match track playing over the menus.
     useEffect(() => {
         const next = draftRoutePrefightMusic({ gameId, showOverlay, routeMode });
         if (next !== undefined) {

@@ -147,6 +147,12 @@ export interface IVisibleState {
     aiToggleOn?: boolean;
     /** Whether a fight replay is currently playing back (drives the bottom-left "Exit Replay" button). */
     replayPlaybackActive?: boolean;
+    /**
+     * The replay's React snapshot stays on the opening board for the whole playback. This is set once that
+     * playback is actually showing the fight, so the battle log can mount without applying those snapshots
+     * again (doing so rewinds the board).
+     */
+    replayFightVisible?: boolean;
     /** Set when the fight ends: which team won (LEFT = green, RIGHT = red). */
     teamWin?: TeamType;
     /** Set when the fight ends: casualty stats for the Fight Finished overlay. */

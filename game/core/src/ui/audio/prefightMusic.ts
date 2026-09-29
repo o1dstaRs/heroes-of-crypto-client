@@ -1,6 +1,6 @@
 /**
- * Whether the pre-fight track ("Iron and Silk") should be playing: true from the moment a ranked match is
- * found until the fight itself begins — the match-found check, picks and augments, then placement.
+ * Whether the match track ("Iron and Silk") should be playing: true from the moment a ranked match is
+ * found until the player leaves it — the match-found check, picks and augments, placement, and the fight.
  *
  * A tiny store rather than context because ThemeMusic is mounted ABOVE the router (one long-lived <audio>
  * that survives navigation), so it sits outside every provider the game screens render inside. The screens
@@ -13,7 +13,7 @@ type Listener = (active: boolean) => void;
 let active = false;
 const listeners = new Set<Listener>();
 
-/** Called by the ranked screens as they enter and leave the pre-fight phases. */
+/** Called by the ranked screens as they enter and leave a match. */
 export const setPrefightMusicActive = (next: boolean): void => {
     if (next === active) {
         return;
@@ -57,20 +57,19 @@ export const draftRoutePrefightMusic = ({
 };
 
 /**
- * What the ranked board view does with the flag: on through placement, off once the fight starts and for a replay
- * (the outcome is decided, so there is no tension to score). While its first snapshot is still loading it leaves the
- * flag as the draft left it (`undefined`), so the track plays straight through the handoff.
+ * What the ranked board view does with the flag: on through placement and the fight. Stopping at the first
+ * turn used to drop the room into silence; the same track just keeps going. A replay stays off. While the
+ * first snapshot is still loading it leaves the flag as the draft left it (`undefined`), so the track plays
+ * straight through the handoff instead of cutting out and starting again.
  */
 export const boardViewPrefightMusic = ({
     replayOnly,
     hasSnapshot,
-    gameStarted,
 }: {
     replayOnly: boolean;
     hasSnapshot: boolean;
-    gameStarted: boolean;
 }): boolean | undefined => {
-    if (replayOnly || gameStarted) {
+    if (replayOnly) {
         return false;
     }
     return hasSnapshot ? true : undefined;
