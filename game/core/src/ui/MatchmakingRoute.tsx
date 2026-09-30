@@ -13,6 +13,7 @@ import { createVsAiGame } from "../api/vs_ai_client";
 import { fetchPublicPlayerStats, type PublicPlayerStats } from "../api/social_client";
 import { tf, useTranslation } from "../i18n/i18n";
 import { searchHeadline } from "./matchmakingHeadlines";
+import { reconcileArenaPopulation, type ArenaPopulation } from "./matchmakingPopulation";
 import { acceptRankedRules, fetchRankedConduct, rulesCardDue, type RankedConduct } from "../api/ranked_conduct_client";
 import { formatAwayClock } from "./exitRules/exitRulesModel";
 import { lockActive, lockClock } from "./exitRules/lockModel";
@@ -237,7 +238,7 @@ export const MatchmakingRoute: React.FC = () => {
     // the compact arena default and opt into this panel with the stats toggle as before.
     const [profileSummaryOpen, setProfileSummaryOpen] = useState(() => isMockPortalEnabled());
     // Players currently on the arena (queue + live games) — polled from the public mm endpoint.
-    const [onlineNow, setOnlineNow] = useState<{ searching: number; playing: number; online: number }>();
+    const [onlineNow, setOnlineNow] = useState<ArenaPopulation>();
     const { currency, snapshot: seasonSnapshot } = useRankedSeason();
     // Only a PLACED player may stake. Treated as "cannot" until the standing actually loads, so the
     // control never flashes into view for a calibrating player on a slow request.
@@ -261,7 +262,7 @@ export const MatchmakingRoute: React.FC = () => {
             try {
                 const response = await fetch(buildApiUrl(HOST_MATCHMAKING_API, endpoints.mm.online));
                 if (!response.ok) return;
-                const data = (await response.json()) as { searching: number; playing: number; online: number };
+                const data = (await response.json()) as ArenaPopulation;
                 if (!cancelled) setOnlineNow(data);
             } catch {
                 // Non-critical decoration — stay silent on failure.
@@ -321,6 +322,7 @@ export const MatchmakingRoute: React.FC = () => {
     // authority — it survives a page reload and a re-queue keeps the original enqueue timestamp — so take
     // whichever start is earlier, with the local one covering the gap before POST /queue answers.
     const isSearching = state === "searching";
+    const displayedPopulation = reconcileArenaPopulation(onlineNow, isSearching ? queueSize : null);
     const queueAddedAtMs = Number(user?.match_making_queue_added_time ?? 0) || 0;
     const searchAnchorMs =
         searchStartedAt > 0 && queueAddedAtMs > 0
@@ -374,7 +376,7 @@ export const MatchmakingRoute: React.FC = () => {
 
         source.onmessage = (event: MatchmakingEvent) => {
             setError("");
-            setQueueSize(typeof event.po === "number" ? event.po : null);
+            setQueueSize(!event.ps && typeof event.po === "number" ? event.po : null);
             setSecondsRemaining(typeof event.r === "number" ? event.r : null);
 
             if (!event.ps) {
@@ -715,6 +717,7 @@ export const MatchmakingRoute: React.FC = () => {
         acceptAttemptRef.current += 1;
         alertedGameIdRef.current = "";
         setOpponentPlayerId("");
+        setQueueSize(null);
         setState("searching");
         closeStream();
         openStream();
@@ -1166,12 +1169,12 @@ export const MatchmakingRoute: React.FC = () => {
                             </Typography>
                             <Stack direction="row" spacing={0.75} alignItems="center">
                                 <ArenaArtReadout />
-                                {onlineNow !== undefined && (
+                                {displayedPopulation !== undefined && (
                                     <Tooltip
                                         title={tf("{online} online · {searching} searching · {playing} in battle", {
-                                            online: onlineNow.online,
-                                            searching: onlineNow.searching,
-                                            playing: onlineNow.playing,
+                                            online: displayedPopulation.online,
+                                            searching: displayedPopulation.searching,
+                                            playing: displayedPopulation.playing,
                                         })}
                                         size="sm"
                                         variant="soft"
@@ -1181,7 +1184,9 @@ export const MatchmakingRoute: React.FC = () => {
                                             direction="row"
                                             spacing={0.7}
                                             alignItems="center"
-                                            aria-label={tf("{count} players online", { count: onlineNow.online })}
+                                            aria-label={tf("{count} players online", {
+                                                count: displayedPopulation.online,
+                                            })}
                                             sx={hocReadoutChipSx}
                                         >
                                             <Box
@@ -1197,7 +1202,7 @@ export const MatchmakingRoute: React.FC = () => {
                                             />
                                             <GroupsRoundedIcon sx={{ color: hocColors.gold, fontSize: 19 }} />
                                             <Typography level="body-sm" sx={{ color: "inherit", fontWeight: 800 }}>
-                                                {onlineNow.online}
+                                                {displayedPopulation.online}
                                             </Typography>
                                             <Typography
                                                 level="body-xs"
