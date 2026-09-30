@@ -3,7 +3,6 @@ import { CREATURE_PORTRAIT_ASSET_KEYS } from "./creaturePortraitAssetKeys";
 import battlefieldEnvironmentAssets from "../animations/battlefieldEnvironmentAssets.json";
 const approvedEnvironmentKeys = new Set(battlefieldEnvironmentAssets.map((asset) => asset.key));
 import { BATTLEFIELD_TEXTURE_KEYS } from "./battlefieldTextureKeys";
-import { preferredRuntimeAnimationAssetKey } from "./creatureAnimationSettings";
 import { isUnitAnimationAtlasKey, isUnitBoardImageKey, isUnitCardImageKey } from "./unitAtlasKeys";
 import { isNamedUnitStateSheetKey } from "./unitStateSheetKeys";
 
@@ -21,10 +20,6 @@ export function isIdleAtlasKey(key: string): boolean {
 
 export function isRedundantFullResolutionUnitAtlasKey(key: string): boolean {
     if (approvedEnvironmentKeys.has(key)) return false;
-    // Lab masters remain available to authoring tools, but gameplay resolves their generated quarter
-    // variants. Exclude the masters from production bundles even when an older per-creature exception
-    // below still names one; keeping both decodes the same animation twice and can exceed GPU limits.
-    if (preferredRuntimeAnimationAssetKey(key) !== key) return true;
     if (/^white_tiger_lab_(idle|walk|hit|death|melee_attack(?:_up|_down)?)_atlas$/.test(key)) return false;
     if (
         key === "manticore_lab_walk_atlas" ||
@@ -359,10 +354,7 @@ const LAZY_PROJECTILE_ASSETS = new Set([
 ]);
 
 export function isLazyProjectileAssetKey(key: string): boolean {
-    // Authored projectile atlases are just as optional as their single-image counterparts. Keep
-    // every resolution out of the blocking core bundle: a missing or cold projectile sheet must
-    // never strand both players on the loading screen before the vector fallback can run.
-    return LAZY_PROJECTILE_ASSETS.has(key) || /_projectile_atlas(?:_(?:half|quarter))?$/.test(key);
+    return LAZY_PROJECTILE_ASSETS.has(key);
 }
 
 const LAZY_COMBAT_EFFECT_ASSETS = new Set([

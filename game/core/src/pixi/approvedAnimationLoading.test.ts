@@ -4,7 +4,6 @@ import {
     animationAtlasPrewarmKeys,
     approvedAnimationAssetKeysForUnit,
     CREATURE_SPRITE_ANIMATION_SETTINGS,
-    preferredRuntimeAnimationAssetKey,
 } from "./creatureAnimationSettings";
 import { preloadIdleAtlasAssets, preloadAnimationAssets } from "./PixiTextureLoader";
 import assets from "../animations/levelOneAssets.json";
@@ -79,14 +78,4 @@ test("production startup leaves approved animations on demand instead of floodin
         Assets.loadBundle = original;
         Object.assign(CREATURE_SPRITE_ANIMATION_SETTINGS, previous);
     }
-});
-
-test("battlefield runtime selects quarter lab atlases while preserving the one missing export", () => {
-    expect(preferredRuntimeAnimationAssetKey("elf_lab_attack_atlas")).toBe("elf_lab_attack_atlas_quarter");
-    expect(preferredRuntimeAnimationAssetKey("medusa_lab_projectile_atlas")).toBe(
-        "medusa_lab_projectile_atlas_quarter",
-    );
-    expect(preferredRuntimeAnimationAssetKey("healer_lab_walk_atlas")).toBe("healer_lab_walk_atlas");
-    expect(preferredRuntimeAnimationAssetKey("wolf_walk_atlas_half")).toBe("wolf_walk_atlas_half");
-    expect(approvedAnimationAssetKeysForUnit("Dryad").every((key) => !key.endsWith("_atlas"))).toBe(true);
 });

@@ -373,10 +373,6 @@ describe("pixi texture bundle split", () => {
             expect(lazyProjectileAssets[key]).toBeDefined();
             expect(core[key]).toBeUndefined();
         }
-        // PR animation packages can land before their local art export. Classification must already keep
-        // those optional sheets out of core, without making this test depend on the untracked image build.
-        expect(isLazyProjectileAssetKey("medusa_lab_projectile_atlas")).toBe(true);
-        expect(isLazyProjectileAssetKey("medusa_lab_projectile_atlas_quarter")).toBe(true);
     });
 
     test("loads large optional fight art only when its surface first appears", () => {

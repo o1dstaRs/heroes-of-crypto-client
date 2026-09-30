@@ -172,10 +172,6 @@ test("a slow base portrait does not enqueue combat sheets before the creature ca
     expect(requests.some((key) => key.includes("_attack_"))).toBe(false);
     baseAvailable = true;
     unit.ensureVisual(root, grid);
-    expect(requests).toContain("peasant_idle_red_atlas_quarter");
-    expect(requests).not.toContain("peasant_walk_atlas_quarter");
-    expect(requests).not.toContain("peasant_attack_down_atlas_quarter");
-    unit.setActiveTurn(true);
     expect(requests).toContain("peasant_walk_atlas_quarter");
     expect(requests).toContain("peasant_attack_down_atlas_quarter");
     expect(requests.some((key) => key.startsWith("wolf_"))).toBe(false);
