@@ -113,6 +113,7 @@ import { ButtonProvider } from "./context/ButtonContext";
 import { GameCornerExitButton, GameCornerSlot } from "./GameCornerExit";
 import { useBoardMirrored } from "./useBoardMirrored";
 import { startVisibleInterval } from "./visibleInterval";
+import { isOlderRankedSnapshot, waitForRankedPlayback } from "./rankedSnapshotSync";
 import { eventStreamRetryDelayMs } from "./eventStreamRetry";
 import { dragObserverPanelOffset, type PanelOffset } from "./observerPanelDrag";
 import { SpectatorContext, ViewerTeamContext } from "./context/ViewerTeamContext";
@@ -412,7 +413,12 @@ export const RankedGameView: React.FC<Props> = ({
     const forceBoardRebuildRef = useRef(false);
 
     const applySnapshot = useCallback(
-        (nextSnapshot: PlaySnapshot, options?: { skipBoardRebuild?: boolean; forceBoardRebuild?: boolean }) => {
+        (
+            nextSnapshot: PlaySnapshot,
+            options?: { skipBoardRebuild?: boolean; forceBoardRebuild?: boolean; replayRewind?: boolean },
+        ) => {
+            if (nextSnapshot.gameId !== gameId) return;
+            if (!options?.replayRewind && isOlderRankedSnapshot(nextSnapshot, snapshotRef.current)) return;
             const continuedMoveUnitId = pendingMoveFollowUpUnitIdRef.current;
             if (continuedMoveUnitId && nextSnapshot.currentUnitId !== continuedMoveUnitId) {
                 pendingMoveFollowUpUnitIdRef.current = undefined;
@@ -428,7 +434,7 @@ export const RankedGameView: React.FC<Props> = ({
             snapshotRef.current = nextSnapshot;
             setSnapshot(nextSnapshot);
         },
-        [],
+        [gameId],
     );
     const toSceneSnapshot = useCallback(
         (playSnapshot: PlaySnapshot) =>
@@ -468,11 +474,7 @@ export const RankedGameView: React.FC<Props> = ({
     );
 
     const waitForAuthoritativePlayback = useCallback(async (): Promise<void> => {
-        try {
-            await authoritativePlaybackQueueRef.current;
-        } catch {
-            return;
-        }
+        await waitForRankedPlayback(() => authoritativePlaybackQueueRef.current);
     }, []);
 
     const playAuthoritativeRecordData = useCallback(
@@ -564,9 +566,13 @@ export const RankedGameView: React.FC<Props> = ({
         const nextSnapshot = await fetchRankedPlaySnapshot(gameId);
         // undefined = the game is still drafting (204); there is nothing to reconcile against yet.
         if (nextSnapshot) {
+            // A poll sees the final exchange while we may still be presenting its first blow. Applying
+            // it now can remove a fighter and cancel their animation callback, delaying the next blow
+            // until the replay timeout. Let the exchange settle before reconciling the board and UI.
+            await waitForAuthoritativePlayback();
             applySnapshot(nextSnapshot);
         }
-    }, [applySnapshot, gameId]);
+    }, [applySnapshot, gameId, waitForAuthoritativePlayback]);
 
     const clearReplayTimers = useCallback(() => {
         replayTimersRef.current.forEach(window.clearTimeout);
@@ -626,7 +632,8 @@ export const RankedGameView: React.FC<Props> = ({
         let cancelled = false;
         void (async () => {
             const playedPendingRecords = await drainPendingAuthoritativeRecords(snapshot);
-            if (cancelled) {
+            await waitForAuthoritativePlayback();
+            if (cancelled || snapshotRef.current !== snapshot) {
                 return;
             }
             const forceBoardRebuild = forceBoardRebuildRef.current;
@@ -652,6 +659,7 @@ export const RankedGameView: React.FC<Props> = ({
         selectedUnitId,
         snapshot,
         toSceneSnapshot,
+        waitForAuthoritativePlayback,
     ]);
 
     // Once the match is over the board no longer changes, so the fallback poll stops; a co-op sandbox keeps it
@@ -1417,7 +1425,7 @@ export const RankedGameView: React.FC<Props> = ({
                 const replaySnapshots = withReplayJournalTails(collectRankedReplaySnapshots(replay), replay.journal);
                 const initialSnapshot = replaySnapshots[0] ?? replay.currentSnapshot;
                 if (initialSnapshot) {
-                    applySnapshot(initialSnapshot, { forceBoardRebuild: true });
+                    applySnapshot(initialSnapshot, { forceBoardRebuild: true, replayRewind: true });
                     await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
                 }
 

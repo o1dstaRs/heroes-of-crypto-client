@@ -22,8 +22,9 @@
  * real outage, and reload-looping would only hide it.
  */
 export function installStaleChunkRecovery(): void {
-    window.addEventListener("vite:preloadError", () => {
+    window.addEventListener("vite:preloadError", (event) => {
         if (sessionStorage.getItem("hoc-stale-chunk-reloaded") === "1") return;
+        event.preventDefault();
         sessionStorage.setItem("hoc-stale-chunk-reloaded", "1");
         window.location.reload();
     });

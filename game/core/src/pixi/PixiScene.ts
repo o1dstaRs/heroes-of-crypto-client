@@ -963,6 +963,9 @@ export abstract class PixiScene {
         // The camera and world root survive scene replacement. Their filters do not: Sandbox creates
         // scene-owned cinematic/blur filters, and Container.destroy() only detaches filters without
         // releasing their shader resources.
+        // Screen shake offsets this persistent root. A replacement scene has no record of the old
+        // offset to undo, so an interrupted shake would displace its board for the whole next match.
+        this.pixiApp.getWorldRoot().position.set(0, 0);
         destroyContainerFilters(this.pixiApp.getCamera());
         destroyContainerFilters(this.pixiApp.getWorldRoot());
         // The cursor overlay is another app-owned, persistent camera child. Damage forecasts, kill icons,

@@ -3864,6 +3864,9 @@ export class Sandbox extends PixiScene {
             unit.setPosition(moveEvent.to.x, moveEvent.to.y);
             unit.syncVisual(this.drawer.getUnitsContainer(), this.sc_sceneSettings.getGridSettings());
             this.syncMovedUnitGridOccupancy(unit, moveEvent);
+            if (fireWallBurn) {
+                this.playFireWallCrossingVfx(unit, worldPath, 0, fireWallBurn);
+            }
             return Promise.resolve(true);
         }
 
@@ -3892,6 +3895,9 @@ export class Sandbox extends PixiScene {
                         this.setOpponentMoveIntent(undefined);
                     }
                     this.syncMovedUnitGridOccupancy(unit, moveEvent);
+                    if (fireWallBurn && unit.canFly()) {
+                        this.playFireWallCrossingVfx(unit, worldPath.slice(-1), speed, fireWallBurn);
+                    }
                     resolve(true);
                 },
                 rapidCharge,
@@ -3902,7 +3908,7 @@ export class Sandbox extends PixiScene {
                     resolve(false);
                 },
             );
-            if (fireWallBurn) {
+            if (fireWallBurn && !unit.canFly()) {
                 this.playFireWallCrossingVfx(unit, worldPath, speed, fireWallBurn);
             }
             this.isActiveUnitMoving = true;
@@ -3948,6 +3954,8 @@ export class Sandbox extends PixiScene {
      * it from, before the walk was even drawn. Shared by every path that animates a move (live sandbox
      * moves, replay and ranked move records, the walk into a melee strike): each pulls the burn out of its
      * event batch with takeFireWallBurn and hands it here alongside the animation it just started.
+     * Flyers trigger this on arrival with the final world point, so no flame or damage number appears
+     * while they are airborne, including large bodies and accelerating attack approaches.
      */
     private playFireWallCrossingVfx(
         unit: RenderableUnit,
@@ -12995,6 +13003,9 @@ export class Sandbox extends PixiScene {
         const moveSpeed = cellSize * Sandbox.MOVE_SPEED_FACTOR; // Adjusted speed based on user feedback (was 12)
 
         const handleMoveComplete = (): void => {
+            if (fireWallBurn && unit.canFly()) {
+                this.playFireWallCrossingVfx(unit, worldPath.slice(-1), moveSpeed, fireWallBurn);
+            }
             if (onComplete) {
                 onComplete();
             } else {
@@ -13013,7 +13024,7 @@ export class Sandbox extends PixiScene {
             rapidCharge,
             onCancel,
         );
-        if (fireWallBurn) {
+        if (fireWallBurn && !unit.canFly()) {
             this.playFireWallCrossingVfx(unit, worldPath, moveSpeed, fireWallBurn);
         }
 

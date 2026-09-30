@@ -119,6 +119,9 @@ body,
 #root {
     width: 100vw;
     height: 100vh;
+    // Browser elastic overscroll moves the canvas beneath fixed sidebars, hiding battlefield units.
+    // Sidebar wells still scroll normally; an exhausted scroll must not displace the game viewport.
+    overscroll-behavior: none;
     margin: 0;
     padding: 0;
     font-family: var(--hoc-font-ui);
