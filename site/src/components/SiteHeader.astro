@@ -14,6 +14,8 @@ const mainNavigationLabel = lang === "ru" ? "Основная навигация
 const playHref = lang === "ru" ? "/ru/play/" : links.play;
 const profileHref = lang === "ru" ? "/ru/profile/" : "/profile/";
 const knowledgeBaseHref = localPath(lang, "knowledge-base");
+const searchLabel = lang === "ru" ? "Поиск" : "Search";
+const languageMenuLabel = lang === "ru" ? "Выбрать язык" : "Choose language";
 const navItems = [
     { label: copy.nav.game, href: localPath(lang, "game") },
     { label: copy.nav.knowledgeBase, href: knowledgeBaseHref },
@@ -35,7 +37,6 @@ const legacyKnowledgePaths = new Set(
     <div class="brand-lockup">
         <a class="brand" href={localPath(lang, "game")} aria-label="Heroes of Crypto">
             <img src="/assets/images/home/logo/hocai_logo_96.png" alt="" width="32" height="32" />
-            <span>Heroes of Crypto</span>
         </a>
         <a class="version-badge" href={localPath(lang, "patches")} aria-label={`${copy.nav.patches} ${versionLabel}`}>
             {versionLabel}
@@ -58,39 +59,65 @@ const legacyKnowledgePaths = new Set(
                 );
             })
         }
-        <span class="nav-language" aria-label={copy.ui.language}>
-            <a class:list={["language-option", { active: lang === "en" }]} href={languageSwitchPath(currentPath, "en")}>
-                {copy.ui.english}
-            </a>
-            <a class:list={["language-option", { active: lang === "ru" }]} href={languageSwitchPath(currentPath, "ru")}>
-                {copy.ui.russian}
-            </a>
-        </span>
     </nav>
 
     <div class="header-actions">
-        <a class="header-start header-start-primary" href={playHref} aria-label={copy.play.startLabel}>
-            <img src="/assets/icons/navbar/joystick.svg" alt="" width="17" height="17" />
+        <a class="nav-link header-start header-play-button" href={playHref} aria-label={copy.play.startLabel}>
             <span>{copy.play.startCta}</span>
         </a>
-        <a class="header-login-link" data-auth-login href={`${localPath(lang, "home")}auth/login/`}>
-            {copy.nav.login}
+        <a class="header-icon-button header-search-link" href={`${knowledgeBaseHref}#kb-search`} aria-label={searchLabel} title={searchLabel}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="10.8" cy="10.8" r="6.7"></circle>
+                <path d="m16 16 4.2 4.2"></path>
+            </svg>
+        </a>
+        <a
+            class="header-icon-button header-login-link"
+            data-auth-login
+            href={`${localPath(lang, "home")}auth/login/`}
+            aria-label={copy.nav.login}
+            title={copy.nav.login}
+        >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="7.4" r="3.6"></circle>
+                <path d="M5.7 20c.5-4 2.6-6.2 6.3-6.2s5.8 2.2 6.3 6.2"></path>
+            </svg>
         </a>
         <div class="header-account" data-auth-account hidden>
-            <a class="header-account-name" data-auth-username href={profileHref} aria-label={copy.nav.profile}>
-                Account
+            <a class="header-icon-button header-account-name" href={profileHref} aria-label={copy.nav.profile}>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="12" cy="7.4" r="3.6"></circle>
+                    <path d="M5.7 20c.5-4 2.6-6.2 6.3-6.2s5.8 2.2 6.3 6.2"></path>
+                </svg>
+                <span class="sr-only" data-auth-username>Account</span>
             </a>
             <button type="button" class="header-logout" data-auth-logout data-logout-redirect={localPath(lang, "home")}>
                 {copy.nav.logout}
             </button>
         </div>
-        <div class="language-switcher" aria-label={copy.ui.language}>
-            <a class:list={["language-option", { active: lang === "en" }]} href={languageSwitchPath(currentPath, "en")}>
-                {copy.ui.english}
-            </a>
-            <a class:list={["language-option", { active: lang === "ru" }]} href={languageSwitchPath(currentPath, "ru")}>
-                {copy.ui.russian}
-            </a>
+        <div class="header-language" data-language-menu>
+            <div class="language-drawer" id="header-language-drawer" data-language-drawer aria-hidden="true">
+                <a class:list={["language-option", { active: lang === "en" }]} href={languageSwitchPath(currentPath, "en")}>
+                    {copy.ui.english}
+                </a>
+                <a class:list={["language-option", { active: lang === "ru" }]} href={languageSwitchPath(currentPath, "ru")}>
+                    {copy.ui.russian}
+                </a>
+            </div>
+            <button
+                type="button"
+                class="header-icon-button language-toggle"
+                data-language-toggle
+                aria-label={languageMenuLabel}
+                aria-controls="header-language-drawer"
+                aria-expanded="false"
+                title={languageMenuLabel}
+            >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="12" cy="12" r="8.3"></circle>
+                    <path d="M3.9 12h16.2M12 3.7c2.2 2.3 3.3 5 3.3 8.3S14.2 18 12 20.3M12 3.7C9.8 6 8.7 8.7 8.7 12s1.1 6 3.3 8.3"></path>
+                </svg>
+            </button>
         </div>
     </div>
 </header>
@@ -102,20 +129,119 @@ const legacyKnowledgePaths = new Set(
     const account = document.querySelector<HTMLElement>("[data-auth-account]");
     const usernameEl = document.querySelector<HTMLElement>("[data-auth-username]");
     const logoutBtn = document.querySelector<HTMLButtonElement>("[data-auth-logout]");
+    const languageMenu = document.querySelector<HTMLElement>("[data-language-menu]");
+    const languageDrawer = document.querySelector<HTMLElement>("[data-language-drawer]");
+    const languageToggle = document.querySelector<HTMLButtonElement>("[data-language-toggle]");
+
+    const setLanguageMenuOpen = (open: boolean) => {
+        languageMenu?.classList.toggle("is-open", open);
+        languageToggle?.setAttribute("aria-expanded", String(open));
+        languageDrawer?.setAttribute("aria-hidden", String(!open));
+    };
+
+    languageToggle?.addEventListener("click", () => {
+        setLanguageMenuOpen(languageToggle.getAttribute("aria-expanded") !== "true");
+    });
+
+    document.addEventListener("click", (event) => {
+        if (languageMenu && !languageMenu.contains(event.target as Node)) setLanguageMenuOpen(false);
+    });
+
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") setLanguageMenuOpen(false);
+    });
 
     logoutBtn?.addEventListener("click", () => logout(logoutBtn.dataset.logoutRedirect || "/"));
 
     onAuthStateChange(() => {
         const loggedIn = isLoggedIn();
-        if (usernameEl && loggedIn) usernameEl.textContent = displayName(getAuthUser());
+        if (usernameEl && loggedIn) {
+            const name = displayName(getAuthUser());
+            usernameEl.textContent = name;
+            usernameEl.closest("a")?.setAttribute("title", name);
+        }
         if (loginLink) loginLink.hidden = loggedIn;
         if (account) account.hidden = !loggedIn;
     });
 </script>
 
 <style>
+    .nav-link {
+        font-size: 1.0465rem;
+    }
+
+    .version-badge {
+        font-size: 0.897rem;
+    }
+
+    .main-nav .nav-link.active {
+        border-color: transparent;
+        background: transparent;
+        color: var(--gold-soft, #f4d58a);
+        box-shadow: none;
+        text-shadow: 0 0 12px rgba(239, 178, 70, 0.58);
+    }
+
+    .header-actions .header-play-button {
+        min-height: 38px;
+        padding: 8px 15px;
+        border-color: rgba(220, 177, 88, 0.42);
+        background: linear-gradient(180deg, rgba(122, 68, 5, 0.38), rgba(45, 24, 5, 0.5));
+        color: var(--gold-soft, #f4d58a);
+        box-shadow:
+            inset 0 0 11px rgba(255, 143, 0, 0.08),
+            0 0 14px rgba(141, 73, 15, 0.1);
+    }
+
+    .header-actions .header-play-button:hover,
+    .header-actions .header-play-button:focus-visible {
+        border-color: rgba(229, 184, 93, 0.72);
+        background: linear-gradient(180deg, rgba(142, 79, 8, 0.52), rgba(52, 27, 5, 0.62));
+        color: #ffe2a0;
+    }
+
+    .header-icon-button {
+        display: inline-flex;
+        flex: 0 0 auto;
+        align-items: center;
+        justify-content: center;
+        width: 38px;
+        height: 38px;
+        padding: 0;
+        border: 1px solid transparent;
+        border-radius: 50%;
+        background: transparent;
+        color: rgba(239, 228, 204, 0.7);
+        transition:
+            color 0.18s ease,
+            border-color 0.18s ease,
+            background 0.18s ease,
+            box-shadow 0.18s ease;
+    }
+
+    .header-icon-button svg {
+        width: 23px;
+        height: 23px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.65;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+
+    .header-icon-button:hover,
+    .header-icon-button:focus-visible,
+    .header-language.is-open .language-toggle {
+        border-color: rgba(220, 177, 88, 0.34);
+        background: rgba(91, 49, 10, 0.24);
+        color: var(--gold-soft, #f4d58a);
+        box-shadow:
+            inset 0 0 12px rgba(255, 143, 0, 0.08),
+            0 0 14px rgba(168, 91, 25, 0.14);
+    }
+
     .header-login-link {
-        min-width: 88px;
+        min-width: 38px;
     }
 
     /* The login link is display:inline-flex (global.css), which overrides the plain [hidden] attribute
@@ -137,15 +263,42 @@ const legacyKnowledgePaths = new Set(
     }
 
     .header-account-name {
-        max-width: 160px;
-        overflow: hidden;
         color: var(--gold, #f2c75d);
-        font-family: var(--hoc-font-display, "HoC Forge", serif);
-        font-synthesis: none;
-        font-weight: 400;
-        letter-spacing: 0.055em;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+    }
+
+    .header-language {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+    }
+
+    .language-drawer {
+        display: inline-grid;
+        grid-template-columns: repeat(2, 43px);
+        max-width: 0;
+        margin-right: 0;
+        overflow: hidden;
+        border: 1px solid transparent;
+        border-radius: 3px;
+        background: rgba(10, 7, 5, 0.92);
+        opacity: 0;
+        transform: translateX(12px);
+        pointer-events: none;
+        transition:
+            max-width 0.24s ease,
+            margin-right 0.24s ease,
+            border-color 0.18s ease,
+            opacity 0.18s ease,
+            transform 0.24s ease;
+    }
+
+    .header-language.is-open .language-drawer {
+        max-width: 92px;
+        margin-right: 6px;
+        border-color: var(--line, rgba(112, 75, 42, 0.46));
+        opacity: 1;
+        transform: translateX(0);
+        pointer-events: auto;
     }
 
     .header-logout {
@@ -169,20 +322,30 @@ const legacyKnowledgePaths = new Set(
     }
 
     @media (max-width: 720px) {
-        .header-login-link {
-            display: none;
+        .nav-link {
+            font-size: 1.0005rem;
         }
 
-        .header-account-name {
-            display: none;
+        .version-badge {
+            font-size: 0.851rem;
         }
 
-        .header-start-primary {
+        .header-icon-button {
+            width: 34px;
+            height: 34px;
+        }
+
+        .header-icon-button svg {
+            width: 21px;
+            height: 21px;
+        }
+
+        .header-actions .header-play-button {
             display: inline-flex;
             min-height: 34px;
             max-width: none;
             padding: 8px 12px;
-            font-size: 0.84rem;
+            font-size: 0.966rem;
         }
     }
 </style>
