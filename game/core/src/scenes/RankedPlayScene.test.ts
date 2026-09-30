@@ -782,10 +782,10 @@ describe("ranked placement scene state", () => {
         expect(descriptionFor(6, 4)).not.toContain("{}");
     });
 
-    test("prints Magic Reflection's stack-scaled chance, not the config's full-stack 75", () => {
+    test("prints Magic Reflection's stack-scaled share, not the config's full-stack 75", () => {
         // The card is built from static config, which only knows the FULL-stack figure. A depleted or
-        // unlucky dragon rebounds at a different rate, and the card has to say so -- it advertised a flat
-        // 75% while the engine rolled 30%.
+        // unlucky dragon returns a different share, and the card has to say so -- it advertised a flat
+        // 75% while the engine charged the caster 30%.
         const descriptionFor = (stackPower: number, luck: number): string => {
             const state = authoritativeSnapshotToSandboxSceneState(
                 placementSnapshot([
@@ -805,11 +805,11 @@ describe("ranked placement scene state", () => {
             return properties?.abilities_descriptions[index] ?? "";
         };
 
-        expect(descriptionFor(1, 0)).toContain("15% of the time");
-        expect(descriptionFor(3, 0)).toContain("45% of the time");
-        expect(descriptionFor(5, 0)).toContain("75% of the time");
-        expect(descriptionFor(5, 10)).toContain("85% of the time");
-        expect(descriptionFor(2, 5)).toContain("35% of the time");
+        expect(descriptionFor(1, 0)).toContain("caster takes 15%");
+        expect(descriptionFor(3, 0)).toContain("caster takes 45%");
+        expect(descriptionFor(5, 0)).toContain("caster takes 75%");
+        expect(descriptionFor(5, 10)).toContain("caster takes 85%");
+        expect(descriptionFor(2, 5)).toContain("caster takes 35%");
     });
 
     test("prints Chakram's live total-target limit for native and stolen cards", () => {

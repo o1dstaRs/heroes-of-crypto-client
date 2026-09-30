@@ -440,7 +440,7 @@ export class PixiRenderableSpell extends Spell {
             };
         }
         // Magic Mirror and Mass Magic Mirror reflect a flat share of the buff's power (40 / 32), not a
-        // stack-scaled chance — that scaling belongs to the Magic Dragon's Magic Reflection ability.
+        // stack-scaled share — that scaling belongs to the Magic Dragon's Magic Reflection ability.
         // Tome of Amplification raises the stored power (40 → 60, 32 → 48). getMagicMirrorPower floors it.
         if (this.getName() === "Magic Mirror" || this.getName() === "Mass Magic Mirror") {
             const reflected = Math.max(0, Math.min(100, Math.floor(this.shownBuffPower(casterTomeBuffPercentage))));

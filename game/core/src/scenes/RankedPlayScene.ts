@@ -901,7 +901,7 @@ const getUnitPropertiesFromAuthoritativeState = (
                             }
                             // Magic Reflection scales with the stack and the holder's luck, but the config
                             // carries only the full-stack figure, so the card advertised a flat 75% while a
-                            // depleted dragon actually rebounded at 30%.
+                            // depleted dragon actually returns 30% of the damage it is hit with.
                             return {
                                 ...ability,
                                 description: magicReflectionDescription(

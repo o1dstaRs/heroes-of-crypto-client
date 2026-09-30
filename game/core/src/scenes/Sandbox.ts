@@ -9683,8 +9683,8 @@ export class Sandbox extends PixiScene {
      * resolveSpellVictims adds the CASTER as an extra victim for every rebounding target, so aiming a spell at
      * a mirrored unit (or dropping a meteor on one) costs the caster a hit it was never warned about. Both
      * ends of the number come from the engine's own projection: the reflected share and the damage after the
-     * CASTER's element, magic resistance and Water Shield. Spell buffs are guaranteed; Magic Reflection's
-     * advertised share is also its proc chance.
+     * CASTER's element, magic resistance and Water Shield. Every mirror — spell buff and Magic Reflection
+     * alike — returns that share deterministically, mdef-style; the preview and the cast can never disagree.
      *
      * Undefined when nothing on the board can rebound this cast, which is the overwhelmingly common case.
      */
@@ -9729,9 +9729,9 @@ export class Sandbox extends PixiScene {
      * Label the caster with what this cast would cost IT, when any creature it touches carries a Magic Mirror
      * spell buff or Magic Reflection. Drawn over the caster because that is where the damage lands.
      *
-     * Stated as "-90 (45% rebound)": the price and reflected share. For Magic Reflection that share is also
-     * the proc chance; Magic Mirror and Mass Magic Mirror always return it. Silence here read as "this cast
-     * is free", which is exactly what a mirror punishes.
+     * Stated as "-90 (45% rebound)": the price and the strongest reflected share. Every mirror returns its
+     * share on every cast — an amount, like magic resistance, never a roll — so the label is a promise the
+     * engine keeps. Silence here read as "this cast is free", which is exactly what a mirror punishes.
      */
     private drawSpellReboundPreview(
         spell: Spell,
