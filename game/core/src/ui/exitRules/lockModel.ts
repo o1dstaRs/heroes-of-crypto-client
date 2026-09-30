@@ -20,6 +20,34 @@ export const lockClock = (untilMs: number, nowMs: number): string => {
 export const lockActive = (lock: RankedConductLock | null | undefined, nowMs: number): lock is RankedConductLock =>
     !!lock && lock.until > nowMs;
 
+export const temporaryRestrictionText = (
+    untilMs: number,
+    nowMs: number,
+    language: string,
+    durationMs?: number,
+): string => {
+    const date = new Intl.DateTimeFormat(language === "ru" ? "ru-RU" : "en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        second: "2-digit",
+        timeZoneName: "short",
+    }).format(untilMs);
+    const countdown = lockClock(untilMs, nowMs);
+    return durationMs && durationMs > 0
+        ? tf("Temporary: {duration} total, {time} remaining. Automatically ends {date}.", {
+              duration: lockClock(durationMs, 0),
+              time: countdown,
+              date,
+          })
+        : tf("Temporary: {time} remaining. Automatically ends {date}.", { time: countdown, date });
+};
+
+export const indefiniteSuspensionText = (): string =>
+    t("Indefinite ranked suspension: no automatic expiry. Support must lift it before you can play ranked again.");
+
 export const lockLengthText = (level: 1 | 2 | 3): string =>
     level === 1 ? t("24 hours") : level === 2 ? t("7 days") : t("30 days");
 

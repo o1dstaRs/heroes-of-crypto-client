@@ -45,6 +45,7 @@ export const ExitMatchDialog: React.FC<ExitMatchDialogProps> = ({
 }) => {
     useTranslation();
     const lockRules = useRankedExitRules();
+    const penaltiesOn = lockRules?.leavePenaltiesEnabled !== false;
     const [rulesOpen, setRulesOpen] = useState(false);
     const dangerous = outcome === "abandon" || outcome === "unscored";
 
@@ -101,13 +102,19 @@ export const ExitMatchDialog: React.FC<ExitMatchDialogProps> = ({
                                 <Typography component="li" level="body-sm" textColor={hocColors.mutedStrong}>
                                     {t("You take the loss, at full rating")}
                                 </Typography>
+                                {penaltiesOn && (
+                                    <Typography component="li" level="body-sm" textColor={hocColors.mutedStrong}>
+                                        {t("You wait 5 minutes before you can queue ranked again")}
+                                    </Typography>
+                                )}
                                 <Typography component="li" level="body-sm" textColor={hocColors.mutedStrong}>
-                                    {t("You wait 5 minutes before you can queue ranked again")}
-                                </Typography>
-                                <Typography component="li" level="body-sm" textColor={hocColors.mutedStrong}>
-                                    {lockRules?.lockRulesEnforced
-                                        ? t("2 abandons in a row lock ranked for 24 hours, 3 in a row for 7 days")
-                                        : t("3 abandons in a row suspend your ranked play")}
+                                    {!penaltiesOn
+                                        ? t("Ranked suspensions and leave cooldowns are disabled on this server.")
+                                        : lockRules?.lockRulesEnforced
+                                          ? t("2 abandons in a row lock ranked for 24 hours, 3 in a row for 7 days")
+                                          : t(
+                                                "3 abandons in a row suspend ranked indefinitely until support lifts the suspension.",
+                                            )}
                                 </Typography>
                             </Stack>
                         )}

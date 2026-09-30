@@ -23,16 +23,24 @@ export const RankedRulesCard: React.FC<{
 }> = ({ open, rules, busy = false, error, onAccept, onClose }) => {
     useTranslation();
     const [fullRulesOpen, setFullRulesOpen] = useState(false);
-    const locksOn = useRankedExitRules()?.lockRulesEnforced === true;
+    const published = useRankedExitRules();
+    const locksOn = published?.lockRulesEnforced === true;
+    const penaltiesOn = published?.leavePenaltiesEnabled !== false;
     const points = [
-        t(
-            "Leave once half the board's XP is destroyed and it's an ordinary loss. Leave before that and it's an Abandon: a loss, and a 5-minute wait before your next ranked search.",
-        ),
+        penaltiesOn
+            ? t(
+                  "Leave once half the board's XP is destroyed and it's an ordinary loss. Leave before that and it's an Abandon: a loss, and a 5-minute wait before your next ranked search.",
+              )
+            : t(
+                  "Leave once half the board's XP is destroyed and it's an ordinary loss. Leave before that and it's an Abandon: a loss.",
+              ),
         t("If you abandon during your calibration matches, the match is unscored for both players."),
         t("You have 5 minutes of away time per match. While you're away, your units only wait or defend."),
-        locksOn
-            ? t("2 abandons in a row lock ranked for 24 hours, 3 in a row for 7 days. You can appeal a lock.")
-            : t("3 abandons in a row suspend your ranked play."),
+        !penaltiesOn
+            ? t("Ranked suspensions and leave cooldowns are disabled on this server.")
+            : locksOn
+              ? t("2 abandons in a row lock ranked for 24 hours, 3 in a row for 7 days. You can appeal a lock.")
+              : t("3 abandons in a row suspend ranked indefinitely until support lifts the suspension."),
     ];
     return (
         <>

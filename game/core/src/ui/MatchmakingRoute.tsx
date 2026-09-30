@@ -16,7 +16,7 @@ import { searchHeadline } from "./matchmakingHeadlines";
 import { reconcileArenaPopulation, type ArenaPopulation } from "./matchmakingPopulation";
 import { acceptRankedRules, fetchRankedConduct, rulesCardDue, type RankedConduct } from "../api/ranked_conduct_client";
 import { formatAwayClock } from "./exitRules/exitRulesModel";
-import { lockActive, lockClock } from "./exitRules/lockModel";
+import { indefiniteSuspensionText, lockActive, lockClock, temporaryRestrictionText } from "./exitRules/lockModel";
 import { RankedLockPanel } from "./exitRules/RankedLockPanel";
 import { RankedRulesCard } from "./exitRules/RankedRulesCard";
 import { markVsAiGame } from "../utils/aiOpponent";
@@ -302,21 +302,25 @@ export const MatchmakingRoute: React.FC = () => {
     // instead of a bare "connection aborted" so the player knows why they can't search and for how long.
     const [nowMs, setNowMs] = useState(() => Date.now());
     const cooldownTill = Number(user?.match_making_cooldown_till ?? 0) || 0;
-    const penaltySeconds = cooldownTill > nowMs ? Math.ceil((cooldownTill - nowMs) / 1000) : 0;
-    const penalized = penaltySeconds > 0;
     // Exit rules: the player's own conduct record (the wait after an abandon) and whether the ranked rules card is due.
-    // The cooldown arrives in server time and is kept on this clock, so a skewed device clock can't shorten it.
+    // Keep the server's expiry timestamps intact and compare them against its clock, so countdowns and expiry labels agree.
     const [conduct, setConduct] = useState<RankedConduct | undefined>();
+    const [conductClockOffsetMs, setConductClockOffsetMs] = useState(0);
     const [rulesCardOpen, setRulesCardOpen] = useState(false);
     const [rulesCardBusy, setRulesCardBusy] = useState(false);
     const [rulesCardError, setRulesCardError] = useState("");
     // Set when the card is acknowledged, so the search that follows doesn't reopen it before the new state renders.
     const rulesAcknowledgedRef = useRef(false);
     const abandonCooldownUntil = conduct?.abandonCooldownUntil ?? 0;
-    const abandonCooldownMs = Math.max(0, abandonCooldownUntil - nowMs);
+    const conductNowMs = nowMs + conductClockOffsetMs;
+    const penaltySeconds = cooldownTill > conductNowMs ? Math.ceil((cooldownTill - conductNowMs) / 1000) : 0;
+    const penalized = penaltySeconds > 0;
+    const abandonCooldownMs = Math.max(0, abandonCooldownUntil - conductNowMs);
     const abandonCooling = abandonCooldownMs > 0;
-    // Timed locks (phase 3): the lock in force, on the local clock (refreshConduct shifts it like the cooldown).
-    const rankedLock = lockActive(conduct?.lock, nowMs) ? (conduct?.lock ?? null) : null;
+    // Timed locks (phase 3): compare the lock's expiry against the server clock, like the cooldown.
+    const rankedLock = lockActive(conduct?.lock, conductNowMs) ? (conduct?.lock ?? null) : null;
+    const rankedSuspended = conduct?.suspended === true;
+    const rankedRestricted = rankedSuspended || !!rankedLock || abandonCooling;
 
     // How long we have been looking for an opponent. The server's match_making_queue_added_time is the
     // authority — it survives a page reload and a re-queue keeps the original enqueue timestamp — so take
@@ -576,26 +580,25 @@ export const MatchmakingRoute: React.FC = () => {
 
     const refreshConduct = useCallback(() => {
         void fetchRankedConduct()
-            .then((next) =>
-                setConduct({
-                    ...next,
-                    abandonCooldownUntil:
-                        next.abandonCooldownUntil > next.serverTimeMs
-                            ? Date.now() + (next.abandonCooldownUntil - next.serverTimeMs)
-                            : 0,
-                    lock: next.lock
-                        ? { ...next.lock, until: Date.now() + (next.lock.until - next.serverTimeMs) }
-                        : null,
-                }),
-            )
+            .then((next) => {
+                setConductClockOffsetMs(next.serverTimeMs - Date.now());
+                setConduct(next);
+            })
             .catch(() => undefined);
     }, []);
     useEffect(() => {
         refreshConduct();
     }, [refreshConduct]);
+    useEffect(() => {
+        if (!rankedRestricted) {
+            return undefined;
+        }
+        const interval = window.setInterval(refreshConduct, 15_000);
+        return () => window.clearInterval(interval);
+    }, [rankedRestricted, refreshConduct]);
 
     // Tick while the queue timer runs or a penalty is active; the penalty tick stops once it elapses.
-    const waitUntil = Math.max(cooldownTill, abandonCooldownUntil, conduct?.lock?.until ?? 0);
+    const waitUntil = Math.max(cooldownTill, abandonCooldownUntil, conduct?.lock?.until ?? 0) - conductClockOffsetMs;
     useEffect(() => {
         if (!isSearching && waitUntil <= Date.now()) {
             return undefined;
@@ -651,11 +654,14 @@ export const MatchmakingRoute: React.FC = () => {
         if (needsActivation) {
             return t("Email verification required");
         }
+        if (rankedSuspended) {
+            return t("Ranked suspended indefinitely");
+        }
         if (penalized) {
             return tf("Match not accepted — search again in {seconds}s", { seconds: penaltySeconds });
         }
         if (rankedLock) {
-            return tf("Ranked locked · {time}", { time: lockClock(rankedLock.until, nowMs) });
+            return tf("Ranked locked · {time}", { time: lockClock(rankedLock.until, conductNowMs) });
         }
         if (abandonCooling) {
             return tf("You abandoned a ranked match — search again in {time}", {
@@ -687,8 +693,9 @@ export const MatchmakingRoute: React.FC = () => {
     }, [
         abandonCooldownMs,
         abandonCooling,
-        nowMs,
+        conductNowMs,
         rankedLock,
+        rankedSuspended,
         needsActivation,
         penalized,
         penaltySeconds,
@@ -699,7 +706,14 @@ export const MatchmakingRoute: React.FC = () => {
     ]);
 
     const handleStart = async () => {
-        if (needsActivation || penalized || abandonCooling || rankedLock || aiStartInFlightRef.current) {
+        if (
+            needsActivation ||
+            penalized ||
+            abandonCooling ||
+            rankedLock ||
+            rankedSuspended ||
+            aiStartInFlightRef.current
+        ) {
             return;
         }
         // Before a player's first ranked search (and after the rules change), the rules card explains how leaving counts.
@@ -894,7 +908,8 @@ export const MatchmakingRoute: React.FC = () => {
         state === "searching" || state === "confirming" || state === "accepted" || state === "starting-ai";
     const shortGameId =
         pendingGameId.length > 16 ? `${pendingGameId.slice(0, 8)}…${pendingGameId.slice(-5)}` : pendingGameId;
-    const showStatusPresentation = state !== "idle" || needsActivation || penalized || abandonCooling || !!rankedLock;
+    const showStatusPresentation =
+        state !== "idle" || needsActivation || penalized || abandonCooling || !!rankedLock || rankedSuspended;
     const presentation = (() => {
         if (needsActivation) {
             return {
@@ -904,20 +919,33 @@ export const MatchmakingRoute: React.FC = () => {
                 description: t("Activate your account to unlock ranked matchmaking and practice battles."),
             };
         }
+        if (rankedSuspended) {
+            return {
+                accent: hocColors.danger,
+                eyebrow: t("RANKED SUSPENDED"),
+                headline: t("Ranked suspended indefinitely"),
+                description: indefiniteSuspensionText(),
+            };
+        }
         if (penalized) {
             return {
                 accent: hocColors.danger,
                 eyebrow: t("QUEUE COOLDOWN"),
                 headline: tf("Search unlocks in {seconds}s", { seconds: penaltySeconds }),
-                description: t("Ranked matches must be accepted in time. The queue will reopen automatically."),
+                description: temporaryRestrictionText(cooldownTill, conductNowMs, language),
             };
         }
         if (rankedLock) {
             return {
                 accent: hocColors.danger,
                 eyebrow: t("RANKED LOCKED"),
-                headline: tf("Ranked locked · {time}", { time: lockClock(rankedLock.until, nowMs) }),
-                description: t("vs AI, sandbox and casual lobbies stay open."),
+                headline: tf("Ranked locked · {time}", { time: lockClock(rankedLock.until, conductNowMs) }),
+                description: temporaryRestrictionText(
+                    rankedLock.until,
+                    conductNowMs,
+                    language,
+                    rankedLock.until - rankedLock.startedAt,
+                ),
             };
         }
         if (abandonCooling) {
@@ -925,7 +953,12 @@ export const MatchmakingRoute: React.FC = () => {
                 accent: hocColors.danger,
                 eyebrow: t("RANKED COOLDOWN"),
                 headline: tf("Ranked search reopens in {time}", { time: formatAwayClock(abandonCooldownMs) }),
-                description: t("You abandoned your last ranked match. Casual lobbies and vs-AI games are open."),
+                description: temporaryRestrictionText(
+                    abandonCooldownUntil,
+                    conductNowMs,
+                    language,
+                    conduct?.rules.abandonCooldownMs,
+                ),
             };
         }
         if (state === "searching") {
@@ -1723,12 +1756,16 @@ export const MatchmakingRoute: React.FC = () => {
                                         fullWidth
                                         variant="solid"
                                         disabled={
-                                            state === "starting-ai" || penalized || abandonCooling || !!rankedLock
+                                            state === "starting-ai" ||
+                                            penalized ||
+                                            abandonCooling ||
+                                            !!rankedLock ||
+                                            rankedSuspended
                                         }
                                         onClick={() => void handleStart()}
                                         startDecorator={<RankedSearchIcon sx={{ fontSize: 24 }} />}
                                         endDecorator={
-                                            !penalized && !abandonCooling && !rankedLock ? (
+                                            !penalized && !abandonCooling && !rankedLock && !rankedSuspended ? (
                                                 <ArrowForwardRoundedIcon />
                                             ) : undefined
                                         }
@@ -1739,15 +1776,17 @@ export const MatchmakingRoute: React.FC = () => {
                                             fontSize: "0.92rem",
                                         }}
                                     >
-                                        {rankedLock
-                                            ? t("Ranked locked")
-                                            : penalized
-                                              ? tf("Search again in {seconds}s", { seconds: penaltySeconds })
-                                              : abandonCooling
-                                                ? tf("Search again in {time}", {
-                                                      time: formatAwayClock(abandonCooldownMs),
-                                                  })
-                                                : t("Find ranked opponent")}
+                                        {rankedSuspended
+                                            ? t("Ranked suspended")
+                                            : rankedLock
+                                              ? t("Ranked locked")
+                                              : penalized
+                                                ? tf("Search again in {seconds}s", { seconds: penaltySeconds })
+                                                : abandonCooling
+                                                  ? tf("Search again in {time}", {
+                                                        time: formatAwayClock(abandonCooldownMs),
+                                                    })
+                                                  : t("Find ranked opponent")}
                                     </Button>
                                     <PracticeVsAiButton loading={state === "starting-ai"} onClick={handlePlayAi} />
                                 </Box>
@@ -1818,7 +1857,8 @@ export const MatchmakingRoute: React.FC = () => {
                                 <Alert variant="soft" color="warning" sx={{ textAlign: "left" }}>
                                     {tf("You didn't accept the last match. You can search again in {seconds}s.", {
                                         seconds: penaltySeconds,
-                                    })}
+                                    })}{" "}
+                                    {temporaryRestrictionText(cooldownTill, conductNowMs, language)}
                                 </Alert>
                             )}
 
@@ -1827,11 +1867,22 @@ export const MatchmakingRoute: React.FC = () => {
                             )}
 
                             {/* A lock outlasts the 5-minute cooldown, so "search again in 4:51" would be wrong while one is in force. */}
-                            {abandonCooling && !rankedLock && (
+                            {rankedSuspended && (
+                                <Alert variant="soft" color="danger" sx={{ textAlign: "left" }}>
+                                    {indefiniteSuspensionText()} {t("vs AI, sandbox and casual lobbies stay open.")}
+                                </Alert>
+                            )}
+                            {abandonCooling && !rankedLock && !rankedSuspended && (
                                 <Alert variant="soft" color="warning" sx={{ textAlign: "left" }}>
                                     {tf("You abandoned your last ranked match. You can search again in {time}.", {
                                         time: formatAwayClock(abandonCooldownMs),
-                                    })}
+                                    })}{" "}
+                                    {temporaryRestrictionText(
+                                        abandonCooldownUntil,
+                                        conductNowMs,
+                                        language,
+                                        conduct?.rules.abandonCooldownMs,
+                                    )}
                                 </Alert>
                             )}
 
@@ -1870,7 +1921,7 @@ export const MatchmakingRoute: React.FC = () => {
                                 }}
                             />
 
-                            {error && !penalized && !abandonCooling && !rankedLock && (
+                            {error && !penalized && !abandonCooling && !rankedLock && !rankedSuspended && (
                                 <Alert variant="soft" color="danger" sx={{ textAlign: "left" }}>
                                     {error}
                                 </Alert>

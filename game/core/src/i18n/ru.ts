@@ -4,6 +4,25 @@
  * here — v1 localizes the pick-phase and in-game interface chrome.
  */
 export const RU_TRANSLATIONS: Record<string, string> = {
+    "Temporary: {duration} total, {time} remaining. Automatically ends {date}.":
+        "Временно: общий срок — {duration}, осталось {time}. Автоматически закончится {date}.",
+    "Temporary: {time} remaining. Automatically ends {date}.":
+        "Временно: осталось {time}. Автоматически закончится {date}.",
+    "Indefinite ranked suspension: no automatic expiry. Support must lift it before you can play ranked again.":
+        "Бессрочное отстранение от рейтинговой игры: автоматического окончания нет. Для возвращения в рейтинг его должна снять поддержка.",
+    "Ranked suspended indefinitely": "Бессрочное отстранение от рейтинга",
+    "RANKED SUSPENDED": "РЕЙТИНГ НЕДОСТУПЕН",
+    "Ranked suspended": "Рейтинг недоступен",
+    "Ranked suspensions and leave cooldowns are disabled on this server.":
+        "На этом сервере отключены отстранения от рейтинга и ожидание после выхода из матча.",
+    "3 abandons in a row suspend ranked indefinitely until support lifts the suspension.":
+        "3 выхода подряд бессрочно закрывают рейтинговую игру, пока поддержка не снимет отстранение.",
+    "Leave once half the board's XP is destroyed and it's an ordinary loss. Leave before that and it's an Abandon: a loss.":
+        "Выход после уничтожения половины опыта на поле — обычное поражение. Более ранний выход — покидание матча: поражение.",
+    "Before that, or during the draft or placement, leaving is an Abandon: a loss.":
+        "Более ранний выход, а также выход при выборе армии или расстановке — покидание матча: поражение.",
+    "Before that, or during the draft or placement, leaving is an Abandon: a loss, and a 5-minute wait before you can queue ranked again. 3 abandons in a row suspend ranked indefinitely until support lifts the suspension.":
+        "Более ранний выход, а также выход при выборе армии или расстановке — покидание матча: поражение и 5 минут ожидания до нового поиска. 3 выхода подряд бессрочно закрывают рейтинговую игру, пока поддержка не снимет отстранение.",
     // ~~~ Shared chrome ~~~
     Language: "Язык",
     Choose: "Выбрать",

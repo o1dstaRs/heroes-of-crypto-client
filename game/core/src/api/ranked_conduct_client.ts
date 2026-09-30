@@ -11,6 +11,7 @@ export interface RankedExitRules {
     disconnectGraceMs: number;
     afkMissedTurns: number;
     draftAutoPicks: number;
+    leavePenaltiesEnabled: boolean;
     abandonCooldownMs: number;
     /** Timed locks (phase 3): whether they apply, from when, and how long an appeal may be. */
     lockRulesEnforced: boolean;
@@ -154,6 +155,7 @@ export const normalizeRankedConduct = (raw: unknown): RankedConduct => {
             disconnectGraceMs: num(rules.disconnectGraceMs, 10_000),
             afkMissedTurns: num(rules.afkMissedTurns, 4),
             draftAutoPicks: num(rules.draftAutoPicks, 3),
+            leavePenaltiesEnabled: rules.leavePenaltiesEnabled !== false,
             abandonCooldownMs: num(rules.abandonCooldownMs, 300_000),
             lockRulesEnforced: rules.lockRulesEnforced === true,
             lockRulesEnforceAtMs: num(rules.lockRulesEnforceAtMs),

@@ -21,6 +21,7 @@ describe("ranked conduct client", () => {
             enforced: false,
             absenceBudgetMs: 300_000,
             afkMissedTurns: 4,
+            leavePenaltiesEnabled: true,
         });
         expect(normalizeRankedConduct("not json").rules.version).toBe("");
     });
@@ -67,5 +68,15 @@ describe("ranked conduct client", () => {
         expect(rulesCardDue({ ...conduct, rules: { ...conduct.rules, acceptedVersion: "1.0" } })).toBe(false);
         expect(rulesCardDue(normalizeRankedConduct({}))).toBe(false);
         expect(rulesCardDue(undefined)).toBe(false);
+    });
+
+    test("reads disabled test-server leave penalties without changing the default for older servers", () => {
+        expect(
+            normalizeRankedConduct({ rules: { leavePenaltiesEnabled: false, abandonCooldownMs: 0 } }).rules,
+        ).toMatchObject({
+            leavePenaltiesEnabled: false,
+            abandonCooldownMs: 0,
+        });
+        expect(normalizeRankedConduct({}).rules.leavePenaltiesEnabled).toBe(true);
     });
 });

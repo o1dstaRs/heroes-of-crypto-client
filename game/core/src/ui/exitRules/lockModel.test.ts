@@ -8,6 +8,8 @@ import {
     lockGameText,
     lockReasonText,
     systemNoticeText,
+    temporaryRestrictionText,
+    indefiniteSuspensionText,
 } from "./lockModel";
 import type { RankedConductLock } from "../../api/ranked_conduct_client";
 import { DEFAULT_LANGUAGE, setLanguage } from "../../i18n/i18n";
@@ -26,6 +28,23 @@ afterEach(() => {
 });
 
 describe("ranked lock model", () => {
+    it("labels temporary restrictions with the total duration, exact countdown and expiry", () => {
+        const until = Date.UTC(2026, 8, 30, 22, 15, 45);
+        const message = temporaryRestrictionText(until, until - 291_000, "en", 300_000);
+        expect(message).toContain("Temporary: 00:05:00 total, 00:04:51 remaining.");
+        expect(message).toContain("Automatically ends");
+        expect(message).toContain("2026");
+        expect(message).toContain(":45");
+        const atExpiry = temporaryRestrictionText(until, until, "en");
+        expect(atExpiry).toStartWith("Temporary: 00:00:00 remaining.");
+    });
+
+    it("makes a suspension with no automatic expiry distinct from a temporary countdown", () => {
+        const message = indefiniteSuspensionText();
+        expect(message).toContain("Indefinite ranked suspension");
+        expect(message).toContain("no automatic expiry");
+        expect(message).toContain("Support must lift it");
+    });
     it("counts down as a clock, with days once it runs past one", () => {
         expect(lockClock(85_270_000, 0)).toBe("23:41:10");
         expect(lockClock(6 * 86_400_000 + 3_600_000 + 1, 0)).toBe("6d 01:00:01");
