@@ -218,6 +218,7 @@ const reputationHref = reputationRulesPath(lang);
     } from "../lib/ranked-profile-client";
     import { rankedExitLabel } from "../lib/ranked-exit";
     import { portraitMarkup } from "../lib/portrait";
+    import { strategyArtworkMarkup, type StrategyArtwork } from "../lib/profile-strategy-artwork";
     import { creatureById, timeAgo, winRateColor, winRatePct } from "../lib/portal-data";
     import {
         fetchSeasonCurrencyCatalog,
@@ -925,11 +926,6 @@ const reputationHref = reputationRulesPath(lang);
         return `<div class="stat-card stat-card--form"><dt>${escapeHtml(copy.publicRecentForm)}</dt><dd>${recentForm(outcomes)}</dd></div>`;
     }
 
-    interface StrategyArtwork {
-        alt: string;
-        slug: string;
-    }
-
     function strategyCard(
         label: string,
         winRate: number,
@@ -941,7 +937,7 @@ const reputationHref = reputationRulesPath(lang);
         const color = winRateColor(winRate);
         const images = artwork.length
             ? artwork
-                  .map((item) => portraitMarkup(item.slug, item.alt, { className: "strategy-icon" }))
+                  .map(strategyArtworkMarkup)
                   .join("")
             : `<span class="strategy-artwork__fallback" aria-hidden="true">${escapeHtml(badge ?? "?")}</span>`;
         return `
