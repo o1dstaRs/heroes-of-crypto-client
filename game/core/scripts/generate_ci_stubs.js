@@ -166,7 +166,7 @@ const knownImages = Object.fromEntries(
 ) as Record<string, string>;
 export const images = new Proxy<Record<string, string>>(knownImages, {
     get: (_target, key) => typeof key === "string" ? stubImageUrl(key) : undefined,
-    has: (_target, key) => typeof key === "string",
+    has: (target, key) => typeof key === "string" && Object.prototype.hasOwnProperty.call(target, key),
 });
 export type ImageKey = keyof typeof images;
 `;

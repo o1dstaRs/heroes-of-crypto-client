@@ -1,4 +1,4 @@
-import { TROLL_LAB_WALK_SCALE_X, TROLL_LAB_WALK_SCALE_Y, syncTrollLabWalkPalette } from "./TrollLabWalkVisuals";
+import { syncTrollLabWalkPalette } from "./TrollLabWalkVisuals";
 import { isTrollLabCastGuard, syncTrollLabCastGlow } from "./TrollLabCastVisuals";
 import { syncTrollLabCastMatch } from "./TrollLabCastMatch";
 import {
@@ -113,6 +113,7 @@ import { legacyBoardChildScaleCompensation } from "@/pixi/boardFit";
 import { UnitLoadingPlaceholder } from "./unitLoadingPlaceholder";
 import { glyphScaleX, screenFacing } from "@/pixi/boardMirror";
 import {
+    animationAtlasPrewarmKeys,
     approvedAnimationAssetKeysForUnit,
     CREATURE_SPRITE_ANIMATION_SETTINGS,
     usesApprovedBaseAnimations,
@@ -372,7 +373,7 @@ const THIEF_BOARD_TEXTURE = "thief_board_128";
 const THIEF_UNIT_NAME = "Thief";
 const SCAVENGER_UNIT_NAME = "Scavenger";
 /** The requested 5% lift is relative to the rendered figure, not the much shorter board cell. */
-const SCAVENGER_BATTLEFIELD_VERTICAL_LIFT_FRACTION = 0.05;
+export const SCAVENGER_BATTLEFIELD_VERTICAL_LIFT_FRACTION = 0.05;
 const PEASANT_UNIT_NAME = "Peasant";
 const BEHOLDER_UNIT_NAME = "Beholder";
 const SQUIRE_UNIT_NAME = "Squire";
@@ -391,7 +392,8 @@ const THIEF_WALK_VISIBLE_HEIGHT_RATIO = 185 / 192;
 // The approved original Scavenger loop keeps its 256px source canvas: the first figure is 247px
 // high. Match it to the current static figure's measured 757px height, including that figure's
 // existing legacy idle scale, instead of fitting the old narrower Thief walk canvas.
-const SCAVENGER_ORIGINAL_WALK_VISIBLE_HEIGHT_RATIO = (247 / 256) * ((768 * THIEF_IDLE_VISIBLE_HEIGHT_RATIO) / 757);
+export const SCAVENGER_ORIGINAL_WALK_VISIBLE_HEIGHT_RATIO =
+    (247 / 256) * ((768 * THIEF_IDLE_VISIBLE_HEIGHT_RATIO) / 757);
 const SCAVENGER_LAB_ACTIONS = ["hit", "death", "attack", "attack_up", "attack_down"];
 const scavengerLabCanvasScale = (state?: string): number => (state?.startsWith("attack") ? 1024 / 768 : 1);
 export const SCAVENGER_LAB_VISIBLE_HEIGHT_RATIO = (700 / 768) * ((768 * THIEF_IDLE_VISIBLE_HEIGHT_RATIO) / 757);
@@ -661,6 +663,9 @@ export const SQUIRE_IDLE_SPEED_MULTIPLIER = 1.2 * 1.08;
 // occupies 426x726 pixels. Apply one constant uniform scale for the whole walk so entering/leaving movement
 // does not make the Squire shrink or grow; the authored poses themselves are never scaled independently.
 export const SQUIRE_WALK_VISIBLE_SCALE_MULTIPLIER = 726 / 696;
+// Height match alone leaves the 408px walk envelope 0.1% narrower than the 426px idle body.
+// One extra horizontal factor closes that gap without disturbing the uniform height match.
+export const SQUIRE_WALK_HORIZONTAL_SCALE_MULTIPLIER = 426 / 408 / SQUIRE_WALK_VISIBLE_SCALE_MULTIPLIER;
 // Alpha > 128: battlefield Berserker spans 765px on 768px; the HD opening walk
 // spans 979px on 1024px. One uniform correction preserves the authored gait.
 const BERSERKER_WALK_VISIBLE_SCALE_MULTIPLIER = 765 / 768 / (979 / 1024);
@@ -3454,9 +3459,7 @@ export class RenderableUnit extends Unit {
             (props.name === "Battle Mage" && this.creatureAnimationLabPreviewEnabled && this.walkAnim
                 ? BATTLE_MAGE_LAB_WALK_WIDTH_SCALE
                 : 1) *
-            (props.name === TROLL_UNIT_NAME && this.creatureAnimationLabPreviewEnabled && this.walkAnim
-                ? TROLL_LAB_WALK_SCALE_X
-                : 1) *
+            (props.name === SQUIRE_UNIT_NAME && this.walkAnim ? SQUIRE_WALK_HORIZONTAL_SCALE_MULTIPLIER : 1) *
             (props.name === "Fairy" && this.creatureAnimationLabPreviewEnabled && this.walkAnim
                 ? FAIRY_LAB_WALK_WIDTH_SCALE
                 : 1) *
@@ -3473,9 +3476,6 @@ export class RenderableUnit extends Unit {
                 : 1);
         const renderedScaleY =
             scaleY *
-            (props.name === TROLL_UNIT_NAME && this.creatureAnimationLabPreviewEnabled && this.walkAnim
-                ? TROLL_LAB_WALK_SCALE_Y
-                : 1) *
             (idleBreathScales?.y ?? 1) *
             actionScale *
             screenSizeCompensation.y *
@@ -5409,11 +5409,7 @@ export class RenderableUnit extends Unit {
             );
             this.orcActiveBattleCryFrames = battleCryFrames;
         }
-        if (
-            CREATURE_SPRITE_ANIMATION_SETTINGS.enabled &&
-            !this.scavengerLabAnimationsEnabled &&
-            props.name === SCAVENGER_UNIT_NAME
-        ) {
+        if (CREATURE_SPRITE_ANIMATION_SETTINGS.enabled && props.name === SCAVENGER_UNIT_NAME) {
             const bladeTwirlCacheKey = `${SCAVENGER_UNIT_NAME}::idle_blade_twirl`;
             const imageSrc = images[SCAVENGER_IDLE_BLADE_TWIRL_IMAGE_KEY];
             const bladeTwirlFrames = cachedAtlasFrames(
@@ -5656,7 +5652,6 @@ export class RenderableUnit extends Unit {
         const wasValkyrieLabWalking = valkyrieLabWalk && !!this.walkAnim;
         const medusaLabWalk = this.creatureAnimationLabPreviewEnabled && props.name === "Medusa";
         const trollLabWalk = this.creatureAnimationLabPreviewEnabled && props.name === TROLL_UNIT_NAME;
-        const wasTrollLabWalking = trollLabWalk && !!this.walkAnim;
         const battleMageLabWalk = this.creatureAnimationLabPreviewEnabled && props.name === "Battle Mage";
         if (battleMageLabWalk && this.oneShotAnim) this.returnToIdleAnimation();
         const wasBattleMageLabWalking = battleMageLabWalk && !!this.walkAnim;
@@ -5965,11 +5960,10 @@ export class RenderableUnit extends Unit {
             this.sprite.scale.x *= PIKEMAN_WALK_HORIZONTAL_SCALE;
         }
         if (trollLabWalk) {
+            // The lab walk shares the idle 768px cell. Keep that cell at one by one-and-a-half;
+            // a per-pose opaque-bounds correction would change the authored framing ratio.
             const resolutionScale = this.sprite.texture.height / frames[0].height;
-            this.sprite.scale.set(
-                this.sprite.scale.x * resolutionScale * (wasTrollLabWalking ? 1 : TROLL_LAB_WALK_SCALE_X),
-                this.sprite.scale.y * resolutionScale * (wasTrollLabWalking ? 1 : TROLL_LAB_WALK_SCALE_Y),
-            );
+            this.sprite.scale.set(this.sprite.scale.x * resolutionScale, this.sprite.scale.y * resolutionScale);
             this.sprite.anchor.set(0.5, this.walkAnim.footAnchorY);
         }
         if (battleMageLabWalk && !wasBattleMageLabWalking) {
@@ -6464,17 +6458,6 @@ export class RenderableUnit extends Unit {
         ) {
             this.sprite.scale.x /= BATTLE_MAGE_LAB_WALK_WIDTH_SCALE;
         }
-        if (
-            this.getName() === TROLL_UNIT_NAME &&
-            this.creatureAnimationLabPreviewEnabled &&
-            this.walkAnim &&
-            this.sprite
-        ) {
-            this.sprite.scale.set(
-                this.sprite.scale.x / TROLL_LAB_WALK_SCALE_X,
-                this.sprite.scale.y / TROLL_LAB_WALK_SCALE_Y,
-            );
-        }
         if (this.getName() === "Pikeman" && this.walkAnim && this.sprite) {
             this.sprite.scale.x /= PIKEMAN_WALK_HORIZONTAL_SCALE;
         }
@@ -6485,7 +6468,7 @@ export class RenderableUnit extends Unit {
     private restoreScaleAfterSquireWalk(): void {
         if (this.getUnitProperties().name !== SQUIRE_UNIT_NAME || !this.walkAnim || !this.sprite) return;
         this.sprite.scale.set(
-            this.sprite.scale.x / SQUIRE_WALK_VISIBLE_SCALE_MULTIPLIER,
+            this.sprite.scale.x / SQUIRE_WALK_VISIBLE_SCALE_MULTIPLIER / SQUIRE_WALK_HORIZONTAL_SCALE_MULTIPLIER,
             this.sprite.scale.y / SQUIRE_WALK_VISIBLE_SCALE_MULTIPLIER,
         );
     }
@@ -9178,6 +9161,13 @@ export class RenderableUnit extends Unit {
      */
     public playDodgeAnimation(dx: number, dy: number): void {
         if (!this.sprite || this.isDestroyed) return;
+        const props = this.getUnitProperties();
+        // Levels 1 and 2, and any approved sprite package, already own their motion. A generic
+        // sidestep on top of those clips (or on an unfinished low-tier figure) invents a dodge.
+        if (!creatureGenericCombatMotionEnabledForUnit(props.name, props.level)) {
+            this.clearGenericDodgeAnimation();
+            return;
+        }
         this.suppressActiveTurnPointer();
         // Lean INTO the dodge: tip the sprite toward the escape direction so the sidestep reads as a
         // committed lean rather than a horizontal teleport. Screen-x sign picks the tilt side.
@@ -9411,6 +9401,23 @@ export class RenderableUnit extends Unit {
         const g = lerp(0xff, (this.effectFlashColor >> 8) & 0xff);
         const b = lerp(0xff, this.effectFlashColor & 0xff);
         return (r << 16) | (g << 8) | b;
+    }
+    /**
+     * The next already-decoded atlas whose pixels have not been uploaded yet.
+     * Skips sheets that are still downloading so this scan cannot start a synchronous decode.
+     * Combat sheets come before walk and idle: those are the ones first drawn on an action frame.
+     */
+    public prewarmCombatAtlasFrame(uploadedSources: WeakSet<object>): Texture | undefined {
+        const props = this.getUnitProperties();
+        const resting = getDefaultAnimationConfig(props.name, this.getFootprintWidth(), this.getFootprintHeight());
+        for (const key of animationAtlasPrewarmKeys(props.name, resting?.imageKey)) {
+            const texture = this.texResolver(key);
+            const source = texture?.source;
+            if (!texture || texture.destroyed || !source || source.destroyed || source.width <= 0) continue;
+            if (uploadedSources.has(source)) continue;
+            return texture;
+        }
+        return undefined;
     }
     /**
      * Build (and cache) this unit's "default" (active/selection) animation atlas frames so the WebP is

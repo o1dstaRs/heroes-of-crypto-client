@@ -71,9 +71,10 @@ import { staticBattlefieldTextureNameForUnit, TextureType, unitToTextureName } f
 import { legacyBoardChildScaleCompensation } from "@/pixi/boardFit";
 import { glyphScaleX, screenFacing } from "@/pixi/boardMirror";
 import {
+    animationAtlasPrewarmKeys,
+    approvedAnimationAssetKeysForUnit,
     CREATURE_SPRITE_ANIMATION_SETTINGS,
     usesApprovedBaseAnimations,
-    approvedAnimationAssetKeysForUnit,
 } from "@/pixi/creatureAnimationSettings";
 import { animationAtlases, AnimationUnitName, type AnimationAtlasMeta } from "../animations/levelOneAtlases";
 import { images, type ImageKey } from "../imageAssets";
@@ -4990,11 +4991,7 @@ export class RenderableUnit extends Unit {
             );
             this.orcActiveBattleCryFrames = battleCryFrames;
         }
-        if (
-            CREATURE_SPRITE_ANIMATION_SETTINGS.enabled &&
-            !this.scavengerLabAnimationsEnabled &&
-            props.name === SCAVENGER_UNIT_NAME
-        ) {
+        if (CREATURE_SPRITE_ANIMATION_SETTINGS.enabled && props.name === SCAVENGER_UNIT_NAME) {
             const bladeTwirlCacheKey = `${SCAVENGER_UNIT_NAME}::idle_blade_twirl`;
             const imageSrc = images[SCAVENGER_IDLE_BLADE_TWIRL_IMAGE_KEY];
             const bladeTwirlFrames = cachedAtlasFrames(
@@ -8060,6 +8057,13 @@ export class RenderableUnit extends Unit {
      */
     public playDodgeAnimation(dx: number, dy: number): void {
         if (!this.sprite || this.isDestroyed) return;
+        const props = this.getUnitProperties();
+        // Levels 1 and 2, and any approved sprite package, already own their motion. A generic
+        // sidestep on top of those clips (or on an unfinished low-tier figure) invents a dodge.
+        if (!creatureGenericCombatMotionEnabledForUnit(props.name, props.level)) {
+            this.clearGenericDodgeAnimation();
+            return;
+        }
         this.suppressActiveTurnPointer();
         // Lean INTO the dodge: tip the sprite toward the escape direction so the sidestep reads as a
         // committed lean rather than a horizontal teleport. Screen-x sign picks the tilt side.
@@ -8293,6 +8297,23 @@ export class RenderableUnit extends Unit {
         const g = lerp(0xff, (this.effectFlashColor >> 8) & 0xff);
         const b = lerp(0xff, this.effectFlashColor & 0xff);
         return (r << 16) | (g << 8) | b;
+    }
+    /**
+     * The next already-decoded atlas whose pixels have not been uploaded yet.
+     * Skips sheets that are still downloading so this scan cannot start a synchronous decode.
+     * Combat sheets come before walk and idle: those are the ones first drawn on an action frame.
+     */
+    public prewarmCombatAtlasFrame(uploadedSources: WeakSet<object>): Texture | undefined {
+        const props = this.getUnitProperties();
+        const resting = getDefaultAnimationConfig(props.name, this.getFootprintWidth(), this.getFootprintHeight());
+        for (const key of animationAtlasPrewarmKeys(props.name, resting?.imageKey)) {
+            const texture = this.texResolver(key);
+            const source = texture?.source;
+            if (!texture || texture.destroyed || !source || source.destroyed || source.width <= 0) continue;
+            if (uploadedSources.has(source)) continue;
+            return texture;
+        }
+        return undefined;
     }
     /**
      * Build (and cache) this unit's "default" (active/selection) animation atlas frames so the WebP is

@@ -260,3 +260,27 @@ export const approvedAnimationAssetKeysForUnit = (unitName: string): string[] =>
             return priority(a) - priority(b);
         });
 };
+
+const ARBALESTER_IDLE_PAGE_ATLAS = /^arbalester_idle_page_\d{2}_atlas$/;
+
+/**
+ * Combat sheets hitch the action frame the first time they are drawn. The resting loop is already
+ * on screen, and the Arbalester idle pager keeps its own bounded working set.
+ * Lower rank uploads sooner.
+ */
+export function animationAtlasPrewarmRank(imageKey: string): number {
+    if (ARBALESTER_IDLE_PAGE_ATLAS.test(imageKey)) return 3;
+    if (imageKey.includes("_walk_")) return 1;
+    if (imageKey.includes("_idle_") || imageKey.includes("_default_")) return 2;
+    return 0;
+}
+
+/** Approved sheets for one creature, combat first, plus an optional already-decoded resting key. */
+export function animationAtlasPrewarmKeys(unitName: string, extraImageKey?: string): string[] {
+    const keys = approvedAnimationAssetKeysForUnit(unitName).filter((key) => !ARBALESTER_IDLE_PAGE_ATLAS.test(key));
+    keys.sort((a, b) => animationAtlasPrewarmRank(a) - animationAtlasPrewarmRank(b));
+    if (extraImageKey && !keys.includes(extraImageKey) && !ARBALESTER_IDLE_PAGE_ATLAS.test(extraImageKey)) {
+        keys.push(extraImageKey);
+    }
+    return keys;
+}

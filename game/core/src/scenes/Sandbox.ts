@@ -1074,8 +1074,12 @@ export class Sandbox extends PixiScene {
     // the allowance is once per FIGHT, not once per streak of missed turns.
     private sandboxGraceTurnUsed = false;
     private hasInitializedLap = false;
-    /** Guards the one-time prewarm of unit animation atlases once the fight has started. */
-    private atlasesPrewarmed = false;
+    /** Sources whose pixels have already been drawn once, so a later action does not upload them. */
+    private readonly prewarmedAtlasSources = new WeakSet<object>();
+    /** Empty scans after the last new sheet. Late downloads reset this and resume the upload. */
+    private atlasPrewarmQuietScans = 0;
+    private atlasPrewarmUnitCount = -1;
+    private static readonly ATLAS_PREWARM_QUIET_SCANS = 180;
     private gameplayGraphics?: Graphics;
     /** Authored bitmap corners for the shooting-range frame; kept separate from Pixi Graphics in v8. */
     private shotRangeCornerContainer?: Container;
@@ -6544,49 +6548,72 @@ export class Sandbox extends PixiScene {
         this.unitsHolder.refreshStackPowerForAllUnits();
     }
     /**
-     * Decode + GPU-upload every on-board unit's "default" (active/selection) animation atlas up front.
-     * That atlas is otherwise built and uploaded lazily the first time each unit becomes active, which
-     * lands a ~100ms decode/upload hitch on the turn-handoff frame (the "lag right before the turn
-     * passes"). Doing it once here — during the load/placement phase — moves the cost off the gameplay
-     * critical path. Renders to a tiny offscreen RenderTexture so nothing flickers on screen; the temp
-     * sprites are destroyed but the shared atlas textures stay cached (atlasFramesCache).
+     * Upload one already-decoded combat atlas per step. The GPU upload (texImage2D) only happens when a
+     * texture is drawn; attack, hit and death sheets used to be drawn for the first time on the action
+     * frame, which is the stall after an action. One source per step keeps that cost off the action and
+     * off a single fight-start frame. Sprites stay visible — Pixi culls fully transparent ones.
+     * Destroying the temp sprite does not destroy the shared atlas texture.
      */
-    private prewarmUnitAtlases(): void {
-        const app = this.pixiApp.getApplication();
-        const renderer = app?.renderer;
-        if (!renderer) {
+    private stepAtlasPrewarm(): void {
+        const units = this.unitsHolder.getAllUnits();
+        if (units.size !== this.atlasPrewarmUnitCount) {
+            this.atlasPrewarmUnitCount = units.size;
+            this.atlasPrewarmQuietScans = 0;
+        }
+        if (this.atlasPrewarmQuietScans >= Sandbox.ATLAS_PREWARM_QUIET_SCANS) return;
+        if (this.oneShotPresentationActive()) return;
+        const frame = this.nextUnuploadedAtlasFrame();
+        if (!frame?.source) {
+            this.atlasPrewarmQuietScans++;
             return;
         }
-        // The actual GPU pixel upload (texImage2D) only happens when a texture is drawn for real — calling
-        // the texture system's initSource alone does NOT force it. So render one visible sprite per atlas
-        // into a tiny OFFSCREEN RenderTexture: that executes a real draw call, binding+uploading each atlas
-        // source now (during load/placement) instead of lazily on the unit's first activation at handoff.
-        // Sprites MUST be visible (alpha > 0) — Pixi culls fully-transparent objects, so they'd never draw.
-        const container = new Container();
-        const seenSources = new Set<unknown>();
+        if (!this.uploadAtlasFrame(frame)) return;
+        this.prewarmedAtlasSources.add(frame.source);
+        this.atlasPrewarmQuietScans = 0;
+    }
+    private oneShotPresentationActive(): boolean {
         for (const unit of this.unitsHolder.getAllUnits().values()) {
-            const frame = (unit as RenderableUnit).prewarmDefaultAtlasFrame?.();
-            if (!frame) {
-                continue;
-            }
-            const source = frame.source as unknown;
-            if (seenSources.has(source)) {
-                continue;
-            }
-            seenSources.add(source);
-            container.addChild(new Sprite(frame));
+            if ((unit as RenderableUnit).isPlayingOneShotAnimation()) return true;
         }
-        if (container.children.length) {
-            const rt = RenderTexture.create({ width: 8, height: 8 });
-            try {
-                renderer.render({ container, target: rt });
-            } catch {
-                // Prewarm is best-effort; on failure the atlas just uploads lazily as before.
-            } finally {
-                rt.destroy(true);
+        for (const unit of this.dyingVisualUnits) {
+            if (unit.isPlayingOneShotAnimation()) return true;
+        }
+        return false;
+    }
+    private nextUnuploadedAtlasFrame(): Texture | undefined {
+        const units = [...this.unitsHolder.getAllUnits().values()] as RenderableUnit[];
+        const active = this.currentActiveUnit;
+        if (active) {
+            const index = units.indexOf(active);
+            if (index > 0) {
+                units.splice(index, 1);
+                units.unshift(active);
             }
         }
-        container.destroy({ children: true });
+        for (const unit of units) {
+            const frame = unit.prewarmCombatAtlasFrame?.(this.prewarmedAtlasSources);
+            if (frame) return frame;
+        }
+        return undefined;
+    }
+    /** Returns false when there is no renderer yet, so the same sheet is tried again next step. */
+    private uploadAtlasFrame(frame: Texture): boolean {
+        const renderer = this.pixiApp.getApplication()?.renderer;
+        if (!renderer) return false;
+        const container = new Container();
+        const sprite = new Sprite(frame);
+        sprite.alpha = 1;
+        container.addChild(sprite);
+        const rt = RenderTexture.create({ width: 8, height: 8 });
+        try {
+            renderer.render({ container, target: rt });
+        } catch {
+            // Best-effort. The source is still marked uploaded so a broken sheet cannot hitch every step.
+        } finally {
+            rt.destroy(true);
+            container.destroy({ children: true });
+        }
+        return true;
     }
     /**
      * Record, on CombatVisuals, what killed every unit that died in this attack (melee vs range, plus
@@ -16042,12 +16069,9 @@ export class Sandbox extends PixiScene {
             return;
         }
 
-        // Once the fight is underway and every unit exists, prewarm each unit's active-animation atlas
-        // so its first activation doesn't decode/upload on a turn-handoff frame (the recognizable lag).
-        if (!this.atlasesPrewarmed && fightStarted && this.hasAnySceneUnits()) {
-            this.atlasesPrewarmed = true;
-            this.prewarmUnitAtlases();
-        }
+        // Spread combat-atlas uploads across idle steps, including placement, so the action frame
+        // does not pay for the first draw of an attack, hit or death sheet.
+        if (this.hasAnySceneUnits()) this.stepAtlasPrewarm();
 
         // AI section - delegate to AIController
         if (
@@ -18499,6 +18523,8 @@ export class Sandbox extends PixiScene {
     }
     // --- Tier 2 Asset Loading Feedback ---
     public override onSupplementaryTexturesLoaded(): void {
+        // A sheet that finished downloading after the quiet period still needs its upload off the action.
+        this.atlasPrewarmQuietScans = 0;
         // A freshly-arrived atlas bundle does not repaint anything by itself: ensureVisual runs only
         // on sync points, so every unit spawned before the bundle keeps the static token it fell back
         // to (the "old squared images on initial load" report). Re-resolve every live renderable now —

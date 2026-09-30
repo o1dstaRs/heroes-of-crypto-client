@@ -66,6 +66,7 @@ import {
     COMMON_IDLE_BREATH_SETTINGS,
     dropDuplicateAppliedEntries,
     CREATURE_ATTACK_FOREGROUND_Z_INDEX,
+    CREATURE_WALK_CYCLE_DISTANCE_CELLS,
     CREATURE_SPRITE_ANIMATION_SETTINGS,
     creatureGenericCombatMotionEnabledForUnit,
     creatureGenericWholeSpriteMotionEnabledForLevel,
@@ -94,7 +95,9 @@ import {
     SCAVENGER_FLOURISH_FRAME_DURATION_MS,
     SCAVENGER_IDLE_BREATH_CYCLES_PER_BLADE_TWIRL,
     SCAVENGER_BOARD_MODEL_HEIGHT_CELLS,
+    SCAVENGER_BATTLEFIELD_VERTICAL_LIFT_FRACTION,
     SCAVENGER_LAB_VISIBLE_HEIGHT_RATIO,
+    SCAVENGER_ORIGINAL_WALK_VISIBLE_HEIGHT_RATIO,
     orcActiveBattleCryBreathElapsed,
     orcActiveBattleCryFrameForElapsed,
     orcIdleAxeTwirlFrameForElapsed,
@@ -767,7 +770,20 @@ describe("full-body model ground line", () => {
                 ["attack", "attack_up", "attack_down", "cast", "defend", "celebrate", "hit", "death"],
             ],
         ] as const;
-        const expectedY = tallBoardModelFootLineY(1024, gridSettings.getCellSize());
+        // Each figure sits on the shared tall-model foot line minus its stored framing offset
+        // (Wandering Mage's approved offsetYCells is -0.017, a small lift), and the Scavenger's
+        // refreshed battlefield framing additionally lifts its complete figure by five percent of
+        // the rendered height (RenderableUnit's figureVerticalLift).
+        const figureLift = (name: string) =>
+            (name === "Scavenger"
+                ? gridSettings.getCellSize() *
+                  SCAVENGER_BOARD_MODEL_HEIGHT_CELLS *
+                  BATTLEFIELD_CREATURE_FRAMING.Scavenger.scaleY *
+                  SCAVENGER_BATTLEFIELD_VERTICAL_LIFT_FRACTION
+                : 0) -
+            gridSettings.getCellSize() * (BATTLEFIELD_CREATURE_FRAMING[name]?.offsetYCells ?? 0);
+        const expectedY = (name: string) =>
+            tallBoardModelFootLineY(1024, gridSettings.getCellSize()) + figureLift(name);
 
         for (const [name, texture, actionStates] of cases) {
             const unit = createRenderableUnit(TeamVals.LEFT, "Chaos", name, texture, () => Texture.WHITE);
@@ -775,18 +791,27 @@ describe("full-body model ground line", () => {
             const internals = unit as unknown as GroundedInternals;
             unit.setPosition(0, 1024);
             unit.ensureVisual(world, gridSettings);
-            expect(internals.sprite?.y).toBeCloseTo(expectedY);
+            expect(internals.sprite?.y).toBeCloseTo(expectedY(name));
 
             unit.startBoardWalkAnimation(1);
             unit.ensureVisual(world, gridSettings);
-            expect(internals.sprite?.y).toBeCloseTo(expectedY);
+            expect(internals.sprite?.y).toBeCloseTo(expectedY(name));
 
             for (const state of actionStates) {
                 expect(unit.playOneShotAnimation(state)).toBe(true);
                 unit.ensureVisual(world, gridSettings);
-                expect(internals.sprite?.y).toBeCloseTo(expectedY);
+                expect(internals.sprite?.y).toBeCloseTo(expectedY(name));
+                // Anchored off the authored sheet the renderer resolves: the level-one aliases keep
+                // their pre-rename atlas keys (Wandering Mage -> "Ash Moth", Scavenger -> "Thief").
+                const atlasName = name === "Wandering Mage" ? "Ash Moth" : name === "Scavenger" ? "Thief" : name;
                 expect(internals.sprite?.anchor.y).toBe(
-                    tallBoardModelFootAnchorY(name, state, animationAtlases[name]?.[state]),
+                    tallBoardModelFootAnchorY(
+                        name,
+                        state,
+                        (animationAtlases as Record<string, Record<string, { footAnchorY?: number } | undefined>>)[
+                            atlasName
+                        ]?.[state],
+                    ),
                 );
             }
         }
@@ -2743,7 +2768,7 @@ assetTest("Berserker damage returns to idle and death holds its last pose with s
     }
 });
 
-assetTest("plays eight native Pikeman walk frames only in the lab over 1.3 cells", () => {
+assetTest("plays nine native Pikeman walk frames only in the lab over 1.3 cells", () => {
     CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
     const keys: string[] = [];
     const unit = createRenderableUnit(TeamVals.LEFT, "Life", "Pikeman", "pikeman_512", (key) => {
@@ -2761,21 +2786,23 @@ assetTest("plays eight native Pikeman walk frames only in the lab over 1.3 cells
     unit.startBoardWalkAnimation(1, 3);
     expect(keys).toContain("pikeman_walk_atlas");
     expect(keys).not.toContain("pikeman_walk_atlas_quarter");
-    expect(state.walkAnim?.frames).toHaveLength(8);
+    // The authored sheet is a full 3x3 of named frames, so the gait is nine poses, not eight.
+    const pikemanWalkFrames = 9;
+    expect(state.walkAnim?.frames).toHaveLength(pikemanWalkFrames);
     expect(state.walkAnim?.frames[0].width).toBe(768);
     expect(state.walkAnim?.loopStartFrame).toBe(0);
-    expect(state.walkAnim?.loopEndFrame).toBe(7);
-    for (let step = 0; step <= 16; step++) {
-        unit.setBoardWalkDistanceCells((step * 1.3) / 8 + 1e-8);
-        expect(state.walkAnim?.frameIndex).toBe(step % 8);
+    expect(state.walkAnim?.loopEndFrame).toBe(pikemanWalkFrames - 1);
+    for (let step = 0; step <= pikemanWalkFrames * 2; step++) {
+        unit.setBoardWalkDistanceCells((step * 1.3) / pikemanWalkFrames + 1e-8);
+        expect(state.walkAnim?.frameIndex).toBe(step % pikemanWalkFrames);
         unit.stepSelectionAnimation(performance.now() + 1000);
-        expect(state.walkAnim?.frameIndex).toBe(step % 8);
+        expect(state.walkAnim?.frameIndex).toBe(step % pikemanWalkFrames);
     }
     unit.setBoardWalkDistanceCells(2.6 + Math.SQRT2);
-    expect(state.walkAnim?.frameIndex).toBe(Math.floor((Math.SQRT2 % 1.3) / (1.3 / 8)));
+    expect(state.walkAnim?.frameIndex).toBe(Math.floor((Math.SQRT2 % 1.3) / (1.3 / pikemanWalkFrames)));
     unit.setBoardFacingFromMovement(-1);
     unit.setBoardWalkDistanceCells(2.6 + Math.SQRT2 + 0.4);
-    expect(state.walkAnim?.frameIndex).toBe(Math.floor(((Math.SQRT2 + 0.4) % 1.3) / (1.3 / 8)));
+    expect(state.walkAnim?.frameIndex).toBe(Math.floor(((Math.SQRT2 + 0.4) % 1.3) / (1.3 / pikemanWalkFrames)));
     unit.stopBoardWalkAnimation();
     expect(state.walkAnim).toBeUndefined();
     unit.setCreatureAnimationLabPreviewEnabled(false);
@@ -5329,11 +5356,13 @@ assetTest("keeps Troll lab walk size matched to the base figure through re-route
     const idleY = Math.abs(state.sprite.scale.y);
     const idleFilters = [...(state.sprite.filters ?? [])];
     unit.startBoardWalkAnimation(1, 4);
-    expect(Math.abs(state.sprite.scale.x) * 432).toBeCloseTo(idleX * 514);
-    expect(Math.abs(state.sprite.scale.y) * 688).toBeCloseTo(idleY * 698);
+    // The lab walk shares the idle sheet's 768px cell at ONE uniform scale; the old per-pose
+    // opaque-bounds correction (432/514 width, 688/698 height) changed the authored framing ratio.
+    expect(Math.abs(state.sprite.scale.x)).toBeCloseTo(idleX);
+    expect(Math.abs(state.sprite.scale.y)).toBeCloseTo(idleY);
     unit.ensureVisual(root, gridSettings);
-    expect(Math.abs(state.sprite.scale.x) * 432).toBeCloseTo(idleX * 514);
-    expect(Math.abs(state.sprite.scale.y) * 688).toBeCloseTo(idleY * 698);
+    expect(Math.abs(state.sprite.scale.x)).toBeCloseTo(idleX);
+    expect(Math.abs(state.sprite.scale.y)).toBeCloseTo(idleY);
     const walkX = Math.abs(state.sprite.scale.x);
     const walkY = Math.abs(state.sprite.scale.y);
     for (let i = 0; i < 8; i++) {
@@ -5523,9 +5552,13 @@ describe("Troll full-body battlefield figure", () => {
         expect(internals.walkAnim?.frameIndex).toBe(0);
         unit.setBoardWalkDistanceCells(0.5);
         expect(internals.walkAnim?.frameIndex).toBe(3);
+        // The authored sheet carries cycleDistanceCells 1.3 (CREATURE_WALK_CYCLE_DISTANCE_CELLS):
+        // the gait repeats every 1.3 cells, not the superseded sheet's 0.8.
         unit.setBoardWalkDistanceCells(0.5 / 0.8);
-        expect(internals.walkAnim?.frameIndex).toBe(4);
+        expect(internals.walkAnim?.frameIndex).toBe(3);
         unit.setBoardWalkDistanceCells(1 / 0.8);
+        expect(internals.walkAnim?.frameIndex).toBe(7);
+        unit.setBoardWalkDistanceCells(1.3);
         expect(internals.walkAnim?.frameIndex).toBe(0);
 
         unit.finishBoardWalkAnimationAfterFullCycle();
@@ -6423,7 +6456,10 @@ describe("refreshed idle cadence and quadruped scale", () => {
         expect(idle.selectionAnimFrameDurationMs).toBeCloseTo(1000 / (6 * 1.15) / 0.77);
         unit.stepSelectionAnimation(10_000);
         const currentIdleTexture = idle.sprite?.texture;
-        unit.stepSelectionAnimation(10_000 + idle.selectionAnimFrameDurationMs + 1);
+        // The authored idle plays ping-pong with a 700 ms turnaround pause; step past any hold so the
+        // assertion stays about "the idle advances during the freeze", not about where in the cycle
+        // t=10_000 happens to land.
+        unit.stepSelectionAnimation(11_000);
         expect(idle.sprite?.texture).not.toBe(currentIdleTexture);
 
         const beholderResolvedKeys: string[] = [];
@@ -7238,8 +7274,14 @@ describe("Scavenger thief visual replacement", () => {
         expect(internals.sprite?.texture.width).toBe(192);
         expect(internals.sprite?.texture.height).toBe(192);
         expect(Math.abs(internals.sprite?.scale.x ?? 0)).toBeCloseTo(Math.abs(internals.sprite?.scale.y ?? 0));
+        // The refreshed battlefield framing lifts the whole figure by five percent of its rendered
+        // height above the shared foot line (see the ground-line coverage above).
         expect(internals.sprite?.y).toBeCloseTo(
-            tallBoardModelFootLineY(1024, gridSettings.getCellSize()) - gridSettings.getCellSize() * 0.03,
+            tallBoardModelFootLineY(1024, gridSettings.getCellSize()) +
+                gridSettings.getCellSize() *
+                    SCAVENGER_BOARD_MODEL_HEIGHT_CELLS *
+                    BATTLEFIELD_CREATURE_FRAMING.Scavenger.scaleY *
+                    SCAVENGER_BATTLEFIELD_VERTICAL_LIFT_FRACTION,
         );
     });
 
@@ -7260,7 +7302,15 @@ describe("Scavenger thief visual replacement", () => {
             BATTLEFIELD_CREATURE_FRAMING.Scavenger.scaleY;
         expect(Math.abs(internals.sprite?.scale.x ?? 0)).toBeCloseTo(expectedUniformScale);
         expect(Math.abs(internals.sprite?.scale.y ?? 0)).toBeCloseTo(expectedUniformScale);
-        expect(internals.sprite?.y).toBeCloseTo(tallBoardModelFootLineY(1024, gridSettings.getCellSize()));
+        // Same lifted foot line as the static figure: five percent of the rendered height above the
+        // shared tall-model line.
+        expect(internals.sprite?.y).toBeCloseTo(
+            tallBoardModelFootLineY(1024, gridSettings.getCellSize()) +
+                gridSettings.getCellSize() *
+                    SCAVENGER_BOARD_MODEL_HEIGHT_CELLS *
+                    BATTLEFIELD_CREATURE_FRAMING.Scavenger.scaleY *
+                    SCAVENGER_BATTLEFIELD_VERTICAL_LIFT_FRACTION,
+        );
         expect(thiefIdleBreathScaleForElapsed(0)).toBeCloseTo(1);
         expect(thiefIdleBreathScaleForElapsed(2800 / 4)).toBeCloseTo(1 + 0.01035 * 1.1);
         expect(thiefIdleBreathScaleForElapsed(2800 / 2)).toBeCloseTo(1);
@@ -7272,18 +7322,26 @@ describe("Scavenger thief visual replacement", () => {
         }
 
         expect(unit.playOneShotAnimation("hit")).toBe(true);
-        expect(internals.oneShotAnim?.durationPerFrame).toBeCloseTo(40.125 / 1.22);
+        // The refreshed Scavenger Combat hit sheet is authored at 12.5 fps (80 ms per frame); the old
+        // thief cadence applied a 1.22x speedup to 40.125 ms frames that no longer exist.
+        expect(internals.oneShotAnim?.durationPerFrame).toBeCloseTo(80);
         unit.stepOneShotAnimation(1000);
         expect(unit.isPlayingOneShotAnimation()).toBe(false);
 
         unit.startBoardWalkAnimation(1);
         unit.ensureVisual(new Container(), gridSettings);
+        // The authored Scavenger gait is a plain eight-frame loop: no one-shot turn-in intro and no
+        // outro frame (the old thief walk had loopStart 1 / loopEnd 6 / outro 7 at ~20.8 ms).
         expect(internals.walkAnim?.frames).toHaveLength(8);
-        expect(internals.walkAnim?.loopStartFrame).toBe(1);
-        expect(internals.walkAnim?.loopEndFrame).toBe(6);
-        expect(internals.walkAnim?.outroFrame).toBe(7);
-        expect(internals.walkAnim?.durationPerFrameMs).toBeCloseTo(20.8333, 3);
-        expect(Math.abs(internals.sprite?.scale.y ?? 0) * 185).toBeCloseTo(
+        expect(internals.walkAnim?.loopStartFrame).toBe(0);
+        expect(internals.walkAnim?.loopEndFrame).toBe(7);
+        expect(internals.walkAnim?.outroFrame).toBeUndefined();
+        expect(internals.walkAnim?.durationPerFrameMs).toBeCloseTo(100);
+        // The authored walk figure is sized off its measured visible height inside the quarter cell
+        // (the renderer's SCAVENGER_ORIGINAL_WALK_VISIBLE_HEIGHT_RATIO), not the old 185px literal.
+        expect(
+            Math.abs(internals.sprite?.scale.y ?? 0) * 192 * SCAVENGER_ORIGINAL_WALK_VISIBLE_HEIGHT_RATIO,
+        ).toBeCloseTo(
             gridSettings.getCellSize() *
                 SCAVENGER_BOARD_MODEL_HEIGHT_CELLS *
                 BATTLEFIELD_CREATURE_FRAMING.Scavenger.scaleY,
@@ -7295,15 +7353,15 @@ describe("Scavenger thief visual replacement", () => {
         expect(internals.sprite?.rotation).toBe(0);
         expect(internals.sprite?.scale.x).toBe(walkScaleX);
         expect(internals.sprite?.scale.y).toBe(walkScaleY);
-        const frameMs = internals.walkAnim?.durationPerFrameMs ?? 0;
+        // The authored gait is distance-driven: one frame per eighth of the 1.3-cell cycle, then a
+        // full finish clears the walk (there is no outro tail to time-step through any more).
         const shownFrames = [internals.walkAnim?.frameIndex];
-        unit.finishBoardWalkAnimationAfterFullCycle();
-        for (let index = 0; index < 7; index++) {
-            unit.stepSpawnAnimation((frameMs + 0.1) / 1000);
+        for (let index = 1; index <= 7; index++) {
+            unit.setBoardWalkDistanceCells((index * CREATURE_WALK_CYCLE_DISTANCE_CELLS) / 8);
             shownFrames.push(internals.walkAnim?.frameIndex);
         }
         expect(shownFrames).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
-        unit.stepSpawnAnimation((frameMs + 0.1) / 1000);
+        unit.finishBoardWalkAnimationAfterFullCycle();
         expect(internals.walkAnim).toBeUndefined();
 
         const expectedScaleX = internals.sprite?.scale.x;
@@ -8312,8 +8370,10 @@ describe("RenderableUnit dodge animation", () => {
 
     function createVisualUnit(): { unit: RenderableUnit; worldRoot: Container } {
         const effectFactory = new EffectFactory();
+        // Satyr is level 2, which suppresses the generic sidestep. Efreet is a level-3 figure
+        // with no approved sprite package, so this covers the dodge that higher tiers still use.
         const base = Unit.createUnit(
-            HoCConfig.getCreatureConfig(TeamVals.RIGHT, "Nature", "Satyr", "satyr_512", 1),
+            HoCConfig.getCreatureConfig(TeamVals.RIGHT, "Chaos", "Efreet", "Efreet_512", 1),
             gridSettings,
             TeamVals.RIGHT,
             UnitVals.CREATURE,
