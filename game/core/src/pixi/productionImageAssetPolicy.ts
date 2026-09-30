@@ -202,11 +202,8 @@ export function isProductionOmittedUnreferencedAssetKey(key: string): boolean {
 export function isProductionOmittedLegacyUiAssetKey(key: string): boolean {
     if (CREATURE_PORTRAIT_ASSET_KEYS.has(key)) return false;
     if (UNUSED_PRODUCTION_LEGACY_UI_ASSETS.has(key)) return true;
-    // The old full-body exports were superseded by the approved `*_pick_sandbox_x2` portraits. The
-    // current fullBodyCreatureImage() selector deliberately aliases that same approved source, so no
-    // live surface can request an unversioned `*_portrait_full` file anymore. Keep those authoring
-    // references in Drive without copying ~20 MiB of compressed (and much more decoded) art into each
-    // release.
+    // Approved full-body portrait sources are protected above: their close-up crop cannot be reused
+    // on a _512 fallback. Omit only the remaining, unused authoring exports from this family.
     if (key.endsWith("_portrait_full")) return true;
     // These named UI families were superseded by the generated `*_left_screen_x2` portraits or other
     // current replacements. They remain in Drive for comparison/editing but have no production selector.

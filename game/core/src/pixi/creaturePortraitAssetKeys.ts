@@ -1,5 +1,41 @@
-// Existing creature portrait sources used by UNIT_ID_TO_IMAGE. Keep these through production pruning.
+/**
+ * Sources required by the approved full-body portrait crops. Alternatives preserve the existing
+ * versioned selectors: an older art checkout may use the declared fallback, never a differently
+ * framed _512 portrait. Keep this list separate from the legacy thumbnails for release validation.
+ */
+export const REQUIRED_FULL_BODY_PORTRAIT_SOURCES: Readonly<Record<string, readonly string[]>> = {
+    Abomination: ["abomination_portrait_full"],
+    Angel: ["angel_portrait_full"],
+    "Arachna Queen": ["arachna_queen_portrait_full"],
+    Behemoth: ["behemoth_portrait_full"],
+    "Black Dragon": ["black_dragon_portrait_full"],
+    Champion: ["champion_portrait_full"],
+    Crusader: ["crusader_portrait_full"],
+    Cyclops: ["cyclops_portrait_full"],
+    Efreet: ["efreet_portrait_full_v7", "efreet_portrait_full_v5"],
+    "Frenzied Boar": ["frenzied_boar_portrait_full"],
+    Gargantuan: ["gargantuan_portrait_full"],
+    "Goblin Knight": ["goblin_knight_portrait_full"],
+    Griffin: ["griffin_portrait_full"],
+    Hydra: ["hydra_portrait_full"],
+    "Magic Dragon": ["magic_dragon_portrait_full"],
+    Mantis: ["mantis_portrait_full_v3", "mantis_portrait_full_v2"],
+    Monk: ["monk_portrait_full"],
+    Nightmare: ["nightmare_portrait_full"],
+    "Ogre Mage": ["ogre_mage_portrait_full"],
+    Orc: ["orc_model_full"],
+    Pegasus: ["pegasus_portrait_full"],
+    Thunderbird: ["thunderbird_portrait_full_v2"],
+    "Tsar Cannon": ["tsar_cannon_portrait_full"],
+    Unicorn: ["unicorn_portrait_full"],
+    "White Tiger": ["white_tiger_portrait_full"],
+    "Wolf Rider": ["wolf_rider_portrait_full"],
+    Zena: ["zena_portrait_full"],
+};
+
+// Both UNIT_ID_TO_IMAGE and the full-body source/crop pairs must survive every production prune rule.
 export const CREATURE_PORTRAIT_ASSET_KEYS = new Set([
+    ...Object.values(REQUIRED_FULL_BODY_PORTRAIT_SOURCES).flat(),
     "abomination_512",
     "angel_512",
     "arachna_queen_512",

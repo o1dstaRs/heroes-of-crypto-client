@@ -6,6 +6,7 @@ import environmentAssets from "../src/animations/battlefieldEnvironmentAssets.js
 import shotTrajectoryAssets from "../src/pixi/shotTrajectoryAssets.json";
 const assets = [...levelOneAssets, ...environmentAssets, ...shotTrajectoryAssets];
 import { shouldPreloadUnitAnimationAtlas } from "../src/pixi/creatureAnimationSettings";
+import { verifyCreaturePortraitBuildAssets } from "../src/pixi/verifyCreaturePortraitBuildAssets";
 
 export function verifyLevelOneBuildAssets(): void {
     const mapPath = path.resolve(import.meta.dir, "../src/generated/image_imports.ts");
@@ -15,6 +16,7 @@ export function verifyLevelOneBuildAssets(): void {
         return;
     }
     if (map.includes("/* CI stub")) throw new Error("Cannot release a build made with CI image stubs.");
+    verifyCreaturePortraitBuildAssets(map);
     const imageObject = map.slice(map.indexOf("export const images"));
     for (const asset of assets) {
         const file = path.resolve(import.meta.dir, "../images", `${asset.key}.webp`);
