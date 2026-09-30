@@ -3,12 +3,12 @@
  * full 1/1 arrow, everything past it is halved. The selected presentation is concept 06: one thin,
  * continuous cold-steel frame and four authored bitmap corners.
  */
-import { describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { GridConstants, GridMath, GridSettings } from "@heroesofcrypto/common";
-import { Container, Graphics, Texture } from "pixi.js";
+import { Container, DOMAdapter, Graphics, Texture } from "pixi.js";
 
 import {
     ALLY_HOVERED_SHOT_RANGE_COLOR,
@@ -24,6 +24,12 @@ import {
 } from "./SandboxDrawer";
 import { projectedPolyline, projectedRectPoints } from "./sandbox/BattlefieldVisualGrid";
 
+const adapter = DOMAdapter.get();
+beforeAll(() =>
+    DOMAdapter.set({ ...adapter, createCanvas: () => ({ getContext: () => null }) as unknown as HTMLCanvasElement }),
+);
+afterAll(() => DOMAdapter.set(adapter));
+
 const gridSettings = new GridSettings(
     GridConstants.GRID_SIZE,
     GridConstants.MAX_Y,
@@ -36,6 +42,7 @@ const gridSettings = new GridSettings(
 
 interface RecordedStroke {
     width?: number;
+    pixelLine?: boolean;
     color?: number;
     alpha?: number;
     cap?: string;
@@ -124,6 +131,92 @@ const logicalBounds = (
 const onCellBorder = (value: number, axisMin: number) => (value - axisMin) % gridSettings.getStep() === 0;
 
 describe("the full-damage shot square", () => {
+    for (const overlay of ["currentActiveShotRange", "hoveredShotRange", "shiftSelectedShotRange"] as const) {
+        for (const layers of [0, 1, 2, 3, 4, 5, 9]) {
+            test(`${overlay} stays on surviving cells after ${layers} narrowing laps`, () => {
+                const recorded = recorder();
+                const cornerContainer = new Container();
+                const cornerPool: ShotRangeCornerSpritePool = { sprites: [], matrices: [], placements: [], used: 0 };
+                const context = {
+                    fightProps: { hasFightStarted: () => true, getLapsNarrowed: () => layers },
+                    [overlay]: { xy: cellCenter({ x: 7, y: 7 }), distance: gridSettings.getCellSize() * 20 },
+                    isActiveUnitMoving: false,
+                    gridSettings,
+                    hoverManager: { drawHoverBattlefieldFootprint: () => undefined },
+                    hoverGlowPhase: 0,
+                    sc_isAnimating: false,
+                    shotRangeCornerContainer: cornerContainer,
+                    shotRangeCornerPool: cornerPool,
+                    shotRangeCornerTexture: Texture.WHITE,
+                } as unknown as IGameplayDrawContext;
+                SandboxDrawer.drawGameplayVisuals(recorded.graphics as never, context);
+                const inset = Math.min(layers, 5) * gridSettings.getCellSize();
+                const left = gridSettings.getMinX() + inset;
+                const bottom = gridSettings.getMinY() + inset;
+                const right = gridSettings.getMaxX() - inset;
+                const top = gridSettings.getMaxY() - inset;
+                expect(recorded.polygons).toEqual([]);
+                const endpoints = [
+                    { x: left, y: bottom },
+                    { x: right, y: bottom },
+                    { x: right, y: top },
+                    { x: left, y: top },
+                ].map((point) => projectedPolyline([point], gridSettings));
+                expect(cornerPool.rails).toHaveLength(4);
+                cornerPool.rails!.forEach((rail, index) => {
+                    const start = endpoints[index];
+                    const end = endpoints[(index + 1) % 4];
+                    expect(rail.x).toBeCloseTo(start[0]);
+                    expect(rail.y).toBeCloseTo(start[1]);
+                    expect(rail.x + Math.cos(rail.rotation) * rail.width).toBeCloseTo(end[0]);
+                    expect(rail.y + Math.sin(rail.rotation) * rail.width).toBeCloseTo(end[1]);
+                });
+                expect(cornerPool.placements).toEqual(
+                    shotRangeCornerSpritePlacements({ left, bottom, width: right - left, height: top - bottom }),
+                );
+                cornerContainer.destroy({ children: true });
+            });
+        }
+    }
+
+    test("intersects a rectangular cannon range with the surviving board and restores full bounds before combat", () => {
+        const recorded = recorder();
+        let started = true;
+        const center = cellCenter({ x: 6, y: 6 });
+        const cell = gridSettings.getCellSize();
+        const context = {
+            fightProps: { hasFightStarted: () => started, getLapsNarrowed: () => 5 },
+            currentActiveShotRange: { xy: center, distance: 4.5 * cell, verticalDistance: 3.5 * cell },
+            isActiveUnitMoving: false,
+            gridSettings,
+            hoverManager: { drawHoverBattlefieldFootprint: () => undefined },
+            hoverGlowPhase: 0,
+            sc_isAnimating: false,
+        } as unknown as IGameplayDrawContext;
+        SandboxDrawer.drawGameplayVisuals(recorded.graphics as never, context);
+        expect(recorded.polygons).toEqual([
+            projectedRectPoints(
+                gridSettings.getMinX() + 5 * cell,
+                gridSettings.getMinY() + 5 * cell,
+                center.x + 4.5 * cell,
+                center.y + 3.5 * cell,
+                gridSettings,
+            ),
+        ]);
+        started = false;
+        recorded.polygons.length = 0;
+        SandboxDrawer.drawGameplayVisuals(recorded.graphics as never, context);
+        expect(recorded.polygons).toEqual([
+            projectedRectPoints(
+                center.x - 4.5 * cell,
+                center.y - 3.5 * cell,
+                center.x + 4.5 * cell,
+                center.y + 3.5 * cell,
+                gridSettings,
+            ),
+        ]);
+    });
+
     test("draws concept 06 as one continuous single-tone perimeter", () => {
         const shotDistance = 3.5;
         const cell = { x: 5, y: 5 };
@@ -136,8 +229,10 @@ describe("the full-damage shot square", () => {
         expect(expectedFrame.slice(0, 2)).toEqual(expectedFrame.slice(-2));
         expect(polygonClosed).toEqual([undefined]);
         expect(strokes[0].width).toBeLessThanOrEqual(1.5);
+        // Subpixel world strokes lose horizontal rails under the perspective camera.
+        expect(strokes[0].pixelLine).toBe(true);
         expect(strokes[0].color).toBe(SHOT_RANGE_COLOR);
-        expect(strokes[0].alpha).toBe(0.83);
+        expect(strokes[0].alpha).toBe(0.75);
         expect(strokes[0].cap).toBe("square");
         expect(strokes[0].join).toBe("miter");
     });
@@ -164,8 +259,8 @@ describe("the full-damage shot square", () => {
         expect(recorded.strokes).toHaveLength(2);
         expect(recorded.strokes[0].color).toBe(ALLY_HOVERED_SHOT_RANGE_COLOR);
         expect(recorded.strokes[1].color).toBe(ENEMY_HOVERED_SHOT_RANGE_COLOR);
-        expect(recorded.strokes[0].alpha).toBe(0.83);
-        expect(recorded.strokes[1].alpha).toBe(0.83);
+        expect(recorded.strokes[0].alpha).toBe(0.75);
+        expect(recorded.strokes[1].alpha).toBe(0.75);
     });
 
     test("does not stack the active range over itself when the active creature is hovered", () => {
@@ -189,7 +284,7 @@ describe("the full-damage shot square", () => {
         SandboxDrawer.drawGameplayVisuals(recorded.graphics as never, context);
 
         expect(recorded.strokes).toHaveLength(1);
-        expect(recorded.strokes[0].alpha).toBe(0.83);
+        expect(recorded.strokes[0].alpha).toBe(0.75);
     });
 
     test("places the same authored bitmap at all four actual perimeter corners", () => {
@@ -260,7 +355,7 @@ describe("the full-damage shot square", () => {
         expect(source).toContain("cornerPool.sprites[cornerIndex] = corner");
         expect(source).toContain("corner.setFromMatrix(shotRangeCornerSpriteMatrix");
         expect(source).toContain("corner.alpha = cornerAlpha");
-        expect(source).toContain("const cornerAlpha = 0.85");
+        expect(source).toContain("const cornerAlpha = 0.8");
         expect(SHOT_RANGE_CORNER_SPRITE_SIZE_CELLS).toBeCloseTo(0.92 * 0.85 * 0.8 * 0.6 * 1.15);
         expect(SHOT_RANGE_CORNER_SPRITE_ANCHOR).toEqual({ x: 0.137, y: 0.891 });
         expect(source).not.toContain("corner.tint = color");
@@ -297,7 +392,7 @@ describe("the full-damage shot square", () => {
         expect(firstSprites).toHaveLength(4);
         expect(firstMatrices).toHaveLength(4);
         expect(firstPlacements).toHaveLength(4);
-        expect(cornerContainer.children).toHaveLength(4);
+        expect(cornerContainer.children).toHaveLength(8);
 
         cornerPool.used = 0;
         SandboxDrawer.drawGameplayVisuals(graphics, context);
@@ -305,7 +400,29 @@ describe("the full-damage shot square", () => {
         expect(cornerPool.sprites).toEqual(firstSprites);
         expect(cornerPool.matrices).toEqual(firstMatrices);
         expect(cornerPool.placements).toEqual(firstPlacements);
-        expect(cornerContainer.children).toHaveLength(4);
+        expect(cornerContainer.children).toHaveLength(8);
+        const restingMatrices = cornerPool.matrices.map((matrix) => matrix.clone());
+        const firstGlows = cornerPool.sprites.map((corner) => corner.glow);
+        for (const [phase, scale, glowAlpha] of [
+            [Math.PI / 2, 1.08, 1],
+            [(3 * Math.PI) / 2, 0.92, 0.1],
+            [2 * Math.PI, 1, 0.55],
+        ]) {
+            context.shotRangePulsePhase = phase;
+            cornerPool.used = 0;
+            SandboxDrawer.drawGameplayVisuals(graphics, context);
+            cornerPool.matrices.forEach((matrix, index) => {
+                const resting = restingMatrices[index];
+                for (const coefficient of ["a", "b", "c", "d"] as const) {
+                    expect(matrix[coefficient]).toBeCloseTo(resting[coefficient] * scale);
+                }
+                expect(matrix.tx).toBe(resting.tx);
+                expect(matrix.ty).toBe(resting.ty);
+                expect(cornerPool.sprites[index].glow).toBe(firstGlows[index]);
+                expect(firstGlows[index].alpha).toBeCloseTo(glowAlpha);
+            });
+            expect(cornerContainer.children).toHaveLength(8);
+        }
         cornerContainer.destroy({ children: true });
         graphics.destroy();
     });
@@ -315,7 +432,7 @@ describe("the full-damage shot square", () => {
         expect(source).toContain('source.scaleMode = "linear"');
         expect(source).toContain("source.autoGenerateMipmaps = true");
         expect(source).toContain("source.unload()");
-        expect(source).toContain("corner.roundPixels = false");
+        expect(source).toContain("ornament.roundPixels = false");
     });
 
     test("does not render the four midpoint ornaments", () => {
@@ -371,7 +488,7 @@ describe("the full-damage shot square", () => {
         expect(guard).toContain("return;");
     });
 
-    test("keeps the frame and sights static instead of pulsing or travelling", () => {
+    test("keeps the vector frame static during the corner pulse", () => {
         const atStart = drawRange(3.5, 1, { x: 5, y: 5 }, 0);
         const later = drawRange(3.5, 1, { x: 5, y: 5 }, Math.PI / 3);
 

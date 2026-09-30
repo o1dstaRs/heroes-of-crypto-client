@@ -20,6 +20,76 @@ export function isIdleAtlasKey(key: string): boolean {
 
 export function isRedundantFullResolutionUnitAtlasKey(key: string): boolean {
     if (approvedEnvironmentKeys.has(key)) return false;
+    if (/^white_tiger_lab_(idle|walk|hit|death|melee_attack(?:_up|_down)?)_atlas$/.test(key)) return false;
+    if (
+        key === "manticore_lab_walk_atlas" ||
+        key === "manticore_lab_death_atlas" ||
+        key === "manticore_lab_hit_atlas" ||
+        key === "manticore_lab_melee_attack_atlas" ||
+        key === "manticore_lab_melee_attack_up_atlas" ||
+        key === "manticore_lab_melee_attack_down_atlas"
+    )
+        return false;
+    if (
+        key === "valkyrie_lab_current_walk_atlas" ||
+        key === "valkyrie_lab_current_hit_atlas" ||
+        key === "valkyrie_lab_current_death_atlas" ||
+        key === "valkyrie_lab_current_cast_atlas" ||
+        key === "valkyrie_lab_current_melee_attack_atlas" ||
+        key === "valkyrie_lab_current_melee_attack_up_atlas" ||
+        key === "valkyrie_lab_current_melee_attack_down_atlas"
+    )
+        return false;
+    if (/^medusa_lab_(walk|idle|hit|death|projectile|(?:melee_)?attack(?:_up|_down)?)_atlas$/.test(key)) return false;
+    if (
+        [
+            "troll_lab_walk_atlas",
+            "troll_lab_idle_atlas",
+            "troll_lab_hit_atlas",
+            "troll_lab_death_atlas",
+            "troll_lab_cast_atlas",
+            "troll_lab_melee_attack_atlas",
+            "troll_lab_melee_attack_up_atlas",
+            "troll_lab_melee_attack_down_atlas",
+        ].includes(key)
+    )
+        return false;
+    if (key === "battle_mage_lab_walk_atlas") return false;
+    if (key === "battle_mage_lab_hit_atlas" || key === "battle_mage_lab_death_atlas") return false;
+    if (
+        [
+            "battle_mage_lab_melee_attack_atlas",
+            "battle_mage_lab_melee_attack_up_atlas",
+            "battle_mage_lab_melee_attack_down_atlas",
+            "battle_mage_lab_cast_atlas",
+        ].includes(key)
+    )
+        return false;
+    if (key === "healer_lab_walk_atlas") return false;
+    if (key === "healer_lab_idle_atlas") return false;
+    if (key === "healer_lab_hit_atlas" || key === "healer_lab_death_atlas") return false;
+    if (
+        [
+            "healer_lab_attack_atlas",
+            "healer_lab_attack_up_atlas",
+            "healer_lab_attack_down_atlas",
+            "healer_lab_cast_atlas",
+        ].includes(key)
+    )
+        return false;
+    if (key === "elf_lab_walk_atlas") return false;
+    if (key === "elf_lab_idle_atlas") return false;
+    if (key === "elf_lab_hit_atlas" || key === "elf_lab_death_atlas") return false;
+    if (["elf_lab_attack_atlas", "elf_lab_attack_up_atlas", "elf_lab_attack_down_atlas"].includes(key)) return false;
+    if (
+        ["elf_lab_melee_attack_atlas", "elf_lab_melee_attack_up_atlas", "elf_lab_melee_attack_down_atlas"].includes(key)
+    )
+        return false;
+    if (key === "pikeman_walk_atlas") return false;
+    if (key === "pikeman_lab_idle_atlas") return false;
+    if (key === "pikeman_lab_hit_atlas" || key === "pikeman_lab_death_atlas") return false;
+    if (["pikeman_lab_attack_atlas", "pikeman_lab_attack_up_atlas", "pikeman_lab_attack_down_atlas"].includes(key))
+        return false;
     if (
         [
             "berserker_walk_atlas",

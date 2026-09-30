@@ -71,9 +71,10 @@ import { staticBattlefieldTextureNameForUnit, TextureType, unitToTextureName } f
 import { legacyBoardChildScaleCompensation } from "@/pixi/boardFit";
 import { glyphScaleX, screenFacing } from "@/pixi/boardMirror";
 import {
+    animationAtlasPrewarmKeys,
+    approvedAnimationAssetKeysForUnit,
     CREATURE_SPRITE_ANIMATION_SETTINGS,
     usesApprovedBaseAnimations,
-    approvedAnimationAssetKeysForUnit,
 } from "@/pixi/creatureAnimationSettings";
 import { animationAtlases, AnimationUnitName, type AnimationAtlasMeta } from "../animations/levelOneAtlases";
 import { images, type ImageKey } from "../imageAssets";
@@ -97,6 +98,7 @@ import {
 } from "./BattlefieldCreatureContourFilter";
 import { getBattlefieldAlphaHoleFillFilter, shouldFillBattlefieldAlphaHoles } from "./BattlefieldAlphaHoleFillFilter";
 import {
+    BATTLEFIELD_CREATURE_FRAMING,
     BATTLEFIELD_CREATURE_FRAMING_CHANGE_EVENT,
     isBattlefieldCreatureEditorActive,
     publishBattlefieldCreatureVisualBounds,
@@ -1096,14 +1098,27 @@ export function creatureOneShotAnimationEnabledForUnit(unitName: string, stateNa
     );
 }
 
-/** All creatures use authored sprite motion without additional whole-sprite overlays. */
-export function creatureGenericWholeSpriteMotionEnabledForLevel(_unitLevel: number): boolean {
-    return false;
+/**
+ * Levels 1 and 2 are authored sprite packages and never take the generic whole-sprite overlay.
+ * Levels 3 and 4 keep it, so a creature with no package of its own still sways, recoils and dodges.
+ * An approved package is excluded separately, even at those levels — see
+ * {@link creatureGenericCombatMotionEnabledForUnit}.
+ */
+export function creatureGenericWholeSpriteMotionEnabledForLevel(unitLevel: number): boolean {
+    return unitLevel !== 1 && unitLevel !== 2;
 }
 
+/** Approved packages already contain the motion. Layering the generic overlay on top fights the art. */
 export function creatureGenericCombatMotionEnabledForUnit(unitName: string, unitLevel: number): boolean {
-    return creatureGenericWholeSpriteMotionEnabledForLevel(unitLevel) && unitName !== PEASANT_UNIT_NAME;
+    return creatureGenericWholeSpriteMotionEnabledForLevel(unitLevel) && !usesApprovedBaseAnimations(unitName);
 }
+
+/**
+ * The generic landing grow changes a figure's size. Skip it for an approved package and for any
+ * creature whose battlefield scale was fitted by hand (Efreet, Black Dragon, and the rest of that table).
+ */
+const genericLandingGrowEnabled = (unitName: string, unitLevel: number): boolean =>
+    creatureGenericCombatMotionEnabledForUnit(unitName, unitLevel) && !(unitName in BATTLEFIELD_CREATURE_FRAMING);
 // Battlefield units expose their compact team/count ribbon. Stack power remains mechanical state and no
 // longer allocates a separate pip rail.
 const SHOW_BOARD_STACK_DECORATIONS = true;
@@ -1143,8 +1158,6 @@ export function squireActionCanvasScale(stateName: string | undefined): number {
 
 export function oneShotAnimationDurationMultiplier(unitName: string, stateName: string): number {
     const isAttack = isAttackAnimationStateName(stateName);
-    if (unitName === ORC_UNIT_NAME && isOrcAuthoredAction(stateName)) return 1;
-
     // Troglodyte actions preserve the same authored timing in combat and the local preview.
     if (unitName === TROGLODYTE_UNIT_NAME && isTroglodyteAuthoredAction(stateName)) {
         const meta = animationAtlases[TROGLODYTE_UNIT_NAME]?.[stateName];
@@ -1188,6 +1201,7 @@ export function oneShotAnimationDurationMultiplier(unitName: string, stateName: 
 
     // Reactions carry their own authored timing; retain the existing cadence for other Mage actions.
     if (unitName === WANDERING_MAGE_UNIT_NAME) {
+        if (stateName === "death") return WANDERING_MAGE_COMBAT_ANIMATION_DURATION_MULTIPLIER / 1.15;
         return isWanderingMageAuthoredAction(stateName) ? 1 : WANDERING_MAGE_COMBAT_ANIMATION_DURATION_MULTIPLIER;
     }
 
@@ -2024,14 +2038,14 @@ function cachedAtlasFrames(
  */
 function framesForAtlasConfig(config: UnitAtlasConfig, texResolver: TexResolver): Texture[] {
     const resolvedTexture = texResolver(config.imageKey);
+    // Static battlefield art is already one complete frame. Reuse the scene-leased texture itself rather
+    // than creating a wrapper that can outlive the lease and keep the decoded source resident. A multi-frame
+    // sheet still has to be cut, even when the whole atlas texture is already in hand.
+    if (config.meta.frameCount <= 1 && resolvedTexture) return [resolvedTexture];
     if (config.cacheAcrossScenes) {
         return cachedAtlasFrames(config.cacheKey, config.meta, config.imageSrc, config.imageKey, resolvedTexture);
     }
-    // Static battlefield art is already one complete frame. Reuse the scene-leased texture itself rather
-    // than creating a wrapper that can outlive the lease and keep the decoded source resident.
-    return resolvedTexture
-        ? [resolvedTexture]
-        : buildAtlasFrames(config.meta, config.imageSrc, config.imageKey, resolvedTexture);
+    return buildAtlasFrames(config.meta, config.imageSrc, config.imageKey, resolvedTexture);
 }
 interface SpawnAnimState {
     startScaleX: number;
@@ -3192,7 +3206,7 @@ export class RenderableUnit extends Unit {
         const commonIdleBreathScales =
             COMMON_IDLE_BREATH_SETTINGS.enabled &&
             props.name !== BLACKSMITH_UNIT_NAME &&
-            creatureGenericWholeSpriteMotionEnabledForLevel(props.level) &&
+            creatureGenericCombatMotionEnabledForUnit(props.name, props.level) &&
             !this.walkAnim &&
             !this.oneShotAnim
                 ? commonIdleBreathScalesForElapsed(
@@ -3221,7 +3235,7 @@ export class RenderableUnit extends Unit {
         // The Mage's authored idle already contains local breathing; keep its canvas scale fixed.
         const idleBreathScales =
             COMMON_IDLE_BREATH_SETTINGS.enabled &&
-            creatureGenericWholeSpriteMotionEnabledForLevel(props.level) &&
+            creatureGenericCombatMotionEnabledForUnit(props.name, props.level) &&
             props.name !== WANDERING_MAGE_UNIT_NAME
                 ? usesThiefSilhouette
                     ? (idleThiefBreathScales ?? commonIdleBreathScales)
@@ -3992,9 +4006,9 @@ export class RenderableUnit extends Unit {
         this.depthSortBoundsAreCurrent = false;
         const walkAnim = this.walkAnim;
         const props = this.getUnitProperties();
-        // Level-one creatures now use only their individually authored sprite frames. Do not layer the
-        // legacy whole-cutout tilt/bounce over them, including units that do not yet have a refreshed atlas.
-        if (!creatureGenericWholeSpriteMotionEnabledForLevel(props.level)) {
+        // Level 1 and 2, and any approved package, already contain their own motion. Do not layer the
+        // legacy whole-cutout tilt/bounce over them. A higher tier with no package still sways.
+        if (!creatureGenericCombatMotionEnabledForUnit(props.name, props.level)) {
             sprite.rotation = 0;
             return;
         }
@@ -4977,11 +4991,7 @@ export class RenderableUnit extends Unit {
             );
             this.orcActiveBattleCryFrames = battleCryFrames;
         }
-        if (
-            CREATURE_SPRITE_ANIMATION_SETTINGS.enabled &&
-            !this.scavengerLabAnimationsEnabled &&
-            props.name === SCAVENGER_UNIT_NAME
-        ) {
+        if (CREATURE_SPRITE_ANIMATION_SETTINGS.enabled && props.name === SCAVENGER_UNIT_NAME) {
             const bladeTwirlCacheKey = `${SCAVENGER_UNIT_NAME}::idle_blade_twirl`;
             const imageSrc = images[SCAVENGER_IDLE_BLADE_TWIRL_IMAGE_KEY];
             const bladeTwirlFrames = cachedAtlasFrames(
@@ -6002,7 +6012,7 @@ export class RenderableUnit extends Unit {
         if (!this.sprite || !this.shadow) return;
         const props = this.getUnitProperties();
         const unitName = props.name;
-        if (!creatureGenericWholeSpriteMotionEnabledForLevel(props.level)) {
+        if (!genericLandingGrowEnabled(unitName, props.level)) {
             this.spawnAnim = undefined;
             this.sprite.alpha = 1;
             this.shadow.scale.set(1);
@@ -8048,6 +8058,8 @@ export class RenderableUnit extends Unit {
     public playDodgeAnimation(dx: number, dy: number): void {
         if (!this.sprite || this.isDestroyed) return;
         const props = this.getUnitProperties();
+        // Levels 1 and 2, and any approved sprite package, already own their motion. A generic
+        // sidestep on top of those clips (or on an unfinished low-tier figure) invents a dodge.
         if (!creatureGenericCombatMotionEnabledForUnit(props.name, props.level)) {
             this.clearGenericDodgeAnimation();
             return;
@@ -8285,6 +8297,23 @@ export class RenderableUnit extends Unit {
         const g = lerp(0xff, (this.effectFlashColor >> 8) & 0xff);
         const b = lerp(0xff, this.effectFlashColor & 0xff);
         return (r << 16) | (g << 8) | b;
+    }
+    /**
+     * The next already-decoded atlas whose pixels have not been uploaded yet.
+     * Skips sheets that are still downloading so this scan cannot start a synchronous decode.
+     * Combat sheets come before walk and idle: those are the ones first drawn on an action frame.
+     */
+    public prewarmCombatAtlasFrame(uploadedSources: WeakSet<object>): Texture | undefined {
+        const props = this.getUnitProperties();
+        const resting = getDefaultAnimationConfig(props.name, this.getFootprintWidth(), this.getFootprintHeight());
+        for (const key of animationAtlasPrewarmKeys(props.name, resting?.imageKey)) {
+            const texture = this.texResolver(key);
+            const source = texture?.source;
+            if (!texture || texture.destroyed || !source || source.destroyed || source.width <= 0) continue;
+            if (uploadedSources.has(source)) continue;
+            return texture;
+        }
+        return undefined;
     }
     /**
      * Build (and cache) this unit's "default" (active/selection) animation atlas frames so the WebP is

@@ -360,6 +360,33 @@ export class UnitChip extends Container {
     public setTicker(ticker: Ticker): void {
         this.ticker = ticker;
     }
+    /** Restore hover details when the shared pictograms finish their deferred texture load. */
+    public setTypeIcons(attack: Texture, movement: Texture, movementScale = 1): void {
+        if (this.destroyed || attack.destroyed || movement.destroyed) return;
+        if (attack === Texture.EMPTY || movement === Texture.EMPTY) return;
+        if (!this.attackTypeIcon || !this.movementTypeIcon) {
+            this.attackTypeIcon = new Sprite(attack);
+            this.movementTypeIcon = new Sprite(movement);
+            this.attackTypeIcon.anchor.set(0.5);
+            this.movementTypeIcon.anchor.set(0.5);
+            this.typeOverlay.addChild(this.attackTypeIcon, this.movementTypeIcon);
+        } else {
+            if (
+                this.attackTypeIcon.texture === attack &&
+                this.movementTypeIcon.texture === movement &&
+                this.movementTypeIconScale === movementScale
+            ) {
+                return;
+            }
+            this.attackTypeIcon.texture = attack;
+            this.movementTypeIcon.texture = movement;
+        }
+        this.movementTypeIconScale = movementScale;
+        if (this.lastCardWidth > 0 && this.lastCardHeight > 0) {
+            this.layoutTypeOverlay(this.lastCardWidth, this.lastCardHeight);
+        }
+        this.updateHighlight();
+    }
     /** Replace the temporary roster fallback as soon as its approved portrait finishes loading. */
     public setPortraitTextures(texture: Texture, backgroundTexture?: Texture): void {
         if (!this.portraitFraming || texture === Texture.EMPTY) return;

@@ -6,23 +6,23 @@ import { usePixiManager } from "../pixi/PixiGameManager";
 
 const animationButtons: ReadonlyArray<{ state: CreatureAnimationLabState; label: string; hint: string }> = [
     { state: "idle", label: "IDLE", hint: "Сбросить в idle" },
-    { state: "attack_up", label: "АТАКА ↑", hint: "Атака вверх" },
-    { state: "attack_down", label: "АТАКА ↓", hint: "Атака вниз" },
-    { state: "attack", label: "АТАКА →", hint: "Атака по линии" },
+    { state: "attack_up", label: "ДАЛЬНЯЯ ↑", hint: "Бросок в верхнюю цель" },
+    { state: "attack_down", label: "ДАЛЬНЯЯ ↓", hint: "Бросок в нижнюю цель" },
+    { state: "attack", label: "ДАЛЬНЯЯ →", hint: "Бросок по линии" },
+    {
+        state: "melee_attack_up",
+        label: "БЛИЖНЯЯ ↑",
+        hint: "Цель в верхних клетках. Стрелка обозначает положение цели, а не направление замаха",
+    },
+    { state: "melee_attack", label: "БЛИЖНЯЯ →", hint: "Ближняя атака по линии" },
+    {
+        state: "melee_attack_down",
+        label: "БЛИЖНЯЯ ↓",
+        hint: "Цель в нижних клетках. Стрелка обозначает положение цели, а не направление замаха",
+    },
+    { state: "cast", label: "КАСТ", hint: "Применение заклинания" },
     { state: "hit", label: "УРОН", hint: "Получение урона" },
     { state: "death", label: "СМЕРТЬ", hint: "Смерть без удаления" },
-];
-
-const directions: ReadonlyArray<{ dx: number; dy: number; label: string; key: string }> = [
-    { dx: -1, dy: 1, label: "↖", key: "nw" },
-    { dx: 0, dy: 1, label: "↑", key: "n" },
-    { dx: 1, dy: 1, label: "↗", key: "ne" },
-    { dx: -1, dy: 0, label: "←", key: "w" },
-    { dx: 0, dy: 0, label: "•", key: "idle" },
-    { dx: 1, dy: 0, label: "→", key: "e" },
-    { dx: -1, dy: -1, label: "↙", key: "sw" },
-    { dx: 0, dy: -1, label: "↓", key: "s" },
-    { dx: 1, dy: -1, label: "↘", key: "se" },
 ];
 
 const panelStyle: React.CSSProperties = {
@@ -32,10 +32,10 @@ const panelStyle: React.CSSProperties = {
     bottom: 18,
     transform: "translateX(-50%)",
     display: "grid",
-    gridTemplateColumns: "190px minmax(440px, 1fr)",
+    gridTemplateColumns: "minmax(150px, 1fr) minmax(260px, 1.4fr)",
     gap: 16,
-    width: "min(760px, calc(100vw - 420px))",
-    minWidth: 650,
+    width: "min(660px, calc(100vw - 64px))",
+    boxSizing: "border-box",
     padding: "15px 17px",
     border: "1px solid rgba(230, 196, 112, 0.7)",
     borderRadius: 14,
@@ -66,8 +66,9 @@ const isTypingTarget = (target: EventTarget | null): boolean =>
 export const CreatureAnimationLabPanel: React.FC = () => {
     const manager = usePixiManager();
     const [selected, setSelected] = useState<UnitProperties | null>(null);
-    const [status, setStatus] = useState("Поставьте существо, выберите его и кликните по клетке назначения");
+    const [status, setStatus] = useState("Выберите портрет и поставьте существо кликом на карту");
     const [ok, setOk] = useState(true);
+    const [collapsed, setCollapsed] = useState(false);
 
     const showResult = useCallback((result: { ok: boolean; message: string }) => {
         setOk(result.ok);
@@ -131,8 +132,29 @@ export const CreatureAnimationLabPanel: React.FC = () => {
         return () => window.removeEventListener("keydown", onKeyDown, true);
     }, [move]);
 
+    if (collapsed) {
+        return (
+            <button
+                type="button"
+                onClick={() => setCollapsed(false)}
+                style={{ ...buttonStyle, position: "fixed", top: 16, right: 64, zIndex: 1200 }}
+            >
+                Анимации
+            </button>
+        );
+    }
+
     return (
         <aside style={panelStyle} aria-label="Creature animation lab">
+            <button
+                type="button"
+                aria-label="Свернуть панель анимаций"
+                title="Свернуть и открыть всю карту"
+                onClick={() => setCollapsed(true)}
+                style={{ ...buttonStyle, position: "absolute", top: -34, right: 0, minHeight: 28, padding: "3px 10px" }}
+            >
+                Свернуть
+            </button>
             <section>
                 <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 9 }}>
                     <span
@@ -150,7 +172,7 @@ export const CreatureAnimationLabPanel: React.FC = () => {
                     {selected?.name ?? "Нет выбранного существа"}
                 </div>
                 <div style={{ color: "#bdb3a0", fontSize: 11, lineHeight: 1.45 }}>
-                    Idle работает постоянно. Клик по свободной клетке запускает быстрый бег без лимита хода.
+                    Кликните по карте — существо пойдёт туда. Новый клик сразу меняет цель, даже во время движения.
                 </div>
                 <div
                     style={{
@@ -165,52 +187,50 @@ export const CreatureAnimationLabPanel: React.FC = () => {
                 </div>
             </section>
 
-            <section style={{ display: "grid", gridTemplateColumns: "126px 1fr", gap: 14 }}>
-                <div>
-                    <div style={{ color: "#a99c84", fontSize: 9, marginBottom: 6, letterSpacing: ".12em" }}>
-                        БЕГ · КЛИК / WASD
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 38px)", gap: 4 }}>
-                        {directions.map((direction) => (
-                            <button
-                                type="button"
-                                key={direction.key}
-                                onClick={() => move(direction.dx, direction.dy)}
-                                title={
-                                    !direction.dx && !direction.dy
-                                        ? "Вернуться в idle"
-                                        : "Быстрый шаг на соседнюю клетку"
-                                }
-                                style={{ ...buttonStyle, minHeight: 34, padding: 0, fontSize: 18 }}
-                            >
-                                {direction.label}
-                            </button>
-                        ))}
-                    </div>
-                </div>
+            <section>
                 <div>
                     <div style={{ color: "#a99c84", fontSize: 9, marginBottom: 6, letterSpacing: ".12em" }}>
                         ПРИНУДИТЕЛЬНАЯ АНИМАЦИЯ
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(105px, 1fr))", gap: 7 }}>
-                        {animationButtons.map(({ state, label, hint }) => (
-                            <button
-                                type="button"
-                                key={state}
-                                onClick={() => play(state)}
-                                title={hint}
-                                style={{
-                                    ...buttonStyle,
-                                    borderColor:
-                                        state === "idle" ? "rgba(111, 209, 126, .65)" : buttonStyle.borderColor,
-                                }}
-                            >
-                                {label}
-                            </button>
-                        ))}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 7 }}>
+                        {animationButtons
+                            .filter(
+                                ({ state }) =>
+                                    (!["Blacksmith", "Wolf"].includes(selected?.name ?? "") ||
+                                        !["attack", "attack_up", "attack_down"].includes(state)) &&
+                                    (!["Squire", "Troglodyte", "Healer"].includes(selected?.name ?? "") ||
+                                        !state.startsWith("melee_attack")),
+                            )
+                            .map(({ state, label, hint }) => (
+                                <button
+                                    type="button"
+                                    key={state}
+                                    onClick={() => play(state)}
+                                    title={
+                                        selected?.name === "Squire" && state.startsWith("attack")
+                                            ? hint.replace("Бросок", "Удар булавой")
+                                            : selected?.name === "Troglodyte" && state.startsWith("attack")
+                                              ? hint.replace("Бросок", "Удар киркой")
+                                              : selected?.name === "Healer" && state.startsWith("attack")
+                                                ? hint.replace("Бросок", "Магическая атака")
+                                                : hint
+                                    }
+                                    style={{
+                                        ...buttonStyle,
+                                        borderColor:
+                                            state === "idle" ? "rgba(111, 209, 126, .65)" : buttonStyle.borderColor,
+                                    }}
+                                >
+                                    {selected?.name === "Squire"
+                                        ? label.replace("ДАЛЬНЯЯ", "БЛИЖНЯЯ")
+                                        : ["Troglodyte", "Healer"].includes(selected?.name ?? "")
+                                          ? label.replace("ДАЛЬНЯЯ", "АТАКА")
+                                          : label}
+                                </button>
+                            ))}
                     </div>
                     <div style={{ marginTop: 8, color: "#8f877b", fontSize: 9.5 }}>
-                        Карта пустая и бесконечная по времени: без ходов, таймеров, сужения и конца боя.
+                        Движение мышью · WASD — шаг. Сверху ставятся красные, снизу — зелёные.
                     </div>
                 </div>
             </section>

@@ -170,7 +170,7 @@ import { WindLayer } from "./sandbox/WindLayer";
 import { TerrainCellSnapshotCache } from "./sandbox/TerrainCellSnapshotCache";
 import { createCinematicFilter } from "./sandbox/CinematicFilter";
 import { LightingLayer } from "./sandbox/LightingLayer";
-import { MoveAnimationManager } from "./sandbox/MoveAnimationManager";
+import { MoveAnimationManager, setMovementParticlesEnabled } from "./sandbox/MoveAnimationManager";
 import { CombatVisuals } from "./sandbox/CombatVisuals";
 import {
     RangedProjectiles,
@@ -917,6 +917,7 @@ export class Sandbox extends PixiScene {
     private readonly revealedOpponentUnitIds = new Set<string>();
     private selectedBoardUnit?: RenderableUnit;
     private creatureAnimationLabEnabled = false;
+    private creatureAnimationLabReservedCells?: HoCMath.XY[];
     // Pointer as received from Pixi, before the painted battlefield is mapped back to the square
     // mechanics grid. Board interaction uses sc_mouseWorld (logical); world-space UI such as the
     // spellbook still needs this unmodified visual point.
@@ -1073,8 +1074,12 @@ export class Sandbox extends PixiScene {
     // the allowance is once per FIGHT, not once per streak of missed turns.
     private sandboxGraceTurnUsed = false;
     private hasInitializedLap = false;
-    /** Guards the one-time prewarm of unit animation atlases once the fight has started. */
-    private atlasesPrewarmed = false;
+    /** Sources whose pixels have already been drawn once, so a later action does not upload them. */
+    private readonly prewarmedAtlasSources = new WeakSet<object>();
+    /** Empty scans after the last new sheet. Late downloads reset this and resume the upload. */
+    private atlasPrewarmQuietScans = 0;
+    private atlasPrewarmUnitCount = -1;
+    private static readonly ATLAS_PREWARM_QUIET_SCANS = 180;
     private gameplayGraphics?: Graphics;
     /** Authored bitmap corners for the shooting-range frame; kept separate from Pixi Graphics in v8. */
     private shotRangeCornerContainer?: Container;
@@ -1219,6 +1224,7 @@ export class Sandbox extends PixiScene {
         });
 
         // Procedural smoke for movement tracks — its own layer so the fBM shader only touches dust.
+        // The layer stays mounted; the animation lab only stops new tracks from being fed to it.
         this.smokeLayer = new SmokeLayer();
         this.attachToWorldRoot(this.smokeLayer.getContainer(), 50);
         // Spell smoke (Wandering Mage). Above the movement dust but below the units, so a creature standing in
@@ -4735,10 +4741,14 @@ export class Sandbox extends PixiScene {
             capturedVisualCenter ?? this.preDeferredActionUnitHp?.get(impact.targetUnitId)?.visualCenter;
         return {
             target: impactUnit ?? (requestedTarget as RenderableUnit),
-            position: resolveRangeProjectilePlaybackPosition(impact, !!impactUnit, preActionVisualCenter),
+            position: impactUnit
+                ? impactUnit.getProjectileImpactPoint(this.sc_sceneSettings.getGridSettings())
+                : (preActionVisualCenter ?? resolveRangeProjectilePlaybackPosition(impact, false)),
         };
     }
+    /** Finish the previous shot or incoming hit before reserving the next authored ranged action. */
     private async waitForProjectileHitReaction(unit: RenderableUnit): Promise<boolean> {
+        if (typeof unit.isPlayingOneShotAnimation !== "function") return true;
         const busy = (): boolean =>
             ["hit", "attack", "attack_up", "attack_down"].some((state) => unit.isPlayingOneShotAnimation(state));
         for (let frame = 0; frame < 300 && busy(); frame++) {
@@ -4754,18 +4764,30 @@ export class Sandbox extends PixiScene {
     ): Promise<void> {
         const unit = sourceUnit as unknown as LevelOneRenderableUnit;
         const authoredShooter = usesAuthoredRangedRelease(unit.getName());
+        // Combat still names an Elf shot elfArrow and a Medusa shot medusaSerpent. The authored
+        // release plays them as the dryad arrow and the arm serpent.
+        const authoredOpts: IFireProjectileOptions = {
+            ...opts,
+            elfArrow: false,
+            dryadArrow: !!opts.dryadArrow || !!opts.elfArrow,
+            medusaArmSerpent: !!opts.medusaArmSerpent || !!opts.medusaSerpent,
+        };
         if (
             !authoredShooter ||
-            (!opts.orcAxe && !opts.centaurSpear && !opts.arbalesterBolt && !opts.dryadArrow) ||
+            (!authoredOpts.orcAxe &&
+                !authoredOpts.centaurSpear &&
+                !authoredOpts.arbalesterBolt &&
+                !authoredOpts.dryadArrow &&
+                !authoredOpts.medusaArmSerpent) ||
             !unit.hasAnimationState("attack")
         ) {
             await this.rangedProjectiles.fire(opts);
             return;
         }
-        await this.rangedProjectiles.prepare(opts);
+        await this.rangedProjectiles.prepare(authoredOpts);
         if (!(await this.waitForProjectileHitReaction(sourceUnit))) return;
         const center = unit.getProjectileImpactPoint(this.sc_sceneSettings.getGridSettings());
-        const dy = opts.to.y - center.y;
+        const dy = authoredOpts.to.y - center.y;
         const state =
             previewState ??
             (Math.abs(dy) < this.sc_sceneSettings.getGridSettings().getCellSize() * 0.35
@@ -4773,8 +4795,8 @@ export class Sandbox extends PixiScene {
                 : dy > 0
                   ? "attack_up"
                   : "attack_down");
-        if (opts.dryadArrow && authoredShooter) {
-            await this.fireDryadLabProjectile(unit, opts, state);
+        if ((authoredOpts.dryadArrow || authoredOpts.medusaArmSerpent) && authoredShooter) {
+            await this.fireDryadLabProjectile(unit, authoredOpts, state);
             return;
         }
         if (opts.arbalesterBolt && authoredShooter) {
@@ -4862,7 +4884,14 @@ export class Sandbox extends PixiScene {
                     settle(undefined);
             });
             if (!origin || shot.signal.aborted || this.isSceneDestroyed()) return;
-            await this.rangedProjectiles.fire({ ...opts, from: origin, arrowLength, signal: shot.signal });
+            const measuredLength = arrowLength ?? unit.getDryadArrowLength();
+            await this.rangedProjectiles.fire({
+                ...opts,
+                from: origin,
+                arrowLength: measuredLength,
+                serpentLength: opts.medusaArmSerpent ? measuredLength : opts.serpentLength,
+                signal: shot.signal,
+            });
         } finally {
             this.clearSceneTimeout(timeout);
             unit.finishDryadRangedShot(shot);
@@ -4970,6 +4999,7 @@ export class Sandbox extends PixiScene {
             : undefined;
         return orderCombatExchange(primary, response);
     }
+    /** Play resolved blows serially; the striker and the struck figure animate together at contact. */
     private async playCombatExchange(
         attacker: RenderableUnit,
         target: RenderableUnit,
@@ -5042,7 +5072,7 @@ export class Sandbox extends PixiScene {
                 } else if (strike.amount > 0 && renderedVictim) {
                     // Final engine HP can already be zero after a later blow. This hit still precedes it.
                     reaction = this.playReplayOneShot(victim, "hit", 3000, true);
-                    if (victim.getUnitProperties().level > 2) {
+                    if ((victim.getUnitProperties?.().level ?? 0) > 2) {
                         this.applyReplayHitKnockback(victim, source);
                         reaction = Promise.all([reaction, this.delayReplay(330)]).then(() => {});
                     }
@@ -5050,12 +5080,12 @@ export class Sandbox extends PixiScene {
             };
             if (melee) {
                 const attack = this.playReplayOneShot(source, attackState, 5000, true);
-                if (source.getUnitProperties().level > 2) this.applyReplayLunge(source, victim);
+                if ((source.getUnitProperties?.().level ?? 0) > 2) this.applyReplayLunge(source, victim);
                 impact();
                 await Promise.all([
                     attack,
                     reaction,
-                    source.getUnitProperties().level > 2 ? this.delayReplay(220) : Promise.resolve(),
+                    (source.getUnitProperties?.().level ?? 0) > 2 ? this.delayReplay(220) : Promise.resolve(),
                 ]);
             } else {
                 const attack = usesAuthoredRangedRelease(source.getName())
@@ -6060,7 +6090,7 @@ export class Sandbox extends PixiScene {
             caster.faceBoardTarget(facingTarget);
         }
         if (caster.hasAnimationState("cast")) {
-            await this.playReplayOneShot(caster, "cast", 720);
+            await this.playReplayOneShot(caster, "cast", caster.getName() === "Wandering Mage" ? 1500 : 720);
         }
 
         // Craft (ALLIES_AREA area cast): capture the pre-cast state NOW so the forge result pops can diff it
@@ -6523,49 +6553,72 @@ export class Sandbox extends PixiScene {
         this.unitsHolder.refreshStackPowerForAllUnits();
     }
     /**
-     * Decode + GPU-upload every on-board unit's "default" (active/selection) animation atlas up front.
-     * That atlas is otherwise built and uploaded lazily the first time each unit becomes active, which
-     * lands a ~100ms decode/upload hitch on the turn-handoff frame (the "lag right before the turn
-     * passes"). Doing it once here — during the load/placement phase — moves the cost off the gameplay
-     * critical path. Renders to a tiny offscreen RenderTexture so nothing flickers on screen; the temp
-     * sprites are destroyed but the shared atlas textures stay cached (atlasFramesCache).
+     * Upload one already-decoded combat atlas per step. The GPU upload (texImage2D) only happens when a
+     * texture is drawn; attack, hit and death sheets used to be drawn for the first time on the action
+     * frame, which is the stall after an action. One source per step keeps that cost off the action and
+     * off a single fight-start frame. Sprites stay visible — Pixi culls fully transparent ones.
+     * Destroying the temp sprite does not destroy the shared atlas texture.
      */
-    private prewarmUnitAtlases(): void {
-        const app = this.pixiApp.getApplication();
-        const renderer = app?.renderer;
-        if (!renderer) {
+    private stepAtlasPrewarm(): void {
+        const units = this.unitsHolder.getAllUnits();
+        if (units.size !== this.atlasPrewarmUnitCount) {
+            this.atlasPrewarmUnitCount = units.size;
+            this.atlasPrewarmQuietScans = 0;
+        }
+        if (this.atlasPrewarmQuietScans >= Sandbox.ATLAS_PREWARM_QUIET_SCANS) return;
+        if (this.oneShotPresentationActive()) return;
+        const frame = this.nextUnuploadedAtlasFrame();
+        if (!frame?.source) {
+            this.atlasPrewarmQuietScans++;
             return;
         }
-        // The actual GPU pixel upload (texImage2D) only happens when a texture is drawn for real — calling
-        // the texture system's initSource alone does NOT force it. So render one visible sprite per atlas
-        // into a tiny OFFSCREEN RenderTexture: that executes a real draw call, binding+uploading each atlas
-        // source now (during load/placement) instead of lazily on the unit's first activation at handoff.
-        // Sprites MUST be visible (alpha > 0) — Pixi culls fully-transparent objects, so they'd never draw.
-        const container = new Container();
-        const seenSources = new Set<unknown>();
+        if (!this.uploadAtlasFrame(frame)) return;
+        this.prewarmedAtlasSources.add(frame.source);
+        this.atlasPrewarmQuietScans = 0;
+    }
+    private oneShotPresentationActive(): boolean {
         for (const unit of this.unitsHolder.getAllUnits().values()) {
-            const frame = (unit as RenderableUnit).prewarmDefaultAtlasFrame?.();
-            if (!frame) {
-                continue;
-            }
-            const source = frame.source as unknown;
-            if (seenSources.has(source)) {
-                continue;
-            }
-            seenSources.add(source);
-            container.addChild(new Sprite(frame));
+            if ((unit as RenderableUnit).isPlayingOneShotAnimation()) return true;
         }
-        if (container.children.length) {
-            const rt = RenderTexture.create({ width: 8, height: 8 });
-            try {
-                renderer.render({ container, target: rt });
-            } catch {
-                // Prewarm is best-effort; on failure the atlas just uploads lazily as before.
-            } finally {
-                rt.destroy(true);
+        for (const unit of this.dyingVisualUnits) {
+            if (unit.isPlayingOneShotAnimation()) return true;
+        }
+        return false;
+    }
+    private nextUnuploadedAtlasFrame(): Texture | undefined {
+        const units = [...this.unitsHolder.getAllUnits().values()] as RenderableUnit[];
+        const active = this.currentActiveUnit;
+        if (active) {
+            const index = units.indexOf(active);
+            if (index > 0) {
+                units.splice(index, 1);
+                units.unshift(active);
             }
         }
-        container.destroy({ children: true });
+        for (const unit of units) {
+            const frame = unit.prewarmCombatAtlasFrame?.(this.prewarmedAtlasSources);
+            if (frame) return frame;
+        }
+        return undefined;
+    }
+    /** Returns false when there is no renderer yet, so the same sheet is tried again next step. */
+    private uploadAtlasFrame(frame: Texture): boolean {
+        const renderer = this.pixiApp.getApplication()?.renderer;
+        if (!renderer) return false;
+        const container = new Container();
+        const sprite = new Sprite(frame);
+        sprite.alpha = 1;
+        container.addChild(sprite);
+        const rt = RenderTexture.create({ width: 8, height: 8 });
+        try {
+            renderer.render({ container, target: rt });
+        } catch {
+            // Best-effort. The source is still marked uploaded so a broken sheet cannot hitch every step.
+        } finally {
+            rt.destroy(true);
+            container.destroy({ children: true });
+        }
+        return true;
     }
     /**
      * Record, on CombatVisuals, what killed every unit that died in this attack (melee vs range, plus
@@ -13046,7 +13099,15 @@ export class Sandbox extends PixiScene {
         return this.aiControlledTeams.has(team);
     }
     public override setCreatureAnimationLabEnabled(enabled: boolean): void {
+        if (!enabled && this.creatureAnimationLabEnabled) {
+            this.moveAnimManager.forceFinish();
+            this.creatureAnimationLabReservedCells = undefined;
+        }
         this.creatureAnimationLabEnabled = enabled;
+        setMovementParticlesEnabled(!enabled);
+        for (const unit of this.unitsHolder.getAllUnits().values()) {
+            (unit as RenderableUnit).setCreatureAnimationLabPreviewEnabled(enabled);
+        }
         if (enabled) {
             // This mode never starts a fight, so turn clocks, laps and narrowing cannot advance. Also
             // clear any developer narrowing preview and persisted terrain immediately on entry.
@@ -13058,40 +13119,68 @@ export class Sandbox extends PixiScene {
     }
     /**
      * Animation Lab board input: click a creature to select it, then click any free cell to run there.
-     * Overlay placement deliberately falls through to the regular pre-fight placement path.
+     * Portrait placement and movement both use the whole playground, without deployment zones.
      */
     private handleCreatureAnimationLabBoardClick(point: HoCMath.XY): boolean {
         if (!this.creatureAnimationLabEnabled) {
             return false;
         }
-        if (this.moveAnimManager.isMoving()) {
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const targetAnchor = GridMath.getCellForPosition(gs, point);
+        if (!targetAnchor || !GridMath.isCellWithinGrid(gs, targetAnchor)) return false;
+        if (this.selectionFromOverlay) {
+            this.placeCreatureAnimationLabUnit(targetAnchor);
             return true;
         }
-
-        const clickedUnit = this.getUnitAtPosition(point) as RenderableUnit | undefined;
-        if (clickedUnit) {
+        const selectedUnit = this.getCreatureAnimationLabUnit();
+        // Tall artwork must not swallow a destination click on the ground behind it.
+        const clickedUnit = this.getGridUnitAtPosition(point) as RenderableUnit | undefined;
+        if (clickedUnit && clickedUnit !== selectedUnit) {
             this.selectCreatureAnimationLabUnit(clickedUnit);
             this.sc_sceneLog.updateLog(`${clickedUnit.getName()}: selected for endless movement`);
             return true;
-        }
-        // An empty-cell click with a portrait selected is still the initial placement gesture.
-        if (this.selectionFromOverlay) {
-            return false;
         }
 
         const selected = this.creatureAnimationLabPlacedUnit();
         if (!selected.ok || !selected.unit) {
             return false;
         }
-        const targetAnchor = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), point);
-        if (!targetAnchor || !GridMath.isCellWithinGrid(this.sc_sceneSettings.getGridSettings(), targetAnchor)) {
-            return true;
-        }
         const result = this.moveCreatureAnimationLabUnitToAnchor(selected.unit, targetAnchor);
         this.sc_sceneLog.updateLog(result.message);
         return true;
     }
+    private placeCreatureAnimationLabUnit(anchor: HoCMath.XY): void {
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const preview = this.getPlacementPreviewUnit();
+        if (!preview) return;
+        const cells = preview.getFootprintCellsForAnchor(anchor);
+        if (!cells.every((cell) => GridMath.isCellWithinGrid(gs, cell) && !this.grid.getOccupantUnitId(cell))) {
+            this.sc_sceneLog.updateLog("Выберите свободное место для существа");
+            return;
+        }
+        const position = GridMath.getPositionForCells(gs, cells);
+        if (!position) return;
+        const team = anchor.y >= gs.getGridSize() / 2 ? TeamVals.RIGHT : TeamVals.LEFT;
+        const unit = this.createUnitForTeam(team);
+        if (!unit) return;
+        if (!this.grid.occupyCells(cells, unit.getId(), team, unit.getAttackRange(), true, true)) {
+            this.unitsHolder.deleteUnitById(unit.getId());
+            return;
+        }
+        unit.setPosition(position.x, position.y);
+        unit.setVisualScaleMultiplier(1);
+        unit.setBoardFacing(placementFacingDirectionForTeam(team));
+        unit.ensureVisual(this.drawer.getUnitsContainer(), gs);
+        this.selectionFromOverlay = false;
+        this.unitsOverlay.clearSelection(true);
+        this.selectCreatureAnimationLabUnit(unit);
+        this.gridMatrix = this.grid.getMatrix();
+        this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
+        this.layoutVersion++;
+        this.sc_visibleStateUpdateNeeded = true;
+    }
     private selectCreatureAnimationLabUnit(unit: RenderableUnit): void {
+        unit.setCreatureAnimationLabPreviewEnabled(true);
         if (this.selectedBoardUnit && this.selectedBoardUnit !== unit) {
             this.selectedBoardUnit.setBoardSelected(false);
         }
@@ -13124,7 +13213,9 @@ export class Sandbox extends PixiScene {
         if (!unit) {
             return { ok: false, message: "Выберите существо на поле" };
         }
-        const isPlaced = unit.getCells().some((cell) => this.grid.getOccupantUnitId(cell) === unit.getId());
+        const isPlaced =
+            this.moveAnimManager.getMovingUnit() === unit ||
+            unit.getCells().some((cell) => this.grid.getOccupantUnitId(cell) === unit.getId());
         if (!isPlaced) {
             return { ok: false, message: "Сначала поставьте выбранное существо на поле" };
         }
@@ -13137,6 +13228,12 @@ export class Sandbox extends PixiScene {
         const selected = this.creatureAnimationLabPlacedUnit();
         const unit = selected.unit;
         if (!selected.ok || !unit) return selected;
+        if (unit.getName() === "Wolf") {
+            // The melee-only Wolf uses the same attack family in the lab and combat.
+            if (state === "melee_attack") state = "attack";
+            else if (state === "melee_attack_up") state = "attack_up";
+            else if (state === "melee_attack_down") state = "attack_down";
+        }
         if (state === "idle") {
             unit.returnToIdleAnimation();
             return { ok: true, message: `${unit.getName()}: idle` };
@@ -13144,15 +13241,87 @@ export class Sandbox extends PixiScene {
         if (!unit.hasAnimationState(state)) {
             return { ok: false, message: `У ${unit.getName()} нет атласа ${state}` };
         }
+        if (
+            ["Orc", "Arbalester", "Centaur", "Dryad", "Elf", "Medusa"].includes(unit.getName()) &&
+            ["attack", "attack_up", "attack_down"].includes(state)
+        ) {
+            const arbalester = unit.getName() === "Arbalester";
+            const centaur = unit.getName() === "Centaur";
+            const dryad = ["Dryad", "Elf"].includes(unit.getName());
+            const medusa = unit.getName() === "Medusa";
+            if (
+                unit.isPlayingOneShotAnimation() ||
+                this.rangedProjectiles.hasActive() ||
+                (arbalester && unit.hasPendingArbalesterRangedShot()) ||
+                ((dryad || medusa) && unit.hasPendingDryadRangedShot())
+            ) {
+                return { ok: false, message: "Дождитесь окончания выстрела" };
+            }
+            const gs = this.sc_sceneSettings.getGridSettings();
+            const from = unit.getVisualCenter(gs);
+            const dy = state === "attack_up" ? 1 : state === "attack_down" ? -1 : 0;
+            const targets = [...this.unitsHolder.getAllUnits().values()].filter((candidate) => {
+                if (candidate.getId() === unit.getId() || (!arbalester && candidate.getTeam() === unit.getTeam()))
+                    return false;
+                if (
+                    !candidate.getCells().some((cell) => this.grid.getOccupantUnitId(cell) === candidate.getId()) ||
+                    (candidate as RenderableUnit).isPlayingOneShotAnimation("death")
+                )
+                    return false;
+                const delta = candidate.getPosition().y - unit.getPosition().y;
+                return dy === 0 ? Math.abs(delta) < gs.getCellSize() * 0.5 : delta * dy > 0;
+            });
+            targets.sort((a, b) => {
+                // The lab's forced Arbalester preview also uses friendly figures as practice targets.
+                const teamPriority = Number(a.getTeam() === unit.getTeam()) - Number(b.getTeam() === unit.getTeam());
+                return (
+                    teamPriority ||
+                    Math.hypot(a.getPosition().x - unit.getPosition().x, a.getPosition().y - unit.getPosition().y) -
+                        Math.hypot(b.getPosition().x - unit.getPosition().x, b.getPosition().y - unit.getPosition().y)
+                );
+            });
+            const target = targets[0] as RenderableUnit | undefined;
+            const side = from.x < (gs.getMinX() + gs.getMaxX()) / 2 ? 1 : -1;
+            const to = target?.getProjectileImpactPoint(gs) ?? {
+                x: from.x + side * gs.getCellSize() * 4,
+                y: from.y + dy * gs.getCellSize() * 2,
+            };
+            void this.fireUnitProjectile(
+                unit,
+                {
+                    from,
+                    to,
+                    big: false,
+                    orcAxe: !arbalester && !centaur && !dryad && !medusa,
+                    arbalesterBolt: arbalester,
+                    centaurSpear: centaur,
+                    dryadArrow: dryad,
+                    medusaSerpent: medusa,
+                    onImpact: target
+                        ? () => {
+                              if (
+                                  this.isSceneDestroyed() ||
+                                  this.unitsHolder.getAllUnits().get(target.getId()) !== target ||
+                                  target.isPlayingOneShotAnimation("death")
+                              )
+                                  return;
+                              target.playOneShotAnimation("hit", undefined, true);
+                          }
+                        : undefined,
+                },
+                state,
+            );
+            return {
+                ok: true,
+                message: `${unit.getName()}: ${arbalester || dryad || medusa ? "выстрел" : "бросок"} ${dy > 0 ? "↑" : dy < 0 ? "↓" : "→"}`,
+            };
+        }
         const started = unit.playOneShotAnimation(state, undefined, true);
         return started
             ? { ok: true, message: `${unit.getName()}: ${state}` }
             : { ok: false, message: `Не удалось запустить ${state} для ${unit.getName()}` };
     }
     public override moveCreatureAnimationLabSelection(dx: number, dy: number): CreatureAnimationLabResult {
-        if (this.moveAnimManager.isMoving()) {
-            return { ok: false, message: "Дождитесь окончания движения" };
-        }
         const selected = this.creatureAnimationLabPlacedUnit();
         const unit = selected.unit;
         if (!selected.ok || !unit) return selected;
@@ -13225,21 +13394,26 @@ export class Sandbox extends PixiScene {
         unit: RenderableUnit,
         targetAnchor: HoCMath.XY,
     ): CreatureAnimationLabResult {
-        if (this.moveAnimManager.isMoving()) {
-            return { ok: false, message: "Дождитесь окончания движения" };
+        const movingUnit = this.moveAnimManager.getMovingUnit();
+        if (this.moveAnimManager.isMoving() && movingUnit !== unit) {
+            return { ok: false, message: "Сейчас движется другое существо" };
         }
-        unit.returnToIdleAnimation();
         const startPosition = { ...unit.getPosition() };
         const startCell = unit.getBaseCell();
         const route = this.findCreatureAnimationLabRoute(unit, startCell, targetAnchor);
         if (!route) {
             return { ok: false, message: "До этой клетки нет свободного пути" };
         }
-        if (route.length < 2) {
+        if (route.length < 2 && movingUnit !== unit) {
             return { ok: false, message: "Существо уже стоит на этой клетке" };
         }
         const targetCells = unit.getFootprintCellsForAnchor(targetAnchor);
-        const startCells = unit.getCells();
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const targetPosition = GridMath.getPositionForCells(gs, targetCells);
+        if (!targetPosition) {
+            return { ok: false, message: "Не удалось определить клетку назначения" };
+        }
+        const startCells = this.creatureAnimationLabReservedCells ?? unit.getCells();
         this.grid.cleanupAll(unit.getId(), unit.getAttackRange(), unit.isSmallSize());
         // A normal place_unit action is intentionally restricted to each team's deployment zone. The
         // playground is not deployment: restamp the already-existing unit directly so every free board
@@ -13257,25 +13431,26 @@ export class Sandbox extends PixiScene {
             return { ok: false, message: "Клетка занята или находится за пределами карты" };
         }
 
-        const gs = this.sc_sceneSettings.getGridSettings();
-        const targetPosition = GridMath.getPositionForCells(gs, targetCells);
-        if (!targetPosition) {
-            return { ok: false, message: "Не удалось определить клетку назначения" };
-        }
-
+        // Validate and reserve the new route before cancelling the old one. Cancel keeps the current
+        // interpolated position and does not fire the old completion callback or teleport to its end.
+        if (movingUnit === unit) this.moveAnimManager.cancel();
+        unit.returnToIdleAnimation();
+        this.creatureAnimationLabReservedCells = targetCells;
         this.gridMatrix = this.grid.getMatrix();
         this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
         unit.setPosition(startPosition.x, startPosition.y);
         const worldPath = route.map((anchor) => this.footprintCenterForAnchor(unit, anchor));
         worldPath[0] = startPosition;
+        if (worldPath.length === 1) worldPath.push(targetPosition);
         this.moveAnimManager.startMoveAnimation(
             unit,
             worldPath,
-            gs.getCellSize() * Sandbox.CREATURE_ANIMATION_LAB_MOVE_SPEED_FACTOR,
+            gs.getCellSize() * Sandbox.MOVE_SPEED_FACTOR,
             targetAnchor,
             route,
             () => {
                 unit.setPosition(targetPosition.x, targetPosition.y);
+                this.creatureAnimationLabReservedCells = undefined;
                 this.layoutVersion++;
                 this.sc_visibleStateUpdateNeeded = true;
             },
@@ -13283,7 +13458,7 @@ export class Sandbox extends PixiScene {
         this.isActiveUnitMoving = true;
         return {
             ok: true,
-            message: `${unit.getName()}: быстрый бег в клетку ${targetAnchor.x}, ${targetAnchor.y}`,
+            message: `${unit.getName()}: движение в клетку ${targetAnchor.x}, ${targetAnchor.y}`,
         };
     }
     /**
@@ -15904,12 +16079,9 @@ export class Sandbox extends PixiScene {
             return;
         }
 
-        // Once the fight is underway and every unit exists, prewarm each unit's active-animation atlas
-        // so its first activation doesn't decode/upload on a turn-handoff frame (the recognizable lag).
-        if (!this.atlasesPrewarmed && fightStarted && this.hasAnySceneUnits()) {
-            this.atlasesPrewarmed = true;
-            this.prewarmUnitAtlases();
-        }
+        // Spread combat-atlas uploads across idle steps, including placement, so the action frame
+        // does not pay for the first draw of an attack, hit or death sheet.
+        if (this.hasAnySceneUnits()) this.stepAtlasPrewarm();
 
         // AI section - delegate to AIController
         if (
@@ -16142,7 +16314,7 @@ export class Sandbox extends PixiScene {
         for (const unit of this.unitsHolder.getAllUnits().values()) {
             const rUnit = unit as RenderableUnit;
             rUnit.setHoverTurnAura(!fightProps.hasFightStarted() && this.hoverManager.hoveredUnitId === rUnit.getId());
-            if (!fightProps.hasFightStarted()) {
+            if (!fightProps.hasFightStarted() && !this.creatureAnimationLabEnabled) {
                 // Placement is a face-off: red/RIGHT models are mirrored toward the left, while
                 // green/LEFT models keep facing right. Re-assert every frame so dragging or hydration
                 // cannot leave a unit with stale combat-facing from a previous scene state.
@@ -16150,7 +16322,11 @@ export class Sandbox extends PixiScene {
             }
             // Use PixiDrawer's unit container (Z=1000), not worldRoot directly.
             // This ensures units are ALWAYS above terrain (Z=20) and overlay (Z=60) but depth sorted inside.
-            rUnit.syncVisual(this.drawer.getUnitsContainer(), this.sc_sceneSettings.getGridSettings());
+            rUnit.syncVisual(
+                this.drawer.getUnitsContainer(),
+                this.sc_sceneSettings.getGridSettings(),
+                this.moveAnimManager.isUnitMoving(rUnit),
+            );
             depthSortableUnits.push(rUnit);
             // Animation atlases must keep ticking while the unit moves. Previously the moving branch
             // skipped this call and only applied the generic bob/tilt, leaving Wandering Mage's authored
@@ -18357,6 +18533,8 @@ export class Sandbox extends PixiScene {
     }
     // --- Tier 2 Asset Loading Feedback ---
     public override onSupplementaryTexturesLoaded(): void {
+        // A sheet that finished downloading after the quiet period still needs its upload off the action.
+        this.atlasPrewarmQuietScans = 0;
         // A freshly-arrived atlas bundle does not repaint anything by itself: ensureVisual runs only
         // on sync points, so every unit spawned before the bundle keeps the static token it fell back
         // to (the "old squared images on initial load" report). Re-resolve every live renderable now —

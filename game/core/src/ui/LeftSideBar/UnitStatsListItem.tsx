@@ -657,8 +657,13 @@ const ScrollWell: React.FC<{
     );
 };
 
-// Fixed-height icon well. Abilities/debuffs remain horizontal strips; Buffs opts into a wrapped vertical
-// well whose scrollbar sits on the right, so a normal mouse-wheel gesture reaches additional rows.
+// Fixed-height icon well. Abilities remain horizontal strips; Buffs and Debuffs opt into a wrapped
+// vertical well whose scrollbar sits on the right, so a normal mouse-wheel gesture reaches additional rows.
+//
+// `rowStepPx` makes that well page by whole rows: one wheel notch advances exactly one row, and a drag of
+// the thumb settles on a row boundary the moment it stops. A well this short (barely one row tall) can
+// otherwise come to rest showing the bottom of one row and the top of the next, which reads as clipped art
+// rather than as a row of effects.
 const IconScrollWell: React.FC<{
     height: number;
     children: React.ReactNode;
@@ -758,7 +763,8 @@ export const SectionTitle: React.FC<{
                                   position: "absolute",
                                   left: "100%",
                                   top: 0,
-                                  width: "6px",
+                                  // Bridge the flex gap and the plaque's clipped corner.
+                                  width: "13px",
                                   height: "1px",
                                   background: "rgba(132,91,52,.58)",
                               },
@@ -797,6 +803,8 @@ export const SectionTitle: React.FC<{
                               alignItems: "center",
                               justifyContent: "center",
                           }),
+                    position: "relative",
+                    zIndex: 1,
                     minWidth: namePlaque ? "58.8%" : "42%",
                     textAlign: "center",
                     clipPath: "polygon(7px 0, calc(100% - 7px) 0, 100% 50%, calc(100% - 7px) 100%, 7px 100%, 0 50%)",
@@ -828,7 +836,8 @@ export const SectionTitle: React.FC<{
                                   position: "absolute",
                                   right: "100%",
                                   top: 0,
-                                  width: "6px",
+                                  // Bridge the flex gap and the plaque's clipped corner.
+                                  width: "13px",
                                   height: "1px",
                                   background: "rgba(132,91,52,.58)",
                               },
@@ -883,7 +892,10 @@ const PanelSection: React.FC<{
                           height: `${Math.round(metrics.gapPx)}px`,
                           transform: `translateY(calc(-50% - ${Math.round(metrics.gapPx * 0.5)}px))`,
                       }
-                    : undefined
+                    : // The wells below are lifted into their plaque and carry transforms of their own, so
+                      // they open a later stacking context and used to paint over the caption. The plaque
+                      // owns that overlap: it stays legible and the tile that reaches it slides beneath.
+                      { position: "relative", zIndex: 7 }
             }
         >
             <SectionTitle
@@ -1612,7 +1624,7 @@ const UnitStatsLayout: React.FC<{
                                     position: "relative",
                                     width: "100%",
                                     height: "100%",
-                                    clipPath: `polygon(0 0, 100% 0, 100% calc(100% - ${abilityRightStepPx}px), 71% calc(100% - ${abilityRightStepPx}px), 71% 100%, 29% 100%, 29% calc(100% - ${abilityRightStepPx}px), 0 calc(100% - ${abilityRightStepPx}px))`,
+                                    clipPath: `inset(0 0 ${abilityRightStepPx}px 0)`,
                                 }}
                             >
                                 <CreaturePortraitImage
@@ -1621,7 +1633,6 @@ const UnitStatsLayout: React.FC<{
                                     artScale={sidebarPortraitTuning.artScale}
                                     artScaleX={0.96 * (sidebarPortraitArt.artScaleX ?? 1)}
                                     backgroundFit="fill"
-                                    animateBackground
                                     artOffsetX={sidebarPortraitTuning.artOffsetX}
                                     artOffsetY={sidebarPortraitTuning.artOffsetY}
                                     artSource={sidebarPortraitArt.source}
@@ -1707,9 +1718,8 @@ const UnitStatsLayout: React.FC<{
                             // to the frame on the Abilities divider. Its top and stat positions stay fixed.
                             bottom: `${-abilityDividerCenterExtensionPx}px`,
                             zIndex: 2,
-                            // Match the portrait's stepped lower edge so the translucent stat surface cannot
-                            // leave a dark patterned remnant below either raised divider segment.
-                            clipPath: `polygon(0 0, 100% 0, 100% calc(100% - ${abilityRightStepPx}px), 71% calc(100% - ${abilityRightStepPx}px), 71% 100%, 29% 100%, 29% calc(100% - ${abilityRightStepPx}px), 0 calc(100% - ${abilityRightStepPx}px))`,
+                            // Clip both surfaces at the divider, including beneath the plaque corners.
+                            clipPath: `inset(0 0 ${abilityRightStepPx}px 0)`,
                             ...stonePlateSx,
                             paddingBottom: `calc(10px + ${abilityDividerCenterExtensionPx}px)`,
                             // Twenty-five percent transparent: the creature continues visibly behind the plate,

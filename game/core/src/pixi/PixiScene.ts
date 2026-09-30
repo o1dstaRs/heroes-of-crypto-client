@@ -119,7 +119,17 @@ export interface SceneEntry {
     SceneClass: SceneConstructor;
 }
 
-export type CreatureAnimationLabState = "idle" | "attack_up" | "attack_down" | "attack" | "hit" | "death";
+export type CreatureAnimationLabState =
+    | "idle"
+    | "attack_up"
+    | "attack_down"
+    | "attack"
+    | "melee_attack"
+    | "melee_attack_up"
+    | "melee_attack_down"
+    | "cast"
+    | "hit"
+    | "death";
 
 export interface CreatureAnimationLabResult {
     ok: boolean;
@@ -186,6 +196,7 @@ export abstract class PixiScene {
     public sc_hoverSpellElement: SpellElement = SpellElement.NO_ELEMENT;
     public sc_hoverSpellEffectSummary?: ISpellEffectSummary;
     public sc_hoverUnitNameStr = "";
+    public sc_hoveredUnitProperties: UnitProperties | undefined;
     public sc_hoverUnitLevel = 0;
     public sc_hoverUnitMovementType = MovementVals.NO_MOVEMENT;
     public sc_pointCount = 0; // parity field
@@ -678,6 +689,11 @@ export abstract class PixiScene {
         this.sc_selectedFactionType = FactionVals.NO_FACTION as FactionType;
         this.sc_factionNameUpdateNeeded = true;
 
+        this.sc_visibleOverallImpact = this.getUnitVisibleImpact(unitProperties);
+        this.sc_unitPropertiesUpdateNeeded = true;
+    }
+    /** Build the same card for hover inspection without changing the placement/combat selection. */
+    public getUnitVisibleImpact(unitProperties: UnitProperties): IVisibleOverallImpact {
         const visibleAbilitiesImpact: IVisibleImpact[] = [];
         const visibleBuffsImpact: IVisibleImpact[] = [];
         const visibleDebuffsImpact: IVisibleImpact[] = [];
@@ -863,13 +879,11 @@ export abstract class PixiScene {
             return a.laps - b.laps;
         });
 
-        this.sc_visibleOverallImpact = {
+        return {
             abilities: visibleAbilitiesImpact,
             buffs: visibleBuffsImpact,
             debuffs: visibleDebuffsImpact,
         };
-
-        this.sc_unitPropertiesUpdateNeeded = true;
     }
     public addStatistic(label: string, value: string | number | boolean): void {
         this.sc_statisticLines.push([label, `${value}`]);

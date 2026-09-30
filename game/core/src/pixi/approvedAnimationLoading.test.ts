@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import { Assets } from "pixi.js";
-import { approvedAnimationAssetKeysForUnit, CREATURE_SPRITE_ANIMATION_SETTINGS } from "./creatureAnimationSettings";
+import {
+    animationAtlasPrewarmKeys,
+    approvedAnimationAssetKeysForUnit,
+    CREATURE_SPRITE_ANIMATION_SETTINGS,
+} from "./creatureAnimationSettings";
 import { preloadIdleAtlasAssets, preloadAnimationAssets } from "./PixiTextureLoader";
 import assets from "../animations/levelOneAssets.json";
 
@@ -41,6 +45,19 @@ test("approved loading is limited to the visible creature, including its authore
             name,
         ).toBe(true);
     }
+});
+
+test("combat sheets are prewarmed before walk and idle, and idle pager pages stay out", () => {
+    const keys = animationAtlasPrewarmKeys("Elf", "elf_lab_idle_atlas");
+    const attack = keys.findIndex((key) => key.includes("_attack"));
+    const walk = keys.findIndex((key) => key.includes("_walk_"));
+    const idle = keys.findIndex((key) => key.includes("_idle_"));
+    expect(attack).toBeGreaterThanOrEqual(0);
+    expect(attack).toBeLessThan(walk);
+    expect(walk).toBeLessThan(idle);
+    expect(keys.filter((key) => key.includes("_idle_"))).toEqual(["elf_lab_idle_atlas"]);
+    expect(keys.some((key) => /arbalester_idle_page_\d{2}_atlas/.test(key))).toBe(false);
+    expect(animationAtlasPrewarmKeys("Black Dragon")).toEqual([]);
 });
 
 test("production startup leaves approved animations on demand instead of flooding the network", async () => {
