@@ -4,7 +4,7 @@ updates:
     # so a single entry at the root traverses every member — common (game/heroes-of-crypto-common),
     # client (game/core), game/mcp and site — using the shared root bun.lock. The nested packages
     # have no lockfile of their own, so they must be covered from here, not via per-package entries.
-    - package-ecosystem: npm
+    - package-ecosystem: bun
       directory: /
       schedule:
           interval: weekly
