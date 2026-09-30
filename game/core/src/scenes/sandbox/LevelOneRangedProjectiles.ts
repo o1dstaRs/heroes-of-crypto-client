@@ -313,10 +313,9 @@ export class RangedProjectiles {
     }
     public async fire(opts: IFireProjectileOptions): Promise<void> {
         if (this.destroyed || opts.signal?.aborted) return;
-        await this.ensureProjectileTexture(opts);
-        // New Battle may have destroyed the lifecycle marker while the optional art above was decoding.
-        // Never attach an orphaned projectile to the app-owned world root after that boundary.
-        if (this.destroyed || opts.signal?.aborted) return;
+        // Optional art must not gate the shot. Launch the vector fallback now and let the sprite warm for
+        // later attacks; cancellation/teardown still prevents the background load from being retained.
+        void this.ensureProjectileTexture(opts);
         this.context.onProjectileFired?.();
         const cell = this.context.getGridSettings().getCellSize();
         const from = { x: opts.from.x, y: opts.from.y };

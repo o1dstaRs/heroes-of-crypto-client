@@ -75,6 +75,9 @@ import {
     approvedAnimationAssetKeysForUnit,
     CREATURE_SPRITE_ANIMATION_SETTINGS,
     usesApprovedBaseAnimations,
+    approvedActiveAnimationAssetKeysForUnit,
+    approvedIdleAnimationAssetKeysForUnit,
+    preferredRuntimeAnimationAssetKey,
 } from "@/pixi/creatureAnimationSettings";
 import { animationAtlases, AnimationUnitName, type AnimationAtlasMeta } from "../animations/levelOneAtlases";
 import { images, type ImageKey } from "../imageAssets";
@@ -1586,6 +1589,18 @@ interface UnitAtlasConfig {
     /** Animation bundles are process-owned; lazy battlefield cutouts belong only to their live scene. */
     cacheAcrossScenes: boolean;
 }
+
+/** Resolve authoring-sized lab sheets to their generated gameplay variant when it is present. */
+function preferredRuntimeAtlasConfig(config: UnitAtlasConfig): UnitAtlasConfig {
+    const preferredKey = preferredRuntimeAnimationAssetKey(config.imageKey) as ImageKey;
+    if (preferredKey === config.imageKey || !(preferredKey in images)) return config;
+    return {
+        ...config,
+        imageSrc: images[preferredKey],
+        imageKey: preferredKey,
+        cacheKey: `${config.cacheKey}::${preferredKey}`,
+    };
+}
 const STATIC_BATTLEFIELD_IDLE_META: AtlasMeta = {
     frameWidth: 768,
     frameHeight: 768,
@@ -2037,6 +2052,7 @@ function cachedAtlasFrames(
  * in the module cache. PixiScene lease-counts these textures and unloads them with the last owning scene.
  */
 function framesForAtlasConfig(config: UnitAtlasConfig, texResolver: TexResolver): Texture[] {
+    config = preferredRuntimeAtlasConfig(config);
     const resolvedTexture = texResolver(config.imageKey);
     // Static battlefield art is already one complete frame. Reuse the scene-leased texture itself rather
     // than creating a wrapper that can outlive the lease and keep the decoded source resident. A multi-frame
@@ -2578,6 +2594,7 @@ export class RenderableUnit extends Unit {
     /** The stable fallback portrait/full-body texture; lazy assets are retained only after they resolve. */
     private baseTexture?: Texture;
     private animationAssetsRequested = false;
+    private activeAnimationAssetsRequested = false;
     private idleAnimationStateAvailable = false;
     private creatureAnimationLabPreviewEnabled = false;
     private scavengerLabAnimationsEnabled = false;
@@ -2788,6 +2805,7 @@ export class RenderableUnit extends Unit {
         ru.badgeLocalAnchor = undefined;
         ru.baseTexture = undefined;
         ru.animationAssetsRequested = false;
+        ru.activeAnimationAssetsRequested = false;
         const unitProperties = ru.getUnitProperties();
         const footprintWidth = ru.getFootprintWidth();
         const footprintHeight = ru.getFootprintHeight();
@@ -3000,7 +3018,14 @@ export class RenderableUnit extends Unit {
         this.loadingPlaceholder?.destroy();
         if (!this.animationAssetsRequested) {
             this.animationAssetsRequested = true;
-            for (const key of approvedAnimationAssetKeysForUnit(props.name)) this.texResolver(key);
+            // A full army can contain dozens of figures. Requesting every walk/attack/hit/death sheet for
+            // every visible stack at hydrate time creates a decode storm and delays the first interaction.
+            // Passive figures need only their permanent idle; the active unit warms its action package below.
+            for (const key of approvedIdleAnimationAssetKeysForUnit(props.name)) this.texResolver(key);
+        }
+        if (this.isActiveTurn && !this.activeAnimationAssetsRequested) {
+            this.activeAnimationAssetsRequested = true;
+            for (const key of approvedActiveAnimationAssetKeysForUnit(props.name)) this.texResolver(key);
         }
         // --- sprite ---
         if (!this.sprite) {
@@ -6374,14 +6399,14 @@ export class RenderableUnit extends Unit {
     }
     /** Exact atlas used by this creature, for preparing a complete combat pair before playback. */
     public getAnimationTextureKey(stateName: string): string | undefined {
-        return (
+        const config =
             this.leprechaunLabReactionConfig(stateName) ??
             this.fairyLabAnimationConfig(stateName) ??
             this.dryadLabActionConfig(stateName) ??
             this.centaurLabReactionConfig(stateName) ??
             this.scavengerLabAnimationConfig(stateName) ??
-            getAnimationStateConfig(this.getName(), stateName, this.getFootprintWidth(), this.getFootprintHeight())
-        )?.imageKey;
+            getAnimationStateConfig(this.getName(), stateName, this.getFootprintWidth(), this.getFootprintHeight());
+        return config ? preferredRuntimeAtlasConfig(config).imageKey : undefined;
     }
     public hasAnimationState(stateName: string): boolean {
         if (this.leprechaunLabReactionConfig(stateName)) return true;
@@ -7939,6 +7964,12 @@ export class RenderableUnit extends Unit {
         this.activeTurnPointerSuppressed = false;
         if (active) {
             this.activeTurnAnimationStartedAtMs = performance.now();
+            if (this.baseTexture && !this.activeAnimationAssetsRequested) {
+                this.activeAnimationAssetsRequested = true;
+                // Warm only the creature that can currently act. Its attack starts from decoded frames,
+                // without every passive stack competing for network, decoder and GPU time at scene hydrate.
+                for (const key of approvedActiveAnimationAssetKeysForUnit(this.getName())) this.texResolver(key);
+            }
         } else if (this.getUnitProperties().name === SCAVENGER_UNIT_NAME) {
             // Count the four inactive breathing cycles from the moment Scavenger's turn ends.
             this.selectionAnimationStartedAtMs = performance.now();

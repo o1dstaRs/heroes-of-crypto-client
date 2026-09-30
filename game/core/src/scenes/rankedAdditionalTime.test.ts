@@ -76,6 +76,40 @@ describe("ranked additional time follows the server's answer", () => {
         }
     });
 
+    test("a hydrate rebuild during replay keeps the flags that mount the battle log", () => {
+        // hydrateSceneState forces this rebuild on every replayed action. The React snapshot stays on
+        // the opening board, so losing either flag here takes the bottom-right log down until playback ends.
+        const manager = FightStateManager.getInstance();
+        const shared = manager.getFightProperties();
+        const fightProps = new FightProperties();
+        manager.setFightProperties(fightProps);
+        try {
+            const scene = Object.assign(Object.create(RankedPlayScene.prototype), {
+                replayPlaybackActive: true,
+                sc_visibleState: {
+                    replayPlaybackActive: true,
+                    replayFightVisible: true,
+                    lapNumber: 2,
+                },
+                sc_visibleStateUpdateNeeded: false,
+            }) as AdditionalTimeScene & {
+                replayPlaybackActive: boolean;
+                sc_visibleState: {
+                    replayPlaybackActive?: boolean;
+                    replayFightVisible?: boolean;
+                    lapNumber?: number;
+                };
+            };
+
+            scene.refreshVisibleStateIfNeeded(true);
+
+            expect(scene.sc_visibleState.replayPlaybackActive).toBe(true);
+            expect(scene.sc_visibleState.replayFightVisible).toBe(true);
+        } finally {
+            manager.setFightProperties(shared);
+        }
+    });
+
     test("an older server's snapshot, which never carries the answer, leaves the button alone", () => {
         const scene = sceneFor(TeamVals.LEFT);
 

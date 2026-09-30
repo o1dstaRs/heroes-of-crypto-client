@@ -962,16 +962,21 @@ export class Sandbox extends PixiScene {
     // The unit whose turn header is currently open in the scene log (sandbox text channel only;
     // ranked builds its headers from the journal). Cleared by that unit's turn_completed.
     private sandboxTurnLogHeaderUnitId?: string;
-    // Ranked: a deferred local action (submitActionForAuthoritativeReplay) applies the engine action
-    // immediately, mutating unit HP to its post-action value. The authoritative replay that follows
-    // derives the attacker's counter-attack damage from an HP diff (getReplayUnitDamage), which would
-    // then read 0 — silently dropping the retaliation projectile + damage for the attacking side. We
-    // snapshot each unit's pre-action HP and rendered center here so the diff and any removed-unit
-    // projectile endpoint use the true before-state.
+    // Ranked: preserve the board immediately before a deferred action is sent. A response snapshot can
+    // reconcile logical HP/removals before its journal animation reaches impact; the replay still needs
+    // the true before-state to derive retaliation damage and the endpoint of an already-removed target.
     private preDeferredActionUnitHp?: Map<
         string,
         { amount: number; cumulativeHp: number; maxHp: number; visualCenter: HoCMath.XY }
     >;
+    /** Local attack anticipation shown while ranked waits for the authoritative journal record. */
+    private pendingDeferredAttackVisual?: {
+        attackerId: string;
+        state: string;
+        unit: RenderableUnit;
+        started: boolean;
+    };
+    private pendingDeferredAttackVisualTimeout?: ReturnType<typeof globalThis.setTimeout>;
     /** Re-entrancy guard so the eager turn-handoff in applyTurnEngineEvents can't recurse. */
     private isAdvancingTurnEvents = false;
     /**
@@ -4601,6 +4606,7 @@ export class Sandbox extends PixiScene {
             return false;
         }
 
+        this.consumeDeferredAttackVisual(action);
         this.currentActiveUnit = attacker;
         attacker.setActiveTurn(true);
         attacker.syncVisual(this.drawer.getUnitsContainer(), this.sc_sceneSettings.getGridSettings());
@@ -4746,12 +4752,34 @@ export class Sandbox extends PixiScene {
                 : (preActionVisualCenter ?? resolveRangeProjectilePlaybackPosition(impact, false)),
         };
     }
+    /** Keep a cold optional atlas from holding the authoritative combat queue behind network/decode. */
+    private waitForCombatTexture(key: string, timeoutMs = 120): Promise<Texture | undefined> {
+        if (!key || this.isSceneDestroyed()) return Promise.resolve(undefined);
+        return new Promise((resolve) => {
+            let settled = false;
+            let timeout: ReturnType<typeof globalThis.setTimeout> | undefined;
+            const settle = (texture: Texture | undefined): void => {
+                if (settled) return;
+                settled = true;
+                this.clearSceneTimeout(timeout);
+                resolve(texture);
+            };
+            timeout = this.scheduleSceneTimeout(
+                () => settle(undefined),
+                timeoutMs,
+                () => settle(undefined),
+            );
+            void this.waitForTexture(key).then(settle, () => settle(undefined));
+        });
+    }
     /** Finish the previous shot or incoming hit before reserving the next authored ranged action. */
     private async waitForProjectileHitReaction(unit: RenderableUnit): Promise<boolean> {
         if (typeof unit.isPlayingOneShotAnimation !== "function") return true;
         const busy = (): boolean =>
             ["hit", "attack", "attack_up", "attack_down"].some((state) => unit.isPlayingOneShotAnimation(state));
-        for (let frame = 0; frame < 300 && busy(); frame++) {
+        // A corrupt/stale animation must not stall the whole replay queue for almost five seconds.
+        // Two seconds is longer than the authored release/recovery windows and still guarantees progress.
+        for (let frame = 0; frame < 125 && busy(); frame++) {
             if (this.isSceneDestroyed()) return false;
             await this.delayReplay(16);
         }
@@ -4764,14 +4792,18 @@ export class Sandbox extends PixiScene {
     ): Promise<void> {
         const unit = sourceUnit as unknown as LevelOneRenderableUnit;
         const authoredShooter = usesAuthoredRangedRelease(unit.getName());
-        // Combat still names an Elf shot elfArrow and a Medusa shot medusaSerpent. The authored
-        // release plays them as the dryad arrow and the arm serpent.
-        const authoredOpts: IFireProjectileOptions = {
-            ...opts,
-            elfArrow: false,
-            dryadArrow: !!opts.dryadArrow || !!opts.elfArrow,
-            medusaArmSerpent: !!opts.medusaArmSerpent || !!opts.medusaSerpent,
-        };
+        // Combat names the selected Elf/Medusa projectile after its standalone art. Their authored attack
+        // releases a different held element, so translate only for the authored path and retain `opts` as
+        // the exact generic fallback if its atlas or release callback cannot start.
+        const authoredOpts: IFireProjectileOptions = authoredShooter
+            ? {
+                  ...opts,
+                  elfArrow: false,
+                  dryadArrow: !!opts.dryadArrow || !!opts.elfArrow,
+                  medusaSerpent: false,
+                  medusaArmSerpent: !!opts.medusaArmSerpent || !!opts.medusaSerpent,
+              }
+            : opts;
         if (
             !authoredShooter ||
             (!authoredOpts.orcAxe &&
@@ -4784,8 +4816,13 @@ export class Sandbox extends PixiScene {
             await this.rangedProjectiles.fire(opts);
             return;
         }
-        await this.rangedProjectiles.prepare(authoredOpts);
-        if (!(await this.waitForProjectileHitReaction(sourceUnit))) return;
+        // Warm optional projectile art during the wind-up, but never make its decode a prerequisite for
+        // motion. RangedProjectiles.fire has a vector fallback and launches without awaiting this promise.
+        void this.rangedProjectiles.prepare(authoredOpts);
+        if (!(await this.waitForProjectileHitReaction(sourceUnit))) {
+            if (!this.isSceneDestroyed()) await this.rangedProjectiles.fire(opts);
+            return;
+        }
         const center = unit.getProjectileImpactPoint(this.sc_sceneSettings.getGridSettings());
         const dy = authoredOpts.to.y - center.y;
         const state =
@@ -4796,15 +4833,17 @@ export class Sandbox extends PixiScene {
                   ? "attack_up"
                   : "attack_down");
         if ((authoredOpts.dryadArrow || authoredOpts.medusaArmSerpent) && authoredShooter) {
-            await this.fireDryadLabProjectile(unit, authoredOpts, state);
+            const fired = await this.fireDryadLabProjectile(unit, authoredOpts, state);
+            if (!fired && !this.isSceneDestroyed()) await this.rangedProjectiles.fire(opts);
             return;
         }
-        if (opts.arbalesterBolt && authoredShooter) {
-            await this.fireArbalesterLabProjectile(unit, opts, state);
+        if (authoredOpts.arbalesterBolt && authoredShooter) {
+            const fired = await this.fireArbalesterLabProjectile(unit, authoredOpts, state);
+            if (!fired && !this.isSceneDestroyed()) await this.rangedProjectiles.fire(opts);
             return;
         }
-        const centaurLabThrow = !!opts.centaurSpear && authoredShooter;
-        unit.setBoardFacing(opts.to.x - center.x);
+        const centaurLabThrow = !!authoredOpts.centaurSpear && authoredShooter;
+        unit.setBoardFacing(authoredOpts.to.x - center.x);
         let centaurReleaseOrigin: HoCMath.XY | undefined;
         const released = await new Promise<boolean>((resolve) => {
             let done = false;
@@ -4823,7 +4862,7 @@ export class Sandbox extends PixiScene {
             const release = (): void => {
                 if (centaurLabThrow)
                     centaurReleaseOrigin = unit.getRangedProjectileOrigin(
-                        opts.to,
+                        authoredOpts.to,
                         this.sc_sceneSettings.getGridSettings(),
                     );
                 settle(true);
@@ -4833,13 +4872,17 @@ export class Sandbox extends PixiScene {
                 : unit.playOrcRangedThrow(state, release, () => settle(false));
             if (!started) settle(false);
         });
-        if (!released || this.isSceneDestroyed()) return;
+        if (!released || this.isSceneDestroyed()) {
+            if (!centaurLabThrow) unit.finishOrcRangedThrow();
+            if (!this.isSceneDestroyed()) await this.rangedProjectiles.fire(opts);
+            return;
+        }
         try {
             await this.rangedProjectiles.fire({
-                ...opts,
+                ...authoredOpts,
                 from:
                     centaurReleaseOrigin ??
-                    unit.getRangedProjectileOrigin(opts.to, this.sc_sceneSettings.getGridSettings()),
+                    unit.getRangedProjectileOrigin(authoredOpts.to, this.sc_sceneSettings.getGridSettings()),
                 orcAppearance: centaurLabThrow ? undefined : unit.getOrcProjectileAppearance(),
             });
         } finally {
@@ -4850,21 +4893,19 @@ export class Sandbox extends PixiScene {
         unit: LevelOneRenderableUnit,
         opts: IFireProjectileOptions,
         state: string,
-    ): Promise<void> {
+    ): Promise<boolean> {
         const shot = unit.prepareDryadRangedShot();
-        if (!shot) return;
+        if (!shot) return false;
         const timeout = this.scheduleSceneTimeout(
             () => shot.abort(),
             10000,
             () => shot.abort(),
         );
         try {
-            const [atlas] = await Promise.all([
-                this.waitForTexture(unit.getAnimationTextureKey(state) ?? ""),
-                this.rangedProjectiles.prepare(opts),
-            ]);
-            if (!atlas) return;
-            if (shot.signal.aborted || this.isSceneDestroyed()) return;
+            void this.rangedProjectiles.prepare(opts);
+            const atlas = await this.waitForCombatTexture(unit.getAnimationTextureKey(state) ?? "");
+            if (!atlas) return false;
+            if (shot.signal.aborted || this.isSceneDestroyed()) return false;
             const gs = this.sc_sceneSettings.getGridSettings();
             unit.setBoardFacing(opts.to.x - unit.getVisualCenter(gs).x);
             let arrowLength: number | undefined;
@@ -4883,7 +4924,7 @@ export class Sandbox extends PixiScene {
                 )
                     settle(undefined);
             });
-            if (!origin || shot.signal.aborted || this.isSceneDestroyed()) return;
+            if (!origin || shot.signal.aborted || this.isSceneDestroyed()) return false;
             const measuredLength = arrowLength ?? unit.getDryadArrowLength();
             await this.rangedProjectiles.fire({
                 ...opts,
@@ -4892,6 +4933,7 @@ export class Sandbox extends PixiScene {
                 serpentLength: opts.medusaArmSerpent ? measuredLength : opts.serpentLength,
                 signal: shot.signal,
             });
+            return !shot.signal.aborted && !this.isSceneDestroyed();
         } finally {
             this.clearSceneTimeout(timeout);
             unit.finishDryadRangedShot(shot);
@@ -4901,17 +4943,17 @@ export class Sandbox extends PixiScene {
         unit: LevelOneRenderableUnit,
         opts: IFireProjectileOptions,
         state: string,
-    ): Promise<void> {
+    ): Promise<boolean> {
         const shot = unit.prepareArbalesterRangedShot();
-        if (!shot) return;
+        if (!shot) return false;
         const timeout = this.scheduleSceneTimeout(
             () => shot.abort(),
             10000,
             () => shot.abort(),
         );
         try {
-            await this.rangedProjectiles.prepare(opts);
-            if (shot.signal.aborted || this.isSceneDestroyed()) return;
+            void this.rangedProjectiles.prepare(opts);
+            if (shot.signal.aborted || this.isSceneDestroyed()) return false;
             const gs = this.sc_sceneSettings.getGridSettings();
             unit.setBoardFacing(opts.to.x - unit.getVisualCenter(gs).x);
             const origin = await new Promise<HoCMath.XY | undefined>((resolve) => {
@@ -4929,8 +4971,9 @@ export class Sandbox extends PixiScene {
                     settle(undefined);
                 }
             });
-            if (!origin || shot.signal.aborted || this.isSceneDestroyed()) return;
+            if (!origin || shot.signal.aborted || this.isSceneDestroyed()) return false;
             await this.rangedProjectiles.fire({ ...opts, from: origin, signal: shot.signal });
+            return !shot.signal.aborted && !this.isSceneDestroyed();
         } finally {
             this.clearSceneTimeout(timeout);
             unit.finishArbalesterRangedShot(shot);
@@ -5030,11 +5073,13 @@ export class Sandbox extends PixiScene {
             }
             const melee = event.attackType === "melee";
             const attackState = this.prepareDirectionalAttackState(source, victim, melee);
-            const textureKeys = [
-                source.getAnimationTextureKey(attackState),
-                victim.getAnimationTextureKey(strike.lethal ? "death" : "hit"),
-            ];
-            await Promise.all(textureKeys.filter((key): key is string => !!key).map((key) => this.waitForTexture(key)));
+            const attackTextureKey = source.getAnimationTextureKey(attackState);
+            const reactionTextureKey = victim.getAnimationTextureKey(strike.lethal ? "death" : "hit");
+            // The active unit's package is warmed at turn start. Give a still-cold attack sheet one short
+            // frame budget, then continue with the generic motion/projectile. Victim reactions are cosmetic
+            // and must never delay the strike; request them in the background for this or the next impact.
+            if (reactionTextureKey) void this.waitForTexture(reactionTextureKey);
+            if (attackTextureKey) await this.waitForCombatTexture(attackTextureKey);
             if (this.isSceneDestroyed()) break;
             let reaction = Promise.resolve();
             let impacted = false;
@@ -7687,6 +7732,12 @@ export class Sandbox extends PixiScene {
                 // across a forced rebuild; otherwise they're wiped on every lap flip and only
                 // reappear on the next casualty sample, so the ALT view looks broken.
                 fightStats: nextFightStats,
+                // Every replayed action hydrates, and that rebuilds this object. These two are the only
+                // signal React has that a replay is showing the fight (its snapshot stays on the opening
+                // board). Dropping them unmounts the battle log for the whole playback, so the log never
+                // fills in as actions land — it pops in, already finished, only when playback ends.
+                replayPlaybackActive: this.replayPlaybackActive,
+                replayFightVisible: this.sc_visibleState?.replayFightVisible,
             };
             this.sc_visibleStateUpdateNeeded = true;
         }
@@ -17036,6 +17087,79 @@ export class Sandbox extends PixiScene {
     protected isPlayingAuthoritativeReplay(): boolean {
         return this.replayPlaybackActive;
     }
+    private clearPendingDeferredAttackVisual(restoreIdle: boolean): void {
+        this.clearSceneTimeout(this.pendingDeferredAttackVisualTimeout);
+        this.pendingDeferredAttackVisualTimeout = undefined;
+        const pending = this.pendingDeferredAttackVisual;
+        this.pendingDeferredAttackVisual = undefined;
+        if (restoreIdle && pending?.started && pending.unit.isPlayingOneShotAnimation(pending.state)) {
+            pending.unit.returnToIdleAnimation();
+        }
+    }
+    /**
+     * A ranked attack remains server-authoritative, but the acting player should see their figure commit
+     * to the click immediately. Play only the attack pose here—never damage or a projectile—and replace it
+     * with the journal-driven release as soon as that record arrives.
+     */
+    private beginDeferredAttackVisual(action: GameAction, movingMelee = false): void {
+        if (action.type !== "range_attack" && action.type !== "melee_attack") return;
+        // A moving melee action must show its authoritative approach before it swings. Starting the strike
+        // at the old cell would be immediate but visibly wrong, so anticipation is limited to stationary
+        // melee and every ranged attack.
+        if (movingMelee) return;
+
+        const attacker = this.unitsHolder.getAllUnits().get(action.attackerId) as RenderableUnit | undefined;
+        const target = action.targetId
+            ? (this.unitsHolder.getAllUnits().get(action.targetId) as RenderableUnit | undefined)
+            : undefined;
+        const targetPosition =
+            target?.getPosition() ?? (action.type === "range_attack" ? action.targetPosition : undefined);
+        if (!attacker || !targetPosition) return;
+
+        this.clearPendingDeferredAttackVisual(true);
+        const melee = action.type === "melee_attack";
+        let state: string;
+        if (target) {
+            state = this.prepareDirectionalAttackState(attacker, target, melee);
+        } else {
+            attacker.faceBoardTarget(targetPosition);
+            state = attacker.getAttackAnimationStateForTarget(targetPosition, melee ? "melee" : "range");
+        }
+        const pending = { attackerId: action.attackerId, state, unit: attacker, started: false };
+        this.pendingDeferredAttackVisual = pending;
+        const start = (): void => {
+            if (this.pendingDeferredAttackVisual !== pending || this.isSceneDestroyed()) return;
+            pending.started = attacker.playOneShotAnimation(
+                state,
+                undefined,
+                usesApprovedBaseAnimations(attacker.getName()),
+            );
+        };
+        start();
+        if (!pending.started) {
+            const textureKey = attacker.getAnimationTextureKey(state);
+            if (textureKey) {
+                void this.waitForCombatTexture(textureKey).then((texture) => {
+                    if (texture) start();
+                });
+            }
+        }
+        // A rejection has no replay record to consume the cue. Do not strand an attack pose if a response
+        // snapshot is delayed or absent; normal snapshot reconciliation may clear it sooner.
+        this.pendingDeferredAttackVisualTimeout = this.scheduleSceneTimeout(() => {
+            if (this.pendingDeferredAttackVisual === pending) this.clearPendingDeferredAttackVisual(true);
+        }, 2500);
+    }
+    private consumeDeferredAttackVisual(
+        action: Extract<GameAction, { type: "range_attack" }> | Extract<GameAction, { type: "melee_attack" }>,
+    ): void {
+        const pending = this.pendingDeferredAttackVisual;
+        if (!pending || pending.attackerId !== action.attackerId) return;
+        // The authored release path needs to install its projectile-frame callback. Reset the anticipation
+        // first so waitForProjectileHitReaction cannot mistake it for an unrelated busy animation. Match
+        // by stable id: snapshot hydration may replace the RenderableUnit object before the record arrives.
+        this.clearPendingDeferredAttackVisual(true);
+    }
     private submitActionForAuthoritativeReplay(
         action: GameAction,
         options?: Parameters<SceneGameActionTransport>[1],
@@ -17044,6 +17168,15 @@ export class Sandbox extends PixiScene {
         // the authoritative replay can recover both the true pre-action HP diff and the landing point
         // of an interceptor removed by the local apply. Non-attacks clear any prior snapshot.
         const isAttackAction = action.type === "range_attack" || action.type === "melee_attack";
+        // Melee actions always carry attackFrom, including an adjacent strike from the cell already occupied.
+        // Capture movement before the optimistic engine application can update the unit's logical position.
+        const movingMelee = (() => {
+            if (action.type !== "melee_attack" || !action.attackFrom) return false;
+            const attacker = this.unitsHolder.getAllUnits().get(action.attackerId);
+            if (!attacker) return false;
+            const currentAnchor = attacker.getBaseCell();
+            return currentAnchor.x !== action.attackFrom.x || currentAnchor.y !== action.attackFrom.y;
+        })();
         const preActionHp = isAttackAction
             ? new Map<string, { amount: number; cumulativeHp: number; maxHp: number; visualCenter: HoCMath.XY }>()
             : undefined;
@@ -17083,6 +17216,7 @@ export class Sandbox extends PixiScene {
             return false;
         }
         this.preDeferredActionUnitHp = preActionHp;
+        this.beginDeferredAttackVisual(action, movingMelee);
         this.currentActivePath = undefined;
         this.currentActiveKnownPaths = undefined;
         this.currentActivePathHashes = undefined;

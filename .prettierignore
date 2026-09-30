@@ -3,3 +3,4 @@ dist
 package-lock.json
 game/core/src/generated
 game/heroes-of-crypto-common
+game/**/tmp/**

@@ -244,7 +244,10 @@ test("a projectile texture finishing after teardown is evicted from the global c
         await flight;
 
         expect(unloaded).toEqual([images.orc_throwing_axe]);
-        expect(attachments).toHaveLength(1);
+        // The fallback starts immediately instead of waiting for optional art, then scene teardown owns
+        // and destroys it along with every other in-flight projectile.
+        expect(attachments).toHaveLength(2);
+        expect(attachments[1].destroyed).toBe(true);
         expect(projectiles.hasActive()).toBe(false);
     } finally {
         mutableAssets.load = originalLoad;

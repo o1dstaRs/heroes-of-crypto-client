@@ -38,6 +38,18 @@ export const usesApprovedBaseAnimations = (unitName: string): boolean =>
 export const usesAuthoredRangedRelease = (unitName: string): boolean =>
     ["Orc", "Arbalester", "Dryad", "Centaur", "Elf", "Medusa"].includes(unitName);
 
+// Battlefield figures occupy only a few hundred screen pixels. The lab source sheets are authoring
+// masters (some are wider than WebGL's common 4096px texture limit), while their generated quarter
+// variants preserve the same frame grid at one sixteenth of the decoded pixel area. Runtime combat must
+// never select the authoring master when a quarter sheet exists. Healer's walk is the sole package state
+// whose quarter export has not been authored yet, so it deliberately retains the source sheet.
+const FULL_RESOLUTION_RUNTIME_ATLAS_EXCEPTIONS = new Set(["healer_lab_walk_atlas"]);
+
+export const preferredRuntimeAnimationAssetKey = (key: string): string =>
+    key.includes("_lab_") && key.endsWith("_atlas") && !FULL_RESOLUTION_RUNTIME_ATLAS_EXCEPTIONS.has(key)
+        ? `${key}_quarter`
+        : key;
+
 // Approved movement and Squire reactions must be decoded before their first use in combat,
 // including while the global creature-animation freeze remains in place.
 const UNIT_ATLASES_USED_WHILE_ANIMATIONS_DISABLED = new Set([
@@ -239,16 +251,20 @@ const UNIT_ATLASES_USED_WHILE_ANIMATIONS_DISABLED = new Set([
     "squire_death_atlas_quarter",
 ]);
 
+const RUNTIME_UNIT_ATLASES_USED_WHILE_ANIMATIONS_DISABLED = new Set(
+    [...UNIT_ATLASES_USED_WHILE_ANIMATIONS_DISABLED].map(preferredRuntimeAnimationAssetKey),
+);
+
 export const shouldPreloadUnitAnimationAtlas = (key: string, animationsEnabled: boolean): boolean =>
     // The native pager owns a bounded current/next working set, including when all motion is enabled.
     !/^arbalester_idle_page_\d{2}_atlas$/.test(key) &&
-    (animationsEnabled || UNIT_ATLASES_USED_WHILE_ANIMATIONS_DISABLED.has(key));
+    (animationsEnabled || RUNTIME_UNIT_ATLASES_USED_WHILE_ANIMATIONS_DISABLED.has(key));
 
 /** Only the visible creature's approved sheets; the idle pager retains its own bounded working set. */
 export const approvedAnimationAssetKeysForUnit = (unitName: string): string[] => {
     if (!usesApprovedBaseAnimations(unitName)) return [];
     const prefix = unitName === "Wandering Mage" ? "ash_moth_" : unitName.toLowerCase().replaceAll(" ", "_") + "_";
-    return [...UNIT_ATLASES_USED_WHILE_ANIMATIONS_DISABLED]
+    return [...RUNTIME_UNIT_ATLASES_USED_WHILE_ANIMATIONS_DISABLED]
         .filter((key) => key !== "squire_default_atlas_quarter")
         .filter(
             (key) =>
@@ -284,3 +300,11 @@ export function animationAtlasPrewarmKeys(unitName: string, extraImageKey?: stri
     }
     return keys;
 }
+
+/** The only sheets a passive board figure may request; action sheets are warmed when its turn begins. */
+export const approvedIdleAnimationAssetKeysForUnit = (unitName: string): string[] =>
+    approvedAnimationAssetKeysForUnit(unitName).filter((key) => /_(?:idle|default)(?:_|$)/.test(key));
+
+/** Movement/action/reaction sheets for the current actor; its permanent idle is already warm. */
+export const approvedActiveAnimationAssetKeysForUnit = (unitName: string): string[] =>
+    approvedAnimationAssetKeysForUnit(unitName).filter((key) => !/_(?:idle|default)(?:_|$)/.test(key));

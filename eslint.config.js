@@ -46,6 +46,7 @@ module.exports = [
             "docs/**/*.js",
             "game/heroes-of-crypto-common/**/*.{ts,js}",
             "game/**/dist/**",
+            "game/**/tmp/**",
             "game/core/src/generated/**",
             "node_modules/**", // Added to ignore node_modules contents
         ],
