@@ -3804,7 +3804,9 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                         />
                                     </Box>
                                 </Box>
-                                <DraftBottomControls step={7} userTeam={userTeam} draftScale={draftScale} />
+                                {augmentOverlayOpen && (
+                                    <DraftBottomControls step={7} userTeam={userTeam} draftScale={draftScale} />
+                                )}
                             </ModalDialog>
                         </Modal>
                         {/* Split Setup: lock-in advances the stage once every point is spent (both-ready or

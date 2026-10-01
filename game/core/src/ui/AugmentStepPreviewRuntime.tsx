@@ -43,6 +43,7 @@ import {
 import { PickLanternFire } from "./PickAndBan/PickLanternFire";
 import { MapBadge } from "./PickAndBan/MapReveal";
 import SideToggleContainer from "./RightSideBar/SideToggleContainer";
+import { registerBattleSystemControls } from "./social/systemControlsMode";
 
 /*
  * A card only commits its level if the manager accepts it, and the real manager only accepts what a live
@@ -76,6 +77,7 @@ const PREVIEW_MAP_TYPES: Record<string, number> = {
 };
 
 export const AugmentStepPreview: React.FC = () => {
+    useEffect(registerBattleSystemControls, []);
     const params = new URLSearchParams(window.location.search);
     const doctrineId =
         PREVIEW_DOCTRINES[params.get("doctrine")?.toLowerCase() ?? ""] ?? Doctrine.Doctrine.THREE_REVEALS;
