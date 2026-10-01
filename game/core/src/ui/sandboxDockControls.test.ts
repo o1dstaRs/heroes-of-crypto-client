@@ -21,7 +21,7 @@ import { describe, expect, test } from "bun:test";
  *
  * SocialDock renders one of two shapes: `systemMenuMode ? systemDockControls : dockControls`. The first
  * is the compact corner medallion, which folds bets/friends/notifications/sound behind a fan. Publishing
- * setBattleSystemControlsActive(true) on mount is what selects it, so each in-game host must do so and
+ * registerBattleSystemControls on mount is what selects it, so each in-game host must do so and
  * must release it on unmount — otherwise a menu reached from a fight keeps the folded shape.
  *
  * Source-contract, like the sibling pointer/placement specs: this repo has no DOM harness, and the
@@ -42,8 +42,7 @@ describe("every in-game screen wears the collapsed medallion", () => {
     ] as const) {
         test(`the ${screen} collapses SocialDock and releases it again`, () => {
             const code = withoutComments(read(file));
-            expect(code).toContain("setBattleSystemControlsActive(true)");
-            expect(code).toContain("setBattleSystemControlsActive(false)");
+            expect(code).toContain("useEffect(registerBattleSystemControls, [])");
         });
     }
 

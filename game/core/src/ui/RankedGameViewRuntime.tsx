@@ -106,7 +106,7 @@ import { UpNextOverlay } from "./UpNextOverlay";
 import { SeatAiControlNotice, aiBadgeLeft } from "./AiControlBadge";
 import { NextLapHazardBadge } from "./NextLapHazardBadge";
 import { ExitReplayBadge } from "./ExitReplayBadge";
-import { setBattleSystemControlsActive } from "./social/systemControlsMode";
+import { registerBattleSystemControls } from "./social/systemControlsMode";
 import { CreaturePortraitImage } from "./CreaturePortraitImage";
 import { UNIT_ID_TO_NAME } from "./unit_ui_constants";
 import { ButtonProvider } from "./context/ButtonContext";
@@ -946,18 +946,7 @@ export const RankedGameView: React.FC<Props> = ({
     // Placement and combat share the compact top-right system-controls medallion. Publishing the whole
     // ranked-board lifetime (rather than only the first combat turn) removes the three loose bottom-right
     // social buttons during placement too.
-    useEffect(() => {
-        setBattleSystemControlsActive(true);
-        return () => setBattleSystemControlsActive(false);
-    }, []);
-
-    // SocialDock lives above the router, so tell it about the real combat state directly. This keeps the
-    // three system controls in their pick-screen row during placement, then moves the combined medallion
-    // to the top-right on the first fighting turn.
-    useEffect(() => {
-        setBattleSystemControlsActive(gameStarted);
-        return () => setBattleSystemControlsActive(false);
-    }, [gameStarted]);
+    useEffect(registerBattleSystemControls, []);
 
     // "Iron and Silk" runs for the whole match: on through placement and the fight, off for a replay. Until the
     // first snapshot arrives this view leaves the flag as the draft left it, so the track plays straight through

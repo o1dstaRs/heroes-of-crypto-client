@@ -50,7 +50,7 @@ import { InviteFriendBadge } from "./InviteFriendBadge";
 import { SandboxCoopRoute } from "./SandboxCoopRoute";
 import { LiveMatchBanner } from "./LiveMatchBanner";
 import { useCurrentLobby } from "./social/CurrentLobbyContext";
-import { setBattleSystemControlsActive } from "./social/systemControlsMode";
+import { registerBattleSystemControls } from "./social/systemControlsMode";
 import { LoadingFullscreenToggle } from "./LoadingFullscreenToggle";
 import { MatchupOverlay, type MatchupPlayer } from "./MatchupOverlay";
 import { useGameCursor } from "./cursor/useGameCursor";
@@ -327,10 +327,7 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
     // Keep the expandable corner medallion throughout sandbox placement and combat, like ranked: with the
     // three controls now on the sound/fullscreen line, the compact dock IS the corner row rather than a
     // menu hiding it, and both screens wear the same one.
-    useEffect(() => {
-        setBattleSystemControlsActive(true);
-        return () => setBattleSystemControlsActive(false);
-    }, []);
+    useEffect(registerBattleSystemControls, []);
 
     const closeSandbox = useCallback(() => {
         if (window.history.length > 1) {

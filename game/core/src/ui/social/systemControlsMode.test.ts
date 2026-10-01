@@ -1,13 +1,73 @@
-import { describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it } from "bun:test";
 
 import { GAME_SYSTEM_CONTROL_SIZE_PX, GAME_SYSTEM_CONTROLS_STACK_GAP_PX } from "../GameSystemControls";
 import {
+    getBattleSystemControlsActive,
+    getBattleSystemControlsServerSnapshot,
+    registerBattleSystemControls,
     shouldShowSystemMenuLabel,
+    subscribeBattleSystemControls,
     SYSTEM_DOCK_BUTTON_SIZE_PX,
     SYSTEM_DOCK_GAP_PX,
     SYSTEM_DOCK_STEP_PX,
     SYSTEM_MENU_ITEM_OFFSETS,
 } from "./systemControlsMode";
+
+describe("system controls ownership", () => {
+    const releases: (() => void)[] = [];
+    const mount = (): (() => void) => {
+        const release = registerBattleSystemControls();
+        releases.push(release);
+        return release;
+    };
+
+    afterEach(() => {
+        for (const release of releases.splice(0)) release();
+    });
+
+    it("keeps the compact controls through the draft-to-placement handoff", () => {
+        const releaseDraft = mount();
+        const releaseBoard = mount();
+        releaseDraft();
+        expect(getBattleSystemControlsActive()).toBe(true);
+        releaseBoard();
+        expect(getBattleSystemControlsActive()).toBe(false);
+    });
+
+    it("keeps the draft layout if a covered board unmounts first", () => {
+        const releaseDraft = mount();
+        const releaseBoard = mount();
+        releaseBoard();
+        expect(getBattleSystemControlsActive()).toBe(true);
+        releaseDraft();
+        expect(getBattleSystemControlsActive()).toBe(false);
+    });
+
+    it("a repeated cleanup cannot release another screen's controls", () => {
+        const releaseDraft = mount();
+        const releaseBoard = mount();
+        releaseDraft();
+        releaseDraft();
+        expect(getBattleSystemControlsActive()).toBe(true);
+        releaseBoard();
+        expect(getBattleSystemControlsActive()).toBe(false);
+    });
+
+    it("notifies the dock only when entering or leaving the last registered game screen", () => {
+        const states: boolean[] = [];
+        const unsubscribe = subscribeBattleSystemControls(() => states.push(getBattleSystemControlsActive()));
+        try {
+            const releaseDraft = mount();
+            const releaseBoard = mount();
+            releaseDraft();
+            releaseBoard();
+            expect(states).toEqual([true, false]);
+            expect(getBattleSystemControlsServerSnapshot()).toBe(false);
+        } finally {
+            unsubscribe();
+        }
+    });
+});
 
 describe("system controls label visibility", () => {
     it("hides the master hint immediately when the fan opens", () => {

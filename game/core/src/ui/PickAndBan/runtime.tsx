@@ -62,7 +62,7 @@ import {
     GAME_SYSTEM_CONTROLS_BOTTOM_INSET,
     GameSystemControls,
 } from "../GameSystemControls";
-import { setBattleSystemControlsActive } from "../social/systemControlsMode";
+import { registerBattleSystemControls } from "../social/systemControlsMode";
 import { VOLUME_SLOT_PRIORITY } from "../audio/volumeSlot";
 
 const images = rawImages as Record<string, string>;
@@ -2783,10 +2783,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
     useTranslation();
     // The draft is part of a live match, so it carries the same compact corner medallion as placement and
     // combat instead of the full social dock.
-    useEffect(() => {
-        setBattleSystemControlsActive(true);
-        return () => setBattleSystemControlsActive(false);
-    }, []);
+    useEffect(registerBattleSystemControls, []);
     const {
         pickPhase,
         phaseIdentity,

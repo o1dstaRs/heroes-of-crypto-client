@@ -51,9 +51,11 @@ export const SYSTEM_MENU_ITEM_OFFSETS = Object.freeze({
 });
 
 let active = false;
+const registrations = new Set<symbol>();
 const listeners = new Set<Listener>();
 
-export const setBattleSystemControlsActive = (next: boolean): void => {
+const refreshActive = (): void => {
+    const next = registrations.size > 0;
     if (next === active) {
         return;
     }
@@ -61,6 +63,16 @@ export const setBattleSystemControlsActive = (next: boolean): void => {
     for (const listener of listeners) {
         listener();
     }
+};
+
+export const registerBattleSystemControls = (): (() => void) => {
+    const registration = Symbol();
+    registrations.add(registration);
+    refreshActive();
+    return () => {
+        registrations.delete(registration);
+        refreshActive();
+    };
 };
 
 export const getBattleSystemControlsActive = (): boolean => active;
