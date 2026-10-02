@@ -42,16 +42,22 @@ describe("synergy sidebar helpers", () => {
 });
 
 describe("sandbox synergy tooltips", () => {
-    const moraleTip = (unlockedLevel: number, appliedLevel: number) =>
-        renderToStaticMarkup(
-            createElement(SynergySlotTip, {
-                faction: "Life",
-                variant: 2,
-                label: "Life Morale & Luck",
-                unlockedLevel,
-                appliedLevel,
-            }),
-        );
+    const moraleTip = (unlockedLevel: number, appliedLevel: number) => {
+        try {
+            return renderToStaticMarkup(
+                createElement(SynergySlotTip, {
+                    faction: "Life",
+                    variant: 2,
+                    label: "Life Morale & Luck",
+                    unlockedLevel,
+                    appliedLevel,
+                }),
+            );
+        } catch (e) {
+            console.error("DIAG-STACK:\n" + (e as Error).stack);
+            throw e;
+        }
+    };
 
     it("shows the full effect ladder even while locked, without claiming an active effect", () => {
         const html = moraleTip(0, 0);
