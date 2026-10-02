@@ -4,6 +4,8 @@ import { createElement } from "react";
 // default specifier to the BROWSER legacy renderer, whose dev build crashes SSR of Joy tooltips
 // ("cache.registered" TypeError). The node entry is the resolution this test means, everywhere.
 import { renderToStaticMarkup } from "react-dom/server.node";
+import { CacheProvider } from "@emotion/react";
+import createCache from "@emotion/cache";
 import { CssVarsProvider } from "@mui/joy/styles";
 
 import { hocJoyTheme } from "../hocTheme";
@@ -44,21 +46,27 @@ describe("synergy sidebar helpers", () => {
 });
 
 describe("sandbox synergy tooltips", () => {
-    // The app only ever mounts these inside the Joy CssVarsProvider (index.tsx). Rendering provider-less
-    // leaves @emotion/styled with a null cache, which crashes SSR on some install layouts — out of the
-    // component's contract, so the test supplies the provider exactly like production does.
+    // @emotion/react's cache-context default is only a real cache when HTMLElement existed at ITS
+    // module init — under bun test there is no DOM, so the default is null and styled components
+    // crash on `cache.registered`. The browser never hits this (real DOM); an SSR-style test must
+    // hand emotion an explicit cache. CssVarsProvider then supplies the Joy theme like index.tsx.
+    const emotionCache = createCache({ key: "hoc-ssr-test" });
     const moraleTip = (unlockedLevel: number, appliedLevel: number) =>
         renderToStaticMarkup(
             createElement(
-                CssVarsProvider,
-                { theme: hocJoyTheme },
-                createElement(SynergySlotTip, {
-                    faction: "Life",
-                    variant: 2,
-                    label: "Life Morale & Luck",
-                    unlockedLevel,
-                    appliedLevel,
-                }),
+                CacheProvider,
+                { value: emotionCache },
+                createElement(
+                    CssVarsProvider,
+                    { theme: hocJoyTheme },
+                    createElement(SynergySlotTip, {
+                        faction: "Life",
+                        variant: 2,
+                        label: "Life Morale & Luck",
+                        unlockedLevel,
+                        appliedLevel,
+                    }),
+                ),
             ),
         );
 
