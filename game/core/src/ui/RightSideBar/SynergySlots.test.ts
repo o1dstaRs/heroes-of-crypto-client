@@ -4,7 +4,9 @@ import { createElement } from "react";
 // default specifier to the BROWSER legacy renderer, whose dev build crashes SSR of Joy tooltips
 // ("cache.registered" TypeError). The node entry is the resolution this test means, everywhere.
 import { renderToStaticMarkup } from "react-dom/server.node";
+import { CssVarsProvider } from "@mui/joy/styles";
 
+import { hocJoyTheme } from "../hocTheme";
 import { SynergyLadderTip } from "../LeftSideBar/SynergyLadderTip";
 import { appliedSynergyLevelByKey, substitutedSynergyDescription, SynergySlotTip } from "./SynergySlots";
 
@@ -42,15 +44,22 @@ describe("synergy sidebar helpers", () => {
 });
 
 describe("sandbox synergy tooltips", () => {
+    // The app only ever mounts these inside the Joy CssVarsProvider (index.tsx). Rendering provider-less
+    // leaves @emotion/styled with a null cache, which crashes SSR on some install layouts — out of the
+    // component's contract, so the test supplies the provider exactly like production does.
     const moraleTip = (unlockedLevel: number, appliedLevel: number) =>
         renderToStaticMarkup(
-            createElement(SynergySlotTip, {
-                faction: "Life",
-                variant: 2,
-                label: "Life Morale & Luck",
-                unlockedLevel,
-                appliedLevel,
-            }),
+            createElement(
+                CssVarsProvider,
+                { theme: hocJoyTheme },
+                createElement(SynergySlotTip, {
+                    faction: "Life",
+                    variant: 2,
+                    label: "Life Morale & Luck",
+                    unlockedLevel,
+                    appliedLevel,
+                }),
+            ),
         );
 
     it("shows the full effect ladder even while locked, without claiming an active effect", () => {
