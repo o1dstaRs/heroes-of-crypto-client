@@ -113,14 +113,18 @@ describe("sandbox synergy tooltips", () => {
     it("keeps draft previews and their exact remaining-unit counts", () => {
         const renderDraftTip = (previewLevel: number) =>
             renderToStaticMarkup(
-                createElement(SynergyLadderTip, {
-                    faction: "Nature",
-                    variant: 2,
-                    label: "Flying armor",
-                    level: 1,
-                    previewLevel,
-                    units: 3,
-                }),
+                createElement(
+                    CacheProvider,
+                    { value: emotionCache },
+                    createElement(SynergyLadderTip, {
+                        faction: "Nature",
+                        variant: 2,
+                        label: "Flying armor",
+                        level: 1,
+                        previewLevel,
+                        units: 3,
+                    }),
+                ),
             );
         expect(renderDraftTip(1)).toContain("1 more Nature unit → lvl 2");
         const preview = renderDraftTip(2);
