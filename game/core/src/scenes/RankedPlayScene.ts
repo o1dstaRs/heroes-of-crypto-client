@@ -1126,7 +1126,7 @@ interface RankedFightRosterEntry {
  * One scene-log line per landed strike of a MULTI-HIT attack — Double Punch / Double Shot and the
  * Crafted variants the Blacksmith grants. The engine pushes one `hits[]` entry per strike and folds
  * their sum into `damage.amount`, so the caller suppresses the single aggregate line and each strike
- * is reported here with its OWN damage and kills.
+ * is reported here with its OWN damage and kills, including strikes fully absorbed by a shield.
  *
  * Returns [] for anything that must not be split this way: a single-hit attack, a fully dodged strike
  * (nothing landed), and a splash/AOE shot (splashLogLines already writes a line per splashed unit).
@@ -1144,9 +1144,6 @@ export const multiHitSceneLogLines = (
     }
     const lines: string[] = [];
     for (const hit of hits) {
-        if (hit.amount <= 0 && hit.unitsDied <= 0) {
-            continue;
-        }
         const kills = hit.unitsDied > 0 ? ` 💀 ${hit.unitsDied}` : "";
         const text = `${attackerName} ${icon} ${targetName} (${hit.amount})${kills}`;
         lines.push(flag ? `${flag} ${text}` : text);

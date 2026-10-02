@@ -6,6 +6,7 @@ import {
     GridSettings,
     HoCConstants,
     HoCMath,
+    type IWeightedRoute,
     TeamType,
 } from "@heroesofcrypto/common";
 
@@ -41,6 +42,7 @@ import { RenderableUnit } from "./RenderableUnit";
 import { placementZonePolygon } from "@/pixi/PixiDrawablePlacement";
 import { projectedPolyline, projectedRectPoints } from "./sandbox/BattlefieldVisualGrid";
 import { drawMovementArea, drawMovementAreaCalibration, ENEMY_MOVEMENT_HIGHLIGHT_COLOR } from "./movementAreaVisual";
+import { drawMovementPathPreview } from "./movementPathPreview";
 export { movementFillAlphaForPhase } from "./movementAreaVisual";
 
 /**
@@ -286,6 +288,8 @@ export interface IGameplayDrawContext {
     /** Real-time phase for corner ornaments, independent of the slower simulation clock. */
     shotRangePulsePhase?: number;
     currentActivePath?: HoCMath.XY[];
+    /** Chosen routes keyed by destination anchor, shared with move and melee-approach execution. */
+    currentActiveKnownPaths?: Map<number, IWeightedRoute[]>;
     sc_isAnimating: boolean;
     currentActiveUnit?: RenderableUnit;
     hoverManager: HoverManager;
@@ -608,6 +612,25 @@ export class SandboxDrawer {
                 hoverGlowPhase,
                 2,
             );
+        }
+
+        const landing = ctx.hoverManager.hoverBattlefieldFootprintCells;
+        if (
+            fightStarted &&
+            !sc_isAnimating &&
+            !isActiveUnitMoving &&
+            landing?.length &&
+            ctx.currentActiveKnownPaths &&
+            currentActiveUnit?.canMove() &&
+            !currentActiveUnit.canFly() &&
+            fightProps.getFireWalls().size() > 0
+        ) {
+            // Hover already resolved the legal move/melee landing. Its maximum corner is the route's
+            // anchor, even when the cursor is over a different part of a large creature's footprint.
+            const anchorX = Math.max(...landing.map((cell) => cell.x));
+            const anchorY = Math.max(...landing.map((cell) => cell.y));
+            const route = ctx.currentActiveKnownPaths.get((anchorX << 4) | anchorY)?.[0]?.route;
+            if (route?.length) drawMovementPathPreview(g, route, currentActiveUnit, gs, fightProps.getFireWalls());
         }
 
         // The silhouette shows the creature, while these cells show the exact board footprint it will

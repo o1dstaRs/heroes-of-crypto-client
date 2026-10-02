@@ -1,6 +1,9 @@
 import { describe, expect, it } from "bun:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 
-import { appliedSynergyLevelByKey, substitutedSynergyDescription } from "./SynergySlots";
+import { SynergyLadderTip } from "../LeftSideBar/SynergyLadderTip";
+import { appliedSynergyLevelByKey, substitutedSynergyDescription, SynergySlotTip } from "./SynergySlots";
 
 describe("synergy sidebar helpers", () => {
     it("fills every {} placeholder with the level's real numbers", () => {
@@ -32,5 +35,78 @@ describe("synergy sidebar helpers", () => {
         });
         // Zero-level and malformed entries never register as chosen.
         expect(appliedSynergyLevelByKey(["Chaos:1:0", "garbage", ""])).toEqual({});
+    });
+});
+
+describe("sandbox synergy tooltips", () => {
+    const moraleTip = (unlockedLevel: number, appliedLevel: number) =>
+        renderToStaticMarkup(
+            createElement(SynergySlotTip, {
+                faction: "Life",
+                variant: 2,
+                label: "Life Morale & Luck",
+                unlockedLevel,
+                appliedLevel,
+            }),
+        );
+
+    it("shows the full effect ladder even while locked, without claiming an active effect", () => {
+        const html = moraleTip(0, 0);
+        expect(html).toContain("The entire army gets +6 morale and +2 luck");
+        for (const value of ["Level 1 morale: 6", "Level 2 morale: 13", "Level 3 morale: 20", "Level 3 luck: 9"]) {
+            expect(html).toContain(`aria-label="${value}"`);
+        }
+        expect(html).toContain("2 different Life creatures → lvl 1");
+        expect(html).not.toContain("aria-current");
+        expect(html).not.toContain("Selected synergy");
+        expect(html).not.toContain("Click to field");
+    });
+
+    it("highlights the applied level, including when it differs from the available level", () => {
+        const html = moraleTip(3, 2);
+        expect(html).toContain("The entire army gets +13 morale and +5 luck");
+        expect(html).toContain('aria-label="Level 2 morale: 13" aria-current="step"');
+        expect(html).toContain('aria-label="Level 2 luck: 5" aria-current="step"');
+        expect(html).toContain("Selected synergy");
+        expect(html).toContain("6 different Life creatures → lvl 3");
+        expect(html).not.toContain("(preview)");
+        expect(html).not.toContain("Click to field");
+    });
+
+    it("previews an available alternative without marking it as selected", () => {
+        const html = moraleTip(3, 0);
+        expect(html).toContain("The entire army gets +20 morale and +9 luck");
+        expect(html).toContain('aria-label="Level 3 morale: 20 (preview)"');
+        expect(html).toContain('aria-label="Level 3 luck: 9 (preview)"');
+        expect(html).toContain("Click to field this synergy instead");
+        expect(html).not.toContain("aria-current");
+        expect(html).not.toContain("Selected synergy");
+        expect(html).not.toContain("Confirming this pick");
+    });
+
+    it("shows the maximum level when a selected synergy is fully unlocked", () => {
+        const html = moraleTip(3, 3);
+        expect(html).toContain("Maxed at lvl 3");
+        expect(html).not.toContain("lvl 4");
+    });
+
+    it("keeps draft previews and their exact remaining-unit counts", () => {
+        const renderDraftTip = (previewLevel: number) =>
+            renderToStaticMarkup(
+                createElement(SynergyLadderTip, {
+                    faction: "Nature",
+                    variant: 2,
+                    label: "Flying armor",
+                    level: 1,
+                    previewLevel,
+                    units: 3,
+                }),
+            );
+        expect(renderDraftTip(1)).toContain("1 more Nature unit → lvl 2");
+        const preview = renderDraftTip(2);
+        expect(preview).toContain("Flying units get +24% of additional armor");
+        expect(preview).toContain("Confirming this pick → lvl 2");
+        expect(preview).toContain('aria-label="Level 1: 15%" aria-current="step"');
+        expect(preview).toContain('aria-label="Level 2: 24% (preview)"');
     });
 });

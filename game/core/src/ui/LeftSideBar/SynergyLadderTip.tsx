@@ -17,17 +17,19 @@ export const SynergyLadderTip: React.FC<{
     variant: number | string;
     /** The synergy's own name ("Movement", "Flying armor"). */
     label: string;
-    /** The level the drafted army has now; 0 while the synergy is still locked. */
+    /** The level the army currently fields; 0 while the synergy is locked or unselected. */
     level: number;
-    /** The level a staged, unconfirmed pick would light. Equal to `level` when nothing is staged. */
+    /** The level a pending draft pick or alternative sandbox variant would give. */
     previewLevel?: number;
-    /** Units of this faction already confirmed — what the "more units" line counts from. */
-    units: number;
-}> = ({ faction, variant, label, level, previewLevel = level, units }) => {
+    /** Context for a preview, such as selecting an alternative sandbox synergy. */
+    previewHint?: string;
+    /** Confirmed faction units; when unknown, show the total needed rather than guessing how many more. */
+    units?: number;
+}> = ({ faction, variant, label, level, previewLevel = level, previewHint, units }) => {
     const previewing = previewLevel > level;
     const shownLevel = previewing ? previewLevel : level;
     const ladder = synergyLadder(faction, variant);
-    const next = synergyNextLevel(units);
+    const next = synergyNextLevel(units ?? shownLevel * 2);
 
     return (
         <Box sx={{ maxWidth: 260, py: 0.25 }}>
@@ -63,6 +65,10 @@ export const SynergyLadderTip: React.FC<{
                                 )}
                                 <Typography
                                     level="body-xs"
+                                    aria-label={`Level ${valueLevel}${row.label ? ` ${row.label}` : ""}: ${value}${
+                                        isPreview && !isCurrent ? " (preview)" : ""
+                                    }`}
+                                    aria-current={isCurrent ? "step" : undefined}
                                     sx={{
                                         px: 0.5,
                                         borderRadius: "4px",
@@ -84,9 +90,11 @@ export const SynergyLadderTip: React.FC<{
             ))}
             <Typography level="body-xs" sx={{ mt: 0.4, opacity: 0.7 }}>
                 {previewing
-                    ? `Confirming this pick → lvl ${previewLevel}`
+                    ? (previewHint ?? `Confirming this pick → lvl ${previewLevel}`)
                     : next
-                      ? `${next.unitsAway} more ${faction} unit${next.unitsAway === 1 ? "" : "s"} → lvl ${next.level}`
+                      ? units === undefined
+                          ? `${next.level * 2} different ${faction} creatures → lvl ${next.level}`
+                          : `${next.unitsAway} more ${faction} unit${next.unitsAway === 1 ? "" : "s"} → lvl ${next.level}`
                       : "Maxed at lvl 3"}
             </Typography>
         </Box>

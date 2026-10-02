@@ -1621,8 +1621,8 @@ describe("ranked multi-hit scene log", () => {
         expect(multiHitSceneLogLines(undefined, "Peasant", "Orc", "⚔️", "🟢")).toEqual([]);
     });
 
-    test("skips a strike that neither damaged nor killed (a whiffed second punch)", () => {
-        const secondWhiffed = {
+    test("logs a landed second punch even when it deals zero damage", () => {
+        const secondAbsorbed = {
             amount: 7,
             hits: [
                 { amount: 7, unitsDied: 0 },
@@ -1630,8 +1630,54 @@ describe("ranked multi-hit scene log", () => {
             ],
         } as never;
 
-        expect(multiHitSceneLogLines(secondWhiffed, "Berserker", "Peasant", "⚔️", "🟢")).toEqual([
+        expect(multiHitSceneLogLines(secondAbsorbed, "Berserker", "Peasant", "⚔️", "🟢")).toEqual([
             "🟢 Berserker ⚔️ Peasant (7)",
+            "🟢 Berserker ⚔️ Peasant (0)",
+        ]);
+    });
+
+    test("logs both punches when Flesh Shield absorbs all primary damage", () => {
+        const attack: Extract<GameEvent, { type: "unit_attacked" }> = {
+            type: "unit_attacked",
+            attackType: "melee",
+            attackerId: "berserker",
+            targetId: "leprechaun",
+            unitIdsDied: [],
+            animations: [],
+            damage: {
+                amount: 0,
+                render: true,
+                unitId: "leprechaun",
+                unitPosition: { x: 2, y: 3 },
+                unitIsSmall: true,
+                hits: [
+                    { amount: 0, unitsDied: 0 },
+                    { amount: 0, unitsDied: 0 },
+                ],
+                secondary: [
+                    {
+                        source: "flesh_shield",
+                        unitId: "abomination",
+                        position: { x: 2, y: 1 },
+                        amount: 239,
+                        unitsDied: 0,
+                    },
+                ],
+            },
+        };
+        const unitNames = new Map([
+            ["berserker", "Berserker"],
+            ["leprechaun", "Leprechaun"],
+            ["abomination", "Abomination"],
+        ]);
+
+        expect([
+            ...multiHitSceneLogLines(attack.damage, "Berserker", "Leprechaun", "⚔️", "🔴"),
+            ...rankedSecondarySceneLogLines(attack, unitNames, () => "🟢"),
+        ]).toEqual([
+            "🔴 Berserker ⚔️ Leprechaun (0)",
+            "🔴 Berserker ⚔️ Leprechaun (0)",
+            "🟢 Abomination absorbed (239) with Flesh Shield",
         ]);
     });
 });

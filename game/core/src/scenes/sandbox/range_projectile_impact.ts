@@ -49,6 +49,37 @@ export const findRangeResponseAnimation = (
 ): UnitAttackedEvent["animations"][number] | undefined =>
     attackEvent.animations.find((animation) => !samePosition(animation.fromPosition, attackerPosition));
 
+/**
+ * A Chakram counter promotes an initiating single shot into splash before appending its own victims.
+ * AOE friendly splash cannot prove this: only the single-shot hits/MISS fields, its primary id, and
+ * a distinct counter victim together identify the recorded disc. Callers also require a counter
+ * animation or a resolved response strike. This preserves a zero-hop disc after later Break.
+ */
+export function hasRecordedChakramCounter(
+    damage: UnitAttackedEvent["damage"] | undefined,
+    responseVictimId: string,
+): boolean {
+    if (damage?.chakramFlights !== undefined) {
+        return damage.chakramFlights.some((flight) => flight.response && flight.primaryTargetId === responseVictimId);
+    }
+    if (!damage?.unitId || damage.unitId === responseVictimId) return false;
+    return (
+        (!!damage.hits?.length || !!damage.missed) && !!damage.splash?.some((hit) => hit.unitId === responseVictimId)
+    );
+}
+
+/** Exact ownership matters when multiple discs hit the same stack at different powers. */
+export function recordedChakramFlight(
+    damage: UnitAttackedEvent["damage"] | undefined,
+    attackerId: string,
+    response: boolean,
+    hitIndex: number,
+) {
+    return damage?.chakramFlights?.find(
+        (flight) => flight.attackerId === attackerId && flight.response === response && flight.hitIndex === hitIndex,
+    );
+}
+
 const hasLegacyDoubleShotEvidence = (
     attackEvent: UnitAttackedEvent,
     requestedTargetId: string,
@@ -89,7 +120,10 @@ export function resolveRangeProjectileImpactPlan(
     doubleShot: boolean,
     precedingObstaclePositions: readonly HoCMath.XY[] = [],
 ): readonly IRangeProjectileImpact[] {
-    const projectileCount = doubleShot ? 2 : 1;
+    const recordedProjectileCount = (attackEvent.damage.chakramFlights ?? [])
+        .filter((flight) => !flight.response && flight.attackerId === attackEvent.attackerId)
+        .reduce((count, flight) => Math.max(count, flight.hitIndex + 1), 0);
+    const projectileCount = Math.max(doubleShot ? 2 : 1, recordedProjectileCount);
     const obstacleImpacts: IRangeProjectileImpact[] = precedingObstaclePositions
         .slice(0, projectileCount)
         .map((position) => ({

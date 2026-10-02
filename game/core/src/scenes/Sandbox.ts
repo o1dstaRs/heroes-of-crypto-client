@@ -191,6 +191,8 @@ import {
     type IRangeProjectileImpact,
     resolveLiveRangeProjectileTracePosition,
     findRangeResponseAnimation,
+    hasRecordedChakramCounter,
+    recordedChakramFlight,
     resolveRangeProjectileImpactPlan,
     resolveRangeProjectilePlaybackPosition,
 } from "./sandbox/range_projectile_impact";
@@ -4694,9 +4696,11 @@ export class Sandbox extends PixiScene {
             target,
             attackEvent,
             exchange,
-            (unit) => this.destroyReplayAttackUnitsAtImpact([unit.getId()]),
+            (unit) => this.destroyReplayAttackUnitsAtImpact([unit.getId()], [unit]),
             undefined,
             record.events,
+            undefined,
+            { amountsBefore, deadIds: destroyedUnitIds },
         );
 
         if (attackEvent.damage.missed) {
@@ -4972,40 +4976,52 @@ export class Sandbox extends PixiScene {
         const remaining = new Map(amountsBefore);
         const occurrences = new Map<string, number>();
         const primary = impacts.map((impact, index): CombatExchangeStrike => {
-            const occurrence = occurrences.get(impact.targetUnitId) ?? 0;
-            occurrences.set(impact.targetUnitId, occurrence + 1);
-            const splash = event.damage.splash?.filter((hit) => hit.unitId === impact.targetUnitId)[occurrence];
-            const hit = splash ?? event.damage.hits?.[index];
-            const amount = hit?.amount ?? (index === 0 ? event.damage.amount : 0);
+            const flight = recordedChakramFlight(event.damage, attacker.getId(), false, index);
+            const targetId = flight?.primaryTargetId ?? impact.targetUnitId;
+            const occurrence = occurrences.get(targetId) ?? 0;
+            occurrences.set(targetId, occurrence + 1);
+            const splash = flight
+                ? flight.splash.find((hit) => hit.unitId === targetId)
+                : event.damage.splash?.filter((hit) => hit.unitId === targetId)[occurrence];
+            const hit = flight ? splash : (splash ?? event.damage.hits?.[index]);
+            const amount = hit?.amount ?? (flight ? 0 : index === 0 ? event.damage.amount : 0);
             const unitsDied = hit?.unitsDied ?? 0;
-            const before = remaining.get(impact.targetUnitId);
-            if (before !== undefined) remaining.set(impact.targetUnitId, Math.max(0, before - unitsDied));
-            const last = !impacts.slice(index + 1).some((next) => next.targetUnitId === impact.targetUnitId);
+            const before = remaining.get(targetId);
+            if (before !== undefined) remaining.set(targetId, Math.max(0, before - unitsDied));
+            const last = !impacts.slice(index + 1).some((next) => next.targetUnitId === targetId);
             return {
                 attackerId: attacker.getId(),
-                targetId: impact.targetUnitId,
+                targetId,
                 amount,
                 unitsDied,
-                lethal: deadIds.has(impact.targetUnitId) && ((before !== undefined && unitsDied >= before) || last),
+                lethal: deadIds.has(targetId) && ((before !== undefined && unitsDied >= before) || last),
                 response: false,
                 hitIndex: index,
+                missed: flight?.missed ?? splash?.missed ?? (index === 0 ? event.damage.missed : undefined),
                 position: ranged ? (impact as IRangeProjectileImpact).targetPosition : undefined,
             };
         });
         const responseAnimation = ranged ? findRangeResponseAnimation(event, attacker.getPosition()) : undefined;
-        const responseTargetId = responseAnimation?.affectedUnitId ?? attacker.getId();
-        const response: CombatExchangeStrike | undefined = responseDamage
-            ? {
-                  attackerId: target.getId(),
-                  targetId: responseTargetId,
-                  amount: responseDamage.amount,
-                  unitsDied: responseDamage.unitsDied,
-                  lethal: deadIds.has(responseTargetId),
-                  response: true,
-                  hitIndex: 0,
-                  position: responseAnimation?.toPosition,
-              }
-            : undefined;
+        const responseFlight = event.damage.chakramFlights?.find((flight) => flight.response && flight.hitIndex === 0);
+        const responseTargetId =
+            responseFlight?.primaryTargetId ?? responseAnimation?.affectedUnitId ?? attacker.getId();
+        const responsePrimary = responseFlight?.splash.find((hit) => hit.unitId === responseTargetId);
+        const response: CombatExchangeStrike | undefined =
+            responseDamage || responseFlight
+                ? {
+                      attackerId: responseFlight?.attackerId ?? target.getId(),
+                      targetId: responseTargetId,
+                      amount: responseFlight ? (responsePrimary?.amount ?? 0) : (responseDamage?.amount ?? 0),
+                      unitsDied: responseFlight ? (responsePrimary?.unitsDied ?? 0) : (responseDamage?.unitsDied ?? 0),
+                      lethal: deadIds.has(responseTargetId),
+                      response: true,
+                      hitIndex: 0,
+                      missed:
+                          responseFlight?.missed ??
+                          event.damage.splash?.find((hit) => hit.unitId === responseTargetId)?.missed,
+                      position: responseAnimation?.toPosition,
+                  }
+                : undefined;
         return orderCombatExchange(primary, response);
     }
     /** Play resolved blows serially; the striker and the struck figure animate together at contact. */
@@ -5017,6 +5033,8 @@ export class Sandbox extends PixiScene {
         onDeath: (unit: RenderableUnit) => void,
         capturedUnits?: ReadonlyMap<string, RenderableUnit>,
         dullingEvents?: readonly GameEvent[],
+        initialChakram?: boolean,
+        deathState?: { amountsBefore: ReadonlyMap<string, number>; deadIds: ReadonlySet<string> },
     ): Promise<Set<string>> {
         const gs = this.sc_sceneSettings.getGridSettings();
         const shownDeaths = new Set<string>();
@@ -5024,6 +5042,26 @@ export class Sandbox extends PixiScene {
         const units = new Map(capturedUnits ?? this.unitsHolder.getAllUnits());
         units.set(attacker.getId(), attacker);
         units.set(target.getId(), target);
+        const remainingAmounts = new Map(deathState?.amountsBefore);
+        const consumeLoss = (unitId: string, unitsDied: number): number | undefined => {
+            const before = remainingAmounts.get(unitId);
+            if (before === undefined) return undefined;
+            const remaining = Math.max(0, before - unitsDied);
+            remainingAmounts.set(unitId, remaining);
+            return remaining;
+        };
+        const presentDeath = (unitId: string, strikeIndex: number): void => {
+            if (shownDeaths.has(unitId)) return;
+            shownDeaths.add(unitId);
+            const unit = units.get(unitId) as RenderableUnit | undefined;
+            if (!unit) return;
+            // A dying participant can still own an already-recorded simultaneous strike.
+            if (plan.slice(strikeIndex + 1).some((next) => next.attackerId === unitId)) {
+                if (!this.unitsHolder.getAllUnits().has(unitId)) this.dyingVisualUnits.add(unit);
+                pendingDeaths.set(unitId, unit);
+            } else onDeath(unit);
+        };
+        const initialChakramActive = initialChakram ?? attacker.hasAbilityActive?.("Chakram");
         for (const [strikeIndex, strike] of plan.entries()) {
             if (this.isSceneDestroyed()) break;
             const source = units.get(strike.attackerId) as RenderableUnit | undefined;
@@ -5038,6 +5076,42 @@ export class Sandbox extends PixiScene {
                 if (!this.unitsHolder.getAllUnits().has(participant.getId())) this.dyingVisualUnits.add(participant);
             }
             const melee = event.attackType === "melee";
+            const victimTeam = victim.getTeam?.();
+            const flight = recordedChakramFlight(event.damage, strike.attackerId, strike.response, strike.hitIndex);
+            const hasFlightMetadata = event.damage?.chakramFlights !== undefined;
+            // Initiating and counter-throw victims belong to opposite teams. A shield-only arc names
+            // no victim, so its footprint cells identify the flight through captured figures too.
+            const arcs =
+                flight?.arcs ??
+                (hasFlightMetadata
+                    ? []
+                    : (event.damage?.chakramArcs ?? []).filter((arc) => {
+                          const hit = units.get(arc.hitUnitIds?.[0] ?? arc.targetUnitId);
+                          if (hit) return hit.getTeam() === victimTeam;
+                          for (const cell of [arc.cells.at(-1), arc.cells[0]]) {
+                              if (!cell) continue;
+                              for (const unit of units.values()) {
+                                  if (
+                                      unit.getCells().some((occupied) => occupied.x === cell.x && occupied.y === cell.y)
+                                  )
+                                      return unit.getTeam() === victimTeam;
+                              }
+                          }
+                          // Only the initiating flight can be identified in an older recording whose terminal
+                          // figure and source cell are both missing.
+                          return !strike.response && !!initialChakramActive;
+                      }));
+            // A counter can apply Break after the first disc already flew. Preserve that initial
+            // ability state; recorded arcs also prove later flights despite final-state Break.
+            const isChakramFlight =
+                !melee &&
+                (hasFlightMetadata
+                    ? !!flight
+                    : (!strike.response && strike.hitIndex === 0
+                          ? initialChakramActive
+                          : source.hasAbilityActive?.("Chakram")) ||
+                      arcs.length > 0 ||
+                      (strike.response && hasRecordedChakramCounter(event.damage, strike.targetId)));
             const attackState = this.prepareDirectionalAttackState(source, victim, melee);
             const textureKeys = [
                 source.getAnimationTextureKey(attackState),
@@ -5046,6 +5120,7 @@ export class Sandbox extends PixiScene {
             await Promise.all(textureKeys.filter((key): key is string => !!key).map((key) => this.waitForTexture(key)));
             if (this.isSceneDestroyed()) break;
             let reaction = Promise.resolve();
+            let chakramFlight = Promise.resolve();
             let impacted = false;
             const impact = (): void => {
                 if (impacted || this.isSceneDestroyed()) return;
@@ -5053,6 +5128,7 @@ export class Sandbox extends PixiScene {
                 // The unit this blow struck. The incoming hit lists both fighters too, and popping there
                 // showed Dulling Defense before the knight had answered.
                 this.popRecordedDullingDefense(dullingEvents, new Set([strike.targetId]));
+                consumeLoss(strike.targetId, strike.unitsDied);
                 const from = source.getVisualCenter(gs);
                 const to = renderedVictim
                     ? victim.getVisualCenter(gs)
@@ -5069,15 +5145,60 @@ export class Sandbox extends PixiScene {
                         renderedVictim?.getDamagePredictionAnchor(gs),
                     );
                 }
-                if (strike.lethal) {
-                    shownDeaths.add(strike.targetId);
-                    if (renderedVictim) {
-                        // A mutually lethal initial exchange still contains the initiator's resolved
-                        // strike. Finish that strike before death, so it cannot cancel its own death.
-                        if (plan.slice(strikeIndex + 1).some((next) => next.attackerId === strike.targetId))
-                            pendingDeaths.set(strike.targetId, victim);
-                        else onDeath(victim);
+                if (strike.missed) {
+                    this.showAttackMissedVfx(source, victim, {
+                        ...event.damage,
+                        unitId: strike.targetId,
+                        missed: true,
+                    });
+                }
+                if (isChakramFlight) {
+                    const bounceIds = new Set(
+                        arcs.flatMap((arc) => arc.hitUnitIds ?? (arc.targetUnitId ? [arc.targetUnitId] : [])),
+                    );
+                    const splash =
+                        flight?.splash ??
+                        event.damage.splash?.filter(
+                            (hit) =>
+                                hit.unitId === strike.targetId ||
+                                bounceIds.has(hit.unitId) ||
+                                units.get(hit.unitId)?.getTeam() === victimTeam,
+                        );
+                    const primaryMissed =
+                        flight?.missed ??
+                        splash?.find((hit) => hit.unitId === strike.targetId)?.missed ??
+                        (strike.response ? undefined : event.damage.missed);
+                    // Other AOE losses occur at primary contact. Count them before a later disc can
+                    // bounce into that stack, while the bridge victims are counted at their own impact.
+                    for (const hit of flight?.splash ?? []) {
+                        if (hit.unitId !== strike.targetId && !bounceIds.has(hit.unitId))
+                            consumeLoss(hit.unitId, hit.unitsDied);
                     }
+                    // Begin at contact and finish the return before the next blow. The primary number
+                    // is owned by this exchange; the flight owns only its bounce numbers.
+                    chakramFlight = this.playChakramArcs(
+                        source,
+                        {
+                            ...event.damage,
+                            unitId: strike.targetId,
+                            missed: primaryMissed,
+                            splash,
+                            chakramArcs: arcs,
+                        },
+                        renderedVictim,
+                        units,
+                        true,
+                        flight
+                            ? (unitId, hit) => {
+                                  const remaining = consumeLoss(unitId, hit.unitsDied);
+                                  if (hit.unitsDied > 0 && remaining === 0 && deathState?.deadIds.has(unitId))
+                                      presentDeath(unitId, strikeIndex);
+                              }
+                            : undefined,
+                    );
+                }
+                if (strike.lethal) {
+                    presentDeath(strike.targetId, strikeIndex);
                 } else if (strike.amount > 0 && renderedVictim) {
                     // Final engine HP can already be zero after a later blow. This hit still precedes it.
                     reaction = this.playReplayOneShot(victim, "hit", 3000, true);
@@ -5100,8 +5221,14 @@ export class Sandbox extends PixiScene {
                 const attack = usesAuthoredRangedRelease(source.getName())
                     ? Promise.resolve()
                     : this.playReplayOneShot(source, attackState, 5000, true);
-                await this.playReplayProjectile(source, victim, renderedVictim ? undefined : fallbackPosition, impact);
-                await Promise.all([attack, reaction]);
+                await this.playReplayProjectile(
+                    source,
+                    victim,
+                    renderedVictim ? undefined : fallbackPosition,
+                    impact,
+                    isChakramFlight,
+                );
+                await Promise.all([attack, reaction, chakramFlight]);
                 // Projectile arrival can precede the authored shooter's recovery frames.
                 if (usesAuthoredRangedRelease(source.getName())) await this.waitForProjectileHitReaction(source);
             }
@@ -5119,6 +5246,7 @@ export class Sandbox extends PixiScene {
         target: RenderableUnit,
         toPosition?: HoCMath.XY,
         onImpact?: () => void,
+        chakram?: boolean,
     ): Promise<void> {
         const gs = this.sc_sceneSettings.getGridSettings();
         // Playback resolution supplies the actual victim's torso (or its captured pre-removal anchor).
@@ -5132,7 +5260,7 @@ export class Sandbox extends PixiScene {
             to: targetPosition,
             onImpact,
             big: bigProjectile,
-            chakram: attacker.hasAbilityActive("Chakram"),
+            chakram: chakram ?? attacker.hasAbilityActive("Chakram"),
             orcAxe: attacker.getName().trim().toLowerCase() === "orc",
             arbalesterBolt: attacker.getName().trim().toLowerCase() === "arbalester",
             centaurSpear: attacker.getName().trim().toLowerCase() === "centaur",
@@ -5552,11 +5680,6 @@ export class Sandbox extends PixiScene {
         // matches between the live sandbox and the ranked replay.
         this.spawnDeepWoundsClaws(damage.deepWounds);
 
-        // ABILITY Chakram (Zena) — the ricochet arcs, replayed from the authoritative payload so every
-        // viewer watches the disc curve between victims, not just the player who threw it. `target` seeds the
-        // homecoming loop for a throw that found no ricochet victim at all.
-        void this.playChakramArcs(attacker, damage, target);
-
         // IMPACT. Release any buff/debuff pop this strike applied — the diff ran when the snapshot
         // arrived (before the projectile/approach finished), so the icons wait here to land with the
         // damage numbers rather than ahead of the blow.
@@ -5811,11 +5934,15 @@ export class Sandbox extends PixiScene {
         return true;
     }
     /** Tear down only the renderable side of replay deaths; the recorded event still applies logical cleanup. */
-    private destroyReplayAttackUnitsAtImpact(unitIds: readonly string[]): void {
+    private destroyReplayAttackUnitsAtImpact(
+        unitIds: readonly string[],
+        capturedUnits: readonly RenderableUnit[] = [],
+    ): void {
         if (!unitIds.length) {
             return;
         }
         const unitSnapshot = this.snapshotRenderableUnits();
+        for (const unit of capturedUnits) unitSnapshot.set(unit.getId(), unit);
         for (const unitId of unitIds) {
             const unit = unitSnapshot.get(unitId);
             if (!unit) {
@@ -5847,6 +5974,13 @@ export class Sandbox extends PixiScene {
             attackEvent.attackType === "range"
                 ? findRangeResponseAnimation(attackEvent, attacker.getPosition())
                 : undefined;
+        const responseFlight = attackEvent.damage.chakramFlights?.find(
+            (flight) => flight.response && flight.hitIndex === 0,
+        );
+        if (attackEvent.attackType === "range" && responseFlight) {
+            const primary = responseFlight.splash.find((hit) => hit.unitId === responseFlight.primaryTargetId);
+            return { amount: primary?.amount ?? 0, unitsDied: primary?.unitsDied ?? 0 };
+        }
         if (attackEvent.attackType === "range" && !responseAnimation) {
             return undefined;
         }
@@ -5880,7 +6014,16 @@ export class Sandbox extends PixiScene {
         };
         // His blow can move no hit points — Flesh Shield took all of it, or the swing was reduced to
         // nothing — and still dull. Hiding that answer showed the debuff on the hit he never returned.
-        if (responseDamage.amount <= 0 && !dullingDefenseRecipientIds(record.events).includes(responseVictimId)) {
+        const recordedChakramResponse =
+            attackEvent.damage.chakramFlights === undefined &&
+            responseAnimation &&
+            (target.hasAbilityActive?.("Chakram") || hasRecordedChakramCounter(attackEvent.damage, responseVictimId)) &&
+            attackEvent.damage.splash?.some((hit) => hit.unitId === responseVictimId);
+        if (
+            responseDamage.amount <= 0 &&
+            !recordedChakramResponse &&
+            !dullingDefenseRecipientIds(record.events).includes(responseVictimId)
+        ) {
             return undefined;
         }
         return responseDamage;
@@ -7674,6 +7817,8 @@ export class Sandbox extends PixiScene {
             this.sc_visibleState = {
                 canBeStarted: false,
                 hasFinished: prevHasFinished,
+                replayPlaybackActive: this.replayPlaybackActive,
+                replayFightVisible: this.sc_visibleState?.replayFightVisible,
                 teamWin: prevTeamWin,
                 secondsRemaining,
                 secondsMax,
@@ -9472,8 +9617,14 @@ export class Sandbox extends PixiScene {
         attacker: RenderableUnit,
         damage?: IVisibleDamage,
         primaryTarget?: Unit,
+        capturedUnits?: ReadonlyMap<string, Unit>,
+        forceChakram = false,
+        onBounceImpact?: (unitId: string, hit: NonNullable<IVisibleDamage["splash"]>[number]) => void,
     ): Promise<void> {
-        if (!this.rangedProjectiles || !attacker.hasAbilityActive("Chakram")) {
+        if (
+            !this.rangedProjectiles ||
+            (!forceChakram && !attacker.hasAbilityActive("Chakram") && !damage?.chakramArcs?.length)
+        ) {
             return;
         }
         const gs = this.sc_sceneSettings.getGridSettings();
@@ -9483,28 +9634,73 @@ export class Sandbox extends PixiScene {
         // The engine PRECOMPUTED the flight AND the damage from ONE roll, so the disc's cells and the victims
         // never disagree on which way it curled. Per-victim amounts (for the numbers landed AS the disc
         // arrives) come from that same authoritative splash — never a client re-roll.
-        const splashByUnit = new Map<string, { amount: number; unitsDied: number; missed?: boolean }>();
+        const splashByUnit = new Map<string, NonNullable<IVisibleDamage["splash"]>[number]>();
         for (const entry of damage?.splash ?? []) {
-            splashByUnit.set(entry.unitId, {
-                amount: entry.amount,
-                unitsDied: entry.unitsDied,
-                missed: entry.missed,
+            splashByUnit.set(entry.unitId, entry);
+        }
+        const arcs = damage?.chakramArcs ?? [];
+        const hitIdsForArc = (arc: (typeof arcs)[number]): string[] =>
+            arc.hitUnitIds ?? (arc.targetUnitId ? [arc.targetUnitId] : []);
+        const bounceIds = new Set(arcs.flatMap(hitIdsForArc));
+        const authoritativeFlight = damage?.chakramFlights !== undefined;
+        // Exchanges supply the actual primary, including an intercepted ray. Older direct playback
+        // identifies it from splash because its unitId could still name the clicked rear target.
+        const primaryId =
+            (forceChakram || authoritativeFlight ? damage?.unitId : undefined) ??
+            damage?.splash?.find((entry) => !bounceIds.has(entry.unitId))?.unitId ??
+            damage?.unitId ??
+            primaryTarget?.getId();
+        const capturedByUnit = new Map<
+            string,
+            {
+                center: HoCMath.XY;
+                impact: HoCMath.XY;
+                cells: HoCMath.XY[];
+                isSmall: boolean;
+                flagAnchor?: HoCMath.XY;
+            }
+        >();
+        // Ranked cleanup can remove lethal victims while an earlier hop is flying. Capture every
+        // participant before the first await; the authoritative splash position also covers a victim
+        // already removed by the local engine.
+        for (const unitId of new Set([...(primaryId ? [primaryId] : []), ...bounceIds])) {
+            const unit = (capturedUnits?.get(unitId) ??
+                this.unitsHolder.getAllUnits().get(unitId) ??
+                (primaryTarget?.getId() === unitId ? primaryTarget : undefined)) as RenderableUnit | undefined;
+            const entry = splashByUnit.get(unitId);
+            const center =
+                typeof unit?.getVisualCenter === "function"
+                    ? unit.getVisualCenter(gs)
+                    : entry?.position
+                      ? projectBattlefieldPoint(entry.position, gs)
+                      : unit
+                        ? projectBattlefieldPoint(unit.getPosition(), gs)
+                        : undefined;
+            if (!center) continue;
+            capturedByUnit.set(unitId, {
+                center: { ...center },
+                impact: {
+                    ...(typeof unit?.getProjectileImpactPoint === "function"
+                        ? unit.getProjectileImpactPoint(gs)
+                        : center),
+                },
+                cells: unit?.getCells?.() ?? (unit ? [unit.getBaseCell()] : []),
+                isSmall: unit?.isSmallSize() ?? true,
+                flagAnchor: unit?.getDamagePredictionAnchor?.(gs),
             });
         }
-        const popChakramMiss = (unit: RenderableUnit, center: HoCMath.XY, dir: HoCMath.XY): void => {
-            this.combatVisuals?.showMissLabel(
-                { x: center.x, y: center.y - cellSize * (unit.isSmallSize() ? 0.85 : 1.25) },
-                dir,
-            );
+        const popChakramMiss = (center: HoCMath.XY, dir: HoCMath.XY, isSmall: boolean): void => {
+            this.combatVisuals?.showMissLabel({ x: center.x, y: center.y - cellSize * (isSmall ? 0.85 : 1.25) }, dir);
         };
 
         // This runs at the exact moment the thrown disc lands on the PRIMARY target (both call sites await
         // the throw first), so the primary's wound opens right here — then each ricochet victim bleeds AS
         // the disc reaches it, never all at once.
         const attackerCenter = attacker.getVisualCenter(gs);
-        const primaryDodged = !!(primaryTarget && splashByUnit.get(primaryTarget.getId())?.missed);
-        if (primaryTarget && !damage?.missed && !primaryDodged) {
-            const primary = this.unitsHolder.getAllUnits().get(primaryTarget.getId()) as RenderableUnit | undefined;
+        const primaryDamage = primaryId ? splashByUnit.get(primaryId) : undefined;
+        const primaryWasHit = primaryDamage ? primaryDamage.amount > 0 : !authoritativeFlight;
+        if (primaryId && !damage?.missed && !primaryDamage?.missed && primaryWasHit) {
+            const primary = this.unitsHolder.getAllUnits().get(primaryId) as RenderableUnit | undefined;
             if (primary && !primary.isDead()) {
                 const center = primary.getVisualCenter(gs);
                 const throwDir = this.chakramWorldDir(attackerCenter, center);
@@ -9513,14 +9709,13 @@ export class Sandbox extends PixiScene {
             }
         }
 
-        // Each leg is a RICOCHET: a curve TRUNCATED at the single unit it struck (or the terminal flourish
-        // loop, which strikes nobody). So fly the whole leg, then land that one victim's number + blood + push
-        // right where the disc ended — shoved the way the disc was travelling as it arrived. Short arcs (an
-        // adjacent victim caught on the very first cell) still get a beat before the hit, so back-to-back
-        // victims never pop in the same frame.
-        let discEnd: HoCMath.XY | undefined;
+        // Fly each recorded bridge before landing its victim's number, wound and recoil. A terminal
+        // shield hop carries no victim. Degenerate legacy paths still wait a beat before landing the
+        // hit, so successive victims never pop in the same frame.
+        let previousVictim = primaryId ? capturedByUnit.get(primaryId) : undefined;
+        let discEnd = previousVictim?.impact;
         let lastDir: HoCMath.XY = { x: 0, y: 1 };
-        for (const arc of damage?.chakramArcs ?? []) {
+        for (const arc of arcs) {
             const points = arc.cells
                 .map((cell) => GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep()))
                 .filter((position): position is HoCMath.XY => !!position);
@@ -9530,6 +9725,23 @@ export class Sandbox extends PixiScene {
             if (!points.length) {
                 continue;
             }
+            // The engine supplies the empty bridge between footprints. Its source/arrival cells are
+            // ground points, while the thrown disc reaches the creature's torso. Replace only those
+            // endpoints and keep every separating cell, so the disc never jumps or cuts through a wall.
+            // Older recordings omitted the source cell: keep their first empty cell and prepend the
+            // previous impact instead of replacing it.
+            const sourceCell = arc.cells[0];
+            if (previousVictim?.cells.some((cell) => cell.x === sourceCell.x && cell.y === sourceCell.y)) {
+                points.shift();
+            }
+            const hitIds = hitIdsForArc(arc);
+            const victim = hitIds[0] ? capturedByUnit.get(hitIds[0]) : undefined;
+            if (victim) {
+                if (points.length) points[points.length - 1] = victim.impact;
+                else points.push(victim.impact);
+            }
+            if (discEnd) points.unshift(discEnd);
+            if (!points.length) continue;
             const arrival = points[points.length - 1];
             if (points.length >= 2) {
                 await this.rangedProjectiles.fireAlongPath(points, { big, chakram: true });
@@ -9541,19 +9753,16 @@ export class Sandbox extends PixiScene {
                 }
             }
             discEnd = arrival;
+            previousVictim = victim;
 
             // The engine truncates a connecting leg at its one victim, so land it here as the disc arrives.
-            const hitIds =
-                (arc as { hitUnitIds?: string[] }).hitUnitIds ?? (arc.targetUnitId ? [arc.targetUnitId] : []);
             for (const unitId of hitIds) {
                 const unit = this.unitsHolder.getAllUnits().get(unitId) as RenderableUnit | undefined;
-                if (!unit) {
-                    continue;
-                }
-                const center = unit.getVisualCenter(gs);
+                const captured = capturedByUnit.get(unitId);
+                const center = unit?.getVisualCenter(gs) ?? captured?.center ?? arrival;
                 const dmg = splashByUnit.get(unitId);
                 if (dmg?.missed) {
-                    popChakramMiss(unit, center, lastDir);
+                    popChakramMiss(center, lastDir, unit?.isSmallSize() ?? captured?.isSmall ?? true);
                     continue;
                 }
                 if (dmg && dmg.amount > 0) {
@@ -9564,23 +9773,21 @@ export class Sandbox extends PixiScene {
                         dmg.unitsDied,
                         undefined,
                         undefined,
-                        unit.getDamagePredictionAnchor(gs),
+                        unit?.getDamagePredictionAnchor(gs) ?? captured?.flagAnchor,
                     );
                 }
+                // Fully absorbed impacts still catch and return the disc, without a wound or recoil.
+                // Legacy recordings without a per-victim entry keep their original contact effects.
+                if (dmg ? dmg.amount <= 0 : authoritativeFlight) continue;
                 this.combatVisuals?.spawnBloodSpray(center, cellSize, lastDir);
                 this.combatVisuals?.spawnSlash(center, cellSize, lastDir);
-                unit.applyRecoil(lastDir.x * cellSize * 0.16, lastDir.y * cellSize * 0.16);
+                unit?.applyRecoil(lastDir.x * cellSize * 0.16, lastDir.y * cellSize * 0.16);
+                if (dmg) onBounceImpact?.(unitId, dmg);
             }
         }
 
         // Home to Zena at the very end — the engine owns every sweep, so there is no client-side loop or random
         // flank here. A throw with no bounce (no arcs) flies back from the primary impact.
-        if (!discEnd && primaryTarget) {
-            discEnd = projectBattlefieldPoint(
-                GridMath.getPositionForCell(primaryTarget.getBaseCell(), gs.getMinX(), gs.getStep(), gs.getHalfStep()),
-                gs,
-            );
-        }
         if (discEnd) {
             const catchPoint = attacker.getRangedProjectileOrigin(discEnd, gs);
             await this.rangedProjectiles.fireAlongPath([discEnd, catchPoint], {
@@ -9604,7 +9811,7 @@ export class Sandbox extends PixiScene {
     protected chakramBounceVictimIds(damage?: IVisibleDamage): Set<string> {
         const ids = new Set<string>();
         for (const arc of damage?.chakramArcs ?? []) {
-            for (const id of (arc as { hitUnitIds?: string[] }).hitUnitIds ?? []) {
+            for (const id of arc.hitUnitIds ?? (arc.targetUnitId ? [arc.targetUnitId] : [])) {
                 ids.add(id);
             }
         }
@@ -11884,6 +12091,7 @@ export class Sandbox extends PixiScene {
     ): Promise<boolean> {
         this.sc_moveBlocked = true;
         this.beginDullingDefensePresentation();
+        const initialChakram = attacker.hasAbilityActive("Chakram");
         // The click has committed the attack. Drop the aim silhouette, directional sword, damage
         // prediction and attack cursor immediately instead of leaving them over the board until impact.
         this.clearCommittedBoardActionPreview();
@@ -12027,6 +12235,16 @@ export class Sandbox extends PixiScene {
                 ...arc,
                 cells: arc.cells.map((cell) => ({ ...cell })),
             }));
+            damageForAnimation.chakramFlights = attackEvent.damage.chakramFlights?.map((flight) => ({
+                ...flight,
+                arcs: flight.arcs.map((arc) => ({
+                    ...arc,
+                    cells: arc.cells.map((cell) => ({ ...cell })),
+                    hitUnitIds: arc.hitUnitIds ? [...arc.hitUnitIds] : undefined,
+                    mountainCells: arc.mountainCells?.map((cell) => ({ ...cell })),
+                })),
+                splash: flight.splash.map((hit) => ({ ...hit, position: { ...hit.position } })),
+            }));
             attackActionEvents = result.events;
             scheduleAttackCleanupWatchdog();
             this.sc_damageStatsUpdateNeeded = true;
@@ -12053,27 +12271,36 @@ export class Sandbox extends PixiScene {
             );
             if (!event || !(target instanceof RenderableUnit)) return;
             const responseAnimation = isRange ? findRangeResponseAnimation(event, attacker.getPosition()) : undefined;
-            const responseVictimId = responseAnimation?.affectedUnitId ?? attacker.getId();
+            const responseFlight = event.damage.chakramFlights?.find(
+                (flight) => flight.response && flight.hitIndex === 0,
+            );
+            const responseVictimId =
+                responseFlight?.primaryTargetId ?? responseAnimation?.affectedUnitId ?? attacker.getId();
+            const responsePrimary = responseFlight?.splash.find((hit) => hit.unitId === responseVictimId);
             const before = unitSnapshots.get(responseVictimId);
             const after = this.unitsHolder.getAllUnits().get(responseVictimId);
             const secondary = (event.damage.secondary ?? []).filter((hit) => hit.unitId === responseVictimId);
-            const amount = before
-                ? Math.max(
-                      0,
-                      (before.amount - 1) * before.maxHp +
-                          before.hp -
-                          (after?.getCumulativeHp() ?? 0) -
-                          secondary.reduce((sum, hit) => sum + hit.amount, 0),
-                  )
-                : 0;
-            const unitsDied = before
-                ? Math.max(
-                      0,
-                      before.amount -
-                          (after?.getAmountAlive() ?? 0) -
-                          secondary.reduce((sum, hit) => sum + hit.unitsDied, 0),
-                  )
-                : 0;
+            const amount = responseFlight
+                ? (responsePrimary?.amount ?? 0)
+                : before
+                  ? Math.max(
+                        0,
+                        (before.amount - 1) * before.maxHp +
+                            before.hp -
+                            (after?.getCumulativeHp() ?? 0) -
+                            secondary.reduce((sum, hit) => sum + hit.amount, 0),
+                    )
+                  : 0;
+            const unitsDied = responseFlight
+                ? (responsePrimary?.unitsDied ?? 0)
+                : before
+                  ? Math.max(
+                        0,
+                        before.amount -
+                            (after?.getAmountAlive() ?? 0) -
+                            secondary.reduce((sum, hit) => sum + hit.unitsDied, 0),
+                    )
+                  : 0;
             // The attacker's own HP loss is the only evidence of a melee counter here, and it is not
             // proof: a Fire Wall on the approach, an aura or a reflect costs it hit points too. Refuse
             // the counters the rules never allowed, exactly as the replay path does — see
@@ -12082,8 +12309,17 @@ export class Sandbox extends PixiScene {
             const retaliationAllowed = isRange || meleeRetaliationEverPossible(attacker, target);
             const answeredWithoutHpLoss =
                 amount <= 0 && dullingDefenseRecipientIds(attackActionEvents).includes(responseVictimId);
+            const recordedChakramResponse =
+                !!responseFlight ||
+                (event.damage.chakramFlights === undefined &&
+                    responseAnimation &&
+                    (target.hasAbilityActive?.("Chakram") ||
+                        hasRecordedChakramCounter(event.damage, responseVictimId)) &&
+                    event.damage.splash?.some((hit) => hit.unitId === responseVictimId));
             const response =
-                (amount > 0 || answeredWithoutHpLoss) && retaliationAllowed && (!isRange || responseAnimation)
+                (amount > 0 || answeredWithoutHpLoss || recordedChakramResponse) &&
+                retaliationAllowed &&
+                (!isRange || responseAnimation || responseFlight)
                     ? { amount, unitsDied }
                     : undefined;
             const deadIds = new Set(
@@ -12117,10 +12353,15 @@ export class Sandbox extends PixiScene {
                     (unit) => {
                         if (this.unitsHolder.getAllUnits().has(unit.getId()))
                             this.destroySpecificUnits([unit], true, true);
-                        else this.playCustomDeathAnimation(unit);
+                        else this.destroyReplayAttackUnitsAtImpact([unit.getId()], [unit]);
                     },
                     actionEventSnapshot,
                     attackActionEvents,
+                    initialChakram,
+                    {
+                        amountsBefore: new Map([...unitSnapshots].map(([id, snapshot]) => [id, snapshot.amount])),
+                        deadIds,
+                    },
                 );
             } finally {
                 scheduleAttackCleanupWatchdog();
@@ -12247,12 +12488,6 @@ export class Sandbox extends PixiScene {
             this.flushEffectPops();
         }
 
-        // ABILITY Chakram (Zena): fly the disc along the half circles the engine actually resolved, so the
-        // ricochet is something the player WATCHES rather than damage appearing on far-off units. Fired and
-        // not awaited: the arcs play out while the damage numbers land, the same way the second Double Shot
-        // projectile overlaps its own damage.
-        void this.playChakramArcs(attacker, damageForAnimation, target);
-
         // Predatory Assimilation is event-gated: draw the victim -> Queen transfer only when the engine
         // says this initiating strike actually stole an ability. Response steals are rendered with the
         // response damage below, using the same event payload in the opposite direction.
@@ -12279,7 +12514,7 @@ export class Sandbox extends PixiScene {
 
         // Fully-missed attack: no damage number to draw — pop "MISS" under the dodging unit and play
         // its bullet-time dodge instead (no-op unless damageForAnimation.missed).
-        this.showAttackMissedVfx(attacker, target, damageForAnimation);
+        if (!exchangeAnimated) this.showAttackMissedVfx(attacker, target, damageForAnimation);
 
         // Lucky Strike procs (attacker and/or responder): gold flash + "LUCKY!" over each striker.
         this.spawnLuckyStrikeVfx(damageForAnimation);
@@ -14734,7 +14969,7 @@ export class Sandbox extends PixiScene {
                             if (this.currentActiveUnit.hasAbilityActive("Chakram")) {
                                 const chakramPreview = AllAbilities.resolveChakramTrajectory(
                                     this.currentActiveUnit,
-                                    targetUnit,
+                                    damageUnit,
                                     this.unitsHolder,
                                     this.grid,
                                 );
@@ -16518,6 +16753,7 @@ export class Sandbox extends PixiScene {
             gridSettings: this.sc_sceneSettings.getGridSettings(),
             hoverGlowPhase: this.hoverGlowPhase,
             currentActivePath: this.currentActivePath,
+            currentActiveKnownPaths: this.currentActiveKnownPaths,
             sc_isAnimating: this.sc_isAnimating,
             currentActiveUnit: this.currentActiveUnit,
             hoverManager: this.hoverManager,

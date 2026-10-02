@@ -14,6 +14,7 @@ import React, { useEffect, useState } from "react";
 
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { SYNERGY_KEY_TO_IMAGE, SYNERGY_NAME_TO_DESCRIPTION } from "../LeftSideBar/SynergiesConstants";
+import { SynergyLadderTip } from "../LeftSideBar/SynergyLadderTip";
 
 const SYNERGIES = [
     { key: "Life:1", label: "Life Supply", name: LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE, variant: 1 },
@@ -73,6 +74,31 @@ export const appliedSynergyLevelByKey = (entries: readonly string[]): Record<str
     }
     return applied;
 };
+
+/** The same effect ladder as the draft, with a preview for the team's unselected alternative. */
+export const SynergySlotTip: React.FC<{
+    faction: string;
+    variant: number;
+    label: string;
+    unlockedLevel: number;
+    appliedLevel: number;
+}> = ({ faction, variant, label, unlockedLevel, appliedLevel }) => (
+    <Box>
+        <SynergyLadderTip
+            faction={faction}
+            variant={variant}
+            label={label.slice(faction.length + 1)}
+            level={appliedLevel}
+            previewLevel={appliedLevel || unlockedLevel}
+            previewHint="Click to field this synergy instead"
+        />
+        {appliedLevel > 0 && (
+            <Typography level="body-xs" sx={{ mt: 0.25, color: "#FFB300" }}>
+                Selected synergy
+            </Typography>
+        )}
+    </Box>
+);
 
 /** The three level pips under a synergy tile: filled up to `level`, dimmed sockets for the rest. */
 const LevelDots: React.FC<{ level: number; active: boolean }> = ({ level, active }) => (
@@ -143,26 +169,13 @@ export const SynergySlots: React.FC<{ teamType: TeamType; size?: number | string
                         placement="top"
                         sx={{ zIndex: 10000 }}
                         title={
-                            <Box sx={{ maxWidth: 220, py: 0.25 }}>
-                                <Typography level="title-sm">
-                                    {label}
-                                    {isChosen
-                                        ? ` — level ${appliedLevel}`
-                                        : isUnlocked
-                                          ? ` — level ${unlockedLevel}`
-                                          : ""}
-                                </Typography>
-                                <Typography level="body-xs">
-                                    {isUnlocked
-                                        ? substitutedSynergyDescription(imageKey)
-                                        : "Field two units of this faction to unlock"}
-                                </Typography>
-                                {isUnlocked && !isChosen && (
-                                    <Typography level="body-xs" sx={{ mt: 0.25, fontStyle: "italic", opacity: 0.8 }}>
-                                        Click to field this synergy instead
-                                    </Typography>
-                                )}
-                            </Box>
+                            <SynergySlotTip
+                                faction={faction}
+                                variant={variant}
+                                label={label}
+                                unlockedLevel={unlockedLevel}
+                                appliedLevel={appliedLevel}
+                            />
                         }
                     >
                         <Box
