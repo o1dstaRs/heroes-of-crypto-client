@@ -150,7 +150,8 @@ export const targetedSpellBlockerCell = (
 /**
  * The enemies a position swap (Castling) may exchange bodies with, as their ANCHOR cells — the list the
  * engine's canCastSpell is re-validated against, so it has to answer exactly what the engine would
- * (common's `getEnemiesCellsWithinMovementRange` is the same rule on the other side of the wire).
+ * (common's `getEnemiesCellsWithinMovementRange` is the same rule on the other side of the wire; both
+ * pathfind with the caster's movement PLUS CASTLING_RANGE_BONUS_CELLS, owner call 2026-10-02).
  *
  * Two conditions, both about the anchor. The enemy's footprint must match the caster's, because the swap
  * exchanges anchors and only identical shapes land each body on the cells the other vacated; and the

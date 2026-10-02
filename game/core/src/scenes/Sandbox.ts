@@ -99,6 +99,7 @@ import {
     applyThroughShotDamageTail,
     doubleShotAbility,
     meleeRetaliationEverPossible,
+    CASTLING_RANGE_BONUS_CELLS,
     type IAttackDamageProjection,
     type IAttackDamageProjectionInput,
 } from "@heroesofcrypto/common";
@@ -8700,7 +8701,10 @@ export class Sandbox extends PixiScene {
             const moveCells = this.pathHelper.getMovePath(
                 currentCell,
                 this.gridMatrixNoUnits,
-                caster.getSteps(),
+                // The swap reaches one cell farther than the caster's own movement (owner call
+                // 2026-10-02) — same constant common's getEnemiesCellsWithinMovementRange uses, so the
+                // hover highlight and the engine's cast validation agree.
+                caster.getSteps() + CASTLING_RANGE_BONUS_CELLS,
                 undefined,
                 caster.canFly(),
                 caster.isSmallSize(),

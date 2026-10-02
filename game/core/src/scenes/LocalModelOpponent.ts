@@ -2,6 +2,7 @@ import {
     AI,
     AttackVals,
     canWaitOnHourglass,
+    CASTLING_RANGE_BONUS_CELLS,
     FightStateManager,
     GridMath,
     SpellHelper,
@@ -572,7 +573,8 @@ const getEnemiesWithinMovementRange = (
     const moveCells = pathHelper.getMovePath(
         activeUnit.getBaseCell(),
         grid.getMatrixNoUnits(),
-        activeUnit.getSteps(),
+        // One cell farther than the unit's own movement: the swap's reach (owner call 2026-10-02).
+        activeUnit.getSteps() + CASTLING_RANGE_BONUS_CELLS,
         undefined,
         activeUnit.canFly(),
         activeUnit.isSmallSize(),
