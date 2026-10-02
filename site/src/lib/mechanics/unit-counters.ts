@@ -391,8 +391,8 @@ export function unitCounterLines(unit: Unit, language: NoteLanguage): string[] {
     if (has("Small Specie")) {
         lines.push(
             isRu
-                ? "Small Specie: уклонение работает только против существ больше одной клетки — одноклеточные бьют его как обычно."
-                : "Small Specie: its dodge works only against creatures bigger than one cell — one-cell attackers hit it normally.",
+                ? "Small Specie: уклонение работает только против существ 4 уровня — гигантов 2x2; все остальные, включая прямоугольники 2x1, бьют его как обычно."
+                : "Small Specie: its dodge works only against level 4 creatures — the 2x2 giants; everyone else, 2x1 rectangles included, hits it normally.",
         );
     }
     if (has("Water Shield")) {

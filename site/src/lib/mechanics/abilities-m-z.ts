@@ -149,9 +149,9 @@ export const ABILITY_NOTES_M_Z: Readonly<Record<string, NoteSpec>> = {
     },
     "Small Specie": {
         en: ({ p, n }) =>
-            `Physical attacks from creatures bigger than one cell miss this unit ${n(p / 5)}% of the time per stack power (${n(p)}% at full stack; ±1% per point of the Fairy's luck) — melee, retaliation, shots and every splash or pierce hit. It rolls separately from other dodge chances, so miss chances multiply: a Behemoth under a full Boar Saliva (30%) swinging at a full Fairy stack misses 1 − 0.7 × 0.5 = 65% of the time.`,
+            `Physical attacks from level 4 creatures — the 2x2 giants — miss this unit ${n(p / 5)}% of the time per stack power (${n(p)}% at full stack; ±1% per point of the Fairy's luck) — melee, retaliation, shots and every splash or pierce hit. Smaller attackers, 2x1/1x2 rectangles included, are not dodged at all. It rolls separately from other dodge chances, so miss chances multiply: a Behemoth under a full Boar Saliva (30%) swinging at a full Fairy stack misses 1 − 0.7 × 0.5 = 65% of the time.`,
         ru: ({ p, n }) =>
-            `Физические атаки существ крупнее одной клетки промахиваются по этому юниту в ${n(p / 5)}% случаев за единицу силы стека (${n(p)}% при полной силе; ±1% за очко удачи Fairy) — ближний бой, ответы, выстрелы и каждый удар по площади или насквозь. Бросок отдельный от других шансов уклонения, поэтому шансы промаха перемножаются: Behemoth под полным Boar Saliva (30%), бьющий полный стек Fairy, промахивается в 1 − 0,7 × 0,5 = 65% случаев.`,
+            `Физические атаки существ 4 уровня — гигантов 2x2 — промахиваются по этому юниту в ${n(p / 5)}% случаев за единицу силы стека (${n(p)}% при полной силе; ±1% за очко удачи Fairy) — ближний бой, ответы, выстрелы и каждый удар по площади или насквозь. Атакующие поменьше, включая прямоугольники 2x1/1x2, не уклоняются вовсе. Бросок отдельный от других шансов уклонения, поэтому шансы промаха перемножаются: Behemoth под полным Boar Saliva (30%), бьющий полный стек Fairy, промахивается в 1 − 0,7 × 0,5 = 65% случаев.`,
     },
     Sniper: {
         en: () =>
