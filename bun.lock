@@ -96,6 +96,7 @@
         "@types/google-protobuf": "^3.15.12",
         "@types/uuid": "^11.0.0",
         "denque": "^2.1.0",
+        "google-protobuf": ">=3.21.4 <5",
         "uuid": "^11.1.1",
       },
       "devDependencies": {
@@ -104,7 +105,6 @@
         "@typescript-eslint/parser": "^8.61.1",
         "cpy-cli": "^7.0.0",
         "eslint": "^9.39.4",
-        "google-protobuf": "^4.0.2",
         "lint-staged": "^17.0.8",
         "prettier": "3.9.1",
         "protobufjs": "^7.6.4",
@@ -149,6 +149,8 @@
     "@typescript-eslint/eslint-plugin": "^8.61.1",
     "@typescript-eslint/parser": "^8.61.1",
     "esbuild": "^0.28.1",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
     "typescript": "^5.9",
     "uuid": "^11.1.1",
     "ws": "8.21.0",
@@ -3371,8 +3373,6 @@
     "table/strip-ansi/ansi-regex": ["ansi-regex@5.0.1", "", {}, "sha512-quJQXlTSUGL2LH9SUXo8VwsY4soanhgo6LNSm84E1LBcE8s3O0wpdiRzyR9z/ZZJMlMWv37qOOb9pdJlMUEKFQ=="],
 
     "type-is/mime-types/mime-db": ["mime-db@1.54.0", "", {}, "sha512-aU5EJuIN2WDemCcAp2vFBfp/m4EAhWJnUNSSw0ixs7/kXbd6Pg64EmwJkNdFhB8aWt1sH2CTXrLxo/iAGV3oPQ=="],
-
-    "valtio/use-sync-external-store/react": ["react@18.3.1", "", { "dependencies": { "loose-envify": "^1.1.0" } }, "sha512-wS+hAgJShR0KhEvPJArfuPVN1+Hz1t0Y6n5jLrGQbkb4urgPE/0Rve+1kMB1v/oWgHgm4WIcV+i7F2pTVj+2iQ=="],
 
     "yargs/find-up/locate-path": ["locate-path@5.0.0", "", { "dependencies": { "p-locate": "^4.1.0" } }, "sha512-t7hw9pI+WvuwNJXwk5zVHpyhIqzg2qTlklJOf0mVxGSbe3Fp2VieZcduNYjaLDoy6p9uGpQEGWG87WpMKlNq8g=="],
 
