@@ -1,6 +1,9 @@
 import { describe, expect, it } from "bun:test";
 import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+// server.node, not the bare "react-dom/server": on some runners bun's condition map resolves the
+// default specifier to the BROWSER legacy renderer, whose dev build crashes SSR of Joy tooltips
+// ("cache.registered" TypeError). The node entry is the resolution this test means, everywhere.
+import { renderToStaticMarkup } from "react-dom/server.node";
 
 import { SynergyLadderTip } from "../LeftSideBar/SynergyLadderTip";
 import { appliedSynergyLevelByKey, substitutedSynergyDescription, SynergySlotTip } from "./SynergySlots";
