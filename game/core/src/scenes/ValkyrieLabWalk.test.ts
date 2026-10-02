@@ -54,6 +54,7 @@ beforeAll(() => {
             cookie: "",
             createElement: () => ({ getContext: () => null, setAttribute: () => {} }),
             querySelector: () => null,
+            querySelectorAll: () => [],
         };
     CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
     CREATURE_SPRITE_ANIMATION_SETTINGS.approvedBaseEnabled = false;

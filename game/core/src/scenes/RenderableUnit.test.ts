@@ -7618,6 +7618,7 @@ describe("RenderableUnit revealed roster card", () => {
         (globalThis as { document?: unknown }).document = {
             createElement: () => ({ getContext: () => null, setAttribute: () => undefined }),
             querySelector: () => null,
+            querySelectorAll: () => [],
         };
     }
 

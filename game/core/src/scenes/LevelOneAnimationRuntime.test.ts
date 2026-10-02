@@ -56,6 +56,7 @@ beforeAll(() => {
             cookie: "",
             createElement: () => ({ getContext: () => null, setAttribute: () => {} }),
             querySelector: () => null,
+            querySelectorAll: () => [],
         };
     document.cookie ??= "";
 });

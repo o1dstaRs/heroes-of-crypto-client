@@ -83,6 +83,7 @@ beforeEach(() => {
         (globalThis as { document?: unknown }).document = {
             createElement: () => ({ getContext: () => null, setAttribute: () => undefined }),
             querySelector: () => null,
+            querySelectorAll: () => [],
         };
     }
     FightStateManager.getInstance().reset();
