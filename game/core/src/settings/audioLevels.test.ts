@@ -40,11 +40,13 @@ const resolve = (over: Partial<Parameters<typeof resolveAudioLevels>[0]> = {}) =
     });
 
 describe("resolving the stored audio levels", () => {
-    test("a fresh browser opens at the medium default, unmuted", () => {
+    test("a fresh browser opens at the quiet music default, unmuted, effects inheriting it", () => {
+        // With no effects level ever stored the effects ride the music setting (the split must not
+        // un-mute a muted game), so a fresh browser opens BOTH at the music default.
         expect(resolve()).toEqual({
             musicVolume: DEFAULT_MUSIC_VOLUME,
             musicMuted: false,
-            effectsVolume: DEFAULT_EFFECTS_VOLUME,
+            effectsVolume: DEFAULT_MUSIC_VOLUME,
             effectsMuted: false,
         });
     });

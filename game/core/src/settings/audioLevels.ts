@@ -31,7 +31,7 @@ const MUSIC_MUTED_KEY = "hoc:themeMuted";
 const EFFECTS_VOLUME_KEY = "hoc:effectsVolume";
 const EFFECTS_MUTED_KEY = "hoc:effectsMuted";
 
-export const DEFAULT_MUSIC_VOLUME = 0.5; // "medium"
+export const DEFAULT_MUSIC_VOLUME = 0.2; // owner call 2026-10-02: the theme opens quieter
 export const DEFAULT_EFFECTS_VOLUME = 0.5;
 
 export interface IAudioLevels {
