@@ -64,9 +64,9 @@ const SPELL_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     Whirlpool: {
         en: () =>
-            "Chains an enemy for 1 lap: it can't move and skips its next turn, but it still retaliates. Magic resistance can resist it; it is water magic, so a Water Element (Mermaid) can't be targeted. The skipped turn costs the victim 1 morale.",
+            "Chains an enemy for exactly 1 lap — it can't move and skips its next turn, one activation and no more, then acts normally again (it still retaliates while chained). Magic resistance can resist it; it is water magic, so a Water Element (Mermaid) can't be targeted. The skipped turn costs the victim 1 morale.",
         ru: () =>
-            "Приковывает врага на 1 круг: он не может двигаться и пропускает следующий ход, но всё ещё отвечает на атаки. Сопротивление магии может защитить; это магия воды, поэтому Water Element (Mermaid) нельзя выбрать целью. Пропущенный ход стоит жертве 1 морали.",
+            "Приковывает врага ровно на 1 круг — он не может двигаться и пропускает следующий ход, одну активацию и только, затем действует как обычно (ответы на атаки сохраняются). Сопротивление магии может защитить; это магия воды, поэтому Water Element (Mermaid) нельзя выбрать целью. Пропущенный ход стоит жертве 1 морали.",
     },
     "Meteor Shower": {
         en: ({ p, n }) =>
