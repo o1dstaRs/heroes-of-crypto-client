@@ -7,6 +7,7 @@ import { HOC_NUMERIC_ARIAL_FONT_FAMILY } from "../../fontFamilies";
 import { boardVerticalStretch } from "../../pixi/boardFit";
 import { glyphScaleX } from "../../pixi/boardMirror";
 import { projectBattlefieldPoint } from "./BattlefieldVisualGrid";
+import { playCombatSound } from "../../ui/audio/combatSounds";
 
 export interface ICombatVisualsContext {
     getGridSettings(): GridSettings;
@@ -211,6 +212,7 @@ interface IUnitAblaze {
 
 /** A damage number waiting for the moment it belongs to (a burn the walk animation has not reached yet). */
 interface IDelayedFloatingDamage {
+    audioUnit?: Pick<Unit, "getName" | "getId">;
     pos: HoCMath.XY;
     amount: number;
     unitsDied: number;
@@ -736,6 +738,7 @@ const easeOutBack = (t: number): number => {
 };
 
 export class CombatVisuals {
+    private audioEpoch = 0;
     private context: ICombatVisualsContext;
     /**
      * Cached vertical stretch that makes a world-space square render square on screen.
@@ -1618,6 +1621,7 @@ export class CombatVisuals {
      * into a Craft forge; without this the cast animation was wiped almost as soon as it started.
      */
     public clear(options?: { keepDetachedOverlays?: boolean }): void {
+        this.audioEpoch += 1;
         const keepDetachedOverlays = options?.keepDetachedOverlays ?? false;
         if (!keepDetachedOverlays) {
             for (const ft of this.floatingTexts) {
@@ -3241,6 +3245,7 @@ export class CombatVisuals {
         delaySec: number,
         fill: string,
         stroke: string,
+        audioUnit?: Pick<Unit, "getName" | "getId">,
     ): void {
         this.delayedFloatingDamage.push({
             pos: { x: pos.x, y: pos.y },
@@ -3249,6 +3254,7 @@ export class CombatVisuals {
             remainingSec: Math.max(0, delaySec),
             fill,
             stroke,
+            audioUnit,
         });
     }
     private stepDelayedFloatingDamage(dt: number): void {
@@ -3266,6 +3272,8 @@ export class CombatVisuals {
                 pending.unitsDied,
                 pending.fill,
                 pending.stroke,
+                undefined,
+                pending.audioUnit,
             );
         }
     }
@@ -4687,7 +4695,12 @@ export class CombatVisuals {
         fill = "#ff3333",
         stroke = "#4a0000",
         flagTopAnchor?: HoCMath.XY,
+        audioUnit?: Pick<Unit, "getName" | "getId">,
     ): void {
+        if (amount > 0 && audioUnit) {
+            const epoch = this.audioEpoch;
+            playCombatSound(audioUnit.getName(), "hurt", audioUnit.getId(), false, () => epoch === this.audioEpoch);
+        }
         const container = new Container();
 
         // 1. Damage Text (style is cached + prewarmed; see getDamageStyle/prewarm)
@@ -5016,6 +5029,7 @@ export class CombatVisuals {
                     undefined,
                     undefined,
                     u instanceof RenderableUnit ? u.getDamagePredictionAnchor(gs) : undefined,
+                    u,
                 );
 
                 // UI Update logic

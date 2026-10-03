@@ -1,0 +1,29 @@
+{
+    "abomination/attack": {
+        "source_id": "source-74841b4dbfe49bda",
+        "path": "tmp/audio/raw/abomination/attack/KNqNiYn5jtlzAUFt3Zq4.mp3",
+        "source": {
+            "kind": "elevenlabs-mcp",
+            "model": "eleven_text_to_sound_v2",
+            "generation_id": "KNqNiYn5jtlzAUFt3Zq4",
+            "flow_id": "PgjbMnvUROqf3vUZorvN",
+            "prompt": "One explosive low guttural undead brute attack grunt, rough throat and chest, short forceful snort, close dry recording, immediate onset, no words, no music, no ambience.",
+            "sha256": "74841b4dbfe49bda5c30b32e111d3a29babe4980982c7bd9f2ecacf7c6ae6658",
+            "label": "New MCP take 4"
+        }
+    },
+    "angel/attack": {
+        "source_id": "source-123883f006ce55fe",
+        "path": "tmp/audio/raw/library/artisticdude/swishes/swishes/swish-9.wav",
+        "source": {
+            "kind": "library",
+            "author": "artisticdude",
+            "license": "CC0",
+            "page_url": "https://opengameart.org/content/swishes-sound-pack",
+            "download_url": "https://opengameart.org/sites/default/files/swishes.zip",
+            "filename": "swish-9.wav",
+            "sha256": "123883f006ce55feecbff11eea5f87c4493df4399989983037144570a23723c1",
+            "label": "Recorded sword swing 4 \u00b7 swish-9.wav"
+        }
+    }
+}

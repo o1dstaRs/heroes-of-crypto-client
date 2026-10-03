@@ -1602,6 +1602,7 @@ export class RankedPlayScene extends Sandbox {
                             undefined,
                             undefined,
                             flagAnchor,
+                            target,
                         );
                     }
                 } else if (event.damage.amount > 0) {
@@ -1613,6 +1614,7 @@ export class RankedPlayScene extends Sandbox {
                         undefined,
                         undefined,
                         flagAnchor,
+                        target,
                     );
                 }
             } else if (event.type === "area_attacked") {
@@ -1639,6 +1641,7 @@ export class RankedPlayScene extends Sandbox {
                             undefined,
                             undefined,
                             flagAnchor,
+                            target,
                         );
                     }
                 } else if (event.damage.amount > 0) {
@@ -1650,6 +1653,7 @@ export class RankedPlayScene extends Sandbox {
                         undefined,
                         undefined,
                         flagAnchor,
+                        target,
                     );
                 }
             } else if (event.type === "armageddon_applied") {
@@ -1663,6 +1667,7 @@ export class RankedPlayScene extends Sandbox {
                         undefined,
                         undefined,
                         u.getDamagePredictionAnchor(this.sc_sceneSettings.getGridSettings()),
+                        u,
                     );
                 this.triggerScreenShake(12 + event.wave * 3, 0.5);
             } else if (event.type === "unit_destroyed" || event.type === "unit_deleted") {
@@ -1726,6 +1731,7 @@ export class RankedPlayScene extends Sandbox {
                 undefined,
                 undefined,
                 unit?.getDamagePredictionAnchor(gs),
+                unit,
             );
         }
         return true;
@@ -1791,6 +1797,7 @@ export class RankedPlayScene extends Sandbox {
                 fill,
                 stroke,
                 unit?.getDamagePredictionAnchor(gs),
+                unit,
             );
         }
     }
@@ -2775,6 +2782,7 @@ export class RankedPlayScene extends Sandbox {
         }
 
         transport({ type: "split_unit", unitId: source.getId(), amount, cells: targetCells });
+        this.playSceneGameSound("place_unit");
         return true;
     }
     /**
@@ -3879,6 +3887,7 @@ export class RankedPlayScene extends Sandbox {
                         undefined,
                         undefined,
                         unit?.getDamagePredictionAnchor(gs),
+                        unit,
                     );
                 }
                 if (!shakenWaves.has(event.wave)) {

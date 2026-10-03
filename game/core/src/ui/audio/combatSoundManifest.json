@@ -1,0 +1,695 @@
+{
+    "Blacksmith": {
+        "slug": "blacksmith",
+        "attack": {
+            "durationMs": 715,
+            "revision": "4fe80aab82"
+        },
+        "hurt": {
+            "durationMs": 720,
+            "revision": "14ec8754e6"
+        }
+    },
+    "Squire": {
+        "slug": "squire",
+        "attack": {
+            "durationMs": 644,
+            "revision": "a0bc1c230c"
+        },
+        "hurt": {
+            "durationMs": 490,
+            "revision": "6b7c80f739"
+        }
+    },
+    "Peasant": {
+        "slug": "peasant",
+        "attack": {
+            "durationMs": 450,
+            "revision": "32b02ce2d9"
+        },
+        "hurt": {
+            "durationMs": 565,
+            "revision": "2438872dec"
+        }
+    },
+    "Arbalester": {
+        "slug": "arbalester",
+        "attack": {
+            "durationMs": 410,
+            "revision": "3a01ec9eba"
+        },
+        "hurt": {
+            "durationMs": 485,
+            "revision": "d381cd8b98"
+        }
+    },
+    "Pikeman": {
+        "slug": "pikeman",
+        "attack": {
+            "durationMs": 475,
+            "revision": "108dda1964"
+        },
+        "hurt": {
+            "durationMs": 480,
+            "revision": "b59bc6f491"
+        }
+    },
+    "Valkyrie": {
+        "slug": "valkyrie",
+        "attack": {
+            "durationMs": 735,
+            "revision": "1c853eb754"
+        },
+        "hurt": {
+            "durationMs": 700,
+            "revision": "e7012543b8"
+        }
+    },
+    "Healer": {
+        "slug": "healer",
+        "attack": {
+            "durationMs": 685,
+            "revision": "bf4025e21f"
+        },
+        "hurt": {
+            "durationMs": 370,
+            "revision": "5fd429e8d6"
+        }
+    },
+    "Battle Mage": {
+        "slug": "battle-mage",
+        "attack": {
+            "durationMs": 895,
+            "revision": "861dee9fa4"
+        },
+        "hurt": {
+            "durationMs": 520,
+            "revision": "4d2d624d09"
+        }
+    },
+    "Crusader": {
+        "slug": "crusader",
+        "attack": {
+            "durationMs": 630,
+            "revision": "26960020aa"
+        },
+        "hurt": {
+            "durationMs": 705,
+            "revision": "0e14877cbf"
+        }
+    },
+    "Griffin": {
+        "slug": "griffin",
+        "attack": {
+            "durationMs": 800,
+            "revision": "85bac4175e"
+        },
+        "hurt": {
+            "durationMs": 620,
+            "revision": "08fc667b88"
+        }
+    },
+    "Monk": {
+        "slug": "monk",
+        "attack": {
+            "durationMs": 715,
+            "revision": "f309019c50"
+        },
+        "hurt": {
+            "durationMs": 620,
+            "revision": "36b27f42f8"
+        }
+    },
+    "Tsar Cannon": {
+        "slug": "tsar-cannon",
+        "attack": {
+            "durationMs": 530,
+            "revision": "8a238c58fb"
+        },
+        "hurt": {
+            "durationMs": 380,
+            "revision": "748c10e783"
+        }
+    },
+    "Angel": {
+        "slug": "angel",
+        "attack": {
+            "durationMs": 144,
+            "revision": "937938237d"
+        },
+        "hurt": {
+            "durationMs": 705,
+            "revision": "b4b4a8caa0"
+        }
+    },
+    "Champion": {
+        "slug": "champion",
+        "attack": {
+            "durationMs": 730,
+            "revision": "433068aedb"
+        },
+        "hurt": {
+            "durationMs": 470,
+            "revision": "9045f2e8a6"
+        }
+    },
+    "Fairy": {
+        "slug": "fairy",
+        "attack": {
+            "durationMs": 610,
+            "revision": "3ad38ee130"
+        },
+        "hurt": {
+            "durationMs": 660,
+            "revision": "87939962f9"
+        }
+    },
+    "Dryad": {
+        "slug": "dryad",
+        "attack": {
+            "durationMs": 419,
+            "revision": "bedbbf05cb"
+        },
+        "hurt": {
+            "durationMs": 589,
+            "revision": "00f0ca712c"
+        }
+    },
+    "Wolf": {
+        "slug": "wolf",
+        "attack": {
+            "durationMs": 880,
+            "revision": "79532842b2"
+        },
+        "hurt": {
+            "durationMs": 680,
+            "revision": "05d80a8628"
+        }
+    },
+    "Leprechaun": {
+        "slug": "leprechaun",
+        "attack": {
+            "durationMs": 685,
+            "revision": "0843db8e2f"
+        },
+        "hurt": {
+            "durationMs": 329,
+            "revision": "7bbe5bce9b"
+        }
+    },
+    "White Tiger": {
+        "slug": "white-tiger",
+        "attack": {
+            "durationMs": 735,
+            "revision": "ae61b57b37"
+        },
+        "hurt": {
+            "durationMs": 550,
+            "revision": "2cf913cdf1"
+        }
+    },
+    "Elf": {
+        "slug": "elf",
+        "attack": {
+            "durationMs": 369,
+            "revision": "6c217a5e2e"
+        },
+        "hurt": {
+            "durationMs": 500,
+            "revision": "db16760fd0"
+        }
+    },
+    "Satyr": {
+        "slug": "satyr",
+        "attack": {
+            "durationMs": 280,
+            "revision": "77ccca7ee1"
+        },
+        "hurt": {
+            "durationMs": 540,
+            "revision": "93d8fffd4c"
+        }
+    },
+    "Trent": {
+        "slug": "trent",
+        "attack": {
+            "durationMs": 450,
+            "revision": "3952260a19"
+        },
+        "hurt": {
+            "durationMs": 615,
+            "revision": "d148f6f66b"
+        }
+    },
+    "Unicorn": {
+        "slug": "unicorn",
+        "attack": {
+            "durationMs": 700,
+            "revision": "55e4dcb866"
+        },
+        "hurt": {
+            "durationMs": 820,
+            "revision": "5c61fed14e"
+        }
+    },
+    "Mantis": {
+        "slug": "mantis",
+        "attack": {
+            "durationMs": 475,
+            "revision": "6c0fd554fb"
+        },
+        "hurt": {
+            "durationMs": 650,
+            "revision": "e711fcd5af"
+        }
+    },
+    "Pegasus": {
+        "slug": "pegasus",
+        "attack": {
+            "durationMs": 700,
+            "revision": "cb2516b3ad"
+        },
+        "hurt": {
+            "durationMs": 925,
+            "revision": "6570844bef"
+        }
+    },
+    "Phoenix": {
+        "slug": "phoenix",
+        "attack": {
+            "durationMs": 1185,
+            "revision": "72f5ceaa43"
+        },
+        "hurt": {
+            "durationMs": 620,
+            "revision": "b00e215e10"
+        }
+    },
+    "Faerie Dragon": {
+        "slug": "faerie-dragon",
+        "attack": {
+            "durationMs": 830,
+            "revision": "90eb396ed2"
+        },
+        "hurt": {
+            "durationMs": 580,
+            "revision": "4b2d9b34a6"
+        }
+    },
+    "Magic Dragon": {
+        "slug": "magic-dragon",
+        "attack": {
+            "durationMs": 1180,
+            "revision": "5f8a36a3c8"
+        },
+        "hurt": {
+            "durationMs": 825,
+            "revision": "2a5d44c6cc"
+        }
+    },
+    "Gargantuan": {
+        "slug": "gargantuan",
+        "attack": {
+            "durationMs": 879,
+            "revision": "0323b09d99"
+        },
+        "hurt": {
+            "durationMs": 610,
+            "revision": "899353d4c6"
+        }
+    },
+    "Arachna Queen": {
+        "slug": "arachna-queen",
+        "attack": {
+            "durationMs": 915,
+            "revision": "7170b51072"
+        },
+        "hurt": {
+            "durationMs": 685,
+            "revision": "c0d0bd3153"
+        }
+    },
+    "Arachna Spider": {
+        "slug": "arachna-spider",
+        "attack": {
+            "durationMs": 845,
+            "revision": "741c16441b"
+        },
+        "hurt": {
+            "durationMs": 765,
+            "revision": "9c69690af7"
+        }
+    },
+    "Scavenger": {
+        "slug": "scavenger",
+        "attack": {
+            "durationMs": 355,
+            "revision": "ac837cd7a5"
+        },
+        "hurt": {
+            "durationMs": 590,
+            "revision": "bb3fe06ac5"
+        }
+    },
+    "Orc": {
+        "slug": "orc",
+        "attack": {
+            "durationMs": 494,
+            "revision": "d2a0786a31"
+        },
+        "hurt": {
+            "durationMs": 500,
+            "revision": "0f4b377cc4"
+        }
+    },
+    "Troglodyte": {
+        "slug": "troglodyte",
+        "attack": {
+            "durationMs": 539,
+            "revision": "02966e290a"
+        },
+        "hurt": {
+            "durationMs": 595,
+            "revision": "205b3f516d"
+        }
+    },
+    "Medusa": {
+        "slug": "medusa",
+        "attack": {
+            "durationMs": 765,
+            "revision": "52dfa4c2bf"
+        },
+        "hurt": {
+            "durationMs": 720,
+            "revision": "4b41e50356"
+        }
+    },
+    "Troll": {
+        "slug": "troll",
+        "attack": {
+            "durationMs": 219,
+            "revision": "3f7d4679b6"
+        },
+        "hurt": {
+            "durationMs": 740,
+            "revision": "69d5357e25"
+        }
+    },
+    "Beholder": {
+        "slug": "beholder",
+        "attack": {
+            "durationMs": 385,
+            "revision": "3a0497bc60"
+        },
+        "hurt": {
+            "durationMs": 680,
+            "revision": "6505d2540c"
+        }
+    },
+    "Efreet": {
+        "slug": "efreet",
+        "attack": {
+            "durationMs": 560,
+            "revision": "e1617b97a7"
+        },
+        "hurt": {
+            "durationMs": 625,
+            "revision": "2431f6cf73"
+        }
+    },
+    "Goblin Knight": {
+        "slug": "goblin-knight",
+        "attack": {
+            "durationMs": 575,
+            "revision": "c1a87b6f95"
+        },
+        "hurt": {
+            "durationMs": 650,
+            "revision": "fa5aea704f"
+        }
+    },
+    "Black Dragon": {
+        "slug": "black-dragon",
+        "attack": {
+            "durationMs": 850,
+            "revision": "4d51ae07ac"
+        },
+        "hurt": {
+            "durationMs": 815,
+            "revision": "4fbe3f48ba"
+        }
+    },
+    "Hydra": {
+        "slug": "hydra",
+        "attack": {
+            "durationMs": 955,
+            "revision": "4fbb057c0f"
+        },
+        "hurt": {
+            "durationMs": 780,
+            "revision": "3ef5c4133b"
+        }
+    },
+    "Abomination": {
+        "slug": "abomination",
+        "attack": {
+            "durationMs": 810,
+            "revision": "a07b44cde8"
+        },
+        "hurt": {
+            "durationMs": 455,
+            "revision": "a6185d55ee"
+        }
+    },
+    "Wandering Mage": {
+        "slug": "wandering-mage",
+        "attack": {
+            "durationMs": 294,
+            "revision": "82886d6c75"
+        },
+        "hurt": {
+            "durationMs": 660,
+            "revision": "9090f5b59d"
+        }
+    },
+    "Manticore": {
+        "slug": "manticore",
+        "attack": {
+            "durationMs": 860,
+            "revision": "dc893e652e"
+        },
+        "hurt": {
+            "durationMs": 720,
+            "revision": "4fc2f86953"
+        }
+    },
+    "Nightmare": {
+        "slug": "nightmare",
+        "attack": {
+            "durationMs": 635,
+            "revision": "2ff46e0069"
+        },
+        "hurt": {
+            "durationMs": 940,
+            "revision": "e5bff924a9"
+        }
+    },
+    "Skeleton": {
+        "slug": "skeleton",
+        "attack": {
+            "durationMs": 485,
+            "revision": "8c5b7d57a2"
+        },
+        "hurt": {
+            "durationMs": 464,
+            "revision": "de4ebe31ba"
+        }
+    },
+    "Imp": {
+        "slug": "imp",
+        "attack": {
+            "durationMs": 890,
+            "revision": "edb196d308"
+        },
+        "hurt": {
+            "durationMs": 705,
+            "revision": "9c3227b75a"
+        }
+    },
+    "Zombie": {
+        "slug": "zombie",
+        "attack": {
+            "durationMs": 514,
+            "revision": "b5ea1190b2"
+        },
+        "hurt": {
+            "durationMs": 715,
+            "revision": "dbff933a18"
+        }
+    },
+    "Dark Champion": {
+        "slug": "dark-champion",
+        "attack": {
+            "durationMs": 765,
+            "revision": "31b07261a8"
+        },
+        "hurt": {
+            "durationMs": 600,
+            "revision": "386d90100c"
+        }
+    },
+    "Mermaid": {
+        "slug": "mermaid",
+        "attack": {
+            "durationMs": 365,
+            "revision": "95f1b845c4"
+        },
+        "hurt": {
+            "durationMs": 675,
+            "revision": "d778927ba9"
+        }
+    },
+    "Berserker": {
+        "slug": "berserker",
+        "attack": {
+            "durationMs": 495,
+            "revision": "abd40ac243"
+        },
+        "hurt": {
+            "durationMs": 460,
+            "revision": "de1c984575"
+        }
+    },
+    "Centaur": {
+        "slug": "centaur",
+        "attack": {
+            "durationMs": 389,
+            "revision": "77f6e5ba9e"
+        },
+        "hurt": {
+            "durationMs": 605,
+            "revision": "743692b2d0"
+        }
+    },
+    "Wolf Rider": {
+        "slug": "wolf-rider",
+        "attack": {
+            "durationMs": 715,
+            "revision": "ba00c92f3d"
+        },
+        "hurt": {
+            "durationMs": 509,
+            "revision": "3cfb7399e3"
+        }
+    },
+    "Nomad": {
+        "slug": "nomad",
+        "attack": {
+            "durationMs": 430,
+            "revision": "7ebbbcfb99"
+        },
+        "hurt": {
+            "durationMs": 485,
+            "revision": "3e541199bf"
+        }
+    },
+    "Harpy": {
+        "slug": "harpy",
+        "attack": {
+            "durationMs": 885,
+            "revision": "704b36ebbb"
+        },
+        "hurt": {
+            "durationMs": 660,
+            "revision": "74ffe1b349"
+        }
+    },
+    "Hyena": {
+        "slug": "hyena",
+        "attack": {
+            "durationMs": 740,
+            "revision": "996edb52f8"
+        },
+        "hurt": {
+            "durationMs": 685,
+            "revision": "f0802c52c0"
+        }
+    },
+    "Wyvern": {
+        "slug": "wyvern",
+        "attack": {
+            "durationMs": 825,
+            "revision": "ec9c776f51"
+        },
+        "hurt": {
+            "durationMs": 735,
+            "revision": "02fe4bc94c"
+        }
+    },
+    "Ogre Mage": {
+        "slug": "ogre-mage",
+        "attack": {
+            "durationMs": 435,
+            "revision": "34e38aa9e2"
+        },
+        "hurt": {
+            "durationMs": 775,
+            "revision": "1f1dc6fd32"
+        }
+    },
+    "Cyclops": {
+        "slug": "cyclops",
+        "attack": {
+            "durationMs": 725,
+            "revision": "87544d22ed"
+        },
+        "hurt": {
+            "durationMs": 740,
+            "revision": "f8c5f12c48"
+        }
+    },
+    "Zena": {
+        "slug": "zena",
+        "attack": {
+            "durationMs": 850,
+            "revision": "34049542c2"
+        },
+        "hurt": {
+            "durationMs": 664,
+            "revision": "7d1b4d62d0"
+        }
+    },
+    "Thunderbird": {
+        "slug": "thunderbird",
+        "attack": {
+            "durationMs": 785,
+            "revision": "8f0f09df49"
+        },
+        "hurt": {
+            "durationMs": 595,
+            "revision": "998b351611"
+        }
+    },
+    "Behemoth": {
+        "slug": "behemoth",
+        "attack": {
+            "durationMs": 1100,
+            "revision": "6a3867bf7a"
+        },
+        "hurt": {
+            "durationMs": 790,
+            "revision": "23ac2228ea"
+        }
+    },
+    "Frenzied Boar": {
+        "slug": "frenzied-boar",
+        "attack": {
+            "durationMs": 775,
+            "revision": "4bc306b32e"
+        },
+        "hurt": {
+            "durationMs": 645,
+            "revision": "ecaced231e"
+        }
+    }
+}

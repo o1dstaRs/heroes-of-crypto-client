@@ -1,0 +1,771 @@
+{
+    "version": 1,
+    "style": "Close, dry, tactile dark-fantasy tactical combat. Single events, clean onset and short natural tail. No speech, music, ambience, long reverb, or sub-bass rumble.",
+    "provider": "ElevenLabs Sound Effects v2",
+    "model": "eleven_text_to_sound_v2",
+    "units": [
+        {
+            "name": "Blacksmith",
+            "slug": "blacksmith",
+            "attack": {
+                "prompt": "One heavy smithing hammer swinging through air, short weighty whoosh with a metallic ring, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One stocky adult male's brief breathy grunt of pain, low and restrained, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Squire",
+            "slug": "squire",
+            "attack": {
+                "prompt": "One short steel sword slash, quick tight metallic swish, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One young adult man's short winded grunt of pain, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Peasant",
+            "slug": "peasant",
+            "attack": {
+                "prompt": "One wooden farm tool swinging through air, rough light whoosh, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One adult man's quick strained gasp of pain, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Arbalester",
+            "slug": "arbalester",
+            "attack": {
+                "prompt": "One medieval crossbow bolt firing, crisp string snap and wooden mechanism clack, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One adult man's short breathy grunt of pain, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Pikeman",
+            "slug": "pikeman",
+            "attack": {
+                "prompt": "One long steel spear thrust, focused sharp air swish, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One armored adult man's clipped low grunt of pain, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Valkyrie",
+            "slug": "valkyrie",
+            "attack": {
+                "prompt": "One enchanted spear sweep, airy metallic swish with a faint clear resonance, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One adult female warrior's short breathy grunt of pain, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Healer",
+            "slug": "healer",
+            "attack": {
+                "prompt": "One soft radiant magic pulse, warm brief crystalline chime, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One adult woman's brief soft gasp of pain, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Battle Mage",
+            "slug": "battle-mage",
+            "attack": {
+                "prompt": "One charged staff sweep, tight low arcane buzz snapping shut, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One adult man's restrained breathy grunt of pain, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Crusader",
+            "slug": "crusader",
+            "attack": {
+                "prompt": "One heavy broadsword slash, full metallic air sweep, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One armored adult male warrior's brief rough grunt of pain, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Griffin",
+            "slug": "griffin",
+            "attack": {
+                "prompt": "One griffin's sharp predatory eagle screech, short and coarse, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One griffin's brief hurt eagle squawk, rough and breathy, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Monk",
+            "slug": "monk",
+            "attack": {
+                "prompt": "One concentrated holy energy orb release, rounded air pulse with a bell-like overtone, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One older adult man's brief muffled gasp of pain, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Tsar Cannon",
+            "slug": "tsar-cannon",
+            "attack": {
+                "prompt": "One compact medieval cannon discharge, deep tight boom with a short mechanical clunk, close and dry, immediate onset, no background.",
+                "duration_seconds": 1.4
+            },
+            "hurt": {
+                "prompt": "One heavy iron cannon taking a blow, short hollow metallic clank, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Angel",
+            "slug": "angel",
+            "attack": {
+                "prompt": "One powerful swing of a long steel sword, fast heavy rushing swoosh with a sharp blade whistle, close dry weapon foley, immediate onset and short decay. No voices, bells, choir, magic hum, impact clang, music or ambience.",
+                "duration_seconds": 0.8,
+                "library_query": "heavy steel sword swing weapon foley"
+            },
+            "hurt": {
+                "prompt": "One adult celestial warrior's brief airy grunt of pain, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            },
+            "art_reference": {
+                "full_body_asset": "angel_portrait_full",
+                "battlefield_asset": "angel_battlefield_side_right_distance_readable_v2",
+                "attack_basis": "Armored winged swordsman carrying a long straight steel blade with an ornate golden hilt. The battlefield figure shows physical steel; the full portrait adds a golden glow. Lead with a forceful sword swing, with any holy accent kept secondary."
+            }
+        },
+        {
+            "name": "Champion",
+            "slug": "champion",
+            "attack": {
+                "prompt": "One mounted knight's heavy lance thrust, powerful short air sweep, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One adult male knight's low compressed grunt of pain, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Fairy",
+            "slug": "fairy",
+            "attack": {
+                "prompt": "One tiny magical sting, delicate sharp crystalline flick, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One tiny fairy's brief high breathy squeak of pain, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Dryad",
+            "slug": "dryad",
+            "attack": {
+                "prompt": "One light wooden bow firing, taut string twang and quick arrow hiss, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One adult forest woman's short breathy gasp of pain, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Wolf",
+            "slug": "wolf",
+            "attack": {
+                "prompt": "One wolf's short forceful attack snarl, deep teeth-bared rasp, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One wolf's brief hurt yelp, restrained and rough, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Leprechaun",
+            "slug": "leprechaun",
+            "attack": {
+                "prompt": "One small wooden club swiping, quick hollow air swish, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One small adult man's short pinched grunt of pain, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "White Tiger",
+            "slug": "white-tiger",
+            "attack": {
+                "prompt": "One tiger's forceful attack snarl, low rasping feline burst, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One tiger's brief pained chuff, low and breathy, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Elf",
+            "slug": "elf",
+            "attack": {
+                "prompt": "One elegant longbow arrow release, crisp taut string twang, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One adult elf's brief light breathy grunt of pain, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Satyr",
+            "slug": "satyr",
+            "attack": {
+                "prompt": "One forest magic pulse, short woody hollow resonance, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One adult satyr's short raspy goat-like grunt of pain, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Trent",
+            "slug": "trent",
+            "attack": {
+                "prompt": "One massive tree limb sweeping, heavy creaking woody whoosh, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One living tree's short strained wooden creak and crack, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Unicorn",
+            "slug": "unicorn",
+            "attack": {
+                "prompt": "One unicorn's forceful short snort, airy equine burst, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One unicorn's brief hurt equine whinny, soft and strained, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 1
+            }
+        },
+        {
+            "name": "Mantis",
+            "slug": "mantis",
+            "attack": {
+                "prompt": "One giant insect's blade foreleg slash, dry sharp chitin swish, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One giant insect's brief pained chitin click, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Pegasus",
+            "slug": "pegasus",
+            "attack": {
+                "prompt": "One winged horse's aggressive short snort, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One winged horse's brief strained equine whinny, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 1
+            }
+        },
+        {
+            "name": "Phoenix",
+            "slug": "phoenix",
+            "attack": {
+                "prompt": "One fiery bird's sharp flaring screech, hot raspy burst, close and dry, immediate onset, no background.",
+                "duration_seconds": 1.4
+            },
+            "hurt": {
+                "prompt": "One fiery bird's short strained crackling squawk, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Faerie Dragon",
+            "slug": "faerie-dragon",
+            "attack": {
+                "prompt": "One small dragon's bright magical pulse, quick crystalline flutter, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One small dragon's brief hurt chirrup, airy and raspy, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Magic Dragon",
+            "slug": "magic-dragon",
+            "attack": {
+                "prompt": "One dragon's concentrated arcane burst, low resonant rising pulse, close and dry, immediate onset, no background.",
+                "duration_seconds": 1.4
+            },
+            "hurt": {
+                "prompt": "One dragon's short strained resonant groan, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 1
+            }
+        },
+        {
+            "name": "Gargantuan",
+            "slug": "gargantuan",
+            "attack": {
+                "prompt": "One enormous stone hurled through air, deep rough rushing whoosh, close and dry, immediate onset, no background.",
+                "duration_seconds": 1.4
+            },
+            "hurt": {
+                "prompt": "One stone giant taking a blow, short granular rock crack, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Arachna Queen",
+            "slug": "arachna-queen",
+            "attack": {
+                "prompt": "One enormous spider's attack hiss, low dry chitinous rasp, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One enormous spider's brief hurt chitinous shriek, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Arachna Spider",
+            "slug": "arachna-spider",
+            "attack": {
+                "prompt": "One spider's sharp attack hiss, fine dry clicking rasp, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One spider's brief pained chitin squeak, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Scavenger",
+            "slug": "scavenger",
+            "attack": {
+                "prompt": "One small dagger slash, quick dry thin steel swish, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One small rogue's brief rough breathy grunt of pain, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Orc",
+            "slug": "orc",
+            "attack": {
+                "prompt": "One heavy throwing axe released, short rough spinning blade whoosh, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One orc's brief guttural grunt of pain, deep and coarse, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Troglodyte",
+            "slug": "troglodyte",
+            "attack": {
+                "prompt": "One heavy mining pick swinging, coarse weighty metal swish, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One cave creature's brief raspy throat grunt of pain, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Medusa",
+            "slug": "medusa",
+            "attack": {
+                "prompt": "One striking serpent launched, quick dry hiss, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One adult serpent woman's brief strained hiss of pain, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Troll",
+            "slug": "troll",
+            "attack": {
+                "prompt": "One large heavy fist swing, deep blunt air displacement, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One troll's short low pained grunt, gravelly and breathy, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Beholder",
+            "slug": "beholder",
+            "attack": {
+                "prompt": "One wet pressurized eye-monster projectile release, short rubbery spit pop, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One eye monster's brief strained rubbery croak, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Efreet",
+            "slug": "efreet",
+            "attack": {
+                "prompt": "One concentrated flame lash, short hot rushing flare, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One fire spirit's brief sputtering pained flare, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Goblin Knight",
+            "slug": "goblin-knight",
+            "attack": {
+                "prompt": "One armored goblin's heavy blade swipe, short thick steel swish, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One goblin knight's brief coarse nasal grunt of pain, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Black Dragon",
+            "slug": "black-dragon",
+            "attack": {
+                "prompt": "One short dragon fire-breath blast, deep rough pressurized flame roar, close and dry, immediate onset, no background.",
+                "duration_seconds": 1.4
+            },
+            "hurt": {
+                "prompt": "One large dragon's brief low rasping groan of pain, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 1
+            }
+        },
+        {
+            "name": "Hydra",
+            "slug": "hydra",
+            "attack": {
+                "prompt": "One hydra's short guttural attack hiss, thick low reptile rasp, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One hydra's brief strained reptile grunt, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Abomination",
+            "slug": "abomination",
+            "attack": {
+                "prompt": "One explosive low guttural undead brute attack grunt, rough throat and chest, short forceful snort, close dry recording, immediate onset, no words, no music, no ambience.",
+                "duration_seconds": 1.0,
+                "library_query": "monster attack grunt"
+            },
+            "hurt": {
+                "prompt": "One flesh monster's brief deep wet groan of pain, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Wandering Mage",
+            "slug": "wandering-mage",
+            "attack": {
+                "prompt": "One crooked staff swinging, short wooden whoosh with a dry arcane rattle, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One elderly male mage's brief raspy gasp of pain, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Manticore",
+            "slug": "manticore",
+            "attack": {
+                "prompt": "One manticore's forceful attack snarl, short coarse lion rasp, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One manticore's brief rough pained growl, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Nightmare",
+            "slug": "nightmare",
+            "attack": {
+                "prompt": "One spectral horse's aggressive short snort, low hollow breath, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One spectral horse's brief strained hollow whinny, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 1
+            }
+        },
+        {
+            "name": "Skeleton",
+            "slug": "skeleton",
+            "attack": {
+                "prompt": "One rusty skeletal sword slash, dry brittle metal swish, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One skeleton taking a blow, brief brittle bone clatter, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Imp",
+            "slug": "imp",
+            "attack": {
+                "prompt": "One small demon's attack hiss, tight scratchy rasp, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One small demon's brief strained raspy squeal, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Zombie",
+            "slug": "zombie",
+            "attack": {
+                "prompt": "One undead arm swinging, short heavy cloth-and-air swish, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One zombie's short dry guttural groan of pain, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Dark Champion",
+            "slug": "dark-champion",
+            "attack": {
+                "prompt": "One dark knight's heavy sword sweep, low dense metallic swish, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One undead armored knight's brief hollow grunt of pain, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Mermaid",
+            "slug": "mermaid",
+            "attack": {
+                "prompt": "One watery spear sweep, quick fluid air swish, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One adult mermaid's brief breathy gasp of pain, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Berserker",
+            "slug": "berserker",
+            "attack": {
+                "prompt": "One powerful two-handed sword slash, heavy raw metallic whoosh, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One adult berserker's brief rough low grunt of pain, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Centaur",
+            "slug": "centaur",
+            "attack": {
+                "prompt": "One heavy javelin released, sharp rushing air swish, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One adult centaur's brief deep breathy grunt of pain, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Wolf Rider",
+            "slug": "wolf-rider",
+            "attack": {
+                "prompt": "One mounted raider's curved sword sweep, sharp rough metallic swish, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One adult raider's brief guttural grunt of pain, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Nomad",
+            "slug": "nomad",
+            "attack": {
+                "prompt": "One mounted warrior's curved blade slash, clean fast steel swish, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One adult nomad's short winded grunt of pain, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Harpy",
+            "slug": "harpy",
+            "attack": {
+                "prompt": "One harpy's aggressive short shriek, coarse birdlike rasp, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One harpy's brief strained squawk of pain, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Hyena",
+            "slug": "hyena",
+            "attack": {
+                "prompt": "One hyena's forceful attack snarl, harsh short canine rasp, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One hyena's brief rough hurt yelp, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Wyvern",
+            "slug": "wyvern",
+            "attack": {
+                "prompt": "One wyvern's attack hiss, sharp coarse reptile rasp, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One wyvern's brief low strained reptile screech, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Ogre Mage",
+            "slug": "ogre-mage",
+            "attack": {
+                "prompt": "One enormous enchanted club sweep, deep heavy resonant whoosh, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One ogre's brief deep gravelly grunt of pain, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Cyclops",
+            "slug": "cyclops",
+            "attack": {
+                "prompt": "One large boulder hurled through air, thick coarse rushing whoosh, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One cyclops's brief deep strained grunt of pain, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Zena",
+            "slug": "zena",
+            "attack": {
+                "prompt": "One spinning steel chakram release, crisp tight circular blade swish, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One adult female warrior's brief firm grunt of pain, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Thunderbird",
+            "slug": "thunderbird",
+            "attack": {
+                "prompt": "One thunder bird's short electrical discharge, tight crackling snap, close and dry, immediate onset, no background.",
+                "duration_seconds": 1.4
+            },
+            "hurt": {
+                "prompt": "One thunder bird's brief coarse strained squawk, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        },
+        {
+            "name": "Behemoth",
+            "slug": "behemoth",
+            "attack": {
+                "prompt": "One enormous claw slash, deep rough ripping air sweep, close and dry, immediate onset, no background.",
+                "duration_seconds": 1.4
+            },
+            "hurt": {
+                "prompt": "One behemoth's brief low rumbling grunt of pain, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 1
+            }
+        },
+        {
+            "name": "Frenzied Boar",
+            "slug": "frenzied-boar",
+            "attack": {
+                "prompt": "One wild boar's aggressive short grunt, nasal rough snort, close and dry, immediate onset, no background.",
+                "duration_seconds": 1
+            },
+            "hurt": {
+                "prompt": "One wild boar's brief strained squeal of pain, close and dry, immediate onset, no words or background.",
+                "duration_seconds": 0.8
+            }
+        }
+    ]
+}

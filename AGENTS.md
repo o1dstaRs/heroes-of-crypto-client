@@ -199,6 +199,48 @@ under `.claude/skills/heroes-e2e`; `.agents/skills/heroes-e2e` is a relative sym
   task explicitly requests a versioned fixture. Keep normal run output outside Git and attach review
   artifacts to the PR or issue.
 
+## ElevenLabs MCP
+
+Hosted connector for voice, music, image, and video. US account endpoint only:
+
+`https://api.us.elevenlabs.io/v1/mcp`
+
+This is user config (`~/.codex/config.toml` or `~/.grok/config.toml`), not a file in this repo. Sign-in is OAuth. Do not put an API key in the server block, and do not add `oauth_client_id` or scopes by hand.
+
+Do not open the connector URL in a browser. A GET returns `405 Method Not Allowed`; the client must POST. Do not open `https://elevenlabs.io/app/oauth/authorize` by itself either. That page rejects a request missing `client_id`, `redirect_uri`, `scope`, and `state`. The only usable consent link is the one the login command or the TUI prints.
+
+### Codex
+
+```bash
+codex mcp remove elevenlabs
+codex mcp add elevenlabs --url https://api.us.elevenlabs.io/v1/mcp
+codex mcp login elevenlabs
+```
+
+`codex mcp login` opens the browser. Approve the ElevenLabs page. That completes sign-in.
+
+### Grok
+
+Grok has no `mcp login` subcommand. Reset the server the same way, then sign in inside a session:
+
+```bash
+grok mcp remove elevenlabs
+grok mcp add elevenlabs https://api.us.elevenlabs.io/v1/mcp
+```
+
+A bare `https://` URL is stored as HTTP. Do not pass `--transport stdio`.
+
+Then, in the Grok session that should call the tools:
+
+1. Run `/mcps`.
+2. Select **elevenlabs**. Press `r` if the list still shows the server from before the reset.
+3. Press `i`.
+4. Approve the page Grok opens. Use only a link Grok prints that starts with `Open this URL in your browser to approve:`.
+
+`grok mcp doctor elevenlabs` does not sign you in. Outside the TUI it stops at "OAuth authorization required". Headless `grok -p` cannot finish this login. After consent, tokens are in `~/.grok/mcp_credentials.json` (owner-only, mode `0600`). A missing file means this session is not signed in, even when `grok mcp list` shows the URL. Never commit that file or paste it into chat.
+
+A session that was already open when the server was re-added does not see it until `/mcps` → `r`, or until a new session starts.
+
 ## Parallel agents / mainline workflow
 
 Multiple agents run on this repo **at the same time**. Rules:

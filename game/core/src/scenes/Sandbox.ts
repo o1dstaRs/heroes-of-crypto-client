@@ -1,4 +1,6 @@
 import { orderCombatExchange, type CombatExchangeStrike } from "./sandbox/combat_exchange";
+import { playCombatSound, preloadCombatSounds, stopCombatSounds, type CombatSoundRole } from "../ui/audio/combatSounds";
+import { playGameSound, preloadGameSounds, type GameSoundName } from "../ui/audio/gameSounds";
 import { RenderableUnit as LevelOneRenderableUnit } from "./LevelOneRenderableUnit";
 import { usesAuthoredRangedRelease, usesApprovedBaseAnimations } from "../pixi/creatureAnimationSettings";
 import { Assets, Sprite, Graphics, Container, Texture, BlurFilter, RenderTexture, Text, TextStyle } from "pixi.js";
@@ -1457,15 +1459,11 @@ export class Sandbox extends PixiScene {
                     this.onAiToggleChanged(active);
                 },
                 isHourglassDenied: () => hasActiveTimeDenial(this.unitsHolder.getAllUnits().values()),
-                setSpellBookOverlay: (active) => {
-                    this.sc_renderSpellBookOverlay = active;
-                    this.spellBookOverlay?.setOpen(active);
-                    if (active) this.ensureSpellBookBackground();
-                    this.setSpellBookWorldBlur(active);
-                },
+                setSpellBookOverlay: (active) => this.setSpellBookOverlayState(active),
             },
             this.sc_isAIActive,
         );
+        preloadGameSounds();
 
         this.moveHandler = new MoveHandler(this.sc_sceneSettings.getGridSettings(), this.grid, this.unitsHolder);
 
@@ -4006,6 +4004,7 @@ export class Sandbox extends PixiScene {
             lastDelay + 0.2,
             FIRE_WALL_DAMAGE_FILL,
             FIRE_WALL_DAMAGE_STROKE,
+            unit,
         );
     }
     /** The plain burn number, at the position the engine captured before the damage landed. */
@@ -4017,6 +4016,8 @@ export class Sandbox extends PixiScene {
             burn.unitsDied,
             FIRE_WALL_DAMAGE_FILL,
             FIRE_WALL_DAMAGE_STROKE,
+            undefined,
+            this.unitsHolder.getAllUnits().get(burn.unitId),
         );
     }
     /** Pull `unitId`'s Fire Wall burn out of an event batch, so the walk animation can own it. */
@@ -4794,6 +4795,7 @@ export class Sandbox extends PixiScene {
                 !authoredOpts.medusaArmSerpent) ||
             !unit.hasAnimationState("attack")
         ) {
+            this.playUnitCombatSound(sourceUnit, "attack");
             await this.rangedProjectiles.fire(opts);
             return;
         }
@@ -4848,6 +4850,7 @@ export class Sandbox extends PixiScene {
         });
         if (!released || this.isSceneDestroyed()) return;
         try {
+            this.playUnitCombatSound(sourceUnit, "attack");
             await this.rangedProjectiles.fire({
                 ...opts,
                 from:
@@ -4898,6 +4901,7 @@ export class Sandbox extends PixiScene {
             });
             if (!origin || shot.signal.aborted || this.isSceneDestroyed()) return;
             const measuredLength = arrowLength ?? unit.getDryadArrowLength();
+            this.playUnitCombatSound(unit, "attack");
             await this.rangedProjectiles.fire({
                 ...opts,
                 from: origin,
@@ -4943,6 +4947,7 @@ export class Sandbox extends PixiScene {
                 }
             });
             if (!origin || shot.signal.aborted || this.isSceneDestroyed()) return;
+            this.playUnitCombatSound(unit, "attack");
             await this.rangedProjectiles.fire({ ...opts, from: origin, signal: shot.signal });
         } finally {
             this.clearSceneTimeout(timeout);
@@ -5024,6 +5029,14 @@ export class Sandbox extends PixiScene {
                 : undefined;
         return orderCombatExchange(primary, response);
     }
+    protected playUnitCombatSound(unit: Pick<Unit, "getName" | "getId">, role: CombatSoundRole, melee = false): void {
+        if (typeof window === "undefined" || typeof AudioContext === "undefined") return;
+        playCombatSound(unit.getName(), role, unit.getId(), melee, () => !this.isSceneDestroyed());
+    }
+    protected playSceneGameSound(name: GameSoundName, alive?: () => boolean): void {
+        if (typeof window === "undefined" || typeof AudioContext === "undefined") return;
+        playGameSound(name, () => !this.isSceneDestroyed() && (alive?.() ?? true));
+    }
     /** Play resolved blows serially; the striker and the struck figure animate together at contact. */
     private async playCombatExchange(
         attacker: RenderableUnit,
@@ -5042,6 +5055,7 @@ export class Sandbox extends PixiScene {
         const units = new Map(capturedUnits ?? this.unitsHolder.getAllUnits());
         units.set(attacker.getId(), attacker);
         units.set(target.getId(), target);
+        preloadCombatSounds(Array.from(units.values(), (unit) => unit.getName()));
         const remainingAmounts = new Map(deathState?.amountsBefore);
         const consumeLoss = (unitId: string, unitsDied: number): number | undefined => {
             const before = remainingAmounts.get(unitId);
@@ -5135,6 +5149,7 @@ export class Sandbox extends PixiScene {
                     : (fallbackPosition ?? victim.getVisualCenter(gs));
                 const direction = { x: to.x - from.x, y: to.y - from.y };
                 if (strike.amount > 0) {
+                    if (renderedVictim) this.playUnitCombatSound(renderedVictim, "hurt");
                     this.combatVisuals.showFloatingDamage(
                         this.offsetReplayDamagePosition(to, victim, direction),
                         strike.amount,
@@ -5209,6 +5224,7 @@ export class Sandbox extends PixiScene {
                 }
             };
             if (melee) {
+                this.playUnitCombatSound(source, "attack", true);
                 const attack = this.playReplayOneShot(source, attackState, 5000, true);
                 if ((source.getUnitProperties?.().level ?? 0) > 2) this.applyReplayLunge(source, victim);
                 impact();
@@ -5377,6 +5393,7 @@ export class Sandbox extends PixiScene {
             this.prepareDirectionalAttackState(attacker, target, false);
             return Promise.resolve();
         }
+        if (melee) this.playUnitCombatSound(attacker, "attack", true);
         return this.playReplayOneShot(attacker, this.prepareDirectionalAttackState(attacker, target, melee), timeoutMs);
     }
     /**
@@ -5554,6 +5571,7 @@ export class Sandbox extends PixiScene {
                     undefined,
                     undefined,
                     flagAnchor,
+                    splashUnit,
                 );
             } else {
                 this.scheduleSceneTimeout(
@@ -5566,6 +5584,7 @@ export class Sandbox extends PixiScene {
                             undefined,
                             undefined,
                             flagAnchor,
+                            splashUnit,
                         ),
                     shotIndex * 220,
                 );
@@ -5627,6 +5646,7 @@ export class Sandbox extends PixiScene {
                             style.fill,
                             style.stroke,
                             flagAnchor,
+                            sUnit,
                         );
                     },
                     220 + index * 180,
@@ -5758,6 +5778,7 @@ export class Sandbox extends PixiScene {
                 undefined,
                 undefined,
                 flagAnchor,
+                victim,
             );
             return;
         }
@@ -5777,6 +5798,7 @@ export class Sandbox extends PixiScene {
                         undefined,
                         undefined,
                         flagAnchor,
+                        victim,
                     );
                 }, index * ATTACK_HIT_STAGGER_MS);
             });
@@ -5791,6 +5813,7 @@ export class Sandbox extends PixiScene {
             undefined,
             undefined,
             flagAnchor,
+            victim,
         );
     }
     /**
@@ -6084,6 +6107,7 @@ export class Sandbox extends PixiScene {
             undefined,
             undefined,
             attacker.getDamagePredictionAnchor(gs),
+            attacker,
         );
         this.popRecordedDullingDefense(record.events);
         spawnResponseAbilitySteal();
@@ -6241,6 +6265,7 @@ export class Sandbox extends PixiScene {
         if (facingTarget) {
             caster.faceBoardTarget(facingTarget);
         }
+        this.playUnitCombatSound(caster, "attack");
         if (caster.hasAnimationState("cast")) {
             await this.playReplayOneShot(caster, "cast", caster.getName() === "Wandering Mage" ? 1500 : 720);
         }
@@ -6356,7 +6381,7 @@ export class Sandbox extends PixiScene {
             // the ordinary event path reveal it and run the spawn animation. This also handles merged summons
             // (the existing server-id stack is already present, so syncSummonedUnit only refreshes its visual).
             this.renderHealVfx(record.events);
-            this.renderSpellDamageVfx(record.events, craftCasterPos);
+            this.renderSpellDamageVfx(record.events, craftCasterPos, unitSnapshot);
             this.renderCastOutcomes(record.events);
             this.renderSnareResistVfx(record.events);
             for (const summon of authoritativeSummons) {
@@ -6380,7 +6405,7 @@ export class Sandbox extends PixiScene {
         this.renderHealVfx(record.events);
         // Fire Strike / Meteorite: same reasoning as the heal above — `damaged[]` on the RECORD is what the
         // server resolved, so the fire and the numbers are safe to play during replay.
-        this.renderSpellDamageVfx(record.events, craftCasterPos);
+        this.renderSpellDamageVfx(record.events, craftCasterPos, unitSnapshot);
         // Forge cast animation only (outcome-independent); the per-ally results come from the
         // authoritative snapshot, not this local re-roll — see the note at the capture above.
         // Spawned BEFORE the result branch and never gated on it: the record is authoritative (the server
@@ -7431,6 +7456,7 @@ export class Sandbox extends PixiScene {
                 };
                 const placementResult = this.createActionEngine().apply(placementAction);
                 if (placementResult.completed) {
+                    this.playSceneGameSound("place_unit");
                     this.layoutVersion++;
                     this.gridMatrix = this.grid.getMatrix();
                     this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
@@ -8031,6 +8057,7 @@ export class Sandbox extends PixiScene {
             return;
         }
         // 9. Success: Finalize Updates
+        this.playSceneGameSound("place_unit");
         const placeEvent = placementResult.events.find((event) => event.type === "unit_placed");
         const placedPosition = placeEvent?.type === "unit_placed" ? placeEvent.position : placePos;
         unit.setPosition(placedPosition.x, placedPosition.y);
@@ -8623,21 +8650,31 @@ export class Sandbox extends PixiScene {
         }
         super.MouseDown(p);
     }
+    private setSpellBookOverlayState(active: boolean): void {
+        const changed = this.sc_renderSpellBookOverlay !== active;
+        this.sc_renderSpellBookOverlay = active;
+        this.buttonManager.sc_renderSpellBookOverlay = active;
+        this.spellBookOverlay?.setOpen(active);
+        if (active) this.ensureSpellBookBackground();
+        this.setSpellBookWorldBlur(active);
+        if (changed)
+            this.playSceneGameSound(
+                active ? "spellbook_open" : "spellbook_close",
+                () => this.sc_renderSpellBookOverlay === active,
+            );
+    }
     /** Close the spellbook overlay and clear its blur filter. */
     private closeSpellBook(): void {
         if (!this.sc_renderSpellBookOverlay) {
             return;
         }
         this.setHoveredSpell(undefined);
-        this.sc_renderSpellBookOverlay = false;
-        this.buttonManager.sc_renderSpellBookOverlay = false;
-        this.spellBookOverlay?.setOpen(false);
+        this.setSpellBookOverlayState(false);
         // Hide the book + its spell cells immediately (they live under spellBookContainer) and
         // drop the dim/blur filter, so the overlay is gone this frame rather than next render.
         if (this.spellBookContainer) {
             this.spellBookContainer.visible = false;
         }
-        this.setSpellBookWorldBlur(false);
     }
     private setSpellBookWorldBlur(active: boolean): void {
         const worldRoot = this.pixiApp.getWorldRoot();
@@ -8946,13 +8983,14 @@ export class Sandbox extends PixiScene {
             return false;
         }
         caster.faceBoardTarget(targetUnit.getPosition());
+        this.playUnitCombatSound(caster, "attack");
         if (caster.hasAnimationState("cast")) {
             caster.playOneShotAnimation("cast");
         }
         // Heal numbers + restorative burst. Shared with the ranked replay path (see renderHealVfx).
         this.renderHealVfx(result.events);
         // Fire Strike's fireball + damage number. Same sharing rule as the heal above.
-        this.renderSpellDamageVfx(result.events, casterPosBeforeCast);
+        this.renderSpellDamageVfx(result.events, casterPosBeforeCast, unitSnapshot);
         // Wild Regeneration's delivered card, shared with the authoritative replay path above.
         this.spawnAbilityTransferVfx(result.events, unitSnapshot);
 
@@ -9117,13 +9155,14 @@ export class Sandbox extends PixiScene {
         if (castTargetPosition) {
             caster.faceBoardTarget(castTargetPosition);
         }
+        this.playUnitCombatSound(caster, "attack");
         if (caster.hasAnimationState("cast")) {
             caster.playOneShotAnimation("cast");
         }
         // Mass heal: one "+N" per ally the cast actually restored. Shared with the ranked replay path.
         this.renderHealVfx(result.events);
         // Meteorite's impact burst + one damage number per enemy caught under the 2x2.
-        this.renderSpellDamageVfx(result.events, casterPos);
+        this.renderSpellDamageVfx(result.events, casterPos, unitSnapshot);
 
         // Craft-only theatrics: the forge cast (anvil + hammer) over the selected 2x2, then each ally's
         // crafted result once it finishes. Gated on the spell — Smoke shares this cast path but has no
@@ -9213,6 +9252,7 @@ export class Sandbox extends PixiScene {
             const unitSnapshot = this.snapshotRenderableUnits();
             const result = this.createActionEngine().apply(action);
             if (result.completed) {
+                this.playUnitCombatSound(caster, "attack");
                 if (caster.hasAnimationState("cast")) {
                     caster.playOneShotAnimation("cast");
                 }
@@ -9257,6 +9297,7 @@ export class Sandbox extends PixiScene {
             const unitSnapshot = this.snapshotRenderableUnits();
             const result = this.createActionEngine().apply(action);
             if (result.completed) {
+                this.playUnitCombatSound(caster, "attack");
                 if (caster.hasAnimationState("cast")) {
                     caster.playOneShotAnimation("cast");
                 }
@@ -9774,6 +9815,7 @@ export class Sandbox extends PixiScene {
                         undefined,
                         undefined,
                         unit?.getDamagePredictionAnchor(gs) ?? captured?.flagAnchor,
+                        unit,
                     );
                 }
                 // Fully absorbed impacts still catch and return the disc, without a wound or recoil.
@@ -9852,6 +9894,7 @@ export class Sandbox extends PixiScene {
             if (event.type !== "spell_cast" || !event.healed?.length) {
                 continue;
             }
+            let playedHealSound = false;
             for (const heal of event.healed) {
                 if (heal.amount <= 0) {
                     continue;
@@ -9859,6 +9902,10 @@ export class Sandbox extends PixiScene {
                 const healedUnit = this.unitsHolder.getAllUnits().get(heal.unitId) as RenderableUnit | undefined;
                 if (!healedUnit || healedUnit.isDead()) {
                     continue;
+                }
+                if (!playedHealSound) {
+                    this.playSceneGameSound("heal");
+                    playedHealSound = true;
                 }
                 this.combatVisuals.showFloatingHeal(healedUnit.getVisualCenter(gs), heal.amount);
             }
@@ -10056,7 +10103,11 @@ export class Sandbox extends PixiScene {
         const fallback = damaged.find((entry) => entry.unitId === holderUnitId)?.position;
         return fallback ? projectBattlefieldPoint(fallback, this.sc_sceneSettings.getGridSettings()) : undefined;
     }
-    protected renderSpellDamageVfx(events: readonly GameEvent[], casterPosition?: HoCMath.XY): void {
+    protected renderSpellDamageVfx(
+        events: readonly GameEvent[],
+        casterPosition?: HoCMath.XY,
+        capturedUnits?: ReadonlyMap<string, RenderableUnit>,
+    ): void {
         if (!this.combatVisuals) {
             return;
         }
@@ -10113,6 +10164,7 @@ export class Sandbox extends PixiScene {
             for (const hit of event.damaged ?? []) {
                 const hitPosition = projectBattlefieldPoint(hit.position, gs);
                 const hitUnit = this.unitsHolder.getAllUnits().get(hit.unitId) as RenderableUnit | undefined;
+                const audioUnit = hitUnit ?? capturedUnits?.get(hit.unitId);
                 const flagAnchor = hitUnit?.getDamagePredictionAnchor(gs);
                 // A Magic Reflection sent part of the spell back: the caster's own entry gets the mirror
                 // treatment instead of the spell's fire — a pane of glass flashing on the holder and a shard
@@ -10135,6 +10187,7 @@ export class Sandbox extends PixiScene {
                             MIRROR_DAMAGE_FILL,
                             MIRROR_DAMAGE_STROKE,
                             flagAnchor,
+                            audioUnit,
                         );
                     }
                     continue;
@@ -10156,6 +10209,7 @@ export class Sandbox extends PixiScene {
                         undefined,
                         undefined,
                         flagAnchor,
+                        audioUnit,
                     );
                 }
             }
@@ -10542,6 +10596,7 @@ export class Sandbox extends PixiScene {
                 const mag = gsAnim.getCellSize() * 0.22;
                 const recoilX = (animDir.x / animLen) * mag;
                 const recoilY = (animDir.y / animLen) * mag;
+                this.playUnitCombatSound(unit, "attack", true);
                 unit.applyRecoil(recoilX, recoilY);
                 onImpact?.(hitIndex);
                 if (hitIndex + 1 < worldPositions.length) {
@@ -12640,6 +12695,7 @@ export class Sandbox extends PixiScene {
                             undefined,
                             undefined,
                             damageFlagAnchor,
+                            rTarget,
                         );
                     } else {
                         this.scheduleSceneTimeout(() => {
@@ -12651,6 +12707,7 @@ export class Sandbox extends PixiScene {
                                 undefined,
                                 undefined,
                                 damageFlagAnchor,
+                                rTarget,
                             );
                         }, index * ATTACK_HIT_STAGGER_MS);
                     }
@@ -12664,6 +12721,7 @@ export class Sandbox extends PixiScene {
                     undefined,
                     undefined,
                     damageFlagAnchor,
+                    rTarget,
                 );
             }
         }
@@ -12782,6 +12840,7 @@ export class Sandbox extends PixiScene {
                         undefined,
                         undefined,
                         attacker.getDamagePredictionAnchor(gs),
+                        attacker,
                     );
                 }
                 if (attackerFireShield > 0) {
@@ -12796,6 +12855,7 @@ export class Sandbox extends PixiScene {
                             fireStyle.fill,
                             fireStyle.stroke,
                             attacker.getDamagePredictionAnchor(gs),
+                            attacker,
                         );
                     }, 280);
                 }
@@ -12977,6 +13037,7 @@ export class Sandbox extends PixiScene {
                             fsFill,
                             fsStroke,
                             flagAnchor,
+                            u,
                         );
                     }, 300);
                 } else {
@@ -12988,6 +13049,7 @@ export class Sandbox extends PixiScene {
                         fsFill,
                         fsStroke,
                         flagAnchor,
+                        u,
                     );
                 }
             }
@@ -15983,6 +16045,7 @@ export class Sandbox extends PixiScene {
         }
 
         source.setAmountAlive(alive - amount);
+        this.playSceneGameSound("place_unit");
         if (source instanceof RenderableUnit) source.clearBadgeEmphasis();
         this.layoutVersion++;
         this.gridMatrix = this.grid.getMatrix();
@@ -16210,6 +16273,7 @@ export class Sandbox extends PixiScene {
         return false;
     }
     public override Destroy(): void {
+        stopCombatSounds();
         // Movement callbacks can be awaited by replay playback. Cancel them before the ticker stops so
         // retired scenes cannot remain retained behind a move/swap promise that will never finish.
         this.moveAnimManager.cancel();
@@ -17452,6 +17516,7 @@ export class Sandbox extends PixiScene {
             "#7be639",
             "#123d0a",
             unit.getDamagePredictionAnchor(gs),
+            unit,
         );
         this.combatVisuals?.spawnPoisonCloud(pos, gs.getCellSize());
     }
@@ -17461,6 +17526,7 @@ export class Sandbox extends PixiScene {
      * identically to the sandbox (the recurring "works in sandbox, missing in ranked" trap).
      */
     protected renderResurrectionVfx(position: HoCMath.XY, raisedCount?: number): void {
+        this.playSceneGameSound("resurrection");
         const gs = this.sc_sceneSettings.getGridSettings();
         const cell = gs.getCellSize();
         const visualPosition = projectBattlefieldPoint(position, gs);
@@ -17595,6 +17661,7 @@ export class Sandbox extends PixiScene {
                                 undefined,
                                 undefined,
                                 unit.getDamagePredictionAnchor(this.sc_sceneSettings.getGridSettings()),
+                                unit,
                             );
                         }
                         if (!armageddonWaves.has(event.wave)) {
@@ -18552,6 +18619,9 @@ export class Sandbox extends PixiScene {
         }
         this.startListenerConnected = true;
         this.sc_onHasStarted.connect((started) => {
+            if (!started) stopCombatSounds();
+            if (started)
+                preloadCombatSounds(Array.from(this.unitsHolder.getAllUnits().values(), (unit) => unit.getName()));
             // Trigger Dungeon Atmosphere
             this.updateDungeonAtmosphere(started, this.atmosphereAlpha);
 
@@ -18681,11 +18751,8 @@ export class Sandbox extends PixiScene {
         this.currentActiveUnit?.syncVisual(worldRoot, gs);
         this.currentActiveUnit = undefined;
         this.sc_selectedAttackType = AttackVals.NO_ATTACK;
-        this.sc_renderSpellBookOverlay = false;
+        this.setSpellBookOverlayState(false);
         this.sc_currentActiveShotRange = undefined;
-        this.buttonManager.sc_renderSpellBookOverlay = false;
-        this.spellBookOverlay?.setOpen(false);
-        this.setSpellBookWorldBlur(false);
         this.buttonManager.refreshButtons(true);
     }
     protected cleanupDeadUnits(): void {

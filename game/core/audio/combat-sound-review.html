@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="en">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Heroes of Crypto · Combat sound audition</title>
+    <style>
+        body {
+            background: #101419;
+            color: #e8e6dc;
+            font: 15px system-ui;
+            margin: 0;
+            padding: 32px;
+            max-width: 1280px;
+        }
+        h1 {
+            font: 32px Georgia;
+            color: #e2b879;
+        }
+        p {
+            color: #aeb4bb;
+            max-width: 920px;
+            line-height: 1.6;
+        }
+        button,
+        input,
+        select {
+            background: #242b32;
+            color: #eee;
+            border: 1px solid #545147;
+            border-radius: 5px;
+            padding: 9px;
+            margin: 4px;
+        }
+        button {
+            cursor: pointer;
+        }
+        button:hover {
+            border-color: #d1aa70;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 20px;
+        }
+        th,
+        td {
+            text-align: left;
+            border-bottom: 1px solid #30363d;
+            padding: 10px;
+        }
+        th {
+            color: #d1aa70;
+        }
+        svg {
+            width: 180px;
+            height: 42px;
+        }
+        .muted {
+            color: #aeb4bb;
+            font-size: 12px;
+        }
+        tr:hover {
+            background: #1c232a;
+        }
+        .now {
+            color: #e2b879;
+            min-height: 24px;
+        }
+        details {
+            max-width: 330px;
+        }
+        summary {
+            cursor: pointer;
+            color: #aeb4bb;
+        }
+        a {
+            color: #e2b879;
+        }
+        dialog {
+            background: #181b20;
+            color: #eee;
+            border: 1px solid #6a5740;
+            border-radius: 12px;
+            width: min(760px, 90vw);
+            max-height: 85vh;
+        }
+        dialog::backdrop {
+            background: #000a;
+        }
+        textarea {
+            box-sizing: border-box;
+            width: 100%;
+            min-height: 90px;
+            background: #101216;
+            color: #eee;
+            border: 1px solid #555;
+            padding: 10px;
+        }
+        .candidate {
+            padding: 10px 0;
+            border-top: 1px solid #383838;
+        }
+        .art-images {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .art-images img {
+            height: 220px;
+            max-width: 100%;
+            object-fit: contain;
+            background: #101419;
+        }
+    </style>
+    <h1>Combat sound audition</h1>
+    <p>
+        Original short attack and damage reactions for every creature. Mono Opus at 64 kbps, MP3 fallback at 96 kbps.
+        Mastered to −20 LUFS using a consistent repeated one-shot measurement, with encoded true peaks below −3 dBTP.
+        Waveforms show the actual compressed audio. Technical checks cannot judge personality, pronunciation, or
+        artistic fit: compare the sounds at the same volume here.
+    </p>
+    <input id="search" placeholder="Find a unit…" aria-label="Find a unit" />
+    <select id="role" aria-label="Sound role">
+        <option value="">All sounds</option>
+        <option value="attack">Attacks</option>
+        <option value="hurt">Damage received</option>
+    </select>
+    <select id="codec" aria-label="Codec">
+        <option value="webm">Opus</option>
+        <option value="mp3">MP3 fallback</option>
+    </select>
+    <label>Volume <input id="volume" type="range" min="0" max="1" step=".05" value=".5" /></label>
+    <button id="playlist">Audition visible sounds</button
+    ><button id="stop">Stop</button>
+    <p id="totals"></p>
+    <div class="now" id="now" aria-live="polite"></div>
+    <table>
+        <thead>
+            <tr>
+                <th>Unit</th>
+                <th>Sound</th>
+                <th>Audition</th>
+                <th>Waveform</th>
+                <th>Length / size</th>
+                <th>LUFS / peak</th>
+                <th>Trim / takes</th>
+            </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+    </table>
+    <dialog id="regeneration">
+        <h2 id="regeneration-title">Replace a sound</h2>
+        <p>
+            <a id="library-link" target="_blank" rel="noopener">Look for reusable library sounds first</a>
+            · <a id="elevenlabs-link" target="_blank" rel="noopener" hidden>Open ElevenLabs editor</a>
+        </p>
+        <section id="art-reference" hidden>
+            <div id="art-images" class="art-images"></div>
+            <p id="attack-basis"></p>
+        </section>
+        <label for="generation-prompt">Sound description</label>
+        <textarea id="generation-prompt"></textarea>
+        <p>
+            <button id="generate">Generate 4 takes</button>
+            <button id="close-regeneration">Close</button>
+            <span class="muted">Generation uses ElevenLabs credits. Listen, then apply your preferred take.</span>
+        </p>
+        <p id="generation-status" aria-live="polite"></p>
+        <div id="candidates"></div>
+    </dialog>
+    <script>
+        let sounds = __COMBAT_AUDIO_DATA__;
+        const $ = (id) => document.getElementById(id);
+        let current = null,
+            queue = [],
+            stopped = false;
+        const escape = (s) =>
+            String(s).replace(
+                /[&<>"']/g,
+                (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
+            );
+        function source(c, codec) {
+            const base = c.asset_base || "public/audio/combat/" + c.slug + "_" + c.role;
+            return "../../" + base + "." + codec + "?v=" + (c.revision || c.generation_id || c.source_id || "initial");
+        }
+        function stop() {
+            stopped = true;
+            queue = [];
+            if (current) {
+                current.pause();
+                current = null;
+            }
+            $("now").textContent = "";
+        }
+        function play(c, raw = false) {
+            if (current) current.pause();
+            current = new Audio(raw ? "../../" + c.source_file : source(c, $("codec").value));
+            current.volume = Number($("volume").value);
+            $("now").textContent = c.unit + " · " + c.role + (raw ? " · original take" : "");
+            current.onended = () => {
+                if (queue.length && !stopped) setTimeout(() => play(queue.shift()), 350);
+            };
+            current.play().catch((e) => ($("now").textContent = "Playback failed: " + e.message));
+        }
+        function filtered() {
+            return sounds.filter(
+                (c) =>
+                    c.unit.toLowerCase().includes($("search").value.toLowerCase()) &&
+                    (!$("role").value || c.role === $("role").value),
+            );
+        }
+        function render() {
+            const visible = filtered();
+            $("totals").textContent =
+                sounds.length +
+                " sounds · Opus " +
+                (sounds.reduce((n, c) => n + c.encoded.webm.bytes, 0) / 1048576).toFixed(2) +
+                " MiB · MP3 " +
+                (sounds.reduce((n, c) => n + c.encoded.mp3.bytes, 0) / 1048576).toFixed(2) +
+                " MiB · " +
+                visible.length +
+                " shown";
+            $("rows").innerHTML = visible
+                .map((c) => {
+                    const m = c.encoded[$("codec").value];
+                    const w = c.waveform;
+                    return (
+                        "<tr><td>" +
+                        escape(c.unit) +
+                        "</td><td>" +
+                        c.role +
+                        '</td><td><button data-play="' +
+                        c.slug +
+                        "/" +
+                        c.role +
+                        '">Play</button><button data-raw="' +
+                        c.slug +
+                        "/" +
+                        c.role +
+                        '">Original</button>' +
+                        (c.role === "event"
+                            ? ""
+                            : '<button data-regenerate="' + c.slug + "/" + c.role + '">Regenerate</button>') +
+                        '</td><td><svg viewBox="0 0 180 42" role="img" aria-label="Waveform"><path stroke="#d1aa70" d="' +
+                        w
+                            .map(
+                                (v, i) =>
+                                    "M" +
+                                    ((i / w.length) * 180).toFixed(1) +
+                                    "," +
+                                    (21 - v * 30).toFixed(1) +
+                                    "V" +
+                                    (21 + v * 30).toFixed(1),
+                            )
+                            .join(" ") +
+                        '"/></svg></td><td>' +
+                        m.duration_ms +
+                        ' ms<br><span class="muted">' +
+                        (m.bytes / 1024).toFixed(1) +
+                        " KiB</span></td><td>" +
+                        m.lufs.toFixed(1) +
+                        ' LUFS<br><span class="muted">' +
+                        m.true_peak_db.toFixed(1) +
+                        " dBTP</span></td><td><details><summary>" +
+                        c.leading_trim_ms +
+                        " / " +
+                        c.trailing_trim_ms +
+                        " ms removed · " +
+                        c.alternates.length +
+                        " takes</summary>" +
+                        c.alternates
+                            .map(
+                                (a) =>
+                                    '<p class="muted">' +
+                                    escape(a.generation_id || a.source_id) +
+                                    " · score " +
+                                    a.score +
+                                    (a.bursts_to_review ? " · separated bursts" : "") +
+                                    "</p>",
+                            )
+                            .join("") +
+                        "</details></td></tr>"
+                    );
+                })
+                .join("");
+            document.querySelectorAll("[data-play],[data-raw]").forEach(
+                (b) =>
+                    (b.onclick = () => {
+                        stop();
+                        play(
+                            sounds.find((c) => c.slug + "/" + c.role === (b.dataset.play || b.dataset.raw)),
+                            !!b.dataset.raw,
+                        );
+                    }),
+            );
+            document.querySelectorAll("[data-regenerate]").forEach((b) => {
+                b.onclick = () => openRegeneration(sounds.find((c) => c.slug + "/" + c.role === b.dataset.regenerate));
+            });
+        }
+        let selectedSound = null,
+            pollTimer = null;
+        async function api(path, body) {
+            const response = await fetch(
+                path,
+                body === undefined
+                    ? {}
+                    : {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify(body),
+                      },
+            );
+            if (!response.ok) {
+                let error;
+                try {
+                    error = (await response.json()).error;
+                } catch {}
+                throw new Error(error || "Start scripts/serve_audio_review.py to enable regeneration.");
+            }
+            return response.json();
+        }
+        async function refreshCatalog() {
+            const catalog = await api("/api/audio/catalog");
+            $("elevenlabs-link").hidden = !catalog.provider_url;
+            if (catalog.provider_url) $("elevenlabs-link").href = catalog.provider_url;
+            sounds = catalog.sounds;
+            render();
+            $("generate").disabled = !catalog.can_generate;
+            if (!catalog.can_generate)
+                $("generation-status").textContent = "Configure ELEVENLABS_API_KEY in the local server environment.";
+        }
+        async function openRegeneration(c) {
+            stop();
+            clearTimeout(pollTimer);
+            selectedSound = c;
+            $("regeneration-title").textContent = c.unit + " · " + c.role;
+            $("generation-prompt").value = c.design_prompt || "";
+            const art = c.art_reference;
+            $("art-reference").hidden = !art;
+            $("art-images").replaceChildren();
+            $("attack-basis").textContent = art?.attack_basis || "";
+            if (art) {
+                for (const [key, label] of [
+                    [art.full_body_asset, "full-body portrait"],
+                    [art.battlefield_asset, "battlefield figure"],
+                ]) {
+                    if (typeof key !== "string" || !/^[a-z0-9_]+$/.test(key)) continue;
+                    const link = document.createElement("a");
+                    link.href = "../../images/" + key + ".webp";
+                    link.target = "_blank";
+                    link.rel = "noopener";
+                    const image = document.createElement("img");
+                    image.src = link.href;
+                    image.alt = c.unit + " " + label + " reference";
+                    link.append(image);
+                    $("art-images").append(link);
+                }
+            }
+            $("library-link").href =
+                "https://opengameart.org/art-search-advanced?keys=" +
+                encodeURIComponent(c.library_query || c.unit + " " + c.role + " sound");
+            $("candidates").textContent = "";
+            $("generation-status").textContent = "Loading available takes…";
+            $("generate").disabled = true;
+            $("regeneration").showModal();
+            try {
+                await refreshCatalog();
+                const data = await api("/api/audio/jobs?slug=" + encodeURIComponent(c.slug) + "&role=" + c.role);
+                showJobs(data.jobs);
+                const running = data.jobs.find((j) => j.status === "generating");
+                if (running) poll(running.id);
+                else
+                    $("generation-status").textContent = data.jobs.length
+                        ? "Compare available takes, or generate four new variations."
+                        : "Find a library sound or generate four variations.";
+            } catch (error) {
+                $("generation-status").textContent = error.message;
+            }
+        }
+        function showJobs(jobs) {
+            $("candidates").innerHTML = jobs
+                .map(
+                    (job) =>
+                        "<section><h3>" +
+                        escape(job.prompt || "Library alternatives") +
+                        "</h3>" +
+                        job.candidates
+                            .map((c) => {
+                                const m = c.result.encoded[$("codec").value];
+                                return (
+                                    '<div class="candidate"><strong>' +
+                                    escape(c.label) +
+                                    "</strong> · " +
+                                    m.duration_ms +
+                                    " ms · " +
+                                    m.lufs.toFixed(1) +
+                                    " LUFS · " +
+                                    m.true_peak_db.toFixed(1) +
+                                    " dBTP " +
+                                    '<button data-candidate="' +
+                                    job.id +
+                                    "/" +
+                                    c.index +
+                                    '">Play take</button>' +
+                                    '<button data-apply="' +
+                                    job.id +
+                                    "/" +
+                                    c.index +
+                                    '" ' +
+                                    (job.status === "generating" ? "disabled" : "") +
+                                    ">Apply to game</button>" +
+                                    (job.applied_index === c.index
+                                        ? ' <span class="muted">Current game sound</span>'
+                                        : "") +
+                                    (c.source.page_url
+                                        ? '<p><a target="_blank" rel="noopener" href="' +
+                                          escape(c.source.page_url) +
+                                          '">' +
+                                          escape(c.source.author + " · " + c.source.license) +
+                                          "</a></p>"
+                                        : "") +
+                                    "</div>"
+                                );
+                            })
+                            .join("") +
+                        (job.errors.length
+                            ? '<p class="muted">' + escape(job.errors.map((e) => e.message).join(" · ")) + "</p>"
+                            : "") +
+                        "</section>",
+                )
+                .join("");
+            document.querySelectorAll("[data-candidate]").forEach(
+                (b) =>
+                    (b.onclick = () => {
+                        const [id, index] = b.dataset.candidate.split("/");
+                        const c = jobs.find((j) => j.id === id).candidates.find((c) => c.index === Number(index));
+                        stop();
+                        play({ ...c.result, asset_base: c.asset_base, source_id: c.source_id });
+                    }),
+            );
+            document.querySelectorAll("[data-apply]").forEach(
+                (b) =>
+                    (b.onclick = async () => {
+                        b.disabled = true;
+                        try {
+                            const [job_id, index] = b.dataset.apply.split("/");
+                            await api("/api/audio/apply", { job_id, index: Number(index) });
+                            await refreshCatalog();
+                            const data = await api(
+                                "/api/audio/jobs?slug=" + selectedSound.slug + "&role=" + selectedSound.role,
+                            );
+                            showJobs(data.jobs);
+                            $("generation-status").textContent =
+                                "Applied. The game assets and cache revision are updated; refresh the game to load the new sound.";
+                        } catch (error) {
+                            b.disabled = false;
+                            $("generation-status").textContent = error.message;
+                        }
+                    }),
+            );
+        }
+        async function poll(id) {
+            const slug = selectedSound.slug,
+                role = selectedSound.role;
+            try {
+                const job = await api("/api/audio/job/" + id);
+                if (!$("regeneration").open || selectedSound.slug !== slug || selectedSound.role !== role) return;
+                const data = await api("/api/audio/jobs?slug=" + selectedSound.slug + "&role=" + selectedSound.role);
+                showJobs(data.jobs);
+                $("generation-status").textContent =
+                    job.status === "generating"
+                        ? "Generating and mastering… " + job.candidates.length + " of 4 takes ready."
+                        : job.candidates.length + " takes ready. Listen and choose one to apply.";
+                $("generate").disabled = job.status === "generating";
+                if (job.status === "generating") pollTimer = setTimeout(() => poll(id), 2000);
+            } catch (error) {
+                $("generation-status").textContent = error.message;
+            }
+        }
+        $("generate").onclick = async () => {
+            $("generate").disabled = true;
+            $("generation-status").textContent = "Starting four takes…";
+            try {
+                const job = await api("/api/audio/regenerate", {
+                    slug: selectedSound.slug,
+                    role: selectedSound.role,
+                    prompt: $("generation-prompt").value,
+                    request_id: crypto.randomUUID(),
+                });
+                await poll(job.id);
+            } catch (error) {
+                $("generation-status").textContent = error.message;
+                // A lost POST response may still have started a charged run. Reopen the dialog
+                // to reconcile its existing jobs instead of offering an immediate repeat.
+            }
+        };
+        $("close-regeneration").onclick = () => $("regeneration").close();
+        $("regeneration").onclose = () => {
+            clearTimeout(pollTimer);
+            stop();
+        };
+        ["search", "role", "codec"].forEach((id) => ($(id).oninput = render));
+        $("volume").oninput = () => {
+            if (current) current.volume = Number($("volume").value);
+        };
+        $("stop").onclick = stop;
+        $("playlist").onclick = () => {
+            stop();
+            queue = filtered();
+            stopped = false;
+            if (queue.length) play(queue.shift());
+        };
+        render();
+    </script>
+</html>

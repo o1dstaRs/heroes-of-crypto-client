@@ -1,0 +1,3307 @@
+{
+    "provider": "Mixed: see individual clip sources",
+    "model": "eleven_text_to_sound_v2",
+    "selection": "Technical selection; see local audition report for aesthetic review.",
+    "mastering": {
+        "target_lufs": -20.0,
+        "loudness_method": "R128 integrated, eight repeats, no inserted silence",
+        "true_peak_ceiling_db": -3.0
+    },
+    "clips": [
+        {
+            "unit": "Abomination",
+            "slug": "abomination",
+            "role": "attack",
+            "source_id": "source-74841b4dbfe49bda",
+            "source": {
+                "kind": "elevenlabs-mcp",
+                "model": "eleven_text_to_sound_v2",
+                "generation_id": "KNqNiYn5jtlzAUFt3Zq4",
+                "flow_id": "PgjbMnvUROqf3vUZorvN",
+                "prompt": "One explosive low guttural undead brute attack grunt, rough throat and chest, short forceful snort, close dry recording, immediate onset, no words, no music, no ambience.",
+                "sha256": "74841b4dbfe49bda5c30b32e111d3a29babe4980982c7bd9f2ecacf7c6ae6658",
+                "label": "New MCP take 4"
+            },
+            "encoded": {
+                "webm": {
+                    "lufs": -20.03,
+                    "true_peak_db": -5.07,
+                    "bytes": 7321,
+                    "duration_ms": 810,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.7
+                },
+                "mp3": {
+                    "lufs": -20.42,
+                    "true_peak_db": -5.15,
+                    "bytes": 10412,
+                    "duration_ms": 810,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.09
+                }
+            }
+        },
+        {
+            "unit": "Abomination",
+            "slug": "abomination",
+            "role": "hurt",
+            "generation_id": "QbGogUJcm38fLQGi9Oh7",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.98,
+                    "true_peak_db": -8.23,
+                    "bytes": 4403,
+                    "duration_ms": 455,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -18.62
+                },
+                "mp3": {
+                    "lufs": -20.43,
+                    "true_peak_db": -8.51,
+                    "bytes": 6092,
+                    "duration_ms": 455,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.08
+                }
+            }
+        },
+        {
+            "unit": "Angel",
+            "slug": "angel",
+            "role": "attack",
+            "source_id": "source-123883f006ce55fe",
+            "source": {
+                "kind": "library",
+                "author": "artisticdude",
+                "license": "CC0",
+                "page_url": "https://opengameart.org/content/swishes-sound-pack",
+                "download_url": "https://opengameart.org/sites/default/files/swishes.zip",
+                "filename": "swish-9.wav",
+                "sha256": "123883f006ce55feecbff11eea5f87c4493df4399989983037144570a23723c1",
+                "label": "Recorded sword swing 4 \u00b7 swish-9.wav"
+            },
+            "encoded": {
+                "webm": {
+                    "lufs": -19.92,
+                    "true_peak_db": -4.93,
+                    "bytes": 2251,
+                    "duration_ms": 144,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.09
+                },
+                "mp3": {
+                    "lufs": -20.44,
+                    "true_peak_db": -5.5,
+                    "bytes": 2348,
+                    "duration_ms": 144,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.64
+                }
+            }
+        },
+        {
+            "unit": "Angel",
+            "slug": "angel",
+            "role": "hurt",
+            "generation_id": "VtFfAOGiU2gxTrBo7wTe",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.01,
+                    "true_peak_db": -10.26,
+                    "bytes": 6985,
+                    "duration_ms": 705,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.83
+                },
+                "mp3": {
+                    "lufs": -20.44,
+                    "true_peak_db": -10.59,
+                    "bytes": 9260,
+                    "duration_ms": 705,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 15,
+                    "rms_db": -21.26
+                }
+            }
+        },
+        {
+            "unit": "Arachna Queen",
+            "slug": "arachna-queen",
+            "role": "attack",
+            "generation_id": "zw5uI1dU9m0UwlvqJFeu",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.98,
+                    "true_peak_db": -5.85,
+                    "bytes": 7901,
+                    "duration_ms": 915,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 5,
+                    "rms_db": -22.84
+                },
+                "mp3": {
+                    "lufs": -20.36,
+                    "true_peak_db": -5.58,
+                    "bytes": 11852,
+                    "duration_ms": 915,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 5,
+                    "rms_db": -23.22
+                }
+            }
+        },
+        {
+            "unit": "Arachna Queen",
+            "slug": "arachna-queen",
+            "role": "hurt",
+            "generation_id": "p3e3tmvOg8YqSM48VQIf",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.97,
+                    "true_peak_db": -11.75,
+                    "bytes": 6730,
+                    "duration_ms": 685,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 5,
+                    "rms_db": -21.38
+                },
+                "mp3": {
+                    "lufs": -20.42,
+                    "true_peak_db": -12.95,
+                    "bytes": 8972,
+                    "duration_ms": 685,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 10,
+                    "rms_db": -21.84
+                }
+            }
+        },
+        {
+            "unit": "Arachna Spider",
+            "slug": "arachna-spider",
+            "role": "attack",
+            "generation_id": "2QRbBDisETRqiMbW5Qsc",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.01,
+                    "true_peak_db": -5.94,
+                    "bytes": 7694,
+                    "duration_ms": 845,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 5,
+                    "rms_db": -23.19
+                },
+                "mp3": {
+                    "lufs": -20.4,
+                    "true_peak_db": -6.38,
+                    "bytes": 10988,
+                    "duration_ms": 845,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 5,
+                    "rms_db": -23.57
+                }
+            }
+        },
+        {
+            "unit": "Arachna Spider",
+            "slug": "arachna-spider",
+            "role": "hurt",
+            "generation_id": "TemmJZQjKrcwLLyJNuLn",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.99,
+                    "true_peak_db": -9.8,
+                    "bytes": 8033,
+                    "duration_ms": 765,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -22.72
+                },
+                "mp3": {
+                    "lufs": -20.44,
+                    "true_peak_db": -10.48,
+                    "bytes": 9836,
+                    "duration_ms": 765,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -23.17
+                }
+            }
+        },
+        {
+            "unit": "Arbalester",
+            "slug": "arbalester",
+            "role": "attack",
+            "generation_id": "Jdf1smTbz7R6mseZECNe",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.99,
+                    "true_peak_db": -4.75,
+                    "bytes": 4333,
+                    "duration_ms": 410,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 5,
+                    "rms_db": -22.33
+                },
+                "mp3": {
+                    "lufs": -20.51,
+                    "true_peak_db": -5.1,
+                    "bytes": 5804,
+                    "duration_ms": 410,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -22.88
+                }
+            }
+        },
+        {
+            "unit": "Arbalester",
+            "slug": "arbalester",
+            "role": "hurt",
+            "generation_id": "yJDwLhkAIq5a48tviNyG",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.95,
+                    "true_peak_db": -5.12,
+                    "bytes": 4569,
+                    "duration_ms": 485,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.74
+                },
+                "mp3": {
+                    "lufs": -20.44,
+                    "true_peak_db": -6.04,
+                    "bytes": 6668,
+                    "duration_ms": 485,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.23
+                }
+            }
+        },
+        {
+            "unit": "Battle Mage",
+            "slug": "battle-mage",
+            "role": "attack",
+            "generation_id": "PnLhvm0fqrXQorWKCmem",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.06,
+                    "true_peak_db": -3.72,
+                    "bytes": 8042,
+                    "duration_ms": 895,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -23.06
+                },
+                "mp3": {
+                    "lufs": -20.39,
+                    "true_peak_db": -4.03,
+                    "bytes": 11564,
+                    "duration_ms": 895,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -23.4
+                }
+            }
+        },
+        {
+            "unit": "Battle Mage",
+            "slug": "battle-mage",
+            "role": "hurt",
+            "generation_id": "zHUbAQYXBq9iXQlgKaed",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.0,
+                    "true_peak_db": -7.38,
+                    "bytes": 5098,
+                    "duration_ms": 520,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.61
+                },
+                "mp3": {
+                    "lufs": -20.46,
+                    "true_peak_db": -7.98,
+                    "bytes": 6956,
+                    "duration_ms": 520,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.07
+                }
+            }
+        },
+        {
+            "unit": "Behemoth",
+            "slug": "behemoth",
+            "role": "attack",
+            "generation_id": "tNK3PfRYl8g7og38bIRK",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.94,
+                    "true_peak_db": -4.5,
+                    "bytes": 10387,
+                    "duration_ms": 1100,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 15,
+                    "rms_db": -22.6
+                },
+                "mp3": {
+                    "lufs": -20.39,
+                    "true_peak_db": -5.38,
+                    "bytes": 13868,
+                    "duration_ms": 1100,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 15,
+                    "rms_db": -23.03
+                }
+            }
+        },
+        {
+            "unit": "Behemoth",
+            "slug": "behemoth",
+            "role": "hurt",
+            "generation_id": "Qmp2HFsMioQ66MH6Q4Oq",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.97,
+                    "true_peak_db": -6.44,
+                    "bytes": 6964,
+                    "duration_ms": 790,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -18.79
+                },
+                "mp3": {
+                    "lufs": -20.44,
+                    "true_peak_db": -7.45,
+                    "bytes": 10124,
+                    "duration_ms": 790,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.27
+                }
+            }
+        },
+        {
+            "unit": "Beholder",
+            "slug": "beholder",
+            "role": "attack",
+            "generation_id": "j4aUfSaCzEBQBMe3tO2Y",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.95,
+                    "true_peak_db": -4.63,
+                    "bytes": 3731,
+                    "duration_ms": 385,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 55,
+                    "rms_db": -19.98
+                },
+                "mp3": {
+                    "lufs": -20.37,
+                    "true_peak_db": -4.93,
+                    "bytes": 5516,
+                    "duration_ms": 385,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.48
+                }
+            }
+        },
+        {
+            "unit": "Beholder",
+            "slug": "beholder",
+            "role": "hurt",
+            "generation_id": "eQ7bLmE3dw3nFhYw6Dwm",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.21,
+                    "true_peak_db": -3.84,
+                    "bytes": 8513,
+                    "duration_ms": 680,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.54
+                },
+                "mp3": {
+                    "lufs": -20.69,
+                    "true_peak_db": -4.17,
+                    "bytes": 8972,
+                    "duration_ms": 680,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -22.01
+                }
+            }
+        },
+        {
+            "unit": "Berserker",
+            "slug": "berserker",
+            "role": "attack",
+            "generation_id": "vUBryZwJ06GJ3xQDTCmX",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.13,
+                    "true_peak_db": -4.1,
+                    "bytes": 5566,
+                    "duration_ms": 495,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.96
+                },
+                "mp3": {
+                    "lufs": -20.53,
+                    "true_peak_db": -4.12,
+                    "bytes": 6668,
+                    "duration_ms": 495,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -22.38
+                }
+            }
+        },
+        {
+            "unit": "Berserker",
+            "slug": "berserker",
+            "role": "hurt",
+            "generation_id": "eeJ3IYZ5qBLJ6kFDPqab",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.01,
+                    "true_peak_db": -8.59,
+                    "bytes": 4673,
+                    "duration_ms": 460,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.38
+                },
+                "mp3": {
+                    "lufs": -20.45,
+                    "true_peak_db": -9.33,
+                    "bytes": 6380,
+                    "duration_ms": 460,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.82
+                }
+            }
+        },
+        {
+            "unit": "Black Dragon",
+            "slug": "black-dragon",
+            "role": "attack",
+            "generation_id": "VU0cZRwAYvWzOCcdw92Z",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.0,
+                    "true_peak_db": -6.47,
+                    "bytes": 7130,
+                    "duration_ms": 850,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -18.9
+                },
+                "mp3": {
+                    "lufs": -20.42,
+                    "true_peak_db": -6.84,
+                    "bytes": 10988,
+                    "duration_ms": 850,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.37
+                }
+            }
+        },
+        {
+            "unit": "Black Dragon",
+            "slug": "black-dragon",
+            "role": "hurt",
+            "generation_id": "WF83geFZK9r0C6kwf2Oi",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.01,
+                    "true_peak_db": -10.17,
+                    "bytes": 7983,
+                    "duration_ms": 815,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 5,
+                    "rms_db": -19.63
+                },
+                "mp3": {
+                    "lufs": -20.44,
+                    "true_peak_db": -10.13,
+                    "bytes": 10412,
+                    "duration_ms": 815,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.07
+                }
+            }
+        },
+        {
+            "unit": "Blacksmith",
+            "slug": "blacksmith",
+            "role": "attack",
+            "generation_id": "zoxphuDQ8rUWwJ9eUlc0",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.06,
+                    "true_peak_db": -4.57,
+                    "bytes": 7976,
+                    "duration_ms": 715,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 5,
+                    "rms_db": -21.11
+                },
+                "mp3": {
+                    "lufs": -20.41,
+                    "true_peak_db": -5.01,
+                    "bytes": 9260,
+                    "duration_ms": 715,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 5,
+                    "rms_db": -21.51
+                }
+            }
+        },
+        {
+            "unit": "Blacksmith",
+            "slug": "blacksmith",
+            "role": "hurt",
+            "generation_id": "Z2OwfKswEHypKi4T64Ka",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.02,
+                    "true_peak_db": -6.66,
+                    "bytes": 6870,
+                    "duration_ms": 720,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.58
+                },
+                "mp3": {
+                    "lufs": -20.43,
+                    "true_peak_db": -6.81,
+                    "bytes": 9260,
+                    "duration_ms": 720,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.99
+                }
+            }
+        },
+        {
+            "unit": "Centaur",
+            "slug": "centaur",
+            "role": "attack",
+            "generation_id": "XRihGf2JxpYDsgXzfV6g",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.19,
+                    "true_peak_db": -3.78,
+                    "bytes": 3881,
+                    "duration_ms": 389,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.23
+                },
+                "mp3": {
+                    "lufs": -20.67,
+                    "true_peak_db": -4.48,
+                    "bytes": 5516,
+                    "duration_ms": 389,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 4,
+                    "rms_db": -19.71
+                }
+            }
+        },
+        {
+            "unit": "Centaur",
+            "slug": "centaur",
+            "role": "hurt",
+            "generation_id": "OWOgJRjEa3wEzDnZuDTa",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.06,
+                    "true_peak_db": -3.96,
+                    "bytes": 5527,
+                    "duration_ms": 605,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -18.72
+                },
+                "mp3": {
+                    "lufs": -20.47,
+                    "true_peak_db": -4.48,
+                    "bytes": 8108,
+                    "duration_ms": 605,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.14
+                }
+            }
+        },
+        {
+            "unit": "Champion",
+            "slug": "champion",
+            "role": "attack",
+            "generation_id": "1wEdURRcYnIxqx4FJ4aj",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.03,
+                    "true_peak_db": -6.56,
+                    "bytes": 6854,
+                    "duration_ms": 730,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 25,
+                    "rms_db": -22.97
+                },
+                "mp3": {
+                    "lufs": -20.34,
+                    "true_peak_db": -8.19,
+                    "bytes": 9548,
+                    "duration_ms": 730,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 25,
+                    "rms_db": -23.27
+                }
+            }
+        },
+        {
+            "unit": "Champion",
+            "slug": "champion",
+            "role": "hurt",
+            "generation_id": "3DhjndZDIm2BD7rQsRDF",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.97,
+                    "true_peak_db": -7.92,
+                    "bytes": 5038,
+                    "duration_ms": 470,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.9
+                },
+                "mp3": {
+                    "lufs": -20.42,
+                    "true_peak_db": -8.18,
+                    "bytes": 6380,
+                    "duration_ms": 470,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.37
+                }
+            }
+        },
+        {
+            "unit": "Crusader",
+            "slug": "crusader",
+            "role": "attack",
+            "generation_id": "rY5faprNbR1ooXbqxDAR",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.02,
+                    "true_peak_db": -4.85,
+                    "bytes": 6237,
+                    "duration_ms": 630,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -22.72
+                },
+                "mp3": {
+                    "lufs": -20.26,
+                    "true_peak_db": -5.06,
+                    "bytes": 8396,
+                    "duration_ms": 630,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -22.99
+                }
+            }
+        },
+        {
+            "unit": "Crusader",
+            "slug": "crusader",
+            "role": "hurt",
+            "generation_id": "EpPWFgG2kmRnUPrP59Oj",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.94,
+                    "true_peak_db": -7.87,
+                    "bytes": 6900,
+                    "duration_ms": 705,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 5,
+                    "rms_db": -20.21
+                },
+                "mp3": {
+                    "lufs": -20.43,
+                    "true_peak_db": -8.56,
+                    "bytes": 9260,
+                    "duration_ms": 705,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 5,
+                    "rms_db": -20.69
+                }
+            }
+        },
+        {
+            "unit": "Cyclops",
+            "slug": "cyclops",
+            "role": "attack",
+            "generation_id": "amXPna7wmWXR4mqX71Ot",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.01,
+                    "true_peak_db": -3.63,
+                    "bytes": 6510,
+                    "duration_ms": 725,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.16
+                },
+                "mp3": {
+                    "lufs": -20.41,
+                    "true_peak_db": -4.67,
+                    "bytes": 9548,
+                    "duration_ms": 725,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.56
+                }
+            }
+        },
+        {
+            "unit": "Cyclops",
+            "slug": "cyclops",
+            "role": "hurt",
+            "generation_id": "K3ywb1w3Kc0NcKOuthD8",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.02,
+                    "true_peak_db": -8.17,
+                    "bytes": 6733,
+                    "duration_ms": 740,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -18.78
+                },
+                "mp3": {
+                    "lufs": -20.45,
+                    "true_peak_db": -8.75,
+                    "bytes": 9548,
+                    "duration_ms": 740,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.22
+                }
+            }
+        },
+        {
+            "unit": "Dark Champion",
+            "slug": "dark-champion",
+            "role": "attack",
+            "generation_id": "uDD4oNaNo55Hd6c9rVRC",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.98,
+                    "true_peak_db": -8.23,
+                    "bytes": 7934,
+                    "duration_ms": 765,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 25,
+                    "rms_db": -22.99
+                },
+                "mp3": {
+                    "lufs": -20.41,
+                    "true_peak_db": -8.56,
+                    "bytes": 9836,
+                    "duration_ms": 765,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 25,
+                    "rms_db": -23.42
+                }
+            }
+        },
+        {
+            "unit": "Dark Champion",
+            "slug": "dark-champion",
+            "role": "hurt",
+            "generation_id": "AgJCoXEpKXSHczgwWOMu",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.99,
+                    "true_peak_db": -5.93,
+                    "bytes": 6143,
+                    "duration_ms": 600,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.49
+                },
+                "mp3": {
+                    "lufs": -20.45,
+                    "true_peak_db": -6.5,
+                    "bytes": 7820,
+                    "duration_ms": 600,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.96
+                }
+            }
+        },
+        {
+            "unit": "Dryad",
+            "slug": "dryad",
+            "role": "attack",
+            "generation_id": "g2soKBcXmIHr0NkKOsZ1",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.31,
+                    "true_peak_db": -3.25,
+                    "bytes": 4621,
+                    "duration_ms": 419,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.02
+                },
+                "mp3": {
+                    "lufs": -20.74,
+                    "true_peak_db": -4.43,
+                    "bytes": 5804,
+                    "duration_ms": 419,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.49
+                }
+            }
+        },
+        {
+            "unit": "Dryad",
+            "slug": "dryad",
+            "role": "hurt",
+            "generation_id": "B5ErhzPLbNMAKyUWoZ1P",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.0,
+                    "true_peak_db": -8.74,
+                    "bytes": 5969,
+                    "duration_ms": 589,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.19
+                },
+                "mp3": {
+                    "lufs": -20.43,
+                    "true_peak_db": -8.91,
+                    "bytes": 7820,
+                    "duration_ms": 589,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.64
+                }
+            }
+        },
+        {
+            "unit": "Efreet",
+            "slug": "efreet",
+            "role": "attack",
+            "generation_id": "pGThJvP03ENH7MIzzh3c",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.98,
+                    "true_peak_db": -7.7,
+                    "bytes": 5554,
+                    "duration_ms": 560,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.0
+                },
+                "mp3": {
+                    "lufs": -20.45,
+                    "true_peak_db": -8.05,
+                    "bytes": 7532,
+                    "duration_ms": 560,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.49
+                }
+            }
+        },
+        {
+            "unit": "Efreet",
+            "slug": "efreet",
+            "role": "hurt",
+            "generation_id": "91CGRLti90RnylagCa8B",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.02,
+                    "true_peak_db": -8.06,
+                    "bytes": 5672,
+                    "duration_ms": 625,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 10,
+                    "rms_db": -20.6
+                },
+                "mp3": {
+                    "lufs": -20.42,
+                    "true_peak_db": -8.71,
+                    "bytes": 8396,
+                    "duration_ms": 625,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 15,
+                    "rms_db": -20.99
+                }
+            }
+        },
+        {
+            "unit": "Elf",
+            "slug": "elf",
+            "role": "attack",
+            "generation_id": "a0hEoDAKz2EsUj34tnCI",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.98,
+                    "true_peak_db": -10.01,
+                    "bytes": 3952,
+                    "duration_ms": 369,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -22.88
+                },
+                "mp3": {
+                    "lufs": -20.41,
+                    "true_peak_db": -9.77,
+                    "bytes": 5228,
+                    "duration_ms": 369,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -23.3
+                }
+            }
+        },
+        {
+            "unit": "Elf",
+            "slug": "elf",
+            "role": "hurt",
+            "generation_id": "mj6zVbpX1ODzyIHuwpzo",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.05,
+                    "true_peak_db": -4.41,
+                    "bytes": 5161,
+                    "duration_ms": 500,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.68
+                },
+                "mp3": {
+                    "lufs": -20.47,
+                    "true_peak_db": -4.68,
+                    "bytes": 6668,
+                    "duration_ms": 500,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.11
+                }
+            }
+        },
+        {
+            "unit": "Faerie Dragon",
+            "slug": "faerie-dragon",
+            "role": "attack",
+            "generation_id": "QPXzDVIdKkBUMcoPcyTu",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.98,
+                    "true_peak_db": -7.57,
+                    "bytes": 7417,
+                    "duration_ms": 830,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 50,
+                    "rms_db": -23.25
+                },
+                "mp3": {
+                    "lufs": -20.36,
+                    "true_peak_db": -8.52,
+                    "bytes": 10700,
+                    "duration_ms": 830,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 50,
+                    "rms_db": -23.62
+                }
+            }
+        },
+        {
+            "unit": "Faerie Dragon",
+            "slug": "faerie-dragon",
+            "role": "hurt",
+            "generation_id": "B6FhHRLjqqxuD4zYtCWF",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.93,
+                    "true_peak_db": -9.06,
+                    "bytes": 5886,
+                    "duration_ms": 580,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.78
+                },
+                "mp3": {
+                    "lufs": -20.43,
+                    "true_peak_db": -9.36,
+                    "bytes": 7820,
+                    "duration_ms": 580,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -22.29
+                }
+            }
+        },
+        {
+            "unit": "Fairy",
+            "slug": "fairy",
+            "role": "attack",
+            "generation_id": "KP5EordNwgvSlFwYROS6",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.0,
+                    "true_peak_db": -11.12,
+                    "bytes": 6523,
+                    "duration_ms": 610,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -23.02
+                },
+                "mp3": {
+                    "lufs": -20.46,
+                    "true_peak_db": -11.73,
+                    "bytes": 8108,
+                    "duration_ms": 610,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -23.47
+                }
+            }
+        },
+        {
+            "unit": "Fairy",
+            "slug": "fairy",
+            "role": "hurt",
+            "generation_id": "2muf4nxAV1mzFPDAbuCF",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.98,
+                    "true_peak_db": -9.32,
+                    "bytes": 6855,
+                    "duration_ms": 660,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -22.7
+                },
+                "mp3": {
+                    "lufs": -20.39,
+                    "true_peak_db": -9.89,
+                    "bytes": 8684,
+                    "duration_ms": 660,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 5,
+                    "rms_db": -23.12
+                }
+            }
+        },
+        {
+            "unit": "Frenzied Boar",
+            "slug": "frenzied-boar",
+            "role": "attack",
+            "generation_id": "mEJufe1zyDj04gklQMHu",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.03,
+                    "true_peak_db": -5.26,
+                    "bytes": 7274,
+                    "duration_ms": 775,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.2
+                },
+                "mp3": {
+                    "lufs": -20.46,
+                    "true_peak_db": -5.6,
+                    "bytes": 10124,
+                    "duration_ms": 775,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.62
+                }
+            }
+        },
+        {
+            "unit": "Frenzied Boar",
+            "slug": "frenzied-boar",
+            "role": "hurt",
+            "generation_id": "aGfLuIVoBi7B0EhiV5Zd",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.98,
+                    "true_peak_db": -10.45,
+                    "bytes": 6203,
+                    "duration_ms": 645,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.7
+                },
+                "mp3": {
+                    "lufs": -20.43,
+                    "true_peak_db": -10.89,
+                    "bytes": 8396,
+                    "duration_ms": 645,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.15
+                }
+            }
+        },
+        {
+            "unit": "Gargantuan",
+            "slug": "gargantuan",
+            "role": "attack",
+            "generation_id": "Qz2C30PypclFQAiaGhUE",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.23,
+                    "true_peak_db": -4.2,
+                    "bytes": 7058,
+                    "duration_ms": 879,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 4,
+                    "rms_db": -18.09
+                },
+                "mp3": {
+                    "lufs": -20.71,
+                    "true_peak_db": -4.42,
+                    "bytes": 11276,
+                    "duration_ms": 879,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 4,
+                    "rms_db": -18.55
+                }
+            }
+        },
+        {
+            "unit": "Gargantuan",
+            "slug": "gargantuan",
+            "role": "hurt",
+            "generation_id": "6pG6HQT12LeJVWf60jon",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.34,
+                    "true_peak_db": -3.68,
+                    "bytes": 8598,
+                    "duration_ms": 610,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -23.07
+                },
+                "mp3": {
+                    "lufs": -20.67,
+                    "true_peak_db": -3.75,
+                    "bytes": 8108,
+                    "duration_ms": 610,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -23.4
+                }
+            }
+        },
+        {
+            "unit": "Goblin Knight",
+            "slug": "goblin-knight",
+            "role": "attack",
+            "generation_id": "sFr0S9j5kqRkthonQquY",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.0,
+                    "true_peak_db": -8.36,
+                    "bytes": 6461,
+                    "duration_ms": 575,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 25,
+                    "rms_db": -22.9
+                },
+                "mp3": {
+                    "lufs": -20.37,
+                    "true_peak_db": -9.05,
+                    "bytes": 7532,
+                    "duration_ms": 575,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 25,
+                    "rms_db": -23.27
+                }
+            }
+        },
+        {
+            "unit": "Goblin Knight",
+            "slug": "goblin-knight",
+            "role": "hurt",
+            "generation_id": "6EN3ltwPQx42w4KFB0C5",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.97,
+                    "true_peak_db": -8.62,
+                    "bytes": 6597,
+                    "duration_ms": 650,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.94
+                },
+                "mp3": {
+                    "lufs": -20.44,
+                    "true_peak_db": -10.0,
+                    "bytes": 8684,
+                    "duration_ms": 650,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -22.4
+                }
+            }
+        },
+        {
+            "unit": "Griffin",
+            "slug": "griffin",
+            "role": "attack",
+            "generation_id": "TP2HjRVDCFD1DQQy6Do6",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.01,
+                    "true_peak_db": -14.57,
+                    "bytes": 7601,
+                    "duration_ms": 800,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 30,
+                    "rms_db": -22.65
+                },
+                "mp3": {
+                    "lufs": -20.45,
+                    "true_peak_db": -15.38,
+                    "bytes": 10412,
+                    "duration_ms": 800,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 30,
+                    "rms_db": -23.07
+                }
+            }
+        },
+        {
+            "unit": "Griffin",
+            "slug": "griffin",
+            "role": "hurt",
+            "generation_id": "QKVsOwJvlgaXcl5133r9",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.02,
+                    "true_peak_db": -6.79,
+                    "bytes": 6402,
+                    "duration_ms": 620,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.9
+                },
+                "mp3": {
+                    "lufs": -20.45,
+                    "true_peak_db": -7.6,
+                    "bytes": 8108,
+                    "duration_ms": 620,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.33
+                }
+            }
+        },
+        {
+            "unit": "Harpy",
+            "slug": "harpy",
+            "role": "attack",
+            "generation_id": "s4kqRYTXMNq2JkgPvuCb",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.03,
+                    "true_peak_db": -11.46,
+                    "bytes": 7955,
+                    "duration_ms": 885,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 15,
+                    "rms_db": -22.96
+                },
+                "mp3": {
+                    "lufs": -20.41,
+                    "true_peak_db": -12.3,
+                    "bytes": 11276,
+                    "duration_ms": 885,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 15,
+                    "rms_db": -23.34
+                }
+            }
+        },
+        {
+            "unit": "Harpy",
+            "slug": "harpy",
+            "role": "hurt",
+            "generation_id": "5cfdBPA0XZQTBU59vJO6",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.99,
+                    "true_peak_db": -7.51,
+                    "bytes": 6261,
+                    "duration_ms": 660,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.51
+                },
+                "mp3": {
+                    "lufs": -20.45,
+                    "true_peak_db": -8.09,
+                    "bytes": 8684,
+                    "duration_ms": 660,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.98
+                }
+            }
+        },
+        {
+            "unit": "Healer",
+            "slug": "healer",
+            "role": "attack",
+            "generation_id": "uk8zHz5qO8f17JtKbVd8",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.0,
+                    "true_peak_db": -6.64,
+                    "bytes": 6278,
+                    "duration_ms": 685,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -23.28
+                },
+                "mp3": {
+                    "lufs": -20.41,
+                    "true_peak_db": -7.2,
+                    "bytes": 8972,
+                    "duration_ms": 685,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -23.7
+                }
+            }
+        },
+        {
+            "unit": "Healer",
+            "slug": "healer",
+            "role": "hurt",
+            "generation_id": "bd2CPsUzXg8G6MrBI23r",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.99,
+                    "true_peak_db": -9.57,
+                    "bytes": 4139,
+                    "duration_ms": 370,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.71
+                },
+                "mp3": {
+                    "lufs": -20.41,
+                    "true_peak_db": -9.7,
+                    "bytes": 5228,
+                    "duration_ms": 370,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.12
+                }
+            }
+        },
+        {
+            "unit": "Hydra",
+            "slug": "hydra",
+            "role": "attack",
+            "generation_id": "0dnM2aN3pOty7pVN6NCV",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.02,
+                    "true_peak_db": -6.38,
+                    "bytes": 9054,
+                    "duration_ms": 955,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.13
+                },
+                "mp3": {
+                    "lufs": -20.46,
+                    "true_peak_db": -6.7,
+                    "bytes": 12140,
+                    "duration_ms": 955,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.57
+                }
+            }
+        },
+        {
+            "unit": "Hydra",
+            "slug": "hydra",
+            "role": "hurt",
+            "generation_id": "wCKHdNAEED0JkfiR4prp",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.09,
+                    "true_peak_db": -3.84,
+                    "bytes": 10567,
+                    "duration_ms": 780,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.04
+                },
+                "mp3": {
+                    "lufs": -20.54,
+                    "true_peak_db": -4.67,
+                    "bytes": 10124,
+                    "duration_ms": 780,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.51
+                }
+            }
+        },
+        {
+            "unit": "Hyena",
+            "slug": "hyena",
+            "role": "attack",
+            "generation_id": "dYk7SSWZcnERhNamfWw6",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.0,
+                    "true_peak_db": -9.57,
+                    "bytes": 7450,
+                    "duration_ms": 740,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.62
+                },
+                "mp3": {
+                    "lufs": -20.45,
+                    "true_peak_db": -9.97,
+                    "bytes": 9548,
+                    "duration_ms": 740,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.06
+                }
+            }
+        },
+        {
+            "unit": "Hyena",
+            "slug": "hyena",
+            "role": "hurt",
+            "generation_id": "EVSiSBtPwgMzkpT46SLI",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.99,
+                    "true_peak_db": -11.02,
+                    "bytes": 6135,
+                    "duration_ms": 685,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.25
+                },
+                "mp3": {
+                    "lufs": -20.45,
+                    "true_peak_db": -11.5,
+                    "bytes": 8972,
+                    "duration_ms": 685,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.7
+                }
+            }
+        },
+        {
+            "unit": "Imp",
+            "slug": "imp",
+            "role": "attack",
+            "generation_id": "hNd1Ywj64nJ85cQOKeu6",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.97,
+                    "true_peak_db": -8.69,
+                    "bytes": 8479,
+                    "duration_ms": 890,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 10,
+                    "rms_db": -22.39
+                },
+                "mp3": {
+                    "lufs": -20.37,
+                    "true_peak_db": -9.75,
+                    "bytes": 11564,
+                    "duration_ms": 890,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 10,
+                    "rms_db": -22.79
+                }
+            }
+        },
+        {
+            "unit": "Imp",
+            "slug": "imp",
+            "role": "hurt",
+            "generation_id": "eZpqwS0suqwTymF214wN",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.01,
+                    "true_peak_db": -9.24,
+                    "bytes": 7334,
+                    "duration_ms": 705,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -22.05
+                },
+                "mp3": {
+                    "lufs": -20.44,
+                    "true_peak_db": -9.62,
+                    "bytes": 9260,
+                    "duration_ms": 705,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -22.48
+                }
+            }
+        },
+        {
+            "unit": "Leprechaun",
+            "slug": "leprechaun",
+            "role": "attack",
+            "generation_id": "ZVeD4DWTFismewicXwtE",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.24,
+                    "true_peak_db": -3.57,
+                    "bytes": 6314,
+                    "duration_ms": 685,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -17.31
+                },
+                "mp3": {
+                    "lufs": -20.68,
+                    "true_peak_db": -4.32,
+                    "bytes": 8972,
+                    "duration_ms": 685,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -17.72
+                }
+            }
+        },
+        {
+            "unit": "Leprechaun",
+            "slug": "leprechaun",
+            "role": "hurt",
+            "generation_id": "77mNdPhqT3SOoleDqcXO",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.99,
+                    "true_peak_db": -8.23,
+                    "bytes": 3764,
+                    "duration_ms": 329,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 9,
+                    "rms_db": -19.97
+                },
+                "mp3": {
+                    "lufs": -20.43,
+                    "true_peak_db": -9.46,
+                    "bytes": 4652,
+                    "duration_ms": 329,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 9,
+                    "rms_db": -20.44
+                }
+            }
+        },
+        {
+            "unit": "Magic Dragon",
+            "slug": "magic-dragon",
+            "role": "attack",
+            "generation_id": "R1zZnbS7KAEYZN2xD9Bh",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.0,
+                    "true_peak_db": -12.15,
+                    "bytes": 9920,
+                    "duration_ms": 1180,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.06
+                },
+                "mp3": {
+                    "lufs": -20.45,
+                    "true_peak_db": -12.6,
+                    "bytes": 15020,
+                    "duration_ms": 1180,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.51
+                }
+            }
+        },
+        {
+            "unit": "Magic Dragon",
+            "slug": "magic-dragon",
+            "role": "hurt",
+            "generation_id": "ZhbTXviTc60NKa8sv5MK",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.01,
+                    "true_peak_db": -6.59,
+                    "bytes": 8255,
+                    "duration_ms": 825,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.6
+                },
+                "mp3": {
+                    "lufs": -20.43,
+                    "true_peak_db": -7.14,
+                    "bytes": 10700,
+                    "duration_ms": 825,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.02
+                }
+            }
+        },
+        {
+            "unit": "Manticore",
+            "slug": "manticore",
+            "role": "attack",
+            "generation_id": "BDcRZ2DrujhJtJm6ENIm",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.99,
+                    "true_peak_db": -9.59,
+                    "bytes": 7652,
+                    "duration_ms": 860,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.31
+                },
+                "mp3": {
+                    "lufs": -20.43,
+                    "true_peak_db": -10.31,
+                    "bytes": 10988,
+                    "duration_ms": 860,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.74
+                }
+            }
+        },
+        {
+            "unit": "Manticore",
+            "slug": "manticore",
+            "role": "hurt",
+            "generation_id": "FzUk9fcCi6rpMnlFOTYs",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.98,
+                    "true_peak_db": -9.38,
+                    "bytes": 7219,
+                    "duration_ms": 720,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.38
+                },
+                "mp3": {
+                    "lufs": -20.45,
+                    "true_peak_db": -9.88,
+                    "bytes": 9260,
+                    "duration_ms": 720,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.83
+                }
+            }
+        },
+        {
+            "unit": "Mantis",
+            "slug": "mantis",
+            "role": "attack",
+            "generation_id": "jLoG8U0U73bU4Fj9X8w6",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.98,
+                    "true_peak_db": -9.02,
+                    "bytes": 5254,
+                    "duration_ms": 475,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 10,
+                    "rms_db": -23.1
+                },
+                "mp3": {
+                    "lufs": -20.45,
+                    "true_peak_db": -9.01,
+                    "bytes": 6380,
+                    "duration_ms": 475,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 10,
+                    "rms_db": -23.55
+                }
+            }
+        },
+        {
+            "unit": "Mantis",
+            "slug": "mantis",
+            "role": "hurt",
+            "generation_id": "OoeWUw2455zKQ7q0bNOX",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.16,
+                    "true_peak_db": -3.69,
+                    "bytes": 6593,
+                    "duration_ms": 650,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 15,
+                    "rms_db": -23.19
+                },
+                "mp3": {
+                    "lufs": -20.6,
+                    "true_peak_db": -4.03,
+                    "bytes": 8684,
+                    "duration_ms": 650,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 15,
+                    "rms_db": -23.63
+                }
+            }
+        },
+        {
+            "unit": "Medusa",
+            "slug": "medusa",
+            "role": "attack",
+            "generation_id": "TBdQN1OVRa2fiS7QAPp0",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.0,
+                    "true_peak_db": -9.64,
+                    "bytes": 7253,
+                    "duration_ms": 765,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 5,
+                    "rms_db": -22.99
+                },
+                "mp3": {
+                    "lufs": -20.31,
+                    "true_peak_db": -9.32,
+                    "bytes": 9836,
+                    "duration_ms": 765,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 5,
+                    "rms_db": -23.3
+                }
+            }
+        },
+        {
+            "unit": "Medusa",
+            "slug": "medusa",
+            "role": "hurt",
+            "generation_id": "8QBAWNVddjpmdKfLtYAQ",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.04,
+                    "true_peak_db": -10.35,
+                    "bytes": 7200,
+                    "duration_ms": 720,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 10,
+                    "rms_db": -20.83
+                },
+                "mp3": {
+                    "lufs": -20.43,
+                    "true_peak_db": -10.88,
+                    "bytes": 9260,
+                    "duration_ms": 720,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 10,
+                    "rms_db": -21.23
+                }
+            }
+        },
+        {
+            "unit": "Mermaid",
+            "slug": "mermaid",
+            "role": "attack",
+            "generation_id": "62d0HKoXqzDzCLA8Kj5K",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.03,
+                    "true_peak_db": -3.95,
+                    "bytes": 3649,
+                    "duration_ms": 365,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.53
+                },
+                "mp3": {
+                    "lufs": -20.54,
+                    "true_peak_db": -4.38,
+                    "bytes": 5228,
+                    "duration_ms": 365,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.04
+                }
+            }
+        },
+        {
+            "unit": "Mermaid",
+            "slug": "mermaid",
+            "role": "hurt",
+            "generation_id": "z6VrFrESNmoUBfG9aQVB",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.99,
+                    "true_peak_db": -8.86,
+                    "bytes": 6884,
+                    "duration_ms": 675,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.53
+                },
+                "mp3": {
+                    "lufs": -20.42,
+                    "true_peak_db": -10.12,
+                    "bytes": 8972,
+                    "duration_ms": 675,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.97
+                }
+            }
+        },
+        {
+            "unit": "Monk",
+            "slug": "monk",
+            "role": "attack",
+            "generation_id": "yuTKl6NTQ4WVz5DWXeMK",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.0,
+                    "true_peak_db": -8.52,
+                    "bytes": 6526,
+                    "duration_ms": 715,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.61
+                },
+                "mp3": {
+                    "lufs": -20.45,
+                    "true_peak_db": -8.89,
+                    "bytes": 9260,
+                    "duration_ms": 715,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.05
+                }
+            }
+        },
+        {
+            "unit": "Monk",
+            "slug": "monk",
+            "role": "hurt",
+            "generation_id": "hG565GlBWsIExvdh3GQ7",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.01,
+                    "true_peak_db": -6.01,
+                    "bytes": 5907,
+                    "duration_ms": 620,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.24
+                },
+                "mp3": {
+                    "lufs": -20.44,
+                    "true_peak_db": -6.6,
+                    "bytes": 8108,
+                    "duration_ms": 620,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.68
+                }
+            }
+        },
+        {
+            "unit": "Nightmare",
+            "slug": "nightmare",
+            "role": "attack",
+            "generation_id": "crWchzzpgYL6hVzZayIa",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.17,
+                    "true_peak_db": -3.95,
+                    "bytes": 7305,
+                    "duration_ms": 635,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.98
+                },
+                "mp3": {
+                    "lufs": -20.64,
+                    "true_peak_db": -4.3,
+                    "bytes": 8396,
+                    "duration_ms": 635,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.43
+                }
+            }
+        },
+        {
+            "unit": "Nightmare",
+            "slug": "nightmare",
+            "role": "hurt",
+            "generation_id": "6qgHkHzcN8ffLU34IYFP",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.95,
+                    "true_peak_db": -9.18,
+                    "bytes": 8829,
+                    "duration_ms": 940,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.34
+                },
+                "mp3": {
+                    "lufs": -20.43,
+                    "true_peak_db": -10.05,
+                    "bytes": 12140,
+                    "duration_ms": 940,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.82
+                }
+            }
+        },
+        {
+            "unit": "Nomad",
+            "slug": "nomad",
+            "role": "attack",
+            "generation_id": "pszW2acsv4FA1QoopXuL",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.01,
+                    "true_peak_db": -4.76,
+                    "bytes": 4358,
+                    "duration_ms": 430,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 5,
+                    "rms_db": -21.95
+                },
+                "mp3": {
+                    "lufs": -20.41,
+                    "true_peak_db": -5.7,
+                    "bytes": 5804,
+                    "duration_ms": 430,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 5,
+                    "rms_db": -22.38
+                }
+            }
+        },
+        {
+            "unit": "Nomad",
+            "slug": "nomad",
+            "role": "hurt",
+            "generation_id": "aJebWBJCplpYhESGn8w8",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.06,
+                    "true_peak_db": -6.17,
+                    "bytes": 4617,
+                    "duration_ms": 485,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.87
+                },
+                "mp3": {
+                    "lufs": -20.45,
+                    "true_peak_db": -6.32,
+                    "bytes": 6668,
+                    "duration_ms": 485,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.26
+                }
+            }
+        },
+        {
+            "unit": "Ogre Mage",
+            "slug": "ogre-mage",
+            "role": "attack",
+            "generation_id": "LvdxpVLuvIFpH8Ty4rVI",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.05,
+                    "true_peak_db": -3.59,
+                    "bytes": 4519,
+                    "duration_ms": 435,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -18.19
+                },
+                "mp3": {
+                    "lufs": -20.45,
+                    "true_peak_db": -4.39,
+                    "bytes": 6092,
+                    "duration_ms": 435,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -18.63
+                }
+            }
+        },
+        {
+            "unit": "Ogre Mage",
+            "slug": "ogre-mage",
+            "role": "hurt",
+            "generation_id": "gxFVf7XMELFW8pncLeqU",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.01,
+                    "true_peak_db": -9.24,
+                    "bytes": 7252,
+                    "duration_ms": 775,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 5,
+                    "rms_db": -19.19
+                },
+                "mp3": {
+                    "lufs": -20.44,
+                    "true_peak_db": -9.83,
+                    "bytes": 10124,
+                    "duration_ms": 775,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 5,
+                    "rms_db": -19.63
+                }
+            }
+        },
+        {
+            "unit": "Orc",
+            "slug": "orc",
+            "role": "attack",
+            "generation_id": "CW5Tv29tXmrrjHwtRJPC",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.16,
+                    "true_peak_db": -4.3,
+                    "bytes": 5079,
+                    "duration_ms": 494,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 9,
+                    "rms_db": -19.44
+                },
+                "mp3": {
+                    "lufs": -20.53,
+                    "true_peak_db": -4.55,
+                    "bytes": 6668,
+                    "duration_ms": 494,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 9,
+                    "rms_db": -19.8
+                }
+            }
+        },
+        {
+            "unit": "Orc",
+            "slug": "orc",
+            "role": "hurt",
+            "generation_id": "iCMyYkUFmI5cBMMdJo0a",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.03,
+                    "true_peak_db": -6.2,
+                    "bytes": 4860,
+                    "duration_ms": 500,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.38
+                },
+                "mp3": {
+                    "lufs": -20.44,
+                    "true_peak_db": -6.85,
+                    "bytes": 6668,
+                    "duration_ms": 500,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.78
+                }
+            }
+        },
+        {
+            "unit": "Peasant",
+            "slug": "peasant",
+            "role": "attack",
+            "generation_id": "0VouldSTQHhMBRyi4arV",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.01,
+                    "true_peak_db": -4.05,
+                    "bytes": 4083,
+                    "duration_ms": 450,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.05
+                },
+                "mp3": {
+                    "lufs": -20.43,
+                    "true_peak_db": -4.81,
+                    "bytes": 6092,
+                    "duration_ms": 450,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.47
+                }
+            }
+        },
+        {
+            "unit": "Peasant",
+            "slug": "peasant",
+            "role": "hurt",
+            "generation_id": "dy3RFSSQx5Nuk7GLVWRk",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.96,
+                    "true_peak_db": -5.4,
+                    "bytes": 5584,
+                    "duration_ms": 565,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.86
+                },
+                "mp3": {
+                    "lufs": -20.42,
+                    "true_peak_db": -5.76,
+                    "bytes": 7532,
+                    "duration_ms": 565,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.33
+                }
+            }
+        },
+        {
+            "unit": "Pegasus",
+            "slug": "pegasus",
+            "role": "attack",
+            "generation_id": "AM57LvcItnwiTFakTE1G",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.0,
+                    "true_peak_db": -7.12,
+                    "bytes": 6297,
+                    "duration_ms": 700,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.04
+                },
+                "mp3": {
+                    "lufs": -20.41,
+                    "true_peak_db": -7.5,
+                    "bytes": 9260,
+                    "duration_ms": 700,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.46
+                }
+            }
+        },
+        {
+            "unit": "Pegasus",
+            "slug": "pegasus",
+            "role": "hurt",
+            "generation_id": "bWslagW6apTN9LlVLB9A",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.02,
+                    "true_peak_db": -11.63,
+                    "bytes": 8432,
+                    "duration_ms": 925,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 5,
+                    "rms_db": -21.78
+                },
+                "mp3": {
+                    "lufs": -20.45,
+                    "true_peak_db": -12.41,
+                    "bytes": 11852,
+                    "duration_ms": 925,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 10,
+                    "rms_db": -22.2
+                }
+            }
+        },
+        {
+            "unit": "Phoenix",
+            "slug": "phoenix",
+            "role": "attack",
+            "generation_id": "pPa8h8wSR18nr4YNoAM0",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.01,
+                    "true_peak_db": -10.51,
+                    "bytes": 10671,
+                    "duration_ms": 1185,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 15,
+                    "rms_db": -22.77
+                },
+                "mp3": {
+                    "lufs": -20.45,
+                    "true_peak_db": -11.59,
+                    "bytes": 15020,
+                    "duration_ms": 1185,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 15,
+                    "rms_db": -23.21
+                }
+            }
+        },
+        {
+            "unit": "Phoenix",
+            "slug": "phoenix",
+            "role": "hurt",
+            "generation_id": "nFi3IBjzwqi6uakkXyY6",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.99,
+                    "true_peak_db": -12.15,
+                    "bytes": 6562,
+                    "duration_ms": 620,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 5,
+                    "rms_db": -22.64
+                },
+                "mp3": {
+                    "lufs": -20.39,
+                    "true_peak_db": -12.75,
+                    "bytes": 8108,
+                    "duration_ms": 620,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 5,
+                    "rms_db": -23.04
+                }
+            }
+        },
+        {
+            "unit": "Pikeman",
+            "slug": "pikeman",
+            "role": "attack",
+            "generation_id": "7DOg4BVOm70h9JrPHtW2",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.09,
+                    "true_peak_db": -4.54,
+                    "bytes": 4754,
+                    "duration_ms": 475,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.3
+                },
+                "mp3": {
+                    "lufs": -20.47,
+                    "true_peak_db": -4.73,
+                    "bytes": 6380,
+                    "duration_ms": 475,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.67
+                }
+            }
+        },
+        {
+            "unit": "Pikeman",
+            "slug": "pikeman",
+            "role": "hurt",
+            "generation_id": "GR8RCY2cTqDZIgBQCJ2c",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.01,
+                    "true_peak_db": -8.15,
+                    "bytes": 4868,
+                    "duration_ms": 480,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.8
+                },
+                "mp3": {
+                    "lufs": -20.45,
+                    "true_peak_db": -8.55,
+                    "bytes": 6380,
+                    "duration_ms": 480,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.26
+                }
+            }
+        },
+        {
+            "unit": "Satyr",
+            "slug": "satyr",
+            "role": "attack",
+            "generation_id": "0Q7NRB0UT4BJjoTyClPg",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.02,
+                    "true_peak_db": -4.65,
+                    "bytes": 2829,
+                    "duration_ms": 280,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.02
+                },
+                "mp3": {
+                    "lufs": -20.43,
+                    "true_peak_db": -4.92,
+                    "bytes": 4076,
+                    "duration_ms": 280,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.44
+                }
+            }
+        },
+        {
+            "unit": "Satyr",
+            "slug": "satyr",
+            "role": "hurt",
+            "generation_id": "RxbIFwLARYRPOE8MtnSI",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.98,
+                    "true_peak_db": -5.88,
+                    "bytes": 6165,
+                    "duration_ms": 540,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.23
+                },
+                "mp3": {
+                    "lufs": -20.43,
+                    "true_peak_db": -7.25,
+                    "bytes": 7244,
+                    "duration_ms": 540,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.69
+                }
+            }
+        },
+        {
+            "unit": "Scavenger",
+            "slug": "scavenger",
+            "role": "attack",
+            "generation_id": "CbD4mv6iLx7rbwTdnAf2",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.03,
+                    "true_peak_db": -6.26,
+                    "bytes": 4181,
+                    "duration_ms": 355,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 15,
+                    "rms_db": -23.11
+                },
+                "mp3": {
+                    "lufs": -20.37,
+                    "true_peak_db": -6.13,
+                    "bytes": 4940,
+                    "duration_ms": 355,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 15,
+                    "rms_db": -23.45
+                }
+            }
+        },
+        {
+            "unit": "Scavenger",
+            "slug": "scavenger",
+            "role": "hurt",
+            "generation_id": "QT1mFrQh0BsXipSHZP3E",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.0,
+                    "true_peak_db": -7.27,
+                    "bytes": 5732,
+                    "duration_ms": 590,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 5,
+                    "rms_db": -19.65
+                },
+                "mp3": {
+                    "lufs": -20.45,
+                    "true_peak_db": -7.74,
+                    "bytes": 7820,
+                    "duration_ms": 590,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 5,
+                    "rms_db": -20.09
+                }
+            }
+        },
+        {
+            "unit": "Skeleton",
+            "slug": "skeleton",
+            "role": "attack",
+            "generation_id": "smnwyUQy32T0ELXnvMXb",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.96,
+                    "true_peak_db": -6.77,
+                    "bytes": 4989,
+                    "duration_ms": 485,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 15,
+                    "rms_db": -22.65
+                },
+                "mp3": {
+                    "lufs": -20.45,
+                    "true_peak_db": -7.35,
+                    "bytes": 6668,
+                    "duration_ms": 485,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 15,
+                    "rms_db": -23.13
+                }
+            }
+        },
+        {
+            "unit": "Skeleton",
+            "slug": "skeleton",
+            "role": "hurt",
+            "generation_id": "4jh4Z9P46A2Fqgi9Dwd4",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.3,
+                    "true_peak_db": -3.79,
+                    "bytes": 5775,
+                    "duration_ms": 464,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -22.89
+                },
+                "mp3": {
+                    "lufs": -20.64,
+                    "true_peak_db": -3.7,
+                    "bytes": 6380,
+                    "duration_ms": 464,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -23.25
+                }
+            }
+        },
+        {
+            "unit": "Squire",
+            "slug": "squire",
+            "role": "attack",
+            "generation_id": "G7a1vNYsPbrjHBMBm0rp",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.02,
+                    "true_peak_db": -5.16,
+                    "bytes": 6523,
+                    "duration_ms": 644,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 4,
+                    "rms_db": -22.82
+                },
+                "mp3": {
+                    "lufs": -20.38,
+                    "true_peak_db": -6.57,
+                    "bytes": 8396,
+                    "duration_ms": 644,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 19,
+                    "rms_db": -23.18
+                }
+            }
+        },
+        {
+            "unit": "Squire",
+            "slug": "squire",
+            "role": "hurt",
+            "generation_id": "hfu3UVyoLxVLvS4X2See",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.05,
+                    "true_peak_db": -7.59,
+                    "bytes": 4800,
+                    "duration_ms": 490,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.96
+                },
+                "mp3": {
+                    "lufs": -20.45,
+                    "true_peak_db": -8.13,
+                    "bytes": 6668,
+                    "duration_ms": 490,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.36
+                }
+            }
+        },
+        {
+            "unit": "Thunderbird",
+            "slug": "thunderbird",
+            "role": "attack",
+            "generation_id": "jZ8e9yvuuabtjZjdIzzA",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.0,
+                    "true_peak_db": -9.02,
+                    "bytes": 7428,
+                    "duration_ms": 785,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 10,
+                    "rms_db": -23.19
+                },
+                "mp3": {
+                    "lufs": -20.37,
+                    "true_peak_db": -9.72,
+                    "bytes": 10124,
+                    "duration_ms": 785,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 10,
+                    "rms_db": -23.55
+                }
+            }
+        },
+        {
+            "unit": "Thunderbird",
+            "slug": "thunderbird",
+            "role": "hurt",
+            "generation_id": "PpvXUGEBcIRduE2OZSwV",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.0,
+                    "true_peak_db": -8.6,
+                    "bytes": 6576,
+                    "duration_ms": 595,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.44
+                },
+                "mp3": {
+                    "lufs": -20.44,
+                    "true_peak_db": -9.45,
+                    "bytes": 7820,
+                    "duration_ms": 595,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.89
+                }
+            }
+        },
+        {
+            "unit": "Trent",
+            "slug": "trent",
+            "role": "attack",
+            "generation_id": "AGpULO85P8eeqNRnFhLT",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.25,
+                    "true_peak_db": -3.72,
+                    "bytes": 4245,
+                    "duration_ms": 450,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.61
+                },
+                "mp3": {
+                    "lufs": -20.7,
+                    "true_peak_db": -4.44,
+                    "bytes": 6092,
+                    "duration_ms": 450,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.08
+                }
+            }
+        },
+        {
+            "unit": "Trent",
+            "slug": "trent",
+            "role": "hurt",
+            "generation_id": "N9zfyQ6bTzV6AJJQskiX",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.98,
+                    "true_peak_db": -5.17,
+                    "bytes": 8624,
+                    "duration_ms": 615,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.49
+                },
+                "mp3": {
+                    "lufs": -20.4,
+                    "true_peak_db": -5.6,
+                    "bytes": 8108,
+                    "duration_ms": 615,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.92
+                }
+            }
+        },
+        {
+            "unit": "Troglodyte",
+            "slug": "troglodyte",
+            "role": "attack",
+            "generation_id": "Ys9f6110JzSTWSsj2SrM",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.93,
+                    "true_peak_db": -5.0,
+                    "bytes": 5680,
+                    "duration_ms": 539,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -22.64
+                },
+                "mp3": {
+                    "lufs": -20.43,
+                    "true_peak_db": -5.48,
+                    "bytes": 7244,
+                    "duration_ms": 539,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -23.15
+                }
+            }
+        },
+        {
+            "unit": "Troglodyte",
+            "slug": "troglodyte",
+            "role": "hurt",
+            "generation_id": "iPlpzJXR5IuSN7Vb0ryx",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.98,
+                    "true_peak_db": -6.07,
+                    "bytes": 6322,
+                    "duration_ms": 595,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.88
+                },
+                "mp3": {
+                    "lufs": -20.47,
+                    "true_peak_db": -6.74,
+                    "bytes": 7820,
+                    "duration_ms": 595,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.35
+                }
+            }
+        },
+        {
+            "unit": "Troll",
+            "slug": "troll",
+            "role": "attack",
+            "generation_id": "yU1i78sJY9XhYxdKBkFb",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.96,
+                    "true_peak_db": -4.55,
+                    "bytes": 2842,
+                    "duration_ms": 219,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.06
+                },
+                "mp3": {
+                    "lufs": -20.4,
+                    "true_peak_db": -4.26,
+                    "bytes": 3500,
+                    "duration_ms": 219,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.46
+                }
+            }
+        },
+        {
+            "unit": "Troll",
+            "slug": "troll",
+            "role": "hurt",
+            "generation_id": "0CvEoosERVQFaHSLScHf",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.02,
+                    "true_peak_db": -9.51,
+                    "bytes": 7129,
+                    "duration_ms": 740,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 10,
+                    "rms_db": -18.99
+                },
+                "mp3": {
+                    "lufs": -20.44,
+                    "true_peak_db": -10.3,
+                    "bytes": 9548,
+                    "duration_ms": 740,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 10,
+                    "rms_db": -19.42
+                }
+            }
+        },
+        {
+            "unit": "Tsar Cannon",
+            "slug": "tsar-cannon",
+            "role": "attack",
+            "generation_id": "KIDdqVuXn7F6KgiPOhuR",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.09,
+                    "true_peak_db": -3.79,
+                    "bytes": 4850,
+                    "duration_ms": 530,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -18.66
+                },
+                "mp3": {
+                    "lufs": -20.46,
+                    "true_peak_db": -4.35,
+                    "bytes": 7244,
+                    "duration_ms": 530,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.02
+                }
+            }
+        },
+        {
+            "unit": "Tsar Cannon",
+            "slug": "tsar-cannon",
+            "role": "hurt",
+            "generation_id": "la511gyM1Z1CArzFVPG0",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.95,
+                    "true_peak_db": -3.87,
+                    "bytes": 3649,
+                    "duration_ms": 380,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.28
+                },
+                "mp3": {
+                    "lufs": -20.39,
+                    "true_peak_db": -4.37,
+                    "bytes": 5228,
+                    "duration_ms": 380,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.71
+                }
+            }
+        },
+        {
+            "unit": "Unicorn",
+            "slug": "unicorn",
+            "role": "attack",
+            "generation_id": "edzZ3hReCtfM2HDbnL52",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.0,
+                    "true_peak_db": -8.62,
+                    "bytes": 6935,
+                    "duration_ms": 700,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.61
+                },
+                "mp3": {
+                    "lufs": -20.38,
+                    "true_peak_db": -9.18,
+                    "bytes": 9260,
+                    "duration_ms": 700,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.03
+                }
+            }
+        },
+        {
+            "unit": "Unicorn",
+            "slug": "unicorn",
+            "role": "hurt",
+            "generation_id": "S6ssRXJumJHk4T04YU3w",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.02,
+                    "true_peak_db": -10.27,
+                    "bytes": 7823,
+                    "duration_ms": 820,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.59
+                },
+                "mp3": {
+                    "lufs": -20.44,
+                    "true_peak_db": -11.12,
+                    "bytes": 10700,
+                    "duration_ms": 820,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.02
+                }
+            }
+        },
+        {
+            "unit": "Valkyrie",
+            "slug": "valkyrie",
+            "role": "attack",
+            "generation_id": "DKhbFbxfHuOl32vXdYeB",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.99,
+                    "true_peak_db": -9.12,
+                    "bytes": 7005,
+                    "duration_ms": 735,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 35,
+                    "rms_db": -22.96
+                },
+                "mp3": {
+                    "lufs": -20.34,
+                    "true_peak_db": -9.38,
+                    "bytes": 9548,
+                    "duration_ms": 735,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 35,
+                    "rms_db": -23.32
+                }
+            }
+        },
+        {
+            "unit": "Valkyrie",
+            "slug": "valkyrie",
+            "role": "hurt",
+            "generation_id": "2OKQvA6MWzOHK5a5pvyX",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.01,
+                    "true_peak_db": -9.46,
+                    "bytes": 7161,
+                    "duration_ms": 700,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 5,
+                    "rms_db": -20.31
+                },
+                "mp3": {
+                    "lufs": -20.47,
+                    "true_peak_db": -10.27,
+                    "bytes": 9260,
+                    "duration_ms": 700,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 5,
+                    "rms_db": -20.78
+                }
+            }
+        },
+        {
+            "unit": "Wandering Mage",
+            "slug": "wandering-mage",
+            "role": "attack",
+            "generation_id": "yZNPW7hoY5N4vOFUDSvm",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.0,
+                    "true_peak_db": -4.76,
+                    "bytes": 3325,
+                    "duration_ms": 294,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 4,
+                    "rms_db": -19.27
+                },
+                "mp3": {
+                    "lufs": -20.47,
+                    "true_peak_db": -5.84,
+                    "bytes": 4364,
+                    "duration_ms": 294,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 4,
+                    "rms_db": -19.72
+                }
+            }
+        },
+        {
+            "unit": "Wandering Mage",
+            "slug": "wandering-mage",
+            "role": "hurt",
+            "generation_id": "JJzlOKnpTLoQpIBs8t1N",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.02,
+                    "true_peak_db": -9.87,
+                    "bytes": 6739,
+                    "duration_ms": 660,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.2
+                },
+                "mp3": {
+                    "lufs": -20.4,
+                    "true_peak_db": -10.37,
+                    "bytes": 8684,
+                    "duration_ms": 660,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.6
+                }
+            }
+        },
+        {
+            "unit": "White Tiger",
+            "slug": "white-tiger",
+            "role": "attack",
+            "generation_id": "xlBmxxqUiWZjAp22uMpY",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.99,
+                    "true_peak_db": -9.99,
+                    "bytes": 6719,
+                    "duration_ms": 735,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 10,
+                    "rms_db": -20.23
+                },
+                "mp3": {
+                    "lufs": -20.44,
+                    "true_peak_db": -10.75,
+                    "bytes": 9548,
+                    "duration_ms": 735,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 15,
+                    "rms_db": -20.7
+                }
+            }
+        },
+        {
+            "unit": "White Tiger",
+            "slug": "white-tiger",
+            "role": "hurt",
+            "generation_id": "nfWWYUQwKSRJTJ7nJD2I",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.99,
+                    "true_peak_db": -6.32,
+                    "bytes": 4827,
+                    "duration_ms": 550,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.51
+                },
+                "mp3": {
+                    "lufs": -20.44,
+                    "true_peak_db": -6.79,
+                    "bytes": 7244,
+                    "duration_ms": 550,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.95
+                }
+            }
+        },
+        {
+            "unit": "Wolf Rider",
+            "slug": "wolf-rider",
+            "role": "attack",
+            "generation_id": "dVBUX2Xh01wwh0J65T1O",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.99,
+                    "true_peak_db": -8.37,
+                    "bytes": 7600,
+                    "duration_ms": 715,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 50,
+                    "rms_db": -23.06
+                },
+                "mp3": {
+                    "lufs": -20.32,
+                    "true_peak_db": -8.52,
+                    "bytes": 9260,
+                    "duration_ms": 715,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 50,
+                    "rms_db": -23.39
+                }
+            }
+        },
+        {
+            "unit": "Wolf Rider",
+            "slug": "wolf-rider",
+            "role": "hurt",
+            "generation_id": "fvX3fimf00dxLF6wMBVt",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.99,
+                    "true_peak_db": -7.53,
+                    "bytes": 4673,
+                    "duration_ms": 509,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.06
+                },
+                "mp3": {
+                    "lufs": -20.45,
+                    "true_peak_db": -8.19,
+                    "bytes": 6956,
+                    "duration_ms": 509,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.51
+                }
+            }
+        },
+        {
+            "unit": "Wolf",
+            "slug": "wolf",
+            "role": "attack",
+            "generation_id": "6GdXNJcJWgUs5EjGZWAl",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.0,
+                    "true_peak_db": -6.05,
+                    "bytes": 8160,
+                    "duration_ms": 880,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.35
+                },
+                "mp3": {
+                    "lufs": -20.44,
+                    "true_peak_db": -7.42,
+                    "bytes": 11276,
+                    "duration_ms": 880,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.79
+                }
+            }
+        },
+        {
+            "unit": "Wolf",
+            "slug": "wolf",
+            "role": "hurt",
+            "generation_id": "djgsKQZMvw8zWG6hc2ae",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.98,
+                    "true_peak_db": -12.05,
+                    "bytes": 6644,
+                    "duration_ms": 680,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 10,
+                    "rms_db": -19.49
+                },
+                "mp3": {
+                    "lufs": -20.45,
+                    "true_peak_db": -12.68,
+                    "bytes": 8972,
+                    "duration_ms": 680,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 10,
+                    "rms_db": -19.96
+                }
+            }
+        },
+        {
+            "unit": "Wyvern",
+            "slug": "wyvern",
+            "role": "attack",
+            "generation_id": "kYCNAAz831H9P6MPdUzd",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.99,
+                    "true_peak_db": -7.63,
+                    "bytes": 7400,
+                    "duration_ms": 825,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 10,
+                    "rms_db": -21.2
+                },
+                "mp3": {
+                    "lufs": -20.41,
+                    "true_peak_db": -7.39,
+                    "bytes": 10700,
+                    "duration_ms": 825,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 10,
+                    "rms_db": -21.64
+                }
+            }
+        },
+        {
+            "unit": "Wyvern",
+            "slug": "wyvern",
+            "role": "hurt",
+            "generation_id": "qugnVOEc0XAj41JknM1o",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.98,
+                    "true_peak_db": -4.32,
+                    "bytes": 8481,
+                    "duration_ms": 735,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.82
+                },
+                "mp3": {
+                    "lufs": -20.46,
+                    "true_peak_db": -5.26,
+                    "bytes": 9548,
+                    "duration_ms": 735,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -22.29
+                }
+            }
+        },
+        {
+            "unit": "Zena",
+            "slug": "zena",
+            "role": "attack",
+            "generation_id": "PyUoJ550G6Oy9okrs6hr",
+            "encoded": {
+                "webm": {
+                    "lufs": -19.99,
+                    "true_peak_db": -5.18,
+                    "bytes": 9302,
+                    "duration_ms": 850,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.59
+                },
+                "mp3": {
+                    "lufs": -20.39,
+                    "true_peak_db": -5.28,
+                    "bytes": 10988,
+                    "duration_ms": 850,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -22.03
+                }
+            }
+        },
+        {
+            "unit": "Zena",
+            "slug": "zena",
+            "role": "hurt",
+            "generation_id": "1gYSEMOYbllaxWh2Nyk5",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.03,
+                    "true_peak_db": -10.51,
+                    "bytes": 6857,
+                    "duration_ms": 664,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 4,
+                    "rms_db": -20.29
+                },
+                "mp3": {
+                    "lufs": -20.44,
+                    "true_peak_db": -11.07,
+                    "bytes": 8684,
+                    "duration_ms": 664,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 4,
+                    "rms_db": -20.7
+                }
+            }
+        },
+        {
+            "unit": "Zombie",
+            "slug": "zombie",
+            "role": "attack",
+            "generation_id": "poDLR79o9B6scil39UoQ",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.2,
+                    "true_peak_db": -3.98,
+                    "bytes": 5246,
+                    "duration_ms": 514,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.26
+                },
+                "mp3": {
+                    "lufs": -20.74,
+                    "true_peak_db": -4.41,
+                    "bytes": 6956,
+                    "duration_ms": 514,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.8
+                }
+            }
+        },
+        {
+            "unit": "Zombie",
+            "slug": "zombie",
+            "role": "hurt",
+            "generation_id": "WwWKF7qqmtMuFIkqr1ZG",
+            "encoded": {
+                "webm": {
+                    "lufs": -20.01,
+                    "true_peak_db": -9.07,
+                    "bytes": 6945,
+                    "duration_ms": 715,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.45
+                },
+                "mp3": {
+                    "lufs": -20.45,
+                    "true_peak_db": -9.31,
+                    "bytes": 9260,
+                    "duration_ms": 715,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -19.91
+                }
+            }
+        }
+    ]
+}

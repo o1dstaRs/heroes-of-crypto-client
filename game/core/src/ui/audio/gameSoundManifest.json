@@ -1,0 +1,22 @@
+{
+    "spellbook_open": {
+        "durationMs": 604,
+        "revision": "6647700026"
+    },
+    "spellbook_close": {
+        "durationMs": 789,
+        "revision": "29fb6f55d0"
+    },
+    "resurrection": {
+        "durationMs": 2356,
+        "revision": "1c70ce63ea"
+    },
+    "place_unit": {
+        "durationMs": 519,
+        "revision": "d38f3e7faa"
+    },
+    "heal": {
+        "durationMs": 2167,
+        "revision": "386a2a2cba"
+    }
+}

@@ -76,6 +76,9 @@
         ]
     },
     "resolutions": {
+        "@emotion/cache": "11.14.0",
+        "@emotion/react": "11.14.0",
+        "@emotion/styled": "11.14.1",
         "@typescript-eslint/eslint-plugin": "^8.61.1",
         "@typescript-eslint/parser": "^8.61.1",
         "esbuild": "^0.28.1",

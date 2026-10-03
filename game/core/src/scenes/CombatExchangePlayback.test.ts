@@ -134,3 +134,55 @@ test("a removed replay victim uses its captured impact point without hitting a d
     );
     expect(events).toEqual(["damage"]);
 });
+
+test("each melee blow sounds once, with a hurt reaction on actual contact including lethal blows", async () => {
+    const { scene, a, b, finish } = setup();
+    const sounds: string[] = [];
+    scene.playUnitCombatSound = (unit: { getId(): string }, role: string) => sounds.push(unit.getId() + ":" + role);
+    const pending = scene.playCombatExchange(a, b, { attackType: "melee" }, [strike(false, 0, true)], () => {});
+    await flush();
+    expect(sounds).toEqual(["A:attack", "B:hurt"]);
+    finish.splice(0).forEach((fn) => fn());
+    await pending;
+});
+
+test("a miss has an attack sound but no hurt reaction", async () => {
+    const { scene, a, b, finish } = setup();
+    scene.showAttackMissedVfx = () => {};
+    const sounds: string[] = [];
+    scene.playUnitCombatSound = (unit: { getId(): string }, role: string) => sounds.push(unit.getId() + ":" + role);
+    const pending = scene.playCombatExchange(
+        a,
+        b,
+        { attackType: "melee" },
+        [{ ...strike(), amount: 0, missed: true }],
+        () => {},
+    );
+    await flush();
+    expect(sounds).toEqual(["A:attack"]);
+    finish.splice(0).forEach((fn) => fn());
+    await pending;
+});
+
+test("ranged hurt audio waits for projectile contact", async () => {
+    const { scene, a, b, finish } = setup();
+    const sounds: string[] = [];
+    let contact!: () => void;
+    let land!: () => void;
+    scene.playUnitCombatSound = (unit: { getId(): string }, role: string) => sounds.push(unit.getId() + ":" + role);
+    scene.playReplayProjectile = (_a: unknown, _b: unknown, _pos: unknown, onImpact: () => void) => {
+        contact = onImpact;
+        return new Promise<void>((resolve) => {
+            land = resolve;
+        });
+    };
+    const pending = scene.playCombatExchange(a, b, { attackType: "range" }, [strike()], () => {});
+    await flush();
+    expect(sounds).toEqual([]);
+    contact();
+    land();
+    await flush();
+    expect(sounds).toEqual(["B:hurt"]);
+    finish.splice(0).forEach((fn) => fn());
+    await pending;
+});
