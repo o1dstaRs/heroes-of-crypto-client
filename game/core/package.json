@@ -38,7 +38,7 @@
         "@types/react-dom": "^19.2.0",
         "@types/react-router-dom": "^5.3.3",
         "@types/uuid": "^11.0.0",
-        "axios": "^1.18.0",
+        "axios": "^1.20.0",
         "denque": "^2.1.0",
         "framer-motion": "^12.42.2",
         "gl-matrix": "^3.4.3",
