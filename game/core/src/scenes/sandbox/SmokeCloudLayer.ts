@@ -317,11 +317,13 @@ export class SmokeCloudLayer {
             }
         }
 
+        // The scene's legacy timestep accrues 0.25 per real second; fade budgets use real seconds.
+        const presenceSeconds = dt * 4;
         for (const [key, cloud] of this.clouds) {
             if (cloud.alive) {
-                cloud.presence = Math.min(1, cloud.presence + dt / APPEAR_SECONDS);
+                cloud.presence = Math.min(1, cloud.presence + presenceSeconds / APPEAR_SECONDS);
             } else {
-                cloud.presence -= dt / VANISH_SECONDS;
+                cloud.presence -= presenceSeconds / VANISH_SECONDS;
                 if (cloud.presence <= 0) {
                     this.clouds.delete(key);
                 }

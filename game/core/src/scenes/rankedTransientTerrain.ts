@@ -21,9 +21,32 @@ export interface RankedTransientTerrainSnapshot {
     transientCells?: readonly RankedTransientCell[];
     transientCellsCount?: number;
     journalTail?: readonly RankedTerrainJournalEntry[];
+    units?: readonly RankedTerrainUnitOccupancy[];
+}
+
+interface RankedTerrainUnitOccupancy {
+    dead: boolean;
+    placed: boolean;
+    cells: readonly HoCMath.XY[];
 }
 
 type RankedTerrainFightProperties = Pick<FightProperties, "getFireWalls" | "getVines" | "getSmokeClouds">;
+
+const occupiedCellKeys = (units: readonly RankedTerrainUnitOccupancy[] | undefined): Set<string> =>
+    new Set(
+        (units ?? [])
+            .filter((unit) => unit.placed && !unit.dead)
+            .flatMap((unit) => unit.cells.map((cell) => `${cell.x}:${cell.y}`)),
+    );
+
+/** Old snapshots can retain smoke after a melee approach; a living placed footprint disperses it. */
+export const rankedTerrainCellsWithoutOccupiedSmoke = (
+    cells: readonly RankedTransientCell[],
+    units: readonly RankedTerrainUnitOccupancy[] | undefined,
+): readonly RankedTransientCell[] => {
+    const occupied = occupiedCellKeys(units);
+    return cells.filter((cell) => cell.kind !== PlayTransientCellKind.SMOKE || !occupied.has(`${cell.x}:${cell.y}`));
+};
 
 const parseEvents = (eventsJson: string): unknown[] => {
     if (!eventsJson.trim()) {
@@ -179,16 +202,24 @@ export const installRankedTransientTerrain = (
 
 /**
  * Bring the transient stores in line with an authoritative snapshot: a server that carries the cells
- * (transientCellsCount present, even when 0) is installed verbatim; an older server falls back to the
- * bounded journal-tail rebuild.
+ * (transientCellsCount present, even when 0) supplies the current cells; an older server falls back to
+ * the bounded journal-tail rebuild. Living placed footprints disperse smoke in either format.
  */
 export const syncRankedTransientTerrain = (
     fightProperties: RankedTerrainFightProperties,
     snapshot: RankedTransientTerrainSnapshot,
 ): void => {
     if (snapshot.transientCellsCount !== undefined) {
-        installRankedTransientTerrain(fightProperties, snapshot.transientCells ?? []);
+        installRankedTransientTerrain(
+            fightProperties,
+            rankedTerrainCellsWithoutOccupiedSmoke(snapshot.transientCells ?? [], snapshot.units),
+        );
         return;
     }
     reconcileRankedTransientTerrain(fightProperties, snapshot.journalTail);
+    const occupied = occupiedCellKeys(snapshot.units);
+    const smokeClouds = fightProperties.getSmokeClouds();
+    for (const cell of smokeClouds.cells()) {
+        if (occupied.has(`${cell.x}:${cell.y}`)) smokeClouds.dispel(cell);
+    }
 };

@@ -3,6 +3,7 @@ import {
     FightStateManager,
     Grid,
     GridConstants,
+    GridMath,
     GridSettings,
     GridVals,
     PathHelper,
@@ -337,6 +338,79 @@ describe("reconcileRankedTransientTerrain", () => {
 });
 
 describe("installRankedTransientTerrain", () => {
+    for (const team of [TeamVals.LEFT, TeamVals.RIGHT]) {
+        for (const [width, height] of [
+            [1, 1],
+            [1, 2],
+            [2, 1],
+            [2, 2],
+        ]) {
+            for (const modern of [false, true]) {
+                test(`${modern ? "snapshot" : "journal"}: team ${team} clears the occupied ${width}x${height} footprint`, () => {
+                    const fightProperties = new FightProperties();
+                    const cells = GridMath.getFootprintCellsForAnchor({ x: 6, y: 6 }, width, height);
+                    const units = [{ team, dead: false, placed: true, cells }];
+                    const neighbor = { x: 7, y: 7 };
+                    const transientCells = [
+                        ...[...cells, neighbor].map((cell) => ({
+                            kind: PlayTransientCellKind.SMOKE,
+                            ...cell,
+                            lapsRemaining: 3,
+                            team: 0,
+                        })),
+                        { kind: PlayTransientCellKind.VINE, ...cells[0], lapsRemaining: 2, team },
+                        { kind: PlayTransientCellKind.FIRE_WALL, ...cells[0], lapsRemaining: 2, team: 0 },
+                    ];
+                    const snapshot = modern
+                        ? { units, transientCells, transientCellsCount: transientCells.length }
+                        : {
+                              units,
+                              journalTail: [
+                                  journalEntry(
+                                      1,
+                                      [
+                                          { type: "smoke_placed", cells: [...cells, neighbor], lapsRemaining: 3 },
+                                          { type: "vine_placed", cells: [cells[0]], lapsRemaining: 2 },
+                                          { type: "fire_wall_placed", cells: [cells[0]], lapsRemaining: 2 },
+                                      ],
+                                      team,
+                                  ),
+                              ],
+                          };
+                    const before = JSON.stringify(snapshot);
+                    // A later ranked update must not restore occupied smoke from the same stale snapshot.
+                    syncRankedTransientTerrain(fightProperties, snapshot);
+                    syncRankedTransientTerrain(fightProperties, snapshot);
+
+                    expect(fightProperties.getSmokeClouds().toJSON()).toEqual([{ ...neighbor, l: 3 }]);
+                    expect(fightProperties.getVines().has(cells[0])).toBe(true);
+                    expect(fightProperties.getFireWalls().has(cells[0])).toBe(true);
+                    expect(JSON.stringify(snapshot)).toBe(before);
+                });
+            }
+        }
+    }
+
+    test("dead and unplaced units do not disperse snapshot smoke", () => {
+        const fightProperties = new FightProperties();
+        const deadCell = { x: 4, y: 4 };
+        const benchCell = { x: 5, y: 5 };
+        syncRankedTransientTerrain(fightProperties, {
+            units: [
+                { dead: true, placed: true, cells: [deadCell] },
+                { dead: false, placed: false, cells: [benchCell] },
+            ],
+            transientCellsCount: 2,
+            transientCells: [deadCell, benchCell].map((cell) => ({
+                kind: PlayTransientCellKind.SMOKE,
+                ...cell,
+                lapsRemaining: 3,
+                team: 0,
+            })),
+        });
+        expect(fightProperties.getSmokeClouds().cells()).toEqual([deadCell, benchCell]);
+    });
+
     test("replaces every transient store with the snapshot's cells, including a cast older than the journal", () => {
         const fightProperties = new FightProperties();
         // Stale local state a hydrate would otherwise have wiped — or, worse, left behind after the server

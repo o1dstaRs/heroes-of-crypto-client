@@ -7,6 +7,7 @@ import { RankedPlayScene } from "./RankedPlayScene";
 import type { IVisibleState } from "./VisibleState";
 
 interface ReplayVisibleScene {
+    replayPlaybackActive: boolean;
     sc_visibleState: IVisibleState;
     sc_visibleStateUpdateNeeded: boolean;
     refreshVisibleStateIfNeeded(force?: boolean): void;
@@ -21,6 +22,7 @@ const withScene = (run: (scene: ReplayVisibleScene) => void): void => {
     try {
         const scene = Object.assign(Object.create(RankedPlayScene.prototype), {
             replayPlaybackActive: false,
+            fightReplayPlaybackActive: false,
             fullReplayPlaybackActive: true,
             replayViewingActive: false,
             sc_visibleStateUpdateNeeded: false,
@@ -33,6 +35,23 @@ const withScene = (run: (scene: ReplayVisibleScene) => void): void => {
 };
 
 describe("replay sidebar visibility across board rebuilds", () => {
+    test("live action animations never expose Exit Replay when rebuilding the board", () => {
+        withScene((scene) => {
+            // Live server moves/attacks hold the animation guard while snapshots rebuild the board.
+            scene.replayPlaybackActive = true;
+            scene.refreshVisibleStateIfNeeded(true);
+
+            expect(scene.sc_visibleState.replayPlaybackActive).toBe(false);
+            expect(scene.replayPlaybackActive).toBe(true);
+
+            // Finishing the animation must not leave a replay badge latched in the published state.
+            scene.replayPlaybackActive = false;
+            scene.refreshVisibleStateIfNeeded(true);
+
+            expect(scene.sc_visibleState.replayPlaybackActive).toBe(false);
+        });
+    });
+
     test("keeps playback active while hydrating the opening placement board", () => {
         withScene((scene) => {
             scene.setReplayPlaybackActive(true);

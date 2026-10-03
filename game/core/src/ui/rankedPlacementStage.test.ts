@@ -199,7 +199,7 @@ describe("the ranked sidebar uses the compact augment picker", () => {
     test("the sidebar mounts the compact container and the full-screen step keeps the expanded one", () => {
         const sidebar = source.slice(
             source.indexOf("augmentsEditableInSidebar ? ("),
-            source.indexOf("<RankedAugmentSummary"),
+            source.indexOf("{/* The augment step is its own full screen"),
         );
         expect(sidebar).toContain("<SandboxToggleContainer");
         expect(sidebar).not.toContain("<SideToggleContainer");
@@ -212,7 +212,7 @@ describe("the ranked sidebar uses the compact augment picker", () => {
         // or leave the "Lock in augments" button unable to tell when the points are spent.
         const sidebar = source.slice(
             source.indexOf("<SandboxToggleContainer"),
-            source.indexOf("<RankedAugmentSummary"),
+            source.indexOf("{/* The augment step is its own full screen"),
         );
         expect(sidebar).toContain("authoritativeSelections={augmentAuthoritativeSelections}");
         expect(sidebar).toContain("onReadyChange={setAugmentReady}");

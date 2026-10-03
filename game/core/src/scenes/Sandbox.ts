@@ -952,6 +952,8 @@ export class Sandbox extends PixiScene {
     private readonly replayRecorder = new SandboxReplayRecorder(() => this.captureSceneState());
     private replayRecordingSuspended = false;
     private replayPlaybackActive = false;
+    /** Full-fight replay mode for UI controls; live authoritative action animations also use replayPlaybackActive. */
+    private fightReplayPlaybackActive = false;
     // Attack events whose kills were already attributed to CombatVisuals (see noteDeathBlowsFromAttackEvent).
     private readonly notedDeathBlowEvents = new WeakSet<object>();
     // A dead stack leaves the simulation immediately, but its authored death atlas must keep ticking
@@ -1761,9 +1763,10 @@ export class Sandbox extends PixiScene {
         if (!this.sc_visibleState) return;
         this.sc_visibleState.aiToggleOn = this.aiController.isAIActive;
     }
-    /** Flip the replay-playback flag and mirror it to the visible state so the React "Exit Replay" button appears. */
+    /** Enter or leave full-fight replay mode, including its React controls. */
     protected setReplayPlaybackActive(active: boolean): void {
         this.replayPlaybackActive = active;
+        this.fightReplayPlaybackActive = active;
         if (this.sc_visibleState) {
             this.sc_visibleState.replayPlaybackActive = active;
             this.sc_visibleStateUpdateNeeded = true;
@@ -3945,8 +3948,18 @@ export class Sandbox extends PixiScene {
         // Recorded move = server-validated destination; always stamp it (see hydrateSceneState — deriving
         // lava/water permission locally fails for granted abilities like Lava Striders' "Made of Fire").
         this.grid.occupyCells(destCells, unit.getId(), unit.getTeam(), unit.getAttackRange(), true, true);
+        this.dispelSmokeUnderRegisteredUnit(unit);
         this.gridMatrix = this.grid.getMatrix();
         this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
+    }
+    /** Replay arrivals clear only the footprint the grid accepted, after the movement finishes. */
+    private dispelSmokeUnderRegisteredUnit(unit: RenderableUnit): void {
+        const smoke = FightStateManager.getInstance().getFightProperties().getSmokeClouds();
+        for (const cell of this.grid.getRegisteredCells(unit.getId())) {
+            if (this.grid.getOccupantUnitId(cell) === unit.getId()) {
+                smoke.dispel(cell);
+            }
+        }
     }
     /**
      * Fire on a creature crossing a Fire Wall: each burning cell it passes through flares up as the walk
@@ -6354,6 +6367,8 @@ export class Sandbox extends PixiScene {
                             true,
                             true,
                         );
+                        this.dispelSmokeUnderRegisteredUnit(caster);
+                        this.dispelSmokeUnderRegisteredUnit(target);
                         this.gridMatrix = this.grid.getMatrix();
                         this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
                         caster.syncVisual(worldRoot, gs);
@@ -7843,7 +7858,7 @@ export class Sandbox extends PixiScene {
             this.sc_visibleState = {
                 canBeStarted: false,
                 hasFinished: prevHasFinished,
-                replayPlaybackActive: this.replayPlaybackActive,
+                replayPlaybackActive: this.fightReplayPlaybackActive,
                 replayFightVisible: this.sc_visibleState?.replayFightVisible,
                 teamWin: prevTeamWin,
                 secondsRemaining,
@@ -10755,11 +10770,9 @@ export class Sandbox extends PixiScene {
                 max: applyThroughShotDamageTail({ attacker, victim, damage: band.max }),
             };
         }
-        // lightning_spin_ability builds spin x Rapid Charge x Paralysis x the victim's Deep Wounds, and then hands that
-        // product to calculateAttackDamage's `divisor` PARAMETER with a synergy of 1 — the multiplier and the synergy
-        // are both in the wrong slot at that call site. This mirrors it argument for argument so the hover shows what
-        // the spin really deals; if that call is ever corrected, move the product back to `abilityMultiplier` here
-        // (and restore the synergy) in the same change.
+        // Lightning Spin applies its damage percentage after the attack roll, together with Rapid Charge,
+        // Paralysis and the victim's Deep Wounds. Keep the team's synergy and the melee divisor unchanged,
+        // as the engine does, so a reduced-power spin previews reduced damage.
         const lightningSpinAbility = attacker.getAbility("Lightning Spin");
         let spinMultiplier = lightningSpinAbility
             ? attacker.calculateAbilityMultiplier(lightningSpinAbility, abilityPower)
@@ -10777,14 +10790,13 @@ export class Sandbox extends PixiScene {
             spinMultiplier *= 1 + spinDeepWounds.getPower() / 100;
         }
         if (spinMultiplier <= 0) {
-            // A fully paralysed spin: the engine would divide by zero here. Show the nothing it is worth.
+            // A fully paralysed spin deals no base damage.
             return { min: 0, max: 0 };
         }
         const band = projectAttackDamageBand({
             ...projectionBase,
             target: victim,
-            synergyAbilityPowerIncrease: 1,
-            divisor: spinMultiplier,
+            abilityMultiplier: spinMultiplier,
         });
         // The spin adds Penetrating Bite per victim and then runs the full AOE tail (Maul, the victim's Broken Aegis,
         // its physical-AOE resistance) in that order.
@@ -17781,6 +17793,15 @@ export class Sandbox extends PixiScene {
                     this.syncAbilityTransferUi(event, unitSnapshot);
                     shouldRefreshVisibleState = true;
                     break;
+                case "smoke_dispel":
+                case "smoke_expired": {
+                    // The local engine may already have removed these; ranked replay still needs the
+                    // recorded removal. Placement stays snapshot/engine-owned so replay cannot refresh
+                    // a cloud's pre-lap budget after the local engine has resolved the cast.
+                    const smoke = FightStateManager.getInstance().getFightProperties().getSmokeClouds();
+                    for (const cell of event.cells) smoke.dispel(cell);
+                    break;
+                }
                 case "vine_placed": {
                     // Throw the dart from the caster to the victim. Fire-and-forget: the terrain vine is
                     // owned by VineLayer off the authoritative store and creeps in behind the flight, so
@@ -17963,6 +17984,7 @@ export class Sandbox extends PixiScene {
         // Authoritative force-move destination — always stamp; see hydrateSceneState on why deriving
         // lava/water permission locally fails for granted abilities (Lava Striders' "Made of Fire").
         this.grid.occupyCells(unit.getCells(), unit.getId(), unit.getTeam(), unit.getAttackRange(), true, true);
+        this.dispelSmokeUnderRegisteredUnit(unit);
         this.gridMatrix = this.grid.getMatrix();
         this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
     }
@@ -17993,6 +18015,7 @@ export class Sandbox extends PixiScene {
                 }
             }
         }
+        this.dispelSmokeUnderRegisteredUnit(unit);
         this.layoutVersion++;
         this.gridMatrix = this.grid.getMatrix();
         this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();

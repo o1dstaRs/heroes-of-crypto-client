@@ -24,6 +24,7 @@ import {
 } from "@heroesofcrypto/common";
 
 import type { AuthoritativeGameSnapshot, AuthoritativeUnitState } from "../game_action_transport";
+import { PlayTransientCellKind } from "../api/play_protocol";
 import {
     authoritativeSnapshotToSandboxSceneState,
     planScatteredMountainSync,
@@ -94,6 +95,49 @@ const placementSnapshot = (units: AuthoritativeUnitState[]): AuthoritativeGameSn
     centerDried: false,
     units,
     upNext: [],
+});
+
+describe("ranked smoke hydration", () => {
+    for (const team of [TeamVals.LEFT, TeamVals.RIGHT]) {
+        test(`team ${team}: reconnect and replay states exclude smoke under the whole placed footprint`, () => {
+            const cells = GridMath.getFootprintCellsForAnchor({ x: 6, y: 6 }, 2, 2);
+            const neighbor = { x: 7, y: 7 };
+            const snapshot: AuthoritativeGameSnapshot = {
+                ...placementSnapshot([
+                    unitState({
+                        name: "Angel",
+                        creatureId: CreatureVals.ANGEL,
+                        team,
+                        placed: true,
+                        size: 2,
+                        footprintWidth: 2,
+                        footprintHeight: 2,
+                        baseCell: { x: 6, y: 6 },
+                        cells,
+                    }),
+                ]),
+                fightStarted: true,
+                transientCellsCount: cells.length + 3,
+                transientCells: [
+                    ...[...cells, neighbor].map((cell) => ({
+                        kind: PlayTransientCellKind.SMOKE,
+                        ...cell,
+                        lapsRemaining: 3,
+                        team: 0,
+                    })),
+                    { kind: PlayTransientCellKind.VINE, ...cells[0], lapsRemaining: 2, team },
+                    { kind: PlayTransientCellKind.FIRE_WALL, ...cells[0], lapsRemaining: 2, team: 0 },
+                ],
+            };
+            const before = JSON.stringify(snapshot);
+            expect(authoritativeSnapshotToSandboxSceneState(snapshot).terrainCells).toEqual([
+                { kind: "smoke", ...neighbor, lapsRemaining: 3, team: 0 },
+                { kind: "vine", ...cells[0], lapsRemaining: 2, team },
+                { kind: "fire_wall", ...cells[0], lapsRemaining: 2, team: 0 },
+            ]);
+            expect(JSON.stringify(snapshot)).toBe(before);
+        });
+    }
 });
 
 describe("ranked rectangular footprints", () => {

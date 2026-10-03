@@ -382,7 +382,7 @@ export class RangedProjectiles {
                 speed:
                     cell *
                     (opts.medusaArmSerpent
-                        ? 20
+                        ? PROJECTILE_SPEED_FACTOR
                         : opts.dryadArrow
                           ? 32
                           : opts.orcAxe

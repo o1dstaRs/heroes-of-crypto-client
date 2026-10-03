@@ -2813,10 +2813,8 @@ const augmentEffectText = (label: string, level: number): string => {
     }
 };
 
-// Read-only recap of the augments/synergies chosen in the placement overlay, shown in the sidebar
-// while the player positions units. Augment levels come straight from the authoritative snapshot;
-// faction synergies come from the local FightProperties. Read-only on purpose: augments are committed
-// in the Setup stage, so there is no edit affordance here.
+// Recap the selected build throughout placement, including while the sidebar editor is available.
+// Augment levels come from the authoritative snapshot; faction synergies come from FightProperties.
 const RankedAugmentSummary: React.FC<{
     snapshot: PlaySnapshot;
     userTeam: TeamType;
@@ -2841,7 +2839,7 @@ const RankedAugmentSummary: React.FC<{
     return (
         <Stack spacing={0.5}>
             <Typography level="body-sm" textColor={hocColors.parchment}>
-                Augments ({spent}/{budget} pts)
+                Your augments ({spent}/{budget} pts)
             </Typography>
             <Stack direction="row" spacing={0.6} flexWrap="wrap" useFlexGap>
                 {chosen.length === 0 ? (
@@ -3582,6 +3580,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                             // rest of the panel off the bottom. Same picker underneath — both route their
                             // choice through the pixi manager — so this is layout only.
                             <>
+                                <RankedAugmentSummary snapshot={snapshot} userTeam={userTeam} budget={augmentBudget} />
                                 {/* Co-op sandbox: the offline sandbox's synergy slots, for the viewer's own
                                     army — click an unlocked one to field it instead of the game's default. */}
                                 {skipAugmentStep && (

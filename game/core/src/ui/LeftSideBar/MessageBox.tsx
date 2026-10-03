@@ -863,66 +863,55 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
                         footerIndicator={footerIndicator}
                         footer={
                             !cannotAct && visibleState.canRequestAdditionalTime ? (
-                                <Tooltip
-                                    title="Use this lap's remaining time reserve"
-                                    placement="top"
-                                    sx={{ ...commonTooltipSx, zIndex: 2 }}
+                                <Button
+                                    aria-label="More time"
+                                    onClick={() => manager.RequestTime(visibleState.teamTypeTurn)}
+                                    size="sm"
+                                    variant="plain"
+                                    startDecorator={iconOnlyMoreTime ? undefined : <TimelapseRoundedIcon />}
+                                    sx={{
+                                        width: iconOnlyMoreTime
+                                            ? `${Math.round(27 * metrics.fontScale)}px`
+                                            : "fit-content",
+                                        minWidth: iconOnlyMoreTime ? 0 : metrics.compact ? 88 : 126,
+                                        maxWidth: "100%",
+                                        minHeight: 0,
+                                        height: `${Math.round(27 * metrics.fontScale)}px`,
+                                        py: 0,
+                                        px: metrics.compact ? 1 : 1.5,
+                                        border: `1px solid ${hocColors.gold}99`,
+                                        borderRadius: "999px",
+                                        background: "linear-gradient(180deg, rgba(60,42,19,.94), rgba(20,13,7,.98))",
+                                        color: hocColors.parchment,
+                                        boxShadow:
+                                            "inset 0 1px rgba(255,232,180,.16), inset 0 -1px rgba(0,0,0,.7), 0 2px 5px rgba(0,0,0,.45)",
+                                        fontFamily: hocDisplayFontFamily,
+                                        fontSize: `${0.62 * metrics.fontScale}rem`,
+                                        fontWeight: 700,
+                                        lineHeight: 1,
+                                        letterSpacing: hocDisplayLetterSpacing,
+                                        textTransform: "uppercase",
+                                        textShadow: "0 1px 1px rgba(0,0,0,.9)",
+                                        transition: "transform 100ms ease",
+                                        "& .MuiButton-startDecorator": {
+                                            marginInlineEnd: metrics.compact ? "4px" : "7px",
+                                            color: hocColors.gold,
+                                            "& svg": { fontSize: `${Math.round(16 * metrics.fontScale)}px` },
+                                        },
+                                        "&:hover": {
+                                            backgroundColor: "transparent",
+                                        },
+                                        "&:active": { transform: "translateY(1px)" },
+                                    }}
                                 >
-                                    <Button
-                                        onClick={() => manager.RequestTime(visibleState.teamTypeTurn)}
-                                        size="sm"
-                                        variant="plain"
-                                        startDecorator={iconOnlyMoreTime ? undefined : <TimelapseRoundedIcon />}
-                                        sx={{
-                                            width: iconOnlyMoreTime
-                                                ? `${Math.round(27 * metrics.fontScale)}px`
-                                                : "fit-content",
-                                            minWidth: iconOnlyMoreTime ? 0 : metrics.compact ? 88 : 126,
-                                            maxWidth: "100%",
-                                            minHeight: 0,
-                                            height: `${Math.round(27 * metrics.fontScale)}px`,
-                                            py: 0,
-                                            px: metrics.compact ? 1 : 1.5,
-                                            border: `1px solid ${hocColors.gold}99`,
-                                            borderRadius: "999px",
-                                            background:
-                                                "linear-gradient(180deg, rgba(60,42,19,.94), rgba(20,13,7,.98))",
-                                            color: hocColors.parchment,
-                                            boxShadow:
-                                                "inset 0 1px rgba(255,232,180,.16), inset 0 -1px rgba(0,0,0,.7), 0 2px 5px rgba(0,0,0,.45)",
-                                            fontFamily: hocDisplayFontFamily,
-                                            fontSize: `${0.62 * metrics.fontScale}rem`,
-                                            fontWeight: 700,
-                                            lineHeight: 1,
-                                            letterSpacing: hocDisplayLetterSpacing,
-                                            textTransform: "uppercase",
-                                            textShadow: "0 1px 1px rgba(0,0,0,.9)",
-                                            transition:
-                                                "border-color 140ms ease, box-shadow 140ms ease, background 140ms ease, transform 100ms ease",
-                                            "& .MuiButton-startDecorator": {
-                                                marginInlineEnd: metrics.compact ? "4px" : "7px",
-                                                color: hocColors.gold,
-                                                "& svg": { fontSize: `${Math.round(16 * metrics.fontScale)}px` },
-                                            },
-                                            "&:hover": {
-                                                borderColor: hocColors.gold,
-                                                background:
-                                                    "linear-gradient(180deg, rgba(89,61,24,.98), rgba(28,18,8,.99))",
-                                                boxShadow: `inset 0 1px rgba(255,232,180,.22), 0 0 9px ${hocColors.gold}42`,
-                                                transform: "translateY(-1px)",
-                                            },
-                                            "&:active": { transform: "translateY(1px)" },
-                                        }}
-                                    >
-                                        {iconOnlyMoreTime ? (
-                                            <TimelapseRoundedIcon
-                                                sx={{ fontSize: `${Math.round(15 * metrics.fontScale)}px` }}
-                                            />
-                                        ) : (
-                                            "More time"
-                                        )}
-                                    </Button>
-                                </Tooltip>
+                                    {iconOnlyMoreTime ? (
+                                        <TimelapseRoundedIcon
+                                            sx={{ fontSize: `${Math.round(15 * metrics.fontScale)}px` }}
+                                        />
+                                    ) : (
+                                        "More time"
+                                    )}
+                                </Button>
                             ) : undefined
                         }
                     />

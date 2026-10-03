@@ -150,7 +150,7 @@ export interface IVisibleState {
     lapsNarrowed: number;
     /** Whether the local AI toggle is currently on (drives the "AI Toggle On" badge). */
     aiToggleOn?: boolean;
-    /** Whether a fight replay is currently playing back (drives the bottom-left "Exit Replay" button). */
+    /** Full-fight replay playback for the "Exit Replay" button; excludes live action animations. */
     replayPlaybackActive?: boolean;
     /**
      * The replay's React snapshot stays on the opening board for the whole playback. This is set once that

@@ -67,7 +67,7 @@ import type { RenderableUnit } from "./RenderableUnit";
 import type { UnitsOverlay } from "./UnitsOverlay";
 import type { AuthoritativeSnapshotOptions } from "../pixi/PixiScene";
 import { TextureType, unitToTextureName } from "../pixi/PixiUnitsFactory";
-import { syncRankedTransientTerrain } from "./rankedTransientTerrain";
+import { rankedTerrainCellsWithoutOccupiedSmoke, syncRankedTransientTerrain } from "./rankedTransientTerrain";
 import { syncPlacementSynergyUnitCounts } from "../ui/rankedSynergySync";
 import { BARREL_SHADOW_EDITOR_LAYOUT, isBarrelShadowEditorActive } from "../ui/barrelShadowTuning";
 import { projectBattlefieldPoint } from "./sandbox/BattlefieldVisualGrid";
@@ -506,7 +506,7 @@ const terrainCellsForSceneState = (snapshot: AuthoritativeGameSnapshot): Sandbox
     if (snapshot.transientCellsCount === undefined) {
         return undefined;
     }
-    return (snapshot.transientCells ?? []).flatMap((cell) => {
+    return rankedTerrainCellsWithoutOccupiedSmoke(snapshot.transientCells ?? [], snapshot.units).flatMap((cell) => {
         const kind = SCENE_TERRAIN_KIND_BY_WIRE_KIND.get(cell.kind);
         // Burn share never travels on the wire: ranked does not predict burn damage locally, so a replayed
         // wall lights at the base percentage and only has to look and block like the one that burned.
