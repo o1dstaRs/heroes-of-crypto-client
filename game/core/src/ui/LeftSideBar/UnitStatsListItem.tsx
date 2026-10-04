@@ -35,7 +35,10 @@ import {
     type LeftSidebarPortraitTuning,
 } from "../leftSidebarPortraitTuning";
 import { resolveLeftSidebarPortraitArt } from "../leftSidebarPortraitArt";
-import { resolveLeftSidebarPortraitAnimation } from "../leftSidebarPortraitAnimation";
+import {
+    resolveLeftSidebarPortraitAnimation,
+    type LeftSidebarPortraitAnimation,
+} from "../leftSidebarPortraitAnimation";
 import {
     displayedSidebarCreatureId,
     isLeftSidebarPortraitReady,
@@ -131,25 +134,32 @@ const AtlasAnimation: React.FC<{
     /** Fit the complete authored frame into the existing portrait box. */
     fillHeight?: boolean;
 }> = ({ meta, src, onLoaded, maxHeight, playback = "ping-pong", fillHeight = false }) => {
-    const [isImageLoaded, setIsImageLoaded] = React.useState(() => isAtlasReady(src));
+    const [loadedSource, setLoadedSource] = React.useState<string | undefined>(() =>
+        isAtlasReady(src) ? src : undefined,
+    );
+    const isImageLoaded = loadedSource === src;
     const bgRef = React.useRef<HTMLDivElement | null>(null);
+    const onLoadedRef = React.useRef(onLoaded);
+    React.useLayoutEffect(() => {
+        onLoadedRef.current = onLoaded;
+    }, [onLoaded]);
 
     // Decode off-thread + cache per src: first selection stays responsive, repeats are instant.
     // If the atlas is already decoded (prefetched), start on frame 0 right away — no portrait
     // fallback flash. Otherwise show the portrait until the atlas finishes decoding.
-    React.useEffect(() => {
+    React.useLayoutEffect(() => {
         let cancelled = false;
-        setIsImageLoaded(isAtlasReady(src));
-        warmAtlas(src).then(() => {
-            if (!cancelled) {
-                setIsImageLoaded(true);
-                onLoaded();
+        setLoadedSource(isAtlasReady(src) ? src : undefined);
+        warmAtlas(src).then((ready) => {
+            if (ready && !cancelled) {
+                setLoadedSource(src);
+                onLoadedRef.current();
             }
         });
         return () => {
             cancelled = true;
         };
-    }, [src, onLoaded]);
+    }, [src]);
 
     // Derive a stable timing config from meta primitives so the rAF loop isn't restarted on every
     // parent re-render (e.g. HP changes) — only when the actual atlas shape/timing changes. Uses the
@@ -260,6 +270,51 @@ const AtlasAnimation: React.FC<{
                 }}
             />
         </Box>
+    );
+};
+
+/** The still and atlas share local readiness, including while this complete portrait is held on screen. */
+const SidebarPortraitAnimation = ({
+    art,
+    config,
+    maxHeight,
+    onLoaded,
+}: {
+    art: React.ReactElement<React.ImgHTMLAttributes<HTMLImageElement>>;
+    config: Readonly<LeftSidebarPortraitAnimation>;
+    maxHeight: number;
+    onLoaded: () => void;
+}) => {
+    const [ready, setReady] = useState(() => isAtlasReady(config.src));
+    const markLoaded = useCallback(() => {
+        setReady(true);
+        onLoaded();
+    }, [onLoaded]);
+    return (
+        <>
+            {React.cloneElement(art, { style: { ...art.props.style, opacity: ready ? 0 : 1 } })}
+            <Box
+                aria-label={`${art.props.alt} animated portrait`}
+                sx={{
+                    position: "absolute",
+                    inset: 0,
+                    zIndex: 4,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    pointerEvents: "none",
+                }}
+            >
+                <AtlasAnimation
+                    meta={config.meta}
+                    src={config.src}
+                    onLoaded={markLoaded}
+                    maxHeight={maxHeight}
+                    playback="ping-pong"
+                    fillHeight
+                />
+            </Box>
+        </>
     );
 };
 
@@ -1228,8 +1283,11 @@ const UnitStatsLayout: React.FC<{
             return;
         }
         let cancelled = false;
-        void warmLeftSidebarPortrait(creatureId).then(() => {
-            if (!cancelled) setHeldPortraitId(creatureId);
+        // A cached selection must become the held picture immediately too; otherwise the next cold
+        // selection falls back to an older creature while an optional atlas is still loading.
+        if (isLeftSidebarPortraitReady(creatureId)) setHeldPortraitId(creatureId);
+        void warmLeftSidebarPortrait(creatureId).then((ready) => {
+            if (ready && !cancelled) setHeldPortraitId(creatureId);
         });
         return () => {
             cancelled = true;
@@ -1243,25 +1301,6 @@ const UnitStatsLayout: React.FC<{
         displayedCreatureId === undefined ? {} : resolveLeftSidebarPortraitArt(displayedCreatureId);
     const portraitAnimationConfig =
         displayedCreatureId === undefined ? null : resolveLeftSidebarPortraitAnimation(displayedCreatureId);
-    const atlasSrc = portraitAnimationConfig?.src;
-    const [atlasReadySrc, setAtlasReadySrc] = useState<string | undefined>(() =>
-        atlasSrc && isAtlasReady(atlasSrc) ? atlasSrc : undefined,
-    );
-    useEffect(() => {
-        if (!atlasSrc) return;
-        let cancelled = false;
-        void warmAtlas(atlasSrc).then(() => {
-            if (!cancelled) setAtlasReadySrc(atlasSrc);
-        });
-        return () => {
-            cancelled = true;
-        };
-    }, [atlasSrc]);
-    const portraitAnimationReady = !!atlasSrc && (isAtlasReady(atlasSrc) || atlasReadySrc === atlasSrc);
-    const handlePortraitAnimationLoaded = useCallback(() => {
-        if (atlasSrc) setAtlasReadySrc(atlasSrc);
-        onImageLoaded();
-    }, [atlasSrc, onImageLoaded]);
     const [sidebarPortraitTuning, setSidebarPortraitTuning] = useState<LeftSidebarPortraitTuning>(() =>
         displayedCreatureId === undefined
             ? { ...DEFAULT_LEFT_SIDEBAR_PORTRAIT_TUNING }
@@ -1640,41 +1679,30 @@ const UnitStatsLayout: React.FC<{
                                     artFit={sidebarPortraitArt.fit}
                                     artBaseScale={sidebarPortraitArt.baseScale}
                                     highQualityArt
-                                    decodeAsync
                                     sx={{
                                         width: "100%",
                                         height: "100%",
                                         bgcolor: "transparent",
                                     }}
                                     imageStyle={{
-                                        opacity: portraitAnimationReady ? 0 : 1,
                                         transition: "none",
                                         imageRendering: "auto",
                                     }}
+                                    animatedArtSource={portraitAnimationConfig?.src}
+                                    renderArt={
+                                        portraitAnimationConfig
+                                            ? (art) => (
+                                                  <SidebarPortraitAnimation
+                                                      key={portraitAnimationConfig.src}
+                                                      art={art}
+                                                      config={portraitAnimationConfig}
+                                                      onLoaded={onImageLoaded}
+                                                      maxHeight={portraitHeight}
+                                                  />
+                                              )
+                                            : undefined
+                                    }
                                 />
-                                {portraitAnimationConfig && (
-                                    <Box
-                                        aria-label={`${UNIT_ID_TO_NAME[displayedCreatureId] ?? unitProperties.name} animated portrait`}
-                                        sx={{
-                                            position: "absolute",
-                                            inset: 0,
-                                            zIndex: 4,
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "center",
-                                            pointerEvents: "none",
-                                        }}
-                                    >
-                                        <AtlasAnimation
-                                            meta={portraitAnimationConfig.meta}
-                                            src={portraitAnimationConfig.src}
-                                            onLoaded={handlePortraitAnimationLoaded}
-                                            maxHeight={portraitHeight}
-                                            playback="ping-pong"
-                                            fillHeight
-                                        />
-                                    </Box>
-                                )}
                             </Box>
                         ) : creatureId !== undefined ? (
                             // Waiting on the cutout and the plate together. A lone large-texture fallback

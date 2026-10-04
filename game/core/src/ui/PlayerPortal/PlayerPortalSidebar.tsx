@@ -3,7 +3,7 @@ import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
 import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
 import HistoryRoundedIcon from "@mui/icons-material/HistoryRounded";
 import ReplayRoundedIcon from "@mui/icons-material/ReplayRounded";
-import { Avatar, Box, Button, CircularProgress, IconButton, Sheet, Stack, Tooltip, Typography } from "@mui/joy";
+import { Box, Button, CircularProgress, IconButton, Sheet, Stack, Tooltip, Typography } from "@mui/joy";
 import React from "react";
 import { useNavigate } from "react-router";
 
@@ -15,8 +15,8 @@ import { useAuthContext } from "../auth/context/auth_context";
 import { CurrencyIcon } from "../GoldCurrencyIcon";
 import { hocColors, hocPanelSx, hocSoftButtonSx } from "../hocTheme";
 import { useRankedSeason } from "../useRankedSeason";
-import { CalibrationProgress, standingEmblem } from "./CalibrationProgress";
-import { LeagueEmblem } from "./LeagueEmblem";
+import { CalibrationProgress } from "./CalibrationProgress";
+import { PortalAvatar } from "./PortalAvatar";
 import { LivePredictionMarkets } from "./LivePredictionMarkets";
 import {
     formatSignedMatchValue,
@@ -56,14 +56,6 @@ const StatBlock: React.FC<{ label: string; value: string | number; color?: strin
         </Typography>
     </Sheet>
 );
-
-const playerInitials = (username: string): string => {
-    const words = username.trim().split(/\s+/).filter(Boolean);
-    if (words.length > 1) {
-        return `${words[0][0]}${words[1][0]}`.toUpperCase();
-    }
-    return username.slice(0, 2).toUpperCase() || "HC";
-};
 
 type RecentFormResult = "draw" | "empty" | "loss" | "win";
 
@@ -441,10 +433,10 @@ export interface PlayerPortalSidebarProps {
 export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ navigationDisabled = false }) => {
     const navigate = useNavigate();
     const { user } = useAuthContext();
-    const { data, loading, error, reload } = usePlayerPortal();
+    const { data, loading, error, reload, reloadKey } = usePlayerPortal();
     // Ranked standing rides its own small call (see useRankedStanding); re-read whenever the portal
     // payload reloads so finishing a placement match updates the pips without a page refresh.
-    const standing = useRankedStanding(data?.total_games_played ?? 0);
+    const standing = useRankedStanding(`${reloadKey}:${data?.total_games_played ?? 0}`);
     // Subscribes this subtree to the profile language picker, so switching repaints it without a reload.
     const { language } = useTranslation();
     const { currency } = useRankedSeason();
@@ -458,7 +450,7 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
     const overallPct = data ? winRatePct(data.wins ?? 0, data.total_games_played ?? 0) : 0;
     const recent = (data?.recent_matches ?? []).slice(0, 3);
     const recentFormMatches = (data?.recent_matches ?? []).slice(0, 10);
-    const displayName = data?.username || t("Your Profile");
+    const displayName = data?.username || user?.username || t("Your Profile");
     // Available gold gates the prediction card below; the header shows the TOTAL, available plus gold in play,
     // so putting gold into a wager or prediction never makes the balance look smaller.
     const gold = availableGold({ gold: Number(data?.gold ?? 0) });
@@ -508,31 +500,7 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
                     }}
                 >
                     <Stack direction="row" spacing={predictionsVisible ? 1 : 1.25} alignItems="center">
-                        {/* The player's crest IS the avatar. It used to sit in a strip of its own
-                            below this row, which stacked a league portrait under an initials circle and
-                            said "player" twice. Initials stand in only while the standing call is in
-                            flight, or if it failed — it never blocks matchmaking. */}
-                        {standing ? (
-                            <LeagueEmblem {...standingEmblem(standing)} size={predictionsVisible ? 58 : 72} />
-                        ) : (
-                            <Avatar
-                                variant="soft"
-                                sx={{
-                                    width: predictionsVisible ? 58 : 72,
-                                    height: predictionsVisible ? 58 : 72,
-                                    flexShrink: 0,
-                                    color: hocColors.gold,
-                                    bgcolor: "rgba(0,0,0,0.36)",
-                                    border: `1px solid ${hocColors.orangeBorder}`,
-                                    boxShadow: predictionsVisible
-                                        ? "0 0 0 3px rgba(255,143,0,0.055)"
-                                        : "0 0 0 5px rgba(255,143,0,0.07)",
-                                    fontWeight: 850,
-                                }}
-                            >
-                                {playerInitials(displayName)}
-                            </Avatar>
-                        )}
+                        <PortalAvatar standing={standing} size={predictionsVisible ? 58 : 72} />
                         <Box sx={{ flex: 1, minWidth: 0 }}>
                             <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
                                 <Typography level="title-lg" noWrap sx={{ minWidth: 0, color: hocColors.parchment }}>
@@ -592,7 +560,7 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
                         p: predictionsVisible ? { xs: 1.5, sm: 1.75 } : { xs: 2.25, sm: 2.75 },
                     }}
                 >
-                    {loading && (
+                    {loading && !data && (
                         <Stack
                             spacing={1.25}
                             alignItems="center"
@@ -629,7 +597,7 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
                         </Stack>
                     )}
 
-                    {!loading && !error && data && (
+                    {data && (
                         <>
                             <Box
                                 sx={{

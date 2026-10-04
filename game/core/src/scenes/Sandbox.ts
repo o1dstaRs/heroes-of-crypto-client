@@ -631,9 +631,9 @@ interface PlacementBenchHitBox {
 /** Multi-hit attacks show each impact on this cadence in both live play and authoritative replays. */
 export const ATTACK_HIT_STAGGER_MS = 240;
 
-// Ranked derives a fixed twelve-barrel layout from the game id, so every player and the server agree. The
-// offline sandbox deliberately has a separate, disposable map roll: clicking Barrels again creates 9–12 new
-// positions for quick terrain experiments without changing any ranked or replay rule.
+// Ranked rolls 9–12 barrels from the game id, so every player and the server agree. The offline sandbox
+// deliberately has a separate, disposable map roll: clicking Barrels again creates 9–12 new positions for
+// quick terrain experiments without changing any ranked or replay rule.
 export const SANDBOX_BARREL_MIN_COUNT = 9;
 export const SANDBOX_BARREL_MAX_COUNT = 12;
 
@@ -643,8 +643,10 @@ export const sandboxBarrelLayoutForSeed = (
     count: number,
     sideOriented: boolean,
 ): ReturnType<typeof scatteredMountainsForSeed> =>
-    scatteredMountainsForSeed(seed, GridConstants.GRID_SIZE, sideOriented).slice(
-        0,
+    scatteredMountainsForSeed(
+        seed,
+        GridConstants.GRID_SIZE,
+        sideOriented,
         Math.max(SANDBOX_BARREL_MIN_COUNT, Math.min(SANDBOX_BARREL_MAX_COUNT, count)),
     );
 
@@ -7956,9 +7958,9 @@ export class Sandbox extends PixiScene {
         }
         // The band follows the board orientation: side-oriented boards deploy on the left/right x-bands,
         // so the neutral strip is the middle COLUMNS, full height. Re-use common's seeded placement and
-        // art-variant generator, but feed it fresh sandbox-only entropy and slice its 12 legal cells down
-        // to this roll's 9–12 count. That means a second Barrels click changes the map without duplicating
-        // the placement algorithm or disturbing ranked's server-owned layout.
+        // art-variant generator, but feed it fresh sandbox-only entropy and this click's own 9–12 count.
+        // A second Barrels click changes the map without duplicating the placement algorithm or disturbing
+        // ranked's server-owned layout.
         const fightProperties = FightStateManager.getInstance().getFightProperties();
         const layout = sandboxBarrelLayoutForSeed(
             this.sandboxBarrelLayoutSeed,

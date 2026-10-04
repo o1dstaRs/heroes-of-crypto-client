@@ -105,25 +105,14 @@ export function getDefaultAnimationConfig(
     return imageSrc ? { meta, imageSrc } : null;
 }
 
-// Decode each atlas at most once so selection is responsive without accumulating duplicate image objects.
-const decodedImageCache = new Map<string, Promise<void>>();
-const readyAtlasSrcs = new Set<string>();
-
-export function warmAtlas(src: string): Promise<void> {
-    let existing = decodedImageCache.get(src);
-    if (!existing) {
-        // Same retained bitmap as the stills. A decoded atlas that nothing holds is collected, and the
-        // next selection decodes the sheet again.
-        existing = warmDecodedImage(src).then(() => {
-            readyAtlasSrcs.add(src);
-        });
-        decodedImageCache.set(src, existing);
-    }
-    return existing;
+export function warmAtlas(src: string): Promise<boolean> {
+    // Use the stills' cache for both readiness and pending work. A failed decode can retry, and an
+    // evicted sheet must be decoded again before it replaces the visible still portrait.
+    return warmDecodedImage(src);
 }
 
 export function isAtlasReady(src: string): boolean {
-    return readyAtlasSrcs.has(src) || isDecodedImageReady(src);
+    return isDecodedImageReady(src);
 }
 
 /** Pre-decode a unit's sidebar animation atlas so selecting it later is instant. */

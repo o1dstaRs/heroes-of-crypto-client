@@ -50,12 +50,23 @@ export interface RankedReplay {
     actions: RankedReplayActionRecord[];
 }
 
+/** JSON replays carry the server's 1-based fields; live protobuf snapshots are already decoded. */
+export interface RankedReplaySnapshotPayload extends PlaySnapshot {
+    centerObstacleHitsLeftPlus1?: number;
+    centerObstacleHitsRightPlus1?: number;
+    scatteredStandingCellsPlus1?: number[];
+    scatteredStandingCountPlus1?: number;
+    transientCellsCountPlus1?: number;
+    additionalTimeMsPlus1?: number;
+    artifactBarrelsCountPlus1?: number;
+}
+
 export interface RankedReplayPayload {
     gameId: string;
     latestSequence: number;
     completeReplay: boolean;
-    currentSnapshot: PlaySnapshot;
-    events: PlayEvent[];
+    currentSnapshot: RankedReplaySnapshotPayload;
+    events: (Omit<PlayEvent, "snapshot"> & { snapshot?: RankedReplaySnapshotPayload })[];
     journal: PlayJournalEntry[];
 }
 
@@ -211,17 +222,51 @@ export const createRankedReplayFromSnapshot = (
         events: [],
     });
 
+const decodeReplaySnapshot = (snapshot: RankedReplaySnapshotPayload): PlaySnapshot => {
+    let decoded: PlaySnapshot | undefined;
+    for (const [encodedKey, decodedKey] of [
+        ["centerObstacleHitsLeftPlus1", "centerObstacleHitsLeft"],
+        ["centerObstacleHitsRightPlus1", "centerObstacleHitsRight"],
+        ["scatteredStandingCountPlus1", "scatteredStandingCount"],
+        ["transientCellsCountPlus1", "transientCellsCount"],
+        ["additionalTimeMsPlus1", "additionalTimeMs"],
+        ["artifactBarrelsCountPlus1", "artifactBarrelsCount"],
+    ] as const) {
+        if (snapshot[decodedKey] === undefined && snapshot[encodedKey] !== undefined) {
+            decoded ??= { ...snapshot };
+            decoded[decodedKey] = Math.max(0, snapshot[encodedKey] - 1);
+        }
+    }
+    if (snapshot.scatteredStandingCells === undefined && snapshot.scatteredStandingCellsPlus1 !== undefined) {
+        decoded ??= { ...snapshot };
+        decoded.scatteredStandingCells = snapshot.scatteredStandingCellsPlus1.map((cell) => Math.max(0, cell - 1));
+    }
+    if (decoded?.scatteredStandingCount !== undefined) {
+        decoded.scatteredStandingCells ??= [];
+    }
+    if (decoded?.artifactBarrelsCount !== undefined) {
+        decoded.artifactBarrels ??= [];
+    }
+    return decoded ?? snapshot;
+};
+
 export const createRankedReplayFromPayload = (payload: RankedReplayPayload): RankedReplay => {
+    // The replay endpoint serializes server snapshots directly as JSON. Unlike live snapshots, these
+    // never passed through decodePlaySnapshot, so restore the same true counts and packed cells here.
+    const currentSnapshot = decodeReplaySnapshot(payload.currentSnapshot);
+    const events: PlayEvent[] = payload.events.map((event) =>
+        event.snapshot ? { ...event, snapshot: decodeReplaySnapshot(event.snapshot) } : event,
+    );
     const initialSnapshot =
-        payload.events.filter((event) => event.snapshot).sort((a, b) => a.sequence - b.sequence)[0]?.snapshot ??
-        payload.currentSnapshot;
+        events.filter((event) => event.snapshot).sort((a, b) => a.sequence - b.sequence)[0]?.snapshot ??
+        currentSnapshot;
     return createRankedReplayFromJournal({
         gameId: payload.gameId,
         entries: payload.journal,
         completeJournal: payload.completeReplay,
         initialSnapshot,
-        currentSnapshot: payload.currentSnapshot,
-        events: payload.events,
+        currentSnapshot,
+        events,
     });
 };
 

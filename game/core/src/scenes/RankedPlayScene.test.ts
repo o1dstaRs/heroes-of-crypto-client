@@ -2003,12 +2003,11 @@ describe("ranked ability-transfer scene log", () => {
 
 // Ranked and the sandbox build a cemetery through the SAME seeded generator, so the count is derived on
 // both sides rather than restated on either. Sandbox.ts used to keep a Math.random() twin of that
-// generator, which meant a ranked-side change left static games scattering the old number. The count is
-// the owner's fixed twelve (2026-08-28); the range plumbing survives so restoring variety is one
-// constant.
+// generator, which meant a ranked-side change left static games scattering the old number. Ranked rolls
+// 9-12 from the game id.
 describe("cemetery barrel count", () => {
     test("every board rolls a count inside the range, and derives exactly that many stones", () => {
-        expect(SCATTERED_MOUNTAIN_MIN_COUNT).toBe(12);
+        expect(SCATTERED_MOUNTAIN_MIN_COUNT).toBe(9);
         expect(SCATTERED_MOUNTAIN_MAX_COUNT).toBe(12);
         for (let i = 0; i < 200; i++) {
             const gameId = `cemetery-game-${i}`;
@@ -2019,12 +2018,12 @@ describe("cemetery barrel count", () => {
         }
     });
 
-    test("every ranked board carries the same twelve barrels", () => {
+    test("ranked boards roll every count from 9 through 12", () => {
         const seen = new Set<number>();
-        for (let i = 0; i < 200; i++) {
+        for (let i = 0; i < 400; i++) {
             seen.add(scatteredMountainCountForSeed(`ranked-spread-${i}`));
         }
-        expect([...seen]).toEqual([12]);
+        expect([...seen].sort((a, b) => a - b)).toEqual([9, 10, 11, 12]);
     });
 
     test("even the largest roll fits the neutral band with room to spare", () => {

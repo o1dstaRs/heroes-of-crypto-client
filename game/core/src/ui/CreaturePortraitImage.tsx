@@ -1,6 +1,7 @@
 import Box, { type BoxProps } from "@mui/joy/Box";
 import React from "react";
 
+import { DecodedPortraitLayers } from "./DecodedPortraitLayers";
 import {
     CREATURE_PORTRAIT_BACKGROUND_MOTION_KEYFRAMES,
     resolveCreaturePortraitBackgroundMotion,
@@ -31,11 +32,9 @@ export interface CreaturePortraitImageProps extends Omit<BoxProps, "children"> {
     artBaseScale?: number;
     /** Layout at the final CSS size instead of enlarging a smaller compositor layer. */
     highQualityArt?: boolean;
-    /**
-     * Decode off the main thread. The left sidebar sets this: a synchronous decode of the full cutout
-     * freezes the card while the smaller faction background has already painted.
-     */
-    decodeAsync?: boolean;
+    /** Optional animation owns its still handoff inside the same decoded portrait composition. */
+    renderArt?: (art: React.ReactElement<React.ImgHTMLAttributes<HTMLImageElement>>) => React.ReactNode;
+    animatedArtSource?: string;
 }
 
 /**
@@ -61,7 +60,8 @@ const CreaturePortraitImageBase = ({
     artFit,
     artBaseScale,
     highQualityArt = false,
-    decodeAsync = false,
+    renderArt,
+    animatedArtSource,
     sx,
     forwardedRef,
     ...boxProps
@@ -87,6 +87,48 @@ const CreaturePortraitImageBase = ({
     const mirrorSign = visual.mirrored ? -1 : 1;
     const creatureDirectionX = (artScaleX < 0 ? -1 : 1) * mirrorSign;
     const creatureOffsetX = artPlacement.offsetX * mirrorSign;
+    const portraitKey = JSON.stringify([
+        creatureId,
+        creatureSource,
+        portraitBackground,
+        framing.background === "soft" ? source : undefined,
+        backgroundMotion?.glowSrc,
+        animatedArtSource,
+    ]);
+    const art = (
+        <img
+            src={creatureSource}
+            alt={alt ?? UNIT_ID_TO_NAME[creatureId] ?? `Creature ${creatureId}`}
+            decoding="async"
+            data-portrait-critical
+            fetchPriority={highQualityArt ? "high" : undefined}
+            style={{
+                position: "absolute",
+                ...(highQualityArt
+                    ? {
+                          inset: "auto",
+                          left: `calc(50% + ${creatureOffsetX}%)`,
+                          top: `calc(50% + ${artPlacement.offsetY}%)`,
+                          width: `${creatureScale * creatureScaleX * 100}%`,
+                          height: `${creatureScale * 100}%`,
+                          transform: `translate(-50%, -50%) scaleX(${creatureDirectionX}) translateZ(0)`,
+                      }
+                    : {
+                          inset: 0,
+                          width: "100%",
+                          height: "100%",
+                          transform: `translate(${creatureOffsetX}%, ${artPlacement.offsetY}%) scale(${creatureScale}) scaleX(${artScaleX * mirrorSign})`,
+                      }),
+                zIndex: 3,
+                display: "block",
+                objectFit: creatureFit,
+                objectPosition: "center",
+                transformOrigin: "center",
+                backfaceVisibility: highQualityArt ? "hidden" : undefined,
+                ...imageStyle,
+            }}
+        />
+    );
 
     return (
         <Box
@@ -101,32 +143,16 @@ const CreaturePortraitImageBase = ({
             }}
             data-creature-portrait={creatureId}
         >
-            {portraitBackground && (
-                <Box
-                    component="img"
-                    src={portraitBackground}
-                    alt=""
-                    aria-hidden
-                    data-creature-portrait-background={creatureId}
-                    sx={{
-                        position: "absolute",
-                        inset: 0,
-                        zIndex: 0,
-                        width: "100%",
-                        height: "100%",
-                        objectFit: backgroundFit,
-                        opacity: backgroundOpacity,
-                    }}
-                />
-            )}
-            {portraitBackground && backgroundMotion && (
-                <>
+            <DecodedPortraitLayers portraitKey={portraitKey}>
+                {portraitBackground && (
                     <Box
                         component="img"
-                        src={backgroundMotion.glowSrc}
+                        src={portraitBackground}
                         alt=""
                         aria-hidden
-                        data-creature-portrait-background-motion={`${backgroundMotion.kind}-primary`}
+                        decoding="async"
+                        data-portrait-critical
+                        data-creature-portrait-background={creatureId}
                         sx={{
                             position: "absolute",
                             inset: 0,
@@ -134,101 +160,95 @@ const CreaturePortraitImageBase = ({
                             width: "100%",
                             height: "100%",
                             objectFit: backgroundFit,
-                            opacity: 0,
-                            mixBlendMode: "screen",
-                            pointerEvents: "none",
-                            animation: backgroundMotion.primaryAnimation,
-                            filter: backgroundMotion.primaryFilter,
-                            willChange: "opacity",
-                            "@media (prefers-reduced-motion: reduce)": { animation: "none", opacity: 0 },
+                            opacity: backgroundOpacity,
                         }}
                     />
+                )}
+                {portraitBackground && backgroundMotion && (
+                    <>
+                        <Box
+                            component="img"
+                            src={backgroundMotion.glowSrc}
+                            alt=""
+                            aria-hidden
+                            decoding="async"
+                            data-creature-portrait-background-motion={`${backgroundMotion.kind}-primary`}
+                            sx={{
+                                position: "absolute",
+                                inset: 0,
+                                zIndex: 0,
+                                width: "100%",
+                                height: "100%",
+                                objectFit: backgroundFit,
+                                opacity: 0,
+                                mixBlendMode: "screen",
+                                pointerEvents: "none",
+                                animation: backgroundMotion.primaryAnimation,
+                                filter: backgroundMotion.primaryFilter,
+                                willChange: "opacity",
+                                "@media (prefers-reduced-motion: reduce)": { animation: "none", opacity: 0 },
+                            }}
+                        />
+                        <Box
+                            component="img"
+                            src={backgroundMotion.glowSrc}
+                            alt=""
+                            aria-hidden
+                            decoding="async"
+                            data-creature-portrait-background-motion={`${backgroundMotion.kind}-secondary`}
+                            sx={{
+                                position: "absolute",
+                                inset: 0,
+                                zIndex: 0,
+                                width: "100%",
+                                height: "100%",
+                                objectFit: backgroundFit,
+                                opacity: 0,
+                                mixBlendMode: "screen",
+                                pointerEvents: "none",
+                                animation: backgroundMotion.secondaryAnimation,
+                                filter: backgroundMotion.secondaryFilter,
+                                willChange: "opacity",
+                                "@media (prefers-reduced-motion: reduce)": { animation: "none", opacity: 0 },
+                            }}
+                        />
+                    </>
+                )}
+                {portraitBackground && (
                     <Box
-                        component="img"
-                        src={backgroundMotion.glowSrc}
-                        alt=""
                         aria-hidden
-                        data-creature-portrait-background-motion={`${backgroundMotion.kind}-secondary`}
+                        data-creature-portrait-background-shade={creatureId}
                         sx={{
                             position: "absolute",
                             inset: 0,
-                            zIndex: 0,
-                            width: "100%",
-                            height: "100%",
-                            objectFit: backgroundFit,
-                            opacity: 0,
-                            mixBlendMode: "screen",
+                            zIndex: 1,
+                            bgcolor: `rgba(0,0,0,${backgroundShadeAlpha})`,
                             pointerEvents: "none",
-                            animation: backgroundMotion.secondaryAnimation,
-                            filter: backgroundMotion.secondaryFilter,
-                            willChange: "opacity",
-                            "@media (prefers-reduced-motion: reduce)": { animation: "none", opacity: 0 },
                         }}
                     />
-                </>
-            )}
-            {portraitBackground && (
-                <Box
-                    aria-hidden
-                    data-creature-portrait-background-shade={creatureId}
-                    sx={{
-                        position: "absolute",
-                        inset: 0,
-                        zIndex: 1,
-                        bgcolor: `rgba(0,0,0,${backgroundShadeAlpha})`,
-                        pointerEvents: "none",
-                    }}
-                />
-            )}
-            {framing.background === "soft" && (
-                <Box
-                    component="img"
-                    src={source}
-                    alt=""
-                    aria-hidden
-                    sx={{
-                        position: "absolute",
-                        inset: 0,
-                        zIndex: 2,
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                        transform: "scale(1.2)",
-                        filter: "blur(14px) brightness(.42) saturate(.78)",
-                    }}
-                />
-            )}
-            <img
-                src={creatureSource}
-                alt={alt ?? UNIT_ID_TO_NAME[creatureId] ?? `Creature ${creatureId}`}
-                decoding={decodeAsync ? "async" : highQualityArt ? "sync" : undefined}
-                fetchPriority={highQualityArt ? "high" : undefined}
-                style={{
-                    position: "absolute",
-                    ...(highQualityArt
-                        ? {
-                              inset: "auto",
-                              left: `calc(50% + ${creatureOffsetX}%)`,
-                              top: `calc(50% + ${artPlacement.offsetY}%)`,
-                              width: `${creatureScale * creatureScaleX * 100}%`,
-                              height: `${creatureScale * 100}%`,
-                              transform: `translate(-50%, -50%) scaleX(${creatureDirectionX}) translateZ(0)`,
-                          }
-                        : {
-                              inset: 0,
-                              width: "100%",
-                              height: "100%",
-                              transform: `translate(${creatureOffsetX}%, ${artPlacement.offsetY}%) scale(${creatureScale}) scaleX(${artScaleX * mirrorSign})`,
-                          }),
-                    zIndex: 3,
-                    display: "block",
-                    objectFit: creatureFit,
-                    objectPosition: "center",
-                    transformOrigin: "center",
-                    backfaceVisibility: highQualityArt ? "hidden" : undefined,
-                    ...imageStyle,
-                }}
-            />
+                )}
+                {framing.background === "soft" && (
+                    <Box
+                        component="img"
+                        src={source}
+                        alt=""
+                        aria-hidden
+                        decoding="async"
+                        data-portrait-critical
+                        sx={{
+                            position: "absolute",
+                            inset: 0,
+                            zIndex: 2,
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                            transform: "scale(1.2)",
+                            filter: "blur(14px) brightness(.42) saturate(.78)",
+                        }}
+                    />
+                )}
+                {renderArt ? renderArt(art) : art}
+            </DecodedPortraitLayers>
         </Box>
     );
 };

@@ -1,6 +1,6 @@
 import Box, { BoxProps } from "@mui/material/Box";
 import { alpha } from "@mui/material/styles";
-import { m } from "framer-motion";
+import { domAnimation, LazyMotion, m } from "framer-motion";
 import React, { useState, useEffect } from "react";
 
 import Logo from "./Logo";
@@ -32,7 +32,7 @@ export default function SplashScreen({ sx, ...other }: BoxProps) {
             }}
             {...other}
         >
-            <>
+            <LazyMotion features={domAnimation}>
                 <m.div
                     animate={{
                         scale: [1, 0.9, 0.9, 1, 1],
@@ -85,7 +85,7 @@ export default function SplashScreen({ sx, ...other }: BoxProps) {
                         border: (theme) => `solid 8px ${alpha(theme.palette.primary.dark, 0.24)}`,
                     }}
                 />
-            </>
+            </LazyMotion>
         </Box>
     );
 }

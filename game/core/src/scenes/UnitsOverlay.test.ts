@@ -1,5 +1,5 @@
-import { describe, expect, test } from "bun:test";
-import { Container, Graphics, Sprite, Texture } from "pixi.js";
+import { describe, expect, spyOn, test } from "bun:test";
+import { Assets, Container, Graphics, Sprite, Texture } from "pixi.js";
 
 import type { UnitProperties } from "@heroesofcrypto/common";
 
@@ -43,6 +43,111 @@ type OverlayInternals = {
 
 const contains = (bounds: { x: number; y: number; width: number; height: number }, x: number, y: number) =>
     x >= bounds.x && x <= bounds.x + bounds.width && y >= bounds.y && y <= bounds.y + bounds.height;
+
+type PortraitParts = {
+    sprite: Sprite;
+    portraitBase: Graphics;
+    portraitBackground?: Sprite;
+    portraitBackgroundShade?: Graphics;
+};
+
+describe("UnitChip portrait layer readiness", () => {
+    for (const first of ["art", "background"] as const) {
+        test(`reveals both layers together when ${first} loads first`, () => {
+            const chip = new UnitChip({
+                unitName: "Wolf",
+                portrait: {
+                    texture: Texture.EMPTY,
+                    backgroundTexture: Texture.EMPTY,
+                    framing: {
+                        source: "full",
+                        fit: "contain",
+                        scale: 3,
+                        offsetX: -20,
+                        offsetY: 30,
+                        background: "none",
+                    },
+                    mirrorX: true,
+                },
+            });
+            chip.layout(190, 256);
+            const parts = chip as unknown as PortraitParts;
+            expect(parts.portraitBase.visible).toBe(true);
+            expect(parts.sprite.visible).toBe(false);
+            expect(parts.portraitBackground!.visible).toBe(false);
+            expect(parts.portraitBackgroundShade!.visible).toBe(false);
+
+            if (first === "art") chip.setPortraitTexture(Texture.WHITE);
+            else chip.setPortraitTextures(Texture.EMPTY, Texture.WHITE);
+            expect(parts.sprite.visible).toBe(false);
+            expect(parts.portraitBackground!.visible).toBe(false);
+            expect(parts.portraitBackgroundShade!.visible).toBe(false);
+
+            chip.setPortraitTextures(Texture.WHITE, Texture.WHITE);
+            expect(parts.sprite.visible).toBe(true);
+            expect(parts.portraitBackground!.visible).toBe(true);
+            expect(parts.portraitBackgroundShade!.visible).toBe(true);
+            expect(parts.sprite.scale.x).toBeLessThan(0);
+            expect(Math.abs(parts.sprite.width)).toBeCloseTo(570);
+            expect(parts.sprite.x).toBeCloseTo(38);
+            expect(parts.sprite.y).toBeCloseTo(76.8);
+            chip.destroy({ children: true });
+        });
+
+        test(`keeps an initially cached ${first} hidden until its companion is ready`, () => {
+            const chip = new UnitChip({
+                unitName: "Peasant",
+                portrait: {
+                    texture: first === "art" ? Texture.WHITE : Texture.EMPTY,
+                    backgroundTexture: first === "background" ? Texture.WHITE : Texture.EMPTY,
+                    framing: { source: "full", fit: "contain", scale: 1, offsetX: 0, offsetY: 0, background: "none" },
+                },
+            });
+            const parts = chip as unknown as PortraitParts;
+            expect(parts.sprite.visible).toBe(false);
+            expect(parts.portraitBackground!.visible).toBe(false);
+            chip.setPortraitTextures(Texture.WHITE, Texture.WHITE);
+            expect(parts.sprite.visible).toBe(true);
+            expect(parts.portraitBackground!.visible).toBe(true);
+            chip.destroy({ children: true });
+        });
+    }
+
+    test("shows a ready portrait without a faction plate immediately", () => {
+        const chip = new UnitChip({
+            unitName: "Wolf",
+            portrait: {
+                texture: Texture.WHITE,
+                framing: { source: "full", fit: "contain", scale: 1, offsetX: 0, offsetY: 0, background: "none" },
+            },
+        });
+        expect((chip as unknown as PortraitParts).sprite.visible).toBe(true);
+        chip.destroy({ children: true });
+    });
+
+    test("keeps failed layers hidden and accepts a later retry, ignoring completions after destruction", () => {
+        const chip = new UnitChip({
+            unitName: "Peasant",
+            portrait: {
+                texture: Texture.EMPTY,
+                backgroundTexture: Texture.WHITE,
+                framing: { source: "full", fit: "contain", scale: 1, offsetX: 0, offsetY: 0, background: "none" },
+            },
+        });
+        const failed = new Texture({ source: Texture.WHITE.source });
+        failed.destroy();
+        const parts = chip as unknown as PortraitParts;
+        chip.setPortraitTextures(failed, Texture.WHITE);
+        expect(parts.sprite.visible).toBe(false);
+        expect(parts.portraitBackground!.visible).toBe(false);
+        chip.setPortraitTextures(Texture.WHITE, Texture.WHITE);
+        expect(parts.sprite.visible).toBe(true);
+        expect(parts.portraitBackground!.visible).toBe(true);
+        chip.destroy({ children: true });
+        expect(() => chip.setPortraitTextures(Texture.WHITE, Texture.WHITE)).not.toThrow();
+        expect(() => chip.setPortraitTexture(Texture.WHITE)).not.toThrow();
+    });
+});
 
 describe("UnitsOverlay chip visibility", () => {
     test("uses the chosen larger image-backed collapse control", () => {
@@ -267,6 +372,7 @@ describe("UnitsOverlay chip visibility", () => {
     });
 
     test("requests portraits only for the visible level and loads a new level on selection", () => {
+        const directLoads = spyOn(Assets, "load").mockRejectedValue(new Error("The scene resolver owns texture loads"));
         const requestedTextures = new Set<string>();
         const app = {
             renderer: { height: 900, width: 1600 },
@@ -277,14 +383,60 @@ describe("UnitsOverlay chip visibility", () => {
             requestedTextures.add(key);
             return Texture.EMPTY;
         });
+        try {
+            overlay.build();
+
+            expect(requestedTextures).toContain("peasant_512");
+            expect(requestedTextures).not.toContain("black_dragon_512");
+            expect(requestedTextures).not.toContain("black_dragon_portrait_full");
+            expect(directLoads).not.toHaveBeenCalled();
+
+            (overlay as unknown as OverlayInternals).setSelectedLevel(4);
+            expect(requestedTextures).toContain("black_dragon_portrait_full");
+            expect(directLoads).not.toHaveBeenCalled();
+        } finally {
+            overlay.destroy();
+            directLoads.mockRestore();
+        }
+    });
+
+    test("requests art and faction plates together and reveals a cold roster card atomically", () => {
+        let artReady = false;
+        let plateReady = false;
+        const requested = new Set<string>();
+        const app = {
+            renderer: { height: 900, width: 1600 },
+            stage: new Container(),
+            ticker: { add: () => undefined, remove: () => undefined },
+        } as unknown as ConstructorParameters<typeof UnitsOverlay>[0];
+        const overlay = new UnitsOverlay(app, (key) => {
+            requested.add(key);
+            if (key === "peasant_512") return artReady ? Texture.WHITE : undefined;
+            if (key.includes("portrait_bg_")) return plateReady ? Texture.WHITE : undefined;
+            return Texture.WHITE;
+        });
         overlay.build();
+        const internals = overlay as unknown as OverlayInternals;
+        const chip = internals.allChips.find((chip) => chip.nameKey === "Peasant")!;
+        const parts = chip as unknown as PortraitParts;
+        expect(parts.sprite.visible).toBe(false);
+        expect(parts.portraitBackground!.visible).toBe(false);
 
-        expect(requestedTextures).toContain("peasant_512");
-        expect(requestedTextures).not.toContain("black_dragon_512");
+        artReady = true;
+        overlay.refreshLazyTextures();
+        expect(parts.sprite.visible).toBe(false);
+        expect(parts.portraitBackground!.visible).toBe(false);
 
-        (overlay as unknown as OverlayInternals).setSelectedLevel(4);
-        expect(requestedTextures).toContain("black_dragon_portrait_full");
+        plateReady = true;
+        overlay.refreshLazyTextures();
+        expect(parts.sprite.visible).toBe(true);
+        expect(parts.portraitBackground!.visible).toBe(true);
 
+        plateReady = false;
+        requested.clear();
+        internals.setSelectedLevel(4);
+        expect(requested).toContain("black_dragon_portrait_full");
+        expect(requested).toContain("chaos_portrait_bg_obsidian_fissure_corner_fire_v1");
         overlay.destroy();
     });
 

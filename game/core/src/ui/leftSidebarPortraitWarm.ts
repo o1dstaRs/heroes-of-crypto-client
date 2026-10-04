@@ -47,14 +47,19 @@ const ensureSharedLayers = (): void => {
     for (const src of factionPortraitGlowSources()) void warmDecodedImage(src, { lock: true });
 };
 
-/** Decode this creature's cutout and background now. Repeating a URL joins the decode already in flight. */
-export const warmLeftSidebarPortrait = (creatureId: number): Promise<void> => {
+/** Decode the required pair now; optional layers must not delay or release the selection handoff. */
+export const warmLeftSidebarPortrait = (creatureId: number): Promise<boolean> => {
     ensureSharedLayers();
     const sources = leftSidebarPortraitSources(creatureId);
-    const jobs: Array<Promise<unknown>> = [warmDecodedImage(sources.creature), warmDecodedImage(sources.background)];
-    if (sources.atlas) jobs.push(warmAtlas(sources.atlas));
-    if (sources.glow) jobs.push(warmDecodedImage(sources.glow, { lock: true }));
-    return Promise.all(jobs).then(() => undefined);
+    if (sources.atlas) void warmAtlas(sources.atlas);
+    if (sources.glow) void warmDecodedImage(sources.glow, { lock: true });
+    return Promise.all([
+        warmDecodedImage(sources.creature),
+        sources.background ? warmDecodedImage(sources.background, { lock: true }) : Promise.resolve(true),
+    ]).then(
+        ([creatureReady, backgroundReady]) =>
+            creatureReady && backgroundReady && isLeftSidebarPortraitReady(creatureId),
+    );
 };
 
 /**

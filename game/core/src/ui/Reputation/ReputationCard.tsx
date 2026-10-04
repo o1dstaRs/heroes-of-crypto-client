@@ -3,12 +3,17 @@ import Chip from "@mui/joy/Chip";
 import Sheet from "@mui/joy/Sheet";
 import Stack from "@mui/joy/Stack";
 import Typography from "@mui/joy/Typography";
-import React, { useEffect, useState } from "react";
+import React from "react";
 
 import { reputationBandLabel, reputationBarPct, reputationLimitsText } from "./reputationModel";
-import { fetchReputation, type Reputation } from "../../api/reputation_client";
+import { fetchReputation } from "../../api/reputation_client";
 import { t, useTranslation } from "../../i18n/i18n";
 import { hocColors, hocPanelSx } from "../hocTheme";
+import { createPlayerResource } from "../PlayerPortal/playerResource";
+import { usePlayerResource } from "../PlayerPortal/usePlayerResource";
+import { PlayerPortalReputationSkeleton } from "../PlayerPortal/PlayerPortalLoading";
+
+const reputationResource = createPlayerResource(fetchReputation, () => t("Couldn't load your Reputation."));
 
 const BAND_COLORS = {
     restricted: "#ff8a7a",
@@ -25,33 +30,14 @@ const BAND_COLORS = {
  * does not send either any more, so there is nothing here to hide: what a match, an abandon or a linked wallet is
  * worth stays on the server, where knowing it cannot help anyone farm it.
  */
-export const ReputationCard: React.FC = () => {
+export const ReputationCard: React.FC<{ reloadKey?: number }> = ({ reloadKey = 0 }) => {
     // Subscribed for the language itself: every label below comes from t() and has to re-render when it changes.
     useTranslation();
-    const [reputation, setReputation] = useState<Reputation | null>(null);
-    const [failed, setFailed] = useState(false);
+    const { data: reputation, error } = usePlayerResource(reputationResource, reloadKey);
 
-    useEffect(() => {
-        let cancelled = false;
-        fetchReputation()
-            .then((next) => {
-                if (!cancelled) {
-                    setReputation(next);
-                }
-            })
-            .catch(() => {
-                if (!cancelled) {
-                    setFailed(true);
-                }
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, []);
-
-    if (failed) {
+    if (error && !reputation) {
         return (
-            <Sheet variant="outlined" sx={{ ...hocPanelSx, p: 2 }}>
+            <Sheet variant="outlined" sx={{ ...hocPanelSx, p: 2, minHeight: 142 }}>
                 <Typography level="body-sm" textColor={hocColors.muted}>
                     {t("Couldn't load your Reputation.")}
                 </Typography>
@@ -59,7 +45,7 @@ export const ReputationCard: React.FC = () => {
         );
     }
     if (!reputation) {
-        return null;
+        return <PlayerPortalReputationSkeleton />;
     }
 
     const { rules } = reputation;
@@ -67,7 +53,7 @@ export const ReputationCard: React.FC = () => {
     const bandColor = BAND_COLORS[reputation.band];
 
     return (
-        <Sheet variant="outlined" sx={{ ...hocPanelSx, p: 2 }} data-testid="reputation-card">
+        <Sheet variant="outlined" sx={{ ...hocPanelSx, p: 2, minHeight: 142 }} data-testid="reputation-card">
             <Stack spacing={1.5}>
                 <Stack direction="row" spacing={1.25} alignItems="baseline" sx={{ flexWrap: "wrap" }}>
                     <Typography level="title-lg" sx={{ color: hocColors.parchment }}>

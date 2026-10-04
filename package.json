@@ -39,7 +39,7 @@
         "check:images": "bun scripts/check_image_asset_locations.ts",
         "check:test-skips": "bun scripts/check_test_skips.ts",
         "lint": "bun run lint:es && bun run lint:scss && bun run lint:package && bun run lint:style",
-        "lint:es": "bunx eslint \"game/**/src/**/*.{ts,tsx}\" --ignore-pattern .prettierignore",
+        "lint:es": "cross-env NODE_OPTIONS=--max-old-space-size=8192 bunx eslint \"game/**/src/**/*.{ts,tsx}\" --ignore-pattern .prettierignore",
         "lint:es:fix": "bun run lint:es -- --fix",
         "lint:fix": "bun run lint:es:fix && bun run lint:scss:fix && bun run lint:package:fix && bun run lint:style:fix",
         "lint:package": "bun run lint:package:fix -- --check",
@@ -61,7 +61,7 @@
     },
     "lint-staged": {
         "game/**/src/**/*.{ts,tsx}": [
-            "bunx eslint --fix --ignore-pattern .prettierignore",
+            "bunx cross-env NODE_OPTIONS=--max-old-space-size=8192 eslint --fix --ignore-pattern .prettierignore",
             "bunx prettier --write"
         ],
         "game/**/src/**/*.scss": [
@@ -84,7 +84,7 @@
         "esbuild": "^0.28.1",
         "react": "19.3.0",
         "react-dom": "19.3.0",
-        "typescript": "^5.9",
+        "typescript": "6.0.3",
         "uuid": "^11.1.1",
         "ws": "8.21.0"
     },
@@ -103,17 +103,17 @@
         "eslint-plugin-react-hooks": "^7.1.1",
         "events": "^3.3.0",
         "globals": "^17.7.0",
-        "lint-staged": "^17.0.8",
-        "postcss": "^8.5.15",
+        "lint-staged": "17.3.0",
+        "postcss": "8.5.16",
         "postcss-scss": "^4.0.9",
-        "prettier": "3.9.1",
+        "prettier": "3.9.6",
         "process": "^0.11.10",
         "rimraf": "^6.1.3",
-        "sort-package-json": "^3.7.1",
+        "sort-package-json": "4.0.0",
         "stylelint": "^17.13.0",
         "stylelint-scss": "7.3.0",
         "svgo": "^4.0.2",
-        "typescript": "^5.9.3",
+        "typescript": "6.0.3",
         "vite": "^8.0.16"
     },
     "packageManager": "bun@^1.4.2",

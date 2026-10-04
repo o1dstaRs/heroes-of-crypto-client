@@ -1,4 +1,4 @@
-import { Box, Button, CircularProgress, Sheet, Stack, Typography } from "@mui/joy";
+import { Box, Button, Sheet, Skeleton, Stack, Typography } from "@mui/joy";
 import { Artifact } from "@heroesofcrypto/common";
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
@@ -18,40 +18,18 @@ import { useRankedSeason } from "../useRankedSeason";
 import { MatchHistory } from "./MatchHistory";
 import { matchReplayPath, normalizeMatchSetup } from "./matchHistoryModel";
 import { CreatureIcon, creatureName, timeAgo, winRateColor, winRatePct } from "./portalFormat";
-import { CalibrationProgress, standingEmblem } from "./CalibrationProgress";
-import { LeagueEmblem } from "./LeagueEmblem";
+import { CalibrationProgress } from "./CalibrationProgress";
+import { PortalAvatar } from "./PortalAvatar";
+import {
+    PlayerPortalContentSkeleton,
+    PlayerPortalFrame,
+    portalHeaderSx,
+    portalRevealSx,
+    portalScrollSx,
+} from "./PlayerPortalLoading";
 import { usePlayerPortal } from "./usePlayerPortal";
 import { useRankedStanding } from "./useRankedStanding";
 import { ReputationCard } from "../Reputation/ReputationCard";
-
-const profileBackgroundUrl = new URL("../../../images/background_dark.webp", import.meta.url).toString();
-const logoUrl = new URL("../../../images/logo_hoc.webp", import.meta.url).toString();
-const portalScrollSx = {
-    scrollbarWidth: "thin",
-    scrollbarColor: "rgba(220,177,88,0.68) rgba(7,5,4,0.72)",
-    "&::-webkit-scrollbar": {
-        width: "8px",
-        height: "8px",
-    },
-    "&::-webkit-scrollbar-track": {
-        borderRadius: "999px",
-        background: "rgba(7,5,4,0.72)",
-    },
-    "&::-webkit-scrollbar-thumb": {
-        border: "2px solid rgba(7,5,4,0.9)",
-        borderRadius: "999px",
-        background: "rgba(220,177,88,0.68)",
-    },
-    "&::-webkit-scrollbar-thumb:hover": {
-        background: "rgba(239,212,154,0.84)",
-    },
-    "&::-webkit-scrollbar-corner": {
-        background: "transparent",
-    },
-    "@media (forced-colors: active)": {
-        scrollbarColor: "auto",
-    },
-} as const;
 
 const nestedPortalScrollSx = {
     ...portalScrollSx,
@@ -491,9 +469,9 @@ export const PlayerPortalPage: React.FC = () => {
     const navigate = useNavigate();
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [exiting, setExiting] = useState(false);
-    const { logout } = useAuthContext();
-    const { data, loading, error, reload } = usePlayerPortal();
-    const standing = useRankedStanding(data?.total_games_played ?? 0);
+    const { logout, user } = useAuthContext();
+    const { data, loading, error, reload, reloadKey } = usePlayerPortal();
+    const standing = useRankedStanding(`${reloadKey}:${data?.total_games_played ?? 0}`);
     const { t, language } = useTranslation();
     const { currency, seasons } = useRankedSeason();
     // Reload this route rather than navigating in place: a full load re-runs the auth bootstrap, so no
@@ -593,40 +571,12 @@ export const PlayerPortalPage: React.FC = () => {
     const overallPct = data ? winRatePct(data.wins ?? 0, data.total_games_played ?? 0) : 0;
 
     return (
-        <Box
-            sx={{
-                position: "fixed",
-                inset: 0,
-                bgcolor: hocColors.black,
-                overflowY: "auto",
-                overflowX: "hidden",
-                ...portalScrollSx,
-                px: { xs: 1.5, md: 3 },
-                py: { xs: 1.5, md: 2.5 },
-                backgroundImage: `linear-gradient(112deg, rgba(7,5,4,0.97), rgba(7,5,4,0.89) 52%, rgba(7,5,4,0.96)), url(${profileBackgroundUrl})`,
-                backgroundPosition: "center top",
-                backgroundSize: "cover",
-                backgroundAttachment: "fixed",
-            }}
-        >
+        <PlayerPortalFrame busy={loading && !data}>
             {import.meta.env.DEV && (
                 <LeagueTransitionReveal active={false} enabled={false} gameId="portal-league-reveal-preview" />
             )}
             <Box sx={{ maxWidth: 1480, mx: "auto" }}>
-                <Sheet
-                    component="header"
-                    variant="outlined"
-                    sx={{
-                        mb: 2,
-                        p: { xs: 1.5, sm: 2 },
-                        borderRadius: "18px",
-                        ...hocPanelSx,
-                        bgcolor: "rgba(9,6,4,0.85)",
-                        borderColor: "rgba(255,143,0,0.25)",
-                        boxShadow: "0 18px 48px rgba(0,0,0,0.42)",
-                        backdropFilter: "blur(16px)",
-                    }}
-                >
+                <Sheet component="header" variant="outlined" sx={portalHeaderSx}>
                     <Stack
                         direction={{ xs: "column", sm: "row" }}
                         alignItems={{ xs: "stretch", sm: "center" }}
@@ -635,33 +585,14 @@ export const PlayerPortalPage: React.FC = () => {
                         sx={{ minWidth: 0 }}
                     >
                         <Stack direction="row" spacing={1.35} alignItems="center" sx={{ minWidth: 0 }}>
-                            {/* The player's own crest IS the avatar here. It used to sit in a second
-                                card directly underneath, which left this one a generic logo and a mostly
-                                empty bar. The logo stays as the fallback while the standing call is in
-                                flight, or if it failed — that call never blocks this page. */}
-                            {standing ? (
-                                <LeagueEmblem {...standingEmblem(standing)} size={{ xs: 84, sm: 96 }} />
-                            ) : (
-                                <Box
-                                    component="img"
-                                    src={logoUrl}
-                                    alt="Heroes of Crypto"
-                                    sx={{
-                                        width: { xs: 84, sm: 96 },
-                                        height: { xs: 84, sm: 96 },
-                                        flexShrink: 0,
-                                        objectFit: "contain",
-                                        filter: "drop-shadow(0 0 10px #ff8f0055)",
-                                    }}
-                                />
-                            )}
+                            <PortalAvatar standing={standing} />
                             <Box sx={{ minWidth: 0 }}>
                                 <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: "wrap" }}>
                                     <Typography
                                         level="h2"
                                         sx={{ color: hocColors.parchment, overflowWrap: "anywhere", lineHeight: 1.05 }}
                                     >
-                                        {data?.username || t("Player Profile")}
+                                        {data?.username || user?.username || t("Player Profile")}
                                     </Typography>
                                     {data ? (
                                         <Sheet
@@ -686,12 +617,30 @@ export const PlayerPortalPage: React.FC = () => {
                                                 {currency.symbol}
                                             </Typography>
                                         </Sheet>
-                                    ) : null}
+                                    ) : (
+                                        <Skeleton
+                                            variant="rectangular"
+                                            width={75}
+                                            height={25}
+                                            animation={false}
+                                            sx={{ borderRadius: "999px" }}
+                                        />
+                                    )}
                                 </Stack>
                                 {/* Ladder standing under the name: while calibrating, "3 / 5 placement
                                     matches" is the headline number — the lifetime totals further down
                                     are not the ranked story yet. */}
-                                {standing && <CalibrationProgress standing={standing} />}
+                                {standing ? (
+                                    <CalibrationProgress standing={standing} />
+                                ) : (
+                                    <Skeleton
+                                        variant="rectangular"
+                                        width={160}
+                                        height={16}
+                                        animation={false}
+                                        sx={{ mt: 0.3 }}
+                                    />
+                                )}
                                 {data?.last_login ? (
                                     <Typography level="body-sm" textColor={hocColors.muted} sx={{ mt: 0.3 }}>
                                         {tf("last seen {when}", { when: timeAgo(data.last_login) })}
@@ -756,20 +705,15 @@ export const PlayerPortalPage: React.FC = () => {
 
                 <PlayerSettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
-                {loading && (
-                    <Stack direction="row" spacing={1.5} alignItems="center" sx={{ py: 6, justifyContent: "center" }}>
-                        <CircularProgress />
-                        <Typography textColor={hocColors.muted}>{t("Loading your profile…")}</Typography>
-                    </Stack>
-                )}
+                {loading && !data && <PlayerPortalContentSkeleton />}
                 {!loading && error && (
-                    <Sheet variant="outlined" sx={{ p: 2, ...hocPanelSx }}>
+                    <Sheet variant="outlined" sx={{ p: 2, mb: 2, ...hocPanelSx }}>
                         <Typography textColor={hocColors.danger}>{error}</Typography>
                     </Sheet>
                 )}
 
-                {!loading && !error && data && (
-                    <Stack spacing={2}>
+                {data && (
+                    <Stack spacing={2} sx={portalRevealSx}>
                         {/* Overview */}
                         <Box
                             sx={{
@@ -788,7 +732,7 @@ export const PlayerPortalPage: React.FC = () => {
                             <StatCard label={t("Games")} value={data.total_games_played ?? 0} />
                         </Box>
 
-                        <ReputationCard />
+                        <ReputationCard reloadKey={reloadKey} />
 
                         {/* The public profile's strategy-card language, consolidated into one panel so
                             line-ups, winning trios and duos read as one family rather than three widgets. */}
@@ -937,6 +881,6 @@ export const PlayerPortalPage: React.FC = () => {
                     </Stack>
                 )}
             </Box>
-        </Box>
+        </PlayerPortalFrame>
     );
 };

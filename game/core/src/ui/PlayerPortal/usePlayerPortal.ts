@@ -1,59 +1,28 @@
 import { type ResponsePlayerPortalObject } from "@heroesofcrypto/common";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 import { fetchPlayerPortal } from "../../api/player_portal_client";
 import { t } from "../../i18n/i18n";
 import { buildMockPortal, isMockPortalEnabled } from "./mockPortal";
+import { createPlayerResource } from "./playerResource";
+import { usePlayerResource } from "./usePlayerResource";
 
 export interface PlayerPortalState {
     data: ResponsePlayerPortalObject | null;
     loading: boolean;
     error: string;
     reload: () => void;
+    reloadKey: number;
 }
 
-/** Loads the authenticated player's portal payload, with loading/error state and a manual reload. */
+const portalResource = createPlayerResource(
+    async () => (isMockPortalEnabled() ? buildMockPortal() : fetchPlayerPortal()),
+    () => t("Unable to load profile"),
+);
+
+/** Reuse the arena's profile immediately, then refresh its match history in the background. */
 export const usePlayerPortal = (): PlayerPortalState => {
-    const [data, setData] = useState<ResponsePlayerPortalObject | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
-    const [nonce, setNonce] = useState(0);
-
-    const reload = useCallback(() => setNonce((n) => n + 1), []);
-
-    useEffect(() => {
-        let cancelled = false;
-        setLoading(true);
-        setError("");
-        // Dev preview: short-circuit with fake data so the dashboard can be viewed without real matches.
-        if (isMockPortalEnabled()) {
-            setData(buildMockPortal());
-            setLoading(false);
-            return () => {
-                cancelled = true;
-            };
-        }
-        fetchPlayerPortal()
-            .then((payload) => {
-                if (!cancelled) {
-                    setData(payload);
-                }
-            })
-            .catch((err: unknown) => {
-                if (!cancelled) {
-                    // Server/network messages arrive already worded; only our own fallback is localizable.
-                    setError((err as Error)?.message ?? t("Unable to load profile"));
-                }
-            })
-            .finally(() => {
-                if (!cancelled) {
-                    setLoading(false);
-                }
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, [nonce]);
-
-    return { data, loading, error, reload };
+    const [reloadKey, setReloadKey] = useState(0);
+    const reload = useCallback(() => setReloadKey((key) => key + 1), []);
+    return { ...usePlayerResource(portalResource, reloadKey), reload, reloadKey };
 };

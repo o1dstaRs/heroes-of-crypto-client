@@ -1,7 +1,6 @@
 // game/core/src/overlays/UnitsOverlay.ts
 import {
     Application,
-    Assets,
     Container,
     Rectangle,
     Text,
@@ -782,20 +781,6 @@ export class UnitsOverlay {
                                   }
                                 : undefined,
                     });
-                    // Registered portraits already load through the scene's board-first queue.
-                    // Directly loading them here also fetches every hidden level and bypasses that priority.
-                    if (loadPortraitNow && portraitVisual && !portraitTexture && !portraitTextureKey) {
-                        void Assets.load<Texture>(portraitVisual.source)
-                            .then((texture) => chip.setPortraitTexture(texture))
-                            .catch((error: unknown) => {
-                                if (process.env.NODE_ENV === "development") {
-                                    console.warn(
-                                        `[portrait] Failed to load deferred roster portrait for ${unitName}`,
-                                        error,
-                                    );
-                                }
-                            });
-                    }
                     chip.setTicker(this.app.ticker);
                     bucketCont.addChild(chip);
                     this.allChips.push(chip);
@@ -831,10 +816,9 @@ export class UnitsOverlay {
 
             const textureKey = IMAGE_URL_TO_KEY.get(visual.source);
             const texture = textureKey ? this.getTex(textureKey) : undefined;
-            if (!texture) continue;
             const backgroundKey = visual.background ? IMAGE_URL_TO_KEY.get(visual.background) : undefined;
             const backgroundTexture = backgroundKey ? this.getTex(backgroundKey) : undefined;
-            chip.setPortraitTextures(texture, backgroundTexture);
+            chip.setPortraitTextures(texture ?? Texture.EMPTY, backgroundTexture);
         }
     }
     private refreshToggleTexture(): void {
