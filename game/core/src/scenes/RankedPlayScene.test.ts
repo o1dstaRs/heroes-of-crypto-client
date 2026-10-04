@@ -27,6 +27,7 @@ import type { AuthoritativeGameSnapshot, AuthoritativeUnitState } from "../game_
 import { PlayTransientCellKind } from "../api/play_protocol";
 import {
     authoritativeSnapshotToSandboxSceneState,
+    canMoveRankedArtifactBarrel,
     planScatteredMountainSync,
     applyRankedUnitMechanicalEffects,
     applyRankedUnitSnapshotStats,
@@ -95,6 +96,25 @@ const placementSnapshot = (units: AuthoritativeUnitState[]): AuthoritativeGameSn
     centerDried: false,
     units,
     upNext: [],
+});
+
+describe("ranked barrel placement permissions", () => {
+    test("allows only the viewer's editable board placement, including legacy placement", () => {
+        const snapshot = placementSnapshot([]);
+        expect(canMoveRankedArtifactBarrel(snapshot, TeamVals.LEFT)).toBe(true);
+        expect(canMoveRankedArtifactBarrel(snapshot, TeamVals.RIGHT)).toBe(false);
+        expect(canMoveRankedArtifactBarrel({ ...snapshot, viewerTeam: undefined }, TeamVals.LEFT)).toBe(false);
+        expect(canMoveRankedArtifactBarrel({ ...snapshot, viewerPlacementReady: true }, TeamVals.LEFT)).toBe(false);
+        expect(
+            canMoveRankedArtifactBarrel({ ...snapshot, placementSplit: true, placementStage: 0 }, TeamVals.LEFT),
+        ).toBe(false);
+        expect(
+            canMoveRankedArtifactBarrel({ ...snapshot, placementSplit: true, placementStage: 1 }, TeamVals.LEFT),
+        ).toBe(true);
+        expect(canMoveRankedArtifactBarrel({ ...snapshot, phase: 2 }, TeamVals.LEFT)).toBe(false);
+        expect(canMoveRankedArtifactBarrel({ ...snapshot, fightStarted: true }, TeamVals.LEFT)).toBe(false);
+        expect(canMoveRankedArtifactBarrel({ ...snapshot, fightFinished: true }, TeamVals.LEFT)).toBe(false);
+    });
 });
 
 describe("ranked smoke hydration", () => {

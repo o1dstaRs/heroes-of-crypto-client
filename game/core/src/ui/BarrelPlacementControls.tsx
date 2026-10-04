@@ -33,8 +33,8 @@ export default function BarrelPlacementControls({ team, barrels, disabled = fals
     const positions = barrels ?? localBarrels;
     const positionKey = positions.map((barrel) => `${barrel.index}:${barrel.cell.x}:${barrel.cell.y}`).join(";");
     useEffect(() => {
-        setPlacing(undefined);
-    }, [positionKey]);
+        setPlacing(manager.GetBarrelPlacementIndex(team));
+    }, [positionKey, manager, team]);
     useEffect(() => {
         if (disabled) {
             manager.CancelBarrelPlacement();
@@ -103,7 +103,7 @@ export default function BarrelPlacementControls({ team, barrels, disabled = fals
             ) : (
                 !disabled && (
                     <Typography level="body-xs">
-                        One hit destroys a barrel. Unplaced barrels are placed automatically when you are ready.
+                        Drag a white-outlined barrel, or click it and choose an empty cell. One hit destroys it.
                     </Typography>
                 )
             )}

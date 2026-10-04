@@ -78,6 +78,7 @@ import {
     FightProperties,
     GameAction,
     GameActionEngine,
+    autoPlaceArtifactBarrels,
     reconcileArtifactBarrels,
     TurnEngine,
     GameEvent,
@@ -862,6 +863,7 @@ export function getAttackFinalImpactDelayMs(hitCount: number): number {
 
 /** See Sandbox.capturePlacementSelection. */
 export interface IPlacementSelectionCapture {
+    barrelPlacement?: { team: TeamType; index: number; pointerOrigin?: HoCMath.XY; pointerMoved: boolean };
     selectedBoardUnitId?: string;
     draggingUnitId?: string;
     placementDragPointerOrigin?: HoCMath.XY;
@@ -1214,6 +1216,17 @@ export class Sandbox extends PixiScene {
             texAny: (n) => this.texAny(n),
             attachToWorldRoot: (o, z) => this.attachToWorldRoot(o, z ?? 0),
             attachToUnitDepthRoot: (o, z) => this.attachToUnitDepthRoot(o, z ?? 0),
+            getMovableArtifactBarrelCells: () =>
+                this.grid
+                    .getArtifactBarrels()
+                    .filter((barrel) => this.canMoveArtifactBarrel(barrel.team))
+                    .map((barrel) => barrel.cell),
+            getArtifactBarrelVariant: (cell) => {
+                const barrel = this.grid
+                    .getArtifactBarrels()
+                    .find((entry) => entry.cell.x === cell.x && entry.cell.y === cell.y);
+                return barrel ? (barrel.team === TeamVals.LEFT ? 0 : 2) + barrel.index : undefined;
+            },
         });
 
         // The grid type is already decided by now (the scene may open ON the mountain board without anyone
@@ -1355,6 +1368,7 @@ export class Sandbox extends PixiScene {
             (name) => this.texAny(name),
             (props) => {
                 if (props) {
+                    this.cancelBarrelPlacement();
                     this.selectionFromOverlay = true;
                     this.hasActiveSelection = true;
                     this.placementDragPointerOrigin = undefined;
@@ -1801,6 +1815,8 @@ export class Sandbox extends PixiScene {
             return false;
         }
 
+        this.cancelBarrelPlacement();
+
         const alreadySelected =
             this.selectedBoardUnit?.getId() === unit.getId() &&
             this.draggingUnitId === unit.getId() &&
@@ -1833,6 +1849,13 @@ export class Sandbox extends PixiScene {
      */
     protected capturePlacementSelection(): IPlacementSelectionCapture {
         return {
+            barrelPlacement: this.pendingBarrelPlacement
+                ? {
+                      ...this.pendingBarrelPlacement,
+                      pointerOrigin: this.barrelDragPointerOrigin ? { ...this.barrelDragPointerOrigin } : undefined,
+                      pointerMoved: this.barrelDragPointerMoved,
+                  }
+                : undefined,
             selectedBoardUnitId: this.selectedBoardUnit?.getId(),
             draggingUnitId: this.draggingUnitId,
             placementDragPointerOrigin: this.placementDragPointerOrigin
@@ -1847,6 +1870,15 @@ export class Sandbox extends PixiScene {
         };
     }
     protected restorePlacementSelection(capture: IPlacementSelectionCapture): void {
+        if (
+            capture.barrelPlacement &&
+            this.beginBarrelPlacement(capture.barrelPlacement.team, capture.barrelPlacement.index)
+        ) {
+            this.barrelDragPointerOrigin = capture.barrelPlacement.pointerOrigin;
+            this.barrelDragPointerMoved = capture.barrelPlacement.pointerMoved;
+            this.updateBarrelPlacementPreview();
+            return;
+        }
         if (!capture.hasActiveSelection || FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
             return;
         }
@@ -2626,6 +2658,15 @@ export class Sandbox extends PixiScene {
     protected canSelectUnitForPlacement(_unit: Unit): boolean {
         return true;
     }
+    protected canMoveArtifactBarrel(team: TeamType): boolean {
+        const fp = FightStateManager.getInstance().getFightProperties();
+        return (
+            !fp.hasFightStarted() &&
+            !fp.hasFightFinished() &&
+            !this.fightReplayPlaybackActive &&
+            fp.hasArtifactTier1(team, Artifact.Tier1Artifact.BARREL_BARRICADE)
+        );
+    }
     protected ensureCenterTerrainSprite(): void {
         this.dungeonVisuals.ensureCenterTerrainSprite();
     }
@@ -2980,6 +3021,7 @@ export class Sandbox extends PixiScene {
         // emptied the smoke/vine/fire-wall stores. Stamped BEFORE the units below occupy their cells, so
         // the rebuilt board is carved first and populated second, exactly like a fresh one.
         this.grid.restoreArtifactBarrels(snapshot.artifactBarrels ?? []);
+        this.cancelBarrelPlacement();
         this.applySceneStateScatteredMountains(snapshot.scatteredMountains);
         Sandbox.applySceneStateTerrainCells(fightProps, snapshot.terrainCells);
         if (snapshot.stepsMoraleMultiplier !== undefined) {
@@ -7099,6 +7141,7 @@ export class Sandbox extends PixiScene {
         }
         if (augmented) {
             reconcileArtifactBarrels(this.grid, fp, teamType, (cell) => this.isBarrelCellAllowed(teamType, cell));
+            this.placeMissingArtifactBarrels(teamType);
             this.syncArtifactBarrelVisuals();
             this.refreshAfterLoadoutChange();
         }
@@ -7111,25 +7154,25 @@ export class Sandbox extends PixiScene {
                 .has((cell.x << 4) | cell.y),
         );
     }
-    public override beginBarrelPlacement(team: TeamType, index: number): boolean {
+    private placeMissingArtifactBarrels(team: TeamType): void {
         const fp = FightStateManager.getInstance().getFightProperties();
-        if (
-            fp.hasFightStarted() ||
-            fp.hasFightFinished() ||
-            !fp.hasArtifactTier1(team, Artifact.Tier1Artifact.BARREL_BARRICADE) ||
-            !Number.isInteger(index) ||
-            index < 0 ||
-            index >= 2
-        )
-            return false;
+        const cells = [0, 1].flatMap((index) => this.getPlacement(team, index)?.possibleCellPositions() ?? []);
+        autoPlaceArtifactBarrels(this.grid, fp, team, cells);
+    }
+    public override beginBarrelPlacement(team: TeamType, index: number): boolean {
+        if (!this.canMoveArtifactBarrel(team) || !Number.isInteger(index) || index < 0 || index >= 2) return false;
         this.Deselect();
         this.pendingBarrelPlacement = { team, index };
+        this.hoverManager.clear();
         this.sc_visibleStateUpdateNeeded = true;
         return true;
     }
     public override cancelBarrelPlacement(): void {
         if (!this.pendingBarrelPlacement) return;
         this.pendingBarrelPlacement = undefined;
+        this.barrelDragPointerOrigin = undefined;
+        this.barrelDragPointerMoved = false;
+        this.dungeonVisuals?.clearBarrelPlacementPreview();
         this.drawHoverCells();
         this.sc_visibleStateUpdateNeeded = true;
     }
@@ -7140,10 +7183,62 @@ export class Sandbox extends PixiScene {
         return this.grid.getArtifactBarrels(team);
     }
     public override removePlacedBarrel(team: TeamType, index: number): boolean {
+        if (!this.canMoveArtifactBarrel(team)) return false;
         this.cancelBarrelPlacement();
         const result = this.createActionEngine().apply({ type: "unplace_barrel", team, barrelIndex: index });
         if (result.completed) this.applyTurnEngineEvents(result.events, this.snapshotRenderableUnits());
         return result.completed;
+    }
+    private updateBarrelPlacementPreview(): void {
+        const selection = this.pendingBarrelPlacement;
+        if (!selection) return;
+        if (!this.canMoveArtifactBarrel(selection.team)) {
+            this.cancelBarrelPlacement();
+            return;
+        }
+        const own = this.grid.getArtifactBarrels(selection.team).find((barrel) => barrel.index === selection.index);
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const position =
+            this.barrelDragPointerOrigin && !this.barrelDragPointerMoved && own
+                ? GridMath.getPositionForCell(own.cell, gs.getMinX(), gs.getStep(), gs.getHalfStep())
+                : this.sc_mouseWorld;
+        const cell = GridMath.getCellForPosition(gs, position);
+        const valid =
+            GridMath.isCellWithinGrid(gs, cell) &&
+            this.isBarrelCellAllowed(selection.team, cell) &&
+            (this.grid.areAllCellsEmpty([cell]) || (own?.cell.x === cell.x && own.cell.y === cell.y));
+        this.drawHoverCells([cell], !valid);
+        this.dungeonVisuals?.previewBarrelPlacement(own?.cell, cell, valid);
+    }
+    private commitBarrelPlacement(): void {
+        const selection = this.pendingBarrelPlacement;
+        if (!selection) return;
+        if (!this.canMoveArtifactBarrel(selection.team)) {
+            this.cancelBarrelPlacement();
+            return;
+        }
+        const cell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), this.sc_mouseWorld);
+        if (
+            !GridMath.isCellWithinGrid(this.sc_sceneSettings.getGridSettings(), cell) ||
+            !this.isBarrelCellAllowed(selection.team, cell)
+        )
+            return;
+        const own = this.grid.getArtifactBarrels(selection.team).find((barrel) => barrel.index === selection.index);
+        if (own?.cell.x === cell.x && own.cell.y === cell.y) {
+            this.cancelBarrelPlacement();
+            return;
+        }
+        if (!this.grid.areAllCellsEmpty([cell])) return;
+        const result = this.createActionEngine().apply({
+            type: "place_barrel",
+            team: selection.team,
+            barrelIndex: selection.index,
+            cell,
+        });
+        if (result.completed) {
+            this.cancelBarrelPlacement();
+            this.applyTurnEngineEvents(result.events, this.snapshotRenderableUnits());
+        }
     }
     private syncArtifactBarrelVisuals(): void {
         const previous = this.dungeonVisuals?.getScatteredMountains() ?? [];
@@ -7164,6 +7259,7 @@ export class Sandbox extends PixiScene {
         const applied = fp.setArtifactPerTeam(teamType, tier, artifactId);
         if (applied) {
             reconcileArtifactBarrels(this.grid, fp, teamType, (cell) => this.isBarrelCellAllowed(teamType, cell));
+            this.placeMissingArtifactBarrels(teamType);
             this.cancelBarrelPlacement();
             this.syncArtifactBarrelVisuals();
             this.refreshAfterLoadoutChange();
@@ -8294,19 +8390,33 @@ export class Sandbox extends PixiScene {
         p = logicalPoint;
 
         const fightProps = FightStateManager.getInstance().getFightProperties();
-        if (this.pendingBarrelPlacement) {
-            if (fightProps.hasFightStarted()) {
-                this.cancelBarrelPlacement();
+        if (!fightProps.hasFightStarted()) {
+            const cell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), p);
+            const barrel = this.grid
+                .getArtifactBarrels()
+                .find((entry) => entry.cell.x === cell.x && entry.cell.y === cell.y);
+            const selectedBarrel = this.pendingBarrelPlacement;
+            if (
+                barrel &&
+                (!selectedBarrel || barrel.team !== selectedBarrel.team || barrel.index !== selectedBarrel.index) &&
+                this.beginBarrelPlacement(barrel.team, barrel.index)
+            ) {
+                this.barrelDragPointerOrigin = { ...p };
+                this.barrelDragPointerMoved = false;
+                this.updateBarrelPlacementPreview();
                 return;
             }
-            const { team, index } = this.pendingBarrelPlacement;
+        }
+        if (this.pendingBarrelPlacement) {
             const cell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), p);
-            const result = this.createActionEngine().apply({ type: "place_barrel", team, barrelIndex: index, cell });
-            if (result.completed) {
+            const clickedId = this.grid.getOccupantUnitId(cell);
+            const clickedUnit = clickedId ? this.unitsHolder.getAllUnits().get(clickedId) : undefined;
+            if (clickedUnit && this.canSelectUnitForPlacement(clickedUnit)) {
                 this.cancelBarrelPlacement();
-                this.applyTurnEngineEvents(result.events, this.snapshotRenderableUnits());
+            } else {
+                this.commitBarrelPlacement();
+                return;
             }
-            return;
         }
         if (!fightProps.hasFightStarted() && this.handleCreatureAnimationLabBoardClick(p)) {
             return;
@@ -13968,6 +14078,10 @@ export class Sandbox extends PixiScene {
         return this.isActiveUnitMoving || this.sc_isAnimating || this.moveAnimManager.isMoving();
     }
     protected override hover(): void {
+        if (this.pendingBarrelPlacement) {
+            this.updateBarrelPlacementPreview();
+            return;
+        }
         const fightProps = FightStateManager.getInstance().getFightProperties();
 
         const boardInputLockedByAI = this.isBoardInputLockedByAI();
@@ -15814,15 +15928,12 @@ export class Sandbox extends PixiScene {
         p = this.getLogicalBattlefieldPoint(p);
         if (this.pendingBarrelPlacement) {
             this.sc_mouseWorld = p;
-            const cell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), p);
-            const own = this.grid
-                .getArtifactBarrels(this.pendingBarrelPlacement.team)
-                .find((barrel) => barrel.index === this.pendingBarrelPlacement!.index);
-            const valid =
-                GridMath.isCellWithinGrid(this.sc_sceneSettings.getGridSettings(), cell) &&
-                this.isBarrelCellAllowed(this.pendingBarrelPlacement.team, cell) &&
-                (this.grid.areAllCellsEmpty([cell]) || (own?.cell.x === cell.x && own.cell.y === cell.y));
-            this.drawHoverCells([cell], !valid);
+            if (this.barrelDragPointerOrigin && !this.barrelDragPointerMoved) {
+                const dx = p.x - this.barrelDragPointerOrigin.x;
+                const dy = p.y - this.barrelDragPointerOrigin.y;
+                this.barrelDragPointerMoved = dx * dx + dy * dy >= 1;
+            }
+            this.updateBarrelPlacementPreview();
             return;
         }
         if (this.placementDragPointerOrigin && !this.placementDragPointerMoved) {
@@ -15922,6 +16033,13 @@ export class Sandbox extends PixiScene {
         this.cancelPlacementSplit();
     }
     public override MouseUp(): void {
+        if (this.pendingBarrelPlacement) {
+            if (this.barrelDragPointerOrigin && this.barrelDragPointerMoved) this.commitBarrelPlacement();
+            this.barrelDragPointerOrigin = undefined;
+            this.barrelDragPointerMoved = false;
+            super.MouseUp();
+            return;
+        }
         // Shift+press splits commit on release; in-hand (click-committed) splits wait for the next click.
         if (this.splitDragActive && !this.splitCommitOnClick) {
             this.finishPlacementSplit();
@@ -17430,6 +17548,8 @@ export class Sandbox extends PixiScene {
         return new TurnEngine(context);
     }
     private pendingBarrelPlacement?: { team: TeamType; index: number };
+    private barrelDragPointerOrigin?: HoCMath.XY;
+    private barrelDragPointerMoved = false;
     protected createActionEngine(): SceneActionEngine {
         const context = {
             fightProperties: FightStateManager.getInstance().getFightProperties(),

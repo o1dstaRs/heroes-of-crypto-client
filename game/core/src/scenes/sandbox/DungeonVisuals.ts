@@ -84,6 +84,8 @@ export interface IDungeonVisualsContext {
     attachToWorldRoot(obj: Container, zIndex?: number): void;
     /** Shared depth-sorted parent used by live creatures and tall battlefield obstacles. */
     attachToUnitDepthRoot?(obj: Container, zIndex?: number): void;
+    getMovableArtifactBarrelCells?(): readonly HoCMath.XY[];
+    getArtifactBarrelVariant?(cell: HoCMath.XY): number | undefined;
 }
 
 /** A single-cell mountain: where it stands and which of the pool's variants it is drawn with. */
@@ -894,6 +896,9 @@ export class DungeonVisuals {
     private scatteredMountainShadows: Sprite[] = [];
     /** Red alpha-silhouette rings per stone, exposed only while that stone is targeted. */
     private scatteredMountainOutlines: Container[] = [];
+    private barrelPlacementOutlines: (Container | undefined)[] = [];
+    private barrelPlacementWhiteFilter?: ColorMatrixFilter;
+    private barrelPlacementPreview?: Sprite;
     /** Matching translucent red washes above the authored barrel art, like unit target silhouettes. */
     private scatteredMountainDangerOverlays: Sprite[] = [];
     private tombstoneRedFilter?: ColorMatrixFilter;
@@ -1905,6 +1910,49 @@ export class DungeonVisuals {
         for (const outline of this.scatteredMountainOutlines) outline.visible = false;
         for (const overlay of this.scatteredMountainDangerOverlays) overlay.visible = false;
     }
+    public clearBarrelPlacementPreview(): void {
+        this.barrelPlacementPreview?.destroy();
+        this.barrelPlacementPreview = undefined;
+    }
+    public previewBarrelPlacement(sourceCell: HoCMath.XY | undefined, cell: HoCMath.XY, valid: boolean): void {
+        const gs = this.context.getGridSettings();
+        if (!GridMath.isCellWithinGrid(gs, cell)) {
+            this.clearBarrelPlacementPreview();
+            return;
+        }
+        const index = this.scatteredMountains.findIndex(
+            (mountain) => mountain.x === sourceCell?.x && mountain.y === sourceCell.y,
+        );
+        const texture = this.scatteredMountainSprites[index]?.texture ?? this.mountainTiles()?.[0];
+        if (!texture) return;
+        if (!this.barrelPlacementPreview) {
+            this.barrelPlacementPreview = new Sprite(texture);
+            this.barrelPlacementPreview.anchor.set(0.5);
+            this.barrelPlacementPreview.eventMode = "none";
+            this.barrelPlacementPreview.alpha = 0.6;
+            this.barrelPlacementPreview.roundPixels = false;
+            attachCemeteryObstacleToDepthRoot(this.context, this.barrelPlacementPreview, 4000);
+        }
+        const preview = this.barrelPlacementPreview;
+        preview.texture = texture;
+        const position = GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+        const metrics = projectedBattlefieldMetricsAtPoint(position, gs);
+        const geometry = cemeteryObstacleFrameGeometry(metrics.width, metrics.height, cell.y);
+        const scale = cemeteryObstacleSpriteScale(
+            metrics.width,
+            texture.width,
+            geometry.frameHeight,
+            texture.height,
+            geometry.scale,
+        );
+        preview.position.set(
+            metrics.center.x,
+            metrics.center.y + geometry.rise + metrics.height * DungeonVisuals.MOUNTAIN_VERTICAL_OFFSET_CELLS,
+        );
+        preview.scale.set(scale.x, scale.y);
+        preview.tint = valid ? 0xffffff : 0xff5555;
+        preview.zIndex = cemeteryObstacleDepthFromBaseY(preview.y - geometry.frameHeight * 0.5) + 0.01;
+    }
     /** Remove one destroyed stone while retaining every survivor's assigned art variant. */
     public removeScatteredMountainAt(x: number, y: number): void {
         const destroyed = this.scatteredMountains.find((mountain) => mountain.x === x && mountain.y === y);
@@ -1928,6 +1976,9 @@ export class DungeonVisuals {
      * per-frame terrain update retries this until the atlas answers.
      */
     private rebuildScatteredMountainSprites(): void {
+        this.clearBarrelPlacementPreview();
+        for (const outline of this.barrelPlacementOutlines) outline?.destroy({ children: true });
+        this.barrelPlacementOutlines = [];
         for (const sprite of this.scatteredMountainSprites) {
             sprite.destroy();
         }
@@ -1967,6 +2018,7 @@ export class DungeonVisuals {
         }
         const shadowTuning = readStoredBarrelShadowTuning();
         for (const mountain of this.scatteredMountains) {
+            mountain.variant = this.context.getArtifactBarrelVariant?.(mountain) ?? mountain.variant;
             const tileIndex = ((mountain.variant % tiles.length) + tiles.length) % tiles.length;
             const tex = tiles[tileIndex];
             const at = GridMath.getPositionForCell(
@@ -2109,6 +2161,7 @@ export class DungeonVisuals {
         this.scatteredMountains.forEach((mountain, index) => {
             const sprite = this.scatteredMountainSprites[index];
             if (!sprite) return;
+            mountain.variant = this.context.getArtifactBarrelVariant?.(mountain) ?? mountain.variant;
             const tileIndex = ((mountain.variant % tiles.length) + tiles.length) % tiles.length;
             const target = tiles[tileIndex];
             if (sprite.texture !== target) sprite.texture = target;
@@ -2118,8 +2171,19 @@ export class DungeonVisuals {
     private syncScatteredMountainVisibility(): void {
         const fightStarted = FightStateManager.getInstance().getFightProperties().hasFightStarted();
         this.syncScatteredMountainTextures(fightStarted);
+        const movable = new Set(
+            (fightStarted ? [] : (this.context.getMovableArtifactBarrelCells?.() ?? [])).map(
+                (cell) => `${cell.x}:${cell.y}`,
+            ),
+        );
         this.scatteredMountains.forEach((mountain, index) => {
             const visible = this.isScatteredMountainActive(mountain);
+            const editable = visible && movable.has(`${mountain.x}:${mountain.y}`);
+            if (editable && !this.barrelPlacementOutlines[index]) {
+                this.barrelPlacementOutlines[index] = this.createBarrelPlacementOutline(index);
+            }
+            const placementOutline = this.barrelPlacementOutlines[index];
+            if (placementOutline) placementOutline.visible = editable;
             if (this.scatteredMountainSprites[index]) this.scatteredMountainSprites[index].visible = visible;
             if (this.scatteredMountainShadows[index]) this.scatteredMountainShadows[index].visible = visible;
             if (!visible && this.scatteredMountainOutlines[index]) {
@@ -2129,6 +2193,43 @@ export class DungeonVisuals {
                 this.scatteredMountainDangerOverlays[index].visible = false;
             }
         });
+    }
+    private createBarrelPlacementOutline(index: number): Container | undefined {
+        const sprite = this.scatteredMountainSprites[index];
+        if (!sprite) return undefined;
+        if (!this.barrelPlacementWhiteFilter) {
+            this.barrelPlacementWhiteFilter = new ColorMatrixFilter({ resolution: "inherit", antialias: "inherit" });
+            this.barrelPlacementWhiteFilter.matrix = [0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0];
+        }
+        const outline = new Container();
+        outline.eventMode = "none";
+        outline.filters = [this.barrelPlacementWhiteFilter];
+        const width = Math.abs(sprite.width);
+        for (const { offset, alpha } of [
+            { offset: Math.max(2, width * 0.03), alpha: 0.08 },
+            { offset: Math.max(0.8, width * 0.012), alpha: 0.85 },
+        ]) {
+            for (const [dx, dy] of [
+                [-1, -1],
+                [0, -1],
+                [1, -1],
+                [-1, 0],
+                [1, 0],
+                [-1, 1],
+                [0, 1],
+                [1, 1],
+            ]) {
+                const edge = new Sprite(sprite.texture);
+                edge.anchor.copyFrom(sprite.anchor);
+                edge.position.set(sprite.x + dx * offset, sprite.y + dy * offset);
+                edge.scale.copyFrom(sprite.scale);
+                edge.roundPixels = false;
+                edge.alpha = alpha;
+                outline.addChild(edge);
+            }
+        }
+        attachCemeteryObstacleToDepthRoot(this.context, outline, sprite.zIndex - 0.0015);
+        return outline;
     }
     public hasScatteredMountains(): boolean {
         return this.scatteredMountainMode;
@@ -2156,7 +2257,7 @@ export class DungeonVisuals {
             });
             this.scatteredMountainAppearanceDirty = false;
         }
-        this.syncScatteredMountainTextures(FightStateManager.getInstance().getFightProperties().hasFightStarted());
+        this.syncScatteredMountainVisibility();
         const gridType = FightStateManager.getInstance().getFightProperties().getGridType();
         const lavaEditorActive = isLavaAnimationEditorActive();
         const lavaVisualMode = lavaPitVisualModeForScene(lavaEditorActive, resolveLavaPitVisualMode());
@@ -4055,6 +4156,8 @@ export class DungeonVisuals {
         for (const sprite of this.scatteredMountainSprites) sprite.destroy();
         for (const shadow of this.scatteredMountainShadows) shadow.destroy();
         for (const outline of this.scatteredMountainOutlines) outline.destroy({ children: true });
+        for (const outline of this.barrelPlacementOutlines) outline?.destroy({ children: true });
+        this.clearBarrelPlacementPreview();
         for (const overlay of this.scatteredMountainDangerOverlays) overlay.destroy();
         for (const collapse of this.activeCollapses) collapse.container.destroy({ children: true });
 
@@ -4075,6 +4178,7 @@ export class DungeonVisuals {
         for (const texture of this.mountainQuarterTextures?.quarters ?? []) texture.destroy(false);
         this.lightFilter?.destroy();
         this.tombstoneRedFilter?.destroy();
+        this.barrelPlacementWhiteFilter?.destroy();
         this.cemeteryEdgeDarkenFilter?.destroy();
         this.lavaColorFilter?.destroy();
         this.lavaFireColorFilter?.destroy();
@@ -4085,6 +4189,7 @@ export class DungeonVisuals {
         this.scatteredMountainSprites = [];
         this.scatteredMountainShadows = [];
         this.scatteredMountainOutlines = [];
+        this.barrelPlacementOutlines = [];
         this.scatteredMountainDangerOverlays = [];
         this.scatteredMountainHitBars = [];
         this.lastScatteredMountainTextures = undefined;

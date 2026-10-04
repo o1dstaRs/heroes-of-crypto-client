@@ -380,6 +380,9 @@ export const toAuthoritativeGameSnapshot = (
     placementDeadlineMs: snapshot.placementDeadlineMs,
     placementStage: snapshot.placementStage,
     placementSplit: snapshot.placementSplit,
+    viewerPlacementReady: snapshot.players.some(
+        (player) => player.team === viewerTeam && snapshot.readyPlayerIds.includes(player.playerId),
+    ),
     hideOpponentRosterDuringSetup: snapshot.hideOpponentRosterDuringSetup,
     currentTurnStartMs: snapshot.currentTurnStartMs,
     currentTurnEndMs: snapshot.currentTurnEndMs,

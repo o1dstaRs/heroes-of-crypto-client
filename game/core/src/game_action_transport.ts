@@ -149,6 +149,7 @@ export interface AuthoritativeGameSnapshot {
     placementStage?: number;
     /** False/absent for legacy placement where setup and positioning share one window. */
     placementSplit?: boolean;
+    viewerPlacementReady?: boolean;
     /** Explicit opt-in privacy policy; false/absent preserves public Setup roster visibility. */
     hideOpponentRosterDuringSetup?: boolean;
     currentTurnStartMs?: number;

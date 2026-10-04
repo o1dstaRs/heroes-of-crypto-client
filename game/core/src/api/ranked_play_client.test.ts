@@ -55,6 +55,13 @@ describe("co-op sandbox snapshot flags", () => {
         );
         expect(oneReady.sandboxCoop).toBe(true);
         expect(oneReady.sandboxCoopBothReady).toBe(false);
+        expect(oneReady.viewerPlacementReady).toBe(true);
+        expect(
+            toAuthoritativeGameSnapshot({ ...base, players: seats, readyPlayerIds: ["h"] }, 1).viewerPlacementReady,
+        ).toBe(false);
+        expect(
+            toAuthoritativeGameSnapshot({ ...base, players: seats, readyPlayerIds: ["h"] }).viewerPlacementReady,
+        ).toBe(false);
 
         const bothReady = toAuthoritativeGameSnapshot(
             { ...base, players: seats, readyPlayerIds: ["g", "h"] },

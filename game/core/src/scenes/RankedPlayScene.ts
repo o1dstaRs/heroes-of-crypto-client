@@ -62,7 +62,7 @@ import {
 } from "./Sandbox";
 import { animatableEffectNames, diffUnitEffects } from "./effect_pops";
 import { formatTurnLogHeader } from "./sceneLogTurnHeaders";
-import { PlayActionType, PlayTransientCellKind } from "../api/play_protocol";
+import { PlayActionType, PlayPhase, PlayTransientCellKind } from "../api/play_protocol";
 import type { RenderableUnit } from "./RenderableUnit";
 import type { UnitsOverlay } from "./UnitsOverlay";
 import type { AuthoritativeSnapshotOptions } from "../pixi/PixiScene";
@@ -75,6 +75,14 @@ import { clearPersonalArmyTint, personalArmyTintSeat, setPersonalArmyTint } from
 import { isGreenTeam, teamColor } from "./teamColors";
 import { setBoardMirror } from "../pixi/boardMirror";
 import { readBoardSidePreference, shouldMirrorBoard } from "../settings/playerBoardSide";
+
+export const canMoveRankedArtifactBarrel = (snapshot: AuthoritativeGameSnapshot, team: TeamType): boolean =>
+    snapshot.viewerTeam === team &&
+    snapshot.phase === PlayPhase.PLACEMENT &&
+    !snapshot.fightStarted &&
+    !snapshot.fightFinished &&
+    !snapshot.viewerPlacementReady &&
+    !(snapshot.placementSplit && snapshot.placementStage === 0);
 
 export const isRankedAuthoritativeRecordAlreadyApplied = (
     lastAppliedSequence: number,
@@ -1474,6 +1482,7 @@ export class RankedPlayScene extends Sandbox {
     // roster is accumulated across snapshots (see mergeRankedRoster).
     private readonly rankedStatsCountedUnitIds = new Set<string>();
     private viewerTeam?: TeamType;
+    private barrelPlacementAvailable = false;
     /** Hover concealment (Hidden units) is from the viewer's perspective: own Hidden units still preview,
      *  the opponent's do not. */
     protected override getViewerTeam(): TeamType | undefined {
@@ -1928,6 +1937,9 @@ export class RankedPlayScene extends Sandbox {
         // placement zone is its own. It must never reach the colour helpers: board colours are team-fixed
         // (LEFT green / RIGHT red) on every screen, so both players see the same match the same way.
         this.viewerTeam = snapshot.viewerTeam === undefined ? undefined : (snapshot.viewerTeam as TeamType);
+        this.barrelPlacementAvailable =
+            this.viewerTeam !== undefined && canMoveRankedArtifactBarrel(snapshot, this.viewerTeam);
+        if (!this.barrelPlacementAvailable) this.cancelBarrelPlacement();
         const wasSandboxCoop = this.sandboxCoop;
         this.sandboxCoop = snapshot.sandboxCoop === true;
         this.sandboxCoopBothReady = snapshot.sandboxCoopBothReady === true;
@@ -2747,6 +2759,14 @@ export class RankedPlayScene extends Sandbox {
     }
     protected override canSelectUnitForPlacement(unit: Unit): boolean {
         return this.viewerTeam !== undefined && unit.getTeam() === this.viewerTeam;
+    }
+    protected override canMoveArtifactBarrel(team: TeamType): boolean {
+        return (
+            !!this.sc_gameActionTransport &&
+            this.barrelPlacementAvailable &&
+            team === this.viewerTeam &&
+            super.canMoveArtifactBarrel(team)
+        );
     }
     // The drag-to-split placement gesture works in ranked now that split_unit carries the peeled stack's
     // target cells, so the server splits AND places in one authoritative action. See commitPlacementSplit.
