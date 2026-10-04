@@ -446,7 +446,7 @@ const BUNDLE_PREVIEW_STATE: PickBanContextType = {
     revealsRemaining: 0,
     initialBundles: [
         [12, 24, 1], // Berserker + Elf + Veteran Helm
-        [31, 16, 11], // Peasant + Hyena + Helm of Focus
+        [31, 16, 11], // Peasant + Hyena + Barrel Barricade
     ],
     tier2Offers: [],
     doctrine: 0,

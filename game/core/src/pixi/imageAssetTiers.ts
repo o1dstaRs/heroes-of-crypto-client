@@ -548,7 +548,6 @@ const LAZY_SPELL_ASSETS = new Set([
     "warding_mane_blessing_256",
     "cursed_ward_256",
     "hunters_longbow_256",
-    "helm_of_focus_256",
     "amulet_of_resolve_256",
     "warlords_edge_256",
     "titan_plate_256",

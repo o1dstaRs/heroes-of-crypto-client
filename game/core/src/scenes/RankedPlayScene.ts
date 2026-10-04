@@ -481,9 +481,6 @@ export const planScatteredMountainSync = (
 const scatteredMountainsForSceneState = (
     snapshot: AuthoritativeGameSnapshot,
 ): { x: number; y: number; variant: number }[] | undefined => {
-    if (snapshot.gridType !== GridVals.BLOCK_CENTER) {
-        return undefined;
-    }
     return planScatteredMountainSync(snapshot.gameId, snapshot.scatteredStandingCells, snapshot.scatteredStandingCount)
         ?.standing;
 };
@@ -538,6 +535,7 @@ export const authoritativeSnapshotToSandboxSceneState = (
     // The board's terrain, for the same reason as the queue above: the live path re-installs these after
     // every hydrate, a replay hydrates and nothing else — so barrels and spell terrain were invisible for
     // the whole replayed fight.
+    artifactBarrels: snapshot.artifactBarrels,
     scatteredMountains: scatteredMountainsForSceneState(snapshot),
     terrainCells: terrainCellsForSceneState(snapshot),
     // Restored live by restoreRankedStepsMoraleMultiplier after every hydrate; a replay needs it inside
@@ -2354,10 +2352,9 @@ export class RankedPlayScene extends Sandbox {
         snapshot: AuthoritativeGameSnapshot,
         options?: { reinstallLayout?: boolean },
     ): void {
-        if (snapshot.gridType !== GridVals.BLOCK_CENTER) {
-            return;
-        }
-        if (isBarrelShadowEditorActive()) {
+        if (snapshot.artifactBarrelsCount !== undefined)
+            this.grid.restoreArtifactBarrels(snapshot.artifactBarrels ?? []);
+        if (isBarrelShadowEditorActive() && snapshot.gridType === GridVals.BLOCK_CENTER) {
             const layout = BARREL_SHADOW_EDITOR_LAYOUT.map((barrel) => ({ ...barrel }));
             this.grid.setScatteredMountains(layout.map(({ x, y }) => ({ x, y })));
             this.dungeonVisuals?.setScatteredMountains(layout, true);
@@ -2373,7 +2370,10 @@ export class RankedPlayScene extends Sandbox {
             return;
         }
         let changed = false;
-        if (options?.reinstallLayout || !this.grid.hasScatteredMountains()) {
+        const currentKeys = new Set(this.grid.getScatteredMountainsStanding().map((cell) => `${cell.x}:${cell.y}`));
+        const hasNewCells = plan.standing.some((cell) => !currentKeys.has(`${cell.x}:${cell.y}`));
+        const layoutChanged = (!snapshot.fightStarted && currentKeys.size !== plan.standing.length) || hasNewCells;
+        if (options?.reinstallLayout || !this.grid.hasScatteredMountains() || layoutChanged) {
             this.grid.setScatteredMountains(plan.standing.map((rock) => ({ x: rock.x, y: rock.y })));
             if (!plan.standing.length) {
                 // An all-stones-destroyed reinstall is a pure clear, which leaves the classic pair the
@@ -2386,7 +2386,7 @@ export class RankedPlayScene extends Sandbox {
             changed = true;
         } else {
             for (const cell of this.grid.getScatteredMountainsStanding()) {
-                if (plan.destroyed.some((down) => down.x === cell.x && down.y === cell.y)) {
+                if (!plan.standing.some((standing) => standing.x === cell.x && standing.y === cell.y)) {
                     this.grid.clearScatteredMountainAt(cell.x, cell.y);
                     this.dungeonVisuals?.removeScatteredMountainAt(cell.x, cell.y);
                     changed = true;

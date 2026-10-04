@@ -87,7 +87,7 @@ describe("replay board terrain", () => {
             expect(state.scatteredMountains).toBeUndefined();
         });
 
-        test("a board that is not BLOCK_CENTER never carries stones", () => {
+        test("a normal board carries deployed artifact barrels", () => {
             const state = authoritativeSnapshotToSandboxSceneState(
                 snapshotWith({
                     gridType: GridVals.NORMAL,
@@ -96,7 +96,7 @@ describe("replay board terrain", () => {
                 }),
             );
 
-            expect(state.scatteredMountains).toBeUndefined();
+            expect(state.scatteredMountains).toEqual([{ x: 7, y: 7, variant: expect.any(Number) }]);
         });
     });
 

@@ -136,6 +136,19 @@ export const createPlayActionFromGameAction = (
                 // vertical wall was either refused (default-orientation cells blocked) or laid wrong.
                 targetOrientation: action.targetOrientation !== undefined ? action.targetOrientation + 1 : undefined,
             });
+        case "place_barrel":
+            return withEnvelope(envelope, {
+                type: PlayActionType.PLACE_BARREL,
+                team: action.team,
+                amount: action.barrelIndex + 1,
+                targetCell: action.cell,
+            });
+        case "unplace_barrel":
+            return withEnvelope(envelope, {
+                type: PlayActionType.UNPLACE_BARREL,
+                team: action.team,
+                amount: action.barrelIndex + 1,
+            });
         case "place_unit":
             return withEnvelope(envelope, {
                 type: PlayActionType.PLACE_UNIT,
@@ -181,6 +194,16 @@ export const createPlayActionFromGameAction = (
 
 export const createGameActionFromPlayAction = (action: Partial<PlayAction>): GameAction | undefined => {
     switch (action.type) {
+        case PlayActionType.PLACE_BARREL: {
+            const cell = maybeCell(action.targetCell);
+            return cell && action.amount && action.team
+                ? { type: "place_barrel", team: action.team as TeamType, barrelIndex: action.amount - 1, cell }
+                : undefined;
+        }
+        case PlayActionType.UNPLACE_BARREL:
+            return action.amount && action.team
+                ? { type: "unplace_barrel", team: action.team as TeamType, barrelIndex: action.amount - 1 }
+                : undefined;
         case PlayActionType.PLACE_UNIT:
             if (!action.unitId || typeof action.team !== "number" || !action.unitName) {
                 return undefined;

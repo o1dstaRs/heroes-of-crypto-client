@@ -400,3 +400,17 @@ describe("createGameActionFromPlayAction", () => {
         expect(createGameActionFromPlayAction({ type: PlayActionType.PING })).toBeUndefined();
     });
 });
+
+describe("barrel placement actions", () => {
+    it("round-trips both owned slots through the ranked and replay codec", () => {
+        for (const barrelIndex of [0, 1]) {
+            const place: GameAction = { type: "place_barrel", team: TeamVals.LEFT, barrelIndex, cell: { x: 0, y: 15 } };
+            const wire = createPlayActionFromGameAction(place, envelope);
+            expect(wire.type).toBe(PlayActionType.PLACE_BARREL);
+            expect(wire.amount).toBe(barrelIndex + 1);
+            expect(createGameActionFromPlayAction(wire)).toEqual(place);
+            const remove: GameAction = { type: "unplace_barrel", team: TeamVals.LEFT, barrelIndex };
+            expect(createGameActionFromPlayAction(createPlayActionFromGameAction(remove, envelope))).toEqual(remove);
+        }
+    });
+});

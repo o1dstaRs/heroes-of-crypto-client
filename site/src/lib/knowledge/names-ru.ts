@@ -240,7 +240,7 @@ export const RU_NAMES: Readonly<Record<string, string>> = {
     "Wounding Charm": "Ранящий талисман",
     "Cursed Ward": "Проклятый оберег",
     "Hunter's Longbow": "Длинный лук охотника",
-    "Helm of Focus": "Шлем сосредоточенности",
+    "Barrel Barricade": "Баррикада из бочек",
     "Mage's Ring": "Кольцо мага",
     "Warlord's Edge": "Клинок полководца",
     "Titan Plate": "Латы титана",

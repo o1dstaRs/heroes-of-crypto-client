@@ -7,12 +7,25 @@ import { allUnits, type Unit } from "../units-data";
 const MAGIC_DAMAGE_ABILITIES = ["Chain Lightning", "Fire Breath", "Fire Shield"];
 const SPLASH_ABILITIES = ["Area Throw", "Large Caliber", "Chakram", "Lightning Spin", "Skewer Strike", "Through Shot"];
 const MIND_ABILITIES = ["Blindness", "Aggr", "Boar Saliva", "Terrifying Gaze", "Petrifying Gaze"];
-const TOME_BUFF_SPELLS = ["Riot", "Mass Riot", "Spiritual Armor", "Magic Mirror", "Mass Magic Mirror", "Empower", "Fireforged Sword", "Helping Hand"];
+const TOME_BUFF_SPELLS = [
+    "Riot",
+    "Mass Riot",
+    "Spiritual Armor",
+    "Magic Mirror",
+    "Mass Magic Mirror",
+    "Empower",
+    "Fireforged Sword",
+    "Helping Hand",
+];
 
 const draftable = (): Unit[] => allUnits.filter((unit) => !unit.summonedOnly);
-const hasAbility = (unit: Unit, names: readonly string[]): boolean => unit.abilities.some((ability) => names.includes(ability.name));
+const hasAbility = (unit: Unit, names: readonly string[]): boolean =>
+    unit.abilities.some((ability) => names.includes(ability.name));
 const spellsOf = (unit: Unit): string[] => unit.spells.map((entry) => entry.replace(/^[^:]+:/, ""));
-const carriers = (names: readonly string[]): string[] => draftable().filter((unit) => hasAbility(unit, names)).map((unit) => unit.name);
+const carriers = (names: readonly string[]): string[] =>
+    draftable()
+        .filter((unit) => hasAbility(unit, names))
+        .map((unit) => unit.name);
 
 const list = (items: readonly string[], language: NoteLanguage): string => {
     const unique = [...new Set(items)];
@@ -45,7 +58,10 @@ const skewerNote = (language: NoteLanguage): string => {
 
 /** An enemy Giant's Maul against Amulet of Resolve: its impact bonus first, then the status resistance. */
 const maulAgainstAmulet = (language: NoteLanguage): string =>
-    formatNumber(Math.round((1 + A.GIANTS_MAUL_AOE_PERCENT / 100) * (1 - A.AMULET_OF_RESOLVE_RESIST_PERCENT / 100) * 100) / 100, language);
+    formatNumber(
+        Math.round((1 + A.GIANTS_MAUL_AOE_PERCENT / 100) * (1 - A.AMULET_OF_RESOLVE_RESIST_PERCENT / 100) * 100) / 100,
+        language,
+    );
 
 type Fit = (language: NoteLanguage, n: (value: number) => string) => string;
 
@@ -56,19 +72,27 @@ const FITS: Record<string, Fit> = {
             : `Every unit takes about ${n(100 - 10000 / (100 + A.VETERAN_HELM_PERCENT))}% less physical damage (damage is divided by armor), whatever its armor — a small, even defense. It also softens Fire Breath, which is priced like an attack, but does nothing against cast spells or Fire Shield.`,
     "Amulet of Resolve": (language) =>
         language === "ru"
-            ? `Против оглушения и паралича — ${abilityCarriers(["Stun", "Paralysis"], language)} — и физических ударов по площади и по линии: ${list(carriers(SPLASH_ABILITIES), language)}${skewerNote(language)}; вражеский Giant's Maul с ним даёт лишь ×${maulAgainstAmulet(language)}. Ваших юнитов с Mechanism он защищает сильнее всех (их ×1,5 от ударов по площади становится ×1,25). Против ментальных эффектов и магии не помогает.`
-            : `Best against stuns and paralysis — ${abilityCarriers(["Stun", "Paralysis"], language)} — and physical area and line attacks: ${list(carriers(SPLASH_ABILITIES), language)}${skewerNote(language)}; an enemy Giant's Maul nets only ×${maulAgainstAmulet(language)} against it. It shields your own Mechanism units most (their ×1.5 from splash becomes ×1.25). Nothing against Mind effects or magic.`,
+            ? `Против оглушения и паралича — ${abilityCarriers(["Stun", "Paralysis"], language)} — и физических ударов по площади и по линии: ${list(carriers(SPLASH_ABILITIES), language)}${skewerNote(language)}; вражеский Giant's Maul с ним даёт лишь ×${maulAgainstAmulet(language)}. Ваших юнитов с Mechanism он защищает сильнее всех (их ×1,5 от ударов по площади становится ×1,25). Также снижает шанс ментальных способностей на 25% — ${abilityCarriers(MIND_ABILITIES, language)}; магический урон не меняется.`
+            : `Best against stuns and paralysis — ${abilityCarriers(["Stun", "Paralysis"], language)} — and physical area and line attacks: ${list(carriers(SPLASH_ABILITIES), language)}${skewerNote(language)}; an enemy Giant's Maul nets only ×${maulAgainstAmulet(language)} against it. It shields your own Mechanism units most (their ×1.5 from splash becomes ×1.25). Also reduces Mind abilities by 25% — ${abilityCarriers(MIND_ABILITIES, language)}; magic damage is unchanged.`,
     "Swift Boots": (language, n) => {
         const walkers = draftable().filter(
             (unit) => unit.movementType !== "FLY" && (unit.attackType === "MELEE" || unit.attackType === "MELEE_MAGIC"),
         );
         const chargers = walkers.filter((unit) => hasAbility(unit, ["Rapid Charge"])).map((unit) => unit.name);
         return language === "ru"
-            ? `Даёт +${n(A.SWIFT_BOOTS_STEPS)}% шагов только нелетающим юнитам ближнего боя, включая ближний бой с магией: ${list(walkers.map((unit) => unit.name), language)}. Лучше всего с Rapid Charge (${list(chargers, language)}), где каждая лишняя клетка — это лишний урон.`
-            : `+${n(A.SWIFT_BOOTS_STEPS)}% steps for non-flying melee units only, melee/magic ones included: ${list(walkers.map((unit) => unit.name), language)}. Best with Rapid Charge (${list(chargers, language)}), where every extra cell is extra damage.`;
+            ? `Даёт +${n(A.SWIFT_BOOTS_STEPS)}% шагов только нелетающим юнитам ближнего боя, включая ближний бой с магией: ${list(
+                  walkers.map((unit) => unit.name),
+                  language,
+              )}. Лучше всего с Rapid Charge (${list(chargers, language)}), где каждая лишняя клетка — это лишний урон.`
+            : `+${n(A.SWIFT_BOOTS_STEPS)}% steps for non-flying melee units only, melee/magic ones included: ${list(
+                  walkers.map((unit) => unit.name),
+                  language,
+              )}. Best with Rapid Charge (${list(chargers, language)}), where every extra cell is extra damage.`;
     },
     "Winged Boots": (language, n) => {
-        const flyers = draftable().filter((unit) => unit.movementType === "FLY").map((unit) => unit.name);
+        const flyers = draftable()
+            .filter((unit) => unit.movementType === "FLY")
+            .map((unit) => unit.name);
         return language === "ru"
             ? `Только летающим (+${n(A.WINGED_BOOTS_STEPS)} к движению и +${n(A.WINGED_BOOTS_ARMOR)} к броне): ${list(flyers, language)} — чем больше их в армии, тем больше пользы.`
             : `Flyers only (+${n(A.WINGED_BOOTS_STEPS)} movement, +${n(A.WINGED_BOOTS_ARMOR)} armor): ${list(flyers, language)} — the more of them you field, the more it gives.`;
@@ -89,15 +113,17 @@ const FITS: Record<string, Fit> = {
             ? `Почти бесплатен рядом с синергией Жизни «Мораль и удача» 3 уровня (мораль ограничена +20, так что стек армии из одной Жизни опускается лишь до +18 — но без запаса на потери морали) и больнее всего там, где мораль и так низкая: каждый круг юнит с отрицательной моралью получает Dismorale с шансом, равным ей в процентах, — у юнита Хаоса (−1) шанс растёт с 1% до ${n(1 + A.CURSED_WARD_MORALE_PENALTY)}%. Его +${n(A.CURSED_WARD_LUCK)} к удаче почти теряются, если удача уже около +10 (Clover of Fortune, Luck Aura).`
             : `Costs little next to Life's Morale and Luck synergy at level 3 (morale is capped at +20, so an all-Life stack drops only to +18 — though it keeps no margin against morale losses) and hurts most where morale is already low: each lap a unit with negative morale rolls Dismorale at that many percent, so a Chaos unit (−1) goes from 1% to ${n(1 + A.CURSED_WARD_MORALE_PENALTY)}%. Its +${n(A.CURSED_WARD_LUCK)} luck is mostly lost where luck is already near +10 (Clover of Fortune, Luck Aura).`,
     "Hunter's Longbow": (language) => {
-        const shooters = draftable().filter((unit) => unit.attackType === "RANGE" && unit.rangeShots > 0).map((unit) => unit.name);
+        const shooters = draftable()
+            .filter((unit) => unit.attackType === "RANGE" && unit.rangeShots > 0)
+            .map((unit) => unit.name);
         return language === "ru"
             ? `Для стай дешёвых стрелков: +1 к атаке за стек стрелков — большая доля низкой атаки (при 5 стеках стрелков Arbalester 7 → 12, +71%) и мелочь для Tsar Cannon (46 → 51); разделённые стеки стрелков тоже считаются. Стрелки: ${list(shooters, language)}.`
             : `Swarms of cheap shooters: +1 attack per ranged stack is a big share of a low attack (with 5 ranged stacks an Arbalester goes 7 → 12, +71%) and little on a Tsar Cannon (46 → 51); split shooter stacks count too. Shooters: ${list(shooters, language)}.`;
     },
-    "Helm of Focus": (language) =>
+    "Barrel Barricade": (language) =>
         language === "ru"
-            ? `Против ментальных способностей: ${abilityCarriers(MIND_ABILITIES, language)}. Против ментальных заклинаний (их отражает сопротивление магии) и эффектов Статуса не помогает.`
-            : `Against Mind abilities: ${abilityCarriers(MIND_ABILITIES, language)}. Nothing against Mind spells (magic resistance handles those) or Status effects.`,
+            ? "Прикрывайте стрелков и перекрывайте подходы двумя бочками в своей зоне расстановки. Каждая разрушается одним ударом; не запирайте свои стеки."
+            : "Shield shooters and obstruct approaches with two barrels inside your deployment zone. Each falls to one hit; leave routes for your own stacks.",
     "Warlord's Edge": (language, n) =>
         language === "ru"
             ? `+${n(A.WARLORDS_EDGE_PERCENT)}% базовой атаки каждому юниту, в ближнем бою и выстрелом, сверху — Riot и ауры атаки его не умножают; ровное усиление для любой армии, которая бьёт атаками (заклинания атаку не используют).`
@@ -119,10 +145,15 @@ const FITS: Record<string, Fit> = {
             ? `+${n(A.PENDANT_HP_PERCENT)}% здоровья каждому существу ценой −${n(A.PENDANT_ATTACK_PENALTY_PERCENT)}% базовой атаки: для армий, которые побеждают, выживая, — меньше потерь держит и силу стека; урон атак всех юнитов при этом ниже, но заклинания атаку не используют, так что армиям заклинателей он почти ничего не стоит.`
             : `+${n(A.PENDANT_HP_PERCENT)}% health for every creature at −${n(A.PENDANT_ATTACK_PENALTY_PERCENT)}% base attack: for armies that win by lasting — fewer losses also keep stack power up; every unit's attack damage drops, but spells don't use attack, so it costs a caster army little.`,
     "Farsight Quiver": (language) => {
-        const shooters = draftable().filter((unit) => unit.attackType === "RANGE" && unit.rangeShots > 0 && !hasAbility(unit, ["Sniper"]));
+        const shooters = draftable().filter(
+            (unit) => unit.attackType === "RANGE" && unit.rangeShots > 0 && !hasAbility(unit, ["Sniper"]),
+        );
         const ranges = shooters
             .sort((a, b) => a.shotDistance - b.shotDistance)
-            .map((unit) => `${unit.name} ${Math.floor(unit.shotDistance)} → ${Math.floor(unit.shotDistance * (1 + A.FARSIGHT_QUIVER_RANGE_PERCENT / 100))}`);
+            .map(
+                (unit) =>
+                    `${unit.name} ${Math.floor(unit.shotDistance)} → ${Math.floor(unit.shotDistance * (1 + A.FARSIGHT_QUIVER_RANGE_PERCENT / 100))}`,
+            );
         return language === "ru"
             ? `Для стрелков с короткой дистанцией (ширина полосы в целых клетках): ${list(ranges, language)}. Arbalester ничего не получает — его Sniper и так отменяет штраф за дальность.`
             : `Short-range shooters gain most (band width in whole cells): ${list(ranges, language)}. Nothing for the Arbalester — its Sniper already ignores falloff.`;
@@ -133,7 +164,11 @@ const FITS: Record<string, Fit> = {
             : `+${n(A.BERSERKERS_BOND_ATTACK)} base attack and −${n(A.BERSERKERS_BOND_DEFENSE_PENALTY)} armor for everyone: a big share of a low attack (a Peasant's 9 → 12, +33%), little on a level-4 unit; the −${n(A.BERSERKERS_BOND_DEFENSE_PENALTY)} armor costs low-armor stacks the most.`,
     "Tome of Amplification": (language) => {
         const casters = draftable()
-            .filter((unit) => spellsOf(unit).some((spell) => TOME_BUFF_SPELLS.includes(spell)) || hasAbility(unit, ["Battle Roar"]))
+            .filter(
+                (unit) =>
+                    spellsOf(unit).some((spell) => TOME_BUFF_SPELLS.includes(spell)) ||
+                    hasAbility(unit, ["Battle Roar"]),
+            )
             .map((unit) => unit.name);
         return language === "ru"
             ? `Для заклинателей баффов: ${list(casters, language)}. Wind Flow с ним даёт вашим летающим +6 к броне при прежних −4 к движению.`
@@ -165,7 +200,11 @@ const FITS: Record<string, Fit> = {
 
 function magicDealersFit(language: NoteLanguage): string {
     const dealers = draftable()
-        .filter((unit) => spellsOf(unit).some((spell) => MAGIC_DAMAGE_SPELLS.has(spell)) || hasAbility(unit, MAGIC_DAMAGE_ABILITIES))
+        .filter(
+            (unit) =>
+                spellsOf(unit).some((spell) => MAGIC_DAMAGE_SPELLS.has(spell)) ||
+                hasAbility(unit, MAGIC_DAMAGE_ABILITIES),
+        )
         .map((unit) => unit.name);
     return language === "ru"
         ? `Для армий с магическим уроном: ${list(dealers, language)}. Складывается в одну сумму с апгрейдом «Магия» (Empower) и Sylvan Focus.`

@@ -24,6 +24,7 @@ import {
 } from "@mui/joy";
 import CssBaseline from "@mui/joy/CssBaseline";
 import { CssVarsProvider } from "@mui/joy/styles";
+import BarrelPlacementControls from "./BarrelPlacementControls";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { v4 as uuidv4 } from "uuid";
@@ -236,7 +237,12 @@ const controlledUnitIdForAction = (action: GameAction): string | undefined => {
 };
 
 const teamForAction = (snapshot: PlaySnapshot | null, action: GameAction): TeamType | undefined => {
-    if (action.type === "place_unit" || action.type === "request_additional_time") {
+    if (
+        action.type === "place_unit" ||
+        action.type === "place_barrel" ||
+        action.type === "unplace_barrel" ||
+        action.type === "request_additional_time"
+    ) {
         return action.team as TeamType;
     }
     const controlledUnitId = controlledUnitIdForAction(action);
@@ -270,6 +276,8 @@ const canPlayAuthoritativeRecord = (action: GameAction, snapshot: PlaySnapshot |
 
     switch (action.type) {
         case "start_fight":
+        case "place_barrel":
+        case "unplace_barrel":
         case "place_unit":
         case "delete_unit":
         case "split_unit":
@@ -1331,7 +1339,11 @@ export const RankedGameView: React.FC<Props> = ({
                     handled: true,
                     completed: false,
                     message:
-                        action.type === "place_unit" || action.type === "delete_unit" || action.type === "split_unit"
+                        action.type === "place_unit" ||
+                        action.type === "place_barrel" ||
+                        action.type === "unplace_barrel" ||
+                        action.type === "delete_unit" ||
+                        action.type === "split_unit"
                             ? "Opponent placement is controlled by the opponent"
                             : "Opponent turn is controlled by the opponent",
                 };
@@ -3561,6 +3573,14 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                             <RankedPlacementRosters snapshot={snapshot} userTeam={userTeam} />
                         )}
                         <RankedArtifactsPanel snapshot={snapshot} userTeam={userTeam} />
+                        {(userTeam === TeamVals.LEFT ? snapshot.leftArtifactTier1 : snapshot.rightArtifactTier1) ===
+                            Artifact.Tier1Artifact.BARREL_BARRICADE && (
+                            <BarrelPlacementControls
+                                team={userTeam}
+                                barrels={snapshot.artifactBarrels?.filter((barrel) => barrel.team === userTeam)}
+                                disabled={ready || (snapshot.placementSplit === true && snapshot.placementStage === 0)}
+                            />
+                        )}
                         {/* The augment/synergy picker lives HERE in the sidebar — the pre-#129 home,
                             restored by owner request: pick augments beside the board instead of inside a
                             fullscreen draft step. Interactive while augments are still editable (the split

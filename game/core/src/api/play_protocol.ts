@@ -34,6 +34,8 @@ export const PlayActionType = {
     SYNERGY: 22,
     ARTIFACT: 23,
     GRID_TYPE: 24,
+    PLACE_BARREL: 25,
+    UNPLACE_BARREL: 26,
 } as const;
 
 export type PlayActionTypeValue = (typeof PlayActionType)[keyof typeof PlayActionType];
@@ -77,6 +79,12 @@ export type PlayEventKindValue = (typeof PlayEventKind)[keyof typeof PlayEventKi
 export interface PlayCell {
     x: number;
     y: number;
+}
+
+export interface PlayArtifactBarrel {
+    team: number;
+    index: number;
+    cell: PlayCell;
 }
 
 export interface PlayPlayerState {
@@ -275,7 +283,8 @@ export interface PlaySnapshot {
     centerObstacleHitsRight?: number;
     /** Scattered-mountain stones still standing, decoded from wire field 58: each is a 0-based cell
      * packed as x * GRID_SIZE + y (the wire adds 1 so a genuine (0,0) survives proto3's zero-default).
-     * The LAYOUT never travels — every side derives it from the game id via scatteredMountainsForSeed. */
+     * Includes seeded neutral obstacles and player-deployed barrels on every map; authoritative cells
+     * take precedence over the locally derived seed. Ownership travels separately in fields 75/76. */
     scatteredStandingCells?: number[];
     /** How many scattered stones still stand (wire field 59, 1-based). 0 here means "scattered layout
      * active, every stone destroyed"; undefined means classic mountains (older server / pre-scattered
@@ -291,6 +300,8 @@ export interface PlaySnapshot {
     /** What "Use additional time" would add to the running turn right now, in ms (wire field 74, 1-based);
      * 0 = the server would refuse it. Undefined from an older server. */
     additionalTimeMs?: number;
+    artifactBarrels?: PlayArtifactBarrel[];
+    artifactBarrelsCount?: number;
     upNext: string[];
     damageStats: PlayDamageStatistic[];
     /** Each team's army totals captured at fight start (units + cumulative HP), so the fight-results
@@ -1012,11 +1023,30 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
         } else if (field === 74) {
             // 1-based on the wire so "refused" (1) survives proto3's zero-default; absent = older server.
             snapshot.additionalTimeMs = Math.max(0, reader.varintNumber() - 1);
+        } else if (field === 75) {
+            (snapshot.artifactBarrels ??= []).push(decodeArtifactBarrel(reader.bytesValue()));
+        } else if (field === 76) {
+            snapshot.artifactBarrelsCount = Math.max(0, reader.varintNumber() - 1);
+            snapshot.artifactBarrels ??= [];
         } else {
             reader.skip(wireType);
         }
     }
     return snapshot;
+};
+
+const decodeArtifactBarrel = (bytes: Uint8Array): PlayArtifactBarrel => {
+    const reader = new ProtoReader(bytes);
+    const barrel: PlayArtifactBarrel = { team: 0, index: 0, cell: { x: 0, y: 0 } };
+    while (!reader.done()) {
+        const tag = reader.varintNumber();
+        const field = tag >>> 3;
+        if (field === 1) barrel.team = reader.varintNumber();
+        else if (field === 2) barrel.index = Math.max(0, reader.varintNumber() - 1);
+        else if (field === 3) barrel.cell = decodeCell(reader.bytesValue());
+        else reader.skip(tag & 7);
+    }
+    return barrel;
 };
 
 const decodeUnitState = (bytes: Uint8Array): PlayUnitState => {

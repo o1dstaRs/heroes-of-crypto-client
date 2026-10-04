@@ -175,6 +175,8 @@ export interface AuthoritativeGameSnapshot {
     /** What "Use additional time" would add to the running turn right now, in ms; 0 = the server would refuse
      * it (already used this lap, or no budget left). Undefined from an older server, which never sent it. */
     additionalTimeMs?: number;
+    artifactBarrels?: { team: TeamType; index: number; cell: { x: number; y: number } }[];
+    artifactBarrelsCount?: number;
     units: AuthoritativeUnitState[];
     upNext?: string[];
     damageStats?: IDamageStatistic[];

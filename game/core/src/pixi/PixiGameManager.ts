@@ -1060,6 +1060,21 @@ export class PixiGameManager {
         }
         return augmented || false;
     }
+    public BeginBarrelPlacement(team: TeamType, index: number): boolean {
+        return this.m_scene?.beginBarrelPlacement(team, index) ?? false;
+    }
+    public GetBarrelPlacementIndex(team: TeamType): number | undefined {
+        return this.m_scene?.getBarrelPlacementIndex(team);
+    }
+    public CancelBarrelPlacement(): void {
+        this.m_scene?.cancelBarrelPlacement();
+    }
+    public RemovePlacedBarrel(team: TeamType, index: number): boolean {
+        return this.m_scene?.removePlacedBarrel(team, index) ?? false;
+    }
+    public GetBarrelPlacementState(team: TeamType): { index: number; cell: { x: number; y: number } }[] {
+        return this.m_scene?.getBarrelPlacementState(team) ?? [];
+    }
     public PropagateArtifact(teamType: TeamType, tier: number, artifactId: number): boolean {
         const applied = this.m_scene?.propagateArtifact(teamType, tier, artifactId);
         if (applied) {

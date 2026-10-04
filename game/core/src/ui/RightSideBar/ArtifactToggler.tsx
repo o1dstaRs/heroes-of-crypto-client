@@ -2,6 +2,7 @@ import { Artifact, FightStateManager, TeamType } from "@heroesofcrypto/common";
 import React, { useState } from "react";
 import { Box, Divider, Tooltip, Typography } from "@mui/joy";
 
+import BarrelPlacementControls from "../BarrelPlacementControls";
 import { images } from "../../generated/image_imports";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { hocColors, hocDisplayFontFamily } from "../hocTheme";
@@ -266,6 +267,7 @@ export const ArtifactToggler: React.FC<{
                 onSelect={selectTier1}
                 isOpen={isOpen}
             />
+            {tier1Selected === Artifact.Tier1Artifact.BARREL_BARRICADE && <BarrelPlacementControls team={teamType} />}
             <ArtifactRow
                 title="Tier 2"
                 tier={Artifact.ArtifactTier.TIER_2}

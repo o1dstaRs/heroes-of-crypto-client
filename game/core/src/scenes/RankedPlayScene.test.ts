@@ -2157,6 +2157,27 @@ describe("replay carries the turn-status state the icons are drawn from", () => 
         expect(stunned?.onHourglass).toBe(false);
     });
 
+    test("replay carries owned deployment barrels on every map, including cells outside the neutral band", () => {
+        for (const gridType of [GridVals.NORMAL, GridVals.WATER_CENTER, GridVals.LAVA_CENTER, GridVals.BLOCK_CENTER]) {
+            const barrels = [
+                { team: TeamVals.LEFT, index: 0, cell: { x: 1, y: 2 } },
+                { team: TeamVals.LEFT, index: 1, cell: { x: 4, y: 15 } },
+            ];
+            const state = authoritativeSnapshotToSandboxSceneState({
+                ...fightSnapshot([]),
+                gridType,
+                artifactBarrels: barrels,
+                artifactBarrelsCount: 2,
+                scatteredStandingCells: [18, 79],
+                scatteredStandingCount: 2,
+            });
+            expect(state.artifactBarrels).toEqual(barrels);
+            expect(state.scatteredMountains?.map(({ x, y }) => ({ x, y }))).toEqual(
+                barrels.map((barrel) => barrel.cell),
+            );
+        }
+    });
+
     test("the turn queue travels with the snapshot, so Up Next follows the replayed moment", () => {
         const state = authoritativeSnapshotToSandboxSceneState(
             fightSnapshot(

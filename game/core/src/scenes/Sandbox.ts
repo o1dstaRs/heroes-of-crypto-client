@@ -78,6 +78,7 @@ import {
     FightProperties,
     GameAction,
     GameActionEngine,
+    reconcileArtifactBarrels,
     TurnEngine,
     GameEvent,
     isThrownOffensiveSpell,
@@ -396,6 +397,7 @@ export const fullDamageShotRangeForFootprint = (
 
 export const obstacleAttackKind = (params: {
     hasActiveUnit: boolean;
+    hasScatteredObstacles?: boolean;
     gridType: number;
     obstacleHitsLeft: number;
     /** Lazy: this runs on every mouse move, and the cheap map/hit-count gates reject most of them. */
@@ -404,7 +406,11 @@ export const obstacleAttackKind = (params: {
     /** Lazy for the same reason -- an aggro-matrix lookup is not worth doing off the mountain. */
     canLandRangeHit: () => boolean;
 }): ObstacleAttackKind => {
-    if (!params.hasActiveUnit || params.gridType !== GridVals.BLOCK_CENTER || params.obstacleHitsLeft <= 0) {
+    if (
+        !params.hasActiveUnit ||
+        (!params.hasScatteredObstacles && params.gridType !== GridVals.BLOCK_CENTER) ||
+        params.obstacleHitsLeft <= 0
+    ) {
         return "none";
     }
     if (!params.isCenterCell()) {
@@ -566,6 +572,7 @@ export interface SandboxSceneState {
     // the barrels off a scattered board — in a REPLAY, which hydrates twice per action, they were never
     // visible at all. The FIELD's presence is what says "this board is scattered": an empty array means
     // every stone has been destroyed, which is not the same as undefined (a classic two-mountain board).
+    artifactBarrels?: { team: TeamType; index: number; cell: HoCMath.XY }[];
     scatteredMountains?: { x: number; y: number; variant: number }[];
     // Smoke, vines and fire walls at this moment. They live in FightProperties stores, which the hydrate's
     // reset() empties — so, like the queue above, a replay showed a board with no spell terrain on it.
@@ -2972,6 +2979,7 @@ export class Sandbox extends PixiScene {
         // refreshWithNewType re-carved the classic mountain pair over any scattered layout, and reset()
         // emptied the smoke/vine/fire-wall stores. Stamped BEFORE the units below occupy their cells, so
         // the rebuilt board is carved first and populated second, exactly like a fresh one.
+        this.grid.restoreArtifactBarrels(snapshot.artifactBarrels ?? []);
         this.applySceneStateScatteredMountains(snapshot.scatteredMountains);
         Sandbox.applySceneStateTerrainCells(fightProps, snapshot.terrainCells);
         if (snapshot.stepsMoraleMultiplier !== undefined) {
@@ -3462,6 +3470,7 @@ export class Sandbox extends PixiScene {
             upNext: [...fightProps.getUpNextQueueIterable()],
             // The board's own terrain, which no rebuilt unit can recompute: the barrels are re-carved as the
             // classic pair by the hydrate, and the spell terrain stores are emptied by its reset().
+            artifactBarrels: this.grid.getArtifactBarrels(),
             scatteredMountains: this.captureScatteredMountains(),
             terrainCells: Sandbox.captureTerrainCells(fightProps),
             stepsMoraleMultiplier: fightProps.getStepsMoraleMultiplier(),
@@ -7089,14 +7098,74 @@ export class Sandbox extends PixiScene {
             }
         }
         if (augmented) {
+            reconcileArtifactBarrels(this.grid, fp, teamType, (cell) => this.isBarrelCellAllowed(teamType, cell));
+            this.syncArtifactBarrelVisuals();
             this.refreshAfterLoadoutChange();
         }
         return augmented;
+    }
+    private isBarrelCellAllowed(team: TeamType, cell: HoCMath.XY): boolean {
+        return [0, 1].some((index) =>
+            this.getPlacement(team, index)
+                ?.possibleCellHashes()
+                .has((cell.x << 4) | cell.y),
+        );
+    }
+    public override beginBarrelPlacement(team: TeamType, index: number): boolean {
+        const fp = FightStateManager.getInstance().getFightProperties();
+        if (
+            fp.hasFightStarted() ||
+            fp.hasFightFinished() ||
+            !fp.hasArtifactTier1(team, Artifact.Tier1Artifact.BARREL_BARRICADE) ||
+            !Number.isInteger(index) ||
+            index < 0 ||
+            index >= 2
+        )
+            return false;
+        this.Deselect();
+        this.pendingBarrelPlacement = { team, index };
+        this.sc_visibleStateUpdateNeeded = true;
+        return true;
+    }
+    public override cancelBarrelPlacement(): void {
+        if (!this.pendingBarrelPlacement) return;
+        this.pendingBarrelPlacement = undefined;
+        this.drawHoverCells();
+        this.sc_visibleStateUpdateNeeded = true;
+    }
+    public override getBarrelPlacementIndex(team: TeamType): number | undefined {
+        return this.pendingBarrelPlacement?.team === team ? this.pendingBarrelPlacement.index : undefined;
+    }
+    public override getBarrelPlacementState(team: TeamType): { index: number; cell: HoCMath.XY }[] {
+        return this.grid.getArtifactBarrels(team);
+    }
+    public override removePlacedBarrel(team: TeamType, index: number): boolean {
+        this.cancelBarrelPlacement();
+        const result = this.createActionEngine().apply({ type: "unplace_barrel", team, barrelIndex: index });
+        if (result.completed) this.applyTurnEngineEvents(result.events, this.snapshotRenderableUnits());
+        return result.completed;
+    }
+    private syncArtifactBarrelVisuals(): void {
+        const previous = this.dungeonVisuals?.getScatteredMountains() ?? [];
+        const variants = new Map(previous.map((barrel) => [`${barrel.x}:${barrel.y}`, barrel.variant]));
+        const barrels = this.grid
+            .getScatteredMountainsStanding()
+            .map((cell) => ({ ...cell, variant: variants.get(`${cell.x}:${cell.y}`) ?? (cell.x * 16 + cell.y) % 9 }));
+        this.dungeonVisuals?.setScatteredMountains(
+            barrels,
+            barrels.length > 0 || this.grid.getGridType() === GridVals.BLOCK_CENTER,
+        );
+        this.refreshGridMatrices();
+        this.sc_artifactChanged = true;
+        this.sc_visibleStateUpdateNeeded = true;
     }
     public propagateArtifact(teamType: TeamType, tier: number, artifactId: number): boolean {
         const fp = FightStateManager.getInstance().getFightProperties();
         const applied = fp.setArtifactPerTeam(teamType, tier, artifactId);
         if (applied) {
+            reconcileArtifactBarrels(this.grid, fp, teamType, (cell) => this.isBarrelCellAllowed(teamType, cell));
+            this.cancelBarrelPlacement();
+            this.syncArtifactBarrelVisuals();
             this.refreshAfterLoadoutChange();
         }
         return applied;
@@ -7786,6 +7855,7 @@ export class Sandbox extends PixiScene {
         if (!isMountains) {
             this.grid.setScatteredMountains([]);
             this.dungeonVisuals?.setScatteredMountains([]);
+            this.syncArtifactBarrelVisuals();
             return;
         }
         // The band follows the board orientation: side-oriented boards deploy on the left/right x-bands,
@@ -7803,6 +7873,7 @@ export class Sandbox extends PixiScene {
         this.dungeonVisuals?.setScatteredMountains(
             layout.map((rock) => ({ x: rock.cell.x, y: rock.cell.y, variant: rock.variant })),
         );
+        this.syncArtifactBarrelVisuals();
     }
     public override setGridType(gridType: GridType): void {
         // The Animation Lab is an obstacle-free endless playground. Keep it on NORMAL even when the
@@ -8223,6 +8294,20 @@ export class Sandbox extends PixiScene {
         p = logicalPoint;
 
         const fightProps = FightStateManager.getInstance().getFightProperties();
+        if (this.pendingBarrelPlacement) {
+            if (fightProps.hasFightStarted()) {
+                this.cancelBarrelPlacement();
+                return;
+            }
+            const { team, index } = this.pendingBarrelPlacement;
+            const cell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), p);
+            const result = this.createActionEngine().apply({ type: "place_barrel", team, barrelIndex: index, cell });
+            if (result.completed) {
+                this.cancelBarrelPlacement();
+                this.applyTurnEngineEvents(result.events, this.snapshotRenderableUnits());
+            }
+            return;
+        }
         if (!fightProps.hasFightStarted() && this.handleCreatureAnimationLabBoardClick(p)) {
             return;
         }
@@ -9348,18 +9433,17 @@ export class Sandbox extends PixiScene {
      */
     /** The pointer may target only an obstacle cell that still exists, never another cell behind it. */
     private isStandingAttackObstacleCell(cell: HoCMath.XY): boolean {
-        const standingCells = this.grid.hasScatteredMountains()
-            ? this.grid.getScatteredMountainsStanding()
-            : this.grid.getCenterCells();
+        const standingCells = this.grid.getCenterCells();
         return standingCells.some((standing) => standing.x === cell.x && standing.y === cell.y);
     }
     /** Shared hover gate for both fixed center mountains and independently destructible cemetery barrels. */
     private hasStandingShotBlockingObstacle(): boolean {
         const fightProps = FightStateManager.getInstance().getFightProperties();
-        if (fightProps.getGridType() !== GridVals.BLOCK_CENTER) return false;
-        return this.grid.hasScatteredMountains()
-            ? this.grid.getScatteredMountainsStanding().length > 0
-            : fightProps.getObstacleHitsLeft() > 0;
+        if (!this.grid.hasScatteredMountains() && fightProps.getGridType() !== GridVals.BLOCK_CENTER) return false;
+        return (
+            this.grid.getScatteredMountainsStanding().length > 0 ||
+            (this.grid.hasClassicMountains() && fightProps.getObstacleHitsLeft() > 0)
+        );
     }
     private resolveObstacleAttack(
         worldPos: HoCMath.XY,
@@ -9377,11 +9461,12 @@ export class Sandbox extends PixiScene {
         // forwarding the raw pointer position on click could trace through a neighbouring barrel
         // when two obstacles touch, so the red silhouette and the barrel damaged by the engine diverged.
         const targetPosition = GridMath.getPositionForCell(hoveredCell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
-        const obstacleHitsLeft = this.grid.hasScatteredMountains()
+        const obstacleHitsLeft = this.grid.isScatteredMountainCell(hoveredCell)
             ? this.grid.getScatteredMountainsStanding().length
             : fightProps.getObstacleHitsLeft();
         const kind = obstacleAttackKind({
             hasActiveUnit: !!unit,
+            hasScatteredObstacles: this.grid.hasScatteredMountains(),
             gridType: fightProps.getGridType(),
             obstacleHitsLeft,
             isCenterCell: () => this.isStandingAttackObstacleCell(hoveredCell),
@@ -10920,11 +11005,7 @@ export class Sandbox extends PixiScene {
         ) {
             return notHovering();
         }
-        const fightProps = FightStateManager.getInstance().getFightProperties();
-        const obstacleHitsLeft = this.grid.hasScatteredMountains()
-            ? this.grid.getScatteredMountainsStanding().length
-            : fightProps.getObstacleHitsLeft();
-        if (fightProps.getGridType() !== GridVals.BLOCK_CENTER || obstacleHitsLeft <= 0) {
+        if (!this.hasStandingShotBlockingObstacle()) {
             return notHovering();
         }
         const gs = this.sc_sceneSettings.getGridSettings();
@@ -15731,6 +15812,19 @@ export class Sandbox extends PixiScene {
     public override MouseMove(p: HoCMath.XY, leftDrag: boolean): void {
         this.pointerVisualWorld = p;
         p = this.getLogicalBattlefieldPoint(p);
+        if (this.pendingBarrelPlacement) {
+            this.sc_mouseWorld = p;
+            const cell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), p);
+            const own = this.grid
+                .getArtifactBarrels(this.pendingBarrelPlacement.team)
+                .find((barrel) => barrel.index === this.pendingBarrelPlacement!.index);
+            const valid =
+                GridMath.isCellWithinGrid(this.sc_sceneSettings.getGridSettings(), cell) &&
+                this.isBarrelCellAllowed(this.pendingBarrelPlacement.team, cell) &&
+                (this.grid.areAllCellsEmpty([cell]) || (own?.cell.x === cell.x && own.cell.y === cell.y));
+            this.drawHoverCells([cell], !valid);
+            return;
+        }
         if (this.placementDragPointerOrigin && !this.placementDragPointerMoved) {
             const dx = p.x - this.placementDragPointerOrigin.x;
             const dy = p.y - this.placementDragPointerOrigin.y;
@@ -15797,6 +15891,7 @@ export class Sandbox extends PixiScene {
         }
     }
     public override Deselect(_onlyWhenNotStarted = false, _refreshStats = true): void {
+        this.cancelBarrelPlacement();
         // ESC routes here (HandleEscapeKey -> Deselect); also close the spellbook and drop its
         // overlays. closeSpellBook() is a no-op when the book isn't open.
         this.closeSpellBook();
@@ -17334,6 +17429,7 @@ export class Sandbox extends PixiScene {
         } satisfies ConstructorParameters<typeof TurnEngine>[0] & { canLandRangeAttack?: (unit: Unit) => boolean };
         return new TurnEngine(context);
     }
+    private pendingBarrelPlacement?: { team: TeamType; index: number };
     protected createActionEngine(): SceneActionEngine {
         const context = {
             fightProperties: FightStateManager.getInstance().getFightProperties(),
@@ -17348,6 +17444,7 @@ export class Sandbox extends PixiScene {
             getCurrentEnemiesCellsWithinMovementRange: () => this.currentEnemiesCellsWithinMovementRange,
             createSummonedUnit: ({ team, faction, unitName, amount }) =>
                 this.createSummonedRenderableUnit(team, faction, unitName, amount),
+            canPlaceBarrel: (team, cell) => this.isBarrelCellAllowed(team, cell),
             canPlaceUnit: (unit, cells, action) => this.canPlaceUnitWithCommonRules(unit, cells, action),
             canSplitUnit: (unit) => this.canSplitUnitWithCommonRules(unit),
             createSplitUnit: (unit, amount) => this.createSplitRenderableUnit(unit, amount),
@@ -17568,6 +17665,8 @@ export class Sandbox extends PixiScene {
         for (const event of events) {
             switch (event.type) {
                 case "fight_started":
+                    this.cancelBarrelPlacement();
+                    this.syncArtifactBarrelVisuals();
                     shouldRefreshVisibleState = true;
                     break;
                 case "lap_initialized":
@@ -17582,8 +17681,10 @@ export class Sandbox extends PixiScene {
                     shouldRefreshVisibleState = true;
                     break;
                 case "center_obstacle_cleared":
-                    this.drawer.switchToDryCenter();
-                    this.drawer.setGridType(GridVals.NORMAL);
+                    if (!this.grid.hasScatteredMountains() && !this.grid.hasClassicMountains()) {
+                        this.drawer.switchToDryCenter();
+                        this.drawer.setGridType(GridVals.NORMAL);
+                    }
                     this.gridMatrix = this.grid.getMatrix();
                     this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
                     shouldRefreshVisibleState = true;
@@ -17773,6 +17874,11 @@ export class Sandbox extends PixiScene {
                 case "unit_defended":
                 case "attack_type_selected":
                 case "unit_moved":
+                case "barrel_placed":
+                case "barrel_unplaced":
+                    this.syncArtifactBarrelVisuals();
+                    shouldRefreshVisibleState = true;
+                    break;
                 case "unit_placed":
                 case "unit_split":
                     shouldRefreshVisibleState = true;
@@ -19032,16 +19138,12 @@ export class Sandbox extends PixiScene {
                 // large-unit anchors, striking in place — comes from the identical code path.
                 // An alive forced target (aggr) forbids mountain attacks, mirroring the engine.
                 this.canAttackMountainTargets = undefined;
-                const mountainFightProps = FightStateManager.getInstance().getFightProperties();
                 const forcedMountainBlocker = forcedTargetId
                     ? this.unitsHolder.getAllUnits().get(forcedTargetId)
                     : undefined;
                 if (
                     this.currentActiveUnit.getAttackTypeSelection() !== AttackVals.MAGIC &&
-                    mountainFightProps.getGridType() === GridVals.BLOCK_CENTER &&
-                    (this.grid.hasScatteredMountains()
-                        ? this.grid.getScatteredMountainsStanding().length > 0
-                        : mountainFightProps.getObstacleHitsLeft() > 0) &&
+                    this.hasStandingShotBlockingObstacle() &&
                     !(forcedMountainBlocker && !forcedMountainBlocker.isDead())
                 ) {
                     const gsMountain = this.sc_sceneSettings.getGridSettings();

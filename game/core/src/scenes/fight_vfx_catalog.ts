@@ -160,6 +160,8 @@ export const FIGHT_EVENT_VFX: Record<GameEvent["type"], FightEventVfx> = {
         ranked: "none",
         note: "skip; the stop-icon rides the snapshot `skipping` field (setSkipping), not this event",
     },
+    barrel_placed: { rendered: false, ranked: "none", note: "placement terrain from the authoritative snapshot" },
+    barrel_unplaced: { rendered: false, ranked: "none", note: "placement terrain from the authoritative snapshot" },
     unit_placed: { rendered: false, ranked: "none", note: "placement (board rebuild)" },
     unit_split: { rendered: false, ranked: "none", note: "split (board rebuild)" },
     unit_moved_by_system: { rendered: false, ranked: "none", note: "forced move (narrowing/system); no distinct VFX" },

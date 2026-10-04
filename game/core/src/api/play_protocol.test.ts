@@ -67,6 +67,24 @@ const doubleField = (field: number, value: number): number[] => {
 };
 
 describe("play protobuf decoder", () => {
+    test("decodes owned barrel slots, zero coordinates, and an authoritative empty list", () => {
+        const barrel = (team: number, index: number, x: number, y: number) =>
+            messageField(75, [
+                ...intField(1, team),
+                ...intField(2, index + 1),
+                ...messageField(3, [...intField(1, x), ...intField(2, y)]),
+            ]);
+        const snapshot = decodePlaySnapshot(
+            new Uint8Array([...barrel(2, 0, 0, 15), ...barrel(2, 1, 1, 0), ...intField(76, 3)]),
+        );
+        expect(snapshot.artifactBarrels).toEqual([
+            { team: 2, index: 0, cell: { x: 0, y: 15 } },
+            { team: 2, index: 1, cell: { x: 1, y: 0 } },
+        ]);
+        expect(snapshot.artifactBarrelsCount).toBe(2);
+        expect(decodePlaySnapshot(new Uint8Array(intField(76, 1))).artifactBarrels).toEqual([]);
+        expect(decodePlaySnapshot(new Uint8Array()).artifactBarrels).toBeUndefined();
+    });
     test("encodes split Setup duration and its explicit opponent-roster policy", () => {
         const encoded = Array.from(
             encodeDevCreatePlayGameRequest({

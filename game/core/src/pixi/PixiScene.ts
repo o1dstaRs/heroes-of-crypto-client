@@ -1056,6 +1056,19 @@ export abstract class PixiScene {
         return undefined;
     }
     /** The units a team has placed on the board, by name and cells — what a co-op sandbox can be seeded with. */
+    public beginBarrelPlacement(_team: TeamType, _index: number): boolean {
+        return false;
+    }
+    public cancelBarrelPlacement(): void {}
+    public getBarrelPlacementIndex(_team: TeamType): number | undefined {
+        return undefined;
+    }
+    public getBarrelPlacementState(_team: TeamType): { index: number; cell: { x: number; y: number } }[] {
+        return [];
+    }
+    public removePlacedBarrel(_team: TeamType, _index: number): boolean {
+        return false;
+    }
     public getPlacedArmyExport(_team: TeamType): { unitName: string; cells: { x: number; y: number }[] }[] {
         return [];
     }

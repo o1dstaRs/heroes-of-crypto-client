@@ -2,7 +2,7 @@
 //
 // DERIVED from the game, not mirrored by hand. This file used to carry its own copy of every effect string
 // with the numbers already written in, and it silently went stale: a balance pass moved Rime Charm's proc
-// 30% -> 60%, Helm of Focus 25% -> 35%, Giant's Maul 35% -> 40% and Iron Plate 0.7 -> 1, and the codex kept
+// 30% -> 60%, Giant's Maul 35% -> 40% and Iron Plate 0.7 -> 1, and the codex kept
 // advertising the old figures. Reading the same ARTIFACT_POWER table the engine reads means the site cannot
 // disagree with the game again, and a rebalance needs no edit here at all.
 
@@ -47,7 +47,8 @@ const codexDescription = (props: ArtifactProperties): string =>
  */
 const ARTIFACT_DESCRIPTIONS_RU: Record<string, string> = {
     veteran_helm: "Повышает защиту всей армии ещё на {}%.",
-    amulet_of_resolve: "Повышает сопротивление армии эффектам Статуса на {}%.",
+    amulet_of_resolve:
+        "Повышает сопротивление армии эффектам Статуса на {}%. Повышает сопротивление армии эффектам Разума на []%.",
     keen_blade: "Повышает базовую атаку армии (дальнюю и ближнюю) на {}.",
     iron_plate: "Повышает базовую броню армии на {}.",
     swift_boots: "Увеличивает перемещение юнитов ближнего боя на {}% от их базовых шагов.",
@@ -57,7 +58,8 @@ const ARTIFACT_DESCRIPTIONS_RU: Record<string, string> = {
         "Даёт всей армии Deep Wounds Level 1: каждая атака или ответ добавляет цели +{}% к получаемому урону, эффект складывается.",
     cursed_ward: "Проклятие: +{} к удаче, но −[] к морали для всей армии.",
     hunters_longbow: "Стрелки получают +{} к атаке за каждого стрелка в армии.",
-    helm_of_focus: "Повышает сопротивление армии эффектам Разума на {}%.",
+    barrel_barricade:
+        "Даёт {} бочки для расстановки в своей зоне. Каждая блокирует движение и выстрелы до разрушения одним ударом.",
     mages_ring: "Увеличивает весь магический урон армии на {}%.",
     warlords_edge: "Даёт всей армии дополнительно {}% к атаке.",
     titan_plate: "Даёт всей армии дополнительно {}% к защите (от ближних и дальних атак).",
@@ -97,7 +99,10 @@ const russianDescription = (props: ArtifactProperties, english: string): string 
     let index = 0;
     return template
         .replace(PLACEHOLDER, () => values[index++] ?? "")
-        .replace(/(\d+) кругов/g, (_, laps: string) => `${laps} ${pluralRu(Number(laps), ["круг", "круга", "кругов"])}`);
+        .replace(
+            /(\d+) кругов/g,
+            (_, laps: string) => `${laps} ${pluralRu(Number(laps), ["круг", "круга", "кругов"])}`,
+        );
 };
 
 const toArtifact = (tier: ArtifactTier) => (props: ArtifactProperties) => ({

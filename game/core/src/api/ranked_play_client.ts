@@ -387,6 +387,8 @@ export const toAuthoritativeGameSnapshot = (
     centerDried: snapshot.centerDried,
     centerObstacleHitsLeft: snapshot.centerObstacleHitsLeft,
     centerObstacleHitsRight: snapshot.centerObstacleHitsRight,
+    artifactBarrels: snapshot.artifactBarrels?.map((barrel) => ({ ...barrel, team: barrel.team as 1 | 2 })),
+    artifactBarrelsCount: snapshot.artifactBarrelsCount,
     scatteredStandingCells: snapshot.scatteredStandingCells,
     scatteredStandingCount: snapshot.scatteredStandingCount,
     transientCells: snapshot.transientCells,
