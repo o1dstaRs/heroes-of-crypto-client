@@ -1,13 +1,20 @@
 // scripts/generate_image_imports.js
-require("./prepare_level_one_assets.ts").prepareLevelOneAssets();
 const fs = require("fs");
 const path = require("path");
-const { isWebPFile } = require("../src/gameImageAssetPolicy.ts");
 
 const imageDir = path.resolve(__dirname, "../images");
 const generatedDir = path.resolve(__dirname, "../src/generated");
 const outputFile = path.join(generatedDir, "image_imports.ts");
-const productionBuild = process.env.NODE_ENV === "production";
+const testAssets = process.argv.includes("--test");
+// CI already supplies the full key universe without the private art checkout. Keep that fixture intact.
+if (testAssets && fs.existsSync(outputFile) && fs.readFileSync(outputFile, "utf8").includes("/* CI stub")) {
+    console.log("Keeping CI image stubs for core tests.");
+    process.exit(0);
+}
+require("./prepare_level_one_assets.ts").prepareLevelOneAssets();
+const { isWebPFile } = require("../src/gameImageAssetPolicy.ts");
+// Tests exercise authoring-only animation states too, even after a production build pruned their URLs.
+const productionBuild = !testAssets && process.env.NODE_ENV === "production";
 const { isProductionOmittedAssetKey } = require("../src/pixi/imageAssetTiers.ts");
 const {
     isProductionOmittedDisabledUnitAnimationAssetKey,
@@ -94,10 +101,12 @@ fs.writeFileSync(outputFile, lines.join("\n") + "\n");
 // ImageKey union above). This file IS COMMITTED (see .gitignore) so CI's generate_ci_stubs.js can
 // rebuild the exact same enumerable key universe without the private art Drive; regenerate and
 // commit it together with image_imports.ts whenever the art set changes.
-fs.writeFileSync(
-    path.join(generatedDir, "image_keys.json"),
-    JSON.stringify(entries.map(({ key }) => key).sort(), null, 4) + "\n",
-);
+if (!testAssets) {
+    fs.writeFileSync(
+        path.join(generatedDir, "image_keys.json"),
+        JSON.stringify(entries.map(({ key }) => key).sort(), null, 4) + "\n",
+    );
+}
 const omittedCount = entries.filter(({ productionOmitted }) => productionOmitted).length;
 console.log(
     productionBuild

@@ -1774,6 +1774,9 @@ function atlasImageKeyFromUnitAndState(
 ): ImageKey | null {
     const base = unitName.toLowerCase().replace(/\s+/g, "_");
     const stateLeft = state.toLowerCase();
+    if (unitName === PEASANT_UNIT_NAME && stateLeft === "idle" && "peasant_idle_red_atlas_quarter" in images) {
+        return "peasant_idle_red_atlas_quarter" as ImageKey;
+    }
     if (unitName === "Pikeman" && stateLeft === "walk" && "pikeman_walk_atlas" in images) {
         return "pikeman_walk_atlas" as ImageKey;
     }

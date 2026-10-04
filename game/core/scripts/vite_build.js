@@ -36,6 +36,14 @@ const mode = process.argv[2] || "production";
 // development-mode bundle is ever genuinely wanted.
 process.env.NODE_ENV = process.env.HOC_BUILD_NODE_ENV || "production";
 
+// Tests and the dev server need authoring assets that production omits. Rebuild a real image map for
+// this build's mode so its size does not depend on which command ran last; CI keeps its private-art stubs.
+const { readFileSync } = await import("node:fs");
+const generatedImageMap = new URL("../src/generated/image_imports.ts", import.meta.url);
+if (!readFileSync(generatedImageMap, "utf8").includes("/* CI stub")) {
+    await import("./generate_image_imports.js");
+}
+
 // build:skip must not silently publish an old generated image map or incomplete animation checkout.
 const { verifyLevelOneBuildAssets } = await import("./verify_level_one_build_assets.ts");
 verifyLevelOneBuildAssets();

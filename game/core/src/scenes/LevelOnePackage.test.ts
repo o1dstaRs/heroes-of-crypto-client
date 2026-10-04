@@ -146,6 +146,46 @@ test("paged Arbalester idle survives production pruning without eager decoding",
     }
 });
 
+test.each([TeamVals.LEFT, TeamVals.RIGHT])(
+    "Peasant retains its approved idle after production pruning on team %s",
+    (team) => {
+        const mutableImages = images as Record<string, string | undefined>;
+        const legacyKey = "peasant_idle_atlas_quarter";
+        const legacyPresent = Object.hasOwn(mutableImages, legacyKey);
+        const legacySource = mutableImages[legacyKey];
+        const root = new Container();
+        let unit: RenderableUnit | undefined;
+        delete mutableImages[legacyKey];
+        try {
+            expect(Object.hasOwn(images, "peasant_idle_red_atlas_quarter")).toBe(true);
+            const effects = new EffectFactory();
+            const abilityFactory = new AbilityFactory(effects);
+            const properties = HoCConfig.getCreatureConfig(team, "Life", "Peasant", "peasant_512", 10);
+            const hydrate = Sandbox.prototype as unknown as {
+                createRenderableUnitFromSceneState(this: unknown, state: unknown): RenderableUnit;
+            };
+            unit = hydrate.createRenderableUnitFromSceneState.call(
+                {
+                    sc_sceneSettings: { getGridSettings: () => grid },
+                    abilityFactory,
+                    texAny: resolve,
+                    ensureDigitTextures: () => {},
+                },
+                { properties, team },
+            );
+            expect(unit.hasAnimationState("idle")).toBe(true);
+            expect(unit.getAnimationTextureKey("idle")).toBe("peasant_idle_red_atlas_quarter");
+            unit.setPosition(0, 1024);
+            unit.ensureVisual(root, grid);
+            expect((unit as unknown as { selectionAnimFrames?: Texture[] }).selectionAnimFrames).toHaveLength(12);
+        } finally {
+            if (legacyPresent) mutableImages[legacyKey] = legacySource;
+            unit?.destroyVisuals();
+            root.destroy({ children: true });
+        }
+    },
+);
+
 test("a slow base portrait does not enqueue combat sheets before the creature can appear", () => {
     const effects = new EffectFactory();
     const properties = HoCConfig.getCreatureConfig(TeamVals.LEFT, "Life", "Peasant", "peasant_512", 10);

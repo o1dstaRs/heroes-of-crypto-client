@@ -1,7 +1,17 @@
 import { TexturePool } from "pixi.js";
 
 interface IPooledTexture {
+    readonly uid: number;
     destroy(destroySource?: boolean): void;
+}
+
+interface ITexturePool {
+    // Pixi 8.20 stores object buckets; 8.21+ separates format/scale-mode buckets in a Map.
+    _texturePool?: Record<string, IPooledTexture[] | undefined>;
+    _poolKeyHash?: Record<number, number>;
+    _buckets?: Map<number, IPooledTexture[]>;
+    _poolKey?: Record<number, number>;
+    _poolStyle?: Record<number, unknown>;
 }
 
 interface IFilterStackSlot {
@@ -16,29 +26,29 @@ interface IFilterStackOwner {
 /**
  * Destroy the render targets Pixi's process-wide TexturePool holds idle, keeping its size buckets.
  *
- * TexturePool.clear() empties the pool by replacing its bucket map, and a texture still checked out — every
- * live Text's canvas texture, a filter target mid-pass — then throws when it is handed back, because
- * returnTexture pushes into a bucket that no longer exists. That is the iPhone "this._texturePool[n].push"
- * crash: a rotation crossed a pool-size boundary, resize cleared the pool, and the next text change blew up.
- * Only the idle arrays are emptied here, so a returned texture lands in its (empty) bucket as usual.
+ * TexturePool.clear() deletes the size buckets. Pixi 8.20 then throws when a borrowed Text/filter texture
+ * returns; 8.21+ destroys it if its bucket is still missing. Keep the buckets and borrowed ownership records
+ * so live users can still return and reuse their targets. Remove ownership records only for idle targets
+ * being destroyed, following 8.21's own _dropTextures, so repeated resizes do not retain their metadata.
  *
  * Pass the renderer to also drop what its FilterSystem slots still point at from earlier frames. A pop hands
  * a slot's textures back to the pool but leaves them on the slot, and the next nested push reads its
- * resolution off that leftover (`_findFilterResolution`) before replacing it — once destroyed here its source
- * is null, that read threw on every frame, and the board stayed blank. Call between frames only.
+ * resolution off that leftover before replacing it in 8.20 — once destroyed here its source is null, that
+ * read threw on every frame, and the board stayed blank. Active slots stay untouched. Call between frames
+ * only; the optional pool also permits cleaning a separately owned Pixi texture pool.
  */
-export const releaseIdlePooledTextures = (renderer?: unknown): void => {
-    const buckets = (TexturePool as unknown as { _texturePool?: Record<string, IPooledTexture[] | undefined> })
-        ._texturePool;
-    if (buckets) {
-        for (const textures of Object.values(buckets)) {
-            if (!textures) {
-                continue;
-            }
-            for (const texture of textures) {
-                texture.destroy(true);
-            }
-            textures.length = 0;
+export const releaseIdlePooledTextures = (renderer?: unknown, texturePool: unknown = TexturePool): void => {
+    const pool = texturePool as ITexturePool;
+    const buckets = pool._buckets?.values() ?? Object.values(pool._texturePool ?? {});
+    for (const textures of buckets) {
+        if (!textures) continue;
+        let texture: IPooledTexture | undefined;
+        while ((texture = textures.pop())) {
+            // Remove from the idle bucket before destruction callbacks can request another target.
+            if (pool._poolKeyHash) delete pool._poolKeyHash[texture.uid];
+            if (pool._poolKey) delete pool._poolKey[texture.uid];
+            if (pool._poolStyle) delete pool._poolStyle[texture.uid];
+            texture.destroy(true);
         }
     }
 

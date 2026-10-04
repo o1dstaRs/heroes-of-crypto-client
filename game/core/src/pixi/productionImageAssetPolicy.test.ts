@@ -2,6 +2,7 @@ import shotTrajectoryAssets from "./shotTrajectoryAssets.json";
 import { isLazyCombatEffectAssetKey, isProductionOmittedAssetKey } from "./imageAssetTiers";
 import { CREATURE_PORTRAIT_ASSET_KEYS } from "./creaturePortraitAssetKeys";
 import { describe, expect, test } from "bun:test";
+import { factionPortraitGlowSources } from "../ui/creaturePortraitBackgroundMotion";
 import {
     isProductionOmittedDisabledUnitAnimationAssetKey,
     isProductionOmittedEnvironmentAssetKey,
@@ -137,6 +138,16 @@ describe("production environment image policy", () => {
             "map_badge_barrels_frameless_v2",
         ]) {
             expect(isProductionOmittedLegacyUiAssetKey(key)).toBe(false);
+        }
+    });
+
+    test("keeps every emissive mask requested by faction portrait motion", () => {
+        const sources = factionPortraitGlowSources();
+        expect(sources).toHaveLength(4);
+        for (const source of sources) {
+            const filename = new URL(source).pathname.split("/").at(-1)!;
+            const key = filename.replace(/\.webp$/, "");
+            expect(isProductionOmittedLegacyUiAssetKey(key), key).toBe(false);
         }
     });
 
