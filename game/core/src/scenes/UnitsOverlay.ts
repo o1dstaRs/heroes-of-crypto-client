@@ -650,6 +650,7 @@ export class UnitsOverlay {
     public build(): void {
         // Ranked fight hydration still constructs an invisible roster. Do not start this placement-only
         // request until the overlay is actually built for placement.
+        this.warmVisibleBoardTextures();
         this.refreshToggleTexture();
         this.levelRail.removeChildren();
         this.rowsContainer.removeChildren();
@@ -810,6 +811,7 @@ export class UnitsOverlay {
     /** Refresh portraits and hover pictograms as their deferred textures enter Pixi's cache. */
     public refreshLazyTextures(): void {
         if (this.container.destroyed) return;
+        this.warmVisibleBoardTextures();
         this.refreshToggleTexture();
         for (const chip of this.allChips) {
             if (this.chipLevels.get(chip) !== this.selectedLevel) continue;
@@ -872,6 +874,17 @@ export class UnitsOverlay {
             if (creatureId !== undefined) creatureIds.push(creatureId);
         }
         enqueueLeftSidebarPortraits(creatureIds);
+    }
+    /** Start the current roster's battlefield figures before cards, icons or the first placement click. */
+    private warmVisibleBoardTextures(): void {
+        const level = this.selectedLevel as UnitLevelId;
+        const size = this.levelBuckets[level - 1].unitSize;
+        for (const faction of this.factions) {
+            for (const creatureId of getCreaturesOf(faction.type, level)) {
+                const name = UNIT_ID_TO_NAME[creatureId];
+                if (name) this.getTex(unitToTextureName(name, TextureType.SMALL, size));
+            }
+        }
     }
     public onResize(stageW: number, stageH: number): void {
         if (stageW <= 0 || stageH <= 0) return;

@@ -13,6 +13,9 @@ import { isLazyBattlefieldCreatureAssetKey } from "./imageAssetTiers";
  */
 
 export const EXTRA_TEXTURE_MAX_WAIT_MS = 10_000;
+// Keep animation sheets and optional icons from filling every browser connection before the
+// player selects another creature. Board-first ordering alone cannot bypass downloads already started.
+export const MAX_CONCURRENT_EXTRA_TEXTURE_LOADS = 2;
 const BOARD_IMAGE_RETRY_BASE_MS = 1_000;
 const BOARD_IMAGE_RETRY_MAX_MS = 15_000;
 
@@ -38,6 +41,24 @@ export const createBoardFirstLoads = (
 ): BoardFirstLoads => {
     const inFlight = new Set<Promise<unknown>>();
     let waiters: Array<() => void> = [];
+    let activeExtras = 0;
+    const extraWaiters: Array<() => void> = [];
+
+    const acquireExtraSlot = (): Promise<void> =>
+        new Promise((resolve) => {
+            if (activeExtras < MAX_CONCURRENT_EXTRA_TEXTURE_LOADS) {
+                activeExtras++;
+                resolve();
+            } else {
+                extraWaiters.push(resolve);
+            }
+        });
+
+    const releaseExtraSlot = (): void => {
+        const next = extraWaiters.shift();
+        if (next) next();
+        else activeExtras--;
+    };
 
     const track = (download: Promise<unknown>): void => {
         inFlight.add(download);
@@ -72,7 +93,16 @@ export const createBoardFirstLoads = (
                 track(download);
                 return download;
             }
-            return afterBoardImages().then(start);
+            return acquireExtraSlot().then(async () => {
+                try {
+                    // A creature may have been selected while this extra was queued. Check again
+                    // after acquiring its slot so that the new board image still goes first.
+                    await afterBoardImages();
+                    return await start();
+                } finally {
+                    releaseExtraSlot();
+                }
+            });
         },
         afterBoardImages,
         boardImagesInFlight: () => inFlight.size,

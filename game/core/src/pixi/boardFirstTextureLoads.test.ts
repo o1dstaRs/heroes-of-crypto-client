@@ -8,6 +8,7 @@ import {
     createBoardFirstLoads,
     EXTRA_TEXTURE_MAX_WAIT_MS,
     isBoardImageTextureKey,
+    MAX_CONCURRENT_EXTRA_TEXTURE_LOADS,
 } from "./boardFirstTextureLoads";
 
 const BOARD = "peasant_battlefield_side_right_distance_readable_v1";
@@ -61,6 +62,57 @@ describe("board-first texture loading", () => {
         });
         await tick();
         expect(started).toEqual(["extra"]);
+    });
+
+    test("limits optional downloads and releases a slot after a failure", async () => {
+        const loads = createBoardFirstLoads();
+        const downloads = Array.from({ length: MAX_CONCURRENT_EXTRA_TEXTURE_LOADS + 1 }, deferred);
+        const started: number[] = [];
+        const results = downloads.map((download, index) =>
+            loads
+                .load(EXTRA, () => {
+                    started.push(index);
+                    return download.promise;
+                })
+                .catch(() => "failed"),
+        );
+        await tick();
+        expect(started).toEqual([0, 1]);
+
+        downloads[0].reject(new Error("decode failed"));
+        await tick();
+        expect(started).toEqual([0, 1, 2]);
+        downloads.slice(1).forEach((download) => download.resolve("texture"));
+        expect(await Promise.all(results)).toEqual(["failed", "texture", "texture"]);
+    });
+
+    test("a new board image bypasses busy optional slots and holds queued animations", async () => {
+        const loads = createBoardFirstLoads();
+        const animations = Array.from({ length: MAX_CONCURRENT_EXTRA_TEXTURE_LOADS + 1 }, deferred);
+        const started: string[] = [];
+        const extras = animations.map((download, index) =>
+            loads.load(EXTRA, () => {
+                started.push(`animation ${index}`);
+                return download.promise;
+            }),
+        );
+        await tick();
+        const board = deferred();
+        const boardLoad = loads.load(BOARD, () => {
+            started.push("new unit");
+            return board.promise;
+        });
+        expect(started).toEqual(["animation 0", "animation 1", "new unit"]);
+
+        animations[0].resolve("first animation");
+        await tick();
+        expect(started).toHaveLength(3);
+        board.resolve("board texture");
+        await boardLoad;
+        await tick();
+        expect(started.at(-1)).toBe("animation 2");
+        animations.slice(1).forEach((download) => download.resolve("animation texture"));
+        await Promise.all(extras);
     });
 
     test("every board image counts: extras wait for the last one, and a failed one still releases them", async () => {
