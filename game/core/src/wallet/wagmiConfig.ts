@@ -1,4 +1,5 @@
-import { getDefaultConfig, type Config as WagmiConfig } from "@rainbow-me/rainbowkit";
+import { getDefaultConfig } from "@rainbow-me/rainbowkit";
+import type { Config as WagmiConfig } from "wagmi";
 import { injectedWallet } from "@rainbow-me/rainbowkit/wallets";
 
 import { mainnet } from "wagmi/chains";

@@ -3,9 +3,8 @@ import { describe, expect, test } from "bun:test";
 import { createWagmiConfig, normalizeWalletConnectProjectId } from "./wagmiConfig";
 
 const connectorWalletIds = (projectId: string | undefined): string[] =>
-    createWagmiConfig(projectId).connectors.map((connector) => {
-        const rainbowKitConnector = connector as typeof connector & { rkDetails?: { id?: string } };
-        return rainbowKitConnector.rkDetails?.id ?? connector.id;
+    createWagmiConfig(projectId).connectors.map((connector: { id: string; rkDetails?: { id?: string } }) => {
+        return connector.rkDetails?.id ?? connector.id;
     });
 
 describe("WalletConnect project ID configuration", () => {
