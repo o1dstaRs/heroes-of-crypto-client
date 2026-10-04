@@ -40,7 +40,7 @@
         "@types/uuid": "^11.0.0",
         "axios": "1.20.0",
         "denque": "^2.1.0",
-        "framer-motion": "13.1.1",
+        "framer-motion": "13.4.6",
         "os-browserify": "^0.3.0",
         "path-browserify": "^1.0.1",
         "pixi.js": "^8.20.1",
