@@ -1,5 +1,5 @@
-import { expect, test } from "bun:test";
-import { Container, Texture } from "pixi.js";
+import { expect, spyOn, test } from "bun:test";
+import { Assets, Container, Texture } from "pixi.js";
 
 import { BATTLEFIELD_TEXTURE_KEYS } from "../pixi/battlefieldTextureKeys";
 import { UnitsOverlay } from "./UnitsOverlay";
@@ -30,4 +30,23 @@ test("starts visible-level board artwork before portraits and repeats that order
     expect(nextBoards).not.toContain("peasant_battlefield_side_right_distance_readable_v1");
     expect(requested.slice(0, nextBoards.length)).toEqual(nextBoards);
     overlay.destroy();
+});
+
+test("keeps a cold roster's registered portraits on the scene loading queue", () => {
+    const directLoads = spyOn(Assets, "load").mockRejectedValue(new Error("Unexpected direct portrait download"));
+    const app = {
+        renderer: { height: 900, width: 1600 },
+        stage: new Container(),
+        ticker: { add: () => undefined, remove: () => undefined },
+    } as unknown as ConstructorParameters<typeof UnitsOverlay>[0];
+    const overlay = new UnitsOverlay(app, () => undefined);
+    try {
+        overlay.build();
+        expect(directLoads).not.toHaveBeenCalled();
+        (overlay as unknown as { setSelectedLevel(level: number): void }).setSelectedLevel(4);
+        expect(directLoads).not.toHaveBeenCalled();
+    } finally {
+        overlay.destroy();
+        directLoads.mockRestore();
+    }
 });

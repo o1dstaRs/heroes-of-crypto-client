@@ -782,7 +782,9 @@ export class UnitsOverlay {
                                   }
                                 : undefined,
                     });
-                    if (portraitVisual && !portraitTexture) {
+                    // Registered portraits already load through the scene's board-first queue.
+                    // Directly loading them here also fetches every hidden level and bypasses that priority.
+                    if (loadPortraitNow && portraitVisual && !portraitTexture && !portraitTextureKey) {
                         void Assets.load<Texture>(portraitVisual.source)
                             .then((texture) => chip.setPortraitTexture(texture))
                             .catch((error: unknown) => {
