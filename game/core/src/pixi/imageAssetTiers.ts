@@ -10,7 +10,7 @@ import { isNamedUnitStateSheetKey } from "./unitStateSheetKeys";
 // reuse the exact runtime split without pulling Pixi into their entry bundle.
 
 export function isIdleAtlasKey(key: string): boolean {
-    if (key === "blacksmith_idle_atlas" || key === "orc_idle_atlas") return true;
+    if (key === "blacksmith_idle_atlas" || key === "orc_idle_atlas" || key === "beholder_idle_atlas") return true;
     return (
         isUnitAnimationAtlasKey(key) &&
         (key.includes("_idle") || key.includes("_default")) &&
@@ -19,6 +19,7 @@ export function isIdleAtlasKey(key: string): boolean {
 }
 
 export function isRedundantFullResolutionUnitAtlasKey(key: string): boolean {
+    if (key === "beholder_idle_atlas") return false;
     if (approvedEnvironmentKeys.has(key)) return false;
     if (/^white_tiger_lab_(idle|walk|hit|death|melee_attack(?:_up|_down)?)_atlas$/.test(key)) return false;
     if (

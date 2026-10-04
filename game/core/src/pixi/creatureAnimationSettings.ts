@@ -41,6 +41,7 @@ export const usesAuthoredRangedRelease = (unitName: string): boolean =>
 // Approved movement and Squire reactions must be decoded before their first use in combat,
 // including while the global creature-animation freeze remains in place.
 const UNIT_ATLASES_USED_WHILE_ANIMATIONS_DISABLED = new Set([
+    "beholder_idle_atlas",
     "white_tiger_lab_walk_atlas",
     "white_tiger_lab_idle_atlas",
     "white_tiger_lab_hit_atlas",

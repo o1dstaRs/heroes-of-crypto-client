@@ -31,6 +31,14 @@ import { isNamedUnitStateSheetKey } from "./unitStateSheetKeys";
 // of MB finish downloading — the "old squared images on initial load" bug. These tests pin the
 // three-way split so the idle bundle stays small and first.
 describe("pixi texture bundle split", () => {
+    test("loads Beholder's detailed idle even while legacy animations are disabled", () => {
+        const { idleAtlases, deferredUnitAtlases, excludedFullResolutionUnitAtlases } = getSplitBundles({
+            animationsEnabled: false,
+        });
+        expect(idleAtlases.beholder_idle_atlas).toBeDefined();
+        expect(deferredUnitAtlases.beholder_idle_atlas).toBeUndefined();
+        expect(excludedFullResolutionUnitAtlases.beholder_idle_atlas).toBeUndefined();
+    });
     test("classifies the board idle/default atlases and nothing else", () => {
         expect(isIdleAtlasKey("wolf_idle_atlas_quarter")).toBe(true);
         expect(isIdleAtlasKey("behemoth_default_atlas_half")).toBe(true);

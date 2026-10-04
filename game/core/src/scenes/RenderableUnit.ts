@@ -1774,6 +1774,10 @@ function atlasImageKeyFromUnitAndState(
 ): ImageKey | null {
     const base = unitName.toLowerCase().replace(/\s+/g, "_");
     const stateLeft = state.toLowerCase();
+    // The approved idle has 768px frames. Its quarter export loses the eye and tentacle detail.
+    if (unitName === BEHOLDER_UNIT_NAME && stateLeft === "idle" && "beholder_idle_atlas" in images) {
+        return "beholder_idle_atlas" as ImageKey;
+    }
     if (unitName === PEASANT_UNIT_NAME && stateLeft === "idle" && "peasant_idle_red_atlas_quarter" in images) {
         return "peasant_idle_red_atlas_quarter" as ImageKey;
     }

@@ -17,6 +17,7 @@ import {
     shouldPreloadUnitAnimationAtlas,
 } from "../pixi/creatureAnimationSettings";
 import { RenderableUnit } from "./RenderableUnit";
+import { RenderableUnit as LevelOneRenderableUnit } from "./LevelOneRenderableUnit";
 
 const roster = [
     ["Life", "Peasant", "attack"],
@@ -114,6 +115,39 @@ function samePose(a: RenderableUnit, b: RenderableUnit) {
         (right.filters ?? []).map((f) => f.constructor.name),
     );
 }
+test.each([
+    ["main", RenderableUnit],
+    ["level one", LevelOneRenderableUnit],
+] as const)("%s renderer uses Beholder's detailed approved idle", (_name, Renderer) => {
+    CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
+    const effects = new EffectFactory();
+    const base = Unit.createUnit(
+        HoCConfig.getCreatureConfig(TeamVals.LEFT, "Chaos", "Beholder", "beholder_512", 1),
+        grid,
+        TeamVals.LEFT,
+        UnitVals.CREATURE,
+        new AbilityFactory(effects),
+        effects,
+        false,
+    );
+    const loadedKeys: string[] = [];
+    const unit = Renderer.fromBase(base, (key) => {
+        loadedKeys.push(key);
+        return texture;
+    });
+    const root = new Container();
+    try {
+        unit.setPosition(0, 1024);
+        unit.ensureVisual(root, grid);
+        const visual = unit as unknown as Visuals;
+        expect(loadedKeys.at(-1)).toBe("beholder_idle_atlas");
+        expect(visual.selectionAnimFrames).toHaveLength(16);
+        expect(visual.selectionAnimFrames?.[0].width).toBe(768);
+        expect(visual.selectionAnimFrames?.[0].height).toBe(768);
+    } finally {
+        root.destroy({ children: true });
+    }
+});
 test.each(roster)("%s / %s matches the lab at rest, in motion and in every authored action", (faction, name, melee) => {
     const runtime = create(faction, name, false),
         lab = create(faction, name, true);

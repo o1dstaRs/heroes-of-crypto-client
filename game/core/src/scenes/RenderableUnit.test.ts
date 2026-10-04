@@ -6470,8 +6470,10 @@ describe("refreshed idle cadence and quadruped scale", () => {
         beholder.setPosition(0, 1024);
         beholder.ensureVisual(new Container(), gridSettings);
         const beholderIdle = beholder as unknown as IdleInternals;
-        expect(beholderResolvedKeys).toContain("beholder_idle_atlas_quarter");
-        expect(beholderResolvedKeys.at(-1)).toBe("beholder_idle_atlas_quarter");
+        expect(beholderResolvedKeys).toContain("beholder_idle_atlas");
+        expect(beholderResolvedKeys.at(-1)).toBe("beholder_idle_atlas");
+        expect(beholderIdle.selectionAnimFrames?.[0].width).toBe(768);
+        expect(beholderIdle.selectionAnimFrames?.[0].height).toBe(768);
         expect(beholderIdle.selectionAnimFrames).toHaveLength(16);
         expect(beholderIdle.selectionAnimFrameDurationMs).toBeCloseTo(187 / 1.3);
         expect(beholderIdle.selectionAnimFrameDurationsMs).toHaveLength(16);
