@@ -667,7 +667,9 @@ export class PixiGameManager {
     }
     private emitAuthoritativeDamageStats(snapshot: AuthoritativeGameSnapshot): void {
         if (snapshot.damageStats) {
-            this.onDamageStatisticsUpdated.emit(structuredClone(snapshot.damageStats));
+            // The scene may have rejected a stale/live snapshot while full replay owns the board.
+            // Publish the totals it actually accepted, just as the regular frame update does.
+            this.onDamageStatisticsUpdated.emit(this.GetCurrentDamageStatistics());
         }
     }
     private shouldFitAuthoritativeSnapshot(snapshot: AuthoritativeGameSnapshot, wasStarted: boolean): boolean {
@@ -861,6 +863,9 @@ export class PixiGameManager {
         return this.m_scene?.sc_visibleState
             ? structuredClone(this.m_scene.sc_visibleState as IVisibleState)
             : ({} as IVisibleState);
+    }
+    public GetCurrentDamageStatistics(): IDamageStatistic[] {
+        return structuredClone(this.m_scene?.getDamageStatisics() ?? []);
     }
     public async PlaySandboxReplay(replay: SandboxReplay, throughSequence?: number): Promise<boolean> {
         const applied = (await this.m_scene?.playSandboxReplay(replay, throughSequence)) ?? false;
@@ -1236,7 +1241,7 @@ export class PixiGameManager {
 
         // Damage stats
         if (this.m_scene?.sc_damageStatsUpdateNeeded) {
-            this.onDamageStatisticsUpdated.emit(structuredClone(this.m_scene.getDamageStatisics()));
+            this.onDamageStatisticsUpdated.emit(this.GetCurrentDamageStatistics());
             this.m_scene.sc_damageStatsUpdateNeeded = false;
         }
 

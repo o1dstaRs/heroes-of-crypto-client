@@ -1504,6 +1504,9 @@ export class RankedPlayScene extends Sandbox {
     // active unit — keeps the just-finished unit's pulse aura suppressed across that gap (no flicker).
     private awaitingTurnHandoff = false;
     private rankedStatsGameId = "";
+    // Ranked action playback may only animate recorded events. Its local attack handler therefore
+    // cannot supply the server's cumulative damage, including spell and retaliation damage.
+    private rankedDamageStatistics: IDamageStatistic[] = [];
     private rankedStatsStarted = false;
     private rankedStatsLeftStartTotal = 0;
     private rankedStatsRightStartTotal = 0;
@@ -2102,6 +2105,7 @@ export class RankedPlayScene extends Sandbox {
         // can be late enough that those lines have already fallen out of the 64-entry tail. Spectators hit
         // this for a whole fight: their snapshots land during the animation they just watched.
         if (snapshot.latestSequence >= this.lastAuthoritativeSequence) {
+            this.applyRankedDamageStatistics(snapshot.damageStats);
             this.applyAuthoritativeSceneLog(snapshot);
         }
 
@@ -3985,6 +3989,13 @@ export class RankedPlayScene extends Sandbox {
             this.sc_visibleStateUpdateNeeded = true;
         }
     }
+    public override getDamageStatisics(): IDamageStatistic[] {
+        return this.rankedDamageStatistics;
+    }
+    private applyRankedDamageStatistics(damageStats: IDamageStatistic[] | undefined): void {
+        this.rankedDamageStatistics = structuredClone(damageStats ?? []).sort((a, b) => b.damage - a.damage);
+        this.sc_damageStatsUpdateNeeded = true;
+    }
     private applyRankedFightStats(snapshot: AuthoritativeGameSnapshot, units: SandboxSceneUnitState[]): void {
         if (this.rankedStatsGameId && this.rankedStatsGameId !== snapshot.gameId) {
             this.resetRankedFightStats();
@@ -3999,6 +4010,10 @@ export class RankedPlayScene extends Sandbox {
             this.clearFinishedVisibleState();
             return;
         }
+
+        // Shared by live snapshots, replay steps and full action playback. The manager's next frame
+        // publishes these totals to the sidebar instead of the local attack handler's empty stats.
+        this.applyRankedDamageStatistics(snapshot.damageStats);
         if (!this.sc_visibleState) {
             return;
         }
@@ -4075,6 +4090,8 @@ export class RankedPlayScene extends Sandbox {
     }
     private resetRankedFightStats(): void {
         this.rankedStatsGameId = "";
+        this.rankedDamageStatistics = [];
+        this.sc_damageStatsUpdateNeeded = true;
         this.rankedStatsStarted = false;
         this.rankedStatsLeftStartTotal = 0;
         this.rankedStatsRightStartTotal = 0;

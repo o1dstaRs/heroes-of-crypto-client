@@ -70,7 +70,10 @@ export default function RightSideBar({
 }) {
     const navigate = useNavigate();
     const { authenticated } = useAuthContext();
-    const [unitDamageStatistics, setUnitDamageStatistics] = useState([] as IDamageStatistic[]);
+    const manager = usePixiManager();
+    const [unitDamageStatistics, setUnitDamageStatistics] = useState<IDamageStatistic[]>(() =>
+        gameStarted ? manager.GetCurrentDamageStatistics() : [],
+    );
 
     // See the note at the log itself: its height is measured on the first layout and then held, so nothing
     // that happens later in the fight can re-deal it. The window size, leaving the fight and the button row
@@ -116,12 +119,6 @@ export default function RightSideBar({
         return () => resizeObserver.disconnect();
     }, [gameStarted]);
 
-    useEffect(() => {
-        if (!gameStarted) {
-            setUnitDamageStatistics([]);
-        }
-    }, [gameStarted]);
-    const manager = usePixiManager();
     const [barSize, setBarSize] = useState(280);
 
     const adjustBarSize = useCallback(() => {
@@ -144,10 +141,13 @@ export default function RightSideBar({
 
     useEffect(() => {
         const connection2 = manager.onDamageStatisticsUpdated.connect(setUnitDamageStatistics);
+        // Replay can publish damage before the fight chrome mounts (or before this sidebar reopens).
+        // Subscribe first, then read the current totals so an already-presented action is not missed.
+        setUnitDamageStatistics(gameStarted ? manager.GetCurrentDamageStatistics() : []);
         return () => {
             connection2.disconnect();
         };
-    }, [manager]);
+    }, [gameStarted, manager]);
 
     const unitStats: IDamageStatistic[] = [];
     let maxDmg = Number.MIN_SAFE_INTEGER;
