@@ -27,7 +27,10 @@ export interface Artifact {
     cursed?: boolean;
 }
 
-const icon = (tier: ArtifactTier, slug: string) => `/assets/images/artifacts/artifact_t${tier}_${slug}_256.webp`;
+const icon = (tier: ArtifactTier, slug: string) => {
+    const url = `/assets/images/artifacts/artifact_t${tier}_${slug}_256.webp`;
+    return tier === 1 && slug === "barrel_barricade" ? `${url}?v=1d307004` : url;
+};
 
 /**
  * The codex prints the effect on its own, so it drops the "Artifact." marker the in-game tooltip needs to
