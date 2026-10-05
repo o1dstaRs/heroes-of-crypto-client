@@ -49,4 +49,24 @@ export class DamageStatisticHolder implements IStatisticHolder<IDamageStatistic>
     public has(lap: number): boolean {
         return this.damageDealtLaps.has(lap);
     }
+    /**
+     * Copy the log without sorting. Search rollouts append damage and then restore this copy; get()
+     * sorts in place and would make the restored order depend on the snapshot call.
+     */
+    public snapshot(): { damageStatistics: IDamageStatistic[]; damageDealtLaps: number[] } {
+        return {
+            damageStatistics: this.damageStatistics.map((statistic) => ({ ...statistic })),
+            damageDealtLaps: [...this.damageDealtLaps],
+        };
+    }
+    public restore(snapshot: { damageStatistics: IDamageStatistic[]; damageDealtLaps: number[] }): void {
+        this.damageStatistics.length = 0;
+        for (const statistic of snapshot.damageStatistics) {
+            this.damageStatistics.push({ ...statistic });
+        }
+        this.damageDealtLaps.clear();
+        for (const lap of snapshot.damageDealtLaps) {
+            this.damageDealtLaps.add(lap);
+        }
+    }
 }

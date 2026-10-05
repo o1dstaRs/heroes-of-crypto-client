@@ -190,6 +190,11 @@ export default defineConfig(({ mode }) => {
                 "@": path.resolve(__dirname, "src"),
                 // point to source of the workspace for live HMR
                 "@heroesofcrypto/common": commonSourceDir,
+                // The A19 search driver imports these. The browser never calls them: audit and dataset
+                // recording are off in the sealed profile. Bun tests resolve the real node modules.
+                "node:fs": path.resolve(__dirname, "src/shims/node-fs.ts"),
+                "node:path": path.resolve(__dirname, "src/shims/node-path.ts"),
+                "node:crypto": path.resolve(__dirname, "src/shims/node-crypto.ts"),
             },
             // avoid duplicate React from the workspace
             dedupe: ["react", "react-dom"],

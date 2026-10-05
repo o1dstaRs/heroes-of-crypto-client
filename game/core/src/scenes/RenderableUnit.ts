@@ -1,3 +1,4 @@
+import { isAiSearchSimulating } from "./aiSearchGuard";
 import { syncTrollLabWalkPalette } from "./TrollLabWalkVisuals";
 import { isTrollLabCastGuard, syncTrollLabCastGlow } from "./TrollLabCastVisuals";
 import { syncTrollLabCastMatch } from "./TrollLabCastMatch";
@@ -2966,6 +2967,9 @@ export class RenderableUnit extends Unit {
         // Runtime ability changes (for example Predatory Assimilation) call this method to remove or grant
         // castable/spellbook mechanics; returning before the base parser left getSpells() stale in sandbox.
         super.parseSpells();
+        // A search rollout restores the spell data. Rebuilding the icons would leave the pictures behind
+        // the restored book.
+        if (isAiSearchSimulating()) return;
 
         if (!this.spellBookLayer || !this.digitTextures) return;
 
@@ -8964,6 +8968,9 @@ export class RenderableUnit extends Unit {
     /** Build/reveal the response layer in the same tick the combat engine records a retaliation. */
     public override setResponded(hasResponded: boolean): void {
         super.setResponded(hasResponded);
+        // The response tag's timer and container are presentation. A rollout must not start one: the
+        // restored flag would still be showing a badge for a retaliation that never happened.
+        if (isAiSearchSimulating()) return;
         if (hasResponded) {
             // Floating attack/response feedback remains on screen for roughly this interval. The latch is
             // only a presentation fallback: while the per-lap engine state remains true the emblem stays
@@ -9013,6 +9020,7 @@ export class RenderableUnit extends Unit {
     }
     public override applyEffect(effect: Effect): boolean {
         const applied = super.applyEffect(effect);
+        if (isAiSearchSimulating()) return applied;
         if (applied && ["Stun", "Blindness", "Freeze"].includes(effect.getName())) {
             this.refreshTurnStatusIndicators();
         }
@@ -9020,6 +9028,7 @@ export class RenderableUnit extends Unit {
     }
     public override deleteEffect(effectName: string): void {
         super.deleteEffect(effectName);
+        if (isAiSearchSimulating()) return;
         if (["Stun", "Blindness", "Freeze"].includes(effectName)) {
             this.refreshTurnStatusIndicators();
         }
@@ -9589,6 +9598,9 @@ export class RenderableUnit extends Unit {
         if (this.stackPowerContainer?.visible) this.stackPowerContainer.visible = false;
     }
     protected override refreshAbilitiesDescriptions(_synergyAbilityPowerIncrease: number): void {
+        // Description text is derived from the current stats and is not restored by the battle snapshot.
+        // Leaving it untouched keeps the pre-search wording after the stats come back.
+        if (isAiSearchSimulating()) return;
         // Heavy Armor
         const heavyArmorAbility = this.getAbility("Heavy Armor");
         if (heavyArmorAbility) {

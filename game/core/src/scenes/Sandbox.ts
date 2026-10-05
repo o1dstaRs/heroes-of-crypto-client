@@ -77,6 +77,7 @@ import {
     IDamageStatistic,
     FightProperties,
     GameAction,
+    type IDecisionContext,
     GameActionEngine,
     autoPlaceArtifactBarrels,
     reconcileArtifactBarrels,
@@ -1082,6 +1083,7 @@ export class Sandbox extends PixiScene {
     private readonly aiControlledTeams = new Set<TeamType>();
     // AIController manages AI decision-making (created in constructor after super())
     private aiController!: AIController;
+    private productionAiSearchModule?: Promise<typeof import("./sandboxAiSearch")>;
     // Sandbox turn-timeout takeover: count consecutive missed turns. The 1st is played by the grace turn
     // (see runSandboxGraceTurn) or, once that is spent, a one-shot AI turn; the 2nd in a row turns the AI
     // toggle on. Reset whenever the human acts.
@@ -1532,6 +1534,8 @@ export class Sandbox extends PixiScene {
             refreshUnits: () => this.refreshUnits(),
             ensureAuthoritativeAuraState: () => this.ensureAuthoritativeAuraState(),
             ensureAuthoritativeGrid: () => this.ensureAuthoritativeGrid(),
+            searchAiDecision: (unit, version, incumbent, decision) =>
+                this.searchWithProductionAi(unit, version, incumbent, decision),
         });
 
         this.spellBookOverlay = new SpellBookOverlay(
@@ -17537,6 +17541,42 @@ export class Sandbox extends PixiScene {
             snapshot.set(unit.getId(), unit as RenderableUnit);
         }
         return snapshot;
+    }
+    /**
+     * Sandbox and co-op turns are decided on this client. Ranked human turns do not call it: the AI toggle
+     * is off there, and an AI Driven unit stays on v0.1 before this hook. The search module loads on the
+     * first real decision so the rest of the scene does not pay for it.
+     */
+    private searchWithProductionAi(
+        unit: Unit,
+        version: string,
+        incumbent: GameAction[],
+        decision: IDecisionContext,
+    ): Promise<GameAction[]> {
+        const loading = (this.productionAiSearchModule ??= import("./sandboxAiSearch"));
+        return loading.then((search) =>
+            search.searchSandboxAiDecision(
+                {
+                    grid: this.grid,
+                    unitsHolder: this.unitsHolder,
+                    pathHelper: this.pathHelper,
+                    attackHandler: this.attackHandler,
+                    moveHandler: this.moveHandler,
+                    sceneLog: this.sc_sceneLog,
+                    abilityFactory: this.abilityFactory,
+                    fightProperties: () => FightStateManager.getInstance().getFightProperties(),
+                    canLandRangeAttack: (candidate) => this.canLandRangeAttack(candidate),
+                    isBarrelCellAllowed: (team, cell) => this.isBarrelCellAllowed(team, cell),
+                    canPlaceUnit: (candidate, cells, action) =>
+                        this.canPlaceUnitWithCommonRules(candidate, cells, action),
+                    canSplitUnit: (candidate) => this.canSplitUnitWithCommonRules(candidate),
+                },
+                unit,
+                version,
+                incumbent,
+                decision,
+            ),
+        );
     }
     private createTurnEngine(): TurnEngine {
         const context = {

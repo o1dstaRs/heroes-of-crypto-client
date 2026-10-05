@@ -478,6 +478,83 @@ describe("AIController", () => {
                 ...overrides,
             }) as unknown as IAIContext;
 
+        it("applies the plan returned by search instead of the policy plan", async () => {
+            const unit = createUnit();
+            const decideTurn = mock(() => [{ type: "wait_turn", unitId: unit.getId() }] as GameAction[]);
+            stubStrategy(decideTurn);
+            const searchAiDecision = mock(async () => [{ type: "defend_turn", unitId: unit.getId() }] as GameAction[]);
+            const appliedActions: GameAction[] = [];
+            const context = baseContext({
+                getCurrentActiveUnit: () => unit,
+                applyGameAction: (action: GameAction) => {
+                    appliedActions.push(action);
+                    return true;
+                },
+                searchAiDecision,
+            });
+
+            const controller = new AIController(context);
+            controller.isAIActive = true;
+            controller.performingAction = true;
+            await controller.performAction(true);
+
+            expect(searchAiDecision).toHaveBeenCalledTimes(1);
+            // defend_turn is not a turn-ending action by itself, so the controller submits end_turn after it.
+            // The autoplay tag is non-enumerable and is not part of the plan comparison.
+            expect(
+                appliedActions.map((action) =>
+                    "unitId" in action ? { type: action.type, unitId: action.unitId } : { type: action.type },
+                ),
+            ).toEqual([
+                { type: "defend_turn", unitId: unit.getId() },
+                { type: "end_turn", unitId: unit.getId() },
+            ]);
+            expect(controller.performingAction).toBe(false);
+        });
+
+        it("does not search for an active AI-Driven unit", async () => {
+            const unit = createMindlessUnit();
+            const decideTurn = mock(() => [{ type: "wait_turn", unitId: unit.getId() }] as GameAction[]);
+            stubStrategy(decideTurn);
+            const searchAiDecision = mock(async () => [{ type: "defend_turn", unitId: unit.getId() }] as GameAction[]);
+            const context = baseContext({
+                getCurrentActiveUnit: () => unit,
+                searchAiDecision,
+            });
+            const controller = new AIController(context);
+            controller.performingAction = true;
+
+            await controller.performAction(false);
+
+            expect(strategySpy).toHaveBeenCalledWith("v0.1");
+            expect(searchAiDecision).not.toHaveBeenCalled();
+        });
+
+        it("keeps the policy plan when search throws", async () => {
+            const unit = createUnit();
+            const decideTurn = mock(() => [{ type: "wait_turn", unitId: unit.getId() }] as GameAction[]);
+            stubStrategy(decideTurn);
+            const searchAiDecision = mock(async () => {
+                throw new Error("search failed");
+            });
+            const appliedActions: GameAction[] = [];
+            const context = baseContext({
+                getCurrentActiveUnit: () => unit,
+                applyGameAction: (action: GameAction) => {
+                    appliedActions.push(action);
+                    return true;
+                },
+                searchAiDecision,
+            });
+            const controller = new AIController(context);
+            controller.isAIActive = true;
+            controller.performingAction = true;
+
+            await controller.performAction(true);
+
+            expect(appliedActions).toEqual([{ type: "wait_turn", unitId: unit.getId() }]);
+        });
+
         it("routes the production turn through decideTurn and executes its wait_turn plan", async () => {
             const unit = createUnit();
             const grid = { grid: true };

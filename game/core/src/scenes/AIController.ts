@@ -19,7 +19,15 @@ import {
     FightStateManager,
     hasActiveTimeDenial,
 } from "@heroesofcrypto/common";
-import type { AttackHandler, AttackType, GameAction, IWeightedRoute, Spell, TeamType } from "@heroesofcrypto/common";
+import type {
+    AttackHandler,
+    AttackType,
+    GameAction,
+    IDecisionContext,
+    IWeightedRoute,
+    Spell,
+    TeamType,
+} from "@heroesofcrypto/common";
 import { RenderableUnit } from "./RenderableUnit";
 import { HoverManager } from "./HoverManager";
 import { ButtonManager } from "./ButtonManager";
@@ -94,6 +102,16 @@ export interface IAIContext {
     isAuthoritativeAction?(action: GameAction): boolean;
     // Re-assert authoritative aura gates (Hidden / Range Null Field) right before an AI decision.
     ensureAuthoritativeAuraState?(): void;
+    /**
+     * Optional v0.8 A19 search. Called only after a non-mindless decideTurn succeeds. A throw, or a
+     * missing hook, keeps that policy plan. Mindless units never reach it.
+     */
+    searchAiDecision?(
+        unit: RenderableUnit,
+        version: string,
+        incumbent: GameAction[],
+        decision: IDecisionContext,
+    ): GameAction[] | Promise<GameAction[]>;
     // Rebuild grid occupancy + AGGRO board from authoritative unit positions right before an AI decision, so
     // the AI's pathfinding sees the SAME reachable set the server will validate against (otherwise the client
     // plans move/melee through enemy threat cells the server blocks -> attack_not_available / invalid_move).
@@ -603,24 +621,25 @@ export class AIController {
             ((process.env.V05_CLIENT_AI ?? "on") !== "off" && this.strategyRejectedUnitId !== currentUnit.getId());
         if (USE_STRATEGY) {
             let strategyActions: GameAction[] = [];
+            let strategyDecided = false;
+            // A mindless unit ("AI Driven": Berserker, Frenzied Boar) is pinned to v0.1 — see common's
+            // ai/unit_ai_overrides. This is the single client decision point, so it covers every way
+            // such a unit gets played: the AI toggle, an AI-controlled team, player-vs-AI, and the
+            // human army whose Berserker plays itself (shouldAutoPlay's "AI Driven" branch above).
+            // Keeps the client in step with battle_engine, which resolves the same rule.
+            const unitAiVersion = mindlessAi ? MINDLESS_AI_VERSION : aiVersionForUnit(currentUnit, DEFAULT_AI_VERSION);
+            const decisionContext: IDecisionContext = {
+                grid: this.context.getGrid(),
+                matrix: this.context.getGridMatrix(),
+                unitsHolder: this.context.getUnitsHolder(),
+                pathHelper: this.context.getPathHelper(),
+                attackHandler: this.context.getAttackHandler(),
+                fightProperties: FightStateManager.getInstance().getFightProperties(),
+                decisionOrigin: "root",
+            };
             try {
-                // A mindless unit ("AI Driven": Berserker, Frenzied Boar) is pinned to v0.1 — see common's
-                // ai/unit_ai_overrides. This is the single client decision point, so it covers every way
-                // such a unit gets played: the AI toggle, an AI-controlled team, player-vs-AI, and the
-                // human army whose Berserker plays itself (shouldAutoPlay's "AI Driven" branch above).
-                // Keeps the client in step with battle_engine, which resolves the same rule.
-                const unitAiVersion = mindlessAi
-                    ? MINDLESS_AI_VERSION
-                    : aiVersionForUnit(currentUnit, DEFAULT_AI_VERSION);
-                strategyActions = getAIStrategy(unitAiVersion).decideTurn(currentUnit, {
-                    grid: this.context.getGrid(),
-                    matrix: this.context.getGridMatrix(),
-                    unitsHolder: this.context.getUnitsHolder(),
-                    pathHelper: this.context.getPathHelper(),
-                    attackHandler: this.context.getAttackHandler(),
-                    fightProperties: FightStateManager.getInstance().getFightProperties(),
-                    decisionOrigin: "root",
-                });
+                strategyActions = getAIStrategy(unitAiVersion).decideTurn(currentUnit, decisionContext);
+                strategyDecided = true;
             } catch (err) {
                 // Normal units retain the proven findTarget fallback. Mindless units release the client lock
                 // below and retry v0.1 after the activation guard, leaving final liveness to ranked recovery.
@@ -631,6 +650,21 @@ export class AIController {
                     err,
                 );
                 strategyActions = [];
+            }
+            // Search compares the policy plan with rollouts. A thrown search keeps the plan. An empty
+            // plan still searches; if that also stays empty, the findTarget ladder below still runs.
+            // Rejection recovery never enters this block, and a mindless unit never searches.
+            if (strategyDecided && !mindlessAi && this.context.searchAiDecision) {
+                try {
+                    strategyActions = await this.context.searchAiDecision(
+                        currentUnit,
+                        unitAiVersion,
+                        strategyActions,
+                        decisionContext,
+                    );
+                } catch (err) {
+                    console.error(`${DEFAULT_AI_VERSION} search failed; keeping the policy plan`, err);
+                }
             }
             // An empty normal plan falls back; an empty mindless plan follows the strict retry path below.
             if (
