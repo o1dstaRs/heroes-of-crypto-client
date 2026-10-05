@@ -97,8 +97,20 @@ export const patchNotes = {
         {
             version: "v0.1.6",
             date: "10/04/2026",
-            commit: "",
-            href: "",
+            commit: "74ee648a",
+            href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/74ee648a73cb2fc241e19bbc939e4ef01bd31713",
+            commits: [
+                {
+                    label: "client",
+                    commit: "74ee648a",
+                    href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/74ee648a73cb2fc241e19bbc939e4ef01bd31713",
+                },
+                {
+                    label: "common",
+                    commit: "5b09bbd",
+                    href: "https://github.com/o1dstaRs/heroes-of-crypto-common/commit/5b09bbd7269a73ed2e6e47498db1ed258220ad79",
+                },
+            ],
             title: "Barrels, blessings, and a ranked season on the record",
             impact: "The board is more physical, ranked play keeps a public account of leaving, reputation, and prizes, and the site answers questions about the game you are actually playing.",
             stats: [
@@ -425,8 +437,20 @@ export const patchNotes = {
         {
             version: "v0.1.6",
             date: "04.10.2026",
-            commit: "",
-            href: "",
+            commit: "74ee648a",
+            href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/74ee648a73cb2fc241e19bbc939e4ef01bd31713",
+            commits: [
+                {
+                    label: "клиент",
+                    commit: "74ee648a",
+                    href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/74ee648a73cb2fc241e19bbc939e4ef01bd31713",
+                },
+                {
+                    label: "common",
+                    commit: "5b09bbd",
+                    href: "https://github.com/o1dstaRs/heroes-of-crypto-common/commit/5b09bbd7269a73ed2e6e47498db1ed258220ad79",
+                },
+            ],
             title: "Бочки, благословения и рейтинговый сезон, который можно прочитать",
             impact: "Поле боя стало предметнее, рейтинговый режим публично фиксирует выход из матча, репутацию и призы, а сайт отвечает на вопросы про ту игру, в которую вы действительно играете.",
             stats: [
