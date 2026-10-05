@@ -95,6 +95,59 @@ const releaseCandidateRoster: PatchNote["roster"] = [
 export const patchNotes = {
     en: [
         {
+            version: "v0.1.6",
+            date: "10/04/2026",
+            commit: "",
+            href: "",
+            title: "Barrels, blessings, and a ranked season on the record",
+            impact: "The board is more physical, ranked play keeps a public account of leaving, reputation, and prizes, and the site answers questions about the game you are actually playing.",
+            stats: [
+                { value: "57", label: "creatures" },
+                { value: "109", label: "abilities" },
+                { value: "52", label: "spells" },
+                { value: "24", label: "artifacts" },
+            ],
+            sections: [
+                {
+                    title: "A more physical board",
+                    items: [
+                        "Cemetery battles roll 9 to 12 barrels from the match itself, so both players and the server see the same obstacles. Barrel Barricade, a Tier 1 artifact, places two more barrels with the army that drafted it.",
+                        "Skewer Strike, Fire Breath, Area Throw, Lightning Spin, and the Cyclops's Large Caliber shot strike barrels as well as units. Splash and lines still reach the units behind the barrel they hit.",
+                        "Fire Wall is aimed as a line of four cells and burns a unit that crosses it, including every cell a large body enters. A flyer pays for the cells where it lands.",
+                        "The Ash Moth is now the Wandering Mage and carries one bursting Fireball. Blindness blinds the enemy a Unicorn strikes. Castling swaps two units of the same footprint, up to one cell beyond the caster's movement.",
+                        "Arcane Ward, Warding Mane, Arrows Wingshield, and Angelic Host are blessings on the whole army, and they last while the creature that grants them is alive. Offensive spell damage is the number of living creatures in the stack times the spell's power. Abomination no longer brings Stun Aura.",
+                    ],
+                },
+                {
+                    title: "Ranked, on the record",
+                    items: [
+                        "Leaving a ranked match has public rules. An early exit is stored with the casualties it resolved at, and the same rules are on the site and in the client.",
+                        "Reputation, player reports, lock notices, and appeals are part of ranked play. Season prize rules say how a prize is claimed, and every finished season has a results page.",
+                        "Profiles show doctrine, league, gold, and a fuller match history. Gold and prediction wording follows the glossary: you see total gold, and a wager spends gold that is available.",
+                    ],
+                },
+                {
+                    title: "Your screen and a shared sandbox",
+                    items: [
+                        "Choose which side of the battlefield your army sits on. The mirror is only on your screen; replays, spectators, and the other player keep the true sides. Your army can wear a colour you pick.",
+                        "Combat plays creature sounds for the fight.",
+                        "Invite a friend into a co-op sandbox, ready up, and fight the same board. A friend's live game can be spectated, a connection badge shows a drop, and a banner brings you back to a match you left.",
+                    ],
+                },
+                {
+                    title: "The site",
+                    items: [
+                        "The Knowledge Base was checked against the engine: abilities, spells, artifacts, counters, and which armies an artifact is best with. The Russian edition covers the same entries.",
+                        "Ask the AI in English or Russian and the answer comes back in the language of the question.",
+                        "In the player portal, hovering a unit, artifact, augment, synergy, or doctrine opens its card, and the header buttons take clicks again.",
+                    ],
+                },
+            ],
+            roster: [],
+            closing:
+                "Version 0.1.6 keeps the same four factions and 57 creatures, and makes the fights, the season, and the public rules agree with each other.",
+        },
+        {
             version: "v0.1.5",
             date: "08/16/2026",
             commit: "2c4952f6",
@@ -369,6 +422,59 @@ export const patchNotes = {
         },
     ] satisfies PatchNote[],
     ru: [
+        {
+            version: "v0.1.6",
+            date: "04.10.2026",
+            commit: "",
+            href: "",
+            title: "Бочки, благословения и рейтинговый сезон, который можно прочитать",
+            impact: "Поле боя стало предметнее, рейтинговый режим публично фиксирует выход из матча, репутацию и призы, а сайт отвечает на вопросы про ту игру, в которую вы действительно играете.",
+            stats: [
+                { value: "57", label: "существ" },
+                { value: "109", label: "способностей" },
+                { value: "52", label: "заклинания" },
+                { value: "24", label: "артефакта" },
+            ],
+            sections: [
+                {
+                    title: "Более предметное поле боя",
+                    items: [
+                        "На кладбище число бочек от 9 до 12 определяется самим матчем, поэтому оба игрока и сервер видят одни и те же препятствия. Артефакт 1-го уровня Barrel Barricade ставит еще две бочки армии, которая его выбрала.",
+                        "Skewer Strike, Fire Breath, Area Throw, Lightning Spin и выстрел Large Caliber у Cyclops бьют и по бочкам, и по существам. Область и линия все равно достают существ за бочкой, в которую попали.",
+                        "Fire Wall ставится линией из четырех клеток и обжигает того, кто ее пересекает, включая каждую клетку, куда входит крупное тело. Летун платит за клетки, на которые приземляется.",
+                        "Ash Moth теперь Wandering Mage и несет один разрывной Fireball. Blindness ослепляет врага, по которому ударил Unicorn. Castling меняет местами двух существ одного размера, вплоть до клетки за пределом хода заклинателя.",
+                        "Arcane Ward, Warding Mane, Arrows Wingshield и Angelic Host — благословения на всю армию, и они держатся, пока жив тот, кто их дает. Урон атакующих заклинаний равен числу живых существ в отряде, умноженному на силу заклинания. У Abomination больше нет Stun Aura.",
+                    ],
+                },
+                {
+                    title: "Рейтинг, который можно проверить",
+                    items: [
+                        "У выхода из рейтингового матча есть публичные правила. Досрочный выход сохраняется вместе с потерями, которые он зафиксировал, и те же правила есть на сайте и в клиенте.",
+                        "Репутация, жалобы игроков, уведомления о блокировке и апелляции стали частью рейтинговой игры. Правила сезонных призов говорят, как приз получить, а у каждого завершенного сезона есть страница результатов.",
+                        "Профили показывают доктрину, лигу, золото и более полную историю матчей. Формулировки золота и прогнозов следуют глоссарию: видно все золото, а ставка тратит доступное.",
+                    ],
+                },
+                {
+                    title: "Ваш экран и общая песочница",
+                    items: [
+                        "Можно выбрать, с какой стороны поля стоит ваша армия. Зеркало только на вашем экране; повторы, зрители и другой игрок видят настоящие стороны. Армии можно задать свой цвет.",
+                        "В бою звучат голоса существ.",
+                        "Друга можно пригласить в совместную песочницу, подтвердить готовность и сразиться на одном поле. Живой матч друга можно смотреть, значок связи показывает обрыв, а плашка возвращает в покинутый матч.",
+                    ],
+                },
+                {
+                    title: "Сайт",
+                    items: [
+                        "База знаний сверена с движком: способности, заклинания, артефакты, контрпики и то, каким армиям артефакт подходит лучше всего. Русское издание покрывает те же записи.",
+                        "Вопрос ИИ можно задать по-английски или по-русски, и ответ приходит на языке вопроса.",
+                        "В портале игрока наведение на существо, артефакт, апгрейд, синергию или доктрину открывает карточку, а кнопки шапки снова принимают нажатия.",
+                    ],
+                },
+            ],
+            roster: [],
+            closing:
+                "Версия 0.1.6 сохраняет те же четыре фракции и 57 существ и приводит бои, сезон и публичные правила к одному виду.",
+        },
         {
             version: "v0.1.5",
             date: "16.08.2026",

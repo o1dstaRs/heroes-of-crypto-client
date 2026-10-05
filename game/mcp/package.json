@@ -1,6 +1,6 @@
 {
     "name": "@heroesofcrypto/mcp",
-    "version": "0.1.5",
+    "version": "0.1.6",
     "description": "Model-backed AI driver and MCP tools for Heroes of Crypto",
     "type": "module",
     "main": "./src/index.ts",

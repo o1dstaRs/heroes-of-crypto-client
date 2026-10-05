@@ -28,7 +28,7 @@ const parseActionJson = (actionJson: string | undefined): GameAction | undefined
 export function createHeroesMcpServer(store = new HeadlessMatchStore()): McpServer {
     const server = new McpServer({
         name: "heroes-of-crypto-game",
-        version: "0.1.5",
+        version: "0.1.6",
     });
     registerGameResources(server);
     registerGamePrompts(server);
