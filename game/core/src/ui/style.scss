@@ -332,7 +332,9 @@ select {
     align-items: center;
 }
 
-main {
+/* Board only. A bare `main > div` rule also matches the player portal, and pointer-events
+   inherits, so every header button under that div stopped receiving clicks. */
+main.hoc-board {
     background: rgb(51 51 51);
     flex-grow: 1;
     position: relative;
