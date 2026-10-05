@@ -57,6 +57,10 @@ export class PixiApp {
             resolution: DPR,
             antialias: shouldUseRenderAntialias(DPR, width, height),
             background: 0x000000,
+            // pixi 8.22 restores Tab-activates-accessibility as the default. The game's Tab belongs to
+            // the surrounding React UI (sidebar, dialogs, match controls), and an unprompted accessible
+            // layer over the canvas steals the key; keep the pre-8.14 behaviour the game shipped with.
+            accessibilityOptions: { activateOnTab: false },
         });
         this.renderTexturePoolBucket = renderTexturePoolBucket(width, height, DPR);
         // Dev-only handle for headless probes (walk the stage after a render error); never set in builds.

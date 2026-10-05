@@ -43,7 +43,7 @@
         "framer-motion": "13.4.6",
         "os-browserify": "^0.3.0",
         "path-browserify": "^1.0.1",
-        "pixi.js": "8.21.0",
+        "pixi.js": "8.22.0",
         "react": "^19.3.0",
         "react-dom": "^19.3.0",
         "react-is": "^19.2.8",
