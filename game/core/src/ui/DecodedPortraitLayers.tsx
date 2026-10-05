@@ -1,6 +1,6 @@
 import React, { useLayoutEffect, useRef, useState } from "react";
 
-import { decodePortraitImages } from "./portraitImageDecode";
+import { arePortraitImagesDecoded, decodePortraitImages } from "./portraitImageDecode";
 
 interface PortraitLayers {
     key: string;
@@ -34,6 +34,10 @@ const MountedPortraitLayers = ({
         if (!element) return;
         const controller = new AbortController();
         const images = Array.from(element.querySelectorAll<HTMLImageElement>("img[data-portrait-critical]"));
+        if (arePortraitImagesDecoded(images)) {
+            setDecoded(true);
+            return;
+        }
         void decodePortraitImages(images, controller.signal).then((ready) => {
             if (ready && !controller.signal.aborted) setDecoded(true);
         });

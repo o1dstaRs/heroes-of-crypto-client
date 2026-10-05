@@ -1,11 +1,16 @@
-import { factionPortraitBackgroundSources } from "./creaturePortraitBackground";
-import {
-    factionPortraitGlowSources,
-    resolveCreaturePortraitBackgroundMotion,
-} from "./creaturePortraitBackgroundMotion";
+import { resolveCreaturePortraitBackgroundMotion } from "./creaturePortraitBackgroundMotion";
 import { resolveCreaturePortraitVisual } from "./creaturePortraitVisual";
-import { enqueueDecodedImage, isDecodedImageReady, pinDecodedImages, warmDecodedImage } from "./decodedImageCache";
-import { warmAtlas } from "./LeftSideBar/unitAtlas";
+import {
+    clearDecodedImagePrefetch,
+    clearDecodedImageForeground,
+    isDecodedImageReady,
+    pinDecodedImages,
+    replaceDecodedImagePrefetch,
+    retainDecodedImages,
+    setDecodedImageForeground,
+    warmDecodedImage,
+    type PortraitImagePrefetch,
+} from "./decodedImageCache";
 import { resolveLeftSidebarPortraitAnimation } from "./leftSidebarPortraitAnimation";
 import { resolveLeftSidebarPortraitArt } from "./leftSidebarPortraitArt";
 
@@ -16,7 +21,13 @@ export interface LeftSidebarPortraitSources {
     atlas?: string;
 }
 
-let sharedLayersStarted = false;
+const defaultPortraitPrefetchOwner = {};
+const selectedOptionalPrefetchOwner = {};
+const selectedForegroundOwner = {};
+let selectedRetention: { creatureId: number; release: () => void; readiness?: Promise<boolean> } | undefined;
+
+/** Each full-size cutout is over a megabyte; only speculate on the next likely inspections. */
+export const SIDEBAR_PORTRAIT_PREFETCH_LIMIT = 2;
 
 /** The cutout, the faction plate behind it, and the optional idle sheet. These are separate files. */
 export const leftSidebarPortraitSources = (creatureId: number): LeftSidebarPortraitSources => {
@@ -40,47 +51,78 @@ export const isLeftSidebarPortraitReady = (creatureId: number): boolean => {
     return !!sources.creature && isDecodedImageReady(sources.creature) && isDecodedImageReady(sources.background);
 };
 
-const ensureSharedLayers = (): void => {
-    if (sharedLayersStarted) return;
-    sharedLayersStarted = true;
-    for (const src of factionPortraitBackgroundSources()) void warmDecodedImage(src, { lock: true });
-    for (const src of factionPortraitGlowSources()) void warmDecodedImage(src, { lock: true });
-};
-
 /** Decode the required pair now; optional layers must not delay or release the selection handoff. */
 export const warmLeftSidebarPortrait = (creatureId: number): Promise<boolean> => {
-    ensureSharedLayers();
+    clearDecodedImagePrefetch(selectedOptionalPrefetchOwner);
     const sources = leftSidebarPortraitSources(creatureId);
-    if (sources.atlas) void warmAtlas(sources.atlas);
-    if (sources.glow) void warmDecodedImage(sources.glow, { lock: true });
-    return Promise.all([
-        warmDecodedImage(sources.creature),
-        sources.background ? warmDecodedImage(sources.background, { lock: true }) : Promise.resolve(true),
-    ]).then(
-        ([creatureReady, backgroundReady]) =>
-            creatureReady && backgroundReady && isLeftSidebarPortraitReady(creatureId),
-    );
+    // Acquire first: duplicate overlay/React warming must not leave a trim gap for the same pair.
+    const release = retainDecodedImages([sources.creature, sources.background]);
+    selectedRetention?.release();
+    const selection = { creatureId, release, readiness: undefined as Promise<boolean> | undefined };
+    selectedRetention = selection;
+    setDecodedImageForeground(selectedForegroundOwner, [sources.creature, sources.background]);
+    const readiness = Promise.all([
+        warmDecodedImage(sources.creature, { priority: "high", foregroundOwner: selectedForegroundOwner }),
+        sources.background
+            ? warmDecodedImage(sources.background, {
+                  lock: true,
+                  priority: "high",
+                  foregroundOwner: selectedForegroundOwner,
+              })
+            : Promise.resolve(true),
+    ]).then(([creatureReady, backgroundReady]) => {
+        const ready = creatureReady && backgroundReady && isLeftSidebarPortraitReady(creatureId);
+        if (selectedRetention === selection) {
+            clearDecodedImageForeground(selectedForegroundOwner);
+            if (ready) {
+                replaceDecodedImagePrefetch(selectedOptionalPrefetchOwner, [
+                    { src: sources.glow, lock: true },
+                    { src: sources.atlas },
+                ]);
+            } else {
+                selectedRetention?.release();
+                selectedRetention = undefined;
+            }
+        }
+        return ready;
+    });
+    selection.readiness = readiness;
+    return readiness;
 };
 
 /**
- * Warm a band of creatures the player can select next (the open roster level, or the turn queue).
- * Cutouts go first; the rare idle sheet follows so it cannot delay the stills.
+ * Warm only the next likely inspections from the open roster or the active-first turn queue.
+ * The larger optional atlas is requested after an actual selection, once its still pair is ready.
  */
-export const enqueueLeftSidebarPortraits = (creatureIds: readonly number[]): void => {
-    ensureSharedLayers();
-    const atlases: string[] = [];
-    for (const creatureId of creatureIds) {
+export const enqueueLeftSidebarPortraits = (
+    creatureIds: readonly number[],
+    owner: object = defaultPortraitPrefetchOwner,
+): void => {
+    const critical: PortraitImagePrefetch[] = [];
+    for (const creatureId of [...new Set(creatureIds)].slice(0, SIDEBAR_PORTRAIT_PREFETCH_LIMIT)) {
         const sources = leftSidebarPortraitSources(creatureId);
-        enqueueDecodedImage(sources.creature);
-        if (sources.atlas) atlases.push(sources.atlas);
+        critical.push({ src: sources.creature }, { src: sources.background, lock: true });
     }
-    for (const atlas of atlases) enqueueDecodedImage(atlas);
+    replaceDecodedImagePrefetch(owner, critical);
+};
+
+export const clearLeftSidebarPortraitPrefetch = (owner: object): void => clearDecodedImagePrefetch(owner);
+
+/** A stale React cleanup may not release the newer creature prewarmed by the roster. */
+export const clearLeftSidebarPortraitSelection = (creatureId: number, readiness: Promise<boolean>): void => {
+    if (selectedRetention?.creatureId !== creatureId || selectedRetention.readiness !== readiness) return;
+    selectedRetention.release();
+    selectedRetention = undefined;
+    clearDecodedImagePrefetch(selectedOptionalPrefetchOwner);
+    clearDecodedImageForeground(selectedForegroundOwner);
 };
 
 /** The portrait on screen is not eligible for eviction. */
 export const pinLeftSidebarPortrait = (creatureId: number): void => {
     const sources = leftSidebarPortraitSources(creatureId);
     pinDecodedImages([sources.creature, sources.background, sources.glow, sources.atlas]);
+    // The displayed pins are installed before handing back the selected pair's temporary hold.
+    if (selectedRetention?.creatureId === creatureId) selectedRetention.release();
 };
 
 /**
@@ -99,5 +141,7 @@ export const displayedSidebarCreatureId = (
 };
 
 export const resetLeftSidebarPortraitWarmForTests = (): void => {
-    sharedLayersStarted = false;
+    selectedRetention?.release();
+    selectedRetention = undefined;
+    clearDecodedImageForeground(selectedForegroundOwner);
 };

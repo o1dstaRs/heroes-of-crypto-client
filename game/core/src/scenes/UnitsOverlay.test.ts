@@ -2,6 +2,20 @@ import { describe, expect, spyOn, test } from "bun:test";
 import { Assets, Container, Graphics, Sprite, Texture } from "pixi.js";
 
 import type { UnitProperties } from "@heroesofcrypto/common";
+import type { TextureLoadOptions } from "../pixi/boardFirstTextureLoads";
+import {
+    installPortraitImageFactoryForTests,
+    replaceDecodedImagePrefetch,
+    resetPortraitImageCacheForTests,
+    type PortraitImageStub,
+} from "../ui/decodedImageCache";
+import {
+    clearLeftSidebarPortraitSelection,
+    leftSidebarPortraitSources,
+    resetLeftSidebarPortraitWarmForTests,
+    warmLeftSidebarPortrait,
+} from "../ui/leftSidebarPortraitWarm";
+import { UNIT_NAME_TO_ID } from "../ui/unit_ui_constants";
 
 import { UnitChip } from "./UnitChip";
 import {
@@ -397,6 +411,165 @@ describe("UnitsOverlay chip visibility", () => {
         } finally {
             overlay.destroy();
             directLoads.mockRestore();
+        }
+    });
+
+    test("prioritizes visible portrait pairs and the roster control over optional icons, with a new group per level", () => {
+        const requests: Array<{ key: string; options?: TextureLoadOptions }> = [];
+        const app = {
+            renderer: { height: 900, width: 1600 },
+            stage: new Container(),
+            ticker: { add: () => undefined, remove: () => undefined },
+        } as unknown as ConstructorParameters<typeof UnitsOverlay>[0];
+        const overlay = new UnitsOverlay(app, (key, options) => {
+            requests.push({ key, options });
+            return Texture.EMPTY;
+        });
+        try {
+            overlay.build();
+            const initialGroup = requests.find(({ key }) => key === "peasant_512")!.options!.group;
+            expect(requests.find(({ key }) => key === "peasant_512")!.options!.priority).toBe("visible");
+            expect(requests.find(({ key }) => key.includes("portrait_bg_"))!.options!.priority).toBe("visible");
+            expect(requests.find(({ key }) => key === "units_overlay_toggle_square_v1")!.options!.priority).toBe(
+                "visible",
+            );
+            expect(requests.filter(({ key }) => key.startsWith("pick_attack_")).every(({ options }) => !options)).toBe(
+                true,
+            );
+            const internals = overlay as unknown as OverlayInternals;
+            internals.setSelectedLevel(4);
+            const dragonRequest = requests.find(({ key }) => key === "black_dragon_portrait_full")!;
+            expect(dragonRequest.options!.priority).toBe("visible");
+            expect(dragonRequest.options!.group).not.toBe(initialGroup);
+        } finally {
+            overlay.destroy();
+        }
+    });
+
+    test("waits for visible Pixi cards before two sidebar candidates and drops the old band's queued candidate", async () => {
+        resetPortraitImageCacheForTests();
+        const images: PortraitImageStub[] = [];
+        const release: Array<() => void> = [];
+        installPortraitImageFactoryForTests(() => {
+            let resolve!: () => void;
+            const image = {
+                src: "",
+                decoding: "",
+                naturalWidth: 8,
+                onload: null,
+                onerror: null,
+                decode: () =>
+                    new Promise<void>((done) => {
+                        resolve = done;
+                    }),
+            } satisfies PortraitImageStub;
+            images.push(image);
+            release.push(() => resolve());
+            return image;
+        });
+        let ready = false;
+        const app = {
+            renderer: { height: 900, width: 1600 },
+            stage: new Container(),
+            ticker: { add: () => undefined, remove: () => undefined },
+        } as unknown as ConstructorParameters<typeof UnitsOverlay>[0];
+        const overlay = new UnitsOverlay(app, (key, options) =>
+            options?.priority === "visible" && key !== "units_overlay_toggle_square_v1" && !ready
+                ? undefined
+                : Texture.WHITE,
+        );
+        try {
+            overlay.build();
+            expect(images).toHaveLength(0);
+            ready = true;
+            overlay.refreshLazyTextures();
+            expect(images).toHaveLength(2);
+            const peasant = leftSidebarPortraitSources(UNIT_NAME_TO_ID.Peasant);
+            const squire = leftSidebarPortraitSources(UNIT_NAME_TO_ID.Squire);
+            expect(images.map((image) => image.src)).toEqual([peasant.creature!, peasant.background!]);
+            ready = false;
+            (overlay as unknown as OverlayInternals).setSelectedLevel(4);
+            release.forEach((done) => done());
+            await new Promise((resolve) => setTimeout(resolve, 0));
+            expect(images).toHaveLength(2);
+            expect(images.map((image) => image.src)).not.toContain(squire.creature!);
+            ready = true;
+            overlay.refreshLazyTextures();
+            await new Promise((resolve) => setTimeout(resolve, 0));
+            const internals = overlay as unknown as OverlayInternals & { chipLevels: Map<UnitChip, number> };
+            const candidates = internals.allChips.filter((chip) => internals.chipLevels.get(chip) === 4).slice(0, 2);
+            expect(images.slice(2).map((image) => image.src)).toEqual(
+                candidates.map((chip) => leftSidebarPortraitSources(UNIT_NAME_TO_ID[chip.nameKey]).creature!),
+            );
+            overlay.setVisible(false);
+            release.forEach((done) => done());
+            await new Promise((resolve) => setTimeout(resolve, 0));
+            expect(images).toHaveLength(4);
+        } finally {
+            overlay.destroy();
+            resetPortraitImageCacheForTests();
+        }
+    });
+
+    test("overlay cleanup releases its own selection wait but preserves a newer same-creature sidebar request", async () => {
+        for (const newerSidebarRequest of [false, true]) {
+            resetPortraitImageCacheForTests();
+            resetLeftSidebarPortraitWarmForTests();
+            const images: PortraitImageStub[] = [];
+            const release: Array<() => void> = [];
+            installPortraitImageFactoryForTests(() => {
+                let resolve!: () => void;
+                const image = {
+                    src: "",
+                    decoding: "",
+                    naturalWidth: 8,
+                    onload: null,
+                    onerror: null,
+                    decode: () =>
+                        new Promise<void>((done) => {
+                            resolve = done;
+                        }),
+                } satisfies PortraitImageStub;
+                images.push(image);
+                release.push(() => resolve());
+                return image;
+            });
+            const app = {
+                renderer: { height: 900, width: 1600 },
+                stage: new Container(),
+                ticker: { add: () => undefined, remove: () => undefined },
+            } as unknown as ConstructorParameters<typeof UnitsOverlay>[0];
+            const overlay = new UnitsOverlay(app, () => Texture.EMPTY);
+            try {
+                overlay.build();
+                const internals = overlay as unknown as OverlayInternals & { selectChip(chip: UnitChip): void };
+                const peasant = internals.allChips.find((chip) => chip.nameKey === "Peasant")!;
+                internals.selectChip(peasant);
+                const sidebarRequest = newerSidebarRequest
+                    ? warmLeftSidebarPortrait(UNIT_NAME_TO_ID.Peasant)
+                    : undefined;
+                replaceDecodedImagePrefetch({}, [{ src: "next-speculative-portrait" }]);
+                expect(images).toHaveLength(2);
+                overlay.clearSelection();
+                overlay.setVisible(false);
+                overlay.destroy();
+                expect(images).toHaveLength(newerSidebarRequest ? 2 : 3);
+                if (sidebarRequest) {
+                    clearLeftSidebarPortraitSelection(UNIT_NAME_TO_ID.Peasant, sidebarRequest);
+                    expect(images).toHaveLength(3);
+                }
+                expect(images[2].src).toBe("next-speculative-portrait");
+                expect(images.slice(0, 2).map((image) => image.src)).toEqual([
+                    leftSidebarPortraitSources(UNIT_NAME_TO_ID.Peasant).creature!,
+                    leftSidebarPortraitSources(UNIT_NAME_TO_ID.Peasant).background!,
+                ]);
+                release.forEach((done) => done());
+                await Promise.resolve();
+            } finally {
+                if (!overlay.container.destroyed) overlay.destroy();
+                resetPortraitImageCacheForTests();
+                resetLeftSidebarPortraitWarmForTests();
+            }
         }
     });
 

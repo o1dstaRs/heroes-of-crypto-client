@@ -1369,7 +1369,7 @@ export class Sandbox extends PixiScene {
 
         this.unitsOverlay = new UnitsOverlay(
             context.pixiApp.getApplication(),
-            (name) => this.texAny(name),
+            (name, options) => this.texAny(name, options),
             (props) => {
                 if (props) {
                     this.cancelBarrelPlacement();

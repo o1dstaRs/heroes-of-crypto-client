@@ -1,6 +1,88 @@
-import { expect, test } from "bun:test";
+import { afterEach, expect, test } from "bun:test";
 
-import { decodePortraitImages } from "./portraitImageDecode";
+import {
+    installPortraitImageFactoryForTests,
+    resetPortraitImageCacheForTests,
+    warmDecodedImage,
+} from "./decodedImageCache";
+import { arePortraitImagesDecoded, decodePortraitImages } from "./portraitImageDecode";
+
+afterEach(resetPortraitImageCacheForTests);
+
+const retainImage = async (src: string) => {
+    installPortraitImageFactoryForTests(() => ({
+        src: "",
+        decoding: "async",
+        naturalWidth: 16,
+        onload: null,
+        onerror: null,
+        decode: () => Promise.resolve(),
+    }));
+    expect(await warmDecodedImage(src)).toBe(true);
+};
+
+test("retained complete portrait layers reveal synchronously without another decode", async () => {
+    const sources = ["fixture-background", "fixture-cutout"];
+    for (const src of sources) await retainImage(src);
+    let decodes = 0;
+    const images = sources.map((src) => ({
+        src,
+        complete: true,
+        naturalWidth: 16,
+        decode: () => {
+            decodes += 1;
+            return Promise.resolve();
+        },
+    })) as HTMLImageElement[];
+    expect(arePortraitImagesDecoded(images)).toBe(true);
+    expect(await decodePortraitImages(images)).toBe(true);
+    expect(decodes).toBe(0);
+});
+
+test("mounted pixels alone do not bypass decode without a retained bitmap", async () => {
+    const layer = deferredImage();
+    Object.assign(layer.image, { src: "fixture-cold", complete: true });
+    expect(arePortraitImagesDecoded([layer.image])).toBe(false);
+    let ready = false;
+    const decoding = decodePortraitImages([layer.image]).then((value) => (ready = value));
+    await Promise.resolve();
+    expect(ready).toBe(false);
+    layer.resolve();
+    expect(await decoding).toBe(true);
+});
+
+test("a retained URL still requires a complete mounted image with pixels", async () => {
+    await retainImage("fixture-cached");
+    for (const properties of [
+        { src: "fixture-cached", complete: false, naturalWidth: 16 },
+        { src: "fixture-cached", complete: true, naturalWidth: 0 },
+        { src: "", complete: true, naturalWidth: 16 },
+    ]) {
+        expect(arePortraitImagesDecoded([properties as HTMLImageElement])).toBe(false);
+    }
+    expect(arePortraitImagesDecoded([])).toBe(false);
+});
+
+test("responsive currentSrc must be retained rather than the fallback src", async () => {
+    await retainImage("fixture-fallback");
+    const image = {
+        src: "fixture-fallback",
+        currentSrc: "fixture-selected",
+        complete: true,
+        naturalWidth: 16,
+    } as HTMLImageElement;
+    expect(arePortraitImagesDecoded([image])).toBe(false);
+    await retainImage("fixture-selected");
+    expect(arePortraitImagesDecoded([image])).toBe(true);
+});
+
+test("an aborted cached portrait cannot reveal", async () => {
+    await retainImage("fixture-cached");
+    const controller = new AbortController();
+    controller.abort();
+    const image = { src: "fixture-cached", complete: true, naturalWidth: 16 } as HTMLImageElement;
+    expect(await decodePortraitImages([image], controller.signal)).toBe(false);
+});
 
 const deferredImage = () => {
     let resolve!: () => void;

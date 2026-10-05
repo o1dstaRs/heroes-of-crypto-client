@@ -11,6 +11,7 @@ import {
 } from "./decodedImageCache";
 import { isAtlasReady, warmAtlas } from "./LeftSideBar/unitAtlas";
 import {
+    clearLeftSidebarPortraitSelection,
     isLeftSidebarPortraitReady,
     leftSidebarPortraitSources,
     resetLeftSidebarPortraitWarmForTests,
@@ -71,6 +72,7 @@ test("the selected cutout and background finish without waiting for optional atl
     expect(sources.atlas).toBeTruthy();
     expect(sources.glow).toBeTruthy();
     const pair = warmLeftSidebarPortrait(CreatureVals.PEASANT);
+    expect(controlled.jobs.map((job) => job.image.src)).toEqual([sources.creature!, sources.background!]);
     let settled = false;
     void pair.then(() => {
         settled = true;
@@ -111,12 +113,13 @@ test("optional image failures do not block an otherwise ready portrait", async (
     const controlled = controlledDecodes();
     const sources = leftSidebarPortraitSources(CreatureVals.PEASANT);
     const pair = warmLeftSidebarPortrait(CreatureVals.PEASANT);
-    controlled.settle(sources.atlas, false);
-    controlled.settle(sources.glow, false);
     controlled.settle(sources.creature);
     controlled.settle(sources.background);
 
     expect(await pair).toBe(true);
+    controlled.settle(sources.atlas, false);
+    controlled.settle(sources.glow, false);
+    await Promise.resolve();
     expect(isAtlasReady(sources.atlas!)).toBe(false);
     expect(isLeftSidebarPortraitReady(CreatureVals.PEASANT)).toBe(true);
 });
@@ -169,6 +172,7 @@ test("a faction background retried after failure stays locked through roster evi
     const retry = warmLeftSidebarPortrait(CreatureVals.CHAMPION);
     controlled.settle(sources.background);
     expect(await retry).toBe(true);
+    clearLeftSidebarPortraitSelection(CreatureVals.CHAMPION, retry);
 
     for (let index = 0; index < PORTRAIT_DECODE_CACHE_LIMIT + 1; index += 1) {
         const src = `later-cutout-${index}`;

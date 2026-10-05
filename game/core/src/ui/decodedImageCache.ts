@@ -9,6 +9,7 @@
 
 export interface PortraitImageStub {
     decoding: string;
+    fetchPriority?: "high" | "low" | "auto";
     src: string;
     naturalWidth: number;
     decode?: () => Promise<void>;
@@ -22,10 +23,22 @@ export const PORTRAIT_DECODE_CONCURRENCY = 2;
 
 const retained = new Map<string, PortraitImageStub>();
 const pending = new Map<string, Promise<boolean>>();
+const loadingImages = new Map<string, PortraitImageStub>();
+const pendingLocks = new Set<string>();
 const locked = new Set<string>();
 const pinned = new Set<string>();
-const queued: Array<{ src: string; lock: boolean }> = [];
+const held = new Map<string, number>();
+export interface PortraitImagePrefetch {
+    src: string | undefined;
+    lock?: boolean;
+}
+
+const defaultPrefetchOwner = {};
+const defaultForegroundOwner = {};
+const queued: Array<{ src: string; lock: boolean; owners: Set<object> }> = [];
+const foreground = new Map<object, Set<string>>();
 let active = 0;
+let cacheEpoch = 0;
 
 let createImage: (() => PortraitImageStub) | null = null;
 
@@ -34,11 +47,16 @@ export function installPortraitImageFactoryForTests(next: (() => PortraitImageSt
 }
 
 export function resetPortraitImageCacheForTests(): void {
+    cacheEpoch += 1;
     retained.clear();
     pending.clear();
+    loadingImages.clear();
+    pendingLocks.clear();
     locked.clear();
     pinned.clear();
+    held.clear();
     queued.length = 0;
+    foreground.clear();
     active = 0;
     createImage = null;
 }
@@ -70,11 +88,17 @@ const creatureCount = (): number => {
 
 const evictOldestCreature = (): boolean => {
     for (const src of retained.keys()) {
-        if (locked.has(src) || pinned.has(src)) continue;
+        if (locked.has(src) || pinned.has(src) || held.has(src)) continue;
         retained.delete(src);
         return true;
     }
     return false;
+};
+
+const trim = (): void => {
+    while (creatureCount() > PORTRAIT_DECODE_CACHE_LIMIT && evictOldestCreature()) {
+        // Drop the oldest unpinned cutout until the band fits.
+    }
 };
 
 const remember = (src: string, image: PortraitImageStub, lock: boolean): void => {
@@ -82,42 +106,98 @@ const remember = (src: string, image: PortraitImageStub, lock: boolean): void =>
     retained.delete(src);
     retained.set(src, image);
     if (lock) locked.add(src);
-    while (creatureCount() > PORTRAIT_DECODE_CACHE_LIMIT && evictOldestCreature()) {
-        // Drop the oldest unpinned cutout until the band fits.
-    }
+    trim();
 };
 
-export function warmDecodedImage(src: string | undefined, options?: { lock?: boolean }): Promise<boolean> {
+/** Keep a pending pair through its React handoff without replacing the displayed portrait's pins. */
+export function retainDecodedImages(srcs: readonly (string | undefined)[]): () => void {
+    const sources = [...new Set(srcs.filter((src): src is string => !!src))];
+    const epoch = cacheEpoch;
+    let disposed = false;
+    for (const src of sources) held.set(src, (held.get(src) ?? 0) + 1);
+    return () => {
+        if (disposed || epoch !== cacheEpoch) return;
+        disposed = true;
+        for (const src of sources) {
+            const remaining = (held.get(src) ?? 0) - 1;
+            if (remaining > 0) held.set(src, remaining);
+            else held.delete(src);
+        }
+        trim();
+    };
+}
+
+/** Replace only this owner's foreground wait; obsolete shared requests remain in flight. */
+export function setDecodedImageForeground(owner: object, srcs: readonly (string | undefined)[]): void {
+    const sources = new Set(srcs.filter((src): src is string => !!src && !retained.has(src)));
+    if (sources.size > 0) foreground.set(owner, sources);
+    else foreground.delete(owner);
+}
+
+export function clearDecodedImageForeground(owner: object): void {
+    foreground.delete(owner);
+    pump();
+}
+
+const markForeground = (src: string, owner: object): void => {
+    const sources = foreground.get(owner) ?? new Set<string>();
+    sources.add(src);
+    foreground.set(owner, sources);
+};
+
+export function warmDecodedImage(
+    src: string | undefined,
+    options?: { lock?: boolean; priority?: "high" | "low"; foregroundOwner?: object },
+): Promise<boolean> {
     if (!src) return Promise.resolve(false);
     const queuedIndex = queued.findIndex((job) => job.src === src);
+    const shouldLock = !!options?.lock || (queuedIndex >= 0 && queued[queuedIndex].lock);
     if (queuedIndex >= 0) queued.splice(queuedIndex, 1);
     if (retained.has(src)) {
         const image = retained.get(src)!;
         retained.delete(src);
         retained.set(src, image);
-        if (options?.lock) locked.add(src);
+        if (shouldLock) locked.add(src);
         return Promise.resolve(true);
     }
     const existing = pending.get(src);
     if (existing) {
-        if (options?.lock) {
-            return existing.then((ok) => {
-                if (ok) locked.add(src);
-                return ok;
-            });
+        if (options?.priority === "high") {
+            markForeground(src, options.foregroundOwner ?? defaultForegroundOwner);
+            const loading = loadingImages.get(src);
+            if (loading) loading.fetchPriority = "high";
+        }
+        if (shouldLock) {
+            pendingLocks.add(src);
         }
         return existing;
     }
     const image = allocateImage();
     if (!image) return Promise.resolve(false);
+    const epoch = cacheEpoch;
+    if (options?.priority === "high") markForeground(src, options.foregroundOwner ?? defaultForegroundOwner);
+    if (shouldLock) pendingLocks.add(src);
+    loadingImages.set(src, image);
 
     const job = new Promise<boolean>((resolve) => {
         const finish = (ok: boolean) => {
+            if (epoch !== cacheEpoch) {
+                resolve(false);
+                return;
+            }
             pending.delete(src);
-            if (ok) remember(src, image, !!options?.lock);
+            loadingImages.delete(src);
+            for (const [owner, sources] of foreground) {
+                sources.delete(src);
+                if (sources.size === 0) foreground.delete(owner);
+            }
+            if (ok) remember(src, image, pendingLocks.has(src));
+            pendingLocks.delete(src);
             resolve(ok && image.naturalWidth > 0);
+            pump();
         };
         image.decoding = "async";
+        image.fetchPriority = options?.priority ?? "auto";
         image.src = src;
         if (typeof image.decode === "function") {
             image.decode().then(
@@ -134,19 +214,56 @@ export function warmDecodedImage(src: string | undefined, options?: { lock?: boo
 }
 
 const pump = (): void => {
-    while (active < PORTRAIT_DECODE_CONCURRENCY && queued.length > 0) {
+    while (foreground.size === 0 && active < PORTRAIT_DECODE_CONCURRENCY && queued.length > 0) {
         const job = queued.shift()!;
+        const epoch = cacheEpoch;
         active += 1;
-        void warmDecodedImage(job.src, { lock: job.lock }).finally(() => {
+        void warmDecodedImage(job.src, { lock: job.lock, priority: "low" }).finally(() => {
+            if (epoch !== cacheEpoch) return;
             active -= 1;
             pump();
         });
     }
 };
 
+const queueImage = (request: PortraitImagePrefetch, owner: object): void => {
+    const { src } = request;
+    if (!src) return;
+    if (retained.has(src)) {
+        if (request.lock) locked.add(src);
+        return;
+    }
+    const loading = pending.get(src);
+    if (loading) {
+        if (request.lock) pendingLocks.add(src);
+        return;
+    }
+    const existing = queued.find((job) => job.src === src);
+    if (existing) {
+        existing.lock ||= !!request.lock;
+        existing.owners.add(owner);
+        return;
+    }
+    queued.push({ src, lock: !!request.lock, owners: new Set([owner]) });
+};
+
+/** Drop obsolete speculative work without interrupting any already-started or shared image. */
+export function clearDecodedImagePrefetch(owner: object): void {
+    for (let index = queued.length - 1; index >= 0; index -= 1) {
+        queued[index].owners.delete(owner);
+        if (queued[index].owners.size === 0) queued.splice(index, 1);
+    }
+}
+
+/** Replace one roster or turn queue's band; other owners keep their requests. */
+export function replaceDecodedImagePrefetch(owner: object, requests: readonly PortraitImagePrefetch[]): void {
+    clearDecodedImagePrefetch(owner);
+    for (const request of requests) queueImage(request, owner);
+    pump();
+}
+
 /** Decode later, two at a time, so opening the roster does not decode every cutout on the click. */
 export function enqueueDecodedImage(src: string | undefined, options?: { lock?: boolean }): void {
-    if (!src || retained.has(src) || pending.has(src) || queued.some((job) => job.src === src)) return;
-    queued.push({ src, lock: !!options?.lock });
+    queueImage({ src, ...options }, defaultPrefetchOwner);
     pump();
 }

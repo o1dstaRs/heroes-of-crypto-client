@@ -14,12 +14,18 @@ import {
 } from "pixi.js";
 
 import { unitToTextureName, TextureType } from "../pixi/PixiUnitsFactory";
+import type { TextureLoadOptions } from "../pixi/boardFirstTextureLoads";
 import { UnitChip } from "./UnitChip";
 
 import { images } from "../imageAssets";
 import { resolveCreaturePortraitVisual } from "../ui/creaturePortraitVisual";
 import { creatureTypePresentation } from "../ui/creatureTypePresentation";
-import { enqueueLeftSidebarPortraits } from "../ui/leftSidebarPortraitWarm";
+import {
+    clearLeftSidebarPortraitPrefetch,
+    clearLeftSidebarPortraitSelection,
+    enqueueLeftSidebarPortraits,
+    warmLeftSidebarPortrait,
+} from "../ui/leftSidebarPortraitWarm";
 import { UNIT_ID_TO_NAME, UNIT_NAME_TO_ID } from "../ui/unit_ui_constants";
 
 import {
@@ -94,7 +100,9 @@ export const MIRRORED_ROSTER_PORTRAIT_NAMES = new Set([
 /** Nature is mirrored by default, but Trent's approved L2 portrait already faces into the roster. */
 const UNMIRRORED_NATURE_ROSTER_PORTRAIT_NAMES = new Set(["Trent"]);
 
-type GetTexture = (key: string) => Texture | undefined;
+type GetTexture = (key: string, options?: TextureLoadOptions) => Texture | undefined;
+const isReadyTexture = (texture: Texture | undefined): boolean =>
+    !!texture && texture !== Texture.EMPTY && !texture.destroyed && !texture.source.destroyed;
 type LevelBucket = Readonly<{ label: string; count: number; unitSize: 1 | 2 }>;
 type LevelTab = {
     level: number;
@@ -315,6 +323,13 @@ export class UnitsOverlay {
     private cellSize = 0;
     /** The one expanded level. Starts on L1 so the overlay opens showing something rather than a bare ladder. */
     private selectedLevel = 1;
+    private visibleTextureOptions: TextureLoadOptions = { priority: "visible", group: {} };
+    private visiblePortraitsReady = false;
+    private readonly sidebarPortraitPrefetchOwner = {};
+    private readonly hoverPortraitPrefetchOwner = {};
+    private hoverPortraitPrefetchTimer?: ReturnType<typeof setTimeout>;
+    private sidebarWarmLevel?: number;
+    private selectionPortraitWarm?: { creatureId: number; readiness: Promise<boolean> };
     private selectedName: string | null = null;
     /** Column order. One column per faction, all four the same width. */
     private readonly factions: { type: FactionType }[] = [
@@ -460,6 +475,13 @@ export class UnitsOverlay {
         const unitName = chip.nameKey;
         const next = this.selectedName === unitName ? null : unitName;
         this.selectedName = next;
+        this.clearHoveredPortraitPrefetch();
+        const previousWarm = this.selectionPortraitWarm;
+        this.selectionPortraitWarm = undefined;
+        if (next) this.warmCreatureForSelection(chip, true);
+        // The new selection acquires its hold before the old request is disposed. A later React
+        // request for the same creature owns a different token and cannot be cleared by this overlay.
+        if (previousWarm) clearLeftSidebarPortraitSelection(previousWarm.creatureId, previousWarm.readiness);
 
         for (const candidate of this.allChips) {
             candidate.setSelected(candidate.nameKey === next);
@@ -569,10 +591,12 @@ export class UnitsOverlay {
               })
             : undefined;
         if (hoveredChip !== this.hoveredChip) {
+            this.clearHoveredPortraitPrefetch();
             this.hoveredChip?.setHovered(false);
             hoveredChip?.setHovered(true);
             this.hoveredChip = hoveredChip;
             this.hoveredUnitProperties = hoveredChip ? this.getUnitProperties(hoveredChip.nameKey) : undefined;
+            if (hoveredChip) this.warmCreatureForSelection(hoveredChip);
         }
         if (!this.scrollbarDragging || this.maxScrollX <= 0) return false;
         const ratio = (local.x - this.scrollbarDragOffset - this.scrollTrackX) / this.scrollThumbTravel;
@@ -647,9 +671,7 @@ export class UnitsOverlay {
         );
     }
     public build(): void {
-        // Ranked fight hydration still constructs an invisible roster. Do not start this placement-only
-        // request until the overlay is actually built for placement.
-        this.warmVisibleBoardTextures();
+        this.visiblePortraitsReady = true;
         this.refreshToggleTexture();
         this.levelRail.removeChildren();
         this.rowsContainer.removeChildren();
@@ -731,26 +753,42 @@ export class UnitsOverlay {
                     const portraitTextureKey = portraitVisual ? IMAGE_URL_TO_KEY.get(portraitVisual.source) : undefined;
                     const loadPortraitNow = lvl === this.selectedLevel;
                     const portraitTexture =
-                        loadPortraitNow && portraitTextureKey ? this.getTex(portraitTextureKey) : undefined;
+                        loadPortraitNow && portraitTextureKey
+                            ? this.getTex(portraitTextureKey, this.visibleTextureOptions)
+                            : undefined;
                     const backgroundTextureKey = portraitVisual?.background
                         ? IMAGE_URL_TO_KEY.get(portraitVisual.background)
                         : undefined;
                     const backgroundTexture =
-                        loadPortraitNow && backgroundTextureKey ? this.getTex(backgroundTextureKey) : undefined;
+                        loadPortraitNow && backgroundTextureKey
+                            ? this.getTex(backgroundTextureKey, this.visibleTextureOptions)
+                            : undefined;
                     const typePresentation = creatureTypePresentation(unitName);
-                    const attackTypeIcon = typePresentation
-                        ? this.getTex(ROSTER_ATTACK_TYPE_ICON_KEY[typePresentation.attack])
-                        : undefined;
-                    const movementTypeIcon = typePresentation
-                        ? this.getTex(ROSTER_MOVEMENT_TYPE_ICON_KEY[typePresentation.movement])
-                        : undefined;
+                    const attackTypeIcon =
+                        loadPortraitNow && typePresentation
+                            ? this.getTex(ROSTER_ATTACK_TYPE_ICON_KEY[typePresentation.attack])
+                            : undefined;
+                    const movementTypeIcon =
+                        loadPortraitNow && typePresentation
+                            ? this.getTex(ROSTER_MOVEMENT_TYPE_ICON_KEY[typePresentation.movement])
+                            : undefined;
 
                     // Fall back only for an unknown/unregistered creature. The normal sandbox roster uses
                     // the exact source, faction background and crop already approved for the pick cards.
                     const fallbackTexture =
                         loadPortraitNow && !portraitVisual
-                            ? this.getTex(unitToTextureName(unitName, TextureType.LARGE, sizeFlag))
+                            ? this.getTex(
+                                  unitToTextureName(unitName, TextureType.LARGE, sizeFlag),
+                                  this.visibleTextureOptions,
+                              )
                             : undefined;
+                    if (
+                        loadPortraitNow &&
+                        (!isReadyTexture(portraitTexture ?? fallbackTexture) ||
+                            (portraitVisual?.background && !isReadyTexture(backgroundTexture)))
+                    ) {
+                        this.visiblePortraitsReady = false;
+                    }
                     const portrait = portraitVisual
                         ? {
                               texture: portraitTexture ?? Texture.EMPTY,
@@ -797,8 +835,8 @@ export class UnitsOverlay {
     }
     /** Refresh portraits and hover pictograms as their deferred textures enter Pixi's cache. */
     public refreshLazyTextures(): void {
-        if (this.container.destroyed) return;
-        this.warmVisibleBoardTextures();
+        if (this.container.destroyed || !this.container.visible || !this.openTarget) return;
+        this.visiblePortraitsReady = true;
         this.refreshToggleTexture();
         for (const chip of this.allChips) {
             if (this.chipLevels.get(chip) !== this.selectedLevel) continue;
@@ -815,14 +853,20 @@ export class UnitsOverlay {
             if (!visual) continue;
 
             const textureKey = IMAGE_URL_TO_KEY.get(visual.source);
-            const texture = textureKey ? this.getTex(textureKey) : undefined;
+            const texture = textureKey ? this.getTex(textureKey, this.visibleTextureOptions) : undefined;
             const backgroundKey = visual.background ? IMAGE_URL_TO_KEY.get(visual.background) : undefined;
-            const backgroundTexture = backgroundKey ? this.getTex(backgroundKey) : undefined;
+            const backgroundTexture = backgroundKey
+                ? this.getTex(backgroundKey, this.visibleTextureOptions)
+                : undefined;
+            if (!isReadyTexture(texture) || (visual.background && !isReadyTexture(backgroundTexture))) {
+                this.visiblePortraitsReady = false;
+            }
             chip.setPortraitTextures(texture ?? Texture.EMPTY, backgroundTexture);
         }
+        this.warmVisibleSidebarPortraits();
     }
     private refreshToggleTexture(): void {
-        const texture = this.getTex("units_overlay_toggle_square_v1");
+        const texture = this.getTex("units_overlay_toggle_square_v1", this.visibleTextureOptions);
         if (!texture || texture === Texture.EMPTY || texture === this.toggleButtonSprite.texture) return;
         this.toggleButtonSprite.texture = texture;
         this.updateButtonVisuals(false);
@@ -840,7 +884,9 @@ export class UnitsOverlay {
         // that stale selection makes the next board click place the old level before the player has actually
         // picked a creature from the newly expanded row.
         this.clearSelection(true);
+        this.clearSidebarPortraitPrefetch();
         this.selectedLevel = level;
+        this.visibleTextureOptions = { priority: "visible", group: {} };
         this.scrollX = 0;
         for (const tab of this.levelTabs) {
             tab.hovered = false;
@@ -851,25 +897,65 @@ export class UnitsOverlay {
         this.refreshLazyTextures();
         this.warmVisibleSidebarPortraits();
     }
-    /** The open level is the set of portraits a placement click will put on the left card. */
+    /** Speculate on two likely selections only after the current Pixi cards have finished loading. */
     private warmVisibleSidebarPortraits(): void {
+        if (
+            !this.visiblePortraitsReady ||
+            !this.container.visible ||
+            !this.openTarget ||
+            this.sidebarWarmLevel === this.selectedLevel
+        )
+            return;
         const creatureIds: number[] = [];
         for (const chip of this.allChips) {
             if (this.chipLevels.get(chip) !== this.selectedLevel) continue;
             const creatureId = UNIT_NAME_TO_ID[chip.nameKey];
             if (creatureId !== undefined) creatureIds.push(creatureId);
+            if (creatureIds.length === 2) break;
         }
-        enqueueLeftSidebarPortraits(creatureIds);
+        this.sidebarWarmLevel = this.selectedLevel;
+        enqueueLeftSidebarPortraits(creatureIds, this.sidebarPortraitPrefetchOwner);
     }
-    /** Start the current roster's battlefield figures before cards, icons or the first placement click. */
-    private warmVisibleBoardTextures(): void {
-        const level = this.selectedLevel as UnitLevelId;
+    private clearSidebarPortraitPrefetch(): void {
+        clearLeftSidebarPortraitPrefetch(this.sidebarPortraitPrefetchOwner);
+        this.clearSelectionPortraitWarm();
+        this.clearHoveredPortraitPrefetch();
+        this.sidebarWarmLevel = undefined;
+    }
+    private clearHoveredPortraitPrefetch(): void {
+        if (this.hoverPortraitPrefetchTimer !== undefined) clearTimeout(this.hoverPortraitPrefetchTimer);
+        this.hoverPortraitPrefetchTimer = undefined;
+        clearLeftSidebarPortraitPrefetch(this.hoverPortraitPrefetchOwner);
+    }
+    private clearSelectionPortraitWarm(): void {
+        const request = this.selectionPortraitWarm;
+        this.selectionPortraitWarm = undefined;
+        if (request) clearLeftSidebarPortraitSelection(request.creatureId, request.readiness);
+    }
+    /** The hovered/selected creature may be placed next; warming the entire band hid the visible cards. */
+    private warmCreatureForSelection(chip: UnitChip, urgent: boolean = false): void {
+        const level = this.chipLevels.get(chip);
+        if (!level) return;
         const size = this.levelBuckets[level - 1].unitSize;
-        for (const faction of this.factions) {
-            for (const creatureId of getCreaturesOf(faction.type, level)) {
-                const name = UNIT_ID_TO_NAME[creatureId];
-                if (name) this.getTex(unitToTextureName(name, TextureType.SMALL, size));
-            }
+        this.getTex(unitToTextureName(chip.nameKey, TextureType.SMALL, size));
+        const creatureId = UNIT_NAME_TO_ID[chip.nameKey];
+        if (creatureId === undefined) return;
+        if (urgent) {
+            this.selectionPortraitWarm = { creatureId, readiness: warmLeftSidebarPortrait(creatureId) };
+        } else {
+            // Sweeping across the cards must not start a row of HD downloads or optional idle atlases.
+            this.hoverPortraitPrefetchTimer = setTimeout(() => {
+                this.hoverPortraitPrefetchTimer = undefined;
+                if (
+                    this.container.destroyed ||
+                    !this.container.visible ||
+                    !this.openTarget ||
+                    this.hoveredChip !== chip
+                )
+                    return;
+                clearLeftSidebarPortraitPrefetch(this.sidebarPortraitPrefetchOwner);
+                enqueueLeftSidebarPortraits([creatureId], this.hoverPortraitPrefetchOwner);
+            }, 150);
         }
     }
     public onResize(stageW: number, stageH: number): void {
@@ -1161,6 +1247,8 @@ export class UnitsOverlay {
 
         // Mirror the authored image straight away so the chevron follows the target panel direction.
         this.openTarget = open;
+        if (open) this.refreshLazyTextures();
+        else this.clearSidebarPortraitPrefetch();
         this.updateButtonVisuals(false);
 
         const startX = this.content.x;
@@ -1192,6 +1280,8 @@ export class UnitsOverlay {
     }
     public setVisible(v: boolean): void {
         this.container.visible = v;
+        if (v) this.refreshLazyTextures();
+        else this.clearSidebarPortraitPrefetch();
         if (!this.toggleGlowStep) return;
         if (v && !this.toggleGlowRegistered) {
             this.app.ticker.add(this.toggleGlowStep);
@@ -1202,6 +1292,7 @@ export class UnitsOverlay {
         }
     }
     public destroy(): void {
+        this.clearSidebarPortraitPrefetch();
         if (this.tweenCancel) this.tweenCancel();
         this.app.stage.off("pointermove", this.onScrollbarPointerMove);
         this.app.stage.off("pointerup", this.stopScrollbarDrag);
@@ -1218,6 +1309,7 @@ export class UnitsOverlay {
         return this.selectedName !== null;
     }
     public clearSelection(notify: boolean = true): void {
+        this.clearSelectionPortraitWarm();
         if (!this.hasSelection()) return;
         this.selectedName = null;
         for (const c of this.allChips) c.setSelected(false);

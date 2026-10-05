@@ -41,6 +41,7 @@ import {
 } from "../leftSidebarPortraitAnimation";
 import {
     displayedSidebarCreatureId,
+    clearLeftSidebarPortraitSelection,
     isLeftSidebarPortraitReady,
     pinLeftSidebarPortrait,
     warmLeftSidebarPortrait,
@@ -1286,11 +1287,13 @@ const UnitStatsLayout: React.FC<{
         // A cached selection must become the held picture immediately too; otherwise the next cold
         // selection falls back to an older creature while an optional atlas is still loading.
         if (isLeftSidebarPortraitReady(creatureId)) setHeldPortraitId(creatureId);
-        void warmLeftSidebarPortrait(creatureId).then((ready) => {
+        const portraitWarm = warmLeftSidebarPortrait(creatureId);
+        void portraitWarm.then((ready) => {
             if (ready && !cancelled) setHeldPortraitId(creatureId);
         });
         return () => {
             cancelled = true;
+            clearLeftSidebarPortraitSelection(creatureId, portraitWarm);
         };
     }, [creatureId]);
     const displayedCreatureId = displayedSidebarCreatureId(creatureId, heldPortraitId, portraitReady);
@@ -1547,6 +1550,75 @@ const UnitStatsLayout: React.FC<{
             : effectTile + 20;
     const layout = bannerLayout(metrics);
     const portraitHeight = layout.portraitHeight;
+    const portraitAlt =
+        displayedCreatureId === undefined
+            ? unitProperties.name
+            : (UNIT_ID_TO_NAME[displayedCreatureId] ?? unitProperties.name);
+    const {
+        artScale: portraitArtScale,
+        artOffsetX: portraitOffsetX,
+        artOffsetY: portraitOffsetY,
+    } = sidebarPortraitTuning;
+    const portraitArtScaleX = 0.96 * (sidebarPortraitArt.artScaleX ?? 1);
+    const portraitSource = sidebarPortraitArt.source;
+    const portraitUsesFraming = sidebarPortraitArt.usesFraming !== false;
+    const portraitFit = sidebarPortraitArt.fit;
+    const portraitBaseScale = sidebarPortraitArt.baseScale;
+    const portraitAtlasSource = portraitAnimationConfig?.src;
+    const portraitAtlasMeta = portraitAnimationConfig?.meta;
+    // Live stat/impact changes keep the complete mounted portrait intact. Only its actual source,
+    // authored framing, animation, or responsive size needs to reconcile this image-heavy subtree.
+    const sidebarPortrait = React.useMemo(
+        () =>
+            displayedCreatureId === undefined ? null : (
+                <CreaturePortraitImage
+                    creatureId={displayedCreatureId}
+                    alt={portraitAlt}
+                    artScale={portraitArtScale}
+                    artScaleX={portraitArtScaleX}
+                    backgroundFit="fill"
+                    artOffsetX={portraitOffsetX}
+                    artOffsetY={portraitOffsetY}
+                    artSource={portraitSource}
+                    artSourceUsesFraming={portraitUsesFraming}
+                    artFit={portraitFit}
+                    artBaseScale={portraitBaseScale}
+                    highQualityArt
+                    sx={{ width: "100%", height: "100%", bgcolor: "transparent" }}
+                    imageStyle={{ transition: "none", imageRendering: "auto" }}
+                    animatedArtSource={portraitAtlasSource}
+                    renderArt={
+                        portraitAtlasMeta
+                            ? (art) => (
+                                  <SidebarPortraitAnimation
+                                      key={portraitAtlasSource}
+                                      art={art}
+                                      config={{ src: portraitAtlasSource!, meta: portraitAtlasMeta }}
+                                      onLoaded={onImageLoaded}
+                                      maxHeight={portraitHeight}
+                                  />
+                              )
+                            : undefined
+                    }
+                />
+            ),
+        [
+            displayedCreatureId,
+            portraitAlt,
+            portraitArtScale,
+            portraitArtScaleX,
+            portraitOffsetX,
+            portraitOffsetY,
+            portraitSource,
+            portraitUsesFraming,
+            portraitFit,
+            portraitBaseScale,
+            portraitAtlasSource,
+            portraitAtlasMeta,
+            portraitHeight,
+            onImageLoaded,
+        ],
+    );
     // The frame itself closes on the centre of the Abilities divider. PanelSection first advances by the
     // card gap, then lifts its title wrapper by one full section gap; half of the plaque's rendered height
     // lands the border exactly on the horizontal rules running through the plaque centre.
@@ -1666,43 +1738,7 @@ const UnitStatsLayout: React.FC<{
                                     clipPath: `inset(0 0 ${abilityRightStepPx}px 0)`,
                                 }}
                             >
-                                <CreaturePortraitImage
-                                    creatureId={displayedCreatureId}
-                                    alt={UNIT_ID_TO_NAME[displayedCreatureId] ?? unitProperties.name}
-                                    artScale={sidebarPortraitTuning.artScale}
-                                    artScaleX={0.96 * (sidebarPortraitArt.artScaleX ?? 1)}
-                                    backgroundFit="fill"
-                                    artOffsetX={sidebarPortraitTuning.artOffsetX}
-                                    artOffsetY={sidebarPortraitTuning.artOffsetY}
-                                    artSource={sidebarPortraitArt.source}
-                                    artSourceUsesFraming={sidebarPortraitArt.usesFraming !== false}
-                                    artFit={sidebarPortraitArt.fit}
-                                    artBaseScale={sidebarPortraitArt.baseScale}
-                                    highQualityArt
-                                    sx={{
-                                        width: "100%",
-                                        height: "100%",
-                                        bgcolor: "transparent",
-                                    }}
-                                    imageStyle={{
-                                        transition: "none",
-                                        imageRendering: "auto",
-                                    }}
-                                    animatedArtSource={portraitAnimationConfig?.src}
-                                    renderArt={
-                                        portraitAnimationConfig
-                                            ? (art) => (
-                                                  <SidebarPortraitAnimation
-                                                      key={portraitAnimationConfig.src}
-                                                      art={art}
-                                                      config={portraitAnimationConfig}
-                                                      onLoaded={onImageLoaded}
-                                                      maxHeight={portraitHeight}
-                                                  />
-                                              )
-                                            : undefined
-                                    }
-                                />
+                                {sidebarPortrait}
                             </Box>
                         ) : creatureId !== undefined ? (
                             // Waiting on the cutout and the plate together. A lone large-texture fallback

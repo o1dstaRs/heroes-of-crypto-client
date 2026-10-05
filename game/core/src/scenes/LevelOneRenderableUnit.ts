@@ -108,6 +108,7 @@ import {
 import {
     BATTLEFIELD_SHADOW_SEGMENT_COUNT,
     DEFAULT_BATTLEFIELD_SHADOW_TUNING,
+    isBattlefieldShadowEditorActive,
     publishBattlefieldShadowVisualBounds,
     resolveBattlefieldShadowTuning,
     type BattlefieldShadowTuning,
@@ -3599,30 +3600,32 @@ export class RenderableUnit extends Unit {
 
         if (props.name === WOLF_UNIT_NAME) this.syncWolfAttackReach();
 
-        const silhouetteBounds = (
-            this.silhouetteShadowSegmented ? this.silhouetteShadowSegments : [this.silhouetteShadow]
-        ).reduce(
-            (combined, displayObject) => {
-                const bounds = displayObject.getBounds();
-                return {
-                    left: Math.min(combined.left, bounds.x),
-                    top: Math.min(combined.top, bounds.y),
-                    right: Math.max(combined.right, bounds.x + bounds.width),
-                    bottom: Math.max(combined.bottom, bounds.y + bounds.height),
-                };
-            },
-            { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity },
-        );
-        publishBattlefieldShadowVisualBounds(props.name, {
-            bounds: {
-                x: silhouetteBounds.left,
-                y: silhouetteBounds.top,
-                width: silhouetteBounds.right - silhouetteBounds.left,
-                height: silhouetteBounds.bottom - silhouetteBounds.top,
-            },
-            cellWidth: gs.getCellSize() * inheritedScale.x,
-            cellHeight: gs.getCellSize() * inheritedScale.y,
-        });
+        if (isBattlefieldShadowEditorActive()) {
+            const silhouetteBounds = (
+                this.silhouetteShadowSegmented ? this.silhouetteShadowSegments : [this.silhouetteShadow]
+            ).reduce(
+                (combined, displayObject) => {
+                    const bounds = displayObject.getBounds();
+                    return {
+                        left: Math.min(combined.left, bounds.x),
+                        top: Math.min(combined.top, bounds.y),
+                        right: Math.max(combined.right, bounds.x + bounds.width),
+                        bottom: Math.max(combined.bottom, bounds.y + bounds.height),
+                    };
+                },
+                { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity },
+            );
+            publishBattlefieldShadowVisualBounds(props.name, {
+                bounds: {
+                    x: silhouetteBounds.left,
+                    y: silhouetteBounds.top,
+                    width: silhouetteBounds.right - silhouetteBounds.left,
+                    height: silhouetteBounds.bottom - silhouetteBounds.top,
+                },
+                cellWidth: gs.getCellSize() * inheritedScale.x,
+                cellHeight: gs.getCellSize() * inheritedScale.y,
+            });
+        }
 
         // The second, independently blurred cast-shadow copy remains retired. One transparent flattened
         // silhouette plus the compact contact patch is cheaper and closer to Heroes IV's readable style.

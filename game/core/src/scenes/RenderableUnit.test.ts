@@ -8,7 +8,17 @@ import { BattleMageReactionFilter } from "./BattleMageLabReactions";
 import { PikemanIdleFilter } from "./PikemanLabIdleVisuals";
 import { PIKEMAN_IDLE_PERIOD_MS, PIKEMAN_IDLE_START_HOLD_MS, PIKEMAN_IDLE_MOTION_MS } from "./PikemanLabIdleMotion";
 
-import { BufferImageSource, ColorMatrixFilter, Container, Graphics, Rectangle, Sprite, Text, Texture } from "pixi.js";
+import {
+    Bounds,
+    BufferImageSource,
+    ColorMatrixFilter,
+    Container,
+    Graphics,
+    Rectangle,
+    Sprite,
+    Text,
+    Texture,
+} from "pixi.js";
 import { blacksmithWalkColorFilter } from "./BlacksmithWalkColorFilter";
 import { healerLabWalkPalette } from "./HealerLabWalkPalette";
 import { scavengerHitRegisteredSoles, SCAVENGER_IDLE_SOLES } from "./ScavengerHitRegistration";
@@ -141,7 +151,12 @@ import {
 } from "./BattlefieldCreatureContourFilter";
 import { getBattlefieldAlphaHoleFillFilter, shouldFillBattlefieldAlphaHoles } from "./BattlefieldAlphaHoleFillFilter";
 import { BATTLEFIELD_CREATURE_FRAMING } from "../ui/battlefieldCreatureFraming";
-import { BATTLEFIELD_SHADOW_TUNING_BY_CREATURE } from "../ui/battlefieldShadowTuning";
+import {
+    BATTLEFIELD_SHADOW_TUNING_BY_CREATURE,
+    readBattlefieldShadowVisualBounds,
+    setBattlefieldShadowEditorActive,
+} from "../ui/battlefieldShadowTuning";
+import { RenderableUnit as LevelOneRenderableUnit } from "./LevelOneRenderableUnit";
 import { DEFAULT_STUN_BADGE_TUNING, stunBadgeLayout } from "../ui/stunBadgeTuning";
 import { BATTLEFIELD_HEIGHT_RATIO } from "../pixi/boardFit";
 import { animationAtlases } from "../generated/animation_atlases";
@@ -956,6 +971,126 @@ describe("battlefield row perspective scale", () => {
 });
 
 describe("furnace-cast battlefield shadow", () => {
+    test.each([
+        ["main left", RenderableUnit, TeamVals.LEFT],
+        ["main right", RenderableUnit, TeamVals.RIGHT],
+        ["level one left", LevelOneRenderableUnit, TeamVals.LEFT],
+        ["level one right", LevelOneRenderableUnit, TeamVals.RIGHT],
+    ] as const)(
+        "%s only measures editor bounds while open, with fresh bounds after reopening",
+        (_name, Renderer, team) => {
+            CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
+            CREATURE_SPRITE_ANIMATION_SETTINGS.approvedBaseEnabled = true;
+            setBattlefieldShadowEditorActive(false);
+            const effects = new EffectFactory();
+            const base = Unit.createUnit(
+                HoCConfig.getCreatureConfig(team, "Life", "Squire", "squire_512", 1),
+                gridSettings,
+                team,
+                UnitVals.CREATURE,
+                new AbilityFactory(effects),
+                effects,
+                false,
+            );
+            const unit = Renderer.fromBase(base, () => testAtlasTexture);
+            const world = new Container();
+            world.position.set(30, -15);
+            world.scale.set(1.2, -0.9);
+            world.rotation = 0.13;
+            unit.setPosition(384, 640);
+            unit.setBattlefieldVisualProjection(true);
+            unit.syncVisual(world, gridSettings);
+            expect(Object.getPrototypeOf(unit)).toBe(Renderer.prototype);
+
+            const visuals = unit as unknown as {
+                silhouetteShadow: Sprite;
+                silhouetteShadowSegments: Sprite[];
+                silhouetteShadowSegmented: boolean;
+            };
+            const shadows = visuals.silhouetteShadowSegmented
+                ? visuals.silhouetteShadowSegments
+                : [visuals.silhouetteShadow];
+            const measurements = shadows.map((shadow) => shadow.getBounds.bind(shadow));
+            const spies = shadows.map((shadow) => spyOn(shadow, "getBounds"));
+            const expectFreshPublishedBounds = () => {
+                const expected = new Bounds();
+                for (const measure of measurements) expected.addBounds(measure());
+                const published = readBattlefieldShadowVisualBounds("Squire");
+                expect(published?.bounds).toEqual({
+                    x: expected.x,
+                    y: expected.y,
+                    width: expected.width,
+                    height: expected.height,
+                });
+                expect(published?.cellWidth).toBeCloseTo(gridSettings.getCellSize() * Math.abs(world.scale.x));
+                expect(published?.cellHeight).toBeCloseTo(gridSettings.getCellSize() * Math.abs(world.scale.y));
+            };
+
+            try {
+                for (let frame = 0; frame < 120; frame += 1) unit.syncVisual(world, gridSettings);
+                for (const spy of spies) expect(spy).not.toHaveBeenCalled();
+                expect(readBattlefieldShadowVisualBounds("Squire")).toBeUndefined();
+
+                const restingShadowX = visuals.silhouetteShadow.x;
+                unit.setPosition(896, 1024);
+                unit.setBoardFacing(-1);
+                unit.syncVisual(world, gridSettings);
+                expect(visuals.silhouetteShadow.x).not.toBe(restingShadowX);
+                for (const spy of spies) expect(spy).not.toHaveBeenCalled();
+
+                const drawState = () =>
+                    world.children.map((child) => ({
+                        object: child,
+                        x: child.x,
+                        y: child.y,
+                        scaleX: child.scale.x,
+                        scaleY: child.scale.y,
+                        rotation: child.rotation,
+                        alpha: child.alpha,
+                        visible: child.visible,
+                        depth: child.zIndex,
+                        texture: child instanceof Sprite ? child.texture : undefined,
+                    }));
+                // Hold authored animation time fixed while comparing the original measurement path with
+                // the closed-editor path: measuring must not affect any rendered object's draw state.
+                unit.ensureVisual(world, gridSettings, 1_000);
+                const closedDrawState = drawState();
+                setBattlefieldShadowEditorActive(true);
+                unit.ensureVisual(world, gridSettings, 1_000);
+                expect(drawState()).toEqual(closedDrawState);
+                for (const spy of spies) expect(spy).toHaveBeenCalledTimes(1);
+                expectFreshPublishedBounds();
+                const firstBounds = readBattlefieldShadowVisualBounds("Squire")?.bounds;
+
+                world.scale.x = -1.2;
+                unit.setBoardFacing(1);
+                unit.setPosition(640, 768);
+                unit.syncVisual(world, gridSettings);
+                for (const spy of spies) expect(spy).toHaveBeenCalledTimes(2);
+                expectFreshPublishedBounds();
+                expect(readBattlefieldShadowVisualBounds("Squire")?.bounds).not.toEqual(firstBounds);
+
+                setBattlefieldShadowEditorActive(false);
+                expect(readBattlefieldShadowVisualBounds("Squire")).toBeUndefined();
+                unit.setPosition(256, 1280);
+                unit.setBoardFacing(-1);
+                world.scale.x = 0.8;
+                unit.syncVisual(world, gridSettings);
+                for (const spy of spies) expect(spy).toHaveBeenCalledTimes(2);
+
+                setBattlefieldShadowEditorActive(true);
+                unit.syncVisual(world, gridSettings);
+                for (const spy of spies) expect(spy).toHaveBeenCalledTimes(3);
+                expectFreshPublishedBounds();
+            } finally {
+                for (const spy of spies) spy.mockRestore();
+                setBattlefieldShadowEditorActive(false);
+                unit.destroyVisuals();
+                world.destroy({ children: true });
+            }
+        },
+    );
+
     test("uses the first authored idle frame regardless of texture load timing", () => {
         const staticCutout = { id: "static-cutout" };
         const firstIdle = { id: "idle-0" };

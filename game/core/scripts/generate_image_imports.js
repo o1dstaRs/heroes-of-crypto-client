@@ -107,6 +107,25 @@ if (!testAssets) {
         JSON.stringify(entries.map(({ key }) => key).sort(), null, 4) + "\n",
     );
 }
+// A clean checkout needs these URLs before loading the roster's authoritative source/framing resolver.
+// Canonical artwork stays untouched. Vite hashes the encoded build-copy bytes behind the same image keys.
+const {
+    approvedRosterPortraitFilenames,
+    optimizePortraitBuildCopies,
+} = require("../src/build/portraitBuildCopyEncoding.ts");
+const portraitEncoding = await optimizePortraitBuildCopies(
+    imageDir,
+    process.env.HOC_IMAGES_LOC,
+    await approvedRosterPortraitFilenames(imageDir),
+);
+if (portraitEncoding.skippedReason) {
+    console.warn(`Portrait build-copy encoding skipped: ${portraitEncoding.skippedReason}`);
+} else if (portraitEncoding.optimized) {
+    console.log(
+        `Portrait build copies encoded: ${portraitEncoding.optimized} images, ` +
+            `${portraitEncoding.bytesBefore - portraitEncoding.bytesAfter} bytes saved (${portraitEncoding.cached} cached).`,
+    );
+}
 const omittedCount = entries.filter(({ productionOmitted }) => productionOmitted).length;
 console.log(
     productionBuild

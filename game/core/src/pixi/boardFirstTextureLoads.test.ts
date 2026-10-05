@@ -9,6 +9,7 @@ import {
     EXTRA_TEXTURE_MAX_WAIT_MS,
     isBoardImageTextureKey,
     MAX_CONCURRENT_EXTRA_TEXTURE_LOADS,
+    MAX_CONCURRENT_VISIBLE_TEXTURE_LOADS,
 } from "./boardFirstTextureLoads";
 
 const BOARD = "peasant_battlefield_side_right_distance_readable_v1";
@@ -62,6 +63,138 @@ describe("board-first texture loading", () => {
         });
         await tick();
         expect(started).toEqual(["extra"]);
+    });
+
+    test("four visible cards bypass a stalled board and a full optional queue, while remaining bounded", async () => {
+        const loads = createBoardFirstLoads();
+        const optional = Array.from({ length: 5 }, deferred);
+        const started: string[] = [];
+        const optionalLoads = optional.map((download, index) =>
+            loads.load(EXTRA, () => {
+                started.push(`optional ${index}`);
+                return download.promise;
+            }),
+        );
+        await tick();
+        const board = deferred();
+        const boardLoad = loads.load(BOARD, () => {
+            started.push("board");
+            return board.promise;
+        });
+        const cards = Array.from({ length: MAX_CONCURRENT_VISIBLE_TEXTURE_LOADS + 1 }, deferred);
+        const cardLoads = cards.map((download, index) =>
+            loads.load(
+                `card ${index}`,
+                () => {
+                    started.push(`card ${index}`);
+                    return download.promise;
+                },
+                { priority: "visible" },
+            ),
+        );
+        await tick();
+        expect(started).toEqual(["optional 0", "optional 1", "board", "card 0", "card 1", "card 2", "card 3"]);
+        cards[0].resolve("card");
+        await tick();
+        expect(started.at(-1)).toBe("card 4");
+        expect(started.filter((key) => key.startsWith("optional"))).toHaveLength(2);
+        board.resolve("board");
+        optional.forEach((download) => download.resolve("optional"));
+        cards.forEach((download) => download.resolve("card"));
+        await Promise.all([...optionalLoads, ...cardLoads, boardLoad]);
+    });
+
+    test("the current level's queued portraits precede the old level and shared requests are promoted once", async () => {
+        const loads = createBoardFirstLoads();
+        const oldGroup = {};
+        const newGroup = {};
+        const oldCards = Array.from({ length: MAX_CONCURRENT_VISIBLE_TEXTURE_LOADS + 2 }, deferred);
+        const started: string[] = [];
+        const oldLoads = oldCards.map((download, index) =>
+            loads.load(
+                `old ${index}`,
+                () => {
+                    started.push(`old ${index}`);
+                    return download.promise;
+                },
+                { priority: "visible", group: oldGroup },
+            ),
+        );
+        const newCard = deferred();
+        const newLoad = loads.load(
+            "new card",
+            () => {
+                started.push("new card");
+                return newCard.promise;
+            },
+            { priority: "visible", group: newGroup },
+        );
+        loads.promote(oldLoads[5], { priority: "visible", group: newGroup });
+        await tick();
+        expect(started).toEqual(["old 0", "old 1", "old 2", "old 3"]);
+        oldCards[0].resolve("old");
+        await tick();
+        expect(started.at(-1)).toBe("old 5");
+        oldCards[1].resolve("old");
+        await tick();
+        expect(started.at(-1)).toBe("new card");
+        expect(started).not.toContain("old 4");
+        oldCards.forEach((download) => download.resolve("old"));
+        newCard.resolve("new");
+        await Promise.all([...oldLoads, newLoad]);
+        expect(started.filter((key) => key === "old 5")).toHaveLength(1);
+    });
+
+    test("an optional request waiting for board images can become visible without occupying an optional slot", async () => {
+        const loads = createBoardFirstLoads();
+        const board = deferred();
+        const boardLoad = loads.load(BOARD, () => board.promise);
+        const started: string[] = [];
+        const texture = deferred();
+        const promoted = loads.load("portrait", () => {
+            started.push("portrait");
+            return texture.promise;
+        });
+        const extras = Array.from({ length: MAX_CONCURRENT_EXTRA_TEXTURE_LOADS }, (_, index) =>
+            loads.load(EXTRA, async () => {
+                started.push(`optional ${index}`);
+                return "optional";
+            }),
+        );
+        await tick();
+        loads.promote(promoted, { priority: "visible" });
+        await tick();
+        expect(started).toEqual(["portrait"]);
+        board.resolve("board");
+        await Promise.all([...extras, boardLoad]);
+        expect(started).toEqual(["portrait", "optional 0", "optional 1"]);
+        texture.resolve("portrait");
+        expect(await promoted).toBe("portrait");
+    });
+
+    test("a failed visible download releases its slot for the next card", async () => {
+        const loads = createBoardFirstLoads();
+        const cards = Array.from({ length: MAX_CONCURRENT_VISIBLE_TEXTURE_LOADS + 1 }, deferred);
+        const started: number[] = [];
+        const results = cards.map((card, index) =>
+            loads
+                .load(
+                    "portrait",
+                    () => {
+                        started.push(index);
+                        return card.promise;
+                    },
+                    { priority: "visible" },
+                )
+                .catch(() => "failed"),
+        );
+        await tick();
+        expect(started).toEqual([0, 1, 2, 3]);
+        cards[0].reject(new Error("decode failed"));
+        await tick();
+        expect(started).toEqual([0, 1, 2, 3, 4]);
+        cards.slice(1).forEach((card) => card.resolve("card"));
+        expect(await Promise.all(results)).toEqual(["failed", "card", "card", "card", "card"]);
     });
 
     test("limits optional downloads and releases a slot after a failure", async () => {
@@ -180,7 +313,8 @@ describe("board-first texture loading", () => {
 describe("where the board-first order is applied", () => {
     test("every on-demand scene texture loads through it, and a failed board image schedules a repaint to retry", () => {
         const scene = readFileSync(join(import.meta.dir, "PixiScene.ts"), "utf8");
-        expect(scene).toContain("boardFirstTextureLoads.load(key, () => Assets.load<Texture>(url))");
+        expect(scene).toContain("boardFirstTextureLoads.load(key, () => Assets.load<Texture>(url), options)");
+        expect(scene).toContain("boardFirstTextureLoads.promote(pending, options)");
         expect(scene).not.toContain("pending = Assets.load<Texture>(url);");
         expect(scene).toContain("this.scheduleBoardImageRetry(url)");
     });

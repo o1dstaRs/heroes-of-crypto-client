@@ -29,6 +29,16 @@ const BODY_INSIDE_HEAD_RATIO = 0.5;
 const DEPTH_EPSILON = 0.01;
 const EMPTY_DEPTHS: ReadonlyMap<string, number> = new Map();
 
+interface CreatureDepthSortCache {
+    snapshots: CreatureDepthSortCandidate[];
+    depths: ReadonlyMap<string, number>;
+}
+
+// Sandbox reuses one candidate array, while its units update the candidate objects in place. Copy
+// every scalar rather than keeping those objects: movement, facing and camera changes must still
+// invalidate the result. Weak keys release the snapshots and result with their owning scene.
+const DEPTH_SORT_CACHE = new WeakMap<readonly CreatureDepthSortCandidate[], CreatureDepthSortCache>();
+
 const rectArea = (rect: CreatureDepthRect): number =>
     Math.max(0, rect.right - rect.left) * Math.max(0, rect.bottom - rect.top);
 
@@ -77,6 +87,58 @@ export const resolveCreatureHeadPriorityDepths = (
 ): ReadonlyMap<string, number> => {
     if (candidates.length < 2) return EMPTY_DEPTHS;
 
+    let cache = DEPTH_SORT_CACHE.get(candidates);
+    let unchanged = cache?.snapshots.length === candidates.length;
+    if (cache && unchanged) {
+        for (let index = 0; index < candidates.length; index += 1) {
+            const previous = cache.snapshots[index];
+            const current = candidates[index];
+            if (
+                previous.id !== current.id ||
+                previous.baseDepth !== current.baseDepth ||
+                previous.stableOrder !== current.stableOrder ||
+                previous.bounds.left !== current.bounds.left ||
+                previous.bounds.top !== current.bounds.top ||
+                previous.bounds.right !== current.bounds.right ||
+                previous.bounds.bottom !== current.bounds.bottom ||
+                previous.headZone.left !== current.headZone.left ||
+                previous.headZone.top !== current.headZone.top ||
+                previous.headZone.right !== current.headZone.right ||
+                previous.headZone.bottom !== current.headZone.bottom
+            ) {
+                unchanged = false;
+                break;
+            }
+        }
+        if (unchanged) return cache.depths;
+    }
+    if (!cache) {
+        cache = { snapshots: [], depths: EMPTY_DEPTHS };
+        DEPTH_SORT_CACHE.set(candidates, cache);
+    }
+    cache.snapshots.length = candidates.length;
+    for (let index = 0; index < candidates.length; index += 1) {
+        const current = candidates[index];
+        const snapshot = (cache.snapshots[index] ??= {
+            id: "",
+            baseDepth: 0,
+            stableOrder: 0,
+            bounds: { left: 0, top: 0, right: 0, bottom: 0 },
+            headZone: { left: 0, top: 0, right: 0, bottom: 0 },
+        });
+        snapshot.id = current.id;
+        snapshot.baseDepth = current.baseDepth;
+        snapshot.stableOrder = current.stableOrder;
+        snapshot.bounds.left = current.bounds.left;
+        snapshot.bounds.top = current.bounds.top;
+        snapshot.bounds.right = current.bounds.right;
+        snapshot.bounds.bottom = current.bounds.bottom;
+        snapshot.headZone.left = current.headZone.left;
+        snapshot.headZone.top = current.headZone.top;
+        snapshot.headZone.right = current.headZone.right;
+        snapshot.headZone.bottom = current.headZone.bottom;
+    }
+
     // Most frames have no face/body overlap. Build the graph lazily so that steady state returns a
     // shared empty result without allocating maps, sets, arrays, or a helper closure every frame.
     let outgoing: Map<string, Set<string>> | undefined;
@@ -111,7 +173,10 @@ export const resolveCreatureHeadPriorityDepths = (
         }
     }
 
-    if (!outgoing || !incomingCount || !byId) return EMPTY_DEPTHS;
+    if (!outgoing || !incomingCount || !byId) {
+        cache.depths = EMPTY_DEPTHS;
+        return EMPTY_DEPTHS;
+    }
 
     const remaining = new Set(candidates.map((candidate) => candidate.id));
     const ordered: CreatureDepthSortCandidate[] = [];
@@ -138,5 +203,6 @@ export const resolveCreatureHeadPriorityDepths = (
         resolved.set(candidate.id, depth);
         previousDepth = depth;
     }
+    cache.depths = resolved;
     return resolved;
 };

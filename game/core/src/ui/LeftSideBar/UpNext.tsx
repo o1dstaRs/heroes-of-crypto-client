@@ -9,16 +9,16 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 
 import { images } from "../../generated/image_imports";
 import { usePixiManager } from "../../pixi/PixiGameManager";
-import { IVisibleState, IVisibleUnit } from "../../scenes/VisibleState";
+import { IVisibleUnit } from "../../scenes/VisibleState";
 import { getTeamFlagBackground, TeamAmountFlag } from "../TeamAmountFlag";
 import { useSynchronizedActiveTurnQueuePulse } from "../activeTurnQueuePulse";
 import { CreaturePortraitImage } from "../CreaturePortraitImage";
 import { CREATURE_PORTRAIT_ASPECT } from "../creaturePortraitVisual";
-import { enqueueLeftSidebarPortraits } from "../leftSidebarPortraitWarm";
+import { clearLeftSidebarPortraitPrefetch, enqueueLeftSidebarPortraits } from "../leftSidebarPortraitWarm";
 import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
 import { resolveUnitImage } from "../unitImage";
 import { useSidebarMetrics } from "./sidebarMetrics";
-import { prefetchUnitAtlas } from "./unitAtlas";
+import { selectUpNextVisibleState, type UpNextVisibleState } from "./upNextVisibleState";
 
 import { commonTooltipSx } from "./tooltipStyles";
 const stopImg = new URL("../../../images/stop.webp", import.meta.url).toString();
@@ -89,39 +89,32 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAu
 };
 
 export const UpNext: React.FC = () => {
-    const [visibleState, setVisibleState] = useState<IVisibleState>({} as IVisibleState);
+    const [visibleState, setVisibleState] = useState<UpNextVisibleState>({
+        upNext: [],
+        hasFinished: false,
+        lapNumber: 0,
+    });
     const [stableVisibleUnits, setStableVisibleUnits] = useState<IVisibleUnit[]>([]);
     const [queueScroll, setQueueScroll] = useState({ visible: false, progress: 0, thumbFraction: 1 });
     const queueScrollRef = useRef<HTMLDivElement | null>(null);
+    const portraitPrefetchOwner = useRef({});
 
     const manager = usePixiManager();
     const metrics = useSidebarMetrics();
 
     useEffect(() => {
-        const connection = manager.onVisibleStateUpdated.connect(setVisibleState);
+        let previous: UpNextVisibleState | undefined;
+        const connection = manager.onVisibleStateUpdated.connect((state) => {
+            const selected = selectUpNextVisibleState(state, previous);
+            if (selected === previous) return;
+            previous = selected;
+            setVisibleState(selected);
+        });
         return () => {
             connection.disconnect();
         };
     }, [manager]);
 
-    const visibleUnits = visibleState.upNext;
-    const visibleUnitsSignature = useMemo(
-        () =>
-            (visibleUnits ?? [])
-                .map((unit) =>
-                    [
-                        unit.id,
-                        unit.amount,
-                        unit.teamType,
-                        unit.stackPower,
-                        unit.isStackPowered ? 1 : 0,
-                        unit.isSkipping ? 1 : 0,
-                        unit.isOnHourglass ? 1 : 0,
-                    ].join(":"),
-                )
-                .join("|"),
-        [visibleUnits],
-    );
     useEffect(() => {
         const nextVisibleUnits = visibleState.upNext ?? [];
         if (nextVisibleUnits.length > 0) {
@@ -132,7 +125,7 @@ export const UpNext: React.FC = () => {
         if (visibleState.hasFinished || !visibleState.lapNumber) {
             setStableVisibleUnits([]);
         }
-    }, [visibleState.hasFinished, visibleState.lapNumber, visibleUnitsSignature]);
+    }, [visibleState.hasFinished, visibleState.lapNumber, visibleState.upNext]);
 
     const displayedUnits = useMemo(() => [...stableVisibleUnits].reverse(), [stableVisibleUnits]);
     // handleNextUnitActivation appends the acting unit before the queue is reversed for display, so the
@@ -140,33 +133,40 @@ export const UpNext: React.FC = () => {
     const activeUnitId = displayedUnits[0]?.id;
     const activeTurnPulseRef = useSynchronizedActiveTurnQueuePulse(activeUnitId);
 
-    // Pre-decode the up-next units' animation atlases during idle time so that selecting any of
-    // them later is instant (the decoded image is already cached). requestIdleCallback keeps this
-    // off the critical path; setTimeout is the fallback for browsers without it.
+    const portraitPrefetchSignature = useMemo(
+        () =>
+            [
+                ...new Set(
+                    displayedUnits.flatMap((unit) => {
+                        const creatureId = unit.name ? UNIT_NAME_TO_ID[unit.name.trim()] : undefined;
+                        return creatureId === undefined ? [] : [creatureId];
+                    }),
+                ),
+            ].join(","),
+        [displayedUnits],
+    );
+    // Warm the active-first likely inspections during idle time. HP/stat-only updates keep the same
+    // schedule, and a changed queue drops its old speculative requests instead of filling the network.
     useEffect(() => {
-        const names = stableVisibleUnits.map((u) => u.name).filter((n): n is string => !!n);
-        if (!names.length) return;
+        const owner = portraitPrefetchOwner.current;
+        if (!portraitPrefetchSignature) return;
+        const creatureIds = portraitPrefetchSignature.split(",").map(Number);
         const schedule =
-            (window as unknown as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback ??
-            ((cb: () => void) => window.setTimeout(cb, 200));
+            (window as unknown as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback?.bind(
+                window,
+            ) ?? ((cb: () => void) => window.setTimeout(cb, 200));
         const handle = schedule(() => {
-            for (const n of names) prefetchUnitAtlas(n);
-            const creatureIds = names.flatMap((name) => {
-                const creatureId = UNIT_NAME_TO_ID[name.trim()];
-                return creatureId === undefined ? [] : [creatureId];
-            });
-            // The queue is who gets inspected next. Decode their sidebar cutout and faction plate
-            // before the click, or the two files arrive on different frames.
-            enqueueLeftSidebarPortraits(creatureIds);
+            enqueueLeftSidebarPortraits(creatureIds, owner);
         });
         return () => {
+            clearLeftSidebarPortraitPrefetch(owner);
             if ((window as unknown as { cancelIdleCallback?: (h: number) => void }).cancelIdleCallback) {
                 (window as unknown as { cancelIdleCallback: (h: number) => void }).cancelIdleCallback(handle as number);
             } else {
                 window.clearTimeout(handle as number);
             }
         };
-    }, [stableVisibleUnits]);
+    }, [portraitPrefetchSignature]);
 
     const portraitHeight = (width: number) => Math.round(width / CREATURE_PORTRAIT_ASPECT);
     const markerPx = Math.round(Math.max(12, metrics.avatarPx * 0.28));

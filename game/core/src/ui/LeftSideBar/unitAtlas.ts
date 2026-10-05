@@ -108,7 +108,7 @@ export function getDefaultAnimationConfig(
 export function warmAtlas(src: string): Promise<boolean> {
     // Use the stills' cache for both readiness and pending work. A failed decode can retry, and an
     // evicted sheet must be decoded again before it replaces the visible still portrait.
-    return warmDecodedImage(src);
+    return warmDecodedImage(src, { priority: "low" });
 }
 
 export function isAtlasReady(src: string): boolean {
