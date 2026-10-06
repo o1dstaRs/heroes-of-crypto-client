@@ -184,8 +184,8 @@ const FITS: Record<string, Fit> = {
             : "Only on FIRE PIT and only until the lava dries (lap 10, earlier after stalled laps): for armies that want the centre early — a move through lava also gives Made of Fire (+10% to stats and abilities for 2 laps).",
     "Keen Blade": (language, n) =>
         language === "ru"
-            ? `Плоские +${n(A.KEEN_BLADE_FLAT)} к базовой атаке: заметны на стеках с низкой атакой (Arbalester 7 → 7,7, +10%) и почти ничего не дают юнитам 4 уровня (Black Dragon 48, +1,5%).`
-            : `A flat +${n(A.KEEN_BLADE_FLAT)} base attack: worth most on low-attack stacks (an Arbalester's 7 → 7.7, +10%), close to nothing on a level-4 unit (a Black Dragon's 48, +1.5%).`,
+            ? `Плоские +${n(A.KEEN_BLADE_RANGED_FLAT)} к базовой атаке стрелков и +${n(A.KEEN_BLADE_FLAT)} у юнитов ближнего боя: заметны на стеках с низкой атакой (Arbalester ${n(7)} → ${n(7 + A.KEEN_BLADE_RANGED_FLAT)}, +${n((A.KEEN_BLADE_RANGED_FLAT / 7) * 100)}%) и мало дают юнитам 4 уровня (Black Dragon ${n(48)}, +${n((A.KEEN_BLADE_FLAT / 48) * 100)}%).`
+            : `Ranged units get +${n(A.KEEN_BLADE_RANGED_FLAT)} base attack and melee units get +${n(A.KEEN_BLADE_FLAT)}: worth most on low-attack stacks (an Arbalester's ${n(7)} → ${n(7 + A.KEEN_BLADE_RANGED_FLAT)}, +${n((A.KEEN_BLADE_RANGED_FLAT / 7) * 100)}%), little on a level-4 unit (a Black Dragon's ${n(48)}, +${n((A.KEEN_BLADE_FLAT / 48) * 100)}%).`,
     "Iron Plate": (language, n) =>
         language === "ru"
             ? `Плоские +${n(A.IRON_PLATE_FLAT)} к базовой броне: заметны на стеках с низкой бронёй (Peasant 7 → 8 — примерно на 12% меньше физического урона) и мало что дают бронированным (Black Dragon 40 → 41 — около 2%).`

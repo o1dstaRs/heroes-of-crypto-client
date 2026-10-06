@@ -10,7 +10,15 @@ import { describe, expect, test } from "bun:test";
 import { artifacts } from "../artifacts-data";
 import { spells } from "../spells-data";
 import { abilities, allUnits } from "../units-data";
-import { abilityNote, artifactFit, artifactNote, effectNote, spellNote, unitCounterLines, type NoteLanguage } from "./index";
+import {
+    abilityNote,
+    artifactFit,
+    artifactNote,
+    effectNote,
+    spellNote,
+    unitCounterLines,
+    type NoteLanguage,
+} from "./index";
 
 const languages: NoteLanguage[] = ["en", "ru"];
 const effectNames = Object.entries(effectsJson as Record<string, unknown>)
@@ -62,6 +70,22 @@ describe("mechanics notes", () => {
         // Decimals use a comma in Russian.
         expect(abilityNote("Sharpened Weapons Aura", "ru")).toContain("3,6%");
     });
+
+    test("shows Keen Blade's ranged and melee bonuses in the cards and both language notes", () => {
+        const keenBlade = artifacts.find((artifact) => artifact.slug === "keen_blade");
+        expect(keenBlade?.description).toBe(
+            "Increases ranged units' base attack by 1 and melee units' base attack by 0.7.",
+        );
+        expect(keenBlade?.descriptionRu).toBe("Повышает базовую атаку стрелков на 1, а юнитов ближнего боя — на 0.7.");
+        for (const text of [artifactNote("Keen Blade", "en"), artifactFit("Keen Blade", "en")]) {
+            expect(text).toContain("Ranged units get +1 base attack");
+            expect(text).toContain("melee units get +0.7");
+        }
+        for (const text of [artifactNote("Keen Blade", "ru"), artifactFit("Keen Blade", "ru")]) {
+            expect(text).toContain("+1");
+            expect(text).toContain("+0,7");
+        }
+    });
 });
 
 describe("build advice", () => {
@@ -92,4 +116,3 @@ describe("build advice", () => {
         }
     });
 });
-

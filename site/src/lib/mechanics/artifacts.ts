@@ -21,8 +21,10 @@ const ARTIFACT_NOTES: Readonly<Record<string, NoteSpec>> = {
             `${n(A.AMULET_OF_RESOLVE_RESIST_PERCENT)}% сопротивления статусам каждому юниту: Stun, Freeze и Paralysis срабатывают на ${n(A.AMULET_OF_RESOLVE_RESIST_PERCENT)}% реже (шанс умножается на ${n(1 - A.AMULET_OF_RESOLVE_RESIST_PERCENT / 100)}), а получаемый физический урон по площади — ${physicalAreaAttacks.ru} — умножается на ${n(1 - A.AMULET_OF_RESOLVE_RESIST_PERCENT / 100)} (у Mechanism ×1,5 превращается в ×${n(1.5 - A.AMULET_OF_RESOLVE_RESIST_PERCENT / 100)}). Это гасит большую часть Giant's Maul соперника. На Mechanism действуют оба множителя: 35% шанс Stun у Orc по Tsar Cannon становится 35 × 1,5 × 0,75 ≈ 39% (52,5% без амулета). Также даёт ${n(A.AMULET_OF_RESOLVE_RESIST_PERCENT)}% сопротивления эффектам Разума: Blindness, Aggr, Boar Saliva и Terrifying/Petrifying Gaze. Магический урон по-прежнему зависит от магического сопротивления.`,
     },
     "Keen Blade": {
-        en: ({ n }) => `+${n(A.KEEN_BLADE_FLAT)} base attack for every unit, melee and ranged alike.`,
-        ru: ({ n }) => `+${n(A.KEEN_BLADE_FLAT)} к базовой атаке каждому юниту — и в ближнем бою, и в дальнем.`,
+        en: ({ n }) =>
+            `Ranged units get +${n(A.KEEN_BLADE_RANGED_FLAT)} base attack and melee units get +${n(A.KEEN_BLADE_FLAT)}. A ranged unit keeps its bonus when fighting in melee.`,
+        ru: ({ n }) =>
+            `Стрелки получают +${n(A.KEEN_BLADE_RANGED_FLAT)} к базовой атаке, а юниты ближнего боя — +${n(A.KEEN_BLADE_FLAT)}. Стрелок сохраняет свой бонус в ближнем бою.`,
     },
     "Iron Plate": {
         en: ({ n }) => `+${n(A.IRON_PLATE_FLAT)} base armor for every unit.`,
