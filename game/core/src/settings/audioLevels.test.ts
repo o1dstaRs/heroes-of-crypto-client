@@ -17,6 +17,7 @@ const store = new Map<string, string>();
 
 const {
     DEFAULT_EFFECTS_VOLUME,
+    DEFAULT_MASTER_VOLUME,
     DEFAULT_MUSIC_VOLUME,
     effectsGain,
     getAudioLevels,
@@ -24,6 +25,8 @@ const {
     resolveAudioLevels,
     setEffectsMuted,
     setEffectsVolume,
+    setMasterMuted,
+    setMasterVolume,
     setMusicMuted,
     setMusicVolume,
     subscribeAudioLevels,
@@ -44,6 +47,8 @@ describe("resolving the stored audio levels", () => {
         // With no effects level ever stored the effects ride the music setting (the split must not
         // un-mute a muted game), so a fresh browser opens BOTH at the music default.
         expect(resolve()).toEqual({
+            masterVolume: DEFAULT_MASTER_VOLUME,
+            masterMuted: false,
             musicVolume: DEFAULT_MUSIC_VOLUME,
             musicMuted: false,
             effectsVolume: DEFAULT_MUSIC_VOLUME,
@@ -53,6 +58,8 @@ describe("resolving the stored audio levels", () => {
 
     test("reads each level back independently", () => {
         expect(resolve({ musicVolume: "0.2", musicMuted: "1", effectsVolume: "0.9", effectsMuted: "0" })).toEqual({
+            masterVolume: DEFAULT_MASTER_VOLUME,
+            masterMuted: false,
             musicVolume: 0.2,
             musicMuted: true,
             effectsVolume: 0.9,
@@ -97,14 +104,60 @@ describe("resolving the stored audio levels", () => {
             effectsMuted: false,
         });
     });
+
+    test("restores shared sound settings without replacing channel levels or URL music handoff", () => {
+        const levels = resolve({
+            masterVolume: "0.35",
+            masterMuted: "1",
+            musicVolume: "0.2",
+            effectsVolume: "0.8",
+            effectsMuted: "0",
+            search: "?vol=0.4&muted=0",
+        });
+        expect(levels).toMatchObject({ masterVolume: 0.35, masterMuted: true, musicVolume: 0.4, effectsVolume: 0.8 });
+        expect(musicGain(levels)).toBe(0);
+        expect(effectsGain(levels)).toBe(0);
+        expect(resolve({ masterVolume: "bad" }).masterVolume).toBe(DEFAULT_MASTER_VOLUME);
+        expect(resolve({ masterVolume: "-1" }).masterVolume).toBe(0);
+        expect(resolve({ masterVolume: "2" }).masterVolume).toBe(1);
+    });
 });
 
 describe("the live audio-levels store", () => {
     beforeEach(() => {
+        setMasterVolume(DEFAULT_MASTER_VOLUME);
+        setMasterMuted(false);
         setMusicVolume(DEFAULT_MUSIC_VOLUME);
         setMusicMuted(false);
         setEffectsVolume(DEFAULT_EFFECTS_VOLUME);
         setEffectsMuted(false);
+    });
+
+    test("the sound bar scales both music and effects while preserving their balance", () => {
+        setMusicVolume(0.3);
+        setEffectsVolume(0.8);
+        setMasterVolume(0.5);
+        expect(musicGain()).toBeCloseTo(0.15);
+        expect(effectsGain()).toBeCloseTo(0.4);
+        expect(getAudioLevels()).toMatchObject({ musicVolume: 0.3, effectsVolume: 0.8 });
+        setMasterVolume(0);
+        expect(musicGain()).toBe(0);
+        expect(effectsGain()).toBe(0);
+    });
+
+    test("master mute restores effects and keeps music disabled after unmuting", () => {
+        setMasterVolume(0.6);
+        setMusicMuted(true);
+        expect(effectsGain()).toBeCloseTo(DEFAULT_EFFECTS_VOLUME * 0.6);
+        setMasterMuted(true);
+        expect(musicGain()).toBe(0);
+        expect(effectsGain()).toBe(0);
+        setMasterMuted(false);
+        expect(musicGain()).toBe(0);
+        expect(effectsGain()).toBeCloseTo(DEFAULT_EFFECTS_VOLUME * 0.6);
+        expect(getAudioLevels().musicMuted).toBe(true);
+        setMusicMuted(false);
+        expect(musicGain()).toBeCloseTo(DEFAULT_MUSIC_VOLUME * 0.6);
     });
 
     test("silencing the music leaves the sound effects alone, and the other way round", () => {
@@ -126,6 +179,10 @@ describe("the live audio-levels store", () => {
     });
 
     test("clamps whatever a caller hands it", () => {
+        setMasterVolume(-1);
+        expect(getAudioLevels().masterVolume).toBe(0);
+        setMasterVolume(4);
+        expect(getAudioLevels().masterVolume).toBe(1);
         setMusicVolume(4);
         setEffectsVolume(-1);
         expect(getAudioLevels().musicVolume).toBe(1);
@@ -133,6 +190,8 @@ describe("the live audio-levels store", () => {
     });
 
     test("persists every level so the choice outlives the session", () => {
+        setMasterVolume(0.4);
+        setMasterMuted(true);
         setMusicVolume(0.25);
         setMusicMuted(true);
         setEffectsVolume(0.75);
@@ -141,6 +200,8 @@ describe("the live audio-levels store", () => {
         expect(store.get("hoc:themeMuted")).toBe("1");
         expect(store.get("hoc:effectsVolume")).toBe("0.75");
         expect(store.get("hoc:effectsMuted")).toBe("0");
+        expect(store.get("hoc:soundVolume")).toBe("0.4");
+        expect(store.get("hoc:soundMuted")).toBe("1");
     });
 
     test("notifies subscribers on a real change only — the snapshot is stable otherwise", () => {
@@ -151,6 +212,8 @@ describe("the live audio-levels store", () => {
         const before = getAudioLevels();
 
         setMusicVolume(DEFAULT_MUSIC_VOLUME);
+        setMasterVolume(DEFAULT_MASTER_VOLUME);
+        setMasterMuted(false);
         expect(notifications).toBe(0);
         expect(getAudioLevels()).toBe(before);
 

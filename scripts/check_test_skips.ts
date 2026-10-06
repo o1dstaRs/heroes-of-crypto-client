@@ -19,7 +19,10 @@ for (const packageRoot of packageRoots) {
     const testFiles = new Set<string>();
     for (const testFileGlob of testFileGlobs) {
         for await (const filePath of testFileGlob.scan({ cwd: absolutePackageRoot, onlyFiles: true })) {
-            if (filePath.split("/").some((part) => part === "node_modules" || part === "dist" || part === ".git")) {
+            if (
+                filePath.startsWith("tmp/") ||
+                filePath.split("/").some((part) => part === "node_modules" || part === "dist" || part === ".git")
+            ) {
                 continue;
             }
             testFiles.add(filePath);

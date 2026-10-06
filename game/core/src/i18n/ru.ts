@@ -923,7 +923,13 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Saved on this device only.": "Сохраняется только на этом устройстве.",
     Appearance: "Внешний вид",
     Audio: "Звук",
-    // The Audio section: two levels with a mute each — the music and everything else that makes a noise.
+    // Master sound plus independent music/effects balances.
+    Sound: "Звук",
+    "Sound volume": "Общая громкость",
+    "Mute sound": "Выключить звук",
+    "Unmute sound": "Включить звук",
+    "Sound volume controls music and effects.": "Общая громкость управляет музыкой и звуковыми эффектами.",
+    "Combat, spells and interface sounds.": "Звуки боя, заклинаний и интерфейса.",
     Music: "Музыка",
     "Sound effects": "Звуковые эффекты",
     Muted: "Без звука",

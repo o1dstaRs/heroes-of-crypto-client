@@ -10,13 +10,9 @@
  */
 
 /**
- * The two audio levels a player sets, each with its own mute: the MUSIC (the menu playlist and the
- * pre-fight track) and the EFFECTS (everything else that makes a noise — today the wager chips).
- *
- * They used to be one setting: the sound effects read the music's volume and mute, so turning the theme
- * down turned the clacks down with it and there was no way to keep one without the other. This module is
- * the single place both now live, so the corner medallion, the settings panel and any future noise all
- * agree on one value rather than each reading storage on its own.
+ * A shared sound level and mute, with separate music/effects balances underneath. The corner sound bar
+ * changes both channels; disabling music leaves effects audible and survives muting/unmuting all sound.
+ * Existing channel levels stay intact when the master changes, so the player's balance is preserved.
  *
  * A tiny external store rather than context: the medallion lives ABOVE the router in ThemeMusic while the
  * settings panel is mounted deep inside the arena, and the sound effects are fired from plain functions
@@ -30,11 +26,16 @@ const MUSIC_VOLUME_KEY = "hoc:themeVolume";
 const MUSIC_MUTED_KEY = "hoc:themeMuted";
 const EFFECTS_VOLUME_KEY = "hoc:effectsVolume";
 const EFFECTS_MUTED_KEY = "hoc:effectsMuted";
+const MASTER_VOLUME_KEY = "hoc:soundVolume";
+const MASTER_MUTED_KEY = "hoc:soundMuted";
 
+export const DEFAULT_MASTER_VOLUME = 1;
 export const DEFAULT_MUSIC_VOLUME = 0.2; // owner call 2026-10-02: the theme opens quieter
 export const DEFAULT_EFFECTS_VOLUME = 0.5;
 
 export interface IAudioLevels {
+    masterVolume: number;
+    masterMuted: boolean;
     musicVolume: number;
     musicMuted: boolean;
     effectsVolume: number;
@@ -42,14 +43,18 @@ export interface IAudioLevels {
 }
 
 export const DEFAULT_AUDIO_LEVELS: IAudioLevels = Object.freeze({
+    masterVolume: DEFAULT_MASTER_VOLUME,
+    masterMuted: false,
     musicVolume: DEFAULT_MUSIC_VOLUME,
     musicMuted: false,
     effectsVolume: DEFAULT_EFFECTS_VOLUME,
     effectsMuted: false,
 });
 
-/** The raw values the browser holds: four stored strings and the query string, all possibly absent. */
+/** Stored strings and the query string, all possibly absent (including browsers before master volume). */
 export interface IStoredAudioLevels {
+    masterVolume?: string | null;
+    masterMuted?: string | null;
     musicVolume: string | null;
     musicMuted: string | null;
     effectsVolume: string | null;
@@ -91,6 +96,8 @@ export const resolveAudioLevels = (stored: IStoredAudioLevels): IAudioLevels => 
     const inherited = stored.effectsVolume === null && stored.effectsMuted === null;
 
     return {
+        masterVolume: storedVolume(stored.masterVolume ?? null, DEFAULT_MASTER_VOLUME),
+        masterMuted: stored.masterMuted === "1",
         musicVolume,
         musicMuted,
         effectsVolume: inherited ? musicVolume : storedVolume(stored.effectsVolume, DEFAULT_EFFECTS_VOLUME),
@@ -116,6 +123,8 @@ const persist = (next: IAudioLevels): void => {
         if (!storage) {
             return;
         }
+        storage.setItem(MASTER_VOLUME_KEY, String(next.masterVolume));
+        storage.setItem(MASTER_MUTED_KEY, next.masterMuted ? "1" : "0");
         storage.setItem(MUSIC_VOLUME_KEY, String(next.musicVolume));
         storage.setItem(MUSIC_MUTED_KEY, next.musicMuted ? "1" : "0");
         storage.setItem(EFFECTS_VOLUME_KEY, String(next.effectsVolume));
@@ -133,6 +142,8 @@ const persist = (next: IAudioLevels): void => {
 const current = (): IAudioLevels => {
     if (!levels) {
         levels = resolveAudioLevels({
+            masterVolume: readStored(MASTER_VOLUME_KEY),
+            masterMuted: readStored(MASTER_MUTED_KEY),
             musicVolume: readStored(MUSIC_VOLUME_KEY),
             musicMuted: readStored(MUSIC_MUTED_KEY),
             effectsVolume: readStored(EFFECTS_VOLUME_KEY),
@@ -161,6 +172,8 @@ const update = (change: Partial<IAudioLevels>): void => {
     const previous = current();
     const next = { ...previous, ...change };
     if (
+        next.masterVolume === previous.masterVolume &&
+        next.masterMuted === previous.masterMuted &&
         next.musicVolume === previous.musicVolume &&
         next.musicMuted === previous.musicMuted &&
         next.effectsVolume === previous.effectsVolume &&
@@ -175,19 +188,19 @@ const update = (change: Partial<IAudioLevels>): void => {
     }
 };
 
+export const setMasterVolume = (volume: number): void => update({ masterVolume: clamp01(volume) });
+export const setMasterMuted = (muted: boolean): void => update({ masterMuted: muted });
 export const setMusicVolume = (volume: number): void => update({ musicVolume: clamp01(volume) });
 export const setMusicMuted = (muted: boolean): void => update({ musicMuted: muted });
 export const setEffectsVolume = (volume: number): void => update({ effectsVolume: clamp01(volume) });
 export const setEffectsMuted = (muted: boolean): void => update({ effectsMuted: muted });
 
 /** What the music should be playing at, ignoring where the player happens to be standing. */
-export const musicGain = (): number => {
-    const now = current();
-    return now.musicMuted ? 0 : now.musicVolume;
+export const musicGain = (now: IAudioLevels = current()): number => {
+    return now.masterMuted || now.musicMuted ? 0 : now.masterVolume * now.musicVolume;
 };
 
-/** What a sound effect should be played at. Deliberately blind to the music: that is the whole point. */
-export const effectsGain = (): number => {
-    const now = current();
-    return now.effectsMuted ? 0 : now.effectsVolume;
+/** All combat, spell and interface effects follow master sound; the music checkbox never silences them. */
+export const effectsGain = (now: IAudioLevels = current()): number => {
+    return now.masterMuted || now.effectsMuted ? 0 : now.masterVolume * now.effectsVolume;
 };

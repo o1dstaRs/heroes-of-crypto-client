@@ -32,10 +32,13 @@ import { TEAM_COLOR_GREEN, TEAM_COLOR_RED } from "../scenes/teamColors";
 import { playCallSound } from "./audio/chipSounds";
 import { LanguageNavIcon } from "./svg/navigation";
 import {
+    DEFAULT_MASTER_VOLUME,
     getAudioLevels,
     getAudioLevelsServerSnapshot,
     setEffectsMuted,
     setEffectsVolume,
+    setMasterMuted,
+    setMasterVolume,
     setMusicMuted,
     setMusicVolume,
     subscribeAudioLevels,
@@ -419,9 +422,8 @@ const AudioLevelRow: React.FC<{
 );
 
 /**
- * The two audio levels. They used to be one: the sound effects read the music's volume and mute, so a
- * player who wanted a quiet theme lost the chips with it. Both live in settings/audioLevels now, which is
- * also what the corner speaker moves — so opening this panel always shows the level actually in force.
+ * The same master sound bar as the corner medallion, with music/effects balance controls underneath.
+ * Muting music is independent of master sound, so the player's choice survives a global mute/unmute.
  */
 const AudioSettings: React.FC = () => {
     const levels = useSyncExternalStore(subscribeAudioLevels, getAudioLevels, getAudioLevelsServerSnapshot);
@@ -429,6 +431,21 @@ const AudioSettings: React.FC = () => {
     return (
         <Box>
             <SectionHeading>{t("Audio")}</SectionHeading>
+            <AudioLevelRow
+                label={t("Sound volume")}
+                muteLabel={levels.masterMuted ? t("Unmute sound") : t("Mute sound")}
+                volume={levels.masterVolume}
+                muted={levels.masterMuted}
+                onVolume={setMasterVolume}
+                onMuted={(muted) => {
+                    setMasterMuted(muted);
+                    if (!muted && levels.masterVolume === 0) setMasterVolume(DEFAULT_MASTER_VOLUME);
+                }}
+                onPreview={playCallSound}
+            />
+            <Typography level="body-xs" sx={{ color: "rgba(239,228,204,0.5)", mt: 0.7, lineHeight: 1.45 }}>
+                {t("Sound volume controls music and effects.")}
+            </Typography>
             <AudioLevelRow
                 label={t("Music")}
                 muteLabel={levels.musicMuted ? t("Unmute music") : t("Mute music")}
@@ -449,7 +466,7 @@ const AudioSettings: React.FC = () => {
                 onPreview={playCallSound}
             />
             <Typography level="body-xs" sx={{ color: "rgba(239,228,204,0.5)", mt: 0.7, lineHeight: 1.45 }}>
-                {t("Interface sounds, like the wager chips.")}
+                {t("Combat, spells and interface sounds.")}
             </Typography>
         </Box>
     );

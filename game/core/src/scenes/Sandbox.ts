@@ -5,8 +5,9 @@ import { RenderableUnit as LevelOneRenderableUnit } from "./LevelOneRenderableUn
 import { usesAuthoredRangedRelease, usesApprovedBaseAnimations } from "../pixi/creatureAnimationSettings";
 import { Assets, Sprite, Graphics, Container, Texture, BlurFilter, RenderTexture, Text, TextStyle } from "pixi.js";
 import { PixiDrawer } from "../pixi/PixiDrawer";
-import { inheritedAbsoluteScaleOf } from "../pixi/boardFit";
+import { inheritedAbsoluteScaleOf, legacyBoardChildScaleCompensation } from "../pixi/boardFit";
 import { glyphScaleX } from "../pixi/boardMirror";
+import { HOC_GAME_FONT_FAMILY } from "../fontFamilies";
 import {
     SandboxDrawer,
     ALLY_MOVEMENT_INSPECTION_COLOR,
@@ -7768,7 +7769,7 @@ export class Sandbox extends PixiScene {
             exactAimPosition,
             () =>
                 attacker instanceof RenderableUnit
-                    ? this.resolveRangeAimForTarget(attacker, targetUnit)?.position
+                    ? this.resolveRangeShotAim(attacker, targetUnit, attacker.getPosition())?.position
                     : undefined,
             targetUnit.getPosition(),
         );
@@ -11547,8 +11548,8 @@ export class Sandbox extends PixiScene {
         this.sc_moveBlocked = false;
     }
     /**
-     * Area Throw (e.g. Gargantuan): preview a 3x3 splash around every in-grid cell, including cells
-     * occupied by units. Returns true while previewing so hover() never switches to unit targeting.
+     * Area Throw (e.g. Gargantuan): preview the engine's landing area for a free cell throw.
+     * Units along the trajectory can intercept the rock; occupied cells use normal ranged targeting.
      */
     private updateAreaThrowHover(): boolean {
         this.hoverManager.clearAOEArea();
@@ -11578,26 +11579,25 @@ export class Sandbox extends PixiScene {
         this.clearAggrBlockedActionHint();
 
         this.hoverManager.drawAOEArea(cells);
-        // Trajectory line to the selected center — the same arrow a single-target ranged hover draws.
+        // Trajectory line to the resolved center — the same arrow a single-target ranged hover draws.
         // The 3x3 outline shows where the splash lands, while the line preserves the throw-direction cue.
         // Drawn AFTER clearAttackVisuals() above, which wipes the previous frame's arrow.
         const activeUnit = this.currentActiveUnit;
         const gs = this.sc_sceneSettings.getGridSettings();
-        // One range divisor for the WHOLE 3x3, measured to the selected impact cell.
+        // One range divisor for the WHOLE 3x3, measured to the resolved impact cell.
         // getRangeAttackDivisor returns 1/2/4/8 (halving per shot-distance band; Sniper negates) — the
         // "1/N" falloff the player sees, the same band 17a5522 shows on the single-target hover.
         let divisor = 1;
         if (activeUnit instanceof RenderableUnit) {
-            const mouseCell = GridMath.getCellForPosition(gs, this.sc_mouseWorld);
-            const impactCell = mouseCell ? this.getAreaThrowImpactCell(activeUnit, mouseCell) : undefined;
+            const impactCell = cells.at(-1);
             const impactPos = impactCell
                 ? GridMath.getPositionForCell(impactCell, gs.getMinX(), gs.getStep(), gs.getHalfStep())
                 : undefined;
             if (impactPos) {
                 const projectedShotStart = projectBattlefieldPoint(activeUnit.getPosition(), gs);
                 const projectedImpactCenter = projectBattlefieldPoint(impactPos, gs);
-                // Area Throw targets a free 3x3 impact cell rather than a creature edge, but it still uses
-                // the ordinary terminal broadhead. Keep the point centred on the selected cell and stop
+                // Area Throw resolves a 3x3 impact cell rather than a creature edge, but it still uses
+                // the ordinary terminal broadhead. Keep the point centred on the landing cell and stop
                 // every moving casing at its socket so the entrance/weld animation stays physically joined.
                 const projectedCasingJoint = this.hoverManager.drawRangeTerminalArrowhead(
                     projectedImpactCenter,
@@ -11641,8 +11641,7 @@ export class Sandbox extends PixiScene {
                 activeUnit.getAbility("Deep Wounds Level 2") ||
                 activeUnit.getAbility("Deep Wounds Level 3")
             );
-            doubleShot =
-                activeUnit.hasAbilityActive("Double Shot") || activeUnit.hasAbilityActive("Crafted Double Shot");
+            doubleShot = AbilityHelper.hasDoubleShotAbility(activeUnit);
             for (const affectedUnit of splashUnits) {
                 this.hoverManager.addTargetHighlight(affectedUnit);
                 if (affectedUnit.isDead()) {
@@ -11749,7 +11748,10 @@ export class Sandbox extends PixiScene {
      * cursor — reusing the red target highlight. Returns true when it applied an AOE highlight, so
      * the caller skips the single-target highlight.
      */
-    private highlightRangeAttackUnits(targetUnit: Unit): boolean {
+    private highlightRangeAttackUnits(
+        targetUnit: Unit,
+        shotEvaluation?: ReturnType<AttackHandler["evaluateRangeAttack"]>,
+    ): boolean {
         const attacker = this.currentActiveUnit;
         if (!attacker) {
             return false;
@@ -11760,25 +11762,35 @@ export class Sandbox extends PixiScene {
         if (!largeCaliber && !areaThrow && !throughShot) {
             return false;
         }
-        // Aim at the same visible-edge center the real shot uses (matches the trajectory arrow and
-        // the engine's resolveRangeTargetPosition), not the target's geometric center. For a large
-        // attacker (center sits on a grid boundary) a center->center line has a different angle than
-        // the actual center->edge shot, so highlighting from the center outlined the wrong units.
+        // The live hover supplies its already-resolved shot. Other callers use the same optimal
+        // edge as the click, so moving the cursor across a footprint cannot select a different ray.
         const aim =
-            attacker instanceof RenderableUnit
-                ? this.resolveRangeAimForTarget(attacker, targetUnit)?.position
+            !shotEvaluation && attacker instanceof RenderableUnit
+                ? this.resolveRangeShotAim(attacker, targetUnit, attacker.getPosition())?.position
                 : undefined;
-        const evalResult = this.attackHandler.evaluateRangeAttack(
-            this.unitsHolder.getAllUnits(),
-            attacker,
-            attacker.getPosition(),
-            aim ?? targetUnit.getPosition(),
-            throughShot, // isThroughShot
-            false, // isSelection
-            largeCaliber || areaThrow, // splash (Large Caliber / Area Throw)
-        );
+        if (!shotEvaluation && attacker instanceof RenderableUnit && !aim) {
+            return false;
+        }
+        const evalResult =
+            shotEvaluation ??
+            this.attackHandler.evaluateRangeAttack(
+                this.unitsHolder.getAllUnits(),
+                attacker,
+                attacker.getPosition(),
+                aim ?? targetUnit.getPosition(),
+                throughShot, // isThroughShot
+                false, // isSelection
+                largeCaliber || areaThrow, // splash (Large Caliber / Area Throw)
+            );
+        if (!throughShot && evalResult.affectedCells[0]?.length) {
+            this.hoverManager.drawAOEArea(evalResult.affectedCells[0]);
+        }
+        // The area and damage forecast describe the first impact. Double Throw can advance to a
+        // later group only after its interceptor dies, so those conditional targets are outside
+        // the current landing preview. Piercing shots still highlight every group along their ray.
+        const affectedGroups = throughShot ? evalResult.affectedUnits : evalResult.affectedUnits.slice(0, 1);
         const seen = new Set<string>();
-        for (const affectedGroup of evalResult.affectedUnits) {
+        for (const affectedGroup of affectedGroups) {
             for (const affectedUnit of affectedGroup) {
                 if (seen.has(affectedUnit.getId())) {
                     continue;
@@ -11797,7 +11809,7 @@ export class Sandbox extends PixiScene {
      * The unit a plain (non-Through-Shot) ranged shot at `targetUnit` would actually hit. A normal
      * projectile can't pass through units, so if another unit stands on the trajectory between the
      * attacker and the target, THAT unit is struck instead. `exactAimPosition` is the action's already
-     * resolved visible-edge position; hover-only callers omit it and retain cursor/default resolution.
+     * resolved visible-edge position; callers that omit it use the current shot's optimal edge.
      * Returns the first unit the shot meets (mirrors legacy test_heroes.ts getHoverAttackUnit =
      * affectedUnits[0][0]); undefined if the trajectory can't be evaluated.
      */
@@ -11810,7 +11822,7 @@ export class Sandbox extends PixiScene {
             exactAimPosition,
             () =>
                 attacker instanceof RenderableUnit
-                    ? this.resolveRangeAimForTarget(attacker, targetUnit)?.position
+                    ? this.resolveRangeShotAim(attacker, targetUnit, attacker.getPosition())?.position
                     : undefined,
             targetUnit.getPosition(),
         );
@@ -11826,7 +11838,6 @@ export class Sandbox extends PixiScene {
         );
         return evalResult.affectedUnits[0]?.[0];
     }
-    /** The 3x3 splash cells for an Area Throw aimed at any in-grid cell, occupied or empty. */
     /**
      * The active unit is AIMING an Area Throw rather than manoeuvring: it still has the ability (not
      * muted by Break, not stolen), it is in RANGE mode, and it has shots left. A Gargantuan in that state
@@ -11877,13 +11888,21 @@ export class Sandbox extends PixiScene {
         if (!mouseCell || !GridMath.isCellWithinGrid(gs, mouseCell)) {
             return undefined;
         }
+        const occupantId = this.grid.getOccupantUnitId(mouseCell);
+        if (
+            occupantId &&
+            occupantId !== "L" &&
+            occupantId !== "W" &&
+            !(occupantId === "B" && this.grid.hasScatteredMountains())
+        ) {
+            return undefined;
+        }
         const targetCell = this.getAreaThrowImpactCell(unit, mouseCell);
         return [...GridMath.getCellsAroundCell(gs, targetCell), targetCell];
     }
-    /** The selected cell is always the splash center; units never pull or snap the aim. */
+    /** Use the same interception and footprint anchor as the authoritative cell throw. */
     private getAreaThrowImpactCell(unit: Unit, mouseCell: HoCMath.XY): HoCMath.XY {
-        void unit;
-        return { ...mouseCell };
+        return this.attackHandler.projectAreaThrowTargetCell(this.unitsHolder.getAllUnits(), unit, mouseCell);
     }
     /** Execute an Area Throw at the clicked cell. Returns true if it handled the click. */
     private attemptAreaThrowAttack(worldPos: HoCMath.XY): boolean {
@@ -11965,14 +11984,21 @@ export class Sandbox extends PixiScene {
         }
 
         const gs = this.sc_sceneSettings.getGridSettings();
-        const effectiveCell = { ...mouseCell };
+        const findAreaEvent = (
+            events: readonly GameEvent[],
+        ): Extract<GameEvent, { type: "area_attacked" }> | undefined =>
+            events.find((e): e is Extract<GameEvent, { type: "area_attacked" }> => e.type === "area_attacked");
+        const recordedAreaEvent = replayRecord ? findAreaEvent(replayRecord.events) : undefined;
+        const effectiveCell = recordedAreaEvent?.targetCell ?? this.getAreaThrowImpactCell(unit, mouseCell);
         const effectivePosition =
-            GridMath.getPositionForCell(effectiveCell, gs.getMinX(), gs.getStep(), gs.getHalfStep()) ?? cellPosition;
+            recordedAreaEvent?.targetPosition ??
+            GridMath.getPositionForCell(effectiveCell, gs.getMinX(), gs.getStep(), gs.getHalfStep()) ??
+            cellPosition;
 
         const muzzle = unit.getRangedProjectileOrigin(effectivePosition, gs);
         const bigProjectile = BIG_PROJECTILE_UNITS.has(unit.getName().toLowerCase());
         const areaThrowUnitName = unit.getName().trim().toLowerCase();
-        const isDoubleShot = unit.hasAbilityActive("Double Shot") || unit.hasAbilityActive("Crafted Double Shot");
+        const isDoubleShot = AbilityHelper.hasDoubleShotAbility(unit);
         // Shot ONE. Double Shot's second projectile is fired below, AFTER wave 1's numbers, so each shot's
         // damage pops in sync with its own throw instead of both landing at the end.
         await this.rangedProjectiles.fire({
@@ -11986,13 +12012,8 @@ export class Sandbox extends PixiScene {
 
         const unitSnapshot = this.snapshotRenderableUnits();
         const result = this.createActionEngine().apply(action);
-        const findAreaEvent = (
-            events: readonly GameEvent[],
-        ): Extract<GameEvent, { type: "area_attacked" }> | undefined =>
-            events.find((e): e is Extract<GameEvent, { type: "area_attacked" }> => e.type === "area_attacked");
         // The record wins whenever there is one: it is the throw the server actually resolved, while
         // `result` is a local re-roll of the same dice (see the note on this method).
-        const recordedAreaEvent = replayRecord ? findAreaEvent(replayRecord.events) : undefined;
         if (!result.completed && !recordedAreaEvent) {
             // Nothing to draw — but a replayed record still owes its deaths and turn advance. The caller
             // reports this action as played, so nobody else will apply them.
@@ -14682,21 +14703,6 @@ export class Sandbox extends PixiScene {
                         if (isRangeAttackContext) {
                             shootableRangeEdges = this.rangeTargetEdgeVisuals(this.currentActiveUnit, targetUnit);
                         }
-                        // Mass/AOE ranged units (Cyclops/Tsar Cannon/Gargantuan) outline every unit
-                        // the shot will hit; everyone else highlights just the single target — except a
-                        // plain ranged shot can't pass through units, so if one blocks the line to the
-                        // hovered target, outline that actual victim (red) instead of the hovered unit.
-                        // The mass/AOE outline is a RANGE-attack visual only. A ranged unit that also has an
-                        // AOE ability (e.g. Gargantuan's Area Throw) can still MELEE when adjacent, so gate it
-                        // on the range-attack context — otherwise a melee hover painted the whole splash as if
-                        // the punch were an area attack. Melee (and blocked single shots) highlight one unit.
-                        if (!(isRangeAttackContext && this.highlightRangeAttackUnits(targetUnit))) {
-                            const highlightUnit = isRangeAttackContext
-                                ? (this.resolveFirstRangeHitUnit(targetUnit) ?? targetUnit)
-                                : targetUnit;
-                            this.hoverManager.addTargetHighlight(highlightUnit);
-                        }
-
                         let attackFromPos: HoCMath.XY | undefined;
                         let attackFromCell: HoCMath.XY;
 
@@ -14728,22 +14734,6 @@ export class Sandbox extends PixiScene {
                             tVis = targetUnit.getPosition();
                         }
 
-                        // A plain (non-piercing) shot stops at the first unit on its trajectory: if a
-                        // unit intercepts it before the aimed target, THAT unit takes the damage — so
-                        // predict damage against it and show the number over it, not the target behind
-                        // it. Through Shot pierces, so it keeps predicting on the aimed target.
-                        const rangeInterceptUnit =
-                            isRangeAttackContext && !this.currentActiveUnit.hasAbilityActive("Through Shot")
-                                ? this.resolveFirstRangeHitUnit(targetUnit)
-                                : undefined;
-                        const damageUnit =
-                            rangeInterceptUnit && rangeInterceptUnit.getId() !== targetUnit.getId()
-                                ? rangeInterceptUnit
-                                : targetUnit;
-                        const damageCenterVis =
-                            damageUnit instanceof RenderableUnit
-                                ? damageUnit.getDamagePredictionAnchor(gs)
-                                : damageUnit.getPosition();
                         const arrowStartLogical = attackFromPos ?? this.currentActiveUnit.getPosition();
                         let arrowStartPos: HoCMath.XY;
 
@@ -14908,6 +14898,34 @@ export class Sandbox extends PixiScene {
                             ? projectBattlefieldPoint(finalArrowEndPos, gs)
                             : (arrowEndVisual ?? projectBattlefieldPoint(finalArrowEndPos, gs));
 
+                        // Resolve the ray once, after selecting the arrow's exact aim and firing point.
+                        // Outlines, splash cells, damage labels and falloff must all describe this shot.
+                        const shotEvaluation = isRangeAttackContext
+                            ? this.attackHandler.evaluateRangeAttack(
+                                  this.unitsHolder.getAllUnits(),
+                                  this.currentActiveUnit,
+                                  arrowStartLogical,
+                                  finalArrowEndPos,
+                                  this.currentActiveUnit.hasAbilityActive("Through Shot"),
+                                  false,
+                                  this.currentActiveUnit.hasAbilityActive("Large Caliber") ||
+                                      this.currentActiveUnit.hasAbilityActive("Area Throw"),
+                              )
+                            : undefined;
+                        if (!isRangeAttackContext) {
+                            this.hoverManager.addTargetHighlight(targetUnit);
+                        } else if (!this.highlightRangeAttackUnits(targetUnit, shotEvaluation)) {
+                            const primary = shotEvaluation?.affectedUnits[0]?.[0];
+                            if (primary) this.hoverManager.addTargetHighlight(primary);
+                        }
+                        const damageUnit = !this.currentActiveUnit.hasAbilityActive("Through Shot")
+                            ? (shotEvaluation?.affectedUnits[0]?.[0] ?? targetUnit)
+                            : targetUnit;
+                        const damageCenterVis =
+                            damageUnit instanceof RenderableUnit
+                                ? damageUnit.getDamagePredictionAnchor(gs)
+                                : damageUnit.getPosition();
+
                         // Calculate projected damage.
                         //
                         // Every number below is produced by the SHARED projection in common
@@ -15006,22 +15024,12 @@ export class Sandbox extends PixiScene {
                         // divisors[0] (the first body on the ray) mispriced it by up to 8x.
                         let rangeAttackDivisors: number[] = [];
                         let rangeAttackGroups: Unit[][] = [];
-                        if (isRangeAttackContext) {
+                        if (shotEvaluation) {
                             // Take the divisors the ENGINE resolved for this exact shot rather than the raw
                             // distance band: evaluateRangeAttack folds SMOKE in (a ray that crosses a
                             // smoked cell doubles the divisor, capped at 1/8), so the badge shows 1/2 where
                             // the shot really lands 1/2. Falls back to the pure distance band if the
                             // evaluation produced no divisor (nothing on the ray).
-                            const shotEvaluation = this.attackHandler.evaluateRangeAttack(
-                                this.unitsHolder.getAllUnits(),
-                                this.currentActiveUnit,
-                                this.currentActiveUnit.getPosition(),
-                                finalArrowEndPos,
-                                this.currentActiveUnit.hasAbilityActive("Through Shot"),
-                                false,
-                                this.currentActiveUnit.hasAbilityActive("Large Caliber") ||
-                                    this.currentActiveUnit.hasAbilityActive("Area Throw"),
-                            );
                             rangeAttackDivisors = shotEvaluation.rangeAttackDivisors;
                             rangeAttackGroups = shotEvaluation.affectedUnits;
                             // The badge sits on the unit the number is drawn over, so show ITS falloff band.
@@ -15594,16 +15602,18 @@ export class Sandbox extends PixiScene {
                                 // center line that clips the mountain but an edge line that is clear; using
                                 // the center here wrongly reported "Hit the mountain" and routed the click
                                 // to the obstacle, so reachable units became unattackable.
-                                blockedByObstacle = this.attackHandler.evaluateRangeAttack(
-                                    this.unitsHolder.getAllUnits(),
-                                    this.currentActiveUnit,
-                                    this.currentActiveUnit.getPosition(),
-                                    arrowEndPos!,
-                                    false,
-                                    this.sc_isSelection,
-                                    this.currentActiveUnit.hasAbilityActive("Large Caliber") ||
-                                        this.currentActiveUnit.hasAbilityActive("Area Throw"),
-                                ).attackObstacle;
+                                blockedByObstacle = this.currentActiveUnit.hasAbilityActive("Through Shot")
+                                    ? this.attackHandler.evaluateRangeAttack(
+                                          this.unitsHolder.getAllUnits(),
+                                          this.currentActiveUnit,
+                                          arrowStartLogical,
+                                          arrowEndPos!,
+                                          false,
+                                          this.sc_isSelection,
+                                          this.currentActiveUnit.hasAbilityActive("Large Caliber") ||
+                                              this.currentActiveUnit.hasAbilityActive("Area Throw"),
+                                      ).attackObstacle
+                                    : shotEvaluation?.attackObstacle;
                                 if (
                                     blockedByObstacle &&
                                     this.grid.hasScatteredMountains() &&
@@ -15611,7 +15621,7 @@ export class Sandbox extends PixiScene {
                                         this.currentActiveUnit.getAbility("Crafted Double Shot"))
                                 ) {
                                     doubleShotObstacleIntersections = this.attackHandler
-                                        .getObstacleIntersections(this.currentActiveUnit.getPosition(), arrowEndPos!)
+                                        .getObstacleIntersections(arrowStartLogical, arrowEndPos!)
                                         .slice(0, 2);
                                     // With one stone the bonus projectile reaches the creature. With two,
                                     // the second stone consumes the second projectile and becomes the arrow
@@ -15682,19 +15692,7 @@ export class Sandbox extends PixiScene {
                                     arrowEndPos &&
                                     this.currentActiveUnit.hasAbilityActive("Large Caliber")
                                 ) {
-                                    this.highlightScatteredObstaclesInCells(
-                                        this.attackHandler
-                                            .evaluateRangeAttack(
-                                                this.unitsHolder.getAllUnits(),
-                                                this.currentActiveUnit,
-                                                this.currentActiveUnit.getPosition(),
-                                                arrowEndPos,
-                                                false,
-                                                false,
-                                                true,
-                                            )
-                                            .affectedCells.flat(),
-                                    );
+                                    this.highlightScatteredObstaclesInCells(shotEvaluation?.affectedCells.flat() ?? []);
                                 } else {
                                     this.dungeonVisuals.clearScatteredMountainHighlight();
                                 }
@@ -16337,8 +16335,6 @@ export class Sandbox extends PixiScene {
     }
     private ensureSplitText(existing: Text | undefined, fontSize: number, fill: number): Text {
         if (existing) {
-            // Re-read on every use: the board can turn around mid-scene (a replay shows the true sides).
-            existing.scale.x = glyphScaleX(1);
             return existing;
         }
         const t = new Text({
@@ -16346,14 +16342,22 @@ export class Sandbox extends PixiScene {
             style: new TextStyle({
                 fill,
                 fontSize,
-                fontWeight: "900",
-                stroke: { color: 0x000000, width: 5, join: "round" },
+                fontFamily: HOC_GAME_FONT_FAMILY,
+                fontWeight: "400",
+                stroke: { color: 0x000000, width: 3, join: "round" },
             }),
         });
         t.anchor.set(0.5);
-        // World Y is inverted (see RenderableUnit.ensureBadge), and X is too on a board mirrored for this viewer.
-        t.scale.set(glyphScaleX(1), -1);
         this.attachToWorldRoot(t, 2650);
+        const syncScale = (): void => {
+            // Hints follow grid positions, but their letters must retain the same proportions as unit art.
+            // Refresh at render time so resizing, zooming and board mirroring also fix a stationary hint.
+            const inherited = inheritedAbsoluteScaleOf(t.parent);
+            const compensation = legacyBoardChildScaleCompensation(inherited.x, inherited.y);
+            t.scale.set(glyphScaleX(compensation.x), -compensation.y);
+        };
+        syncScale();
+        t.onRender = syncScale;
         return t;
     }
     private drawPlacementSplitOverlay(): void {

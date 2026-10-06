@@ -8,8 +8,10 @@ interface IFakeElement {
     currentTime: number;
     preload: string;
     plays: number;
+    pauses: number;
     canPlayType(type: string): string;
     play(): Promise<void>;
+    pause(): void;
 }
 
 const fakeElement = (opus: boolean, reject = false): IFakeElement => ({
@@ -18,10 +20,14 @@ const fakeElement = (opus: boolean, reject = false): IFakeElement => ({
     currentTime: 5,
     preload: "",
     plays: 0,
+    pauses: 0,
     canPlayType: (type: string) => (opus && type.includes("opus") ? "probably" : ""),
     play() {
         this.plays += 1;
         return reject ? Promise.reject(new Error("NotAllowedError")) : Promise.resolve();
+    },
+    pause() {
+        this.pauses += 1;
     },
 });
 
@@ -69,5 +75,24 @@ describe("uiSounds", () => {
 
         const refused = createUiSoundPlayer({ createElement: () => fakeElement(false, true), gain: () => 1 });
         expect(refused("notification")).toBe(true);
+    });
+
+    test("updates an already playing notification and pauses it when shared sound is muted", () => {
+        let gain = 1;
+        const element = fakeElement(true);
+        const play = createUiSoundPlayer({ createElement: () => element, gain: () => gain });
+        play("notification");
+        expect(element.volume).toBeCloseTo(0.9);
+        gain = 0.4;
+        play.refreshVolume();
+        expect(element.volume).toBeCloseTo(0.36);
+        gain = 0;
+        play.refreshVolume();
+        expect(element.volume).toBe(0);
+        expect(element.pauses).toBe(1);
+        gain = 0.6;
+        play.refreshVolume();
+        expect(element.volume).toBeCloseTo(0.54);
+        expect(element.plays).toBe(1);
     });
 });

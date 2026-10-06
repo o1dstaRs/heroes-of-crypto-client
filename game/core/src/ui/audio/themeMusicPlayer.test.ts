@@ -1,5 +1,13 @@
 import { describe, expect, test } from "bun:test";
 
+import {
+    getAudioLevels,
+    musicGain,
+    setMasterMuted,
+    setMasterVolume,
+    setMusicMuted,
+    setMusicVolume,
+} from "../../settings/audioLevels";
 import { createThemeMusicPlayer } from "./themeMusicPlayer";
 
 class FakeAudio extends EventTarget {
@@ -46,6 +54,52 @@ const settle = async (): Promise<void> => {
 };
 
 describe("client theme music player", () => {
+    test("master volume and the music checkbox survive menu and ranked track handoffs", async () => {
+        const previous = getAudioLevels();
+        const audio = new FakeAudio();
+        const player = createThemeMusicPlayer({
+            audio,
+            webmSource: { src: playlist[0].webm },
+            mp3Source: { src: playlist[0].mp3 },
+            playlist,
+            getTargetVolume: musicGain,
+            fadeTo: (target) => {
+                audio.volume = target;
+            },
+            onPlaybackStarted: () => undefined,
+            onPlaybackBlocked: () => undefined,
+        });
+        try {
+            setMasterVolume(0.5);
+            setMasterMuted(false);
+            setMusicVolume(0.4);
+            setMusicMuted(false);
+            expect(await player.start()).toBe(true);
+            expect(audio.volume).toBeCloseTo(0.2);
+
+            setMusicMuted(true);
+            player.setTargetVolume(musicGain());
+            player.releaseMedia();
+            expect(await player.playSingle({ webm: "/ranked.webm", mp3: "/ranked.mp3" }, true)).toBe(false);
+            setMasterMuted(true);
+            setMasterMuted(false);
+            expect(await player.resumePlaylist(true)).toBe(false);
+            expect(audio.paused).toBe(true);
+            expect(audio.volume).toBe(0);
+
+            setMasterVolume(0.25);
+            setMusicMuted(false);
+            expect(await player.start()).toBe(true);
+            expect(audio.volume).toBeCloseTo(0.1);
+        } finally {
+            player.destroy();
+            setMasterVolume(previous.masterVolume);
+            setMasterMuted(previous.masterMuted);
+            setMusicVolume(previous.musicVolume);
+            setMusicMuted(previous.musicMuted);
+        }
+    });
+
     test("starts every hand-off and wraps immediately from the last song to the first", async () => {
         const audio = new FakeAudio();
         const webmSource: { src: string } = { src: playlist[0].webm };

@@ -21,7 +21,12 @@ import { TextureType, unitToTextureName } from "@/pixi/PixiUnitsFactory";
 import { HOC_NUMERIC_ARIAL_FONT_FAMILY } from "../fontFamilies";
 import { placementFootprintCandidates } from "./placementFootprintCandidates";
 import { projectBattlefieldPoint, projectedPolyline, projectedRectPoints } from "./sandbox/BattlefieldVisualGrid";
-import { placementFacingDirectionForTeam, previewPlacementFacing, type BattlefieldUnitPreview } from "./RenderableUnit";
+import {
+    CREATURE_ATTACK_FOREGROUND_Z_INDEX,
+    placementFacingDirectionForTeam,
+    previewPlacementFacing,
+    type BattlefieldUnitPreview,
+} from "./RenderableUnit";
 import { rangeTargetEdgeMarkerAngle } from "./rangeTargetEdges";
 import { getShotTrajectoryStyle } from "./shotTrajectoryStyle";
 import {
@@ -55,6 +60,8 @@ export interface RangeTargetEdgeVisual {
 }
 
 const MELEE_SWORD_ANGLE_STEP = Math.PI / 4;
+// Target tints must cover the live figure at its natural, head-priority, or attack-foreground depth.
+const TARGET_HIGHLIGHT_Z_INDEX = CREATURE_ATTACK_FOREGROUND_Z_INDEX + 1;
 /** Ranged aim paints the approved three-part arrow trajectory from shooter to selected target edge. */
 export const RANGED_ATTACK_TRAJECTORY_VISIBLE = true;
 /** The approved Orc trajectory treatment is now shared by every ranged creature. */
@@ -1719,7 +1726,7 @@ export class HoverManager {
         } else {
             silhouette = new Sprite(tex);
             silhouette.anchor.set(0.5);
-            this.context.attachToWorldRoot(silhouette, 2100); // Above units (Z=1000)
+            this.context.attachToWorldRoot(silhouette, TARGET_HIGHLIGHT_Z_INDEX);
             silhouette.scale.y = -1;
         }
         // The old blurred legacy portrait produced an amorphous red spot. Use the current authored

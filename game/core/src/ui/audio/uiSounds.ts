@@ -12,7 +12,7 @@
  * cannot play is not an error the player should see, and the very next click unlocks the page anyway.
  */
 
-import { effectsGain } from "../../settings/audioLevels";
+import { effectsGain, subscribeAudioLevels } from "../../settings/audioLevels";
 
 export type UiSoundName = "notification" | "friend_invite" | "ui_popup";
 
@@ -36,6 +36,7 @@ interface IUiSoundElement {
     preload: string;
     canPlayType(type: string): string;
     play(): Promise<void> | void;
+    pause(): void;
 }
 
 export interface IUiSoundPlayerDeps {
@@ -49,7 +50,7 @@ export const pickUiSoundSource = (
     sources: { webm: string; mp3: string },
 ): string => (canPlayType('audio/webm; codecs="opus"') ? sources.webm : sources.mp3);
 
-export const createUiSoundPlayer = (deps: IUiSoundPlayerDeps): ((name: UiSoundName) => boolean) => {
+export const createUiSoundPlayer = (deps: IUiSoundPlayerDeps) => {
     const elements = new Map<UiSoundName, IUiSoundElement>();
     const elementFor = (name: UiSoundName): IUiSoundElement => {
         const existing = elements.get(name);
@@ -62,7 +63,7 @@ export const createUiSoundPlayer = (deps: IUiSoundPlayerDeps): ((name: UiSoundNa
         elements.set(name, element);
         return element;
     };
-    return (name) => {
+    const play = (name: UiSoundName): boolean => {
         const volume = Math.max(0, Math.min(1, deps.gain() * TRIM[name]));
         if (volume <= 0) {
             return false;
@@ -85,16 +86,31 @@ export const createUiSoundPlayer = (deps: IUiSoundPlayerDeps): ((name: UiSoundNa
         }
         return true;
     };
+    return Object.assign(play, {
+        refreshVolume(): void {
+            for (const [name, element] of elements) {
+                try {
+                    element.volume = Math.max(0, Math.min(1, deps.gain() * TRIM[name]));
+                    if (element.volume === 0) element.pause();
+                } catch {
+                    // A detached or unsupported media element must not break the settings control.
+                }
+            }
+        },
+    });
 };
 
-let player: ((name: UiSoundName) => boolean) | undefined;
+let player: ReturnType<typeof createUiSoundPlayer> | undefined;
 
 /** Play one interface sound at the player's effects level. Safe to call anywhere; no-op without a DOM. */
 export const playUiSound = (name: UiSoundName): boolean => {
     if (typeof window === "undefined" || typeof Audio === "undefined") {
         return false;
     }
-    player ??= createUiSoundPlayer({ createElement: () => new Audio(), gain: effectsGain });
+    if (!player) {
+        player = createUiSoundPlayer({ createElement: () => new Audio(), gain: effectsGain });
+        subscribeAudioLevels(player.refreshVolume);
+    }
     return player(name);
 };
 

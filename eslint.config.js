@@ -61,7 +61,6 @@ module.exports = [
             parserOptions: {
                 ecmaVersion: 12,
                 sourceType: "module",
-                project: "./tsconfig.json", // Adjust this path if necessary
             },
             globals: {
                 ...globals.browser,
