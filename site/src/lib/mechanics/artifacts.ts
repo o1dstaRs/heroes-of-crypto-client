@@ -16,9 +16,9 @@ const ARTIFACT_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     "Amulet of Resolve": {
         en: ({ n }) =>
-            `${n(A.AMULET_OF_RESOLVE_RESIST_PERCENT)}% status resistance for every unit: Stun, Freeze and Paralysis land ${n(A.AMULET_OF_RESOLVE_RESIST_PERCENT)}% less often (the chance is multiplied by ${n(1 - A.AMULET_OF_RESOLVE_RESIST_PERCENT / 100)}), and physical area damage taken — ${physicalAreaAttacks.en} — is multiplied by ${n(1 - A.AMULET_OF_RESOLVE_RESIST_PERCENT / 100)} (a Mechanism unit's ×1.5 drops to ×${n(1.5 - A.AMULET_OF_RESOLVE_RESIST_PERCENT / 100)}). That cancels most of an opponent's Giant's Maul. On a Mechanism unit both apply: an Orc's 35% Stun on a Tsar Cannon becomes 35 × 1.5 × 0.75 ≈ 39% (52.5% without the Amulet). It also grants ${n(A.AMULET_OF_RESOLVE_RESIST_PERCENT)}% mind resistance against Blindness, Aggr, Boar Saliva and Terrifying/Petrifying Gaze. Magic damage still uses magic resistance.`,
+            `Stun, Freeze, Paralysis and mind abilities trigger ${n(A.AMULET_OF_RESOLVE_RESIST_PERCENT)}% less often against your units. Also reduces physical area and line damage.`,
         ru: ({ n }) =>
-            `${n(A.AMULET_OF_RESOLVE_RESIST_PERCENT)}% сопротивления статусам каждому юниту: Stun, Freeze и Paralysis срабатывают на ${n(A.AMULET_OF_RESOLVE_RESIST_PERCENT)}% реже (шанс умножается на ${n(1 - A.AMULET_OF_RESOLVE_RESIST_PERCENT / 100)}), а получаемый физический урон по площади — ${physicalAreaAttacks.ru} — умножается на ${n(1 - A.AMULET_OF_RESOLVE_RESIST_PERCENT / 100)} (у Mechanism ×1,5 превращается в ×${n(1.5 - A.AMULET_OF_RESOLVE_RESIST_PERCENT / 100)}). Это гасит большую часть Giant's Maul соперника. На Mechanism действуют оба множителя: 35% шанс Stun у Orc по Tsar Cannon становится 35 × 1,5 × 0,75 ≈ 39% (52,5% без амулета). Также даёт ${n(A.AMULET_OF_RESOLVE_RESIST_PERCENT)}% сопротивления эффектам Разума: Blindness, Aggr, Boar Saliva и Terrifying/Petrifying Gaze. Магический урон по-прежнему зависит от магического сопротивления.`,
+            `Stun, Freeze, Paralysis и ментальные способности срабатывают против ваших юнитов на ${n(A.AMULET_OF_RESOLVE_RESIST_PERCENT)}% реже. Также снижает физический урон по площади и по линии.`,
     },
     "Keen Blade": {
         en: ({ n }) =>
@@ -80,9 +80,9 @@ const ARTIFACT_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     "Warlord's Edge": {
         en: ({ n }) =>
-            `Every unit gets +${n(A.WARLORDS_EDGE_PERCENT)}% of its base attack as extra attack, melee and ranged; it is added on top rather than into base attack, so auras and Riot don't multiply it.`,
+            `Adds ${n(A.WARLORDS_EDGE_RANGED_PERCENT)}% of base attack when shooting and ${n(A.WARLORDS_EDGE_PERCENT)}% in melee. The bonus is added separately, so attack auras and Riot don't multiply it.`,
         ru: ({ n }) =>
-            `Каждый юнит получает +${n(A.WARLORDS_EDGE_PERCENT)}% базовой атаки как дополнительную атаку, в ближнем и дальнем бою; она добавляется сверху, а не в базовую атаку, поэтому ауры и Riot её не умножают.`,
+            `Добавляет ${n(A.WARLORDS_EDGE_RANGED_PERCENT)}% базовой атаки при стрельбе и ${n(A.WARLORDS_EDGE_PERCENT)}% в ближнем бою. Бонус добавляется отдельно, поэтому ауры атаки и Riot его не умножают.`,
     },
     "Titan Plate": {
         en: ({ n }) => `Every unit's defense is ${n(A.TITAN_PLATE_PERCENT)}% higher against melee and shots alike.`,

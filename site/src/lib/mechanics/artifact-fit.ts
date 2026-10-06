@@ -6,7 +6,6 @@ import { allUnits, type Unit } from "../units-data";
 
 const MAGIC_DAMAGE_ABILITIES = ["Chain Lightning", "Fire Breath", "Fire Shield"];
 const SPLASH_ABILITIES = ["Area Throw", "Large Caliber", "Chakram", "Lightning Spin", "Skewer Strike", "Through Shot"];
-const MIND_ABILITIES = ["Blindness", "Aggr", "Boar Saliva", "Terrifying Gaze", "Petrifying Gaze"];
 const TOME_BUFF_SPELLS = [
     "Riot",
     "Mass Riot",
@@ -72,8 +71,8 @@ const FITS: Record<string, Fit> = {
             : `Every unit takes about ${n(100 - 10000 / (100 + A.VETERAN_HELM_PERCENT))}% less physical damage (damage is divided by armor), whatever its armor — a small, even defense. It also softens Fire Breath, which is priced like an attack, but does nothing against cast spells or Fire Shield.`,
     "Amulet of Resolve": (language) =>
         language === "ru"
-            ? `Против оглушения и паралича — ${abilityCarriers(["Stun", "Paralysis"], language)} — и физических ударов по площади и по линии: ${list(carriers(SPLASH_ABILITIES), language)}${skewerNote(language)}; вражеский Giant's Maul с ним даёт лишь ×${maulAgainstAmulet(language)}. Ваших юнитов с Mechanism он защищает сильнее всех (их ×1,5 от ударов по площади становится ×1,25). Также снижает шанс ментальных способностей на 25% — ${abilityCarriers(MIND_ABILITIES, language)}; магический урон не меняется.`
-            : `Best against stuns and paralysis — ${abilityCarriers(["Stun", "Paralysis"], language)} — and physical area and line attacks: ${list(carriers(SPLASH_ABILITIES), language)}${skewerNote(language)}; an enemy Giant's Maul nets only ×${maulAgainstAmulet(language)} against it. It shields your own Mechanism units most (their ×1.5 from splash becomes ×1.25). Also reduces Mind abilities by 25% — ${abilityCarriers(MIND_ABILITIES, language)}; magic damage is unchanged.`,
+            ? "Полезен против контроля и физических атак по площади и по линии, особенно для юнитов с Mechanism."
+            : "Useful against control effects and physical area or line attacks, especially for Mechanism units.",
     "Swift Boots": (language, n) => {
         const walkers = draftable().filter(
             (unit) => unit.movementType !== "FLY" && (unit.attackType === "MELEE" || unit.attackType === "MELEE_MAGIC"),
@@ -126,8 +125,8 @@ const FITS: Record<string, Fit> = {
             : "Shield shooters and obstruct approaches with two barrels inside your deployment zone. Each falls to one hit; leave routes for your own stacks.",
     "Warlord's Edge": (language, n) =>
         language === "ru"
-            ? `+${n(A.WARLORDS_EDGE_PERCENT)}% базовой атаки каждому юниту, в ближнем бою и выстрелом, сверху — Riot и ауры атаки его не умножают; ровное усиление для любой армии, которая бьёт атаками (заклинания атаку не используют).`
-            : `+${n(A.WARLORDS_EDGE_PERCENT)}% of base attack for every unit, melee and ranged, added on top — Riot and attack auras don't multiply it; an even boost for any army that fights with attacks (spells don't use attack).`,
+            ? `Для армий, которые бьют атаками, особенно стрелков: +${n(A.WARLORDS_EDGE_RANGED_PERCENT)}% базовой атаки при стрельбе и +${n(A.WARLORDS_EDGE_PERCENT)}% в ближнем бою. Заклинания атаку не используют.`
+            : `Useful for armies that fight with attacks, especially shooters: +${n(A.WARLORDS_EDGE_RANGED_PERCENT)}% of base attack when shooting and +${n(A.WARLORDS_EDGE_PERCENT)}% in melee. Spells don't use attack.`,
     "Clover of Fortune": (language, n) =>
         language === "ru"
             ? `+${n(A.CLOVER_LUCK)} к удаче, но удача ограничена +10: юниты Природы начинают с +4 и получают около +6, остальные — около +9. Каждая атака по вашим юнитам наносит примерно на 1% меньше за очко удачи, а удача целиком входит в Deep Wounds (${list(carriers(["Deep Wounds Level 1", "Deep Wounds Level 2", "Deep Wounds Level 3"]), language)}), Piercing Spear и Boost Health (Centaur), Rapid Charge (${list(carriers(["Rapid Charge"]), language)} — при +10 удачи бонус за клетку удваивается) и процентные ауры. Отменяет вражеский Misfortune (удача 0 вместо −10). Бесполезен для Leprechaun и союзников в 2 клетках от него — его Luck Aura уже даёт ровно +10.`

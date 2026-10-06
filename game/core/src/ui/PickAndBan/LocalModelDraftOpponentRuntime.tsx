@@ -347,7 +347,7 @@ const buildDraftChoices = (event: IPickPhaseEventData, failedChoiceIds: Set<stri
     if (event.pp === PickPhaseVals.ARTIFACT_1 || event.pp === PickPhaseVals.ARTIFACT_2) {
         // The AI picks one strong, generic artifact of the phase's tier. Tier 1: Veteran Helm (+5% atk/def).
         // Tier 2 is drafted from a random 3-of-12 offer, so the AI must choose within its offered set —
-        // preferring Warlord's Edge (+15% atk) when offered, else the first offered artifact.
+        // preferring Warlord's Edge (+16% ranged / +12% melee attack) when offered, else the first offered artifact.
         const tier = event.pp === PickPhaseVals.ARTIFACT_1 ? 1 : 2;
         const tier2Offered = event.t2 ?? [];
         let artifactId: number;

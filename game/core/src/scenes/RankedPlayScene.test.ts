@@ -1248,6 +1248,38 @@ describe("ranked placement scene state", () => {
         ]);
     });
 
+    test("preserves Amulet resistance when ranked and replay buffs are hydrated as display state", () => {
+        const properties = authoritativeSnapshotToSandboxSceneState({
+            ...placementSnapshot([
+                unitState({
+                    buffs: ["Amulet of Resolve"],
+                    buffLaps: [15],
+                    buffDescriptions: ["Artifact. Increases status and mind resistance by 25%.;25;"],
+                }),
+            ]),
+            fightStarted: true,
+        }).units[0]!.properties;
+        const effectFactory = new EffectFactory();
+        const unit = RenderableUnit.fromBase(
+            Unit.createUnit(
+                properties,
+                new GridSettings(16, 1600, 0, 1600, 0, 0, 0),
+                TeamVals.LEFT,
+                UnitVals.CREATURE,
+                new AbilityFactory(effectFactory),
+                effectFactory,
+                false,
+            ),
+            undefined as never,
+        );
+
+        expect(unit.getBuff("Amulet of Resolve")).toBeUndefined();
+        expect(properties.applied_buffs_powers).toEqual([0]);
+        expect(unit.getStatusResist()).toBe(25);
+        expect(unit.getMindResist()).toBe(25);
+        expect(unit.getPhysicalAoeDamageMultiplier()).toBe(0.75);
+    });
+
     test("syncs authoritative rune attack and armor modifiers without rebuilding the ranked unit", () => {
         const snapshotProperties = (attackMod: number, armorMod: number, runeStacks = 0) =>
             authoritativeSnapshotToSandboxSceneState({
