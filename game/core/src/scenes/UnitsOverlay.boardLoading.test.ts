@@ -25,6 +25,8 @@ test("requests visible portraits first and starts only a hovered or selected cre
         expect(requested.filter((key) => BATTLEFIELD_TEXTURE_KEYS.has(key))).toEqual([]);
         expect(requested).toContain("peasant_512");
         expect(priorities.get("peasant_512")?.priority).toBe("visible");
+        expect(requested).toContain("orc_model_full");
+        expect(priorities.get("orc_model_full")?.priority).toBe("visible");
         const internals = overlay as unknown as {
             allChips: UnitChip[];
             setSelectedLevel(level: number): void;

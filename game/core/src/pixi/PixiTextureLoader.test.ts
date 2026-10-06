@@ -206,6 +206,8 @@ describe("pixi texture bundle split", () => {
             "board_icon",
             "pick_ban_slash_variant2_atlas",
             "wolf_left_screen_x2",
+            "manticore_left_screen_x2_green_cleanup_v2",
+            "orc_model_full",
             "peasant_left_screen_idle_atlas",
             "black_dragon_portrait_full",
             "pick_phase_heroic_hearth_tavern_background_v10",
@@ -254,10 +256,20 @@ describe("pixi texture bundle split", () => {
         }
 
         expect(isDeferredReactUiAssetKey("wolf_final")).toBe(false);
+        expect(isDeferredReactUiAssetKey("wolf_left_screen_x20")).toBe(false);
         expect(isDeferredReactUiAssetKey("wolf_pick_sandbox_x2")).toBe(false);
         expect(isDeferredReactUiAssetKey("pick_attack_melee_silver")).toBe(false);
         expect(isDeferredReactUiAssetKey("pick_movement_walk_silver")).toBe(false);
         expect(isDeferredReactUiAssetKey("background_stone_tiles_sinister")).toBe(false);
+    });
+
+    test("keeps deferred full-body portrait URLs available without blocking core startup", () => {
+        const { core, deferredReactUiAssets } = getSplitBundles();
+        for (const key of ["orc_model_full", "manticore_left_screen_x2_green_cleanup_v2"] as const) {
+            expect(core[key]).toBeUndefined();
+            expect(deferredReactUiAssets[key]?.src).toBe(images[key]);
+            expect(isProductionOmittedAssetKey(key)).toBe(false);
+        }
     });
 
     test("keeps only live environment variants in core and lets the fire pit load on demand", () => {

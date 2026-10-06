@@ -22,6 +22,27 @@ const SceneConstructor = PixiScene as unknown as new (settings: object) => {
     Destroy(): void;
 };
 
+test("loads deferred full-body portraits on demand and reuses their decoded textures", async () => {
+    const scene = new SceneConstructor({});
+    scene.textures = {};
+    const load = spyOn(Assets, "load").mockImplementation((async () => Texture.WHITE) as typeof Assets.load);
+    const keys = ["orc_model_full", "manticore_left_screen_x2_green_cleanup_v2"];
+    try {
+        expect(load).not.toHaveBeenCalled();
+        for (const key of keys) {
+            expect(scene.texAny(key, { priority: "visible" })).toBeUndefined();
+            expect(scene.texAny(key, { priority: "visible" })).toBeUndefined();
+        }
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(load).toHaveBeenCalledTimes(keys.length);
+        for (const key of keys) expect(scene.texAny(key, { priority: "visible" })).toBe(Texture.WHITE);
+        expect(load).toHaveBeenCalledTimes(keys.length);
+    } finally {
+        scene.sc_destroyed = true;
+        load.mockRestore();
+    }
+});
+
 test("a new scene promotes a shared visible texture without restarting its queued download", async () => {
     const first = new SceneConstructor({});
     const second = new SceneConstructor({});

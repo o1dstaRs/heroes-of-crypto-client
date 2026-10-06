@@ -220,6 +220,7 @@ const DEFERRED_REACT_OR_LEGACY_UI_ASSETS = new Set([
     "might_512",
     "nature_512",
     "order_512",
+    "orc_model_full",
     "slider_dot",
     "stop",
     "logo_hoc",
@@ -253,7 +254,7 @@ export function isDeferredReactUiAssetKey(key: string): boolean {
         key.startsWith("wealth_") ||
         key.startsWith("doctrine_") ||
         key.endsWith("_augment_256") ||
-        key.endsWith("_left_screen_x2") ||
+        /_left_screen_x2(?:_[a-z0-9]+)*$/.test(key) ||
         key.endsWith("_portrait_full")
     );
 }
