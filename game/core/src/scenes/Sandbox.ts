@@ -12193,6 +12193,7 @@ export class Sandbox extends PixiScene {
             target.isSmallSize(),
             attacker.getTeam(),
             attacker.hasAbilityActive("Through Shot"),
+            attacker.hasAbilityActive("Large Caliber") || attacker.hasAbilityActive("Area Throw"),
         );
     }
     private shotRangeColorForHoveredUnit(unit: Unit): number {
@@ -12270,6 +12271,7 @@ export class Sandbox extends PixiScene {
                 target.isSmallSize(),
                 attacker.getTeam(),
                 throughShot,
+                aoeShot,
             );
             const shootable = aimable && !evaluation.attackObstacle && reachesTarget;
             // A Double Shot may aim past a screen on purpose: shot one hits whatever stands in the way —
@@ -14599,6 +14601,8 @@ export class Sandbox extends PixiScene {
                             targetUnit.getCells(),
                             this.currentActiveUnit.getTeam(),
                             this.currentActiveUnit.hasAbilityActive("Through Shot"),
+                            this.currentActiveUnit.hasAbilityActive("Large Caliber") ||
+                                this.currentActiveUnit.hasAbilityActive("Area Throw"),
                         );
 
                     // 1. Static Range Priority. Targets beyond the full-damage frame remain legal shots;
@@ -14802,6 +14806,8 @@ export class Sandbox extends PixiScene {
                                       targetUnit.isSmallSize(),
                                       this.currentActiveUnit.getTeam(),
                                       this.currentActiveUnit.hasAbilityActive("Through Shot"),
+                                      this.currentActiveUnit.hasAbilityActive("Large Caliber") ||
+                                          this.currentActiveUnit.hasAbilityActive("Area Throw"),
                                   );
                             arrowEndPos = rangeAim?.position;
                             arrowEndVisual = rangeAim
@@ -19422,6 +19428,8 @@ export class Sandbox extends PixiScene {
                                 enemy.getCells(),
                                 this.currentActiveUnit.getTeam(),
                                 isThroughShot,
+                                this.currentActiveUnit.hasAbilityActive("Large Caliber") ||
+                                    this.currentActiveUnit.hasAbilityActive("Area Throw"),
                             )
                         ) {
                             // Additionally check if unit is hittable (e.g. not dead, effectively already checked by being in enemyTeam mostly)

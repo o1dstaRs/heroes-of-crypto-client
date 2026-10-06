@@ -292,6 +292,7 @@ export function rangeTargetEdgeIsSelectable(
     targetIsSmall: boolean,
     attackerTeam: TeamType,
     throughShot: boolean,
+    ignoresStructures = false,
 ): boolean {
     const center = GridMath.getPositionForCell(
         cell,
@@ -328,6 +329,7 @@ export function rangeTargetEdgeIsSelectable(
         targetIsSmall,
         attackerTeam,
         throughShot,
+        ignoresStructures,
     );
     return resolved?.cell.x === cell.x && resolved.cell.y === cell.y && resolved.side === side;
 }
