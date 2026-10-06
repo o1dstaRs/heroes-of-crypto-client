@@ -399,6 +399,9 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
                                 ) : undefined
                             }
                             onClose={!started && !replayPlaybackActive ? closeSandbox : undefined}
+                            onStartOver={
+                                !gameActionTransport && !replayPlaybackActive ? () => manager.StartOver() : undefined
+                            }
                         />
                     )}
                     <UpNextOverlay />

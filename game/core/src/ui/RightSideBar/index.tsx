@@ -25,7 +25,7 @@ import FightControlToggler from "./FightControlToggler";
 import { WalletLinker } from "../WalletLinker";
 import { IWindowSize } from "../../scenes/VisibleState";
 import { sidebarPlainFrameSideInsetPx, sidebarPlainFrameVerticalInsetPx } from "../LeftSideBar/sidebarMetrics";
-import { GameCornerExitButton, GameCornerSlot } from "../GameCornerExit";
+import { GameCornerExitButton, GameCornerSlot, GameCornerStartOverButton } from "../GameCornerExit";
 import { GAME_SYSTEM_CONTROLS_STACK_HEIGHT_PX, GameSystemControls } from "../GameSystemControls";
 
 const DraggableToolbar = React.lazy(() => import("../DraggableToolbar"));
@@ -59,6 +59,7 @@ export default function RightSideBar({
     showWallet = false,
     showSystemControls = true,
     onClose,
+    onStartOver,
 }: {
     gameStarted: boolean;
     windowSize: IWindowSize;
@@ -67,10 +68,16 @@ export default function RightSideBar({
     showWallet?: boolean;
     showSystemControls?: boolean;
     onClose?: () => void;
+    onStartOver?: () => void;
 }) {
     const navigate = useNavigate();
     const { authenticated } = useAuthContext();
     const manager = usePixiManager();
+    const [sandboxSetupRevision, setSandboxSetupRevision] = useState(0);
+    const handleStartOver = () => {
+        onStartOver?.();
+        setSandboxSetupRevision((revision) => revision + 1);
+    };
     const [unitDamageStatistics, setUnitDamageStatistics] = useState<IDamageStatistic[]>(() =>
         gameStarted ? manager.GetCurrentDamageStatistics() : [],
     );
@@ -304,6 +311,7 @@ export default function RightSideBar({
                 the sandbox used to spend its own gothic button on this in the bar's title row. */}
             {onClose && (
                 <GameCornerSlot>
+                    {onStartOver && <GameCornerStartOverButton onClick={handleStartOver} />}
                     <GameCornerExitButton onClick={onClose} label="Back" />
                 </GameCornerSlot>
             )}
@@ -334,7 +342,10 @@ export default function RightSideBar({
                         <Box sx={{ flex: "1 1 0", minHeight: 0, display: "flex", width: "100%" }}>{rankedPanel}</Box>
                     )}
                     {!gameStarted && !rankedPanel && (
-                        <FightControlToggler scrollRailInsetPx={sidebarPlainFrameSideInsetPx(barSize)} />
+                        <FightControlToggler
+                            key={sandboxSetupRevision}
+                            scrollRailInsetPx={sidebarPlainFrameSideInsetPx(barSize)}
+                        />
                     )}
                     {/* Turn actions live here rather than floating over the board — those cells have to stay
                         clickable to move and attack. The buttons keep their own narrow column and the damage
@@ -503,6 +514,7 @@ export default function RightSideBar({
                             // (start over). A signed-in player keeps the trip to the play hub. The control
                             // itself paints in the shared top-right corner, not in this centre slot.
                             <GameCornerSlot>
+                                {onStartOver && <GameCornerStartOverButton onClick={handleStartOver} />}
                                 <GameCornerExitButton
                                     onClick={() => {
                                         if (authenticated) {
