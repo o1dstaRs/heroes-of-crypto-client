@@ -60,7 +60,7 @@ import { orderSidebarBuffs, orderSidebarDebuffs } from "./effectOrder";
 import { formatSidebarStat, useSidebarMetrics, type ISidebarMetrics } from "./sidebarMetrics";
 
 import { commonTooltipSx } from "./tooltipStyles";
-import { areUnitStatsPropsEqual, type UnitStatsListItemProps } from "./unitStatsMemo";
+import { areUnitStatsPropsEqual, getSidebarRangedStats, type UnitStatsListItemProps } from "./unitStatsMemo";
 import { getDefaultAnimationConfig, isAtlasReady, type SidebarAtlasMeta, warmAtlas } from "./unitAtlas";
 import { stonePlateSx } from "./stonePlateStyles";
 import { hocDisplayFontFamily } from "../hocTheme";
@@ -1329,11 +1329,7 @@ const UnitStatsLayout: React.FC<{
         };
     }, [displayedCreatureId]);
     const animationConfig = creatureId === undefined ? getDefaultAnimationConfig(unitProperties.name) : null;
-    const showRangedStats =
-        unitProperties.attack_type === AttackVals.RANGE ||
-        // Runtime shooter: a melee unit holding a stolen Endless Quiver gains shots
-        // (range_shots_mod) and a granted shot_distance — show its ranged stats too.
-        (unitProperties.shot_distance > 0 && (unitProperties.range_shots_mod || unitProperties.range_shots) > 0);
+    const rangedStats = getSidebarRangedStats(unitProperties);
 
     // Order matters: the seven stats every creature has come first, in a fixed sequence, and the handful
     // that only some carry are appended after them. Otherwise a conditional cell in the middle re-seats
@@ -1433,22 +1429,19 @@ const UnitStatsLayout: React.FC<{
                     metrics={metrics}
                 />
             )}
-            {showRangedStats && (
+            {/* Range and ammunition share the final cell so shooters with scrolls still fit three rows.
+                Keep the count visible at zero, when the player needs to know the quiver is exhausted. */}
+            {rangedStats && (
                 <StatItem
                     icon={images.stat_shot_range_gold_v2_arc}
-                    value={formatSidebarStat(unitProperties.shot_distance)}
+                    value={formatSidebarStat(rangedStats.shotDistance)}
                     tooltip="Ranged shot distance in cells"
                     color="#ffff00"
                     metrics={metrics}
-                />
-            )}
-            {showRangedStats && !!(unitProperties.range_shots_mod || unitProperties.range_shots) && (
-                <StatItem
-                    icon={images.stat_ammo_gold_v2}
-                    value={formatSidebarStat(unitProperties.range_shots_mod || unitProperties.range_shots)}
-                    tooltip="Number of ranged shots"
-                    color="#cd5c5c"
-                    metrics={metrics}
+                    secondIcon={images.stat_ammo_gold_v2}
+                    secondValue={formatSidebarStat(rangedStats.remainingShots)}
+                    secondColor="#cd5c5c"
+                    secondTooltip="Number of ranged shots"
                 />
             )}
         </>
@@ -1798,11 +1791,12 @@ const UnitStatsLayout: React.FC<{
                             boxShadow: "inset 0 2px 12px rgba(0,0,0,.55)",
                         }}
                     >
-                        {/* Exactly three columns by three rows, always. A creature with extra stats (scrolls,
-                            shot distance, shot count, separate range armour) scrolls inside this well instead
-                            of adding a fourth row and pushing everything below the plate down. */}
+                        {/* Exactly three columns by three rows. Armor, movement, morale and ranged stats
+                            are paired so scroll count and remaining shots both fit without scrolling. */}
                         <ScrollWell height={statWellHeight}>
                             <Box
+                                role="group"
+                                aria-label="Unit stats"
                                 sx={{
                                     display: "grid",
                                     gridTemplateColumns: `repeat(${metrics.statColumns}, minmax(0, 1fr))`,

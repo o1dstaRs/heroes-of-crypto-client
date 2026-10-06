@@ -4073,14 +4073,15 @@ export class RenderableUnit extends Unit {
         const bounds = this.oneShotAnim?.depthSortBounds ?? this.getCreatureBounds();
         if (!bounds) return undefined;
         if (bounds.width <= 0 || bounds.height <= 0) return undefined;
+        const baseDepth = this.getCreatureGroundDepth();
         const candidate = (this.depthSortCandidate ??= {
             id: String(this.getId()),
-            baseDepth: sprite.zIndex,
+            baseDepth,
             stableOrder,
             bounds: { left: 0, top: 0, right: 0, bottom: 0 },
             headZone: { left: 0, top: 0, right: 0, bottom: 0 },
         });
-        candidate.baseDepth = sprite.zIndex;
+        candidate.baseDepth = baseDepth;
         candidate.stableOrder = stableOrder;
         candidate.bounds.left = bounds.x;
         candidate.bounds.top = bounds.y;
@@ -4090,20 +4091,52 @@ export class RenderableUnit extends Unit {
         creatureHeadPriorityZone(candidate.bounds, screenFacing(this.facingDirection), candidate.headZone);
         return candidate;
     }
-    /** Raise the live figure and its foreground indicators without lifting its ground shadow/aura. */
+    /** Natural depth is a ground-line value, never a temporary attack or head-priority layer. */
+    private getCreatureGroundDepth(): number {
+        const position = this.useBattlefieldVisualProjection
+            ? (this.projectedPositionScratch ?? this.getPosition())
+            : this.getPosition();
+        return 4000 - position.y;
+    }
+    private syncCreatureFigureDepth(): void {
+        this.applyCreatureHeadPriorityDepth(
+            this.isPlayingForegroundAttackAnimation()
+                ? CREATURE_ATTACK_FOREGROUND_Z_INDEX
+                : this.getCreatureGroundDepth(),
+        );
+    }
+    /** Set the figure and its foreground indicators without lifting its ground shadow/aura. */
     public applyCreatureHeadPriorityDepth(depth: number): void {
         if (!this.sprite) return;
-        this.sprite.zIndex = depth;
-        if (this.badgeContainer) this.badgeContainer.zIndex = depth + 1;
-        if (this.stackPowerContainer) this.stackPowerContainer.zIndex = depth + 1;
-        if (this.hourglassContainer) this.hourglassContainer.zIndex = depth + 2;
-        if (this.stunContainer) this.stunContainer.zIndex = depth + 2;
+        if (this.sprite.zIndex !== depth) this.sprite.zIndex = depth;
+        if (this.badgeContainer && this.badgeContainer.zIndex !== depth + 1) {
+            this.badgeContainer.zIndex = depth + 1;
+        }
+        if (this.stackPowerContainer && this.stackPowerContainer.zIndex !== depth + 1) {
+            this.stackPowerContainer.zIndex = depth + 1;
+        }
+        if (this.hourglassContainer && this.hourglassContainer.zIndex !== depth + 2) {
+            this.hourglassContainer.zIndex = depth + 2;
+        }
+        if (this.stunContainer && this.stunContainer.zIndex !== depth + 2) {
+            this.stunContainer.zIndex = depth + 2;
+        }
         // Response swords are a local badge child; their layer is controlled by child order, not world depth.
-        if (this.respondContainer) this.respondContainer.zIndex = 0;
-        if (this.freezeCrust) this.freezeCrust.zIndex = depth + 0.5;
-        if (this.freezeLight) this.freezeLight.zIndex = depth + 0.55;
-        if (this.waterShieldBreakGfx) this.waterShieldBreakGfx.zIndex = depth + 0.6;
-        for (const ghost of this.dodgeAnim?.ghosts ?? []) ghost.sprite.zIndex = depth - 1;
+        if (this.respondContainer && this.respondContainer.zIndex !== 0) {
+            this.respondContainer.zIndex = 0;
+        }
+        if (this.freezeCrust && this.freezeCrust.zIndex !== depth + 0.5) {
+            this.freezeCrust.zIndex = depth + 0.5;
+        }
+        if (this.freezeLight && this.freezeLight.zIndex !== depth + 0.55) {
+            this.freezeLight.zIndex = depth + 0.55;
+        }
+        if (this.waterShieldBreakGfx && this.waterShieldBreakGfx.zIndex !== depth + 0.6) {
+            this.waterShieldBreakGfx.zIndex = depth + 0.6;
+        }
+        for (const ghost of this.dodgeAnim?.ghosts ?? []) {
+            if (ghost.sprite.zIndex !== depth - 1) ghost.sprite.zIndex = depth - 1;
+        }
     }
     public syncVisual(worldRoot: Container, gs: GridSettings): void {
         if (this.isDestroyed) return;
@@ -4135,8 +4168,7 @@ export class RenderableUnit extends Unit {
         // Update Z-Index for depth sorting
         if (this.sprite) {
             const baseZ = 4000 - pos.y;
-            const figureZ = this.isPlayingForegroundAttackAnimation() ? CREATURE_ATTACK_FOREGROUND_Z_INDEX : baseZ;
-            if (this.sprite.zIndex !== figureZ) this.sprite.zIndex = figureZ;
+            this.syncCreatureFigureDepth();
             if (this.shadow && this.shadow.zIndex !== baseZ - 0.5) this.shadow.zIndex = baseZ - 0.5;
             if (this.silhouetteShadow && this.silhouetteShadow.zIndex !== baseZ - 0.75) {
                 this.silhouetteShadow.zIndex = baseZ - 0.75;
@@ -4146,21 +4178,6 @@ export class RenderableUnit extends Unit {
             }
             if (this.groundCastShadow && this.groundCastShadow.zIndex !== baseZ - 0.85) {
                 this.groundCastShadow.zIndex = baseZ - 0.85;
-            }
-            if (this.badgeContainer && this.badgeContainer.zIndex !== figureZ + 1) {
-                this.badgeContainer.zIndex = figureZ + 1;
-            }
-            if (this.stackPowerContainer && this.stackPowerContainer.zIndex !== figureZ + 1) {
-                this.stackPowerContainer.zIndex = figureZ + 1;
-            }
-            if (this.hourglassContainer && this.hourglassContainer.zIndex !== figureZ + 2) {
-                this.hourglassContainer.zIndex = figureZ + 2;
-            }
-            if (this.stunContainer && this.stunContainer.zIndex !== figureZ + 2) {
-                this.stunContainer.zIndex = figureZ + 2;
-            }
-            if (this.respondContainer && this.respondContainer.zIndex !== 0) {
-                this.respondContainer.zIndex = 0;
             }
         }
 
@@ -6440,6 +6457,7 @@ export class RenderableUnit extends Unit {
                 this.walkAnim = undefined;
                 this.movementBadgeOffsetY = undefined;
                 this.stepSelectionAnimation();
+                this.syncCreatureFigureDepth();
             }
             if (onComplete) onComplete();
             return false;
@@ -6655,6 +6673,7 @@ export class RenderableUnit extends Unit {
             this.sprite.scale.set(this.sprite.scale.x * actionScale, this.sprite.scale.y * actionScale);
             this.sprite.anchor.x = isAttackAnimationStateName(stateName) ? peasantAttackAnchorX(stateName) : 0.5;
         }
+        this.syncCreatureFigureDepth();
         return true;
     }
     /** Cancel any transient pose and restore this creature's authored permanent idle loop immediately. */
@@ -6819,6 +6838,7 @@ export class RenderableUnit extends Unit {
             this.sprite.scale.set(this.sprite.scale.x * ratio, this.sprite.scale.y * ratio);
             this.sprite.anchor.set(0.5, this.selectionAnimFootAnchorY);
         }
+        this.syncCreatureFigureDepth();
     }
     private applyOneShotFrame(anim: OneShotAnimState): void {
         if (!this.sprite) return;
@@ -6913,6 +6933,7 @@ export class RenderableUnit extends Unit {
                 this.oneShotBadgePosition = undefined;
                 this.selectionAnimationStartedAtMs = performance.now();
                 this.selectionAnimFrameIndex = -1;
+                this.syncCreatureFigureDepth();
                 if (callback) callback();
             } else {
                 this.applyOneShotFrame(anim);

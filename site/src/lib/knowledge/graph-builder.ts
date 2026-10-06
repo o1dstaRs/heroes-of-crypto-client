@@ -1971,8 +1971,8 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
                   }
                 : doctrine.revealMode === "random3"
                   ? {
-                        en: "Watches three of the opponent's creature slots, drawn at random: one of the two level-1 slots, one of the two level-2 slots, and either the level-3 or the level-4 slot. Artifacts stay hidden.",
-                        ru: "Следит за тремя случайными слотами существ соперника: одним из двух слотов 1 уровня, одним из двух слотов 2 уровня и слотом 3 или 4 уровня. Артефакты скрыты.",
+                        en: "Watches three of the opponent's creature slots, drawn at random: one of the two level-1 slots, one of the two level-2 slots, and either the level-3 or the level-4 slot. If the opponent's level-4 pick ends the draft, the senior reveal always watches level 3 instead. Artifacts stay hidden.",
+                        ru: "Следит за тремя случайными слотами существ соперника: одним из двух слотов 1 уровня, одним из двух слотов 2 уровня и слотом 3 или 4 уровня. Если выбор соперника 4-го уровня завершает драфт, старший раскрываемый слот всегда относится к 3-му уровню. Артефакты скрыты.",
                     }
                   : {
                         en: "Nothing is watched in advance. Like every doctrine, a pick that collides with a creature the opponent already took is refused and reveals that slot.",

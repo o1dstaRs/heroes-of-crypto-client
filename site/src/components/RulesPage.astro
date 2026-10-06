@@ -380,7 +380,7 @@ const copy = isRu
               "Квота состава по уровням — 2/2/1/1; выбранный бандл уже закрывает одно существо 1 уровня и одно 2 уровня.",
               "Игра автоматически убирает 6 существ 1 уровня, 6 — 2 уровня, 3 — 3 уровня и 5 — 4 уровня. Рейтинговое предпочтение добавляет сверху не более одного общего бана на матч; оно не заменяет автобан.",
               "Дополнительный бан применяется только к драфтовому юниту и только если после него на этом уровне остаётся минимум два доступных небандловых варианта. Если выбранный юнит попал в сгенерированный бандл, сервер заново генерирует весь драфт (бандлы, предложения артефактов и автобаны); после 25 попыток бан в этом матче пропускается. Если автобаны уже убрали этого юнита, больше никого не банят.",
-              "Доктрина заранее отмечает видимые слоты. Scout открывает один слот уровня 1, один уровня 2 и один из слотов уровня 3 или 4. Видимый слот показывает пик соперника сразу, и это существо становится для вас недоступным — дважды существо не драфтится. Независимо от доктрины, попытка взять скрытый пик соперника раскрывает этот конфликт и возвращает вас к выбору.",
+              "Доктрина заранее отмечает видимые слоты. Scout открывает один слот уровня 1, один уровня 2 и один из слотов уровня 3 или 4. Если пик соперника уровня 4 завершает драфт, вместо него открывается слот уровня 3. Видимый слот показывает пик соперника сразу, и это существо становится для вас недоступным — дважды существо не драфтится. Независимо от доктрины, попытка взять скрытый пик соперника раскрывает этот конфликт и возвращает вас к выбору.",
               "Доктрины раскрывают только существ. Доктрина соперника, его бандлы, артефакты и бюджет апгрейдов скрыты весь драфт; в начале этапа Setup становятся видны существа обеих армий и размеры их стеков, а позиции, разделения, артефакты, доктрина и апгрейды остаются скрытыми до начала боя. Место (нижнее/зелёное или верхнее/красное) назначается случайно при создании матча.",
           ],
           draftTimers: [
@@ -460,7 +460,7 @@ const copy = isRu
               },
               {
                   name: "Scout",
-                  sees: "Один случайный слот существа уровня 1, один уровня 2 и один из двух старших слотов (уровень 3 или 4).",
+                  sees: "Один случайный слот существа уровня 1, один уровня 2 и один старший слот (уровень 3 или 4). Если соперник делает последний пик уровня 4, открывается уровень 3.",
                   points: 6,
                   note: "Частичный обзор за средний бюджет.",
               },
@@ -713,7 +713,7 @@ const copy = isRu
               "The roster quota by level is 2/2/1/1; your selected bundle already supplies one level-1 and one level-2 creature.",
               "The game automatically removes 6 level-1, 6 level-2, 3 level-3, and 5 level-4 creatures. Ranked ban preferences add at most one shared extra ban per match; they do not replace an auto-ban.",
               "The extra ban applies only to a draftable unit and only when at least two non-bundle choices remain at its level. If that unit lands in a generated bundle, the server regenerates the whole draft (bundles, artifact offers and automatic bans); after 25 tries the ban is skipped for that match. If the automatic bans already removed the unit, nothing further is banned.",
-              "Your doctrine preselects watched slots. Scout marks one level-1 slot, one level-2 slot, and either the level-3 or level-4 slot. A watched slot shows the opponent's pick as it happens, and that creature is then unavailable to you — no creature is drafted twice. Under any doctrine, attempting an opponent's hidden pick reveals that collision and sends you back to pick again.",
+              "Your doctrine preselects watched slots. Scout marks one level-1 slot, one level-2 slot, and either the level-3 or level-4 slot. If the opponent's level-4 pick ends the draft, Scout watches level 3 instead. A watched slot shows the opponent's pick as it happens, and that creature is then unavailable to you — no creature is drafted twice. Under any doctrine, attempting an opponent's hidden pick reveals that collision and sends you back to pick again.",
               "Doctrines reveal creatures only. The opponent's doctrine, bundle offers, artifacts and augment budget stay hidden for the whole draft; when Setup starts both armies' creatures and drafted stack sizes become visible, while positions, splits, artifacts, doctrine and augments stay hidden until the fight starts. Your seat (Lower/green or Upper/red) is assigned at random when the match is made.",
           ],
           draftTimers: [
@@ -793,7 +793,7 @@ const copy = isRu
               },
               {
                   name: "Scout",
-                  sees: "One random level-1 creature slot, one level-2 slot, and one of the two senior slots (level 3 or 4).",
+                  sees: "One random level-1 creature slot, one level-2 slot, and one senior slot (level 3 or 4). If the opponent makes the last level-4 pick, Scout watches level 3.",
                   points: 6,
                   note: "A partial read for a middling budget.",
               },
