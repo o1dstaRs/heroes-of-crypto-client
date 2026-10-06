@@ -4731,12 +4731,15 @@ export class RenderableUnit extends Unit {
         this.stopSelectionAnimationInternal();
         this.startSelectionAnimationInternal();
     }
-    private berserkerLabIdleScale(): number {
-        return this.creatureAnimationLabPreviewEnabled &&
+    private berserkerSwordIdleEnabled(): boolean {
+        return (
+            this.creatureAnimationLabPreviewEnabled &&
             this.getName() === "Berserker" &&
             "berserker_sword_idle_atlas" in images
-            ? BERSERKER_SWORD_IDLE_SCALE
-            : 1;
+        );
+    }
+    private berserkerLabIdleScale(): number {
+        return this.berserkerSwordIdleEnabled() && this.selectionAnimFrames?.length ? BERSERKER_SWORD_IDLE_SCALE : 1;
     }
     private dryadLabActionConfig(state: string): UnitAtlasConfig | null {
         if (
@@ -4874,7 +4877,7 @@ export class RenderableUnit extends Unit {
             this.fairyLabAnimationConfig() ??
             this.scavengerLabAnimationConfig("idle") ??
             getDefaultAnimationConfig(props.name, this.getFootprintWidth(), this.getFootprintHeight());
-        if (this.berserkerLabIdleScale() !== 1) {
+        if (this.berserkerSwordIdleEnabled()) {
             config = {
                 meta: animationAtlases["Berserker Sword"].idle,
                 imageKey: "berserker_sword_idle_atlas",
@@ -6705,6 +6708,10 @@ export class RenderableUnit extends Unit {
             this.sprite.anchor.set(0.5, this.selectionAnimFootAnchorY);
         }
         if (previousAction && this.sprite && isBerserkerAuthoredAction(this.getName(), previousAction.stateName)) {
+            if (!this.selectionAnimFrames?.length) {
+                const idleTexture = this.resolveBaseTexture();
+                if (idleTexture) this.sprite.texture = idleTexture;
+            }
             const ratio =
                 textureSwapHeightScaleRatio(previousHeight, this.sprite.texture.height) *
                 (this.berserkerLabIdleScale() / BERSERKER_SWORD_IDLE_SCALE);
