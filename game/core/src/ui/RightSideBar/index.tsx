@@ -14,7 +14,7 @@ import Box from "@mui/joy/Box";
 import List from "@mui/joy/List";
 import Sheet from "@mui/joy/Sheet";
 import Typography from "@mui/joy/Typography";
-import React, { useContext, useEffect, useState, useCallback, useLayoutEffect, useRef } from "react";
+import React, { useContext, useEffect, useState, useCallback, useLayoutEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router";
 import { useAuthContext } from "../auth/context/auth_context";
 import { usePixiManager } from "../../pixi/PixiGameManager";
@@ -149,93 +149,101 @@ export default function RightSideBar({
         };
     }, [gameStarted, manager]);
 
-    const unitStats: IDamageStatistic[] = [];
-    let maxDmg = Number.MIN_SAFE_INTEGER;
-    for (const s of unitDamageStatistics) {
-        let { unitName } = s;
-        if (s.unitName.includes(" ")) {
-            const stringParts = s.unitName.split(/\s/);
-            unitName = `${stringParts[0][0]}. ${stringParts[1]}`;
+    // Log updates keep the same damage totals, so reuse their rows until a statistics snapshot changes.
+    const unitStatsElements = useMemo(() => {
+        const unitStats: IDamageStatistic[] = [];
+        let maxDmg = Number.MIN_SAFE_INTEGER;
+        for (const s of unitDamageStatistics) {
+            let { unitName } = s;
+            if (s.unitName.includes(" ")) {
+                const stringParts = s.unitName.split(/\s/);
+                unitName = `${stringParts[0][0]}. ${stringParts[1]}`;
+            }
+            unitStats.push({ unitName: unitName.toUpperCase(), damage: s.damage, team: s.team, lap: s.lap });
+            maxDmg = Math.max(maxDmg, s.damage);
         }
-        unitStats.push({ unitName: unitName.toUpperCase(), damage: s.damage, team: s.team, lap: s.lap });
-        maxDmg = Math.max(maxDmg, s.damage);
-    }
 
-    const unitStatsElements = unitStats.map((stat) => {
-        const isEnemy = stat.team === 1;
-        const teamColor = isEnemy ? hocColors.danger : hocColors.green;
-        const value = maxDmg > 0 ? (stat.damage / maxDmg) * 100 : 0;
-        const key = `${stat.unitName}-${stat.team}`;
+        return unitStats.map((stat) => {
+            const isEnemy = stat.team === 1;
+            const teamColor = isEnemy ? hocColors.danger : hocColors.green;
+            const value = maxDmg > 0 ? (stat.damage / maxDmg) * 100 : 0;
+            const key = `${stat.unitName}-${stat.team}`;
 
-        return (
-            <Box
-                key={key}
-                sx={{
-                    height: `${DAMAGE_ROW_HEIGHT_PX}px`,
-                    boxSizing: "border-box",
-                    pt: "2px",
-                    scrollSnapAlign: "start",
-                }}
-            >
-                <Box sx={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 1 }}>
-                    <Typography
-                        sx={{
-                            minWidth: 0,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                            fontFamily: hocDisplayFontFamily,
-                            fontSize: "0.72rem",
-                            fontWeight: 600,
-                            letterSpacing: "0.045em",
-                            color: teamColor,
-                        }}
-                    >
-                        {stat.unitName}
-                    </Typography>
-                    <Typography
-                        sx={{ flexShrink: 0, fontFamily: hocDisplayFontFamily, fontSize: "0.73rem", color: teamColor }}
-                    >
-                        {stat.damage}
-                    </Typography>
-                </Box>
+            return (
                 <Box
+                    key={key}
                     sx={{
-                        position: "relative",
-                        mt: "6px",
-                        mx: "5px",
-                        height: 10.35,
-                        p: "1px",
-                        border: "2px solid rgba(118,76,30,.94)",
-                        bgcolor: "rgba(3,3,2,.72)",
-                        boxShadow: "inset 0 1px 2px rgba(0,0,0,.9)",
-                        "&::before, &::after": {
-                            content: '""',
-                            position: "absolute",
-                            top: "50%",
-                            width: 8.05,
-                            height: 8.05,
-                            border: "2px solid rgba(118,76,30,.94)",
-                            bgcolor: "#100b06",
-                            transform: "translateY(-50%) rotate(45deg)",
-                            zIndex: 1,
-                        },
-                        "&::before": { left: -6 },
-                        "&::after": { right: -6 },
+                        height: `${DAMAGE_ROW_HEIGHT_PX}px`,
+                        boxSizing: "border-box",
+                        pt: "2px",
+                        scrollSnapAlign: "start",
                     }}
                 >
+                    <Box sx={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 1 }}>
+                        <Typography
+                            sx={{
+                                minWidth: 0,
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                                fontFamily: hocDisplayFontFamily,
+                                fontSize: "0.72rem",
+                                fontWeight: 600,
+                                letterSpacing: "0.045em",
+                                color: teamColor,
+                            }}
+                        >
+                            {stat.unitName}
+                        </Typography>
+                        <Typography
+                            sx={{
+                                flexShrink: 0,
+                                fontFamily: hocDisplayFontFamily,
+                                fontSize: "0.73rem",
+                                color: teamColor,
+                            }}
+                        >
+                            {stat.damage}
+                        </Typography>
+                    </Box>
                     <Box
                         sx={{
-                            width: `${value}%`,
-                            height: "100%",
-                            bgcolor: teamColor,
-                            boxShadow: `inset 0 1px 0 rgba(255,255,255,.18), 0 0 3px ${teamColor}`,
+                            position: "relative",
+                            mt: "6px",
+                            mx: "5px",
+                            height: 10.35,
+                            p: "1px",
+                            border: "2px solid rgba(118,76,30,.94)",
+                            bgcolor: "rgba(3,3,2,.72)",
+                            boxShadow: "inset 0 1px 2px rgba(0,0,0,.9)",
+                            "&::before, &::after": {
+                                content: '""',
+                                position: "absolute",
+                                top: "50%",
+                                width: 8.05,
+                                height: 8.05,
+                                border: "2px solid rgba(118,76,30,.94)",
+                                bgcolor: "#100b06",
+                                transform: "translateY(-50%) rotate(45deg)",
+                                zIndex: 1,
+                            },
+                            "&::before": { left: -6 },
+                            "&::after": { right: -6 },
                         }}
-                    />
+                    >
+                        <Box
+                            sx={{
+                                width: `${value}%`,
+                                height: "100%",
+                                bgcolor: teamColor,
+                                boxShadow: `inset 0 1px 0 rgba(255,255,255,.18), 0 0 3px ${teamColor}`,
+                            }}
+                        />
+                    </Box>
                 </Box>
-            </Box>
-        );
-    });
+            );
+        });
+    }, [unitDamageStatistics]);
 
     return (
         <Sheet
