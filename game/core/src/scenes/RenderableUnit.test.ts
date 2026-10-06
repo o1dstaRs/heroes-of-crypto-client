@@ -8387,6 +8387,173 @@ describe("RenderableUnit steady-state overlays", () => {
         expect(clearCount).toBe(1);
     });
 
+    test.each([
+        ["main", RenderableUnit],
+        ["level one", LevelOneRenderableUnit],
+    ] as const)("%s keeps the empty inactive glow unchanged while its cloth waves", (_name, Renderer) => {
+        CREATURE_SPRITE_ANIMATION_SETTINGS.approvedBaseEnabled = true;
+        const effects = new EffectFactory();
+        const base = Unit.createUnit(
+            HoCConfig.getCreatureConfig(TeamVals.LEFT, "Life", "Squire", "squire_512", 1),
+            gridSettings,
+            TeamVals.LEFT,
+            UnitVals.CREATURE,
+            new AbilityFactory(effects),
+            effects,
+            false,
+        );
+        const unit = Renderer.fromBase(base, () => testAtlasTexture);
+        const world = new Container();
+        unit.setPosition(0, 1024);
+        unit.ensureVisual(world, gridSettings, 1_000);
+        const visuals = unit as unknown as OverlayInternals;
+        const flag = visuals.badgeFlag!;
+        const glow = visuals.badgeFlagGlow!;
+        const flagClear = spyOn(flag, "clear");
+        const glowClear = spyOn(glow, "clear");
+        let glowUpdates = 0;
+        const recordUpdate = () => glowUpdates++;
+        glow.context.on("update", recordUpdate);
+        try {
+            expect(glow.bounds.width).toBe(0);
+            expect(glow.bounds.height).toBe(0);
+            for (let frame = 1; frame <= 600; frame += 1) {
+                unit.ensureVisual(world, gridSettings, 1_000 + (frame * 1_000) / 60);
+            }
+            expect(flagClear).toHaveBeenCalledTimes(200);
+            expect(glowClear).not.toHaveBeenCalled();
+            expect(glowUpdates).toBe(0);
+            expect(glow.visible).toBe(false);
+
+            unit.setActiveTurn(true);
+            unit.ensureVisual(world, gridSettings, 11_050);
+            expect(glow.visible).toBe(true);
+            expect(glow.bounds.width).toBeGreaterThan(0);
+            expect(glow.bounds.height).toBeGreaterThan(0);
+            const clearsBeforeInactive = glowClear.mock.calls.length;
+            unit.setActiveTurn(false);
+            unit.ensureVisual(world, gridSettings, 11_100);
+            expect(glowClear.mock.calls.length).toBe(clearsBeforeInactive + 1);
+            expect(glow.visible).toBe(false);
+            expect(glow.bounds.width).toBe(0);
+            expect(glow.bounds.height).toBe(0);
+            unit.ensureVisual(world, gridSettings, 11_150);
+            expect(glowClear.mock.calls.length).toBe(clearsBeforeInactive + 1);
+
+            unit.setActiveTurn(true);
+            unit.ensureVisual(world, gridSettings, 11_200);
+            expect(visuals.activeTurnPointer?.visible).toBe(true);
+            expect(glow.visible).toBe(true);
+            expect(glow.bounds.width).toBeGreaterThan(0);
+        } finally {
+            glow.context.off("update", recordUpdate);
+            flagClear.mockRestore();
+            glowClear.mockRestore();
+            unit.destroyVisuals();
+            world.destroy({ children: true });
+        }
+    });
+
+    test.each([
+        ["main", RenderableUnit],
+        ["level one", LevelOneRenderableUnit],
+    ] as const)(
+        "%s preserves original badge drawing across glow transitions and geometry changes",
+        (_name, Renderer) => {
+            CREATURE_SPRITE_ANIMATION_SETTINGS.approvedBaseEnabled = true;
+            type BadgeVisuals = OverlayInternals & {
+                badgeFlagPhaseValue: number;
+                drawBadgeFlag: (...args: unknown[]) => void;
+            };
+            const create = () => {
+                const effects = new EffectFactory();
+                const base = Unit.createUnit(
+                    HoCConfig.getCreatureConfig(TeamVals.LEFT, "Life", "Squire", "squire_512", 1),
+                    gridSettings,
+                    TeamVals.LEFT,
+                    UnitVals.CREATURE,
+                    new AbilityFactory(effects),
+                    effects,
+                    false,
+                );
+                const unit = Renderer.fromBase(base, () => testAtlasTexture);
+                const visuals = unit as unknown as BadgeVisuals;
+                visuals.badgeFlagPhaseValue = 0.5;
+                unit.setPosition(0, 1024);
+                const world = new Container();
+                world.scale.y = -1;
+                return { unit, visuals, world };
+            };
+            const optimized = create();
+            const original = create();
+            const originalDraw = original.visuals.drawBadgeFlag.bind(original.unit);
+            original.visuals.drawBadgeFlag = (...args) => {
+                // Restore the old unconditional clear around the actual drawing method; the reference
+                // still uses the production cloth and arrow paths rather than duplicating their geometry.
+                (args[1] as Graphics).clear();
+                originalDraw(...args);
+            };
+            const snapshot = (graphics: Graphics) => ({
+                instructions: graphics.context.instructions.map((instruction) => ({
+                    action: instruction.action,
+                    path: "path" in instruction.data ? instruction.data.path.instructions : undefined,
+                    style: instruction.data.style,
+                })),
+                x: graphics.x,
+                y: graphics.y,
+                scaleX: graphics.scale.x,
+                scaleY: graphics.scale.y,
+                rotation: graphics.rotation,
+                alpha: graphics.alpha,
+                visible: graphics.visible,
+            });
+            const compare = (time: number) => {
+                optimized.unit.ensureVisual(optimized.world, gridSettings, time);
+                original.unit.ensureVisual(original.world, gridSettings, time);
+                expect(snapshot(optimized.visuals.badgeFlag!)).toEqual(snapshot(original.visuals.badgeFlag!));
+                expect(snapshot(optimized.visuals.badgeFlagGlow!)).toEqual(snapshot(original.visuals.badgeFlagGlow!));
+                expect(snapshot(optimized.visuals.activeTurnPointer!)).toEqual(
+                    snapshot(original.visuals.activeTurnPointer!),
+                );
+            };
+            try {
+                compare(1_000);
+                compare(1_050);
+                for (const { unit } of [optimized, original]) unit.setActiveTurn(true);
+                compare(1_100);
+                compare(1_150);
+                for (const { unit } of [optimized, original]) unit.startBoardWalkAnimation(1);
+                compare(1_200);
+                expect(optimized.visuals.activeTurnPointer?.visible).toBe(false);
+                expect(optimized.visuals.badgeFlagGlow?.visible).toBe(false);
+                for (const { unit } of [optimized, original]) unit.setActiveTurn(false);
+                compare(1_250);
+                compare(1_300);
+                for (const { unit } of [optimized, original]) unit.setActiveTurn(true);
+                compare(1_350);
+                for (const { unit } of [optimized, original]) unit.setAmountAlive(12);
+                compare(1_400);
+                for (const { unit } of [optimized, original]) {
+                    (unit.getUnitProperties() as { team: TeamType }).team = TeamVals.RIGHT;
+                }
+                compare(1_450);
+                for (const { unit, world } of [optimized, original]) {
+                    unit.setBoardFacing(-1);
+                    unit.setBadgeEmphasis(1.2);
+                    world.scale.set(-1.25, -0.75);
+                }
+                compare(1_500);
+                for (const { unit } of [optimized, original]) unit.setActiveTurn(false);
+                compare(1_550);
+            } finally {
+                for (const { unit, world } of [optimized, original]) {
+                    unit.destroyVisuals();
+                    world.destroy({ children: true });
+                }
+            }
+        },
+    );
+
     test("coalesces stationary status-effect redraws but follows movement immediately", () => {
         const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
         const worldRoot = new Container();

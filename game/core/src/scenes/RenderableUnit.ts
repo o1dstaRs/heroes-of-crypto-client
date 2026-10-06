@@ -8355,7 +8355,8 @@ export class RenderableUnit extends Unit {
         // The swallowtail notch is cut into the free edge, so its tip rides whatever that edge is doing.
         const notchTipY = (topY[last] + bottomY[last]) * 0.5;
 
-        glow.clear();
+        const glowBounds = glow.bounds;
+        if (glowBounds.width > 0 || glowBounds.height > 0) glow.clear();
         glow.visible = false;
 
         flag.clear();
