@@ -4,6 +4,7 @@ import { createGameActionFromPlayAction } from "../api/game_action_play_codec";
 import {
     PlayActionType,
     type PlayAction,
+    type PlayCell,
     type PlayEvent,
     type PlayJournalEntry,
     type PlaySnapshot,
@@ -51,7 +52,7 @@ export interface RankedReplay {
 }
 
 /** JSON replays carry the server's 1-based fields; live protobuf snapshots are already decoded. */
-export interface RankedReplaySnapshotPayload extends PlaySnapshot {
+export interface RankedReplaySnapshotPayload extends Omit<PlaySnapshot, "artifactBarrels"> {
     centerObstacleHitsLeftPlus1?: number;
     centerObstacleHitsRightPlus1?: number;
     scatteredStandingCellsPlus1?: number[];
@@ -59,6 +60,8 @@ export interface RankedReplaySnapshotPayload extends PlaySnapshot {
     transientCellsCountPlus1?: number;
     additionalTimeMsPlus1?: number;
     artifactBarrelsCountPlus1?: number;
+    /** Raw wire barrels: the index arrives as indexPlus1, exactly like every count field. */
+    artifactBarrels?: Array<{ team: number; cell: PlayCell; index?: number; indexPlus1?: number }>;
 }
 
 export interface RankedReplayPayload {
@@ -224,6 +227,24 @@ export const createRankedReplayFromSnapshot = (
 
 const decodeReplaySnapshot = (snapshot: RankedReplaySnapshotPayload): PlaySnapshot => {
     let decoded: PlaySnapshot | undefined;
+    // Raw wire barrels arrive with indexPlus1; every other consumer of a decoded snapshot reads `index`.
+    // Undecoded, a replayed barrel reports index undefined: the Cemetery scattered-mountain art then
+    // derives variant NaN (NaN is not nullish, so the ?? fallback in getArtifactBarrelVariant does not
+    // fire), the NaN spreads into the tile index, and rebuildScatteredMountainSprites dies reading
+    // tiles[NaN] — which killed the whole replay onto the final screen right after the first turn
+    // (production game 75c5eb2e).
+    const needsBarrelDecode =
+        Array.isArray(snapshot.artifactBarrels) &&
+        snapshot.artifactBarrels.some((barrel) => barrel?.indexPlus1 !== undefined);
+    const barrelsDecoded = needsBarrelDecode
+        ? (snapshot.artifactBarrels!.map((barrel) =>
+              barrel && barrel.index === undefined && barrel.indexPlus1 !== undefined
+                  ? { ...barrel, index: Math.max(0, barrel.indexPlus1 - 1) }
+                  : barrel,
+          ) as PlaySnapshot["artifactBarrels"])
+        : undefined;
+    const base = (): PlaySnapshot =>
+        ({ ...snapshot, artifactBarrels: barrelsDecoded ?? snapshot.artifactBarrels }) as PlaySnapshot;
     for (const [encodedKey, decodedKey] of [
         ["centerObstacleHitsLeftPlus1", "centerObstacleHitsLeft"],
         ["centerObstacleHitsRightPlus1", "centerObstacleHitsRight"],
@@ -233,12 +254,12 @@ const decodeReplaySnapshot = (snapshot: RankedReplaySnapshotPayload): PlaySnapsh
         ["artifactBarrelsCountPlus1", "artifactBarrelsCount"],
     ] as const) {
         if (snapshot[decodedKey] === undefined && snapshot[encodedKey] !== undefined) {
-            decoded ??= { ...snapshot };
+            decoded ??= base();
             decoded[decodedKey] = Math.max(0, snapshot[encodedKey] - 1);
         }
     }
     if (snapshot.scatteredStandingCells === undefined && snapshot.scatteredStandingCellsPlus1 !== undefined) {
-        decoded ??= { ...snapshot };
+        decoded ??= base();
         decoded.scatteredStandingCells = snapshot.scatteredStandingCellsPlus1.map((cell) => Math.max(0, cell - 1));
     }
     if (decoded?.scatteredStandingCount !== undefined) {
@@ -247,15 +268,23 @@ const decodeReplaySnapshot = (snapshot: RankedReplaySnapshotPayload): PlaySnapsh
     if (decoded?.artifactBarrelsCount !== undefined) {
         decoded.artifactBarrels ??= [];
     }
-    return decoded ?? snapshot;
+    // An already-decoded snapshot with no wire barrels is returned UNCHANGED — replays round-trip
+    // through this decoder again, and identity keeps that path free of copies.
+    if (decoded) {
+        if (needsBarrelDecode) decoded.artifactBarrels = barrelsDecoded!;
+        return decoded;
+    }
+    return needsBarrelDecode ? base() : (snapshot as PlaySnapshot);
 };
 
 export const createRankedReplayFromPayload = (payload: RankedReplayPayload): RankedReplay => {
     // The replay endpoint serializes server snapshots directly as JSON. Unlike live snapshots, these
     // never passed through decodePlaySnapshot, so restore the same true counts and packed cells here.
     const currentSnapshot = decodeReplaySnapshot(payload.currentSnapshot);
-    const events: PlayEvent[] = payload.events.map((event) =>
-        event.snapshot ? { ...event, snapshot: decodeReplaySnapshot(event.snapshot) } : event,
+    const events = payload.events.map((event): PlayEvent =>
+        event.snapshot
+            ? ({ ...event, snapshot: decodeReplaySnapshot(event.snapshot) } as PlayEvent)
+            : (event as PlayEvent),
     );
     const initialSnapshot =
         events.filter((event) => event.snapshot).sort((a, b) => a.sequence - b.sequence)[0]?.snapshot ??

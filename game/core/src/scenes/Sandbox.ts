@@ -1230,7 +1230,14 @@ export class Sandbox extends PixiScene {
                 const barrel = this.grid
                     .getArtifactBarrels()
                     .find((entry) => entry.cell.x === cell.x && entry.cell.y === cell.y);
-                return barrel ? (barrel.team === TeamVals.LEFT ? 0 : 2) + barrel.index : undefined;
+                if (barrel === undefined) {
+                    return undefined;
+                }
+                const variant = (barrel.team === TeamVals.LEFT ? 0 : 2) + barrel.index;
+                // A snapshot that reached us without its barrel index decodes index undefined; NaN is
+                // NOT nullish, so an unguarded return would beat the caller's fallback and poison the
+                // scattered-mountain tile index (rebuildScatteredMountainSprites reads tiles[NaN]).
+                return Number.isFinite(variant) ? variant : undefined;
             },
         });
 

@@ -77,8 +77,8 @@ const payload = (...snapshots: RankedReplaySnapshotPayload[]): RankedReplayPaylo
         acceptedAtMs: state.serverTimeMs,
     })),
 });
-const sceneState = (state: PlaySnapshot) =>
-    authoritativeSnapshotToSandboxSceneState(toAuthoritativeGameSnapshot(state, TeamVals.RIGHT));
+const sceneState = (state: PlaySnapshot | RankedReplaySnapshotPayload) =>
+    authoritativeSnapshotToSandboxSceneState(toAuthoritativeGameSnapshot(state as PlaySnapshot, TeamVals.RIGHT));
 
 describe("barrels from the server's JSON replay", () => {
     test("decodes the opening board and every later board without changing the downloaded data", () => {
@@ -146,6 +146,36 @@ describe("barrels from the server's JSON replay", () => {
         expect(state.artifactBarrels).toEqual([{ team: TeamVals.RIGHT, index: 0, cell: { x: 8, y: 7 } }]);
     });
 
+    test("decodes each barrel's indexPlus1 — an undecoded index kills Cemetery replays after turn 1", () => {
+        // The real replay endpoint ships barrels exactly like this (production game 75c5eb2e): the index
+        // rides the same +1 wire encoding as every count. Undecoded, the barrel reports index undefined,
+        // the scattered-mountain art derives variant NaN (NaN is not nullish, so the caller's fallback
+        // never fires) and rebuildScatteredMountainSprites dies reading tiles[NaN] — which aborted the
+        // whole replay onto the final screen right after the first turn.
+        const raw = snapshot(1, {
+            gridType: GridVals.BLOCK_CENTER,
+            scatteredStandingCellsPlus1: [packed(3, 1) + 1, packed(3, 2) + 1],
+            scatteredStandingCountPlus1: 3,
+            artifactBarrelsCountPlus1: 3,
+            artifactBarrels: [
+                { team: TeamVals.RIGHT, indexPlus1: 2, cell: { x: 3, y: 1 } },
+                { team: TeamVals.LEFT, indexPlus1: 1, cell: { x: 12, y: 1 } },
+            ],
+        });
+        const replay = createRankedReplayFromPayload(payload(raw));
+        const state = sceneState(replay.currentSnapshot!);
+
+        expect(replay.currentSnapshot?.artifactBarrels).toEqual([
+            expect.objectContaining({ team: TeamVals.RIGHT, index: 1, cell: { x: 3, y: 1 } }),
+            expect.objectContaining({ team: TeamVals.LEFT, index: 0, cell: { x: 12, y: 1 } }),
+        ]);
+        // Every restored stone carries a FINITE art variant — the exact property whose absence crashed
+        // the Cemetery replay of the real game.
+        for (const rock of state.scatteredMountains ?? []) {
+            expect(Number.isFinite(rock.variant)).toBe(true);
+        }
+    });
+
     test("restores related terrain counts and destroyed mountain HP from the same JSON encoding", () => {
         const replay = createRankedReplayFromPayload(
             payload(
@@ -176,7 +206,7 @@ describe("barrels from the server's JSON replay", () => {
         const raw = snapshot(1);
         const replay = createRankedReplayFromPayload(payload(raw));
 
-        expect(replay.currentSnapshot).toBe(raw);
+        expect(replay.currentSnapshot).toBe(raw as unknown as typeof replay.currentSnapshot);
         expect(sceneState(raw).scatteredMountains).toBeUndefined();
     });
 
