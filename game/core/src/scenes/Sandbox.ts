@@ -7179,6 +7179,9 @@ export class Sandbox extends PixiScene {
         this.barrelDragPointerOrigin = undefined;
         this.barrelDragPointerMoved = false;
         this.dungeonVisuals?.clearBarrelPlacementPreview();
+        this.hoverManager.hoverSelectedCells = undefined;
+        this.hoverManager.hoverSelectedCellsSwitchToRed = false;
+        // Drop any leftover white hover square. Barrel selection no longer draws one.
         this.drawHoverCells();
         this.sc_visibleStateUpdateNeeded = true;
     }
@@ -7209,11 +7212,23 @@ export class Sandbox extends PixiScene {
                 ? GridMath.getPositionForCell(own.cell, gs.getMinX(), gs.getStep(), gs.getHalfStep())
                 : this.sc_mouseWorld;
         const cell = GridMath.getCellForPosition(gs, position);
+        const onBoard = GridMath.isCellWithinGrid(gs, cell);
+        const sameCell = !!own && own.cell.x === cell.x && own.cell.y === cell.y;
         const valid =
-            GridMath.isCellWithinGrid(gs, cell) &&
+            onBoard &&
             this.isBarrelCellAllowed(selection.team, cell) &&
-            (this.grid.areAllCellsEmpty([cell]) || (own?.cell.x === cell.x && own.cell.y === cell.y));
-        this.drawHoverCells([cell], !valid);
+            (this.grid.areAllCellsEmpty([cell]) || sameCell);
+        // Same mark as a selected unit: the gold (or red) footprint is painted under the figure by
+        // drawPlacements. The old hover fill is an 80% white square in the interaction layer (z 1500),
+        // which sits above the barrel's container (z 1000) and covers the art.
+        this.drawHoverCells();
+        this.hoverManager.hoverSelectedCells = onBoard ? [{ x: cell.x, y: cell.y }] : undefined;
+        this.hoverManager.hoverSelectedCellsSwitchToRed = onBoard && !valid;
+        // The standing barrel is already the picture. A second copy on its own cell only washes it out.
+        if (!onBoard || sameCell) {
+            this.dungeonVisuals?.clearBarrelPlacementPreview();
+            return;
+        }
         this.dungeonVisuals?.previewBarrelPlacement(own?.cell, cell, valid);
     }
     private commitBarrelPlacement(): void {

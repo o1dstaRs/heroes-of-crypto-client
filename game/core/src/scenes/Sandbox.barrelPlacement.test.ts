@@ -46,6 +46,15 @@ const fixture = () => {
     grid.placeArtifactBarrel(TeamVals.LEFT, 1, { x: 2, y: 1 });
     const actions: GameAction[] = [];
     const previews: { cell: HoCMath.XY; valid: boolean }[] = [];
+    const legacyHover: unknown[][] = [];
+    const hover = {
+        hoverSelectedCells: undefined as HoCMath.XY[] | undefined,
+        hoverSelectedCellsSwitchToRed: false,
+        clear: () => {
+            hover.hoverSelectedCells = undefined;
+            hover.hoverSelectedCellsSwitchToRed = false;
+        },
+    };
     let editable = true;
     const scene = Object.create(Sandbox.prototype) as TestScene;
     const methods = Sandbox.prototype as unknown as TestScene;
@@ -70,8 +79,10 @@ const fixture = () => {
                 new Set(Array.from({ length: 9 }, (_, index) => ((index % 3) << 4) | Math.floor(index / 3))),
         }),
         Deselect: () => scene.cancelBarrelPlacement(),
-        drawHoverCells: () => undefined,
-        hoverManager: { clear: () => undefined },
+        drawHoverCells: (...args: unknown[]) => {
+            legacyHover.push(args);
+        },
+        hoverManager: hover,
         dungeonVisuals: {
             previewBarrelPlacement: (_source: HoCMath.XY | undefined, cell: HoCMath.XY, valid: boolean) =>
                 previews.push({ cell, valid }),
@@ -98,6 +109,8 @@ const fixture = () => {
         grid,
         actions,
         previews,
+        hover,
+        legacyHover,
         setEditable: (value: boolean) => {
             editable = value;
         },
@@ -113,6 +126,21 @@ describe("barrel board placement", () => {
         scene.MouseUp();
         expect(scene.getBarrelPlacementIndex(TeamVals.LEFT)).toBe(1);
         expect(actions).toEqual([]);
+    });
+    test("selecting a barrel uses the unit footprint and does not cover the barrel", () => {
+        const { scene, previews, hover, legacyHover } = fixture();
+        scene.MouseDown(point({ x: 1, y: 1 }));
+        expect(hover.hoverSelectedCells).toEqual([{ x: 1, y: 1 }]);
+        expect(hover.hoverSelectedCellsSwitchToRed).toBe(false);
+        expect(previews).toEqual([]);
+        expect(legacyHover.every((args) => args.length === 0)).toBe(true);
+        scene.MouseMove(point({ x: 2, y: 1 }), true);
+        expect(hover.hoverSelectedCells).toEqual([{ x: 2, y: 1 }]);
+        expect(hover.hoverSelectedCellsSwitchToRed).toBe(true);
+        expect(previews.at(-1)).toEqual({ cell: { x: 2, y: 1 }, valid: false });
+        scene.cancelBarrelPlacement();
+        expect(hover.hoverSelectedCells).toBeUndefined();
+        expect(hover.hoverSelectedCellsSwitchToRed).toBe(false);
     });
     test("click selects an owned barrel and the next click moves that slot", () => {
         const { scene, grid, actions } = fixture();
