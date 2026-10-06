@@ -402,8 +402,8 @@ const EFFECT_TO_ABILITY_RATIO = 0.71;
 const EFFECT_TILE_SCALE = 0.94;
 const EFFECT_TILE_BORDER_PX = 2;
 
-// Buffs and debuffs use four fixed slots across the expanded sidebar. Their wells keep a fixed layout
-// height; overflowing buff rows scroll vertically inside that slot instead of changing the card's fit scale.
+// Buffs and debuffs use four fixed slots across the expanded sidebar. Their wells reveal additional
+// rows when the card viewport has spare height, then scroll whatever does not fit.
 const effectTileSize = (metrics: ISidebarMetrics): number => {
     const tileGap = metrics.gapPx * 0.6;
     const innerInset = Math.max(6, Math.round(metrics.padPx * 0.32) + 4);
@@ -748,7 +748,7 @@ const IconScrollWell: React.FC<{
             height: `${height}px`,
             boxSizing: "border-box",
             overflowX: vertical ? "hidden" : "auto",
-            overflowY: vertical ? "scroll" : "hidden",
+            overflowY: vertical ? "auto" : "hidden",
             whiteSpace: vertical ? "normal" : "nowrap",
             pr: vertical ? "5px" : 0,
             scrollbarGutter: vertical ? "stable" : "auto",
@@ -1477,34 +1477,26 @@ const UnitStatsLayout: React.FC<{
         const root = layoutRootRef.current;
         const block = effectBlockRef.current;
         if (!root || !block) return;
+        const card = root.closest<HTMLElement>(".SidebarCard");
+        const viewport = card?.parentElement ?? root;
+        const footer = root.closest(".Sidebar")?.querySelector<HTMLElement>("[data-sidebar-footer]");
         const measure = () => {
-            const card = root.closest(".SidebarCard");
-            const scaleRaw = card ? Number(getComputedStyle(card).getPropertyValue("--sidebar-card-fit-scale")) : 1;
+            const cardHeight = card?.offsetHeight ?? 0;
+            // Use the current painted scale, including an in-progress fit transition.
+            const scaleRaw = card && cardHeight > 0 ? card.getBoundingClientRect().height / cardHeight : 1;
             const fitScale = Number.isFinite(scaleRaw) && scaleRaw > 0 ? scaleRaw : 1;
-            // A card that is already scaled down has no spare height. Another lane would only
-            // make the icons smaller.
-            if (fitScale < 0.995) {
-                setLaneRoom((current) => (current.extraSlots === 0 ? current : { ...current, extraSlots: 0 }));
-                return;
-            }
             const wellWidth = buffWellRef.current?.clientWidth ?? 0;
             // The well has not been laid out yet. Guessing one icon per line would open a lane per buff.
             if (wellWidth <= 0) return;
             const perLane = effectIconsPerLane(wellWidth, effectTile, effectGap);
-            let contentBottom = 0;
-            let node: HTMLElement | null = block;
-            while (node && node !== root) {
-                contentBottom += node.offsetTop;
-                node = node.offsetParent as HTMLElement | null;
+            // The inner content box can end at Debuffs even when the card has hundreds of free
+            // pixels below it. Compare painted bounds against the actual viewport/footer boundary.
+            let availableBottom = viewport.getBoundingClientRect().bottom;
+            if (footer && footer.getBoundingClientRect().height > 0) {
+                availableBottom = Math.min(availableBottom, footer.getBoundingClientRect().top);
             }
-            contentBottom += block.offsetHeight;
-            const footer = root.closest(".Sidebar")?.querySelector("[data-sidebar-footer]");
-            let covered = 0;
-            if (footer instanceof HTMLElement) {
-                const overlap = (root.getBoundingClientRect().bottom - footer.getBoundingClientRect().top) / fitScale;
-                if (overlap > 0) covered = overlap;
-            }
-            const leftover = root.clientHeight - contentBottom - covered + appliedExtraRef.current;
+            const leftover =
+                (availableBottom - block.getBoundingClientRect().bottom) / fitScale + appliedExtraRef.current;
             const stride = effectTile + effectGap;
             const extraSlots = stride > 0 ? Math.max(0, Math.floor(leftover / stride)) : 0;
             setLaneRoom((current) =>
@@ -1512,16 +1504,29 @@ const UnitStatsLayout: React.FC<{
             );
         };
         const observer = new ResizeObserver(measure);
-        observer.observe(root);
-        const footer = root.closest(".Sidebar")?.querySelector("[data-sidebar-footer]");
-        if (footer) observer.observe(footer);
+        for (const element of new Set([root, block, viewport, card, buffWellRef.current, footer])) {
+            if (element) observer.observe(element);
+        }
+        // Fit scaling changes painted bounds without resizing the underlying layout boxes.
+        const fitObserver = new MutationObserver(measure);
+        const onFitTransitionEnd = (event: TransitionEvent) => {
+            if (event.target === card && event.propertyName === "transform") measure();
+        };
+        if (card) {
+            fitObserver.observe(card, { attributes: true, attributeFilter: ["class", "style"] });
+            card.addEventListener("transitionend", onFitTransitionEnd);
+        }
         measure();
-        return () => observer.disconnect();
+        return () => {
+            observer.disconnect();
+            fitObserver.disconnect();
+            card?.removeEventListener("transitionend", onFitTransitionEnd);
+        };
     }, [effectGap, effectTile, orderedBuffs.length, orderedDebuffs.length, shownSynergies.length]);
     // Three stat rows, always — the well below scrolls if a creature carries more than nine.
     const statRowHeight = Math.round(metrics.statIconPx + 12);
     const statWellHeight = statRowHeight * 3 + STAT_ROW_GAP * 2;
-    // One row of tiles each; anything beyond that scrolls inside the well rather than growing the card.
+    // Abilities keep one row and scroll horizontally when more tiles are present.
     const abilityWellHeight = abilityTileSize(metrics) + 6;
     // The shared effect size also applies to synergy/augment markers. The extra band holds their level
     // dots and the scrollbar without changing the section's position.
@@ -1815,8 +1820,7 @@ const UnitStatsLayout: React.FC<{
                 </Box>
             </Box>
 
-            {/* All three blocks are always rendered at a constant height, empty or not, so the card is the
-                same shape for every creature and nothing below it ever moves. */}
+            {/* Abilities keep one row; effect wells below use the spare card height for visible rows. */}
             <PanelSection
                 title="Abilities"
                 metrics={metrics}
@@ -1855,7 +1859,7 @@ const UnitStatsLayout: React.FC<{
                         vertical
                         edgeInset={effectEdgeInset}
                     >
-                        {/* Additional buffs wrap into rows inside this fixed-height vertically scrolling well. */}
+                        {/* Reveal as many wrapped rows as the viewport can fit; scroll any remaining effects. */}
                         <Box
                             ref={buffWellRef}
                             sx={{
