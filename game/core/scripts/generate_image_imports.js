@@ -45,7 +45,17 @@ const EXCLUDED_IMAGE_FILES = new Set([
 ]);
 if (!fs.existsSync(generatedDir)) fs.mkdirSync(generatedDir, { recursive: true });
 
-const files = fs.readdirSync(imageDir);
+// Normalize local build copies while older art checkouts still carry the former aura filename.
+// The canonical HOC_IMAGES_LOC artwork is never modified by the import generator.
+const renamedImageFiles = new Map([["rallying_volley_aura_256.webp", "rallying_volley_blessing_256.webp"]]);
+for (const [previous, current] of renamedImageFiles) {
+    const previousPath = path.join(imageDir, previous);
+    const currentPath = path.join(imageDir, current);
+    if (fs.existsSync(previousPath) && !fs.existsSync(currentPath)) {
+        fs.renameSync(previousPath, currentPath);
+    }
+}
+const files = fs.readdirSync(imageDir).filter((file) => !renamedImageFiles.has(file));
 const entries = [];
 
 for (const file of files) {

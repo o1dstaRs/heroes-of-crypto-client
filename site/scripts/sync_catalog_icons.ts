@@ -25,6 +25,7 @@ const IMAGE_ROOT = join(SITE, "public/assets/images");
    component that renders nowhere, and an atlas must never be recompressed to claw that back (a crushed
    lava atlas shipped visibly broken once). Left out until something actually uses them. */
 const SKIP_DIRECTORIES = new Set(["portraits", "portrait-backgrounds", "anim"]);
+const LEGACY_SOURCE_FILENAMES = new Map([["rallying_volley_blessing_256.webp", "rallying_volley_aura_256.webp"]]);
 
 const checkOnly = process.argv.includes("--check");
 
@@ -57,7 +58,10 @@ const siteOnly: string[] = [];
 let matched = 0;
 
 for (const file of walk(IMAGE_ROOT)) {
-    const source = join(artSource, file.split("/").pop()!);
+    const filename = file.split("/").pop()!;
+    let source = join(artSource, filename);
+    const legacyFilename = LEGACY_SOURCE_FILENAMES.get(filename);
+    if (!existsSync(source) && legacyFilename) source = join(artSource, legacyFilename);
     if (!existsSync(source)) {
         siteOnly.push(relative(IMAGE_ROOT, file));
         continue;

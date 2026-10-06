@@ -190,8 +190,10 @@ export const ABILITY_NOTES_A_L: Readonly<Record<string, NoteSpec>> = {
     "Deep Wounds Level 2": deepWounds,
     "Deep Wounds Level 3": deepWounds,
     "Dense Flesh": {
-        en: ({ p }) => `Every enemy shot aimed at this unit spends ${p} arrows instead of one — except a Tsar Cannon's Through Shot, which always costs one.`,
-        ru: ({ p }) => `Каждый вражеский выстрел в этого юнита тратит ${p} стрелы вместо одной — кроме Through Shot у Tsar Cannon, который всегда стоит одну.`,
+        en: ({ p }) =>
+            `Every enemy shot aimed at this unit spends ${p} arrows instead of one — except a Tsar Cannon's Through Shot, which always costs one.`,
+        ru: ({ p }) =>
+            `Каждый вражеский выстрел в этого юнита тратит ${p} стрелы вместо одной — кроме Through Shot у Tsar Cannon, который всегда стоит одну.`,
     },
     "Devour Essence": {
         en: ({ p, n }) =>
@@ -326,8 +328,10 @@ export const ABILITY_NOTES_A_L: Readonly<Record<string, NoteSpec>> = {
             `Каждый юнит в блоке 3×3 вокруг клетки попадания — цель, другие враги и ваши юниты — получает ${n(p / 5)}% за единицу силы стека (${n(p)}% при полной силе, с поправкой на удачу) обычного выстрела, каждый со своим броском уклонения. Снаряд летит поверх построек и разбивает бочки в блоке; цель, способная стрелять, отвечает после всего урона.`,
     },
     "Leather Armor": {
-        en: ({ p }) => `Against shots this unit's base armor counts ${p}% lower (armor buffs and debuffs count in full), so shots hurt it noticeably more.`,
-        ru: ({ p }) => `Против выстрелов базовая броня этого юнита считается на ${p}% ниже (баффы и дебаффы брони учитываются полностью), поэтому выстрелы ранят его заметно сильнее.`,
+        en: ({ p }) =>
+            `Against shots this unit's base armor counts ${p}% lower (armor buffs and debuffs count in full), so shots hurt it noticeably more.`,
+        ru: ({ p }) =>
+            `Против выстрелов базовая броня этого юнита считается на ${p}% ниже (баффы и дебаффы брони учитываются полностью), поэтому выстрелы ранят его заметно сильнее.`,
     },
     "Lightning Spin": {
         en: () =>
@@ -337,9 +341,9 @@ export const ABILITY_NOTES_A_L: Readonly<Record<string, NoteSpec>> = {
     },
     "Limited Supply": {
         en: () =>
-            "The quiver holds only its full size × stack power / 5 arrows, rounded down — 2/4/6/8/10 of the Arbalester's 10 at stack power 1–5 — plus any Rallying Volley arrows; arrows above a lowered cap are lost for good.",
+            "The quiver holds only its full size × stack power / 5 arrows, rounded down — 2/4/6/8/10 of the Arbalester's 10 at stack power 1–5 — plus any Rallying Volley Blessing arrows; arrows above a lowered cap are lost for good.",
         ru: () =>
-            "Колчан вмещает лишь полный запас × сила стека / 5 стрел с округлением вниз — 2/4/6/8/10 из 10 у Arbalester при силе стека 1–5, — плюс стрелы от Rallying Volley; стрелы сверх сниженного предела пропадают навсегда.",
+            "Колчан вмещает лишь полный запас × сила стека / 5 стрел с округлением вниз — 2/4/6/8/10 из 10 у Arbalester при силе стека 1–5, — плюс стрелы от Rallying Volley Blessing; стрелы сверх сниженного предела пропадают навсегда.",
     },
     "Luck Aura": {
         en: () =>

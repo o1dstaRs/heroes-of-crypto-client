@@ -247,6 +247,7 @@ const SPELL_TO_ABILITY: Readonly<Record<string, string>> = {
     "Angelic Host Blessing": "Angelic Host Blessing",
     "Arcane Ward Blessing": "Arcane Ward Blessing",
     "Arrows Wingshield Blessing": "Arrows Wingshield Blessing",
+    "Rallying Volley Blessing": "Rallying Volley Blessing",
     "Warding Mane Blessing": "Warding Mane Blessing",
     "Battle Roar": "Battle Roar",
     Castling: "Castling",

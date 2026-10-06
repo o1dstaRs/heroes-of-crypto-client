@@ -433,7 +433,7 @@ const LAZY_ABILITY_ASSETS = new Set([
     "range_null_field_aura_256",
     "luck_aura_256",
     "arrows_wingshield_aura_256",
-    "rallying_volley_aura_256",
+    "rallying_volley_blessing_256",
     "angelic_host_256",
     "ai_driven_256",
     "magic_shield_256",

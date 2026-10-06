@@ -107,6 +107,7 @@ const spellIconOverrides: Readonly<Record<string, string>> = {
     "System:Warding Mane Blessing": "/assets/images/units/abilities/warding_mane_aura_256.webp",
     "System:Angelic Host Blessing": "/assets/images/spells/angelic_host_256.webp",
     "System:Arrows Wingshield Blessing": "/assets/images/units/abilities/arrows_wingshield_aura_256.webp",
+    "System:Rallying Volley Blessing": "/assets/images/units/abilities/rallying_volley_blessing_256.webp",
 };
 
 const damageSpells = new Set([
@@ -161,6 +162,7 @@ const appliedByAbility: Record<string, string[]> = {
     "Angelic Host Blessing": ["Angelic Host Blessing"],
     "Arcane Ward Blessing": ["Arcane Ward Blessing"],
     "Arrows Wingshield Blessing": ["Arrows Wingshield Blessing"],
+    "Rallying Volley Blessing": ["Rallying Volley Blessing"],
     "Warding Mane Blessing": ["Warding Mane Blessing"],
     "Made of Fire": ["Made of Fire"],
     "Water Shield": ["Water Shield"],
@@ -197,6 +199,8 @@ const resolvedDescriptions: Record<string, string> = {
         "All allies gain one additional movement step per creature alive in the caster's stack, and are ensured to deal maximum damage with each attack.",
     "System:Resurrection":
         "Restores an allied stack with losses — the Angel's own included, never a Mechanism unit such as the Tsar Cannon — by up to 1.5× the Angel stack's total maximum health: the wounded creature first, then fallen ones, never more than died. One use per fight, shared with the Angel's own self-resurrection.",
+    "System:Rallying Volley Blessing":
+        "All allied ranged units gain +{} shots once per fight at any distance. This bonus does not stack across carriers, is unaffected by stack power or Aura Range, and does not refill spent shots.",
     "Chaos:Fire Strike":
         "Sends a small fireball at an enemy in line of sight. Deals {} damage for every creature alive in the caster's stack, ignores armor, and is cut by magic resistance. Stack power does not change the damage — it only gates the cast.",
     "Chaos:Fireball":
@@ -239,6 +243,8 @@ const descriptionsRu: Record<string, string> = {
         "Arcane Ward Blessing даёт {}% защиты от магии.\nДействует, пока жив союзный юнит с Arcane Ward Blessing.",
     "System:Arrows Wingshield Blessing":
         "Arrows Wingshield Blessing даёт +{}% к защите от дальних атак.\nДействует, пока жив союзный юнит с Arrows Wingshield Blessing.",
+    "System:Rallying Volley Blessing":
+        "Все стрелки своей армии один раз за бой получают +{} выстрела на любом расстоянии.\nБонус не складывается от нескольких носителей, не зависит от силы стека или синергии «Радиус аур» и не восполняет потраченные выстрелы.",
     // The data says "reduced by {}" with a power of 0, which printed "by 0"; the amount is whatever Miner's
     // hits took, so both languages name the source instead of a wrong number.
     "System:Miner": "Базовая броня навсегда снижена: её отнимает каждый удар юнита с Miner, но не ниже 1.",

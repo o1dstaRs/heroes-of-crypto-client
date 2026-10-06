@@ -1,8 +1,9 @@
 import { Box, Sheet, Skeleton, Stack } from "@mui/joy";
+import { CssVarsProvider } from "@mui/joy/styles";
 import React from "react";
 
 import { t } from "../../i18n/i18n";
-import { hocColors, hocPanelSx } from "../hocTheme";
+import { hocColors, hocJoyTheme, hocPanelSx } from "../hocTheme";
 
 const profileBackgroundUrl = new URL("../../../images/background_dark.webp", import.meta.url).toString();
 
@@ -54,29 +55,31 @@ export const PortalAvatarPlaceholder: React.FC<{ size?: number | Record<string, 
     />
 );
 
-/** The same frame is visible during authentication, profile loading, and the completed dashboard. */
+/** The profile route also needs the shared theme for its portaled hover cards. */
 export const PlayerPortalFrame: React.FC<{ busy?: boolean; children: React.ReactNode }> = ({ busy, children }) => (
-    <Box
-        component="main"
-        aria-label={t("Player Profile")}
-        aria-busy={busy}
-        sx={{
-            position: "fixed",
-            inset: 0,
-            bgcolor: hocColors.black,
-            overflowY: "auto",
-            overflowX: "hidden",
-            ...portalScrollSx,
-            px: { xs: 1.5, md: 3 },
-            py: { xs: 1.5, md: 2.5 },
-            backgroundImage: `linear-gradient(112deg, rgba(7,5,4,0.97), rgba(7,5,4,0.89) 52%, rgba(7,5,4,0.96)), url(${profileBackgroundUrl})`,
-            backgroundPosition: "center top",
-            backgroundSize: "cover",
-            backgroundAttachment: "fixed",
-        }}
-    >
-        {children}
-    </Box>
+    <CssVarsProvider theme={hocJoyTheme}>
+        <Box
+            component="main"
+            aria-label={t("Player Profile")}
+            aria-busy={busy}
+            sx={{
+                position: "fixed",
+                inset: 0,
+                bgcolor: hocColors.black,
+                overflowY: "auto",
+                overflowX: "hidden",
+                ...portalScrollSx,
+                px: { xs: 1.5, md: 3 },
+                py: { xs: 1.5, md: 2.5 },
+                backgroundImage: `linear-gradient(112deg, rgba(7,5,4,0.97), rgba(7,5,4,0.89) 52%, rgba(7,5,4,0.96)), url(${profileBackgroundUrl})`,
+                backgroundPosition: "center top",
+                backgroundSize: "cover",
+                backgroundAttachment: "fixed",
+            }}
+        >
+            {children}
+        </Box>
+    </CssVarsProvider>
 );
 
 export const PlayerPortalReputationSkeleton: React.FC = () => (

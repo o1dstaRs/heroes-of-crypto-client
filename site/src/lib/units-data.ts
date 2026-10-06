@@ -61,6 +61,7 @@ const abilityIconOverrides: Readonly<Record<string, string>> = {
     "Warding Mane Blessing": "/assets/images/units/abilities/warding_mane_aura_256.webp",
     "Angelic Host Blessing": "/assets/images/units/abilities/angelic_host_256.webp",
     "Arrows Wingshield Blessing": "/assets/images/units/abilities/arrows_wingshield_aura_256.webp",
+    "Rallying Volley Blessing": "/assets/images/units/abilities/rallying_volley_blessing_256.webp",
 };
 
 const abilityIcon = (name: string): string =>
@@ -77,6 +78,10 @@ const NEUTRAL_LUCK_CRAFT_CHANCES = { double: 40, frozen: 10, stun: 10, nothing: 
 // against the engine (common): the tooltip keeps the old wording until the game fixes it, but the Knowledge
 // Base should not repeat it. "{}" takes the ability's power exactly like the game's template.
 const abilityDescriptionOverridesEn: Record<string, string[]> = {
+    "Rallying Volley Blessing": [
+        "All allied ranged units gain +{} shots once per fight at any distance.",
+        "This bonus does not stack across carriers and is unaffected by stack power or Aura Range.",
+    ],
     "Absorb Penalties Aura": [
         "The unit has a {}% chance to take an enemy spell debuff, Spit Ball debuff or Hamstring aimed at an ally within range and suffer it instead. On-hit effects such as Stun or Blindness are not absorbed.",
     ],
@@ -95,7 +100,9 @@ const abilityDescriptionOverridesEn: Record<string, string[]> = {
     "Deep Wounds Level 3": [
         "Each melee attack or response adds {}% to the target's Deep Wounds, and every attacker with a Deep Wounds ability deals that much more damage to it. The wounds stack",
     ],
-    "Heavy Armor": ["Has {}% additional base armor, while taking {}% more damage from magic — spells, Fire Wall, Fireforged burns, Chain Lightning, Fire Breath and Fire Shield"],
+    "Heavy Armor": [
+        "Has {}% additional base armor, while taking {}% more damage from magic — spells, Fire Wall, Fireforged burns, Chain Lightning, Fire Breath and Fire Shield",
+    ],
     "Magic Reflection": [
         "Rebounds every spell aimed at this creature {}% of the time. The spell still lands on the dragon in full — a rebound strikes the caster with that same share of the damage the dragon took and copies a debuff onto it",
     ],
@@ -162,7 +169,9 @@ const abilityDescriptionRuTemplates: Record<string, string[]> = {
         "Сила растёт 5/10/15/20/25 с размером стека, затем умножается на процент удачи этого юнита.",
     ],
     "Water Element": ["Дает иммунитет к воде. Огненные атаки наносят на {}% больше урона."],
-    "Water Shield": ["Один раз за бой полностью поглощает первую входящую атаку (0 полученного урона), после чего разрушается."],
+    "Water Shield": [
+        "Один раз за бой полностью поглощает первую входящую атаку (0 полученного урона), после чего разрушается.",
+    ],
     "Double Punch": ["Наносит вторую атаку с {}% рассчитанного урона."],
     Backstab: ["Наносит на {}% больше урона при ударе со стороны зоны появления врага."],
     Handyman: ["Урон в ближнем бою не снижается."],
@@ -187,7 +196,9 @@ const abilityDescriptionRuTemplates: Record<string, string[]> = {
     "Wild Regeneration": [
         "Автоматически восстанавливает здоровье до максимума в начале своего хода. Эффект можно подарить.",
     ],
-    "Heavy Armor": ["Имеет +{}% базовой брони, но получает на {}% больше магического урона — от заклинаний, Fire Wall, поджогов Fireforged, Chain Lightning, Fire Breath и Fire Shield."],
+    "Heavy Armor": [
+        "Имеет +{}% базовой брони, но получает на {}% больше магического урона — от заклинаний, Fire Wall, поджогов Fireforged, Chain Lightning, Fire Breath и Fire Shield.",
+    ],
     "No Melee": ["У юнита нет ближней атаки."],
     "Sharpened Weapons Aura": ["Союзники ближнего боя под эффектом получают +{}% к базовой силе атаки."],
     "Range Null Field Aura": ["Вражеские юниты под эффектом не могут использовать дальние атаки."],
@@ -234,7 +245,9 @@ const abilityDescriptionRuTemplates: Record<string, string[]> = {
     "Shatter Armor": ["Ближние атаки снимают {} брони (Статус) с цели. Эффект складывается."],
     "Rapid Charge": ["Каждая пройденная клетка увеличивает силу атаки на {}%."],
     "Wolf Trail Aura": ["Союзники в радиусе получают +{} к дистанции перемещения."],
-    "Penetrating Bite": ["Ближние атаки наносят дополнительный урон, равный {}% максимального здоровья одного существа цели."],
+    "Penetrating Bite": [
+        "Ближние атаки наносят дополнительный урон, равный {}% максимального здоровья одного существа цели.",
+    ],
     "Pegasus Might Aura": ["Союзники в радиусе получают +{} к базовой атаке и броне."],
     "Pegasus Light": ["Накладывает Pegasus Light на врага. Каждый юнит, атакующий его, получает +{} морали."],
     Paralysis: ["При срабатывании с шансом {}% Паралич (Статус) не дает врагу двигаться и снижает его урон на {}%."],
@@ -306,7 +319,10 @@ const abilityDescriptionRuTemplates: Record<string, string[]> = {
         "Максимум целей: {}. Дальняя атака поражает выбранного врага, затем диск поворачивает по часовой стрелке к следующему подходящему врагу.",
         "Зазор в 1 клетку сохраняет полный урон; зазор в 2 клетки снижает его вдвое и заканчивает полёт. Уклонение цели тоже заканчивает полёт. Каждый враг получает удар один раз, союзники не задеваются.",
     ],
-    "Rallying Volley Aura": ["Союзные стрелки в радиусе получают +{} выстрела."],
+    "Rallying Volley Blessing": [
+        "Все стрелки своей армии один раз за бой получают +{} выстрела на любом расстоянии.",
+        "Бонус не складывается от нескольких носителей и не зависит от силы стека или синергии «Радиус аур».",
+    ],
     "Guiding Winds Aura": ["Союзные стрелки в радиусе ауры стреляют на {}% дальше."],
     "Book of Chaos": ["Открывает заклинания: Smoke, Misfortune, Fireforged Sword и Fireball."],
     "Basic Tome of Battle Magic": [
@@ -466,7 +482,8 @@ function buildUnit(faction: FactionName, raw: RawCreature): Unit {
         icon: abilityIcon(name),
         isAura: !!(abilitiesJson as Record<string, RawAbility>)[name]?.aura_effect,
         isCastable: !!(abilitiesJson as Record<string, RawAbility>)[name]?.can_be_cast,
-        isStackPowered: !notStackScaled.has(name) && !!(abilitiesJson as Record<string, RawAbility>)[name]?.stack_powered,
+        isStackPowered:
+            !notStackScaled.has(name) && !!(abilitiesJson as Record<string, RawAbility>)[name]?.stack_powered,
     }));
 
     return {

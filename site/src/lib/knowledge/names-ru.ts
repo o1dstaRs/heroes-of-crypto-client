@@ -148,7 +148,7 @@ export const RU_NAMES: Readonly<Record<string, string>> = {
     "Petrifying Gaze": "Окаменяющий взгляд",
     "Piercing Spear": "Пробивающее копьё",
     "Predatory Assimilation": "Хищная ассимиляция",
-    "Rallying Volley Aura": "Аура слаженного залпа",
+    "Rallying Volley Blessing": "Благословение слаженного залпа",
     "Range Null Field Aura": "Аура подавления стрельбы",
     "Rapid Charge": "Стремительный натиск",
     Resurrection: "Воскрешение",

@@ -95,11 +95,11 @@ export const ABILITY_NOTES_M_Z: Readonly<Record<string, NoteSpec>> = {
         ru: ({ p, n }) =>
             `Каждая атака или ответ в ближнем бою с шансом ${n(p / 5)}% за единицу силы стека (${n(p)}% при полной силе) плюс 1% за очко удачи забирает у цели одну случайную способность, которой у Queen ещё нет. Цель теряет её до конца боя, а Queen пользуется ею — вместе с аурой и оставшимися зарядами заклинаний. Юниты под Break не могут ни красть, ни быть обокраденными.`,
     },
-    "Rallying Volley Aura": {
+    "Rallying Volley Blessing": {
         en: ({ p }) =>
-            `Once per fight, each allied ranged unit — Zena included — that stands within 2 cells of Zena gets +${p} shots added to its quiver. It is a one-time top-up: stepping out and back in, or a second Zena, adds nothing, and spent shots aren't refilled.`,
+            `Once per fight, every allied ranged unit gets +${p} shots at any distance. This flat bonus is unaffected by stack power or Might's Aura Range synergy. Multiple carriers do not stack it, and spent shots aren't refilled.`,
         ru: ({ p }) =>
-            `Раз за бой каждый союзный стрелок — включая Zena, — оказавшийся в радиусе 2 клеток от Zena, получает +${p} выстрела в колчан. Это разовое пополнение: выйти и вернуться или добавить вторую Zena ничего не даёт, а потраченные выстрелы не восполняются.`,
+            `Раз за бой каждый стрелок своей армии получает +${p} выстрела на любом расстоянии. Этот плоский бонус не зависит от силы стека или синергии Силы «Радиус аур». Несколько носителей его не складывают, а потраченные выстрелы не восполняются.`,
     },
     "Range Null Field Aura": {
         en: () =>
