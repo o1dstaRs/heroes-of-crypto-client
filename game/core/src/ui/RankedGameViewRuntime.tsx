@@ -3636,7 +3636,6 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                             same gradient, same 1340px column, army rails on top and the progress rail at the
                             bottom — not a dialog floating over the placement board. */}
                         <Modal
-                            keepMounted
                             open={augmentOverlayOpen}
                             onClose={() => {
                                 if (!inSetupStage) {

@@ -51,7 +51,8 @@ const MountedPortraitLayers = ({
             ref={root}
             data-portrait-layers={visible ? "ready" : "loading"}
             aria-hidden={visible ? undefined : true}
-            style={{ position: "absolute", inset: 0, visibility: visible ? "visible" : "hidden" }}
+            // Ready layers follow their parent: forcing visibility here can reveal portraits inside a closed modal.
+            style={{ position: "absolute", inset: 0, visibility: visible ? "inherit" : "hidden" }}
         >
             {children}
         </div>
