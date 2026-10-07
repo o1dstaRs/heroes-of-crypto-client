@@ -39,8 +39,8 @@
             "revision": "3a01ec9eba"
         },
         "hurt": {
-            "durationMs": 485,
-            "revision": "d381cd8b98"
+            "durationMs": 509,
+            "revision": "ffa8b7c75c"
         }
     },
     "Pikeman": {
@@ -391,8 +391,8 @@
             "revision": "3f7d4679b6"
         },
         "hurt": {
-            "durationMs": 740,
-            "revision": "69d5357e25"
+            "durationMs": 490,
+            "revision": "29f7fa293d"
         }
     },
     "Beholder": {
@@ -556,8 +556,8 @@
             "revision": "abd40ac243"
         },
         "hurt": {
-            "durationMs": 460,
-            "revision": "de1c984575"
+            "durationMs": 589,
+            "revision": "f8cb35625e"
         }
     },
     "Centaur": {

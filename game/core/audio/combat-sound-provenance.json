@@ -265,25 +265,31 @@
             "unit": "Arbalester",
             "slug": "arbalester",
             "role": "hurt",
-            "generation_id": "yJDwLhkAIq5a48tviNyG",
+            "source_id": "source-e83b5117ec3a2d3c",
+            "source": {
+                "kind": "user-provided",
+                "filename": "arbalester_damage_received.wav",
+                "sha256": "e83b5117ec3a2d3ca8208d9fea954c8e1c859c7a0b8db4398fbc006564074a68",
+                "label": "Provided damage reaction \u00b7 Arbalester"
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -19.95,
-                    "true_peak_db": -5.12,
-                    "bytes": 4569,
-                    "duration_ms": 485,
-                    "leading_quiet_ms": 0,
+                    "lufs": -19.97,
+                    "true_peak_db": -5.35,
+                    "bytes": 5414,
+                    "duration_ms": 509,
+                    "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -19.74
+                    "rms_db": -19.56
                 },
                 "mp3": {
-                    "lufs": -20.44,
-                    "true_peak_db": -6.04,
-                    "bytes": 6668,
-                    "duration_ms": 485,
-                    "leading_quiet_ms": 0,
+                    "lufs": -20.41,
+                    "true_peak_db": -5.81,
+                    "bytes": 6956,
+                    "duration_ms": 509,
+                    "leading_quiet_ms": 1,
                     "trailing_quiet_ms": 0,
-                    "rms_db": -20.23
+                    "rms_db": -20.0
                 }
             }
         },
@@ -473,25 +479,31 @@
             "unit": "Berserker",
             "slug": "berserker",
             "role": "hurt",
-            "generation_id": "eeJ3IYZ5qBLJ6kFDPqab",
+            "source_id": "source-877948769b54fe51",
+            "source": {
+                "kind": "user-provided",
+                "filename": "berserker_damage_received.wav",
+                "sha256": "877948769b54fe51e9efb33904adc5624c7a56ef4781f6de5470a4cfa1f59084",
+                "label": "Provided damage reaction \u00b7 Berserker"
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -20.01,
-                    "true_peak_db": -8.59,
-                    "bytes": 4673,
-                    "duration_ms": 460,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 0,
-                    "rms_db": -20.38
+                    "lufs": -20.0,
+                    "true_peak_db": -7.37,
+                    "bytes": 6664,
+                    "duration_ms": 589,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 9,
+                    "rms_db": -21.52
                 },
                 "mp3": {
-                    "lufs": -20.45,
-                    "true_peak_db": -9.33,
-                    "bytes": 6380,
-                    "duration_ms": 460,
-                    "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 0,
-                    "rms_db": -20.82
+                    "lufs": -20.43,
+                    "true_peak_db": -7.77,
+                    "bytes": 7820,
+                    "duration_ms": 589,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 9,
+                    "rms_db": -21.96
                 }
             }
         },
@@ -2761,25 +2773,31 @@
             "unit": "Troll",
             "slug": "troll",
             "role": "hurt",
-            "generation_id": "0CvEoosERVQFaHSLScHf",
+            "source_id": "source-19edab3c289e6924",
+            "source": {
+                "kind": "user-provided",
+                "filename": "troll_damage_received.wav",
+                "sha256": "19edab3c289e6924b30ab02d566f8be273f7ba901289a0a7d1407d1e9355002a",
+                "label": "Provided damage reaction \u00b7 Troll"
+            },
             "encoded": {
                 "webm": {
-                    "lufs": -20.02,
-                    "true_peak_db": -9.51,
-                    "bytes": 7129,
-                    "duration_ms": 740,
+                    "lufs": -20.0,
+                    "true_peak_db": -5.49,
+                    "bytes": 5260,
+                    "duration_ms": 490,
                     "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 10,
-                    "rms_db": -18.99
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.03
                 },
                 "mp3": {
-                    "lufs": -20.44,
-                    "true_peak_db": -10.3,
-                    "bytes": 9548,
-                    "duration_ms": 740,
+                    "lufs": -20.4,
+                    "true_peak_db": -5.96,
+                    "bytes": 6668,
+                    "duration_ms": 490,
                     "leading_quiet_ms": 0,
-                    "trailing_quiet_ms": 10,
-                    "rms_db": -19.42
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -20.45
                 }
             }
         },

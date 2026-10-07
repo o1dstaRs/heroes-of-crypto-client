@@ -25,5 +25,35 @@
             "sha256": "123883f006ce55feecbff11eea5f87c4493df4399989983037144570a23723c1",
             "label": "Recorded sword swing 4 \u00b7 swish-9.wav"
         }
+    },
+    "berserker/hurt": {
+        "source_id": "source-877948769b54fe51",
+        "path": "tmp/audio/raw/user-provided/berserker/hurt/877948769b54fe51/berserker_damage_received.wav",
+        "source": {
+            "kind": "user-provided",
+            "filename": "berserker_damage_received.wav",
+            "sha256": "877948769b54fe51e9efb33904adc5624c7a56ef4781f6de5470a4cfa1f59084",
+            "label": "Provided damage reaction \u00b7 Berserker"
+        }
+    },
+    "troll/hurt": {
+        "source_id": "source-19edab3c289e6924",
+        "path": "tmp/audio/raw/user-provided/troll/hurt/19edab3c289e6924/troll_damage_received.wav",
+        "source": {
+            "kind": "user-provided",
+            "filename": "troll_damage_received.wav",
+            "sha256": "19edab3c289e6924b30ab02d566f8be273f7ba901289a0a7d1407d1e9355002a",
+            "label": "Provided damage reaction \u00b7 Troll"
+        }
+    },
+    "arbalester/hurt": {
+        "source_id": "source-e83b5117ec3a2d3c",
+        "path": "tmp/audio/raw/user-provided/arbalester/hurt/e83b5117ec3a2d3c/arbalester_damage_received.wav",
+        "source": {
+            "kind": "user-provided",
+            "filename": "arbalester_damage_received.wav",
+            "sha256": "e83b5117ec3a2d3ca8208d9fea954c8e1c859c7a0b8db4398fbc006564074a68",
+            "label": "Provided damage reaction \u00b7 Arbalester"
+        }
     }
 }

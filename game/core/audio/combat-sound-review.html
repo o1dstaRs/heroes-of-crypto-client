@@ -241,6 +241,9 @@
                         (c.role === "event"
                             ? ""
                             : '<button data-regenerate="' + c.slug + "/" + c.role + '">Regenerate</button>') +
+                        (c.source?.kind === "user-provided"
+                            ? '<div class="muted">Provided recording · ' + escape(c.source.filename) + "</div>"
+                            : "") +
                         '</td><td><svg viewBox="0 0 180 42" role="img" aria-label="Waveform"><path stroke="#d1aa70" d="' +
                         w
                             .map(
