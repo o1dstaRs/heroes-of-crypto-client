@@ -320,6 +320,7 @@ const SideToggleContainer = ({
     // Ranked snapshots own the committed build. Rehydrate from it so a refresh/remount does not show a
     // blank picker with a full budget while the server is still enforcing the already-spent points.
     authoritativeSelections,
+    draftLayout = false,
 }: {
     side: string;
     teamType: TeamType;
@@ -328,6 +329,7 @@ const SideToggleContainer = ({
     budgetPoints?: number;
     onReadyChange?: (state: { pointsRemaining: number; allSynergiesSelected: boolean }) => void;
     authoritativeSelections?: AugmentSelections;
+    draftLayout?: boolean;
 }) => {
     useTranslation();
     const authoritativePlacement = authoritativeSelections?.placement;
@@ -539,7 +541,9 @@ const SideToggleContainer = ({
             <Box
                 sx={{
                     display: "grid",
-                    gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(3, minmax(0, 1fr))" },
+                    gridTemplateColumns: draftLayout
+                        ? "repeat(3, minmax(0, 1fr))"
+                        : { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(3, minmax(0, 1fr))" },
                     gap: "10px",
                     width: "100%",
                     height: "100%",

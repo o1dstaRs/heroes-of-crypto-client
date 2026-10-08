@@ -240,98 +240,117 @@ export const PremiumSetupPanel: React.FC<{
     if (!advice || advice.stage === "fight") return <>{children}</>;
     return (
         <PremiumContext.Provider value={advice}>
-            <Sheet
-                data-testid="premium-setup-panel"
-                sx={{
-                    background: "linear-gradient(135deg,#302017,#1b120e)",
-                    border: "1px solid #a75425",
-                    borderRadius: 8,
-                    p: 1,
-                    my: 1,
-                }}
+            <Box
+                data-testid={setupView ? "premium-setup-layout" : undefined}
+                sx={
+                    setupView && children
+                        ? {
+                              display: "grid",
+                              gridTemplateColumns: "240px minmax(0, 1fr)",
+                              gap: "12px",
+                              width: "100%",
+                              height: "100%",
+                              minHeight: 0,
+                              overflow: "hidden",
+                          }
+                        : { display: "contents" }
+                }
             >
-                <Typography level="title-sm" sx={{ color: "#f7a35a" }}>
-                    ◆ Premium guidance
-                </Typography>
-                {advice.stage === "setup" || setupView ? (
-                    <>
-                        <Typography level="body-xs" sx={{ color: "#efcfaf", my: 0.6 }}>
-                            {advice.augments?.map((choice) => `${choice.kind} ${choice.value}`).join(" · ")}
-                        </Typography>
-                        <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mb: 0.5 }}>
-                            {advice.synergies
-                                ?.filter((choice) => choice.level > 0)
-                                .map((choice) => (
-                                    <Box
-                                        key={choice.faction}
-                                        sx={{
-                                            border: "1px solid #a95825",
-                                            borderRadius: 4,
-                                            px: 0.5,
-                                            color: "#eeb484",
-                                            fontSize: 11,
-                                        }}
-                                    >
-                                        {choice.factionName}: {choice.name.replaceAll("_", " ").toLowerCase()} ·{" "}
-                                        {choice.level}
-                                    </Box>
-                                ))}
+                <Sheet
+                    data-testid="premium-setup-panel"
+                    sx={{
+                        background: "linear-gradient(135deg,#302017,#1b120e)",
+                        border: "1px solid #a75425",
+                        borderRadius: 8,
+                        p: 1,
+                        my: setupView ? 0 : 1,
+                        minHeight: 0,
+                        overflowY: setupView ? "auto" : undefined,
+                    }}
+                >
+                    <Typography level="title-sm" sx={{ color: "#f7a35a" }}>
+                        ◆ Premium guidance
+                    </Typography>
+                    {advice.stage === "setup" || setupView ? (
+                        <>
+                            <Typography level="body-xs" sx={{ color: "#efcfaf", my: 0.6 }}>
+                                {advice.augments?.map((choice) => `${choice.kind} ${choice.value}`).join(" · ")}
+                            </Typography>
+                            <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mb: 0.5 }}>
+                                {advice.synergies
+                                    ?.filter((choice) => choice.level > 0)
+                                    .map((choice) => (
+                                        <Box
+                                            key={choice.faction}
+                                            sx={{
+                                                border: "1px solid #a95825",
+                                                borderRadius: 4,
+                                                px: 0.5,
+                                                color: "#eeb484",
+                                                fontSize: 11,
+                                            }}
+                                        >
+                                            {choice.factionName}: {choice.name.replaceAll("_", " ").toLowerCase()} ·{" "}
+                                            {choice.level}
+                                        </Box>
+                                    ))}
+                            </Box>
+                            <Button
+                                size="sm"
+                                disabled={busy || advice.ready}
+                                onClick={() => {
+                                    void apply("setup");
+                                }}
+                                sx={{ bgcolor: "#9b481b", color: "#fff0de", "&:hover": { bgcolor: "#bd5c25" } }}
+                            >
+                                Use recommended build
+                            </Button>
+                        </>
+                    ) : (
+                        <Box sx={{ display: "flex", gap: 0.75, mt: 0.75 }}>
+                            <Button
+                                size="sm"
+                                disabled={busy || advice.ready}
+                                onClick={() => {
+                                    void apply("formation");
+                                }}
+                                sx={{ bgcolor: "#9b481b", color: "#fff0de", "&:hover": { bgcolor: "#bd5c25" } }}
+                            >
+                                Arrange army
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant="outlined"
+                                disabled={busy || advice.ready || !advice.canUndo}
+                                onClick={() => {
+                                    void apply("undo");
+                                }}
+                            >
+                                Undo
+                            </Button>
                         </Box>
-                        <Button
-                            size="sm"
-                            disabled={busy || advice.ready}
-                            onClick={() => {
-                                void apply("setup");
-                            }}
-                            sx={{ bgcolor: "#9b481b", color: "#fff0de", "&:hover": { bgcolor: "#bd5c25" } }}
-                        >
-                            Use recommended build
-                        </Button>
-                    </>
-                ) : (
-                    <Box sx={{ display: "flex", gap: 0.75, mt: 0.75 }}>
-                        <Button
-                            size="sm"
-                            disabled={busy || advice.ready}
-                            onClick={() => {
-                                void apply("formation");
-                            }}
-                            sx={{ bgcolor: "#9b481b", color: "#fff0de", "&:hover": { bgcolor: "#bd5c25" } }}
-                        >
-                            Arrange army
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant="outlined"
-                            disabled={busy || advice.ready || !advice.canUndo}
-                            onClick={() => {
-                                void apply("undo");
-                            }}
-                        >
-                            Undo
-                        </Button>
+                    )}
+                    <Box component="details" sx={{ mt: 0.8, color: "#d0b59c", fontSize: 12 }}>
+                        <summary style={{ cursor: "pointer", color: "#f0b47b" }}>Why this recommendation?</summary>
+                        {advice.reasons?.map((reason) => (
+                            <p key={reason}>{reason}</p>
+                        ))}
+                        <EvidenceText evidence={advice.evidence} />
                     </Box>
-                )}
-                <Box component="details" sx={{ mt: 0.8, color: "#d0b59c", fontSize: 12 }}>
-                    <summary style={{ cursor: "pointer", color: "#f0b47b" }}>Why this recommendation?</summary>
-                    {advice.reasons?.map((reason) => (
-                        <p key={reason}>{reason}</p>
-                    ))}
-                    <EvidenceText evidence={advice.evidence} />
-                </Box>
-                {advice.stage === "board" && !setupView && (
-                    <Typography level="body-xs" sx={{ mt: 0.5 }}>
-                        Review or edit the formation, then press Ready. Undo is available until you edit your build or
-                        board.
-                    </Typography>
-                )}
-                {error && (
-                    <Typography role="status" level="body-xs" sx={{ color: "#ffc289", mt: 0.5 }}>
-                        {error}
-                    </Typography>
-                )}
-            </Sheet>
-            {children}
+                    {advice.stage === "board" && !setupView && (
+                        <Typography level="body-xs" sx={{ mt: 0.5 }}>
+                            Review or edit the formation, then press Ready. Undo is available until you edit your build
+                            or board.
+                        </Typography>
+                    )}
+                    {error && (
+                        <Typography role="status" level="body-xs" sx={{ color: "#ffc289", mt: 0.5 }}>
+                            {error}
+                        </Typography>
+                    )}
+                </Sheet>
+                {children}
+            </Box>
         </PremiumContext.Provider>
     );
 };

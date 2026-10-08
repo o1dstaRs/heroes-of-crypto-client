@@ -3789,6 +3789,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                                         stageKey={`${snapshot.phase}:${snapshot.placementStage}`}
                                                     >
                                                         <SideToggleContainer
+                                                            draftLayout
                                                             side={userTeam === TeamVals.LEFT ? "green" : "red"}
                                                             teamType={userTeam}
                                                             showArtifactPicker={false}
