@@ -1,3 +1,4 @@
+import { PremiumShield } from "../premium/PremiumAdvisor";
 import { Box } from "@mui/joy";
 import React, { useEffect, useState } from "react";
 
@@ -40,7 +41,7 @@ export const PortalAvatar: React.FC<{ standing: RankedStanding | null; size?: nu
     }, [source]);
 
     return (
-        <Box sx={{ width: size, height: size, flexShrink: 0 }}>
+        <Box sx={{ width: size, height: size, flexShrink: 0, position: "relative" }}>
             {emblem && source === readySource ? (
                 <Box key={source} sx={portalRevealSx}>
                     <LeagueEmblem {...emblem} size={size} />
@@ -48,6 +49,7 @@ export const PortalAvatar: React.FC<{ standing: RankedStanding | null; size?: nu
             ) : (
                 <PortalAvatarPlaceholder size={size} />
             )}
+            <PremiumShield />
         </Box>
     );
 };

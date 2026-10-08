@@ -152,7 +152,15 @@ export async function askKnowledgeAi(
     const fetchImpl = options.fetchImpl ?? fetch;
     const response = await fetchImpl(options.url ?? knowledgeAiAskUrl(), {
         method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+        headers: {
+            "Content-Type": "application/json",
+            Accept: "text/event-stream",
+            ...(globalThis.location?.origin &&
+            new URL(knowledgeAiAskUrl(), globalThis.location.href).origin === globalThis.location.origin &&
+            localStorage.getItem("accessToken")
+                ? { Authorization: localStorage.getItem("accessToken")! }
+                : {}),
+        },
         body: JSON.stringify({ question: request.question, lang: request.lang, history: request.history ?? [] }),
         signal: options.signal,
         cache: "no-store",

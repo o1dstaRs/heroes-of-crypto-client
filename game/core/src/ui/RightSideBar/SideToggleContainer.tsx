@@ -1,5 +1,6 @@
+import { PremiumContext } from "../premium/PremiumAdvisor";
 import { Augment, HoCConstants, TeamType, FactionType } from "@heroesofcrypto/common";
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { Sheet, Box, Radio, Tooltip, Typography } from "@mui/joy";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { t, tf, useTranslation } from "../../i18n/i18n";
@@ -119,6 +120,8 @@ const AugmentCard = ({
 }) => {
     const manager = usePixiManager();
     const selected = currentSelection ?? 0;
+    const premium = useContext(PremiumContext);
+    const recommended = premium?.augments?.find((choice) => choice.kind === kind)?.value;
 
     const select = (value: number) => {
         if (manager.PropagateAugmentation(teamType, { type: kind, value } as Augment.AugmentType)) {
@@ -247,7 +250,15 @@ const AugmentCard = ({
                         <Box
                             key={option.value}
                             component="label"
+                            title={
+                                option.value === recommended
+                                    ? "Premium recommended level for your army and visible opponent roster"
+                                    : undefined
+                            }
+                            data-premium-recommended={option.value === recommended || undefined}
                             sx={{
+                                outline: option.value === recommended ? "2px solid #d77429" : undefined,
+                                outlineOffset: "-2px",
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "space-between",
@@ -268,7 +279,10 @@ const AugmentCard = ({
                                 ...hocFantasyRadioSx,
                             }}
                         >
-                            <span>{option.label}</span>
+                            <span>
+                                {option.value === recommended ? "◆ " : ""}
+                                {option.label}
+                            </span>
                             <Radio
                                 name={`augment-${kind}`}
                                 value={option.value}

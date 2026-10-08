@@ -1,3 +1,4 @@
+import { PremiumSetupPanel } from "./premium/PremiumAdvisor";
 import {
     Artifact,
     Augment,
@@ -3573,6 +3574,13 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                             <RankedPlacementRosters snapshot={snapshot} userTeam={userTeam} />
                         )}
                         <RankedArtifactsPanel snapshot={snapshot} userTeam={userTeam} />
+                        {!augmentOverlayOpen && (
+                            <PremiumSetupPanel
+                                gameId={snapshot.gameId}
+                                stageKey={`${snapshot.phase}:${snapshot.placementStage}`}
+                                auto
+                            />
+                        )}
                         {(userTeam === TeamVals.LEFT ? snapshot.leftArtifactTier1 : snapshot.rightArtifactTier1) ===
                             Artifact.Tier1Artifact.BARREL_BARRICADE && (
                             <BarrelPlacementControls
@@ -3775,14 +3783,20 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                                         opacity: ready ? 0.64 : 1,
                                                     }}
                                                 >
-                                                    <SideToggleContainer
-                                                        side={userTeam === TeamVals.LEFT ? "green" : "red"}
-                                                        teamType={userTeam}
-                                                        showArtifactPicker={false}
-                                                        budgetPoints={augmentBudget}
-                                                        authoritativeSelections={augmentAuthoritativeSelections}
-                                                        onReadyChange={setAugmentReady}
-                                                    />
+                                                    <PremiumSetupPanel
+                                                        setupView
+                                                        gameId={snapshot.gameId}
+                                                        stageKey={`${snapshot.phase}:${snapshot.placementStage}`}
+                                                    >
+                                                        <SideToggleContainer
+                                                            side={userTeam === TeamVals.LEFT ? "green" : "red"}
+                                                            teamType={userTeam}
+                                                            showArtifactPicker={false}
+                                                            budgetPoints={augmentBudget}
+                                                            authoritativeSelections={augmentAuthoritativeSelections}
+                                                            onReadyChange={setAugmentReady}
+                                                        />
+                                                    </PremiumSetupPanel>
                                                 </Box>
                                             </PhasePanel>
                                         </Box>

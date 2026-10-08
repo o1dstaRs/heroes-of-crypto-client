@@ -1,3 +1,4 @@
+import { PremiumSearch } from "./premium/PremiumSearch";
 import {
     createPickSimState,
     CreatureByLevel,
@@ -1753,6 +1754,7 @@ const App: React.FC = () => {
                         {/* Floating notifications, friends, and messages; compact during fights. */}
                         <SocialDock />
                         <LiveMatchBanner />
+                        <PremiumSearch />
                         <AuthedRoutes windowSize={windowSize} />
                     </Router>
                 </CurrentLobbyProvider>

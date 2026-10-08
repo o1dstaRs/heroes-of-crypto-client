@@ -1,3 +1,4 @@
+import { PremiumShield } from "./premium/PremiumAdvisor";
 import { type TeamType } from "@heroesofcrypto/common";
 import Box from "@mui/joy/Box";
 import Tooltip from "@mui/joy/Tooltip";
@@ -193,20 +194,24 @@ const PlayerAvatar: React.FC<{
     size: number;
     text: MatchupProfile;
     tone: MatchupTeamTone;
-}> = ({ player, profile, size, text, tone }) =>
-    player.isAi ? (
-        <AiAvatar label={`${text.username} — AI`} size={size} />
-    ) : profile ? (
-        <LeagueEmblem
-            label={`${text.username} — ${text.rank}`}
-            league={profile.league ?? 0}
-            wealth={profile.wealth ?? 0}
-            size={size}
-            variant={size <= 48 ? "compact" : "default"}
-        />
-    ) : (
-        <Crest team={player.team} tone={tone} size={size} />
-    );
+}> = ({ player, profile, size, text, tone }) => (
+    <Box sx={{ position: "relative", width: size, height: size }}>
+        {player.isAi ? (
+            <AiAvatar label={`${text.username} — AI`} size={size} />
+        ) : profile ? (
+            <LeagueEmblem
+                label={`${text.username} — ${text.rank}`}
+                league={profile.league ?? 0}
+                wealth={profile.wealth ?? 0}
+                size={size}
+                variant={size <= 48 ? "compact" : "default"}
+            />
+        ) : (
+            <Crest team={player.team} tone={tone} size={size} />
+        )}
+        {!player.isAi && <PremiumShield testOnly />}
+    </Box>
+);
 
 const DetailStat: React.FC<{ label: string; value: string | number; color?: string }> = ({ label, value, color }) => (
     <Box
