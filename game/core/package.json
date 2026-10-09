@@ -35,7 +35,7 @@
         "@types/node-schedule": "^2.1.8",
         "@types/randomcolor": "^0.5.9",
         "@types/react": "^19.3.0",
-        "@types/react-dom": "^19.2.3",
+        "@types/react-dom": "^19.3.0",
         "@types/uuid": "^11.0.0",
         "axios": "1.20.0",
         "denque": "^2.1.0",
