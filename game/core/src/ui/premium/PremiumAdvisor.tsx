@@ -6,10 +6,12 @@ import {
     fetchPremium,
     type PremiumAdvice,
     type PremiumChoice,
-    type PremiumEvidence,
     type PremiumOperation,
 } from "../../api/premium_client";
 import { useAuthContext } from "../auth/context/auth_context";
+import { EvidenceText } from "./PremiumEvidenceText";
+
+export { EvidenceText } from "./PremiumEvidenceText";
 
 export const PremiumContext = createContext<PremiumAdvice | undefined>(undefined);
 const orange = "#ea802c";
@@ -59,7 +61,7 @@ export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number)
             setError("");
             try {
                 const next = await applyPremium(gameId, advice.revision, operation);
-                setAdvice({ ...advice, ...next });
+                setAdvice({ ...advice, ...next, evidence: next.evidence });
             } catch {
                 setError("The match changed. Advice refreshed; your current choices are preserved.");
                 await refresh();
@@ -72,24 +74,13 @@ export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number)
     return { advice, apply, busy, error };
 };
 
-export const EvidenceText: React.FC<{ evidence?: PremiumEvidence }> = ({ evidence }) =>
-    !evidence ? (
-        <Typography level="body-xs">Policy guidance · evidence snapshot unavailable</Typography>
-    ) : (
-        <Typography level="body-xs" sx={{ color: "#ceb399" }}>
-            {evidence.independentFamilies
-                ? `${evidence.independentFamilies} matched training families · observed score ${Math.round((evidence.scoreRate ?? 0) * 100)}% · 95% interval ${evidence.interval95.map((n) => `${Math.round(n * 100)}%`).join("–")}`
-                : "No exact matches in the pilot. This recommendation uses the ranked policy."}
-            {evidence.independentFamilies > 0 && " · Association, not a win prediction."}
-        </Typography>
-    );
 const ChoiceExplanation: React.FC<{ choice: PremiumChoice }> = ({ choice }) => (
     <Box sx={{ maxWidth: 350, p: 0.5 }}>
         <Typography level="title-sm" sx={{ color: orange }}>
             {choice.label}
         </Typography>
         {choice.reasons.map((reason) => (
-            <Typography key={reason} level="body-sm" sx={{ mt: 0.75 }}>
+            <Typography key={reason} level="body-sm" sx={{ mt: 0.75, color: "#f3dfcb" }}>
                 {reason}
             </Typography>
         ))}
@@ -117,7 +108,19 @@ export const PremiumMark: React.FC<{ kind: PremiumChoice["kind"]; value: number 
                 boxShadow: index === 0 ? "inset 0 0 18px #c764242b, 0 0 15px #d6733045" : undefined,
             }}
         >
-            <Tooltip title={<ChoiceExplanation choice={choice} />} placement="top" arrow enterDelay={100}>
+            <Tooltip
+                title={<ChoiceExplanation choice={choice} />}
+                placement="top"
+                arrow
+                enterDelay={100}
+                sx={{
+                    bgcolor: "#21150f",
+                    color: "#f3dfcb",
+                    border: "1px solid #a95825",
+                    boxShadow: "0 8px 24px #0009",
+                    "--Tooltip-arrowBackground": "#21150f",
+                }}
+            >
                 <Box
                     component="button"
                     type="button"

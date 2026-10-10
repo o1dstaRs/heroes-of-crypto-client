@@ -1183,6 +1183,8 @@ export const effectsAppliedSceneLogLines = (
         let text: string;
         if (entry.resisted) {
             text = `${name} resisted ${entry.name}`;
+        } else if (entry.kind === "buff" && entry.sourceUnitId) {
+            text = `${name} took ${entry.name} from ${unitNames.get(entry.sourceUnitId) ?? "Unit"}`;
         } else {
             const verb = entry.kind === "buff" ? "gains" : entry.kind === "debuff" ? "suffers" : "got";
             // A duration at or past the whole-fight cap reads as "permanent" — no lap suffix.
@@ -1517,6 +1519,8 @@ export class RankedPlayScene extends Sandbox {
     private rankedStatsLastLeftDamage = 0;
     private rankedStatsLastRightDamage = 0;
     private rankedStatsSeries: IFightStatsSample[] = [];
+    /** Latest snapshot sequence folded into the casualty timeline. Stale polls must not rewind it. */
+    private rankedStatsSequence = -1;
     private readonly rankedStatsAliveCreatureGroups = new Map<string, IFightCreatureElimination>();
     private rankedSceneLogGameId = "";
     private rankedSceneLogSequence = -1;
@@ -2126,6 +2130,15 @@ export class RankedPlayScene extends Sandbox {
             // resurrection.
             if (snapshot.latestSequence >= this.lastAuthoritativeSequence) {
                 this.shatterNewlyDeadUnits(snapshot);
+                // The casualty timeline has to see this board too. Waiting until the animation idle
+                // used to skip every snapshot that arrived mid-attack, so most wiped creatures never
+                // got a portrait — the chart only marked whoever happened to die between animations.
+                if ((snapshot.fightStarted || snapshot.fightFinished) && this.sc_visibleState) {
+                    const animatedState = authoritativeSnapshotToSandboxSceneState(snapshot, {
+                        hideOpponentPlacements: !this.sandboxCoop,
+                    });
+                    this.applyRankedFightStats(snapshot, animatedState.units);
+                }
             }
             return;
         }
@@ -4022,7 +4035,12 @@ export class RankedPlayScene extends Sandbox {
         this.ensureRankedFightStatsStarted();
         this.mergeRankedRoster(units);
         this.applyServerStartTotals(snapshot);
-        this.sampleRankedFightStats(units, lap);
+        // A poll can deliver an older snapshot while a newer one is already on the timeline. Sampling
+        // it would put a dead creature back among the living and then record the same wipe twice.
+        if (snapshot.latestSequence >= this.rankedStatsSequence) {
+            this.rankedStatsSequence = snapshot.latestSequence;
+            this.sampleRankedFightStats(units, lap);
+        }
 
         // The fight is over if ANY authoritative signal says so:
         //   1. finishFight already ran from the fight_finished event (sc_visibleState.hasFinished) — this
@@ -4102,6 +4120,7 @@ export class RankedPlayScene extends Sandbox {
         this.rankedStatsLastLeftDamage = 0;
         this.rankedStatsLastRightDamage = 0;
         this.rankedStatsSeries = [];
+        this.rankedStatsSequence = -1;
         this.rankedStatsAliveCreatureGroups.clear();
         this.rankedStatsLeftRoster.clear();
         this.rankedStatsRightRoster.clear();
@@ -4260,11 +4279,43 @@ export class RankedPlayScene extends Sandbox {
             }
         }
     }
+    /**
+     * A creature type on the fight-start roster that this timeline has neither marked dead nor seen
+     * alive. Adding it before the diff makes the next sample record the wipe if the stack is already
+     * gone, which is how a death that preceded the first sampled snapshot still gets a portrait.
+     */
+    private rememberUnseenRosterCreatures(): void {
+        const marked = new Set<string>();
+        for (const sample of this.rankedStatsSeries) {
+            for (const elimination of sample.eliminations ?? []) {
+                marked.add(elimination.creatureKey);
+            }
+        }
+        const remember = (roster: ReadonlyMap<string, RankedFightRosterEntry>, team: TeamType): void => {
+            for (const [name, entry] of roster) {
+                const creatureKey = `${team}|${name.trim().toLowerCase()}`;
+                if (marked.has(creatureKey) || this.rankedStatsAliveCreatureGroups.has(creatureKey)) {
+                    continue;
+                }
+                this.rankedStatsAliveCreatureGroups.set(creatureKey, {
+                    creatureKey,
+                    name,
+                    smallTextureName: entry.smallTextureName,
+                    team,
+                });
+            }
+        };
+        remember(this.rankedStatsLeftRoster, TeamVals.LEFT as TeamType);
+        remember(this.rankedStatsRightRoster, TeamVals.RIGHT as TeamType);
+    }
     private sampleRankedFightStats(units: SandboxSceneUnitState[], lap: number): boolean {
         if (!this.rankedStatsStarted) {
             return false;
         }
 
+        // Creatures the server says started, but this client never saw alive, still have to enter the
+        // set once — otherwise a wipe that happened before the first sampled snapshot is invisible.
+        this.rememberUnseenRosterCreatures();
         const currentCreatureGroups = new Map<string, IFightCreatureElimination>();
         for (const unit of units) {
             const amountAlive = Math.max(0, Math.floor(unit.properties.amount_alive));

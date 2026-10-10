@@ -38,6 +38,9 @@ jobs:
             - name: Test game image asset policy
               run: bun test --cwd game/core src/gameImageAssetPolicy.test.ts
 
+            - name: Test deployment routing and release guards
+              run: bun run test:deployment
+
     typecheck:
         name: Typecheck
         runs-on: ubuntu-latest
@@ -66,6 +69,9 @@ jobs:
 
             - name: Typecheck core
               run: bunx tsc --noEmit -p game/core/tsconfig.json
+
+            - name: Typecheck deployment scripts
+              run: bun run typecheck:deployment
 
     core:
         name: Core tests and build

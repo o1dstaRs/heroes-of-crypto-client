@@ -80,6 +80,8 @@ import {
     GameAction,
     type IDecisionContext,
     GameActionEngine,
+    additionalTurnTimeFor,
+    isMindlessAiUnit,
     autoPlaceArtifactBarrels,
     reconcileArtifactBarrels,
     TurnEngine,
@@ -8095,8 +8097,22 @@ export class Sandbox extends PixiScene {
         if (team === undefined || team === null) {
             return;
         }
+        this.tryRequestAdditionalTime(team as TeamType);
+    }
+    private tryRequestAdditionalTime(team: TeamType): boolean {
         const fightProps = FightStateManager.getInstance().getFightProperties();
-        const additionalTime = fightProps.requestAdditionalTurnTime(team as TeamType);
+        if (!fightProps.hasFightStarted() || fightProps.hasFightFinished()) {
+            return false;
+        }
+        const additionalTime = additionalTurnTimeFor(
+            {
+                fightProperties: fightProps,
+                unitsHolder: this.unitsHolder,
+                getCurrentActiveUnitId: () => this.currentActiveUnit?.getId(),
+            },
+            team,
+            false,
+        );
         if (additionalTime > 0) {
             // Log it — flagged by the active unit's team via the scene-log resolver (the active unit is
             // the requesting team's). Ranked logs this from the journal instead (engine text suppressed).
@@ -8106,7 +8122,10 @@ export class Sandbox extends PixiScene {
                 this.sc_visibleState.hasAdditionalTime = true;
                 this.sc_visibleStateUpdateNeeded = true;
             }
+            this.updateVisibleTurnTimer();
+            return true;
         }
+        return false;
     }
     /**
      * Whether the local viewer may request additional turn time for `team`. Local sandbox drives every
@@ -8122,7 +8141,16 @@ export class Sandbox extends PixiScene {
      * its local copy never learns that the team already asked this lap.
      */
     protected additionalTimeOnOffer(team: TeamType): boolean {
-        return !!FightStateManager.getInstance().getFightProperties().requestAdditionalTurnTime(team, true);
+        return (
+            additionalTurnTimeFor(
+                {
+                    fightProperties: FightStateManager.getInstance().getFightProperties(),
+                    unitsHolder: this.unitsHolder,
+                    getCurrentActiveUnitId: () => this.currentActiveUnit?.getId(),
+                },
+                team,
+            ) > 0
+        );
     }
     private clearBoardSelection(_notifyUnitDeselected: boolean = true): void {
         // stop board selection animation if any
@@ -16747,40 +16775,7 @@ export class Sandbox extends PixiScene {
             this.hoverManager.setLastPlacement(undefined);
 
             // --- A. TURN TIMER LOGIC ---
-            // On a missed turn we no longer auto-skip. The FIRST miss of the fight plays a fixed safe
-            // default (hourglass, else Luck Shield); every later miss is played by the AI. A 2nd missed
-            // turn in a row flips the AI toggle on (so the AI keeps playing until the player turns it off
-            // via the AI button). Skipping is only a fallback if neither can act.
-            if (
-                !this.sc_gameActionTransport &&
-                !this.replayPlaybackActive &&
-                this.currentActiveUnit &&
-                !this.aiController.performingAction &&
-                !this.aiController.isAIActive &&
-                HoCLib.getTimeMillis() >= fightProps.getCurrentTurnEnd()
-            ) {
-                this.sandboxConsecutiveTimeouts += 1;
-                if (this.sandboxConsecutiveTimeouts >= 2) {
-                    // Second miss in a row: turn the AI toggle on; the normal AI trigger loop above takes
-                    // over from here (and the bottom-left "AI Toggle On" badge shows).
-                    this.aiController.isAIActive = true;
-                    this.buttonManager.refreshButtons(true);
-                    this.sc_visibleStateUpdateNeeded = true;
-                } else {
-                    // First miss of the FIGHT buys the grace turn instead of an AI-played one. The
-                    // allowance is burned even when the engine refuses both defaults, so it stays once per
-                    // fight rather than retrying on the next miss (matches the server). A spent grace — or
-                    // a refused one — falls through to the one-shot AI turn, then to a bare skip.
-                    let played = false;
-                    if (!this.sandboxGraceTurnUsed) {
-                        this.sandboxGraceTurnUsed = true;
-                        played = this.runSandboxGraceTurn();
-                    }
-                    if (!played && !this.aiController.forceCurrentTurn(300)) {
-                        this.finishTurn(false, "timeout");
-                    }
-                }
-            }
+            this.handleLocalTurnTimeout(HoCLib.getTimeMillis());
 
             if (this.cellToUnitPreRound) {
                 this.cellToUnitPreRound = undefined;
@@ -18979,6 +18974,43 @@ export class Sandbox extends PixiScene {
     protected turnTrace(label: string, startMs: number): void {
         if (typeof window !== "undefined" && (window as unknown as { __hocTurnTrace?: boolean }).__hocTurnTrace) {
             console.log(`[turn-lag] ${label}: ${(performance.now() - startMs).toFixed(1)}ms`);
+        }
+    }
+    private handleLocalTurnTimeout(now: number): void {
+        const fightProps = FightStateManager.getInstance().getFightProperties();
+        if (
+            this.sc_gameActionTransport ||
+            this.replayPlaybackActive ||
+            !fightProps.hasFightStarted() ||
+            fightProps.hasFightFinished() ||
+            !this.currentActiveUnit ||
+            this.aiController.performingAction ||
+            this.aiController.isAIActive ||
+            fightProps.getCurrentTurnEnd() <= 0 ||
+            now < fightProps.getCurrentTurnEnd()
+        ) {
+            return;
+        }
+        const mindlessUnit = isMindlessAiUnit(this.currentActiveUnit);
+        if (!mindlessUnit && this.tryRequestAdditionalTime(this.currentActiveUnit.getTeam())) {
+            return;
+        }
+
+        this.sandboxConsecutiveTimeouts += 1;
+        if (this.sandboxConsecutiveTimeouts >= 2) {
+            this.aiController.isAIActive = true;
+            this.buttonManager.refreshButtons(true);
+            this.sc_visibleStateUpdateNeeded = true;
+            return;
+        }
+
+        let played = false;
+        if (!mindlessUnit && !this.sandboxGraceTurnUsed) {
+            this.sandboxGraceTurnUsed = true;
+            played = this.runSandboxGraceTurn();
+        }
+        if (!played && !this.aiController.forceCurrentTurn(300)) {
+            this.finishTurn(false, "timeout");
         }
     }
     /**

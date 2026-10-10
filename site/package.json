@@ -5,9 +5,9 @@
     "type": "module",
     "scripts": {
         "astro": "astro",
-        "build": "bun run sync:hero && bun run test && astro build && bun run build:knowledge",
+        "build": "bun run sync:hero && bun run test && bun scripts/astro_build.ts production && bun run build:knowledge",
         "build:knowledge": "bun scripts/build_knowledge_graph.ts",
-        "build:test": "bun run sync:hero && bun run test && astro build --mode test && bun run build:knowledge",
+        "build:test": "bun run sync:hero && bun run test && bun scripts/astro_build.ts test && bun run build:knowledge",
         "check:art": "bun scripts/sync_catalog_icons.ts --check",
         "check:hero": "bun scripts/sync_hero_art.ts --check",
         "dev": "astro dev",

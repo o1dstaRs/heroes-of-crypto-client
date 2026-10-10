@@ -1,4 +1,9 @@
-import { PremiumSearch } from "./premium/PremiumSearch";
+import {
+    PremiumSearchGameSurface,
+    PremiumSearchProvider,
+    PremiumSearchSlot,
+    usePremiumSearchVisible,
+} from "./premium/PremiumSearch";
 import {
     createPickSimState,
     CreatureByLevel,
@@ -228,8 +233,13 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
     const [started, setStarted] = useState(showFightMatchupPreview);
     // A signed-in player standing in the offline sandbox can invite a friend into a co-op sandbox (the
     // friends panel's "Invite to sandbox"). Published app-wide so the dock offers it only from here.
+    // A started fight has nothing to carry, so the invite closes when the fight begins.
     const canInviteFriend =
         authenticated && user?.is_active !== false && !gameActionTransport && !showFightMatchupPreview && !started;
+    // Ask Premium sits on this row once the account can open it. The fight keeps the row after Invite
+    // a friend leaves: a started fight has nothing to carry into a co-op, but the button must not jump
+    // back over the sound and fullscreen medallions.
+    const premiumSearchVisible = usePremiumSearchVisible();
     useEffect(() => {
         setSandboxInviteAvailable(canInviteFriend);
         return () => setSandboxInviteAvailable(false);
@@ -382,6 +392,7 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
 
     return (
         <ButtonProvider>
+            <PremiumSearchGameSurface />
             <div className="container" style={{ display: "flex" }}>
                 <CssVarsProvider theme={hocJoyTheme}>
                     <CssBaseline />
@@ -392,10 +403,22 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
                             gameStarted={started}
                             windowSize={windowSize}
                             rankedFooter={
-                                !started && !replayPlaybackActive ? (
+                                !replayPlaybackActive && (!started || canInviteFriend || premiumSearchVisible) ? (
                                     <div style={{ display: "grid", gap: 6, width: "100%", justifyItems: "center" }}>
-                                        <PlayRankedBadge />
-                                        {canInviteFriend && <InviteFriendBadge />}
+                                        {!started && <PlayRankedBadge />}
+                                        {(canInviteFriend || premiumSearchVisible) && (
+                                            <div
+                                                key="sandbox-invite"
+                                                style={{
+                                                    position: "relative",
+                                                    width: "min(100%, 209px)",
+                                                    minHeight: "35.2px",
+                                                }}
+                                            >
+                                                <PremiumSearchSlot />
+                                                {canInviteFriend && <InviteFriendBadge />}
+                                            </div>
+                                        )}
                                     </div>
                                 ) : undefined
                             }
@@ -1754,8 +1777,9 @@ const App: React.FC = () => {
                         {/* Floating notifications, friends, and messages; compact during fights. */}
                         <SocialDock />
                         <LiveMatchBanner />
-                        <PremiumSearch />
-                        <AuthedRoutes windowSize={windowSize} />
+                        <PremiumSearchProvider>
+                            <AuthedRoutes windowSize={windowSize} />
+                        </PremiumSearchProvider>
                     </Router>
                 </CurrentLobbyProvider>
             </SocialProvider>

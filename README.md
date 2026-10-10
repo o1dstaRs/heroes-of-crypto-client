@@ -68,6 +68,8 @@ Most important commands to execute from the root folder (you need [bun](https://
 -   `bun run lint:fix` -> Run all lint fixers (ESLint --fix, SCSS fixes, package.json sorting, Prettier write).
 -   `bun run start` -> Start the game locally.
 
+Release builds and coordinated test/production deployment are documented in [DEPLOYMENT.md](DEPLOYMENT.md). Start with `bun run deploy:plan`; `bun run deploy:all` deploys the shared assistant, test game/APIs/site, then production through the server's existing health checks and rollback.
+
 ## Contribution
 
 We welcome contributions to the Heroes of Crypto game client! Whether you’re a seasoned developer or just getting started, there are many ways you can help improve the project.

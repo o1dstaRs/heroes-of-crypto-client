@@ -56,6 +56,7 @@ export default function RightSideBar({
     windowSize,
     rankedPanel,
     rankedFooter,
+    fightAdvice,
     showWallet = false,
     showSystemControls = true,
     onClose,
@@ -65,6 +66,7 @@ export default function RightSideBar({
     windowSize: IWindowSize;
     rankedPanel?: React.ReactNode;
     rankedFooter?: React.ReactNode;
+    fightAdvice?: React.ReactNode;
     showWallet?: boolean;
     showSystemControls?: boolean;
     onClose?: () => void;
@@ -347,6 +349,7 @@ export default function RightSideBar({
                             scrollRailInsetPx={sidebarPlainFrameSideInsetPx(barSize)}
                         />
                     )}
+                    {gameStarted && fightAdvice}
                     {/* Turn actions live here rather than floating over the board — those cells have to stay
                         clickable to move and attack. The buttons keep their own narrow column and the damage
                         table takes the rest of the width beside them. */}
@@ -498,35 +501,29 @@ export default function RightSideBar({
             {/* Reserve space beneath the log for the sidebar's fixed footer row. */}
             {/* Reserve the full stacked footer height: sound now sits ABOVE fullscreen in the corner. */}
             {showSystemControls && <Box sx={{ height: `${GAME_SYSTEM_CONTROLS_STACK_HEIGHT_PX}px`, flexShrink: 0 }} />}
+            {showSystemControls && !rankedPanel && gameStarted && (
+                // Sandbox exit stays in the shared top-right corner once the fight starts, even when the
+                // centre plate is Invite a friend. An anonymous player has nothing behind /play but the
+                // login gate, so leaving just resets the sandbox. A signed-in player goes to the play hub.
+                <GameCornerSlot>
+                    {onStartOver && <GameCornerStartOverButton onClick={handleStartOver} />}
+                    <GameCornerExitButton
+                        onClick={() => {
+                            if (authenticated) {
+                                navigate("/play");
+                            } else {
+                                manager.StartOver();
+                            }
+                        }}
+                    />
+                </GameCornerSlot>
+            )}
             {showSystemControls && (
                 <GameSystemControls
                     sidebarWidth={barSize}
                     rightStack
                     centerInRow={Boolean(rankedFooter)}
-                    center={
-                        rankedFooter ? (
-                            rankedFooter
-                        ) : rankedPanel && gameStarted ? (
-                            rankedPanel
-                        ) : !rankedPanel && gameStarted ? (
-                            // Sandbox exit: an anonymous player has nothing behind /play but the login
-                            // gate, so leaving the fight just resets the sandbox to a fresh placement
-                            // (start over). A signed-in player keeps the trip to the play hub. The control
-                            // itself paints in the shared top-right corner, not in this centre slot.
-                            <GameCornerSlot>
-                                {onStartOver && <GameCornerStartOverButton onClick={handleStartOver} />}
-                                <GameCornerExitButton
-                                    onClick={() => {
-                                        if (authenticated) {
-                                            navigate("/play");
-                                        } else {
-                                            manager.StartOver();
-                                        }
-                                    }}
-                                />
-                            </GameCornerSlot>
-                        ) : undefined
-                    }
+                    center={rankedFooter ? rankedFooter : rankedPanel && gameStarted ? rankedPanel : undefined}
                 />
             )}
         </Sheet>
