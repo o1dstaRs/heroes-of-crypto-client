@@ -325,7 +325,7 @@ export const RankedGameView: React.FC<Props> = ({
     useReportPremiumSearchMatch(
         gameId,
         "play",
-        snapshot && !replayOnly && !sandboxCoop ? premiumSearchPlayVersion(snapshot) : undefined,
+        snapshot?.gameId === gameId && !replayOnly && !sandboxCoop ? premiumSearchPlayVersion(snapshot) : undefined,
     );
     const effectiveLocalModelConfig = useMemo(
         () => resolveEffectiveLocalModelOpponentConfig(localModelConfig, snapshot, viewerTeam),
