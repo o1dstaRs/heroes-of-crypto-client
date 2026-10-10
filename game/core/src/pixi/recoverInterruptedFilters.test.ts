@@ -124,10 +124,9 @@ describe("interrupted battlefield filters", () => {
         const { renderer, internals } = fixture();
         const leasedByText = TexturePool.getOptimalTexture({ width: 32, height: 32 });
         const leasedByEffect = TexturePool.getOptimalTexture({ width: 32, height: 32 });
-        internals._filterStack = [
-            { skip: true, inputTexture: leasedByText, backTexture: Texture.EMPTY },
-            { skip: false, inputTexture: leasedByEffect, backTexture: Texture.EMPTY },
-        ];
+        const textSlot = { skip: false, inputTexture: leasedByText, backTexture: Texture.EMPTY };
+        textSlot.skip = true;
+        internals._filterStack = [textSlot, { skip: false, inputTexture: leasedByEffect, backTexture: Texture.EMPTY }];
         internals._filterStackIndex = 1;
         recoverInterruptedFilters(renderer);
 
