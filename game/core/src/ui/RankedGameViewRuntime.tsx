@@ -1,5 +1,7 @@
 import { PremiumSetupPanel } from "./premium/PremiumAdvisor";
 import { PremiumFightPanel } from "./premium/PremiumFightPanel";
+import { useReportPremiumSearchMatch } from "./premium/PremiumSearchMatchContext";
+import { premiumSearchPlayVersion } from "./premium/premiumSearchFreshness";
 import {
     Artifact,
     Augment,
@@ -320,6 +322,11 @@ export const RankedGameView: React.FC<Props> = ({
     const localModelConfig = useMemo(() => getLocalModelOpponentConfig(), []);
     const viewerTeam = userTeam === TeamVals.NO_TEAM ? undefined : userTeam;
     const [snapshot, setSnapshot] = useState<PlaySnapshot | null>(null);
+    useReportPremiumSearchMatch(
+        gameId,
+        "play",
+        snapshot && !replayOnly && !sandboxCoop ? premiumSearchPlayVersion(snapshot) : undefined,
+    );
     const effectiveLocalModelConfig = useMemo(
         () => resolveEffectiveLocalModelOpponentConfig(localModelConfig, snapshot, viewerTeam),
         [localModelConfig, snapshot, viewerTeam],

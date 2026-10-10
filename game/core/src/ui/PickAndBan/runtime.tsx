@@ -1,3 +1,4 @@
+import { useReportPremiumSearchMatch } from "../premium/PremiumSearchMatchContext";
 import { PremiumContext, PremiumDraftBanner, PremiumMark, usePremiumAdvisor } from "../premium/PremiumAdvisor";
 import {
     AllAbilities,
@@ -2808,6 +2809,11 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
     } = usePickBanEvents();
     const { doctrine: sendDoctrine, pickPair, pick, artifact } = useAuthContext();
     const premium = usePremiumAdvisor(gameId, phaseIdentity);
+    useReportPremiumSearchMatch(
+        gameId,
+        "draft",
+        JSON.stringify([phaseIdentity, picked, opponentPicked, doctrine, artifactTier1, artifactTier2, mapType]),
+    );
     const [busy, setBusy] = useState(false);
 
     // Pre-game doctrine auto-commit: when the draft enters the DOCTRINE phase and the player hasn't committed

@@ -1,5 +1,8 @@
 import { premiumSourceHref } from "./premiumSourceHref";
 import { PremiumAnswer } from "./PremiumAnswer";
+import { PremiumSearchMatchProvider, usePremiumSearchMatch } from "./PremiumSearchMatchContext";
+import { premiumSearchMatchChanged, type PremiumSearchMatchVersion } from "./premiumSearchFreshness";
+import { useAuthContext } from "../auth/context/auth_context";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import { Box, Button, IconButton, Input, Typography } from "@mui/joy";
 import Popper from "@mui/material/Popper";
@@ -15,6 +18,7 @@ import {
     premiumSearchGameId,
     readPremiumSearch,
     type PremiumSearchEvent,
+    type PremiumSearchMessage,
 } from "../../api/premium_search";
 import type { PremiumEvidence } from "../../api/premium_client";
 import { EvidenceText, usePremiumAdvisor } from "./PremiumAdvisor";
@@ -41,8 +45,10 @@ export const PremiumSearchProvider: React.FC<{ children: React.ReactNode }> = ({
             <SetSearchVisibleContext.Provider value={setVisible}>
                 <SuppressCornerContext.Provider value={setSuppressCorner}>
                     <SearchVisibleContext.Provider value={visible}>
-                        <PremiumSearch anchor={anchor} suppressCorner={suppressCorner} />
-                        {children}
+                        <PremiumSearchMatchProvider>
+                            <PremiumSearch anchor={anchor} suppressCorner={suppressCorner} />
+                            {children}
+                        </PremiumSearchMatchProvider>
                     </SearchVisibleContext.Provider>
                 </SuppressCornerContext.Provider>
             </SetSearchVisibleContext.Provider>
@@ -92,8 +98,11 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; suppressCo
 }) => {
     const setVisible = useContext(SetSearchVisibleContext);
     const { advice } = usePremiumAdvisor();
+    const { user } = useAuthContext();
+    const accountKey = user?.email || user?.username;
     const available = Boolean(advice);
     const location = useLocation();
+    const matchVersion = usePremiumSearchMatch(premiumSearchGameId(location.pathname));
     const reduceMotion = useReducedMotion();
     const searchId = useId();
     const buttonRef = useRef<HTMLButtonElement | null>(null);
@@ -107,7 +116,13 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; suppressCo
     const [contextLabel, setContextLabel] = useState("");
     const [evidence, setEvidence] = useState<PremiumEvidence[]>([]);
     const [sources, setSources] = useState<NonNullable<PremiumSearchEvent["items"]>>([]);
-    const [history, setHistory] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
+    const [history, setHistory] = useState<PremiumSearchMessage[]>([]);
+    const [lastRequest, setLastRequest] = useState<{
+        query: string;
+        history: PremiumSearchMessage[];
+        version?: PremiumSearchMatchVersion;
+    }>();
+    const matchChanged = premiumSearchMatchChanged(lastRequest?.version, matchVersion);
     const controller = useRef<AbortController | null>(null);
     useEffect(() => () => controller.current?.abort(), []);
     useLayoutEffect(() => {
@@ -117,18 +132,20 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; suppressCo
     useEffect(() => {
         setOpen(false);
     }, [location.pathname, anchor, available]);
-    useEffect(() => {
+    useLayoutEffect(() => {
         controller.current?.abort();
         controller.current = null;
         setBusy(false);
         setHistory([]);
+        setQuestion("");
+        setLastRequest(undefined);
         setStatus("");
         setContextLabel("");
         setAnswer("");
         setEvidence([]);
         setSources([]);
         setError("");
-    }, [location.pathname, available]);
+    }, [location.pathname, available, accountKey]);
     useEffect(() => {
         if (!open || !available) return;
         const onPointerDown = (event: PointerEvent) => {
@@ -151,6 +168,7 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; suppressCo
     }, [open, available]);
     if (!available || (!anchor && suppressCorner)) return null;
     const clearConversation = () => {
+        setLastRequest(undefined);
         setHistory([]);
         setAnswer("");
         setQuestion("");
@@ -166,8 +184,8 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; suppressCo
         setBusy(false);
         setStatus("Stopped. Any partial answer has not been added to the conversation.");
     };
-    const ask = async () => {
-        if (!question.trim() || busy) return;
+    const ask = async (input = question, priorHistory = history) => {
+        if (!input.trim() || busy) return;
         controller.current?.abort();
         const abort = new AbortController();
         controller.current = abort;
@@ -178,11 +196,12 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; suppressCo
         setAnswer("");
         setEvidence([]);
         setSources([]);
-        const query = question.trim();
+        const query = input.trim();
+        setLastRequest({ query, history: priorHistory, version: matchVersion });
         let completed = "";
         try {
             const response = await fetchPremiumSearch(
-                premiumSearchBody(query, location.pathname, history),
+                premiumSearchBody(query, location.pathname, priorHistory),
                 { Authorization: localStorage.getItem("accessToken") ?? "", ...deviceIdHeaders() },
                 abort.signal,
             );
@@ -191,7 +210,7 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; suppressCo
                 if (kind === "meta") {
                     const scope =
                         event.context === "match"
-                            ? `Current match${event.stage ? ` · ${event.stage === "board" ? "placement" : event.stage}` : ""}`
+                            ? `Match when asked${event.stage ? ` · ${event.stage === "board" ? "placement" : event.stage}` : ""}`
                             : "General tactical advice";
                     setContextLabel(scope);
                 }
@@ -212,7 +231,7 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; suppressCo
                 if (kind === "done") {
                     setAnswer(event.answer ?? completed);
                     setSources(event.sources ?? []);
-                    setStatus("");
+                    setStatus("Answer ready.");
                 }
                 if (kind === "sources") setSources(event.items ?? []);
                 if (kind === "premium_evidence" && event.packet)
@@ -222,8 +241,8 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; suppressCo
                     ]);
             });
             if (controller.current !== abort || abort.signal.aborted) return;
-            setHistory((previous) => [
-                ...previous,
+            setHistory([
+                ...priorHistory.slice(-4),
                 { role: "user", content: query },
                 { role: "assistant", content: completed },
             ]);
@@ -413,14 +432,14 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; suppressCo
                                 </Button>
                             )}
                         </Box>
-                        {(contextLabel || history.length > 0) && (
+                        {(contextLabel || lastRequest) && (
                             <Box
                                 sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 1 }}
                             >
                                 <Typography level="body-xs" sx={{ color: "#ceb399" }}>
                                     {contextLabel}
                                 </Typography>
-                                {history.length > 0 && (
+                                {lastRequest && (
                                     <Button
                                         size="sm"
                                         variant="plain"
@@ -431,6 +450,22 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; suppressCo
                                         New conversation
                                     </Button>
                                 )}
+                            </Box>
+                        )}
+                        {matchChanged && lastRequest && (
+                            <Box sx={{ borderLeft: "2px solid #e18b48", pl: 1 }}>
+                                <Typography level="body-xs" role="status" sx={{ color: "#f6bd8a" }}>
+                                    The match changed since you asked. This advice may need updating.
+                                </Typography>
+                                <Button
+                                    size="sm"
+                                    variant="plain"
+                                    disabled={busy}
+                                    onClick={() => void ask(lastRequest.query, lastRequest.history)}
+                                    sx={{ color: "#f6b87e", minHeight: 24, p: 0.5 }}
+                                >
+                                    Update for current match
+                                </Button>
                             </Box>
                         )}
                         {(error || answer || busy || status || sources.length > 0 || evidence.length > 0) && (
