@@ -23,14 +23,14 @@ export const PremiumSearchMatchProvider: React.FC<{ children: React.ReactNode }>
 };
 
 export const useReportPremiumSearchMatch = (
-    gameId: string,
+    gameId: string | undefined,
     source: PremiumSearchMatchVersion["source"],
     key?: string,
 ): void => {
     const report = useContext(ReportVersion);
     const owner = useId();
     useLayoutEffect(() => {
-        if (key === undefined) return;
+        if (!gameId || key === undefined) return;
         report(owner, { gameId, source, key });
         return () => report(owner);
     }, [gameId, source, key, owner, report]);

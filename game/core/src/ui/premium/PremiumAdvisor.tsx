@@ -1,5 +1,7 @@
 import { Box, Button, Sheet, Tooltip, Typography } from "@mui/joy";
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { isAxiosError } from "axios";
+import { createPremiumRequestGate } from "./premiumRequestGate";
 
 import {
     applyPremium,
@@ -17,29 +19,43 @@ export const PremiumContext = createContext<PremiumAdvice | undefined>(undefined
 const orange = "#ea802c";
 
 export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number) => {
-    const { authenticated } = useAuthContext();
+    const { authenticated, user } = useAuthContext();
+    const accountKey = user?.email || user?.username;
     const [advice, setAdvice] = useState<PremiumAdvice>();
     const [error, setError] = useState("");
     const [busy, setBusy] = useState(false);
-    const generation = useRef(0);
+    const requests = useRef(createPremiumRequestGate());
     const refresh = useCallback(
         async (signal?: AbortSignal) => {
             if (!authenticated || gameId?.startsWith("preview")) return;
-            const current = generation.current;
+            const request = requests.current.begin("read");
+            if (!request) return;
             try {
                 const next = await fetchPremium(gameId, signal);
-                if (current === generation.current && !signal?.aborted)
+                if (requests.current.isCurrent(request) && !signal?.aborted)
                     setAdvice(next.entitlement.active ? next : undefined);
-            } catch {
-                /* Premium never blocks the match. */
+            } catch (failure) {
+                if (
+                    requests.current.isCurrent(request) &&
+                    !signal?.aborted &&
+                    isAxiosError(failure) &&
+                    [401, 403].includes(failure.response?.status ?? 0)
+                )
+                    setAdvice(undefined);
+            } finally {
+                requests.current.finish(request);
             }
         },
         [authenticated, gameId],
     );
-    useEffect(() => {
-        generation.current++;
+    useLayoutEffect(() => {
+        requests.current.reset();
         setAdvice(undefined);
         setError("");
+        setBusy(false);
+        return () => requests.current.reset();
+    }, [authenticated, accountKey, gameId, refreshKey]);
+    useEffect(() => {
         const controller = new AbortController();
         void refresh(controller.signal);
         const timer = setInterval(
@@ -49,24 +65,36 @@ export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number)
             gameId ? 3000 : 60000,
         );
         return () => {
-            generation.current++;
             controller.abort();
             clearInterval(timer);
         };
-    }, [refresh, refreshKey, gameId]);
+    }, [refresh, refreshKey, gameId, accountKey]);
     const apply = useCallback(
         async (operation: PremiumOperation) => {
             if (!gameId || !advice || busy) return;
+            const request = requests.current.begin("apply");
+            if (!request) return;
+            let refreshAfterFailure = false;
             setBusy(true);
             setError("");
             try {
                 const next = await applyPremium(gameId, advice.revision, operation);
-                setAdvice({ ...advice, ...next, evidence: next.evidence });
-            } catch {
-                setError("The match changed. Advice refreshed; your current choices are preserved.");
-                await refresh();
+                if (requests.current.isCurrent(request))
+                    setAdvice(next.entitlement.active ? { ...advice, ...next, evidence: next.evidence } : undefined);
+            } catch (failure) {
+                if (requests.current.isCurrent(request)) {
+                    setError(
+                        isAxiosError(failure) && failure.response?.status === 409
+                            ? "The match changed. Refreshing advice for its current state."
+                            : "Could not confirm the change. Refreshing advice; check your current choices.",
+                    );
+                    refreshAfterFailure = true;
+                }
             } finally {
-                setBusy(false);
+                if (requests.current.finish(request)) {
+                    setBusy(false);
+                    if (refreshAfterFailure) void refresh();
+                }
             }
         },
         [gameId, advice, busy, refresh],
