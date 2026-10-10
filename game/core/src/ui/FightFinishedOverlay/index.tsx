@@ -1558,7 +1558,11 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                             flexDirection: "column",
                         }}
                     >
-                        <CasualtyChartPanel series={stats.series} ornateResultsFrame />
+                        <CasualtyChartPanel
+                            series={stats.series}
+                            deaths={[...stats.leftDeaths, ...stats.rightDeaths]}
+                            ornateResultsFrame
+                        />
 
                         {/* Damage stays in the fixed space between the chart and roster. Longer lists
                             scroll here instead of moving or resizing any surrounding container. */}

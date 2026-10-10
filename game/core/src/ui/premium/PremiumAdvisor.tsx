@@ -1,43 +1,61 @@
 import { Box, Button, Sheet, Tooltip, Typography } from "@mui/joy";
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { isAxiosError } from "axios";
+import { createPremiumRequestGate } from "./premiumRequestGate";
 
 import {
     applyPremium,
     fetchPremium,
     type PremiumAdvice,
     type PremiumChoice,
-    type PremiumEvidence,
     type PremiumOperation,
 } from "../../api/premium_client";
 import { useAuthContext } from "../auth/context/auth_context";
+import { EvidenceText } from "./PremiumEvidenceText";
+
+export { EvidenceText } from "./PremiumEvidenceText";
 
 export const PremiumContext = createContext<PremiumAdvice | undefined>(undefined);
 const orange = "#ea802c";
 
 export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number) => {
-    const { authenticated } = useAuthContext();
+    const { authenticated, user } = useAuthContext();
+    const accountKey = user?.email || user?.username;
     const [advice, setAdvice] = useState<PremiumAdvice>();
     const [error, setError] = useState("");
     const [busy, setBusy] = useState(false);
-    const generation = useRef(0);
+    const requests = useRef(createPremiumRequestGate());
     const refresh = useCallback(
         async (signal?: AbortSignal) => {
             if (!authenticated || gameId?.startsWith("preview")) return;
-            const current = generation.current;
+            const request = requests.current.begin("read");
+            if (!request) return;
             try {
                 const next = await fetchPremium(gameId, signal);
-                if (current === generation.current && !signal?.aborted)
+                if (requests.current.isCurrent(request) && !signal?.aborted)
                     setAdvice(next.entitlement.active ? next : undefined);
-            } catch {
-                /* Premium never blocks the match. */
+            } catch (failure) {
+                if (
+                    requests.current.isCurrent(request) &&
+                    !signal?.aborted &&
+                    isAxiosError(failure) &&
+                    [401, 403].includes(failure.response?.status ?? 0)
+                )
+                    setAdvice(undefined);
+            } finally {
+                requests.current.finish(request);
             }
         },
         [authenticated, gameId],
     );
-    useEffect(() => {
-        generation.current++;
+    useLayoutEffect(() => {
+        requests.current.reset();
         setAdvice(undefined);
         setError("");
+        setBusy(false);
+        return () => requests.current.reset();
+    }, [authenticated, accountKey, gameId, refreshKey]);
+    useEffect(() => {
         const controller = new AbortController();
         void refresh(controller.signal);
         const timer = setInterval(
@@ -47,24 +65,36 @@ export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number)
             gameId ? 3000 : 60000,
         );
         return () => {
-            generation.current++;
             controller.abort();
             clearInterval(timer);
         };
-    }, [refresh, refreshKey, gameId]);
+    }, [refresh, refreshKey, gameId, accountKey]);
     const apply = useCallback(
         async (operation: PremiumOperation) => {
             if (!gameId || !advice || busy) return;
+            const request = requests.current.begin("apply");
+            if (!request) return;
+            let refreshAfterFailure = false;
             setBusy(true);
             setError("");
             try {
                 const next = await applyPremium(gameId, advice.revision, operation);
-                setAdvice({ ...advice, ...next });
-            } catch {
-                setError("The match changed. Advice refreshed; your current choices are preserved.");
-                await refresh();
+                if (requests.current.isCurrent(request))
+                    setAdvice(next.entitlement.active ? { ...advice, ...next, evidence: next.evidence } : undefined);
+            } catch (failure) {
+                if (requests.current.isCurrent(request)) {
+                    setError(
+                        isAxiosError(failure) && failure.response?.status === 409
+                            ? "The match changed. Refreshing advice for its current state."
+                            : "Could not confirm the change. Refreshing advice; check your current choices.",
+                    );
+                    refreshAfterFailure = true;
+                }
             } finally {
-                setBusy(false);
+                if (requests.current.finish(request)) {
+                    setBusy(false);
+                    if (refreshAfterFailure) void refresh();
+                }
             }
         },
         [gameId, advice, busy, refresh],
@@ -72,24 +102,13 @@ export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number)
     return { advice, apply, busy, error };
 };
 
-export const EvidenceText: React.FC<{ evidence?: PremiumEvidence }> = ({ evidence }) =>
-    !evidence ? (
-        <Typography level="body-xs">Policy guidance · evidence snapshot unavailable</Typography>
-    ) : (
-        <Typography level="body-xs" sx={{ color: "#ceb399" }}>
-            {evidence.independentFamilies
-                ? `${evidence.independentFamilies} matched training families · observed score ${Math.round((evidence.scoreRate ?? 0) * 100)}% · 95% interval ${evidence.interval95.map((n) => `${Math.round(n * 100)}%`).join("–")}`
-                : "No exact matches in the pilot. This recommendation uses the ranked policy."}
-            {evidence.independentFamilies > 0 && " · Association, not a win prediction."}
-        </Typography>
-    );
 const ChoiceExplanation: React.FC<{ choice: PremiumChoice }> = ({ choice }) => (
     <Box sx={{ maxWidth: 350, p: 0.5 }}>
         <Typography level="title-sm" sx={{ color: orange }}>
             {choice.label}
         </Typography>
         {choice.reasons.map((reason) => (
-            <Typography key={reason} level="body-sm" sx={{ mt: 0.75 }}>
+            <Typography key={reason} level="body-sm" sx={{ mt: 0.75, color: "#f3dfcb" }}>
                 {reason}
             </Typography>
         ))}
@@ -117,7 +136,19 @@ export const PremiumMark: React.FC<{ kind: PremiumChoice["kind"]; value: number 
                 boxShadow: index === 0 ? "inset 0 0 18px #c764242b, 0 0 15px #d6733045" : undefined,
             }}
         >
-            <Tooltip title={<ChoiceExplanation choice={choice} />} placement="top" arrow enterDelay={100}>
+            <Tooltip
+                title={<ChoiceExplanation choice={choice} />}
+                placement="top"
+                arrow
+                enterDelay={100}
+                sx={{
+                    bgcolor: "#21150f",
+                    color: "#f3dfcb",
+                    border: "1px solid #a95825",
+                    boxShadow: "0 8px 24px #0009",
+                    "--Tooltip-arrowBackground": "#21150f",
+                }}
+            >
                 <Box
                     component="button"
                     type="button"

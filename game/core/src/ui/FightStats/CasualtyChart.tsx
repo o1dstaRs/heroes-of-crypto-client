@@ -5,9 +5,15 @@ import Tooltip from "@mui/joy/Tooltip";
 import { motion } from "framer-motion";
 import React, { useId } from "react";
 
-import { IFightStatsSample } from "../../scenes/VisibleState";
+import { IFightDeathEntry, IFightStatsSample } from "../../scenes/VisibleState";
 import { t, useTranslation } from "../../i18n/i18n";
 import { creatureImgSrc, imgSrc } from "./creatureImage";
+import {
+    ELIMINATION_MARKER_RADIUS,
+    eliminationMarkerExtent,
+    layoutEliminationMarkers,
+    withUnmarkedEliminations,
+} from "./eliminationMarkers";
 
 // --- "Heroes" palette (matches the in-game tooltip / overlay aesthetic) ---
 export const GREEN = "#46d160";
@@ -38,6 +44,8 @@ type FightStatsChartMetric = "casualties" | "damage";
 
 export const CasualtyChart: React.FC<{
     series: IFightStatsSample[];
+    /** Fallen stacks. Fully wiped types missing from `series` still get a portrait on the line. */
+    deaths?: readonly IFightDeathEntry[];
     drawDurationSec?: number;
     metric?: FightStatsChartMetric;
     /**
@@ -50,6 +58,7 @@ export const CasualtyChart: React.FC<{
     viewHeight?: number;
 }> = ({
     series,
+    deaths = [],
     drawDurationSec = 1.1,
     metric = "casualties",
     viewWidth = DEFAULT_CHART_W,
@@ -94,39 +103,39 @@ export const CasualtyChart: React.FC<{
 
     const finalGreen = accGreen(pts[n - 1]);
     const finalRed = accRed(pts[n - 1]);
-    const eliminationMarkers = pts.flatMap((sample, sampleIndex) => {
-        // Every elimination gets a marker. A creature whose portrait cannot be resolved still draws its
-        // crossed disc, so a death is never silently missing from the chart.
-        const eliminations = (sample.eliminations ?? []).map((elimination) => ({
-            elimination,
-            imageSrc: creatureImgSrc(elimination.smallTextureName),
-        }));
-        const markerGap = 22;
-        const markerRadius = 10;
-        const availableLeft = ML + markerRadius;
-        const availableRight = ML + PLOT_W - markerRadius;
-        const groupSpan = Math.min(PLOT_W - markerRadius * 2, Math.max(0, eliminations.length - 1) * markerGap);
-        const groupCenter = Math.min(
-            availableRight - groupSpan / 2,
-            Math.max(availableLeft + groupSpan / 2, xFor(sampleIndex)),
-        );
-
-        return eliminations.map(({ elimination, imageSrc }, eliminationIndex) => {
-            const casualtyPct = elimination.team === LOWER_TEAM ? accGreen(sample) : accRed(sample);
-            return {
-                elimination,
-                imageSrc,
-                pointX: xFor(sampleIndex),
-                pointY: yFor(casualtyPct),
-                centerX: groupCenter + (eliminationIndex - (eliminations.length - 1) / 2) * markerGap,
-                centerY: yFor(casualtyPct),
-                clipId: `${eliminationClipPrefix}-defeat-${sampleIndex}-${eliminationIndex}`,
-                lap: sample.lap,
-                sampleIndex,
-                eliminationIndex,
-            };
-        });
-    });
+    const timedSeries = withUnmarkedEliminations(pts, deaths, LOWER_TEAM);
+    const markerRadius = ELIMINATION_MARKER_RADIUS;
+    const markerExtent = eliminationMarkerExtent(markerRadius);
+    const markerInner = markerRadius - 2;
+    const badgeOffset = markerRadius * 0.7;
+    const badgeRadius = markerRadius * 0.45;
+    const badgeArm = markerRadius * 0.2;
+    const eliminationMarkers = layoutEliminationMarkers(
+        timedSeries.flatMap((sample, sampleIndex) =>
+            (sample.eliminations ?? []).map((elimination, eliminationIndex) => {
+                const casualtyPct = elimination.team === LOWER_TEAM ? accGreen(sample) : accRed(sample);
+                return {
+                    elimination,
+                    pointX: xFor(sampleIndex),
+                    pointY: yFor(casualtyPct),
+                    lap: sample.lap,
+                    sampleIndex,
+                    eliminationIndex,
+                };
+            }),
+        ),
+        {
+            left: ML + markerExtent,
+            right: ML + PLOT_W - markerExtent,
+            top: MT + markerExtent,
+            bottom: BASE_Y - markerExtent,
+        },
+        markerRadius,
+    ).map((marker) => ({
+        ...marker,
+        imageSrc: creatureImgSrc(marker.elimination.smallTextureName),
+        clipId: `${eliminationClipPrefix}-defeat-${marker.sampleIndex}-${marker.eliminationIndex}`,
+    }));
 
     return (
         <Box
@@ -145,7 +154,7 @@ export const CasualtyChart: React.FC<{
                 </linearGradient>
                 {eliminationMarkers.map((marker) => (
                     <clipPath key={marker.clipId} id={marker.clipId}>
-                        <circle cx={marker.centerX} cy={marker.centerY} r={8} />
+                        <circle cx={marker.centerX} cy={marker.centerY} r={markerInner} />
                     </clipPath>
                 ))}
             </defs>
@@ -264,18 +273,18 @@ export const CasualtyChart: React.FC<{
                             <circle
                                 cx={marker.centerX}
                                 cy={marker.centerY}
-                                r={10}
+                                r={markerRadius}
                                 fill={WOOD_DARK}
                                 stroke="rgba(0,0,0,.9)"
-                                strokeWidth={3}
+                                strokeWidth={2.5}
                             />
                             {marker.imageSrc && (
                                 <image
                                     href={marker.imageSrc}
-                                    x={marker.centerX - 8}
-                                    y={marker.centerY - 8}
-                                    width={16}
-                                    height={16}
+                                    x={marker.centerX - markerInner}
+                                    y={marker.centerY - markerInner}
+                                    width={markerInner * 2}
+                                    height={markerInner * 2}
                                     preserveAspectRatio="xMidYMid slice"
                                     clipPath={`url(#${marker.clipId})`}
                                 />
@@ -283,24 +292,24 @@ export const CasualtyChart: React.FC<{
                             <circle
                                 cx={marker.centerX}
                                 cy={marker.centerY}
-                                r={9}
+                                r={markerRadius - 1}
                                 fill="none"
                                 stroke={color}
-                                strokeWidth={1.5}
+                                strokeWidth={1.75}
                             />
                             <circle
-                                cx={marker.centerX + 7}
-                                cy={marker.centerY + 7}
-                                r={4.5}
+                                cx={marker.centerX + badgeOffset}
+                                cy={marker.centerY + badgeOffset}
+                                r={badgeRadius}
                                 fill={WOOD_DARK}
                                 stroke={color}
-                                strokeWidth={1}
+                                strokeWidth={1.25}
                             />
                             <path
-                                d={`M ${marker.centerX + 5} ${marker.centerY + 5} L ${marker.centerX + 9} ${marker.centerY + 9} M ${marker.centerX + 9} ${marker.centerY + 5} L ${marker.centerX + 5} ${marker.centerY + 9}`}
+                                d={`M ${marker.centerX + badgeOffset - badgeArm} ${marker.centerY + badgeOffset - badgeArm} L ${marker.centerX + badgeOffset + badgeArm} ${marker.centerY + badgeOffset + badgeArm} M ${marker.centerX + badgeOffset + badgeArm} ${marker.centerY + badgeOffset - badgeArm} L ${marker.centerX + badgeOffset - badgeArm} ${marker.centerY + badgeOffset + badgeArm}`}
                                 fill="none"
                                 stroke={PARCHMENT}
-                                strokeWidth={1.2}
+                                strokeWidth={1.6}
                                 strokeLinecap="round"
                             />
                         </motion.g>

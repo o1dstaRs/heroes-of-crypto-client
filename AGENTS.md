@@ -151,6 +151,12 @@ refresh (vite serves common via the `src` alias).
   scale from `glyphScaleX()` (or `keepGlyphRowUpright()` for an icon-and-number row), and code comparing a
   unit's facing with screen-space bounds uses `screenFacing()`. Otherwise the text renders backwards.
 - Pixi z-index: terrain ~20, gameplay graphics ~55, units ~4000 (sorted by Y), overlays ~5500+.
+- **A visible frame must begin and end with an empty Pixi filter stack.** Keep `PixiApp` rendering behind
+  `renderWithFilterRecovery`, including recovery before the draw and in `finally`. Catching a render error
+  alone leaves filter bounds active and shifts units/obstacles away from the floor on later frames. Do not
+  reset the stack inside a valid nested render, or return stale/popped filter textures still leased by Text.
+  Changes to Pixi versions, filters, texture lifetime, or render entry points must pass
+  `recoverInterruptedFilters.test.ts` and `PixiApp.lifecycle.test.ts`; both run in the existing core CI suite.
 - The `@heroesofcrypto/common` submodule tracks `main`. Run `git submodule update --remote` to pull latest.
 - **No two tracked paths may differ only by letter case** (`ui/liveMatchBanner.ts` next to `ui/LiveMatchBanner.tsx`).
   macOS and Windows see one path, so bun and Vite resolve whichever they find first and Vite caches it until

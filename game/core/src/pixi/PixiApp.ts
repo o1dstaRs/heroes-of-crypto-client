@@ -6,6 +6,7 @@ import { Application, Container, TexturePool, Ticker, UPDATE_PRIORITY } from "pi
 
 import { boardFitVerticalShift } from "./boardFit";
 import { isBoardMirrored, subscribeBoardMirror } from "./boardMirror";
+import { renderWithFilterRecovery } from "./recoverInterruptedFilters";
 import { renderResolutionForViewport, renderTexturePoolBucket, shouldUseRenderAntialias } from "./renderResolution";
 import { releaseIdlePooledTextures } from "./texturePoolRelease";
 import { ensureCanvasContextUsable, recordContextAboutToBeLost } from "./webglContextGuard";
@@ -123,11 +124,12 @@ export class PixiApp {
         // rendering resumes once the emitter is gone (texture re-resolved, scene rebuilt).
         const app = this.app;
         app.ticker.remove(app.render, app);
+        const render = () => app.render();
         let renderFailures = 0;
         app.ticker.add(
             () => {
                 try {
-                    app.render();
+                    renderWithFilterRecovery(app.renderer, render);
                     renderFailures = 0;
                 } catch (error) {
                     renderFailures += 1;

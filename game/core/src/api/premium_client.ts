@@ -1,6 +1,7 @@
 import { axiosGameInstance, endpoints } from "./axios";
 
-export interface PremiumEvidence {
+export interface PremiumOutcomeEvidence {
+    label?: string;
     evidenceId: string;
     independentFamilies: number;
     scoreRate: number | null;
@@ -8,12 +9,37 @@ export interface PremiumEvidence {
     status: "none" | "limited" | "supported";
     caveat: string;
 }
+export interface PremiumMetricEvidence {
+    label?: string;
+    evidenceId: string;
+    evidenceKind: "observed-health-metrics" | "observed-combat-metrics";
+    independentFamilies: number;
+    status: "none" | "limited" | "supported";
+    metrics: Record<
+        string,
+        {
+            description: string;
+            mean: number | null;
+            minFamilyMean: number | null;
+            maxFamilyMean: number | null;
+        }
+    >;
+    caveat: string;
+}
+export type PremiumEvidence = PremiumOutcomeEvidence | PremiumMetricEvidence;
 export interface PremiumChoice {
     kind: "creature" | "bundle" | "artifact" | "doctrine";
     value: number;
     label: string;
     reasons: string[];
     evidence?: PremiumEvidence;
+}
+export interface PremiumTurnAdvice {
+    sequence: number;
+    lap: number;
+    unitId: string;
+    status: "ready" | "waiting" | "automatic" | "unavailable";
+    options: { id: string; label: string; reasons: string[] }[];
 }
 export interface PremiumAdvice {
     entitlement: { active: boolean; reason: string };
@@ -30,6 +56,7 @@ export interface PremiumAdvice {
     ready?: boolean;
     budget?: number;
     policy?: string;
+    turn?: PremiumTurnAdvice;
 }
 export type PremiumOperation = "setup" | "automatic" | "formation" | "undo";
 const premiumUrl = (id: string): string =>

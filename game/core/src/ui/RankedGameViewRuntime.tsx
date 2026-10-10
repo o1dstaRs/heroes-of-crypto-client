@@ -1,4 +1,7 @@
 import { PremiumSetupPanel } from "./premium/PremiumAdvisor";
+import { PremiumFightPanel } from "./premium/PremiumFightPanel";
+import { useReportPremiumSearchMatch } from "./premium/PremiumSearchMatchContext";
+import { premiumSearchPlayVersion } from "./premium/premiumSearchFreshness";
 import {
     Artifact,
     Augment,
@@ -319,6 +322,11 @@ export const RankedGameView: React.FC<Props> = ({
     const localModelConfig = useMemo(() => getLocalModelOpponentConfig(), []);
     const viewerTeam = userTeam === TeamVals.NO_TEAM ? undefined : userTeam;
     const [snapshot, setSnapshot] = useState<PlaySnapshot | null>(null);
+    useReportPremiumSearchMatch(
+        gameId,
+        "play",
+        snapshot?.gameId === gameId && !replayOnly && !sandboxCoop ? premiumSearchPlayVersion(snapshot) : undefined,
+    );
     const effectiveLocalModelConfig = useMemo(
         () => resolveEffectiveLocalModelOpponentConfig(localModelConfig, snapshot, viewerTeam),
         [localModelConfig, snapshot, viewerTeam],
@@ -2064,6 +2072,18 @@ export const RankedGameView: React.FC<Props> = ({
                             windowSize={windowSize}
                             rankedPanel={rankedPanel}
                             rankedFooter={rankedFooter}
+                            fightAdvice={
+                                !isObserver &&
+                                !replayOnly &&
+                                snapshot.phase === PlayPhase.PLAY &&
+                                !snapshot.fightFinished ? (
+                                    <PremiumFightPanel
+                                        snapshot={snapshot}
+                                        userTeam={userTeam}
+                                        disabled={busy || !canSubmit}
+                                    />
+                                ) : undefined
+                            }
                             onClose={
                                 sandboxCoop && !gameStarted && !isObserver ? () => void leaveSandboxCoop() : undefined
                             }

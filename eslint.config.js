@@ -40,7 +40,7 @@ const FOOTPRINT_GEOMETRY_RESTRICTIONS = [
 
 module.exports = [
     {
-        files: ["game/**/src/**/*.{ts,tsx}"],
+        files: ["game/**/src/**/*.{ts,tsx}", "scripts/**/*.ts", "site/scripts/astro_build.ts"],
         ignores: [
             "game/engine/**/*.ts",
             "docs/**/*.js",
