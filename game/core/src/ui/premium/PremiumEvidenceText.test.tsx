@@ -4,12 +4,12 @@ import { renderToStaticMarkup } from "react-dom/server.node";
 import { CacheProvider } from "@emotion/react";
 import createCache from "@emotion/cache";
 import { EvidenceText } from "./PremiumEvidenceText";
-import type { PremiumMetricEvidence } from "../../api/premium_client";
+import type { PremiumEvidence, PremiumMetricEvidence } from "../../api/premium_client";
 
 // MUI Joy is emotion-backed: without an explicit cache the server render reads a null default cache
 // in CI ("null is not an object (evaluating 'cache.registered')"). Same fix as SynergySlots.test.
 const emotionCache = createCache({ key: "hoc-ssr-test" });
-const renderEvidence = (evidence: PremiumMetricEvidence): string =>
+const renderEvidence = (evidence: PremiumEvidence): string =>
     renderToStaticMarkup(
         <CacheProvider value={emotionCache}>
             <EvidenceText evidence={evidence} />
@@ -74,4 +74,18 @@ test("player-facing labels distinguish actual incoming HP, outgoing HP and other
     expect(html).toContain("Damage dealt with a recorded source (HP): 80");
     expect(html).toContain("Other HP gains, including stat and creature-count changes: 10");
     expect(html).not.toContain("Internal measurement");
+});
+
+test("unknown observed outcomes are not displayed as zero percent wins", () => {
+    const html = renderEvidence({
+        evidenceId: "unknown-score",
+        independentFamilies: 50,
+        scoreRate: null,
+        interval95: [0, 1],
+        status: "limited",
+        caveat: "incomplete measurement",
+    });
+    expect(html).toContain("observed score unavailable");
+    expect(html).not.toContain("observed score 0%");
+    expect(html).not.toContain("95% interval");
 });

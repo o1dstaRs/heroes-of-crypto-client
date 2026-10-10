@@ -92,7 +92,7 @@ export const EvidenceText: React.FC<{ evidence?: PremiumEvidence }> = ({ evidenc
     ) : (
         <Typography level="body-xs" sx={{ color: "#ceb399" }}>
             {evidence.independentFamilies
-                ? `${evidence.independentFamilies} matched training families · observed score ${Math.round((evidence.scoreRate ?? 0) * 100)}% · 95% interval ${evidence.interval95.map((n) => `${Math.round(n * 100)}%`).join("–")}`
+                ? `${evidence.independentFamilies} matched training families · ${evidence.scoreRate === null ? "observed score unavailable" : `observed score ${Math.round(evidence.scoreRate * 100)}% · 95% interval ${evidence.interval95.map((n) => `${Math.round(n * 100)}%`).join("–")}`}`
                 : "No exact matches in this snapshot."}
             {evidence.independentFamilies > 0 && " · Association, not a win prediction."}
         </Typography>

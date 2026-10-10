@@ -1,3 +1,4 @@
+import { premiumSourceHref } from "./premiumSourceHref";
 import { PremiumAnswer } from "./PremiumAnswer";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import { Box, Button, IconButton, Input, Typography } from "@mui/joy";
@@ -8,10 +9,16 @@ import { createPortal } from "react-dom";
 import { useLocation } from "react-router";
 
 import { deviceIdHeaders } from "../../api/deviceId";
-import { knowledgeAiAskUrl } from "../../api/knowledge_ai";
+import {
+    fetchPremiumSearch,
+    premiumSearchBody,
+    premiumSearchGameId,
+    readPremiumSearch,
+    type PremiumSearchEvent,
+} from "../../api/premium_search";
 import type { PremiumEvidence } from "../../api/premium_client";
 import { EvidenceText, usePremiumAdvisor } from "./PremiumAdvisor";
-import { hocFontFamily, hocInputSx } from "../hocTheme";
+import { hocFontFamily, hocInputSx, hocSidebarImageButtonSx } from "../hocTheme";
 
 const SetAnchorContext = createContext<(node: HTMLDivElement | null) => void>(() => {});
 const SearchVisibleContext = createContext(false);
@@ -66,9 +73,10 @@ export const PremiumSearchSlot: React.FC = () => {
             ref={ref}
             style={{
                 position: "absolute",
-                right: "calc(100% + 8px)",
-                top: 0,
+                right: "calc(100% + 6px)",
                 bottom: 0,
+                width: "132px",
+                height: "35.2px",
                 display: "flex",
                 alignItems: "center",
                 pointerEvents: "auto",
@@ -77,15 +85,6 @@ export const PremiumSearchSlot: React.FC = () => {
         />
     );
 };
-
-interface SearchEvent {
-    text?: string;
-    answer?: string;
-    message?: string;
-    items?: { id: string; name: string; href: string }[];
-    sources?: { id: string; name: string; href: string }[];
-    packet?: PremiumEvidence;
-}
 
 export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; suppressCorner: boolean }> = ({
     anchor,
@@ -104,8 +103,10 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; suppressCo
     const [answer, setAnswer] = useState("");
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
+    const [status, setStatus] = useState("");
+    const [contextLabel, setContextLabel] = useState("");
     const [evidence, setEvidence] = useState<PremiumEvidence[]>([]);
-    const [sources, setSources] = useState<NonNullable<SearchEvent["items"]>>([]);
+    const [sources, setSources] = useState<NonNullable<PremiumSearchEvent["items"]>>([]);
     const [history, setHistory] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
     const controller = useRef<AbortController | null>(null);
     useEffect(() => () => controller.current?.abort(), []);
@@ -116,6 +117,18 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; suppressCo
     useEffect(() => {
         setOpen(false);
     }, [location.pathname, anchor, available]);
+    useEffect(() => {
+        controller.current?.abort();
+        controller.current = null;
+        setBusy(false);
+        setHistory([]);
+        setStatus("");
+        setContextLabel("");
+        setAnswer("");
+        setEvidence([]);
+        setSources([]);
+        setError("");
+    }, [location.pathname, available]);
     useEffect(() => {
         if (!open || !available) return;
         const onPointerDown = (event: PointerEvent) => {
@@ -137,12 +150,30 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; suppressCo
         };
     }, [open, available]);
     if (!available || (!anchor && suppressCorner)) return null;
+    const clearConversation = () => {
+        setHistory([]);
+        setAnswer("");
+        setQuestion("");
+        setEvidence([]);
+        setSources([]);
+        setError("");
+        setStatus("");
+        setContextLabel("");
+    };
+    const stop = () => {
+        controller.current?.abort();
+        controller.current = null;
+        setBusy(false);
+        setStatus("Stopped. Any partial answer has not been added to the conversation.");
+    };
     const ask = async () => {
         if (!question.trim() || busy) return;
         controller.current?.abort();
         const abort = new AbortController();
         controller.current = abort;
         setBusy(true);
+        setStatus("Reading your question and match context…");
+        setContextLabel("");
         setError("");
         setAnswer("");
         setEvidence([]);
@@ -150,75 +181,63 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; suppressCo
         const query = question.trim();
         let completed = "";
         try {
-            const response = await fetch(knowledgeAiAskUrl(), {
-                method: "POST",
-                signal: abort.signal,
-                headers: {
-                    "Content-Type": "application/json",
-                    Accept: "text/event-stream",
-                    Authorization: localStorage.getItem("accessToken") ?? "",
-                    ...deviceIdHeaders(),
-                },
-                body: JSON.stringify({ question: query, lang: "en", history: history.slice(-6) }),
-            });
-            if (!response.ok || !response.body)
-                throw new Error(
-                    response.status === 429
-                        ? "Please wait a moment before asking again."
-                        : "Search is unavailable. Your match can continue normally.",
-                );
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = "";
-            for (;;) {
-                const chunk = await reader.read();
-                buffer += decoder.decode(chunk.value, { stream: !chunk.done }).replaceAll("\r\n", "\n");
-                let boundary: number;
-                while ((boundary = buffer.indexOf("\n\n")) >= 0) {
-                    const frame = buffer.slice(0, boundary);
-                    buffer = buffer.slice(boundary + 2);
-                    const kind = frame
-                        .split("\n")
-                        .find((line) => line.startsWith("event:"))
-                        ?.slice(6)
-                        .trim();
-                    const raw = frame
-                        .split("\n")
-                        .filter((line) => line.startsWith("data:"))
-                        .map((line) => line.slice(5).trim())
-                        .join("\n");
-                    if (!raw) continue;
-                    const event = JSON.parse(raw) as SearchEvent;
-                    if (kind === "delta") {
-                        completed += event.text ?? "";
-                        setAnswer(completed);
-                    }
-                    if (kind === "reset") {
-                        completed = "";
-                        setAnswer("");
-                    }
-                    if (kind === "done") {
-                        completed = event.answer ?? completed;
-                        setAnswer(completed);
-                    }
-                    if (kind === "error") throw new Error(event.message ?? "Search could not finish.");
-                    if (kind === "sources") setSources(event.items ?? []);
-                    if (kind === "premium_evidence" && event.packet)
-                        setEvidence((previous) => [
-                            ...previous.filter((item) => item.evidenceId !== event.packet!.evidenceId),
-                            event.packet!,
-                        ]);
+            const response = await fetchPremiumSearch(
+                premiumSearchBody(query, location.pathname, history),
+                { Authorization: localStorage.getItem("accessToken") ?? "", ...deviceIdHeaders() },
+                abort.signal,
+            );
+            completed = await readPremiumSearch(response, (kind, event) => {
+                if (controller.current !== abort || abort.signal.aborted) return;
+                if (kind === "meta") {
+                    const scope =
+                        event.context === "match"
+                            ? `Current match${event.stage ? ` · ${event.stage === "board" ? "placement" : event.stage}` : ""}`
+                            : "General tactical advice";
+                    setContextLabel(scope);
                 }
-                if (chunk.done) break;
-            }
-            if (!completed) throw new Error("No answer received. Please try again.");
+                if (kind === "status")
+                    setStatus(
+                        event.phase === "answering"
+                            ? "Writing your plan…"
+                            : "Checking mechanics and comparing options…",
+                    );
+                if (kind === "delta") {
+                    completed += event.text ?? "";
+                    setAnswer(completed);
+                }
+                if (kind === "reset") {
+                    completed = "";
+                    setAnswer("");
+                }
+                if (kind === "done") {
+                    setAnswer(event.answer ?? completed);
+                    setSources(event.sources ?? []);
+                    setStatus("");
+                }
+                if (kind === "sources") setSources(event.items ?? []);
+                if (kind === "premium_evidence" && event.packet)
+                    setEvidence((previous) => [
+                        ...previous.filter((item) => item.evidenceId !== event.packet!.evidenceId),
+                        event.packet!,
+                    ]);
+            });
+            if (controller.current !== abort || abort.signal.aborted) return;
             setHistory((previous) => [
                 ...previous,
                 { role: "user", content: query },
                 { role: "assistant", content: completed },
             ]);
         } catch (failure) {
-            if (!abort.signal.aborted) setError(failure instanceof Error ? failure.message : "Search failed.");
+            if (controller.current === abort && !abort.signal.aborted) {
+                setStatus("");
+                setError(
+                    failure instanceof Error && failure.name === "TimeoutError"
+                        ? "Advice took too long. Please try again with a more specific question."
+                        : failure instanceof Error
+                          ? failure.message
+                          : "Search failed.",
+                );
+            }
         } finally {
             if (controller.current === abort) setBusy(false);
         }
@@ -230,9 +249,29 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; suppressCo
             aria-haspopup="dialog"
             aria-expanded={open}
             aria-controls={open ? searchId : undefined}
+            variant={anchor ? "plain" : "solid"}
             size="sm"
+            startDecorator={
+                <span aria-hidden style={{ fontSize: "0.625rem", lineHeight: 1 }}>
+                    ◆
+                </span>
+            }
             onClick={() => setOpen((previous) => !previous)}
             sx={{
+                ...(anchor
+                    ? {
+                          ...hocSidebarImageButtonSx("neutral"),
+                          width: "100%",
+                          fontSize: "0.8rem",
+                          fontWeight: 880,
+                      }
+                    : {
+                          bgcolor: "#7f3819",
+                          color: "#ffe0bf",
+                          border: "1px solid #d97d38",
+                          fontFamily: hocFontFamily,
+                          "&:hover": { bgcolor: "#a75023" },
+                      }),
                 position: anchor ? "relative" : "fixed",
                 right: anchor ? undefined : 18,
                 bottom: anchor ? undefined : 78,
@@ -240,16 +279,14 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; suppressCo
                 zIndex: 1100,
                 height: "35.2px",
                 minHeight: "35.2px",
+                lineHeight: 1,
+                "--Button-gap": "5px",
                 px: 1,
                 whiteSpace: "nowrap",
-                bgcolor: "#7f3819",
-                color: "#ffe0bf",
-                border: "1px solid #d97d38",
-                fontFamily: hocFontFamily,
-                "&:hover": { bgcolor: "#a75023" },
+                cursor: "var(--hoc-cursor-interactive), pointer",
             }}
         >
-            ◆ Ask Premium
+            Ask Premium
         </Button>
     );
     const ui = (
@@ -335,7 +372,9 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; suppressCo
                             </IconButton>
                         </Box>
                         <Typography level="body-sm" sx={{ color: "#ceb399" }}>
-                            Ask about units, artifacts, synergies or counter-picks.
+                            {premiumSearchGameId(location.pathname)
+                                ? "Get a plan for your current match, compare choices, or ask why a move helps."
+                                : "Compare builds, counters and tradeoffs. Name your army and opponent for a specific plan."}
                         </Typography>
                         <Box
                             component="form"
@@ -347,7 +386,7 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; suppressCo
                         >
                             <Input
                                 aria-label="Gameplay question"
-                                placeholder="Ask a game question…"
+                                placeholder="What should I do, and why?"
                                 value={question}
                                 onChange={(event) => setQuestion(event.target.value)}
                                 size="sm"
@@ -357,14 +396,44 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; suppressCo
                             <Button
                                 type="submit"
                                 size="sm"
-                                loading={busy}
-                                disabled={!question.trim()}
+                                disabled={busy || !question.trim()}
                                 sx={{ bgcolor: "#7f3819", color: "#ffe0bf", "&:hover": { bgcolor: "#a75023" } }}
                             >
                                 Ask
                             </Button>
+                            {busy && (
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="plain"
+                                    onClick={stop}
+                                    sx={{ color: "#f6b87e" }}
+                                >
+                                    Stop
+                                </Button>
+                            )}
                         </Box>
-                        {(error || answer || busy || sources.length > 0 || evidence.length > 0) && (
+                        {(contextLabel || history.length > 0) && (
+                            <Box
+                                sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 1 }}
+                            >
+                                <Typography level="body-xs" sx={{ color: "#ceb399" }}>
+                                    {contextLabel}
+                                </Typography>
+                                {history.length > 0 && (
+                                    <Button
+                                        size="sm"
+                                        variant="plain"
+                                        disabled={busy}
+                                        onClick={clearConversation}
+                                        sx={{ color: "#f6b87e", minHeight: 24, fontSize: 11, p: 0.5 }}
+                                    >
+                                        New conversation
+                                    </Button>
+                                )}
+                            </Box>
+                        )}
+                        {(error || answer || busy || status || sources.length > 0 || evidence.length > 0) && (
                             <Box
                                 sx={{
                                     maxHeight: "min(300px, max(80px, calc(100dvh - 280px)))",
@@ -383,30 +452,22 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; suppressCo
                                         {error}
                                     </Typography>
                                 )}
-                                <Box
-                                    role="status"
-                                    sx={{ whiteSpace: "pre-wrap", lineHeight: 1.55, color: "#efdfce", fontSize: 13 }}
-                                >
-                                    {answer ? (
-                                        <PremiumAnswer text={answer} />
-                                    ) : busy ? (
-                                        "Checking game facts and evidence…"
-                                    ) : (
-                                        ""
-                                    )}
+                                {status && (
+                                    <Typography level="body-xs" role="status" sx={{ color: "#ceb399" }}>
+                                        {status}
+                                    </Typography>
+                                )}
+                                <Box aria-busy={busy} sx={{ lineHeight: 1.55, color: "#efdfce", fontSize: 13 }}>
+                                    {answer ? <PremiumAnswer text={answer} /> : ""}
                                 </Box>
                                 {sources.length > 0 && (
                                     <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
                                         {sources.map((source) => (
                                             <a
                                                 key={source.id}
-                                                href={
-                                                    source.href.startsWith("/")
-                                                        ? `${window.location.origin}${source.href}`
-                                                        : source.href
-                                                }
+                                                href={premiumSourceHref(source.href)}
                                                 target="_blank"
-                                                rel="noreferrer"
+                                                rel="noopener noreferrer"
                                                 style={{ color: "#f6b87e", fontSize: 12 }}
                                             >
                                                 {source.name}
@@ -420,7 +481,10 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; suppressCo
                                         key={packet.evidenceId}
                                         sx={{ p: 1, border: "1px solid #84502f", borderRadius: 6, fontSize: 12 }}
                                     >
-                                        <summary>Snapshot evidence · {packet.independentFamilies} families</summary>
+                                        <summary>
+                                            {packet.label ?? "Snapshot evidence"} · {packet.independentFamilies}{" "}
+                                            families
+                                        </summary>
                                         <EvidenceText evidence={packet} />
                                         <Typography level="body-xs" sx={{ overflowWrap: "anywhere", mt: 0.5 }}>
                                             {packet.evidenceId}

@@ -1,6 +1,7 @@
 import { axiosGameInstance, endpoints } from "./axios";
 
 export interface PremiumOutcomeEvidence {
+    label?: string;
     evidenceId: string;
     independentFamilies: number;
     scoreRate: number | null;
@@ -9,6 +10,7 @@ export interface PremiumOutcomeEvidence {
     caveat: string;
 }
 export interface PremiumMetricEvidence {
+    label?: string;
     evidenceId: string;
     evidenceKind: "observed-health-metrics" | "observed-combat-metrics";
     independentFamilies: number;
