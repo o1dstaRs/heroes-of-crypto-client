@@ -132,3 +132,83 @@ it("rejects empty final answers and oversized unframed responses", async () => {
     ).rejects.toThrow("interrupted");
     await expect(readPremiumSearch(new Response("x".repeat(512_001)), () => {})).rejects.toThrow("too large");
 });
+
+const outcome = {
+    evidenceId: "pilot:angel",
+    label: "Angel · ranked-draft/train",
+    independentFamilies: 12,
+    scoreRate: 0.5,
+    interval95: [0.2, 0.8],
+    status: "limited",
+    caveat: "Observational, not a win prediction.",
+};
+
+it.each([
+    ["sources", { items: {} }],
+    ["sources", { items: [null] }],
+    ["done", { answer: "Plan", sources: [{ id: "unit:angel", name: "Angel", href: {} }] }],
+    ["premium_evidence", { packet: { ...outcome, label: {} } }],
+    ["premium_evidence", { packet: { ...outcome, interval95: null } }],
+    ["premium_evidence", { packet: { ...outcome, interval95: [0.8, 0.2] } }],
+    ["premium_evidence", { packet: { ...outcome, scoreRate: 25 } }],
+    ["premium_evidence", { packet: { ...outcome, metrics: { damage: null } } }],
+    [
+        "premium_evidence",
+        {
+            packet: {
+                ...outcome,
+                evidenceKind: "observed-combat-metrics",
+                metrics: { damage: { description: "Damage", mean: "5", minFamilyMean: 0, maxFamilyMean: 10 } },
+            },
+        },
+    ],
+    ["meta", { mode: "premium", stage: ["fight"] }],
+    ["error", { message: {} }],
+] as const)("rejects malformed %s data before it can reach React (%j)", async (kind, data) => {
+    const displayed: string[] = [];
+    await expect(
+        readPremiumSearch(stream(frame("meta", { mode: "premium" }) + frame(kind, data)), (event) =>
+            displayed.push(event),
+        ),
+    ).rejects.toThrow("could not be read");
+    expect(displayed).toEqual(["meta"]);
+});
+
+it("accepts outcome and metric evidence including missing measurements", async () => {
+    const packets: unknown[] = [];
+    const metric = {
+        evidenceId: "pilot:healing",
+        independentFamilies: 12,
+        status: "limited",
+        caveat: "Observed averages.",
+        evidenceKind: "observed-health-metrics",
+        metrics: {
+            healing: { description: "Healing", mean: null, minFamilyMean: null, maxFamilyMean: null },
+        },
+    };
+    await readPremiumSearch(
+        stream(
+            frame("meta", { mode: "premium" }) +
+                frame("premium_evidence", { packet: outcome }) +
+                frame("premium_evidence", { packet: metric }) +
+                frame("done", { answer: "Choose based on mechanics; these samples are limited." }),
+        ),
+        (kind, event) => {
+            if (kind === "premium_evidence") packets.push(event.packet);
+        },
+    );
+    expect(packets).toEqual([outcome, metric]);
+});
+
+it("refuses a downgrade after the Premium handshake", async () => {
+    await expect(
+        readPremiumSearch(
+            stream(
+                frame("meta", { mode: "premium" }) +
+                    frame("meta", { mode: "knowledge" }) +
+                    frame("done", { answer: "A public answer." }),
+            ),
+            () => {},
+        ),
+    ).rejects.toThrow("server update");
+});

@@ -20,6 +20,65 @@ export interface PremiumSearchEvent {
     packet?: PremiumEvidence;
 }
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+    Boolean(value && typeof value === "object" && !Array.isArray(value));
+const finiteOrNull = (value: unknown): boolean =>
+    value === null || (typeof value === "number" && Number.isFinite(value));
+const isSources = (value: unknown): boolean =>
+    Array.isArray(value) &&
+    value.every(
+        (source: unknown) =>
+            isRecord(source) && [source.id, source.name, source.href].every((field) => typeof field === "string"),
+    );
+const isEvidence = (value: unknown): boolean => {
+    if (
+        !isRecord(value) ||
+        typeof value.evidenceId !== "string" ||
+        (value.label !== undefined && typeof value.label !== "string") ||
+        typeof value.independentFamilies !== "number" ||
+        !Number.isSafeInteger(value.independentFamilies) ||
+        value.independentFamilies < 0 ||
+        !["none", "limited", "supported"].includes(value.status as string) ||
+        typeof value.caveat !== "string"
+    )
+        return false;
+    if ("metrics" in value)
+        return (
+            ["observed-health-metrics", "observed-combat-metrics"].includes(value.evidenceKind as string) &&
+            isRecord(value.metrics) &&
+            Object.values(value.metrics).every(
+                (metric) =>
+                    isRecord(metric) &&
+                    typeof metric.description === "string" &&
+                    [metric.mean, metric.minFamilyMean, metric.maxFamilyMean].every(finiteOrNull),
+            )
+        );
+    return (
+        (value.scoreRate === null ||
+            (typeof value.scoreRate === "number" && value.scoreRate >= 0 && value.scoreRate <= 1)) &&
+        Array.isArray(value.interval95) &&
+        value.interval95.length === 2 &&
+        value.interval95.every((bound: unknown) => typeof bound === "number" && bound >= 0 && bound <= 1) &&
+        value.interval95[0] <= value.interval95[1]
+    );
+};
+
+const validEvent = (kind: string, event: Record<string, unknown>): boolean => {
+    if (kind === "meta")
+        return (
+            (event.context === undefined || ["match", "general"].includes(event.context as string)) &&
+            (event.stage === undefined || ["draft", "setup", "board", "fight"].includes(event.stage as string)) &&
+            (event.evidenceAvailable === undefined || typeof event.evidenceAvailable === "boolean")
+        );
+    if (kind === "delta") return typeof event.text === "string";
+    if (kind === "done") return event.sources === undefined || isSources(event.sources);
+    if (kind === "sources") return isSources(event.items);
+    if (kind === "premium_evidence") return isEvidence(event.packet);
+    if (kind === "error") return event.message === undefined || typeof event.message === "string";
+    if (kind === "status") return event.phase === undefined || typeof event.phase === "string";
+    return true;
+};
+
 export const premiumSearchGameId = (pathname: string): string | undefined =>
     /^\/game\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/i.exec(pathname)?.[1];
 
@@ -79,17 +138,15 @@ export const readPremiumSearch = async (
                 let event: PremiumSearchEvent;
                 try {
                     const parsed: unknown = JSON.parse(raw);
-                    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error();
+                    if (!isRecord(parsed) || !validEvent(kind, parsed)) throw new Error();
                     event = parsed as PremiumSearchEvent;
                 } catch {
                     throw new Error("The answer could not be read. Please try again.");
                 }
                 if (kind === "error") throw new Error(event.message ?? "Premium advice could not finish.");
-                if (kind === "meta" && event.mode === "premium") premium = true;
+                if (kind === "meta") premium = event.mode === "premium";
                 if (!premium)
                     throw new Error("Premium advice needs a server update. Please try again after the update.");
-                if (kind === "delta" && typeof event.text !== "string")
-                    throw new Error("The answer could not be read. Please try again.");
                 if (kind === "done" && (typeof event.answer !== "string" || !event.answer.trim()))
                     throw new Error("The answer was interrupted. Please try again.");
                 onEvent(kind, event);
