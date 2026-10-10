@@ -3,6 +3,8 @@ import { describe, expect, test } from "bun:test";
 import { TeamType, TeamVals } from "@heroesofcrypto/common";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { CacheProvider } from "@emotion/react";
+import createCache from "@emotion/cache";
 
 import { IFightDeathEntry, IFightStatsSample } from "../../scenes/VisibleState";
 import { CasualtyChart } from "./CasualtyChart";
@@ -148,27 +150,34 @@ describe("casualty timeline markers", () => {
     });
 
     test("the results chart draws every wiped creature as a large portrait", () => {
+        // MUI Joy is emotion-backed: an explicit cache keeps the server render off the null default
+        // cache in CI (same fix as SynergySlots and PremiumEvidenceText).
+        const emotionCache = createCache({ key: "hoc-ssr-test" });
         const html = renderToStaticMarkup(
-            React.createElement(CasualtyChart, {
-                series: [sample(1, 0, 0), sample(6, 100, 90)],
-                deaths: [
-                    death("Gargantuan", LEFT, 2, 2),
-                    death("Zena", LEFT, 8, 8),
-                    death("Beholder", LEFT, 22, 22),
-                    death("Wandering Mage", LEFT, 164, 164),
-                    death("Arbalester", LEFT, 124, 124),
-                    death("Battle Mage", LEFT, 50, 50),
-                    death("Fairy", RIGHT, 139, 139),
-                    death("Troglodyte", RIGHT, 107, 107),
-                    death("Valkyrie", RIGHT, 29, 29),
-                    death("Trent", RIGHT, 12, 12),
-                    death("Crusader", RIGHT, 6, 6),
-                    death("Tsar Cannon", RIGHT, 4, 40),
-                ],
-                viewWidth: 800,
-                viewHeight: 170,
-                drawDurationSec: 0,
-            }),
+            React.createElement(
+                CacheProvider,
+                { value: emotionCache },
+                React.createElement(CasualtyChart, {
+                    series: [sample(1, 0, 0), sample(6, 100, 90)],
+                    deaths: [
+                        death("Gargantuan", LEFT, 2, 2),
+                        death("Zena", LEFT, 8, 8),
+                        death("Beholder", LEFT, 22, 22),
+                        death("Wandering Mage", LEFT, 164, 164),
+                        death("Arbalester", LEFT, 124, 124),
+                        death("Battle Mage", LEFT, 50, 50),
+                        death("Fairy", RIGHT, 139, 139),
+                        death("Troglodyte", RIGHT, 107, 107),
+                        death("Valkyrie", RIGHT, 29, 29),
+                        death("Trent", RIGHT, 12, 12),
+                        death("Crusader", RIGHT, 6, 6),
+                        death("Tsar Cannon", RIGHT, 4, 40),
+                    ],
+                    viewWidth: 800,
+                    viewHeight: 170,
+                    drawDurationSec: 0,
+                }),
+            ),
         );
         const labels = html.match(/all stacks defeated/g) ?? [];
         expect(labels).toHaveLength(11);
