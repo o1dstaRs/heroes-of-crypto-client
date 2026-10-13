@@ -451,10 +451,6 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Leave matchmaking before navigating away": "Выйдите из подбора игры перед переходом",
     "Leave matchmaking before starting an AI match": "Выйдите из подбора игры перед матчем с ИИ",
     MATCHMAKING: "ПОДБОР ИГРЫ",
-    "Looking for opponent": "Поиск соперника",
-    "Looking for opponent ({count} in queue)": "Поиск соперника (в очереди: {count})",
-    "{count} player is currently in the queue.": "Сейчас в очереди {count} игрок.",
-    "{count} players are currently in the queue.": "Сейчас в очереди игроков: {count}.",
     // The ranked search cycles through these while it waits (see ui/matchmakingHeadlines.ts).
     "Scouting for a worthy rival": "Ищем достойного соперника",
     "Sounding the horn for a challenger": "Трубим в рог, созывая соперника",
@@ -462,7 +458,6 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Sizing up the warbands": "Присматриваемся к дружинам",
     "Calling challengers to the arena": "Зовём бойцов на арену",
     "Combing the ranks for your match": "Ищем вам ровню в строю",
-    "Stay ready while we search the live ranked queue.": "Будьте готовы — идёт поиск в рейтинговой очереди.",
     "Leave ranked queue": "Покинуть рейтинговую очередь",
     "Unable to enter matchmaking": "Не удалось начать поиск игры",
     "Unable to leave matchmaking": "Не удалось выйти из поиска игры",
