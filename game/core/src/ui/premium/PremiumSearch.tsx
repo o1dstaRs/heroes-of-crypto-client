@@ -5,7 +5,6 @@ import { premiumSearchMatchChanged, type PremiumSearchMatchVersion } from "./pre
 import { useAuthContext } from "../auth/context/auth_context";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import { Box, Button, IconButton, Input, Typography } from "@mui/joy";
-import type { SxProps } from "@mui/joy/styles/types";
 import Popper from "@mui/material/Popper";
 import { motion, useReducedMotion } from "framer-motion";
 import React, { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
@@ -24,9 +23,9 @@ import {
 import type { PremiumEvidence } from "../../api/premium_client";
 import { EvidenceText, usePremiumAdvisor } from "./PremiumAdvisor";
 import { hocFontFamily, hocInputSx, hocPrimaryButtonSx } from "../hocTheme";
-import { PREMIUM_SEARCH_CORNER_SLOT_HEIGHT_PX, PREMIUM_SEARCH_CORNER_SLOT_WIDTH_PX } from "./premiumSearchCornerSlot";
 
 const SetAnchorContext = createContext<(node: HTMLDivElement | null) => void>(() => {});
+const PREMIUM_SEARCH_HEIGHT_PX = 44;
 const SetDockAnchorContext = createContext<(node: HTMLDivElement | null) => void>(() => {});
 const DockVisibleContext = createContext(false);
 const SearchVisibleContext = createContext(false);
@@ -36,10 +35,8 @@ const SetSearchVisibleContext = createContext<(visible: boolean) => void>(() => 
 export const usePremiumSearchVisible = (): boolean => useContext(SearchVisibleContext);
 
 /**
- * One search button for the app. The sandbox setup row claims it, left of Play Ranked and Invite.
- * A started fight releases that claim, and every in-game screen then puts the button on the corner
- * lane, immediately left of the system, sound and fullscreen medallions. Menus keep it on the
- * social-dock row.
+ * Search is available from menus and the sandbox setup row, left of Play Ranked and Invite.
+ * During a fight, Premium suggests actions directly on the board without a search prompt.
  */
 export const PremiumSearchProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [anchor, setAnchor] = useState<HTMLDivElement | null>(null);
@@ -63,7 +60,7 @@ export const PremiumSearchProvider: React.FC<{ children: React.ReactNode }> = ({
     );
 };
 
-/** Left of the sandbox setup plate. Claiming this anchor takes the button off the corner until the fight. */
+/** Optional search alongside the sandbox setup controls, removed when the fight starts. */
 export const PremiumSearchSlot: React.FC = () => {
     const setAnchor = useContext(SetAnchorContext);
     const ref = useRef<HTMLDivElement>(null);
@@ -89,11 +86,8 @@ export const PremiumSearchSlot: React.FC = () => {
     );
 };
 
-/**
- * Shares a row's vertical centre. An override is spread into the same object: an `sx` array let the
- * base `translateY(-50%)` win over the corner placement and parked the pill a row above the medallions.
- */
-export const PremiumSearchDockSlot: React.FC<{ sx?: SxProps }> = ({ sx }) => {
+/** Search beside the social controls on menu screens. */
+export const PremiumSearchDockSlot: React.FC = () => {
     const setAnchor = useContext(SetDockAnchorContext);
     const visible = useContext(DockVisibleContext);
     const ref = useRef<HTMLDivElement>(null);
@@ -101,7 +95,6 @@ export const PremiumSearchDockSlot: React.FC<{ sx?: SxProps }> = ({ sx }) => {
         setAnchor(ref.current);
         return () => setAnchor(null);
     }, [setAnchor]);
-    const override = sx && typeof sx === "object" && !Array.isArray(sx) ? sx : {};
     return (
         <Box
             ref={ref}
@@ -110,13 +103,12 @@ export const PremiumSearchDockSlot: React.FC<{ sx?: SxProps }> = ({ sx }) => {
                 right: "calc(100% + 10px)",
                 top: "50%",
                 transform: "translateY(-50%)",
-                width: PREMIUM_SEARCH_CORNER_SLOT_WIDTH_PX,
-                height: PREMIUM_SEARCH_CORNER_SLOT_HEIGHT_PX,
+                width: 168,
+                height: PREMIUM_SEARCH_HEIGHT_PX,
                 display: visible ? "flex" : "none",
                 alignItems: "center",
                 pointerEvents: "auto",
                 zIndex: 1400,
-                ...override,
             }}
         />
     );
@@ -304,16 +296,18 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; compact: b
             }
             onClick={() => setOpen((previous) => !previous)}
             sx={{
-                // The account action, not the stone plate Play Ranked and Invite a friend use.
-                ...hocPrimaryButtonSx,
+                bgcolor: "#7f3819",
+                color: "#ffe0bf",
+                border: "1px solid #d97d38",
+                "&:hover": { bgcolor: "#a75023" },
                 fontFamily: hocFontFamily,
                 fontSize: compact ? "0.78rem" : "0.95rem",
                 position: "relative",
                 width: "100%",
                 flexShrink: 0,
                 zIndex: 1100,
-                height: compact ? "35.2px" : `${PREMIUM_SEARCH_CORNER_SLOT_HEIGHT_PX}px`,
-                minHeight: compact ? "35.2px" : `${PREMIUM_SEARCH_CORNER_SLOT_HEIGHT_PX}px`,
+                height: compact ? "35.2px" : `${PREMIUM_SEARCH_HEIGHT_PX}px`,
+                minHeight: compact ? "35.2px" : `${PREMIUM_SEARCH_HEIGHT_PX}px`,
                 lineHeight: 1,
                 "--Button-gap": compact ? "4px" : "8px",
                 px: compact ? 1 : 1.5,

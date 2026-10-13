@@ -12,6 +12,10 @@ import { PixiGameManager } from "./PixiGameManager";
 import type { SceneConstructor } from "./PixiScene";
 
 class SceneDouble {
+    public premiumEnabled = false;
+    public setPremiumSandboxGuidance(enabled: boolean): void {
+        this.premiumEnabled = enabled;
+    }
     public sc_sceneSettings = undefined;
     public Destroy(): void {}
     public setupControls(): void {}
@@ -24,6 +28,26 @@ class SceneDouble {
 }
 
 describe("PixiGameManager scene reload", () => {
+    it("keeps Premium guidance through New Battle and drops it when account access is removed", () => {
+        const manager = new PixiGameManager();
+        Object.assign(manager, {
+            sceneConstructor: SceneDouble as unknown as SceneConstructor,
+            pixiApp: { getTicker: () => ({ addOnce: () => undefined }) },
+            textures: {},
+        });
+        manager.SetPremiumSandboxGuidance(true);
+        manager.LoadGame(true);
+        const first = (manager as unknown as { m_scene: SceneDouble }).m_scene;
+        expect(first.premiumEnabled).toBe(true);
+        manager.LoadGame(true);
+        const next = (manager as unknown as { m_scene: SceneDouble }).m_scene;
+        expect(next).not.toBe(first);
+        expect(next.premiumEnabled).toBe(true);
+        manager.SetPremiumSandboxGuidance(false);
+        expect(next.premiumEnabled).toBe(false);
+        manager.LoadGame(true);
+        expect((manager as unknown as { m_scene: SceneDouble }).m_scene.premiumEnabled).toBe(false);
+    });
     it("clears the React selection when starting a new battle", () => {
         const manager = new PixiGameManager();
         Object.assign(manager, {

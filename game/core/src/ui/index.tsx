@@ -1,4 +1,5 @@
 import { PremiumSearchProvider, PremiumSearchSlot } from "./premium/PremiumSearch";
+import { PremiumSandboxGuidance } from "./premium/PremiumSandboxGuidance";
 import {
     createPickSimState,
     CreatureByLevel,
@@ -393,8 +394,7 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
                             gameStarted={started}
                             windowSize={windowSize}
                             rankedFooter={
-                                // Setup only. Once the fight starts, Play Ranked and Invite leave and Ask
-                                // Premium joins the corner medallions — same lane, immediately to their left.
+                                // Setup only. During combat, Premium draws its suggestions on the board.
                                 !replayPlaybackActive && !started ? (
                                     <div style={{ display: "grid", gap: 6, width: "100%", justifyItems: "center" }}>
                                         <PlayRankedBadge />
@@ -429,6 +429,7 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
                         />
                     )}
                     <FightFinishedOverlay />
+                    {!isLoading && !gameActionTransport && !showFightMatchupPreview && <PremiumSandboxGuidance />}
                     {!isLoading && started && aiToggleOn && <AiControlBadge left={aiBadgeLeft(windowSize)} />}
                     {!isLoading && started && <NextLapHazardBadge />}
                     {!isLoading && replayPlaybackActive && (

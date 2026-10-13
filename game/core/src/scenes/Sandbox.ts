@@ -113,6 +113,7 @@ import {
 } from "@heroesofcrypto/common";
 import { clearPersonalArmyTint, personalArmyPresetFor } from "./personalArmyTint";
 import { UnitsOverlay } from "./UnitsOverlay";
+import { PremiumTurnOverlay } from "./PremiumTurnOverlay";
 import { DamageStatisticHolder } from "./DamageStats";
 import { FightStatsTracker } from "./FightStatsTracker";
 import { VisibleButtonState, IVisibleUnit } from "./VisibleState";
@@ -1086,6 +1087,83 @@ export class Sandbox extends PixiScene {
     private readonly aiControlledTeams = new Set<TeamType>();
     // AIController manages AI decision-making (created in constructor after super())
     private aiController!: AIController;
+    private sandboxPremiumEnabled = false;
+    private sandboxPremiumRevision = 0;
+    private sandboxPremiumAdviceKey?: string;
+    private drawnSandboxPremiumAdviceKey?: string;
+    private sandboxPremiumOverlay?: PremiumTurnOverlay;
+    private sandboxPremiumModule?: Promise<typeof import("./sandboxPremiumAdvice")>;
+    public override setPremiumSandboxGuidance(enabled: boolean): void {
+        this.sandboxPremiumEnabled = enabled;
+        if (!enabled) this.clearSandboxPremiumGuidance();
+    }
+    private clearSandboxPremiumGuidance(): void {
+        this.sandboxPremiumAdviceKey = undefined;
+        this.drawnSandboxPremiumAdviceKey = undefined;
+        this.sandboxPremiumOverlay?.setVisible(false);
+    }
+    private updateSandboxPremiumGuidance(): void {
+        const unit = this.currentActiveUnit;
+        const fight = FightStateManager.getInstance().getFightProperties();
+        if (
+            !this.sandboxPremiumEnabled ||
+            this.sc_gameActionTransport ||
+            !fight.hasFightStarted() ||
+            fight.hasFightFinished() ||
+            !unit ||
+            unit.isDead() ||
+            this.replayPlaybackActive ||
+            this.sc_isAIActive ||
+            this.aiController.shouldControlCurrentUnit() ||
+            isMindlessAiUnit(unit) ||
+            this.isPlayingActionAnimation()
+        ) {
+            this.clearSandboxPremiumGuidance();
+            return;
+        }
+        const position = unit.getPosition();
+        const key = `${this.getTurnActivationKey()}:${this.sandboxPremiumRevision}:${position.x}:${position.y}:${unit.getAttackTypeSelection()}`;
+        if (key === this.sandboxPremiumAdviceKey) {
+            this.sandboxPremiumOverlay?.setVisible(this.drawnSandboxPremiumAdviceKey === key);
+            return;
+        }
+        this.clearSandboxPremiumGuidance();
+        this.sandboxPremiumAdviceKey = key;
+        const loading = (this.sandboxPremiumModule ??= import("./sandboxPremiumAdvice"));
+        void loading
+            .then(({ sandboxPremiumAdvice }) => {
+                if (
+                    !this.sandboxPremiumEnabled ||
+                    this.sandboxPremiumAdviceKey !== key ||
+                    this.currentActiveUnit !== unit ||
+                    this.isPlayingActionAnimation() ||
+                    this.replayPlaybackActive
+                )
+                    return;
+                const advice = sandboxPremiumAdvice(
+                    unit,
+                    {
+                        grid: this.grid,
+                        matrix: this.grid.getMatrix(),
+                        unitsHolder: this.unitsHolder,
+                        pathHelper: this.pathHelper,
+                        attackHandler: this.attackHandler,
+                        fightProperties: fight,
+                        decisionOrigin: "root",
+                    },
+                    this.sandboxPremiumRevision,
+                );
+                this.sandboxPremiumOverlay ??= new PremiumTurnOverlay(this.pixiApp.getWorldRoot());
+                this.sandboxPremiumOverlay.draw(
+                    advice,
+                    unit,
+                    this.unitsHolder.getAllUnits(),
+                    this.sc_sceneSettings.getGridSettings(),
+                );
+                this.drawnSandboxPremiumAdviceKey = key;
+            })
+            .catch((error) => console.warn("[premium] Sandbox turn suggestions unavailable", error));
+    }
     private productionAiSearchModule?: Promise<typeof import("./sandboxAiSearch")>;
     // Sandbox turn-timeout takeover: count consecutive missed turns. The 1st is played by the grace turn
     // (see runSandboxGraceTurn) or, once that is spent, a one-shot AI turn; the 2nd in a row turns the AI
@@ -16564,6 +16642,10 @@ export class Sandbox extends PixiScene {
         return false;
     }
     public override Destroy(): void {
+        this.sandboxPremiumEnabled = false;
+        this.clearSandboxPremiumGuidance();
+        this.sandboxPremiumOverlay?.destroy();
+        this.sandboxPremiumOverlay = undefined;
         stopCombatSounds();
         // Movement callbacks can be awaited by replay playback. Cancel them before the ticker stops so
         // retired scenes cannot remain retained behind a move/swap promise that will never finish.
@@ -16876,6 +16958,7 @@ export class Sandbox extends PixiScene {
         // RENDERING SYNCHRONIZATION
         // ==========================================================================================
         // this.updateLingeringTracks(timeStep); // Handled by moveAnimManager.update
+        this.updateSandboxPremiumGuidance();
         this.drawAltInspectOverlay();
         if (this.gameplayGraphics) {
             this.drawGameplayVisuals(this.gameplayGraphics);
@@ -17840,6 +17923,10 @@ export class Sandbox extends PixiScene {
         }
     }
     private applyTurnEngineEvents(events: GameEvent[], unitSnapshot: ReadonlyMap<string, RenderableUnit>): void {
+        if (events.length) {
+            this.sandboxPremiumRevision += 1;
+            this.clearSandboxPremiumGuidance();
+        }
         const armageddonWaves = new Set<number>();
         let shouldRefreshVisibleState = false;
         let sawFightFinished = false;

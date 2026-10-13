@@ -334,6 +334,7 @@ export abstract class PixiScene {
     public setMoveIntentSink(_sink?: (unitId: string | undefined, cell: HoCMath.XY | undefined) => void): void {}
     public setOpponentMoveIntent(_intent?: { unitId: string; cell: HoCMath.XY }): void {}
     public setPremiumTurnPreview(_turn?: PremiumTurnPreview): void {}
+    public setPremiumSandboxGuidance(_enabled: boolean): void {}
     protected dispatchExternalGameAction(
         action: Parameters<SceneGameActionTransport>[0],
         options?: Parameters<SceneGameActionTransport>[1],

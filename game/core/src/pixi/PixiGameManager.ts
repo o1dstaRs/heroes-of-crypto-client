@@ -140,6 +140,7 @@ export class PixiGameManager {
     private forwardOverlayInteraction?: (e: PointerEvent) => void;
     private overlayDebugCanvas?: HTMLCanvasElement;
     private gameActionTransport?: SceneGameActionTransport;
+    private premiumSandboxGuidanceEnabled = false;
     private lastAuthoritativeViewportKey = "";
     private overlayMouseSuppression?: {
         clientX: number;
@@ -614,6 +615,10 @@ export class PixiGameManager {
     public SetPremiumTurnPreview(turn?: PremiumTurnPreview): void {
         this.m_scene?.setPremiumTurnPreview(turn);
     }
+    public SetPremiumSandboxGuidance(enabled: boolean): void {
+        this.premiumSandboxGuidanceEnabled = enabled;
+        this.m_scene?.setPremiumSandboxGuidance(enabled);
+    }
     public ApplyAuthoritativeSnapshot(
         snapshot: AuthoritativeGameSnapshot,
         options?: AuthoritativeSnapshotOptions,
@@ -991,6 +996,7 @@ export class PixiGameManager {
             FightStateManager.getInstance().reset();
         }
         this.m_scene = new SceneClass(context);
+        this.m_scene.setPremiumSandboxGuidance?.(this.premiumSandboxGuidanceEnabled);
         this.m_scene.setCreatureAnimationLabEnabled?.(this.creatureAnimationLabEnabled);
         this.m_scene.setTestBoardBackground?.(this.testBoardBackground);
         this.m_scene.setTestBoardNarrowingLevel?.(this.testBoardNarrowingLevel);

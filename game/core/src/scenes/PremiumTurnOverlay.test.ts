@@ -5,6 +5,7 @@ import {
     GridConstants,
     GridMath,
     GridSettings,
+    SpellHelper,
     TeamVals,
     type GameAction,
     type HoCMath,
@@ -148,6 +149,71 @@ test("old responses, hidden targets, missing targets and another actor never pro
     expect(
         premiumMoveDrawing(option([{ type: "move_unit", unitId: "actor", path: [{ x: -1, y: 8 }] }]), actor, units, gs),
     ).toBeUndefined();
+});
+
+test("area spells highlight their actual footprint and reject blocks outside the board", () => {
+    for (const spellName of ["Meteor Shower", "Meteorite", "Smoke", "Craft"]) {
+        const targetCell = { x: 8, y: 8 };
+        const drawing = premiumMoveDrawing(
+            option([{ type: "cast_spell", casterId: "actor", spellName, targetCell }]),
+            actor,
+            units,
+            gs,
+        )!;
+        expect(drawing.cells).toEqual(SpellHelper.cellTargetedSpellBlockCells(spellName, targetCell));
+        expect(
+            premiumMoveDrawing(
+                option([{ type: "cast_spell", casterId: "actor", spellName, targetCell: { x: 15, y: 15 } }]),
+                actor,
+                units,
+                gs,
+            ),
+        ).toBeUndefined();
+    }
+    expect(
+        premiumMoveDrawing(option([{ type: "move_unit", unitId: "actor", path: [{ x: 0, y: 8 }] }]), actor, units, gs),
+    ).toBeUndefined();
+});
+
+test("suggestion labels keep their proportions as a rectangular camera resizes and mirrors", () => {
+    const root = new Container();
+    const overlay = new PremiumTurnOverlay(root);
+    try {
+        overlay.draw(
+            {
+                sequence: 1,
+                lap: 1,
+                unitId: "actor",
+                status: "ready",
+                options: [option([{ type: "wait_turn", unitId: "actor" }])],
+            },
+            actor,
+            units,
+            gs,
+        );
+        for (const mirrored of [false, true]) {
+            setBoardMirror(root, mirrored);
+            for (const [x, y] of [
+                [1.2, 0.78],
+                [1.7, 0.92],
+                [0.9, 0.9],
+            ]) {
+                root.scale.set(mirrored ? -x : x, -y);
+                overlay.setVisible(true);
+                const label = root.children[1].children[0];
+                const origin = label.toGlobal({ x: 0, y: 0 });
+                const right = label.toGlobal({ x: 1, y: 0 });
+                const down = label.toGlobal({ x: 0, y: 1 });
+                expect(right.x).toBeGreaterThan(origin.x);
+                expect(down.y).toBeGreaterThan(origin.y);
+                expect(right.x - origin.x).toBeCloseTo(down.y - origin.y, 8);
+            }
+        }
+    } finally {
+        releaseBoardMirror(root);
+        overlay.destroy();
+        root.destroy();
+    }
 });
 
 test("board annotations are noninteractive, readable when mirrored, and release their scene objects", () => {

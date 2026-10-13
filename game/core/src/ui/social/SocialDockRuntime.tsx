@@ -37,7 +37,6 @@ import {
 import { CurrencyIcon } from "../GoldCurrencyIcon";
 import { isMockPortalEnabled } from "../PlayerPortal/mockPortal";
 import { PremiumSearchDockSlot } from "../premium/PremiumSearch";
-import { premiumSearchCornerSlotSx } from "../premium/premiumSearchCornerSlot";
 import { useRankedSeason } from "../useRankedSeason";
 import { startVisibleInterval } from "../visibleInterval";
 import { ConversationPanel } from "./ConversationPanel";
@@ -1395,7 +1394,7 @@ export const SocialDock: React.FC = () => {
                 "&:hover": { opacity: 1 },
             }}
         >
-            <PremiumSearchDockSlot />
+            {!inGame && !fightDockSlot && <PremiumSearchDockSlot />}
             <IconButton
                 aria-label="Bets and predictions"
                 aria-pressed={predictionsOpen}
@@ -1541,7 +1540,6 @@ export const SocialDock: React.FC = () => {
 
     const systemDockControls = (
         <>
-            <PremiumSearchDockSlot sx={premiumSearchCornerSlotSx(systemMenuOpen)} />
             <Box
                 ref={floatingVolumeSlotRef}
                 data-volume-control="social-dock"

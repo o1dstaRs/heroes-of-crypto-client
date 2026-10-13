@@ -2,6 +2,7 @@ import {
     AttackVals,
     FireWallHelper,
     GridMath,
+    SpellHelper,
     type GridSettings,
     type HoCMath,
     type Unit,
@@ -11,6 +12,7 @@ import { Container, Graphics, Text } from "pixi.js";
 import type { PremiumTurnAdvice } from "../api/premium_client";
 import { HOC_GAME_FONT_FAMILY } from "../fontFamilies";
 import { glyphScaleX } from "../pixi/boardMirror";
+import { inheritedAbsoluteScaleOf, legacyBoardChildScaleCompensation } from "../pixi/boardFit";
 import { projectBattlefieldPoint, projectedCellPoints, projectedPolyline } from "./sandbox/BattlefieldVisualGrid";
 
 type PreviewUnit = Pick<
@@ -139,7 +141,9 @@ export const premiumMoveDrawing = (
                                   action.targetCell,
                                   FireWallHelper.normalizeFireWallOrientation(action.targetOrientation),
                               ).filter(validCell)
-                            : [action.targetCell]
+                            : ["Meteor Shower", "Meteorite", "Smoke", "Craft"].includes(action.spellName)
+                              ? SpellHelper.cellTargetedSpellBlockCells(action.spellName, action.targetCell)
+                              : [action.targetCell]
                         : (target?.getCells() ?? actor.getCells()),
                     action.spellName,
                 );
@@ -160,7 +164,7 @@ export const premiumMoveDrawing = (
                 return undefined;
         }
     }
-    return drawing.label ? drawing : undefined;
+    return drawing.label && drawing.cells.every(validCell) ? drawing : undefined;
 };
 
 const COLORS = [0xffc65a, 0x80d9ec] as const;
@@ -244,6 +248,7 @@ export class PremiumTurnOverlay {
             const point = projectBattlefieldPoint(drawing.point, gs);
             const text = new Text({
                 text: `${index + 1} · ${drawing.label}`,
+                resolution: 2,
                 style: {
                     fontFamily: HOC_GAME_FONT_FAMILY,
                     fontSize: step * 0.2,
@@ -262,7 +267,11 @@ export class PremiumTurnOverlay {
     public setVisible(visible: boolean): void {
         this.floor.visible = visible;
         this.labels.visible = visible;
-        if (visible) for (const text of this.labels.children) text.scale.set(glyphScaleX(), -1);
+        if (visible) {
+            const inherited = inheritedAbsoluteScaleOf(this.labels);
+            const compensation = legacyBoardChildScaleCompensation(inherited.x, inherited.y);
+            for (const text of this.labels.children) text.scale.set(glyphScaleX(compensation.x), -compensation.y);
+        }
     }
     public destroy(): void {
         this.floor.destroy();
