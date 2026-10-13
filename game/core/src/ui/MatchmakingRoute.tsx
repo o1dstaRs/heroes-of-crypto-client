@@ -221,7 +221,6 @@ export const MatchmakingRoute: React.FC = () => {
     const mockMatchMode = isMockPortalEnabled() ? searchParams.get("mockMatch") : null;
     const mockMatchPreview = mockMatchMode === "found" || mockMatchMode === "accepted";
     const mockMatchAccepted = mockMatchMode === "accepted";
-    const mockSearching = mockMatchMode === "searching";
 
     const streamRef = useRef<CustomEventSource<MatchmakingEvent> | null>(null);
     const acceptedGameIdRef = useRef(mockMatchAccepted ? MOCK_MATCH_ID : "");
@@ -233,7 +232,7 @@ export const MatchmakingRoute: React.FC = () => {
     const aiStartInFlightRef = useRef(false);
     const vsAiAutoStartedRef = useRef(false);
     const [state, setState] = useState<MatchmakingState>(
-        mockSearching ? "searching" : mockMatchPreview ? (mockMatchAccepted ? "accepted" : "confirming") : "idle",
+        mockMatchPreview ? (mockMatchAccepted ? "accepted" : "confirming") : "idle",
     );
     // The backend-free preview should land on the thing it exists to demonstrate. Live players keep
     // the compact arena default and opt into this panel with the stats toggle as before.
@@ -289,8 +288,8 @@ export const MatchmakingRoute: React.FC = () => {
     }, []);
     // When this tab entered the queue — the fallback anchor for the "time in queue" readout while
     // the server's own enqueue timestamp is still in flight.
-    const [searchStartedAt, setSearchStartedAt] = useState(mockSearching ? Date.now() : 0);
-    const [queueSize, setQueueSize] = useState<number | null>(mockSearching ? 1 : null);
+    const [searchStartedAt, setSearchStartedAt] = useState(0);
+    const [queueSize, setQueueSize] = useState<number | null>(null);
     const [secondsRemaining, setSecondsRemaining] = useState<number | null>(mockMatchPreview ? 28 : null);
     const [error, setError] = useState("");
     const [resendState, setResendState] = useState<"idle" | "sending" | "sent">("idle");
