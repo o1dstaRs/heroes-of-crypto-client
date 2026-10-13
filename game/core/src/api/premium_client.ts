@@ -1,4 +1,5 @@
 import { axiosGameInstance, endpoints } from "./axios";
+import type { GameAction } from "@heroesofcrypto/common";
 
 export interface PremiumOutcomeEvidence {
     label?: string;
@@ -39,7 +40,11 @@ export interface PremiumTurnAdvice {
     lap: number;
     unitId: string;
     status: "ready" | "waiting" | "automatic" | "unavailable";
-    options: { id: string; label: string; reasons: string[] }[];
+    options: { id: string; label: string; reasons: string[]; actions?: GameAction[] }[];
+}
+
+export interface PremiumTurnPreview extends PremiumTurnAdvice {
+    gameId: string;
 }
 export interface PremiumAdvice {
     entitlement: { active: boolean; reason: string };

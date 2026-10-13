@@ -1,9 +1,4 @@
-import {
-    PremiumSearchGameSurface,
-    PremiumSearchProvider,
-    PremiumSearchSlot,
-    usePremiumSearchVisible,
-} from "./premium/PremiumSearch";
+import { PremiumSearchProvider, PremiumSearchSlot } from "./premium/PremiumSearch";
 import {
     createPickSimState,
     CreatureByLevel,
@@ -236,10 +231,6 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
     // A started fight has nothing to carry, so the invite closes when the fight begins.
     const canInviteFriend =
         authenticated && user?.is_active !== false && !gameActionTransport && !showFightMatchupPreview && !started;
-    // Ask Premium sits on this row once the account can open it. The fight keeps the row after Invite
-    // a friend leaves: a started fight has nothing to carry into a co-op, but the button must not jump
-    // back over the sound and fullscreen medallions.
-    const premiumSearchVisible = usePremiumSearchVisible();
     useEffect(() => {
         setSandboxInviteAvailable(canInviteFriend);
         return () => setSandboxInviteAvailable(false);
@@ -392,7 +383,6 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
 
     return (
         <ButtonProvider>
-            <PremiumSearchGameSurface />
             <div className="container" style={{ display: "flex" }}>
                 <CssVarsProvider theme={hocJoyTheme}>
                     <CssBaseline />
@@ -403,22 +393,22 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
                             gameStarted={started}
                             windowSize={windowSize}
                             rankedFooter={
-                                !replayPlaybackActive && (!started || canInviteFriend || premiumSearchVisible) ? (
+                                // Setup only. Once the fight starts, Play Ranked and Invite leave and Ask
+                                // Premium joins the corner medallions — same lane, immediately to their left.
+                                !replayPlaybackActive && !started ? (
                                     <div style={{ display: "grid", gap: 6, width: "100%", justifyItems: "center" }}>
-                                        {!started && <PlayRankedBadge />}
-                                        {(canInviteFriend || premiumSearchVisible) && (
-                                            <div
-                                                key="sandbox-invite"
-                                                style={{
-                                                    position: "relative",
-                                                    width: "min(100%, 209px)",
-                                                    minHeight: "35.2px",
-                                                }}
-                                            >
-                                                <PremiumSearchSlot />
-                                                {canInviteFriend && <InviteFriendBadge />}
-                                            </div>
-                                        )}
+                                        <PlayRankedBadge />
+                                        <div
+                                            key="sandbox-invite"
+                                            style={{
+                                                position: "relative",
+                                                width: "min(100%, 209px)",
+                                                minHeight: "35.2px",
+                                            }}
+                                        >
+                                            <PremiumSearchSlot />
+                                            {canInviteFriend && <InviteFriendBadge />}
+                                        </div>
                                     </div>
                                 ) : undefined
                             }
@@ -1774,10 +1764,10 @@ const App: React.FC = () => {
                         {/* Above the routes on purpose: one long-lived <audio> means walking between the menu
                             screens does not restart the theme. It decides for itself which routes sing. */}
                         <ThemeMusic />
-                        {/* Floating notifications, friends, and messages; compact during fights. */}
-                        <SocialDock />
                         <LiveMatchBanner />
                         <PremiumSearchProvider>
+                            {/* Floating notifications, friends, and messages; compact during fights. */}
+                            <SocialDock />
                             <AuthedRoutes windowSize={windowSize} />
                         </PremiumSearchProvider>
                     </Router>

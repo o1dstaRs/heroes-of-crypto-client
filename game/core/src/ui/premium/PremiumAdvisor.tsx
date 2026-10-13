@@ -177,7 +177,7 @@ export const PremiumMark: React.FC<{ kind: PremiumChoice["kind"]; value: number 
     );
 };
 
-export const PremiumShield: React.FC<{ testOnly?: boolean }> = ({ testOnly = false }) => {
+export const PremiumShield: React.FC<{ testOnly?: boolean; size?: number }> = ({ testOnly = false, size = 24 }) => {
     const { advice } = usePremiumAdvisor();
     if (!advice || (testOnly && advice.entitlement.reason !== "test")) return null;
     return (
@@ -194,15 +194,15 @@ export const PremiumShield: React.FC<{ testOnly?: boolean }> = ({ testOnly = fal
                 aria-label="Premium account"
                 sx={{
                     position: "absolute",
-                    bottom: -3,
-                    left: -5,
-                    width: 24,
-                    height: 28,
+                    bottom: -size / 8,
+                    left: -size / 5,
+                    width: size,
+                    height: (size * 7) / 6,
                     zIndex: 5,
                     filter: "drop-shadow(0 2px 3px #000)",
                 }}
             >
-                <svg viewBox="0 0 24 28" width="24" height="28" aria-hidden="true">
+                <svg viewBox="0 0 24 28" width="100%" height="100%" aria-hidden="true">
                     <path
                         d="M12 1 22 5v9c0 6-6 11-10 13C8 25 2 20 2 14V5Z"
                         fill="#823913"

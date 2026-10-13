@@ -209,7 +209,7 @@ const PlayerAvatar: React.FC<{
         ) : (
             <Crest team={player.team} tone={tone} size={size} />
         )}
-        {!player.isAi && <PremiumShield testOnly />}
+        {!player.isAi && <PremiumShield testOnly size={Math.min(24, Math.round(size * 0.3))} />}
     </Box>
 );
 

@@ -75,6 +75,8 @@ import { clearPersonalArmyTint, personalArmyTintSeat, setPersonalArmyTint } from
 import { isGreenTeam, teamColor } from "./teamColors";
 import { setBoardMirror } from "../pixi/boardMirror";
 import { readBoardSidePreference, shouldMirrorBoard } from "../settings/playerBoardSide";
+import type { PremiumTurnPreview } from "../api/premium_client";
+import { PremiumTurnOverlay } from "./PremiumTurnOverlay";
 
 export const canMoveRankedArtifactBarrel = (snapshot: AuthoritativeGameSnapshot, team: TeamType): boolean =>
     snapshot.viewerTeam === team &&
@@ -1279,9 +1281,16 @@ export const spellOutcomeSceneLogLines = (
  * A blast lands on a cluster and every creature in it resists separately, so the sum is not a number the
  * player can act on. Ring of Fire and Meteorite still roll up — change them here if that reads better too.
  */
-const DAMAGE_PER_VICTIM_SPELLS: ReadonlySet<string> = new Set(["Fireball"]);
+const DAMAGE_PER_VICTIM_SPELLS: ReadonlySet<string> = new Set(["Fireball", "Meteor Shower"]);
 
 export const spellReportsDamagePerVictim = (spellName: string): boolean => DAMAGE_PER_VICTIM_SPELLS.has(spellName);
+
+/**
+ * Headline above the per-victim lines. Fireball bursts on one creature. Meteor Shower is aimed at a cell,
+ * so it has no unit to name in the headline — the lines under it say who was standing in the 3x3.
+ */
+export const rankedPerVictimSpellHeadline = (casterName: string, spellName: string, targetName?: string): string =>
+    targetName ? `${casterName} burst a ${spellName} on ${targetName}` : `${casterName} cast ${spellName}`;
 
 /**
  * One scene-log line per creature a BLAST spell damaged, mirroring the engine's own sandbox lines so a
@@ -1307,7 +1316,11 @@ export const rankedBlastDamageSceneLogLines = (
         }
         const name = unitNames.get(entry.unitId) ?? "Unit";
         const kills = entry.unitsDied > 0 ? ` 💀${entry.unitsDied}` : "";
-        const text = `${name} burned for (${entry.amount}) by ${event.spellName}${kills}`;
+        // Fireball is fire. Meteor Shower is falling stone, so it is not a burn.
+        const text =
+            event.spellName === "Fireball"
+                ? `${name} burned for (${entry.amount}) by ${event.spellName}${kills}`
+                : `${name} hit for (${entry.amount}) by ${event.spellName}${kills}`;
         const flag = flagForUnit(entry.unitId);
         lines.push(flag ? `${flag} ${text}` : text);
     }
@@ -1465,6 +1478,58 @@ export const shouldPublishRankedFinish = (
 };
 
 export class RankedPlayScene extends Sandbox {
+    private premiumTurnPreview?: PremiumTurnPreview;
+    private drawnPremiumTurnPreview?: PremiumTurnPreview;
+    private premiumTurnOverlay?: PremiumTurnOverlay;
+    private premiumSnapshot?: Pick<
+        AuthoritativeGameSnapshot,
+        "gameId" | "latestSequence" | "currentLap" | "currentUnitId" | "phase" | "fightFinished"
+    >;
+    public override setPremiumTurnPreview(turn?: PremiumTurnPreview): void {
+        this.premiumTurnPreview = turn;
+        if (!turn) this.premiumTurnOverlay?.setVisible(false);
+    }
+    public override Step(timeStep: number): void {
+        super.Step(timeStep);
+        const turn = this.premiumTurnPreview;
+        const snapshot = this.premiumSnapshot;
+        const actor = this.getCurrentActiveUnit();
+        const visible = Boolean(
+            turn &&
+            snapshot &&
+            actor &&
+            !actor.isDead() &&
+            actor.getTeam() === this.viewerTeam &&
+            !this.fullReplayPlaybackActive &&
+            !this.replayViewingActive &&
+            !this.sc_isAIActive &&
+            !this.isPlayingActionAnimation() &&
+            snapshot.phase === PlayPhase.PLAY &&
+            !snapshot.fightFinished &&
+            turn.gameId === snapshot.gameId &&
+            turn.sequence === snapshot.latestSequence &&
+            turn.sequence === this.lastAuthoritativeSequence &&
+            turn.lap === snapshot.currentLap &&
+            turn.unitId === snapshot.currentUnitId &&
+            turn.unitId === actor.getId(),
+        );
+        if (visible && turn && actor && this.drawnPremiumTurnPreview !== turn) {
+            this.premiumTurnOverlay ??= new PremiumTurnOverlay(this.pixiApp.getWorldRoot());
+            this.premiumTurnOverlay.draw(
+                turn,
+                actor,
+                this.unitsHolder.getAllUnits(),
+                this.sc_sceneSettings.getGridSettings(),
+            );
+            this.drawnPremiumTurnPreview = turn;
+        }
+        this.premiumTurnOverlay?.setVisible(visible);
+    }
+    public override Destroy(): void {
+        this.premiumTurnOverlay?.destroy();
+        this.premiumTurnOverlay = undefined;
+        super.Destroy();
+    }
     private lastAuthoritativeSequence = -1;
     private lastBoardSignature = "";
     /** True while playSandboxReplay drives a FULL fight playback (the fight-results Replay button /
@@ -2065,6 +2130,15 @@ export class RankedPlayScene extends Sandbox {
         // playback ends. Single-record replays during a LIVE fight keep the tuned guards below.
         if (this.fullReplayPlaybackActive) {
             return;
+        }
+        this.premiumSnapshot = snapshot;
+        if (
+            this.premiumTurnPreview &&
+            (this.premiumTurnPreview.gameId !== snapshot.gameId ||
+                this.premiumTurnPreview.sequence !== snapshot.latestSequence ||
+                snapshot.fightFinished)
+        ) {
+            this.premiumTurnOverlay?.setVisible(false);
         }
         // Seed THIS game's synergy variants into the local engine on every apply (idempotent, four keys).
         // The server draws one synergy of each faction's pair from the game id; without this the client's
@@ -3711,7 +3785,11 @@ export class RankedPlayScene extends Sandbox {
                 // exactly as the splash and multi-hit branches above do for attacks. Matches the engine's
                 // own sandbox wording so a ranked fight and a local one read the same.
                 if (spellReportsDamagePerVictim(event.spellName)) {
-                    return `${nameOf(event.casterId)} burst a ${event.spellName} on ${nameOf(event.targetId ?? event.casterId)}`;
+                    return rankedPerVictimSpellHeadline(
+                        nameOf(event.casterId),
+                        event.spellName,
+                        event.targetId ? nameOf(event.targetId) : undefined,
+                    );
                 }
                 // Single-target casts (Riot, Magic Mirror, …) carry the target so the log says on whom
                 // (matching the sandbox engine text); mass casts (Mass Riot, …) have no single target and

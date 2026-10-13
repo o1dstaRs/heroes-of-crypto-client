@@ -1344,9 +1344,10 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     zIndex: 2,
                     width: "94.5%",
                     maxWidth: 960,
-                    // The reference is a compact, almost-square forged results plaque. Keep that
-                    // silhouette on large screens while still respecting short laptop viewports.
-                    height: "min(97.5vh, 940px)",
+                    boxSizing: "border-box",
+                    // Grow to fit every damage row when the screen permits it. The old fixed height
+                    // clipped even a six-unit army on tall monitors despite spare space outside the card.
+                    minHeight: "min(97.5vh, 940px)",
                     maxHeight: "97.5vh",
                     display: "flex",
                     flexDirection: "column",
@@ -1541,71 +1542,64 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     />
                 </Stack>
 
-                {/* The middle band itself never moves. Only the damage list may scroll, so the chart,
-                    casualty wells and action buttons retain the same coordinates for every fight. */}
+                {/* Only the damage list shrinks and scrolls when the card reaches the viewport limit.
+                    Keep the chart, casualty rosters and action buttons visible. */}
                 <Box
                     sx={{
-                        flex: 1,
+                        flex: "1 1 auto",
                         minHeight: 0,
+                        display: "flex",
+                        flexDirection: "column",
                         overflow: "hidden",
                         pb: 1.5,
                     }}
                 >
+                    <CasualtyChartPanel
+                        series={stats.series}
+                        deaths={[...stats.leftDeaths, ...stats.rightDeaths]}
+                        ornateResultsFrame
+                    />
+
+                    {/* Both armies share one scroll area, used only when the screen is too short. */}
                     <Box
                         sx={{
-                            height: "100%",
-                            display: "flex",
-                            flexDirection: "column",
+                            flex: "1 1 auto",
+                            minHeight: 0,
+                            overflowY: "auto",
+                            overflowX: "hidden",
+                            overscrollBehavior: "contain",
+                            scrollbarWidth: "thin",
+                            scrollbarColor: "rgba(74,67,60,.58) transparent",
+                            "&::-webkit-scrollbar": { width: "5px" },
+                            "&::-webkit-scrollbar-track": { background: "transparent" },
+                            "&::-webkit-scrollbar-thumb": {
+                                backgroundColor: "rgba(74,67,60,.58)",
+                                borderRadius: "3px",
+                            },
                         }}
                     >
-                        <CasualtyChartPanel
-                            series={stats.series}
-                            deaths={[...stats.leftDeaths, ...stats.rightDeaths]}
-                            ornateResultsFrame
-                        />
+                        <ResultsSectionPlaque label="DAMAGE DEALT" />
+                        <DamageBreakdown entries={stats.damageByUnit ?? []} />
+                    </Box>
 
-                        {/* Damage stays in the fixed space between the chart and roster. Longer lists
-                            scroll here instead of moving or resizing any surrounding container. */}
-                        <Box
-                            sx={{
-                                flex: 1,
-                                minHeight: 0,
-                                overflowY: "auto",
-                                overflowX: "hidden",
-                                overscrollBehavior: "contain",
-                                scrollbarWidth: "thin",
-                                scrollbarColor: "rgba(74,67,60,.58) transparent",
-                                "&::-webkit-scrollbar": { width: "5px" },
-                                "&::-webkit-scrollbar-track": { background: "transparent" },
-                                "&::-webkit-scrollbar-thumb": {
-                                    backgroundColor: "rgba(74,67,60,.58)",
-                                    borderRadius: "3px",
-                                },
-                            }}
-                        >
-                            <ResultsSectionPlaque label="DAMAGE DEALT" />
-                            <DamageBreakdown entries={stats.damageByUnit ?? []} />
-                        </Box>
-
-                        {/* Casualty rosters remain pinned to the bottom. */}
-                        <Box sx={{ flexShrink: 0 }}>
-                            <Stack direction="row" spacing={3} sx={{ px: 1, pt: 2 }}>
-                                <CasualtyColumn
-                                    team={LOWER_TEAM}
-                                    deaths={stats.leftDeaths}
-                                    killedTotal={stats.leftKilledTotal}
-                                    startTotal={stats.leftStartTotal}
-                                    fallbackPct={stats.series.at(-1)?.leftKilledPct ?? 0}
-                                />
-                                <CasualtyColumn
-                                    team={UPPER_TEAM}
-                                    deaths={stats.rightDeaths}
-                                    killedTotal={stats.rightKilledTotal}
-                                    startTotal={stats.rightStartTotal}
-                                    fallbackPct={stats.series.at(-1)?.rightKilledPct ?? 0}
-                                />
-                            </Stack>
-                        </Box>
+                    {/* Casualty rosters remain pinned to the bottom. */}
+                    <Box sx={{ flexShrink: 0 }}>
+                        <Stack direction="row" spacing={3} sx={{ px: 1, pt: 2 }}>
+                            <CasualtyColumn
+                                team={LOWER_TEAM}
+                                deaths={stats.leftDeaths}
+                                killedTotal={stats.leftKilledTotal}
+                                startTotal={stats.leftStartTotal}
+                                fallbackPct={stats.series.at(-1)?.leftKilledPct ?? 0}
+                            />
+                            <CasualtyColumn
+                                team={UPPER_TEAM}
+                                deaths={stats.rightDeaths}
+                                killedTotal={stats.rightKilledTotal}
+                                startTotal={stats.rightStartTotal}
+                                fallbackPct={stats.series.at(-1)?.rightKilledPct ?? 0}
+                            />
+                        </Stack>
                     </Box>
                 </Box>
 

@@ -36,6 +36,7 @@ import {
     rankedUnitAliveHealth,
     rankedSecondarySceneLogLines,
     rankedBlastDamageSceneLogLines,
+    rankedPerVictimSpellHeadline,
     rankedSpellPrimaryDamageSummary,
     spellReportsDamagePerVictim,
     rankedSystemMoveSceneLogLine,
@@ -2274,8 +2275,34 @@ describe("blast spell damage lines", () => {
 
     test("only a blast reports per victim; ordinary casts keep their single line", () => {
         expect(spellReportsDamagePerVictim("Fireball")).toBe(true);
+        expect(spellReportsDamagePerVictim("Meteor Shower")).toBe(true);
         expect(spellReportsDamagePerVictim("Fire Strike")).toBe(false);
         expect(spellReportsDamagePerVictim("Ring of Fire")).toBe(false);
+        expect(spellReportsDamagePerVictim("Meteorite")).toBe(false);
+    });
+
+    test("Meteor Shower names the cast, then each creature and what it took", () => {
+        expect(rankedPerVictimSpellHeadline("Magic Dragon", "Meteor Shower")).toBe("Magic Dragon cast Meteor Shower");
+        expect(rankedPerVictimSpellHeadline("Wandering Mage", "Fireball", "Wolf")).toBe(
+            "Wandering Mage burst a Fireball on Wolf",
+        );
+
+        const shower = {
+            ...(blast([{ unitId: "centaur", amount: 200, unitsDied: 11 }]) as object),
+            spellName: "Meteor Shower",
+            targetId: undefined,
+            damaged: [
+                { unitId: "centaur", amount: 200, unitsDied: 11, position: { x: 0, y: 0 } },
+                { unitId: "wolf", amount: 119, unitsDied: 5, position: { x: 1, y: 0 } },
+            ],
+        } as GameEvent;
+        const lines = rankedBlastDamageSceneLogLines(shower, names);
+
+        expect(lines).toEqual([
+            "Centaur hit for (200) by Meteor Shower 💀11",
+            "Wolf hit for (119) by Meteor Shower 💀5",
+        ]);
+        expect(lines.some((line) => line.includes("319") || line.includes("across"))).toBe(false);
     });
 
     test("writes one line per creature with its own damage and kills", () => {

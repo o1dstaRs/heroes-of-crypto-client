@@ -54,6 +54,7 @@ import type { AuthoritativeSnapshotOptions } from "./PixiScene";
 import type { LoadingScreen } from "../scenes/LoadingScreen";
 import { getScenesGrouped } from "./sceneRegistry";
 import type { AuthoritativeGameSnapshot, SceneGameActionTransport } from "../game_action_transport";
+import type { PremiumTurnPreview } from "../api/premium_client";
 import type { SandboxReplay } from "../replay/sandbox_replay";
 
 // Every fight this client hosts — sandbox, vs-AI, previews, ranked hydration — plays the
@@ -609,6 +610,9 @@ export class PixiGameManager {
     }
     public SetOpponentMoveIntent(intent?: { unitId: string; cell: HoCMath.XY }): void {
         this.m_scene?.setOpponentMoveIntent(intent);
+    }
+    public SetPremiumTurnPreview(turn?: PremiumTurnPreview): void {
+        this.m_scene?.setPremiumTurnPreview(turn);
     }
     public ApplyAuthoritativeSnapshot(
         snapshot: AuthoritativeGameSnapshot,

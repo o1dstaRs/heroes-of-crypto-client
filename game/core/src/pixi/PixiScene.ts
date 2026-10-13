@@ -67,6 +67,7 @@ import {
 } from "./boardFirstTextureLoads";
 import { images as rawImageUrls } from "../imageAssets";
 import { UnitsOverlay } from "../scenes/UnitsOverlay";
+import type { PremiumTurnPreview } from "../api/premium_client";
 import { destroyContainerChildren, destroyContainerFilters } from "./filterLifecycle";
 
 export { getScenesGrouped, registerScene } from "./sceneRegistry";
@@ -332,6 +333,7 @@ export abstract class PixiScene {
     // Ranked move-intent relay (implemented by Sandbox); no-ops in the base scene.
     public setMoveIntentSink(_sink?: (unitId: string | undefined, cell: HoCMath.XY | undefined) => void): void {}
     public setOpponentMoveIntent(_intent?: { unitId: string; cell: HoCMath.XY }): void {}
+    public setPremiumTurnPreview(_turn?: PremiumTurnPreview): void {}
     protected dispatchExternalGameAction(
         action: Parameters<SceneGameActionTransport>[0],
         options?: Parameters<SceneGameActionTransport>[1],

@@ -56,7 +56,6 @@ export default function RightSideBar({
     windowSize,
     rankedPanel,
     rankedFooter,
-    fightAdvice,
     showWallet = false,
     showSystemControls = true,
     onClose,
@@ -66,7 +65,6 @@ export default function RightSideBar({
     windowSize: IWindowSize;
     rankedPanel?: React.ReactNode;
     rankedFooter?: React.ReactNode;
-    fightAdvice?: React.ReactNode;
     showWallet?: boolean;
     showSystemControls?: boolean;
     onClose?: () => void;
@@ -349,7 +347,6 @@ export default function RightSideBar({
                             scrollRailInsetPx={sidebarPlainFrameSideInsetPx(barSize)}
                         />
                     )}
-                    {gameStarted && fightAdvice}
                     {/* Turn actions live here rather than floating over the board — those cells have to stay
                         clickable to move and attack. The buttons keep their own narrow column and the damage
                         table takes the rest of the width beside them. */}
