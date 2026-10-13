@@ -2,6 +2,30 @@ import React from "react";
 
 import { premiumSourceHref } from "./premiumSourceHref";
 
+/**
+ * A wrapped knowledge link never matches the one-line inline rule, so the player sees the raw
+ * `[Pikeman](/knowledge-base/…)` text. The model breaks these in two places: inside the address, and
+ * between the label and the address. A break next to punctuation is a wrap and is removed; a break
+ * between two words is a space in the name and is encoded. Fenced code is left as the model wrote it.
+ */
+const repairWrappedMarkdownLinks = (text: string): string =>
+    text
+        .split(/(```[\s\S]*?```)/g)
+        .map((part, index) => (index % 2 === 1 ? part : repairWrappedLinksOutsideCode(part)))
+        .join("");
+
+const repairWrappedLinksOutsideCode = (text: string): string =>
+    text.replace(/\[([^\]\n]+)\]\s*\(\s*([^)]+?)\s*\)/g, (match, label: string, rawHref: string) => {
+        if (!/\s/.test(match.slice(label.length + 1))) return match;
+        const href = rawHref.replace(/\s+/g, (gap: string, offset: number) => {
+            const before = rawHref[offset - 1] ?? "";
+            const after = rawHref[offset + gap.length] ?? "";
+            return /[^A-Za-z0-9]/.test(before) || /[^A-Za-z0-9]/.test(after) ? "" : "%20";
+        });
+        if (!/^(?:https?:\/\/|\/(?!\/)|#)/i.test(href)) return match;
+        return `[${label}](${href})`;
+    });
+
 const inline = (text: string): React.ReactNode[] =>
     text.split(/(\[[^\]\n]+\]\([^\s)]+\)|\*\*[^*\n]+\*\*|`[^`\n]+`|\*[^*\n]+\*)/g).map((part, index) => {
         if (part.startsWith("**") && part.endsWith("**")) return <strong key={index}>{part.slice(2, -2)}</strong>;
@@ -168,5 +192,5 @@ const blocks = (lines: string[], depth = 0): React.ReactNode[] => {
 };
 
 export const PremiumAnswer: React.FC<{ text: string }> = ({ text }) => (
-    <>{blocks(text.replace(/\r\n?/g, "\n").split("\n"))}</>
+    <>{blocks(repairWrappedMarkdownLinks(text.replace(/\r\n?/g, "\n")).split("\n"))}</>
 );

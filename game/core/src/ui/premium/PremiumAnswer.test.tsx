@@ -36,6 +36,35 @@ describe("Premium tactical answer presentation", () => {
         expect(html).toContain('rel="noopener noreferrer"');
         expect(render("[bad](javascript:alert(1))")).not.toContain("<a ");
     });
+    it("rejoins a knowledge link the answer wrapped onto the next line", () => {
+        const html = render(
+            [
+                "Healer pairs best with [Pikeman](/knowledge-base/?",
+                "entry=Pikeman#unit-pikeman) as a front wall, or with [Monk]",
+                "(/knowledge-base/?entry=Monk#unit-monk) if you want Blessing value.",
+            ].join("\n"),
+        );
+        expect(html).toContain('href="https://heroesofcrypto.io/knowledge-base/?entry=Pikeman#unit-pikeman"');
+        expect(html).toContain('href="https://heroesofcrypto.io/knowledge-base/?entry=Monk#unit-monk"');
+        expect(html).toContain(">Pikeman</a>");
+        expect(html).toContain(">Monk</a>");
+        expect(html).not.toContain("[Pikeman]");
+        expect(html).not.toContain("[Monk]");
+        expect(html).toContain("as a front wall");
+    });
+    it("encodes a space in a unit name and leaves an aside that only looks like a link", () => {
+        const html = render("[Dragon](/knowledge-base/?entry=Black Dragon#unit-black-dragon) and [note] (see below)");
+        expect(html).toContain(
+            'href="https://heroesofcrypto.io/knowledge-base/?entry=Black%20Dragon#unit-black-dragon"',
+        );
+        expect(html).toContain("[note] (see below)");
+        expect(html.match(/<a /g)).toHaveLength(1);
+    });
+    it("does not rewrite a wrapped link inside a code sample", () => {
+        const html = render("```\n[Pikeman](/knowledge-base/?\nentry=Pikeman#unit-pikeman)\n```");
+        expect(html).not.toContain("<a ");
+        expect(html).toContain("[Pikeman](/knowledge-base/?\nentry=Pikeman#unit-pikeman)");
+    });
 });
 
 describe("Premium source routing", () => {
