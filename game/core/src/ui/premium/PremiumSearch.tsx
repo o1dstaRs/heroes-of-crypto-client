@@ -74,9 +74,9 @@ export const PremiumSearchSlot: React.FC<{ inline?: boolean }> = ({ inline = fal
             ref={ref}
             style={{
                 position: inline ? "relative" : "absolute",
-                right: inline ? undefined : "calc(100% + 6px)",
+                right: inline ? undefined : "calc(100% + 12px)",
                 bottom: inline ? undefined : 0,
-                width: inline ? "min(132px, 100%)" : "132px",
+                width: inline ? "min(132px, 100%)" : "126px",
                 height: "35.2px",
                 display: inline && !visible ? "none" : "flex",
                 flexShrink: 0,
