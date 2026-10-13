@@ -35,7 +35,7 @@ const SetSearchVisibleContext = createContext<(visible: boolean) => void>(() => 
 export const usePremiumSearchVisible = (): boolean => useContext(SearchVisibleContext);
 
 /**
- * Search is available from menus and the sandbox setup row, left of Play Ranked and Invite.
+ * Search is available from menus, the placement panel and the sandbox setup row.
  * During a fight, Premium suggests actions directly on the board without a search prompt.
  */
 export const PremiumSearchProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -60,9 +60,10 @@ export const PremiumSearchProvider: React.FC<{ children: React.ReactNode }> = ({
     );
 };
 
-/** Optional search alongside the sandbox setup controls, removed when the fight starts. */
-export const PremiumSearchSlot: React.FC = () => {
+/** Inline placement panels reserve space for search; the sandbox row anchors it beside Invite. */
+export const PremiumSearchSlot: React.FC<{ inline?: boolean }> = ({ inline = false }) => {
     const setAnchor = useContext(SetAnchorContext);
+    const visible = usePremiumSearchVisible();
     const ref = useRef<HTMLDivElement>(null);
     useLayoutEffect(() => {
         setAnchor(ref.current);
@@ -72,12 +73,14 @@ export const PremiumSearchSlot: React.FC = () => {
         <div
             ref={ref}
             style={{
-                position: "absolute",
-                right: "calc(100% + 6px)",
-                bottom: 0,
-                width: "132px",
+                position: inline ? "relative" : "absolute",
+                right: inline ? undefined : "calc(100% + 6px)",
+                bottom: inline ? undefined : 0,
+                width: inline ? "min(132px, 100%)" : "132px",
                 height: "35.2px",
-                display: "flex",
+                display: inline && !visible ? "none" : "flex",
+                flexShrink: 0,
+                alignSelf: inline ? "flex-start" : undefined,
                 alignItems: "center",
                 pointerEvents: "auto",
                 zIndex: 2,

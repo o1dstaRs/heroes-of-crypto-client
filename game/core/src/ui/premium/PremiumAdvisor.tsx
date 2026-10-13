@@ -2,6 +2,7 @@ import { Box, Button, Sheet, Tooltip, Typography } from "@mui/joy";
 import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { isAxiosError } from "axios";
 import { createPremiumRequestGate } from "./premiumRequestGate";
+import { premiumDraftAssessment, type PremiumDraftState } from "./premiumDraftAssessment";
 
 import {
     applyPremium,
@@ -216,20 +217,54 @@ export const PremiumShield: React.FC<{ testOnly?: boolean; size?: number }> = ({
     );
 };
 
-export const PremiumDraftBanner: React.FC<{ advice?: PremiumAdvice }> = ({ advice }) => {
-    const preferred = advice?.choices?.[0];
-    if (!advice) return null;
+export const PremiumDraftBanner: React.FC<{ advice?: PremiumAdvice; draft: PremiumDraftState }> = ({
+    advice,
+    draft,
+}) => {
+    if (!advice?.entitlement.active) return null;
+    const assessment = premiumDraftAssessment(draft);
+    const preferred = draft.isYourTurn ? advice.choices?.[0] : undefined;
     return (
         <Tooltip
+            placement="top-start"
+            describeChild
+            arrow
             title={
-                preferred ? (
-                    <ChoiceExplanation choice={preferred} />
-                ) : (
-                    "Premium will highlight recommendations when your next choice opens."
-                )
+                <Box sx={{ maxHeight: "min(560px, 65vh)", overflowY: "auto", p: 0.5 }}>
+                    <Typography level="title-sm" sx={{ color: "#f7a35a" }}>
+                        Draft so far · {assessment.roster}
+                    </Typography>
+                    <Typography level="body-sm" sx={{ color: "#ffe0bf", mt: 0.75 }}>
+                        {assessment.headline}. {assessment.focus}
+                    </Typography>
+                    {assessment.notes.map((note) => (
+                        <Typography key={note.label} level="body-sm" sx={{ color: "#ead2bc", mt: 0.75 }}>
+                            <strong>{note.label}:</strong> {note.text}
+                        </Typography>
+                    ))}
+                    {preferred && (
+                        <Box sx={{ mt: 1, pt: 0.75, borderTop: "1px solid #a9582555" }}>
+                            <Typography level="body-xs" sx={{ color: "#f7a35a" }}>
+                                Next recommendation
+                            </Typography>
+                            <ChoiceExplanation choice={preferred} />
+                        </Box>
+                    )}
+                </Box>
             }
+            sx={{
+                maxWidth: "min(400px, calc(100vw - 32px))",
+                bgcolor: "#21150f",
+                color: "#f3dfcb",
+                border: "1px solid #a95825",
+                boxShadow: "0 8px 24px #0009",
+                "--Tooltip-arrowBackground": "#21150f",
+            }}
         >
             <Box
+                tabIndex={0}
+                role="region"
+                aria-label="Premium draft assessment"
                 sx={{
                     position: "fixed",
                     left: 18,
@@ -244,10 +279,14 @@ export const PremiumDraftBanner: React.FC<{ advice?: PremiumAdvice }> = ({ advic
                     color: "#ffd5ad",
                     boxShadow: "0 3px 16px #0008",
                     fontSize: 12,
+                    lineHeight: 1.4,
+                    cursor: "help",
+                    "&:focus-visible": { outline: "2px solid #f7a35a", outlineOffset: 3 },
                 }}
             >
-                <strong>◆ Premium</strong>
-                {preferred ? ` · ${preferred.label}` : " · watching your draft"}
+                <strong>◆ Premium · Draft so far</strong>
+                <Box sx={{ mt: 0.3, color: "#fff0de" }}>{assessment.headline}</Box>
+                <Box sx={{ mt: 0.3, color: "#d9b99b", fontSize: 11 }}>{assessment.focus}</Box>
             </Box>
         </Tooltip>
     );

@@ -1,4 +1,5 @@
 import { PremiumSetupPanel } from "./premium/PremiumAdvisor";
+import { PremiumSearchSlot } from "./premium/PremiumSearch";
 import { PremiumFightOverlay } from "./premium/PremiumFightOverlay";
 import { useReportPremiumSearchMatch } from "./premium/PremiumSearchMatchContext";
 import { premiumSearchPlayVersion } from "./premium/premiumSearchFreshness";
@@ -3586,11 +3587,14 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                         )}
                         <RankedArtifactsPanel snapshot={snapshot} userTeam={userTeam} />
                         {!augmentOverlayOpen && (
-                            <PremiumSetupPanel
-                                gameId={snapshot.gameId}
-                                stageKey={`${snapshot.phase}:${snapshot.placementStage}`}
-                                auto
-                            />
+                            <>
+                                <PremiumSetupPanel
+                                    gameId={snapshot.gameId}
+                                    stageKey={`${snapshot.phase}:${snapshot.placementStage}`}
+                                    auto
+                                />
+                                {inBoardStage && <PremiumSearchSlot inline />}
+                            </>
                         )}
                         {(userTeam === TeamVals.LEFT ? snapshot.leftArtifactTier1 : snapshot.rightArtifactTier1) ===
                             Artifact.Tier1Artifact.BARREL_BARRICADE && (

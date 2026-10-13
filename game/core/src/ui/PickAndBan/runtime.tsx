@@ -3518,7 +3518,10 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                 {/* The corner the Rules link used to own: the draft's only destructive action, kept small and
                 far away from the cards it would otherwise sit under. */}
                 {systemControl && <GameCornerSlot>{systemControl}</GameCornerSlot>}
-                <PremiumDraftBanner advice={premium.advice} />
+                <PremiumDraftBanner
+                    advice={premium.advice}
+                    draft={{ gameId, picked, opponentPicked, artifactTier1, artifactTier2, isYourTurn }}
+                />
             </Sheet>
         </PremiumContext.Provider>
     );

@@ -669,9 +669,9 @@ export const MatchmakingRoute: React.FC = () => {
             });
         }
         if (state === "searching") {
-            return queueSize
-                ? tf("Looking for opponent ({count} in queue)", { count: queueSize })
-                : t("Looking for opponent");
+            // The clock and the rotating headline already say a search is running. A second
+            // "looking" line plus a queue count under it was the same fact three times.
+            return "";
         }
         if (state === "confirming") {
             return secondsRemaining && secondsRemaining > 0
@@ -699,7 +699,6 @@ export const MatchmakingRoute: React.FC = () => {
         needsActivation,
         penalized,
         penaltySeconds,
-        queueSize,
         secondsRemaining,
         state,
         t,
@@ -968,16 +967,7 @@ export const MatchmakingRoute: React.FC = () => {
                 // Rotates every few seconds so a long queue never reads as a frozen screen. The clock
                 // above already repaints twice a second, so no extra timer is needed.
                 headline: t(searchHeadline(searchAnchorMs > 0 ? (nowMs - searchAnchorMs) / 1000 : 0)),
-                description: queueSize
-                    ? tf(
-                          queueSize === 1
-                              ? "{count} player is currently in the queue."
-                              : "{count} players are currently in the queue.",
-                          {
-                              count: queueSize,
-                          },
-                      )
-                    : t("Stay ready while we search the live ranked queue."),
+                description: "",
             };
         }
         if (state === "confirming") {
@@ -1442,32 +1432,36 @@ export const MatchmakingRoute: React.FC = () => {
                         >
                             {presentation.headline}
                         </Typography>
-                        <Typography
-                            level="body-sm"
-                            sx={{
-                                display: showStatusPresentation ? "block" : "none",
-                                color: hocColors.muted,
-                                maxWidth: 540,
-                                mt: 0.8,
-                            }}
-                        >
-                            {presentation.description}
-                        </Typography>
-                        <Typography
-                            level="body-xs"
-                            sx={{
-                                display: showStatusPresentation ? "block" : "none",
-                                color: hocColors.muted,
-                                mt: 1.25,
-                                px: 1.2,
-                                py: 0.55,
-                                borderRadius: "999px",
-                                bgcolor: "rgba(255,255,255,0.035)",
-                                border: "1px solid rgba(255,255,255,0.07)",
-                            }}
-                        >
-                            {statusText}
-                        </Typography>
+                        {presentation.description ? (
+                            <Typography
+                                level="body-sm"
+                                sx={{
+                                    display: showStatusPresentation ? "block" : "none",
+                                    color: hocColors.muted,
+                                    maxWidth: 540,
+                                    mt: 0.8,
+                                }}
+                            >
+                                {presentation.description}
+                            </Typography>
+                        ) : null}
+                        {statusText ? (
+                            <Typography
+                                level="body-xs"
+                                sx={{
+                                    display: showStatusPresentation ? "block" : "none",
+                                    color: hocColors.muted,
+                                    mt: 1.25,
+                                    px: 1.2,
+                                    py: 0.55,
+                                    borderRadius: "999px",
+                                    bgcolor: "rgba(255,255,255,0.035)",
+                                    border: "1px solid rgba(255,255,255,0.07)",
+                                }}
+                            >
+                                {statusText}
+                            </Typography>
+                        ) : null}
 
                         {(state === "confirming" || state === "accepted") && pendingGameId ? (
                             <MatchFoundOpponentPreview
