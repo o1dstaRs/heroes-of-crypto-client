@@ -1,3 +1,4 @@
+import { ARTIFACT_POWER } from "@heroesofcrypto/common/src/artifacts/artifact_properties";
 import type { NoteLanguage } from "./format";
 import { spells as spellCatalog } from "../spells-data";
 import type { Unit } from "../units-data";
@@ -209,7 +210,7 @@ export function unitCounterLines(unit: Unit, language: NoteLanguage): string[] {
                         ]
                       : []),
                   ...(damage ? [" Магический урон повышают апгрейд «Магия» (Empower), Mage's Ring и Archmage's Ring."] : []),
-                  ...(buffs.length ? [` Tome of Amplification делает ${buffs.join(", ")} на 50% сильнее.`] : []),
+                  ...(buffs.length ? [` Tome of Amplification делает ${buffs.join(", ")} на ${ARTIFACT_POWER.TOME_BUFF_POWER_PERCENT}% сильнее.`] : []),
               ]
             : [
                   ...(gated.length ? [` Some spells need stack power (${gated.join(", ")}): losses or a split can lock them.`] : []),
@@ -219,7 +220,7 @@ export function unitCounterLines(unit: Unit, language: NoteLanguage): string[] {
                         ]
                       : []),
                   ...(damage ? [" The Empower augment, Mage's Ring and Archmage's Ring raise its magic damage."] : []),
-                  ...(buffs.length ? [` Tome of Amplification makes its ${buffs.join(", ")} 50% stronger.`] : []),
+                  ...(buffs.length ? [` Tome of Amplification makes its ${buffs.join(", ")} ${ARTIFACT_POWER.TOME_BUFF_POWER_PERCENT}% stronger.`] : []),
               ];
         lines.push(`${isRu ? "Заклинатель" : "Caster"}: ${parts.join("; ")}.${extras.join("")}`);
     }

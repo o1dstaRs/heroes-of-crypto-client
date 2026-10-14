@@ -100,7 +100,7 @@ const BOOK_PAGE_TILT_RADIANS = Math.PI / 720;
 const formatShownPower = (power: number): string => String(Number(power.toFixed(4)));
 
 /**
- * Tome of Amplification's multiply, matching the cast. 50 on a power of 30 is 45.
+ * Tome of Amplification's multiply, matching the cast. 40 on a power of 30 is 42.
  * A missing or non-positive tome leaves the power alone.
  */
 const amplifiedBuffPower = (basePower: number, tomePercent: number): number => {
@@ -359,7 +359,7 @@ export class PixiRenderableSpell extends Spell {
      * @param casterHealingBonusPercentage artifact-driven healing and resurrection bonus (Holy Cross).
      * @param casterTomeBuffPercentage Tome of Amplification's stored percent. 0 when the army has no tome.
      *        Non-healing buffs are shown at that raise, the same multiply the cast stores. A Fireforged
-     *        Sword's 20 becomes 30 at 50. Magic-damage bonuses do not enter that percentage.
+     *        Sword's 20 becomes 28 at 40. Magic-damage bonuses do not enter that percentage.
      */
     public getHoverInfo(
         ownerStackPower: number,
@@ -441,7 +441,7 @@ export class PixiRenderableSpell extends Spell {
         }
         // Magic Mirror and Mass Magic Mirror reflect a flat share of the buff's power (40 / 32), not a
         // stack-scaled share — that scaling belongs to the Magic Dragon's Magic Reflection ability.
-        // Tome of Amplification raises the stored power (40 → 60, 32 → 48). getMagicMirrorPower floors it.
+        // Tome of Amplification raises the stored power (40 → 56, 32 → 44.8). getMagicMirrorPower floors it.
         if (this.getName() === "Magic Mirror" || this.getName() === "Mass Magic Mirror") {
             const reflected = Math.max(0, Math.min(100, Math.floor(this.shownBuffPower(casterTomeBuffPercentage))));
             return {

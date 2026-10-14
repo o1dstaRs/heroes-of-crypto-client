@@ -1,3 +1,4 @@
+import { ARTIFACT_POWER } from "@heroesofcrypto/common/src/artifacts/artifact_properties";
 import effectsJson from "@heroesofcrypto/common/src/configuration/effects.json";
 
 import type { NoteSpec } from "./format";
@@ -278,10 +279,10 @@ export const ABILITY_NOTES_M_Z: Readonly<Record<string, NoteSpec>> = {
             `Иммунитет к магии воздуха: Lightning Strike не может выбрать его целью, а Chain Lightning, дойдя до него, обрывается. Заклинания земли (Meteorite, Meteor Shower) и существа с Earth Element наносят ему на ${p}% больше; его собственные атаки наносят на ${p}% больше юнитам с Earth Element.`,
     },
     "Wind Flow": {
-        en: ({ p }) =>
-            `Once per fight, and only at full stack (stack power 5, measured against the strongest stack on the board — an enemy stack grown by Life's Supply synergy at level 3 can take it away): every flying unit on the board — both sides, the Valkyrie included — gets +${p} base armor and −${p} movement (never below 1) for 3 laps. Flyers with 100% magic resistance or already under Wind Flow are skipped, and enemies can't resist it. With Tome of Amplification in the Valkyrie's army its own flyers get ×1.5 of the armor — +6 — while every flyer still loses ${p} movement and enemy flyers get +${p} armor.`,
-        ru: ({ p }) =>
-            `Раз за бой и только при полной силе стека (5; она считается от сильнейшего стека на поле — вражеский стек, выросший от синергии Жизни «Запас» 3 уровня, может её отнять): каждый летающий юнит на поле — обеих сторон, включая Valkyrie, — получает +${p} к базовой броне и −${p} к движению (не ниже 1) на 3 круга. Летающие юниты со 100% сопротивления магии или уже под Wind Flow пропускаются, а враги не могут сопротивляться. С Tome of Amplification в армии Valkyrie её собственные летающие получают броню ×1,5 — +6, — а движения каждый летающий по-прежнему теряет ${p}, и вражеские получают +${p} к броне.`,
+        en: ({ p, n }) =>
+            `Once per fight, and only at full stack (stack power 5, measured against the strongest stack on the board — an enemy stack grown by Life's Supply synergy at level 3 can take it away): every flying unit on the board — both sides, the Valkyrie included — gets +${p} base armor and −${p} movement (never below 1) for 3 laps. Flyers with 100% magic resistance or already under Wind Flow are skipped, and enemies can't resist it. With Tome of Amplification in the Valkyrie's army its own flyers get ×${n(1 + ARTIFACT_POWER.TOME_BUFF_POWER_PERCENT / 100)} of the armor — +${n(p * (1 + ARTIFACT_POWER.TOME_BUFF_POWER_PERCENT / 100))} — while every flyer still loses ${p} movement and enemy flyers get +${p} armor.`,
+        ru: ({ p, n }) =>
+            `Раз за бой и только при полной силе стека (5; она считается от сильнейшего стека на поле — вражеский стек, выросший от синергии Жизни «Запас» 3 уровня, может её отнять): каждый летающий юнит на поле — обеих сторон, включая Valkyrie, — получает +${p} к базовой броне и −${p} к движению (не ниже 1) на 3 круга. Летающие юниты со 100% сопротивления магии или уже под Wind Flow пропускаются, а враги не могут сопротивляться. С Tome of Amplification в армии Valkyrie её собственные летающие получают броню ×${n(1 + ARTIFACT_POWER.TOME_BUFF_POWER_PERCENT / 100)} — +${n(p * (1 + ARTIFACT_POWER.TOME_BUFF_POWER_PERCENT / 100))}, — а движения каждый летающий по-прежнему теряет ${p}, и вражеские получают +${p} к броне.`,
     },
     "Wolf Trail Aura": {
         en: ({ p, n }) =>

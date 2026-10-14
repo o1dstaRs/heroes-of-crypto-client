@@ -339,50 +339,51 @@ describe("PixiRenderableSpell effect summary", () => {
     });
 
     test("Tome of Amplification raises the buff the card promises, including armor and both mirrors", () => {
-        const tome = 50;
+        const tome = 40;
         expect(summaryOf("Life", "Spiritual Armor", 1, 2, 1, 0, 0, tome)).toEqual({
             kind: "buff",
             label: "Buff",
-            value: "+45%",
+            value: "+42%",
         });
         expect(detailsOf("Life", "Spiritual Armor", 1, 2, 1, 0, 0, tome).information.join("\n")).toContain(
-            "additional 45% armor",
+            "additional 42% armor",
         );
 
-        expect(summaryOf("Chaos", "Riot", 1, 2, 1, 0, 0, tome)?.value).toBe("+45%");
-        expect(detailsOf("Chaos", "Riot", 1, 2, 1, 0, 0, tome).information.join("\n")).toContain("Adds 45%");
+        expect(summaryOf("Chaos", "Riot", 1, 2, 1, 0, 0, tome)?.value).toBe("+42%");
+        expect(detailsOf("Chaos", "Riot", 1, 2, 1, 0, 0, tome).information.join("\n")).toContain("Adds 42%");
 
-        expect(summaryOf("Chaos", "Mass Riot", 4, 2, 1, 0, 0, tome)?.value).toBe("+37.5%");
-        expect(detailsOf("Chaos", "Mass Riot", 4, 2, 1, 0, 0, tome).information.join("\n")).toContain("Adds 37.5%");
+        expect(summaryOf("Chaos", "Mass Riot", 4, 2, 1, 0, 0, tome)?.value).toBe("+35%");
+        expect(detailsOf("Chaos", "Mass Riot", 4, 2, 1, 0, 0, tome).information.join("\n")).toContain("Adds 35%");
 
-        // Flat, not stack-scaled: a stack-1 Ogre still reflects the whole 40, and the tome makes it 60.
+        // Flat, not stack-scaled: a stack-1 Ogre still reflects the whole 40, and the tome makes it 56.
         expect(summaryOf("Chaos", "Magic Mirror", 1, 2)).toEqual({
             kind: "buff",
             label: "Reflection",
             value: "40%",
             detail: "Damage and debuff reflection",
         });
-        expect(summaryOf("Chaos", "Magic Mirror", 1, 2, 1, 0, 0, tome)?.value).toBe("60%");
+        expect(summaryOf("Chaos", "Magic Mirror", 1, 2, 1, 0, 0, tome)?.value).toBe("56%");
         expect(detailsOf("Chaos", "Magic Mirror", 1, 2, 1, 0, 0, tome).information.join("\n")).toContain(
-            "Reflects 60%",
+            "Reflects 56%",
         );
-        expect(summaryOf("Chaos", "Mass Magic Mirror", 4, 2, 1, 0, 0, tome)?.value).toBe("48%");
+        // 32 × 1.4 is 44.8, and the card floors the reflected share.
+        expect(summaryOf("Chaos", "Mass Magic Mirror", 4, 2, 1, 0, 0, tome)?.value).toBe("44%");
         expect(detailsOf("Chaos", "Mass Magic Mirror", 4, 2, 1, 0, 0, tome).information.join("\n")).toContain(
-            "Reflects 48%",
+            "Reflects 44%",
         );
 
         expect(summaryOf("Chaos", "Fireforged Sword", 1, 2)?.value).toBe("20% of hit");
         // Empower, the rings and Sylvan Focus arrive as the magic-damage bonus. They do not move the blade.
         expect(summaryOf("Chaos", "Fireforged Sword", 1, 2, 1, 40)?.value).toBe("20% of hit");
-        expect(summaryOf("Chaos", "Fireforged Sword", 1, 2, 1, 40, 0, tome)?.value).toBe("30% of hit");
+        expect(summaryOf("Chaos", "Fireforged Sword", 1, 2, 1, 40, 0, tome)?.value).toBe("28% of hit");
         expect(detailsOf("Chaos", "Fireforged Sword", 1, 2, 1, 40, 0, tome).information.join("\n")).toContain(
-            "for 30%",
+            "for 28%",
         );
         const helpingHand = detailsOf("Life", "Helping Hand", 4, 2, 1, 0, 0, tome).information.join("\n");
-        expect(helpingHand).toContain("Gives 45%");
+        expect(helpingHand).toContain("Gives 42%");
         expect(helpingHand).toContain("The caster still loses 30%.");
         expect(detailsOf("System", "Wind Flow", 5, 1, 1, 0, 0, tome).information.join("\n")).toContain(
-            "gain 6 of base armor points while losing 4 movement",
+            "gain 5.6 of base armor points while losing 4 movement",
         );
     });
 

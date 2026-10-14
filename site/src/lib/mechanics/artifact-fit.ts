@@ -161,7 +161,7 @@ const FITS: Record<string, Fit> = {
         language === "ru"
             ? `+${n(A.BERSERKERS_BOND_ATTACK)} к базовой атаке и −${n(A.BERSERKERS_BOND_DEFENSE_PENALTY)} к броне всем: большая доля низкой атаки (Peasant 9 → 12, +33%) и мелочь на 4 уровне; −${n(A.BERSERKERS_BOND_DEFENSE_PENALTY)} брони сильнее бьёт по стекам с низкой бронёй.`
             : `+${n(A.BERSERKERS_BOND_ATTACK)} base attack and −${n(A.BERSERKERS_BOND_DEFENSE_PENALTY)} armor for everyone: a big share of a low attack (a Peasant's 9 → 12, +33%), little on a level-4 unit; the −${n(A.BERSERKERS_BOND_DEFENSE_PENALTY)} armor costs low-armor stacks the most.`,
-    "Tome of Amplification": (language) => {
+    "Tome of Amplification": (language, n) => {
         const casters = draftable()
             .filter(
                 (unit) =>
@@ -170,8 +170,8 @@ const FITS: Record<string, Fit> = {
             )
             .map((unit) => unit.name);
         return language === "ru"
-            ? `Для заклинателей баффов: ${list(casters, language)}. Wind Flow с ним даёт вашим летающим +6 к броне при прежних −4 к движению.`
-            : `Buff casters: ${list(casters, language)}. With it Wind Flow gives your own flyers +6 armor for the same −4 movement.`;
+            ? `Для заклинателей баффов: ${list(casters, language)}. Wind Flow с ним даёт вашим летающим +${n(4 * (1 + A.TOME_BUFF_POWER_PERCENT / 100))} к броне при прежних −4 к движению.`
+            : `Buff casters: ${list(casters, language)}. With it Wind Flow gives your own flyers +${n(4 * (1 + A.TOME_BUFF_POWER_PERCENT / 100))} armor for the same −4 movement.`;
     },
     "Rime Charm": (language) =>
         language === "ru"
