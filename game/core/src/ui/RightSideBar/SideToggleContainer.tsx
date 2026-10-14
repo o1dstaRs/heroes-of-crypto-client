@@ -281,9 +281,7 @@ const AugmentCard = ({
                             }}
                         >
                             <span>
-                                {option.value === recommended && (
-                                    <PremiumIcon size={16} style={{ marginRight: 5, color: "#ffad66" }} />
-                                )}
+                                {option.value === recommended && <PremiumIcon size={16} style={{ marginRight: 5 }} />}
                                 {option.label}
                             </span>
                             <Radio

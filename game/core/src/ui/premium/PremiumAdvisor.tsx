@@ -20,7 +20,7 @@ import { PremiumButton } from "./PremiumButton";
 export { EvidenceText } from "./PremiumEvidenceText";
 
 export const PremiumContext = createContext<PremiumAdvice | undefined>(undefined);
-const orange = "#ea802c";
+const orange = "var(--hoc-premium-accent)";
 
 export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number, enabled = true) => {
     const { authenticated, user } = useAuthContext();
@@ -175,7 +175,7 @@ export const PremiumMark: React.FC<{ kind: PremiumChoice["kind"]; value: number 
                         cursor: "help",
                     }}
                 >
-                    <PremiumIcon size={14} style={{ marginRight: 4, opacity: index === 0 ? 1 : 0.6 }} />
+                    <PremiumIcon size={14} style={{ marginRight: 4 }} />
                     {index === 0 ? "Preferred" : "Alternative"}
                 </Box>
             </Tooltip>
@@ -204,7 +204,6 @@ export const PremiumShield: React.FC<{ testOnly?: boolean; size?: number }> = ({
                     left: -size / 5,
                     width: size,
                     height: size,
-                    color: "#ffad66",
                     zIndex: 5,
                     filter: "drop-shadow(0 2px 3px #000)",
                 }}
@@ -229,7 +228,7 @@ export const PremiumDraftBanner: React.FC<{ advice?: PremiumAdvice; draft: Premi
             arrow
             title={
                 <Box sx={{ maxHeight: "min(560px, 65vh)", overflowY: "auto", p: 0.5 }}>
-                    <Typography level="title-sm" sx={{ color: "#f7a35a" }}>
+                    <Typography level="title-sm" sx={{ color: "var(--hoc-premium-accent)" }}>
                         Draft so far · {assessment.roster}
                     </Typography>
                     <Typography level="body-sm" sx={{ color: "#ffe0bf", mt: 0.75 }}>
@@ -242,7 +241,7 @@ export const PremiumDraftBanner: React.FC<{ advice?: PremiumAdvice; draft: Premi
                     ))}
                     {preferred && (
                         <Box sx={{ mt: 1, pt: 0.75, borderTop: "1px solid #a9582555" }}>
-                            <Typography level="body-xs" sx={{ color: "#f7a35a" }}>
+                            <Typography level="body-xs" sx={{ color: "var(--hoc-premium-accent)" }}>
                                 Next recommendation
                             </Typography>
                             <ChoiceExplanation choice={preferred} />
@@ -279,7 +278,7 @@ export const PremiumDraftBanner: React.FC<{ advice?: PremiumAdvice; draft: Premi
                     fontSize: 12,
                     lineHeight: 1.4,
                     cursor: "help",
-                    "&:focus-visible": { outline: "2px solid #f7a35a", outlineOffset: 3 },
+                    "&:focus-visible": { outline: "2px solid var(--hoc-premium-accent)", outlineOffset: 3 },
                 }}
             >
                 <strong>
@@ -340,7 +339,11 @@ export const PremiumSetupPanel: React.FC<{
                         overflowY: setupView ? "auto" : undefined,
                     }}
                 >
-                    <Typography level="title-sm" startDecorator={<PremiumIcon />} sx={{ color: "#f7a35a" }}>
+                    <Typography
+                        level="title-sm"
+                        startDecorator={<PremiumIcon />}
+                        sx={{ color: "var(--hoc-premium-accent)" }}
+                    >
                         Premium guidance
                     </Typography>
                     {advice.stage === "setup" || setupView ? (
@@ -373,7 +376,6 @@ export const PremiumSetupPanel: React.FC<{
                                 onClick={() => {
                                     void apply("setup");
                                 }}
-                                sx={{ bgcolor: "#9b481b", color: "#fff0de", "&:hover": { bgcolor: "#bd5c25" } }}
                             >
                                 Use recommended build
                             </PremiumButton>
@@ -386,7 +388,6 @@ export const PremiumSetupPanel: React.FC<{
                                 onClick={() => {
                                     void apply("formation");
                                 }}
-                                sx={{ bgcolor: "#9b481b", color: "#fff0de", "&:hover": { bgcolor: "#bd5c25" } }}
                             >
                                 Arrange army
                             </PremiumButton>

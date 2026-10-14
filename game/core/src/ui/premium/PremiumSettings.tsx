@@ -52,7 +52,12 @@ export const PremiumSettings: React.FC<{ reason: string }> = ({ reason }) => {
             <Typography
                 level="body-xs"
                 startDecorator={<PremiumIcon size={18} />}
-                sx={{ color: "#ffad66", fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase" }}
+                sx={{
+                    color: "var(--hoc-premium-accent)",
+                    fontWeight: 800,
+                    letterSpacing: "0.14em",
+                    textTransform: "uppercase",
+                }}
             >
                 {t("Premium")}
             </Typography>
