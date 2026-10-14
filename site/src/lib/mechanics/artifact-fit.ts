@@ -193,10 +193,14 @@ const FITS: Record<string, Fit> = {
         language === "ru"
             ? "Для армий со стрелками: шанс на дополнительный залп. Особенно полезен с Area Throw, Large Caliber, Through Shot и Chakram; сочетается с Double Shot и Double Throw. Поддерживайте запас боеприпасов: после его исчерпания эхо не вылетит. Юниты ближнего боя бонус не получают."
             : "For ranged armies: a chance for an extra volley. Particularly useful with Area Throw, Large Caliber, Through Shot and Chakram, and stacks with Double Shot and Double Throw. Keep ammunition available: an empty quiver cannot fire the echo. Melee units receive no bonus.",
-    "Aegis of the Arcane": (language, n) =>
-        language === "ru"
-            ? `Для армий, по которым бьют заклинаниями и магическим уроном, особенно если своя магическая защита низкая: +${n(A.AEGIS_OF_THE_ARCANE_MAGIC_DEFENSE)} пунктов — вся защита при 0 и всё ещё большая доля при 5–15. С Magic Shield, Wardguard, Warding Mane Blessing и Arcane Ward Blessing это отдельный бросок, а не сумма. Бесполезен для Black Dragon, пока держится Enchanted Skin (уже 100%); после Break дракон эти пункты сохраняет. Против Stun, Freeze, Paralysis, Blindness и взглядов не помогает.`
-            : `Armies that will take spells and magic damage, especially units with little magic defense of their own: +${n(A.AEGIS_OF_THE_ARCANE_MAGIC_DEFENSE)} points is the whole defense at 0, and still a large share at 5–15. Magic Shield, Wardguard, Warding Mane Blessing and Arcane Ward Blessing roll separately on top instead of adding. Nothing for a Black Dragon while Enchanted Skin holds (already 100%); after Break the dragon keeps the points. It does nothing against Stun, Freeze, Paralysis, Blindness or the gazes.`,
+    "Aegis of the Arcane": (language, n) => {
+        const points = A.AEGIS_OF_THE_ARCANE_MAGIC_DEFENSE;
+        const own = 15;
+        const combined = (1 - (1 - own / 100) * (1 - points / 100)) * 100;
+        return language === "ru"
+            ? `Для армий, по которым бьют заклинаниями и магическим уроном. Каждый юнит получает отдельный бросок магической защиты на ${n(points)}%, который складывается с его собственной защитой обычной формулой: ${n(own)} и этот бросок дают ${n(combined)}, а не ${n(own + points)}. При нуле своей защиты бросок и есть все ${n(points)}. Magic Shield, Wardguard, Warding Mane Blessing и Arcane Ward Blessing — ещё отдельные броски. Бесполезен для Black Dragon, пока держится Enchanted Skin; после Break дракон сохраняет бросок. Против Stun, Freeze, Paralysis, Blindness и взглядов не помогает.`
+            : `Armies that will take spells and magic damage. Every unit gets a separate ${n(points)}% magic-defense roll, combined with its own defense by the usual formula: ${n(own)} and this roll is ${n(combined)}, not ${n(own + points)}. At 0 it is the whole ${n(points)}. Magic Shield, Wardguard, Warding Mane Blessing and Arcane Ward Blessing are further separate rolls. Nothing for a Black Dragon while Enchanted Skin holds; after Break the dragon keeps the roll. It does nothing against Stun, Freeze, Paralysis, Blindness or the gazes.`;
+    },
 };
 
 function magicDealersFit(language: NoteLanguage): string {

@@ -83,6 +83,7 @@ import {
     additionalTurnTimeFor,
     isMindlessAiUnit,
     autoPlaceArtifactBarrels,
+    artifactBarrelShooterCells,
     reconcileArtifactBarrels,
     TurnEngine,
     GameEvent,
@@ -7280,7 +7281,13 @@ export class Sandbox extends PixiScene {
     private placeMissingArtifactBarrels(team: TeamType): void {
         const fp = FightStateManager.getInstance().getFightProperties();
         const cells = [0, 1].flatMap((index) => this.getPlacement(team, index)?.possibleCellPositions() ?? []);
-        autoPlaceArtifactBarrels(this.grid, fp, team, cells);
+        autoPlaceArtifactBarrels(
+            this.grid,
+            fp,
+            team,
+            cells,
+            artifactBarrelShooterCells(this.grid, this.unitsHolder.getAllUnits().values(), team),
+        );
     }
     public override beginBarrelPlacement(team: TeamType, index: number): boolean {
         if (!this.canMoveArtifactBarrel(team) || !Number.isInteger(index) || index < 0 || index >= 2) return false;

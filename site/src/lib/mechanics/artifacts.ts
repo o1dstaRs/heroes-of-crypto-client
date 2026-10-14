@@ -159,17 +159,17 @@ const ARTIFACT_NOTES: Readonly<Record<string, NoteSpec>> = {
             const points = A.AEGIS_OF_THE_ARCANE_MAGIC_DEFENSE;
             const own = 15;
             const shield = 50;
-            const raised = own + points;
-            const combined = (1 - (1 - raised / 100) * (1 - shield / 100)) * 100;
-            return `Every unit gains +${n(points)} percentage points of magic defense, never above 100. The points are added to the unit's own defense before Magic Shield, Wardguard, Warding Mane Blessing and Arcane Ward Blessing, which still roll separately on top: a unit with ${n(own)} becomes ${n(raised)}, and with a ${n(shield)}% Magic Shield that is ${n(combined)}%, not a sum. It cuts magic damage and the chance a debuff spell lands. It does not stop Stun, Freeze, Paralysis, Blindness or the gazes. Enchanted Skin stays at 100% and ignores the bonus until Break; while Broken, that unit keeps its own defense plus these points.`;
+            const withOwn = (1 - (1 - own / 100) * (1 - points / 100)) * 100;
+            const withShield = (1 - (1 - own / 100) * (1 - points / 100) * (1 - shield / 100)) * 100;
+            return `Every unit gets a separate ${n(points)}% magic-defense roll. It is combined with the defense the unit already has, and with Magic Shield, Wardguard, Warding Mane Blessing and Arcane Ward Blessing, by the same formula those use — what remains after each roll misses. A unit with ${n(own)} becomes ${n(withOwn)}, not ${n(own + points)}. With a ${n(shield)}% Magic Shield that is ${n(withShield)}, not a sum. It cuts magic damage and the chance a debuff spell lands. It does not stop Stun, Freeze, Paralysis, Blindness or the gazes. Enchanted Skin stays at 100% and ignores the roll until Break; while Broken, that unit keeps its own defense and this roll.`;
         },
         ru: ({ n }) => {
             const points = A.AEGIS_OF_THE_ARCANE_MAGIC_DEFENSE;
             const own = 15;
             const shield = 50;
-            const raised = own + points;
-            const combined = (1 - (1 - raised / 100) * (1 - shield / 100)) * 100;
-            return `Каждый юнит получает +${n(points)} процентных пунктов магической защиты, не выше 100. Пункты прибавляются к его собственной защите до того, как Magic Shield, Wardguard, Warding Mane Blessing и Arcane Ward Blessing бросаются отдельно поверх: юнит с ${n(own)} становится ${n(raised)}, а с Magic Shield на ${n(shield)}% это ${n(combined)}%, а не сумма. Снижает магический урон и шанс, что сработает дебафф заклинания. Не защищает от Stun, Freeze, Paralysis, Blindness и взглядов. Enchanted Skin остаётся на 100% и игнорирует бонус, пока её не снимет Break; под Break юнит сохраняет свою защиту плюс эти пункты.`;
+            const withOwn = (1 - (1 - own / 100) * (1 - points / 100)) * 100;
+            const withShield = (1 - (1 - own / 100) * (1 - points / 100) * (1 - shield / 100)) * 100;
+            return `Каждый юнит получает отдельный бросок магической защиты на ${n(points)}%. Он складывается с его собственной защитой и с Magic Shield, Wardguard, Warding Mane Blessing и Arcane Ward Blessing той же формулой — остаётся то, что не отбили все броски. Юнит с ${n(own)} становится ${n(withOwn)}, а не ${n(own + points)}. С Magic Shield на ${n(shield)}% это ${n(withShield)}, а не сумма. Снижает магический урон и шанс, что сработает дебафф заклинания. Не защищает от Stun, Freeze, Paralysis, Blindness и взглядов. Enchanted Skin остаётся на 100% и игнорирует бросок, пока её не снимет Break; под Break юнит сохраняет свою защиту и этот бросок.`;
         },
     },
 };

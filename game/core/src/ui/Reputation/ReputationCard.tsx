@@ -6,14 +6,26 @@ import Typography from "@mui/joy/Typography";
 import React from "react";
 
 import { reputationBandLabel, reputationBarPct, reputationLimitsText } from "./reputationModel";
-import { fetchReputation } from "../../api/reputation_client";
+import { DEFAULT_REPUTATION_RULES, fetchReputation, type Reputation } from "../../api/reputation_client";
 import { t, useTranslation } from "../../i18n/i18n";
 import { hocColors } from "../hocTheme";
+import { isMockPortalEnabled } from "../PlayerPortal/mockPortal";
 import { createPlayerResource } from "../PlayerPortal/playerResource";
 import { usePlayerResource } from "../PlayerPortal/usePlayerResource";
 import { PlayerPortalReputationSkeleton } from "../PlayerPortal/PlayerPortalLoading";
 
-const reputationResource = createPlayerResource(fetchReputation, () => t("Couldn't load your Reputation."));
+const previewReputation: Reputation = {
+    score: 86,
+    band: "honorable",
+    isNew: false,
+    restricted: false,
+    rules: DEFAULT_REPUTATION_RULES,
+};
+
+const reputationResource = createPlayerResource(
+    () => (isMockPortalEnabled() ? Promise.resolve(previewReputation) : fetchReputation()),
+    () => t("Couldn't load your Reputation."),
+);
 
 const BAND_COLORS = {
     restricted: "#ff8a7a",
@@ -55,43 +67,58 @@ export const ReputationCard: React.FC<{ reloadKey?: number }> = ({ reloadKey = 0
     return (
         <Sheet
             variant="plain"
-            sx={{ p: 2, bgcolor: "transparent", border: "none", minHeight: 0 }}
+            sx={{ px: { xs: 1, sm: 3.5 }, py: 2, bgcolor: "transparent", border: "none", minHeight: 0 }}
             data-testid="reputation-card"
         >
-            <Stack spacing={1.5}>
-                <Stack direction="row" spacing={1.25} alignItems="baseline" sx={{ flexWrap: "wrap" }}>
-                    <Typography level="title-lg" sx={{ color: hocColors.parchment }}>
-                        {t("Reputation")}
-                    </Typography>
-                    <Typography
-                        level="h2"
-                        sx={{ color: bandColor, fontVariantNumeric: "tabular-nums", lineHeight: 1 }}
-                        aria-label={`${t("Reputation")}: ${reputation.score}`}
-                    >
-                        {reputation.score}
-                    </Typography>
-                    <Chip size="sm" variant="soft" sx={{ color: bandColor, bgcolor: "rgba(255,255,255,0.06)" }}>
-                        {reputationBandLabel(reputation.band)}
-                    </Chip>
-                    {reputation.isNew && (
-                        <Chip
-                            size="sm"
-                            variant="outlined"
-                            sx={{
-                                color: hocColors.mutedStrong,
-                                bgcolor: "transparent",
-                                borderColor: "rgba(255,255,255,0.22)",
-                            }}
-                        >
-                            {t("New account")}
-                        </Chip>
-                    )}
-                </Stack>
-                <Typography level="body-sm" textColor={hocColors.muted}>
-                    {t("How reliably you play ranked. Everyone starts at 50.")}
-                </Typography>
-
+            <Box
+                sx={{
+                    display: "grid",
+                    gridTemplateColumns: { xs: "1fr", sm: "1fr minmax(200px, 360px)" },
+                    columnGap: 4,
+                    rowGap: 1,
+                    alignItems: "center",
+                }}
+            >
                 <Box>
+                    <Stack direction="row" spacing={1.25} alignItems="baseline" sx={{ flexWrap: "wrap" }}>
+                        <Typography level="title-md" sx={{ color: hocColors.parchment }}>
+                            {t("Reputation")}
+                        </Typography>
+                        <Typography
+                            level="h2"
+                            sx={{
+                                color: bandColor,
+                                fontVariantNumeric: "tabular-nums",
+                                lineHeight: 1,
+                                fontSize: 24,
+                                fontWeight: 400,
+                            }}
+                            aria-label={`${t("Reputation")}: ${reputation.score}`}
+                        >
+                            {reputation.score}
+                        </Typography>
+                        <Chip size="sm" variant="plain" sx={{ color: bandColor, bgcolor: "transparent", p: 0 }}>
+                            {reputationBandLabel(reputation.band)}
+                        </Chip>
+                        {reputation.isNew && (
+                            <Chip
+                                size="sm"
+                                variant="outlined"
+                                sx={{
+                                    color: hocColors.mutedStrong,
+                                    bgcolor: "transparent",
+                                    borderColor: "rgba(255,255,255,0.22)",
+                                }}
+                            >
+                                {t("New account")}
+                            </Chip>
+                        )}
+                    </Stack>
+                    <Typography level="body-xs" textColor={hocColors.muted} sx={{ mt: 0.75 }}>
+                        {t("How reliably you play ranked. Everyone starts at 50.")}
+                    </Typography>
+                </Box>
+                <Box sx={{ pt: 1 }}>
                     <Box
                         role="img"
                         aria-label={`${reputation.score} / 100`}
@@ -101,7 +128,7 @@ export const ReputationCard: React.FC<{ reloadKey?: number }> = ({ reloadKey = 0
                             gridTemplateColumns: `${rules.bands.probation}fr ${rules.bands.good - rules.bands.probation}fr ${
                                 rules.bands.honorable - rules.bands.good
                             }fr ${101 - rules.bands.honorable}fr`,
-                            height: 10,
+                            height: 4,
                             borderRadius: "3px",
                             overflow: "visible",
                         }}
@@ -113,13 +140,13 @@ export const ReputationCard: React.FC<{ reloadKey?: number }> = ({ reloadKey = 0
                         <Box
                             sx={{
                                 position: "absolute",
-                                top: -4,
-                                bottom: -4,
+                                top: -3,
+                                bottom: -3,
                                 width: 3,
                                 left: `calc(${reputationBarPct(reputation.score)}% - 1px)`,
                                 bgcolor: hocColors.parchment,
                                 borderRadius: "1px",
-                                boxShadow: "0 0 6px rgba(239,228,204,0.7)",
+                                boxShadow: "none",
                             }}
                         />
                     </Box>
@@ -148,7 +175,7 @@ export const ReputationCard: React.FC<{ reloadKey?: number }> = ({ reloadKey = 0
                         {limits}
                     </Typography>
                 )}
-            </Stack>
+            </Box>
         </Sheet>
     );
 };
