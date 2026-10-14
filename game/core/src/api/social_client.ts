@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
 
 import { axiosMMInstance, buildApiUrl, endpoints, HOST_MATCHMAKING_API } from "./axios";
+import { normalizePlayerMetrics, type PlayerMetricsMode, type PlayerMetricsSummary } from "./player_metrics_contract";
 import type { PresenceActivity } from "../ui/social/presenceActivity";
 
 /**
@@ -662,6 +663,7 @@ export interface PublicPlayerStats {
         opponent?: { playerId: string; username: string } | null;
     }>;
     /** The public profile's aggregate picks, used when historical matches predate lineup storage. */
+    playerMetrics?: PlayerMetricsSummary | null;
     playstyle?: {
         topCreatures?: Array<{
             creatureId: number;
@@ -676,7 +678,10 @@ export const fetchPublicPlayerStats = async (playerId: string): Promise<PublicPl
     const response = await axiosMMInstance.get(`${endpoints.mm.rankedProfile}/${encodeURIComponent(playerId)}`, {
         headers: authHeaders(),
     });
-    return response.data as PublicPlayerStats;
+    return {
+        ...response.data,
+        playerMetrics: normalizePlayerMetrics(response.data?.playerMetrics),
+    } as PublicPlayerStats;
 };
 
 /** One rendered run of a chat line: plain text, a resolved @tag, or an internal link. */
@@ -720,4 +725,17 @@ export const chatSegments = (body: string, selfUsername?: string): ChatSegment[]
         segments.push({ kind: "text", text: body.slice(cursor) });
     }
     return segments;
+};
+
+export const fetchPlayerMetrics = async (
+    playerId: string,
+    mode: PlayerMetricsMode = "ranked",
+): Promise<PlayerMetricsSummary> => {
+    const response = await axiosMMInstance.get(`${endpoints.mm.playerMetrics}/${encodeURIComponent(playerId)}`, {
+        params: { mode },
+        headers: authHeaders(),
+    });
+    const metrics = normalizePlayerMetrics(response.data);
+    if (!metrics) throw new Error("Player metrics response was malformed");
+    return metrics;
 };
