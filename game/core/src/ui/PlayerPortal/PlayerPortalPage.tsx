@@ -1,3 +1,4 @@
+import "./profilePresentation.css";
 import { PlayerPlaystyle } from "../PlayerPlaystyle/PlayerPlaystyle";
 import { Box, Button, Sheet, Skeleton, Stack, Typography } from "@mui/joy";
 import { Artifact } from "@heroesofcrypto/common";
@@ -54,9 +55,9 @@ const Section: React.FC<{ title: string; subtitle?: string; featured?: boolean; 
             p: featured ? { xs: 2, sm: 3.5 } : { xs: "24px 0", sm: "32px 0" },
             minWidth: 0,
             border: "none",
-            borderRadius: featured ? "24px" : 0,
+            borderRadius: featured ? "var(--hoc-profile-feature-radius)" : 0,
             boxShadow: "none",
-            bgcolor: featured ? "rgba(239,228,204,0.035)" : "transparent",
+            bgcolor: featured ? "var(--hoc-profile-feature-background)" : "transparent",
         }}
     >
         <Box sx={{ mb: 2.5 }}>
@@ -591,7 +592,7 @@ export const PlayerPortalPage: React.FC = () => {
                 className="hoc-player-profile"
                 sx={{ maxWidth: 1180, mx: "auto", fontFamily: '"Inter", "Segoe UI", sans-serif' }}
             >
-                <Sheet component="header" variant="outlined" sx={portalHeaderSx}>
+                <Sheet component="header" className="hoc-profile-header" variant="outlined" sx={portalHeaderSx}>
                     <Stack
                         direction={{ xs: "column", lg: "row" }}
                         alignItems={{ xs: "stretch", sm: "center" }}

@@ -1,5 +1,6 @@
 ---
 import "../../../game/core/src/ui/PlayerPlaystyle/playerPlaystyle.css";
+import "../../../game/core/src/ui/PlayerPortal/profilePresentation.css";
 import { renderPlayerPlaystyle } from "../../../game/core/src/ui/PlayerPlaystyle/renderPlayerPlaystyle";
 import { reputationRulesPath } from "../lib/reputation-rules";
 import { content, links, type Language } from "../lib/site-data";
@@ -20,9 +21,9 @@ const rankedApp = links.rankedApp;
 const reputationHref = reputationRulesPath(lang);
 ---
 
-<section class="profile-page">
+<section class="profile-page hoc-profile-surface">
     <div class="page-shell profile-shell">
-        <header class="profile-head">
+        <header class="profile-head hoc-profile-header">
             <span class="profile-head-emblem" aria-hidden="true">
                 <img src="/assets/images/home/logo/hocai_logo_96.png" alt="" width="64" height="64" data-profile-head-emblem />
             </span>
@@ -45,6 +46,7 @@ const reputationHref = reputationRulesPath(lang);
                     <span class="profile-presence" data-profile-presence hidden></span>
                     <span class="profile-lastseen" data-profile-lastseen></span>
                 </div>
+                <dl class="stat-grid profile-header-stats" data-profile-stats></dl>
             </div>
             <a class="profile-arena-link" href={arenaHref}>← {arenaLabel}</a>
         </header>
@@ -73,11 +75,10 @@ const reputationHref = reputationRulesPath(lang);
             </div>
 
             <div class="profile-body" data-profile-sections>
-                <section class="profile-section">
-                    <h2>{copy.sectionOverview}</h2>
-                    <dl class="stat-grid" data-profile-stats></dl>
+                <section class="profile-section hoc-profile-feature">
+                    <h2>{isRu ? "Стиль игры" : "Playstyle"}</h2>
+                    <div data-profile-metrics set:html={renderPlayerPlaystyle(null, lang, "loading")}></div>
                 </section>
-
                 <section class="profile-section" data-profile-public-standing hidden>
                     <h2>{copy.sectionRankedStanding}</h2>
                     <div class="ranked-standing" data-profile-standing></div>
@@ -157,10 +158,7 @@ const reputationHref = reputationRulesPath(lang);
                     <div class="combo-list" data-profile-combos></div>
                 </section>
 
-                <section class="profile-section">
-                    <h2>{isRu ? "Стиль игры" : "Playstyle"}</h2>
-                    <div data-profile-metrics set:html={renderPlayerPlaystyle(null, lang, "loading")}></div>
-                </section>
+
 
                 <section class="profile-section" data-profile-playstyle-section hidden>
                     <h2>{copy.publicPlaystyle}</h2>
@@ -4051,4 +4049,20 @@ const reputationHref = reputationRulesPath(lang);
             transition: none;
         }
     }
+
+    .profile-shell { width: min(1180px, calc(100vw - 40px)); }
+    .profile-page::before { display: none; }
+    .profile-head { padding: 20px 0; margin-bottom: 24px; backdrop-filter: none; }
+    .profile-section { padding: 24px 0; border: none; border-radius: 0; background: transparent; box-shadow: none; backdrop-filter: none; }
+    .profile-section.hoc-profile-feature { padding: clamp(20px, 3vw, 32px); }
+    .profile-section h2 { color: #efe4cc; font-size: 18px; margin-bottom: 24px; }
+    .profile-header-stats { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 14px; }
+    .profile-header-stats :global(.stat-card) { display: flex; flex-direction: row-reverse; align-items: baseline; gap: 5px; padding: 0; border: none; border-radius: 0; background: transparent; }
+    .profile-header-stats :global(.stat-card dt) { font-size: 11px; text-transform: none; letter-spacing: 0; }
+    .profile-header-stats :global(.stat-card dd) { font-size: 18px; letter-spacing: 0; }
+    .profile-header-stats :global(.stat-card--form) { flex-basis: 100%; justify-content: flex-end; }
+    .profile-head-emblem { filter: none; }
+    .profile-page.hoc-profile-surface { background: radial-gradient(ellipse at 20% 0%, rgba(173,130,64,0.09), transparent 55%), #0f0e0d; }
+    .profile-head.hoc-profile-header { border: none; border-radius: 0; background: transparent; box-shadow: none; }
+    .profile-section.hoc-profile-feature { border-radius: var(--hoc-profile-feature-radius); background: var(--hoc-profile-feature-background); }
 </style>

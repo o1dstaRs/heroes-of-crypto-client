@@ -1,0 +1,23 @@
+:root {
+    --hoc-profile-feature-radius: 24px;
+    --hoc-profile-feature-background: rgba(239, 228, 204, 0.035);
+}
+
+/* Shared by the React player portal and the Astro public profile. */
+.hoc-profile-surface {
+    background: radial-gradient(ellipse at 20% 0%, rgba(173, 130, 64, 0.09), transparent 55%), #0f0e0d;
+}
+
+.hoc-profile-header {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.hoc-profile-feature {
+    border: none;
+    border-radius: var(--hoc-profile-feature-radius);
+    background: var(--hoc-profile-feature-background);
+    box-shadow: none;
+}
