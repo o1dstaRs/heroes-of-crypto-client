@@ -458,6 +458,24 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Sizing up the warbands": "Присматриваемся к дружинам",
     "Calling challengers to the arena": "Зовём бойцов на арену",
     "Combing the ranks for your match": "Ищем вам ровню в строю",
+    "Tip: {hint}": "Совет: {hint}",
+    // Rotating queue hints reach t() dynamically (see ui/matchmakingHints.ts).
+    "Check the turn order before committing. A threat that acts next may deserve your attention first.":
+        "Прежде чем действовать, проверьте порядок ходов. Возможно, стоит сначала заняться врагом, который ходит следующим.",
+    "Keep vulnerable stacks apart when facing attacks that can hit several units at once.":
+        "Держите уязвимые отряды подальше друг от друга, если враг может атаковать несколько целей одновременно.",
+    "Before a melee attack, check whether the target can retaliate.":
+        "Перед атакой в ближнем бою проверьте, сможет ли цель ответить.",
+    "Protect your ranged attackers from enemies that can reach them on their next turn.":
+        "Прикрывайте стрелков от врагов, которые могут добраться до них на следующем ходу.",
+    "Spell charges are limited. Save them for moments when they can change the fight.":
+        "Заряды заклинаний ограничены. Берегите их для моментов, когда они могут изменить ход боя.",
+    "Balance your draft with damage, protection, and support instead of relying on one role.":
+        "При выборе армии сочетайте урон, защиту и поддержку, а не полагайтесь на одну роль.",
+    "Spend all your upgrade points before locking in your army.":
+        "Потратьте все очки улучшений, прежде чем подтвердить армию.",
+    "Read enemy abilities before choosing a target. The nearest stack is not always the biggest threat.":
+        "Изучите способности врагов перед выбором цели. Ближайший отряд не всегда самый опасный.",
     "Leave ranked queue": "Покинуть рейтинговую очередь",
     "Unable to enter matchmaking": "Не удалось начать поиск игры",
     "Unable to leave matchmaking": "Не удалось выйти из поиска игры",

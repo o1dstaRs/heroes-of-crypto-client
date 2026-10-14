@@ -1,4 +1,4 @@
-import { PremiumSearchProvider, PremiumSearchSlot } from "./premium/PremiumSearch";
+import { PremiumSearchProvider, PremiumSearchSlot, usePremiumSearchVisible } from "./premium/PremiumSearch";
 import { PremiumSandboxGuidance } from "./premium/PremiumSandboxGuidance";
 import {
     createPickSimState,
@@ -223,6 +223,7 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
     const manager = usePixiManager();
     const navigate = useNavigate();
     const { authenticated, user } = useAuthContext();
+    const premiumSearchVisible = usePremiumSearchVisible();
     const { setSandboxInviteAvailable } = useCurrentLobby();
     const showFightMatchupPreview =
         Boolean(import.meta.env.DEV) && new URLSearchParams(window.location.search).get("matchupPreview") === "fight";
@@ -393,22 +394,18 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
                         <RightSideBar
                             gameStarted={started}
                             windowSize={windowSize}
+                            showPremiumFightControls={!replayPlaybackActive && !showFightMatchupPreview}
+                            footerLeading={
+                                !replayPlaybackActive && !started && premiumSearchVisible
+                                    ? { content: <PremiumSearchSlot inline />, width: 126 }
+                                    : undefined
+                            }
                             rankedFooter={
-                                // Setup only. During combat, Premium draws its suggestions on the board.
+                                // Setup only; combat has its own Premium chat and suggested-moves controls.
                                 !replayPlaybackActive && !started ? (
                                     <div style={{ display: "grid", gap: 6, width: "100%", justifyItems: "center" }}>
                                         <PlayRankedBadge />
-                                        <div
-                                            key="sandbox-invite"
-                                            style={{
-                                                position: "relative",
-                                                width: "min(100%, 209px)",
-                                                minHeight: "35.2px",
-                                            }}
-                                        >
-                                            <PremiumSearchSlot />
-                                            {canInviteFriend && <InviteFriendBadge />}
-                                        </div>
+                                        {canInviteFriend && <InviteFriendBadge />}
                                     </div>
                                 ) : undefined
                             }

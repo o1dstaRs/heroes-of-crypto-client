@@ -2073,6 +2073,9 @@ export const RankedGameView: React.FC<Props> = ({
                             windowSize={windowSize}
                             rankedPanel={rankedPanel}
                             rankedFooter={rankedFooter}
+                            showPremiumFightControls={
+                                snapshot.phase === PlayPhase.PLAY && !isObserver && !replayOnly && !replayPlaybackActive
+                            }
                             onClose={
                                 sandboxCoop && !gameStarted && !isObserver ? () => void leaveSandboxCoop() : undefined
                             }

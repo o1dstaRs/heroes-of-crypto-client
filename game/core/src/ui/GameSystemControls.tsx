@@ -1,5 +1,5 @@
 import Box from "@mui/joy/Box";
-import React, { useCallback, useRef } from "react";
+import React, { useCallback, useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
 import { registerVolumeSlot, VOLUME_SLOT_PRIORITY } from "./audio/volumeSlot";
@@ -129,25 +129,44 @@ export const FullscreenCorner: React.FC<{ zIndex?: number }> = ({ zIndex = 60 })
  */
 export const GameSystemControls: React.FC<{
     center?: React.ReactNode;
+    /** An action left of the centre plate, with equal gaps to it and the right-hand controls. */
+    leading?: { content: React.ReactNode; width: number };
     sidebarWidth?: number;
     priority?: number;
     zIndex?: number;
     /** Stack sound above fullscreen in the right corner instead of splitting them across the row. */
     rightStack?: boolean;
     /**
-     * Centre `center` on the row. The corner controls stay on the right; an equal empty flank on the
-     * left keeps the plate on the midpoint. Off for a centre that must use all the width beside the
-     * buttons (the ranked fight panel).
+     * Centre the plate between a leading action and the corner controls, or on the row when there is
+     * no leading action. Off for a centre that must use all the width beside the buttons (the ranked
+     * fight panel).
      */
     centerInRow?: boolean;
+    /** Minimum content width beside the corner controls; smaller for the compact Premium fight footer. */
+    centerMinWidth?: number;
+    /** Keep sidebar content clear when the footer wraps after a resize or fullscreen change. */
+    onHeightChange?: (height: number) => void;
 }> = ({
     center,
+    leading,
     sidebarWidth,
     priority = VOLUME_SLOT_PRIORITY.gameControls,
     zIndex = 60,
     rightStack = false,
     centerInRow = false,
+    centerMinWidth = GAME_SYSTEM_CONTROLS_CENTER_MIN_WIDTH_PX,
+    onHeightChange,
 }) => {
+    const controlsRef = useRef<HTMLDivElement>(null);
+    useLayoutEffect(() => {
+        const controls = controlsRef.current;
+        if (!controls || !onHeightChange) return;
+        const measure = () => onHeightChange(Math.ceil(controls.getBoundingClientRect().height));
+        measure();
+        const observer = new ResizeObserver(measure);
+        observer.observe(controls);
+        return () => observer.disconnect();
+    }, [onHeightChange, rightStack]);
     // The corner row is rebuilt when the footer changes shape (placement plate → fight). A layout
     // effect keyed only on priority would keep publishing the detached node, and the speaker —
     // portaled into that node — vanishes for the rest of the fight.
@@ -166,6 +185,17 @@ export const GameSystemControls: React.FC<{
             : {}),
         zIndex,
     };
+    const leadingGap = 12;
+    // Shrink the two text actions together down to 85%, then give them separate rows. Container
+    // queries use the footer's real available width, including fullscreen and browser text scaling.
+    const wrapLeadingQuery = `@container game-footer (max-width: ${
+        ((leading?.width ?? 0) + GAME_SYSTEM_CONTROLS_CENTER_MIN_WIDTH_PX) * 0.85 +
+        GAME_SYSTEM_CONTROLS_CORNER_FLANK_PX +
+        leadingGap * 2
+    }px)`;
+    const stackLeadingQuery = `@container game-footer (max-width: ${
+        (leading?.width ?? 0) + GAME_SYSTEM_CONTROLS_CORNER_FLANK_PX + leadingGap
+    }px)`;
 
     const cornerRow = (
         <Box
@@ -189,11 +219,12 @@ export const GameSystemControls: React.FC<{
 
     /**
      * One line. The corner controls keep the right edge. A plate that asks to be centred
-     * (`centerInRow`) sits on the row's midpoint, with an empty flank matching the corner; anything
-     * else uses the width beside the buttons.
+     * (`centerInRow`) sits between the two flanks. A supplied leading action takes its actual width,
+     * so the gaps beside the plate match even when that action is wider than the corner controls.
      */
     const controls = rightStack ? (
         <Box
+            ref={controlsRef}
             data-game-system-controls
             sx={{
                 position: "fixed",
@@ -207,34 +238,78 @@ export const GameSystemControls: React.FC<{
                 justifyContent: "flex-end",
                 gap: GAME_SYSTEM_CONTROLS_STACK_GAP,
                 pointerEvents: "none",
+                containerType: "inline-size",
+                containerName: "game-footer",
                 ...anchorSx,
             }}
         >
             {centerInRow ? (
                 <Box
                     sx={{
-                        display: "grid",
+                        display: leading ? "flex" : "grid",
                         flex: "1 1 100%",
                         width: "100%",
                         minWidth: 0,
                         gridTemplateColumns: `${GAME_SYSTEM_CONTROLS_CORNER_FLANK_PX}px minmax(0, 1fr) ${GAME_SYSTEM_CONTROLS_CORNER_FLANK_PX}px`,
+                        columnGap: leading ? `${leadingGap}px` : 0,
+                        justifyContent: leading ? "space-between" : undefined,
                         alignItems: "end",
+                        ...(leading
+                            ? {
+                                  [wrapLeadingQuery]: {
+                                      display: "grid",
+                                      gridTemplateColumns: `minmax(0, 1fr) ${GAME_SYSTEM_CONTROLS_CORNER_FLANK_PX}px`,
+                                      rowGap: "6px",
+                                  },
+                                  [stackLeadingQuery]: { gridTemplateColumns: "minmax(0, 1fr)" },
+                              }
+                            : {}),
                     }}
                 >
-                    <Box aria-hidden />
+                    <Box
+                        aria-hidden={leading ? undefined : true}
+                        sx={{
+                            gridColumn: 1,
+                            gridRow: 1,
+                            minWidth: 0,
+                            flex: leading ? `0 1 ${leading.width}px` : undefined,
+                            pointerEvents: leading ? "auto" : "none",
+                            ...(leading ? { [wrapLeadingQuery]: { gridRow: 2 } } : {}),
+                        }}
+                    >
+                        {leading?.content}
+                    </Box>
                     <Box
                         sx={{
+                            gridColumn: 2,
+                            gridRow: 1,
                             minWidth: 0,
+                            flex: leading ? `0 1 ${GAME_SYSTEM_CONTROLS_CENTER_MIN_WIDTH_PX}px` : undefined,
                             containerType: "inline-size",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
                             pointerEvents: center ? "auto" : "none",
+                            ...(leading ? { [wrapLeadingQuery]: { gridColumn: "1 / -1" } } : {}),
                         }}
                     >
                         {center}
                     </Box>
-                    <Box aria-hidden />
+                    <Box
+                        aria-hidden
+                        sx={{
+                            gridColumn: 3,
+                            gridRow: 1,
+                            flex: `0 0 ${GAME_SYSTEM_CONTROLS_CORNER_FLANK_PX}px`,
+                            minHeight: GAME_SYSTEM_CONTROL_SIZE_PX,
+                            ...(leading
+                                ? {
+                                      [wrapLeadingQuery]: { gridColumn: 2, gridRow: 2 },
+                                      [stackLeadingQuery]: { gridColumn: 1, gridRow: 3 },
+                                  }
+                                : {}),
+                        }}
+                    />
                 </Box>
             ) : (
                 <Box
@@ -242,7 +317,7 @@ export const GameSystemControls: React.FC<{
                         flex: "1 1 auto",
                         // Its own line as soon as the plate cannot keep its authored width beside the
                         // controls; below that threshold this slot no longer fits, and the row wraps.
-                        minWidth: `min(100%, ${GAME_SYSTEM_CONTROLS_CENTER_MIN_WIDTH_PX}px)`,
+                        minWidth: `min(100%, ${centerMinWidth}px)`,
                         // The corner row is taken out of flow so the speaker's host node survives a
                         // phase change. This padding is the space it still occupies.
                         paddingRight: `${GAME_SYSTEM_CONTROLS_CORNER_FLANK_PX}px`,
@@ -260,7 +335,7 @@ export const GameSystemControls: React.FC<{
             <Box sx={{ position: "absolute", right: 0, bottom: 0 }}>{cornerRow}</Box>
         </Box>
     ) : (
-        <Box data-game-system-controls sx={{ ...gameSystemControlsSx, ...anchorSx }}>
+        <Box ref={controlsRef} data-game-system-controls sx={{ ...gameSystemControlsSx, ...anchorSx }}>
             <Box sx={{ display: "flex", justifyContent: "flex-start", pointerEvents: "auto" }}>
                 <FullscreenToggle />
             </Box>

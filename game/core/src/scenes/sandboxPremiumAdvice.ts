@@ -12,10 +12,13 @@ import {
 } from "@heroesofcrypto/common";
 import { snapshotBattle, restoreBattle } from "../../../heroes-of-crypto-common/src/simulation/battle_snapshot";
 import { makeRng } from "../../../heroes-of-crypto-common/src/simulation/army";
+import { captureAITargetMemory, restoreAITargetMemory } from "../../../heroes-of-crypto-common/src/ai/ai";
 
 import type { PremiumTurnAdvice } from "../api/premium_client";
 import { runAiSearchSimulation } from "./aiSearchGuard";
 import { premiumMoveDrawing } from "./PremiumTurnOverlay";
+import { searchSandboxPremiumDecision, type ISandboxAiSearchHost } from "./sandboxAiSearch";
+import { DamageStatisticHolder } from "./DamageStats";
 
 /** A player clicks move-and-melee as one attack; a standalone move cannot promise a follow-up cast or shot. */
 export const premiumHumanActions = (actions: GameAction[]): GameAction[] | undefined => {
@@ -46,21 +49,32 @@ export const premiumHumanActions = (actions: GameAction[]): GameAction[] | undef
     return result;
 };
 
-/** Local sandbox advice uses the combat policy without executing actions or changing the live fight. */
-export const sandboxPremiumAdvice = (unit: Unit, context: IDecisionContext, revision: number): PremiumTurnAdvice => {
+/** Search the real battle with A19, then restore it before drawing player-submittable suggestions. */
+export const sandboxPremiumAdvice = (
+    unit: Unit,
+    context: IDecisionContext,
+    revision: number,
+    host: ISandboxAiSearchHost,
+): PremiumTurnAdvice => {
     const fight = context.fightProperties!;
     const singleton = FightStateManager.getInstance();
     const previousFight = singleton.getFightProperties();
     const previousRandom = HoCLib.captureDeterministicRandomState();
     const battle = snapshotBattle(context.unitsHolder, context.grid, fight);
+    const memory = captureAITargetMemory(context.unitsHolder);
+    const statistics = host.attackHandler.getDamageStatisticHolder();
+    const savedStatistics = statistics instanceof DamageStatisticHolder ? statistics.snapshot() : undefined;
+    const logSuppressed = host.sceneLog.isSuppressed();
     const attackTypes = unit.getPossibleAttackTypes().slice();
     const selectedAttackType = unit.getAttackTypeSelection();
     return runAiSearchSimulation(() => {
         try {
+            host.sceneLog.setSuppressed(true);
             singleton.setFightProperties(fight);
             // A separate seeded stream keeps merely looking at advice from consuming combat randomness.
             HoCLib.setDeterministicRandomSource(makeRng(fight.getCurrentLap() * 65537 + revision));
-            const incumbent = createAIStrategy(DEFAULT_AI_VERSION).decideTurn(unit, context);
+            const native = createAIStrategy(DEFAULT_AI_VERSION).decideTurn(unit, context);
+            const incumbent = searchSandboxPremiumDecision(host, unit, native, context);
             const { candidates } = enumerateCandidates(unit, context, incumbent, {
                 maxMoveDestinations: 12,
                 maxMeleePairs: 24,
@@ -127,6 +141,9 @@ export const sandboxPremiumAdvice = (unit: Unit, context: IDecisionContext, revi
             try {
                 restoreBattle(battle, context.unitsHolder, context.grid, fight);
             } finally {
+                if (statistics instanceof DamageStatisticHolder && savedStatistics) statistics.restore(savedStatistics);
+                host.sceneLog.setSuppressed(logSuppressed);
+                restoreAITargetMemory(context.unitsHolder, memory);
                 HoCLib.restoreDeterministicRandomState(previousRandom);
                 singleton.setFightProperties(previousFight);
             }

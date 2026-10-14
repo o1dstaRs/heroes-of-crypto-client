@@ -5,6 +5,7 @@ import { usePixiManager } from "../../pixi/PixiGameManager";
 import { usePremiumAdvisor } from "./PremiumAdvisor";
 import { canSuggestPremiumTurn, premiumFightTurnKey } from "./premiumFightState";
 import { startPremiumTurnPreview } from "./premiumTurnRequest";
+import { usePremiumSuggestedMoves } from "./usePremiumSuggestedMoves";
 
 export const PremiumFightOverlay: React.FC<{
     snapshot: PlaySnapshot;
@@ -13,8 +14,13 @@ export const PremiumFightOverlay: React.FC<{
 }> = ({ snapshot, userTeam, disabled = false }) => {
     const manager = usePixiManager();
     const { advice: account } = usePremiumAdvisor();
+    const suggestedMoves = usePremiumSuggestedMoves();
     const key = premiumFightTurnKey(snapshot);
-    const enabled = Boolean(account?.entitlement.active) && canSuggestPremiumTurn(snapshot, userTeam) && !disabled;
+    const enabled =
+        suggestedMoves &&
+        Boolean(account?.entitlement.active) &&
+        canSuggestPremiumTurn(snapshot, userTeam) &&
+        !disabled;
     const latestSnapshot = useRef(snapshot);
     latestSnapshot.current = snapshot;
 

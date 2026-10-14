@@ -13,6 +13,7 @@ import { createVsAiGame } from "../api/vs_ai_client";
 import { fetchPublicPlayerStats, type PublicPlayerStats } from "../api/social_client";
 import { tf, useTranslation } from "../i18n/i18n";
 import { searchHeadline } from "./matchmakingHeadlines";
+import { searchHint } from "./matchmakingHints";
 import { reconcileArenaPopulation, type ArenaPopulation } from "./matchmakingPopulation";
 import { acceptRankedRules, fetchRankedConduct, rulesCardDue, type RankedConduct } from "../api/ranked_conduct_client";
 import { formatAwayClock } from "./exitRules/exitRulesModel";
@@ -332,6 +333,7 @@ export const MatchmakingRoute: React.FC = () => {
         searchStartedAt > 0 && queueAddedAtMs > 0
             ? Math.min(searchStartedAt, queueAddedAtMs)
             : searchStartedAt || queueAddedAtMs;
+    const searchElapsedSeconds = searchAnchorMs > 0 ? (nowMs - searchAnchorMs) / 1000 : 0;
     const queueElapsedLabel =
         isSearching && searchAnchorMs > 0 ? formatQueueDuration((nowMs - searchAnchorMs) / 1000) : "";
     const activeSeason = seasonSnapshot?.current ?? null;
@@ -966,8 +968,8 @@ export const MatchmakingRoute: React.FC = () => {
                 eyebrow: t("MATCHMAKING"),
                 // Rotates every few seconds so a long queue never reads as a frozen screen. The clock
                 // above already repaints twice a second, so no extra timer is needed.
-                headline: t(searchHeadline(searchAnchorMs > 0 ? (nowMs - searchAnchorMs) / 1000 : 0)),
-                description: "",
+                headline: t(searchHeadline(searchElapsedSeconds)),
+                description: tf("Tip: {hint}", { hint: t(searchHint(searchElapsedSeconds)) }),
             };
         }
         if (state === "confirming") {
@@ -1440,6 +1442,8 @@ export const MatchmakingRoute: React.FC = () => {
                                     color: hocColors.muted,
                                     maxWidth: 540,
                                     mt: 0.8,
+                                    // Leave room for wrapped hints without moving the Leave button.
+                                    ...(isSearching ? { minHeight: { xs: "4.5em", sm: "3em" }, lineHeight: 1.5 } : {}),
                                 }}
                             >
                                 {presentation.description}

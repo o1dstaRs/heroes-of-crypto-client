@@ -35,8 +35,8 @@ const SetSearchVisibleContext = createContext<(visible: boolean) => void>(() => 
 export const usePremiumSearchVisible = (): boolean => useContext(SearchVisibleContext);
 
 /**
- * Search is available from menus, the placement panel and the sandbox setup row.
- * During a fight, Premium suggests actions directly on the board without a search prompt.
+ * Search is available from menus, placement, sandbox setup and the bottom-right fight footer.
+ * The fight's suggested-moves preference controls board drawings independently of chat.
  */
 export const PremiumSearchProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [anchor, setAnchor] = useState<HTMLDivElement | null>(null);
@@ -78,10 +78,11 @@ export const PremiumSearchSlot: React.FC<{ inline?: boolean }> = ({ inline = fal
                 bottom: inline ? undefined : 0,
                 width: inline ? "min(132px, 100%)" : "126px",
                 height: "35.2px",
+                containerType: "inline-size",
                 display: inline && !visible ? "none" : "flex",
                 flexShrink: 0,
                 alignSelf: inline ? "flex-start" : undefined,
-                alignItems: "center",
+                alignItems: "flex-end",
                 pointerEvents: "auto",
                 zIndex: 2,
             }}
@@ -293,7 +294,7 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; compact: b
             variant="solid"
             size={compact ? "sm" : "lg"}
             startDecorator={
-                <span aria-hidden style={{ fontSize: compact ? "0.625rem" : "0.8rem", lineHeight: 1 }}>
+                <span aria-hidden style={{ fontSize: compact ? "min(0.625rem, 7.94cqw)" : "0.8rem", lineHeight: 1 }}>
                     ◆
                 </span>
             }
@@ -304,16 +305,17 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; compact: b
                 border: "1px solid #d97d38",
                 "&:hover": { bgcolor: "#a75023" },
                 fontFamily: hocFontFamily,
-                fontSize: compact ? "0.78rem" : "0.95rem",
+                fontSize: compact ? "min(0.78rem, 9.9cqw)" : "0.95rem",
                 position: "relative",
                 width: "100%",
+                minWidth: 0,
                 flexShrink: 0,
                 zIndex: 1100,
-                height: compact ? "35.2px" : `${PREMIUM_SEARCH_HEIGHT_PX}px`,
-                minHeight: compact ? "35.2px" : `${PREMIUM_SEARCH_HEIGHT_PX}px`,
+                height: compact ? "clamp(30px, 27.94cqw, 35.2px)" : `${PREMIUM_SEARCH_HEIGHT_PX}px`,
+                minHeight: compact ? "clamp(30px, 27.94cqw, 35.2px)" : `${PREMIUM_SEARCH_HEIGHT_PX}px`,
                 lineHeight: 1,
                 "--Button-gap": compact ? "4px" : "8px",
-                px: compact ? 1 : 1.5,
+                px: compact ? "min(8px, 6.35cqw)" : 1.5,
                 whiteSpace: "nowrap",
                 cursor: "var(--hoc-cursor-interactive), pointer",
             }}

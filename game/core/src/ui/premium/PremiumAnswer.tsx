@@ -28,8 +28,9 @@ const repairWrappedLinksOutsideCode = (text: string): string =>
 
 const inline = (text: string): React.ReactNode[] =>
     text.split(/(\[[^\]\n]+\]\([^\s)]+\)|\*\*[^*\n]+\*\*|`[^`\n]+`|\*[^*\n]+\*)/g).map((part, index) => {
-        if (part.startsWith("**") && part.endsWith("**")) return <strong key={index}>{part.slice(2, -2)}</strong>;
-        if (part.startsWith("*") && part.endsWith("*")) return <em key={index}>{part.slice(1, -1)}</em>;
+        if (part.startsWith("**") && part.endsWith("**"))
+            return <strong key={index}>{inline(part.slice(2, -2))}</strong>;
+        if (part.startsWith("*") && part.endsWith("*")) return <em key={index}>{inline(part.slice(1, -1))}</em>;
         if (part.startsWith("`") && part.endsWith("`"))
             return (
                 <code key={index} style={{ fontSize: "0.88em", overflowWrap: "anywhere" }}>
@@ -41,7 +42,7 @@ const inline = (text: string): React.ReactNode[] =>
         if (href && link)
             return (
                 <a key={index} href={href} target="_blank" rel="noopener noreferrer" style={{ color: "#f6b87e" }}>
-                    {link[1]}
+                    {inline(link[1])}
                 </a>
             );
         return part;

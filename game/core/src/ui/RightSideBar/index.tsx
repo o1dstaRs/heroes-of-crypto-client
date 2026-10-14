@@ -27,6 +27,8 @@ import { IWindowSize } from "../../scenes/VisibleState";
 import { sidebarPlainFrameSideInsetPx, sidebarPlainFrameVerticalInsetPx } from "../LeftSideBar/sidebarMetrics";
 import { GameCornerExitButton, GameCornerSlot, GameCornerStartOverButton } from "../GameCornerExit";
 import { GAME_SYSTEM_CONTROLS_STACK_HEIGHT_PX, GameSystemControls } from "../GameSystemControls";
+import { PremiumFightControls } from "../premium/PremiumFightControls";
+import { usePremiumSearchVisible } from "../premium/PremiumSearch";
 
 const DraggableToolbar = React.lazy(() => import("../DraggableToolbar"));
 const FightLog = React.lazy(() => import("./FightLog").then(({ FightLog }) => ({ default: FightLog })));
@@ -56,8 +58,10 @@ export default function RightSideBar({
     windowSize,
     rankedPanel,
     rankedFooter,
+    footerLeading,
     showWallet = false,
     showSystemControls = true,
+    showPremiumFightControls = false,
     onClose,
     onStartOver,
 }: {
@@ -65,14 +69,19 @@ export default function RightSideBar({
     windowSize: IWindowSize;
     rankedPanel?: React.ReactNode;
     rankedFooter?: React.ReactNode;
+    footerLeading?: React.ComponentProps<typeof GameSystemControls>["leading"];
     showWallet?: boolean;
     showSystemControls?: boolean;
+    showPremiumFightControls?: boolean;
     onClose?: () => void;
     onStartOver?: () => void;
 }) {
     const navigate = useNavigate();
     const { authenticated } = useAuthContext();
     const manager = usePixiManager();
+    const premiumSearchVisible = usePremiumSearchVisible();
+    const premiumFightVisible = gameStarted && showPremiumFightControls && premiumSearchVisible;
+    const [footerHeight, setFooterHeight] = useState(GAME_SYSTEM_CONTROLS_STACK_HEIGHT_PX);
     const [sandboxSetupRevision, setSandboxSetupRevision] = useState(0);
     const handleStartOver = () => {
         onStartOver?.();
@@ -95,7 +104,7 @@ export default function RightSideBar({
 
     useLayoutEffect(() => {
         setFrozenLogHeight(null);
-    }, [windowSize.width, windowSize.height, gameStarted, toolbarSlots]);
+    }, [windowSize.width, windowSize.height, gameStarted, toolbarSlots, footerHeight]);
 
     useLayoutEffect(() => {
         if (frozenLogHeight !== null) {
@@ -496,8 +505,9 @@ export default function RightSideBar({
                 </List>
             </Box>
             {/* Reserve space beneath the log for the sidebar's fixed footer row. */}
-            {/* Reserve the full stacked footer height: sound now sits ABOVE fullscreen in the corner. */}
-            {showSystemControls && <Box sx={{ height: `${GAME_SYSTEM_CONTROLS_STACK_HEIGHT_PX}px`, flexShrink: 0 }} />}
+            {showSystemControls && (
+                <Box sx={{ height: Math.max(GAME_SYSTEM_CONTROLS_STACK_HEIGHT_PX, footerHeight), flexShrink: 0 }} />
+            )}
             {showSystemControls && !rankedPanel && gameStarted && (
                 // Sandbox exit stays in the shared top-right corner once the fight starts, even when the
                 // centre plate is Invite a friend. An anonymous player has nothing behind /play but the
@@ -518,9 +528,23 @@ export default function RightSideBar({
             {showSystemControls && (
                 <GameSystemControls
                     sidebarWidth={barSize}
+                    onHeightChange={setFooterHeight}
                     rightStack
                     centerInRow={Boolean(rankedFooter)}
-                    center={rankedFooter ? rankedFooter : rankedPanel && gameStarted ? rankedPanel : undefined}
+                    centerMinWidth={premiumFightVisible ? 132 : undefined}
+                    leading={footerLeading}
+                    center={
+                        premiumFightVisible ? (
+                            <>
+                                <PremiumFightControls />
+                                {rankedPanel}
+                            </>
+                        ) : rankedFooter ? (
+                            rankedFooter
+                        ) : rankedPanel && gameStarted ? (
+                            rankedPanel
+                        ) : undefined
+                    }
                 />
             )}
         </Sheet>

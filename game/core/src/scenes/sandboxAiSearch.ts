@@ -25,6 +25,7 @@ import {
     Unit,
     UnitVals,
     getAIStrategy,
+    createAIStrategy,
     getEnemiesCellsWithinMovementRange,
     isMindlessAiUnit,
     type AttackHandler,
@@ -77,6 +78,7 @@ interface ISearchSlot {
 }
 
 const slots = new WeakMap<UnitsHolder, ISearchSlot>();
+const premiumSlots = new WeakMap<UnitsHolder, ISearchSlot>();
 
 function sandboxSearchSeed(unitsHolder: UnitsHolder): number {
     let hash = 0x811c9dc5;
@@ -98,7 +100,12 @@ function releaseSlot(slot: ISearchSlot | undefined): void {
     }
 }
 
-function createSlot(host: ISandboxAiSearchHost, fightProperties: FightProperties, lap: number): ISearchSlot {
+function createSlot(
+    host: ISandboxAiSearchHost,
+    fightProperties: FightProperties,
+    lap: number,
+    independentStrategies: boolean,
+): ISearchSlot {
     const { grid, unitsHolder, pathHelper, attackHandler, moveHandler, sceneLog, abilityFactory } = host;
     const holder = attackHandler.getDamageStatisticHolder();
     if (!(holder instanceof DamageStatisticHolder)) {
@@ -219,6 +226,7 @@ function createSlot(host: ISandboxAiSearchHost, fightProperties: FightProperties
             );
         },
     };
+    const strategies = new Map<TeamType, ReturnType<typeof createAIStrategy>>();
     const driver = createV08A19SearchDriver(
         {
             engine: new GameActionEngine(engineContext),
@@ -236,7 +244,15 @@ function createSlot(host: ISandboxAiSearchHost, fightProperties: FightProperties
             fightProperties,
             pathHelper,
             attackHandler,
-            strategyForTeam: () => getAIStrategy(DEFAULT_AI_VERSION),
+            strategyForTeam: (team) => {
+                if (!independentStrategies) return getAIStrategy(DEFAULT_AI_VERSION);
+                let strategy = strategies.get(team);
+                if (!strategy) {
+                    strategy = createAIStrategy(DEFAULT_AI_VERSION);
+                    strategies.set(team, strategy);
+                }
+                return strategy;
+            },
             getActiveUnitId: () => searchActiveUnitId,
             setActiveUnitId: (id) => {
                 searchActiveUnitId = id;
@@ -278,17 +294,17 @@ function createSlot(host: ISandboxAiSearchHost, fightProperties: FightProperties
     };
 }
 
-function driverFor(host: ISandboxAiSearchHost): ISearchSlot {
+function driverFor(host: ISandboxAiSearchHost, searchSlots: WeakMap<UnitsHolder, ISearchSlot>): ISearchSlot {
     const fightProperties = host.fightProperties();
     const lap = fightProperties.getCurrentLap();
-    const existing = slots.get(host.unitsHolder);
+    const existing = searchSlots.get(host.unitsHolder);
     if (existing && existing.fightProperties === fightProperties && lap >= existing.lastLap) {
         existing.lastLap = lap;
         return existing;
     }
     releaseSlot(existing);
-    const created = createSlot(host, fightProperties, lap);
-    slots.set(host.unitsHolder, created);
+    const created = createSlot(host, fightProperties, lap, searchSlots === premiumSlots);
+    searchSlots.set(host.unitsHolder, created);
     return created;
 }
 
@@ -304,12 +320,34 @@ export function searchSandboxAiDecision(
     incumbent: GameAction[],
     decision: IDecisionContext,
 ): GameAction[] {
+    return searchSandboxDecision(host, unit, version, incumbent, decision, slots, false);
+}
+
+/** Advice has its own timing/history and fails closed instead of presenting an unsearched fallback. */
+export function searchSandboxPremiumDecision(
+    host: ISandboxAiSearchHost,
+    unit: Unit,
+    incumbent: GameAction[],
+    decision: IDecisionContext,
+): GameAction[] {
+    return searchSandboxDecision(host, unit, DEFAULT_AI_VERSION, incumbent, decision, premiumSlots, true);
+}
+
+function searchSandboxDecision(
+    host: ISandboxAiSearchHost,
+    unit: Unit,
+    version: string,
+    incumbent: GameAction[],
+    decision: IDecisionContext,
+    searchSlots: WeakMap<UnitsHolder, ISearchSlot>,
+    failClosed: boolean,
+): GameAction[] {
     if (version === MINDLESS_AI_VERSION || isMindlessAiUnit(unit)) return incumbent;
     let slot: ISearchSlot | undefined;
     const wasSuppressed = host.sceneLog.isSuppressed();
     host.sceneLog.setSuppressed(true);
     try {
-        slot = driverFor(host);
+        slot = driverFor(host, searchSlots);
         const fightProperties = host.fightProperties();
         if (!slot.fightReady && fightProperties.hasFightStarted()) {
             slot.driver.onFightReady();
@@ -334,7 +372,8 @@ export function searchSandboxAiDecision(
         }
     } catch (error) {
         releaseSlot(slot);
-        if (slot) slots.delete(host.unitsHolder);
+        if (slot) searchSlots.delete(host.unitsHolder);
+        if (failClosed) throw error;
         console.error(
             error instanceof SearchRollbackError
                 ? "A19 search could not restore the board; keeping the policy plan"

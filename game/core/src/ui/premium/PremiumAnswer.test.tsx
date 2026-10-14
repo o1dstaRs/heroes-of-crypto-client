@@ -36,6 +36,45 @@ describe("Premium tactical answer presentation", () => {
         expect(html).toContain('rel="noopener noreferrer"');
         expect(render("[bad](javascript:alert(1))")).not.toContain("<a ");
     });
+    it("keeps the screenshot's spell and unit links clickable inside bold list items", () => {
+        const html = render(
+            [
+                "- **[Fireball](/knowledge-base/?entry=Fireball#spell-fireball) / offensive spells**: check your charges.",
+                "- **[Blindness](/knowledge-base/?entry=Blindness#ability-blindness) on [Unicorn](/knowledge-base/?",
+                "entry=Unicorn#unit-unicorn)**: inspect the ability.",
+            ].join("\n"),
+        );
+        for (const [name, anchor] of [
+            ["Fireball", "spell-fireball"],
+            ["Blindness", "ability-blindness"],
+            ["Unicorn", "unit-unicorn"],
+        ]) {
+            expect(html).toContain(`href="https://heroesofcrypto.io/knowledge-base/?entry=${name}#${anchor}"`);
+            expect(html).toContain(`>${name}</a>`);
+            expect(html).not.toContain(`[${name}]`);
+        }
+        expect(html.match(/<a /g)).toHaveLength(3);
+        expect(html.match(/<strong><a /g)).toHaveLength(2);
+        expect(html).toContain(" / offensive spells</strong>");
+        expect(html.match(/target="_blank"/g)).toHaveLength(3);
+    });
+    it("supports emphasis around links and formatting inside link labels", () => {
+        const html = render(
+            "*[Fireball](/knowledge-base/?entry=Fireball)* and [**Unicorn**](/knowledge-base/?entry=Unicorn)",
+        );
+        expect(html).toContain("<em><a ");
+        expect(html).toContain(">Fireball</a></em>");
+        expect(html).toContain("<strong>Unicorn</strong></a>");
+        expect(html.match(/<a /g)).toHaveLength(2);
+    });
+    it("keeps code inert and rejects unsafe destinations inside formatted text", () => {
+        const html = render(
+            "**[bad](javascript:alert) and `[Fireball](/knowledge-base/?entry=Fireball)`**\n\n*[bad](data:text/html,danger)*",
+        );
+        expect(html).not.toContain("<a ");
+        expect(html).toContain("<code");
+        expect(html).toContain("[Fireball](/knowledge-base/?entry=Fireball)");
+    });
     it("rejoins a knowledge link the answer wrapped onto the next line", () => {
         const html = render(
             [

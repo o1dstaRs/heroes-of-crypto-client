@@ -1172,6 +1172,7 @@ export class Sandbox extends PixiScene {
                         decisionOrigin: "root",
                     },
                     this.sandboxPremiumRevision,
+                    this.createProductionAiSearchHost(),
                 );
                 this.sandboxPremiumOverlay ??= new PremiumTurnOverlay(this.pixiApp.getWorldRoot());
                 this.sandboxPremiumOverlay.draw(
@@ -17688,28 +17689,24 @@ export class Sandbox extends PixiScene {
     ): Promise<GameAction[]> {
         const loading = (this.productionAiSearchModule ??= import("./sandboxAiSearch"));
         return loading.then((search) =>
-            search.searchSandboxAiDecision(
-                {
-                    grid: this.grid,
-                    unitsHolder: this.unitsHolder,
-                    pathHelper: this.pathHelper,
-                    attackHandler: this.attackHandler,
-                    moveHandler: this.moveHandler,
-                    sceneLog: this.sc_sceneLog,
-                    abilityFactory: this.abilityFactory,
-                    fightProperties: () => FightStateManager.getInstance().getFightProperties(),
-                    canLandRangeAttack: (candidate) => this.canLandRangeAttack(candidate),
-                    isBarrelCellAllowed: (team, cell) => this.isBarrelCellAllowed(team, cell),
-                    canPlaceUnit: (candidate, cells, action) =>
-                        this.canPlaceUnitWithCommonRules(candidate, cells, action),
-                    canSplitUnit: (candidate) => this.canSplitUnitWithCommonRules(candidate),
-                },
-                unit,
-                version,
-                incumbent,
-                decision,
-            ),
+            search.searchSandboxAiDecision(this.createProductionAiSearchHost(), unit, version, incumbent, decision),
         );
+    }
+    private createProductionAiSearchHost(): import("./sandboxAiSearch").ISandboxAiSearchHost {
+        return {
+            grid: this.grid,
+            unitsHolder: this.unitsHolder,
+            pathHelper: this.pathHelper,
+            attackHandler: this.attackHandler,
+            moveHandler: this.moveHandler,
+            sceneLog: this.sc_sceneLog,
+            abilityFactory: this.abilityFactory,
+            fightProperties: () => FightStateManager.getInstance().getFightProperties(),
+            canLandRangeAttack: (candidate) => this.canLandRangeAttack(candidate),
+            isBarrelCellAllowed: (team, cell) => this.isBarrelCellAllowed(team, cell),
+            canPlaceUnit: (candidate, cells, action) => this.canPlaceUnitWithCommonRules(candidate, cells, action),
+            canSplitUnit: (candidate) => this.canSplitUnitWithCommonRules(candidate),
+        };
     }
     private createTurnEngine(): TurnEngine {
         const context = {
