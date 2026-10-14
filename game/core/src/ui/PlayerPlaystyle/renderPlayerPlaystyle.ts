@@ -62,14 +62,15 @@ export function renderPlayerPlaystyle(
     state: PlaystyleState = "ready",
     compact = false,
 ): string {
-    const c = language === "ru" ? copy.ru : copy.en;
+    const russian = language.toLowerCase().startsWith("ru");
+    const c = russian ? copy.ru : copy.en;
     if (state !== "ready")
         return `<div class="hoc-playstyle hoc-playstyle--empty" role="status">${state === "loading" ? c.loading : c.unavailable}</div>`;
     if (!metrics?.recordedGames || !metrics.stylePct)
         return `<div class="hoc-playstyle hoc-playstyle--empty"><strong>${c.empty}</strong><p>${c.emptyBody}</p>${metrics?.missingGames ? `<small>${metrics.missingGames} ${c.missing}</small>` : ""}</div>`;
     const pct = (value: number) => Math.round(Math.min(100, safe(value)));
     const number = (value: number) =>
-        new Intl.NumberFormat(language === "ru" ? "ru" : "en", { maximumFractionDigits: 0 }).format(safe(value));
+        new Intl.NumberFormat(russian ? "ru" : "en", { maximumFractionDigits: 0 }).format(safe(value));
     const point = (index: number, ratio: number, radius = 106) => {
         const angle = -Math.PI / 2 + (index * Math.PI) / 3;
         return [190 + Math.cos(angle) * radius * ratio, 165 + Math.sin(angle) * radius * ratio];

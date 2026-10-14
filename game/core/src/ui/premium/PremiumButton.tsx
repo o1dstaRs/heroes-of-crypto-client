@@ -24,6 +24,10 @@ export const PremiumButton = forwardRef<HTMLButtonElement, ButtonProps>(function
                         color: solid ? "var(--hoc-premium-text)" : "var(--hoc-premium-accent)",
                         bgcolor: solid ? "var(--hoc-premium-button-hover)" : "var(--hoc-premium-subtle)",
                     },
+                    "&:active": {
+                        color: solid ? "var(--hoc-premium-text)" : "var(--hoc-premium-accent)",
+                        bgcolor: solid ? "var(--hoc-premium-button-active)" : "var(--hoc-premium-subtle)",
+                    },
                     "&:focus-visible": { outline: "2px solid var(--hoc-premium-accent)", outlineOffset: 3 },
                     "&.Mui-disabled": {
                         color: "var(--hoc-premium-muted)",

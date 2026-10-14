@@ -197,6 +197,7 @@ const reputationHref = reputationRulesPath(lang);
 
     import { getAuthToken, isLoggedIn, onAuthStateChange } from "../lib/auth-state";
     import { artifacts } from "../lib/artifacts-data";
+    import { ruName } from "../lib/knowledge/names-ru";
     import { fetchPlayerPortal, PortalAuthError } from "../lib/portal-client";
     import { gameClientRoot } from "../lib/ranked-arena-client";
     import { rankedArenaCopy } from "../lib/ranked-arena-copy";
@@ -278,6 +279,7 @@ const reputationHref = reputationRulesPath(lang);
     const requestedPlayerId = profileSearchParams.get("playerId")?.trim() ?? "";
     const publicMode = profileSearchParams.has("playerId");
     const language = document.documentElement.lang.toLowerCase().startsWith("ru") ? "ru" : "en";
+    const profileName = (name: string): string => language === "ru" ? ruName(name) ?? name : name;
     // League + wealth names live with the arena copy so every surface names a standing identically.
     const standingCopy = rankedArenaCopy[language];
 
@@ -443,9 +445,9 @@ const reputationHref = reputationRulesPath(lang);
     function hoursInGameLabel(secondsInGame: number): string {
         if (!secondsInGame) return "—";
         const hours = secondsInGame / 3600;
-        if (hours < 1) return `${Math.max(1, Math.round(secondsInGame / 60))}m`;
-        if (hours < 10) return `${hours.toFixed(1).replace(/\.0$/, "")}h`;
-        return `${Math.round(hours)}h`;
+        if (hours < 1) return `${Math.max(1, Math.round(secondsInGame / 60))}${copy.agoMinute}`;
+        if (hours < 10) return `${new Intl.NumberFormat(language, { maximumFractionDigits: 1 }).format(hours)}${copy.agoHour}`;
+        return `${Math.round(hours)}${copy.agoHour}`;
     }
 
     const gamesLabelFor = (games: number): string => `${games} ${escapeHtml(copy.gamesLabel)}`;
@@ -479,7 +481,7 @@ const reputationHref = reputationRulesPath(lang);
 
     /** "Orc + Nomad + Hyena" — the arena's lineup label: unique creatures, in the order they were picked. */
     function comboLabel(creatureIds: number[]): string {
-        return [...new Set(creatureIds)].map((id) => creatureById(id).name).join(" + ");
+        return [...new Set(creatureIds)].map((id) => profileName(creatureById(id).name)).join(" + ");
     }
 
     // A card, not a bar row: the portraits overlap into one line-up, the lineup is named, and the win rate is
@@ -647,7 +649,7 @@ const reputationHref = reputationRulesPath(lang);
                 const creature = creatureById(performance.creatureId);
                 return `<div class="match-performance-row">${portraitMarkup(creature.slug, "", {
                     className: "match-performance-icon",
-                })}<span>${escapeHtml(creature.name)}</span><strong>${escapeHtml(formatDamage(performance.damageDealt))}</strong></div>`;
+                })}<span>${escapeHtml(profileName(creature.name))}</span><strong>${escapeHtml(formatDamage(performance.damageDealt))}</strong></div>`;
             })
             .join("");
         return `<section class="match-performance"><h4>${escapeHtml(label)}</h4>${rows || `<p>${escapeHtml(copy.matchNoDamage)}</p>`}</section>`;
@@ -663,7 +665,7 @@ const reputationHref = reputationRulesPath(lang);
         const artifact = artifactId > 0 ? artifactProperties(tier, artifactId) : undefined;
         if (!artifact) return "";
         const image = `/assets/images/artifacts/artifact_t${tier}_${artifact.slug}_256.webp`;
-        return `<span class="match-choice" title="${escapeHtml(artifact.description)}"><img src="${escapeHtml(image)}" alt="" width="30" height="30" loading="lazy" /><span>${escapeHtml(artifact.name)}</span><b>T${tier}</b></span>`;
+        return `<span class="match-choice" title="${escapeHtml(artifact.description)}"><img src="${escapeHtml(image)}" alt="" width="30" height="30" loading="lazy" /><span>${escapeHtml(profileName(artifact.name))}</span><b>T${tier}</b></span>`;
     }
 
     function synergyChoice(key: string): string {
@@ -736,7 +738,7 @@ const reputationHref = reputationRulesPath(lang);
         let doctrineMarkup = "";
         try {
             const doctrine = getDoctrineProperties(setup.doctrine as Doctrine);
-            if (doctrine?.name) doctrineMarkup = `<span class="match-choice"><span>${escapeHtml(doctrine.name)}</span></span>`;
+            if (doctrine?.name) doctrineMarkup = `<span class="match-choice"><span>${escapeHtml(profileName(doctrine.name))}</span></span>`;
         } catch {
             doctrineMarkup = "";
         }
@@ -1348,14 +1350,14 @@ const reputationHref = reputationRulesPath(lang);
             const topDoctrine = profile.playstyle?.doctrines?.[0] ?? null;
             const doctrineWindowGames = profile.playstyle?.games ?? 0;
             const doctrineValue = topDoctrine
-                ? `${topDoctrine.name} · ${topDoctrine.games}/${doctrineWindowGames || topDoctrine.games} · ${topDoctrine.winRatePct}%`
+                ? `${profileName(topDoctrine.name)} · ${topDoctrine.games}/${doctrineWindowGames || topDoctrine.games} · ${topDoctrine.winRatePct}%`
                 : copy.publicDoctrineNone;
             applyStandingToHeader(profile);
             standingEl.innerHTML = `
                 <dl class="ranked-standing__facts">
                     <div class="ranked-standing__form"><dt>${escapeHtml(copy.publicRecentForm)}</dt><dd>${recentForm(profile.recentGames.map((match) => match.result))}</dd></div>
                     <div><dt>${escapeHtml(exitRateLabel)}</dt><dd title="${escapeHtml(exitRateTitle)}">${exitRateValue}</dd></div>
-                    <div><dt>${escapeHtml(copy.publicBannedUnit)}</dt><dd>${escapeHtml(profile.rankedBan ? profile.rankedBan.name : copy.publicBanNotPicked)}</dd></div>
+                    <div><dt>${escapeHtml(copy.publicBannedUnit)}</dt><dd>${escapeHtml(profile.rankedBan ? profileName(profile.rankedBan.name) : copy.publicBanNotPicked)}</dd></div>
                     <div><dt>${escapeHtml(copy.publicDoctrine)}</dt><dd>${escapeHtml(doctrineValue)}</dd></div>
                     ${profile.state === "recalibration" ? `<div class="ranked-standing__previous"><dt>${escapeHtml(copy.publicPreviousStanding)}</dt><dd>${escapeHtml(previous)}</dd></div>` : ""}
                 </dl>`;
@@ -1688,11 +1690,11 @@ const reputationHref = reputationRulesPath(lang);
                             (entry) => entry.tier === artifact.tier && entry.name === artifact.name,
                         );
                         return strategyCard(
-                            artifact.name,
+                            profileName(artifact.name),
                             artifact.winRatePct,
                             artifact.games,
                             catalogEntry ? [{ src: catalogEntry.icon, alt: catalogEntry.name }] : [],
-                            `Tier ${artifact.tier}`,
+                            `${language === "ru" ? "Уровень" : "Tier"} ${artifact.tier}`,
                         );
                     });
             // Combat augments: six kinds, each shown at its display level. Localized names + icons live here,
@@ -1733,7 +1735,7 @@ const reputationHref = reputationRulesPath(lang);
                           copy.publicPlaystyleCreatures,
                           style.topCreatures.slice(0, 6).map((creature) =>
                               strategyCard(
-                                  creature.name,
+                                  profileName(creature.name),
                                   creature.winRatePct,
                                   creature.games,
                                   creatureArtwork([creature.creatureId]),
@@ -1744,7 +1746,7 @@ const reputationHref = reputationRulesPath(lang);
                           copy.publicPlaystylePairs,
                           style.topPairs.map((pair) =>
                               strategyCard(
-                                  pair.names.join(" + "),
+                                  pair.names.map(profileName).join(" + "),
                                   pair.winRatePct,
                                   pair.games,
                                   creatureArtwork(pair.creatureIds),
@@ -1755,7 +1757,7 @@ const reputationHref = reputationRulesPath(lang);
                           copy.publicPlaystyleTriples,
                           style.topTriples.map((triple) =>
                               strategyCard(
-                                  triple.names.join(" + "),
+                                  triple.names.map(profileName).join(" + "),
                                   triple.winRatePct,
                                   triple.games,
                                   creatureArtwork(triple.creatureIds),
@@ -1874,7 +1876,7 @@ const reputationHref = reputationRulesPath(lang);
         if (import.meta.env.DEV && profileSearchParams.get("mockProfile") === "1") {
             const { buildMockPlayerProfile } = await import("../lib/mock-player-profile");
             renderPublicProfile(buildMockPlayerProfile());
-            if (subtitleEl) { subtitleEl.hidden = false; subtitleEl.textContent = "Mock profile · preview data"; }
+            if (subtitleEl) { subtitleEl.hidden = false; subtitleEl.textContent = language === "ru" ? "Пример профиля · демонстрационные данные" : "Mock profile · preview data"; }
             return;
         }
 

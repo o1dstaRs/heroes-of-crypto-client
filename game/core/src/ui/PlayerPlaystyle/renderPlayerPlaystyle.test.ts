@@ -34,5 +34,9 @@ describe("player playstyle presentation", () => {
         expect(renderPlayerPlaystyle(buildMockPlayerMetrics("new"))).toContain("Available after 5 recorded battles");
         expect(renderPlayerPlaystyle(null, "en", "error")).toContain("temporarily unavailable");
         expect(renderPlayerPlaystyle(buildMockPlayerMetrics(), "ru")).toContain("Предпочтения армии");
+        const russian = renderPlayerPlaystyle(buildMockPlayerMetrics(), "ru-RU");
+        expect(russian).toContain("Предпочтения армии");
+        expect(russian).not.toContain("Army preferences");
+        expect(renderPlayerPlaystyle(null, "ru-RU", "error")).not.toContain("temporarily unavailable");
     });
 });

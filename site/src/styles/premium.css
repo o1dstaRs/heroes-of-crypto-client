@@ -217,6 +217,9 @@ body:has(.premium-page) .site-header {
 .premium-page .premium-button:hover {
     background: var(--hoc-premium-button-hover);
 }
+.premium-page .premium-button:active {
+    background: var(--hoc-premium-button-active);
+}
 .premium-secondary {
     border: 1px solid var(--premium-line);
     color: var(--premium-bright) !important;
