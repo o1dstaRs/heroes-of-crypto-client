@@ -4,7 +4,7 @@ import { PremiumSearchMatchProvider, usePremiumSearchMatch } from "./PremiumSear
 import { premiumSearchMatchChanged, type PremiumSearchMatchVersion } from "./premiumSearchFreshness";
 import { useAuthContext } from "../auth/context/auth_context";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
-import { Box, Button, IconButton, Input, Typography } from "@mui/joy";
+import { Box, IconButton, Input, Typography } from "@mui/joy";
 import Popper from "@mui/material/Popper";
 import { motion, useReducedMotion } from "framer-motion";
 import React, { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
@@ -25,6 +25,8 @@ import { EvidenceText } from "./PremiumAdvisor";
 import { PremiumAccessProvider, usePremiumAccess } from "./PremiumAccess";
 import { usePremiumCapability } from "./usePremiumPreference";
 import { hocFontFamily, hocInputSx, hocPrimaryButtonSx } from "../hocTheme";
+import { PremiumIcon } from "../PremiumIcon";
+import { PremiumButton } from "./PremiumButton";
 
 const SetAnchorContext = createContext<(node: HTMLDivElement | null) => void>(() => {});
 const PREMIUM_SEARCH_HEIGHT_PX = 44;
@@ -290,7 +292,7 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; compact: b
         }
     };
     const button = (
-        <Button
+        <PremiumButton
             ref={buttonRef}
             aria-label="Open Premium AI Search"
             aria-haspopup="dialog"
@@ -298,11 +300,7 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; compact: b
             aria-controls={open ? searchId : undefined}
             variant="solid"
             size={compact ? "sm" : "lg"}
-            startDecorator={
-                <span aria-hidden style={{ fontSize: compact ? "min(0.625rem, 7.94cqw)" : "0.8rem", lineHeight: 1 }}>
-                    ◆
-                </span>
-            }
+            startDecorator={<PremiumIcon size={compact ? "min(1rem, 12.7cqw)" : 20} />}
             onClick={() => setOpen((previous) => !previous)}
             sx={{
                 bgcolor: "#7f3819",
@@ -326,7 +324,7 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; compact: b
             }}
         >
             Ask Premium
-        </Button>
+        </PremiumButton>
     );
     const ui = (
         <>
@@ -394,7 +392,12 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; compact: b
                         }}
                     >
                         <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                            <Typography id={`${searchId}-title`} level="title-md" sx={{ color: "#f5a562" }}>
+                            <Typography
+                                id={`${searchId}-title`}
+                                level="title-md"
+                                startDecorator={<PremiumIcon />}
+                                sx={{ color: "#f5a562" }}
+                            >
                                 Premium AI Search
                             </Typography>
                             <IconButton
@@ -432,16 +435,16 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; compact: b
                                 sx={{ ...hocInputSx, flex: 1, minWidth: 0 }}
                                 slotProps={{ input: { maxLength: 600, autoFocus: true } }}
                             />
-                            <Button
+                            <PremiumButton
                                 type="submit"
                                 size="sm"
                                 disabled={busy || !question.trim()}
                                 sx={{ ...hocPrimaryButtonSx, flexShrink: 0 }}
                             >
                                 Ask
-                            </Button>
+                            </PremiumButton>
                             {busy && (
-                                <Button
+                                <PremiumButton
                                     type="button"
                                     size="sm"
                                     variant="plain"
@@ -449,7 +452,7 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; compact: b
                                     sx={{ color: "#f6b87e" }}
                                 >
                                     Stop
-                                </Button>
+                                </PremiumButton>
                             )}
                         </Box>
                         {(contextLabel || lastRequest) && (
@@ -460,7 +463,7 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; compact: b
                                     {contextLabel}
                                 </Typography>
                                 {lastRequest && (
-                                    <Button
+                                    <PremiumButton
                                         size="sm"
                                         variant="plain"
                                         disabled={busy}
@@ -468,7 +471,7 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; compact: b
                                         sx={{ color: "#f6b87e", minHeight: 24, fontSize: 11, p: 0.5 }}
                                     >
                                         New conversation
-                                    </Button>
+                                    </PremiumButton>
                                 )}
                             </Box>
                         )}
@@ -477,7 +480,7 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; compact: b
                                 <Typography level="body-xs" role="status" sx={{ color: "#f6bd8a" }}>
                                     The match changed since you asked. This advice may need updating.
                                 </Typography>
-                                <Button
+                                <PremiumButton
                                     size="sm"
                                     variant="plain"
                                     disabled={busy}
@@ -485,7 +488,7 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; compact: b
                                     sx={{ color: "#f6b87e", minHeight: 24, p: 0.5 }}
                                 >
                                     Update for current match
-                                </Button>
+                                </PremiumButton>
                             </Box>
                         )}
                         {(error || answer || busy || status || sources.length > 0 || evidence.length > 0) && (

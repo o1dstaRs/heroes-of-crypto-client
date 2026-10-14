@@ -1,0 +1,9 @@
+Versioned poster: site/public/assets/marketing/x/test_tsar_cannon_through_shot.png
+
+Method: Built-in image_gen background with Pillow compositing.
+
+Background generation prompt:
+Use case: ads-marketing. Asset type: background plate for a clean 1600x900 landscape X post poster. Create only a dark charcoal board-grid background, subtle fine square grid lines receding very slightly toward the upper edge, near-black ink and muted blue-gray slate palette. Clean, restrained, premium strategy-game poster design. Even continuous board grid across the canvas, gentle vignette and faint warm bronze ambient glow behind the left half; the right half is very dark and quiet for typography that will be composited later. No characters, no cannon, no units, no objects, no text, no numbers, no symbols, no UI, no logos, no tokens, no icons, no borders. Exact wide 16:9 aspect ratio. Deliver 1600x900 PNG. Only persist files inside the requested marketing/x/generated/ directory; desired background filename test_tsar_cannon_grid_background.png.
+
+Final composition:
+1600x900 PNG. Supplied Tsar Cannon portrait alpha-composited on the left, without redraw, recoloring, mirroring, or retouching. Transparent margins cropped and artwork proportionally reduced to fit. Exact headline on the right: Three in a file is one shot. Exact caption: Tsar Cannon. Through Shot. No emoji, hashtags, logos, fake gameplay UI, or numbers.

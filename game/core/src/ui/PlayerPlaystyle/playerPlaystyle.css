@@ -196,3 +196,42 @@
         grid-template-columns: minmax(280px, 1fr) minmax(260px, 1fr);
     }
 }
+.hoc-playstyle--compact .hoc-playstyle__layout {
+    display: block;
+}
+.hoc-playstyle--compact .hoc-playstyle__radar {
+    max-width: 290px;
+}
+.hoc-playstyle--compact .hoc-playstyle__layout h3,
+.hoc-playstyle--compact .hoc-playstyle__note,
+.hoc-playstyle--compact .hoc-playstyle__habits,
+.hoc-playstyle--compact .hoc-playstyle__combat {
+    display: none;
+}
+.hoc-playstyle--compact .hoc-playstyle__coverage {
+    font-size: 11px;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+.hoc-playstyle--compact .hoc-playstyle__coverage span:last-child {
+    display: none;
+}
+.hoc-playstyle--compact .hoc-playstyle__scores {
+    margin: 4px 0 10px;
+    gap: 12px;
+}
+.hoc-playstyle--compact .hoc-playstyle__scores strong {
+    font-size: 26px;
+}
+.hoc-playstyle--compact .hoc-playstyle__scores p {
+    display: none;
+}
+.hoc-playstyle--compact .hoc-playstyle__label {
+    font-size: 15px;
+}
+.hoc-playstyle--compact .hoc-playstyle__scale {
+    display: none;
+}
+.hoc-playstyle--pending .hoc-playstyle__scores > div:first-child p {
+    display: block;
+}

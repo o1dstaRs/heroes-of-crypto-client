@@ -5,6 +5,7 @@ import { t } from "../../i18n/i18n";
 import { setPremiumPreference, type PremiumPreference } from "../../settings/premiumPreferences";
 import { hocColors } from "../hocTheme";
 import { usePremiumPreference } from "./usePremiumPreference";
+import { PremiumIcon } from "../PremiumIcon";
 
 const PremiumSetting: React.FC<{
     preference: PremiumPreference;
@@ -50,7 +51,8 @@ export const PremiumSettings: React.FC<{ reason: string }> = ({ reason }) => {
         <Box data-testid="premium-settings">
             <Typography
                 level="body-xs"
-                sx={{ color: hocColors.gold, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase" }}
+                startDecorator={<PremiumIcon size={18} />}
+                sx={{ color: "#ffad66", fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase" }}
             >
                 {t("Premium")}
             </Typography>

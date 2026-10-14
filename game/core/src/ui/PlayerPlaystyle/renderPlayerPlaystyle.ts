@@ -60,6 +60,7 @@ export function renderPlayerPlaystyle(
     metrics: PlayerMetricsSummary | null,
     language = "en",
     state: PlaystyleState = "ready",
+    compact = false,
 ): string {
     const c = language === "ru" ? copy.ru : copy.en;
     if (state !== "ready")
@@ -91,7 +92,7 @@ export function renderPlayerPlaystyle(
             return `<div class="hoc-playstyle__habit"><span>${c.choices[i]}</span><div class="hoc-playstyle__track"><div style="width:${value}%"></div></div><b>${total ? `${pct(value)}%` : "—"}</b></div>`;
         })
         .join("");
-    return `<div class="hoc-playstyle"><div class="hoc-playstyle__coverage"><span>${metrics.gamesConsidered} ${c.window}</span><span>${metrics.recordedGames}/${metrics.gamesConsidered} ${c.coverage}</span></div><div class="hoc-playstyle__layout"><div><h3>${c.style}</h3>${radar}<p class="hoc-playstyle__note">${c.weight}</p></div><div class="hoc-playstyle__details"><div class="hoc-playstyle__scores"><div><span>${c.versatility}</span><strong>${metrics.versatility === null ? "—" : pct(metrics.versatility)}${metrics.versatility === null ? "" : `<small>/100</small>`}</strong><p>${metrics.versatility === null ? c.minimum : c.change}</p></div><div><span>${c.variety}</span><strong>${metrics.uniqueCreatures ?? "—"}</strong><p>${metrics.recordedGames} ${c.coverage}</p></div></div><h3>${c.habits}</h3><div class="hoc-playstyle__habits">${habits}</div><p class="hoc-playstyle__note">${number(total)} ${c.decisions}${aiTotal ? ` · ${number(aiTotal)} ${c.automation}` : ""}</p>${metrics.human?.moves ? `<p class="hoc-playstyle__note">${number(metrics.human.advances)}/${number(metrics.human.moves)} ${c.advance}</p>` : ""}</div></div><div class="hoc-playstyle__combat">${[
+    return `<div class="hoc-playstyle${compact ? " hoc-playstyle--compact" : ""}${compact && metrics.versatility === null ? " hoc-playstyle--pending" : ""}"><div class="hoc-playstyle__coverage"><span>${compact ? `${metrics.recordedGames}/${metrics.gamesConsidered} ${c.coverage}` : `${metrics.gamesConsidered} ${c.window}`}</span><span>${metrics.recordedGames}/${metrics.gamesConsidered} ${c.coverage}</span></div><div class="hoc-playstyle__layout"><div><h3>${c.style}</h3>${radar}<p class="hoc-playstyle__note">${c.weight}</p></div><div class="hoc-playstyle__details"><div class="hoc-playstyle__scores"><div><span>${c.versatility}</span><strong>${metrics.versatility === null ? "—" : pct(metrics.versatility)}${metrics.versatility === null ? "" : `<small>/100</small>`}</strong><p>${metrics.versatility === null ? c.minimum : c.change}</p></div><div><span>${c.variety}</span><strong>${metrics.uniqueCreatures ?? "—"}</strong><p>${metrics.recordedGames} ${c.coverage}</p></div></div><h3>${c.habits}</h3><div class="hoc-playstyle__habits">${habits}</div><p class="hoc-playstyle__note">${number(total)} ${c.decisions}${aiTotal ? ` · ${number(aiTotal)} ${c.automation}` : ""}</p>${metrics.human?.moves ? `<p class="hoc-playstyle__note">${number(metrics.human.advances)}/${number(metrics.human.moves)} ${c.advance}</p>` : ""}</div></div><div class="hoc-playstyle__combat">${[
         [c.damage, metrics.health?.damageDealtHp, c.hp],
         [c.heal, metrics.health?.healingDoneHp, c.hp],
         [c.raised, metrics.health?.resurrectedUnits, ""],

@@ -4,6 +4,7 @@ import React from "react";
 import { setPremiumSuggestedMoves } from "../../settings/premiumSuggestedMoves";
 import { useTranslation } from "../../i18n/i18n";
 import { hocFontFamily } from "../hocTheme";
+import { PremiumIcon } from "../PremiumIcon";
 import { PremiumSearchSlot } from "./PremiumSearch";
 import { usePremiumSuggestedMoves } from "./usePremiumSuggestedMoves";
 
@@ -31,7 +32,10 @@ export const PremiumFightControls: React.FC = () => {
                 onChange={(event) => setPremiumSuggestedMoves(event.target.checked)}
                 slotProps={{ input: { "aria-label": t("Suggested moves") } }}
                 startDecorator={
-                    <Typography sx={{ color: "#efcfaf", fontFamily: hocFontFamily, fontSize: "0.72rem" }}>
+                    <Typography
+                        startDecorator={<PremiumIcon size={14} />}
+                        sx={{ color: "#efcfaf", fontFamily: hocFontFamily, fontSize: "0.72rem" }}
+                    >
                         {t("Suggested moves")}
                     </Typography>
                 }

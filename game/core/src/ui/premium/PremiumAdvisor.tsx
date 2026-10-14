@@ -1,4 +1,4 @@
-import { Box, Button, Sheet, Tooltip, Typography } from "@mui/joy";
+import { Box, Sheet, Tooltip, Typography } from "@mui/joy";
 import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { isAxiosError } from "axios";
 import { createPremiumRequestGate } from "./premiumRequestGate";
@@ -14,6 +14,8 @@ import {
 import { useAuthContext } from "../auth/context/auth_context";
 import { EvidenceText } from "./PremiumEvidenceText";
 import { usePremiumCapability } from "./usePremiumPreference";
+import { PremiumIcon } from "../PremiumIcon";
+import { PremiumButton } from "./PremiumButton";
 
 export { EvidenceText } from "./PremiumEvidenceText";
 
@@ -173,7 +175,8 @@ export const PremiumMark: React.FC<{ kind: PremiumChoice["kind"]; value: number 
                         cursor: "help",
                     }}
                 >
-                    {index === 0 ? "◆ Preferred" : "◇ Alternative"}
+                    <PremiumIcon size={14} style={{ marginRight: 4, opacity: index === 0 ? 1 : 0.6 }} />
+                    {index === 0 ? "Preferred" : "Alternative"}
                 </Box>
             </Tooltip>
         </Box>
@@ -200,20 +203,13 @@ export const PremiumShield: React.FC<{ testOnly?: boolean; size?: number }> = ({
                     bottom: -size / 8,
                     left: -size / 5,
                     width: size,
-                    height: (size * 7) / 6,
+                    height: size,
+                    color: "#ffad66",
                     zIndex: 5,
                     filter: "drop-shadow(0 2px 3px #000)",
                 }}
             >
-                <svg viewBox="0 0 24 28" width="100%" height="100%" aria-hidden="true">
-                    <path
-                        d="M12 1 22 5v9c0 6-6 11-10 13C8 25 2 20 2 14V5Z"
-                        fill="#823913"
-                        stroke="#ef973e"
-                        strokeWidth="1.5"
-                    />
-                    <path d="m12 6 2 5 5 2-5 2-2 6-2-6-5-2 5-2Z" fill="#ffd18c" />
-                </svg>
+                <PremiumIcon size={size} />
             </Box>
         </Tooltip>
     );
@@ -286,7 +282,10 @@ export const PremiumDraftBanner: React.FC<{ advice?: PremiumAdvice; draft: Premi
                     "&:focus-visible": { outline: "2px solid #f7a35a", outlineOffset: 3 },
                 }}
             >
-                <strong>◆ Premium · Draft so far</strong>
+                <strong>
+                    <PremiumIcon size={16} style={{ marginRight: 5 }} />
+                    Premium · Draft so far
+                </strong>
                 <Box sx={{ mt: 0.3, color: "#fff0de" }}>{assessment.headline}</Box>
                 <Box sx={{ mt: 0.3, color: "#d9b99b", fontSize: 11 }}>{assessment.focus}</Box>
             </Box>
@@ -341,8 +340,8 @@ export const PremiumSetupPanel: React.FC<{
                         overflowY: setupView ? "auto" : undefined,
                     }}
                 >
-                    <Typography level="title-sm" sx={{ color: "#f7a35a" }}>
-                        ◆ Premium guidance
+                    <Typography level="title-sm" startDecorator={<PremiumIcon />} sx={{ color: "#f7a35a" }}>
+                        Premium guidance
                     </Typography>
                     {advice.stage === "setup" || setupView ? (
                         <>
@@ -368,7 +367,7 @@ export const PremiumSetupPanel: React.FC<{
                                         </Box>
                                     ))}
                             </Box>
-                            <Button
+                            <PremiumButton
                                 size="sm"
                                 disabled={busy || advice.ready}
                                 onClick={() => {
@@ -377,11 +376,11 @@ export const PremiumSetupPanel: React.FC<{
                                 sx={{ bgcolor: "#9b481b", color: "#fff0de", "&:hover": { bgcolor: "#bd5c25" } }}
                             >
                                 Use recommended build
-                            </Button>
+                            </PremiumButton>
                         </>
                     ) : (
                         <Box sx={{ display: "flex", gap: 0.75, mt: 0.75 }}>
-                            <Button
+                            <PremiumButton
                                 size="sm"
                                 disabled={busy || advice.ready}
                                 onClick={() => {
@@ -390,8 +389,8 @@ export const PremiumSetupPanel: React.FC<{
                                 sx={{ bgcolor: "#9b481b", color: "#fff0de", "&:hover": { bgcolor: "#bd5c25" } }}
                             >
                                 Arrange army
-                            </Button>
-                            <Button
+                            </PremiumButton>
+                            <PremiumButton
                                 size="sm"
                                 variant="outlined"
                                 disabled={busy || advice.ready || !advice.canUndo}
@@ -400,7 +399,7 @@ export const PremiumSetupPanel: React.FC<{
                                 }}
                             >
                                 Undo
-                            </Button>
+                            </PremiumButton>
                         </Box>
                     )}
                     <Box component="details" sx={{ mt: 0.8, color: "#d0b59c", fontSize: 12 }}>

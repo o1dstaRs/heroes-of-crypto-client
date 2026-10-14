@@ -1,4 +1,5 @@
 import { PremiumContext } from "../premium/PremiumAdvisor";
+import { PremiumIcon } from "../PremiumIcon";
 import { Augment, HoCConstants, TeamType, FactionType } from "@heroesofcrypto/common";
 import React, { useContext, useEffect, useState } from "react";
 import { Sheet, Box, Radio, Tooltip, Typography } from "@mui/joy";
@@ -280,7 +281,9 @@ const AugmentCard = ({
                             }}
                         >
                             <span>
-                                {option.value === recommended ? "◆ " : ""}
+                                {option.value === recommended && (
+                                    <PremiumIcon size={16} style={{ marginRight: 5, color: "#ffad66" }} />
+                                )}
                                 {option.label}
                             </span>
                             <Radio

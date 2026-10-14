@@ -23,14 +23,13 @@ export const portalScrollSx = {
 } as const;
 
 export const portalHeaderSx = {
-    mb: 2,
-    p: { xs: 1.5, sm: 2 },
-    borderRadius: "18px",
-    ...hocPanelSx,
-    bgcolor: "rgba(9,6,4,0.85)",
-    borderColor: "rgba(255,143,0,0.25)",
-    boxShadow: "0 18px 48px rgba(0,0,0,0.42)",
-    backdropFilter: "blur(16px)",
+    mb: 1,
+    py: { xs: 2, sm: 3 },
+    px: 0,
+    border: "none",
+    borderRadius: 0,
+    bgcolor: "transparent",
+    boxShadow: "none",
 } as const;
 
 export const portalRevealSx = {
@@ -69,9 +68,9 @@ export const PlayerPortalFrame: React.FC<{ busy?: boolean; children: React.React
                 overflowY: "auto",
                 overflowX: "hidden",
                 ...portalScrollSx,
-                px: { xs: 1.5, md: 3 },
-                py: { xs: 1.5, md: 2.5 },
-                backgroundImage: `linear-gradient(112deg, rgba(7,5,4,0.97), rgba(7,5,4,0.89) 52%, rgba(7,5,4,0.96)), url(${profileBackgroundUrl})`,
+                px: { xs: 2, md: 5 },
+                py: { xs: 2, md: 4 },
+                backgroundImage: `radial-gradient(ellipse at 20% 0%, rgba(173,130,64,0.09), transparent 55%), linear-gradient(rgba(15,14,13,0.98), rgba(15,14,13,0.98)), url(${profileBackgroundUrl})`,
                 backgroundPosition: "center top",
                 backgroundSize: "cover",
                 backgroundAttachment: "fixed",

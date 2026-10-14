@@ -8,7 +8,7 @@ import React from "react";
 import { reputationBandLabel, reputationBarPct, reputationLimitsText } from "./reputationModel";
 import { fetchReputation } from "../../api/reputation_client";
 import { t, useTranslation } from "../../i18n/i18n";
-import { hocColors, hocPanelSx } from "../hocTheme";
+import { hocColors } from "../hocTheme";
 import { createPlayerResource } from "../PlayerPortal/playerResource";
 import { usePlayerResource } from "../PlayerPortal/usePlayerResource";
 import { PlayerPortalReputationSkeleton } from "../PlayerPortal/PlayerPortalLoading";
@@ -37,7 +37,7 @@ export const ReputationCard: React.FC<{ reloadKey?: number }> = ({ reloadKey = 0
 
     if (error && !reputation) {
         return (
-            <Sheet variant="outlined" sx={{ ...hocPanelSx, p: 2, minHeight: 142 }}>
+            <Sheet variant="plain" sx={{ p: 1, bgcolor: "transparent", border: "none", minHeight: 0 }}>
                 <Typography level="body-sm" textColor={hocColors.muted}>
                     {t("Couldn't load your Reputation.")}
                 </Typography>
@@ -53,7 +53,11 @@ export const ReputationCard: React.FC<{ reloadKey?: number }> = ({ reloadKey = 0
     const bandColor = BAND_COLORS[reputation.band];
 
     return (
-        <Sheet variant="outlined" sx={{ ...hocPanelSx, p: 2, minHeight: 142 }} data-testid="reputation-card">
+        <Sheet
+            variant="plain"
+            sx={{ p: 2, bgcolor: "transparent", border: "none", minHeight: 0 }}
+            data-testid="reputation-card"
+        >
             <Stack spacing={1.5}>
                 <Stack direction="row" spacing={1.25} alignItems="baseline" sx={{ flexWrap: "wrap" }}>
                     <Typography level="title-lg" sx={{ color: hocColors.parchment }}>

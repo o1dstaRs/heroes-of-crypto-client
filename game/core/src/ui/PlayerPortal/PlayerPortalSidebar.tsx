@@ -1,4 +1,3 @@
-import { isMockPortalEnabled } from "./mockPortal";
 import { PlayerPlaystyle } from "../PlayerPlaystyle/PlayerPlaystyle";
 import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
 import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
@@ -44,16 +43,20 @@ const StatBlock: React.FC<{ label: string; value: string | number; color?: strin
         sx={{
             minWidth: 0,
             px: 0.5,
-            py: 0.55,
+            py: 0.15,
+            display: "flex",
+            alignItems: "baseline",
+            justifyContent: "center",
+            gap: 0.5,
             textAlign: "center",
             bgcolor: "transparent",
             border: 0,
         }}
     >
-        <Typography level="h4" sx={{ color: color ?? hocColors.parchment, lineHeight: 1.05 }}>
+        <Typography level="h4" sx={{ color: color ?? hocColors.parchment, lineHeight: 1.05, fontSize: 16 }}>
             {value}
         </Typography>
-        <Typography level="body-xs" sx={{ color: hocColors.muted, mt: 0.4 }}>
+        <Typography level="body-xs" sx={{ color: hocColors.muted, fontSize: 10 }}>
             {label}
         </Typography>
     </Sheet>
@@ -617,15 +620,12 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
                                 />
                             </Box>
 
-                            <Box
-                                component="details"
-                                sx={{ minWidth: 0, color: hocColors.parchment }}
-                                open={isMockPortalEnabled()}
-                            >
-                                <summary style={{ cursor: "pointer", padding: "8px 0" }}>
+                            <Box sx={{ minWidth: 0, color: hocColors.parchment }}>
+                                <Typography level="title-sm" sx={{ color: hocColors.gold, mb: 1 }}>
                                     {language === "ru" ? "Стиль игры" : "Playstyle"}
-                                </summary>
+                                </Typography>
                                 <PlayerPlaystyle
+                                    compact
                                     playerId={standing?.playerId}
                                     reloadKey={reloadKey}
                                     language={language}

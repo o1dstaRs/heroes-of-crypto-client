@@ -22,6 +22,13 @@ describe("player playstyle presentation", () => {
         expect(markup).toContain("168,400");
         expect(markup).toContain('role="img"');
     });
+    test("the compact player-card variant preserves sample coverage and pending scores", () => {
+        const markup = renderPlayerPlaystyle(buildMockPlayerMetrics("new"), "en", "ready", true);
+        expect(markup).toContain("hoc-playstyle--compact");
+        expect(markup).toContain("hoc-playstyle--pending");
+        expect(markup).toContain("3/20 with recorded battle data");
+        expect(markup).toContain("Available after 5 recorded battles");
+    });
     test("missing data and small samples never masquerade as a zero score", () => {
         expect(renderPlayerPlaystyle(null)).not.toContain("<svg");
         expect(renderPlayerPlaystyle(buildMockPlayerMetrics("new"))).toContain("Available after 5 recorded battles");

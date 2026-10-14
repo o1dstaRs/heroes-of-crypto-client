@@ -7,11 +7,12 @@ import { buildMockPlayerMetrics } from "./mockPlayerMetrics";
 import { renderPlayerPlaystyle, type PlaystyleState } from "./renderPlayerPlaystyle";
 import "./playerPlaystyle.css";
 
-export const PlayerPlaystyle: React.FC<{ playerId?: string; reloadKey: number; language: string }> = ({
-    playerId,
-    reloadKey,
-    language,
-}) => {
+export const PlayerPlaystyle: React.FC<{
+    playerId?: string;
+    reloadKey: number;
+    language: string;
+    compact?: boolean;
+}> = ({ playerId, reloadKey, language, compact = false }) => {
     const [metrics, setMetrics] = useState<PlayerMetricsSummary | null>(null);
     const [state, setState] = useState<PlaystyleState>("loading");
     useEffect(() => {
@@ -42,6 +43,9 @@ export const PlayerPlaystyle: React.FC<{ playerId?: string; reloadKey: number; l
         };
     }, [playerId, reloadKey]);
     return (
-        <div aria-live="polite" dangerouslySetInnerHTML={{ __html: renderPlayerPlaystyle(metrics, language, state) }} />
+        <div
+            aria-live="polite"
+            dangerouslySetInnerHTML={{ __html: renderPlayerPlaystyle(metrics, language, state, compact) }}
+        />
     );
 };

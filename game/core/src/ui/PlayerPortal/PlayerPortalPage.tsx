@@ -42,25 +42,28 @@ const nestedPortalScrollSx = {
     },
 } as const;
 
-const Section: React.FC<{ title: string; subtitle?: string; children: React.ReactNode }> = ({
+const Section: React.FC<{ title: string; subtitle?: string; featured?: boolean; children: React.ReactNode }> = ({
     title,
     subtitle,
+    featured = false,
     children,
 }) => (
     <Sheet
         variant="outlined"
         sx={{
-            p: { xs: 1.5, sm: 2.25 },
+            p: featured ? { xs: 2, sm: 3.5 } : { xs: "24px 0", sm: "32px 0" },
             minWidth: 0,
-            borderRadius: "16px",
-            ...hocPanelSx,
-            bgcolor: "rgba(12,8,5,0.91)",
-            borderColor: "rgba(255,143,0,0.27)",
-            backdropFilter: "blur(14px)",
+            border: "none",
+            borderRadius: featured ? "24px" : 0,
+            boxShadow: "none",
+            bgcolor: featured ? "rgba(239,228,204,0.035)" : "transparent",
         }}
     >
-        <Box sx={{ mb: 1.25 }}>
-            <Typography level="title-md" textColor={hocColors.gold}>
+        <Box sx={{ mb: 2.5 }}>
+            <Typography
+                level="title-md"
+                sx={{ color: hocColors.parchment, fontFamily: "inherit", fontSize: 18, fontWeight: 500 }}
+            >
                 {title}
             </Typography>
             {subtitle && (
@@ -77,15 +80,27 @@ const StatCard: React.FC<{ label: string; value: string | number; color?: string
     <Sheet
         variant="soft"
         sx={{
-            bgcolor: "rgba(0,0,0,0.3)",
-            border: "1px solid rgba(239,228,204,0.08)",
-            borderRadius: "12px",
-            p: 1.5,
-            minWidth: 110,
-            textAlign: "center",
+            bgcolor: "transparent",
+            border: "none",
+            borderRadius: 0,
+            p: 0,
+            display: "flex",
+            alignItems: "baseline",
+            gap: 0.5,
+            minWidth: 0,
+            textAlign: "left",
         }}
     >
-        <Typography level="h2" sx={{ color: color ?? hocColors.parchment, lineHeight: 1.1 }}>
+        <Typography
+            level="h2"
+            sx={{
+                color: color ?? hocColors.parchment,
+                fontSize: 18,
+                fontWeight: 400,
+                fontVariantNumeric: "tabular-nums",
+                lineHeight: 1.3,
+            }}
+        >
             {value}
         </Typography>
         <Typography level="body-xs" textColor={hocColors.muted}>
@@ -191,8 +206,6 @@ const StrategyStatCard: React.FC<{
     wins: number;
 }> = ({ artwork, badge, games, label, wins }) => {
     const pct = winRatePct(wins, games);
-    const strong = pct >= 55;
-    const weak = pct <= 45;
     const gamesLabel = games === 1 ? tf("{count} game", { count: games }) : tf("{count} games", { count: games });
 
     return (
@@ -210,13 +223,11 @@ const StrategyStatCard: React.FC<{
                 pr: 1.4,
                 pl: 1,
                 overflow: "hidden",
-                border: "1px solid",
-                borderColor: strong ? "rgba(70,209,96,0.2)" : weak ? "rgba(255,90,90,0.16)" : "rgba(239,228,204,0.08)",
-                borderRadius: "8px",
-                bgcolor: "rgba(0,0,0,0.27)",
-                backgroundImage: strong
-                    ? "linear-gradient(90deg, rgba(70,209,96,0.075), rgba(0,0,0,0.27) 44%)"
-                    : "none",
+                border: "none",
+                borderBottom: "1px solid rgba(239,228,204,0.07)",
+                borderRadius: 0,
+                bgcolor: "transparent",
+                boxShadow: "none",
             }}
         >
             <Box sx={{ display: "flex", alignItems: "center", minWidth: 54 }}>{artwork}</Box>
@@ -576,10 +587,13 @@ export const PlayerPortalPage: React.FC = () => {
             {import.meta.env.DEV && (
                 <LeagueTransitionReveal active={false} enabled={false} gameId="portal-league-reveal-preview" />
             )}
-            <Box sx={{ maxWidth: 1480, mx: "auto" }}>
+            <Box
+                className="hoc-player-profile"
+                sx={{ maxWidth: 1180, mx: "auto", fontFamily: '"Inter", "Segoe UI", sans-serif' }}
+            >
                 <Sheet component="header" variant="outlined" sx={portalHeaderSx}>
                     <Stack
-                        direction={{ xs: "column", sm: "row" }}
+                        direction={{ xs: "column", lg: "row" }}
                         alignItems={{ xs: "stretch", sm: "center" }}
                         justifyContent="space-between"
                         spacing={1.5}
@@ -648,6 +662,18 @@ export const PlayerPortalPage: React.FC = () => {
                                     </Typography>
                                 ) : null}
                                 <RecentForm matches={matches} />
+                                {data && (
+                                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: "6px 16px", mt: 1 }}>
+                                        <StatCard label={t("Wins")} value={data.wins ?? 0} color="#46d160" />
+                                        <StatCard label={t("Losses")} value={data.losses ?? 0} color="#ff5a5a" />
+                                        <StatCard
+                                            label={t("Win rate")}
+                                            value={`${overallPct}%`}
+                                            color={winRateColor(overallPct)}
+                                        />
+                                        <StatCard label={t("Games")} value={data.total_games_played ?? 0} />
+                                    </Box>
+                                )}
                             </Box>
                         </Stack>
                         <Stack
@@ -659,7 +685,20 @@ export const PlayerPortalPage: React.FC = () => {
                                 fullWidth
                                 variant="soft"
                                 startDecorator={<RefreshNavIcon sx={{ fontSize: 22 }} />}
-                                sx={{ ...hocSoftButtonSx, minWidth: { sm: 126 }, whiteSpace: "nowrap" }}
+                                sx={{
+                                    ...hocSoftButtonSx,
+                                    minWidth: { sm: 96 },
+                                    whiteSpace: "nowrap",
+                                    bgcolor: "transparent",
+                                    border: "none",
+                                    boxShadow: "none",
+                                    color: hocColors.muted,
+                                    "&:hover": {
+                                        bgcolor: "rgba(239,228,204,0.06)",
+                                        color: hocColors.parchment,
+                                        border: "none",
+                                    },
+                                }}
                                 onClick={reload}
                                 disabled={loading}
                             >
@@ -673,7 +712,20 @@ export const PlayerPortalPage: React.FC = () => {
                                 aria-expanded={settingsOpen}
                                 variant="soft"
                                 startDecorator={<SettingsNavIcon sx={{ fontSize: 22 }} />}
-                                sx={{ ...hocSoftButtonSx, minWidth: { sm: 126 }, whiteSpace: "nowrap" }}
+                                sx={{
+                                    ...hocSoftButtonSx,
+                                    minWidth: { sm: 96 },
+                                    whiteSpace: "nowrap",
+                                    bgcolor: "transparent",
+                                    border: "none",
+                                    boxShadow: "none",
+                                    color: hocColors.muted,
+                                    "&:hover": {
+                                        bgcolor: "rgba(239,228,204,0.06)",
+                                        color: hocColors.parchment,
+                                        border: "none",
+                                    },
+                                }}
                                 onClick={() => setSettingsOpen(true)}
                             >
                                 {t("Settings")}
@@ -685,7 +737,20 @@ export const PlayerPortalPage: React.FC = () => {
                                 fullWidth
                                 variant="soft"
                                 startDecorator={<ExitNavIcon sx={{ fontSize: 22 }} />}
-                                sx={{ ...hocSoftButtonSx, minWidth: { sm: 126 }, whiteSpace: "nowrap" }}
+                                sx={{
+                                    ...hocSoftButtonSx,
+                                    minWidth: { sm: 96 },
+                                    whiteSpace: "nowrap",
+                                    bgcolor: "transparent",
+                                    border: "none",
+                                    boxShadow: "none",
+                                    color: hocColors.muted,
+                                    "&:hover": {
+                                        bgcolor: "rgba(239,228,204,0.06)",
+                                        color: hocColors.parchment,
+                                        border: "none",
+                                    },
+                                }}
                                 onClick={exitAccount}
                                 disabled={exiting}
                             >
@@ -695,7 +760,17 @@ export const PlayerPortalPage: React.FC = () => {
                                 fullWidth
                                 variant="solid"
                                 startDecorator={<RankedNavIcon sx={{ fontSize: 22 }} />}
-                                sx={{ ...hocPrimaryButtonSx, minWidth: { sm: 154 }, whiteSpace: "nowrap" }}
+                                sx={{
+                                    ...hocPrimaryButtonSx,
+                                    minWidth: { sm: 140 },
+                                    whiteSpace: "nowrap",
+                                    bgcolor: "#d7b77e",
+                                    color: "#17130d",
+                                    border: "none",
+                                    boxShadow: "none",
+                                    borderRadius: "10px",
+                                    "&:hover": { bgcolor: "#e5c78f", boxShadow: "none" },
+                                }}
                                 onClick={() => navigate("/play")}
                             >
                                 {t("Ranked arena")}
@@ -715,29 +790,11 @@ export const PlayerPortalPage: React.FC = () => {
 
                 {data && (
                     <Stack spacing={2} sx={portalRevealSx}>
-                        {/* Overview */}
-                        <Box
-                            sx={{
-                                display: "grid",
-                                gridTemplateColumns: {
-                                    xs: "repeat(2, minmax(0, 1fr))",
-                                    sm: "repeat(3, minmax(0, 1fr))",
-                                    lg: "repeat(4, minmax(0, 1fr))",
-                                },
-                                gap: 1.25,
-                            }}
-                        >
-                            <StatCard label={t("Wins")} value={data.wins ?? 0} color="#46d160" />
-                            <StatCard label={t("Losses")} value={data.losses ?? 0} color="#ff5a5a" />
-                            <StatCard label={t("Win rate")} value={`${overallPct}%`} color={winRateColor(overallPct)} />
-                            <StatCard label={t("Games")} value={data.total_games_played ?? 0} />
-                        </Box>
-
-                        <ReputationCard reloadKey={reloadKey} />
-
-                        <Section title={language === "ru" ? "Стиль игры" : "Playstyle"}>
+                        <Section featured title={language === "ru" ? "Стиль игры" : "Playstyle"}>
                             <PlayerPlaystyle playerId={standing?.playerId} reloadKey={reloadKey} language={language} />
                         </Section>
+
+                        <ReputationCard reloadKey={reloadKey} />
 
                         {/* The public profile's strategy-card language, consolidated into one panel so
                             line-ups, winning trios and duos read as one family rather than three widgets. */}

@@ -109,13 +109,11 @@ body:has(.premium-page) .site-header {
     font-weight: 700;
     line-height: 1.6;
 }
-.premium-eyebrow > span:last-child {
+.premium-eyebrow-suffix {
     color: var(--premium-muted);
 }
-.premium-diamond {
-    font-size: 22px;
-    vertical-align: middle;
-    margin-right: 8px;
+.premium-eyebrow .premium-icon {
+    margin-right: 6px;
 }
 .premium-hero h1 {
     font-family: Georgia, serif;
@@ -161,45 +159,9 @@ body:has(.premium-page) .site-header {
     color: var(--premium);
     filter: drop-shadow(0 0 35px #c4712b38);
 }
-.premium-emblem-core {
-    width: 150px;
-    height: 150px;
-    transform: rotate(45deg);
-    display: grid;
-    place-items: center;
-    border: 1px solid #bb743b;
-    background: linear-gradient(135deg, #a95f2533, #1e130c);
-    box-shadow:
-        inset 0 0 50px #e9923619,
-        0 0 60px #e9923611;
-}
-.premium-emblem-core > span {
-    font-family: Georgia, serif;
-    font-size: 66px;
-    position: absolute;
-    transform: rotate(-45deg);
-    text-shadow: 0 0 20px #dd873f80;
-    color: #fbc28a;
-}
-.premium-emblem-core {
-    font-size: 0;
-}
-.premium-orbit {
-    position: absolute;
-    width: 235px;
-    height: 235px;
-    border: 1px solid #c47b3a30;
-    transform: rotate(45deg);
-}
-.orbit-two {
-    width: 275px;
-    height: 275px;
-    border-style: dashed;
-    border-color: #c47b3a22;
-}
 .premium-emblem > p {
     position: absolute;
-    bottom: -4px;
+    bottom: 0;
     letter-spacing: 0.28em;
     font-size: 9px;
     color: #b28c69;
@@ -225,6 +187,9 @@ body:has(.premium-page) .site-header {
     margin-left: auto;
 }
 .premium-text-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     padding: 6px 0;
     border: 0;
     background: transparent;
@@ -292,9 +257,7 @@ body:has(.premium-page) .site-header {
     color: #ac7850;
     font-size: 11px;
 }
-.premium-feature b {
-    font-size: 30px;
-    font-weight: 400;
+.premium-feature .premium-icon {
     color: var(--premium);
 }
 .premium-feature h3 {
@@ -317,7 +280,7 @@ body:has(.premium-page) .site-header {
     background: radial-gradient(ellipse at top left, #a151151b, transparent 65%), #14110e;
 }
 .premium-access-mark {
-    font-size: 70px;
+    flex-shrink: 0;
     line-height: 1;
     color: var(--premium);
 }
@@ -355,6 +318,9 @@ body:has(.premium-page) .site-header {
     padding: 6px 0;
 }
 .premium-nav-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     color: var(--premium);
     font-size: 11px;
     font-weight: 700;
@@ -369,6 +335,11 @@ body:has(.premium-page) .site-header {
 }
 .premium-section-nav > a:hover {
     color: var(--premium-bright);
+}
+.premium-nav-ai {
+    display: flex;
+    align-items: center;
+    gap: 9px;
 }
 .premium-section-nav small {
     color: #806349;
@@ -741,6 +712,9 @@ body:has(.premium-page) .site-header {
     margin-bottom: 18px;
 }
 .premium-segmented button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     background: transparent;
     border: 0;
     border-radius: 3px;

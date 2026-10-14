@@ -1873,6 +1873,13 @@ const reputationHref = reputationRulesPath(lang);
     }
 
     async function load(): Promise<void> {
+        if (import.meta.env.DEV && profileSearchParams.get("mockProfile") === "1") {
+            const { buildMockPlayerProfile } = await import("../lib/mock-player-profile");
+            renderPublicProfile(buildMockPlayerProfile());
+            if (subtitleEl) { subtitleEl.hidden = false; subtitleEl.textContent = "Mock profile · preview data"; }
+            return;
+        }
+
         if (publicMode) {
             configurePublicMode();
             showState("loading");
