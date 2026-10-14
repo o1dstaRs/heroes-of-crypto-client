@@ -189,10 +189,10 @@ const FITS: Record<string, Fit> = {
             : `+${n(A.TITAN_PLATE_PERCENT)}% of base armor for every unit — counted after the Armor augment, Pegasus Might and Wind Flow, and added as its own bonus, so percentage armor buffs don't multiply it: about ${n(100 - 10000 / (100 + A.TITAN_PLATE_PERCENT))}% less physical damage for everyone, whatever their armor. It also softens Fire Breath, but does nothing against cast spells or Fire Shield.`,
     "Mage's Ring": (language) => magicDealersFit(language),
     "Archmage's Ring": (language) => magicDealersFit(language),
-    "Quiver of Echoes": (language, n) =>
+    "Quiver of Echoes": (language) =>
         language === "ru"
-            ? `Для армий со стрелками: дополнительный залп с вероятностью ${n(A.QUIVER_OF_ECHOES_CHANCE)}% + текущая удача. Особенно полезен с Area Throw, Large Caliber, Through Shot и Chakram; сочетается с Double Shot и Double Throw. Поддерживайте запас боеприпасов: после его исчерпания эхо не вылетит. Юниты ближнего боя бонус не получают.`
-            : `For ranged armies: an extra volley at ${n(A.QUIVER_OF_ECHOES_CHANCE)}% + current luck. Particularly useful with Area Throw, Large Caliber, Through Shot and Chakram, and stacks with Double Shot and Double Throw. Keep ammunition available: an empty quiver cannot fire the echo. Melee units receive no bonus.`,
+            ? "Для армий со стрелками: шанс на дополнительный залп. Особенно полезен с Area Throw, Large Caliber, Through Shot и Chakram; сочетается с Double Shot и Double Throw. Поддерживайте запас боеприпасов: после его исчерпания эхо не вылетит. Юниты ближнего боя бонус не получают."
+            : "For ranged armies: a chance for an extra volley. Particularly useful with Area Throw, Large Caliber, Through Shot and Chakram, and stacks with Double Shot and Double Throw. Keep ammunition available: an empty quiver cannot fire the echo. Melee units receive no bonus.",
     "Aegis of the Arcane": (language, n) =>
         language === "ru"
             ? `Для армий, по которым бьют заклинаниями и магическим уроном, особенно если своя магическая защита низкая: +${n(A.AEGIS_OF_THE_ARCANE_MAGIC_DEFENSE)} пунктов — вся защита при 0 и всё ещё большая доля при 5–15. С Magic Shield, Wardguard, Warding Mane Blessing и Arcane Ward Blessing это отдельный бросок, а не сумма. Бесполезен для Black Dragon, пока держится Enchanted Skin (уже 100%); после Break дракон эти пункты сохраняет. Против Stun, Freeze, Paralysis, Blindness и взглядов не помогает.`

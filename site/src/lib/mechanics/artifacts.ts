@@ -149,10 +149,10 @@ const ARTIFACT_NOTES: Readonly<Record<string, NoteSpec>> = {
             `+${n(A.ARCHMAGES_RING_MAGIC_PERCENT)}% к магическому урону армии — заклинания, Fire Wall, Chain Lightning, Fire Breath и Fire Shield — в одной сумме с апгрейдом «Магия», свитком Empower и Sylvan Focus (с «Магией» 3 уровня это +44%).`,
     },
     "Quiver of Echoes": {
-        en: ({ n }) =>
-            `Each ranged attack action rolls once at ${n(A.QUIVER_OF_ECHOES_CHANCE)}% plus the shooter's current luck. Success adds one ordinary full-strength volley, including its splash or piercing effects. Double Shot and Double Throw still work, so Gargantuan can throw three times. The echo uses normal ammunition, cannot echo again, and does not grant another counterattack. The unit's in-fight artifact card shows its actual chance.`,
-        ru: ({ n }) =>
-            `Один бросок за действие дальней атаки: ${n(A.QUIVER_OF_ECHOES_CHANCE)}% плюс текущая удача стрелка. Успех добавляет один залп полной силы вместе с его уроном по площади или по линии. Double Shot и Double Throw сохраняются: Gargantuan может бросить трижды. Эхо расходует обычные боеприпасы, не повторяет само себя и не даёт ещё одной ответной атаки. Карточка артефакта юнита в бою показывает фактический шанс.`,
+        en: () =>
+            "Each ranged attack action can trigger one ordinary full-strength volley, including its splash or piercing effects. Double Shot and Double Throw still work, so Gargantuan can throw three times. The echo uses normal ammunition, cannot echo again, and does not grant another counterattack. The unit's in-fight artifact card shows its actual chance.",
+        ru: () =>
+            "Каждое действие дальней атаки может вызвать один дополнительный залп полной силы вместе с его уроном по площади или по линии. Double Shot и Double Throw сохраняются: Gargantuan может бросить трижды. Эхо расходует обычные боеприпасы, не повторяет само себя и не даёт ещё одной ответной атаки. Карточка артефакта юнита в бою показывает фактический шанс.",
     },
     "Aegis of the Arcane": {
         en: ({ n }) => {
