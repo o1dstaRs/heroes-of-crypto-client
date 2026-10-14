@@ -230,15 +230,15 @@ const SPELL_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     "Armor Rune": {
         en: () =>
-            "Each cast has a 50% chance to add a permanent +1 armor to the target (the Blacksmith's Enchants carry 5 casts); a failed roll still uses the scroll and the turn. An enemy Monk's Borrowed Grace can take the whole rune bonus.",
+            "Each cast has a 50% chance to add a permanent +1 armor to the target (the Blacksmith's Enchants carry 5 casts); a failed roll still uses the scroll and the turn. An enemy Monk's Borrowed Grace can copy the whole rune bonus. The original stays.",
         ru: () =>
-            "Каждое применение с шансом 50% навсегда добавляет цели +1 к броне (у Enchants Blacksmith 5 применений); неудачный бросок всё равно тратит свиток и ход. Borrowed Grace вражеского Monk может забрать весь бонус рун.",
+            "Каждое применение с шансом 50% навсегда добавляет цели +1 к броне (у Enchants Blacksmith 5 применений); неудачный бросок всё равно тратит свиток и ход. Borrowed Grace вражеского Monk может скопировать весь бонус рун. Оригинал остаётся.",
     },
     "Weapon Rune": {
         en: () =>
-            "Each cast has a 50% chance to add a permanent +1 attack to the target (the Blacksmith's Enchants carry 5 casts); a failed roll still uses the scroll and the turn. An enemy Monk's Borrowed Grace can take the whole rune bonus.",
+            "Each cast has a 50% chance to add a permanent +1 attack to the target (the Blacksmith's Enchants carry 5 casts); a failed roll still uses the scroll and the turn. An enemy Monk's Borrowed Grace can copy the whole rune bonus. The original stays.",
         ru: () =>
-            "Каждое применение с шансом 50% навсегда добавляет цели +1 к атаке (у Enchants Blacksmith 5 применений); неудачный бросок всё равно тратит свиток и ход. Borrowed Grace вражеского Monk может забрать весь бонус рун.",
+            "Каждое применение с шансом 50% навсегда добавляет цели +1 к атаке (у Enchants Blacksmith 5 применений); неудачный бросок всё равно тратит свиток и ход. Borrowed Grace вражеского Monk может скопировать весь бонус рун. Оригинал остаётся.",
     },
 };
 

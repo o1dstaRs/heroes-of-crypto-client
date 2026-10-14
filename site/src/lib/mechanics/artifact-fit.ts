@@ -144,18 +144,12 @@ const FITS: Record<string, Fit> = {
             ? `+${n(A.PENDANT_HP_PERCENT)}% здоровья каждому существу ценой −${n(A.PENDANT_ATTACK_PENALTY_PERCENT)}% базовой атаки: для армий, которые побеждают, выживая, — меньше потерь держит и силу стека; урон атак всех юнитов при этом ниже, но заклинания атаку не используют, так что армиям заклинателей он почти ничего не стоит.`
             : `+${n(A.PENDANT_HP_PERCENT)}% health for every creature at −${n(A.PENDANT_ATTACK_PENALTY_PERCENT)}% base attack: for armies that win by lasting — fewer losses also keep stack power up; every unit's attack damage drops, but spells don't use attack, so it costs a caster army little.`,
     "Farsight Quiver": (language) => {
-        const shooters = draftable().filter(
-            (unit) => unit.attackType === "RANGE" && unit.rangeShots > 0 && !hasAbility(unit, ["Sniper"]),
-        );
-        const ranges = shooters
-            .sort((a, b) => a.shotDistance - b.shotDistance)
-            .map(
-                (unit) =>
-                    `${unit.name} ${Math.floor(unit.shotDistance)} → ${Math.floor(unit.shotDistance * (1 + A.FARSIGHT_QUIVER_RANGE_PERCENT / 100))}`,
-            );
+        const shooters = draftable()
+            .filter((unit) => unit.attackType === "RANGE" && unit.rangeShots > 0 && !hasAbility(unit, ["Sniper"]))
+            .map((unit) => unit.name);
         return language === "ru"
-            ? `Для стрелков с короткой дистанцией (ширина полосы в целых клетках): ${list(ranges, language)}. Arbalester ничего не получает — его Sniper и так отменяет штраф за дальность.`
-            : `Short-range shooters gain most (band width in whole cells): ${list(ranges, language)}. Nothing for the Arbalester — its Sniper already ignores falloff.`;
+            ? `Для стрелков без Sniper: их выстрелы остаются 1/1 на любой дистанции и 1/2 сквозь Smoke — ${list(shooters, language)}. Arbalester ничего не получает: его Sniper и так отменяет штраф за дальность, а Smoke и так ослабляет его выстрелы до 1/2.`
+            : `Shooters without Sniper keep 1/1 at any distance and 1/2 through Smoke: ${list(shooters, language)}. Nothing extra for the Arbalester — its Sniper already ignores the distance penalty, and Smoke already halves its shots.`;
     },
     "Berserker's Bond": (language, n) =>
         language === "ru"

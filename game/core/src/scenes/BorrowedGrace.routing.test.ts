@@ -75,6 +75,8 @@ describe("Borrowed Grace client routing", () => {
             expect(monk.getUnitProperties().abilities_descriptions[index]).toContain(
                 `${AllAbilities.borrowedGraceChance(monk, 8)}% chance`,
             );
+            expect(monk.getUnitProperties().abilities_descriptions[index]).toContain("The target keeps the buff");
+            expect(monk.getUnitProperties().abilities_descriptions[index]).toContain("copy one random active buff");
         }
         monk.applyBuff(
             new Spell({ spellProperties: HoCConfig.getSpellConfig("System", "Made of Fire", 2), amount: 1 }),
@@ -112,8 +114,8 @@ describe("Borrowed Grace client routing", () => {
                 ]),
                 () => "🟢",
             ),
-        ).toEqual(["🟢 Monk took Armor Rune from Blacksmith"]);
-        expect(effectsAppliedSceneLogLines(transfer, new Map())).toEqual(["Unit took Armor Rune from Unit"]);
+        ).toEqual(["🟢 Monk copied Armor Rune from Blacksmith"]);
+        expect(effectsAppliedSceneLogLines(transfer, new Map())).toEqual(["Unit copied Armor Rune from Unit"]);
     });
 
     test("ranked journal JSON preserves buff-transfer ownership for replay", () => {
@@ -246,7 +248,7 @@ describe("Borrowed Grace client routing", () => {
         const replay = listSandboxReplays(storage)[0]!;
         expect(replay.actions[0]!.events).toEqual([event]);
         expect(replay.initialState.units[1]!.properties.applied_buffs).toEqual(["Blessing"]);
-        expect(replay.actions[0]!.stateAfter.units[1]!.properties.applied_buffs).toEqual([]);
+        expect(replay.actions[0]!.stateAfter.units[1]!.properties.applied_buffs).toEqual(["Blessing"]);
         const received = replay.actions[0]!.stateAfter.units[0]!.properties;
         expect(received.applied_buffs).toEqual(before.applied_buffs);
         expect(received.applied_buffs_laps).toEqual(before.applied_buffs_laps);

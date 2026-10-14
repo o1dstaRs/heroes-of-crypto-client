@@ -401,6 +401,26 @@ export const fullDamageShotRangeForFootprint = (
     return verticalDistance === distance ? { xy, distance } : { xy, distance, verticalDistance };
 };
 
+/** Cells the 1/1 frame should enclose. Farsight Quiver deals full damage anywhere; Smoke still halves and is shown on the shot, not by shrinking this frame. */
+const fullDamageFrameShotDistance = (
+    unit: {
+        hasBuffActive?(name: string): boolean;
+        getRangeShotDistance(): number;
+        getPosition(): HoCMath.XY;
+    },
+    gridSettings: GridSettings,
+): number => {
+    if (!unit.hasBuffActive?.("Farsight Quiver")) {
+        return unit.getRangeShotDistance();
+    }
+    return Number(
+        (
+            GridMath.getDistanceToFurthestCorner(unit.getPosition(), gridSettings) / gridSettings.getStep() -
+            0.45
+        ).toFixed(2),
+    );
+};
+
 export const obstacleAttackKind = (params: {
     hasActiveUnit: boolean;
     hasScatteredObstacles?: boolean;
@@ -7157,7 +7177,7 @@ export class Sandbox extends PixiScene {
         if (currentCell) {
             this.updateCurrentMovePath(currentCell);
         }
-        const rangeShotCells = activeUnit.getRangeShotDistance();
+        const rangeShotCells = fullDamageFrameShotDistance(activeUnit, this.sc_sceneSettings.getGridSettings());
         this.sc_currentActiveShotRange =
             rangeShotCells > 0
                 ? fullDamageShotRangeForFootprint(
@@ -11698,8 +11718,8 @@ export class Sandbox extends PixiScene {
         const activeUnit = this.currentActiveUnit;
         const gs = this.sc_sceneSettings.getGridSettings();
         // One range divisor for the WHOLE 3x3, measured to the resolved impact cell.
-        // getRangeAttackDivisor returns 1/2/4/8 (halving per shot-distance band; Sniper negates) — the
-        // "1/N" falloff the player sees, the same band 17a5522 shows on the single-target hover.
+        // getRangeAttackDivisor returns 1/2/4/8 (halving per shot-distance band; Sniper and Farsight
+        // Quiver stay at 1). Smoke is folded in by evaluateRangeAttack, not by this call.
         let divisor = 1;
         if (activeUnit instanceof RenderableUnit) {
             const impactCell = cells.at(-1);
@@ -14356,7 +14376,7 @@ export class Sandbox extends PixiScene {
                             ),
                         );
                     }
-                    const dist = hoverTargetUnit.getRangeShotDistance();
+                    const dist = fullDamageFrameShotDistance(hoverTargetUnit, this.sc_sceneSettings.getGridSettings());
                     if (dist > 0) {
                         this.sc_hoveredShotRange = {
                             ...fullDamageShotRangeForFootprint(
@@ -15985,7 +16005,7 @@ export class Sandbox extends PixiScene {
                     ),
                 );
             }
-            const shotDist = targetUnit.getRangeShotDistance();
+            const shotDist = fullDamageFrameShotDistance(targetUnit, this.sc_sceneSettings.getGridSettings());
             this.sc_hoveredShotRange =
                 shotDist > 0
                     ? {
@@ -17114,7 +17134,10 @@ export class Sandbox extends PixiScene {
                                           ),
                                       );
                                   }
-                                  return u.getRangeShotDistance() * GridConstants.STEP;
+                                  return (
+                                      fullDamageFrameShotDistance(u, this.sc_sceneSettings.getGridSettings()) *
+                                      GridConstants.STEP
+                                  );
                               })()
                             : 0,
                     auraRanges,
@@ -17126,7 +17149,7 @@ export class Sandbox extends PixiScene {
         // Calculate shift-selected range
         let shiftSelectedShotRange: ShotRangeOverlay | undefined;
         if (this.currentShiftedUnit?.getAttackType() === AttackVals.RANGE) {
-            const dist = this.currentShiftedUnit.getRangeShotDistance();
+            const dist = fullDamageFrameShotDistance(this.currentShiftedUnit, this.sc_sceneSettings.getGridSettings());
             if (dist > 0) {
                 shiftSelectedShotRange = fullDamageShotRangeForFootprint(
                     this.currentShiftedUnit.getPosition(),
@@ -18738,7 +18761,7 @@ export class Sandbox extends PixiScene {
             this.updateCurrentMovePath(currentCell);
         }
 
-        const rangeShotCells = nextUnit.getRangeShotDistance();
+        const rangeShotCells = fullDamageFrameShotDistance(nextUnit, this.sc_sceneSettings.getGridSettings());
         if (rangeShotCells > 0) {
             this.sc_currentActiveShotRange = fullDamageShotRangeForFootprint(
                 nextUnit.getPosition(),

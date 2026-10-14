@@ -113,10 +113,10 @@ const ARTIFACT_NOTES: Readonly<Record<string, NoteSpec>> = {
             `Максимальное здоровье каждого существа на ${n(A.PENDANT_HP_PERCENT)}% выше, а базовая атака каждого юнита на ${n(A.PENDANT_ATTACK_PENALTY_PERCENT)}% ниже.`,
     },
     "Farsight Quiver": {
-        en: ({ n }) =>
-            `Every shooter's shot distance grows by ${n(A.FARSIGHT_QUIVER_RANGE_PERCENT)}% of its base distance, widening the falloff bands (they count whole cells); it adds to the Sniper augment's bonus (both count from the base) rather than multiplying it.`,
-        ru: ({ n }) =>
-            `Дистанция выстрела каждого стрелка растёт на ${n(A.FARSIGHT_QUIVER_RANGE_PERCENT)}% базовой, расширяя полосы дальности (они считаются целыми клетками); бонус складывается с апгрейдом «Стрельба» (оба считаются от базы), а не умножается на него.`,
+        en: () =>
+            "Every allied archer's shot stays at full damage (1/1) at any distance. It does not extend shot distance. A shot that crosses Smoke is still halved (1/2), Sniper shots included. The Sniper augment's attack bonus and Hunter's Longbow still apply; that augment's range bonus and Guiding Winds no longer change the damage fraction while this artifact is active.",
+        ru: () =>
+            "Выстрел каждого союзного стрелка остаётся полным (1/1) на любой дистанции. Дальность выстрела артефакт не увеличивает. Выстрел, прошедший через Smoke, по-прежнему ослабляется до 1/2, в том числе у Sniper. Бонус атаки апгрейда «Стрельба» и Hunter's Longbow по-прежнему действуют; бонус дальности этого апгрейда и Guiding Winds больше не меняют долю урона, пока действует этот артефакт.",
     },
     "Berserker's Bond": {
         en: ({ n }) =>

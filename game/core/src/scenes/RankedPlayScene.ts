@@ -1186,7 +1186,7 @@ export const effectsAppliedSceneLogLines = (
         if (entry.resisted) {
             text = `${name} resisted ${entry.name}`;
         } else if (entry.kind === "buff" && entry.sourceUnitId) {
-            text = `${name} took ${entry.name} from ${unitNames.get(entry.sourceUnitId) ?? "Unit"}`;
+            text = `${name} copied ${entry.name} from ${unitNames.get(entry.sourceUnitId) ?? "Unit"}`;
         } else {
             const verb = entry.kind === "buff" ? "gains" : entry.kind === "debuff" ? "suffers" : "got";
             // A duration at or past the whole-fight cap reads as "permanent" — no lap suffix.

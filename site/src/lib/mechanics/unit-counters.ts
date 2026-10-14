@@ -99,11 +99,11 @@ export function unitCounterLines(unit: Unit, language: NoteLanguage): string[] {
               : "; most shots at an Abomination (Dense Flesh) cost 2 arrows";
         const helpers = has("Sniper")
             ? isRu
-                ? " Способность Sniper отменяет штраф за дальность, поэтому бонусы дальности (Farsight Quiver, Guiding Winds, дальность «Стрельбы») ему ничего не дают; помогают бонус атаки «Стрельбы» и Hunter's Longbow (атака за каждый стек стрелков в армии)."
-                : " Its Sniper ability ignores range falloff, so range bonuses (Farsight Quiver, Guiding Winds, the Sniper augment's range) do nothing for it; the Sniper augment's attack bonus and Hunter's Longbow (attack per ranged stack in your army) still help."
+                ? " Способность Sniper отменяет штраф за дальность, поэтому Farsight Quiver ничего не добавляет к его выстрелам (Smoke всё равно ослабляет их вдвое); Guiding Winds и дальность «Стрельбы» тоже ничего не дают. Помогают бонус атаки «Стрельбы» и Hunter's Longbow (атака за каждый стек стрелков в армии)."
+                : " Its Sniper ability ignores range falloff, so Farsight Quiver does nothing more for its shots (Smoke still halves them); Guiding Winds and the Sniper augment's range do nothing either. The Sniper augment's attack bonus and Hunter's Longbow (attack per ranged stack in your army) still help."
             : isRu
-              ? " Помогают: апгрейд «Стрельба» и Farsight Quiver удлиняют полосы дальности, Hunter's Longbow даёт атаку за каждый стек стрелков в армии, Guiding Winds (Dryad) позволяет стрелять дальше."
-              : " Helpers: the Sniper augment and Farsight Quiver lengthen its range bands, Hunter's Longbow adds attack per ranged stack in your army, Guiding Winds (Dryad) lets it shoot farther.";
+              ? " Помогают: Farsight Quiver оставляет выстрелы полными (1/1) на любой дистанции, хотя Smoke всё равно ослабляет их до 1/2; апгрейд «Стрельба» и Guiding Winds удлиняют полосы дальности, если колчана нет; Hunter's Longbow даёт атаку за каждый стек стрелков в армии."
+              : " Helpers: Farsight Quiver keeps its shots at full damage (1/1) at any distance, though Smoke still halves them (1/2); the Sniper augment and Guiding Winds lengthen its range bands when the quiver is not taken; Hunter's Longbow adds attack per ranged stack in your army.";
         lines.push(
             isRu
                 ? `Стрелок: враг в любой соседней клетке не даёт ему стрелять; Range Null Field Aura (Griffin) запрещает ему стрелять${shootsBack ? " и отвечать выстрелом" : ""} в радиусе 2 клеток${rangebane}; Smoke вдвое ослабляет его выстрелы через облако${has("Sniper") ? " (и со Sniper)" : ""}; Arrows Wingshield Blessing (Angel) даёт армии соперника броню против выстрелов${denseFlesh}.${melee}${helpers}`
