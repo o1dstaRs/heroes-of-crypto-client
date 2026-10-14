@@ -1,0 +1,544 @@
+<!doctype html><html><head><meta charset="utf-8"><title>X trends deep dive — Heroes of Crypto</title><style>body{font:15px/1.55 -apple-system,Segoe UI,Inter,sans-serif;max-width:1100px;margin:40px auto;padding:0 24px;color:#1b1f24;background:#fafbfc}
+h1{font-size:28px;border-bottom:3px solid #1d4ed8;padding-bottom:8px}h2{margin-top:40px;color:#1d4ed8;border-left:4px solid #1d4ed8;padding-left:10px}
+table{border-collapse:collapse;width:100%;margin:14px 0;font-size:13px;background:#fff;box-shadow:0 1px 3px #0001}
+th{background:#1d4ed8;color:#fff;text-align:left;padding:8px}td{padding:7px 8px;border-bottom:1px solid #e5e7eb;vertical-align:top;word-break:break-word}
+tr:nth-child(even) td{background:#f5f7fb}a{color:#1d4ed8}blockquote{background:#eef2ff;border-left:4px solid #6366f1;margin:10px 0;padding:10px 14px;border-radius:6px}
+code{background:#eef;padding:1px 4px;border-radius:3px}</style></head><body><h1>X trends deep dive for @Heroes0fcrypto, week of 14 Oct 2026</h1>
+<p>Read-only research, pulled 14 Oct 2026 between 2:25 and 2:50 PM PT. Every number comes from X API public_metrics at fetch time. L = likes, RT = reposts, R = replies, V = views. Times are PT. I used about 30 X calls: 4 trend lists, 4 news searches, 14 post searches covering about 370 posts, and 2 profile lookups covering 37 accounts.</p>
+<p>Method limits:
+- The search API does not support <code>min_faves</code>. I pulled 25 posts per query sorted by relevancy and then ranked them by likes myself. Treat this as a strong sample, not a full census.
+- The format and timing medians below come from this sample only.</p>
+<h2>1. Live trends</h2>
+<ul>
+<li>Worldwide (woeid 1), US (23424977), UK (23424975) and Germany (23424829): <strong>no game trends at all</strong>. The lists are football (Real Madrid, Mourinho, Endrick, #MCIPSG, Donnarumma) plus Starlink/SpaceX and a Netflix documentary ("Wide Deceiver"). Nothing a tactics game can honestly ride.</li>
+<li>X News stories from the last 7 days that are relevant:</li>
+<li><strong>Steam Next Fest runs 19-26 Oct.</strong> The indie weekly-thread machine is in overdrive: #WishlistWednesday, #TrailerTuesday, #ScreenshotSaturday, #ShowMeSunday, #DemoMonday and #FollowFriday stories are all trending in News. <a href="https://x.com/i/trending/2109762855549436008">https://x.com/i/trending/2109762855549436008</a> and <a href="https://x.com/i/trending/2110303009066401932">https://x.com/i/trending/2110303009066401932</a></li>
+<li><strong>Browser games with no download</strong> are a News story twice: Black Ops Zombies running in a browser (<a href="https://x.com/i/trending/2107945115671048448">https://x.com/i/trending/2107945115671048448</a>), and a no-download street football game that drew 14,000 players on day one, per the X summary (<a href="https://x.com/i/trending/2107759007590953230">https://x.com/i/trending/2107759007590953230</a>).</li>
+<li><strong>"AI tools transform game dev"</strong> (<a href="https://x.com/i/trending/2110411779927093369">https://x.com/i/trending/2110411779927093369</a>). GPT-6 Astra is all over AI news, e.g. TheoPhysEval (<a href="https://x.com/i/trending/2110444485738201326">https://x.com/i/trending/2110444485738201326</a>), alongside Claude Opus 5.5, Gemini 4 Argon and Meta Muse Wonder.</li>
+<li>The "are games art" debate and "gamers over 30 miss simpler days" nostalgia threads. HoMM players skew 30+.</li>
+<li><strong>Rainbow Six Tactics</strong> (Ubisoft, turn-based) was revealed on 8 Oct. That makes turn-based tactics the big-publisher genre news of the week.</li>
+</ul>
+<h2>2. Top posts this week (7-14 Oct) by topic</h2>
+<table>
+<thead>
+<tr>
+<th>Topic</th>
+<th>Post</th>
+<th>Account (followers)</th>
+<th>L / RT / R / V</th>
+<th>Format</th>
+<th>Posted (PT)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Next Fest</td>
+<td>Emberville demo invite "What/Who/Where/When" <a href="https://x.com/EmbervilleGame/status/2109705294578409562">https://x.com/EmbervilleGame/status/2109705294578409562</a></td>
+<td>@EmbervilleGame (13,800)</td>
+<td>1,198 / 136 / 49 / 37,547</td>
+<td>video 39s</td>
+<td>Mon 12 Oct 10:58</td>
+</tr>
+<tr>
+<td>AI-made game</td>
+<td>Pokemon x Yu-Gi-Oh romhack "built with AI" <a href="https://x.com/Motion_Viz/status/2108269981226148319">https://x.com/Motion_Viz/status/2108269981226148319</a></td>
+<td>@Motion_Viz (13,369)</td>
+<td>1,039 / 57 / 60 / 139,375</td>
+<td>video 115s</td>
+<td>Thu 8 Oct 11:55</td>
+</tr>
+<tr>
+<td>AI-made game</td>
+<td>"you vibe coded a game and named it Lagos life..." <a href="https://x.com/_saylessbr0/status/2109925920223944731">https://x.com/_saylessbr0/status/2109925920223944731</a></td>
+<td>@_saylessbr0 (9,040)</td>
+<td>337 / 113 / 134 / 172,097</td>
+<td>3 photos</td>
+<td>Tue 13 Oct 01:35</td>
+</tr>
+<tr>
+<td>Tactics (studio)</td>
+<td>MENACE 2026 roadmap <a href="https://x.com/OverhypeStudios/status/2108906660546671057">https://x.com/OverhypeStudios/status/2108906660546671057</a></td>
+<td>@OverhypeStudios (8,272)</td>
+<td>256 / 22 / 7 / 5,164</td>
+<td>photo</td>
+<td>Sat 10 Oct 06:05</td>
+</tr>
+<tr>
+<td>Fire Emblem</td>
+<td>Fan joke quote-post <a href="https://x.com/JuliaKeyoto/status/2108255438391423119">https://x.com/JuliaKeyoto/status/2108255438391423119</a></td>
+<td>@JuliaKeyoto (752)</td>
+<td>254 / 36 / 5 / 3,258</td>
+<td>text quote</td>
+<td>Thu 8 Oct 10:57</td>
+</tr>
+<tr>
+<td>Turn-based news</td>
+<td>Rainbow Six Tactics first look <a href="https://x.com/JakeSucky/status/2108248557832507427">https://x.com/JakeSucky/status/2108248557832507427</a></td>
+<td>@JakeSucky (484,945)</td>
+<td>211 / 10 / 11 / 21,377</td>
+<td>video 125s</td>
+<td>Thu 8 Oct 10:30</td>
+</tr>
+<tr>
+<td>Weekly thread</td>
+<td>Screenshot Saturday host (dev not posting WIP) <a href="https://x.com/MrAwolf/status/2109023033620881857">https://x.com/MrAwolf/status/2109023033620881857</a></td>
+<td>@MrAwolf (30,655)</td>
+<td>214 / 19 / 6 / 3,420</td>
+<td>4 GIFs</td>
+<td>Sat 10 Oct 13:47</td>
+</tr>
+<tr>
+<td>Browser games</td>
+<td>"Your next favorite browser game" <a href="https://x.com/mdaman010/status/2109721123164398040">https://x.com/mdaman010/status/2109721123164398040</a></td>
+<td>@mdaman010 (7,605)</td>
+<td>205 / 27 / 4 / 37,333</td>
+<td>video 77s</td>
+<td>Mon 12 Oct 12:01</td>
+</tr>
+<tr>
+<td>AI-made game</td>
+<td>Vibe-coded SF racing "AI games are just slop" counter <a href="https://x.com/mindblown_ai/status/2109758051570069704">https://x.com/mindblown_ai/status/2109758051570069704</a></td>
+<td>@mindblown_ai (643)</td>
+<td>105 / 11 / 9 / 7,403</td>
+<td>video 36s</td>
+<td>Mon 12 Oct 14:28</td>
+</tr>
+<tr>
+<td>R6 Tactics</td>
+<td>"It's single player, can't be shut down" <a href="https://x.com/KudosOnYT/status/2108238545273975132">https://x.com/KudosOnYT/status/2108238545273975132</a></td>
+<td>@KudosOnYT (14,889)</td>
+<td>101 / 4 / 2 / 2,773</td>
+<td>text quote</td>
+<td>Thu 8 Oct 09:50</td>
+</tr>
+<tr>
+<td>GPT Astra</td>
+<td>Leaving-Stanford parting gift built by GPT-6 Astra <a href="https://x.com/minsik_nlp/status/2109676467235791220">https://x.com/minsik_nlp/status/2109676467235791220</a></td>
+<td>@minsik_nlp (1,291)</td>
+<td>60 / 1 / 3 / 3,598</td>
+<td>video 16s</td>
+<td>Mon 12 Oct 09:04</td>
+</tr>
+<tr>
+<td>Weekly thread</td>
+<td>#DemoMonday host <a href="https://x.com/SoftpaleGames/status/2109615139297107974">https://x.com/SoftpaleGames/status/2109615139297107974</a></td>
+<td>@SoftpaleGames (638)</td>
+<td>70 / 16 / <strong>102</strong> / 3,310</td>
+<td>photo</td>
+<td>Mon 12 Oct 05:00</td>
+</tr>
+<tr>
+<td>Tactics list</td>
+<td>13 Battle Brothers-likes roundup <a href="https://x.com/turnbasedlovers/status/2109603397095612538">https://x.com/turnbasedlovers/status/2109603397095612538</a></td>
+<td>@turnbasedlovers (12,109)</td>
+<td>68 / 7 / 3 / 1,940</td>
+<td>photo</td>
+<td>Mon 12 Oct 04:13</td>
+</tr>
+<tr>
+<td>Indie tactics</td>
+<td>Companion cat/backpack cooks your food <a href="https://x.com/Hypersect/status/2107961012993552502">https://x.com/Hypersect/status/2107961012993552502</a></td>
+<td>@Hypersect (937)</td>
+<td>25 / 5 / 2 / 665</td>
+<td>video 48s</td>
+<td>Wed 7 Oct 15:27</td>
+</tr>
+<tr>
+<td>GPT Astra</td>
+<td>Same prompt, Astra vs Opus 5.5 <a href="https://x.com/keydol123/status/2108822897561399764">https://x.com/keydol123/status/2108822897561399764</a></td>
+<td>@keydol123 (116)</td>
+<td>21 / 0 / 8 / 7,746</td>
+<td>video 30s</td>
+<td>Sat 10 Oct 00:32</td>
+</tr>
+<tr>
+<td>Browser game</td>
+<td>First browser game WAKA-MAN <a href="https://x.com/Springer1402/status/2108934390554485112">https://x.com/Springer1402/status/2108934390554485112</a></td>
+<td>@Springer1402 (14)</td>
+<td>14 / 3 / 3 / 732</td>
+<td>video 16s</td>
+<td>Sat 10 Oct 07:55</td>
+</tr>
+</tbody>
+</table>
+<p>The HoMM topic is quiet. The best HoMM/Olden Era/Disciples/King's Bounty post of the week got 3 likes. The HoMM III Remake account @MightMagicGame (5,228 followers, "A legend returns in 2027") and Olden Era Early Access news, e.g. the Alliances patch (<a href="https://x.com/danceman/status/2105362168640319847">https://x.com/danceman/status/2105362168640319847</a>), generate little X conversation. HoMM players are on X, but they talk inside replies, not in big posts. Example: someone who started making Heroes III maps at age 10 got 6 likes and 272 views (<a href="https://x.com/pavelreplies/status/2104527906252673080">https://x.com/pavelreplies/status/2104527906252673080</a>).</p>
+<h2>3. Viral formats (what the winners share)</h2>
+<ol>
+<li><strong>Hook-as-structure.</strong> Emberville's "What / Who / Where / When" with a 39s clip. The post is scannable, carries one ask and one date, and won the week.</li>
+<li><strong>Debate bait around AI.</strong> "AI games are just slop, meanwhile..." (7.4k views from 643 followers) and "you vibe coded a game..." (134 replies). Controversy plus a real artifact.</li>
+<li><strong>A specific funny mechanic in a clip.</strong> Hypersect's cat cooks your food: one sentence, one 48s clip, a question at the end.</li>
+<li><strong>Roadmap / plan images from tactics studios.</strong> MENACE roadmap: 256 likes on 8.3k followers, about 3% likes per follower, very high.</li>
+<li><strong>Head-to-head comparisons.</strong> "Same prompt, two models" produces outsized views for tiny accounts (@keydol123, 116 followers, 7,746 views).</li>
+<li><strong>Host threads.</strong> The hosts collect 50-100+ replies each week (#DemoMonday 102 replies, #WishlistWednesday 71, #TrailerTuesday 62, #ScreenshotSaturday 60-65). Visibility comes from replying, not from posting your own thread.</li>
+</ol>
+<p>Medians across the ~370-post sample:</p>
+<table>
+<thead>
+<tr>
+<th>Format</th>
+<th>Median views</th>
+<th>Posts with views</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>photo</td>
+<td>236</td>
+<td>79</td>
+</tr>
+<tr>
+<td>GIF</td>
+<td>173</td>
+<td>13</td>
+</tr>
+<tr>
+<td>video</td>
+<td>71</td>
+<td>101</td>
+</tr>
+<tr>
+<td>text</td>
+<td>36</td>
+<td>89</td>
+</tr>
+</tbody>
+</table>
+<p>Video owns the top of the distribution, but the median video is weak, because many low-effort clips drag it down. A good still beats a mediocre clip. That suits XCOM.md's still-image calendar.</p>
+<p>What fails:
+- Hashtag stacks, "Like / Repost / Follow" CTA blocks, generic "wishlist now" with no hook.
+- Lone "Heroes of Might and Magic III - quality AI slop" posts from a 1-follower account got 25-36 views.
+- Repeated "Free in your browser, no download" replies: @candlesclash got 3 views (<a href="https://x.com/candlesclash/status/2108931499936584095">https://x.com/candlesclash/status/2108931499936584095</a>).</p>
+<h2>4. Small-account outliers (followers vs reach)</h2>
+<table>
+<thead>
+<tr>
+<th>Account</th>
+<th>Followers</th>
+<th>Post</th>
+<th>Views</th>
+<th>Why it worked</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>@keydol123</td>
+<td>116</td>
+<td>Astra vs Opus same prompt <a href="https://x.com/keydol123/status/2108822897561399764">https://x.com/keydol123/status/2108822897561399764</a></td>
+<td>7,746</td>
+<td>Model rivalry is hot; direct comparison</td>
+</tr>
+<tr>
+<td>@mindblown_ai</td>
+<td>643</td>
+<td>"AI games are just slop" counter <a href="https://x.com/mindblown_ai/status/2109758051570069704">https://x.com/mindblown_ai/status/2109758051570069704</a></td>
+<td>7,403</td>
+<td>Takes a side in a live debate, with a clip</td>
+</tr>
+<tr>
+<td>@TapOut2002</td>
+<td>15</td>
+<td>Reply "I KNEW this was an XCOM game..." <a href="https://x.com/TapOut2002/status/2110021645888876555">https://x.com/TapOut2002/status/2110021645888876555</a></td>
+<td>1,465</td>
+<td><strong>Reply</strong> under a big niche account (@emblemcrave, 7,175)</td>
+</tr>
+<tr>
+<td>@Springer1402</td>
+<td>14</td>
+<td>First browser game <a href="https://x.com/Springer1402/status/2108934390554485112">https://x.com/Springer1402/status/2108934390554485112</a></td>
+<td>732</td>
+<td>Honest "my first", 16s clip, browser</td>
+</tr>
+<tr>
+<td>@isocelestriangl</td>
+<td>20</td>
+<td>Fire Emblem history reply <a href="https://x.com/isocelestriangl/status/2108699522822205835">https://x.com/isocelestriangl/status/2108699522822205835</a></td>
+<td>548</td>
+<td>Knowledgeable reply in a genre argument</td>
+</tr>
+<tr>
+<td>@SantiagoSouto12</td>
+<td>120</td>
+<td>"LAST #WishlistWednesday before Next Fest" host <a href="https://x.com/SantiagoSouto12/status/2110338627788017971">https://x.com/SantiagoSouto12/status/2110338627788017971</a></td>
+<td>751 (49 replies)</td>
+<td>Hosting a thread with timely framing</td>
+</tr>
+<tr>
+<td>@Luskandash</td>
+<td>14</td>
+<td>Devlog mechanic clip <a href="https://x.com/Luskandash/status/2108682748433256560">https://x.com/Luskandash/status/2108682748433256560</a></td>
+<td>67 (10 L, 3 R)</td>
+<td>High engagement rate, low reach: a mechanic explained in one line</td>
+</tr>
+</tbody>
+</table>
+<p>Takeaway: for a 90-follower account, <strong>replies under bigger genre accounts are the main reach lever</strong>. Two replies from 15- and 20-follower accounts beat almost every small studio's own posts.</p>
+<h2>5. Accounts and communities worth engaging (followers from the API, 14 Oct)</h2>
+<table>
+<thead>
+<tr>
+<th>Account</th>
+<th>Followers</th>
+<th>What it is</th>
+<th>Recent engagement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>@TurnBasedThurs</td>
+<td>7,484</td>
+<td>Weekly turn-based showcase. The host is announced Wednesday, the thread runs Thursday</td>
+<td>Recap 35 L / 1,138 V <a href="https://x.com/TurnBasedThurs/status/2110171548224995788">https://x.com/TurnBasedThurs/status/2110171548224995788</a></td>
+</tr>
+<tr>
+<td>@turnbasedlovers</td>
+<td>12,109</td>
+<td>Turn-based news and lists</td>
+<td>BB-likes list 68 L / 1,940 V; Weekly RPG list 5,097 V</td>
+</tr>
+<tr>
+<td>@OverhypeStudios</td>
+<td>8,272</td>
+<td>Battle Brothers, MENACE</td>
+<td>Roadmap 256 L / 5,164 V; Golden Joystick nomination 55 L <a href="https://x.com/OverhypeStudios/status/2110385168905060586">https://x.com/OverhypeStudios/status/2110385168905060586</a></td>
+</tr>
+<tr>
+<td>@HoodedHorseInc</td>
+<td>45,011</td>
+<td>Strategy publisher</td>
+<td>Beltfed video 436 L / 18,265 V (last report)</td>
+</tr>
+<tr>
+<td>@Lavapotion</td>
+<td>25,294</td>
+<td>Songs of Conquest (HoMM-like)</td>
+<td>Fan-art 141 L / 5,235 V</td>
+</tr>
+<tr>
+<td>@MightMagicGame</td>
+<td>5,228</td>
+<td>HoMM III Remake (2027)</td>
+<td>Low activity in the sample</td>
+</tr>
+<tr>
+<td>@Unfrozen_Studio</td>
+<td>4,998</td>
+<td>Olden Era dev</td>
+<td>Low activity in the sample</td>
+</tr>
+<tr>
+<td>@subsetgames</td>
+<td>27,798</td>
+<td>Into the Breach</td>
+<td>Dormant</td>
+</tr>
+<tr>
+<td>@OneManLeft</td>
+<td>3,988</td>
+<td>Hex Gambit dev, past Turn Based Thursday host</td>
+<td>(host thread earlier in 2026)</td>
+</tr>
+<tr>
+<td>@Hypersect</td>
+<td>937</td>
+<td>Never's End, indie tactics</td>
+<td>25 L / 665 V</td>
+</tr>
+<tr>
+<td>@PlayWarSlice</td>
+<td>360</td>
+<td>Pixel turn-based tactics</td>
+<td>23 L / 494 V</td>
+</tr>
+<tr>
+<td>@igvlada</td>
+<td>249</td>
+<td>Laser Squad port (C64 tactics)</td>
+<td>12 L / 204 V</td>
+</tr>
+<tr>
+<td>@heroesofhecanos</td>
+<td>1,176</td>
+<td>Turn-based strategy with a prize pool. <strong>Avoid</strong>: prize-pool/crypto adjacent</td>
+<td>20 L promo by @ErturulSEZAR13</td>
+</tr>
+<tr>
+<td>@JakeSucky</td>
+<td>484,945</td>
+<td>Big gaming news</td>
+<td>R6 Tactics 211 L / 21,377 V</td>
+</tr>
+<tr>
+<td>@rockpapershot</td>
+<td>472,593</td>
+<td>PC press; covers tactics design</td>
+<td>R6 Tactics destruction piece, 2,369 V</td>
+</tr>
+<tr>
+<td>@emblemcrave</td>
+<td>7,175</td>
+<td>Fire Emblem news</td>
+<td>Reply outlier above</td>
+</tr>
+<tr>
+<td>@GamewithDave</td>
+<td>37,510</td>
+<td>Indie discovery; #ShowMeSunday and First Look Monday host</td>
+<td>in News stories</td>
+</tr>
+<tr>
+<td>@IndieBandits</td>
+<td>27,653</td>
+<td>Indie marketing; #WishlistWednesday</td>
+<td>in News stories</td>
+</tr>
+<tr>
+<td>@JanduSoft</td>
+<td>12,640</td>
+<td>#ScreenshotSaturday host</td>
+<td>62 L / 65 R</td>
+</tr>
+<tr>
+<td>@Jackmike00</td>
+<td>11,541</td>
+<td>#ScreenshotSaturday host ("one screenshot, one line")</td>
+<td>52 L / 60 R</td>
+</tr>
+<tr>
+<td>@SoftpaleGames</td>
+<td>638</td>
+<td>#DemoMonday and #ShowMeSunday host</td>
+<td>102 R</td>
+</tr>
+<tr>
+<td>@gamedrops_</td>
+<td>3,814</td>
+<td>#WishlistWednesday host</td>
+<td>71 R</td>
+</tr>
+<tr>
+<td>@NoisyPixelNews</td>
+<td>45,258</td>
+<td>Press; covered Gods With Badges</td>
+<td>1,424 V</td>
+</tr>
+<tr>
+<td>@2ndPlayerGames</td>
+<td>8,524</td>
+<td>Indie dev active in Turn Based Thursday</td>
+<td>26 L</td>
+</tr>
+<tr>
+<td>@GaryD20Games</td>
+<td>8,287</td>
+<td>Tabletop/strategy fan; King's Bounty nostalgia replies</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p>Avoid:
+- @olden_era_io (crypto play-to-earn).
+- Prize-pool games.
+- #FollowFriday follow-for-follow threads. XCOM.md bans follow-and-repost.</p>
+<h2>6. Ride-this-week opportunities, with drafts</h2>
+<p>All drafts follow XCOM.md: no hashtags, no emoji, no token talk, no numbers. The human posts; I post nothing. A host thread can be joined with a plain reply, so no hashtag is needed.</p>
+<p><strong>A. Turn Based Thursday, Thu 15 Oct.</strong> The highest-fit slot. Reply to @TurnBasedThurs's thread or to the week's host post, ideally US morning, attaching <code>site/public/assets/images/preview_game.webp</code>:</p>
+<blockquote>
+<p>Thanks for hosting. Heroes of Crypto is turn-based tactics in the browser. The outer cells go away as the fight goes on, and the queue tells you who acts before you do. No install. No wallet to start.
+https://heroesofcrypto.io</p>
+</blockquote>
+<p>Same day, the calendar post goes out unchanged (the queue post).</p>
+<p><strong>B. Rainbow Six Tactics debate (live since 8 Oct).</strong> A reply under the R6 Tactics first-look or the RPS destruction piece (<a href="https://x.com/rockpapershot/status/2109098420946293013">https://x.com/rockpapershot/status/2109098420946293013</a>). Game not mentioned, because it doesn't belong in that answer:</p>
+<blockquote>
+<p>Destruction that removes cover is doing the same job as a board that shrinks: it takes away the safe square you were planning to sit on. The interesting question is whether the enemy AI has to respect it too.</p>
+</blockquote>
+<p><strong>C. Next Fest week (19-26 Oct).</strong> Heroes of Crypto isn't on Steam, so don't join wishlist threads. Use Screenshot Saturday on 17 Oct instead: reply to a host (@Jackmike00's format is "one screenshot, one line") with the calendar still:</p>
+<blockquote>
+<p>The edge of the board, one turn before it goes away. Standing here is fine. Staying here is the mistake.</p>
+</blockquote>
+<p><strong>D. "AI games are slop" / GPT-6 Astra.</strong> Only if Stepan confirms how Astra was used. A factual post that separates the two:</p>
+<blockquote>
+<p>The opponent in this game is not a chatbot. A19 searches a bounded set of legal moves on the real rules, and it does not learn during a match. If it beats you, it found a move you could have found.</p>
+</blockquote>
+<p>For the Astra side, use only a true statement Stepan supplies, e.g. "We used GPT Astra to help build X." Don't invent it.</p>
+<p><strong>E. Nostalgia (gamers over 30, HoMM).</strong> A weekday reply under HoMM/King's Bounty memory posts, the XCOM.md reply job. Example under @Johnneh_80-style King's Bounty memories:</p>
+<blockquote>
+<p>The old King's Bounty problem was armies you could not control once they turned. A visible turn queue fixes half of that: you at least know when the bad thing happens.</p>
+</blockquote>
+<p>Skip: football trends, Starlink, Wide Deceiver, #FollowFriday, wishlist threads, anything crypto.</p>
+<h2>7. Timing (PT, from this sample)</h2>
+<p>Median likes by 3-hour posting window:</p>
+<table>
+<thead>
+<tr>
+<th>Window (PT)</th>
+<th>Posts</th>
+<th>Median likes</th>
+<th>Max likes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>00-03</td>
+<td>37</td>
+<td>1</td>
+<td>337</td>
+</tr>
+<tr>
+<td>03-06</td>
+<td>31</td>
+<td><strong>5</strong></td>
+<td>70</td>
+</tr>
+<tr>
+<td>06-09</td>
+<td>52</td>
+<td>1</td>
+<td>256</td>
+</tr>
+<tr>
+<td>09-12</td>
+<td>57</td>
+<td>2</td>
+<td><strong>1,198</strong></td>
+</tr>
+<tr>
+<td>12-15</td>
+<td>39</td>
+<td>1</td>
+<td>214</td>
+</tr>
+<tr>
+<td>15-18</td>
+<td>31</td>
+<td>3</td>
+<td>52</td>
+</tr>
+<tr>
+<td>18-21</td>
+<td>21</td>
+<td>0</td>
+<td>30</td>
+</tr>
+<tr>
+<td>21-24</td>
+<td>18</td>
+<td>1</td>
+<td>97</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>The biggest winners clustered <strong>09:00-12:00 PT</strong> (Emberville, Motion_Viz, R6 Tactics, mdaman010, minsik_nlp).</li>
+<li>Host threads open early: 01:00-07:30 PT, which is EU morning. Reply within the first 2-3 hours of a host post.</li>
+<li>Turn Based Thursday hosts are announced Wednesdays around 11:00 PT (<a href="https://x.com/TurnBasedThurs/status/2107897731557543963">https://x.com/TurnBasedThurs/status/2107897731557543963</a>).</li>
+<li>Recommendation: post the daily calendar item about <strong>06:00-10:00 PT</strong> and do replies the same morning. Evenings PT underperform.</li>
+<li>The sample is small, so treat these windows as directional.</li>
+</ul>
+<h2>8. Uncertainties</h2>
+<ul>
+<li>Like-ranking within 25-post relevancy samples can miss posts.</li>
+<li>Views are API impression counts at fetch time and still growing for recent posts.</li>
+<li>The 14,000-players figure is from an X News summary, not verified.</li>
+<li>I couldn't find an official Rainbow Six Tactics account in the sample. @Rainbow6Game has 2,474,738 followers.</li>
+<li>The Astra usage claim for Heroes of Crypto is unconfirmed.</li>
+</ul></body></html>
