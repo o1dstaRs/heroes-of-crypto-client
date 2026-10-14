@@ -114,12 +114,13 @@ for (const damage of [1, 400]) {
         const advice = sandboxPremiumAdvice(healer, context, 42, host);
         expect(advice.status).toBe("ready");
         expect(advice.options).toHaveLength(2);
-        const cast = advice.options[0].actions.find((action) => action.type === "cast_spell");
+        const cast = advice.options[0]?.actions?.find((action) => action.type === "cast_spell");
         if (damage === 1) {
             expect(cast).toMatchObject({ spellName: "Blessing", targetId: carry.getId() });
         } else {
-            expect(["Heal", "Mass Heal"]).toContain(cast?.spellName);
-            if (cast?.spellName === "Heal") expect(cast.targetId).toBe(anchor.getId());
+            const spellName = cast?.spellName;
+            expect(spellName === "Heal" || spellName === "Mass Heal").toBe(true);
+            if (spellName === "Heal") expect(cast?.targetId).toBe(anchor.getId());
         }
         expect(snapshotBattle(unitsHolder, grid, fight)).toEqual(before);
     });
