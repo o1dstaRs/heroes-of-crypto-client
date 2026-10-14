@@ -19,6 +19,7 @@ const languageMenuLabel = lang === "ru" ? "Выбрать язык" : "Choose la
 const navItems = [
     { label: copy.nav.game, href: localPath(lang, "game") },
     { label: copy.nav.knowledgeBase, href: knowledgeBaseHref },
+    { label: "Premium", href: `${localPath(lang, "home")}premium/` },
     { label: copy.nav.news, href: `${localPath(lang, "home")}news/` },
     { label: copy.nav.seasons, href: `${localPath(lang, "home")}seasons/` },
     // Patches intentionally omitted from the main nav to keep it uncluttered — the version badge
@@ -52,7 +53,7 @@ const legacyKnowledgePaths = new Set(
                     (item.href === localPath(lang, "game") && (normalizedPath === "" || normalizedPath === "/ru"));
 
                 return (
-                    <a class:list={["nav-link", { active: isActive }]} href={item.href}>
+                    <a class:list={["nav-link", { active: isActive, "nav-premium": item.label === "Premium" }]} href={item.href}>
                         {item.label}
                     </a>
                 );
@@ -165,6 +166,17 @@ const legacyKnowledgePaths = new Set(
 </script>
 
 <style>
+    .main-nav .nav-premium,
+    .main-nav .nav-premium.active {
+        color: #ffab62;
+        text-shadow: 0 0 18px rgba(255, 130, 45, 0.25);
+    }
+
+    .nav-premium::before {
+        content: "◇";
+        margin-right: 5px;
+    }
+
     .nav-link {
         font-size: 1.0465rem;
     }

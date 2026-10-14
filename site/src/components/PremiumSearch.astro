@@ -1,0 +1,31 @@
+---
+import type { Language } from "../lib/site-data";
+interface Props { lang: Language }
+const { lang } = Astro.props;
+const t = (en: string, ru: string) => lang === "ru" ? ru : en;
+const suggestions = [
+    ["Find strong combos", "Найти комбинации", "Which unit pairs look promising in this snapshot? Explain their mechanics, sample sizes and uncertainty.", "Какие пары юнитов перспективны в этом снимке? Объясни механики, объём выборки и неопределённость."],
+    ["Compare artifacts", "Сравнить артефакты", "Which Tier 2 artifacts stand out in the selected data, and which armies suit them?", "Какие артефакты второго уровня выделяются в выбранных данных и каким армиям они подходят?"],
+    ["Explore synergies", "Изучить синергии", "Which exact active synergies are worth building around in this dataset?", "Вокруг каких активных синергий стоит строить армию в этой выборке?"],
+    ["Plan my upgrades", "Выбрать усиления", "Show promising complete augment plans and explain the tradeoffs without mixing different builds.", "Покажи перспективные полные планы усилений и объясни компромиссы, не смешивая разные билды."],
+];
+---
+<section class="premium-ai" id="premium-search" data-premium-ai hidden aria-labelledby="premium-search-title">
+    <div class="premium-ai-heading">
+        <div><p class="premium-eyebrow">◇ {t("YOUR META, EXPLAINED", "ВАША МЕТА, С ОБЪЯСНЕНИЯМИ")}</p><h2 id="premium-search-title">{t("Ask Premium", "Спросить Premium")} <span>AI</span></h2></div>
+        <button type="button" class="premium-text-button" data-ai-clear>{t("New conversation", "Новый разговор")} ↗</button>
+    </div>
+    <p class="premium-ai-intro">{t("Turn the numbers into a plan. Ask about strategies, combinations or builds — grounded in the same data as your charts.", "Превратите цифры в план. Спрашивайте о стратегиях, комбинациях и билдах — на основе тех же данных, что и графики.")}</p>
+    <p class="premium-ai-scope" data-ai-scope></p>
+    <div class="premium-ai-suggestions">
+        {suggestions.map(([en, ru, prompt, promptRu]) => <button type="button" data-ai-prompt={t(prompt, promptRu)}>{t(en, ru)} <span aria-hidden="true">↗</span></button>)}
+    </div>
+    <div class="premium-ai-transcript" data-ai-transcript role="region" aria-label={t("Premium conversation", "Разговор с Premium")}></div>
+    <form class="premium-ai-form" data-ai-form>
+        <label for="premium-question">{t("Your question", "Ваш вопрос")}</label>
+        <textarea id="premium-question" data-ai-question rows="2" maxlength="2000" required placeholder={t("What should I build around, and why?", "Вокруг чего построить армию и почему?")} aria-describedby="premium-ai-help"></textarea>
+        <div class="premium-ai-form-footer"><p id="premium-ai-help">{t("Follow-ups welcome · Enter to send · Shift + Enter for a new line", "Можно задавать уточнения · Enter — отправить · Shift + Enter — новая строка")}</p><button type="button" class="premium-secondary" data-ai-stop hidden>{t("Stop", "Остановить")}</button><button type="submit" class="premium-button" data-ai-submit>{t("Ask Premium", "Спросить Premium")} <span>↑</span></button></div>
+    </form>
+    <p class="premium-ai-status" data-ai-status role="status" aria-live="polite"></p>
+    <p class="premium-fine">{t("Answers use the selected snapshot and current game rules. Self-play patterns are associations; check sample sizes and evidence before making a pick.", "Ответы используют выбранный снимок и текущие правила игры. Закономерности боёв ИИ — наблюдаемые связи; проверяйте объём выборки и данные перед пиком.")}</p>
+</section>

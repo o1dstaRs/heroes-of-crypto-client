@@ -1,33 +1,9 @@
 import { axiosGameInstance, endpoints } from "./axios";
 import type { GameAction } from "@heroesofcrypto/common";
 
-export interface PremiumOutcomeEvidence {
-    label?: string;
-    evidenceId: string;
-    independentFamilies: number;
-    scoreRate: number | null;
-    interval95: [number, number];
-    status: "none" | "limited" | "supported";
-    caveat: string;
-}
-export interface PremiumMetricEvidence {
-    label?: string;
-    evidenceId: string;
-    evidenceKind: "observed-health-metrics" | "observed-combat-metrics";
-    independentFamilies: number;
-    status: "none" | "limited" | "supported";
-    metrics: Record<
-        string,
-        {
-            description: string;
-            mean: number | null;
-            minFamilyMean: number | null;
-            maxFamilyMean: number | null;
-        }
-    >;
-    caveat: string;
-}
-export type PremiumEvidence = PremiumOutcomeEvidence | PremiumMetricEvidence;
+import type { PremiumEvidence } from "./premium_search_stream";
+export type { PremiumEvidence, PremiumOutcomeEvidence, PremiumMetricEvidence } from "./premium_search_stream";
+
 export interface PremiumChoice {
     kind: "creature" | "bundle" | "artifact" | "doctrine";
     value: number;
