@@ -453,7 +453,7 @@ describe("pixi texture bundle split", () => {
             expect(lazySpellAssets[key]).toBeDefined();
             expect(core[key]).toBeUndefined();
         }
-        expect(Object.keys(lazySpellAssets)).toHaveLength(62);
+        expect(Object.keys(lazySpellAssets)).toHaveLength(63);
     });
 
     test("loads sandbox roster art only while the pre-fight overlay exists", () => {
