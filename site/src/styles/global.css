@@ -406,6 +406,7 @@ code {
     --hero-bottom-trim: 0px;
     --hero-viewport-fit-trim: 0px;
     --hero-pitch-peek-offset: 0px;
+
     position: relative;
     overflow: hidden;
     min-height: calc(
@@ -423,19 +424,9 @@ code {
 
 @media (min-width: 1081px) {
     .hero {
-        --hero-bottom-trim: clamp(0px, calc(100svh - 760px), 30px);
-        --hero-viewport-fit-trim: clamp(24px, calc(424px - 44svh), 112px);
-        --hero-pitch-peek-offset: 32px;
-        overflow: visible;
-        height: calc(
-            clamp(616px, calc(110svh - 132px), 814px) - var(--hero-bottom-trim) - var(--hero-viewport-fit-trim) +
-                var(--hero-pitch-peek-offset)
-        );
-    }
-
-    .hero-bg,
-    .hero-shade {
-        top: -68px;
+        /* One screen below the navigation; fit the complete composition inside it. */
+        min-height: max(616px, calc(100svh - 68px));
+        height: max(616px, calc(100svh - 68px));
     }
 }
 
@@ -461,7 +452,7 @@ code {
 
 @media (min-width: 1081px) {
     .hero-bg {
-        height: calc(100% + 68px);
+        object-fit: contain;
     }
 }
 
@@ -481,10 +472,10 @@ code {
 }
 
 @media (min-width: 1081px) {
-    .hero-brand-shell,
-    .hero-message-shell {
-        position: relative;
-        top: clamp(64.4px, calc(11.5svh - 13.8px), 85.1px);
+    .hero-grid {
+        min-height: 100%;
+        height: 100%;
+        transform: none;
     }
 }
 
@@ -515,6 +506,7 @@ code {
         opacity: 0;
         transform: translateY(16px);
     }
+
     to {
         opacity: 1;
         transform: none;

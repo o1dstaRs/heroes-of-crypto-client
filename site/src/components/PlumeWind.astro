@@ -50,7 +50,8 @@
             const layout = () => {
                 const imageBox = background.getBoundingClientRect();
                 const box = this.getBoundingClientRect();
-                const scale = Math.max(imageBox.width / 1750, imageBox.height / 899);
+                const fit = getComputedStyle(background).objectFit === "contain" ? Math.min : Math.max;
+                const scale = fit(imageBox.width / 1750, imageBox.height / 899);
                 const position = getComputedStyle(background).objectPosition.split(" ").map(parseFloat);
                 canvas.style.width = `${250 * scale}px`;
                 canvas.style.height = `${150 * scale}px`;
