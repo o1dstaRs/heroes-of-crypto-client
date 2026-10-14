@@ -84,6 +84,22 @@ describe("knowledge graph builder", () => {
         expect(spellNode?.textRu).toContain(spell.descriptionRu);
     });
 
+    test("Tome advice matches its 35% power in both languages, including mirror rounding", () => {
+        const tome = byId.get("artifact:tome-of-amplification");
+        expect(tome?.text).toContain("by 35%");
+        expect(tome?.text).toContain("Mass Riot 25 → 33.75%");
+        expect(tome?.textRu).toContain("Mass Riot 25 → 33,75%");
+        const combos = byId.get("formula:combos-and-anti-synergies");
+        expect(combos?.text).toContain("Riot 30 → 40.5%");
+        expect(combos?.text).toContain("Mass Magic Mirror 32 → 43%");
+        expect(combos?.text).toContain("flyers +5.4 armor but still −4 movement");
+        expect(combos?.text).toContain("27% with Tome");
+        expect(combos?.textRu).toContain("Riot 30 → 40,5%");
+        expect(combos?.textRu).toContain("летающим +5,4 к броне");
+        expect(byId.get("spell:mass-magic-mirror")?.text).toContain("Tome of Amplification makes it 43%");
+        expect(byId.get("spell:mass-magic-mirror")?.textRu).toContain("с Tome of Amplification — 43%");
+    });
+
     test("status effects link back from the abilities that apply them", () => {
         expect(byId.get("effect:stun")?.text).toMatch(/Applied by: Stun \([^)]*Squire[^)]*\)/);
         expect(

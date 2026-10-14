@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { Container, Texture } from "pixi.js";
 
-import { HoCConfig } from "@heroesofcrypto/common";
+import { Artifact, HoCConfig } from "@heroesofcrypto/common";
 
 import { PixiRenderableSpell } from "./RenderableSpell";
 
@@ -339,56 +339,61 @@ describe("PixiRenderableSpell effect summary", () => {
     });
 
     test("Tome of Amplification raises the buff the card promises, including armor and both mirrors", () => {
-        const tome = 40;
+        const tome = Artifact.ARTIFACT_POWER.TOME_BUFF_POWER_PERCENT;
+        expect(tome).toBe(35);
         expect(summaryOf("Life", "Spiritual Armor", 1, 2, 1, 0, 0, tome)).toEqual({
             kind: "buff",
             label: "Buff",
-            value: "+42%",
+            value: "+40.5%",
         });
         expect(detailsOf("Life", "Spiritual Armor", 1, 2, 1, 0, 0, tome).information.join("\n")).toContain(
-            "additional 42% armor",
+            "additional 40.5% armor",
         );
 
-        expect(summaryOf("Chaos", "Riot", 1, 2, 1, 0, 0, tome)?.value).toBe("+42%");
-        expect(detailsOf("Chaos", "Riot", 1, 2, 1, 0, 0, tome).information.join("\n")).toContain("Adds 42%");
+        expect(summaryOf("Chaos", "Riot", 1, 2, 1, 0, 0, tome)?.value).toBe("+40.5%");
+        expect(detailsOf("Chaos", "Riot", 1, 2, 1, 0, 0, tome).information.join("\n")).toContain("Adds 40.5%");
 
-        expect(summaryOf("Chaos", "Mass Riot", 4, 2, 1, 0, 0, tome)?.value).toBe("+35%");
-        expect(detailsOf("Chaos", "Mass Riot", 4, 2, 1, 0, 0, tome).information.join("\n")).toContain("Adds 35%");
+        expect(summaryOf("Chaos", "Mass Riot", 4, 2, 1, 0, 0, tome)?.value).toBe("+33.75%");
+        expect(detailsOf("Chaos", "Mass Riot", 4, 2, 1, 0, 0, tome).information.join("\n")).toContain("Adds 33.75%");
 
-        // Flat, not stack-scaled: a stack-1 Ogre still reflects the whole 40, and the tome makes it 56.
+        // Flat, not stack-scaled: a stack-1 Ogre still reflects the whole 40, and the tome makes it 54.
         expect(summaryOf("Chaos", "Magic Mirror", 1, 2)).toEqual({
             kind: "buff",
             label: "Reflection",
             value: "40%",
             detail: "Damage and debuff reflection",
         });
-        expect(summaryOf("Chaos", "Magic Mirror", 1, 2, 1, 0, 0, tome)?.value).toBe("56%");
+        expect(summaryOf("Chaos", "Magic Mirror", 1, 2, 1, 0, 0, tome)?.value).toBe("54%");
         expect(detailsOf("Chaos", "Magic Mirror", 1, 2, 1, 0, 0, tome).information.join("\n")).toContain(
-            "Reflects 56%",
+            "Reflects 54%",
         );
-        // 32 × 1.4 is 44.8, and the card floors the reflected share.
-        expect(summaryOf("Chaos", "Mass Magic Mirror", 4, 2, 1, 0, 0, tome)?.value).toBe("44%");
+        // 32 × 1.35 is 43.2, and the card floors the reflected share.
+        expect(summaryOf("Chaos", "Mass Magic Mirror", 4, 2, 1, 0, 0, tome)?.value).toBe("43%");
         expect(detailsOf("Chaos", "Mass Magic Mirror", 4, 2, 1, 0, 0, tome).information.join("\n")).toContain(
-            "Reflects 44%",
+            "Reflects 43%",
         );
 
         expect(summaryOf("Chaos", "Fireforged Sword", 1, 2)?.value).toBe("20% of hit");
         // Empower, the rings and Sylvan Focus arrive as the magic-damage bonus. They do not move the blade.
         expect(summaryOf("Chaos", "Fireforged Sword", 1, 2, 1, 40)?.value).toBe("20% of hit");
-        expect(summaryOf("Chaos", "Fireforged Sword", 1, 2, 1, 40, 0, tome)?.value).toBe("28% of hit");
+        expect(summaryOf("Chaos", "Fireforged Sword", 1, 2, 1, 40, 0, tome)?.value).toBe("27% of hit");
         expect(detailsOf("Chaos", "Fireforged Sword", 1, 2, 1, 40, 0, tome).information.join("\n")).toContain(
-            "for 28%",
+            "for 27%",
         );
         const helpingHand = detailsOf("Life", "Helping Hand", 4, 2, 1, 0, 0, tome).information.join("\n");
-        expect(helpingHand).toContain("Gives 42%");
+        expect(helpingHand).toContain("Gives 40.5%");
         expect(helpingHand).toContain("The caster still loses 30%.");
         expect(detailsOf("System", "Wind Flow", 5, 1, 1, 0, 0, tome).information.join("\n")).toContain(
-            "gain 5.6 of base armor points while losing 4 movement",
+            "gain 5.4 of base armor points while losing 4 movement",
         );
     });
 
     test("Tome of Amplification does not raise heals or enemy debuffs", () => {
-        expect(summaryOf("Life", "Heal", 1, 2, 1, 0, 0, 50)?.value).toBe("10 HP");
-        expect(summaryOf("Death", "Quagmire", 1, 2, 1, 0, 0, 50)?.value).toBe("−25%");
+        expect(summaryOf("Life", "Heal", 1, 2, 1, 0, 0, Artifact.ARTIFACT_POWER.TOME_BUFF_POWER_PERCENT)?.value).toBe(
+            "10 HP",
+        );
+        expect(
+            summaryOf("Death", "Quagmire", 1, 2, 1, 0, 0, Artifact.ARTIFACT_POWER.TOME_BUFF_POWER_PERCENT)?.value,
+        ).toBe("−25%");
     });
 });

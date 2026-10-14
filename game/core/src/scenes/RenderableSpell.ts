@@ -100,7 +100,7 @@ const BOOK_PAGE_TILT_RADIANS = Math.PI / 720;
 const formatShownPower = (power: number): string => String(Number(power.toFixed(4)));
 
 /**
- * Tome of Amplification's multiply, matching the cast. 40 on a power of 30 is 42.
+ * Tome of Amplification's multiply, matching the cast. 35 on a power of 30 is 40.5.
  * A missing or non-positive tome leaves the power alone.
  */
 const amplifiedBuffPower = (basePower: number, tomePercent: number): number => {
@@ -441,7 +441,7 @@ export class PixiRenderableSpell extends Spell {
         }
         // Magic Mirror and Mass Magic Mirror reflect a flat share of the buff's power (40 / 32), not a
         // stack-scaled share — that scaling belongs to the Magic Dragon's Magic Reflection ability.
-        // Tome of Amplification raises the stored power (40 → 56, 32 → 44.8). getMagicMirrorPower floors it.
+        // Tome of Amplification raises the stored power (40 → 54, 32 → 43.2). getMagicMirrorPower floors it.
         if (this.getName() === "Magic Mirror" || this.getName() === "Mass Magic Mirror") {
             const reflected = Math.max(0, Math.min(100, Math.floor(this.shownBuffPower(casterTomeBuffPercentage))));
             return {
