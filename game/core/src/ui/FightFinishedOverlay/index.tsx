@@ -362,7 +362,7 @@ const CasualtyColumn: React.FC<{
                                 />
                             ) : (
                                 <Avatar
-                                    src={creatureImgSrc(d.smallTextureName)}
+                                    src={creatureImgSrc(d.smallTextureName, d.name)}
                                     variant="plain"
                                     sx={{
                                         width: 60,

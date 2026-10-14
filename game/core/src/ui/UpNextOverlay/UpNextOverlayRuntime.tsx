@@ -16,7 +16,9 @@ import { upNextWideSmokyChainsBackgroundSurface } from "../upNextBackground";
 import {
     ACTIVE_TURN_GLOW_MARGIN_PX,
     type IQueueScrollState,
+    queueScrollLeftForPointer,
     queueScrollState,
+    queueWheelDelta,
     upNextQueueCardWidth,
     upNextQueueFit,
 } from "./upNextQueueLayout";
@@ -78,39 +80,78 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAu
  * The queue's own scrollbar, drawn rather than borrowed.
  *
  * It exists only while the queue really scrolls, sits on the band under the cards, and is always visible —
- * which the native bar is not on macOS, where it is an overlay that fades out while idle.
+ * which the native bar is not on macOS, where it is an overlay that fades out while idle. It is also the
+ * drag handle: the native bar is hidden, and the overlay is only open while Alt/Option is held, so the
+ * browser will not scroll the row on its own.
  */
-const QueueScrollBar: React.FC<{ state: IQueueScrollState }> = ({ state }) => (
+const QueueScrollBar: React.FC<{
+    state: IQueueScrollState;
+    onScrub: (clientX: number, track: HTMLDivElement) => void;
+}> = ({ state, onScrub }) => (
     <Box
-        aria-hidden="true"
+        role="scrollbar"
+        aria-orientation="horizontal"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round((state.thumb >= 1 ? 0 : state.offset / (1 - state.thumb)) * 100)}
+        onPointerDown={(event) => {
+            if (event.button !== 0) return;
+            event.currentTarget.setPointerCapture(event.pointerId);
+            onScrub(event.clientX, event.currentTarget);
+            event.stopPropagation();
+        }}
+        onPointerMove={(event) => {
+            if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+            onScrub(event.clientX, event.currentTarget);
+        }}
+        onPointerUp={(event) => {
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                event.currentTarget.releasePointerCapture(event.pointerId);
+            }
+        }}
+        onPointerCancel={(event) => {
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                event.currentTarget.releasePointerCapture(event.pointerId);
+            }
+        }}
         sx={{
             position: "relative",
             zIndex: 1,
-            mt: "6px",
+            mt: "2px",
             width: "100%",
-            height: "6px",
-            // The band is a column flex container that can run out of room; without this the track is the
-            // item that shrinks, and a 0px-tall scrollbar is the same as no scrollbar at all.
+            // The painted track stays 6px. The padding is hit slop so the thumb can be grabbed.
+            py: "8px",
+            cursor: "ew-resize",
+            touchAction: "none",
             flexShrink: 0,
-            borderRadius: "3px",
-            background: "rgba(19, 12, 8, 0.72)",
-            boxShadow: "inset 0 0 2px rgba(0, 0, 0, 0.9)",
-            overflow: "hidden",
         }}
     >
         <Box
             sx={{
-                position: "absolute",
-                top: 0,
-                bottom: 0,
-                left: `${state.offset * 100}%`,
-                width: `${Math.max(8, state.thumb * 100)}%`,
+                position: "relative",
+                width: "100%",
+                height: "6px",
                 borderRadius: "3px",
-                background: "linear-gradient(90deg, rgba(112, 76, 29, 0.92), rgba(190, 144, 66, 0.92))",
-                border: "1px solid rgba(218, 174, 91, 0.45)",
-                boxSizing: "border-box",
+                background: "rgba(19, 12, 8, 0.72)",
+                boxShadow: "inset 0 0 2px rgba(0, 0, 0, 0.9)",
+                overflow: "hidden",
+                pointerEvents: "none",
             }}
-        />
+        >
+            <Box
+                sx={{
+                    position: "absolute",
+                    top: 0,
+                    bottom: 0,
+                    left: `${state.offset * 100}%`,
+                    width: `${Math.max(8, state.thumb * 100)}%`,
+                    borderRadius: "3px",
+                    background: "linear-gradient(90deg, rgba(112, 76, 29, 0.92), rgba(190, 144, 66, 0.92))",
+                    border: "1px solid rgba(218, 174, 91, 0.45)",
+                    boxSizing: "border-box",
+                }}
+            />
+        </Box>
     </Box>
 );
 
@@ -184,15 +225,47 @@ export const UpNextOverlay: React.FC<{ exitStanding?: IExitStanding }> = ({ exit
     // How much of the queue is on screen, and where — the numbers the drawn bar needs. Null while the
     // whole queue fits, which is also when no bar is drawn at all. Re-measured whenever the row's box or
     // its cards change size, because the portraits settle a frame after the queue itself does.
+    const overlayRef = useRef<HTMLDivElement | null>(null);
     const scrollRowRef = useRef<HTMLDivElement | null>(null);
     const [queueScroll, setQueueScroll] = useState<IQueueScrollState | null>(null);
     const handleQueueScroll = useCallback(() => setQueueScroll(queueScrollState(scrollRowRef.current)), []);
+    const scrubQueue = useCallback((clientX: number, track: HTMLDivElement) => {
+        const row = scrollRowRef.current;
+        if (!row) return;
+        const maxScroll = row.scrollWidth - row.clientWidth;
+        const state = queueScrollState(row);
+        if (!state || maxScroll <= 0) return;
+        const bounds = track.getBoundingClientRect();
+        row.scrollLeft = queueScrollLeftForPointer(clientX, bounds.left, bounds.width, state.thumb, maxScroll);
+    }, []);
     useLayoutEffect(() => {
         handleQueueScroll();
         const row = scrollRowRef.current;
-        if (!overlayVisible || !row) {
+        const overlay = overlayRef.current;
+        if (!overlayVisible || !row || !overlay) {
             return undefined;
         }
+        // Alt/Option has to stay down for this panel to exist, and while it is down the browser will not
+        // scroll an overflow row. A vertical wheel would not move this horizontal row anyway. The fight
+        // canvas also covers this band and can take the wheel first, so the gesture is caught on the way
+        // down and applied here whenever the pointer is over the panel.
+        const onWheel = (event: WheelEvent) => {
+            const bounds = overlay.getBoundingClientRect();
+            const overPanel =
+                event.clientX >= bounds.left &&
+                event.clientX <= bounds.right &&
+                event.clientY >= bounds.top &&
+                event.clientY <= bounds.bottom;
+            if (!overPanel) return;
+            const maxScroll = row.scrollWidth - row.clientWidth;
+            if (maxScroll <= 1) return;
+            const delta = queueWheelDelta(event.deltaX, event.deltaY, event.deltaMode, row.clientWidth);
+            if (delta === 0) return;
+            row.scrollLeft += delta;
+            event.preventDefault();
+            event.stopPropagation();
+        };
+        window.addEventListener("wheel", onWheel, { capture: true, passive: false });
         window.addEventListener("resize", handleQueueScroll);
         const observer = new ResizeObserver(handleQueueScroll);
         observer.observe(row);
@@ -200,6 +273,7 @@ export const UpNextOverlay: React.FC<{ exitStanding?: IExitStanding }> = ({ exit
             observer.observe(card);
         }
         return () => {
+            window.removeEventListener("wheel", onWheel, { capture: true });
             window.removeEventListener("resize", handleQueueScroll);
             observer.disconnect();
         };
@@ -209,6 +283,7 @@ export const UpNextOverlay: React.FC<{ exitStanding?: IExitStanding }> = ({ exit
 
     return (
         <Box
+            ref={overlayRef}
             sx={{
                 position: "fixed",
                 top: topBand.y,
@@ -393,7 +468,7 @@ export const UpNextOverlay: React.FC<{ exitStanding?: IExitStanding }> = ({ exit
                     );
                 })}
             </Stack>
-            {needsScroll && queueScroll && <QueueScrollBar state={queueScroll} />}
+            {needsScroll && queueScroll && <QueueScrollBar state={queueScroll} onScrub={scrubQueue} />}
             {exitStanding && <AltExitStrip standing={exitStanding} />}
         </Box>
     );

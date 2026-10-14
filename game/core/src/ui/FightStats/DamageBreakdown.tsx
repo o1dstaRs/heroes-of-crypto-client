@@ -21,7 +21,7 @@ const DamageRow: React.FC<{ entry: IFightDamageEntry; max: number; index: number
     // Bars are relative to the single best performer of the fight, so the two armies stay
     // directly comparable on one scale (a per-team scale would make a losing army look equal).
     const share = max > 0 ? Math.max(0, entry.damage / max) : 0;
-    const src = creatureImgSrc(entry.smallTextureName);
+    const src = creatureImgSrc(entry.smallTextureName, entry.name);
     const creatureId = UNIT_NAME_TO_ID[entry.name.trim()];
 
     return (

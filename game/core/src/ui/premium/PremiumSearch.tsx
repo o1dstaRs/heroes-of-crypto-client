@@ -21,7 +21,9 @@ import {
     type PremiumSearchMessage,
 } from "../../api/premium_search";
 import type { PremiumEvidence } from "../../api/premium_client";
-import { EvidenceText, usePremiumAdvisor } from "./PremiumAdvisor";
+import { EvidenceText } from "./PremiumAdvisor";
+import { PremiumAccessProvider, usePremiumAccess } from "./PremiumAccess";
+import { usePremiumCapability } from "./usePremiumPreference";
 import { hocFontFamily, hocInputSx, hocPrimaryButtonSx } from "../hocTheme";
 
 const SetAnchorContext = createContext<(node: HTMLDivElement | null) => void>(() => {});
@@ -43,20 +45,22 @@ export const PremiumSearchProvider: React.FC<{ children: React.ReactNode }> = ({
     const [dockAnchor, setDockAnchor] = useState<HTMLDivElement | null>(null);
     const [visible, setVisible] = useState(false);
     return (
-        <SetAnchorContext.Provider value={setAnchor}>
-            <SetSearchVisibleContext.Provider value={setVisible}>
-                <SearchVisibleContext.Provider value={visible}>
-                    <PremiumSearchMatchProvider>
-                        <SetDockAnchorContext.Provider value={setDockAnchor}>
-                            <DockVisibleContext.Provider value={visible && !anchor}>
-                                <PremiumSearch anchor={anchor ?? dockAnchor} compact={Boolean(anchor)} />
-                                {children}
-                            </DockVisibleContext.Provider>
-                        </SetDockAnchorContext.Provider>
-                    </PremiumSearchMatchProvider>
-                </SearchVisibleContext.Provider>
-            </SetSearchVisibleContext.Provider>
-        </SetAnchorContext.Provider>
+        <PremiumAccessProvider>
+            <SetAnchorContext.Provider value={setAnchor}>
+                <SetSearchVisibleContext.Provider value={setVisible}>
+                    <SearchVisibleContext.Provider value={visible}>
+                        <PremiumSearchMatchProvider>
+                            <SetDockAnchorContext.Provider value={setDockAnchor}>
+                                <DockVisibleContext.Provider value={visible && !anchor}>
+                                    <PremiumSearch anchor={anchor ?? dockAnchor} compact={Boolean(anchor)} />
+                                    {children}
+                                </DockVisibleContext.Provider>
+                            </SetDockAnchorContext.Provider>
+                        </PremiumSearchMatchProvider>
+                    </SearchVisibleContext.Provider>
+                </SetSearchVisibleContext.Provider>
+            </SetAnchorContext.Provider>
+        </PremiumAccessProvider>
     );
 };
 
@@ -120,10 +124,11 @@ export const PremiumSearchDockSlot: React.FC = () => {
 
 export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; compact: boolean }> = ({ anchor, compact }) => {
     const setVisible = useContext(SetSearchVisibleContext);
-    const { advice } = usePremiumAdvisor();
+    const access = usePremiumAccess();
+    const chatEnabled = usePremiumCapability("chat");
     const { user } = useAuthContext();
     const accountKey = user?.email || user?.username;
-    const available = Boolean(advice);
+    const available = Boolean(access?.active) && chatEnabled;
     const location = useLocation();
     const matchVersion = usePremiumSearchMatch(premiumSearchGameId(location.pathname));
     const reduceMotion = useReducedMotion();

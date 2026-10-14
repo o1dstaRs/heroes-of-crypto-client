@@ -126,6 +126,7 @@ import {
     type CreatureAnimationLabResult,
     type CreatureAnimationLabState,
 } from "../pixi/PixiScene";
+import { replayTextureKeys } from "../replay/replayTextureKeys";
 import { unloadPlacementAssets, unloadRosterAssets } from "../pixi/PixiTextureLoader";
 import { setSpawnFlowPhase } from "../pixi/PixiDrawablePlacement";
 import { isBattlefieldShadowEditorActive } from "../ui/battlefieldShadowTuning";
@@ -3729,7 +3730,13 @@ export class Sandbox extends PixiScene {
             // A replay shows the match as it WAS: green against red. Whatever personal tint the person
             // watching prefers is dropped for the duration.
             clearPersonalArmyTint();
+            await this.preloadTextureKeys(replayTextureKeys(replay, sequence));
+            if (this.isSceneDestroyed()) return false;
             this.hydrateSceneState(cloneReplayData(replay.initialState));
+            // Hydration requests map, terrain and placement textures as well as creature art.
+            await this.waitForPendingTextures();
+            if (this.isSceneDestroyed()) return false;
+            this.onSupplementaryTexturesLoaded();
             this.sc_sceneLog.clear();
             if (sequence <= 0) {
                 return true;
@@ -16428,6 +16435,7 @@ export class Sandbox extends PixiScene {
             return false;
         }
 
+        source.shareResourcesWithSplit(newUnit, amount);
         source.setAmountAlive(alive - amount);
         this.playSceneGameSound("place_unit");
         if (source instanceof RenderableUnit) source.clearBadgeEmphasis();
@@ -16749,7 +16757,13 @@ export class Sandbox extends PixiScene {
     private hasAnySceneUnits(): boolean {
         return this.unitsHolder.getAllUnits().size > 0;
     }
-    private recoverEmptyStartedFightState(): void {
+    private recoverEmptyStartedFightState(): boolean {
+        const previousFight = FightStateManager.getInstance().getFightProperties();
+        // Empty after a real turn is a valid combat outcome (Armageddon can kill both armies).
+        // Reset only an accidentally started empty setup; otherwise preserve the terminal report
+        // and combat phase so placement frames cannot reappear over the finished battlefield.
+        if (previousFight.hasFightFinished() || previousFight.getFirstTurnMade()) return false;
+
         FightStateManager.getInstance().reset();
         const fightProps = FightStateManager.getInstance().getFightProperties();
         fightProps.setDefaultPlacementPerTeam(TeamVals.LEFT, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
@@ -16772,6 +16786,7 @@ export class Sandbox extends PixiScene {
         }
 
         this.sc_onHasStarted.emit(false);
+        return true;
     }
     public override Step(timeStep: number): void {
         this.updateVisibleTurnTimerIfDue();
@@ -16782,8 +16797,7 @@ export class Sandbox extends PixiScene {
         const fightProps = fightStateManager.getFightProperties();
         const fightStarted = fightProps.hasFightStarted();
 
-        if (fightStarted && !this.hasAnySceneUnits()) {
-            this.recoverEmptyStartedFightState();
+        if (fightStarted && !this.hasAnySceneUnits() && this.recoverEmptyStartedFightState()) {
             return;
         }
 

@@ -261,7 +261,6 @@ describe("production unreferenced image policy", () => {
         for (const key of [
             "combat_kills_skull_icon_v1",
             "combat_range_full_arrow_icon_v1",
-            "orc_128",
             "orc_512",
             "orc_battlefield_side_right_final_v1",
             "thief_model_full",

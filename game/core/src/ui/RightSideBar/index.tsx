@@ -28,7 +28,8 @@ import { sidebarPlainFrameSideInsetPx, sidebarPlainFrameVerticalInsetPx } from "
 import { GameCornerExitButton, GameCornerSlot, GameCornerStartOverButton } from "../GameCornerExit";
 import { GAME_SYSTEM_CONTROLS_STACK_HEIGHT_PX, GameSystemControls } from "../GameSystemControls";
 import { PremiumFightControls } from "../premium/PremiumFightControls";
-import { usePremiumSearchVisible } from "../premium/PremiumSearch";
+import { usePremiumAccess } from "../premium/PremiumAccess";
+import { usePremiumPreference } from "../premium/usePremiumPreference";
 
 const DraggableToolbar = React.lazy(() => import("../DraggableToolbar"));
 const FightLog = React.lazy(() => import("./FightLog").then(({ FightLog }) => ({ default: FightLog })));
@@ -79,8 +80,9 @@ export default function RightSideBar({
     const navigate = useNavigate();
     const { authenticated } = useAuthContext();
     const manager = usePixiManager();
-    const premiumSearchVisible = usePremiumSearchVisible();
-    const premiumFightVisible = gameStarted && showPremiumFightControls && premiumSearchVisible;
+    const premiumAccess = usePremiumAccess();
+    const premiumEnabled = usePremiumPreference("enabled");
+    const premiumFightVisible = gameStarted && showPremiumFightControls && premiumAccess?.active && premiumEnabled;
     const [footerHeight, setFooterHeight] = useState(GAME_SYSTEM_CONTROLS_STACK_HEIGHT_PX);
     const [sandboxSetupRevision, setSandboxSetupRevision] = useState(0);
     const handleStartOver = () => {

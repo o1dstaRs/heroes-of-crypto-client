@@ -2351,8 +2351,8 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
         name: "$HOCAI token",
         nameRu: "Токен $HOCAI",
         aliases: ["HOCAI", "token"],
-        href: "/token/",
-        hrefRu: "/ru/token/",
+        href: "/seasons/#token",
+        hrefRu: "/ru/seasons/#token",
         summary: token.body,
         summaryRu: tokenRu.body,
         text: [

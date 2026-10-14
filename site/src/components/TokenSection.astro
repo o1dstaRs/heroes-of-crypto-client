@@ -1,0 +1,76 @@
+---
+import { content, contractAddress, type Language } from "../lib/site-data";
+
+interface Props {
+    lang: Language;
+}
+
+const { lang } = Astro.props;
+const token = content[lang].token;
+---
+
+<section class="seasons-token" id="token">
+    <div class="section-heading">
+        <p class="eyebrow">{token.eyebrow}</p>
+        <h2>{token.title}</h2>
+        <p>{token.body}</p>
+    </div>
+
+    <div class="token-layout">
+        <div class="contract-box">
+            <span>{token.contractLabel}</span>
+            <code>{contractAddress}</code>
+            <div class="token-links compact">
+                {
+                    token.links.map((link) => (
+                        <a href={link.href} target="_blank" rel="noopener">
+                            {link.label}
+                        </a>
+                    ))
+                }
+            </div>
+        </div>
+        <div class="allocation-list">
+            {
+                token.allocation.map((item) => (
+                    <article class="allocation-item" style={`--bar-value: ${item.value}%`}>
+                        <div class="allocation-title">
+                            <h3>{item.label}</h3>
+                            <strong>{item.value}%</strong>
+                        </div>
+                        <div class="allocation-bar" aria-hidden="true">
+                            <span></span>
+                        </div>
+                        <p>{item.description}</p>
+                    </article>
+                ))
+            }
+        </div>
+    </div>
+
+    <div class="utility-list">
+        {token.utility.map((item) => <p>{item}</p>)}
+    </div>
+</section>
+
+<style>
+    .seasons-token {
+        display: grid;
+        gap: 18px;
+        margin-top: 12px;
+        padding-top: 28px;
+        border-top: 1px solid var(--line);
+    }
+
+    .seasons-token h2 {
+        margin: 6px 0 10px;
+        font-family: var(--hoc-font-display);
+        color: var(--ink-strong);
+    }
+
+    .seasons-token .section-heading p:last-child {
+        max-width: 72ch;
+        margin-bottom: 0;
+        color: var(--muted);
+    }
+</style>

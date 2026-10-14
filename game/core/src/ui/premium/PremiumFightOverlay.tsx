@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from "react";
 
 import type { PlaySnapshot } from "../../api/play_protocol";
 import { usePixiManager } from "../../pixi/PixiGameManager";
-import { usePremiumAdvisor } from "./PremiumAdvisor";
+import { usePremiumAccess } from "./PremiumAccess";
 import { canSuggestPremiumTurn, premiumFightTurnKey } from "./premiumFightState";
 import { startPremiumTurnPreview } from "./premiumTurnRequest";
 import { usePremiumSuggestedMoves } from "./usePremiumSuggestedMoves";
@@ -13,14 +13,10 @@ export const PremiumFightOverlay: React.FC<{
     disabled?: boolean;
 }> = ({ snapshot, userTeam, disabled = false }) => {
     const manager = usePixiManager();
-    const { advice: account } = usePremiumAdvisor();
+    const access = usePremiumAccess();
     const suggestedMoves = usePremiumSuggestedMoves();
     const key = premiumFightTurnKey(snapshot);
-    const enabled =
-        suggestedMoves &&
-        Boolean(account?.entitlement.active) &&
-        canSuggestPremiumTurn(snapshot, userTeam) &&
-        !disabled;
+    const enabled = suggestedMoves && Boolean(access?.active) && canSuggestPremiumTurn(snapshot, userTeam) && !disabled;
     const latestSnapshot = useRef(snapshot);
     latestSnapshot.current = snapshot;
 

@@ -1,5 +1,6 @@
 ---
 import { content, links, type Language } from "../lib/site-data";
+import TokenSection from "./TokenSection.astro";
 
 interface Props {
     lang: Language;
@@ -106,6 +107,8 @@ const prizeRulesHref = isRu ? "/ru/rules/prizes/" : "/rules/prizes/";
                 </div>
             </article>
         </div>
+
+        <TokenSection lang={lang} />
     </div>
 </section>
 

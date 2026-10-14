@@ -28,6 +28,52 @@ export const queueScrollState = (row: { scrollWidth: number; clientWidth: number
     return { thumb, offset: travelled * (1 - thumb) };
 };
 
+/** One mouse-wheel line, in pixels. Browsers that report `deltaMode: line` send a count, not a distance. */
+const QUEUE_WHEEL_LINE_PX = 24;
+
+/**
+ * How far a wheel gesture should move the horizontal queue.
+ *
+ * A vertical wheel is the gesture a player makes while holding Alt/Option — the browser will not apply
+ * it to an overflow-x row, and it suppresses the row's own scrolling for as long as that key is down.
+ * A sideways trackpad swipe arrives as `deltaX` and keeps its sign.
+ */
+export const queueWheelDelta = (deltaX: number, deltaY: number, deltaMode = 0, pageSize = 0): number => {
+    const x = Number.isFinite(deltaX) ? deltaX : 0;
+    const y = Number.isFinite(deltaY) ? deltaY : 0;
+    const raw = Math.abs(x) > Math.abs(y) ? x : y;
+    if (raw === 0) {
+        return 0;
+    }
+    if (deltaMode === 1) {
+        return raw * QUEUE_WHEEL_LINE_PX;
+    }
+    if (deltaMode === 2) {
+        return raw * (pageSize > 0 ? pageSize : 400);
+    }
+    return raw;
+};
+
+/**
+ * Scroll offset that puts the thumb under the pointer. `thumb` is the same fraction the drawn bar uses,
+ * so a drag tracks the gold thumb instead of jumping ahead of it.
+ */
+export const queueScrollLeftForPointer = (
+    clientX: number,
+    trackLeft: number,
+    trackWidth: number,
+    thumb: number,
+    maxScroll: number,
+): number => {
+    if (maxScroll <= 0 || trackWidth <= 0) {
+        return 0;
+    }
+    const thumbWidth = trackWidth * Math.min(1, Math.max(0, thumb));
+    const usable = Math.max(1, trackWidth - thumbWidth);
+    const thumbLeft = Math.max(0, Math.min(usable, clientX - trackLeft - thumbWidth / 2));
+    return (thumbLeft / usable) * maxScroll;
+};
+
 /** Room the active card's glow needs around its scaled portrait, on each side. */
 export const ACTIVE_TURN_GLOW_MARGIN_PX = 16;
 

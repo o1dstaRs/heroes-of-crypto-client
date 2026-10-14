@@ -521,6 +521,26 @@ export abstract class PixiScene {
         }
         return undefined;
     };
+    /** Await decoding through the same loader/cache/leases used by rendering. */
+    protected async preloadTextureKeys(keys: readonly string[]): Promise<void> {
+        const urls = rawImageUrls as unknown as Record<string, string>;
+        await Promise.all(
+            [...new Set(keys)]
+                .filter((key) => !!urls[key])
+                .map(async (key) => {
+                    if (this.sc_destroyed || this.texAny(key)) return;
+                    const pending = lazyTextureLoads.get(urls[key]);
+                    if (pending) await pending;
+                    if (!this.sc_destroyed && !this.texAny(key))
+                        throw new Error(`Replay texture failed to load: ${key}`);
+                }),
+        );
+    }
+    protected async waitForPendingTextures(): Promise<void> {
+        while (!this.sc_destroyed && this.sc_pendingLazyTextureKeys.size) {
+            await this.preloadTextureKeys([...this.sc_pendingLazyTextureKeys]);
+        }
+    }
     private scheduleBoardImageRetry(url: string): void {
         const delayMs = Math.max(0, (boardImageRetries.get(url)?.retryAt ?? 0) - Date.now());
         const timer = setTimeout(() => {

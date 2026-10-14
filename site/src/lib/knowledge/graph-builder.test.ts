@@ -105,13 +105,17 @@ describe("knowledge graph builder", () => {
         expect(medusa?.textRu).toContain("**Медуза (Medusa)**");
         expect(medusa?.textRu).toContain("Окаменяющий взгляд (Petrifying Gaze):");
         expect(byId.get("ability:petrifying-gaze")?.textRu).toContain("Медуза (Medusa, Хаос)");
-        expect(byId.get("effect:stun")?.textRu).toMatch(/Накладывается: Оглушение \(Stun\): [^.]*Оруженосец \(Squire\)/);
+        expect(byId.get("effect:stun")?.textRu).toMatch(
+            /Накладывается: Оглушение \(Stun\): [^.]*Оруженосец \(Squire\)/,
+        );
         expect(byId.get("doctrine:battle-trance")?.nameRu).toBe("Боевой транс");
         expect(byId.get("augment:armor-augment")?.textRu).toContain("Боевой транс (Battle Trance) — 7");
         // common's codes are spelled out: "MIND" or "ANY_ENEMY" read as English in a Russian answer.
         // FIRE PIT is the map's own name, printed in capitals in the game in every language.
         for (const node of gameNamed)
-            expect(`${node.textRu} ${node.summaryRu}`.replace(/FIRE PIT/g, "")).not.toMatch(/\b[A-Z]{3,}(?:_[A-Z]+)*\b(?<!\bMMR|\bAOE|\bHOCAI|\bERC)/);
+            expect(`${node.textRu} ${node.summaryRu}`.replace(/FIRE PIT/g, "")).not.toMatch(
+                /\b[A-Z]{3,}(?:_[A-Z]+)*\b(?<!\bMMR|\bAOE|\bHOCAI|\bERC)/,
+            );
         expect(byId.get("ability:petrifying-gaze")?.textRu).toContain("Пассивная · Разум");
         // The English graph is untouched.
         for (const node of gameNamed) expect(node.text).not.toMatch(/[а-яё]/i);
@@ -166,6 +170,8 @@ describe("knowledge graph builder", () => {
         expect(graph.nodes.some((node) => node.id.startsWith("ranked:leaving-") && node.text.includes("%"))).toBe(true);
         expect(graph.nodes.some((node) => node.type === "faq" && node.name.includes("HOCAI"))).toBe(true);
         expect(byId.get("faq:hocai-token")?.text).toContain("Allocation:");
+        expect(byId.get("faq:hocai-token")?.href).toBe("/seasons/#token");
+        expect(byId.get("faq:hocai-token")?.hrefRu).toBe("/ru/seasons/#token");
         expect(graph.nodes.filter((node) => node.type === "patch").every((node) => node.href === "/patches/")).toBe(
             true,
         );

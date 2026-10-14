@@ -1,32 +1,17 @@
-const STORAGE_KEY = "hoc.premium.suggestedMoves";
-let sessionPreference: boolean | undefined;
-const listeners = new Set<() => void>();
+import {
+    getPremiumPreference,
+    getPremiumPreferenceServerSnapshot,
+    readPremiumPreference,
+    setPremiumPreference,
+    subscribePremiumPreferences,
+} from "./premiumPreferences";
 
 /** Suggestions start enabled until the player explicitly turns them off. */
-export const readPremiumSuggestedMoves = (): boolean => {
-    try {
-        return globalThis.localStorage?.getItem(STORAGE_KEY) !== "false";
-    } catch {
-        return true;
-    }
-};
+export const readPremiumSuggestedMoves = (): boolean => readPremiumPreference("suggestedMoves");
 
-export const getPremiumSuggestedMoves = (): boolean => sessionPreference ?? readPremiumSuggestedMoves();
-export const getPremiumSuggestedMovesServerSnapshot = (): boolean => true;
+export const getPremiumSuggestedMoves = (): boolean => getPremiumPreference("suggestedMoves");
+export const getPremiumSuggestedMovesServerSnapshot = getPremiumPreferenceServerSnapshot;
 
-export const subscribePremiumSuggestedMoves = (listener: () => void): (() => void) => {
-    listeners.add(listener);
-    return () => {
-        listeners.delete(listener);
-    };
-};
+export const subscribePremiumSuggestedMoves = subscribePremiumPreferences;
 
-export const setPremiumSuggestedMoves = (enabled: boolean): void => {
-    sessionPreference = enabled;
-    try {
-        globalThis.localStorage?.setItem(STORAGE_KEY, String(enabled));
-    } catch {
-        // Keep the manual choice for this session even when browser storage is unavailable.
-    }
-    for (const listener of listeners) listener();
-};
+export const setPremiumSuggestedMoves = (enabled: boolean): void => setPremiumPreference("suggestedMoves", enabled);

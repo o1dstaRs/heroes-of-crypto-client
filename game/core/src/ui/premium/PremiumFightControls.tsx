@@ -2,6 +2,7 @@ import { Box, Switch, Typography } from "@mui/joy";
 import React from "react";
 
 import { setPremiumSuggestedMoves } from "../../settings/premiumSuggestedMoves";
+import { useTranslation } from "../../i18n/i18n";
 import { hocFontFamily } from "../hocTheme";
 import { PremiumSearchSlot } from "./PremiumSearch";
 import { usePremiumSuggestedMoves } from "./usePremiumSuggestedMoves";
@@ -9,6 +10,7 @@ import { usePremiumSuggestedMoves } from "./usePremiumSuggestedMoves";
 /** Fight footer: chat stays available whether or not the player wants board suggestions. */
 export const PremiumFightControls: React.FC = () => {
     const suggestedMoves = usePremiumSuggestedMoves();
+    const { t } = useTranslation();
     return (
         <Box
             data-premium-fight-controls
@@ -27,10 +29,10 @@ export const PremiumFightControls: React.FC = () => {
                 size="sm"
                 checked={suggestedMoves}
                 onChange={(event) => setPremiumSuggestedMoves(event.target.checked)}
-                slotProps={{ input: { "aria-label": "Suggested moves" } }}
+                slotProps={{ input: { "aria-label": t("Suggested moves") } }}
                 startDecorator={
                     <Typography sx={{ color: "#efcfaf", fontFamily: hocFontFamily, fontSize: "0.72rem" }}>
-                        Suggested moves
+                        {t("Suggested moves")}
                     </Typography>
                 }
                 sx={{

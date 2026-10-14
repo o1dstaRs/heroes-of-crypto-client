@@ -55,6 +55,7 @@ for (const [previous, current] of renamedImageFiles) {
         fs.renameSync(previousPath, currentPath);
     }
 }
+const { isRetiredCreatureThumbnail } = require("../src/pixi/retiredCreatureThumbnails.ts");
 const files = fs.readdirSync(imageDir).filter((file) => !renamedImageFiles.has(file));
 const entries = [];
 
@@ -63,6 +64,7 @@ for (const file of files) {
     if (
         isWebPFile(file) &&
         !EXCLUDED_IMAGE_FILES.has(file) &&
+        !isRetiredCreatureThumbnail(path.basename(file, extension)) &&
         !file.startsWith("synergy_") &&
         !file.startsWith("overlay_") &&
         !file.startsWith("icon_")

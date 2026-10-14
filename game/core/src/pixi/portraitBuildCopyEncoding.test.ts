@@ -231,6 +231,10 @@ describe("portrait build-copy encoding", () => {
                 path.join(root, "src/gameImageAssetPolicy.ts"),
                 "export const isWebPFile = (file) => file.endsWith('.webp');",
             ),
+            writeFile(
+                path.join(pixi, "retiredCreatureThumbnails.ts"),
+                "export const isRetiredCreatureThumbnail = () => false;",
+            ),
             writeFile(path.join(pixi, "imageAssetTiers.ts"), "export const isProductionOmittedAssetKey = () => false;"),
             writeFile(
                 path.join(pixi, "productionImageAssetPolicy.ts"),

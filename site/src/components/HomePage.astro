@@ -2,7 +2,7 @@
 import CreaturePortrait from "./CreaturePortrait.astro";
 import { knowledgePath } from "../lib/knowledge-base";
 import { localizedFactionName } from "../lib/localization";
-import { content, contractAddress, links, localPath, type Language } from "../lib/site-data";
+import { content, links, localPath, type Language } from "../lib/site-data";
 import { abilityCount, factionColors, factionUnits, unitCount } from "../lib/units-data";
 import HeroLeaderboard from "./HeroLeaderboard.astro";
 import MetaSnapshot from "./MetaSnapshot.astro";
@@ -216,40 +216,6 @@ const factionLabel = (faction: string) => localizedFactionName(lang, faction);
 <RankedArena lang={lang} />
 
 <MetaSnapshot lang={lang} />
-
-<section class="section token-preview">
-    <div class="page-shell">
-        <div class="section-heading">
-            <p class="eyebrow">{copy.token.eyebrow}</p>
-            <h2>{copy.token.title}</h2>
-            <p>{copy.token.body}</p>
-        </div>
-
-        <div class="token-layout">
-            <div class="contract-box">
-                <span>{copy.token.contractLabel}</span>
-                <code>{contractAddress}</code>
-                <div class="token-links compact">
-                    {copy.token.links.map((link) => <a href={link.href} target="_blank" rel="noopener">{link.label}</a>)}
-                </div>
-            </div>
-            <div class="allocation-list">
-                {
-                    copy.token.allocation.map((item) => (
-                        <article class="allocation-item" style={`--bar-value: ${item.value}%`}>
-                            <div class="allocation-title">
-                                <h3>{item.label}</h3>
-                                <strong>{item.value}%</strong>
-                            </div>
-                            <div class="allocation-bar" aria-hidden="true"><span></span></div>
-                            <p>{item.description}</p>
-                        </article>
-                    ))
-                }
-            </div>
-        </div>
-    </div>
-</section>
 
 <section class="final-cta">
     <div class="page-shell final-cta-inner">

@@ -1,4 +1,5 @@
 import { ARTIFACT_POWER } from "@heroesofcrypto/common/src/artifacts/artifact_properties";
+
 import type { NoteLanguage } from "./format";
 import { spells as spellCatalog } from "../spells-data";
 import type { Unit } from "../units-data";
@@ -10,7 +11,16 @@ export const MAGIC_DAMAGE_SPELLS = new Set([
 ]);
 
 /** Numbered buffs a unit casts on its own side — what Tome of Amplification strengthens. */
-const TOME_BUFF_SPELLS = new Set(["Riot", "Mass Riot", "Spiritual Armor", "Magic Mirror", "Mass Magic Mirror", "Empower", "Fireforged Sword", "Helping Hand"]);
+const TOME_BUFF_SPELLS = new Set([
+    "Riot",
+    "Mass Riot",
+    "Spiritual Armor",
+    "Magic Mirror",
+    "Mass Magic Mirror",
+    "Empower",
+    "Fireforged Sword",
+    "Helping Hand",
+]);
 const NEVER_ANSWERED_ABILITIES = ["Shadow Touch", "Lightning Spin"];
 /** Stack-powered abilities that take none of Might's Abilities power (or a share too small to matter). */
 const NO_ABILITY_POWER_SYNERGY = new Set([
@@ -50,7 +60,8 @@ const ELEMENT_LINES: Record<string, { en: string; ru: string }> = {
     },
 };
 
-const stackPowerOf = (share: number): number => (share <= 0.2 ? 1 : share <= 0.4 ? 2 : share <= 0.6 ? 3 : share <= 0.8 ? 4 : 5);
+const stackPowerOf = (share: number): number =>
+    share <= 0.2 ? 1 : share <= 0.4 ? 2 : share <= 0.6 ? 3 : share <= 0.8 ? 4 : 5;
 /** The biggest drafted stack (1,000 experience rounded up to whole creatures) — the usual top of the board. */
 const LARGEST_DRAFTED_STACK = 1_136;
 
@@ -89,7 +100,11 @@ export function unitCounterLines(unit: Unit, language: NoteLanguage): string[] {
               : isRu
                 ? " В ближнем бою бьёт вполсилы."
                 : " In melee it deals half damage.";
-        const rangebane = mindImmune ? "" : isRu ? ", а Rangebane (Spit Ball у Beholder) — на круг" : ", and Rangebane (the Beholder's Spit Ball) for a lap";
+        const rangebane = mindImmune
+            ? ""
+            : isRu
+              ? ", а Rangebane (Spit Ball у Beholder) — на круг"
+              : ", and Rangebane (the Beholder's Spit Ball) for a lap";
         // Through Shot units never answer with a counter-shot, so there is nothing to stop.
         const shootsBack = !has("Through Shot");
         const denseFlesh = has("Endless Quiver")
@@ -174,13 +189,17 @@ export function unitCounterLines(unit: Unit, language: NoteLanguage): string[] {
     }
 
     if (spells.length) {
-        const catalog = spells.map((name) => spellCatalog.find((spell) => spell.name === name)).filter((spell) => spell !== undefined);
+        const catalog = spells
+            .map((name) => spellCatalog.find((spell) => spell.name === name))
+            .filter((spell) => spell !== undefined);
         const damage = spells.some((spell) => MAGIC_DAMAGE_SPELLS.has(spell));
         // Fire Wall burns a share of health: neither magic resistance nor a mirror touches it.
         const resistedDamage = spells.some((spell) => MAGIC_DAMAGE_SPELLS.has(spell) && spell !== "Fire Wall");
         const debuffs = catalog.some((spell) => spell.polarity === "debuff");
         const buffs = spells.filter((spell) => TOME_BUFF_SPELLS.has(spell));
-        const gated = catalog.filter((spell) => spell.minimalCasterStackPower > 1).map((spell) => `${spell.name} ${spell.minimalCasterStackPower}+`);
+        const gated = catalog
+            .filter((spell) => spell.minimalCasterStackPower > 1)
+            .map((spell) => `${spell.name} ${spell.minimalCasterStackPower}+`);
         const craft = spells.includes("Craft");
         const resistance = [
             ...(resistedDamage
@@ -199,28 +218,52 @@ export function unitCounterLines(unit: Unit, language: NoteLanguage): string[] {
                 : []),
         ];
         const parts = isRu
-            ? ["Break запрещает ему колдовать на 2 круга", `юниты с Enchanted Skin не подвержены его заклинаниям${craft ? " (кроме Craft)" : ""}`, ...resistance]
-            : ["Break stops it casting for 2 laps", `units with Enchanted Skin ignore its spells${craft ? " (Craft excepted)" : ""}`, ...resistance];
+            ? [
+                  "Break запрещает ему колдовать на 2 круга",
+                  `юниты с Enchanted Skin не подвержены его заклинаниям${craft ? " (кроме Craft)" : ""}`,
+                  ...resistance,
+              ]
+            : [
+                  "Break stops it casting for 2 laps",
+                  `units with Enchanted Skin ignore its spells${craft ? " (Craft excepted)" : ""}`,
+                  ...resistance,
+              ];
         const extras = isRu
             ? [
-                  ...(gated.length ? [` Часть заклинаний требует силы стека (${gated.join(", ")}): потери или разделение могут их закрыть.`] : []),
+                  ...(gated.length
+                      ? [
+                            ` Часть заклинаний требует силы стека (${gated.join(", ")}): потери или разделение могут их закрыть.`,
+                        ]
+                      : []),
                   ...(spells.includes("Fire Wall")
                       ? [
                             " Его Fire Wall сжигает 25% полного здоровья стека, который через неё проходит, своего или чужого, — броня этого не снижает, а сопротивление магии снижает; существа с Fire Element (Efreet, Black Dragon) проходят невредимыми, а Water Element (Mermaid) получает в полтора раза больше.",
                         ]
                       : []),
-                  ...(damage ? [" Магический урон повышают апгрейд «Магия» (Empower), Mage's Ring и Archmage's Ring."] : []),
-                  ...(buffs.length ? [` Tome of Amplification делает ${buffs.join(", ")} на ${ARTIFACT_POWER.TOME_BUFF_POWER_PERCENT}% сильнее.`] : []),
+                  ...(damage
+                      ? [" Магический урон повышают апгрейд «Магия» (Empower), Mage's Ring и Archmage's Ring."]
+                      : []),
+                  ...(buffs.length
+                      ? [
+                            ` Tome of Amplification делает ${buffs.join(", ")} на ${ARTIFACT_POWER.TOME_BUFF_POWER_PERCENT}% сильнее.`,
+                        ]
+                      : []),
               ]
             : [
-                  ...(gated.length ? [` Some spells need stack power (${gated.join(", ")}): losses or a split can lock them.`] : []),
+                  ...(gated.length
+                      ? [` Some spells need stack power (${gated.join(", ")}): losses or a split can lock them.`]
+                      : []),
                   ...(spells.includes("Fire Wall")
                       ? [
                             " Its Fire Wall burns 25% of a crossing stack's full health, friend or foe — armor doesn't reduce it, magic resistance does; Fire Elements (Efreet, Black Dragon) cross it unharmed, and a Water Element (Mermaid) takes half again as much.",
                         ]
                       : []),
                   ...(damage ? [" The Empower augment, Mage's Ring and Archmage's Ring raise its magic damage."] : []),
-                  ...(buffs.length ? [` Tome of Amplification makes its ${buffs.join(", ")} ${ARTIFACT_POWER.TOME_BUFF_POWER_PERCENT}% stronger.`] : []),
+                  ...(buffs.length
+                      ? [
+                            ` Tome of Amplification makes its ${buffs.join(", ")} ${ARTIFACT_POWER.TOME_BUFF_POWER_PERCENT}% stronger.`,
+                        ]
+                      : []),
               ];
         lines.push(`${isRu ? "Заклинатель" : "Caster"}: ${parts.join("; ")}.${extras.join("")}`);
     }
@@ -233,12 +276,26 @@ export function unitCounterLines(unit: Unit, language: NoteLanguage): string[] {
         const castNames = abilityCasts.map((spell) => spell.name);
         const castExtras = isRu
             ? [
-                  ...(castNames.includes("Castling") ? [" Castling меняет местами только с врагом точно такого же размера, а сопротивление магии цели может его сорвать."] : []),
-                  ...(castNames.includes("Battle Roar") ? [" Battle Roar даёт +1 к движению за каждого живого Behemoth в стеке, поэтому слабеет с потерями."] : []),
+                  ...(castNames.includes("Castling")
+                      ? [
+                            " Castling меняет местами только с врагом точно такого же размера, а сопротивление магии цели может его сорвать.",
+                        ]
+                      : []),
+                  ...(castNames.includes("Battle Roar")
+                      ? [
+                            " Battle Roar даёт +1 к движению за каждого живого Behemoth в стеке, поэтому слабеет с потерями.",
+                        ]
+                      : []),
               ]
             : [
-                  ...(castNames.includes("Castling") ? [" Castling swaps only with an enemy of exactly the same footprint, and the target's magic resistance can make it fail."] : []),
-                  ...(castNames.includes("Battle Roar") ? [" Battle Roar gives +1 movement per living Behemoth in the stack, so it shrinks with losses."] : []),
+                  ...(castNames.includes("Castling")
+                      ? [
+                            " Castling swaps only with an enemy of exactly the same footprint, and the target's magic resistance can make it fail.",
+                        ]
+                      : []),
+                  ...(castNames.includes("Battle Roar")
+                      ? [" Battle Roar gives +1 movement per living Behemoth in the stack, so it shrinks with losses."]
+                      : []),
               ];
         lines.push(
             isRu
@@ -247,7 +304,9 @@ export function unitCounterLines(unit: Unit, language: NoteLanguage): string[] {
         );
     }
 
-    const auraAbilities = unit.abilities.filter((ability) => ability.name.endsWith(" Aura") && ability.name !== "Disguise Aura");
+    const auraAbilities = unit.abilities.filter(
+        (ability) => ability.name.endsWith(" Aura") && ability.name !== "Disguise Aura",
+    );
     if (auraAbilities.length) {
         const auras = auraAbilities.map((ability) => ability.name);
         const flat = auraAbilities.filter((ability) => !ability.isStackPowered).map((ability) => ability.name);
@@ -279,11 +338,21 @@ export function unitCounterLines(unit: Unit, language: NoteLanguage): string[] {
     }
 
     const stackPowered = unit.abilities
-        .filter((ability) => ability.isStackPowered && !NOT_SCALED_BY_STACK_POWER.test(ability.name) && !COUNT_SCALED_ABILITIES.has(ability.name))
+        .filter(
+            (ability) =>
+                ability.isStackPowered &&
+                !NOT_SCALED_BY_STACK_POWER.test(ability.name) &&
+                !COUNT_SCALED_ABILITIES.has(ability.name),
+        )
         .map((ability) => ability.name);
     if (stackPowered.length) {
         const one = stackPowered.length === 1;
-        const full = stackPowered.filter((name) => !NO_ABILITY_POWER_SYNERGY.has(name) && !TENTH_ABILITY_POWER_SYNERGY.has(name) && !name.endsWith(" Blessing"));
+        const full = stackPowered.filter(
+            (name) =>
+                !NO_ABILITY_POWER_SYNERGY.has(name) &&
+                !TENTH_ABILITY_POWER_SYNERGY.has(name) &&
+                !name.endsWith(" Blessing"),
+        );
         const tenth = stackPowered.filter((name) => TENTH_ABILITY_POWER_SYNERGY.has(name));
         const count = unit.draftedAmount;
         const low = Math.floor(count / 2);
@@ -311,9 +380,19 @@ export function unitCounterLines(unit: Unit, language: NoteLanguage): string[] {
                   ? ` ${one ? "слабеет" : "слабеют"}, когда стек теряет существ (сила стека — доля от сильнейшего стека на поле).`
                   : ` ${one ? "weakens" : "weaken"} as the stack loses creatures (stack power is a share of the strongest stack on the board).`;
         const synergy = [
-            ...(full.length ? [isRu ? `${might ? "+5/+8/+12" : "+5/+8"} очков к ${full.join(", ")}` : `${might ? "+5/+8/+12" : "+5/+8"} points to ${full.join(", ")}`] : []),
+            ...(full.length
+                ? [
+                      isRu
+                          ? `${might ? "+5/+8/+12" : "+5/+8"} очков к ${full.join(", ")}`
+                          : `${might ? "+5/+8/+12" : "+5/+8"} points to ${full.join(", ")}`,
+                  ]
+                : []),
             ...(tenth.length
-                ? [isRu ? `десятую часть этого (${might ? "+0,5/+0,8/+1,2" : "+0,5/+0,8"}) к ${tenth.join(", ")}` : `a tenth of that (${might ? "+0.5/+0.8/+1.2" : "+0.5/+0.8"}) to ${tenth.join(", ")}`]
+                ? [
+                      isRu
+                          ? `десятую часть этого (${might ? "+0,5/+0,8/+1,2" : "+0,5/+0,8"}) к ${tenth.join(", ")}`
+                          : `a tenth of that (${might ? "+0.5/+0.8/+1.2" : "+0.5/+0.8"}) to ${tenth.join(", ")}`,
+                  ]
                 : []),
         ];
         const synergyText = synergy.length

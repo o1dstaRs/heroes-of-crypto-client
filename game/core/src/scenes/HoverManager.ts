@@ -2676,14 +2676,14 @@ export class HoverManager {
             this.hoverObstacleHighlight.visible = false;
         }
     }
-    // --- Armed-spell on-board preview: a colored beam caster→target plus a persistent icon+name
-    // badge floating above the caster, so the player can always see which spell is about to fire. ---
+    // Armed-spell preview: the aim follows the target while the nameplate stays at the caster's feet.
     private spellBeam?: Graphics;
     /** Plate, icon and text share one upright transform, independent of the board's aspect ratio. */
     private spellBadge?: Container;
     private spellBadgeRing?: Graphics;
     private spellBadgeIcon?: Sprite;
     private spellBadgeText?: Text;
+    private spellBadgePosition?: HoCMath.XY;
     /** Draw a directed spell aim as one animated atlas tile repeated along the whole ray. */
     private drawMagicAimDualHelix(casterPos: HoCMath.XY, targetPos: HoCMath.XY): boolean {
         if (!this.magicAimDualHelixFrames.length) return false;
@@ -2827,13 +2827,11 @@ export class HoverManager {
             this.hideMagicAimDualHelix();
         }
 
-        // 2. A nameplate on the upper body. The sprite origin is the feet, so a small lift
-        // used to drop the caption onto the hem, where it disappeared into the dress.
-        // World is y-up: +Y is toward the head.
+        // Keep the title clear of the figure and its overhead stack banner.
         const cell = this.context.sceneSettings.getGridSettings().getCellSize();
         const cx = opts.casterPos.x;
-        const cy = opts.casterPos.y + cell * 1.05;
-        const iconSize = 28;
+        const cy = opts.casterPos.y - cell * 0.38;
+        const iconSize = 32;
         if (!this.spellBadge || this.spellBadge.destroyed) {
             const badge = new Container({ eventMode: "none" });
             try {
@@ -2851,14 +2849,12 @@ export class HoverManager {
                 resolution: 2,
                 style: {
                     fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
-                    fontSize: 16,
-                    lineHeight: 18,
-                    fill: 0xfff8ec,
+                    fontSize: 22,
+                    lineHeight: 26,
+                    fill: 0xf5e5c5,
                     align: "left",
                     fontWeight: "bold",
-                    wordWrap: true,
-                    wordWrapWidth: 96,
-                    breakWords: true,
+                    wordWrap: false,
                 },
             });
             this.spellBadgeText.anchor.set(0, 0.5);
@@ -2871,22 +2867,43 @@ export class HoverManager {
         if (!this.isGraphicsUsable(ring) || !icon || !text) return;
 
         text.text = opts.label;
-        const plateW = 8 + iconSize + 8 + text.width + 8;
-        const plateH = Math.max(iconSize, text.height) + 12;
+        text.scale.set(1);
+        text.scale.set(Math.min(1, 240 / Math.max(1, text.width)));
+        const plateW = 12 + iconSize + 12 + text.width + 18;
+        const plateH = 48;
         const left = -plateW / 2;
-        text.position.set(left + 8 + iconSize + 8, 0);
+        text.position.set(left + 12 + iconSize + 12, -1);
 
         icon.texture = opts.iconTex;
         const fit = iconSize / Math.max(opts.iconTex.width || iconSize, opts.iconTex.height || iconSize);
         icon.scale.set(fit);
-        icon.position.set(left + 8 + iconSize / 2, 0);
+        icon.position.set(left + 12 + iconSize / 2, 0);
 
         ring.clear();
         badge.visible = true;
-        badge.position.set(cx, cy);
-        ring.roundRect(left, -plateH / 2, plateW, plateH, 7)
-            .fill({ color: 0x100e0c, alpha: 0.94 })
-            .stroke({ width: 1, color, alpha: 0.65 });
+        this.spellBadgePosition = { x: cx, y: cy };
+        ring.roundRect(left - 3, -plateH / 2 + 3, plateW + 6, plateH + 3, 12).fill({
+            color: 0x000000,
+            alpha: 0.2,
+        });
+        ring.roundRect(left, -plateH / 2, plateW, plateH, 9)
+            .fill({ color: 0x191812, alpha: 0.95 })
+            .stroke({ width: 1.25, color: 0xb29351, alpha: 0.9 });
+        ring.roundRect(left + 3, -plateH / 2 + 3, plateW - 6, plateH - 6, 6).stroke({
+            width: 0.75,
+            color: 0xe3c98b,
+            alpha: 0.16,
+        });
+        ring.moveTo(left + 12, -plateH / 2 + 1)
+            .lineTo(-left - 12, -plateH / 2 + 1)
+            .stroke({ width: 1, color: 0xf8df9f, alpha: 0.42 });
+        ring.roundRect(left + 9, -iconSize / 2 - 3, iconSize + 6, iconSize + 6, 5)
+            .fill({ color: 0x080c0c, alpha: 0.9 })
+            .stroke({ width: 1, color: 0xc8a869, alpha: 0.6 });
+        ring.moveTo(left + 12 + iconSize + 6, -11)
+            .lineTo(left + 12 + iconSize + 6, 11)
+            .stroke({ width: 1, color: 0xc8a869, alpha: 0.25 });
+        ring.circle(-left - 8, 0, 2).fill({ color, alpha: 0.85 });
         this.updateSpellCasterBadge();
     }
     /** Correct the entire row together so the icon stays left of the text on either board side. */
@@ -2895,7 +2912,20 @@ export class HoverManager {
         if (!badge || badge.destroyed || !badge.visible) return;
         const inherited = inheritedAbsoluteScaleOf(badge.parent);
         const compensation = legacyBoardChildScaleCompensation(inherited.x, inherited.y);
-        badge.scale.set(glyphScaleX(compensation.x), -compensation.y);
+        const readabilityScale = Math.max(1, 0.55 / (inherited.x * compensation.x || 1));
+        const scaleX = compensation.x * readabilityScale;
+        const scaleY = compensation.y * readabilityScale;
+        badge.scale.set(glyphScaleX(scaleX), -scaleY);
+        const anchor = this.spellBadgePosition;
+        if (!anchor) return;
+        const gs = this.context.sceneSettings.getGridSettings();
+        const bounds = badge.getLocalBounds();
+        const insetX = (bounds.width * scaleX) / 2 + 8;
+        const insetY = Math.max(Math.abs(bounds.minY), Math.abs(bounds.maxY)) * scaleY + 8;
+        badge.position.set(
+            Math.max(gs.getMinX() + insetX, Math.min(gs.getMaxX() - insetX, anchor.x)),
+            Math.max(gs.getMinY() + insetY, Math.min(gs.getMaxY() - insetY, anchor.y)),
+        );
     }
     public clearSpellPreview(): void {
         if (this.spellBeam) this.safeClearGraphics(this.spellBeam);

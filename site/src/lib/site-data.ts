@@ -9,7 +9,6 @@ export type Language = (typeof supportedLanguages)[number];
 export const pageSlugs = [
     "game",
     "knowledge-base",
-    "token",
     "patches",
     "faq",
     "contact-us",
@@ -341,7 +340,8 @@ export const content = {
             prizeUnderReview: "Prize places are under review until {date}",
             prizePoolNote: "Prize pool",
             prizePlacesTitle: "Prize places",
-            prizeClaimNote: "Prizes are held by the season's smart contract and claimed to the wallet on the winner's account.",
+            prizeClaimNote:
+                "Prizes are held by the season's smart contract and claimed to the wallet on the winner's account.",
             prizeRulesLink: "How season prizes work",
             podiumTitle: "Podium",
             tableTitle: "Final standings",
@@ -454,12 +454,6 @@ export const content = {
                 description:
                     "Explore source-audited Heroes of Crypto research on game AI, simulation, tactical decisions, tournament evidence, and engine performance.",
             },
-            token: {
-                title: "$HOCAI Token",
-                eyebrow: "Utility and governance",
-                description:
-                    "$HOCAI powers in-game transactions, rewards, future staking, and voting on the direction of Heroes of Crypto AI.",
-            },
             patches: {
                 title: "Patch Notes",
                 eyebrow: "Game updates",
@@ -492,11 +486,7 @@ export const content = {
             title: "Heroes of Crypto",
             tagline: "Click play. Build an army. Win the board.",
             pitch: "The world's first turn-based strategy built around single‑session matches, where anyone can earn on skill alone.",
-            claims: [
-                "Turn-based strategy",
-                "Free to play",
-                "Earn rewards with no deposit",
-            ],
+            claims: ["Turn-based strategy", "Free to play", "Earn rewards with no deposit"],
             body: "A tactical battle game where positioning, faction synergies, and 75+ spells and abilities decide every fight. No download, no wallet gate - click play and choose ranked or the sandbox beta.",
             primaryCta: "Play Now",
             secondaryCta: "Read rules",
@@ -1351,7 +1341,8 @@ export const content = {
             exitCauseAfk: "пропущенные ходы",
             exitPreview: "По новым правилам выхода: {label}",
             reputationBadgeHonorable: "Почётная репутация",
-            reputationBadgeTitle: "Почётная репутация: высший уровень, 80–100. Откройте, чтобы узнать, как работает репутация.",
+            reputationBadgeTitle:
+                "Почётная репутация: высший уровень, 80–100. Откройте, чтобы узнать, как работает репутация.",
             matchYouAbandoned: "Вы покинули матч",
             matchOpponentAbandoned: "Соперник покинул матч",
             publicDivisionUpper: "Верхний дивизион",
@@ -1391,7 +1382,8 @@ export const content = {
             prizeUnderReview: "Призовые места проверяются до {date}",
             prizePoolNote: "Призовой фонд",
             prizePlacesTitle: "Призовые места",
-            prizeClaimNote: "Призы хранит смарт-контракт сезона; победитель забирает приз на кошелёк, привязанный к аккаунту.",
+            prizeClaimNote:
+                "Призы хранит смарт-контракт сезона; победитель забирает приз на кошелёк, привязанный к аккаунту.",
             prizeRulesLink: "Как устроены призы сезона",
             podiumTitle: "Пьедестал",
             tableTitle: "Итоговая таблица",
@@ -1503,12 +1495,6 @@ export const content = {
                 eyebrow: "Исследования ИИ",
                 description:
                     "Исследования Heroes of Crypto об игровом ИИ, симуляциях, тактических решениях, турнирных данных и производительности движка.",
-            },
-            token: {
-                title: "Токен $HOCAI",
-                eyebrow: "Утилити и управление",
-                description:
-                    "$HOCAI используется для внутриигровых операций, наград, будущего стейкинга и голосования по развитию Heroes of Crypto AI.",
             },
             patches: {
                 title: "Патч-ноты",
@@ -1831,7 +1817,9 @@ export const content = {
                 },
                 {
                     title: "Обычные лобби",
-                    body: ["Выход из матча в обычном лобби никогда не стоит рейтинга, наказаний или времени в очереди."],
+                    body: [
+                        "Выход из матча в обычном лобби никогда не стоит рейтинга, наказаний или времени в очереди.",
+                    ],
                     items: [],
                 },
             ],
@@ -1842,7 +1830,8 @@ export const content = {
             description:
                 "Как работает репутация в рейтинговых матчах Heroes of Crypto: оценка от 0 до 100, её уровни, что её повышает и понижает, жалобы и что закрывает ограниченная репутация.",
             intro: "Репутация вознаграждает тех, кто доигрывает рейтинговые матчи. Всё, что её повышает или понижает, и всё, что закрывает низкая оценка, описано на этой странице.",
-            statusPending: "Ограничения уровня «Ограниченная» начнут действовать позже: до этого ваша оценка видна, но ничего не закрывается.",
+            statusPending:
+                "Ограничения уровня «Ограниченная» начнут действовать позже: до этого ваша оценка видна, но ничего не закрывается.",
             statusScheduled: "Ограничения уровня «Ограниченная» действуют с {date}.",
             statusEnforced: "Ограничения уровня «Ограниченная» действуют.",
             relatedTitle: "См. также",

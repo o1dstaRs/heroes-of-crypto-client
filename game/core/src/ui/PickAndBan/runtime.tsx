@@ -1,5 +1,6 @@
 import { useReportPremiumSearchMatch } from "../premium/PremiumSearchMatchContext";
 import { PremiumContext, PremiumDraftBanner, PremiumMark, usePremiumAdvisor } from "../premium/PremiumAdvisor";
+import { usePremiumCapability } from "../premium/usePremiumPreference";
 import {
     AllAbilities,
     Artifact,
@@ -2808,7 +2809,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
         mapType,
     } = usePickBanEvents();
     const { doctrine: sendDoctrine, pickPair, pick, artifact } = useAuthContext();
-    const premium = usePremiumAdvisor(gameId, phaseIdentity);
+    const premiumDraftEnabled = usePremiumCapability("draft");
+    const premium = usePremiumAdvisor(gameId, phaseIdentity, premiumDraftEnabled);
     useReportPremiumSearchMatch(
         gameId,
         "draft",

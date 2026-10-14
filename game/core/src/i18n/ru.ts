@@ -934,6 +934,24 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Your army colour": "Цвет вашей армии",
     "Player settings": "Настройки игрока",
     "Saved on this device only.": "Сохраняется только на этом устройстве.",
+    Premium: "Премиум",
+    "Included during calibration.": "Доступно во время калибровки.",
+    "Included during testing.": "Доступно во время тестирования.",
+    "Available with your Premium access.": "Доступно с вашим Премиумом.",
+    "Premium assistance": "Помощь Премиума",
+    "Turn all Premium capabilities on or off. Your individual choices are kept.":
+        "Включить или выключить все возможности Премиума. Настройки отдельных возможностей сохраняются.",
+    "Ask Premium": "Спросить Премиум",
+    "Show the chat button for questions about the game and your match.":
+        "Показывать кнопку чата для вопросов об игре и вашем матче.",
+    "Draft advice": "Советы при выборе армии",
+    "Highlight recommended picks and show notes on your army so far.":
+        "Подсвечивать рекомендуемый выбор и показывать замечания о вашей текущей армии.",
+    "Army setup guidance": "Помощь в подготовке армии",
+    "Recommend builds and arrange your army during placement.":
+        "Рекомендовать улучшения и расставлять армию на этапе размещения.",
+    "Suggested moves": "Рекомендуемые ходы",
+    "Draw recommended actions on the battlefield during combat.": "Показывать рекомендуемые действия на поле боя.",
     Appearance: "Внешний вид",
     Audio: "Звук",
     // Master sound plus independent music/effects balances.

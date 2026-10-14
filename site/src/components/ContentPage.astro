@@ -1,5 +1,5 @@
 ---
-import { content, contractAddress, links, type Language, type PageSlug } from "../lib/site-data";
+import { content, type Language, type PageSlug } from "../lib/site-data";
 import { localizedFactionName } from "../lib/localization";
 
 interface Props {
@@ -35,50 +35,6 @@ const formatRosterAbilities = (abilities: string) =>
         <p>{page.description}</p>
     </div>
 </section>
-
-{
-    slug === "token" && (
-        <section class="section">
-            <div class="page-shell token-page">
-                <div class="section-heading">
-                    <p class="eyebrow">{copy.token.eyebrow}</p>
-                    <h2>{copy.token.title}</h2>
-                    <p>{copy.token.body}</p>
-                </div>
-
-                <div class="contract-box wide">
-                    <span>{copy.token.contractLabel}</span>
-                    <code>{contractAddress}</code>
-                </div>
-
-                <div class="token-links">
-                    {copy.token.links.map((link) => (
-                        <a class="button secondary" href={link.href} target="_blank" rel="noopener">
-                            {link.label}
-                        </a>
-                    ))}
-                </div>
-
-                <div class="allocation-list large">
-                    {copy.token.allocation.map((item) => (
-                        <article class="allocation-item" style={`--bar-value: ${item.value}%`}>
-                            <div class="allocation-title">
-                                <h3>{item.label}</h3>
-                                <strong>{item.value}%</strong>
-                            </div>
-                            <div class="allocation-bar" aria-hidden="true"><span></span></div>
-                            <p>{item.description}</p>
-                        </article>
-                    ))}
-                </div>
-
-                <div class="utility-list">
-                    {copy.token.utility.map((item) => <p>{item}</p>)}
-                </div>
-            </div>
-        </section>
-    )
-}
 
 {
     slug === "patches" && (

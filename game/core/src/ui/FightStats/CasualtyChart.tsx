@@ -7,6 +7,8 @@ import React, { useId } from "react";
 
 import { IFightDeathEntry, IFightStatsSample } from "../../scenes/VisibleState";
 import { t, useTranslation } from "../../i18n/i18n";
+import { CreaturePortraitImage } from "../CreaturePortraitImage";
+import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
 import { creatureImgSrc, imgSrc } from "./creatureImage";
 import {
     ELIMINATION_MARKER_RADIUS,
@@ -133,7 +135,7 @@ export const CasualtyChart: React.FC<{
         markerRadius,
     ).map((marker) => ({
         ...marker,
-        imageSrc: creatureImgSrc(marker.elimination.smallTextureName),
+        creatureId: UNIT_NAME_TO_ID[marker.elimination.name.trim()],
         clipId: `${eliminationClipPrefix}-defeat-${marker.sampleIndex}-${marker.eliminationIndex}`,
     }));
 
@@ -278,16 +280,20 @@ export const CasualtyChart: React.FC<{
                                 stroke="rgba(0,0,0,.9)"
                                 strokeWidth={2.5}
                             />
-                            {marker.imageSrc && (
-                                <image
-                                    href={marker.imageSrc}
+                            {marker.creatureId !== undefined && (
+                                <foreignObject
                                     x={marker.centerX - markerInner}
                                     y={marker.centerY - markerInner}
                                     width={markerInner * 2}
                                     height={markerInner * 2}
-                                    preserveAspectRatio="xMidYMid slice"
                                     clipPath={`url(#${marker.clipId})`}
-                                />
+                                >
+                                    <CreaturePortraitImage
+                                        creatureId={marker.creatureId}
+                                        alt={marker.elimination.name}
+                                        sx={{ width: "100%", height: "100%", border: "none", borderRadius: "50%" }}
+                                    />
+                                </foreignObject>
                             )}
                             <circle
                                 cx={marker.centerX}

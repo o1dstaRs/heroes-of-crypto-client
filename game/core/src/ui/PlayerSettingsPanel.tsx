@@ -31,6 +31,8 @@ import { hocColors, hocPanelSx, hocSplitterSliderSx } from "./hocTheme";
 import { TEAM_COLOR_GREEN, TEAM_COLOR_RED } from "../scenes/teamColors";
 import { playCallSound } from "./audio/chipSounds";
 import { LanguageNavIcon } from "./svg/navigation";
+import { usePremiumAccess } from "./premium/PremiumAccess";
+import { PremiumSettings } from "./premium/PremiumSettings";
 import {
     DEFAULT_MASTER_VOLUME,
     getAudioLevels,
@@ -474,6 +476,7 @@ const AudioSettings: React.FC = () => {
 
 export const PlayerSettingsPanel: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {
     useTranslation();
+    const premiumAccess = usePremiumAccess();
 
     return (
         <Modal open={open} onClose={onClose}>
@@ -496,6 +499,7 @@ export const PlayerSettingsPanel: React.FC<{ open: boolean; onClose: () => void 
                 </Typography>
                 <Stack spacing={1.8} divider={<Divider sx={{ bgcolor: "rgba(220,177,88,0.18)" }} />} sx={{ pb: 0.5 }}>
                     <LanguageSetting />
+                    {premiumAccess?.active && <PremiumSettings reason={premiumAccess.reason} />}
                     <ArmyColorSetting />
                     <AudioSettings />
                     <BoardSideSetting />

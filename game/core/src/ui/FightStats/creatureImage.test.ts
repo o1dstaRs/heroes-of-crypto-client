@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
 import { images } from "../../generated/image_imports";
+import { resolveCreaturePortraitVisual } from "../creaturePortraitVisual";
+import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
 import { creatureImgSrc, imgSrc, resolveCreatureImgSrc } from "./creatureImage";
 
 const map = images as Record<string, string>;
@@ -54,4 +56,23 @@ describe("creature portrait lookup", () => {
         expect(resolveCreatureImgSrc("not_a_creature_512", artLookup)).toBeUndefined();
         expect(resolveCreatureImgSrc("nosize", artLookup)).toBeUndefined();
     });
+});
+
+test("saved fight thumbnails resolve to the same approved sources as the current cards", () => {
+    for (const name of ["Orc", "Wolf Rider", "Wandering Mage", "Tsar Cannon", "Peasant"]) {
+        const oldKey = `${name.toLowerCase().replace(/ /g, "_")}_128`;
+        const approved = resolveCreaturePortraitVisual(UNIT_NAME_TO_ID[name])?.source;
+        expect(approved).toBeDefined();
+        expect(creatureImgSrc(oldKey, name)).toBe(approved);
+        expect(creatureImgSrc(oldKey)).toBe(approved);
+    }
+});
+
+test("ignores a stale small thumbnail even if an old manifest still supplies it", () => {
+    expect(
+        resolveCreatureImgSrc(
+            "peasant_128",
+            (key) => ({ peasant_128: "obsolete.webp", peasant_512: "approved.webp" })[key],
+        ),
+    ).toBe("approved.webp");
 });

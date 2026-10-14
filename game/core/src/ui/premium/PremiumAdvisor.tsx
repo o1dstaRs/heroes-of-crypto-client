@@ -13,13 +13,14 @@ import {
 } from "../../api/premium_client";
 import { useAuthContext } from "../auth/context/auth_context";
 import { EvidenceText } from "./PremiumEvidenceText";
+import { usePremiumCapability } from "./usePremiumPreference";
 
 export { EvidenceText } from "./PremiumEvidenceText";
 
 export const PremiumContext = createContext<PremiumAdvice | undefined>(undefined);
 const orange = "#ea802c";
 
-export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number) => {
+export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number, enabled = true) => {
     const { authenticated, user } = useAuthContext();
     const accountKey = user?.email || user?.username;
     const [advice, setAdvice] = useState<PremiumAdvice>();
@@ -28,7 +29,7 @@ export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number)
     const requests = useRef(createPremiumRequestGate());
     const refresh = useCallback(
         async (signal?: AbortSignal) => {
-            if (!authenticated || gameId?.startsWith("preview")) return;
+            if (!enabled || !authenticated || gameId?.startsWith("preview")) return;
             const request = requests.current.begin("read");
             if (!request) return;
             try {
@@ -47,7 +48,7 @@ export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number)
                 requests.current.finish(request);
             }
         },
-        [authenticated, gameId],
+        [authenticated, gameId, enabled],
     );
     useLayoutEffect(() => {
         requests.current.reset();
@@ -55,8 +56,9 @@ export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number)
         setError("");
         setBusy(false);
         return () => requests.current.reset();
-    }, [authenticated, accountKey, gameId, refreshKey]);
+    }, [authenticated, accountKey, gameId, refreshKey, enabled]);
     useEffect(() => {
+        if (!enabled || !authenticated) return;
         const controller = new AbortController();
         void refresh(controller.signal);
         const timer = setInterval(
@@ -69,10 +71,10 @@ export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number)
             controller.abort();
             clearInterval(timer);
         };
-    }, [refresh, refreshKey, gameId, accountKey]);
+    }, [refresh, refreshKey, gameId, accountKey, enabled, authenticated]);
     const apply = useCallback(
         async (operation: PremiumOperation) => {
-            if (!gameId || !advice || busy) return;
+            if (!enabled || !gameId || !advice || busy) return;
             const request = requests.current.begin("apply");
             if (!request) return;
             let refreshAfterFailure = false;
@@ -98,9 +100,9 @@ export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number)
                 }
             }
         },
-        [gameId, advice, busy, refresh],
+        [gameId, advice, busy, refresh, enabled],
     );
-    return { advice, apply, busy, error };
+    return { advice: enabled ? advice : undefined, apply, busy, error };
 };
 
 const ChoiceExplanation: React.FC<{ choice: PremiumChoice }> = ({ choice }) => (
@@ -299,7 +301,8 @@ export const PremiumSetupPanel: React.FC<{
     setupView?: boolean;
     children?: React.ReactNode;
 }> = ({ gameId, stageKey, auto = false, setupView = false, children }) => {
-    const { advice, apply, busy, error } = usePremiumAdvisor(gameId, stageKey);
+    const enabled = usePremiumCapability("setup");
+    const { advice, apply, busy, error } = usePremiumAdvisor(gameId, stageKey, enabled);
     const autoAttempt = useRef<string | undefined>(undefined);
     useEffect(() => {
         if (!auto || advice?.stage !== "board" || !advice.canAutoArrange || advice.ready || busy) return;

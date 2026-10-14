@@ -1,14 +1,3 @@
-import { useSyncExternalStore } from "react";
+import { usePremiumCapability } from "./usePremiumPreference";
 
-import {
-    getPremiumSuggestedMoves,
-    getPremiumSuggestedMovesServerSnapshot,
-    subscribePremiumSuggestedMoves,
-} from "../../settings/premiumSuggestedMoves";
-
-export const usePremiumSuggestedMoves = (): boolean =>
-    useSyncExternalStore(
-        subscribePremiumSuggestedMoves,
-        getPremiumSuggestedMoves,
-        getPremiumSuggestedMovesServerSnapshot,
-    );
+export const usePremiumSuggestedMoves = (): boolean => usePremiumCapability("suggestedMoves");

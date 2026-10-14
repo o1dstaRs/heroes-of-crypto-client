@@ -360,8 +360,6 @@ describe("pixi texture bundle split", () => {
             "efreet_battlefield_side_right_final_v1",
             "thunderbird_battlefield_side_right_final_v1",
             "efreet_board_128",
-            "orc_128",
-            "angel_256",
             "phoenix_256",
             "arachna_queen_board_256",
         ]) {

@@ -3,7 +3,9 @@ import { describe, expect, test } from "bun:test";
 import {
     ACTIVE_TURN_GLOW_MARGIN_PX,
     QUEUE_CARD_GAP_PX,
+    queueScrollLeftForPointer,
     queueScrollState,
+    queueWheelDelta,
     upNextQueueCardWidth,
     upNextQueueFit,
     upNextQueueRowWidth,
@@ -83,5 +85,33 @@ describe("the drawn scrollbar's geometry", () => {
         expect(past?.offset).toBe(0.5);
         const negative = queueScrollState({ scrollWidth: 1000, clientWidth: 500, scrollLeft: -40 });
         expect(negative?.offset).toBe(0);
+    });
+});
+
+describe("scrolling the Alt queue", () => {
+    test("a vertical wheel moves the horizontal row, and a sideways swipe keeps its own axis", () => {
+        expect(queueWheelDelta(0, 120)).toBe(120);
+        expect(queueWheelDelta(0, -40)).toBe(-40);
+        expect(queueWheelDelta(-80, 10)).toBe(-80);
+        expect(queueWheelDelta(0, 0)).toBe(0);
+        expect(queueWheelDelta(Number.NaN, 12)).toBe(12);
+        expect(queueWheelDelta(Number.NaN, Number.NaN)).toBe(0);
+    });
+
+    test("a line or page wheel is converted into pixels", () => {
+        expect(queueWheelDelta(0, 3, 1)).toBe(72);
+        expect(queueWheelDelta(0, -1, 2, 500)).toBe(-500);
+        expect(queueWheelDelta(0, 1, 2, 0)).toBe(400);
+    });
+
+    test("dragging the thumb puts it under the pointer and stays inside the row", () => {
+        // Track 10..210, thumb half the track, 400px of hidden queue.
+        expect(queueScrollLeftForPointer(10, 10, 200, 0.5, 400)).toBe(0);
+        expect(queueScrollLeftForPointer(110, 10, 200, 0.5, 400)).toBe(200);
+        expect(queueScrollLeftForPointer(210, 10, 200, 0.5, 400)).toBe(400);
+        expect(queueScrollLeftForPointer(0, 10, 200, 0.5, 400)).toBe(0);
+        expect(queueScrollLeftForPointer(400, 10, 200, 0.5, 400)).toBe(400);
+        expect(queueScrollLeftForPointer(110, 10, 200, 0.5, 0)).toBe(0);
+        expect(queueScrollLeftForPointer(110, 10, 0, 0.5, 400)).toBe(0);
     });
 });
