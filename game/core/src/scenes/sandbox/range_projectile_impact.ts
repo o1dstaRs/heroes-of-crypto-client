@@ -123,7 +123,8 @@ export function resolveRangeProjectileImpactPlan(
     const recordedProjectileCount = (attackEvent.damage.chakramFlights ?? [])
         .filter((flight) => !flight.response && flight.attackerId === attackEvent.attackerId)
         .reduce((count, flight) => Math.max(count, flight.hitIndex + 1), 0);
-    const projectileCount = Math.max(doubleShot ? 2 : 1, recordedProjectileCount);
+    const projectileCount =
+        attackEvent.damage.rangedVolleyCount ?? Math.max(doubleShot ? 2 : 1, recordedProjectileCount);
     const obstacleImpacts: IRangeProjectileImpact[] = precedingObstaclePositions
         .slice(0, projectileCount)
         .map((position) => ({

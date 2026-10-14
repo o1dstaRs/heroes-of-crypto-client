@@ -5188,7 +5188,8 @@ export class Sandbox extends PixiScene {
                 lethal: deadIds.has(targetId) && ((before !== undefined && unitsDied >= before) || last),
                 response: false,
                 hitIndex: index,
-                missed: flight?.missed ?? splash?.missed ?? (index === 0 ? event.damage.missed : undefined),
+                missed:
+                    flight?.missed ?? splash?.missed ?? hit?.missed ?? (index === 0 ? event.damage.missed : undefined),
                 position: ranged ? (impact as IRangeProjectileImpact).targetPosition : undefined,
             };
         });
@@ -12187,7 +12188,7 @@ export class Sandbox extends PixiScene {
         // still matters only when wave 2 dealt no damage at all — it missed, or wave 1 already killed
         // everything — because then there is no splash evidence of it to read.
         const waves = splitAreaThrowWaves(splash);
-        const throwCount = Math.max(waves.length, isDoubleShot ? 2 : 1);
+        const throwCount = areaEvent?.damage.rangedVolleyCount ?? Math.max(waves.length, isDoubleShot ? 2 : 1);
         let shownAnyWave = this.showSplashDamage(waves[0] ?? [], muzzle);
         for (let throwIndex = 1; throwIndex < throwCount; throwIndex++) {
             await this.rangedProjectiles.fire({
@@ -15359,6 +15360,26 @@ export class Sandbox extends PixiScene {
                                     pierceMin += tailMin + fireforgedBurn(piercedUnit, tailMin);
                                     pierceMax += tailMax + fireforgedBurn(piercedUnit, tailMax);
                                 }
+                                if (
+                                    this.currentActiveUnit.getBonusRangedAttackChance() > 0 &&
+                                    this.currentActiveUnit.projectRangeShotsAfterVolleys(undefined, 1) > 0
+                                ) {
+                                    const band = projectAttackDamageBand({
+                                        ...projectionBase,
+                                        target: piercedUnit,
+                                        divisor: pierceDivisor,
+                                        abilityMultiplier: throughShotAbilityMultiplier(
+                                            this.currentActiveUnit,
+                                            abilityPower,
+                                        ),
+                                    });
+                                    const extra = applyThroughShotDamageTail({
+                                        attacker: this.currentActiveUnit,
+                                        victim: piercedUnit,
+                                        damage: withLuckyStrike(band.max),
+                                    });
+                                    pierceMax += extra + fireforgedBurn(piercedUnit, extra);
+                                }
                                 addProjectedDamage(piercedUnit, pierceMin, pierceMax);
                             }
                             if (!projectedByUnit.size) {
@@ -15471,7 +15492,16 @@ export class Sandbox extends PixiScene {
                                 const waves = (damage: number): number =>
                                     wave(damage, perUnitDamageFactor) +
                                     (aoeWaves === 2 ? wave(damage, (perUnitDamageFactor ?? 1) * secondWaveCharm) : 0);
-                                addProjectedDamage(victim, waves(band.min), waves(withLuckyStrike(band.max)));
+                                const bonusMax =
+                                    aoeAttacker.getBonusRangedAttackChance() > 0 &&
+                                    aoeAttacker.projectRangeShotsAfterVolleys(aoeVictims[0], aoeWaves) > 0
+                                        ? wave(withLuckyStrike(band.max), perUnitDamageFactor)
+                                        : 0;
+                                addProjectedDamage(
+                                    victim,
+                                    waves(band.min),
+                                    waves(withLuckyStrike(band.max)) + bonusMax,
+                                );
                             }
                         } else if (isRangeAttackContext) {
                             // Plain shot. projectDoubleShotAttack fires BOTH volleys the way the engine does —
@@ -15488,6 +15518,7 @@ export class Sandbox extends PixiScene {
                             const firstMax = withLuckyStrike(doubleShot.first.max);
                             const secondMin = doubleShot.second.min;
                             const secondMax = withLuckyStrike(doubleShot.second.max);
+                            const bonusMax = doubleShot.bonus ? withLuckyStrike(doubleShot.bonus.max) : 0;
                             // Each shot that lands burns on its own damage. A second shot is a second attack.
                             addProjectedDamage(
                                 damageUnit,
@@ -15498,7 +15529,9 @@ export class Sandbox extends PixiScene {
                                 firstMax +
                                     secondMax +
                                     fireforgedBurn(damageUnit, firstMax) +
-                                    fireforgedBurn(damageUnit, secondMax),
+                                    fireforgedBurn(damageUnit, secondMax) +
+                                    bonusMax +
+                                    fireforgedBurn(damageUnit, bonusMax),
                             );
                         } else if (!this.currentActiveUnit.hasAbilityActive("Lightning Spin")) {
                             // Melee swing. One projection for the whole engine pipeline: the band, the

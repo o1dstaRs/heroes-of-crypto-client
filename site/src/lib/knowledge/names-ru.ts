@@ -254,6 +254,7 @@ export const RU_NAMES: Readonly<Record<string, string>> = {
     "Rime Charm": "Талисман инея",
     "Lava Striders": "Лавоходы",
     "Archmage's Ring": "Кольцо архимага",
+    "Quiver of Echoes": "Колчан эха",
     "Aegis of the Arcane": "Эгида тайной магии",
 
     // ---- Doctrines (the game's own Russian names)

@@ -3466,6 +3466,17 @@ export class RankedPlayScene extends Sandbox {
                         lines.push(procFlag ? `${procFlag} ${procText}` : procText);
                     }
                 }
+                if (
+                    (event.type === "unit_attacked" ||
+                        event.type === "area_attacked" ||
+                        event.type === "obstacle_attacked") &&
+                    event.damage?.extraRangedAttackChance !== undefined
+                ) {
+                    const actor = unitNames.get(event.attackerId) ?? "Unit";
+                    const flag = this.logTeamFlag(event.attackerId);
+                    const proc = `${actor} fires an extra attack with Quiver of Echoes (${event.damage.extraRangedAttackChance}% chance)`;
+                    lines.push(flag ? `${flag} ${proc}` : proc);
+                }
                 const line = this.eventToSceneLogLine(event, unitNames);
                 if (line) {
                     const actorId = this.logActorUnitId(event);
