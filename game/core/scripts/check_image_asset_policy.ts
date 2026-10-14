@@ -9,6 +9,17 @@ if (import.meta.main) {
     const imageDirectory = resolveImagesLocation(process.env, process.argv[2]);
 
     const violations = await findGameImageAssetViolations(imageDirectory);
+    const requiredArtifactIcons = [
+        ...TIER1_ARTIFACT_LIST.map((artifact) => artifact.imageKey),
+        ...TIER2_ARTIFACT_LIST.map((artifact) => artifact.imageKey),
+        "gravechain_256",
+        "gravebound_256",
+    ];
+    for (const key of requiredArtifactIcons) {
+        if (!existsSync(join(imageDirectory, `${key}.webp`))) {
+            violations.push(`Missing required artifact image in HOC_IMAGES_LOC: ${key}.webp`);
+        }
+    }
     if (violations.length > 0) {
         console.error("Game image policy failed:");
         for (const violation of violations) {
@@ -19,3 +30,7 @@ if (import.meta.main) {
 
     console.log(`Game image policy passed: WebP-only static images at or below ${MAX_STATIC_GAME_IMAGE_BYTES} bytes.`);
 }
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+
+import { TIER1_ARTIFACT_LIST, TIER2_ARTIFACT_LIST } from "@heroesofcrypto/common/src/artifacts/artifact_properties";
