@@ -1,4 +1,6 @@
 ---
+import "../../../game/core/src/ui/PlayerPlaystyle/playerPlaystyle.css";
+import { renderPlayerPlaystyle } from "../../../game/core/src/ui/PlayerPlaystyle/renderPlayerPlaystyle";
 import { reputationRulesPath } from "../lib/reputation-rules";
 import { content, links, type Language } from "../lib/site-data";
 
@@ -155,6 +157,11 @@ const reputationHref = reputationRulesPath(lang);
                     <div class="combo-list" data-profile-combos></div>
                 </section>
 
+                <section class="profile-section">
+                    <h2>{isRu ? "Стиль игры" : "Playstyle"}</h2>
+                    <div data-profile-metrics set:html={renderPlayerPlaystyle(null, lang, "loading")}></div>
+                </section>
+
                 <section class="profile-section" data-profile-playstyle-section hidden>
                     <h2>{copy.publicPlaystyle}</h2>
                     <div class="playstyle" data-profile-playstyle></div>
@@ -179,6 +186,8 @@ const reputationHref = reputationRulesPath(lang);
 </section>
 
 <script>
+    import { renderPlayerPlaystyle } from "../../../game/core/src/ui/PlayerPlaystyle/renderPlayerPlaystyle";
+
     import {
         TIER1_ARTIFACTS,
         TIER2_ARTIFACTS,
@@ -1245,6 +1254,8 @@ const reputationHref = reputationRulesPath(lang);
 
     function renderPublicProfile(profile: PublicRankedProfile, summaryOnly = false): void {
         configurePublicMode();
+        const metricsEl = document.querySelector<HTMLElement>("[data-profile-metrics]");
+        if (metricsEl) metricsEl.innerHTML = renderPlayerPlaystyle(profile.playerMetrics, document.documentElement.lang);
         currentCurrency = profile.season?.currency ?? LEGACY_SEASON_CURRENCY;
         if (predictionsPanelEl) predictionsPanelEl.open = false;
         const placed = profile.state === "placed";
@@ -1844,11 +1855,19 @@ const reputationHref = reputationRulesPath(lang);
             // The stored auth user has no player id (its in_game_id is the match being played), so the
             // signed-in standing says whose profile this is.
             const ownId = await fetchOwnRankedPlayerId(getAuthToken());
-            if (!ownId) return;
+            if (!ownId) {
+                const metricsEl = document.querySelector<HTMLElement>("[data-profile-metrics]");
+                if (metricsEl) metricsEl.innerHTML = renderPlayerPlaystyle(null, document.documentElement.lang);
+                return;
+            }
             const standing = await fetchPublicRankedProfile(ownId);
             applyStandingToHeader(standing);
+            const metricsEl = document.querySelector<HTMLElement>("[data-profile-metrics]");
+            if (metricsEl) metricsEl.innerHTML = renderPlayerPlaystyle(standing.playerMetrics, document.documentElement.lang);
             paintReputationBadge(standing.reputationBadge);
         } catch {
+            const metricsEl = document.querySelector<HTMLElement>("[data-profile-metrics]");
+            if (metricsEl) metricsEl.innerHTML = renderPlayerPlaystyle(null, document.documentElement.lang, "error");
             /* no standing on show is strictly better than a wrong one */
         }
     }

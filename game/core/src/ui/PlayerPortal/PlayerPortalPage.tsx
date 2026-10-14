@@ -1,3 +1,4 @@
+import { PlayerPlaystyle } from "../PlayerPlaystyle/PlayerPlaystyle";
 import { Box, Button, Sheet, Skeleton, Stack, Typography } from "@mui/joy";
 import { Artifact } from "@heroesofcrypto/common";
 import React, { useMemo, useState } from "react";
@@ -733,6 +734,10 @@ export const PlayerPortalPage: React.FC = () => {
                         </Box>
 
                         <ReputationCard reloadKey={reloadKey} />
+
+                        <Section title={language === "ru" ? "Стиль игры" : "Playstyle"}>
+                            <PlayerPlaystyle playerId={standing?.playerId} reloadKey={reloadKey} language={language} />
+                        </Section>
 
                         {/* The public profile's strategy-card language, consolidated into one panel so
                             line-ups, winning trios and duos read as one family rather than three widgets. */}

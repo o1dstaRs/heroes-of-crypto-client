@@ -1,0 +1,198 @@
+.hoc-playstyle {
+    --ps-gold: #edbd69;
+    --ps-text: #efe4cc;
+    --ps-muted: #b5aa98;
+    color: var(--ps-text);
+    font-family: inherit;
+    min-width: 0;
+    font-size: 14px;
+}
+.hoc-playstyle h3 {
+    font-size: 14px;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    margin: 0;
+    color: var(--ps-text);
+}
+.hoc-playstyle__coverage {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    color: var(--ps-muted);
+    font-size: 12px;
+    margin-bottom: 24px;
+}
+.hoc-playstyle__layout {
+    display: grid;
+    grid-template-columns: minmax(280px, 1fr) minmax(260px, 1fr);
+    gap: 32px;
+    align-items: center;
+}
+.hoc-playstyle__radar {
+    width: 100%;
+    max-width: 400px;
+    display: block;
+    margin: 0 auto;
+    overflow: visible;
+}
+.hoc-playstyle__grid {
+    fill: none;
+    stroke: rgba(239, 228, 204, 0.13);
+    stroke-width: 1;
+}
+.hoc-playstyle__shape {
+    fill: rgba(237, 189, 105, 0.18);
+    stroke: var(--ps-gold);
+    stroke-width: 2;
+    stroke-linejoin: round;
+}
+.hoc-playstyle__dot {
+    fill: var(--ps-gold);
+}
+.hoc-playstyle__label {
+    fill: var(--ps-muted);
+    font: 12px sans-serif;
+}
+.hoc-playstyle__label-value {
+    fill: var(--ps-text);
+    font-size: 14px;
+    font-weight: 600;
+}
+.hoc-playstyle__scale {
+    fill: var(--ps-muted);
+    font: 10px sans-serif;
+}
+.hoc-playstyle__scores {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 28px;
+}
+.hoc-playstyle__scores span,
+.hoc-playstyle__combat span {
+    display: block;
+    font-size: 12px;
+    color: var(--ps-muted);
+}
+.hoc-playstyle__scores strong {
+    display: block;
+    color: var(--ps-gold);
+    font-size: 36px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.3;
+}
+.hoc-playstyle__scores small {
+    font-size: 14px;
+    color: var(--ps-muted);
+    margin-left: 3px;
+}
+.hoc-playstyle__scores p {
+    color: var(--ps-muted);
+    font-size: 12px;
+    line-height: 1.5;
+    margin: 4px 0;
+}
+.hoc-playstyle__habits {
+    display: grid;
+    gap: 13px;
+    margin-top: 18px;
+}
+.hoc-playstyle__habit {
+    display: grid;
+    grid-template-columns: 105px 1fr 38px;
+    align-items: center;
+    gap: 12px;
+    font-size: 12px;
+}
+.hoc-playstyle__habit b {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+}
+.hoc-playstyle__track {
+    height: 5px;
+    background: rgba(239, 228, 204, 0.08);
+    border-radius: 8px;
+    overflow: hidden;
+}
+.hoc-playstyle__track > div {
+    height: 100%;
+    background: var(--ps-gold);
+    border-radius: 8px;
+    transition: width 0.3s ease;
+}
+.hoc-playstyle__note {
+    font-size: 12px;
+    color: var(--ps-muted);
+    line-height: 1.6;
+    margin: 12px 0 0;
+}
+.hoc-playstyle__combat {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    padding-top: 22px;
+    margin-top: 24px;
+    border-top: 1px solid rgba(239, 228, 204, 0.12);
+}
+.hoc-playstyle__combat b {
+    display: block;
+    font-weight: 500;
+    font-size: 20px;
+    margin-top: 6px;
+    font-variant-numeric: tabular-nums;
+}
+.hoc-playstyle__combat small {
+    font-size: 12px;
+    color: var(--ps-muted);
+}
+.hoc-playstyle--empty {
+    padding: 32px 0;
+    line-height: 1.6;
+}
+.hoc-playstyle--empty p,
+.hoc-playstyle--empty small {
+    color: var(--ps-muted);
+}
+@media (max-width: 720px) {
+    .hoc-playstyle__layout {
+        grid-template-columns: 1fr;
+        gap: 24px;
+    }
+    .hoc-playstyle__radar {
+        max-width: 380px;
+    }
+    .hoc-playstyle__coverage {
+        margin-bottom: 20px;
+    }
+    .hoc-playstyle__combat {
+        gap: 12px;
+    }
+    .hoc-playstyle__combat b {
+        font-size: 17px;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .hoc-playstyle__track > div {
+        transition: none;
+    }
+}
+.hoc-playstyle {
+    container-type: inline-size;
+}
+.hoc-playstyle__layout {
+    grid-template-columns: 1fr;
+}
+.hoc-playstyle__label {
+    font-size: 14px;
+}
+.hoc-playstyle__label-value {
+    font-size: 15px;
+}
+@container (min-width:620px) {
+    .hoc-playstyle__layout {
+        grid-template-columns: minmax(280px, 1fr) minmax(260px, 1fr);
+    }
+}

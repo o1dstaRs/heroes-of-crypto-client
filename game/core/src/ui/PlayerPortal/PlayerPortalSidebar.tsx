@@ -1,3 +1,5 @@
+import { isMockPortalEnabled } from "./mockPortal";
+import { PlayerPlaystyle } from "../PlayerPlaystyle/PlayerPlaystyle";
 import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
 import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
 import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
@@ -612,6 +614,21 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
                                     label={t("Win rate")}
                                     value={`${overallPct}%`}
                                     color={winRateColor(overallPct)}
+                                />
+                            </Box>
+
+                            <Box
+                                component="details"
+                                sx={{ minWidth: 0, color: hocColors.parchment }}
+                                open={isMockPortalEnabled()}
+                            >
+                                <summary style={{ cursor: "pointer", padding: "8px 0" }}>
+                                    {language === "ru" ? "Стиль игры" : "Playstyle"}
+                                </summary>
+                                <PlayerPlaystyle
+                                    playerId={standing?.playerId}
+                                    reloadKey={reloadKey}
+                                    language={language}
                                 />
                             </Box>
 

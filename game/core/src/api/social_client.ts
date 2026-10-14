@@ -334,6 +334,7 @@ export const setRankedBan = (creatureId: number): Promise<RankedBanPreference> =
     post(endpoints.social.rankedBan, { creatureId });
 
 export interface RankedStanding {
+    playerId?: string;
     state: "calibration" | "placed" | "recalibration";
     mmr: number;
     peakMmr: number;
