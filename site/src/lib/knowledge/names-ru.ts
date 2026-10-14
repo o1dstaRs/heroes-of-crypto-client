@@ -214,6 +214,7 @@ export const RU_NAMES: Readonly<Record<string, string>> = {
     "Mass Magic Mirror": "Массовое магическое зеркало",
     Hamstrung: "Подрезанные сухожилия",
     Quagmire: "Трясина",
+    Gravebound: "Могильные узы",
     "Weakening Beam": "Ослабляющий луч",
     Weakness: "Слабость",
     Curse: "Проклятие",
@@ -255,6 +256,7 @@ export const RU_NAMES: Readonly<Record<string, string>> = {
     "Lava Striders": "Лавоходы",
     "Archmage's Ring": "Кольцо архимага",
     "Quiver of Echoes": "Колчан эха",
+    Gravechain: "Могильная цепь",
     "Aegis of the Arcane": "Эгида тайной магии",
 
     // ---- Doctrines (the game's own Russian names)

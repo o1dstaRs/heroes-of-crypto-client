@@ -171,6 +171,10 @@ const FITS: Record<string, Fit> = {
         language === "ru"
             ? `Для армий, которые бьют много разных стеков: уже замедленный стек нельзя заморозить снова или продлить, а каждый задетый ударом по площади или пробивающим выстрелом юнит бросает отдельно (${list(carriers(SPLASH_ABILITIES), language)}${skewerNote(language)}); −25% движения важнее всего против рывков ближнего боя.`
             : `Armies that hit many different stacks: a stack that is already slowed can't be chilled again or refreshed, and every unit struck by splash or a piercing shot rolls separately (${list(carriers(SPLASH_ABILITIES), language)}${skewerNote(language)}); −25% movement matters most against melee rushes.`,
+    Gravechain: (language) =>
+        language === "ru"
+            ? "Для армий, которые сдерживают сближенные вражеские стеки: цепь замедляет и соседей цели, даже если сама цель избежала эффекта. Особенно полезна против плотных групп бойцов ближнего боя. Ваши стрелки платят за неё меньшим перемещением, а бойцам ближнего боя сложнее сближаться: каждый ваш юнит теряет 1 шаг. Рассредоточенная расстановка уменьшает число связанных целей."
+            : "For armies controlling clustered enemy stacks: the chain can slow the target's neighbors even when the target avoids the effect. Particularly useful against tightly grouped melee units. Your shooters pay with less movement, while your melee units have a harder approach: every allied unit loses 1 step. Spreading out reduces the number of connected targets.",
     "Lava Striders": (language) =>
         language === "ru"
             ? "Только на FIRE PIT и только пока лава не высохнет (10-й круг, раньше после затянутых кругов): для армий, которые хотят рано занять центр, — перемещение через лаву ещё и даёт Made of Fire (+10% к характеристикам и способностям на 2 круга)."

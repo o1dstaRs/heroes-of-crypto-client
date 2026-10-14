@@ -164,6 +164,12 @@ const SPELL_NOTES: Readonly<Record<string, NoteSpec>> = {
         ru: ({ p, n }) =>
             `−${n(p)}% движения на 3 круга; процент урезает и бонусы к движению, например синергию Хаоса «Передвижение». Накладывается Spit Ball у Beholder (сопротивление магии может защитить) и артефактом Rime Charm (без броска сопротивления, но 100% сопротивления магии его блокирует). С Hamstrung замедления перемножаются: ×0,75 × 0,7 = ×0,525 движения (−47,5%).`,
     },
+    Gravebound: {
+        en: ({ p, n }) =>
+            `−${n(p)}% movement for 3 laps, applied by Gravechain. Each connected enemy gets an independent roll; failed rolls and immune enemies still relay the chain. 100% magic resistance blocks the debuff. It does not stack with or refresh itself; it multiplies with Quagmire and Hamstrung.`,
+        ru: ({ p, n }) =>
+            `−${n(p)}% перемещения на 3 круга от Могильной цепи. Каждый связанный враг бросает отдельно; неудачные броски и невосприимчивые враги продолжают цепь. 100% сопротивления магии блокирует дебафф. Он не складывается и не обновляет сам себя, но перемножается с Трясиной и Подрезанными сухожилиями.`,
+    },
     "Weakening Beam": {
         en: ({ p, n }) => `−${n(p)}% base armor for 3 laps; applied by the Beholder's Spit Ball.`,
         ru: ({ p, n }) => `−${n(p)}% базовой брони на 3 круга; накладывается Spit Ball у Beholder.`,

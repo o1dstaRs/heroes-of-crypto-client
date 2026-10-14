@@ -577,6 +577,8 @@ const LAZY_SPELL_ASSETS = new Set([
     "archmages_ring_256",
     "aegis_of_the_arcane_256",
     "quiver_of_echoes_256",
+    "gravechain_256",
+    "gravebound_256",
     "heal_256",
     "spiritual_armor_256",
     "blessing_256",

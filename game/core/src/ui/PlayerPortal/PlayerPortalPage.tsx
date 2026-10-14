@@ -1,3 +1,4 @@
+import { renderProfileStat } from "./renderProfileStat";
 import "./profilePresentation.css";
 import { PlayerPlaystyle } from "../PlayerPlaystyle/PlayerPlaystyle";
 import { Box, Button, Sheet, Skeleton, Stack, Typography } from "@mui/joy";
@@ -78,36 +79,12 @@ const Section: React.FC<{ title: string; subtitle?: string; featured?: boolean; 
 );
 
 const StatCard: React.FC<{ label: string; value: string | number; color?: string }> = ({ label, value, color }) => (
-    <Sheet
-        variant="soft"
-        sx={{
-            bgcolor: "transparent",
-            border: "none",
-            borderRadius: 0,
-            p: 0,
-            display: "flex",
-            alignItems: "baseline",
-            gap: 0.5,
-            minWidth: 0,
-            textAlign: "left",
-        }}
-    >
-        <Typography
-            level="h2"
-            sx={{
-                color: color ?? hocColors.parchment,
-                fontSize: 18,
-                fontWeight: 400,
-                fontVariantNumeric: "tabular-nums",
-                lineHeight: 1.3,
-            }}
-        >
-            {value}
-        </Typography>
-        <Typography level="body-xs" textColor={hocColors.muted}>
-            {label}
-        </Typography>
-    </Sheet>
+    <Box
+        component="dl"
+        className="hoc-profile-stats"
+        sx={{ m: 0 }}
+        dangerouslySetInnerHTML={{ __html: renderProfileStat(label, value, color) }}
+    />
 );
 
 type RecentFormMatch = { draw?: boolean; won?: boolean };

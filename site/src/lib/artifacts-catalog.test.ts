@@ -109,7 +109,7 @@ describe("artifact codex", () => {
     test("tags exactly the artifacts whose effect declares a downside", () => {
         const cursed = artifacts.filter((artifact) => artifact.cursed).map((artifact) => artifact.slug);
 
-        expect(cursed).toEqual(["cursed_ward", "pendant_of_vitality", "berserkers_bond"]);
+        expect(cursed).toEqual(["cursed_ward", "pendant_of_vitality", "berserkers_bond", "gravechain"]);
     });
 
     test("has no duplicate entries", () => {

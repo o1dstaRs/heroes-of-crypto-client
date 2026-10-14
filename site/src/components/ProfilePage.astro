@@ -46,7 +46,7 @@ const reputationHref = reputationRulesPath(lang);
                     <span class="profile-presence" data-profile-presence hidden></span>
                     <span class="profile-lastseen" data-profile-lastseen></span>
                 </div>
-                <dl class="stat-grid profile-header-stats" data-profile-stats></dl>
+                <dl class="stat-grid profile-header-stats hoc-profile-stats" data-profile-stats></dl>
             </div>
             <a class="profile-arena-link" href={arenaHref}>← {arenaLabel}</a>
         </header>
@@ -79,15 +79,9 @@ const reputationHref = reputationRulesPath(lang);
                     <h2>{isRu ? "Стиль игры" : "Playstyle"}</h2>
                     <div data-profile-metrics set:html={renderPlayerPlaystyle(null, lang, "loading")}></div>
                 </section>
-                <section class="profile-section" data-profile-public-standing hidden>
-                    <h2>{copy.sectionRankedStanding}</h2>
-                    <div class="ranked-standing" data-profile-standing></div>
-                </section>
 
-                <section class="profile-section profile-section--seasons" data-profile-seasons-section hidden>
-                    <h2>{copy.publicSeasonsTitle}</h2>
-                    <div class="season-history" data-profile-seasons></div>
-                </section>
+
+
 
                 <section class="profile-section profile-section--predictions" data-profile-predictions-section hidden>
                     <details class="prediction-panel" data-profile-predictions-panel>
@@ -165,6 +159,16 @@ const reputationHref = reputationRulesPath(lang);
                     <div class="playstyle" data-profile-playstyle></div>
                 </section>
 
+                <section class="profile-section" data-profile-public-standing hidden>
+                    <h2>{copy.sectionRankedStanding}</h2>
+                    <div class="ranked-standing" data-profile-standing></div>
+                </section>
+
+                <section class="profile-section profile-section--seasons" data-profile-seasons-section hidden>
+                    <h2>{copy.publicSeasonsTitle}</h2>
+                    <div class="season-history" data-profile-seasons></div>
+                </section>
+
                 <section class="profile-section">
                     <h2>{copy.sectionMatches}</h2>
                     <div class="match-list" id="profile-match-list" data-profile-matches></div>
@@ -197,6 +201,7 @@ const reputationHref = reputationRulesPath(lang);
 
     import { getAuthToken, isLoggedIn, onAuthStateChange } from "../lib/auth-state";
     import { artifacts } from "../lib/artifacts-data";
+    import { renderProfileStat } from "../../../game/core/src/ui/PlayerPortal/renderProfileStat";
     import { ruName } from "../lib/knowledge/names-ru";
     import { fetchPlayerPortal, PortalAuthError } from "../lib/portal-client";
     import { gameClientRoot } from "../lib/ranked-arena-client";
@@ -437,8 +442,7 @@ const reputationHref = reputationRulesPath(lang);
     }
 
     function statCard(label: string, value: string, accent?: string): string {
-        const style = accent ? ` style="color:${accent}"` : "";
-        return `<div class="stat-card"><dt>${escapeHtml(label)}</dt><dd${style}>${escapeHtml(value)}</dd></div>`;
+        return renderProfileStat(label, value, accent);
     }
 
     // Public playtime: "42m" under an hour, "7.5h" under ten, whole hours beyond.
@@ -4067,4 +4071,13 @@ const reputationHref = reputationRulesPath(lang);
     .profile-page.hoc-profile-surface { background: radial-gradient(ellipse at 20% 0%, rgba(173,130,64,0.09), transparent 55%), #0f0e0d; }
     .profile-head.hoc-profile-header { border: none; border-radius: 0; background: transparent; box-shadow: none; }
     .profile-section.hoc-profile-feature { border-radius: var(--hoc-profile-feature-radius); background: var(--hoc-profile-feature-background); }
+
+    .playstyle { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; }
+    .playstyle :global(.strategy-card),
+    .playstyle :global(.strategy-card[data-trend="strong"]),
+    .playstyle :global(.strategy-card[data-trend="weak"]) {
+        border: none; border-bottom: 1px solid rgba(239,228,204,0.08);
+        border-radius: 0; background: transparent; padding: 10px 0;
+    }
+    @media (max-width: 760px) { .playstyle { grid-template-columns: 1fr; } }
 </style>

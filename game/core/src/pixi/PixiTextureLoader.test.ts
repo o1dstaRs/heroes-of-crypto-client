@@ -441,12 +441,19 @@ describe("pixi texture bundle split", () => {
     test("loads spell and status cards only when the current scene requests them", () => {
         const { core, lazySpellAssets } = getSplitBundles({ animationsEnabled: false });
 
-        for (const key of ["morale_256", "wild_regeneration_256", "fire_wall_256", "meteorite_chaos_256_v1"]) {
+        for (const key of [
+            "morale_256",
+            "wild_regeneration_256",
+            "fire_wall_256",
+            "meteorite_chaos_256_v1",
+            "gravechain_256",
+            "gravebound_256",
+        ]) {
             expect(isLazySpellAssetKey(key)).toBe(true);
             expect(lazySpellAssets[key]).toBeDefined();
             expect(core[key]).toBeUndefined();
         }
-        expect(Object.keys(lazySpellAssets)).toHaveLength(60);
+        expect(Object.keys(lazySpellAssets)).toHaveLength(62);
     });
 
     test("loads sandbox roster art only while the pre-fight overlay exists", () => {

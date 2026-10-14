@@ -154,6 +154,12 @@ const ARTIFACT_NOTES: Readonly<Record<string, NoteSpec>> = {
         ru: () =>
             "Каждое действие дальней атаки может вызвать один дополнительный залп полной силы вместе с его уроном по площади или по линии. Double Shot и Double Throw сохраняются: Gargantuan может бросить трижды. Эхо расходует обычные боеприпасы, не повторяет само себя и не даёт ещё одной ответной атаки. Карточка артефакта юнита в бою показывает фактический шанс.",
     },
+    Gravechain: {
+        en: () =>
+            "Cursed: every unit in the owner's army loses 1 movement step, including shooters, flyers and magic-immune units. Every landed melee or ranged strike, including retaliation, checks its target and enemies connected by touching cells, including diagonals, up to three links away. Each enemy rolls once per strike at the attacker's current luck-adjusted chance; failed rolls, an existing Gravebound and 100% magic resistance do not stop propagation. Gravebound is a Death debuff: −25% movement for 3 laps. It cannot stack with or refresh itself, but multiplies with Quagmire and Hamstrung. Partial magic and status resistance do not change the artifact's chance. The unit's artifact card shows the actual chance; its separate curse marker shows the movement cost.",
+        ru: () =>
+            "Проклятие: каждый юнит армии владельца теряет 1 шаг перемещения, включая стрелков, летающих и невосприимчивых к магии. Каждый попавший удар или выстрел, включая ответную атаку, проверяет цель и врагов, связанных касающимися клетками, в том числе по диагонали, до трёх звеньев. Каждый враг бросает один раз за удар с учётом текущей удачи атакующего; неудачный бросок, уже действующие Могильные узы и 100% сопротивления магии не прерывают цепь. Могильные узы — дебафф Смерти: −25% перемещения на 3 круга. Он не складывается и не обновляет сам себя, но перемножается с Трясиной и Подрезанными сухожилиями. Частичное сопротивление магии и статусам не снижает шанс артефакта. Карточка артефакта юнита показывает фактический шанс, а отдельный маркер проклятия — цену в перемещении.",
+    },
     "Aegis of the Arcane": {
         en: ({ n }) => {
             const points = A.AEGIS_OF_THE_ARCANE_MAGIC_DEFENSE;

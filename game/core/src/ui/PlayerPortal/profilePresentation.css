@@ -21,3 +21,23 @@
     background: var(--hoc-profile-feature-background);
     box-shadow: none;
 }
+
+.hoc-profile-stats .hoc-profile-stat {
+    display: flex;
+    flex-direction: row-reverse;
+    align-items: baseline;
+    gap: 5px;
+    font-variant-numeric: tabular-nums;
+}
+
+.hoc-profile-stats .hoc-profile-stat dt {
+    color: rgba(239, 228, 204, 0.58);
+    font-size: 11px;
+}
+
+.hoc-profile-stats .hoc-profile-stat dd {
+    margin: 0;
+    color: #efe4cc;
+    font-size: 18px;
+    font-weight: 400;
+}

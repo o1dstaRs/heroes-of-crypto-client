@@ -29,6 +29,7 @@ export interface Artifact {
 
 const icon = (tier: ArtifactTier, slug: string) => {
     const url = `/assets/images/artifacts/artifact_t${tier}_${slug}_256.webp`;
+    if (tier === 2 && slug === "quiver_of_echoes") return `${url}?v=d2ca35b7`;
     return tier === 1 && slug === "barrel_barricade" ? `${url}?v=1d307004` : url;
 };
 
@@ -79,6 +80,8 @@ const ARTIFACT_DESCRIPTIONS_RU: Record<string, string> = {
     lava_striders:
         "Все юниты армии могут ходить по лаве и стоять в ней; на центральной лаве они получают Made of Fire (+10% ко всем характеристикам и способностям).",
     quiver_of_echoes: "Стрелки с вероятностью {}% совершают одну дополнительную атаку.",
+    gravechain:
+        "Проклятие: атаки с вероятностью {}% отдельно для каждого врага накладывают Могильные узы на цель и связанных с ней врагов на расстоянии до <> звеньев: −25% перемещения на [] кругов. Неудачный бросок не прерывает цепь. Каждый юнит вашей армии теряет {} шаг перемещения.",
     aegis_of_the_arcane:
         "Даёт всей армии отдельный бросок магической защиты на {}%, который складывается с собственной защитой, а не прибавляется к ней.",
     archmages_ring: "Увеличивает весь магический урон армии на {}%.",
