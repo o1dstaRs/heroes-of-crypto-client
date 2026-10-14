@@ -28,3 +28,7 @@ codex exec --skip-git-repo-check -s workspace-write "<prompt>" -i "<unit file>" 
 1. Open the PNG and look at it: the unit is intact, the text is spelled exactly right, nothing is cropped, and the text is readable at phone size.
 2. The image matches that day's post, and the calendar's ATTACH line stays the default unless the human picks the generated one.
 3. Log it in `marketing/x/generated/INDEX.md` (date, file, source unit, headline, status: draft/approved/posted). Tag the post's format in `engagement/posts.csv` as `gen-card` so it can be compared with plain stills.
+
+## When and what (added 2026-10-14)
+- Not every post needs an image. Use one only when it shows something the text can't: a board situation, a matchup, or a then-and-now. Text-only is fine for questions, opinions, and replies.
+- When there is an image, it carries the post's own idea. The headline is the post's key line or its core claim (shortened if needed), and the scene shows that idea, not a generic slogan.
