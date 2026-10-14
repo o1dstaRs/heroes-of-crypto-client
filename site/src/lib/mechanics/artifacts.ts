@@ -148,6 +148,24 @@ const ARTIFACT_NOTES: Readonly<Record<string, NoteSpec>> = {
         ru: ({ n }) =>
             `+${n(A.ARCHMAGES_RING_MAGIC_PERCENT)}% к магическому урону армии — заклинания, Fire Wall, Chain Lightning, Fire Breath и Fire Shield — в одной сумме с апгрейдом «Магия», свитком Empower и Sylvan Focus (с «Магией» 3 уровня это +44%).`,
     },
+    "Aegis of the Arcane": {
+        en: ({ n }) => {
+            const points = A.AEGIS_OF_THE_ARCANE_MAGIC_DEFENSE;
+            const own = 15;
+            const shield = 50;
+            const raised = own + points;
+            const combined = (1 - (1 - raised / 100) * (1 - shield / 100)) * 100;
+            return `Every unit gains +${n(points)} percentage points of magic defense, never above 100. The points are added to the unit's own defense before Magic Shield, Wardguard, Warding Mane Blessing and Arcane Ward Blessing, which still roll separately on top: a unit with ${n(own)} becomes ${n(raised)}, and with a ${n(shield)}% Magic Shield that is ${n(combined)}%, not a sum. It cuts magic damage and the chance a debuff spell lands. It does not stop Stun, Freeze, Paralysis, Blindness or the gazes. Enchanted Skin stays at 100% and ignores the bonus until Break; while Broken, that unit keeps its own defense plus these points.`;
+        },
+        ru: ({ n }) => {
+            const points = A.AEGIS_OF_THE_ARCANE_MAGIC_DEFENSE;
+            const own = 15;
+            const shield = 50;
+            const raised = own + points;
+            const combined = (1 - (1 - raised / 100) * (1 - shield / 100)) * 100;
+            return `Каждый юнит получает +${n(points)} процентных пунктов магической защиты, не выше 100. Пункты прибавляются к его собственной защите до того, как Magic Shield, Wardguard, Warding Mane Blessing и Arcane Ward Blessing бросаются отдельно поверх: юнит с ${n(own)} становится ${n(raised)}, а с Magic Shield на ${n(shield)}% это ${n(combined)}%, а не сумма. Снижает магический урон и шанс, что сработает дебафф заклинания. Не защищает от Stun, Freeze, Paralysis, Blindness и взглядов. Enchanted Skin остаётся на 100% и игнорирует бонус, пока её не снимет Break; под Break юнит сохраняет свою защиту плюс эти пункты.`;
+        },
+    },
 };
 
 export const artifactNote = (name: string, language: NoteLanguage): string | undefined =>

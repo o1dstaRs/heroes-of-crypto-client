@@ -189,6 +189,10 @@ const FITS: Record<string, Fit> = {
             : `+${n(A.TITAN_PLATE_PERCENT)}% of base armor for every unit — counted after the Armor augment, Pegasus Might and Wind Flow, and added as its own bonus, so percentage armor buffs don't multiply it: about ${n(100 - 10000 / (100 + A.TITAN_PLATE_PERCENT))}% less physical damage for everyone, whatever their armor. It also softens Fire Breath, but does nothing against cast spells or Fire Shield.`,
     "Mage's Ring": (language) => magicDealersFit(language),
     "Archmage's Ring": (language) => magicDealersFit(language),
+    "Aegis of the Arcane": (language, n) =>
+        language === "ru"
+            ? `Для армий, по которым бьют заклинаниями и магическим уроном, особенно если своя магическая защита низкая: +${n(A.AEGIS_OF_THE_ARCANE_MAGIC_DEFENSE)} пунктов — вся защита при 0 и всё ещё большая доля при 5–15. С Magic Shield, Wardguard, Warding Mane Blessing и Arcane Ward Blessing это отдельный бросок, а не сумма. Бесполезен для Black Dragon, пока держится Enchanted Skin (уже 100%); после Break дракон эти пункты сохраняет. Против Stun, Freeze, Paralysis, Blindness и взглядов не помогает.`
+            : `Armies that will take spells and magic damage, especially units with little magic defense of their own: +${n(A.AEGIS_OF_THE_ARCANE_MAGIC_DEFENSE)} points is the whole defense at 0, and still a large share at 5–15. Magic Shield, Wardguard, Warding Mane Blessing and Arcane Ward Blessing roll separately on top instead of adding. Nothing for a Black Dragon while Enchanted Skin holds (already 100%); after Break the dragon keeps the points. It does nothing against Stun, Freeze, Paralysis, Blindness or the gazes.`,
 };
 
 function magicDealersFit(language: NoteLanguage): string {
