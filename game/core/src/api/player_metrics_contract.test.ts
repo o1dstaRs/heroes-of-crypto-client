@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
-import { normalizePlayerMetrics } from "./player_metrics_contract";
+import { normalizePlayerMetrics, type PlayerMetricsSummary } from "./player_metrics_contract";
 
-const empty = () => ({
+const empty = (): PlayerMetricsSummary => ({
     version: 1,
     window: 20,
     mode: "ranked",
