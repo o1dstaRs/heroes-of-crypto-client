@@ -37,28 +37,28 @@ export function buildMockPlayerProfile(): PublicRankedProfile {
             mmrDelta: result === "win" ? 24 : result === "loss" ? -21 : 0,
             goldEarned: result === "win" ? 35 : 10,
             opponent: {
-                playerId: `preview-opponent-${index}`,
+                playerId: `22222222-2222-4222-8222-${String(index + 1).padStart(12, "0")}`,
                 username: ["IronWarden", "FrostQueen", "ShadowBlade", "EmberWolf"][index % 4],
             },
         })),
         playstyle: {
             ...record,
-            topCreatures: ["Blacksmith", "Squire", "Peasant"].map((name, index) => ({
+            topCreatures: ["Orc", "Scavenger", "Troglodyte"].map((name, index) => ({
                 ...record,
                 creatureId: index + 1,
                 name,
                 faction: "Life",
                 pickRatePct: 85 - index * 15,
             })),
-            topPairs: [{ ...record, creatureIds: [1, 2], names: ["Blacksmith", "Squire"] }],
-            topTriples: [{ ...record, creatureIds: [1, 2, 3], names: ["Blacksmith", "Squire", "Peasant"] }],
+            topPairs: [{ ...record, creatureIds: [1, 2], names: ["Orc", "Scavenger"] }],
+            topTriples: [{ ...record, creatureIds: [1, 2, 3], names: ["Orc", "Scavenger", "Troglodyte"] }],
             artifactsTier1: [
                 { ...record, artifactId: TIER1_ARTIFACT_LIST[0].id, tier: 1, name: TIER1_ARTIFACT_LIST[0].name },
             ],
             artifactsTier2: [
                 { ...record, artifactId: TIER2_ARTIFACT_LIST[0].id, tier: 2, name: TIER2_ARTIFACT_LIST[0].name },
             ],
-            augments: [{ ...record, kind: 1, level: 2, name: "Might" }],
+            augments: [{ ...record, kind: 1, level: 2, name: "Placement" }],
             doctrines: [{ ...record, doctrineId: 1, name: "Battle Trance" }],
         },
         seasonHistory: [

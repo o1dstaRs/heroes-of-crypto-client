@@ -1,4 +1,6 @@
 ---
+import "../../../game/core/src/ui/premium/premiumBrand.css";
+
 interface Props {
     size?: string;
     class?: string;
@@ -13,7 +15,7 @@ const { size = "1.25em", class: className } = Astro.props;
         width: var(--premium-icon-size, 1.25em);
         height: var(--premium-icon-size, 1.25em);
         vertical-align: -0.2em;
-        background-color: currentColor;
+        background-color: var(--hoc-premium-accent);
         -webkit-mask: url("/assets/icons/premium.svg") center / contain no-repeat;
         mask: url("/assets/icons/premium.svg") center / contain no-repeat;
     }
