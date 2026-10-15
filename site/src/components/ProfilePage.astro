@@ -199,7 +199,7 @@ const reputationHref = reputationRulesPath(lang);
     import { getDoctrineProperties, type Doctrine } from "@heroesofcrypto/common/src/doctrines/doctrine_properties";
 
     import { getAuthToken, isLoggedIn, onAuthStateChange } from "../lib/auth-state";
-    import { artifacts } from "../lib/artifacts-data";
+    import { artifactIconUrl, artifacts } from "../lib/artifacts-data";
     import { renderProfileStat } from "../../../game/core/src/ui/PlayerPortal/renderProfileStat";
     import { ruName } from "../lib/knowledge/names-ru";
     import { fetchPlayerPortal, PortalAuthError } from "../lib/portal-client";
@@ -667,7 +667,7 @@ const reputationHref = reputationRulesPath(lang);
     function artifactChoice(tier: 1 | 2, artifactId: number): string {
         const artifact = artifactId > 0 ? artifactProperties(tier, artifactId) : undefined;
         if (!artifact) return "";
-        const image = `/assets/images/artifacts/artifact_t${tier}_${artifact.slug}_256.webp`;
+        const image = artifactIconUrl(tier, artifact.slug);
         return `<span class="match-choice" title="${escapeHtml(artifact.description)}"><img src="${escapeHtml(image)}" alt="" width="30" height="30" loading="lazy" /><span>${escapeHtml(profileName(artifact.name))}</span><b>T${tier}</b></span>`;
     }
 

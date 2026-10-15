@@ -28,10 +28,10 @@ export interface Artifact {
     cursed?: boolean;
 }
 
-const icon = (tier: ArtifactTier, slug: string) => {
+export const artifactIconUrl = (tier: ArtifactTier, slug: string): string => {
     const url = `/assets/images/artifacts/artifact_t${tier}_${slug}_256.webp`;
-    if (tier === 2 && slug === "quiver_of_echoes") return `${url}?v=d2ca35b7`;
-    if (tier === 2 && slug === "gravechain") return `${url}?v=7784acf4`;
+    if (tier === 2 && slug === "quiver_of_echoes") return `${url}?v=2d8b721f`;
+    if (tier === 2 && slug === "gravechain") return `${url}?v=1f1f818b`;
     return tier === 1 && slug === "barrel_barricade" ? `${url}?v=1d307004` : url;
 };
 
@@ -123,7 +123,7 @@ const toArtifact = (tier: ArtifactTier) => (props: ArtifactProperties) => ({
     slug: props.slug,
     name: props.name,
     ...(props.slug === "last_fuse" ? { aliases: ["Pyre Oath", "sticky dynamite", "динамит"] } : {}),
-    icon: icon(tier, props.slug),
+    icon: artifactIconUrl(tier, props.slug),
     description: codexDescription(props),
     descriptionRu: russianDescription(props, codexDescription(props)),
     // The downside is stated by the effect text itself, so the tag follows it rather than being a second

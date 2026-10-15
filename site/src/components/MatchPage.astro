@@ -166,6 +166,7 @@ const copy = isRu
     } from "@heroesofcrypto/common/src/artifacts/artifact_properties";
     import { getDoctrineProperties, type Doctrine } from "@heroesofcrypto/common/src/doctrines/doctrine_properties";
 
+    import { artifactIconUrl } from "../lib/artifacts-data";
     import { gameClientRoot } from "../lib/ranked-arena-client";
     import {
         fetchPublicRankedMatch,
@@ -271,7 +272,7 @@ const copy = isRu
         if (!artifact || artifact.slug === "none") {
             return `<span class="setup-empty">${escapeHtml(text("noArtifact"))}</span>`;
         }
-        const image = `/assets/images/artifacts/artifact_t${tier}_${artifact.slug}_256.webp`;
+        const image = artifactIconUrl(tier, artifact.slug);
         return `<span class="artifact-chip"><img src="${escapeHtml(image)}" alt="" width="40" height="40" /><span><small>Tier ${tier}</small><strong>${escapeHtml(artifact.name)}</strong></span></span>`;
     };
 
