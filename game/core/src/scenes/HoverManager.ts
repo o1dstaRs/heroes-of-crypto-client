@@ -2933,8 +2933,10 @@ export class HoverManager {
         if (slot.badge && !slot.badge.destroyed) this.context.attachToWorldRoot(slot.badge, 5600);
     }
     private updateSpellCasterBadges(): void {
-        this.layoutSpellBadge(this.localSpellBadge);
-        this.layoutSpellBadge(this.opponentSpellBadge);
+        // Class fields do not run on a prototype-only manager, and a badge slot can be absent
+        // before either plate is built. A missing slot must not stop the scene update.
+        if (this.localSpellBadge) this.layoutSpellBadge(this.localSpellBadge);
+        if (this.opponentSpellBadge) this.layoutSpellBadge(this.opponentSpellBadge);
     }
     /** Correct the entire row together so the icon stays left of the text on either board side. */
     private layoutSpellBadge(slot: SpellBadgeSlot): void {
