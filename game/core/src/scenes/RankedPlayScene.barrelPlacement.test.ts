@@ -246,6 +246,25 @@ describe("ranked Barrel Barricade scene routing", () => {
     }
 
     for (const team of [TeamVals.LEFT, TeamVals.RIGHT]) {
+        test(`team ${team}: Ready or fight-start received during a drag cancels its submission`, () => {
+            for (const fields of [{ viewerPlacementReady: true }, { phase: PlayPhase.PLAY, fightStarted: true }]) {
+                const { scene, barrels, snapshot, submitted, expectBoard } = fixture(GridVals.NORMAL, team);
+                scene.applyScatteredMountainsFromSnapshot(snapshot(barrels));
+                expect(scene.beginBarrelPlacement(team, 0)).toBe(true);
+                scene.sc_mouseWorld = GridMath.getPositionForCell(
+                    { x: barrels[0].cell.x, y: 0 },
+                    settings.getMinX(),
+                    settings.getStep(),
+                    settings.getHalfStep(),
+                );
+                scene.barrelPlacementAvailable = canMoveRankedArtifactBarrel(snapshot(barrels, fields), team);
+                scene.commitBarrelPlacement();
+                expect(scene.getBarrelPlacementIndex(team)).toBeUndefined();
+                expect(scene.removePlacedBarrel(team, 0)).toBe(false);
+                expect(submitted).toEqual([]);
+                expectBoard(barrels);
+            }
+        });
         test(`team ${team}: the real scene blocks foreign, locked, Setup, disconnected and finished placement`, () => {
             const { scene, snapshot, submitted } = fixture(GridVals.NORMAL, team);
             const opponent = team === TeamVals.LEFT ? TeamVals.RIGHT : TeamVals.LEFT;

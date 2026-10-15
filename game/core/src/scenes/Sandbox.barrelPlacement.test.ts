@@ -37,6 +37,7 @@ interface TestScene {
     restorePlacementSelection(capture: IPlacementSelectionCapture): void;
     propagateArtifact(team: TeamType, tier: number, id: number): boolean;
     canMoveArtifactBarrel(team: TeamType): boolean;
+    removePlacedBarrel(team: TeamType, index: number): boolean;
     sc_mouseWorld: HoCMath.XY;
 }
 
@@ -118,6 +119,19 @@ const fixture = () => {
 };
 
 describe("barrel board placement", () => {
+    test("starting combat during a drag cancels the drop and locks both barrel actions", () => {
+        const { scene, grid, actions } = fixture();
+        const before = grid.getArtifactBarrels();
+        scene.MouseDown(point({ x: 1, y: 1 }));
+        scene.MouseMove(point({ x: 0, y: 2 }), true);
+        FightStateManager.getInstance().getFightProperties().startFight();
+        scene.MouseUp();
+        expect(scene.getBarrelPlacementIndex(TeamVals.LEFT)).toBeUndefined();
+        expect(scene.beginBarrelPlacement(TeamVals.LEFT, 0)).toBe(false);
+        expect(scene.removePlacedBarrel(TeamVals.LEFT, 0)).toBe(false);
+        expect(actions).toEqual([]);
+        expect(grid.getArtifactBarrels()).toEqual(before);
+    });
     test("clicking the other barrel switches the selected slot", () => {
         const { scene, actions } = fixture();
         scene.MouseDown(point({ x: 1, y: 1 }));

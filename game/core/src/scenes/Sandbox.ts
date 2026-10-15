@@ -4914,7 +4914,12 @@ export class Sandbox extends PixiScene {
                 ? this.takeFireWallBurn(record.events, attacker.getId()).burn
                 : undefined;
         if (action.type === "melee_attack" && action.attackFrom) {
-            const approached = await this.replayMeleeApproach(attacker, action.attackFrom, action.path, approachBurn);
+            const approached = await this.replayMeleeApproach(
+                attacker,
+                action.attackFrom,
+                attackEvent.approachPath ?? action.path,
+                approachBurn,
+            );
             if (!approached || this.isSceneDestroyed()) return false;
         }
         const teardownEventUnitIds = new Set(
@@ -6426,34 +6431,16 @@ export class Sandbox extends PixiScene {
             return true;
         }
 
-        // Walk to the melee attack-from cell first (the engine folds the approach into the obstacle
-        // attack, so there's no separate move record to replay).
+        const obstacleEvent = record.events.find(
+            (event): event is Extract<GameEvent, { type: "obstacle_attacked" }> => event.type === "obstacle_attacked",
+        );
         if (action.attackFrom) {
-            const currentPos = unit.getPosition();
-            const attackFromPos = this.getObstacleAttackFromPosition(unit, action.attackFrom);
-            if (
-                action.path?.length &&
-                (Math.abs(currentPos.x - attackFromPos.x) > 0.1 || Math.abs(currentPos.y - attackFromPos.y) > 0.1)
-            ) {
-                await new Promise<void>((resolve) => {
-                    const started = this.executeMoveSequence(
-                        unit,
-                        action.path!,
-                        unit.isSmallSize() ? undefined : this.getLargeUnitObstacleFootprint(unit, action.attackFrom!),
-                        resolve,
-                        undefined,
-                        false,
-                        false,
-                        resolve,
-                    );
-                    if (!started) {
-                        resolve();
-                    }
-                });
-                if (this.isSceneDestroyed()) {
-                    return false;
-                }
-            }
+            const approached = await this.replayMeleeApproach(
+                unit,
+                action.attackFrom,
+                obstacleEvent?.approachPath ?? action.path,
+            );
+            if (!approached || this.isSceneDestroyed()) return false;
         }
 
         // Replay the strike from the RECORDED events instead of re-running it through the engine.
@@ -13625,15 +13612,6 @@ export class Sandbox extends PixiScene {
         const footprintCellCount = unit.getFootprintWidth() * unit.getFootprintHeight();
         const hasFootprintOverride = !!overrideFootprint && overrideFootprint.length === footprintCellCount;
 
-        // Multi-cell direct moves pass the final footprint as `path`; move-attacks pass a real route.
-        const pathLooksLikeFootprintOnly =
-            isLargeUnit &&
-            hasFootprintOverride &&
-            path.length === overrideFootprint!.length &&
-            path.every((cell) =>
-                overrideFootprint!.some((candidate) => candidate.x === cell.x && candidate.y === cell.y),
-            );
-
         // Default destCell for logging / track anchor.
         let destCell = path[path.length - 1];
 
@@ -13710,79 +13688,23 @@ export class Sandbox extends PixiScene {
             return false;
         }
 
-        unit.setPosition(startPos.x, startPos.y);
-
-        // For multi-cell units, recompute a sensible anchor destCell. Derived from the footprint rather
-        // than from getCellForPosition, which only lands on the anchor while both sides are 1 or 2.
-        if (pathLooksLikeFootprintOnly) {
-            destCell = GridMath.getFootprintAnchorForPosition(
-                gs,
-                newWorldPos,
-                unit.getFootprintWidth(),
-                unit.getFootprintHeight(),
-            );
-        }
-
-        // --- Build world-space path for visual animation ---
-        const worldPath: HoCMath.XY[] = [];
-        worldPath.push({ x: startPos.x, y: startPos.y });
-
-        if (pathLooksLikeFootprintOnly) {
-            // Large unit: we only know start and final footprint -> straight line A -> B.
-            worldPath.push({ x: newWorldPos.x, y: newWorldPos.y });
-        } else {
-            // Calculate offset if needed (for Large Units following an anchor path)
-            let offsetX = 0;
-            let offsetY = 0;
-
-            // If Large Unit, align the path visual to the Unit's Center, not the Anchor Cell center.
-            if (isLargeUnit && path.length > 0) {
-                const startCellPos = GridMath.getPositionForCell(path[0], gs.getMinX(), gs.getStep(), gs.getHalfStep());
-                if (startCellPos) {
-                    // If path[0] corresponds to our current location (start), calculating offset relative to current Center
-                    // startPos is unit.getPosition() (Center).
-                    // But path[0] might be the *next* cell?
-                    // Usually path[0] is the start cell or the first step.
-                    // If path includes start cell:
-                    // Offset = BoxCenter - CellCenter.
-                    // Let's assume constant offset for the whole path based on destination alignment, which is safer.
-
-                    // Align LAST path node to LAST world pos (Target Center)
-                    const lastPathCell = path[path.length - 1];
-                    const lastCellPos = GridMath.getPositionForCell(
-                        lastPathCell,
-                        gs.getMinX(),
-                        gs.getStep(),
-                        gs.getHalfStep(),
-                    );
-                    if (lastCellPos) {
-                        offsetX = newWorldPos.x - lastCellPos.x;
-                        offsetY = newWorldPos.y - lastCellPos.y;
-                    }
-                }
-            }
-
-            // Small units (or future large units with real route): follow the full route.
-            for (let i = 0; i < path.length; i++) {
-                const cell = path[i];
-                const pos = GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
-                if (pos) {
-                    const targetX = pos.x + offsetX;
-                    const targetY = pos.y + offsetY;
-                    const last = worldPath[worldPath.length - 1];
-
-                    // Avoid duplicates
-                    if (!last || Math.abs(last.x - targetX) > 0.01 || Math.abs(last.y - targetY) > 0.01) {
-                        worldPath.push({ x: targetX, y: targetY });
-                    }
-                }
-            }
-            // Ensure last point matches logical final position strictly.
-            const last = worldPath[worldPath.length - 1];
-            if (!last || Math.abs(last.x - newWorldPos.x) > 0.01 || Math.abs(last.y - newWorldPos.y) > 0.01) {
-                worldPath.push({ x: newWorldPos.x, y: newWorldPos.y });
-            }
-        }
+        const acceptedMove: Extract<GameEvent, { type: "unit_moved" }> = moveEvent ?? {
+            type: "unit_moved",
+            unitId: unit.getId(),
+            from: startPos,
+            to: newWorldPos,
+            path,
+            targetCells: cellsToOccupy,
+        };
+        // Use the same accepted route for local movement and ranked/replay playback. In particular,
+        // a large unit's destination footprint is not a straight-line route through intervening barrels.
+        const worldPath = this.createRecordedMoveWorldPath(unit, acceptedMove);
+        destCell = GridMath.getFootprintAnchorForPosition(
+            gs,
+            newWorldPos,
+            unit.getFootprintWidth(),
+            unit.getFootprintHeight(),
+        );
 
         const moveSpeed = cellSize * Sandbox.MOVE_SPEED_FACTOR; // Adjusted speed based on user feedback (was 12)
 
@@ -13803,7 +13725,7 @@ export class Sandbox extends PixiScene {
             worldPath,
             moveSpeed,
             destCell,
-            pathLooksLikeFootprintOnly ? undefined : path, // trackPath
+            this.shouldUseRecordedMoveTrack(unit, acceptedMove) ? acceptedMove.path : undefined,
             handleMoveComplete,
             rapidCharge,
             onCancel,
