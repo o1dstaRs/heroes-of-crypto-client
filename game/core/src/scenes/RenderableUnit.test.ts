@@ -1852,12 +1852,15 @@ assetTest("plays Wolf howl idle with the static figure canvas and foot anchor wh
     const durations = internals.selectionAnimFrameDurationsMs;
     const cycleMs = durations.reduce((sum, duration) => sum + duration, 0);
     expect(cycleMs).toBeCloseTo(6330 / 1.3);
-    const startedAt = internals.selectionAnimationStartedAtMs;
-    unit.stepSelectionAnimation(startedAt);
+    // A large performance.now() start makes (start + boundary) - start fall a fraction short of
+    // the boundary, and the frame stepper stays on the previous pose until the boundary is crossed.
+    internals.selectionAnimationStartedAtMs = 0;
+    unit.stepSelectionAnimation(0);
     expect(internals.selectionAnimFrameIndex).toBe(0);
-    unit.stepSelectionAnimation(startedAt + durations.slice(0, 6).reduce((sum, duration) => sum + duration, 0));
+    const sixthFrameAt = durations.slice(0, 6).reduce((sum, duration) => sum + duration, 0);
+    unit.stepSelectionAnimation(sixthFrameAt + 1);
     expect(internals.selectionAnimFrameIndex).toBe(6);
-    unit.stepSelectionAnimation(startedAt + cycleMs - 1);
+    unit.stepSelectionAnimation(cycleMs - 1);
     expect(internals.selectionAnimFrameIndex).toBe(30);
 });
 
