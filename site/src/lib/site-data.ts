@@ -655,6 +655,10 @@ export const content = {
                 question: "How do I contact the team?",
                 answer: "Use the official channels on the Contact page: Discord, Telegram, X (Twitter) or email support@heroesofcrypto.io. The game's code is public on GitHub.",
             },
+            {
+                question: "How does the AI choose artifacts?",
+                answer: "The AI chooses from its legal offers using its drafted army and the public information available at that stage. Quiver of Echoes favors shooters, arcane rings favor magic damage, and Aegis of the Arcane considers revealed enemy magic. Gravechain's slowing effect is weighed against the owner's lost movement, while Last Fuse favors close combat. Tome of Amplification and Rime Charm are drafted as Tier 1; Tome is valued for castable buffs rather than healing or resurrection.",
+            },
         ],
         contact: {
             headline: "For game, token, or team questions, use the official channels.",
@@ -1698,6 +1702,10 @@ export const content = {
             {
                 question: "Как связаться с командой?",
                 answer: "Через официальные каналы на странице «Контакты»: Discord, Telegram, X (Twitter) или почта support@heroesofcrypto.io. Код игры открыт на GitHub.",
+            },
+            {
+                question: "Как ИИ выбирает артефакты?",
+                answer: "ИИ выбирает из доступных предложений с учётом своей набранной армии и открытой на этом этапе информации. Quiver of Echoes подходит стрелкам, магические кольца — источникам магического урона, а Aegis of the Arcane учитывает показанных вражеских магов. Замедление Gravechain сопоставляется с потерей шага своей армией; Last Fuse полезнее в ближнем бою. Tome of Amplification и Rime Charm выбираются как артефакты первого уровня; Tome оценивается по накладываемым усилениям, а не по лечению или воскрешению.",
             },
         ],
         contact: {
