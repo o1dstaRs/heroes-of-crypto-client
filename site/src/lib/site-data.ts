@@ -657,7 +657,7 @@ export const content = {
             },
             {
                 question: "How does the AI choose artifacts?",
-                answer: "The AI chooses from its legal offers using its drafted army and the public information available at that stage. Quiver of Echoes favors shooters, arcane rings favor magic damage, and Aegis of the Arcane considers revealed enemy magic. Gravechain's slowing effect is weighed against the owner's lost movement, while Last Fuse favors close combat. Tome of Amplification and Rime Charm are drafted as Tier 1; Tome is valued for castable buffs rather than healing or resurrection.",
+                answer: "The AI chooses from its legal offers using its drafted army and the public information available at that stage. Quiver of Echoes considers shooters' damage, native double attacks and ammunition. Arcane rings favor meaningful magic damage, while Aegis of the Arcane considers how much enemy magic has been revealed without assuming every hidden enemy is a caster. Gravechain's slowing effect is weighed against the owner's lost movement, while Last Fuse favors enemy contact and accounts for resurrection. The final creature pick also considers the selected Tier-2 artifact. Tome of Amplification and Rime Charm are drafted as Tier 1; Tome is valued for castable buffs rather than healing or resurrection.",
             },
         ],
         contact: {
@@ -1705,7 +1705,7 @@ export const content = {
             },
             {
                 question: "Как ИИ выбирает артефакты?",
-                answer: "ИИ выбирает из доступных предложений с учётом своей набранной армии и открытой на этом этапе информации. Quiver of Echoes подходит стрелкам, магические кольца — источникам магического урона, а Aegis of the Arcane учитывает показанных вражеских магов. Замедление Gravechain сопоставляется с потерей шага своей армией; Last Fuse полезнее в ближнем бою. Tome of Amplification и Rime Charm выбираются как артефакты первого уровня; Tome оценивается по накладываемым усилениям, а не по лечению или воскрешению.",
+                answer: "ИИ выбирает из доступных предложений с учётом своей набранной армии и открытой на этом этапе информации. Quiver of Echoes учитывает урон стрелков, их собственные двойные атаки и боезапас. Магические кольца подходят армии со значимым магическим уроном, а Aegis of the Arcane оценивается по открытым врагам: один показанный маг не превращает всю скрытую армию в магическую. Замедление Gravechain сопоставляется с потерей шага своей армией; Last Fuse учитывает контакт с врагом и воскрешение. При выборе последнего существа ИИ учитывает уже выбранный артефакт второго уровня. Tome of Amplification и Rime Charm выбираются как артефакты первого уровня; Tome оценивается по накладываемым усилениям, а не по лечению или воскрешению.",
             },
         ],
         contact: {
