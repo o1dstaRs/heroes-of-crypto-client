@@ -37,3 +37,19 @@ Thread open vs peak (this run only): highest reply counts were mid-late morning 
 Own account: still no tactics-era posts; no own timing data.
 
 Recommendation: still not enough data for a firm window (two runs, no own tactics posts). Early signal: official card/tactics accounts draw replies from ~10:30 AM through mid-afternoon PT on a Wednesday; keep logging.
+
+## Thu 15 Oct 2026, 7:46 AM PT run (window: 7:46 PM Wed – 7:46 AM Thu PT)
+
+Official game/studio posts in window (posted time PT, public metrics at read time). Skipped Lavapotion Spooktober lineup (0 replies) and FE Heroes inherit-skill chart (0 replies). FE Heroes Duo/Vista announce (8:00 PM Wed, 74 replies) noted for timing but not drafted (gacha banner, weak tactics angle).
+- @totalwar, Warhammer III Patch 9.0.4 / Nagash campaign, 6:59 AM Thu: 4,764 impressions, 93 likes, 10 replies, 5 reposts
+- @OverhypeStudios, MENACE balancing update live, 6:35 AM Thu: 902 impressions, 69 likes, 1 reply, 6 reposts
+- @MightMagicGame, HoMM III Remake Closed Playtest registrations, 1:00 AM Thu: 2,343 impressions, 64 likes, 2 replies, 9 reposts
+- @Lavapotion, Spooktober lineup, 4:33 AM Thu: 2,680 impressions, 78 likes, 0 replies, 7 reposts (skipped)
+- @FE_Heroes_EN, Duo Dimitri/Edelgard + Vista Gullveig, 8:00 PM Wed: 122,671 impressions, 2,164 likes, 74 replies, 276 reposts (timing only)
+- @FE_Heroes_EN, inherit skill restrictions, 8:02 PM Wed: 11,641 impressions, 110 likes, 0 replies (skipped)
+
+Thread open vs peak (this run only): early-morning Thu posts already collecting replies within the hour (@totalwar 10 replies by ~7:46 AM; @OverhypeStudios 1; @MightMagicGame 2 overnight). Highest reply volume in the window was the FE Heroes banner at 8:00 PM Wed (74 replies by morning). Closest-genre post (@OverhypeStudios MENACE) opened at 6:35 AM with engagement already forming.
+
+Own account: pin live since Wed evening; no separate timing pull this run.
+
+Recommendation: still not enough data for a firm window (three runs). Early signal continues: official strategy/tactics accounts draw replies in the morning PT open (around 6:30–7:00 AM on this Thursday) and evening banner posts (around 8:00 PM) can peak overnight. Keep logging.
