@@ -18,7 +18,7 @@ import {
     createTier2ArtifactDecisionContext,
     draftCreatureCoherenceAffinity,
     resolveSetupPolicy,
-    tier1ArtifactFitScoreV3,
+    tier1ArtifactFitScoreV4,
     type TeamType,
 } from "@heroesofcrypto/common";
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -338,7 +338,7 @@ const buildDraftChoices = (event: IPickPhaseEventData, failedChoiceIds: Set<stri
             const artifact = Artifact.getArtifactProperties(Artifact.ArtifactTier.TIER_1, bundle[2]);
             const score =
                 balanceDraftPickScore(baseScore, ownRangedCount, creaturePair) +
-                tier1ArtifactFitScoreV3(bundle[2], creaturePair, 50) -
+                tier1ArtifactFitScoreV4(bundle[2], creaturePair, 50) -
                 50;
             choices.push({
                 label: labels[choices.length] ?? String(choices.length + 1),
@@ -366,7 +366,7 @@ const buildDraftChoices = (event: IPickPhaseEventData, failedChoiceIds: Set<stri
             ownArtifactIds: (event.art ?? []).map(([, id]) => id),
             ...(event.pk === undefined ? {} : { ownDoctrine: event.pk }),
         });
-        const policy = resolveSetupPolicy("artifact-fit-v3:conditional-v1:sniper+t2a19");
+        const policy = resolveSetupPolicy("artifact-fit-v4:conditional-v1:sniper+t2a19");
         while (remaining.length) {
             const artifactId = tier === 1 ? remaining[0] : policy.pickArtifactT2(remaining, ownPicked, context);
             remaining.splice(remaining.indexOf(artifactId), 1);
@@ -416,7 +416,7 @@ const buildDraftChoices = (event: IPickPhaseEventData, failedChoiceIds: Set<stri
                 ownCreatureIds: ownPicked,
                 tier1ArtifactId,
                 tier2ArtifactId,
-                artifactFitVersion: 3,
+                artifactFitVersion: 4,
             }) - draftCreatureCoherenceAffinity(creatureId, { ownCreatureIds: ownPicked });
         choices.push({
             label: labels[choices.length] ?? String(choices.length + 1),
@@ -541,7 +541,7 @@ const buildDraftPrompt = (
         `Balanced roster rule: do not finish with more than ${MAX_MODEL_RANGED_UNITS} ranged units. Once you have 2-3 ranged units, prioritize durable frontline, caster/support, tempo, or faction synergy unless Tsar Cannon/Gargantuan is still the best legal secure-or-deny action.`,
         "Critical priority: secure Tsar Cannon and Gargantuan when legal; if you cannot secure them, ban them or ensure they stay banned.",
         "Prefer ranged pressure, Double Shot, Through Shot, Area Throw, Large Caliber, high damage, and strong level-4 stacks.",
-        "Match artifacts to their beneficiaries: Quiver needs shooters and spare ammunition; rings need damaging spells, Chain Lightning, Fire Breath or Fire Shield; a melee unit with support spells still deals physical melee damage; Tome strengthens castable buffs, not healing or resurrection. Price Gravechain's lost movement and Last Fuse's need for enemy contact. Enemy scouting is partial; do not assume hidden units match a revealed one.",
+        "Match artifacts to their beneficiaries: Quiver needs shooters and spare ammunition; initial faction luck and Cursed Ward affect its chance; rings need damaging spells, Chain Lightning, Fire Breath or Fire Shield; a melee unit with support spells still deals physical melee damage; Tome strengthens castable buffs, not healing or resurrection. Price Gravechain's lost movement and Last Fuse's need for enemy contact. Enemy scouting is partial; do not assume hidden units match a revealed one.",
         `Your picked creatures: ${event.p.filter(normalizeVisibleCreature).map(creatureName).join(", ") || "none"} (${rangedCreatureCount(event.p.filter(normalizeVisibleCreature))}/${MAX_MODEL_RANGED_UNITS} ranged).`,
         `Known opponent creatures: ${event.op.filter(normalizeVisibleCreature).map(creatureName).join(", ") || "hidden/none"}.`,
         `Banned creatures: ${event.b.map(creatureName).join(", ") || "none"}.`,
