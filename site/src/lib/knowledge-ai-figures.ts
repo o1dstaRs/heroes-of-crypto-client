@@ -33,6 +33,13 @@ export const englishNameInSource = (name: string): string => {
     return (match?.[1] ?? name).trim();
 };
 
+/**
+ * "Curse (downside)" is an artifact penalty, not the Curse spell. The answer linker must leave that
+ * label as plain text, or the spell icon appears beside a cost that spell does not apply.
+ */
+export const isDownsideQualifier = (textAfterName: string): boolean =>
+    /^\s*\(\s*(?:downside|недостаток)(?![\p{L}\p{N}])/iu.test(textAfterName);
+
 /** Faction crest, or undefined when the source is not one of the four factions. */
 export const factionImagePath = (source: { id: string; name: string }): string | undefined => {
     const fromId = source.id.startsWith("faction:") ? source.id.slice("faction:".length) : "";

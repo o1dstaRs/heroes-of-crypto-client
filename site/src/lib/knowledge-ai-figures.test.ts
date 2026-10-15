@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
     englishNameInSource,
     factionImagePath,
+    isDownsideQualifier,
     isVisualKnowledgeSource,
     knowledgeSourceTarget,
 } from "./knowledge-ai-figures";
@@ -28,6 +29,13 @@ describe("knowledge ai figures", () => {
         expect(knowledgeSourceTarget({ id: "ability:lightning-spin", href: "/knowledge-base/" })).toBe(
             "ability-lightning-spin",
         );
+    });
+
+    test("an artifact downside is not the Curse spell", () => {
+        expect(isDownsideQualifier(" (downside): all your units lose 1 movement step")).toBe(true);
+        expect(isDownsideQualifier("(недостаток): вся армия теряет шаг")).toBe(true);
+        expect(isDownsideQualifier(" forces the lowest damage roll")).toBe(false);
+        expect(isDownsideQualifier("d Ward reduces morale")).toBe(false);
     });
 
     test("reads the English game name out of a Russian label", () => {

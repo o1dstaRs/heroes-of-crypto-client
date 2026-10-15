@@ -514,7 +514,7 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
         knowledgeSearchRank,
         type KnowledgeSection,
     } from "../lib/knowledge-base";
-    import { factionImagePath, isVisualKnowledgeSource } from "../lib/knowledge-ai-figures";
+    import { factionImagePath, isDownsideQualifier, isVisualKnowledgeSource } from "../lib/knowledge-ai-figures";
     import { RU_NAMES } from "../lib/knowledge/names-ru";
     import { renderMarkdown } from "../lib/markdown-lite";
 
@@ -766,14 +766,23 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
                     for (const figure of proseFigures) {
                         if (seen.has(figure)) continue;
                         for (const label of figure.labels) {
-                            const found = new RegExp(
+                            const pattern = new RegExp(
                                 `(?:^|[^\\p{L}\\p{N}])${escapeName(label)}(?![\\p{L}\\p{N}])`,
-                                "iu",
-                            ).exec(value);
-                            if (!found) continue;
-                            const index = found.index + found[0].length - label.length;
-                            if (!match || index < match.index) {
-                                match = { index, label: value.slice(index, index + label.length), figure };
+                                "giu",
+                            );
+                            let found: RegExpExecArray | null;
+                            while ((found = pattern.exec(value))) {
+                                const index = found.index + found[0].length - label.length;
+                                const after = value.slice(index + label.length);
+                                // The penalty label sits in this text node, or just after it when a link
+                                // already ends on the name.
+                                const following =
+                                    after.trim().length > 0 ? after : (textNode.nextSibling?.textContent ?? "");
+                                if (isDownsideQualifier(following)) continue;
+                                if (!match || index < match.index) {
+                                    match = { index, label: value.slice(index, index + label.length), figure };
+                                }
+                                break;
                             }
                         }
                     }
