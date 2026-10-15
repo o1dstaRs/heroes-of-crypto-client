@@ -1,0 +1,78 @@
+{
+  "output": "marketing/x/generated/2026-10-14_pin_who_moves_first_v3.png",
+  "output_sha256": "b4b6f3af62a17b5725a68dc2267504dafee9f8d4afcb2f1c5a6291bd64f1d6d9",
+  "format": "PNG",
+  "size": [
+    1600,
+    900
+  ],
+  "method": "Deterministic text-layer replacement; existing v2 composite reused.",
+  "copy": [
+    "It was never about stats.",
+    "It was about who moved first.",
+    "PvP tactics in the browser. The board shrinks every fight."
+  ],
+  "headline_font": "Georgia Regular",
+  "headline_size_px": 80,
+  "headline_colors": [
+    "#F1ECE1",
+    "#B99B61"
+  ],
+  "headline_top_y": [
+    40,
+    128
+  ],
+  "type_supersampling": 4,
+  "caption_and_gold_rule_pixel_identical_to_v2": true,
+  "caption_font": "Helvetica Neue Regular",
+  "changed_pixel_bounds": [
+    279,
+    37,
+    1319,
+    208
+  ],
+  "changed_pixels": 57116,
+  "changed_pixels_outside_old_or_new_headline_glyphs": 0,
+  "protected_region_pixel_identical_to_v2": [
+    0,
+    216,
+    1600,
+    900
+  ],
+  "unit_pixels_changed_vs_v2": 0,
+  "units": [
+    {
+      "unit": "Crusader",
+      "bounds": [
+        235,
+        292,
+        743,
+        807
+      ],
+      "pixels_checked": 261620,
+      "changed_pixels_vs_v2": 0,
+      "v2_composite_rgb_sha256": "65b53fc7f9ddbecae7d9fdd37da4779201632ce196d85cd71d28d603c1426684",
+      "v3_composite_rgb_sha256": "65b53fc7f9ddbecae7d9fdd37da4779201632ce196d85cd71d28d603c1426684",
+      "includes_every_unit_pixel_and_antialiased_edge": true
+    },
+    {
+      "unit": "Cyclops",
+      "bounds": [
+        985,
+        292,
+        1287,
+        807
+      ],
+      "pixels_checked": 155530,
+      "changed_pixels_vs_v2": 0,
+      "v2_composite_rgb_sha256": "efa659844023bc75252bcef446146838f99ee566e1ae923e3206e012a9c0ca00",
+      "v3_composite_rgb_sha256": "efa659844023bc75252bcef446146838f99ee566e1ae923e3206e012a9c0ca00",
+      "includes_every_unit_pixel_and_antialiased_edge": true
+    }
+  ],
+  "inputs_unchanged": {
+    "marketing/x/generated/2026-10-14_pin_who_moves_first_v2.png": "364bccec6a1a26c4f3bb7b5c570cd341cb3586671ad9ce2e68697da32094392d",
+    "marketing/x/generated/2026-10-14_pin_who_moves_first_v2.background.png": "13c4f67a974edaacbc47f0204ed532773931c23542e7a2d8fa94e86596438fd1"
+  },
+  "verification_method": "Reopen the saved PNG; compare every RGB pixel against v2. Require all changes to fall within old or new headline glyphs. Compare entire unit rectangles, including partially transparent edges composited over the board, byte for byte. Compare everything below y=216 byte for byte. Verify source PNG and background file hashes are unchanged."
+}

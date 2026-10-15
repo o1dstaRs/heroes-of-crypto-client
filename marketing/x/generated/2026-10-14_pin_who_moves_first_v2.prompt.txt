@@ -1,0 +1,23 @@
+Requested deliverable: marketing/x/generated/2026-10-14_pin_who_moves_first_v2.png
+Canvas: 1600x900 PNG.
+Use the exact Crusader and Cyclops source WebPs; no redraw, retouch, recolor, added effects over the units, or changes to their shapes. Proportional scaling is allowed. Mirror only Cyclops so the units face one another. Keep all nontransparent artwork visible, at equal displayed heights, grounded on opposite sides of the lit central board.
+Headline, centered at top: "Who moves first" (off-white serif), then "decides the fight." (muted-gold serif).
+Thin gold rule beneath the headline.
+Small sans caption: "PvP tactics in the browser. The board shrinks every fight."
+No emoji, hashtags, numbers, URLs, logos, or fake game UI.
+All task-controlled writes are confined to marketing/x/generated/.
+
+Generation mode: built-in image_gen, background only; no source units were passed to imagegen.
+Final background generation prompt:
+Use case: ads-marketing
+Asset type: EMPTY BACKGROUND PLATE ONLY for a premium dark fantasy tactics marketing card, wide landscape 16:9, target 1600x900.
+Primary request: A clearly visible dark stone tactics board with regular square grid cells seen from a moderately high, top-down-ish oblique camera. Its OUTERMOST PERIMETER RING of square cells is visibly crumbling, fragmenting, and fading into a black void, leaving a distinctly smaller intact rectangular CENTRAL BOARD lit. The visual story is a battlefield physically shrinking inward at every edge.
+Composition: The upper third (top 0-33 percent) is quiet near-black, subtly textured negative space for later centered typography. The board occupies the lower two thirds and spans nearly the full width with black breathing room at the sides. Show the entire smaller central board and the collapsing outer ring surrounding it, including the front and both side perimeter edges. The intact central board is wide enough for two full-body characters to be composited on its left and right halves later; do not generate any characters. In final 1600x900 coordinates, intact floor should be visible under future feet around x=475,y=815 and x=1150,y=815, with a few intact cells between the character positions. The far edge of the board sits around y=400; its intact front edge sits around y=850. The outer broken row extends beyond those edges, fading into black. The grid remains legible in the unoccupied middle area.
+Board geometry: Large regular square charcoal slate cells with fine recessed seams, slight perspective foreshortening, weathered stone texture. Interior cells remain flush, intact and evenly lit; damage is concentrated in the outermost ring around the perimeter. Some outer cells have missing corners, split slabs, fragments falling into darkness; others are dissolving into shadow. Clear material transition between intact central rectangle and disappearing perimeter. No crater, no central hole, no lava.
+Lighting and style: restrained cinematic dark fantasy, realistic fine stone detail, soft warm antique-gold light over the central board, muted charcoal and dark desaturated bronze, darkness beyond. Enough contrast to read the square grid and the collapsing outer ring. Minimal atmosphere; no dense fog.
+Constraints: Generate ONLY the empty environment. Do not include units, players, humanoids, creatures, character silhouettes, chess pieces, tokens, ornaments, columns, weapons, lettering, typography, letters, numerals, symbols, logos, banners, borders, interface, fake game UI, selection squares, arrows, health bars, paths, or diagrams. No neon, bright magical lines, flames or fire. Fully opaque image, no checkerboard.
+Local output restriction: if saving local files, write exclusively inside marketing/x/generated/. Background name: 2026-10-14_pin_who_moves_first_v2.background.png.
+
+Composition: Pillow. The generated opaque plate is resized to 1600x985 then cropped at the bottom to 1600x900 so the lit floor extends beneath the full figures. Unit alpha bounds remove only empty padding. Original unit colors are sampled with nearest-neighbor scaling, preserving source RGB values exactly. Shadows lie behind units. Typography alone is supersampled; no final image resize or color correction touches the units.
+Verification: hash both original files before and after; reopen final PNG and compare every fully opaque displayed unit pixel against its scaled source and independently mapped original coordinates, accounting for the Cyclops mirror. Verify all nontransparent pixels are inside the canvas, no artwork overlaps the lettering, and the two alpha bounds have equal height.
+
