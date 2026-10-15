@@ -1,4 +1,5 @@
 import { getArmorPower, ArmorAugment } from "@heroesofcrypto/common/src/augments/augment_properties";
+import { ARTIFACT_POWER as A } from "@heroesofcrypto/common/src/artifacts/artifact_properties";
 import { SynergyKeysToPower } from "@heroesofcrypto/common/src/synergies/synergy_properties";
 import { describe, expect, test } from "bun:test";
 
@@ -107,6 +108,46 @@ describe("knowledge graph builder", () => {
                 (edge) => edge.from === "ability:stun" && edge.to === "effect:stun" && edge.rel === "APPLIES",
             ),
         ).toBe(true);
+    });
+
+    test("artifact-applied spells have typed source edges for AI graph expansion", () => {
+        for (const [source, target] of [
+            ["artifact:gravechain", "spell:gravebound"],
+            ["artifact:rime-charm", "spell:quagmire"],
+            ["ability:spit-ball", "spell:quagmire"],
+        ]) {
+            expect(graph.edges).toContainEqual({ from: source, to: target, rel: "APPLIES" });
+        }
+        expect(byId.get("spell:gravebound")?.text).toContain("Applied by: Gravechain");
+        expect(byId.get("spell:gravebound")?.textRu).toContain("Источник: Могильная цепь (Gravechain)");
+    });
+
+    test("new artifact knowledge includes luck, repeated attacks, immunity and the army curse", () => {
+        const chain = byId.get("artifact:gravechain");
+        expect(chain?.props).toMatchObject({ tier: 2, cursed: true });
+        expect(chain?.text).toContain(`${A.GRAVECHAIN_CHANCE}%`);
+        expect(chain?.text).toContain(`with luck +7 it reads ${A.GRAVECHAIN_CHANCE + 7}%`);
+        expect(chain?.text).toContain("1×2 and 2×1 footprints");
+        expect(chain?.text).toContain("separate additional attacks can");
+        expect(chain?.text).toContain("Gravechain cannot be equipped together with Quiver of Echoes");
+        expect(chain?.text).toContain("before percentage slows");
+        expect(chain?.text).toContain("do not stop propagation");
+        expect(chain?.textRu).toContain(`при удаче +7 это ${A.GRAVECHAIN_CHANCE + 7}%`);
+        const slow = byId.get("spell:gravebound");
+        expect(slow?.props).toMatchObject({ book: "Death", kind: "effect", polarity: "debuff" });
+        expect(slow?.text).toContain("not a castable scroll");
+        expect(slow?.text).toContain("56.25% of normal");
+        expect(slow?.textRu).toContain("56,25%");
+        expect(byId.get("unit:black-dragon")?.text).toContain("own Gravechain curse still costs 1 movement step");
+        const quiver = byId.get("artifact:quiver-of-echoes");
+        expect(quiver?.text).toContain("Gargantuan can throw three times");
+        expect(quiver?.text).toContain(`with luck +7 it reads ${A.QUIVER_OF_ECHOES_CHANCE + 7}%`);
+        expect(quiver?.textRu).toContain(`при удаче +7 это ${A.QUIVER_OF_ECHOES_CHANCE + 7}%`);
+        expect(byId.get("artifact:aegis-of-the-arcane")?.text).toContain(
+            `separate ${A.AEGIS_OF_THE_ARCANE_MAGIC_DEFENSE}% magic-defense roll`,
+        );
+        expect(byId.get("formula:resistances")?.text).toContain("Aegis of the Arcane");
+        expect(byId.get("formula:resistances")?.text).toContain("immune target still relays Gravechain");
     });
 
     test("everything the game names in English has a Russian name, and the Russian text uses it", () => {

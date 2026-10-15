@@ -30,6 +30,7 @@ export interface Artifact {
 const icon = (tier: ArtifactTier, slug: string) => {
     const url = `/assets/images/artifacts/artifact_t${tier}_${slug}_256.webp`;
     if (tier === 2 && slug === "quiver_of_echoes") return `${url}?v=d2ca35b7`;
+    if (tier === 2 && slug === "gravechain") return `${url}?v=7784acf4`;
     return tier === 1 && slug === "barrel_barricade" ? `${url}?v=1d307004` : url;
 };
 

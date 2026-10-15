@@ -1,4 +1,5 @@
 import { artifacts } from "./artifacts-data";
+import { ruLabel } from "./knowledge/names-ru";
 import { localizedFactionName } from "./localization";
 import { spells } from "./spells-data";
 import { abilities, allUnits, attackLabel, movementLabel } from "./units-data";
@@ -516,7 +517,7 @@ export function buildKnowledgeEntries(language: Language): KnowledgeEntry[] {
             meta: `${book} · ${kind}${polarity ? ` · ${polarity}` : ""}`,
             image: spell.icon,
             target: spell.name,
-            searchText: `${spell.name} ${description} ${book} ${kind} ${polarity} ${spell.book} ${spell.kind} ${spell.polarity ?? ""} ${casters} ${spell.appliedBy.join(" ")}`,
+            searchText: `${spell.name} ${ruLabel(spell.name)} ${description} ${book} ${kind} ${polarity} ${spell.book} ${spell.kind} ${spell.polarity ?? ""} ${casters} ${spell.appliedBy.map(ruLabel).join(" ")}`,
         };
     });
 
@@ -528,7 +529,7 @@ export function buildKnowledgeEntries(language: Language): KnowledgeEntry[] {
         meta: `${isRu ? "Уровень" : "Tier"} ${artifact.tier}${artifact.cursed ? ` · ${isRu ? "Проклятый" : "Cursed"}` : ""}`,
         image: artifact.icon,
         target: artifact.name,
-        searchText: `${artifact.name} ${isRu ? artifact.descriptionRu : artifact.description} tier ${artifact.tier} ${artifact.cursed ? "cursed проклятый" : ""}`,
+        searchText: `${artifact.name} ${ruLabel(artifact.name)} ${isRu ? artifact.descriptionRu : artifact.description} tier ${artifact.tier} ${artifact.cursed ? "cursed проклятый" : ""}`,
     }));
 
     return [...rulesEntries(language), ...unitEntries, ...abilityEntries, ...spellEntries, ...artifactEntries];

@@ -166,9 +166,9 @@ const SPELL_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     Gravebound: {
         en: ({ p, n }) =>
-            `−${n(p)}% movement for 3 laps, applied by Gravechain. Each connected enemy gets an independent roll; failed rolls and immune enemies still relay the chain. 100% magic resistance blocks the debuff. It does not stack with or refresh itself; it multiplies with Quagmire and Hamstrung.`,
+            `−${n(p)}% movement for 3 laps, applied by the cursed Tier 2 artifact Gravechain, not a castable scroll. Each connected enemy gets an independent roll; failed rolls and immune enemies still relay the chain. 100% magic resistance blocks the debuff; partial magic and status resistance do not reduce its chance. It does not stack with or refresh itself; it multiplies with Quagmire and Hamstrung. With Quagmire, movement is ${n((1 - p / 100) * 75)}% of normal. Gravechain's separate army-wide curse costs its owner 1 movement step even when Gravebound is resisted.`,
         ru: ({ p, n }) =>
-            `−${n(p)}% перемещения на 3 круга от Могильной цепи. Каждый связанный враг бросает отдельно; неудачные броски и невосприимчивые враги продолжают цепь. 100% сопротивления магии блокирует дебафф. Он не складывается и не обновляет сам себя, но перемножается с Трясиной и Подрезанными сухожилиями.`,
+            `−${n(p)}% перемещения на 3 круга от проклятого артефакта 2 уровня «Могильная цепь», а не от свитка. Каждый связанный враг бросает отдельно; неудачные броски и невосприимчивые враги продолжают цепь. 100% сопротивления магии блокирует дебафф, а частичное сопротивление магии и статусам не снижает его шанс. Он не складывается и не обновляет сам себя, но перемножается с Трясиной и Подрезанными сухожилиями. Вместе с Трясиной остаётся ${n((1 - p / 100) * 75)}% обычного перемещения. Отдельное проклятие Могильной цепи отнимает у всей армии владельца 1 шаг даже при невосприимчивости цели к Могильным узам.`,
     },
     "Weakening Beam": {
         en: ({ p, n }) => `−${n(p)}% base armor for 3 laps; applied by the Beholder's Spit Ball.`,

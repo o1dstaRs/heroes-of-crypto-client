@@ -81,7 +81,7 @@ import { patchNotes } from "../patch-notes";
 import { DEFAULT_RANKED_EXIT_RULES, ruleTokenValue, splitRuleTokens } from "../ranked-exit";
 import { rankedArenaCopy } from "../ranked-arena-copy";
 import { content, links, localPath, type Language } from "../site-data";
-import { spells, type Spell } from "../spells-data";
+import { spellSourceType, spells, type Spell } from "../spells-data";
 import {
     abilities,
     allUnits,
@@ -495,7 +495,7 @@ function spellText(spell: Spell, language: Language): string {
     const source = casters.length
         ? `${isRu ? "Заклинатели" : "Casters"}: ${casters.join(", ")}`
         : spell.appliedBy.length
-          ? `${isRu ? "Применяется способностями" : "Applied by abilities"}: ${(isRu ? spell.appliedBy.map(ruLabel) : spell.appliedBy).join(", ")}`
+          ? `${isRu ? "Источник" : "Applied by"}: ${(isRu ? spell.appliedBy.map(ruLabel) : spell.appliedBy).join(", ")}`
           : isRu
             ? "Применяется игрой автоматически (состояние, местность или предмет)."
             : "Applied automatically by the game (state, terrain or item).";
@@ -744,9 +744,9 @@ const synergySpecs: SynergySpec[] = [
         nameRu: "Синергия Хаоса «Передвижение»",
         effect: ([power]) => `+${power} movement step${power === 1 ? "" : "s"} for every unit`,
         effectRu: ([power]) => `+${power} к движению каждому юниту`,
-        detail: "Every unit of the army, whatever its faction, moves farther. Percentage slows (Quagmire, Hamstrung) shrink the bonus too.",
+        detail: "Every unit of the army, whatever its faction, moves farther. Percentage slows (Quagmire, Gravebound, Hamstrung) shrink the bonus too.",
         detailRu:
-            "Каждый юнит армии любой фракции ходит дальше. Процентные замедления (Quagmire, Hamstrung) урезают и этот бонус.",
+            "Каждый юнит армии любой фракции ходит дальше. Процентные замедления (Quagmire, Gravebound, Hamstrung) урезают и этот бонус.",
         keywords: ["movement", "steps", "движение", "передвижение"],
     },
     {
@@ -1119,15 +1119,15 @@ function formulaSpecs(): FormulaSpec[] {
             summaryRu:
                 "Сопротивление магии снижает магический урон и отражает дебаффы заклинаний; сопротивление статусам снижает Stun/Freeze/Paralysis и физический урон по площади; ментальное — эффекты Разума.",
             text: bullet([
-                "Magic resistance: magic damage is multiplied by (1 − resistance); a debuff spell — and the Spit Ball, Hamstring and Vine Throw debuffs — is resisted when a d100 roll lands under it (the scroll is spent either way). Creatures start with 0 / 5 / 8–12 / 15 by level; Armor augment points add to that base directly (15 + 21 = 36), and Magic Shield, Wardguard and the Warding Mane and Arcane Ward blessings then add as separate rolls: 1 − (1 − own)(1 − bonus). Armor never reduces spell damage; Fire Breath, though, is rolled like a melee hit on each unit it reaches (its armor and luck count) before magic resistance, and Chain Lightning, Fire Shield and Fireforged burns are shares of hits that armor already reduced.",
-                "100% magic resistance (Enchanted Skin): immune to every spell from either side — buffs, heals and mass spells skip it — and to ability magic damage (Chain Lightning, Fire Breath, Fire Shield, Fireforged burns, Fire Wall); Spit Ball, Hamstring, Vine Throw and Rime Charm debuffs always fail on it. Not immune to on-hit status effects (Stun, Blindness, Paralysis, Petrifying Gaze…), auras, blessings, Craft or Resurrection. Break lifts it for 2 laps.",
+                "Magic resistance: magic damage is multiplied by (1 − resistance); a debuff spell — and the Spit Ball, Hamstring and Vine Throw debuffs — is resisted when a d100 roll lands under it (the scroll is spent either way). Creatures start with 0 / 5 / 8–12 / 15 by level; Armor augment points add to that base directly (15 + 21 = 36), and Aegis of the Arcane, Magic Shield, Wardguard and the Warding Mane and Arcane Ward blessings then add as separate rolls: 1 − (1 − own)(1 − bonus). Armor never reduces spell damage; Fire Breath, though, is rolled like a melee hit on each unit it reaches (its armor and luck count) before magic resistance, and Chain Lightning, Fire Shield and Fireforged burns are shares of hits that armor already reduced.",
+                "100% magic resistance (Enchanted Skin): immune to every spell from either side — buffs, heals and mass spells skip it — and to ability magic damage (Chain Lightning, Fire Breath, Fire Shield, Fireforged burns, Fire Wall); Spit Ball, Hamstring, Vine Throw, Rime Charm and Gravechain's Gravebound always fail on it. Rime Charm and Gravechain skip partial resistance rolls; their slows only check full immunity, and an immune target still relays Gravechain to its neighbors. Not immune to on-hit status effects (Stun, Blindness, Paralysis, Petrifying Gaze…), auras, blessings, Craft or Resurrection. Break lifts it for 2 laps.",
                 `Status resistance (Amulet of Resolve, ${A.AMULET_OF_RESOLVE_RESIST_PERCENT}%): Stun, Freeze and Paralysis chances are multiplied by (1 − resistance), and so is physical area damage taken. Mechanism units count −50 here, so they take +50% from physical area attacks; Stun and Freeze are also 1.5× as likely to land on them, and Paralysis and Shatter Armor hit them 1.5× harder.`,
                 `Mind resistance (Amulet of Resolve, ${A.AMULET_OF_RESOLVE_RESIST_PERCENT}%): Blindness, Aggr, Boar Saliva, Terrifying Gaze and the petrify roll of Petrifying Gaze are multiplied by (1 − resistance). Madness and Mechanism units are fully immune to Mind abilities and spells.`,
                 "Elements: a unit is immune to its own element (Fire, Water, Earth, Wind) and can't be targeted by that element's spells; the opposed element (Fire↔Water, Earth↔Wind) deals it ×1.5.",
             ]),
             textRu: bullet([
-                "Сопротивление магии: магический урон умножается на (1 − сопротивление); дебафф заклинания — а также дебаффы Spit Ball, Hamstring и Vine Throw — отражается, если бросок d100 меньше него (свиток тратится в любом случае). У существ оно изначально 0 / 5 / 8–12 / 15 по уровням; очки апгрейда «Броня» прибавляются к этой базе напрямую (15 + 21 = 36), а Magic Shield, Wardguard и благословения Warding Mane и Arcane Ward затем добавляются как отдельные броски: 1 − (1 − своё)(1 − бонус). Броня урон заклинаний не снижает; но Fire Breath считается как удар в ближнем бою по каждому задетому юниту (его броня и удача учитываются) до сопротивления магии, а Chain Lightning, Fire Shield и поджоги Fireforged — доли ударов, уже сниженных бронёй.",
-                "100% сопротивления магии (Enchanted Skin): иммунитет ко всем заклинаниям обеих сторон — баффы, лечение и массовые заклинания его пропускают — и к магическому урону способностей (Chain Lightning, Fire Breath, Fire Shield, поджоги Fireforged, Fire Wall); дебаффы Spit Ball, Hamstring, Vine Throw и Rime Charm на него никогда не ложатся. Нет иммунитета к эффектам ударов (Stun, Blindness, Paralysis, Petrifying Gaze…), аурам, благословениям, Craft и Resurrection. Break снимает её на 2 круга.",
+                "Сопротивление магии: магический урон умножается на (1 − сопротивление); дебафф заклинания — а также дебаффы Spit Ball, Hamstring и Vine Throw — отражается, если бросок d100 меньше него (свиток тратится в любом случае). У существ оно изначально 0 / 5 / 8–12 / 15 по уровням; очки апгрейда «Броня» прибавляются к этой базе напрямую (15 + 21 = 36), а Aegis of the Arcane, Magic Shield, Wardguard и благословения Warding Mane и Arcane Ward затем добавляются как отдельные броски: 1 − (1 − своё)(1 − бонус). Броня урон заклинаний не снижает; но Fire Breath считается как удар в ближнем бою по каждому задетому юниту (его броня и удача учитываются) до сопротивления магии, а Chain Lightning, Fire Shield и поджоги Fireforged — доли ударов, уже сниженных бронёй.",
+                "100% сопротивления магии (Enchanted Skin): иммунитет ко всем заклинаниям обеих сторон — баффы, лечение и массовые заклинания его пропускают — и к магическому урону способностей (Chain Lightning, Fire Breath, Fire Shield, поджоги Fireforged, Fire Wall); дебаффы Spit Ball, Hamstring, Vine Throw, Rime Charm и Могильные узы от Могильной цепи на него никогда не ложатся. Rime Charm и Могильная цепь не делают бросков частичного сопротивления: их замедления проверяют только полный иммунитет, а невосприимчивая цель всё равно передаёт Могильную цепь соседям. Нет иммунитета к эффектам ударов (Stun, Blindness, Paralysis, Petrifying Gaze…), аурам, благословениям, Craft и Resurrection. Break снимает её на 2 круга.",
                 `Сопротивление статусам (Amulet of Resolve, ${A.AMULET_OF_RESOLVE_RESIST_PERCENT}%): шансы Stun, Freeze и Paralysis умножаются на (1 − сопротивление), как и получаемый физический урон по площади. У Mechanism здесь −50, поэтому они получают +50% от физических атак по площади; кроме того, Stun и Freeze срабатывают на них в 1,5 раза чаще, а Paralysis и Shatter Armor действуют в 1,5 раза сильнее.`,
                 `Сопротивление ментальным эффектам (Amulet of Resolve, ${A.AMULET_OF_RESOLVE_RESIST_PERCENT}%): Blindness, Aggr, Boar Saliva, Terrifying Gaze и бросок окаменения Petrifying Gaze умножаются на (1 − сопротивление). Юниты с Madness и Mechanism полностью неуязвимы к ментальным способностям и заклинаниям.`,
                 "Стихии: юнит неуязвим к своей стихии (Огонь, Вода, Земля, Ветер) и не может быть целью её заклинаний; противоположная стихия (Огонь↔Вода, Земля↔Ветер) наносит ему ×1.5.",
@@ -1253,7 +1253,7 @@ function formulaSpecs(): FormulaSpec[] {
                 "#### Debuff spells\nMagic resistance resists them, a Peasant's Absorb Penalties Aura can take them onto itself, Absolving Arrow lifts them, Magic Mirror may copy them back onto the caster (40%, Mass Magic Mirror 32%).",
                 "#### Retaliation\nA stack answers once per lap, so a cheap first hit soaks the answer before your main attacker goes in (not against One in the Field); Shadow Touch and Lightning Spin attackers are never answered; a Stunned, Blinded or Frozen defender can't answer; spells are never answered.",
                 "#### Flyers\nWeb Aura (Arachna Queen) stops enemy flyers that start their turn within 2 cells from moving; Hamstring (Dryad) takes 30% of a flyer's movement; Wind Flow (Valkyrie) takes 4 movement from every flyer on the board, both sides, while giving each of them +4 armor (flyers with 100% magic resistance are skipped).",
-                "#### Fast melee rushes\nVine Throw (Trent) snares and makes vined cells cost an extra step; Quagmire from Rime Charm or Spit Ball takes 25% of movement; Whirlpool chains one stack for a turn; Paralysis stops movement.",
+                "#### Fast melee rushes\nVine Throw (Trent) snares and makes vined cells cost an extra step; Quagmire from Rime Charm or Spit Ball takes 25% of movement; Gravechain spreads the separate Death debuff Gravebound (−25% movement for 3 laps) through connected enemies, at the cost of 1 movement step to its owner's whole army; Whirlpool chains one stack for a turn; Paralysis stops movement.",
                 "#### Ability-heavy stacks\nLosses lower their stack power — a share of the strongest stack on the board — and their abilities with it; Break turns all of a unit's abilities off for 2 laps; Predatory Assimilation (Arachna Queen) steals one for good.",
                 "#### Waiting and stalling\nTime Denial (Nightmare) stops both armies waiting on the Hourglass; a fight where nobody closes in narrows early, and Armageddon ends every fight by lap 15.",
             ].join("\n\n"),
@@ -1266,7 +1266,7 @@ function formulaSpecs(): FormulaSpec[] {
                 "#### Дебаффы заклинаний\nСопротивление магии их отражает, Absorb Penalties Aura у Peasant может забрать их себе, Absolving Arrow снимает, Magic Mirror может скопировать их обратно на заклинателя (40%, Mass Magic Mirror — 32%).",
                 "#### Ответные удары\nСтек отвечает раз за круг, поэтому дешёвый первый удар забирает ответ до того, как пойдёт главный атакующий, — но не против One in the Field; на атаки с Shadow Touch и Lightning Spin не отвечают; оглушённый, ослеплённый или замороженный защитник ответить не может; на заклинания не отвечают никогда.",
                 "#### Летающие\nWeb Aura (Arachna Queen) не даёт вражеским летающим, начавшим ход в радиусе 2 клеток, двигаться; Hamstring (Dryad) отнимает у летающего 30% движения; Wind Flow (Valkyrie) отнимает 4 движения у всех летающих на поле, у обеих сторон, но даёт каждому из них +4 к броне (летающие со 100% сопротивления магии пропускаются).",
-                "#### Быстрые рывки ближнего боя\nVine Throw (Trent) опутывает и делает клетки с лозой дороже на шаг; Quagmire от Rime Charm или Spit Ball отнимает 25% движения; Whirlpool приковывает один стек на ход; Paralysis останавливает движение.",
+                "#### Быстрые рывки ближнего боя\nVine Throw (Trent) опутывает и делает клетки с лозой дороже на шаг; Quagmire от Rime Charm или Spit Ball отнимает 25% движения; Могильная цепь распространяет отдельный дебафф Смерти «Могильные узы» (−25% перемещения на 3 круга) по связанным врагам ценой 1 шага для всей армии владельца; Whirlpool приковывает один стек на ход; Paralysis останавливает движение.",
                 "#### Стеки, живущие способностями\nПотери снижают их силу стека — долю от сильнейшего стека на поле, — а с ней и способности; Break отключает все способности юнита на 2 круга; Predatory Assimilation (Arachna Queen) крадёт одну навсегда.",
                 "#### Ожидание и затягивание\nTime Denial (Nightmare) запрещает обеим армиям ждать через Hourglass; бой, где никто не сближается, сужается раньше, а Армагеддон заканчивает любой бой к 15-му кругу.",
             ].join("\n\n"),
@@ -2430,7 +2430,8 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
     }
     for (const spell of spells) {
         const spellId = nodeId("spell", spell.name);
-        for (const abilityName of spell.appliedBy) graph.link(nodeId("ability", abilityName), spellId, "APPLIES");
+        for (const sourceName of spell.appliedBy)
+            graph.link(nodeId(spellSourceType(sourceName), sourceName), spellId, "APPLIES");
         for (const other of spell.conflictsWith) graph.link(spellId, nodeId("spell", other), "CONFLICTS_WITH");
     }
     for (const spec of synergySpecs)

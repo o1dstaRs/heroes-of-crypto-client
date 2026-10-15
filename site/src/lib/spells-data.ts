@@ -86,7 +86,7 @@ export interface Spell {
     isGiftable: boolean;
     /** Units that carry this spell in their spell book. */
     casters: SpellCaster[];
-    /** Abilities that apply this spell when it is not cast from a spell book. */
+    /** Abilities or artifacts that apply this spell outside a spell book. */
     appliedBy: string[];
 }
 
@@ -154,9 +154,8 @@ const abilityCastSpells = new Set([
     "Castling",
 ]);
 
-// Which ability applies each non-castable buff/debuff. Curated because the link lives in ability code
-// rather than in the data files; every entry here is an ability name shown in the Knowledge Base.
-const appliedByAbility: Record<string, string[]> = {
+// Sources of non-castable buffs/debuffs. These links live in ability and artifact code rather than data.
+const appliedBySources: Record<string, string[]> = {
     "Dulling Defense": ["Dulling Defense"],
     Miner: ["Miner"],
     "Angelic Host Blessing": ["Angelic Host Blessing"],
@@ -407,6 +406,13 @@ const artifactBuffNames = new Set(
     [...Object.values(TIER1_ARTIFACTS), ...Object.values(TIER2_ARTIFACTS)].map((artifact) => artifact.buffName),
 );
 
+const artifactSourceNames = new Set(
+    [...Object.values(TIER1_ARTIFACTS), ...Object.values(TIER2_ARTIFACTS)].map((artifact) => artifact.name),
+);
+
+export const spellSourceType = (name: string): "artifact" | "ability" =>
+    artifactSourceNames.has(name) ? "artifact" : "ability";
+
 const isArtifactSpell = (raw: RawSpell): boolean =>
     artifactBuffNames.has(raw.name) || raw.desc.some((line) => /^Artifact\./i.test(line.trim()));
 
@@ -439,7 +445,7 @@ export const spells: Spell[] = bookOrder
                     conflictsWith: raw.conflicts_with,
                     isGiftable: raw.is_giftable,
                     casters,
-                    appliedBy: casters.length ? [] : (appliedByAbility[raw.name] ?? []),
+                    appliedBy: casters.length ? [] : (appliedBySources[raw.name] ?? []),
                 } satisfies Spell;
             })
             .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name)),

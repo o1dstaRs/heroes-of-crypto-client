@@ -14,7 +14,7 @@ import abilitiesJson from "@heroesofcrypto/common/src/configuration/abilities.js
 import spellsJson from "@heroesofcrypto/common/src/configuration/spells.json";
 import { describe, expect, test } from "bun:test";
 
-import { spells } from "./spells-data";
+import { spellSourceType, spells } from "./spells-data";
 
 const castableAbilityNames = Object.values(abilitiesJson as Record<string, { name: string; can_be_cast?: boolean }>)
     .filter((ability) => ability.can_be_cast)
@@ -72,5 +72,21 @@ describe("spell codex", () => {
             // ability page. An empty list renders as an orphan.
             expect(spell.appliedBy.length, `${spell.name} has no ability link`).toBeGreaterThan(0);
         }
+    });
+
+    test("distinguishes artifact-applied slows from creature abilities", () => {
+        const gravebound = spells.find((spell) => spell.name === "Gravebound");
+        expect(gravebound).toMatchObject({
+            book: "Death",
+            kind: "effect",
+            polarity: "debuff",
+            duration: { kind: "laps", laps: 3 },
+            appliedBy: ["Gravechain"],
+            casters: [],
+        });
+        expect(spellSourceType("Gravechain")).toBe("artifact");
+        expect(spellSourceType("Rime Charm")).toBe("artifact");
+        expect(spellSourceType("Spit Ball")).toBe("ability");
+        expect(spells.find((spell) => spell.name === "Quagmire")?.appliedBy).toEqual(["Spit Ball", "Rime Charm"]);
     });
 });

@@ -4,6 +4,7 @@ import MechanicsNote from "./MechanicsNote.astro";
 import { content, type Language } from "../lib/site-data";
 import { localizedFactionName } from "../lib/localization";
 import { knowledgeEntryId, knowledgePath } from "../lib/knowledge-base";
+import { ruLabel } from "../lib/knowledge/names-ru";
 import { spellNote } from "../lib/mechanics";
 import {
     bookColors,
@@ -12,6 +13,7 @@ import {
     factionColors,
     spellBooks,
     spellbookCount,
+    spellSourceType,
     spells,
     spellsCount,
     type Spell,
@@ -44,7 +46,7 @@ const labels =
               filterKind: "Фильтр по типу",
               filterBook: "Фильтр по школе",
               castBy: "Носители",
-              appliedBy: "Способность",
+              appliedBy: "Источник",
               scroll: "свиток",
               scrolls: "свитка",
               scrollsMany: "свитков",
@@ -77,7 +79,7 @@ const labels =
               filterKind: "Filter by type",
               filterBook: "Filter by school",
               castBy: "Cast by",
-              appliedBy: "Ability",
+              appliedBy: "Applied by",
               scroll: "scroll",
               scrolls: "scrolls",
               scrollsMany: "scrolls",
@@ -184,13 +186,14 @@ const books: { key: string; label: string; color: string }[] = [
 const searchText = (spell: Spell) =>
     [
         spell.name,
+        ruLabel(spell.name),
         description(spell),
         bookLabels[spell.book],
         kindLabels[spell.kind],
         targetLabel(spell.target),
         polarityLabel(spell) ?? "",
         spell.casters.map((c) => `${c.name} ${c.faction} ${localizedFactionName(lang, c.faction)}`).join(" "),
-        spell.appliedBy.join(" "),
+        spell.appliedBy.map(ruLabel).join(" "),
     ]
         .join(" ")
         .toLowerCase();
@@ -349,12 +352,15 @@ const metaRows = (spell: Spell) => {
                             <div class="spell-card-casters">
                                 <span class="spell-casters-label">{labels.appliedBy}</span>
                                 <div class="spell-caster-chips">
-                                    {spell.appliedBy.map((ability) => (
+                                    {spell.appliedBy.map((source) => (
                                         <a
                                             class="spell-source-chip"
-                                            href={knowledgePath(lang, { section: "abilities", entry: ability })}
+                                            href={knowledgePath(lang, {
+                                                section: spellSourceType(source) === "artifact" ? "artifacts" : "abilities",
+                                                entry: source,
+                                            })}
                                         >
-                                            {ability}
+                                            {source}
                                         </a>
                                     ))}
                                 </div>

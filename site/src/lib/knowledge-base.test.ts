@@ -60,10 +60,31 @@ describe("knowledge base index", () => {
             Number.POSITIVE_INFINITY,
         );
         // A question to the assistant is not a list of required words. "tell" must not hide Medusa.
-        expect(
-            knowledgeAiSearchRank("Medusa", "Medusa Chaos petrify gaze", "tell me about medusa"),
-        ).toBeLessThan(Number.POSITIVE_INFINITY);
+        expect(knowledgeAiSearchRank("Medusa", "Medusa Chaos petrify gaze", "tell me about medusa")).toBeLessThan(
+            Number.POSITIVE_INFINITY,
+        );
         expect(knowledgeAiSearchRank("Hydra", "Hydra Chaos", "tell me about medusa")).toBe(Number.POSITIVE_INFINITY);
+    });
+
+    test("finds the new artifacts and Death slow by English or Russian names", () => {
+        for (const language of ["en", "ru"] as const) {
+            const entries = buildKnowledgeEntries(language);
+            for (const [query, name] of [
+                ["Gravechain", "Gravechain"],
+                ["Могильная цепь", "Gravechain"],
+                ["Могильные узы", "Gravebound"],
+                ["Колчан эха", "Quiver of Echoes"],
+                ["Эгида тайной магии", "Aegis of the Arcane"],
+            ]) {
+                expect(searchKnowledgeEntries(entries, query).map((entry) => entry.name)).toContain(name);
+            }
+            expect(searchKnowledgeEntries(entries, "Gravechain", "spells").map((entry) => entry.name)).toContain(
+                "Gravebound",
+            );
+            expect(entries.find((entry) => entry.name === "Gravechain")?.meta).toContain(
+                language === "ru" ? "Проклятый" : "Cursed",
+            );
+        }
     });
 });
 
