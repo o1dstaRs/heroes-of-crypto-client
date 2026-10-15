@@ -70,9 +70,9 @@ Peers push to these branches continuously, so "it was current when I started" is
 finish. Skipping this produces a non-fast-forward rejection at best, and at worst a deploy built from code
 that is already behind what the PR claims.
 
-**Resolve conflicts per HUNK, not per file.** `git checkout --theirs <file>` replaces the *entire* file and
+**Resolve conflicts per HUNK, not per file.** `git checkout --theirs <file>` replaces the _entire_ file and
 silently discards your unrelated edits elsewhere in it. Prefer `git merge -X theirs` (or `-X ours`), which
-only decides the *conflicting* hunks and keeps both sides' untouched work, or edit the conflict markers by
+only decides the _conflicting_ hunks and keeps both sides' untouched work, or edit the conflict markers by
 hand. After resolving, verify both sides survived — grep for a symbol you added and one the other side
 added — rather than assuming the merge kept them.
 
@@ -139,11 +139,11 @@ refresh (vite serves common via the `src` alias).
 - **No per-user absolute paths in tracked files.** Never commit `/Users/<name>/…`, `~`, npx-cache
   module paths, or sibling repos referenced by absolute path — in code, scripts, docs, or env
   examples. They only work on one machine and leak the owner's username.
-  - Env-var examples in docs use `"$HOME/Google Drive/…"` — `$HOME` expands inside double quotes;
-    a quoted `"~/…"` stays literal and nothing downstream expands it (see `assetLocations.ts`).
-  - Sibling repos (e.g. `../heroes-of-crypto-server`) are resolved relative to the importing file
-    or via an env override (`HOC_SERVER_LOC`, `PLAYWRIGHT_LOC`), never hard-coded.
-  - One-off local convenience paths belong in your shell profile or an untracked `.env`, not the repo.
+    - Env-var examples in docs use `"$HOME/Google Drive/…"` — `$HOME` expands inside double quotes;
+      a quoted `"~/…"` stays literal and nothing downstream expands it (see `assetLocations.ts`).
+    - Sibling repos (e.g. `../heroes-of-crypto-server`) are resolved relative to the importing file
+      or via an env override (`HOC_SERVER_LOC`, `PLAYWRIGHT_LOC`), never hard-coded.
+    - One-off local convenience paths belong in your shell profile or an untracked `.env`, not the repo.
 - `RenderableUnit.fromBase()` uses `Object.setPrototypeOf` — class field defaults don't run. Always explicitly initialize new fields in `fromBase()` or they'll be `undefined`.
 - World root has `scale.y = -1` (y-up). All world-space graphics/text must account for the flip.
 - A seated player can see the board mirrored left-to-right (settings → "Your side of the battlefield";
@@ -274,21 +274,26 @@ Multiple agents run on this repo **at the same time**. Rules:
 - Creature balance, abilities, levels, factions, names, and roster changes must not alter existing portrait
   sources, framing, mirroring, or backgrounds. Change creature portraits only when the user explicitly requests
   a portrait change in the current task.
-- Every new file created for or used by this game must stay on local storage. This includes design concepts,
-  references, source artwork, generated images, textures, portraits, icons, sprites, animation frames, atlases,
-  audio, video, fonts, metadata, datasets, previews, screenshots, exports, backups, and intermediate work.
-  Do not save any of these files to Dropbox or another synchronized cloud folder unless the user explicitly asks.
+- The user explicitly requested that all game image assets and their authoring materials be synchronized to
+  the shared Google Drive. Before finishing image work, save the approved runtime assets, source artwork,
+  prompts, references, variants, processing recipes, and relevant metadata there, then verify the copied files
+  by SHA-256. Keep working intermediates under game/core/tmp/imagegen; hand off source packages under
+  the shared heroesofcrypto/image-sources folder, outside the runtime images directory.
+  Other game files (audio, video, fonts, datasets, and unrelated work) stay local unless the user requests
+  synchronization. Never use Dropbox or another synchronized cloud folder for game art.
 - Runtime game images are canonical only in the directory referenced by HOC_IMAGES_LOC. Since 2026-08 that
   is the shared Google Drive art folder ("$HOME/Google Drive/My Drive/heroesofcrypto/images"); a machine
-  without the Drive mount may keep a local checkout at ~/Workplace/heroesofcrypto-assets/images and point
+  without the Drive mount may keep a local checkout at "$HOME/Workplace/heroesofcrypto-assets/images" and point
   HOC_IMAGES_LOC at it (the build never guesses a path when HOC_IMAGES_LOC is unset). Animation atlases and
   metadata are canonical only under HOC_ANIMATIONS_LOC/output. The former Dropbox folder is RETIRED: never
   read from or write to it (stale copies there silently roll art back), and never scatter game art into any
   other synchronized cloud folder.
+  Never overwrite shared masters with stale local checkouts or optimized build copies. Check the approved
+  revision and preserve differing previous artwork in source-package history before replacing it.
   Never add game art to game/core/public or another tracked game directory.
 - Store intermediate image-generation work under game/core/tmp/imagegen. Store final static game images as
-  compressed WebP files in the local HOC_IMAGES_LOC folder; store animation atlas WebPs and *_meta.json files
-  in the local HOC_ANIMATIONS_LOC/output folder. Static images must be valid WebP
+  compressed WebP files in the configured HOC_IMAGES_LOC folder; store animation atlas WebPs and *_meta.json
+  files in the configured HOC_ANIMATIONS_LOC/output folder. Static images must be valid WebP
   files no larger than 1,766,026 bytes; animation atlas WebPs are exempt from only that size ceiling. Run
   bun run --cwd game/core check:image-assets (also enforced by build:images), then reference assets through
   src/generated/image_imports.ts or texAny(). Do not hard-code public image URLs such as
@@ -298,4 +303,4 @@ Multiple agents run on this repo **at the same time**. Rules:
   under site/public. Attach gameplay review
   screenshots to the PR or issue instead of committing them.
 - game/core/images and game/core/src/generated remain gitignored build outputs copied/generated from the
-  local canonical asset directories; do not force-add them.
+  configured canonical asset directories; do not force-add them.
