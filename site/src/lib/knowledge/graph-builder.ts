@@ -512,6 +512,9 @@ const artifactText = (artifact: (typeof artifacts)[number], language: Language):
     const isRu = language === "ru";
     return [
         `**${isRu ? ruLabel(artifact.name) : artifact.name}** — ${isRu ? "артефакт уровня" : "Tier"} ${artifact.tier}${artifact.cursed ? (isRu ? " · проклятый (есть недостаток)" : " · cursed (has a downside)") : ""}`,
+        isRu
+            ? `Место артефакта: уровень ${artifact.tier}, один на армию. Нельзя экипировать два артефакта одного уровня вместе.`
+            : `Draft slot: Tier ${artifact.tier}, one per army. Two artifacts of the same tier cannot be equipped together.`,
         isRu ? artifact.descriptionRu : artifact.description,
         ...howItWorks(artifactNote(artifact.name, language), language),
         ...(artifactFit(artifact.name, language)

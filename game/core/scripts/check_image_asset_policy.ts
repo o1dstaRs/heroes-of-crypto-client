@@ -1,3 +1,8 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+
+import { TIER1_ARTIFACT_LIST, TIER2_ARTIFACT_LIST } from "@heroesofcrypto/common/src/artifacts/artifact_properties";
+
 import { resolveImagesLocation } from "../src/assetLocations";
 import { findGameImageAssetViolations, MAX_STATIC_GAME_IMAGE_BYTES } from "../src/gameImageAssetPolicy";
 
@@ -12,6 +17,7 @@ if (import.meta.main) {
     const requiredArtifactIcons = [
         ...TIER1_ARTIFACT_LIST.map((artifact) => artifact.imageKey),
         ...TIER2_ARTIFACT_LIST.map((artifact) => artifact.imageKey),
+        "quiver_of_echoes_256",
         "gravechain_256",
         "gravebound_256",
     ];
@@ -30,7 +36,3 @@ if (import.meta.main) {
 
     console.log(`Game image policy passed: WebP-only static images at or below ${MAX_STATIC_GAME_IMAGE_BYTES} bytes.`);
 }
-import { existsSync } from "node:fs";
-import { join } from "node:path";
-
-import { TIER1_ARTIFACT_LIST, TIER2_ARTIFACT_LIST } from "@heroesofcrypto/common/src/artifacts/artifact_properties";

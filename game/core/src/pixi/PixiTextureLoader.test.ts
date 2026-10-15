@@ -446,6 +446,7 @@ describe("pixi texture bundle split", () => {
             "wild_regeneration_256",
             "fire_wall_256",
             "meteorite_chaos_256_v1",
+            "quiver_of_echoes_256",
             "gravechain_256",
             "gravebound_256",
         ]) {
@@ -453,7 +454,7 @@ describe("pixi texture bundle split", () => {
             expect(lazySpellAssets[key]).toBeDefined();
             expect(core[key]).toBeUndefined();
         }
-        expect(Object.keys(lazySpellAssets)).toHaveLength(62);
+        expect(Object.keys(lazySpellAssets)).toHaveLength(63);
     });
 
     test("loads sandbox roster art only while the pre-fight overlay exists", () => {

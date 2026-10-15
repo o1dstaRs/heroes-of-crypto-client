@@ -125,6 +125,8 @@ describe("knowledge graph builder", () => {
     test("new artifact knowledge includes luck, repeated attacks, immunity and the army curse", () => {
         const chain = byId.get("artifact:gravechain");
         expect(chain?.props).toMatchObject({ tier: 2, cursed: true });
+        expect(chain?.text).toContain("Draft slot: Tier 2, one per army");
+        expect(chain?.text).toContain("Two artifacts of the same tier cannot be equipped together");
         expect(chain?.text).toContain(`${A.GRAVECHAIN_CHANCE}%`);
         expect(chain?.text).toContain(`with luck +7 it reads ${A.GRAVECHAIN_CHANCE + 7}%`);
         expect(chain?.text).toContain("1×2 and 2×1 footprints");
