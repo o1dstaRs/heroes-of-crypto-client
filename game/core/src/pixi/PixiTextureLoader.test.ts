@@ -449,12 +449,13 @@ describe("pixi texture bundle split", () => {
             "quiver_of_echoes_256",
             "gravechain_256",
             "gravebound_256",
+            "last_fuse_256",
         ]) {
             expect(isLazySpellAssetKey(key)).toBe(true);
             expect(lazySpellAssets[key]).toBeDefined();
             expect(core[key]).toBeUndefined();
         }
-        expect(Object.keys(lazySpellAssets)).toHaveLength(63);
+        expect(Object.keys(lazySpellAssets)).toHaveLength(64);
     });
 
     test("loads sandbox roster art only while the pre-fight overlay exists", () => {

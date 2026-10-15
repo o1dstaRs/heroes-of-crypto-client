@@ -20,6 +20,7 @@ if (import.meta.main) {
         "quiver_of_echoes_256",
         "gravechain_256",
         "gravebound_256",
+    "last_fuse_256",
     ];
     for (const key of requiredArtifactIcons) {
         if (!existsSync(join(imageDirectory, `${key}.webp`))) {

@@ -197,6 +197,10 @@ const FITS: Record<string, Fit> = {
         language === "ru"
             ? "Для армий со стрелками: шанс на дополнительный залп. Особенно полезен с Area Throw, Large Caliber, Through Shot и Chakram; сочетается с Double Shot и Double Throw. Поддерживайте запас боеприпасов: после его исчерпания эхо не вылетит. Юниты ближнего боя бонус не получают."
             : "For ranged armies: a chance for an extra volley. Particularly useful with Area Throw, Large Caliber, Through Shot and Chakram, and stacks with Double Shot and Double Throw. Keep ammunition available: an empty quiver cannot fire the echo. Melee units receive no bonus.",
+    "Last Fuse": (language, n) =>
+        language === "ru"
+            ? `Для армий, которые меняются стеками, особенно крупными: взрыв бьёт по касающимся врагам на ${n(A.LAST_FUSE_PERCENT)}% фактического урона добивания, минимум ${n(A.LAST_FUSE_MIN_DAMAGE_PER_POWER)} за уровень силы стека. Сильно раненые стеки часто взрываются только на этот минимум. Воскресший стек не взрывается.`
+            : `Armies that expect to trade stacks, especially large ones: a destroyed stack hits touching enemies for ${n(A.LAST_FUSE_PERCENT)}% of its actual killing damage, at least ${n(A.LAST_FUSE_MIN_DAMAGE_PER_POWER)} per stack power. Heavily injured stacks often explode only for that minimum. A resurrecting stack does not burst.`,
     "Aegis of the Arcane": (language, n) => {
         const points = A.AEGIS_OF_THE_ARCANE_MAGIC_DEFENSE;
         const own = 15;

@@ -213,6 +213,11 @@ export const FIGHT_EVENT_VFX: Record<GameEvent["type"], FightEventVfx> = {
     },
     // The one fire-wall event that is NOT snapshot-driven: a burn happens once, at a moment, so the floating
     // damage number has to ride the event (the store only says which cells are alight, never who they hurt).
+    pyre_exploded: {
+        rendered: true,
+        ranked: "journal",
+        note: "a destroyed Pyre Oath stack bursts: spawnPyreExplosion at the corpse plus an orange damage number on each hit. Sandbox plays it from applyTurnEngineEvents; ranked suppresses that inline path and plays renderNewlyAppliedPyre off the journal, the same split as Armageddon, so a reconnect does not replay old blasts",
+    },
     fire_wall_burned: {
         rendered: true,
         ranked: "replay",

@@ -1603,6 +1603,8 @@ export class RankedPlayScene extends Sandbox {
     private moraleVfxSequence = -1;
     private poisonVfxGameId = "";
     private poisonVfxSequence = -1;
+    private pyreVfxGameId = "";
+    private pyreVfxSequence = -1;
     // Remembers every unit's name (and team) as it appears in snapshots, so log lines for units
     // that have since died — and dropped out of the live snapshot — still resolve a real name.
     private readonly rankedUnitNamesById = new Map<string, string>();
@@ -2246,6 +2248,7 @@ export class RankedPlayScene extends Sandbox {
         // shouldRenderArmageddonInline()). Runs BEFORE shatterNewlyDeadUnits so a unit the wave kills
         // still has a live position to throw its number from.
         this.renderNewlyAppliedArmageddon(snapshot);
+        this.renderNewlyAppliedPyre(snapshot);
         // Lap-start Morale/Dismorale pops, also off the journal (excluded from the generic effect diff).
         this.renderNewlyAppliedMorale(snapshot);
         this.renderNewlyAppliedPoison(snapshot);
@@ -2560,6 +2563,8 @@ export class RankedPlayScene extends Sandbox {
         this.moraleVfxSequence = -1;
         this.poisonVfxGameId = "";
         this.poisonVfxSequence = -1;
+        this.pyreVfxGameId = "";
+        this.pyreVfxSequence = -1;
         // Re-baseline effect pops so the replay's first snapshot seeds silently instead of bursting.
         this.effectPopsGameId = "";
         this.effectPopsSequence = -1;
@@ -2626,6 +2631,7 @@ export class RankedPlayScene extends Sandbox {
         this.renderNewlyAppliedMorale(snapshot);
         this.renderNewlyAppliedPoison(snapshot);
         this.renderNewlyAppliedArmageddon(snapshot);
+        this.renderNewlyAppliedPyre(snapshot, true);
         this.reconcileAuraEffectsFromSnapshot(snapshot);
         this.applyRankedTimer(snapshot);
         this.applyRankedFightStats(snapshot, record.stateAfter.units);
@@ -3695,6 +3701,10 @@ export class RankedPlayScene extends Sandbox {
                     event.position,
                     this.sc_sceneSettings.getGridSettings(),
                 );
+            case "pyre_exploded": {
+                const hits = event.hits.map((hit) => `${nameOf(hit.unitId)} (${hit.amount})`).join(", ");
+                return hits ? `${nameOf(event.unitId)} explodes: ${hits}` : `${nameOf(event.unitId)} explodes`;
+            }
             case "unit_destroyed":
                 return `${nameOf(event.unitId)} ${
                     event.reason === "dead_cleanup"
@@ -3895,6 +3905,9 @@ export class RankedPlayScene extends Sandbox {
     protected override shouldRenderPoisonInline(): boolean {
         return false;
     }
+    protected override shouldRenderPyreInline(): boolean {
+        return false;
+    }
     /**
      * Render the lap-start Morale (green) / Dismorale (violet) pops from the authoritative journal. The
      * `morale_applied` events ride on the lap-flipping action's journal entry (the scene log reads them
@@ -4023,6 +4036,33 @@ export class RankedPlayScene extends Sandbox {
             }
         }
         this.armageddonVfxSequence = maxSequence;
+    }
+    private renderNewlyAppliedPyre(snapshot: AuthoritativeGameSnapshot, replaying = false): void {
+        const journalTail = snapshot.journalTail ?? [];
+        const sorted = [...journalTail].sort((a, b) => a.sequence - b.sequence);
+        const maxSequence = Math.max(snapshot.latestSequence, sorted.at(-1)?.sequence ?? -1);
+        if (this.pyreVfxGameId !== snapshot.gameId) {
+            this.pyreVfxGameId = snapshot.gameId;
+            this.pyreVfxSequence = replaying ? snapshot.latestSequence - 1 : maxSequence;
+            if (!replaying) return;
+        }
+        if (maxSequence <= this.pyreVfxSequence) {
+            return;
+        }
+        let pyreIndex = 0;
+        for (const entry of sorted) {
+            if (entry.sequence <= this.pyreVfxSequence) {
+                continue;
+            }
+            for (const event of this.parseJournalEvents(entry)) {
+                if (event.type !== "pyre_exploded") {
+                    continue;
+                }
+                this.renderPyreExplosion(event, pyreIndex * 0.18);
+                pyreIndex += 1;
+            }
+        }
+        this.pyreVfxSequence = maxSequence;
     }
     /**
      * Spawn the "broken mirror" death shatter for any unit that just died, then tear its sprite down.

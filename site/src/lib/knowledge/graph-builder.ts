@@ -1898,7 +1898,7 @@ export function buildKnowledgeGraph(options: BuildKnowledgeGraphOptions = {}): K
             section: "artifacts",
             name: artifact.name,
             nameRu: ruName(artifact.name),
-            aliases: [artifact.slug.replace(/_/g, " ")],
+            aliases: [artifact.slug.replace(/_/g, " "), ...(artifact.aliases ?? [])],
             href,
             hrefRu,
             summary: `Tier ${artifact.tier} artifact: ${artifact.description}`,

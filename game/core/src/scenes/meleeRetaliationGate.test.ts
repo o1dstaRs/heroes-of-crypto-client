@@ -129,3 +129,23 @@ describe("a replayed melee counter is only shown when the rules allow one", () =
         expect(scene.getReplayRetaliationDamage(attacker, unit("defender"), meleeEvent, record)).toBeUndefined();
     });
 });
+
+for (const amount of [10, 30]) {
+    test(`Last Fuse's ${amount} damage is excluded from an inferred replay counter`, () => {
+        const attacker = unit("attacker");
+        const scene = sceneWith(attacker);
+        const record = {
+            ...recordWithAttackerLoss("attacker"),
+            events: [
+                {
+                    type: "pyre_exploded",
+                    unitId: "corpse",
+                    position: { x: 0, y: 0 },
+                    hits: [{ unitId: "attacker", position: { x: 0, y: 0 }, amount, unitsDied: amount / 10 }],
+                },
+            ],
+        };
+        const response = scene.getReplayRetaliationDamage(attacker, unit("defender"), meleeEvent, record);
+        expect(response).toEqual(amount === 30 ? undefined : { amount: 20, unitsDied: 2 });
+    });
+}

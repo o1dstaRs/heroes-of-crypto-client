@@ -2813,6 +2813,7 @@ export class RenderableUnit extends Unit {
     public static fromBase(base: Unit, texResolver: TexResolver): RenderableUnit {
         Object.setPrototypeOf(base, RenderableUnit.prototype);
         const ru = base as RenderableUnit;
+        ru.lastFuseFatalHit = undefined;
         ru.texResolver = texResolver;
         ru.pixiSpells = [];
         ru.stackPowerPips = [];

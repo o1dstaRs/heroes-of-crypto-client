@@ -257,6 +257,7 @@ export const RU_NAMES: Readonly<Record<string, string>> = {
     "Archmage's Ring": "Кольцо архимага",
     "Quiver of Echoes": "Колчан эха",
     Gravechain: "Могильная цепь",
+    "Last Fuse": "Последний фитиль",
     "Aegis of the Arcane": "Эгида тайной магии",
 
     // ---- Doctrines (the game's own Russian names)

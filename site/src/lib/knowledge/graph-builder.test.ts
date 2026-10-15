@@ -122,6 +122,24 @@ describe("knowledge graph builder", () => {
         expect(byId.get("spell:gravebound")?.textRu).toContain("Источник: Могильная цепь (Gravechain)");
     });
 
+    test("Last Fuse is discoverable under its old name and dynamite art", () => {
+        const fuse = byId.get("artifact:last-fuse");
+        expect(fuse?.nameRu).toBe("Последний фитиль");
+        expect(fuse?.aliases).toContain("Pyre Oath");
+        expect(fuse?.aliases).toContain("sticky dynamite");
+        expect(fuse?.props).toMatchObject({ tier: 2, cursed: false });
+        expect(fuse?.text).toContain("Water Shield");
+        expect(fuse?.text).toContain("actual killing damage");
+        expect(fuse?.text).toContain("20/40/60/80/100");
+        expect(fuse?.text).toContain("overkill and health lost in earlier attacks do not increase");
+        expect(fuse?.text).toContain("recalculated blast damage");
+        expect(fuse?.text).toContain("resurrects does not explode");
+        expect(fuse?.text).toContain("Armor, magic resistance and hit rolls do not reduce");
+        expect(fuse?.textRu).toContain("Water Shield");
+        expect(byId.has("spell:last-fuse")).toBe(false);
+        expect(byId.has("artifact:pyre-oath")).toBe(false);
+    });
+
     test("new artifact knowledge includes luck, repeated attacks, immunity and the army curse", () => {
         const chain = byId.get("artifact:gravechain");
         expect(chain?.props).toMatchObject({ tier: 2, cursed: true });

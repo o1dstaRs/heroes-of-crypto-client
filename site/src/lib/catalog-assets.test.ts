@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { fileURLToPath } from "node:url";
 
+import { artifacts } from "./artifacts-data";
 import { spells } from "./spells-data";
 import { abilities, allUnits, factionUnits } from "./units-data";
 
@@ -15,6 +16,7 @@ const publicAssetPath = (url: string): string => {
 };
 
 const assetReferences = (): AssetReference[] => [
+    ...artifacts.map((artifact) => ({ owner: `${artifact.name} artifact`, url: artifact.icon })),
     ...factionUnits.map((faction) => ({
         owner: `${faction.faction} faction`,
         url: faction.icon,
@@ -34,7 +36,7 @@ const assetReferences = (): AssetReference[] => [
 ];
 
 describe("public codex assets", () => {
-    test("has a non-empty image for every game-derived faction, unit, ability, and spell", async () => {
+    test("has a non-empty image for every game-derived faction, unit, ability, spell, and artifact", async () => {
         const missing: string[] = [];
 
         for (const reference of assetReferences()) {

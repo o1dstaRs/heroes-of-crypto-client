@@ -579,6 +579,7 @@ const LAZY_SPELL_ASSETS = new Set([
     "quiver_of_echoes_256",
     "gravechain_256",
     "gravebound_256",
+    "last_fuse_256",
     "heal_256",
     "spiritual_armor_256",
     "blessing_256",

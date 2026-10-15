@@ -19,6 +19,7 @@ export interface Artifact {
     tier: ArtifactTier;
     slug: string;
     name: string;
+    aliases?: string[];
     icon: string;
     description: string;
     /** The same effect in Russian, with the same numbers. */
@@ -86,6 +87,8 @@ const ARTIFACT_DESCRIPTIONS_RU: Record<string, string> = {
     aegis_of_the_arcane:
         "Даёт всей армии отдельный бросок магической защиты на {}%, который складывается с собственной защитой, а не прибавляется к ней.",
     archmages_ring: "Увеличивает весь магический урон армии на {}%.",
+    last_fuse:
+        "Когда союзный стек уничтожен, он взрывается. Соседние враги получают {}% фактического урона добивающего удара, но не менее [] урона за уровень силы стека.",
 };
 
 const PLACEHOLDER = /\{\}|\[\]|<>/g;
@@ -119,6 +122,7 @@ const toArtifact = (tier: ArtifactTier) => (props: ArtifactProperties) => ({
     tier,
     slug: props.slug,
     name: props.name,
+    ...(props.slug === "last_fuse" ? { aliases: ["Pyre Oath", "sticky dynamite", "динамит"] } : {}),
     icon: icon(tier, props.slug),
     description: codexDescription(props),
     descriptionRu: russianDescription(props, codexDescription(props)),

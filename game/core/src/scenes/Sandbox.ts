@@ -1,3 +1,4 @@
+import { lastFuseDamageTaken } from "./last_fuse_damage_taken";
 import { orderCombatExchange, type CombatExchangeStrike } from "./sandbox/combat_exchange";
 import { playCombatSound, preloadCombatSounds, stopCombatSounds, type CombatSoundRole } from "../ui/audio/combatSounds";
 import { playGameSound, preloadGameSounds, type GameSoundName } from "../ui/audio/gameSounds";
@@ -2038,6 +2039,9 @@ export class Sandbox extends PixiScene {
      * authoritative journal instead (the inline path doesn't fire reliably there).
      */
     protected shouldRenderArmageddonInline(): boolean {
+        return true;
+    }
+    protected shouldRenderPyreInline(): boolean {
         return true;
     }
     /**
@@ -6219,9 +6223,13 @@ export class Sandbox extends PixiScene {
                 }),
                 { amount: 0, unitsDied: 0 },
             );
+        const explosionDamage = lastFuseDamageTaken(record.events, responseVictimId);
         const responseDamage = {
-            amount: Math.max(0, totalResponseDamage.amount - secondaryOnAttacker.amount),
-            unitsDied: Math.max(0, totalResponseDamage.unitsDied - secondaryOnAttacker.unitsDied),
+            amount: Math.max(0, totalResponseDamage.amount - secondaryOnAttacker.amount - explosionDamage.amount),
+            unitsDied: Math.max(
+                0,
+                totalResponseDamage.unitsDied - secondaryOnAttacker.unitsDied - explosionDamage.unitsDied,
+            ),
         };
         // His blow can move no hit points — Flesh Shield took all of it, or the swing was reduced to
         // nothing — and still dull. Hiding that answer showed the debuff on the hit he never returned.
@@ -12731,6 +12739,7 @@ export class Sandbox extends PixiScene {
             const before = unitSnapshots.get(responseVictimId);
             const after = this.unitsHolder.getAllUnits().get(responseVictimId);
             const secondary = (event.damage.secondary ?? []).filter((hit) => hit.unitId === responseVictimId);
+            const explosionDamage = lastFuseDamageTaken(attackActionEvents, responseVictimId);
             const amount = responseFlight
                 ? (responsePrimary?.amount ?? 0)
                 : before
@@ -12739,7 +12748,8 @@ export class Sandbox extends PixiScene {
                         (before.amount - 1) * before.maxHp +
                             before.hp -
                             (after?.getCumulativeHp() ?? 0) -
-                            secondary.reduce((sum, hit) => sum + hit.amount, 0),
+                            secondary.reduce((sum, hit) => sum + hit.amount, 0) -
+                            explosionDamage.amount,
                     )
                   : 0;
             const unitsDied = responseFlight
@@ -12749,7 +12759,8 @@ export class Sandbox extends PixiScene {
                         0,
                         before.amount -
                             (after?.getAmountAlive() ?? 0) -
-                            secondary.reduce((sum, hit) => sum + hit.unitsDied, 0),
+                            secondary.reduce((sum, hit) => sum + hit.unitsDied, 0) -
+                            explosionDamage.unitsDied,
                     )
                   : 0;
             // The attacker's own HP loss is the only evidence of a melee counter here, and it is not
@@ -13051,7 +13062,12 @@ export class Sandbox extends PixiScene {
             // Calculation of actual dead count (Stack Size Diff) — read from whoever actually took the
             // hit, using the pre-attack snapshot so an intercepted shot counts the SCREEN's losses.
             const damagedBeforeAmount = unitSnapshots.get(primaryVictimId)?.amount ?? targetBeforeAmount;
-            const targetDiedCount = Math.max(0, damagedBeforeAmount - damagedUnit.getAmountAlive());
+            const targetDiedCount = Math.max(
+                0,
+                damagedBeforeAmount -
+                    damagedUnit.getAmountAlive() -
+                    lastFuseDamageTaken(attackActionEvents, primaryVictimId).unitsDied,
+            );
 
             if (damageForAnimation.hits && damageForAnimation.hits.length > 0) {
                 const totalHits = damageForAnimation.hits.length;
@@ -13281,7 +13297,8 @@ export class Sandbox extends PixiScene {
             // amount=0 produces -maxHp, inventing one extra unit of damage; lethal Flesh Shield then
             // showed its correct yellow total plus a bogus red max-HP number from this fallback.
             const totalHpAfter = currentAmount > 0 ? (currentAmount - 1) * unitMaxHp + currentHp : 0;
-            const diff = totalHpBefore - totalHpAfter;
+            const explosionDamage = lastFuseDamageTaken(attackActionEvents, uId);
+            const diff = totalHpBefore - totalHpAfter - explosionDamage.amount;
 
             const primaryVictimId = damageForAnimation.unitId ?? target.getId();
             const primaryReactionAlreadyPlayed =
@@ -13292,7 +13309,7 @@ export class Sandbox extends PixiScene {
                 this.applyHitReactionFromPoint(u, attacker.getVisualCenter(gs), 0.2);
             }
 
-            const diedCount = Math.max(0, snap.amount - currentAmount);
+            const diedCount = Math.max(0, snap.amount - currentAmount - explosionDamage.unitsDied);
 
             // Deduct damage the attack's own hit numbers already showed (Section 1). Key off the
             // unit the handler ACTUALLY hit (damageForAnimation.unitId — e.g. the first enemy on a
@@ -17996,6 +18013,23 @@ export class Sandbox extends PixiScene {
             );
         }
     }
+    protected renderPyreExplosion(event: Extract<GameEvent, { type: "pyre_exploded" }>, delaySec = 0): void {
+        const visuals = this.combatVisuals;
+        if (!visuals) {
+            return;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const cell = gs.getCellSize();
+        visuals.spawnPyreExplosion(projectBattlefieldPoint(event.position, gs), cell, delaySec);
+        for (const hit of event.hits) {
+            const unit = this.unitsHolder.getAllUnits().get(hit.unitId) as RenderableUnit | undefined;
+            const pos = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(hit.position, gs);
+            visuals.showFloatingDamageDelayed(pos, hit.amount, hit.unitsDied, delaySec, "#ff7a18", "#4a1208");
+        }
+        if (delaySec === 0) {
+            this.triggerScreenShake(11, 0.4);
+        }
+    }
     private applyTurnEngineEvents(events: GameEvent[], unitSnapshot: ReadonlyMap<string, RenderableUnit>): void {
         if (events.length) {
             this.sandboxPremiumRevision += 1;
@@ -18010,6 +18044,7 @@ export class Sandbox extends PixiScene {
         // the grid (the engine's order is move-then-hole). Defer the hole render until after the loop so
         // syncSystemMovedUnit's grid cleanup can't wipe a freshly-placed hole.
         let pendingNarrowingLayers = 0;
+        let pyreIndex = 0;
         const activeUnitIdAtStart = this.currentActiveUnit?.getId();
 
         for (const event of events) {
@@ -18052,6 +18087,13 @@ export class Sandbox extends PixiScene {
                     break;
                 case "unit_destroyed":
                     this.destroyEventDeletedUnit(event.unitId, unitSnapshot);
+                    shouldRefreshVisibleState = true;
+                    break;
+                case "pyre_exploded":
+                    if (this.shouldRenderPyreInline()) {
+                        this.renderPyreExplosion(event, pyreIndex * 0.18);
+                        pyreIndex += 1;
+                    }
                     shouldRefreshVisibleState = true;
                     break;
                 case "poison_ticked": {

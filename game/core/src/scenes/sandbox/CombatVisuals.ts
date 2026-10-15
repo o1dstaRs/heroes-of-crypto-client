@@ -679,6 +679,13 @@ const AREA_IMPACT_LIFE = 0.85; // seconds
 const AREA_IMPACT_DUST = 0xb9a288; // kicked-up dirt
 const AREA_IMPACT_DEBRIS = 0x6b5a45; // dark rock chips
 const AREA_IMPACT_FLASH = 0xfff0d0; // brief pale flash at the moment of landing
+const PYRE_Z = 1940;
+const PYRE_LIFE = 0.85;
+const PYRE_CORE = 0xfff4d2;
+const PYRE_FIRE = 0xff6a12;
+const PYRE_DEEP = 0xc41700;
+const PYRE_EMBER = 0xffc14a;
+const PYRE_SCORCH = 0x3a0c06;
 
 interface IAreaImpactDebris {
     /** Radians around the impact centre. */
@@ -689,6 +696,23 @@ interface IAreaImpactDebris {
     lift: number;
     size: number;
     spin: number;
+}
+
+interface IPyreSpark {
+    angle: number;
+    speed: number;
+    lift: number;
+    size: number;
+}
+
+interface IPyreExplosionVfx {
+    graphics: Graphics;
+    pos: HoCMath.XY;
+    age: number;
+    delay: number;
+    life: number;
+    radius: number;
+    sparks: IPyreSpark[];
 }
 
 interface IAreaImpact {
@@ -766,6 +790,7 @@ export class CombatVisuals {
     private poisonClouds: IFireSweep[] = [];
     private healBursts: IHealBurst[] = [];
     private areaImpacts: IAreaImpact[] = [];
+    private pyreExplosions: IPyreExplosionVfx[] = [];
     private resurrectBursts: IResurrectBurst[] = [];
     private chainLightnings: IChainLightning[] = [];
     private lightningStrikes: ILightningStrike[] = [];
@@ -1682,6 +1707,10 @@ export class CombatVisuals {
                 impact.graphics.destroy();
             }
             this.areaImpacts.length = 0;
+            for (const blast of this.pyreExplosions) {
+                blast.graphics.destroy();
+            }
+            this.pyreExplosions.length = 0;
             for (const burst of this.resurrectBursts) {
                 burst.graphics.destroy();
             }
@@ -1770,6 +1799,7 @@ export class CombatVisuals {
             this.poisonClouds.length === 0 &&
             this.healBursts.length === 0 &&
             this.areaImpacts.length === 0 &&
+            this.pyreExplosions.length === 0 &&
             this.resurrectBursts.length === 0 &&
             this.chainLightnings.length === 0 &&
             this.lightningStrikes.length === 0 &&
@@ -1858,6 +1888,7 @@ export class CombatVisuals {
         this.stepPoisonClouds(dt);
         this.stepHealBursts(dt);
         this.stepAreaImpacts(dt);
+        this.stepPyreExplosions(dt);
         this.stepResurrectBursts(dt);
         this.stepChainLightnings(dt);
         this.stepLightningStrikes(dt);
@@ -4935,6 +4966,89 @@ export class CombatVisuals {
                     size,
                     size,
                 ).fill({ color: AREA_IMPACT_DEBRIS, alpha: 0.9 * fade });
+            }
+        }
+    }
+    public spawnPyreExplosion(pos: HoCMath.XY, cellSize: number, delaySec = 0): void {
+        const radius = cellSize * 1.65;
+        const graphics = new Graphics();
+        this.attachEffect(graphics, PYRE_Z);
+        this.pyreExplosions.push({
+            graphics,
+            pos: { x: pos.x, y: pos.y },
+            age: 0,
+            delay: Math.max(0, delaySec),
+            life: PYRE_LIFE,
+            radius,
+            sparks: Array.from({ length: 18 }, (_, i) => ({
+                angle: (i / 18) * Math.PI * 2 + (i % 4) * 0.17,
+                speed: radius * (0.45 + (i % 5) * 0.12),
+                lift: cellSize * (0.85 + (i % 6) * 0.22),
+                size: cellSize * (0.045 + (i % 3) * 0.02),
+            })),
+        });
+    }
+    private stepPyreExplosions(dt: number): void {
+        for (let i = this.pyreExplosions.length - 1; i >= 0; i--) {
+            const blast = this.pyreExplosions[i];
+            blast.age += dt;
+            if (blast.age < blast.delay) {
+                continue;
+            }
+            const elapsed = blast.age - blast.delay;
+            if (elapsed >= blast.life) {
+                blast.graphics.destroy();
+                this.pyreExplosions.splice(i, 1);
+                continue;
+            }
+            const t = elapsed / blast.life;
+            const eased = 1 - (1 - t) * (1 - t);
+            const fade = 1 - t;
+            const g = blast.graphics;
+            g.clear();
+
+            g.ellipse(
+                blast.pos.x,
+                blast.pos.y,
+                blast.radius * (0.42 + 0.7 * eased),
+                blast.radius * (0.42 + 0.7 * eased) * 0.36,
+            ).fill({ color: PYRE_SCORCH, alpha: 0.45 * fade });
+
+            if (t < 0.22) {
+                const flash = 1 - t / 0.22;
+                g.circle(blast.pos.x, blast.pos.y, blast.radius * (0.18 + 0.35 * (1 - flash))).fill({
+                    color: PYRE_CORE,
+                    alpha: 0.85 * flash,
+                });
+            }
+
+            const column = blast.radius * (0.55 + 0.9 * (1 - t));
+            g.ellipse(blast.pos.x, blast.pos.y + column * 0.35, blast.radius * (0.28 + 0.22 * fade), column).fill({
+                color: PYRE_DEEP,
+                alpha: 0.55 * fade,
+            });
+            g.ellipse(
+                blast.pos.x,
+                blast.pos.y + column * 0.48,
+                blast.radius * (0.16 + 0.12 * fade),
+                column * 0.72,
+            ).fill({ color: PYRE_FIRE, alpha: 0.7 * fade });
+
+            g.ellipse(blast.pos.x, blast.pos.y, blast.radius * eased, blast.radius * eased * 0.4).stroke({
+                width: Math.max(1, 6 * fade),
+                color: PYRE_EMBER,
+                alpha: 0.75 * fade,
+            });
+
+            for (const spark of blast.sparks) {
+                const distance = eased * spark.speed;
+                const height = spark.lift * (t * 2.2) * (1 - t);
+                const size = spark.size * (1 - 0.4 * t);
+                g.circle(
+                    blast.pos.x + Math.cos(spark.angle) * distance,
+                    blast.pos.y + Math.sin(spark.angle) * distance * 0.38 + Math.max(0, height),
+                    size,
+                ).fill({ color: t < 0.45 ? PYRE_CORE : PYRE_EMBER, alpha: 0.9 * fade });
             }
         }
     }
