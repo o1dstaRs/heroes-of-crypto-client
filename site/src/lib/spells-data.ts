@@ -306,7 +306,7 @@ const descriptionsRu: Record<string, string> = {
     "Death:Sadness": "Мораль пораженного юнита падает до минимума.",
     "Death:Quagmire": "Дистанция перемещения юнита снижена на 25%.",
     "Death:Gravebound": "Призрачные цепи снижают дистанцию перемещения юнита на 25%.",
-    "Death:Hamstrung": "Дистанция перемещения юнита снижена на 30%.",
+    "Death:Hamstrung": "Дистанция перемещения летающего юнита снижена на 30%.",
     "Death:Weakening Beam": "Базовая броня юнита снижена на 24%.",
     "Death:Weakness": "Базовая атака юнита снижена на 30%.",
     "Chaos:Fire Strike":
