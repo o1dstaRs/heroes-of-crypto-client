@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, type ReactNode } from "react";
 
 import type { PlayerMetricsSummary } from "../../api/player_metrics_contract";
 import { fetchPlayerMetrics } from "../../api/social_client";
@@ -12,7 +12,9 @@ export const PlayerPlaystyle: React.FC<{
     reloadKey: number;
     language: string;
     compact?: boolean;
-}> = ({ playerId, reloadKey, language, compact = false }) => {
+    /** Wraps a rendered playstyle. Not called when nothing has been collected yet. */
+    wrap?: (body: ReactNode) => ReactNode;
+}> = ({ playerId, reloadKey, language, compact = false, wrap }) => {
     const [metrics, setMetrics] = useState<PlayerMetricsSummary | null>(null);
     const [state, setState] = useState<PlaystyleState>("loading");
     useEffect(() => {
@@ -42,10 +44,9 @@ export const PlayerPlaystyle: React.FC<{
             cancelled = true;
         };
     }, [playerId, reloadKey]);
-    return (
-        <div
-            aria-live="polite"
-            dangerouslySetInnerHTML={{ __html: renderPlayerPlaystyle(metrics, language, state, compact) }}
-        />
-    );
+    const markup = renderPlayerPlaystyle(metrics, language, state, compact);
+    // Stay blank while loading too, so a player with no battle data never sees the heading flash in.
+    if (state === "loading" || !markup) return null;
+    const body = <div aria-live="polite" dangerouslySetInnerHTML={{ __html: markup }} />;
+    return wrap ? wrap(body) : body;
 };

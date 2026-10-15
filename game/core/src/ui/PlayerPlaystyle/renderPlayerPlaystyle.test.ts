@@ -30,7 +30,9 @@ describe("player playstyle presentation", () => {
         expect(markup).toContain("Available after 5 recorded battles");
     });
     test("missing data and small samples never masquerade as a zero score", () => {
-        expect(renderPlayerPlaystyle(null)).not.toContain("<svg");
+        expect(renderPlayerPlaystyle(null)).toBe("");
+        expect(renderPlayerPlaystyle({ recordedGames: 0, missingGames: 20, stylePct: null } as never)).toBe("");
+        expect(renderPlayerPlaystyle(null)).not.toContain("takes shape");
         expect(renderPlayerPlaystyle(buildMockPlayerMetrics("new"))).toContain("Available after 5 recorded battles");
         expect(renderPlayerPlaystyle(null, "en", "error")).toContain("temporarily unavailable");
         expect(renderPlayerPlaystyle(buildMockPlayerMetrics(), "ru")).toContain("Предпочтения армии");

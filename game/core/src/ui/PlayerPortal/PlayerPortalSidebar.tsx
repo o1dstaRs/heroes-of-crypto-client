@@ -620,17 +620,20 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
                                 />
                             </Box>
 
-                            <Box sx={{ minWidth: 0, color: hocColors.parchment }}>
-                                <Typography level="title-sm" sx={{ color: hocColors.gold, mb: 1 }}>
-                                    {language === "ru" ? "Стиль игры" : "Playstyle"}
-                                </Typography>
-                                <PlayerPlaystyle
-                                    compact
-                                    playerId={standing?.playerId}
-                                    reloadKey={reloadKey}
-                                    language={language}
-                                />
-                            </Box>
+                            <PlayerPlaystyle
+                                compact
+                                playerId={standing?.playerId}
+                                reloadKey={reloadKey}
+                                language={language}
+                                wrap={(body) => (
+                                    <Box sx={{ minWidth: 0, color: hocColors.parchment }}>
+                                        <Typography level="title-sm" sx={{ color: hocColors.gold, mb: 1 }}>
+                                            {language === "ru" ? "Стиль игры" : "Playstyle"}
+                                        </Typography>
+                                        {body}
+                                    </Box>
+                                )}
+                            />
 
                             <Box sx={{ minWidth: 0 }}>
                                 {predictionsVisible ? (

@@ -333,6 +333,8 @@ export abstract class PixiScene {
     // Ranked move-intent relay (implemented by Sandbox); no-ops in the base scene.
     public setMoveIntentSink(_sink?: (unitId: string | undefined, cell: HoCMath.XY | undefined) => void): void {}
     public setOpponentMoveIntent(_intent?: { unitId: string; cell: HoCMath.XY }): void {}
+    public setSpellIntentSink(_sink?: (unitId: string | undefined, spellName: string | undefined) => void): void {}
+    public setOpponentSpellIntent(_intent?: { unitId: string; spellName: string }): void {}
     public setPremiumTurnPreview(_turn?: PremiumTurnPreview): void {}
     public setPremiumSandboxGuidance(_enabled: boolean): void {}
     protected dispatchExternalGameAction(

@@ -1,7 +1,6 @@
 ---
 import "../../../game/core/src/ui/PlayerPlaystyle/playerPlaystyle.css";
 import "../../../game/core/src/ui/PlayerPortal/profilePresentation.css";
-import { renderPlayerPlaystyle } from "../../../game/core/src/ui/PlayerPlaystyle/renderPlayerPlaystyle";
 import { reputationRulesPath } from "../lib/reputation-rules";
 import { content, links, type Language } from "../lib/site-data";
 
@@ -75,9 +74,9 @@ const reputationHref = reputationRulesPath(lang);
             </div>
 
             <div class="profile-body" data-profile-sections>
-                <section class="profile-section hoc-profile-feature">
+                <section class="profile-section hoc-profile-feature" data-profile-metrics-section hidden>
                     <h2>{isRu ? "Стиль игры" : "Playstyle"}</h2>
-                    <div data-profile-metrics set:html={renderPlayerPlaystyle(null, lang, "loading")}></div>
+                    <div data-profile-metrics></div>
                 </section>
 
 
@@ -884,6 +883,19 @@ const reputationHref = reputationRulesPath(lang);
         if (reputationBadgeEl) reputationBadgeEl.hidden = badge !== "honorable";
     }
 
+    /** Playstyle stays off the page until recorded battles exist. An error still explains itself. */
+    function paintPlaystyle(
+        metrics: PublicRankedProfile["playerMetrics"],
+        state: "ready" | "error" = "ready",
+    ): void {
+        const section = $("metrics-section");
+        const metricsEl = $("metrics");
+        if (!section || !metricsEl) return;
+        const html = renderPlayerPlaystyle(metrics, language, state);
+        metricsEl.innerHTML = html;
+        section.hidden = html.length === 0;
+    }
+
     function publicStateLabel(state: PublicRankedProfile["state"]): string {
         if (state === "placed") return copy.publicStatePlaced;
         if (state === "recalibration") return copy.publicStateRecalibration;
@@ -1258,8 +1270,7 @@ const reputationHref = reputationRulesPath(lang);
 
     function renderPublicProfile(profile: PublicRankedProfile, summaryOnly = false): void {
         configurePublicMode();
-        const metricsEl = document.querySelector<HTMLElement>("[data-profile-metrics]");
-        if (metricsEl) metricsEl.innerHTML = renderPlayerPlaystyle(profile.playerMetrics, document.documentElement.lang);
+        paintPlaystyle(profile.playerMetrics);
         currentCurrency = profile.season?.currency ?? LEGACY_SEASON_CURRENCY;
         if (predictionsPanelEl) predictionsPanelEl.open = false;
         const placed = profile.state === "placed";
@@ -1732,8 +1743,7 @@ const reputationHref = reputationRulesPath(lang);
                         );
                     });
             const hasData = !summaryOnly && style && style.games > 0;
-            playstyleSection.hidden = !hasData && !style;
-            playstyleEl.innerHTML = hasData
+            const html = hasData
                 ? [
                       group(
                           copy.publicPlaystyleCreatures,
@@ -1771,8 +1781,10 @@ const reputationHref = reputationRulesPath(lang);
                       group(copy.publicPlaystyleArtifactsTier1, artifactCards(style.artifactsTier1)),
                       group(copy.publicPlaystyleArtifactsTier2, artifactCards(style.artifactsTier2)),
                       group(copy.publicPlaystyleAugments, augmentCards(style.augments)),
-                  ].join("") || `<p class="profile-empty-message">${escapeHtml(copy.publicPlaystyleEmpty)}</p>`
-                : `<p class="profile-empty-message">${escapeHtml(copy.publicPlaystyleEmpty)}</p>`;
+                  ].join("")
+                : "";
+            playstyleSection.hidden = !html;
+            playstyleEl.innerHTML = html;
         }
         showState("content");
     }
@@ -1860,18 +1872,15 @@ const reputationHref = reputationRulesPath(lang);
             // signed-in standing says whose profile this is.
             const ownId = await fetchOwnRankedPlayerId(getAuthToken());
             if (!ownId) {
-                const metricsEl = document.querySelector<HTMLElement>("[data-profile-metrics]");
-                if (metricsEl) metricsEl.innerHTML = renderPlayerPlaystyle(null, document.documentElement.lang);
+                paintPlaystyle(null);
                 return;
             }
             const standing = await fetchPublicRankedProfile(ownId);
             applyStandingToHeader(standing);
-            const metricsEl = document.querySelector<HTMLElement>("[data-profile-metrics]");
-            if (metricsEl) metricsEl.innerHTML = renderPlayerPlaystyle(standing.playerMetrics, document.documentElement.lang);
+            paintPlaystyle(standing.playerMetrics);
             paintReputationBadge(standing.reputationBadge);
         } catch {
-            const metricsEl = document.querySelector<HTMLElement>("[data-profile-metrics]");
-            if (metricsEl) metricsEl.innerHTML = renderPlayerPlaystyle(null, document.documentElement.lang, "error");
+            paintPlaystyle(null, "error");
             /* no standing on show is strictly better than a wrong one */
         }
     }
@@ -2585,7 +2594,9 @@ const reputationHref = reputationRulesPath(lang);
     .profile-body[hidden],
     [data-profile-combos-section][hidden],
     [data-profile-public-standing][hidden],
-    [data-profile-self][hidden] {
+    [data-profile-self][hidden],
+    [data-profile-metrics-section][hidden],
+    [data-profile-playstyle-section][hidden] {
         display: none;
     }
 

@@ -45,6 +45,7 @@ import {
     rankedEventHeaders,
     sendRankedPlayAction,
     sendRankedPlayMoveIntent,
+    sendRankedPlaySpellIntent,
     toAuthoritativeGameSnapshot,
 } from "../api/ranked_play_client";
 import {
@@ -53,6 +54,7 @@ import {
     PlayInputSource,
     PlayPhase,
     PLAY_MOVE_CONTINUE_TURN_REASON,
+    readOpponentIntent,
 } from "../api/play_protocol";
 import { createInitialPlayerPlacementActions, createModelPlacementActions } from "./rankedPlacementGeometry";
 import { boardViewPrefightMusic, setPrefightMusicActive } from "./audio/prefightMusic";
@@ -773,14 +775,20 @@ export const RankedGameView: React.FC<Props> = ({
                         const event = parseRankedPlaySseFrame(frame);
                         if (!event) continue;
 
-                        // Ephemeral opponent move-aim hint: forward the silhouette to the scene
-                        // and skip all authoritative processing (no snapshot/journal/sequence).
+                        // Ephemeral opponent hint: a move aim or an armed spell. Neither is authoritative
+                        // (no snapshot, journal, or sequence). Arming a spell drops the move ghost; a move
+                        // aim does not hide a spell that is still armed.
                         if (event.kind === PlayEventKind.MOVE_INTENT) {
-                            const intent = event.intent;
-                            if (intent?.active && intent.targetCell && intent.unitId) {
+                            const view = readOpponentIntent(event.intent);
+                            if (view.kind === "spell") {
+                                manager.SetOpponentSpellIntent({ unitId: view.unitId, spellName: view.spellName });
+                                manager.SetOpponentMoveIntent(undefined);
+                            } else if (view.kind === "clear-spell") {
+                                manager.SetOpponentSpellIntent(undefined);
+                            } else if (view.kind === "move") {
                                 manager.SetOpponentMoveIntent({
-                                    unitId: intent.unitId,
-                                    cell: { x: intent.targetCell.x, y: intent.targetCell.y },
+                                    unitId: view.unitId,
+                                    cell: { x: view.cell.x, y: view.cell.y },
                                 });
                             } else {
                                 manager.SetOpponentMoveIntent(undefined);
@@ -1583,6 +1591,7 @@ export const RankedGameView: React.FC<Props> = ({
     useEffect(() => {
         if (isObserver) {
             manager.SetMoveIntentSink(undefined);
+            manager.SetSpellIntentSink(undefined);
             return undefined;
         }
         const MIN_INTERVAL_MS = 80;
@@ -1633,12 +1642,32 @@ export const RankedGameView: React.FC<Props> = ({
             }
         };
 
+        const spellSink = (unitId: string | undefined, spellName: string | undefined) => {
+            const snap = snapshotRef.current;
+            const me = snap?.players.find((player) => player.team === userTeam);
+            if (!snap || !me) {
+                return;
+            }
+            // An armed spell is only meaningful on our own turn; a clear always goes through.
+            if (spellName && snap.currentTurnTeam !== userTeam) {
+                return;
+            }
+            sendRankedPlaySpellIntent(gameId, {
+                playerId: me.playerId,
+                team: userTeam,
+                unitId: unitId ?? "",
+                spellName,
+            });
+        };
+
         manager.SetMoveIntentSink(sink);
+        manager.SetSpellIntentSink(spellSink);
         return () => {
             if (pendingTimer !== undefined) {
                 window.clearTimeout(pendingTimer);
             }
             manager.SetMoveIntentSink(undefined);
+            manager.SetSpellIntentSink(undefined);
         };
     }, [manager, gameId, isObserver, userTeam]);
 

@@ -547,6 +547,14 @@ export interface ISandboxHoverContext {
     hasActiveSelection(): boolean;
 }
 
+interface SpellBadgeSlot {
+    badge?: Container;
+    ring?: Graphics;
+    icon?: Sprite;
+    text?: Text;
+    position?: HoCMath.XY;
+}
+
 export class HoverManager {
     private context: ISandboxHoverContext;
     // State moved from Sandbox
@@ -843,8 +851,9 @@ export class HoverManager {
         if (this.isGraphicsUsable(this.hoverShotEmergenceSparks))
             this.safeAttachGraphics(this.hoverShotEmergenceSparks, 5602);
         if (this.isGraphicsUsable(this.hoverShotJointSparks)) this.safeAttachGraphics(this.hoverShotJointSparks, 5602);
-        if (this.spellBadge && !this.spellBadge.destroyed) this.context.attachToWorldRoot(this.spellBadge, 5600);
-        this.updateSpellCasterBadge();
+        this.attachSpellBadge(this.localSpellBadge);
+        this.attachSpellBadge(this.opponentSpellBadge);
+        this.updateSpellCasterBadges();
     }
     public clearAuraVisuals(): void {
         this.safeClearGraphics(this.auraGraphics);
@@ -949,7 +958,7 @@ export class HoverManager {
             !!this.hoverBattlefieldFootprintCells?.length;
         if (hasPulsingHover) this.hoverGlowPhase += dt * (5 / 3);
         this.updateMagicAimDualHelixAnimation(dt);
-        this.updateSpellCasterBadge();
+        this.updateSpellCasterBadges();
         if (this.animatedRangeArrow) {
             const arrow = this.animatedRangeArrow;
             this.drawAttackArrow(arrow.from, arrow.to, arrow.continuationTo, arrow.smokeFrom, "arrow", false);
@@ -2679,11 +2688,9 @@ export class HoverManager {
     // Armed-spell preview: the aim follows the target while the nameplate stays at the caster's feet.
     private spellBeam?: Graphics;
     /** Plate, icon and text share one upright transform, independent of the board's aspect ratio. */
-    private spellBadge?: Container;
-    private spellBadgeRing?: Graphics;
-    private spellBadgeIcon?: Sprite;
-    private spellBadgeText?: Text;
-    private spellBadgePosition?: HoCMath.XY;
+    private readonly localSpellBadge: SpellBadgeSlot = {};
+    /** The opponent's armed spell. Independent of the local preview, which hover clears on their turn. */
+    private readonly opponentSpellBadge: SpellBadgeSlot = {};
     /** Draw a directed spell aim as one animated atlas tile repeated along the whole ray. */
     private drawMagicAimDualHelix(casterPos: HoCMath.XY, targetPos: HoCMath.XY): boolean {
         if (!this.magicAimDualHelixFrames.length) return false;
@@ -2741,8 +2748,6 @@ export class HoverManager {
         color: number;
         beamStyle: "positive" | "negative";
     }): void {
-        const color = opts.color;
-
         // 1. Beam from caster to hovered target (only when a target is hovered).
         if (opts.targetPos) {
             const dualHelixVisible = this.drawMagicAimDualHelix(opts.casterPos, opts.targetPos);
@@ -2827,12 +2832,30 @@ export class HoverManager {
             this.hideMagicAimDualHelix();
         }
 
+        this.paintSpellBadge(this.localSpellBadge, opts);
+    }
+    /** The other player's armed spell. No aim beam: their cursor is not on this screen. */
+    public drawOpponentSpellBadge(opts: {
+        casterPos: HoCMath.XY;
+        iconTex: Texture;
+        label: string;
+        color: number;
+    }): void {
+        this.paintSpellBadge(this.opponentSpellBadge, opts);
+    }
+    public clearOpponentSpellBadge(): void {
+        if (this.opponentSpellBadge.badge) this.opponentSpellBadge.badge.visible = false;
+    }
+    private paintSpellBadge(
+        slot: SpellBadgeSlot,
+        opts: { casterPos: HoCMath.XY; iconTex: Texture; label: string; color: number },
+    ): void {
         // Keep the title clear of the figure and its overhead stack banner.
         const cell = this.context.sceneSettings.getGridSettings().getCellSize();
         const cx = opts.casterPos.x;
         const cy = opts.casterPos.y - cell * 0.38;
         const iconSize = 32;
-        if (!this.spellBadge || this.spellBadge.destroyed) {
+        if (!slot.badge || slot.badge.destroyed) {
             const badge = new Container({ eventMode: "none" });
             try {
                 this.context.attachToWorldRoot(badge, 5600);
@@ -2840,11 +2863,11 @@ export class HoverManager {
                 badge.destroy();
                 return;
             }
-            this.spellBadge = badge;
-            this.spellBadgeRing = new Graphics();
-            this.spellBadgeIcon = new Sprite(opts.iconTex);
-            this.spellBadgeIcon.anchor.set(0.5);
-            this.spellBadgeText = new Text({
+            slot.badge = badge;
+            slot.ring = new Graphics();
+            slot.icon = new Sprite(opts.iconTex);
+            slot.icon.anchor.set(0.5);
+            slot.text = new Text({
                 text: opts.label,
                 resolution: 2,
                 style: {
@@ -2857,13 +2880,13 @@ export class HoverManager {
                     wordWrap: false,
                 },
             });
-            this.spellBadgeText.anchor.set(0, 0.5);
-            badge.addChild(this.spellBadgeRing, this.spellBadgeIcon, this.spellBadgeText);
+            slot.text.anchor.set(0, 0.5);
+            badge.addChild(slot.ring, slot.icon, slot.text);
         }
-        const badge = this.spellBadge;
-        const ring = this.spellBadgeRing;
-        const icon = this.spellBadgeIcon;
-        const text = this.spellBadgeText;
+        const badge = slot.badge;
+        const ring = slot.ring;
+        const icon = slot.icon;
+        const text = slot.text;
         if (!this.isGraphicsUsable(ring) || !icon || !text) return;
 
         text.text = opts.label;
@@ -2881,7 +2904,7 @@ export class HoverManager {
 
         ring.clear();
         badge.visible = true;
-        this.spellBadgePosition = { x: cx, y: cy };
+        slot.position = { x: cx, y: cy };
         ring.roundRect(left - 3, -plateH / 2 + 3, plateW + 6, plateH + 3, 12).fill({
             color: 0x000000,
             alpha: 0.2,
@@ -2903,12 +2926,19 @@ export class HoverManager {
         ring.moveTo(left + 12 + iconSize + 6, -11)
             .lineTo(left + 12 + iconSize + 6, 11)
             .stroke({ width: 1, color: 0xc8a869, alpha: 0.25 });
-        ring.circle(-left - 8, 0, 2).fill({ color, alpha: 0.85 });
-        this.updateSpellCasterBadge();
+        ring.circle(-left - 8, 0, 2).fill({ color: opts.color, alpha: 0.85 });
+        this.layoutSpellBadge(slot);
+    }
+    private attachSpellBadge(slot: SpellBadgeSlot): void {
+        if (slot.badge && !slot.badge.destroyed) this.context.attachToWorldRoot(slot.badge, 5600);
+    }
+    private updateSpellCasterBadges(): void {
+        this.layoutSpellBadge(this.localSpellBadge);
+        this.layoutSpellBadge(this.opponentSpellBadge);
     }
     /** Correct the entire row together so the icon stays left of the text on either board side. */
-    private updateSpellCasterBadge(): void {
-        const badge = this.spellBadge;
+    private layoutSpellBadge(slot: SpellBadgeSlot): void {
+        const badge = slot.badge;
         if (!badge || badge.destroyed || !badge.visible) return;
         const inherited = inheritedAbsoluteScaleOf(badge.parent);
         const compensation = legacyBoardChildScaleCompensation(inherited.x, inherited.y);
@@ -2916,7 +2946,7 @@ export class HoverManager {
         const scaleX = compensation.x * readabilityScale;
         const scaleY = compensation.y * readabilityScale;
         badge.scale.set(glyphScaleX(scaleX), -scaleY);
-        const anchor = this.spellBadgePosition;
+        const anchor = slot.position;
         if (!anchor) return;
         const gs = this.context.sceneSettings.getGridSettings();
         const bounds = badge.getLocalBounds();
@@ -2930,7 +2960,7 @@ export class HoverManager {
     public clearSpellPreview(): void {
         if (this.spellBeam) this.safeClearGraphics(this.spellBeam);
         this.hideMagicAimDualHelix();
-        if (this.spellBadge) this.spellBadge.visible = false;
+        if (this.localSpellBadge.badge) this.localSpellBadge.badge.visible = false;
     }
     public updateHoverSilhouette(boundsCenter: HoCMath.XY): void {
         // Size/shape the move-preview from the ACTIVE unit's LIVE properties — this silhouette is

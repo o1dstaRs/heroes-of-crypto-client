@@ -21,8 +21,6 @@ const copy = {
         raised: "Units resurrected",
         hp: "HP",
         health: "Combat totals include human and AI turns. Unattributed damage is excluded from damage dealt.",
-        empty: "A playstyle takes shape through battles",
-        emptyBody: "Recorded matches reveal army preferences and battle habits.",
         missing: "games without usable battle data",
         loading: "Loading playstyle…",
         unavailable: "Playstyle is temporarily unavailable.",
@@ -47,8 +45,6 @@ const copy = {
         raised: "Воскрешено существ",
         hp: "ОЗ",
         health: "Итоги боя включают ходы игрока и ИИ. Урон без известного источника не включён в нанесённый урон.",
-        empty: "Стиль игры проявится в ваших боях",
-        emptyBody: "Записанные матчи покажут предпочтения армии и тактику боя.",
         missing: "игр без доступных данных боя",
         loading: "Загрузка стиля игры…",
         unavailable: "Стиль игры временно недоступен.",
@@ -66,8 +62,8 @@ export function renderPlayerPlaystyle(
     const c = russian ? copy.ru : copy.en;
     if (state !== "ready")
         return `<div class="hoc-playstyle hoc-playstyle--empty" role="status">${state === "loading" ? c.loading : c.unavailable}</div>`;
-    if (!metrics?.recordedGames || !metrics.stylePct)
-        return `<div class="hoc-playstyle hoc-playstyle--empty"><strong>${c.empty}</strong><p>${c.emptyBody}</p>${metrics?.missingGames ? `<small>${metrics.missingGames} ${c.missing}</small>` : ""}</div>`;
+    // No recorded battles yet: render nothing. Callers hide the surrounding "Playstyle" heading with this.
+    if (!metrics?.recordedGames || !metrics.stylePct) return "";
     const pct = (value: number) => Math.round(Math.min(100, safe(value)));
     const number = (value: number) =>
         new Intl.NumberFormat(russian ? "ru" : "en", { maximumFractionDigits: 0 }).format(safe(value));

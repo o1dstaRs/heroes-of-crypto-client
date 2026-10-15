@@ -1099,6 +1099,11 @@ export class Sandbox extends PixiScene {
     private moveIntentSink?: (unitId: string | undefined, cell: HoCMath.XY | undefined) => void;
     private lastEmittedMoveIntentKey?: string;
     private opponentMoveIntent?: { unitId: string; cell: HoCMath.XY };
+    // Armed-spell relay. Same ephemeral channel as a move aim: the opponent sees the nameplate,
+    // not the cursor's target beam.
+    private spellIntentSink?: (unitId: string | undefined, spellName: string | undefined) => void;
+    private lastEmittedSpellIntentKey?: string;
+    private opponentSpellIntent?: { unitId: string; spellName: string };
     private currentShiftedUnit?: RenderableUnit;
     private currentActivePathHashes?: Set<number>;
     private currentActivePath?: HoCMath.XY[];
@@ -2173,6 +2178,22 @@ export class Sandbox extends PixiScene {
             this.hoverManager.clearOpponentIntentSilhouette();
         }
     }
+    /** Ranked: install the sink that relays this player's armed spell to the opponent. */
+    public override setSpellIntentSink(
+        sink?: (unitId: string | undefined, spellName: string | undefined) => void,
+    ): void {
+        this.spellIntentSink = sink;
+        if (!sink) {
+            this.lastEmittedSpellIntentKey = undefined;
+        }
+    }
+    /** Ranked: receive the opponent's armed spell (undefined clears the nameplate). */
+    public override setOpponentSpellIntent(intent?: { unitId: string; spellName: string }): void {
+        this.opponentSpellIntent = intent;
+        if (!intent) {
+            this.hoverManager.clearOpponentSpellBadge();
+        }
+    }
     /**
      * Emit the local player's current move aim, de-duplicated so a relay only goes out when
      * the targeted cell (or active unit) actually changes. Only fires when a sink is wired,
@@ -2226,6 +2247,55 @@ export class Sandbox extends PixiScene {
             return;
         }
         this.hoverManager.showOpponentIntentSilhouette(props, center);
+    }
+    /**
+     * Emit the armed spell when it changes. Only while this seat can drive the active unit, so the
+     * watching client never reports a spell of its own. Arming a spell also drops the move ghost.
+     */
+    private syncLocalSpellIntent(): void {
+        if (!this.spellIntentSink) {
+            return;
+        }
+        const unit = this.currentActiveUnit;
+        const spellName = unit && this.canShowHoverForActiveUnit() ? this.currentActiveSpell?.getName() : undefined;
+        const key = spellName && unit ? `${unit.getId()}:${spellName}` : "none";
+        if (key === this.lastEmittedSpellIntentKey) {
+            return;
+        }
+        this.lastEmittedSpellIntentKey = key;
+        if (spellName) {
+            this.emitLocalMoveIntent(undefined);
+        }
+        this.spellIntentSink(spellName && unit ? unit.getId() : undefined, spellName);
+    }
+    /** Ranked: draw the opponent's armed-spell nameplate. Driven every frame from Step(). */
+    private renderOpponentSpellIntent(): void {
+        const intent = this.opponentSpellIntent;
+        if (!intent) {
+            return;
+        }
+        if (this.currentActiveUnit?.getId() !== intent.unitId) {
+            this.opponentSpellIntent = undefined;
+            this.hoverManager.clearOpponentSpellBadge();
+            return;
+        }
+        const unit = this.unitsHolder.getAllUnits().get(intent.unitId);
+        if (!unit) {
+            this.hoverManager.clearOpponentSpellBadge();
+            return;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const bookSpell = unit instanceof RenderableUnit ? unit.getBookSpellByName(intent.spellName) : undefined;
+        const isPositive =
+            !!bookSpell &&
+            (bookSpell.isBuff() || bookSpell.getSpellTargetType() === SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE);
+        const casterPos = unit instanceof RenderableUnit ? unit.getVisualCenter(gs) : unit.getPosition();
+        this.hoverManager.drawOpponentSpellBadge({
+            casterPos,
+            iconTex: this.texAny(SpellHelper.spellToTextureName(intent.spellName)) ?? Texture.EMPTY,
+            label: intent.spellName,
+            color: isPositive ? 0x18c868 : 0xe02b16,
+        });
     }
     /**
      * Pick the footprint around `cell` for a relayed opponent move silhouette, without the active unit's
@@ -16923,6 +16993,8 @@ export class Sandbox extends PixiScene {
         // Re-assert the opponent's relayed move silhouette every frame so it stays put and
         // tracks the unit, independent of the viewer's own (mouse-driven) hover updates.
         this.renderOpponentMoveIntent();
+        this.syncLocalSpellIntent();
+        this.renderOpponentSpellIntent();
 
         // ==========================================================================================
         // CORE GAME LOGIC

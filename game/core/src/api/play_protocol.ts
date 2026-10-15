@@ -60,6 +60,16 @@ export type PlayInputSourceValue = (typeof PlayInputSource)[keyof typeof PlayInp
 // old clients retain move-is-the-turn behavior, while a new client can request one planned follow-up.
 export const PLAY_MOVE_CONTINUE_TURN_REASON = "continue_turn";
 
+/** PlayAction.reason on a MOVE_INTENT that carries the armed spell instead of a move cell. */
+export const PLAY_ARMED_SPELL_INTENT_REASON = "armed_spell";
+
+/** PlayIntent.spell_state. NONE is a move aim; ARMED and CLEARED are the spell channel. */
+export const PlaySpellIntentState = {
+    NONE: 0,
+    ARMED: 1,
+    CLEARED: 2,
+} as const;
+
 export const PlayEventKind = {
     UNKNOWN: 0,
     SNAPSHOT: 1,
@@ -410,7 +420,30 @@ export interface PlayIntent {
     unitId: string;
     targetCell?: PlayCell;
     active: boolean;
+    /** See PlaySpellIntentState. Absent or 0 means this hint is a move aim. */
+    spellState?: number;
+    spellName?: string;
 }
+
+/** What an ephemeral opponent hint should change. Spell and move channels do not clear each other. */
+export type OpponentIntentView =
+    | { kind: "spell"; unitId: string; spellName: string }
+    | { kind: "clear-spell" }
+    | { kind: "move"; unitId: string; cell: PlayCell }
+    | { kind: "clear-move" };
+
+export const readOpponentIntent = (intent: PlayIntent | undefined): OpponentIntentView => {
+    if (intent?.spellState === PlaySpellIntentState.ARMED && intent.spellName && intent.unitId) {
+        return { kind: "spell", unitId: intent.unitId, spellName: intent.spellName };
+    }
+    if (intent?.spellState === PlaySpellIntentState.CLEARED) {
+        return { kind: "clear-spell" };
+    }
+    if (intent?.active && intent.targetCell && intent.unitId) {
+        return { kind: "move", unitId: intent.unitId, cell: intent.targetCell };
+    }
+    return { kind: "clear-move" };
+};
 
 export interface PlayEvent {
     sequence: number;
@@ -793,6 +826,10 @@ const decodePlayIntent = (bytes: Uint8Array): PlayIntent => {
             intent.targetCell = decodeCell(reader.bytesValue());
         } else if (field === 3) {
             intent.active = reader.bool();
+        } else if (field === 4) {
+            intent.spellState = reader.varintNumber();
+        } else if (field === 5) {
+            intent.spellName = reader.string();
         } else {
             reader.skip(wireType);
         }

@@ -13,6 +13,7 @@ import {
     decodePlaySnapshot,
     decodeSsePlayEvent,
     encodePlayAction,
+    PLAY_ARMED_SPELL_INTENT_REASON,
     PlayActionType,
     PlayPhase,
 } from "./play_protocol";
@@ -243,6 +244,36 @@ export const sendRankedPlayAction = async (
         }
         throw err;
     }
+};
+
+/**
+ * Broadcast the spell the local player has armed, so the opponent can show its name and icon.
+ * Fire-and-forget, same as a move aim. Omit `spellName` to clear a previously armed spell.
+ */
+export const sendRankedPlaySpellIntent = (
+    gameId: string,
+    args: { playerId: string; team: TeamType; unitId: string; spellName?: string },
+): void => {
+    if (isPreviewPlayGame(gameId)) {
+        return;
+    }
+    const payload: PlayAction = {
+        actionId: uuidv4(),
+        gameId,
+        playerId: args.playerId,
+        expectedSequence: 0,
+        type: PlayActionType.MOVE_INTENT,
+        unitId: args.unitId,
+        team: args.team,
+        spellName: args.spellName,
+        reason: PLAY_ARMED_SPELL_INTENT_REASON,
+    };
+    void axiosGameInstance
+        .post(playActionUrl(gameId), encodePlayAction(payload), {
+            responseType: "arraybuffer",
+            headers: authHeaders(),
+        })
+        .catch(() => undefined);
 };
 
 /**

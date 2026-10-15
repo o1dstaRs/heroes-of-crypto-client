@@ -9,6 +9,8 @@ import {
     encodePlayAction,
     PlayActionType,
     PlayEventKind,
+    PlaySpellIntentState,
+    readOpponentIntent,
     type PlayAction,
 } from "./play_protocol";
 
@@ -536,5 +538,44 @@ describe("play protobuf decoder", () => {
 
         expect(decoded.intent).toEqual({ unitId: "unit-42", active: false });
         expect(decoded.intent?.targetCell).toBeUndefined();
+    });
+
+    test("decodes an armed-spell intent without treating it as a move", () => {
+        const intent = [
+            ...stringField(1, "unit-42"),
+            ...intField(3, 1),
+            ...intField(4, PlaySpellIntentState.ARMED),
+            ...stringField(5, "Courage"),
+        ];
+        const event = new Uint8Array([...intField(2, PlayEventKind.MOVE_INTENT), ...messageField(10, intent)]);
+
+        const decoded = decodePlayEvent(event);
+
+        expect(decoded.intent).toEqual({
+            unitId: "unit-42",
+            active: true,
+            spellState: PlaySpellIntentState.ARMED,
+            spellName: "Courage",
+        });
+        expect(readOpponentIntent(decoded.intent)).toEqual({
+            kind: "spell",
+            unitId: "unit-42",
+            spellName: "Courage",
+        });
+    });
+
+    test("a cleared spell intent does not clear a move aim", () => {
+        const intent = [...stringField(1, "unit-42"), ...intField(4, PlaySpellIntentState.CLEARED)];
+        const decoded = decodePlayEvent(
+            new Uint8Array([...intField(2, PlayEventKind.MOVE_INTENT), ...messageField(10, intent)]),
+        );
+
+        expect(readOpponentIntent(decoded.intent)).toEqual({ kind: "clear-spell" });
+        expect(readOpponentIntent({ unitId: "unit-42", active: true, targetCell: { x: 1, y: 2 } })).toEqual({
+            kind: "move",
+            unitId: "unit-42",
+            cell: { x: 1, y: 2 },
+        });
+        expect(readOpponentIntent({ unitId: "unit-42", active: false })).toEqual({ kind: "clear-move" });
     });
 });

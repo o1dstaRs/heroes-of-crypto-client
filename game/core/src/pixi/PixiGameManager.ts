@@ -612,6 +612,12 @@ export class PixiGameManager {
     public SetOpponentMoveIntent(intent?: { unitId: string; cell: HoCMath.XY }): void {
         this.m_scene?.setOpponentMoveIntent(intent);
     }
+    public SetSpellIntentSink(sink?: (unitId: string | undefined, spellName: string | undefined) => void): void {
+        this.m_scene?.setSpellIntentSink(sink);
+    }
+    public SetOpponentSpellIntent(intent?: { unitId: string; spellName: string }): void {
+        this.m_scene?.setOpponentSpellIntent(intent);
+    }
     public SetPremiumTurnPreview(turn?: PremiumTurnPreview): void {
         this.m_scene?.setPremiumTurnPreview(turn);
     }

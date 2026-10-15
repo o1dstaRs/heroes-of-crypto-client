@@ -768,9 +768,16 @@ export const PlayerPortalPage: React.FC = () => {
 
                 {data && (
                     <Stack spacing={2} sx={portalRevealSx}>
-                        <Section featured title={language === "ru" ? "Стиль игры" : "Playstyle"}>
-                            <PlayerPlaystyle playerId={standing?.playerId} reloadKey={reloadKey} language={language} />
-                        </Section>
+                        <PlayerPlaystyle
+                            playerId={standing?.playerId}
+                            reloadKey={reloadKey}
+                            language={language}
+                            wrap={(body) => (
+                                <Section featured title={language === "ru" ? "Стиль игры" : "Playstyle"}>
+                                    {body}
+                                </Section>
+                            )}
+                        />
 
                         <ReputationCard reloadKey={reloadKey} />
 
