@@ -1656,7 +1656,21 @@ export class RankedPlayScene extends Sandbox {
         this.selectSceneUnitForPlacement(unitId);
     }
     public override applyAuthoritativeVfx(events: GameEvent[]): void {
+        if (
+            events.some(
+                (event) => event.type === "effects_applied" && event.applications.some((a) => a.name === "Gravebound"),
+            )
+        )
+            this.showLegacyGraveboundVfx(events);
         for (const event of events) {
+            if (
+                (event.type === "unit_attacked" ||
+                    event.type === "area_attacked" ||
+                    event.type === "obstacle_attacked") &&
+                event.damage?.gravechains?.length
+            ) {
+                this.showGravechainVfx(event.damage);
+            }
             if (event.type === "unit_attacked") {
                 this.showAbsolvingArrowVfx(event.damage);
                 // Attribute kills (melee vs range + direction) before this batch's unit_destroyed /

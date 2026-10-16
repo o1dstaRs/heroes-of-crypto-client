@@ -1,6 +1,14 @@
 import { Assets, Container, Sprite, Text as PixiText, TextStyle, Texture, Rectangle, Graphics, Matrix } from "pixi.js";
 
-import { GridSettings, HoCMath, GridMath, Unit, UnitProperties, UnitsHolder } from "@heroesofcrypto/common";
+import {
+    GridSettings,
+    HoCMath,
+    GridMath,
+    Unit,
+    UnitProperties,
+    UnitsHolder,
+    type IGravechainWave,
+} from "@heroesofcrypto/common";
 import { RenderableUnit } from "../RenderableUnit";
 import { images } from "../../generated/image_imports";
 import { HOC_NUMERIC_ARIAL_FONT_FAMILY } from "../../fontFamilies";
@@ -8,6 +16,7 @@ import { boardVerticalStretch } from "../../pixi/boardFit";
 import { glyphScaleX } from "../../pixi/boardMirror";
 import { projectBattlefieldPoint } from "./BattlefieldVisualGrid";
 import { playCombatSound } from "../../ui/audio/combatSounds";
+import { GravechainVfx } from "./GravechainVfx";
 
 export interface ICombatVisualsContext {
     getGridSettings(): GridSettings;
@@ -764,6 +773,7 @@ const easeOutBack = (t: number): number => {
 };
 
 export class CombatVisuals {
+    private gravechains = new GravechainVfx((container) => this.attachEffect(container, 5505));
     private audioEpoch = 0;
     private context: ICombatVisualsContext;
     /**
@@ -1656,6 +1666,7 @@ export class CombatVisuals {
      */
     public clear(options?: { keepDetachedOverlays?: boolean }): void {
         this.audioEpoch += 1;
+        if (!options?.keepDetachedOverlays) this.gravechains.clear();
         const keepDetachedOverlays = options?.keepDetachedOverlays ?? false;
         if (!keepDetachedOverlays) {
             for (const ft of this.floatingTexts) {
@@ -1811,6 +1822,7 @@ export class CombatVisuals {
             this.pyreExplosions.length === 0 &&
             this.resurrectBursts.length === 0 &&
             this.chainLightnings.length === 0 &&
+            !this.gravechains.active &&
             this.lightningStrikes.length === 0 &&
             this.mirrorRebounds.length === 0 &&
             this.windSpears.length === 0 &&
@@ -1900,6 +1912,7 @@ export class CombatVisuals {
         this.stepPyreExplosions(dt);
         this.stepResurrectBursts(dt);
         this.stepChainLightnings(dt);
+        this.gravechains.update(dt);
         this.stepLightningStrikes(dt);
         this.stepMirrorRebounds(dt);
         this.stepWindSpears(dt);
@@ -3971,6 +3984,9 @@ export class CombatVisuals {
                 }
             }
         }
+    }
+    public spawnGravechain(links: IGravechainWave["links"], cellSize: number, onBind: (unitId: string) => void): void {
+        this.gravechains.spawn(links, cellSize, onBind);
     }
     /**
      * Chain Lightning arc: a purple bolt jumps from the attacker to the target and then on through
