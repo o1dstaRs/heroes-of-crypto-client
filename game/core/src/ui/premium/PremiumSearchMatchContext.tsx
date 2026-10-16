@@ -26,14 +26,15 @@ export const useReportPremiumSearchMatch = (
     gameId: string | undefined,
     source: PremiumSearchMatchVersion["source"],
     key?: string,
+    stage?: PremiumSearchMatchVersion["stage"],
 ): void => {
     const report = useContext(ReportVersion);
     const owner = useId();
     useLayoutEffect(() => {
         if (!gameId || key === undefined) return;
-        report(owner, { gameId, source, key });
+        report(owner, { gameId, source, key, stage: stage ?? (source === "draft" ? "draft" : undefined) });
         return () => report(owner);
-    }, [gameId, source, key, owner, report]);
+    }, [gameId, source, key, stage, owner, report]);
 };
 
 export const usePremiumSearchMatch = (gameId?: string): PremiumSearchMatchVersion | undefined =>

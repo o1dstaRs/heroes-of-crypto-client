@@ -32,7 +32,7 @@ export const isAuraEffectName = (name: string): boolean => HoCConfig.isAuraEffec
  * EFFECT-type ability), hence this explicit list.
  */
 const NON_ANIMATABLE_PASSIVE_EFFECT_NAMES: ReadonlySet<string> = new Set(["Pegasus Light"]);
-const EVENT_DRIVEN_EFFECT_NAMES: ReadonlySet<string> = new Set(["Dulling Defense"]);
+const EVENT_DRIVEN_EFFECT_NAMES: ReadonlySet<string> = new Set(["Dulling Defense", "Gravebound"]);
 
 /**
  * Morale / Dismorale are lap-scoped SYSTEM effects applied to many units at once at the start of a lap
