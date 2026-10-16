@@ -3968,6 +3968,9 @@ export class Sandbox extends PixiScene {
         if (replayActorId && !this.ensureReplayActiveUnit(replayActorId)) {
             return false;
         }
+        if (FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
+            this.beginStackCountPresentation();
+        }
         switch (action.type) {
             case "start_fight": {
                 const started = this.startScene();
@@ -5324,6 +5327,11 @@ export class Sandbox extends PixiScene {
         units.set(target.getId(), target);
         preloadCombatSounds(Array.from(units.values(), (unit) => unit.getName()));
         const remainingAmounts = new Map(deathState?.amountsBefore);
+        for (const [id, unit] of units) {
+            if (unit instanceof RenderableUnit) {
+                unit.beginDamagePresentation(remainingAmounts.get(id) ?? unit.getAmountAlive());
+            }
+        }
         const consumeLoss = (unitId: string, unitsDied: number): number | undefined => {
             const before = remainingAmounts.get(unitId);
             if (before === undefined) return undefined;
@@ -5410,6 +5418,7 @@ export class Sandbox extends PixiScene {
                 // showed Dulling Defense before the knight had answered.
                 this.popRecordedDullingDefense(dullingEvents, new Set([strike.targetId]));
                 consumeLoss(strike.targetId, strike.unitsDied);
+                renderedVictim?.presentDamageCasualties?.(strike.unitsDied);
                 const from = source.getVisualCenter(gs);
                 const to = renderedVictim
                     ? victim.getVisualCenter(gs)
@@ -5735,7 +5744,7 @@ export class Sandbox extends PixiScene {
             const pos = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs);
             const direction = attackerCenter ? { x: pos.x - attackerCenter.x, y: pos.y - attackerCenter.y } : undefined;
             const show = (): void => {
-                this.combatVisuals.showFloatingAbsorbed(pos, entry.amount, direction, entry.unitsDied);
+                this.combatVisuals.showFloatingAbsorbed(pos, entry.amount, direction, entry.unitsDied, unit);
             };
             if (delayMs > 0) {
                 this.scheduleSceneTimeout(show, delayMs);
@@ -17888,7 +17897,15 @@ export class Sandbox extends PixiScene {
                     this.replayRecorder.beginAction();
                 }
 
+                const amountsBefore = FightStateManager.getInstance().getFightProperties().hasFightStarted()
+                    ? this.beginStackCountPresentation()
+                    : new Map<RenderableUnit, number>();
                 const result = engine.apply(action);
+                for (const [unit, amount] of amountsBefore) {
+                    // Refused actions and raises have no casualty timeline to hold on the ribbon.
+                    if (!result.completed || unit.getAmountAlive() > amount) unit.clearDamagePresentation();
+                    else if (unit.getAmountAlive() < amount) unit.beginDamagePresentation(amount);
+                }
                 if (shouldRecord && result.completed) {
                     this.pendingReplayRecords.push({
                         action: cloneReplayData(action),
@@ -17901,6 +17918,16 @@ export class Sandbox extends PixiScene {
                 return result;
             },
         };
+    }
+    private beginStackCountPresentation(): Map<RenderableUnit, number> {
+        const amounts = new Map<RenderableUnit, number>();
+        for (const unit of this.unitsHolder.getAllUnits().values()) {
+            if (!(unit instanceof RenderableUnit)) continue;
+            const amount = unit.getAmountAlive();
+            amounts.set(unit, amount);
+            unit.beginDamagePresentation(amount);
+        }
+        return amounts;
     }
     private flushPendingReplayRecords(): void {
         if (this.replayRecordingSuspended || !this.shouldRecordSandboxReplay()) {

@@ -612,6 +612,7 @@ export const applyRankedUnitSnapshotStats = (unit: RenderableUnit, properties: U
         return false;
     }
 
+    unit.clearDamagePresentation();
     let changed = false;
     const hp = Math.max(0, Math.floor(properties.hp));
     if (unit.getAmountAlive() !== alive || unit.getHp() !== hp) {

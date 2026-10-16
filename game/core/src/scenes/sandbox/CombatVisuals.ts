@@ -1171,7 +1171,14 @@ export class CombatVisuals {
      * visual sync. `unitsDied` belongs only to this absorbed chunk, so its skull never duplicates a primary
      * or response hit's losses.
      */
-    public showFloatingAbsorbed(pos: HoCMath.XY, amount: number, direction?: HoCMath.XY, unitsDied?: number): void {
+    public showFloatingAbsorbed(
+        pos: HoCMath.XY,
+        amount: number,
+        direction?: HoCMath.XY,
+        unitsDied?: number,
+        unit?: Unit,
+    ): void {
+        if (unit instanceof RenderableUnit) unit.presentDamageCasualties(unitsDied ?? 0);
         const container = new Container();
         const label = new PixiText({ text: "ABSORBED", style: this.getAbsorbedLabelStyle() });
         label.anchor.set(0.5);
@@ -4728,6 +4735,7 @@ export class CombatVisuals {
         flagTopAnchor?: HoCMath.XY,
         audioUnit?: Pick<Unit, "getName" | "getId">,
     ): void {
+        if (audioUnit instanceof RenderableUnit) audioUnit.presentDamageCasualties(unitsDied ?? 0);
         if (amount > 0 && audioUnit) {
             const epoch = this.audioEpoch;
             playCombatSound(audioUnit.getName(), "hurt", audioUnit.getId(), false, () => epoch === this.audioEpoch);
