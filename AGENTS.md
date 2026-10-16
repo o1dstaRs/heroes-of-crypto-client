@@ -164,6 +164,11 @@ refresh (vite serves common via the `src` alias).
 
 ## AI tournament analyser
 
+Placement research has an explicit [promotion gate](game/heroes-of-crypto-common/docs/placement_research_promotion.md).
+Negative or inconclusive explorations stay outside shipped profiles. Extra early attacks, a favorable matchup,
+or a positive subgroup cannot replace a fully funded gain against both current behavior and a matched free
+formation, followed by fresh held-out confirmation. Keep `placement_research_isolation.test.ts` passing.
+
 Benchmarks the versioned AI (`common/src/ai`: `v0.1`/`v0.2`/`v0.3`) in headless mirrored battles.
 Run from `game/heroes-of-crypto-common`:
 
