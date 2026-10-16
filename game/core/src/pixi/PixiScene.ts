@@ -524,17 +524,17 @@ export abstract class PixiScene {
         return undefined;
     };
     /** Await decoding through the same loader/cache/leases used by rendering. */
-    protected async preloadTextureKeys(keys: readonly string[]): Promise<void> {
+    protected async preloadTextureKeys(keys: readonly string[], options?: TextureLoadOptions): Promise<void> {
         const urls = rawImageUrls as unknown as Record<string, string>;
         await Promise.all(
             [...new Set(keys)]
                 .filter((key) => !!urls[key])
                 .map(async (key) => {
-                    if (this.sc_destroyed || this.texAny(key)) return;
+                    if (this.sc_destroyed || this.texAny(key, options)) return;
                     const pending = lazyTextureLoads.get(urls[key]);
                     if (pending) await pending;
-                    if (!this.sc_destroyed && !this.texAny(key))
-                        throw new Error(`Replay texture failed to load: ${key}`);
+                    if (!this.sc_destroyed && !this.texAny(key, options))
+                        throw new Error(`Scene texture failed to load: ${key}`);
                 }),
         );
     }
@@ -653,6 +653,11 @@ export abstract class PixiScene {
     protected hover(): void {}
     /** Optional hook for scenes to react to background asset loading progress (Tier 2) */
     public onBackgroundAssetLoad?(progress: number): void;
+    /** Map layers that must be decoded before the blocking loading screen reveals this scene. */
+    public async prepareMapTextures(): Promise<void> {}
+    public isMapLoading(): boolean {
+        return false;
+    }
     /**
      * Optional hook fired after a background texture bundle merges into the SHARED textures map.
      * Scenes re-resolve any visuals that fell back to static art while the atlases were missing.
