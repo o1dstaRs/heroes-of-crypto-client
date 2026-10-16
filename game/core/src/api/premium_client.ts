@@ -27,6 +27,8 @@ export interface PremiumAdvice {
     stage?: "draft" | "setup" | "board" | "fight";
     revision: string;
     choices?: PremiumChoice[];
+    offers?: Pick<PremiumChoice, "kind" | "value" | "label">[];
+    draftLevel?: number;
     augments?: { kind: string; value: number }[];
     synergies?: { faction: number; synergy: number; factionName: string; name: string; level: number }[];
     reasons?: string[];
