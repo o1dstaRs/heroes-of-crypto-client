@@ -48,7 +48,7 @@ const containers: Container[] = [];
 const visualsFor = (unit: RenderableUnit, onPop = () => {}) =>
     new CombatVisuals({
         getGridSettings: () => gs,
-        getUnitsHolder: () => ({ getAllUnits: () => new Map([[unit.getId(), unit]]) }) as UnitsHolder,
+        getUnitsHolder: () => ({ getAllUnits: () => new Map([[unit.getId(), unit]]) }) as unknown as UnitsHolder,
         getSelectedUnitProperties: () => undefined,
         updateSelectedUnitProperties: () => {},
         setUnitPropertiesUpdateNeeded: () => {},
