@@ -387,7 +387,7 @@ export class RangedProjectiles {
                     (opts.medusaArmSerpent
                         ? PROJECTILE_SPEED_FACTOR
                         : opts.dryadArrow
-                          ? 32
+                          ? PROJECTILE_SPEED_FACTOR
                           : opts.orcAxe
                             ? 52.2
                             : opts.chakram
