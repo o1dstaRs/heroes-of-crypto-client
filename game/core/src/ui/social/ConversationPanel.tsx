@@ -1,5 +1,9 @@
-import { Alert, Box, Button, CircularProgress, Divider, Stack, Textarea, Typography } from "@mui/joy";
-import { DockPanelShell } from "./DockPanelShell";
+import ChatBubbleRoundedIcon from "@mui/icons-material/ChatBubbleRounded";
+import NotificationsActiveRoundedIcon from "@mui/icons-material/NotificationsActiveRounded";
+import NotificationsOffRoundedIcon from "@mui/icons-material/NotificationsOffRounded";
+import SendRoundedIcon from "@mui/icons-material/SendRounded";
+import { Alert, Box, Button, CircularProgress, IconButton, Stack, Textarea, Typography } from "@mui/joy";
+import { DockPanelHeader, DockPanelShell } from "./DockPanelShell";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import {
@@ -13,18 +17,12 @@ import {
     type FriendEntry,
     type FriendMessage,
 } from "../../api/social_client";
-import {
-    hocColors,
-    hocDangerAlertSx,
-    hocInputSx,
-    hocPrimaryButtonSx,
-    hocSoftButtonSx,
-    hocSpinnerSx,
-} from "../hocTheme";
+import { hocColors, hocDangerAlertSx, hocInputSx, hocPrimaryButtonSx, hocSpinnerSx } from "../hocTheme";
 import { startVisibleInterval } from "../visibleInterval";
 
 interface ConversationPanelProps {
     friend: FriendEntry | null;
+    preview?: boolean;
     onClose: () => void;
     onActivity: () => void;
     onMutedChange: (playerId: string, muted: boolean) => void;
@@ -40,7 +38,13 @@ const mergeMessages = (current: FriendMessage[], incoming: FriendMessage[]): Fri
     );
 };
 
-export const ConversationPanel: React.FC<ConversationPanelProps> = ({ friend, onClose, onActivity, onMutedChange }) => {
+export const ConversationPanel: React.FC<ConversationPanelProps> = ({
+    friend,
+    preview = false,
+    onClose,
+    onActivity,
+    onMutedChange,
+}) => {
     const [conversation, setConversation] = useState<FriendConversation | null>(null);
     const [draft, setDraft] = useState("");
     const [loading, setLoading] = useState(false);
@@ -107,12 +111,40 @@ export const ConversationPanel: React.FC<ConversationPanelProps> = ({ friend, on
         setConversation(null);
         setDraft("");
         setError("");
+        if (preview) {
+            const now = Date.now();
+            setConversation({
+                friend,
+                hasMore: false,
+                messages: [
+                    {
+                        id: "mock-message-1",
+                        conversationId: "mock-conversation",
+                        senderId: friend.playerId,
+                        recipientId: "mock-me",
+                        body: "I opened a friends-first lobby. Want the last seat?",
+                        createdAt: now - 4 * 60_000,
+                        readAt: now - 3 * 60_000,
+                    },
+                    {
+                        id: "mock-message-2",
+                        conversationId: "mock-conversation",
+                        senderId: "mock-me",
+                        recipientId: friend.playerId,
+                        body: "Absolutely — joining after this round.",
+                        createdAt: now - 2 * 60_000,
+                        readAt: now - 60_000,
+                    },
+                ],
+            });
+            return undefined;
+        }
         let initial = true;
         return startVisibleInterval(() => {
             void loadLatest(initial);
             initial = false;
         }, 5_000);
-    }, [friend?.playerId, loadLatest]);
+    }, [friend?.playerId, loadLatest, preview]);
 
     const loadOlder = async (): Promise<void> => {
         if (!friend || !conversation?.messages.length || loadingOlder) {
@@ -153,7 +185,17 @@ export const ConversationPanel: React.FC<ConversationPanelProps> = ({ friend, on
         setSending(true);
         setError("");
         try {
-            const sent = await sendFriendMessage(friend.playerId, message);
+            const sent = preview
+                ? {
+                      id: `mock-message-${Date.now()}`,
+                      conversationId: "mock-conversation",
+                      senderId: "mock-me",
+                      recipientId: friend.playerId,
+                      body: message,
+                      createdAt: Date.now(),
+                      readAt: 0,
+                  }
+                : await sendFriendMessage(friend.playerId, message);
             setConversation((current) =>
                 current ? { ...current, messages: mergeMessages(current.messages, [sent]) } : current,
             );
@@ -180,7 +222,9 @@ export const ConversationPanel: React.FC<ConversationPanelProps> = ({ friend, on
         setMuting(true);
         setError("");
         try {
-            await setFriendMuted(friend.playerId, muted);
+            if (!preview) {
+                await setFriendMuted(friend.playerId, muted);
+            }
             setConversation((current) => (current ? { ...current, friend: { ...current.friend, muted } } : current));
             onMutedChange(friend.playerId, muted);
             onActivity();
@@ -194,39 +238,64 @@ export const ConversationPanel: React.FC<ConversationPanelProps> = ({ friend, on
     const activeFriend = conversation?.friend ?? friend;
 
     return (
-        <DockPanelShell open={!!friend} onClose={onClose} width={520}>
-            <Stack direction="row" alignItems="center" spacing={1.2} sx={{ px: 2, py: 1.5 }}>
-                <Box
-                    sx={{
-                        width: 10,
-                        height: 10,
-                        borderRadius: "50%",
-                        bgcolor: activeFriend?.online ? hocColors.green : "rgba(239, 228, 204, 0.25)",
-                        boxShadow: activeFriend?.online ? `0 0 7px ${hocColors.green}` : "none",
-                    }}
-                />
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Typography level="title-lg" noWrap sx={{ color: hocColors.gold }}>
-                        {activeFriend?.username ?? "Conversation"}
-                    </Typography>
-                    <Typography level="body-xs" sx={{ color: hocColors.muted }}>
-                        {activeFriend?.online ? "Online" : formatLastSeen(activeFriend?.lastOnlineAt ?? 0)}
-                    </Typography>
-                </Box>
-                <Button
-                    size="sm"
-                    variant="outlined"
-                    disabled={muting || !conversation}
-                    sx={hocSoftButtonSx}
-                    onClick={() => void toggleMuted()}
-                >
-                    {activeFriend?.muted ? "Unmute alerts" : "Mute alerts"}
-                </Button>
-                <Button size="sm" variant="outlined" sx={hocSoftButtonSx} onClick={onClose}>
-                    Close
-                </Button>
-            </Stack>
-            <Divider sx={{ bgcolor: hocColors.orangeBorder }} />
+        <DockPanelShell open={!!friend} onClose={onClose} width={500} anchorOffset={106}>
+            <DockPanelHeader
+                title={activeFriend?.username ?? "Conversation"}
+                subtitle={activeFriend?.online ? "Online now" : formatLastSeen(activeFriend?.lastOnlineAt ?? 0)}
+                leading={
+                    <Box
+                        sx={{
+                            position: "relative",
+                            width: 34,
+                            height: 34,
+                            display: "grid",
+                            placeItems: "center",
+                            borderRadius: "50%",
+                            color: hocColors.gold,
+                            bgcolor: "rgba(220,177,88,0.1)",
+                            border: "1px solid rgba(220,177,88,0.28)",
+                        }}
+                    >
+                        <ChatBubbleRoundedIcon sx={{ fontSize: 18 }} />
+                        <Box
+                            sx={{
+                                position: "absolute",
+                                right: -1,
+                                bottom: 0,
+                                width: 9,
+                                height: 9,
+                                borderRadius: "50%",
+                                bgcolor: activeFriend?.online ? hocColors.green : "rgba(239,228,204,0.3)",
+                                border: "2px solid #0b0805",
+                            }}
+                        />
+                    </Box>
+                }
+                action={
+                    <IconButton
+                        size="sm"
+                        variant="plain"
+                        disabled={muting || !conversation}
+                        aria-label={activeFriend?.muted ? "Unmute alerts" : "Mute alerts"}
+                        title={activeFriend?.muted ? "Unmute alerts" : "Mute alerts"}
+                        onClick={() => void toggleMuted()}
+                        sx={{
+                            minWidth: 30,
+                            minHeight: 30,
+                            borderRadius: "50%",
+                            color: activeFriend?.muted ? hocColors.danger : hocColors.muted,
+                            "&:hover": { color: hocColors.parchment, bgcolor: "rgba(220,177,88,0.1)" },
+                        }}
+                    >
+                        {activeFriend?.muted ? (
+                            <NotificationsOffRoundedIcon sx={{ fontSize: 18 }} />
+                        ) : (
+                            <NotificationsActiveRoundedIcon sx={{ fontSize: 18 }} />
+                        )}
+                    </IconButton>
+                }
+                onClose={onClose}
+            />
 
             {error ? (
                 <Alert size="sm" sx={{ ...hocDangerAlertSx, mx: 1.5, mt: 1 }}>
@@ -242,7 +311,8 @@ export const ConversationPanel: React.FC<ConversationPanelProps> = ({ friend, on
                     overflowY: "auto",
                     px: 1.5,
                     py: 1.25,
-                    bgcolor: "rgba(5, 4, 3, 0.28)",
+                    bgcolor: "rgba(0,0,0,0.16)",
+                    borderRadius: "12px",
                 }}
             >
                 {loading ? (
@@ -272,9 +342,12 @@ export const ConversationPanel: React.FC<ConversationPanelProps> = ({ friend, on
                                         maxWidth: "82%",
                                         px: 1.2,
                                         py: 0.8,
-                                        borderRadius: incoming ? "4px 12px 12px" : "12px 4px 12px 12px",
-                                        bgcolor: incoming ? hocColors.panelSoft : hocColors.orangeSoft,
-                                        border: `1px solid ${incoming ? "rgba(255,143,0,0.15)" : hocColors.orangeBorder}`,
+                                        borderRadius: incoming ? "5px 14px 14px" : "14px 5px 14px 14px",
+                                        background: incoming
+                                            ? "linear-gradient(145deg, rgba(48,34,22,0.88), rgba(24,17,11,0.94))"
+                                            : "linear-gradient(145deg, rgba(122,68,5,0.9), rgba(72,39,4,0.95))",
+                                        border: `1px solid ${incoming ? "rgba(220,177,88,0.16)" : "rgba(220,177,88,0.38)"}`,
+                                        boxShadow: "0 5px 14px rgba(0,0,0,0.16)",
                                     }}
                                 >
                                     <Typography
@@ -308,10 +381,14 @@ export const ConversationPanel: React.FC<ConversationPanelProps> = ({ friend, on
                 )}
             </Box>
 
-            <Divider sx={{ bgcolor: hocColors.orangeBorder }} />
-            <Stack direction="row" spacing={1} alignItems="flex-end" sx={{ p: 1.5 }}>
+            <Stack
+                direction="row"
+                spacing={0.75}
+                alignItems="flex-end"
+                sx={{ p: 0.35, pt: 0.6, borderTop: "1px solid rgba(220,177,88,0.14)" }}
+            >
                 <Textarea
-                    minRows={2}
+                    minRows={1}
                     maxRows={4}
                     slotProps={{ textarea: { maxLength: 500 } }}
                     placeholder={`Message ${activeFriend?.username ?? "friend"}…`}
@@ -326,14 +403,23 @@ export const ConversationPanel: React.FC<ConversationPanelProps> = ({ friend, on
                         }
                     }}
                 />
-                <Button
+                <IconButton
+                    aria-label="Send message"
+                    title="Send"
                     disabled={!conversation || !draft.trim() || sending}
                     loading={sending}
-                    sx={hocPrimaryButtonSx}
+                    sx={{
+                        ...hocPrimaryButtonSx,
+                        width: 38,
+                        height: 38,
+                        minWidth: 38,
+                        minHeight: 38,
+                        borderRadius: "50%",
+                    }}
                     onClick={() => void submit()}
                 >
-                    Send
-                </Button>
+                    <SendRoundedIcon sx={{ fontSize: 19 }} />
+                </IconButton>
             </Stack>
         </DockPanelShell>
     );

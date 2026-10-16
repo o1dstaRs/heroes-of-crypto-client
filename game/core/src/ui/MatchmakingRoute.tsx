@@ -12,8 +12,17 @@ import { buildApiUrl, endpoints, HOST_MATCHMAKING_API } from "../api/axios";
 import { createVsAiGame } from "../api/vs_ai_client";
 import { fetchPublicPlayerStats, type PublicPlayerStats } from "../api/social_client";
 import { tf, useTranslation } from "../i18n/i18n";
+import { searchHeadline } from "./matchmakingHeadlines";
+import { searchHint } from "./matchmakingHints";
+import { reconcileArenaPopulation, type ArenaPopulation } from "./matchmakingPopulation";
+import { acceptRankedRules, fetchRankedConduct, rulesCardDue, type RankedConduct } from "../api/ranked_conduct_client";
+import { formatAwayClock } from "./exitRules/exitRulesModel";
+import { indefiniteSuspensionText, lockActive, lockClock, temporaryRestrictionText } from "./exitRules/lockModel";
+import { RankedLockPanel } from "./exitRules/RankedLockPanel";
+import { RankedRulesCard } from "./exitRules/RankedRulesCard";
 import { markVsAiGame } from "../utils/aiOpponent";
 import { getPreGameDoctrine, setPreGameDoctrine } from "../utils/preGameDoctrine";
+import { FULLSCREEN_CORNER_CLEARANCE, FullscreenCorner } from "./GameSystemControls";
 import { ArenaChatPanel } from "./ArenaChatPanel";
 import {
     clearMatchReadyAlert,
@@ -33,10 +42,12 @@ import {
     hocDisplayFontFamily,
     hocPanelSx,
     hocPrimaryButtonSx,
+    hocReadoutChipSx,
     hocSoftButtonSx,
 } from "./hocTheme";
 import { DoctrineIcon } from "./DoctrineIcon";
 import { ArenaNavBar } from "./ArenaNavBar";
+import { ArenaArtReadout } from "./ArenaArtReadout";
 import { ARENA_IDLE_WASH, arenaBackgroundUrl } from "./arenaBackdrop";
 import { startBackgroundAssetPrefetch } from "./assetPrefetch";
 import { getDoctrineCopy } from "./doctrineCopy";
@@ -199,6 +210,9 @@ const PracticeVsAiButton: React.FC<{ loading: boolean; onClick: () => void }> = 
     );
 };
 
+/** How far the room's label steps right to clear the fullscreen button pinned in the corner beneath it. */
+const ARENA_CHAT_HEADER_INSET = FULLSCREEN_CORNER_CLEARANCE;
+
 export const MatchmakingRoute: React.FC = () => {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -225,7 +239,7 @@ export const MatchmakingRoute: React.FC = () => {
     // the compact arena default and opt into this panel with the stats toggle as before.
     const [profileSummaryOpen, setProfileSummaryOpen] = useState(() => isMockPortalEnabled());
     // Players currently on the arena (queue + live games) — polled from the public mm endpoint.
-    const [onlineNow, setOnlineNow] = useState<{ searching: number; playing: number; online: number }>();
+    const [onlineNow, setOnlineNow] = useState<ArenaPopulation>();
     const { currency, snapshot: seasonSnapshot } = useRankedSeason();
     // Only a PLACED player may stake. Treated as "cannot" until the standing actually loads, so the
     // control never flashes into view for a calibrating player on a slow request.
@@ -249,7 +263,7 @@ export const MatchmakingRoute: React.FC = () => {
             try {
                 const response = await fetch(buildApiUrl(HOST_MATCHMAKING_API, endpoints.mm.online));
                 if (!response.ok) return;
-                const data = (await response.json()) as { searching: number; playing: number; online: number };
+                const data = (await response.json()) as ArenaPopulation;
                 if (!cancelled) setOnlineNow(data);
             } catch {
                 // Non-critical decoration — stay silent on failure.
@@ -289,18 +303,37 @@ export const MatchmakingRoute: React.FC = () => {
     // instead of a bare "connection aborted" so the player knows why they can't search and for how long.
     const [nowMs, setNowMs] = useState(() => Date.now());
     const cooldownTill = Number(user?.match_making_cooldown_till ?? 0) || 0;
-    const penaltySeconds = cooldownTill > nowMs ? Math.ceil((cooldownTill - nowMs) / 1000) : 0;
+    // Exit rules: the player's own conduct record (the wait after an abandon) and whether the ranked rules card is due.
+    // Keep the server's expiry timestamps intact and compare them against its clock, so countdowns and expiry labels agree.
+    const [conduct, setConduct] = useState<RankedConduct | undefined>();
+    const [conductClockOffsetMs, setConductClockOffsetMs] = useState(0);
+    const [rulesCardOpen, setRulesCardOpen] = useState(false);
+    const [rulesCardBusy, setRulesCardBusy] = useState(false);
+    const [rulesCardError, setRulesCardError] = useState("");
+    // Set when the card is acknowledged, so the search that follows doesn't reopen it before the new state renders.
+    const rulesAcknowledgedRef = useRef(false);
+    const abandonCooldownUntil = conduct?.abandonCooldownUntil ?? 0;
+    const conductNowMs = nowMs + conductClockOffsetMs;
+    const penaltySeconds = cooldownTill > conductNowMs ? Math.ceil((cooldownTill - conductNowMs) / 1000) : 0;
     const penalized = penaltySeconds > 0;
+    const abandonCooldownMs = Math.max(0, abandonCooldownUntil - conductNowMs);
+    const abandonCooling = abandonCooldownMs > 0;
+    // Timed locks (phase 3): compare the lock's expiry against the server clock, like the cooldown.
+    const rankedLock = lockActive(conduct?.lock, conductNowMs) ? (conduct?.lock ?? null) : null;
+    const rankedSuspended = conduct?.suspended === true;
+    const rankedRestricted = rankedSuspended || !!rankedLock || abandonCooling;
 
     // How long we have been looking for an opponent. The server's match_making_queue_added_time is the
     // authority — it survives a page reload and a re-queue keeps the original enqueue timestamp — so take
     // whichever start is earlier, with the local one covering the gap before POST /queue answers.
     const isSearching = state === "searching";
+    const displayedPopulation = reconcileArenaPopulation(onlineNow, isSearching ? queueSize : null);
     const queueAddedAtMs = Number(user?.match_making_queue_added_time ?? 0) || 0;
     const searchAnchorMs =
         searchStartedAt > 0 && queueAddedAtMs > 0
             ? Math.min(searchStartedAt, queueAddedAtMs)
             : searchStartedAt || queueAddedAtMs;
+    const searchElapsedSeconds = searchAnchorMs > 0 ? (nowMs - searchAnchorMs) / 1000 : 0;
     const queueElapsedLabel =
         isSearching && searchAnchorMs > 0 ? formatQueueDuration((nowMs - searchAnchorMs) / 1000) : "";
     const activeSeason = seasonSnapshot?.current ?? null;
@@ -349,7 +382,7 @@ export const MatchmakingRoute: React.FC = () => {
 
         source.onmessage = (event: MatchmakingEvent) => {
             setError("");
-            setQueueSize(typeof event.po === "number" ? event.po : null);
+            setQueueSize(!event.ps && typeof event.po === "number" ? event.po : null);
             setSecondsRemaining(typeof event.r === "number" ? event.r : null);
 
             if (!event.ps) {
@@ -547,21 +580,41 @@ export const MatchmakingRoute: React.FC = () => {
         void me().catch(() => undefined);
     }, [me]);
 
-    // Tick while the queue timer runs or a penalty is active; the penalty tick stops once it elapses.
+    const refreshConduct = useCallback(() => {
+        void fetchRankedConduct()
+            .then((next) => {
+                setConductClockOffsetMs(next.serverTimeMs - Date.now());
+                setConduct(next);
+            })
+            .catch(() => undefined);
+    }, []);
     useEffect(() => {
-        if (!isSearching && cooldownTill <= Date.now()) {
+        refreshConduct();
+    }, [refreshConduct]);
+    useEffect(() => {
+        if (!rankedRestricted) {
+            return undefined;
+        }
+        const interval = window.setInterval(refreshConduct, 15_000);
+        return () => window.clearInterval(interval);
+    }, [rankedRestricted, refreshConduct]);
+
+    // Tick while the queue timer runs or a penalty is active; the penalty tick stops once it elapses.
+    const waitUntil = Math.max(cooldownTill, abandonCooldownUntil, conduct?.lock?.until ?? 0) - conductClockOffsetMs;
+    useEffect(() => {
+        if (!isSearching && waitUntil <= Date.now()) {
             return undefined;
         }
         setNowMs(Date.now());
         const id = window.setInterval(() => {
             const t = Date.now();
             setNowMs(t);
-            if (!isSearching && t >= cooldownTill) {
+            if (!isSearching && t >= waitUntil) {
                 window.clearInterval(id);
             }
         }, 500);
         return () => window.clearInterval(id);
-    }, [cooldownTill, isSearching]);
+    }, [waitUntil, isSearching]);
 
     // Stamp the local queue-entry time on every path into the searching state (the Find button, and a
     // stream update that puts us back in the queue), and drop it once the search is over.
@@ -603,13 +656,24 @@ export const MatchmakingRoute: React.FC = () => {
         if (needsActivation) {
             return t("Email verification required");
         }
+        if (rankedSuspended) {
+            return t("Ranked suspended indefinitely");
+        }
         if (penalized) {
             return tf("Match not accepted — search again in {seconds}s", { seconds: penaltySeconds });
         }
+        if (rankedLock) {
+            return tf("Ranked locked · {time}", { time: lockClock(rankedLock.until, conductNowMs) });
+        }
+        if (abandonCooling) {
+            return tf("You abandoned a ranked match — search again in {time}", {
+                time: formatAwayClock(abandonCooldownMs),
+            });
+        }
         if (state === "searching") {
-            return queueSize
-                ? tf("Looking for opponent ({count} in queue)", { count: queueSize })
-                : t("Looking for opponent");
+            // The clock and the rotating headline already say a search is running. A second
+            // "looking" line plus a queue count under it was the same fact three times.
+            return "";
         }
         if (state === "confirming") {
             return secondsRemaining && secondsRemaining > 0
@@ -628,10 +692,35 @@ export const MatchmakingRoute: React.FC = () => {
             return t("Connection error");
         }
         return t("Ready");
-    }, [needsActivation, penalized, penaltySeconds, queueSize, secondsRemaining, state, t]);
+    }, [
+        abandonCooldownMs,
+        abandonCooling,
+        conductNowMs,
+        rankedLock,
+        rankedSuspended,
+        needsActivation,
+        penalized,
+        penaltySeconds,
+        secondsRemaining,
+        state,
+        t,
+    ]);
 
     const handleStart = async () => {
-        if (needsActivation || penalized || aiStartInFlightRef.current) {
+        if (
+            needsActivation ||
+            penalized ||
+            abandonCooling ||
+            rankedLock ||
+            rankedSuspended ||
+            aiStartInFlightRef.current
+        ) {
+            return;
+        }
+        // Before a player's first ranked search (and after the rules change), the rules card explains how leaving counts.
+        if (!rulesAcknowledgedRef.current && rulesCardDue(conduct)) {
+            setRulesCardError("");
+            setRulesCardOpen(true);
             return;
         }
         setError("");
@@ -643,6 +732,7 @@ export const MatchmakingRoute: React.FC = () => {
         acceptAttemptRef.current += 1;
         alertedGameIdRef.current = "";
         setOpponentPlayerId("");
+        setQueueSize(null);
         setState("searching");
         closeStream();
         openStream();
@@ -653,8 +743,9 @@ export const MatchmakingRoute: React.FC = () => {
             setState("error");
             setError((err as Error)?.message ?? t("Unable to enter matchmaking"));
             // The server rejects re-queue during a no-accept cooldown (429); refresh /me so the render
-            // switches from the raw error to the penalty countdown.
+            // switches from the raw error to the penalty countdown. The abandon cooldown lives in the conduct record.
             void me().catch(() => undefined);
+            refreshConduct();
         }
     };
 
@@ -818,7 +909,8 @@ export const MatchmakingRoute: React.FC = () => {
         state === "searching" || state === "confirming" || state === "accepted" || state === "starting-ai";
     const shortGameId =
         pendingGameId.length > 16 ? `${pendingGameId.slice(0, 8)}…${pendingGameId.slice(-5)}` : pendingGameId;
-    const showStatusPresentation = state !== "idle" || needsActivation || penalized;
+    const showStatusPresentation =
+        state !== "idle" || needsActivation || penalized || abandonCooling || !!rankedLock || rankedSuspended;
     const presentation = (() => {
         if (needsActivation) {
             return {
@@ -828,29 +920,56 @@ export const MatchmakingRoute: React.FC = () => {
                 description: t("Activate your account to unlock ranked matchmaking and practice battles."),
             };
         }
+        if (rankedSuspended) {
+            return {
+                accent: hocColors.danger,
+                eyebrow: t("RANKED SUSPENDED"),
+                headline: t("Ranked suspended indefinitely"),
+                description: indefiniteSuspensionText(),
+            };
+        }
         if (penalized) {
             return {
                 accent: hocColors.danger,
                 eyebrow: t("QUEUE COOLDOWN"),
                 headline: tf("Search unlocks in {seconds}s", { seconds: penaltySeconds }),
-                description: t("Ranked matches must be accepted in time. The queue will reopen automatically."),
+                description: temporaryRestrictionText(cooldownTill, conductNowMs, language),
+            };
+        }
+        if (rankedLock) {
+            return {
+                accent: hocColors.danger,
+                eyebrow: t("RANKED LOCKED"),
+                headline: tf("Ranked locked · {time}", { time: lockClock(rankedLock.until, conductNowMs) }),
+                description: temporaryRestrictionText(
+                    rankedLock.until,
+                    conductNowMs,
+                    language,
+                    rankedLock.until - rankedLock.startedAt,
+                ),
+            };
+        }
+        if (abandonCooling) {
+            return {
+                accent: hocColors.danger,
+                eyebrow: t("RANKED COOLDOWN"),
+                headline: tf("Ranked search reopens in {time}", { time: formatAwayClock(abandonCooldownMs) }),
+                description: temporaryRestrictionText(
+                    abandonCooldownUntil,
+                    conductNowMs,
+                    language,
+                    conduct?.rules.abandonCooldownMs,
+                ),
             };
         }
         if (state === "searching") {
             return {
                 accent: hocColors.orange,
                 eyebrow: t("MATCHMAKING"),
-                headline: t("Scouting for a worthy rival"),
-                description: queueSize
-                    ? tf(
-                          queueSize === 1
-                              ? "{count} player is currently in the queue."
-                              : "{count} players are currently in the queue.",
-                          {
-                              count: queueSize,
-                          },
-                      )
-                    : t("Stay ready while we search the live ranked queue."),
+                // Rotates every few seconds so a long queue never reads as a frozen screen. The clock
+                // above already repaints twice a second, so no extra timer is needed.
+                headline: t(searchHeadline(searchElapsedSeconds)),
+                description: tf("Tip: {hint}", { hint: t(searchHint(searchElapsedSeconds)) }),
             };
         }
         if (state === "confirming") {
@@ -952,6 +1071,11 @@ export const MatchmakingRoute: React.FC = () => {
                     width: profileSummaryOpen ? "min(1480px, calc(100% - 32px))" : "min(1040px, calc(100% - 32px))",
                     mx: "auto",
                     py: { xs: 2, md: 3 },
+                    // Clearance for the fixed fullscreen button in the bottom-left corner: without it the
+                    // page's last row (the arena chat header) comes to rest underneath the button and the
+                    // two overlap. The arena scrolls, unlike the pick and fight screens this control comes
+                    // from, so the corner has to be kept clear rather than assumed empty.
+                    pb: { xs: 8, md: 9 },
                     display: "grid",
                     gridTemplateColumns: {
                         xs: "minmax(0, 1fr)",
@@ -1069,12 +1193,13 @@ export const MatchmakingRoute: React.FC = () => {
                                 {t("Ranked Arena")}
                             </Typography>
                             <Stack direction="row" spacing={0.75} alignItems="center">
-                                {onlineNow !== undefined && (
+                                <ArenaArtReadout />
+                                {displayedPopulation !== undefined && (
                                     <Tooltip
                                         title={tf("{online} online · {searching} searching · {playing} in battle", {
-                                            online: onlineNow.online,
-                                            searching: onlineNow.searching,
-                                            playing: onlineNow.playing,
+                                            online: displayedPopulation.online,
+                                            searching: displayedPopulation.searching,
+                                            playing: displayedPopulation.playing,
                                         })}
                                         size="sm"
                                         variant="soft"
@@ -1084,16 +1209,10 @@ export const MatchmakingRoute: React.FC = () => {
                                             direction="row"
                                             spacing={0.7}
                                             alignItems="center"
-                                            aria-label={tf("{count} players online", { count: onlineNow.online })}
-                                            sx={{
-                                                minHeight: 38,
-                                                px: 1.15,
-                                                borderRadius: "10px",
-                                                color: hocColors.parchment,
-                                                bgcolor: "rgba(0,0,0,0.3)",
-                                                border: "1px solid rgba(220,177,88,0.3)",
-                                                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.035)",
-                                            }}
+                                            aria-label={tf("{count} players online", {
+                                                count: displayedPopulation.online,
+                                            })}
+                                            sx={hocReadoutChipSx}
                                         >
                                             <Box
                                                 aria-hidden="true"
@@ -1108,7 +1227,7 @@ export const MatchmakingRoute: React.FC = () => {
                                             />
                                             <GroupsRoundedIcon sx={{ color: hocColors.gold, fontSize: 19 }} />
                                             <Typography level="body-sm" sx={{ color: "inherit", fontWeight: 800 }}>
-                                                {onlineNow.online}
+                                                {displayedPopulation.online}
                                             </Typography>
                                             <Typography
                                                 level="body-xs"
@@ -1133,7 +1252,7 @@ export const MatchmakingRoute: React.FC = () => {
                                 >
                                     <Button
                                         size="sm"
-                                        variant="outlined"
+                                        variant="soft"
                                         aria-label={
                                             profileSummaryOpen ? t("Hide player stats") : t("Show player stats")
                                         }
@@ -1141,20 +1260,23 @@ export const MatchmakingRoute: React.FC = () => {
                                         aria-controls="ranked-profile-summary"
                                         onClick={() => setProfileSummaryOpen((open) => !open)}
                                         startDecorator={<StatsPanelIcon sx={{ fontSize: 22 }} />}
+                                        // The app's own button treatment, next to the deliberately flat readouts:
+                                        // the orange fill and border say this one is pressable without relying on
+                                        // a hover a touch screen never delivers.
                                         sx={{
                                             minHeight: 38,
                                             px: 1.15,
                                             borderRadius: "10px",
-                                            color: hocColors.parchment,
-                                            bgcolor: profileSummaryOpen ? "rgba(255,143,0,0.14)" : "rgba(0,0,0,0.3)",
-                                            borderColor: "rgba(220,177,88,0.3)",
                                             fontSize: "0.72rem",
                                             fontWeight: 750,
-                                            "&:hover": {
-                                                color: hocColors.gold,
-                                                bgcolor: "rgba(255,143,0,0.2)",
-                                                borderColor: hocColors.orangeBorder,
-                                            },
+                                            ...hocSoftButtonSx,
+                                            ...(profileSummaryOpen
+                                                ? {
+                                                      color: hocColors.gold,
+                                                      bgcolor: "rgba(255, 143, 0, 0.3)",
+                                                      borderColor: hocColors.orange,
+                                                  }
+                                                : {}),
                                         }}
                                     >
                                         <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
@@ -1280,7 +1402,7 @@ export const MatchmakingRoute: React.FC = () => {
                                             {t("IN QUEUE")}
                                         </Typography>
                                     </Stack>
-                                ) : penalized ? (
+                                ) : penalized || abandonCooling ? (
                                     <TimerRoundedIcon />
                                 ) : needsActivation || state === "error" ? (
                                     <ShieldRoundedIcon />
@@ -1312,32 +1434,38 @@ export const MatchmakingRoute: React.FC = () => {
                         >
                             {presentation.headline}
                         </Typography>
-                        <Typography
-                            level="body-sm"
-                            sx={{
-                                display: showStatusPresentation ? "block" : "none",
-                                color: hocColors.muted,
-                                maxWidth: 540,
-                                mt: 0.8,
-                            }}
-                        >
-                            {presentation.description}
-                        </Typography>
-                        <Typography
-                            level="body-xs"
-                            sx={{
-                                display: showStatusPresentation ? "block" : "none",
-                                color: hocColors.muted,
-                                mt: 1.25,
-                                px: 1.2,
-                                py: 0.55,
-                                borderRadius: "999px",
-                                bgcolor: "rgba(255,255,255,0.035)",
-                                border: "1px solid rgba(255,255,255,0.07)",
-                            }}
-                        >
-                            {statusText}
-                        </Typography>
+                        {presentation.description ? (
+                            <Typography
+                                level="body-sm"
+                                sx={{
+                                    display: showStatusPresentation ? "block" : "none",
+                                    color: hocColors.muted,
+                                    maxWidth: 540,
+                                    mt: 0.8,
+                                    // Leave room for wrapped hints without moving the Leave button.
+                                    ...(isSearching ? { minHeight: { xs: "4.5em", sm: "3em" }, lineHeight: 1.5 } : {}),
+                                }}
+                            >
+                                {presentation.description}
+                            </Typography>
+                        ) : null}
+                        {statusText ? (
+                            <Typography
+                                level="body-xs"
+                                sx={{
+                                    display: showStatusPresentation ? "block" : "none",
+                                    color: hocColors.muted,
+                                    mt: 1.25,
+                                    px: 1.2,
+                                    py: 0.55,
+                                    borderRadius: "999px",
+                                    bgcolor: "rgba(255,255,255,0.035)",
+                                    border: "1px solid rgba(255,255,255,0.07)",
+                                }}
+                            >
+                                {statusText}
+                            </Typography>
+                        ) : null}
 
                         {(state === "confirming" || state === "accepted") && pendingGameId ? (
                             <MatchFoundOpponentPreview
@@ -1625,10 +1753,20 @@ export const MatchmakingRoute: React.FC = () => {
                                     <Button
                                         fullWidth
                                         variant="solid"
-                                        disabled={state === "starting-ai" || penalized}
-                                        onClick={handleStart}
+                                        disabled={
+                                            state === "starting-ai" ||
+                                            penalized ||
+                                            abandonCooling ||
+                                            !!rankedLock ||
+                                            rankedSuspended
+                                        }
+                                        onClick={() => void handleStart()}
                                         startDecorator={<RankedSearchIcon sx={{ fontSize: 24 }} />}
-                                        endDecorator={!penalized ? <ArrowForwardRoundedIcon /> : undefined}
+                                        endDecorator={
+                                            !penalized && !abandonCooling && !rankedLock && !rankedSuspended ? (
+                                                <ArrowForwardRoundedIcon />
+                                            ) : undefined
+                                        }
                                         sx={{
                                             ...hocActionPrimaryButtonSx,
                                             minHeight: 58,
@@ -1636,9 +1774,17 @@ export const MatchmakingRoute: React.FC = () => {
                                             fontSize: "0.92rem",
                                         }}
                                     >
-                                        {penalized
-                                            ? tf("Search again in {seconds}s", { seconds: penaltySeconds })
-                                            : t("Find ranked opponent")}
+                                        {rankedSuspended
+                                            ? t("Ranked suspended")
+                                            : rankedLock
+                                              ? t("Ranked locked")
+                                              : penalized
+                                                ? tf("Search again in {seconds}s", { seconds: penaltySeconds })
+                                                : abandonCooling
+                                                  ? tf("Search again in {time}", {
+                                                        time: formatAwayClock(abandonCooldownMs),
+                                                    })
+                                                  : t("Find ranked opponent")}
                                     </Button>
                                     <PracticeVsAiButton loading={state === "starting-ai"} onClick={handlePlayAi} />
                                 </Box>
@@ -1709,11 +1855,71 @@ export const MatchmakingRoute: React.FC = () => {
                                 <Alert variant="soft" color="warning" sx={{ textAlign: "left" }}>
                                     {tf("You didn't accept the last match. You can search again in {seconds}s.", {
                                         seconds: penaltySeconds,
-                                    })}
+                                    })}{" "}
+                                    {temporaryRestrictionText(cooldownTill, conductNowMs, language)}
                                 </Alert>
                             )}
 
-                            {error && !penalized && (
+                            {rankedLock && conduct && (
+                                <RankedLockPanel conduct={conduct} lock={rankedLock} onChange={refreshConduct} />
+                            )}
+
+                            {/* A lock outlasts the 5-minute cooldown, so "search again in 4:51" would be wrong while one is in force. */}
+                            {rankedSuspended && (
+                                <Alert variant="soft" color="danger" sx={{ textAlign: "left" }}>
+                                    {indefiniteSuspensionText()} {t("vs AI, sandbox and casual lobbies stay open.")}
+                                </Alert>
+                            )}
+                            {abandonCooling && !rankedLock && !rankedSuspended && (
+                                <Alert variant="soft" color="warning" sx={{ textAlign: "left" }}>
+                                    {tf("You abandoned your last ranked match. You can search again in {time}.", {
+                                        time: formatAwayClock(abandonCooldownMs),
+                                    })}{" "}
+                                    {temporaryRestrictionText(
+                                        abandonCooldownUntil,
+                                        conductNowMs,
+                                        language,
+                                        conduct?.rules.abandonCooldownMs,
+                                    )}
+                                </Alert>
+                            )}
+
+                            <RankedRulesCard
+                                open={rulesCardOpen}
+                                rules={{
+                                    ranked: true,
+                                    enforced: conduct?.rules.enforced === true,
+                                    enforceAtMs: conduct?.rules.enforceAtMs ?? 0,
+                                }}
+                                busy={rulesCardBusy}
+                                error={rulesCardError}
+                                onClose={() => setRulesCardOpen(false)}
+                                onAccept={async () => {
+                                    if (!conduct) {
+                                        setRulesCardOpen(false);
+                                        return;
+                                    }
+                                    setRulesCardBusy(true);
+                                    setRulesCardError("");
+                                    try {
+                                        await acceptRankedRules(conduct.rules.version);
+                                        setConduct({
+                                            ...conduct,
+                                            rules: { ...conduct.rules, acceptedVersion: conduct.rules.version },
+                                        });
+                                        setRulesCardOpen(false);
+                                        // The acknowledged state lands on the next render; start the search from here.
+                                        rulesAcknowledgedRef.current = true;
+                                        void handleStart();
+                                    } catch {
+                                        setRulesCardError(t("Couldn't save that. Please try again."));
+                                    } finally {
+                                        setRulesCardBusy(false);
+                                    }
+                                }}
+                            />
+
+                            {error && !penalized && !abandonCooling && !rankedLock && !rankedSuspended && (
                                 <Alert variant="soft" color="danger" sx={{ textAlign: "left" }}>
                                     {error}
                                 </Alert>
@@ -1746,10 +1952,18 @@ export const MatchmakingRoute: React.FC = () => {
                     press Find reads as a bug (it once did, via a state gate that hid it mid-search). */}
                 {!needsActivation ? (
                     <Box sx={{ gridColumn: "1 / -1", minWidth: 0 }}>
-                        <ArenaChatPanel selfUsername={user?.username} />
+                        {/* The room reaches the screen's left edge whenever the stats sidebar widens the
+                            page, which is exactly where the fullscreen button sits. Step the label clear of
+                            it rather than moving either one: the button belongs in that corner and the room
+                            belongs at full width. */}
+                        <ArenaChatPanel selfUsername={user?.username} headerStartInset={ARENA_CHAT_HEADER_INSET} />
                     </Box>
                 ) : null}
             </Box>
+            {/* Same button, same corner, same insets as the pick and fight screens — a player who went
+                fullscreen for a match should not have to leave the arena to get back out of it, or hunt
+                for the control in a different place. The social dock owns the opposite corner here. */}
+            <FullscreenCorner />
         </Box>
     );
 };

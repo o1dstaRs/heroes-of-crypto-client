@@ -65,6 +65,18 @@ describe("ranked action response snapshots", () => {
         );
     });
 
+    test("says there is no space when a summon is refused for room, instead of the raw reason code", () => {
+        expect(
+            rejectionErrorFromPlayEvent({
+                rejectionReason: "spell_not_available",
+                message: "No space next to Satyr. Wolf needs 2×1 free cells.",
+            }),
+        ).toBe("No space next to Satyr. Wolf needs 2×1 free cells.");
+        expect(rejectionErrorFromPlayEvent({ rejectionReason: "spell_not_available", message: "" })).toBe(
+            "spell_not_available",
+        );
+    });
+
     test("recovers a rejected continued-move follow-up but not its move, ping, or recovery end", () => {
         expect(
             shouldRecoverRejectedMoveFollowUp("unit-1", {
@@ -145,6 +157,7 @@ describe("ranked action response snapshots", () => {
                         },
                     ],
                 }),
+                TeamVals.RIGHT,
             ).modelTeam,
         ).toBe(TeamVals.LEFT);
     });
@@ -186,6 +199,28 @@ describe("ranked action response snapshots", () => {
         expect(resolved.enabled).toBe(false);
         expect(resolved.modelTeam).toBe(TeamVals.LEFT);
     });
+
+    test("never lets a spectator tab (no viewer team) drive a model for either seat", () => {
+        const config: LocalModelOpponentConfig = {
+            enabled: true,
+            modelTeam: TeamVals.RIGHT,
+            apiBase: "/hoc-local-model",
+            modelName: "auto",
+            authorization: "Bearer player-token",
+            playerId: "human-player",
+            style: "balanced",
+        };
+        const players = [
+            { playerId: "human-player", team: TeamVals.LEFT, connected: true, aiControlled: false, lastSeenMs: 0 },
+            { playerId: "other-player", team: TeamVals.RIGHT, connected: true, aiControlled: false, lastSeenMs: 0 },
+        ];
+
+        expect(resolveEffectiveLocalModelOpponentConfig(config, snapshot({ players })).enabled).toBe(false);
+        expect(
+            resolveEffectiveLocalModelOpponentConfig({ ...config, playerId: undefined }, snapshot({ players })).enabled,
+        ).toBe(false);
+        expect(resolveEffectiveLocalModelOpponentConfig(config, null).enabled).toBe(false);
+    });
 });
 
 describe("hasOffGridSubmitCell", () => {
@@ -224,9 +259,24 @@ describe("hasOffGridSubmitCell", () => {
         ).toBe(true);
     });
 
-    test("every other action's targetCell is bounds-checked", () => {
-        expect(hasOffGridSubmitCell({ type: PlayActionType.RANGE_ATTACK, targetCell: { x: -320, y: 960 } })).toBe(true);
-        expect(hasOffGridSubmitCell({ type: PlayActionType.RANGE_ATTACK, targetCell: { x: 3, y: 15 } })).toBe(false);
+    test("a shot at a chosen stack is bounds-checked: its targetCell is the aim cell on the grid", () => {
+        const targeted = { type: PlayActionType.RANGE_ATTACK, targetUnitId: "target-1" };
+        expect(hasOffGridSubmitCell({ ...targeted, targetCell: { x: -320, y: 960 } })).toBe(true);
+        expect(hasOffGridSubmitCell({ ...targeted, targetCell: { x: 3, y: 15 } })).toBe(false);
+    });
+
+    test("a free-aimed Through Shot's targetCell is exempt — it carries the Tsar Cannon's world aim point", () => {
+        // A ranked cannon click aimed through the Hydra and the Valkyrie: no target stack, the world point rides
+        // targetCell. Bounds-checking it dropped every free-aimed shot before it was sent — the line was drawn,
+        // the click did nothing, and the server never saw a request.
+        const freeAim = {
+            type: PlayActionType.RANGE_ATTACK,
+            targetCell: { x: -514.1474726208248, y: 1013.3117908038705 },
+        };
+        expect(hasOffGridSubmitCell(freeAim)).toBe(false);
+        expect(hasOffGridSubmitCell({ ...freeAim, targetUnitId: "" })).toBe(false);
+        // Its real grid fields are still validated.
+        expect(hasOffGridSubmitCell({ ...freeAim, attackFrom: { x: 16, y: 2 } })).toBe(true);
     });
 
     test("in-bounds cells across all fields pass", () => {

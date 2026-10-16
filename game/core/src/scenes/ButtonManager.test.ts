@@ -43,6 +43,7 @@ const makeContext = (over: Partial<ISandboxButtonContext> = {}): { ctx: ISandbox
         },
         setSpellBookOverlay: () => {},
         isInputLockedByAI: () => false,
+        isAiToggleAllowed: () => true,
         canControlCurrentActiveUnit: () => true,
         hasUnactedTeammateInCurrentLap: () => false,
         isHourglassDenied: () => false,
@@ -139,6 +140,38 @@ describe("ButtonManager AI toggle", () => {
         expect(rec.aiActive).toEqual([]);
         expect(bm.sc_isAIActive).toBe(true);
     });
+
+    it("leaves the AI button out of the toolbar where autobattle is not allowed (ranked, lobby, vs-AI)", () => {
+        let rendered: IVisibleButton[] = [];
+        const { ctx } = makeContext({
+            isAiToggleAllowed: () => false,
+            getCurrentActiveUnit: () => makeUnit(),
+            setVisibleButtons: (buttons) => {
+                rendered = buttons;
+            },
+        });
+        const bm = new ButtonManager(ctx, false);
+
+        bm.refreshButtons(true);
+        expect(rendered.map((b) => b.name)).not.toContain("AI");
+        expect(rendered.map((b) => b.name)).toContain("Next");
+
+        bm.setButtonsRefreshLocked(true);
+        expect(rendered.map((b) => b.name)).not.toContain("AI");
+    });
+
+    it("ignores an AI toggle click where autobattle is not allowed", () => {
+        const { ctx, rec } = makeContext({
+            isAiToggleAllowed: () => false,
+            getCurrentActiveUnit: () => makeUnit(),
+        });
+        const bm = new ButtonManager(ctx, false);
+
+        bm.propagateButtonClicked("AI", VisibleButtonState.FIRST);
+
+        expect(rec.aiActive).toEqual([]);
+        expect(bm.sc_isAIActive).toBe(false);
+    });
 });
 
 describe("ButtonManager hourglass eligibility", () => {
@@ -208,6 +241,7 @@ describe("ButtonManager spellbook gating", () => {
     const makeCaster = (opts: { spells: number; canCast: boolean }): Unit =>
         ({
             getId: () => "u1",
+            getName: () => "Wandering Mage",
             hasAbilityActive: () => false,
             getSpellsCount: () => opts.spells,
             getCanCastSpells: () => opts.canCast,
@@ -215,7 +249,11 @@ describe("ButtonManager spellbook gating", () => {
             getAttackTypeSelection: () => 0,
         }) as unknown as Unit;
 
-    const spellbookStateFor = (spells: number, canCast: boolean): boolean | undefined => {
+    const spellbookButtonFor = (
+        spells: number,
+        canCast: boolean,
+        over: Partial<ISandboxButtonContext> = {},
+    ): IVisibleButton | undefined => {
         const manager = FightStateManager.getInstance();
         manager.reset();
         manager.getFightProperties().startFight();
@@ -226,23 +264,101 @@ describe("ButtonManager spellbook gating", () => {
                 setVisibleButtons: (buttons: IVisibleButton[]) => {
                     captured = buttons;
                 },
+                ...over,
             });
             new ButtonManager(ctx, false).refreshButtons(true);
-            return captured.find((button) => button.name === "Spellbook")?.isDisabled;
+            return captured.find((button) => button.name === "Spellbook");
         } finally {
             manager.reset();
         }
     };
 
     it("disables the spellbook when the unit has no spells to cast", () => {
-        expect(spellbookStateFor(0, false)).toBe(true);
+        expect(spellbookButtonFor(0, false)).toMatchObject({
+            isDisabled: true,
+            text: "No spells to cast",
+        });
     });
 
     it("disables the spellbook when casting is blocked despite remaining scrolls", () => {
-        expect(spellbookStateFor(2, false)).toBe(true);
+        expect(spellbookButtonFor(2, false)).toMatchObject({
+            isDisabled: true,
+            text: "Cannot cast spells right now",
+        });
     });
 
-    it("enables the spellbook when the unit can cast", () => {
-        expect(spellbookStateFor(2, true)).toBe(false);
+    it("enables the spellbook when the unit can cast, including a one-creature stack that still has scrolls", () => {
+        expect(spellbookButtonFor(2, true)).toMatchObject({
+            isDisabled: false,
+            text: "Select spell",
+        });
+    });
+
+    it("does not call an opponent's empty book a missing spellbook", () => {
+        expect(spellbookButtonFor(0, false, { canControlCurrentActiveUnit: () => false })).toMatchObject({
+            isDisabled: true,
+            text: "Select spell",
+        });
+    });
+
+    it("a click on a spell-less unit says why and does not open the book", () => {
+        const manager = FightStateManager.getInstance();
+        manager.reset();
+        manager.getFightProperties().startFight();
+        const lines: string[] = [];
+        let overlay: boolean | undefined;
+        try {
+            const { ctx } = makeContext({
+                getCurrentActiveUnit: () => makeCaster({ spells: 0, canCast: true }),
+                getSceneLog: () =>
+                    ({
+                        updateLog: (line?: string) => {
+                            if (line) lines.push(line);
+                        },
+                    }) as unknown as ReturnType<ISandboxButtonContext["getSceneLog"]>,
+                setSpellBookOverlay: (active: boolean) => {
+                    overlay = active;
+                },
+            });
+            const buttons = new ButtonManager(ctx, false);
+            buttons.propagateButtonClicked("Spellbook", VisibleButtonState.FIRST);
+            expect(lines).toEqual(["Wandering Mage has no spells to cast"]);
+            expect(overlay).toBeUndefined();
+            expect(buttons.sc_renderSpellBookOverlay).toBe(false);
+        } finally {
+            manager.reset();
+        }
+    });
+
+    it("clears the refusal once the same unit can cast again", () => {
+        const manager = FightStateManager.getInstance();
+        manager.reset();
+        manager.getFightProperties().startFight();
+        let spells = 0;
+        let canCast = false;
+        let captured: IVisibleButton[] = [];
+        try {
+            const { ctx } = makeContext({
+                getCurrentActiveUnit: () => makeCaster({ spells, canCast }),
+                setVisibleButtons: (buttons: IVisibleButton[]) => {
+                    captured = buttons;
+                },
+            });
+            const buttons = new ButtonManager(ctx, false);
+            buttons.refreshButtons(true);
+            expect(captured.find((button) => button.name === "Spellbook")).toMatchObject({
+                isDisabled: true,
+                text: "No spells to cast",
+            });
+            spells = 4;
+            canCast = true;
+            buttons.refreshButtons(true);
+            expect(captured.find((button) => button.name === "Spellbook")).toMatchObject({
+                isDisabled: false,
+                text: "Select spell",
+            });
+        } finally {
+            manager.reset();
+        }
     });
 });

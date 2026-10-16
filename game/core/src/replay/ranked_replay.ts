@@ -4,10 +4,12 @@ import { createGameActionFromPlayAction } from "../api/game_action_play_codec";
 import {
     PlayActionType,
     type PlayAction,
+    type PlayCell,
     type PlayEvent,
     type PlayJournalEntry,
     type PlaySnapshot,
 } from "../api/play_protocol";
+import type { AuthoritativeGameSnapshot } from "../game_action_transport";
 import type { SandboxSceneState } from "../scenes/Sandbox";
 import { SANDBOX_REPLAY_VERSION, type SandboxReplay } from "./sandbox_replay";
 
@@ -40,15 +42,34 @@ export interface RankedReplay {
     initialSnapshot?: PlaySnapshot;
     currentSnapshot?: PlaySnapshot;
     events: PlayEvent[];
+    /**
+     * The whole journal. Stored replays strip `journalTail` off every snapshot (the tail is a live-view
+     * window, and duplicating it into each snapshot blows the record up), so this list is what a replay
+     * has to put back before the battle log can read a snapshot.
+     */
+    journal: PlayJournalEntry[];
     actions: RankedReplayActionRecord[];
+}
+
+/** JSON replays carry the server's 1-based fields; live protobuf snapshots are already decoded. */
+export interface RankedReplaySnapshotPayload extends Omit<PlaySnapshot, "artifactBarrels"> {
+    centerObstacleHitsLeftPlus1?: number;
+    centerObstacleHitsRightPlus1?: number;
+    scatteredStandingCellsPlus1?: number[];
+    scatteredStandingCountPlus1?: number;
+    transientCellsCountPlus1?: number;
+    additionalTimeMsPlus1?: number;
+    artifactBarrelsCountPlus1?: number;
+    /** Raw wire barrels: the index arrives as indexPlus1, exactly like every count field. */
+    artifactBarrels?: Array<{ team: number; cell: PlayCell; index?: number; indexPlus1?: number }>;
 }
 
 export interface RankedReplayPayload {
     gameId: string;
     latestSequence: number;
     completeReplay: boolean;
-    currentSnapshot: PlaySnapshot;
-    events: PlayEvent[];
+    currentSnapshot: RankedReplaySnapshotPayload;
+    events: (Omit<PlayEvent, "snapshot"> & { snapshot?: RankedReplaySnapshotPayload })[];
     journal: PlayJournalEntry[];
 }
 
@@ -153,11 +174,42 @@ export const createRankedReplayFromJournal = ({
         initialSnapshot,
         currentSnapshot,
         events: sortedEvents,
+        journal: sortedEntries,
         actions: sortedEntries.flatMap((entry) => {
             const record = parseRankedReplayAction(entry);
             return record ? [record] : [];
         }),
     };
+};
+
+/**
+ * Fill empty snapshot tails from the replay journal.
+ *
+ * The first empty snapshot gets every entry up to its sequence: playback clears the log after the opening
+ * board, so the first presented snapshot has to carry the history or those lines never come back. Each
+ * later snapshot gets only the entries since the previous one — appending, not copying the whole journal
+ * onto every record.
+ */
+export const withReplayJournalTails = (
+    snapshots: readonly PlaySnapshot[],
+    journal: readonly PlayJournalEntry[],
+): PlaySnapshot[] => {
+    const sorted = journal.length > 1 ? [...journal].sort((left, right) => left.sequence - right.sequence) : journal;
+    let coveredThrough = -1;
+    let seeded = false;
+    return snapshots.map((snapshot) => {
+        const end = snapshot.latestSequence;
+        if (snapshot.journalTail.length > 0 || sorted.length === 0) {
+            seeded = true;
+            coveredThrough = Math.max(coveredThrough, end);
+            return snapshot;
+        }
+        const from = seeded ? coveredThrough : -1;
+        seeded = true;
+        coveredThrough = Math.max(coveredThrough, end);
+        const journalTail = sorted.filter((entry) => entry.sequence > from && entry.sequence <= end);
+        return journalTail.length > 0 ? { ...snapshot, journalTail } : snapshot;
+    });
 };
 
 export const createRankedReplayFromSnapshot = (
@@ -173,17 +225,77 @@ export const createRankedReplayFromSnapshot = (
         events: [],
     });
 
+const decodeReplaySnapshot = (snapshot: RankedReplaySnapshotPayload): PlaySnapshot => {
+    let decoded: PlaySnapshot | undefined;
+    // Raw wire barrels arrive with indexPlus1; every other consumer of a decoded snapshot reads `index`.
+    // Undecoded, a replayed barrel reports index undefined: the Cemetery scattered-mountain art then
+    // derives variant NaN (NaN is not nullish, so the ?? fallback in getArtifactBarrelVariant does not
+    // fire), the NaN spreads into the tile index, and rebuildScatteredMountainSprites dies reading
+    // tiles[NaN] — which killed the whole replay onto the final screen right after the first turn
+    // (production game 75c5eb2e).
+    const needsBarrelDecode =
+        Array.isArray(snapshot.artifactBarrels) &&
+        snapshot.artifactBarrels.some((barrel) => barrel?.indexPlus1 !== undefined);
+    const barrelsDecoded = needsBarrelDecode
+        ? (snapshot.artifactBarrels!.map((barrel) =>
+              barrel && barrel.index === undefined && barrel.indexPlus1 !== undefined
+                  ? { ...barrel, index: Math.max(0, barrel.indexPlus1 - 1) }
+                  : barrel,
+          ) as PlaySnapshot["artifactBarrels"])
+        : undefined;
+    const base = (): PlaySnapshot =>
+        ({ ...snapshot, artifactBarrels: barrelsDecoded ?? snapshot.artifactBarrels }) as PlaySnapshot;
+    for (const [encodedKey, decodedKey] of [
+        ["centerObstacleHitsLeftPlus1", "centerObstacleHitsLeft"],
+        ["centerObstacleHitsRightPlus1", "centerObstacleHitsRight"],
+        ["scatteredStandingCountPlus1", "scatteredStandingCount"],
+        ["transientCellsCountPlus1", "transientCellsCount"],
+        ["additionalTimeMsPlus1", "additionalTimeMs"],
+        ["artifactBarrelsCountPlus1", "artifactBarrelsCount"],
+    ] as const) {
+        if (snapshot[decodedKey] === undefined && snapshot[encodedKey] !== undefined) {
+            decoded ??= base();
+            decoded[decodedKey] = Math.max(0, snapshot[encodedKey] - 1);
+        }
+    }
+    if (snapshot.scatteredStandingCells === undefined && snapshot.scatteredStandingCellsPlus1 !== undefined) {
+        decoded ??= base();
+        decoded.scatteredStandingCells = snapshot.scatteredStandingCellsPlus1.map((cell) => Math.max(0, cell - 1));
+    }
+    if (decoded?.scatteredStandingCount !== undefined) {
+        decoded.scatteredStandingCells ??= [];
+    }
+    if (decoded?.artifactBarrelsCount !== undefined) {
+        decoded.artifactBarrels ??= [];
+    }
+    // An already-decoded snapshot with no wire barrels is returned UNCHANGED — replays round-trip
+    // through this decoder again, and identity keeps that path free of copies.
+    if (decoded) {
+        if (needsBarrelDecode) decoded.artifactBarrels = barrelsDecoded!;
+        return decoded;
+    }
+    return needsBarrelDecode ? base() : (snapshot as PlaySnapshot);
+};
+
 export const createRankedReplayFromPayload = (payload: RankedReplayPayload): RankedReplay => {
+    // The replay endpoint serializes server snapshots directly as JSON. Unlike live snapshots, these
+    // never passed through decodePlaySnapshot, so restore the same true counts and packed cells here.
+    const currentSnapshot = decodeReplaySnapshot(payload.currentSnapshot);
+    const events = payload.events.map((event): PlayEvent =>
+        event.snapshot
+            ? ({ ...event, snapshot: decodeReplaySnapshot(event.snapshot) } as PlayEvent)
+            : (event as PlayEvent),
+    );
     const initialSnapshot =
-        payload.events.filter((event) => event.snapshot).sort((a, b) => a.sequence - b.sequence)[0]?.snapshot ??
-        payload.currentSnapshot;
+        events.filter((event) => event.snapshot).sort((a, b) => a.sequence - b.sequence)[0]?.snapshot ??
+        currentSnapshot;
     return createRankedReplayFromJournal({
         gameId: payload.gameId,
         entries: payload.journal,
         completeJournal: payload.completeReplay,
         initialSnapshot,
-        currentSnapshot: payload.currentSnapshot,
-        events: payload.events,
+        currentSnapshot,
+        events,
     });
 };
 
@@ -208,6 +320,12 @@ export const createSandboxReplayFromRankedReplay = (
     replay: RankedReplay,
     options: {
         snapshotToState: (snapshot: PlaySnapshot) => SandboxSceneState | undefined;
+        /**
+         * The same snapshot, unnarrowed. A replayed record carries it so the ranked scene can run its
+         * presentation steps (log, stats, clock, journal VFX) per action — none of which can be expressed
+         * as a scene state. Optional: without it a replay simply plays the board, as it always did.
+         */
+        snapshotToAuthoritative?: (snapshot: PlaySnapshot) => AuthoritativeGameSnapshot | undefined;
         nowMs?: number;
     },
 ): SandboxReplay | undefined => {
@@ -230,7 +348,11 @@ export const createSandboxReplayFromRankedReplay = (
     }
 
     const nowMs = options.nowMs ?? Date.now();
-    const actions: SandboxReplay["actions"] = [];
+    const pending: {
+        action: RankedReplayActionRecord;
+        snapshot: PlaySnapshot;
+        stateAfter: SandboxSceneState;
+    }[] = [];
     for (const actionRecord of replay.actions) {
         if (actionRecord.sequence <= initialSnapshot.latestSequence) {
             continue;
@@ -245,13 +367,28 @@ export const createSandboxReplayFromRankedReplay = (
         if (!stateAfter) {
             return undefined;
         }
+        pending.push({ action: actionRecord, snapshot: stateAfterSnapshot, stateAfter });
+    }
 
+    const stamped = withReplayJournalTails(
+        pending.map((item) => item.snapshot),
+        replay.journal,
+    );
+    const actions: SandboxReplay["actions"] = [];
+    for (let index = 0; index < pending.length; index += 1) {
+        const item = pending[index];
+        const snapshot = stamped[index];
+        if (!item || !snapshot) {
+            continue;
+        }
+        const authoritativeSnapshot = options.snapshotToAuthoritative?.(snapshot);
         actions.push({
-            sequence: actionRecord.sequence,
-            clientTimeMs: actionRecord.acceptedAtMs || nowMs + actions.length,
-            action: cloneReplayData(actionRecord.action),
-            events: cloneReplayData(actionRecord.events),
-            stateAfter: cloneReplayData(stateAfter),
+            sequence: item.action.sequence,
+            clientTimeMs: item.action.acceptedAtMs || nowMs + actions.length,
+            action: cloneReplayData(item.action.action),
+            events: cloneReplayData(item.action.events),
+            stateAfter: cloneReplayData(item.stateAfter),
+            ...(authoritativeSnapshot ? { authoritativeSnapshot: cloneReplayData(authoritativeSnapshot) } : {}),
         });
     }
 

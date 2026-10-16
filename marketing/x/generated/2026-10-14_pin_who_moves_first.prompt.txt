@@ -1,0 +1,25 @@
+Create a 1600x900 PNG at marketing/x/generated/2026-10-14_pin_who_moves_first.png.
+
+Use the real Cyclops art from site/public/assets/images/units/portraits/cyclops_portrait_full.9c6bea6c.webp exactly; do not redraw, retouch, recolor, mirror, or alter its proportions. Keep the entire unit visible on the left, in roughly the left 55 percent. Use Pillow to composite the source and typeset the final copy. Only write inside marketing/x/generated/.
+
+Exact headline, on two lines:
+Who moves first
+decides the fight.
+
+First line: off-white serif. Second line: muted gold serif. Add a thin gold rule, then a small sans-serif caption:
+PvP tactics in the browser.
+
+Clean house style. No borders, badges, logos, emoji, hashtags, numbers, URLs, fake screenshots, or fake game UI.
+
+Built-in imagegen prompt (background only):
+Use case: ads-marketing
+Asset type: background plate for a 1600x900 landscape fantasy tactics editorial art card.
+Primary request: An empty dark, slightly warm tactics board grid, its outer ring of square cells fading gradually into deep darkness, suggesting a shrinking battlefield. Generate ONLY the environment; characters and typography will be composited afterward.
+Composition: wide 16:9, low oblique perspective over a matte, subtly weathered charcoal stone board. The visible board occupies the left and center, with regular understated square cell seams. Soft, broad, diffused warm light behind the future character at approximately 29 percent of the width and 42 percent of the height. The cells near the perimeter gently disappear into black shadow rather than ending at a hard border. The right 45 percent is very dark, calm, subtly warm negative space for legible text. Board lighting and texture remain understated.
+Style: premium restrained cinematic dark fantasy, natural stone and soft atmospheric falloff, fine texture, minimal haze, warm charcoal and desaturated brown with a faint antique-gold light.
+Constraints: background ONLY; empty board; no people, creatures, cyclops, rocks held by characters, chess pieces, tokens, silhouettes, props, numbers, letters, text, typography, symbols, logos, badges, borders, glowing UI, health bars, or fake interface. No bright effects, flames, lava, neon colors, checkerboard transparency, or frame. Fully opaque image.
+Local output: keep any local files exclusively inside marketing/x/generated/. Background filename: 2026-10-14_pin_who_moves_first.background.png.
+
+Verification: confirm the original source file hash is unchanged, and compare the saved PNG against the same proportionally scaled source at every unit pixel whose alpha is 255. Report resize method and opaque-pixel mismatch count explicitly.
+
+Execution: built-in imagegen generated the background only. Pillow resized the board plate to 1600x900, removed only the Cyclops source's fully transparent outer padding, and fit the complete unit to 476x812 at (202,44) with nearest-neighbor sampling. This preserves exact sampled source colors. Typography was rendered separately with Georgia Regular and Helvetica Neue Regular; the complete card was never resized after the unit was composited. Verification found 197151 fully opaque displayed unit pixels and zero RGB mismatches, including an independent coordinate mapping back to the original WebP samples. The source SHA-256 is unchanged. Details are in the sibling .verification.json and reproducible .compose.py files.

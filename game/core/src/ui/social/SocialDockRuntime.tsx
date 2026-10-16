@@ -1,12 +1,21 @@
+import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
+import ChatBubbleRoundedIcon from "@mui/icons-material/ChatBubbleRounded";
+import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
+import MoreHorizRoundedIcon from "@mui/icons-material/MoreHorizRounded";
+import NotificationsRoundedIcon from "@mui/icons-material/NotificationsRounded";
+import PersonAddAlt1RoundedIcon from "@mui/icons-material/PersonAddAlt1Rounded";
 import {
     Alert,
     Box,
     Button,
     Chip,
     CircularProgress,
-    Divider,
+    Dropdown,
     IconButton,
     Input,
+    Menu,
+    MenuButton,
+    MenuItem,
     Modal,
     ModalDialog,
     Stack,
@@ -16,30 +25,52 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router";
 
+import { displayedGold } from "../../api/goldDisplay";
 import { images } from "../../generated/image_imports";
 import { ARENA_CHAT_OPEN_KEY } from "../ArenaChatPanel";
 import { registerVolumeSlot, VOLUME_SLOT_PRIORITY } from "../audio/volumeSlot";
+import {
+    GAME_SYSTEM_CONTROLS_BOTTOM_INSET,
+    GAME_SYSTEM_CONTROLS_SIDE_INSET,
+    GAME_SYSTEM_CONTROLS_STACK_WIDTH_PX,
+} from "../GameSystemControls";
 import { CurrencyIcon } from "../GoldCurrencyIcon";
+import { isMockPortalEnabled } from "../PlayerPortal/mockPortal";
+import { PremiumSearchDockSlot } from "../premium/PremiumSearch";
 import { useRankedSeason } from "../useRankedSeason";
 import { startVisibleInterval } from "../visibleInterval";
 import { ConversationPanel } from "./ConversationPanel";
 import { useCurrentLobby } from "./CurrentLobbyContext";
-import { DockPanelCloseButton, DockPanelShell } from "./DockPanelShell";
+import { DockPanelHeader, DockPanelShell } from "./DockPanelShell";
+import { storeCoopCarryOver } from "./coopCarryOver";
+import { OPEN_FRIENDS_EVENT } from "./openFriendsEvent";
 import { PredictionsPanel } from "./PredictionsPanel";
 import { getSocialDockSlot, getSocialDockSlotServerSnapshot, subscribeSocialDockSlot } from "./socialDockSlot";
 import { useSocial } from "./SocialProvider";
+import { useSmoothedDockImages } from "./useSmoothedDockImages";
 import {
     getBattleSystemControlsActive,
     getBattleSystemControlsServerSnapshot,
     shouldShowSystemMenuLabel,
     subscribeBattleSystemControls,
+    SYSTEM_DOCK_ARTWORK_BACKGROUND_SIZE,
+    SYSTEM_DOCK_BUTTON_SIZE_PX,
+    SYSTEM_DOCK_HOVER_SCALE,
+    SYSTEM_DOCK_PRESSED_SCALE,
+    SYSTEM_DOCK_GAP_PX,
+    SYSTEM_DOCK_STEP_PX,
     SYSTEM_MENU_ITEM_OFFSETS,
 } from "./systemControlsMode";
 import {
     blockPlayer,
+    canSpectateFriend,
     fetchFriends,
     fetchNotifications,
     formatLastSeen,
+    friendActivityLabel,
+    inviteStateLabel,
+    inviteTarget,
+    joinableFriendLobbyId,
     searchHitPresenceLabel,
     markNotificationsSeen,
     removeFriend,
@@ -55,6 +86,8 @@ import {
     type SocialNotification,
 } from "../../api/social_client";
 import { useAuthContext } from "../auth/context/auth_context";
+import { usePixiManager } from "../../pixi/PixiGameManager";
+import { createSandboxCoop, sandboxCoopErrorMessage, sandboxCoopPath } from "../../api/sandbox_coop_client";
 import {
     hocColors,
     hocDangerAlertSx,
@@ -64,6 +97,7 @@ import {
     hocSoftButtonSx,
     hocSpinnerSx,
 } from "../hocTheme";
+import { systemNoticeText } from "../exitRules/lockModel";
 
 /**
  * Floating social dock: notification bell, friends list, and direct messages mounted once above
@@ -71,7 +105,7 @@ import {
  * popups, while leaving conversations available on demand.
  */
 
-const dockButtonImages = {
+const dockButtonImageSources = {
     systemMenu: images.ui_social_system_menu_redrawn_complete_frame_v3,
     predictions: images.ui_social_predictions_redrawn_complete_frame_v2,
     friends: images.ui_social_friends_redrawn_complete_frame_v2,
@@ -126,6 +160,12 @@ const instantDockLabelSx = {
     transition: "none",
 } as const;
 
+/** " · accepted" / " · closed" after an invite line, so the state reads without a second glance. */
+const inviteSuffix = (notification: SocialNotification): string => {
+    const state = inviteStateLabel(notification);
+    return state ? ` · ${state}` : "";
+};
+
 const notificationText = (notification: SocialNotification): string => {
     switch (notification.type) {
         case "friend_request":
@@ -135,11 +175,17 @@ const notificationText = (notification: SocialNotification): string => {
         case "friend_message":
             return `${notification.fromUsername ?? "Someone"}: ${notification.body ?? "New message"}`;
         case "lobby_invite":
-            return `${notification.fromUsername ?? "Someone"} invited you to a lobby`;
+            return `${notification.fromUsername ?? "Someone"} invited you to a lobby${inviteSuffix(notification)}`;
+        case "sandbox_invite":
+            return `${notification.fromUsername ?? "Someone"} invited you into their sandbox${inviteSuffix(notification)}`;
         case "chat_mention":
             return `${notification.fromUsername ?? "Someone"} mentioned you in the Arena chat: ${notification.body ?? ""}`;
         case "chat_reply":
             return `${notification.fromUsername ?? "Someone"} replied to you in the Arena chat: ${notification.body ?? ""}`;
+        case "system":
+            return (
+                systemNoticeText(notification.systemKind, notification.params) ?? notification.body ?? "Notification"
+            );
         default:
             return notification.body ?? "Notification";
     }
@@ -157,13 +203,28 @@ const GoldBadge: React.FC<{ amount?: number }> = ({ amount }) => {
     const { currency } = useRankedSeason();
     if (amount === undefined) {
         return (
-            <Typography
-                level="body-xs"
+            <Stack
+                component="span"
+                direction="row"
+                spacing={0.35}
+                alignItems="center"
                 title="No season profile yet"
-                sx={{ color: hocColors.muted, whiteSpace: "nowrap", flexShrink: 0 }}
+                sx={{
+                    px: 0.7,
+                    py: 0.3,
+                    color: hocColors.muted,
+                    whiteSpace: "nowrap",
+                    flexShrink: 0,
+                    borderRadius: 999,
+                    border: "1px solid rgba(220,177,88,0.16)",
+                    bgcolor: "rgba(220,177,88,0.035)",
+                }}
             >
-                —
-            </Typography>
+                <CurrencyIcon iconSvg={currency.iconSvg} size={13} />
+                <Typography level="body-xs" sx={{ color: "inherit", fontWeight: 700 }}>
+                    — {currency.symbol}
+                </Typography>
+            </Stack>
         );
     }
     const whole = Number.isFinite(amount) ? Math.max(0, Math.trunc(amount)) : 0;
@@ -175,11 +236,20 @@ const GoldBadge: React.FC<{ amount?: number }> = ({ amount }) => {
             alignItems="center"
             aria-label={`${currency.name}: ${whole}`}
             title={`${currency.name} (${currency.symbol})`}
-            sx={{ flexShrink: 0, color: hocColors.gold }}
+            sx={{
+                px: 0.7,
+                py: 0.3,
+                flexShrink: 0,
+                color: hocColors.gold,
+                borderRadius: 999,
+                border: "1px solid rgba(220,177,88,0.26)",
+                bgcolor: "rgba(220,177,88,0.07)",
+                boxShadow: "inset 0 1px rgba(255,235,191,0.05)",
+            }}
         >
-            <CurrencyIcon iconSvg={currency.iconSvg} size={12} />
+            <CurrencyIcon iconSvg={currency.iconSvg} size={13} />
             <Typography level="body-xs" sx={{ color: "inherit", fontWeight: 800 }}>
-                {whole.toLocaleString("en-US")}
+                {whole.toLocaleString("en-US")} {currency.symbol}
             </Typography>
         </Stack>
     );
@@ -199,8 +269,95 @@ const OnlineDot: React.FC<{ online: boolean }> = ({ online }) => (
     />
 );
 
+const FriendAvatar: React.FC<{ friend: Pick<FriendEntry, "online" | "username"> }> = ({ friend }) => (
+    <Box
+        sx={{
+            position: "relative",
+            width: 38,
+            height: 38,
+            flex: "0 0 38px",
+            display: "grid",
+            placeItems: "center",
+            borderRadius: "50%",
+            color: hocColors.gold,
+            fontSize: 16,
+            fontWeight: 800,
+            background: "radial-gradient(circle at 35% 28%, rgba(220,177,88,0.2), rgba(6,5,4,0.96) 68%)",
+            border: "1px solid rgba(220,177,88,0.35)",
+            boxShadow: "inset 0 0 0 2px rgba(0,0,0,0.3)",
+        }}
+    >
+        {friend.username.trim().charAt(0).toUpperCase() || "?"}
+        <Box
+            aria-label={friend.online ? "Online" : "Offline"}
+            sx={{
+                position: "absolute",
+                right: -1,
+                bottom: 1,
+                width: 10,
+                height: 10,
+                borderRadius: "50%",
+                bgcolor: friend.online ? hocColors.green : "rgba(239,228,204,0.3)",
+                border: "2px solid #0b0805",
+                boxShadow: friend.online ? `0 0 7px ${hocColors.green}` : "none",
+            }}
+        />
+    </Box>
+);
+
 /** Server-side minimum for a username prefix search; below it the endpoint returns nothing anyway. */
 const MIN_SEARCH_CHARS = 2;
+
+const MOCK_FRIEND: FriendEntry = {
+    playerId: "mock-friend-ember",
+    username: "EmberWarden",
+    online: true,
+    lastOnlineAt: Date.now(),
+    muted: false,
+    unreadCount: 2,
+    gold: 384,
+    activity: { kind: "lobby", lobbyId: "mock-friends-table", lobbyOpen: true },
+};
+
+const MOCK_FRIENDS_OVERVIEW: FriendsOverview = {
+    friends: [
+        MOCK_FRIEND,
+        {
+            playerId: "mock-friend-sable",
+            username: "SableFox",
+            online: false,
+            lastOnlineAt: Date.now() - 42 * 60_000,
+            muted: false,
+            unreadCount: 0,
+            gold: 127,
+        },
+    ],
+    incoming: [],
+    outgoing: [],
+    blocked: [],
+};
+
+const MOCK_NOTIFICATIONS: SocialNotification[] = [
+    {
+        id: "mock-notification-message",
+        type: "friend_message",
+        fromPlayerId: MOCK_FRIEND.playerId,
+        fromUsername: MOCK_FRIEND.username,
+        body: "Our lobby is open — want the last seat?",
+        createdAt: Date.now() - 2 * 60_000,
+        seenAt: 0,
+    },
+    {
+        id: "mock-notification-lobby",
+        type: "lobby_invite",
+        fromPlayerId: "mock-friend-sable",
+        fromUsername: "SableFox",
+        lobbyId: "mock-sable-lobby",
+        roomOpen: true,
+        createdAt: Date.now() - 18 * 60_000,
+        seenAt: Date.now() - 17 * 60_000,
+    },
+];
 
 /**
  * A search result row. Previously these were Joy `Chip`s carrying hocSoftButtonSx, but Joy resolves a
@@ -219,20 +376,26 @@ interface NotificationsTrayProps {
     open: boolean;
     onClose: () => void;
     onMessage: (friend: FriendEntry) => void;
+    preview?: boolean;
 }
 
-const NotificationsTray: React.FC<NotificationsTrayProps> = ({ open, onClose, onMessage }) => {
+const NotificationsTray: React.FC<NotificationsTrayProps> = ({ open, onClose, onMessage, preview = false }) => {
     const social = useSocial();
     const navigate = useNavigate();
     const [items, setItems] = useState<SocialNotification[]>([]);
     const [loading, setLoading] = useState(false);
+    // The tray opens on what is NEW. `history` flips only when the player asks for the older notices by
+    // clicking "Earlier", and resets on close so the next open is the short list again.
+    const [history, setHistory] = useState(false);
+    const [historyLoading, setHistoryLoading] = useState(false);
 
     // Which tray entries do something when clicked, and what that is. Messages open the conversation;
     // lobby invites route straight into the lobby room; chat replies and mentions land in the arena
     // with its chat forced open.
+    // A room invite is clickable only while its room is still open (the server annotates roomOpen).
     const isClickable = (notification: SocialNotification): boolean =>
         (notification.type === "friend_message" && !!notification.fromPlayerId) ||
-        (notification.type === "lobby_invite" && !!notification.lobbyId) ||
+        !!inviteTarget(notification) ||
         notification.type === "chat_reply" ||
         notification.type === "chat_mention";
 
@@ -246,9 +409,10 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ open, onClose, on
                 muted: false,
                 unreadCount: 0,
             });
-        } else if (notification.type === "lobby_invite" && notification.lobbyId) {
+        } else if (inviteTarget(notification)) {
+            // The direct link into the friend's room: the route resolves this player's seat.
             onClose();
-            navigate(`/lobby/${notification.lobbyId}`);
+            navigate(inviteTarget(notification) ?? "/play");
         } else if (notification.type === "chat_reply" || notification.type === "chat_mention") {
             // The room reads this key on mount, so a collapsed chat opens itself for the arrival.
             window.localStorage.setItem(ARENA_CHAT_OPEN_KEY, "1");
@@ -257,19 +421,49 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ open, onClose, on
         }
     };
 
+    // Pull the older, already-read notices in — only on a click. They are still on the server (nothing is
+    // deleted); they simply stop loading on open, which is the whole point of the default view.
+    const loadHistory = (): void => {
+        if (preview) {
+            setHistory(true);
+            return;
+        }
+        setHistoryLoading(true);
+        void (async () => {
+            try {
+                const result = await fetchNotifications("all");
+                setItems(result.notifications);
+                setHistory(true);
+            } catch {
+                /* leave the short list up; the button stays offered */
+            } finally {
+                setHistoryLoading(false);
+            }
+        })();
+    };
+
     useEffect(() => {
         if (!open) {
+            // Next open starts on what is new again, not on the history this one may have pulled in.
+            setHistory(false);
             return;
         }
         let cancelled = false;
         setLoading(true);
         void (async () => {
             try {
+                if (preview) {
+                    setItems(MOCK_NOTIFICATIONS);
+                    return;
+                }
+                // What is NEW, plus any friend request still waiting for an answer. Everything already read
+                // sits behind the "Earlier" button: opening the tray marks it all seen, so loading it here
+                // meant every later open re-served a week of notices the player had already read.
                 const result = await fetchNotifications();
                 if (!cancelled) {
                     setItems(result.notifications);
                 }
-                // Seen = the badge goes to 0; the entries stay listed (and re-readable) forever.
+                // Seen = the badge goes to 0; the entries stay on the server, readable under "Earlier".
                 await markNotificationsSeen();
                 social.clearUnseen();
             } catch {
@@ -283,26 +477,36 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ open, onClose, on
         return () => {
             cancelled = true;
         };
-    }, [open]);
+    }, [open, preview]);
 
     const pendingIds = new Set(social.pendingIncoming.map((request) => request.requestId));
 
     return (
-        <DockPanelShell open={open} onClose={onClose} width={420} maxWidth="94vw">
-            <Typography level="title-lg" sx={{ color: hocColors.gold }}>
-                Notifications
-            </Typography>
-            <Divider sx={{ bgcolor: hocColors.orangeBorder }} />
+        <DockPanelShell open={open} onClose={onClose} width={420} maxWidth="94vw" anchorOffset={66}>
+            <DockPanelHeader
+                title="Notifications"
+                subtitle={
+                    history
+                        ? `${items.length} earlier ${items.length === 1 ? "update" : "updates"}`
+                        : items.length
+                          ? `${items.length} new ${items.length === 1 ? "update" : "updates"}`
+                          : "Invites, messages, and mentions"
+                }
+                leading={<NotificationsRoundedIcon sx={{ color: hocColors.gold, fontSize: 21 }} />}
+                onClose={onClose}
+            />
             {loading ? (
                 <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
                     <CircularProgress size="sm" sx={hocSpinnerSx} />
                 </Box>
             ) : items.length === 0 ? (
                 <Typography level="body-sm" sx={{ color: hocColors.muted, py: 2 }}>
-                    Nothing here yet. Friend requests and updates will appear in this tray.
+                    {history
+                        ? "Nothing here yet. Friend requests and updates will appear in this tray."
+                        : "You're all caught up. New invites, messages and mentions land here."}
                 </Typography>
             ) : (
-                <Stack spacing={1} sx={{ maxHeight: "55vh", overflowY: "auto", pr: 0.5 }}>
+                <Stack spacing={0.65} sx={{ maxHeight: "55vh", overflowY: "auto", pr: 0.35 }}>
                     {items.map((notification) => {
                         const actionable =
                             notification.type === "friend_request" &&
@@ -326,16 +530,35 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ open, onClose, on
                                     }
                                 }}
                                 sx={{
-                                    p: 1.25,
-                                    borderRadius: 8,
+                                    p: 1.05,
+                                    borderRadius: 11,
                                     border: `1px solid ${notification.seenAt === 0 ? hocColors.orangeBorder : "rgba(255,143,0,0.14)"}`,
-                                    bgcolor: notification.seenAt === 0 ? hocColors.orangeSoft : "transparent",
+                                    background:
+                                        notification.seenAt === 0
+                                            ? "linear-gradient(105deg, rgba(255,143,0,0.14), rgba(255,143,0,0.035))"
+                                            : "rgba(255,255,255,0.018)",
                                     cursor: clickable ? "pointer" : "default",
+                                    // A closed room's invite stays listed for the record, visibly dead.
+                                    opacity: inviteStateLabel(notification) === "closed" ? 0.55 : 1,
                                     "&:hover": clickable ? { borderColor: hocColors.orangeBorder } : undefined,
                                 }}
                             >
-                                <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
-                                    <Typography level="body-sm" sx={{ color: hocColors.parchment }}>
+                                <Stack direction="row" spacing={0.8} alignItems="flex-start">
+                                    <Box
+                                        aria-hidden="true"
+                                        sx={{
+                                            width: 7,
+                                            height: 7,
+                                            mt: 0.65,
+                                            flex: "0 0 7px",
+                                            borderRadius: "50%",
+                                            bgcolor:
+                                                notification.seenAt === 0 ? hocColors.orange : "rgba(239,228,204,0.22)",
+                                            boxShadow:
+                                                notification.seenAt === 0 ? "0 0 8px rgba(255,143,0,0.45)" : "none",
+                                        }}
+                                    />
+                                    <Typography level="body-sm" sx={{ color: hocColors.parchment, flex: 1 }}>
                                         {notificationText(notification)}
                                     </Typography>
                                     <Typography level="body-xs" sx={{ color: hocColors.muted, whiteSpace: "nowrap" }}>
@@ -366,7 +589,21 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ open, onClose, on
                     })}
                 </Stack>
             )}
-            <DockPanelCloseButton onClose={onClose} />
+            {/* The read history, one click away. Offered whether or not anything is new, because "all
+                caught up" is exactly when a player goes looking for what they read earlier. */}
+            {!loading && !history ? (
+                <Box sx={{ display: "flex", justifyContent: "center", pt: items.length ? 1 : 0.25 }}>
+                    <Button
+                        size="sm"
+                        variant="plain"
+                        loading={historyLoading}
+                        onClick={loadHistory}
+                        sx={{ ...hocSoftButtonSx, minHeight: 30, px: 1.4 }}
+                    >
+                        Earlier notifications
+                    </Button>
+                </Box>
+            ) : null}
         </DockPanelShell>
     );
 };
@@ -375,12 +612,15 @@ interface FriendsPanelProps {
     open: boolean;
     onClose: () => void;
     onMessage: (friend: FriendEntry) => void;
+    preview?: boolean;
 }
 
-const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage }) => {
+const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage, preview = false }) => {
     const social = useSocial();
-    const { lobbyId: currentLobbyId } = useCurrentLobby();
-    const [overview, setOverview] = useState<FriendsOverview | null>(null);
+    const navigate = useNavigate();
+    const manager = usePixiManager();
+    const { lobbyId: currentLobbyId, sandboxInviteAvailable } = useCurrentLobby();
+    const [overview, setOverview] = useState<FriendsOverview | null>(preview ? MOCK_FRIENDS_OVERVIEW : null);
     const [loading, setLoading] = useState(false);
     const [query, setQuery] = useState("");
     const [suggestions, setSuggestions] = useState<PlayerSearchHit[]>([]);
@@ -390,12 +630,16 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage })
     const searchTimer = useRef<number | undefined>(undefined);
 
     const reload = useCallback(async (): Promise<void> => {
+        if (preview) {
+            setOverview(MOCK_FRIENDS_OVERVIEW);
+            return;
+        }
         try {
             setOverview(await fetchFriends());
         } catch {
             /* keep the last known list; the panel is not critical path */
         }
-    }, []);
+    }, [preview]);
 
     useEffect(() => {
         if (!open) {
@@ -482,6 +726,31 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage })
         }
     };
 
+    // Offered from the offline sandbox (a signed-in player standing in it): opens a co-op sandbox with this
+    // friend in the red seat, drops the invite into their tray and moves the host straight into it.
+    const inviteToSandbox = async (friend: FriendEntry): Promise<void> => {
+        if (!sandboxInviteAvailable || busy) {
+            return;
+        }
+        setBusy(true);
+        setMessage(null);
+        try {
+            // The host's map and placed green army travel with them into the co-op board.
+            const carry = manager.GetSandboxCarryOver();
+            const session = await createSandboxCoop(friend.playerId, carry ? { gridType: carry.gridType } : {});
+            storeCoopCarryOver(session.gameId, carry?.army ?? []);
+            onClose();
+            navigate(sandboxCoopPath(session.gameId));
+        } catch (err) {
+            setMessage({
+                kind: "error",
+                text: sandboxCoopErrorMessage(err, "Could not open a sandbox with this friend"),
+            });
+        } finally {
+            setBusy(false);
+        }
+    };
+
     const act = async (action: () => Promise<unknown>): Promise<void> => {
         if (busy) {
             return;
@@ -500,7 +769,16 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage })
     };
 
     const sectionTitle = (text: string): React.ReactElement => (
-        <Typography level="title-sm" sx={{ color: hocColors.sidebarTitle, mt: 1 }}>
+        <Typography
+            level="body-xs"
+            sx={{
+                color: hocColors.sidebarTitle,
+                mt: 1,
+                fontWeight: 800,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+            }}
+        >
             {text}
         </Typography>
     );
@@ -517,16 +795,23 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage })
     };
 
     return (
-        <DockPanelShell open={open} onClose={onClose} width={480}>
-            <Typography level="title-lg" sx={{ color: hocColors.gold }}>
-                Friends
-            </Typography>
-            <Divider sx={{ bgcolor: hocColors.orangeBorder }} />
+        <DockPanelShell open={open} onClose={onClose} width={480} anchorOffset={106}>
+            <DockPanelHeader
+                title="Friends"
+                subtitle={
+                    overview
+                        ? `${overview.friends.filter((friend) => friend.online).length} online · ${overview.friends.length} total`
+                        : "Find friends and jump into a game"
+                }
+                leading={<GroupsRoundedIcon sx={{ color: hocColors.gold, fontSize: 22 }} />}
+                onClose={onClose}
+            />
 
             <Stack direction="row" spacing={1}>
                 <Input
                     size="sm"
                     placeholder="Add a friend by username…"
+                    startDecorator={<PersonAddAlt1RoundedIcon sx={{ color: hocColors.muted, fontSize: 18 }} />}
                     value={query}
                     onChange={(event) => setQuery(event.target.value)}
                     onKeyDown={(event) => {
@@ -538,11 +823,11 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage })
                 />
                 <Button
                     size="sm"
-                    disabled={busy || query.trim().length < 3}
+                    disabled={busy || query.trim().length < MIN_SEARCH_CHARS}
                     sx={hocPrimaryButtonSx}
                     onClick={() => void submitRequest(query)}
                 >
-                    Add
+                    Add friend
                 </Button>
             </Stack>
             {query.trim().length >= MIN_SEARCH_CHARS ? (
@@ -573,7 +858,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage })
                                         >
                                             {hit.username}
                                         </Typography>
-                                        <GoldBadge amount={hit.gold} />
+                                        <GoldBadge amount={displayedGold(hit)} />
                                         {status ? (
                                             <Typography
                                                 level="body-xs"
@@ -674,79 +959,230 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage })
                             <Box
                                 key={friend.playerId}
                                 sx={{
-                                    p: 1,
-                                    borderRadius: 8,
+                                    p: 1.1,
+                                    borderRadius: 12,
                                     border: `1px solid ${friend.unreadCount > 0 ? hocColors.orangeBorder : "rgba(255,143,0,0.12)"}`,
-                                    bgcolor: friend.unreadCount > 0 ? hocColors.orangeSoft : "transparent",
+                                    background:
+                                        friend.unreadCount > 0
+                                            ? "linear-gradient(110deg, rgba(255,143,0,0.13), rgba(255,143,0,0.025))"
+                                            : "rgba(255,255,255,0.018)",
                                 }}
                             >
-                                <Stack direction="row" alignItems="center" spacing={1}>
-                                    <OnlineDot online={friend.online} />
-                                    <Typography level="body-sm" sx={{ color: hocColors.parchment, flex: 1 }}>
-                                        {friend.username}
-                                    </Typography>
+                                <Stack direction="row" alignItems="center" spacing={1.05}>
+                                    <FriendAvatar friend={friend} />
+                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                        <Typography level="title-sm" noWrap sx={{ color: hocColors.parchment }}>
+                                            {friend.username}
+                                        </Typography>
+                                        <Typography
+                                            level="body-xs"
+                                            noWrap
+                                            sx={{
+                                                color: friend.inGameId
+                                                    ? hocColors.gold
+                                                    : friend.online
+                                                      ? hocColors.green
+                                                      : hocColors.muted,
+                                            }}
+                                        >
+                                            {friendActivityLabel(friend) ??
+                                                (friend.online ? "Online" : formatLastSeen(friend.lastOnlineAt))}
+                                        </Typography>
+                                    </Box>
                                     {friend.unreadCount > 0 ? (
-                                        <Chip size="sm" sx={{ bgcolor: hocColors.danger, color: "#fff" }}>
+                                        <Chip
+                                            size="sm"
+                                            sx={{
+                                                bgcolor: hocColors.danger,
+                                                color: "#fff",
+                                                minWidth: 24,
+                                                fontWeight: 800,
+                                            }}
+                                        >
                                             {friend.unreadCount > 99 ? "99+" : friend.unreadCount}
                                         </Chip>
                                     ) : null}
-                                    <GoldBadge amount={friend.gold} />
-                                    <Typography
-                                        level="body-xs"
-                                        sx={{
-                                            color: friend.online ? hocColors.green : hocColors.muted,
-                                            whiteSpace: "nowrap",
-                                        }}
-                                    >
-                                        {friend.online ? "Online" : formatLastSeen(friend.lastOnlineAt)}
-                                    </Typography>
+                                    <GoldBadge amount={displayedGold(friend)} />
                                 </Stack>
-                                <Stack direction="row" spacing={0.7} sx={{ mt: 0.8, flexWrap: "wrap" }}>
-                                    <Button size="sm" sx={hocPrimaryButtonSx} onClick={() => onMessage(friend)}>
+                                <Stack direction="row" spacing={0.65} alignItems="center" sx={{ mt: 0.9 }}>
+                                    <Button
+                                        size="sm"
+                                        variant={
+                                            joinableFriendLobbyId(friend, overview.viewerInGameId)
+                                                ? "outlined"
+                                                : "solid"
+                                        }
+                                        startDecorator={<ChatBubbleRoundedIcon sx={{ fontSize: 16 }} />}
+                                        sx={{
+                                            ...(joinableFriendLobbyId(friend, overview.viewerInGameId)
+                                                ? hocSoftButtonSx
+                                                : hocPrimaryButtonSx),
+                                            minHeight: 36,
+                                            px: 1.25,
+                                            borderRadius: 9,
+                                            ...(joinableFriendLobbyId(friend, overview.viewerInGameId)
+                                                ? {
+                                                      bgcolor: "rgba(220,177,88,0.08)",
+                                                      borderColor: "rgba(220,177,88,0.38)",
+                                                      color: hocColors.parchment,
+                                                      "& .MuiButton-startDecorator": { color: hocColors.gold },
+                                                      "&:hover": {
+                                                          bgcolor: "rgba(220,177,88,0.15)",
+                                                          borderColor: "rgba(220,177,88,0.58)",
+                                                      },
+                                                  }
+                                                : {}),
+                                        }}
+                                        onClick={() => onMessage(friend)}
+                                    >
                                         Message
                                     </Button>
+                                    {joinableFriendLobbyId(friend, overview.viewerInGameId) ? (
+                                        <Button
+                                            size="sm"
+                                            variant="solid"
+                                            endDecorator={<ArrowForwardRoundedIcon sx={{ fontSize: 17 }} />}
+                                            sx={{
+                                                ...hocPrimaryButtonSx,
+                                                minHeight: 36,
+                                                minWidth: 132,
+                                                borderRadius: 9,
+                                                justifyContent: "space-between",
+                                                color: "#edf7e8",
+                                                borderColor: "rgba(98,224,122,0.6)",
+                                                background:
+                                                    "linear-gradient(180deg, rgba(43,126,60,0.98), rgba(20,75,34,0.98))",
+                                                boxShadow:
+                                                    "0 7px 18px rgba(70,209,96,0.16), inset 0 1px rgba(205,255,213,0.22)",
+                                                transition: "transform 140ms ease, box-shadow 140ms ease",
+                                                "&:hover": {
+                                                    color: "#f8fff5",
+                                                    borderColor: "rgba(119,239,140,0.82)",
+                                                    background:
+                                                        "linear-gradient(180deg, rgba(55,153,74,0.99), rgba(27,94,43,0.99))",
+                                                    boxShadow:
+                                                        "0 9px 22px rgba(70,209,96,0.24), inset 0 1px rgba(224,255,229,0.28)",
+                                                    transform: "translateY(-1px)",
+                                                },
+                                                "&:active": { transform: "translateY(0)" },
+                                                "&.Mui-disabled": {
+                                                    color: "rgba(237,247,232,0.42)",
+                                                    borderColor: "rgba(70,209,96,0.2)",
+                                                    background: "rgba(31,100,45,0.3)",
+                                                },
+                                            }}
+                                            disabled={busy}
+                                            title="Join the lobby they are sitting in"
+                                            onClick={() => {
+                                                const lobbyId = joinableFriendLobbyId(friend, overview.viewerInGameId);
+                                                if (lobbyId) {
+                                                    onClose();
+                                                    navigate(`/lobby/${encodeURIComponent(lobbyId)}`);
+                                                }
+                                            }}
+                                        >
+                                            Join lobby
+                                        </Button>
+                                    ) : null}
+                                    {canSpectateFriend(friend, overview.viewerInGameId) && friend.inGameId ? (
+                                        <Button
+                                            size="sm"
+                                            variant="outlined"
+                                            sx={{ ...hocSoftButtonSx, minHeight: 32 }}
+                                            disabled={busy}
+                                            title={
+                                                friend.gameStage === "pick"
+                                                    ? "Watch their draft live"
+                                                    : "Watch their fight live"
+                                            }
+                                            onClick={() => {
+                                                onClose();
+                                                navigate(`/game/${friend.inGameId}`, { state: { from: "friends" } });
+                                            }}
+                                        >
+                                            Spectate
+                                        </Button>
+                                    ) : null}
                                     {currentLobbyId ? (
                                         <Button
                                             size="sm"
                                             variant="outlined"
-                                            sx={hocSoftButtonSx}
+                                            sx={{ ...hocSoftButtonSx, minHeight: 32 }}
                                             disabled={busy}
                                             onClick={() => void invite(friend)}
                                         >
                                             Invite
                                         </Button>
                                     ) : null}
-                                    <Button
-                                        size="sm"
-                                        variant="outlined"
-                                        sx={hocSoftButtonSx}
-                                        disabled={busy}
-                                        onClick={() => void act(() => setFriendMuted(friend.playerId, !friend.muted))}
-                                    >
-                                        {friend.muted ? "Unmute alerts" : "Mute alerts"}
-                                    </Button>
-                                    <Button
-                                        size="sm"
-                                        variant="outlined"
-                                        sx={hocSoftButtonSx}
-                                        disabled={busy}
-                                        onClick={() => void act(() => removeFriend(friend.playerId))}
-                                    >
-                                        Remove
-                                    </Button>
-                                    <Button
-                                        size="sm"
-                                        variant="outlined"
-                                        sx={{
-                                            ...hocSoftButtonSx,
-                                            borderColor: "rgba(255,90,63,0.5)",
-                                            color: hocColors.danger,
-                                        }}
-                                        disabled={busy}
-                                        onClick={() => void act(() => blockPlayer(friend.playerId))}
-                                    >
-                                        Block
-                                    </Button>
+                                    {sandboxInviteAvailable && !friend.inGameId ? (
+                                        <Button
+                                            size="sm"
+                                            variant="outlined"
+                                            sx={{ ...hocSoftButtonSx, minHeight: 32 }}
+                                            disabled={busy}
+                                            title="Open a co-op sandbox: you play green, they play red"
+                                            onClick={() => void inviteToSandbox(friend)}
+                                        >
+                                            Invite to sandbox
+                                        </Button>
+                                    ) : null}
+                                    <Box sx={{ flex: 1 }} />
+                                    <Dropdown>
+                                        <MenuButton
+                                            slots={{ root: IconButton }}
+                                            slotProps={{
+                                                root: {
+                                                    size: "sm",
+                                                    variant: "plain",
+                                                    color: "neutral",
+                                                    disabled: busy,
+                                                    "aria-label": `More actions for ${friend.username}`,
+                                                    sx: {
+                                                        color: hocColors.muted,
+                                                        borderRadius: "50%",
+                                                        "&:hover": {
+                                                            color: hocColors.parchment,
+                                                            bgcolor: "rgba(220,177,88,0.1)",
+                                                        },
+                                                    },
+                                                },
+                                            }}
+                                        >
+                                            <MoreHorizRoundedIcon />
+                                        </MenuButton>
+                                        <Menu
+                                            placement="bottom-end"
+                                            size="sm"
+                                            sx={{
+                                                bgcolor: "rgba(12,8,5,0.985)",
+                                                border: "1px solid rgba(220,177,88,0.3)",
+                                                boxShadow: "0 14px 32px rgba(0,0,0,0.65)",
+                                                zIndex: 1600,
+                                            }}
+                                        >
+                                            <MenuItem
+                                                disabled={busy}
+                                                onClick={() =>
+                                                    void act(() => setFriendMuted(friend.playerId, !friend.muted))
+                                                }
+                                            >
+                                                {friend.muted ? "Unmute alerts" : "Mute alerts"}
+                                            </MenuItem>
+                                            <MenuItem
+                                                disabled={busy}
+                                                onClick={() => void act(() => removeFriend(friend.playerId))}
+                                            >
+                                                Remove friend
+                                            </MenuItem>
+                                            <MenuItem
+                                                disabled={busy}
+                                                sx={{ color: hocColors.danger }}
+                                                onClick={() => void act(() => blockPlayer(friend.playerId))}
+                                            >
+                                                Block player
+                                            </MenuItem>
+                                        </Menu>
+                                    </Dropdown>
                                 </Stack>
                             </Box>
                         ))
@@ -791,21 +1227,26 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage })
                     ) : null}
                 </Stack>
             )}
-            <DockPanelCloseButton onClose={onClose} />
         </DockPanelShell>
     );
 };
 
 export const SocialDock: React.FC = () => {
+    const dockButtonImages = useSmoothedDockImages(dockButtonImageSources);
     const { authenticated, user } = useAuthContext();
     const social = useSocial();
     const location = useLocation();
-    const [trayOpen, setTrayOpen] = useState(false);
-    const [friendsOpen, setFriendsOpen] = useState(false);
-    const [conversationFriend, setConversationFriend] = useState<FriendEntry | null>(null);
-    const [predictionsOpen, setPredictionsOpen] = useState(false);
+    const navigate = useNavigate();
+    const mockPreview = isMockPortalEnabled();
+    const mockPanel = mockPreview ? new URL(window.location.href).searchParams.get("mockSocial") : null;
+    const [trayOpen, setTrayOpen] = useState(mockPanel === "notifications");
+    const [friendsOpen, setFriendsOpen] = useState(mockPanel === "friends");
+    const [conversationFriend, setConversationFriend] = useState<FriendEntry | null>(
+        mockPanel === "chat" ? MOCK_FRIEND : null,
+    );
+    const [predictionsOpen, setPredictionsOpen] = useState(mockPanel === "predictions");
     const [systemMenuOpen, setSystemMenuOpen] = useState(false);
-    const [systemMenuLabel, setSystemMenuLabel] = useState<{ text: string; top: number; right: number } | null>(null);
+    const [systemMenuLabel, setSystemMenuLabel] = useState<{ text: string; top: number; left: number } | null>(null);
     const systemMenuMode = React.useSyncExternalStore(
         subscribeBattleSystemControls,
         getBattleSystemControlsActive,
@@ -818,6 +1259,20 @@ export const SocialDock: React.FC = () => {
     );
     const floatingVolumeSlotRef = useRef<HTMLDivElement | null>(null);
     const systemMenuCloseTimerRef = useRef<number | null>(null);
+
+    // Screens outside the dock (the sandbox's "Invite a friend" badge) open the friends panel through
+    // this window event rather than reaching into the dock's state.
+    useEffect(() => {
+        const onOpenFriends = (): void => {
+            social.requestNotificationPermission();
+            setTrayOpen(false);
+            setPredictionsOpen(false);
+            setConversationFriend(null);
+            setFriendsOpen(true);
+        };
+        window.addEventListener(OPEN_FRIENDS_EVENT, onOpenFriends);
+        return () => window.removeEventListener(OPEN_FRIENDS_EVENT, onOpenFriends);
+    }, [social]);
 
     const cancelSystemMenuClose = useCallback(() => {
         if (systemMenuCloseTimerRef.current !== null) {
@@ -845,35 +1300,83 @@ export const SocialDock: React.FC = () => {
     const inGame = location.pathname.startsWith("/game/");
 
     /** Keep music beside the three social controls both while floating and in the fight sidebar. */
-    const active = authenticated && user?.is_active !== false;
+    const active = (authenticated && user?.is_active !== false) || mockPreview;
     // Depends on `active` too: a logged-out dock renders nothing, so the slot element only appears once the
     // player is active. Without it in the deps the effect would never see that element and the speaker
     // would stay in the corner it collides in.
     React.useLayoutEffect(() => {
-        if (!active) {
+        if (!active && !systemMenuMode) {
             return undefined;
         }
-        return registerVolumeSlot(floatingVolumeSlotRef.current, VOLUME_SLOT_PRIORITY.socialDock);
+        // Only the dock's OWN fixed row claims the speaker outright: it is the one that reserves a place
+        // for it in line with the buttons beside it. In the fight the dock either rides inside the game
+        // row (fightDockSlot) or hands the corner to the medallion, and there the game row is the right
+        // host — so those keep the low priority they always had.
+        const priority =
+            systemMenuMode || fightDockSlot ? VOLUME_SLOT_PRIORITY.socialDock : VOLUME_SLOT_PRIORITY.socialDockRow;
+        return registerVolumeSlot(floatingVolumeSlotRef.current, priority);
     }, [fightDockSlot, active, systemMenuMode]);
 
-    if (!active) {
+    if (!active && !systemMenuMode) {
         return null;
     }
 
     const openConversation = (friend: FriendEntry): void => {
         setTrayOpen(false);
         setFriendsOpen(false);
+        setPredictionsOpen(false);
         setConversationFriend(friend);
     };
 
+    const togglePredictions = (): void => {
+        const opening = !predictionsOpen;
+        setFriendsOpen(false);
+        setTrayOpen(false);
+        setConversationFriend(null);
+        setPredictionsOpen(opening);
+        setSystemMenuOpen(false);
+        setSystemMenuLabel(null);
+    };
+
+    const toggleFriends = (): void => {
+        const opening = !friendsOpen;
+        social.requestNotificationPermission();
+        setPredictionsOpen(false);
+        setTrayOpen(false);
+        setConversationFriend(null);
+        setFriendsOpen(opening);
+        setSystemMenuOpen(false);
+        setSystemMenuLabel(null);
+    };
+
+    const toggleNotifications = (): void => {
+        const opening = !trayOpen;
+        social.requestNotificationPermission();
+        setPredictionsOpen(false);
+        setFriendsOpen(false);
+        setConversationFriend(null);
+        setTrayOpen(opening);
+        setSystemMenuOpen(false);
+        setSystemMenuLabel(null);
+    };
+
     const popup = social.popupRequest;
-    const popupVisible = !!popup && !trayOpen && !friendsOpen && !conversationFriend && !inGame;
+    const popupVisible = !!popup && !trayOpen && !friendsOpen && !conversationFriend && !predictionsOpen && !inGame;
+    // A room invite gets its own non-blocking toast: the tray badge alone made invites easy to miss.
+    const inviteToast = social.inviteToast;
+    const inviteToastTarget = inviteToast ? (inviteTarget(inviteToast) ?? null) : null;
+    const inviteToastText = inviteToast
+        ? `${inviteToast.fromUsername ?? "A friend"} invited you ${
+              inviteToast.type === "sandbox_invite" ? "into their sandbox" : "to a lobby"
+          }`
+        : "";
 
     const dockControls = (
         <Stack
             direction="row"
             alignItems="center"
             spacing={inGame ? 0.6 : 1}
+            useFlexGap
             // DockPanelShell's click-outside dismissal skips anything inside this row: these buttons
             // toggle their own panel, and letting the outside-click fire as well would close it on the
             // way down and reopen it on the way up.
@@ -891,23 +1394,59 @@ export const SocialDock: React.FC = () => {
                 "&:hover": { opacity: 1 },
             }}
         >
+            {!fightDockSlot && <PremiumSearchDockSlot compact={inGame} />}
             <IconButton
                 aria-label="Bets and predictions"
                 aria-pressed={predictionsOpen}
                 title="Bets and predictions"
                 sx={dockButtonSx(dockButtonImages.predictions, predictionsOpen)}
-                onClick={() => setPredictionsOpen((wasOpen) => !wasOpen)}
+                onClick={togglePredictions}
             />
-            <IconButton
-                aria-label="Friends"
-                aria-pressed={friendsOpen}
-                title="Friends"
-                sx={dockButtonSx(dockButtonImages.friends, friendsOpen)}
-                onClick={() => {
-                    social.requestNotificationPermission();
-                    setFriendsOpen((wasOpen) => !wasOpen);
+            <Box
+                sx={{
+                    position: "relative",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 32,
+                    height: 32,
+                    flex: "0 0 32px",
                 }}
-            />
+            >
+                <IconButton
+                    aria-label="Friends"
+                    aria-pressed={friendsOpen}
+                    title={social.friendsOnline > 0 ? `Friends · ${social.friendsOnline} online` : "Friends"}
+                    sx={dockButtonSx(dockButtonImages.friends, friendsOpen)}
+                    onClick={toggleFriends}
+                />
+                {social.friendsOnline > 0 ? (
+                    <Box
+                        aria-label={`${social.friendsOnline} friends online`}
+                        sx={{
+                            position: "absolute",
+                            top: -4,
+                            right: -4,
+                            minWidth: 18,
+                            height: 18,
+                            px: 0.4,
+                            borderRadius: 9,
+                            bgcolor: hocColors.green,
+                            color: "#06210c",
+                            border: "2px solid #160b07",
+                            boxShadow: "0 3px 10px rgba(0,0,0,0.55)",
+                            fontSize: 10,
+                            fontWeight: 800,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            pointerEvents: "none",
+                        }}
+                    >
+                        {social.friendsOnline > 99 ? "99+" : social.friendsOnline}
+                    </Box>
+                ) : null}
+            </Box>
             <Box
                 sx={{
                     position: "relative",
@@ -924,10 +1463,7 @@ export const SocialDock: React.FC = () => {
                     aria-pressed={trayOpen}
                     title="Notifications"
                     sx={dockButtonSx(dockButtonImages.notifications, trayOpen)}
-                    onClick={() => {
-                        social.requestNotificationPermission();
-                        setTrayOpen((wasOpen) => !wasOpen);
-                    }}
+                    onClick={toggleNotifications}
                 />
                 {social.unseenCount > 0 ? (
                     <Box
@@ -980,7 +1516,7 @@ export const SocialDock: React.FC = () => {
             active: predictionsOpen,
             ...SYSTEM_MENU_ITEM_OFFSETS.predictions,
             delay: 0,
-            onClick: () => setPredictionsOpen((wasOpen) => !wasOpen),
+            onClick: togglePredictions,
         },
         {
             key: "friends",
@@ -989,10 +1525,7 @@ export const SocialDock: React.FC = () => {
             active: friendsOpen,
             ...SYSTEM_MENU_ITEM_OFFSETS.friends,
             delay: 35,
-            onClick: () => {
-                social.requestNotificationPermission();
-                setFriendsOpen((wasOpen) => !wasOpen);
-            },
+            onClick: toggleFriends,
         },
         {
             key: "notifications",
@@ -1001,15 +1534,30 @@ export const SocialDock: React.FC = () => {
             active: trayOpen,
             ...SYSTEM_MENU_ITEM_OFFSETS.notifications,
             delay: 70,
-            onClick: () => {
-                social.requestNotificationPermission();
-                setTrayOpen((wasOpen) => !wasOpen);
-            },
+            onClick: toggleNotifications,
         },
     ] as const;
 
     const systemDockControls = (
         <>
+            <Box
+                sx={{
+                    position: "fixed",
+                    bottom: `calc(${GAME_SYSTEM_CONTROLS_BOTTOM_INSET} + ${SYSTEM_DOCK_BUTTON_SIZE_PX / 2}px)`,
+                    right: `calc(${GAME_SYSTEM_CONTROLS_SIDE_INSET} + ${
+                        GAME_SYSTEM_CONTROLS_STACK_WIDTH_PX + SYSTEM_DOCK_GAP_PX + SYSTEM_DOCK_BUTTON_SIZE_PX + 10
+                    }px)`,
+                    transform: `translate(${systemMenuOpen ? -3 * SYSTEM_DOCK_STEP_PX : 0}px, 50%)`,
+                    transition: "transform 210ms ease",
+                    zIndex: 1500,
+                    pointerEvents: "none",
+                    "@media (max-width: 400px)": {
+                        visibility: systemMenuOpen ? "hidden" : "visible",
+                    },
+                }}
+            >
+                <PremiumSearchDockSlot compact inline />
+            </Box>
             <Box
                 ref={floatingVolumeSlotRef}
                 data-volume-control="social-dock"
@@ -1030,18 +1578,39 @@ export const SocialDock: React.FC = () => {
                 onFocus={showSystemMenu}
                 onBlur={scheduleSystemMenuClose}
                 sx={{
+                    // Anchored to the viewport as one more corner control: the same square as sound and
+                    // fullscreen, sitting on the fullscreen button's own line one gap to its left. The fan
+                    // overflows leftwards out of this box, continuing that line.
                     position: "fixed",
-                    // Anchor the image box directly to the viewport. The asset already contains about
-                    // four rendered pixels of transparent breathing room, which becomes the requested
-                    // small visual gap without adding a second CSS offset on scaled game layouts.
-                    top: 0,
-                    right: 0,
-                    width: 116,
-                    height: 116,
+                    bottom: GAME_SYSTEM_CONTROLS_BOTTOM_INSET,
+                    right: `calc(${GAME_SYSTEM_CONTROLS_SIDE_INSET} + ${
+                        GAME_SYSTEM_CONTROLS_STACK_WIDTH_PX + SYSTEM_DOCK_GAP_PX
+                    }px)`,
+                    width: SYSTEM_DOCK_BUTTON_SIZE_PX,
+                    height: SYSTEM_DOCK_BUTTON_SIZE_PX,
                     zIndex: 1500,
                     pointerEvents: "none",
                 }}
             >
+                <Box
+                    aria-hidden="true"
+                    data-system-menu-backplate="true"
+                    sx={{
+                        position: "absolute",
+                        top: 0,
+                        right: 0,
+                        // Four controls on the shared step: the three children plus the medallion itself.
+                        width: SYSTEM_DOCK_BUTTON_SIZE_PX + 3 * SYSTEM_DOCK_STEP_PX,
+                        height: SYSTEM_DOCK_BUTTON_SIZE_PX,
+                        borderRadius: `${SYSTEM_DOCK_BUTTON_SIZE_PX / 2}px`,
+                        bgcolor: "rgba(8, 7, 5, 0.82)",
+                        opacity: systemMenuOpen ? 1 : 0,
+                        transform: systemMenuOpen ? "scaleX(1)" : "scaleX(0.28)",
+                        transformOrigin: "right center",
+                        transition: "opacity 160ms ease, transform 210ms ease",
+                        pointerEvents: systemMenuOpen ? "auto" : "none",
+                    }}
+                />
                 {systemMenuItems.map((item) => (
                     <Box
                         key={item.key}
@@ -1050,7 +1619,7 @@ export const SocialDock: React.FC = () => {
                             setSystemMenuLabel({
                                 text: item.label,
                                 top: bounds.top + bounds.height / 2,
-                                right: window.innerWidth - bounds.left + 6,
+                                left: bounds.left - 6,
                             });
                         }}
                         onPointerLeave={() => setSystemMenuLabel(null)}
@@ -1059,16 +1628,16 @@ export const SocialDock: React.FC = () => {
                             setSystemMenuLabel({
                                 text: item.label,
                                 top: bounds.top + bounds.height / 2,
-                                right: window.innerWidth - bounds.left + 6,
+                                left: bounds.left - 6,
                             });
                         }}
                         onBlur={() => setSystemMenuLabel(null)}
                         sx={{
                             position: "absolute",
-                            top: 8,
-                            right: 8,
-                            width: 34,
-                            height: 34,
+                            top: 0,
+                            right: 0,
+                            width: SYSTEM_DOCK_BUTTON_SIZE_PX,
+                            height: SYSTEM_DOCK_BUTTON_SIZE_PX,
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
@@ -1083,8 +1652,8 @@ export const SocialDock: React.FC = () => {
                         <Box
                             sx={{
                                 position: "relative",
-                                width: 34,
-                                height: 34,
+                                width: SYSTEM_DOCK_BUTTON_SIZE_PX,
+                                height: SYSTEM_DOCK_BUTTON_SIZE_PX,
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "center",
@@ -1100,8 +1669,17 @@ export const SocialDock: React.FC = () => {
                         >
                             <IconButton
                                 aria-label={item.label}
+                                disabled={!active}
+                                title={!active ? "Sign in to use social controls" : undefined}
                                 aria-pressed={item.active}
-                                sx={dockButtonSx(item.image, item.active)}
+                                sx={{
+                                    ...dockButtonSx(item.image, item.active),
+                                    width: SYSTEM_DOCK_BUTTON_SIZE_PX,
+                                    height: SYSTEM_DOCK_BUTTON_SIZE_PX,
+                                    minWidth: SYSTEM_DOCK_BUTTON_SIZE_PX,
+                                    minHeight: SYSTEM_DOCK_BUTTON_SIZE_PX,
+                                    backgroundSize: SYSTEM_DOCK_ARTWORK_BACKGROUND_SIZE,
+                                }}
                                 onClick={item.onClick}
                             />
                             {item.key === "notifications" && social.unseenCount > 0 ? (
@@ -1139,7 +1717,7 @@ export const SocialDock: React.FC = () => {
                         setSystemMenuLabel({
                             text: "System controls",
                             top: bounds.top + bounds.height / 2,
-                            right: window.innerWidth - bounds.left + 6,
+                            left: bounds.left - 6,
                         });
                     }}
                     onPointerLeave={() => setSystemMenuLabel(null)}
@@ -1148,7 +1726,7 @@ export const SocialDock: React.FC = () => {
                         setSystemMenuLabel({
                             text: "System controls",
                             top: bounds.top + bounds.height / 2,
-                            right: window.innerWidth - bounds.left + 6,
+                            left: bounds.left - 6,
                         });
                     }}
                     onBlur={() => setSystemMenuLabel(null)}
@@ -1156,8 +1734,8 @@ export const SocialDock: React.FC = () => {
                         position: "absolute",
                         top: 0,
                         right: 0,
-                        width: 54,
-                        height: 54,
+                        width: SYSTEM_DOCK_BUTTON_SIZE_PX,
+                        height: SYSTEM_DOCK_BUTTON_SIZE_PX,
                         pointerEvents: "auto",
                         overflow: "visible",
                     }}
@@ -1170,13 +1748,13 @@ export const SocialDock: React.FC = () => {
                             setSystemMenuOpen((wasOpen) => !wasOpen);
                         }}
                         sx={{
-                            // The artwork has transparent breathing room and the control box is slightly
-                            // larger than the visible 48px medallion. Joy can then never crop the forged
-                            // outer ring or its antialiasing at the lower/right cardinal points.
-                            width: 54,
-                            height: 54,
-                            minWidth: 54,
-                            minHeight: 54,
+                            // Exactly the sound and fullscreen square. The artwork is painted slightly
+                            // over that square so its forged ring MATCHES theirs instead of shrinking
+                            // inside its own transparent margin — see the background-size constant.
+                            width: SYSTEM_DOCK_BUTTON_SIZE_PX,
+                            height: SYSTEM_DOCK_BUTTON_SIZE_PX,
+                            minWidth: SYSTEM_DOCK_BUTTON_SIZE_PX,
+                            minHeight: SYSTEM_DOCK_BUTTON_SIZE_PX,
                             p: 0,
                             borderRadius: "50%",
                             overflow: "visible",
@@ -1186,22 +1764,22 @@ export const SocialDock: React.FC = () => {
                             backgroundImage: `url(${dockButtonImages.systemMenu})`,
                             backgroundPosition: "center",
                             backgroundRepeat: "no-repeat",
-                            backgroundSize: "contain",
+                            backgroundSize: SYSTEM_DOCK_ARTWORK_BACKGROUND_SIZE,
                             filter: systemMenuOpen
                                 ? "brightness(1.16) saturate(1.06) drop-shadow(0 0 8px rgba(226, 178, 86, 0.68))"
                                 : predictionsOpen || friendsOpen || trayOpen
                                   ? "brightness(1.1) drop-shadow(0 0 8px rgba(211, 173, 103, 0.34))"
                                   : "drop-shadow(0 6px 9px rgba(0, 0, 0, 0.55))",
-                            transform: systemMenuOpen ? "scale(1.045)" : "scale(1)",
+                            transform: systemMenuOpen ? `scale(${SYSTEM_DOCK_HOVER_SCALE})` : "scale(1)",
                             transition: "transform 160ms ease, filter 160ms ease",
                             "&:hover": {
                                 bgcolor: "transparent",
-                                transform: "scale(1.045)",
+                                transform: `scale(${SYSTEM_DOCK_HOVER_SCALE})`,
                                 // Identical to the open-state highlight. Moving from the master button to
                                 // a child can no longer cause a dim flash between :hover and menu state.
                                 filter: "brightness(1.16) saturate(1.06) drop-shadow(0 0 8px rgba(226, 178, 86, 0.68))",
                             },
-                            "&:active": { transform: "translateY(1px) scale(1.025)" },
+                            "&:active": { transform: `translateY(1px) scale(${SYSTEM_DOCK_PRESSED_SCALE})` },
                         }}
                     />
                     {!systemMenuOpen && social.unseenCount > 0 ? (
@@ -1236,8 +1814,9 @@ export const SocialDock: React.FC = () => {
                         sx={{
                             ...instantDockLabelSx,
                             top: systemMenuLabel.top,
-                            right: systemMenuLabel.right,
-                            transform: "translateY(-50%)",
+                            left: systemMenuLabel.left,
+                            // The dock now hugs the right edge, so the hint grows away from it.
+                            transform: "translate(-100%, -50%)",
                         }}
                     >
                         {systemMenuLabel.text}
@@ -1256,10 +1835,21 @@ export const SocialDock: React.FC = () => {
                   : dockControls}
 
             <PredictionsPanel open={predictionsOpen} onClose={() => setPredictionsOpen(false)} />
-            <NotificationsTray open={trayOpen} onClose={() => setTrayOpen(false)} onMessage={openConversation} />
-            <FriendsPanel open={friendsOpen} onClose={() => setFriendsOpen(false)} onMessage={openConversation} />
+            <NotificationsTray
+                open={trayOpen}
+                onClose={() => setTrayOpen(false)}
+                onMessage={openConversation}
+                preview={mockPreview}
+            />
+            <FriendsPanel
+                open={friendsOpen}
+                onClose={() => setFriendsOpen(false)}
+                onMessage={openConversation}
+                preview={mockPreview}
+            />
             <ConversationPanel
                 friend={conversationFriend}
+                preview={mockPreview}
                 onClose={() => setConversationFriend(null)}
                 onActivity={social.refreshNow}
                 onMutedChange={(playerId, muted) =>
@@ -1269,6 +1859,52 @@ export const SocialDock: React.FC = () => {
                 }
             />
 
+            {inviteToast && inviteToastTarget ? (
+                <Box
+                    role="status"
+                    data-social-dock-button="true"
+                    sx={{
+                        position: "fixed",
+                        top: 14,
+                        left: "50%",
+                        transform: "translateX(-50%)",
+                        zIndex: 1450,
+                        ...hocPanelSx,
+                        px: 1.5,
+                        py: 1,
+                        maxWidth: "min(92vw, 520px)",
+                        boxShadow: "0 8px 24px rgba(0,0,0,0.6)",
+                    }}
+                >
+                    <Stack direction="row" spacing={1.25} alignItems="center">
+                        <Typography level="body-md" sx={{ color: hocColors.parchment, minWidth: 0 }}>
+                            {inviteToastText}
+                        </Typography>
+                        <Button
+                            size="sm"
+                            sx={hocPrimaryButtonSx}
+                            onClick={() => {
+                                social.dismissInviteToast();
+                                setTrayOpen(false);
+                                setFriendsOpen(false);
+                                setPredictionsOpen(false);
+                                setConversationFriend(null);
+                                navigate(inviteToastTarget);
+                            }}
+                        >
+                            Join
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="plain"
+                            sx={{ color: hocColors.muted }}
+                            onClick={social.dismissInviteToast}
+                        >
+                            Later
+                        </Button>
+                    </Stack>
+                </Box>
+            ) : null}
             <Modal open={popupVisible} onClose={() => popup && social.dismissPopup(popup.requestId)}>
                 <ModalDialog variant="outlined" sx={{ ...hocPanelSx, width: 380, maxWidth: "92vw" }}>
                     <Typography level="title-lg" sx={{ color: hocColors.gold }}>

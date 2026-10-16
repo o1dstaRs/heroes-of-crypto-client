@@ -1,53 +1,38 @@
-import { Box, Button, CircularProgress, Sheet, Stack, Typography } from "@mui/joy";
+import { renderProfileStat } from "./renderProfileStat";
+import "./profilePresentation.css";
+import { PlayerPlaystyle } from "../PlayerPlaystyle/PlayerPlaystyle";
+import { Box, Button, Sheet, Skeleton, Stack, Typography } from "@mui/joy";
 import { Artifact } from "@heroesofcrypto/common";
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 
+import { displayedGold } from "../../api/goldDisplay";
 import { t, tf, useTranslation } from "../../i18n/i18n";
 
 import { images } from "../../generated/image_imports";
+import { useAuthContext } from "../auth/context/auth_context";
+import { setSession } from "../auth/context/auth_utils";
 import { CurrencyIcon } from "../GoldCurrencyIcon";
 import { hocColors, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "../hocTheme";
 import { LeagueTransitionReveal } from "../LeagueTransitionReveal";
-import { RankedNavIcon, RefreshNavIcon, SettingsNavIcon } from "../svg/navigation";
+import { ExitNavIcon, RankedNavIcon, RefreshNavIcon, SettingsNavIcon } from "../svg/navigation";
 import { PlayerSettingsPanel } from "../PlayerSettingsPanel";
 import { useRankedSeason } from "../useRankedSeason";
 import { MatchHistory } from "./MatchHistory";
 import { matchReplayPath, normalizeMatchSetup } from "./matchHistoryModel";
 import { CreatureIcon, creatureName, timeAgo, winRateColor, winRatePct } from "./portalFormat";
-import { CalibrationProgress, standingEmblem } from "./CalibrationProgress";
-import { LeagueEmblem } from "./LeagueEmblem";
+import { CalibrationProgress } from "./CalibrationProgress";
+import { PortalAvatar } from "./PortalAvatar";
+import {
+    PlayerPortalContentSkeleton,
+    PlayerPortalFrame,
+    portalHeaderSx,
+    portalRevealSx,
+    portalScrollSx,
+} from "./PlayerPortalLoading";
 import { usePlayerPortal } from "./usePlayerPortal";
 import { useRankedStanding } from "./useRankedStanding";
-
-const profileBackgroundUrl = new URL("../../../images/background_dark.webp", import.meta.url).toString();
-const logoUrl = new URL("../../../images/logo_hoc.webp", import.meta.url).toString();
-const portalScrollSx = {
-    scrollbarWidth: "thin",
-    scrollbarColor: "rgba(220,177,88,0.68) rgba(7,5,4,0.72)",
-    "&::-webkit-scrollbar": {
-        width: "8px",
-        height: "8px",
-    },
-    "&::-webkit-scrollbar-track": {
-        borderRadius: "999px",
-        background: "rgba(7,5,4,0.72)",
-    },
-    "&::-webkit-scrollbar-thumb": {
-        border: "2px solid rgba(7,5,4,0.9)",
-        borderRadius: "999px",
-        background: "rgba(220,177,88,0.68)",
-    },
-    "&::-webkit-scrollbar-thumb:hover": {
-        background: "rgba(239,212,154,0.84)",
-    },
-    "&::-webkit-scrollbar-corner": {
-        background: "transparent",
-    },
-    "@media (forced-colors: active)": {
-        scrollbarColor: "auto",
-    },
-} as const;
+import { ReputationCard } from "../Reputation/ReputationCard";
 
 const nestedPortalScrollSx = {
     ...portalScrollSx,
@@ -59,25 +44,28 @@ const nestedPortalScrollSx = {
     },
 } as const;
 
-const Section: React.FC<{ title: string; subtitle?: string; children: React.ReactNode }> = ({
+const Section: React.FC<{ title: string; subtitle?: string; featured?: boolean; children: React.ReactNode }> = ({
     title,
     subtitle,
+    featured = false,
     children,
 }) => (
     <Sheet
         variant="outlined"
         sx={{
-            p: { xs: 1.5, sm: 2.25 },
+            p: featured ? { xs: 2, sm: 3.5 } : { xs: "24px 0", sm: "32px 0" },
             minWidth: 0,
-            borderRadius: "16px",
-            ...hocPanelSx,
-            bgcolor: "rgba(12,8,5,0.91)",
-            borderColor: "rgba(255,143,0,0.27)",
-            backdropFilter: "blur(14px)",
+            border: "none",
+            borderRadius: featured ? "var(--hoc-profile-feature-radius)" : 0,
+            boxShadow: "none",
+            bgcolor: featured ? "var(--hoc-profile-feature-background)" : "transparent",
         }}
     >
-        <Box sx={{ mb: 1.25 }}>
-            <Typography level="title-md" textColor={hocColors.gold}>
+        <Box sx={{ mb: 2.5 }}>
+            <Typography
+                level="title-md"
+                sx={{ color: hocColors.parchment, fontFamily: "inherit", fontSize: 18, fontWeight: 500 }}
+            >
                 {title}
             </Typography>
             {subtitle && (
@@ -91,24 +79,12 @@ const Section: React.FC<{ title: string; subtitle?: string; children: React.Reac
 );
 
 const StatCard: React.FC<{ label: string; value: string | number; color?: string }> = ({ label, value, color }) => (
-    <Sheet
-        variant="soft"
-        sx={{
-            bgcolor: "rgba(0,0,0,0.3)",
-            border: "1px solid rgba(239,228,204,0.08)",
-            borderRadius: "12px",
-            p: 1.5,
-            minWidth: 110,
-            textAlign: "center",
-        }}
-    >
-        <Typography level="h2" sx={{ color: color ?? hocColors.parchment, lineHeight: 1.1 }}>
-            {value}
-        </Typography>
-        <Typography level="body-xs" textColor={hocColors.muted}>
-            {label}
-        </Typography>
-    </Sheet>
+    <Box
+        component="dl"
+        className="hoc-profile-stats"
+        sx={{ m: 0 }}
+        dangerouslySetInnerHTML={{ __html: renderProfileStat(label, value, color) }}
+    />
 );
 
 type RecentFormMatch = { draw?: boolean; won?: boolean };
@@ -208,8 +184,6 @@ const StrategyStatCard: React.FC<{
     wins: number;
 }> = ({ artwork, badge, games, label, wins }) => {
     const pct = winRatePct(wins, games);
-    const strong = pct >= 55;
-    const weak = pct <= 45;
     const gamesLabel = games === 1 ? tf("{count} game", { count: games }) : tf("{count} games", { count: games });
 
     return (
@@ -227,13 +201,11 @@ const StrategyStatCard: React.FC<{
                 pr: 1.4,
                 pl: 1,
                 overflow: "hidden",
-                border: "1px solid",
-                borderColor: strong ? "rgba(70,209,96,0.2)" : weak ? "rgba(255,90,90,0.16)" : "rgba(239,228,204,0.08)",
-                borderRadius: "8px",
-                bgcolor: "rgba(0,0,0,0.27)",
-                backgroundImage: strong
-                    ? "linear-gradient(90deg, rgba(70,209,96,0.075), rgba(0,0,0,0.27) 44%)"
-                    : "none",
+                border: "none",
+                borderBottom: "1px solid rgba(239,228,204,0.07)",
+                borderRadius: 0,
+                bgcolor: "transparent",
+                boxShadow: "none",
             }}
         >
             <Box sx={{ display: "flex", alignItems: "center", minWidth: 54 }}>{artwork}</Box>
@@ -456,13 +428,53 @@ const ComboRow: React.FC<{ creatureIds: number[]; games: number; wins: number }>
  */
 const STRATEGY_LIST_LENGTH = 6;
 
+/**
+ * Leave the account from the portal. A successful call lets the auth service end the session, but a
+ * network or server failure must not strand the player inside an account they asked to leave: drop this
+ * browser's credentials too, and land on the login screen either way. A missing auth context (mock
+ * portal mode) counts as a failed sign-out rather than a completed one.
+ */
+export const playerPortalExitAccount = async ({
+    logout,
+    clearSession,
+    redirect,
+}: {
+    logout: (() => Promise<void>) | undefined;
+    clearSession: (accessToken: string | null) => void;
+    redirect: () => void;
+}): Promise<void> => {
+    try {
+        if (typeof logout !== "function") {
+            throw new Error("auth context is unavailable");
+        }
+        await logout();
+    } catch {
+        clearSession(null);
+    } finally {
+        redirect();
+    }
+};
+
 export const PlayerPortalPage: React.FC = () => {
     const navigate = useNavigate();
     const [settingsOpen, setSettingsOpen] = useState(false);
-    const { data, loading, error, reload } = usePlayerPortal();
-    const standing = useRankedStanding(data?.total_games_played ?? 0);
+    const [exiting, setExiting] = useState(false);
+    const { logout, user } = useAuthContext();
+    const { data, loading, error, reload, reloadKey } = usePlayerPortal();
+    const standing = useRankedStanding(`${reloadKey}:${data?.total_games_played ?? 0}`);
     const { t, language } = useTranslation();
     const { currency, seasons } = useRankedSeason();
+    // Reload this route rather than navigating in place: a full load re-runs the auth bootstrap, so no
+    // session state survives in memory. "/portal" (not "/", which is the sandbox board) renders the login
+    // screen while signed out and returns the player to their profile once they sign back in.
+    const exitAccount = async () => {
+        setExiting(true);
+        await playerPortalExitAccount({
+            logout,
+            clearSession: setSession,
+            redirect: () => window.location.assign("/portal"),
+        });
+    };
 
     const combos = data?.combos ?? [];
     const displayedCombos = useMemo(() => {
@@ -481,7 +493,9 @@ export const PlayerPortalPage: React.FC = () => {
     // Dense usage lists are ordered by sample size; win rate only breaks equal-game ties.
     const creatureStats = useMemo(() => playerPortalMostPlayedFirst(data?.creature_stats ?? []), [data]);
     const matches = data?.recent_matches ?? [];
-    const totalGold = Math.max(0, Number(data?.gold ?? 0));
+    // Shown as the total, available plus gold in play (see goldDisplay); the portal payload carries only available.
+    const totalGold =
+        displayedGold({ gold: Math.max(0, Number(data?.gold ?? 0)), totalGold: standing?.totalGold }) ?? 0;
     // New payloads carry independently aggregated pairs. Keep deriving them from legacy full-lineup payloads
     // as a rollout fallback so the client and auth server can deploy in either order.
     const strongestPairs = useMemo(() => {
@@ -547,75 +561,31 @@ export const PlayerPortalPage: React.FC = () => {
     const overallPct = data ? winRatePct(data.wins ?? 0, data.total_games_played ?? 0) : 0;
 
     return (
-        <Box
-            sx={{
-                position: "fixed",
-                inset: 0,
-                bgcolor: hocColors.black,
-                overflowY: "auto",
-                overflowX: "hidden",
-                ...portalScrollSx,
-                px: { xs: 1.5, md: 3 },
-                py: { xs: 1.5, md: 2.5 },
-                backgroundImage: `linear-gradient(112deg, rgba(7,5,4,0.97), rgba(7,5,4,0.89) 52%, rgba(7,5,4,0.96)), url(${profileBackgroundUrl})`,
-                backgroundPosition: "center top",
-                backgroundSize: "cover",
-                backgroundAttachment: "fixed",
-            }}
-        >
+        <PlayerPortalFrame busy={loading && !data}>
             {import.meta.env.DEV && (
                 <LeagueTransitionReveal active={false} enabled={false} gameId="portal-league-reveal-preview" />
             )}
-            <Box sx={{ maxWidth: 1480, mx: "auto" }}>
-                <Sheet
-                    component="header"
-                    variant="outlined"
-                    sx={{
-                        mb: 2,
-                        p: { xs: 1.5, sm: 2 },
-                        borderRadius: "18px",
-                        ...hocPanelSx,
-                        bgcolor: "rgba(9,6,4,0.85)",
-                        borderColor: "rgba(255,143,0,0.25)",
-                        boxShadow: "0 18px 48px rgba(0,0,0,0.42)",
-                        backdropFilter: "blur(16px)",
-                    }}
-                >
+            <Box
+                className="hoc-player-profile"
+                sx={{ maxWidth: 1180, mx: "auto", fontFamily: '"Inter", "Segoe UI", sans-serif' }}
+            >
+                <Sheet component="header" className="hoc-profile-header" variant="outlined" sx={portalHeaderSx}>
                     <Stack
-                        direction={{ xs: "column", sm: "row" }}
+                        direction={{ xs: "column", lg: "row" }}
                         alignItems={{ xs: "stretch", sm: "center" }}
                         justifyContent="space-between"
                         spacing={1.5}
                         sx={{ minWidth: 0 }}
                     >
                         <Stack direction="row" spacing={1.35} alignItems="center" sx={{ minWidth: 0 }}>
-                            {/* The player's own crest IS the avatar here. It used to sit in a second
-                                card directly underneath, which left this one a generic logo and a mostly
-                                empty bar. The logo stays as the fallback while the standing call is in
-                                flight, or if it failed — that call never blocks this page. */}
-                            {standing ? (
-                                <LeagueEmblem {...standingEmblem(standing)} size={{ xs: 84, sm: 96 }} />
-                            ) : (
-                                <Box
-                                    component="img"
-                                    src={logoUrl}
-                                    alt="Heroes of Crypto"
-                                    sx={{
-                                        width: { xs: 84, sm: 96 },
-                                        height: { xs: 84, sm: 96 },
-                                        flexShrink: 0,
-                                        objectFit: "contain",
-                                        filter: "drop-shadow(0 0 10px #ff8f0055)",
-                                    }}
-                                />
-                            )}
+                            <PortalAvatar standing={standing} />
                             <Box sx={{ minWidth: 0 }}>
                                 <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: "wrap" }}>
                                     <Typography
                                         level="h2"
                                         sx={{ color: hocColors.parchment, overflowWrap: "anywhere", lineHeight: 1.05 }}
                                     >
-                                        {data?.username || t("Player Profile")}
+                                        {data?.username || user?.username || t("Player Profile")}
                                     </Typography>
                                     {data ? (
                                         <Sheet
@@ -640,18 +610,48 @@ export const PlayerPortalPage: React.FC = () => {
                                                 {currency.symbol}
                                             </Typography>
                                         </Sheet>
-                                    ) : null}
+                                    ) : (
+                                        <Skeleton
+                                            variant="rectangular"
+                                            width={75}
+                                            height={25}
+                                            animation={false}
+                                            sx={{ borderRadius: "999px" }}
+                                        />
+                                    )}
                                 </Stack>
                                 {/* Ladder standing under the name: while calibrating, "3 / 5 placement
                                     matches" is the headline number — the lifetime totals further down
                                     are not the ranked story yet. */}
-                                {standing && <CalibrationProgress standing={standing} />}
+                                {standing ? (
+                                    <CalibrationProgress standing={standing} />
+                                ) : (
+                                    <Skeleton
+                                        variant="rectangular"
+                                        width={160}
+                                        height={16}
+                                        animation={false}
+                                        sx={{ mt: 0.3 }}
+                                    />
+                                )}
                                 {data?.last_login ? (
                                     <Typography level="body-sm" textColor={hocColors.muted} sx={{ mt: 0.3 }}>
                                         {tf("last seen {when}", { when: timeAgo(data.last_login) })}
                                     </Typography>
                                 ) : null}
                                 <RecentForm matches={matches} />
+                                {data && (
+                                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: "6px 16px", mt: 1 }}>
+                                        <StatCard label={t("Wins")} value={data.wins ?? 0} color="#46d160" />
+                                        <StatCard label={t("Losses")} value={data.losses ?? 0} color="#ff5a5a" />
+                                        <StatCard
+                                            label={t("Win rate")}
+                                            value={`${overallPct}%`}
+                                            color={winRateColor(overallPct)}
+                                        />
+                                        <StatCard label={t("Games")} value={data.total_games_played ?? 0} />
+                                    </Box>
+                                )}
                             </Box>
                         </Stack>
                         <Stack
@@ -663,7 +663,20 @@ export const PlayerPortalPage: React.FC = () => {
                                 fullWidth
                                 variant="soft"
                                 startDecorator={<RefreshNavIcon sx={{ fontSize: 22 }} />}
-                                sx={{ ...hocSoftButtonSx, minWidth: { sm: 126 }, whiteSpace: "nowrap" }}
+                                sx={{
+                                    ...hocSoftButtonSx,
+                                    minWidth: { sm: 96 },
+                                    whiteSpace: "nowrap",
+                                    bgcolor: "transparent",
+                                    border: "none",
+                                    boxShadow: "none",
+                                    color: hocColors.muted,
+                                    "&:hover": {
+                                        bgcolor: "rgba(239,228,204,0.06)",
+                                        color: hocColors.parchment,
+                                        border: "none",
+                                    },
+                                }}
                                 onClick={reload}
                                 disabled={loading}
                             >
@@ -677,16 +690,65 @@ export const PlayerPortalPage: React.FC = () => {
                                 aria-expanded={settingsOpen}
                                 variant="soft"
                                 startDecorator={<SettingsNavIcon sx={{ fontSize: 22 }} />}
-                                sx={{ ...hocSoftButtonSx, minWidth: { sm: 126 }, whiteSpace: "nowrap" }}
+                                sx={{
+                                    ...hocSoftButtonSx,
+                                    minWidth: { sm: 96 },
+                                    whiteSpace: "nowrap",
+                                    bgcolor: "transparent",
+                                    border: "none",
+                                    boxShadow: "none",
+                                    color: hocColors.muted,
+                                    "&:hover": {
+                                        bgcolor: "rgba(239,228,204,0.06)",
+                                        color: hocColors.parchment,
+                                        border: "none",
+                                    },
+                                }}
                                 onClick={() => setSettingsOpen(true)}
                             >
                                 {t("Settings")}
+                            </Button>
+                            {/* Sign out lives beside the other in-place actions: the portal is the only
+                                screen that names the logged-in player, so it is where leaving the account
+                                is looked for. */}
+                            <Button
+                                fullWidth
+                                variant="soft"
+                                startDecorator={<ExitNavIcon sx={{ fontSize: 22 }} />}
+                                sx={{
+                                    ...hocSoftButtonSx,
+                                    minWidth: { sm: 96 },
+                                    whiteSpace: "nowrap",
+                                    bgcolor: "transparent",
+                                    border: "none",
+                                    boxShadow: "none",
+                                    color: hocColors.muted,
+                                    "&:hover": {
+                                        bgcolor: "rgba(239,228,204,0.06)",
+                                        color: hocColors.parchment,
+                                        border: "none",
+                                    },
+                                }}
+                                onClick={exitAccount}
+                                disabled={exiting}
+                            >
+                                {exiting ? t("Signing out…") : t("Exit account")}
                             </Button>
                             <Button
                                 fullWidth
                                 variant="solid"
                                 startDecorator={<RankedNavIcon sx={{ fontSize: 22 }} />}
-                                sx={{ ...hocPrimaryButtonSx, minWidth: { sm: 154 }, whiteSpace: "nowrap" }}
+                                sx={{
+                                    ...hocPrimaryButtonSx,
+                                    minWidth: { sm: 140 },
+                                    whiteSpace: "nowrap",
+                                    bgcolor: "#d7b77e",
+                                    color: "#17130d",
+                                    border: "none",
+                                    boxShadow: "none",
+                                    borderRadius: "10px",
+                                    "&:hover": { bgcolor: "#e5c78f", boxShadow: "none" },
+                                }}
                                 onClick={() => navigate("/play")}
                             >
                                 {t("Ranked arena")}
@@ -697,37 +759,27 @@ export const PlayerPortalPage: React.FC = () => {
 
                 <PlayerSettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
-                {loading && (
-                    <Stack direction="row" spacing={1.5} alignItems="center" sx={{ py: 6, justifyContent: "center" }}>
-                        <CircularProgress />
-                        <Typography textColor={hocColors.muted}>{t("Loading your profile…")}</Typography>
-                    </Stack>
-                )}
+                {loading && !data && <PlayerPortalContentSkeleton />}
                 {!loading && error && (
-                    <Sheet variant="outlined" sx={{ p: 2, ...hocPanelSx }}>
+                    <Sheet variant="outlined" sx={{ p: 2, mb: 2, ...hocPanelSx }}>
                         <Typography textColor={hocColors.danger}>{error}</Typography>
                     </Sheet>
                 )}
 
-                {!loading && !error && data && (
-                    <Stack spacing={2}>
-                        {/* Overview */}
-                        <Box
-                            sx={{
-                                display: "grid",
-                                gridTemplateColumns: {
-                                    xs: "repeat(2, minmax(0, 1fr))",
-                                    sm: "repeat(3, minmax(0, 1fr))",
-                                    lg: "repeat(4, minmax(0, 1fr))",
-                                },
-                                gap: 1.25,
-                            }}
-                        >
-                            <StatCard label={t("Wins")} value={data.wins ?? 0} color="#46d160" />
-                            <StatCard label={t("Losses")} value={data.losses ?? 0} color="#ff5a5a" />
-                            <StatCard label={t("Win rate")} value={`${overallPct}%`} color={winRateColor(overallPct)} />
-                            <StatCard label={t("Games")} value={data.total_games_played ?? 0} />
-                        </Box>
+                {data && (
+                    <Stack spacing={2} sx={portalRevealSx}>
+                        <PlayerPlaystyle
+                            playerId={standing?.playerId}
+                            reloadKey={reloadKey}
+                            language={language}
+                            wrap={(body) => (
+                                <Section featured title={language === "ru" ? "Стиль игры" : "Playstyle"}>
+                                    {body}
+                                </Section>
+                            )}
+                        />
+
+                        <ReputationCard reloadKey={reloadKey} />
 
                         {/* The public profile's strategy-card language, consolidated into one panel so
                             line-ups, winning trios and duos read as one family rather than three widgets. */}
@@ -876,6 +928,6 @@ export const PlayerPortalPage: React.FC = () => {
                     </Stack>
                 )}
             </Box>
-        </Box>
+        </PlayerPortalFrame>
     );
 };

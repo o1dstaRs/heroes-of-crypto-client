@@ -6,9 +6,71 @@ import {
     PLAYER_PORTAL_STRATEGY_TILE_SIZE,
     playerPortalArtifactInfo,
     playerPortalCreatureLineupLabel,
+    playerPortalExitAccount,
     playerPortalMostPlayedFirst,
     playerPortalStrategyVisibleShare,
 } from "./PlayerPortalPage";
+
+describe("player portal exit account", () => {
+    const spies = () => {
+        const cleared: (string | null)[] = [];
+        let redirects = 0;
+        return {
+            cleared,
+            clearSession: (token: string | null) => cleared.push(token),
+            redirect: () => {
+                redirects += 1;
+            },
+            redirectCount: () => redirects,
+        };
+    };
+
+    test("a successful sign-out leaves the session to the auth service and lands on the login screen", async () => {
+        const spy = spies();
+        let loggedOut = 0;
+
+        await playerPortalExitAccount({
+            logout: async () => {
+                loggedOut += 1;
+            },
+            clearSession: spy.clearSession,
+            redirect: spy.redirect,
+        });
+
+        expect(loggedOut).toBe(1);
+        expect(spy.cleared).toEqual([]);
+        expect(spy.redirectCount()).toBe(1);
+    });
+
+    /** A failed call used to strand the player inside an account they asked to leave. */
+    test("a failed sign-out still drops this browser's credentials", async () => {
+        const spy = spies();
+
+        await playerPortalExitAccount({
+            logout: async () => {
+                throw new Error("network down");
+            },
+            clearSession: spy.clearSession,
+            redirect: spy.redirect,
+        });
+
+        expect(spy.cleared).toEqual([null]);
+        expect(spy.redirectCount()).toBe(1);
+    });
+
+    test("a missing auth context is treated as a failed sign-out, not as success", async () => {
+        const spy = spies();
+
+        await playerPortalExitAccount({
+            logout: undefined,
+            clearSession: spy.clearSession,
+            redirect: spy.redirect,
+        });
+
+        expect(spy.cleared).toEqual([null]);
+        expect(spy.redirectCount()).toBe(1);
+    });
+});
 
 describe("player portal artifact history", () => {
     test("resolves retired artifacts from the compatibility catalog", () => {

@@ -15,6 +15,7 @@ import {
     projectedPolyline,
     projectedRectPoints,
     projectedRangeAttackCellSideCenter,
+    rangeAttackFootprintEdgePoint,
     rangeAttackCellSideCenter,
     unprojectBattlefieldPoint,
 } from "./BattlefieldVisualGrid";
@@ -211,6 +212,29 @@ describe("battlefield visual grid", () => {
             expect(visual.x).toBeCloseTo(edgeMidpoint.x, 8);
             expect(visual.y).toBeCloseTo(edgeMidpoint.y, 8);
         }
+    });
+
+    test("starts a multi-cell shooter's ray at the forward footprint edge", () => {
+        const gs = settings();
+        const center = { x: 500, y: 500 };
+        const step = gs.getStep();
+
+        expect(rangeAttackFootprintEdgePoint(center, { x: 1_500, y: 500 }, 2, 2, gs)).toEqual({
+            x: center.x + step,
+            y: center.y,
+        });
+        expect(rangeAttackFootprintEdgePoint(center, { x: -500, y: 500 }, 2, 2, gs)).toEqual({
+            x: center.x - step,
+            y: center.y,
+        });
+        expect(rangeAttackFootprintEdgePoint(center, { x: 1_500, y: 1_000 }, 2, 2, gs)).toEqual({
+            x: center.x + step,
+            y: center.y + step / 2,
+        });
+        expect(rangeAttackFootprintEdgePoint(center, { x: 1_500, y: 500 }, 1, 1, gs)).toEqual({
+            x: center.x + step / 2,
+            y: center.y,
+        });
     });
 
     test("keeps every long code-drawn guide on all intermediate painted seam vertices", () => {

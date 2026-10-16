@@ -33,7 +33,7 @@ describe("Wild Regeneration transfer VFX wiring", () => {
         expect(sandbox.slice(replayStart, replayStart + 13000)).toContain(
             "this.spawnAbilityTransferVfx(record.events, unitSnapshot)",
         );
-        expect(sandbox.slice(eventStart, eventStart + 15000)).toContain(
+        expect(sandbox.slice(eventStart).split(/\n    (?:private|protected|public) /, 1)[0]).toContain(
             "this.syncAbilityTransferUi(event, unitSnapshot)",
         );
     });

@@ -1,0 +1,438 @@
+{
+  "pulled_at": "2026-10-16T16:42:20Z",
+  "test": false,
+  "user": {
+    "data": {
+      "description": "Turn-based tactics in the browser. One fight, then the map shrinks. No install. No wallet to start\n\ud83d\udfe6",
+      "id": "1768370292353884160",
+      "name": "Heroes Of Crypto (HOCAI)",
+      "public_metrics": {
+        "followers_count": 90,
+        "following_count": 8,
+        "like_count": 16,
+        "listed_count": 1,
+        "media_count": 51,
+        "tweet_count": 130
+      },
+      "username": "Heroes0fcrypto"
+    }
+  },
+  "posts": {
+    "data": [
+      {
+        "author_id": "1768370292353884160",
+        "created_at": "2026-10-16T13:58:10.000Z",
+        "edit_history_tweet_ids": [
+          "2111094354408530359"
+        ],
+        "id": "2111094354408530359",
+        "in_reply_to_user_id": "1768370292353884160",
+        "public_metrics": {
+          "bookmark_count": 0,
+          "impression_count": 6,
+          "like_count": 0,
+          "quote_count": 0,
+          "reply_count": 0,
+          "retweet_count": 0
+        },
+        "referenced_tweets": [
+          {
+            "id": "2111094220920643925",
+            "type": "replied_to"
+          }
+        ],
+        "text": "Five positioning habits, including the edge: https://t.co/9PkBIH6WMe",
+        "url": "https://x.com/Heroes0fcrypto/status/2111094354408530359"
+      },
+      {
+        "author_id": "1768370292353884160",
+        "created_at": "2026-10-16T13:57:39.000Z",
+        "edit_history_tweet_ids": [
+          "2111094220920643925"
+        ],
+        "id": "2111094220920643925",
+        "public_metrics": {
+          "bookmark_count": 0,
+          "impression_count": 10,
+          "like_count": 0,
+          "quote_count": 0,
+          "reply_count": 1,
+          "retweet_count": 0
+        },
+        "text": "Standing on the edge can be the right cell. Staying there is how a shrinking map writes your next turn for you.",
+        "url": "https://x.com/Heroes0fcrypto/status/2111094220920643925"
+      },
+      {
+        "author_id": "1768370292353884160",
+        "created_at": "2026-10-15T23:54:53.000Z",
+        "edit_history_tweet_ids": [
+          "2110882131291635810"
+        ],
+        "id": "2110882131291635810",
+        "in_reply_to_user_id": "1768370292353884160",
+        "public_metrics": {
+          "bookmark_count": 0,
+          "impression_count": 8,
+          "like_count": 0,
+          "quote_count": 0,
+          "reply_count": 0,
+          "retweet_count": 0
+        },
+        "referenced_tweets": [
+          {
+            "id": "2110882073452167680",
+            "type": "replied_to"
+          }
+        ],
+        "text": "Four banners, and none of them is a tier list: https://t.co/ap7MlsdVIX",
+        "url": "https://x.com/Heroes0fcrypto/status/2110882131291635810"
+      },
+      {
+        "author_id": "1768370292353884160",
+        "created_at": "2026-10-15T23:54:39.000Z",
+        "edit_history_tweet_ids": [
+          "2110882073452167680"
+        ],
+        "id": "2110882073452167680",
+        "public_metrics": {
+          "bookmark_count": 0,
+          "impression_count": 13,
+          "like_count": 0,
+          "quote_count": 0,
+          "reply_count": 1,
+          "retweet_count": 0
+        },
+        "text": "Chaos is not a rush. You wait until one enemy unit is out of place, then make the rest of the fight an answer to that.",
+        "url": "https://x.com/Heroes0fcrypto/status/2110882073452167680"
+      },
+      {
+        "author_id": "1768370292353884160",
+        "created_at": "2026-10-15T18:50:44.000Z",
+        "edit_history_tweet_ids": [
+          "2110805592323572126"
+        ],
+        "id": "2110805592323572126",
+        "in_reply_to_user_id": "1768370292353884160",
+        "public_metrics": {
+          "bookmark_count": 0,
+          "impression_count": 17,
+          "like_count": 1,
+          "quote_count": 0,
+          "reply_count": 0,
+          "retweet_count": 0
+        },
+        "referenced_tweets": [
+          {
+            "id": "2110805506940153982",
+            "type": "replied_to"
+          }
+        ],
+        "text": "The code is open source if you want to read the rules instead of trusting them: https://t.co/Q7JoQPT9iU",
+        "url": "https://x.com/Heroes0fcrypto/status/2110805592323572126"
+      },
+      {
+        "author_id": "1768370292353884160",
+        "created_at": "2026-10-15T18:50:24.000Z",
+        "edit_history_tweet_ids": [
+          "2110805506940153982"
+        ],
+        "id": "2110805506940153982",
+        "public_metrics": {
+          "bookmark_count": 0,
+          "impression_count": 20,
+          "like_count": 1,
+          "quote_count": 0,
+          "reply_count": 1,
+          "retweet_count": 0
+        },
+        "text": "The first commit was 12 June 2024. One repo for the client, one for the server two days later, and a shared rules library so both sides of a match agree on every move.\n\nThe idea: take the Heroes battle screen, drop the map, and put two players on it.",
+        "url": "https://x.com/Heroes0fcrypto/status/2110805506940153982"
+      },
+      {
+        "author_id": "1768370292353884160",
+        "created_at": "2026-10-15T13:54:10.000Z",
+        "edit_history_tweet_ids": [
+          "2110730955853861001"
+        ],
+        "id": "2110730955853861001",
+        "in_reply_to_user_id": "1768370292353884160",
+        "public_metrics": {
+          "bookmark_count": 0,
+          "impression_count": 7,
+          "like_count": 0,
+          "quote_count": 0,
+          "reply_count": 0,
+          "retweet_count": 0
+        },
+        "referenced_tweets": [
+          {
+            "id": "2110730873159168376",
+            "type": "replied_to"
+          }
+        ],
+        "text": "Why that glance matters more once the map starts shrinking: https://t.co/pxHT7Vw6Wk",
+        "url": "https://x.com/Heroes0fcrypto/status/2110730955853861001"
+      },
+      {
+        "author_id": "1768370292353884160",
+        "created_at": "2026-10-15T13:53:50.000Z",
+        "edit_history_tweet_ids": [
+          "2110730873159168376"
+        ],
+        "id": "2110730873159168376",
+        "public_metrics": {
+          "bookmark_count": 0,
+          "impression_count": 16,
+          "like_count": 0,
+          "quote_count": 0,
+          "reply_count": 1,
+          "retweet_count": 0
+        },
+        "text": "If the unit you want to hit acts before the unit you are sending, the plan is already late. Read the queue before you commit. https://t.co/1eQJpPNHH2",
+        "url": "https://x.com/Heroes0fcrypto/status/2110730873159168376"
+      },
+      {
+        "author_id": "1768370292353884160",
+        "created_at": "2026-10-15T03:03:53.000Z",
+        "edit_history_tweet_ids": [
+          "2110567307013726582"
+        ],
+        "id": "2110567307013726582",
+        "public_metrics": {
+          "bookmark_count": 0,
+          "impression_count": 50,
+          "like_count": 2,
+          "quote_count": 0,
+          "reply_count": 1,
+          "retweet_count": 0
+        },
+        "text": "We grew up on Heroes III. The battles were the best part, and the map kept making us wait.\n\nSo we built only the battle: turn-based PvP against real players. The board shrinks every few laps, so nobody hides.\n\nFree in the browser.\n\nhttps://t.co/EENa0HvsTL https://t.co/Orq3JKXb6p",
+        "url": "https://x.com/Heroes0fcrypto/status/2110567307013726582"
+      },
+      {
+        "author_id": "1768370292353884160",
+        "created_at": "2025-12-06T17:35:19.000Z",
+        "edit_history_tweet_ids": [
+          "1997359208656724159"
+        ],
+        "id": "1997359208656724159",
+        "in_reply_to_user_id": "1768370292353884160",
+        "public_metrics": {
+          "bookmark_count": 1,
+          "impression_count": 182,
+          "like_count": 0,
+          "quote_count": 0,
+          "reply_count": 0,
+          "retweet_count": 0
+        },
+        "referenced_tweets": [
+          {
+            "id": "1997359207390367969",
+            "type": "replied_to"
+          }
+        ],
+        "text": "@UNCX_token  Lock transaction: https://t.co/V6xRup4yX3",
+        "url": "https://x.com/Heroes0fcrypto/status/1997359208656724159"
+      },
+      {
+        "author_id": "1768370292353884160",
+        "created_at": "2025-12-06T17:35:18.000Z",
+        "edit_history_tweet_ids": [
+          "1997359207390367969"
+        ],
+        "id": "1997359207390367969",
+        "public_metrics": {
+          "bookmark_count": 0,
+          "impression_count": 460,
+          "like_count": 6,
+          "quote_count": 0,
+          "reply_count": 8,
+          "retweet_count": 1
+        },
+        "text": "The $HOCAI V2 pool has been successfully launched on @base \n\nhttps://t.co/D5FVhkWSrq",
+        "url": "https://x.com/Heroes0fcrypto/status/1997359207390367969"
+      },
+      {
+        "author_id": "1768370292353884160",
+        "created_at": "2025-11-20T05:34:21.000Z",
+        "edit_history_tweet_ids": [
+          "1991379565458124911"
+        ],
+        "id": "1991379565458124911",
+        "in_reply_to_user_id": "1768370292353884160",
+        "public_metrics": {
+          "bookmark_count": 0,
+          "impression_count": 59,
+          "like_count": 2,
+          "quote_count": 0,
+          "reply_count": 0,
+          "retweet_count": 0
+        },
+        "referenced_tweets": [
+          {
+            "id": "1991379255356526722",
+            "type": "replied_to"
+          }
+        ],
+        "text": "@base Capital is already rotating from opaque balance-sheet plays into transparent, on-chain Bitcoin treasuries where anyone can verify the stack.\n\nOur path is simple:\n\u2022 keep building on @base @BuildOnBase\n\u2022 keep buying BTC\n\u2022 keep it fully on-chain and community-driven\n\nNext 10 days",
+        "url": "https://x.com/Heroes0fcrypto/status/1991379565458124911"
+      },
+      {
+        "author_id": "1768370292353884160",
+        "created_at": "2025-11-12T16:09:33.000Z",
+        "edit_history_tweet_ids": [
+          "1988640316140982615"
+        ],
+        "id": "1988640316140982615",
+        "public_metrics": {
+          "bookmark_count": 0,
+          "impression_count": 176,
+          "like_count": 4,
+          "quote_count": 0,
+          "reply_count": 4,
+          "retweet_count": 0
+        },
+        "text": "$HOCAI has acquired 0.28 ETH for $959 at ~3427 per coin. As of 11/12/2025, we hodl 4.629 ETH (~0.155 BTC).\n\nHOCAI is the first Bitcoin treasury on @base. Heading toward our first Token Pool lock \u2014 17 days to go. https://t.co/OlOKANTt4v",
+        "url": "https://x.com/Heroes0fcrypto/status/1988640316140982615"
+      },
+      {
+        "author_id": "1768370292353884160",
+        "created_at": "2025-11-10T17:09:15.000Z",
+        "edit_history_tweet_ids": [
+          "1987930564868157603"
+        ],
+        "id": "1987930564868157603",
+        "public_metrics": {
+          "bookmark_count": 0,
+          "impression_count": 67,
+          "like_count": 3,
+          "quote_count": 0,
+          "reply_count": 2,
+          "retweet_count": 0
+        },
+        "text": "Just 20 days left until the major HOCAI Token Lock event! \ud83d\udcb8\ud83d\udcb8\n\nIn the meantime, while you wait, we have also:\n\n\ud83e\udde8Updated the White Paper\n\ud83d\udd25Refreshed the website's Homepage\n\ud83d\ude80Added an automatic boost in the form of a $250 deposit into HOCAI once a week\n\nCheck it out https://t.co/nR72kEm9OT",
+        "url": "https://x.com/Heroes0fcrypto/status/1987930564868157603"
+      },
+      {
+        "author_id": "1768370292353884160",
+        "created_at": "2025-11-04T05:55:00.000Z",
+        "edit_history_tweet_ids": [
+          "1985586559572484260"
+        ],
+        "id": "1985586559572484260",
+        "public_metrics": {
+          "bookmark_count": 0,
+          "impression_count": 125,
+          "like_count": 3,
+          "quote_count": 0,
+          "reply_count": 1,
+          "retweet_count": 0
+        },
+        "text": "\ud83c\udf1f $HOCAI Liquidity Lock Incoming!\n\ud83d\udcc5 Nov 30, 5 PM UTC\ud83d\udd12 Lock via @UNCX_token  \ud83d\udcc8 \nPaired with a major marketing rollout to welcome new holders\nPowered by our AI Bitcoin Treasury operations (already up 50% in BTC), this fuels Heroes of Crypto AI closed-alpha. https://t.co/GVYBNyKObG",
+        "url": "https://x.com/Heroes0fcrypto/status/1985586559572484260"
+      },
+      {
+        "author_id": "1768370292353884160",
+        "created_at": "2025-10-28T15:17:55.000Z",
+        "edit_history_tweet_ids": [
+          "1983191504547185048"
+        ],
+        "id": "1983191504547185048",
+        "public_metrics": {
+          "bookmark_count": 0,
+          "impression_count": 63,
+          "like_count": 3,
+          "quote_count": 0,
+          "reply_count": 1,
+          "retweet_count": 0
+        },
+        "text": "$HOCAI has acquired 1.066 ETH for $4391 at ~$4119 per coin. As of 10/28/2025, we hodl 4.2182 ETH (~0.15 BTC), showing 50% growth in Bitcoin holdings \u2014 up from 0.1 BTC back in August. https://t.co/En5RKHwfEz",
+        "url": "https://x.com/Heroes0fcrypto/status/1983191504547185048"
+      },
+      {
+        "author_id": "1768370292353884160",
+        "created_at": "2025-08-25T15:00:04.000Z",
+        "edit_history_tweet_ids": [
+          "1959994188994691278"
+        ],
+        "id": "1959994188994691278",
+        "public_metrics": {
+          "bookmark_count": 0,
+          "impression_count": 98,
+          "like_count": 2,
+          "quote_count": 0,
+          "reply_count": 1,
+          "retweet_count": 0
+        },
+        "text": "$HOCAI has acquired 0.0664 ETH for $302.18 at ~4551 per coin. As of 08/25/2025, we hodl 3.1522 ETH (~0.13 BTC). https://t.co/aRo4USDz11",
+        "url": "https://x.com/Heroes0fcrypto/status/1959994188994691278"
+      },
+      {
+        "author_id": "1768370292353884160",
+        "created_at": "2025-08-24T05:35:27.000Z",
+        "edit_history_tweet_ids": [
+          "1959489711359377587"
+        ],
+        "id": "1959489711359377587",
+        "public_metrics": {
+          "bookmark_count": 0,
+          "impression_count": 75,
+          "like_count": 1,
+          "quote_count": 0,
+          "reply_count": 1,
+          "retweet_count": 0
+        },
+        "text": "We updated the $HOCAI website: live price, real-time Bitcoin Treasury holdings, and an easy compare growth vs traditional crypto assets. https://t.co/RgJFLpYLnw",
+        "url": "https://x.com/Heroes0fcrypto/status/1959489711359377587"
+      },
+      {
+        "author_id": "1768370292353884160",
+        "created_at": "2025-08-18T15:00:03.000Z",
+        "edit_history_tweet_ids": [
+          "1957457469321744682"
+        ],
+        "id": "1957457469321744682",
+        "public_metrics": {
+          "bookmark_count": 0,
+          "impression_count": 95,
+          "like_count": 4,
+          "quote_count": 0,
+          "reply_count": 1,
+          "retweet_count": 0
+        },
+        "text": "$HOCAI has acquired 0.1407 ETH for $641.38 at ~4558 per coin. As of 08/18/2025, we hodl 3.0858 ETH (~0.115 BTC). https://t.co/WYqJErtBLI",
+        "url": "https://x.com/Heroes0fcrypto/status/1957457469321744682"
+      },
+      {
+        "author_id": "1768370292353884160",
+        "created_at": "2025-08-11T21:23:51.000Z",
+        "edit_history_tweet_ids": [
+          "1955017341366108483"
+        ],
+        "id": "1955017341366108483",
+        "in_reply_to_user_id": "1354400126857605121",
+        "public_metrics": {
+          "bookmark_count": 0,
+          "impression_count": 12,
+          "like_count": 0,
+          "quote_count": 0,
+          "reply_count": 0,
+          "retweet_count": 0
+        },
+        "referenced_tweets": [
+          {
+            "id": "1954907820891013524",
+            "type": "replied_to"
+          }
+        ],
+        "text": "@gordongekko $HOCAI",
+        "url": "https://x.com/Heroes0fcrypto/status/1955017341366108483"
+      }
+    ],
+    "meta": {
+      "newest_id": "2111094354408530359",
+      "oldest_id": "1955017341366108483",
+      "result_count": 20
+    }
+  }
+}

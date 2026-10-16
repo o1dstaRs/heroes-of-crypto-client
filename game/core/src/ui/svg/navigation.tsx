@@ -137,6 +137,15 @@ export const RefreshNavIcon = createSvgIcon(
     "RefreshNav",
 );
 
+export const ExitNavIcon = createSvgIcon(
+    <>
+        <path d="M5 6a1.5 1.5 0 0 1 1.5-1.5H13v15H6.5A1.5 1.5 0 0 1 5 18V6Z" fill="currentColor" opacity="0.16" />
+        <path d="M13 4.5H6.5A1.5 1.5 0 0 0 5 6v12a1.5 1.5 0 0 0 1.5 1.5H13" {...iconStroke} />
+        <path d="M16.2 8.3 19.9 12l-3.7 3.7M19.9 12h-9.4" {...iconStroke} />
+    </>,
+    "ExitNav",
+);
+
 export const SettingsNavIcon = createSvgIcon(
     <>
         <path d="M4 7h6M14 7h6M4 12h10M18 12h2M4 17h3M11 17h9" {...iconStroke} />

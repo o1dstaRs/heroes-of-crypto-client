@@ -43,9 +43,10 @@ bun run --cwd game/heroes-of-crypto-common build:proto
 Env variables:
 
 ```bash
-# Canonical Google Drive game-art folders
-export HOC_IMAGES_LOC="/Users/zolotukhin/Google Drive/My Drive/heroesofcrypto/images"
-export HOC_ANIMATIONS_LOC="/Users/zolotukhin/Google Drive/My Drive/heroesofcrypto/animations"
+# Canonical Google Drive game-art folders. Use $HOME, not "~": inside double quotes the tilde
+# stays literal, and the build scripts do not expand it either.
+export HOC_IMAGES_LOC="$HOME/Google Drive/My Drive/heroesofcrypto/images"
+export HOC_ANIMATIONS_LOC="$HOME/Google Drive/My Drive/heroesofcrypto/animations"
 
 # Public Google OAuth web client ID. Use the same value in .env and .env.production.
 VITE_GOOGLE_CLIENT_ID=1234567890-example.apps.googleusercontent.com
@@ -66,6 +67,8 @@ Most important commands to execute from the root folder (you need [bun](https://
 -   `bun run lint` -> Run the full lint suite and style checks (ESLint, Stylelint, package.json sorting, Prettier checks).
 -   `bun run lint:fix` -> Run all lint fixers (ESLint --fix, SCSS fixes, package.json sorting, Prettier write).
 -   `bun run start` -> Start the game locally.
+
+Release builds and coordinated test/production deployment are documented in [DEPLOYMENT.md](DEPLOYMENT.md). Start with `bun run deploy:plan`; `bun run deploy:all` deploys the shared assistant, test game/APIs/site, then production through the server's existing health checks and rollback.
 
 ## Contribution
 

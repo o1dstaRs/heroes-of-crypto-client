@@ -19,6 +19,7 @@ import {
     isTransientLoadingScreenAssetKey,
 } from "./imageAssetTiers";
 import { isUnitAnimationAtlasKey } from "./unitAtlasKeys";
+import { isNamedUnitStateSheetKey } from "./unitStateSheetKeys";
 
 export {
     isDeferredEnvironmentAssetKey,
@@ -49,6 +50,18 @@ if (loadTextures.config) {
     loadTextures.config.preferWorkers = false;
     loadTextures.config.preferCreateImageBitmap = false;
 }
+
+// Pixi's default load strategy is "throw", under which the retry loop never retries: one
+// transient network error across the 1000+ parallel core-bundle requests aborts the whole
+// init ("Initialization failed"). Assets.loadBundle() takes no per-call load options, so
+// configure the shared loader here; the implicit Assets.init() run on first load merges
+// nothing over these (it only assigns loadOptions when explicitly given).
+Assets.loader.loadOptions = {
+    ...Assets.loader.loadOptions,
+    strategy: "retry",
+    retryCount: 4,
+    retryDelay: 500,
+};
 
 export interface PixiTextureInfo {
     texture: Texture;
@@ -149,7 +162,7 @@ export function getSplitBundles(options: SplitBundleOptions = {}) {
         // renderer exclusively asks for their quarter/half variants, so never decode those originals.
         if (isRedundantFullResolutionUnitAtlasKey(k)) {
             excludedFullResolutionUnitAtlases[k] = { src };
-        } else if (isUnitAnimationAtlasKey(k)) {
+        } else if (isUnitAnimationAtlasKey(k) || isNamedUnitStateSheetKey(k)) {
             if (!shouldPreloadUnitAnimationAtlas(k, animationsEnabled)) {
                 deferredUnitAtlases[k] = { src };
             } else if (isIdleAtlasKey(k)) {
@@ -263,6 +276,11 @@ export async function preloadCoreAssets(onProgress?: (p: number) => void): Promi
 export async function preloadIdleAtlasAssets(
     onProgress?: (p: number) => void,
 ): Promise<Partial<PreloadedPixiTextures>> {
+    // Approved creatures request their own sheets after their base portrait is available.
+    // Loading the whole roster here starves placement textures on slower connections.
+    if (!CREATURE_SPRITE_ANIMATION_SETTINGS.enabled && CREATURE_SPRITE_ANIMATION_SETTINGS.approvedBaseEnabled) {
+        return loadedTextures;
+    }
     const { idleAtlases } = getSplitBundles();
     if (Object.keys(idleAtlases).length === 0) return loadedTextures;
 
@@ -277,6 +295,11 @@ export async function preloadIdleAtlasAssets(
 export async function preloadAnimationAssets(
     onProgress?: (p: number) => void,
 ): Promise<Partial<PreloadedPixiTextures>> {
+    // Approved creatures request their own sheets after their base portrait is available.
+    // Loading the whole roster here starves placement textures on slower connections.
+    if (!CREATURE_SPRITE_ANIMATION_SETTINGS.enabled && CREATURE_SPRITE_ANIMATION_SETTINGS.approvedBaseEnabled) {
+        return loadedTextures;
+    }
     const { animations } = getSplitBundles();
     if (Object.keys(animations).length === 0) return loadedTextures;
 

@@ -1,12 +1,20 @@
 // scripts/generate_image_imports.js
 const fs = require("fs");
 const path = require("path");
-const { isWebPFile } = require("../src/gameImageAssetPolicy.ts");
 
 const imageDir = path.resolve(__dirname, "../images");
 const generatedDir = path.resolve(__dirname, "../src/generated");
 const outputFile = path.join(generatedDir, "image_imports.ts");
-const productionBuild = process.env.NODE_ENV === "production";
+const testAssets = process.argv.includes("--test");
+// CI already supplies the full key universe without the private art checkout. Keep that fixture intact.
+if (testAssets && fs.existsSync(outputFile) && fs.readFileSync(outputFile, "utf8").includes("/* CI stub")) {
+    console.log("Keeping CI image stubs for core tests.");
+    process.exit(0);
+}
+require("./prepare_level_one_assets.ts").prepareLevelOneAssets();
+const { isWebPFile } = require("../src/gameImageAssetPolicy.ts");
+// Tests exercise authoring-only animation states too, even after a production build pruned their URLs.
+const productionBuild = !testAssets && process.env.NODE_ENV === "production";
 const { isProductionOmittedAssetKey } = require("../src/pixi/imageAssetTiers.ts");
 const {
     isProductionOmittedDisabledUnitAnimationAssetKey,
@@ -37,7 +45,18 @@ const EXCLUDED_IMAGE_FILES = new Set([
 ]);
 if (!fs.existsSync(generatedDir)) fs.mkdirSync(generatedDir, { recursive: true });
 
-const files = fs.readdirSync(imageDir);
+// Normalize local build copies while older art checkouts still carry the former aura filename.
+// The canonical HOC_IMAGES_LOC artwork is never modified by the import generator.
+const renamedImageFiles = new Map([["rallying_volley_aura_256.webp", "rallying_volley_blessing_256.webp"]]);
+for (const [previous, current] of renamedImageFiles) {
+    const previousPath = path.join(imageDir, previous);
+    const currentPath = path.join(imageDir, current);
+    if (fs.existsSync(previousPath) && !fs.existsSync(currentPath)) {
+        fs.renameSync(previousPath, currentPath);
+    }
+}
+const { isRetiredCreatureThumbnail } = require("../src/pixi/retiredCreatureThumbnails.ts");
+const files = fs.readdirSync(imageDir).filter((file) => !renamedImageFiles.has(file));
 const entries = [];
 
 for (const file of files) {
@@ -45,6 +64,7 @@ for (const file of files) {
     if (
         isWebPFile(file) &&
         !EXCLUDED_IMAGE_FILES.has(file) &&
+        !isRetiredCreatureThumbnail(path.basename(file, extension)) &&
         !file.startsWith("synergy_") &&
         !file.startsWith("overlay_") &&
         !file.startsWith("icon_")
@@ -89,6 +109,35 @@ for (const { key, file, productionOmitted } of entries) {
 lines.push("} as unknown as Readonly<Record<ImageKey, string>>;");
 
 fs.writeFileSync(outputFile, lines.join("\n") + "\n");
+// Companion catalog of every discovered image key (including production-omitted ones, matching the
+// ImageKey union above). This file IS COMMITTED (see .gitignore) so CI's generate_ci_stubs.js can
+// rebuild the exact same enumerable key universe without the private art Drive; regenerate and
+// commit it together with image_imports.ts whenever the art set changes.
+if (!testAssets) {
+    fs.writeFileSync(
+        path.join(generatedDir, "image_keys.json"),
+        JSON.stringify(entries.map(({ key }) => key).sort(), null, 4) + "\n",
+    );
+}
+// A clean checkout needs these URLs before loading the roster's authoritative source/framing resolver.
+// Canonical artwork stays untouched. Vite hashes the encoded build-copy bytes behind the same image keys.
+const {
+    approvedRosterPortraitFilenames,
+    optimizePortraitBuildCopies,
+} = require("../src/build/portraitBuildCopyEncoding.ts");
+const portraitEncoding = await optimizePortraitBuildCopies(
+    imageDir,
+    process.env.HOC_IMAGES_LOC,
+    await approvedRosterPortraitFilenames(imageDir),
+);
+if (portraitEncoding.skippedReason) {
+    console.warn(`Portrait build-copy encoding skipped: ${portraitEncoding.skippedReason}`);
+} else if (portraitEncoding.optimized) {
+    console.log(
+        `Portrait build copies encoded: ${portraitEncoding.optimized} images, ` +
+            `${portraitEncoding.bytesBefore - portraitEncoding.bytesAfter} bytes saved (${portraitEncoding.cached} cached).`,
+    );
+}
 const omittedCount = entries.filter(({ productionOmitted }) => productionOmitted).length;
 console.log(
     productionBuild

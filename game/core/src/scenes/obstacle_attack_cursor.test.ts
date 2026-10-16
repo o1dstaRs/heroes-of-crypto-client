@@ -44,6 +44,25 @@ describe("what the cursor may promise over a mountain", () => {
         expect(obstacleAttackKind(params({ attackTypeSelection: AttackVals.MELEE_MAGIC }))).toBe("melee");
     });
 
+    test("player-deployed barrels offer attack cursors on normal, water and lava maps", () => {
+        for (const gridType of [GridVals.NORMAL, GridVals.WATER_CENTER, GridVals.LAVA_CENTER]) {
+            expect(obstacleAttackKind(params({ gridType, hasScatteredObstacles: true, obstacleHitsLeft: 1 }))).toBe(
+                "melee",
+            );
+            expect(
+                obstacleAttackKind(
+                    params({
+                        gridType,
+                        hasScatteredObstacles: true,
+                        obstacleHitsLeft: 1,
+                        attackTypeSelection: AttackVals.RANGE,
+                        canLandRangeHit: () => true,
+                    }),
+                ),
+            ).toBe("range");
+        }
+    });
+
     test("nothing to attack: wrong map, rubble already cleared, off the rock, or nobody active", () => {
         expect(obstacleAttackKind(params({ gridType: GridVals.NORMAL as number }))).toBe("none");
         expect(obstacleAttackKind(params({ obstacleHitsLeft: 0 }))).toBe("none");

@@ -1,4 +1,8 @@
+import shotTrajectoryAssets from "./shotTrajectoryAssets.json";
+import { isLazyCombatEffectAssetKey, isProductionOmittedAssetKey } from "./imageAssetTiers";
+import { CREATURE_PORTRAIT_ASSET_KEYS } from "./creaturePortraitAssetKeys";
 import { describe, expect, test } from "bun:test";
+import { factionPortraitGlowSources } from "../ui/creaturePortraitBackgroundMotion";
 import {
     isProductionOmittedDisabledUnitAnimationAssetKey,
     isProductionOmittedEnvironmentAssetKey,
@@ -7,13 +11,17 @@ import {
 } from "./productionImageAssetPolicy";
 
 describe("production creature animation policy", () => {
-    test("omits disabled creature sheets while keeping the two live exceptions", () => {
+    test("omits disabled creature sheets while keeping the approved live exceptions", () => {
         expect(isProductionOmittedDisabledUnitAnimationAssetKey("wolf_idle_atlas_quarter")).toBe(true);
         expect(isProductionOmittedDisabledUnitAnimationAssetKey("behemoth_default_atlas_half")).toBe(true);
         expect(isProductionOmittedDisabledUnitAnimationAssetKey("orc_attack_atlas_quarter")).toBe(true);
 
         expect(isProductionOmittedDisabledUnitAnimationAssetKey("peasant_walk_atlas_quarter")).toBe(false);
+        expect(isProductionOmittedDisabledUnitAnimationAssetKey("peasant_idle_red_atlas_quarter")).toBe(false);
+        expect(isProductionOmittedDisabledUnitAnimationAssetKey("peasant_left_screen_idle_atlas")).toBe(false);
         expect(isProductionOmittedDisabledUnitAnimationAssetKey("orc_idle_atlas_quarter")).toBe(false);
+        expect(isProductionOmittedDisabledUnitAnimationAssetKey("beholder_idle_atlas")).toBe(false);
+        expect(isProductionOmittedAssetKey("beholder_idle_atlas")).toBe(false);
     });
 
     test("does not classify terrain and UI atlases as creature animation", () => {
@@ -48,7 +56,6 @@ describe("production environment image policy", () => {
         for (const key of [
             "fire_pit_unified_front_wide_48_atlas",
             "fire_pit_high_fire_overlay_smooth_64_atlas",
-            "fire_pit_dark_bowl_v1_512",
             "fire_pit_extinguished_bronze_curb_v4_512",
             "fire_pit_grate_overlay_v1_512",
             "ambient_fire_video_torch_left_seamless_v2_64_atlas",
@@ -85,7 +92,7 @@ describe("production environment image policy", () => {
             "black_dragon_portrait_full",
             "magic_dragon_portrait_full",
         ]) {
-            expect(isProductionOmittedLegacyUiAssetKey(key)).toBe(true);
+            expect(isProductionOmittedLegacyUiAssetKey(key)).toBe(!CREATURE_PORTRAIT_ASSET_KEYS.has(key));
         }
         for (const key of [
             "book_1024_clean_pages_v1",
@@ -136,6 +143,16 @@ describe("production environment image policy", () => {
         }
     });
 
+    test("keeps every emissive mask requested by faction portrait motion", () => {
+        const sources = factionPortraitGlowSources();
+        expect(sources).toHaveLength(4);
+        for (const source of sources) {
+            const filename = new URL(source).pathname.split("/").at(-1)!;
+            const key = filename.replace(/\.webp$/, "");
+            expect(isProductionOmittedLegacyUiAssetKey(key), key).toBe(false);
+        }
+    });
+
     test("omits superseded iterations from versioned player-facing families", () => {
         for (const key of [
             "fight_results_chart_frame_v4",
@@ -158,7 +175,7 @@ describe("production environment image policy", () => {
             "map_badge_normal_medallion_v1",
             "map_badge_lava_medallion_v1",
         ]) {
-            expect(isProductionOmittedLegacyUiAssetKey(key)).toBe(true);
+            expect(isProductionOmittedLegacyUiAssetKey(key)).toBe(!CREATURE_PORTRAIT_ASSET_KEYS.has(key));
         }
     });
 });
@@ -238,13 +255,12 @@ describe("production unreferenced image policy", () => {
             "tombstone_tiles_256_atlas",
             "x_mark_1_512",
         ]) {
-            expect(isProductionOmittedUnreferencedAssetKey(key)).toBe(true);
+            expect(isProductionOmittedUnreferencedAssetKey(key)).toBe(!CREATURE_PORTRAIT_ASSET_KEYS.has(key));
         }
 
         for (const key of [
             "combat_kills_skull_icon_v1",
             "combat_range_full_arrow_icon_v1",
-            "orc_128",
             "orc_512",
             "orc_battlefield_side_right_final_v1",
             "thief_model_full",
@@ -258,4 +274,13 @@ describe("production unreferenced image policy", () => {
             expect(isProductionOmittedUnreferencedAssetKey(key)).toBe(false);
         }
     });
+});
+
+test("all approved aim components survive production pruning and remain demand-loaded", () => {
+    for (const { key } of shotTrajectoryAssets) {
+        expect(isProductionOmittedAssetKey(key), key).toBe(false);
+        expect(isProductionOmittedLegacyUiAssetKey(key), key).toBe(false);
+        expect(isProductionOmittedUnreferencedAssetKey(key), key).toBe(false);
+        expect(isLazyCombatEffectAssetKey(key), key).toBe(true);
+    }
 });

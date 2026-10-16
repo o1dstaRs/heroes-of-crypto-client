@@ -15,6 +15,7 @@ import {
     fetchLobby,
     fetchLobbyPriceBreakdown,
     fetchPublicLobbies,
+    followLobbyEventStream,
     joinLobby,
     leaveLobby,
     openLobbyEventStream,
@@ -174,6 +175,59 @@ describe("lobby client", () => {
         await expect(
             openLobbyEventStream("unavailable", () => undefined, new AbortController().signal),
         ).rejects.toThrow("Lobby event stream failed: 503");
+    });
+
+    test("skips the server's heartbeat comment frames without reporting a broken lobby", async () => {
+        const frame = Buffer.from(lobbyBytes("beating")).toString("base64");
+        globalThis.fetch = (async () =>
+            new Response(`: heartbeat\n\n${frame}\n\n: heartbeat\n\n`, { status: 200 })) as unknown as typeof fetch;
+        const errors = spyOn(console, "error").mockImplementation(() => undefined);
+        const updates: string[] = [];
+
+        await openLobbyEventStream("room", (lobby) => updates.push(lobby.id ?? ""), new AbortController().signal);
+
+        expect(updates).toEqual(["beating"]);
+        expect(errors).not.toHaveBeenCalled();
+    });
+
+    test("follows the lobby across dropped and failed streams until the screen closes", async () => {
+        const abort = new AbortController();
+        let calls = 0;
+        globalThis.fetch = (async () => {
+            calls += 1;
+            if (calls === 2) {
+                return new Response(null, { status: 503 });
+            }
+            return new Response(`${Buffer.from(lobbyBytes(`drop-${calls}`)).toString("base64")}\n\n`, { status: 200 });
+        }) as unknown as typeof fetch;
+        const updates: string[] = [];
+
+        await followLobbyEventStream(
+            "room",
+            (lobby) => {
+                updates.push(lobby.id ?? "");
+                if (updates.length === 2) {
+                    abort.abort();
+                }
+            },
+            abort.signal,
+            [0],
+        );
+
+        expect(updates).toEqual(["drop-1", "drop-3"]);
+        expect(calls).toBe(3);
+    });
+
+    test("stops following once the lobby is gone", async () => {
+        let calls = 0;
+        globalThis.fetch = (async () => {
+            calls += 1;
+            return new Response(null, { status: 404 });
+        }) as unknown as typeof fetch;
+
+        await followLobbyEventStream("gone", () => undefined, new AbortController().signal, [0]);
+
+        expect(calls).toBe(1);
     });
 });
 

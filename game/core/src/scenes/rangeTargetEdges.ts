@@ -18,6 +18,17 @@ export interface OptimalRangeTargetEdgeCandidate extends RangeTargetExteriorEdge
 }
 
 /**
+ * One aim policy for one attacker, shared by the cursor and by the shot it fires.
+ *
+ * They resolve the aim edge through separate calls, and when they disagree the click is simply dropped:
+ * the hover promises an attack, the fire path finds no edge it will accept and abandons the shot with
+ * nothing drawn, logged or sent. So both ask here instead of each deciding for itself.
+ */
+export const rangeAimOptions = (attackerHasDoubleShot: boolean): { allowIntercepted: boolean } => ({
+    allowIntercepted: attackerHasDoubleShot,
+});
+
+/**
  * Pick the one edge that gives the player the best actual shot.
  *
  * Damage retention is authoritative: 1/1 beats 1/2, which beats 1/4 and 1/8. When several edges
@@ -27,12 +38,24 @@ export interface OptimalRangeTargetEdgeCandidate extends RangeTargetExteriorEdge
 export function optimalRangeTargetEdge<T extends OptimalRangeTargetEdgeCandidate>(
     edges: readonly T[],
     attackerPosition: HoCMath.XY,
+    options: { allowIntercepted?: boolean } = {},
+): T | undefined {
+    const clean = pickOptimalRangeTargetEdge(edges, attackerPosition, false);
+    // A Double Shot may aim past a screen on purpose: shot one hits whatever stands in the way and shot
+    // two carries on to the unit this edge belongs to. A clean edge still wins whenever one exists.
+    return clean ?? (options.allowIntercepted ? pickOptimalRangeTargetEdge(edges, attackerPosition, true) : undefined);
+}
+
+function pickOptimalRangeTargetEdge<T extends OptimalRangeTargetEdgeCandidate>(
+    edges: readonly T[],
+    attackerPosition: HoCMath.XY,
+    includeIntercepted: boolean,
 ): T | undefined {
     let optimal: T | undefined;
     let optimalDistance = Number.POSITIVE_INFINITY;
 
     for (const edge of edges) {
-        if (!edge.shootable) continue;
+        if (!edge.shootable && !includeIntercepted) continue;
         const distance = Math.hypot(edge.aimPosition.x - attackerPosition.x, edge.aimPosition.y - attackerPosition.y);
         if (
             optimal &&
@@ -269,6 +292,7 @@ export function rangeTargetEdgeIsSelectable(
     targetIsSmall: boolean,
     attackerTeam: TeamType,
     throughShot: boolean,
+    ignoresStructures = false,
 ): boolean {
     const center = GridMath.getPositionForCell(
         cell,
@@ -305,6 +329,7 @@ export function rangeTargetEdgeIsSelectable(
         targetIsSmall,
         attackerTeam,
         throughShot,
+        ignoresStructures,
     );
     return resolved?.cell.x === cell.x && resolved.cell.y === cell.y && resolved.side === side;
 }

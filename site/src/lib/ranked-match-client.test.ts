@@ -147,6 +147,40 @@ describe("public ranked match normalization", () => {
     });
 });
 
+describe("exit rules on the public match", () => {
+    test("keeps the exit-rule reasons, the resolved exit and an unscored outcome", () => {
+        const match = normalizePublicRankedMatch({
+            ...response,
+            outcome: "none",
+            reason: "unscored",
+            winnerPlayerId: "",
+            exit: {
+                kind: "abandon",
+                cause: "button",
+                leaverPlayerId: upperId,
+                scored: false,
+                unscoredReason: "leaver_calibrating",
+                boardBp: 2100,
+                phase: "fight",
+                lap: 2,
+                enforced: true,
+            },
+            players: response.players.map((player) => ({ ...player, result: "none", delta: 0 })),
+        });
+        expect(match?.outcome).toBe("none");
+        expect(match?.reason).toBe("unscored");
+        expect(match?.players.map((player) => player.result)).toEqual(["none", "none"]);
+        expect(match?.exit).toMatchObject({ kind: "abandon", scored: false, unscoredReason: "leaver_calibrating", boardBp: 2100 });
+    });
+
+    test("an older match without an exit, or with a malformed one, parses with exit null", () => {
+        expect(normalizePublicRankedMatch(response)?.exit).toBeNull();
+        expect(normalizePublicRankedMatch({ ...response, exit: { kind: "rage_quit" } })?.exit).toBeNull();
+        expect(normalizePublicRankedMatch({ ...response, reason: "abandon" })?.reason).toBe("abandon");
+        expect(normalizePublicRankedMatch({ ...response, reason: "void" })?.reason).toBe("void");
+    });
+});
+
 describe("public ranked match URLs", () => {
     test("builds production, development, and localized page routes", () => {
         expect(buildPublicRankedMatchUrl(gameId, { baseUrl: "https://mm.test", production: true })).toBe(

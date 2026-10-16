@@ -9,16 +9,23 @@ import { motion } from "framer-motion";
 import React, { useEffect, useRef, useState } from "react";
 
 import { fetchPublicRankedMatch, type PublicRankedMatch } from "../../api/ranked_match_client";
+import type { PlayExitResolution } from "../../api/play_protocol";
+import { ExitResultBanner } from "../exitRules/ExitResultBanner";
 import { fetchPublicPlayerStats, type PublicPlayerStats } from "../../api/social_client";
 import { HOC_GAME_FONT_FAMILY } from "../../fontFamilies";
+import { images } from "../../generated/image_imports";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { IFightDeathEntry, IFightStatsReport, IVisibleState } from "../../scenes/VisibleState";
 import { CreaturePortraitImage } from "../CreaturePortraitImage";
+import { MatchupPlayerTooltip, type MatchupPlayer } from "../MatchupOverlay";
+import { matchupTeamTone } from "../matchupOverlayTone";
 import { LeagueEmblem } from "../PlayerPortal/LeagueEmblem";
 import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
-import { GOLD, PARCHMENT, WOOD_DARK, imgSrc, teamColor, teamName } from "../FightStats/CasualtyChart";
+import { GOLD, PARCHMENT, WOOD_DARK, creatureImgSrc, imgSrc, teamColor, teamName } from "../FightStats/CasualtyChart";
 import { CasualtyChartPanel } from "../FightStats/CasualtyChartPanel";
 import { DamageBreakdown } from "../FightStats/DamageBreakdown";
+import { ReportPlayerDialog } from "../Reputation/ReportPlayerDialog";
+import { t } from "../../i18n/i18n";
 
 // Shared logic is migrating LEFT/RIGHT to LOWER/UPPER without changing the numeric wire values.
 // Keep the results preview and live overlay compatible with either checked-out common revision.
@@ -43,13 +50,97 @@ const RESULTS_PREVIEW_STATE: IVisibleState = {
         winner: UPPER_TEAM,
         series: [
             { lap: 1, leftKilled: 0, rightKilled: 0, leftKilledPct: 0, rightKilledPct: 0 },
-            { lap: 2, leftKilled: 74, rightKilled: 80, leftKilledPct: 37, rightKilledPct: 40 },
-            { lap: 3, leftKilled: 128, rightKilled: 126, leftKilledPct: 64, rightKilledPct: 63 },
-            { lap: 4, leftKilled: 160, rightKilled: 152, leftKilledPct: 80, rightKilledPct: 76 },
-            { lap: 5, leftKilled: 171, rightKilled: 200, leftKilledPct: 86, rightKilledPct: 100 },
+            {
+                lap: 2,
+                leftKilled: 74,
+                rightKilled: 80,
+                leftKilledPct: 37,
+                rightKilledPct: 40,
+                eliminations: [
+                    {
+                        creatureKey: "preview-lower-peasant",
+                        name: "Peasant",
+                        smallTextureName: "peasant_512",
+                        team: LOWER_TEAM,
+                    },
+                    {
+                        creatureKey: "preview-upper-peasant",
+                        name: "Peasant",
+                        smallTextureName: "peasant_512",
+                        team: UPPER_TEAM,
+                    },
+                ],
+            },
+            {
+                lap: 3,
+                leftKilled: 128,
+                rightKilled: 126,
+                leftKilledPct: 64,
+                rightKilledPct: 63,
+                eliminations: [
+                    {
+                        creatureKey: "preview-lower-squire",
+                        name: "Squire",
+                        smallTextureName: "squire_512",
+                        team: LOWER_TEAM,
+                    },
+                    {
+                        creatureKey: "preview-upper-squire",
+                        name: "Squire",
+                        smallTextureName: "squire_512",
+                        team: UPPER_TEAM,
+                    },
+                ],
+            },
+            {
+                lap: 4,
+                leftKilled: 160,
+                rightKilled: 152,
+                leftKilledPct: 80,
+                rightKilledPct: 76,
+                eliminations: [
+                    {
+                        creatureKey: "preview-lower-arbalester",
+                        name: "Arbalester",
+                        smallTextureName: "arbalester_512",
+                        team: LOWER_TEAM,
+                    },
+                    {
+                        creatureKey: "preview-upper-arbalester",
+                        name: "Arbalester",
+                        smallTextureName: "arbalester_512",
+                        team: UPPER_TEAM,
+                    },
+                ],
+            },
+            {
+                lap: 5,
+                leftKilled: 200,
+                rightKilled: 171,
+                leftKilledPct: 100,
+                rightKilledPct: 86,
+                eliminations: [
+                    {
+                        creatureKey: "preview-lower-blacksmith",
+                        name: "Blacksmith",
+                        smallTextureName: "blacksmith_512",
+                        team: LOWER_TEAM,
+                    },
+                ],
+            },
         ],
-        leftDeaths: [{ name: "Peasant", smallTextureName: "peasant_512", died: 200, start: 200, team: LOWER_TEAM }],
-        rightDeaths: [{ name: "Peasant", smallTextureName: "peasant_512", died: 171, start: 200, team: UPPER_TEAM }],
+        leftDeaths: [
+            { name: "Peasant", smallTextureName: "peasant_512", died: 50, start: 50, team: LOWER_TEAM },
+            { name: "Squire", smallTextureName: "squire_512", died: 50, start: 50, team: LOWER_TEAM },
+            { name: "Arbalester", smallTextureName: "arbalester_512", died: 50, start: 50, team: LOWER_TEAM },
+            { name: "Blacksmith", smallTextureName: "blacksmith_512", died: 50, start: 50, team: LOWER_TEAM },
+        ],
+        rightDeaths: [
+            { name: "Peasant", smallTextureName: "peasant_512", died: 50, start: 50, team: UPPER_TEAM },
+            { name: "Squire", smallTextureName: "squire_512", died: 50, start: 50, team: UPPER_TEAM },
+            { name: "Arbalester", smallTextureName: "arbalester_512", died: 50, start: 50, team: UPPER_TEAM },
+            { name: "Blacksmith", smallTextureName: "blacksmith_512", died: 21, start: 50, team: UPPER_TEAM },
+        ],
         damageByUnit: [
             { name: "Peasant", smallTextureName: "peasant_512", damage: 1600, team: UPPER_TEAM },
             { name: "Squire", smallTextureName: "squire_512", damage: 1315, team: UPPER_TEAM },
@@ -108,6 +199,14 @@ const RESULTS_PREVIEW_PROFILES: Record<string, PublicPlayerStats> = {
         wealth: 2,
         wealthName: "Stacked",
         standingTitle: "Stacked Marshal",
+        peakMmr: 1904,
+        leaderboardRank: 63,
+        wins: 86,
+        draws: 9,
+        losses: 61,
+        totalGames: 156,
+        winRatePct: 55,
+        winStreak: 2,
     },
     "preview-upper": {
         playerId: "preview-upper",
@@ -263,7 +362,7 @@ const CasualtyColumn: React.FC<{
                                 />
                             ) : (
                                 <Avatar
-                                    src={imgSrc(d.smallTextureName)}
+                                    src={creatureImgSrc(d.smallTextureName, d.name)}
                                     variant="plain"
                                     sx={{
                                         width: 60,
@@ -570,7 +669,8 @@ type ResultParticipant = Readonly<{
     goldEarned?: number;
     showRewards: boolean;
     settled: boolean;
-    result: "win" | "loss" | "draw";
+    // "none": an unscored or voided match (exit rules), where neither player won or lost.
+    result: "win" | "loss" | "draw" | "none";
     profile?: PublicPlayerStats;
 }>;
 
@@ -595,7 +695,14 @@ const ResultParticipantCard: React.FC<{
 }> = ({ participant, reversed = false, showRankedDetails = false, viewerPlayerId }) => {
     const color = teamColor(participant.team);
     const won = participant.result === "win";
-    const resultLabel = participant.result === "draw" ? "DRAW" : won ? "WINNER" : "DEFEATED";
+    const resultLabel =
+        participant.result === "none"
+            ? "NO RESULT"
+            : participant.result === "draw"
+              ? "DRAW"
+              : won
+                ? "WINNER"
+                : "DEFEATED";
     const visibleMmr = participant.calibration
         ? undefined
         : Number.isFinite(participant.mmrAfter)
@@ -604,12 +711,33 @@ const ResultParticipantCard: React.FC<{
     const mmrDelta = Number.isFinite(participant.mmrDelta) ? Number(participant.mmrDelta) : 0;
     const goldEarned = Number.isFinite(participant.goldEarned) ? Math.max(0, Number(participant.goldEarned)) : 0;
     const isViewer = !!viewerPlayerId && participant.playerId === viewerPlayerId;
-    const avatar = participant.profile ? (
+    const hoverPlayer: MatchupPlayer = {
+        playerId: participant.playerId,
+        team: participant.team,
+        label: participant.username,
+        isAi: participant.isAi,
+    };
+    const hoverTone = matchupTeamTone(participant.team, undefined);
+    const avatar = participant.isAi ? (
+        <Box
+            component="img"
+            src={images.combat_toolbar_ember_ai}
+            alt={`${participant.username} — AI`}
+            sx={{
+                width: 76,
+                height: 76,
+                objectFit: "contain",
+                filter: `drop-shadow(0 3px 5px rgba(0,0,0,.78)) drop-shadow(0 0 7px ${color}38)`,
+                userSelect: "none",
+            }}
+        />
+    ) : participant.profile ? (
         <LeagueEmblem
             label={`${participant.username} — ${participantStanding(participant)}`}
             league={participant.profile.league ?? 0}
             wealth={participant.profile.wealth ?? 0}
             size={76}
+            showNativeTitle={false}
         />
     ) : (
         <Avatar
@@ -622,10 +750,10 @@ const ResultParticipantCard: React.FC<{
                 border: `2px solid ${color}b8`,
                 boxShadow: `0 0 16px ${color}35, inset 0 0 13px rgba(0,0,0,.58)`,
                 fontFamily: HOC_GAME_FONT_FAMILY,
-                fontSize: participant.isAi ? "1.75rem" : "1.45rem",
+                fontSize: "1.45rem",
             }}
         >
-            {participant.isAi ? "⚙" : participant.username.trim().slice(0, 1).toUpperCase() || "?"}
+            {participant.username.trim().slice(0, 1).toUpperCase() || "?"}
         </Avatar>
     );
 
@@ -660,7 +788,25 @@ const ResultParticipantCard: React.FC<{
                 },
             }}
         >
-            <Box sx={{ flexShrink: 0, filter: won ? "none" : "saturate(.72) brightness(.82)" }}>{avatar}</Box>
+            <MatchupPlayerTooltip
+                player={hoverPlayer}
+                profile={participant.profile}
+                tone={hoverTone}
+                placement={reversed ? "bottom-end" : "bottom-start"}
+            >
+                <Box
+                    tabIndex={0}
+                    aria-label={`Show ${participant.username} details`}
+                    sx={{
+                        flexShrink: 0,
+                        filter: won ? "none" : "saturate(.72) brightness(.82)",
+                        cursor: "help",
+                        outline: "none",
+                    }}
+                >
+                    {avatar}
+                </Box>
+            </MatchupPlayerTooltip>
             <Box sx={{ minWidth: 0, flex: 1, textAlign: reversed ? "right" : "left", zIndex: 1 }}>
                 <Stack
                     direction={reversed ? "row-reverse" : "row"}
@@ -889,6 +1035,10 @@ interface FightFinishedOverlayProps {
     // "Close" button for any caller that doesn't wire them (e.g. a future non-vs-AI ranked surface).
     onPlayAgainVsAi?: () => void | Promise<void>;
     onBackToLobby?: () => void;
+    /** Friendly games: open a fresh room with the same seats (the co-op sandbox re-invites the friend). */
+    onRematch?: () => void | Promise<void>;
+    /** How the match ended early, from the live snapshot (exit rules); the settled record's exit wins once loaded. */
+    exit?: PlayExitResolution;
 }
 
 // =============================================================================
@@ -904,10 +1054,13 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
     backLabel = "Back to Lobby",
     onPlayAgainVsAi,
     onBackToLobby,
+    onRematch,
+    exit,
 }) => {
     const manager = usePixiManager();
     const previewParams = new URLSearchParams(window.location.search);
     const previewMode = import.meta.env.DEV && previewParams.get("fight-results-preview") === "1";
+    const previewAi = previewMode && previewParams.get("fight-results-ai") === "1";
     const requestedPreviewBackground = previewParams.get("fight-results-bg");
     const previewBackground =
         import.meta.env.DEV && requestedPreviewBackground?.startsWith("/@fs/") ? requestedPreviewBackground : undefined;
@@ -916,10 +1069,15 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
     const [replayResult, setReplayResult] = useState(false);
     const [playAgainBusy, setPlayAgainBusy] = useState(false);
     const [playAgainError, setPlayAgainError] = useState("");
+    const [reportOpen, setReportOpen] = useState(false);
     const [rankedMatch, setRankedMatch] = useState<PublicRankedMatch | null>(null);
     const [profiles, setProfiles] = useState<Record<string, PublicPlayerStats>>({});
     const replayInProgress = useRef(false);
     const replayTimers = useRef<number[]>([]);
+    // The last results frame whose winner agreed with the finished team. A later sample can disagree for
+    // a moment (the tracker rebuilds with no winner while stacks are cleaned up). Dropping the panel for
+    // that moment and mounting it again is the up, then down, then up the player sees after the fight.
+    const finishedView = useRef<{ state: IVisibleState; stats: IFightStatsReport } | null>(null);
 
     useEffect(() => {
         setVisibleState(manager.GetCurrentVisibleState());
@@ -942,11 +1100,11 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
         };
     }, [manager]);
 
-    const renderedState = previewMode ? RESULTS_PREVIEW_STATE : visibleState;
-    const stats: IFightStatsReport | undefined = renderedState.fightStats;
+    const liveState = previewMode ? RESULTS_PREVIEW_STATE : visibleState;
+    const liveStats: IFightStatsReport | undefined = liveState.fightStats;
 
     useEffect(() => {
-        if (previewMode || mode !== "ranked" || !gameId || !renderedState.hasFinished) {
+        if (previewMode || mode !== "ranked" || !gameId || !liveState.hasFinished) {
             return undefined;
         }
         let cancelled = false;
@@ -969,7 +1127,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
             cancelled = true;
             if (retryTimer !== undefined) window.clearTimeout(retryTimer);
         };
-    }, [gameId, mode, previewMode, renderedState.hasFinished]);
+    }, [gameId, mode, previewMode, liveState.hasFinished]);
 
     const activeMatch = previewMode ? RESULTS_PREVIEW_MATCH : rankedMatch;
     const profileCandidates = activeMatch
@@ -1025,17 +1183,26 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
     // on that would silently swallow the results overlay. The percentage math (percent() / CasualtyRoster)
     // already guards against a 0 total, so a missing start total just degrades that team's casualty
     // figures rather than hiding the whole overlay.
-    if (
-        !renderedState.hasFinished ||
-        !stats ||
-        dismissed ||
-        renderedState.teamWin === undefined ||
-        stats.winner !== renderedState.teamWin
-    ) {
+    if (!liveState.hasFinished) {
+        finishedView.current = null;
+    } else if (liveStats && liveState.teamWin !== undefined && liveStats.winner === liveState.teamWin) {
+        finishedView.current = { state: liveState, stats: liveStats };
+    }
+    const finished = liveState.hasFinished ? finishedView.current : null;
+    if (!finished || dismissed) {
         return null;
     }
+    const stats = finished.stats;
 
     const isDraw = stats.winner === TeamVals.NO_TEAM;
+    // Exit rules: the settled record's exit is authoritative (the ladder confirms calibration); the snapshot's is instant.
+    const matchExit = activeMatch?.exit ?? exit;
+    const noResultLabel =
+        matchExit?.kind === "void"
+            ? "VOIDED"
+            : matchExit && matchExit.enforced && !matchExit.scored
+              ? "UNSCORED"
+              : undefined;
     const winnerColor = isDraw ? GOLD : teamColor(stats.winner);
     const canSandboxReplay = manager.CanPlayCurrentSandboxReplay();
     const canReplay = previewMode || (canReplayOverride ?? canSandboxReplay);
@@ -1056,14 +1223,18 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
             (player) => player.team === team || (!!settlement?.playerId && player.playerId === settlement.playerId),
         );
         const playerId = settlement?.playerId ?? seat?.playerId;
-        const profile = playerId ? profiles[playerId] : undefined;
+        const isAi = previewAi ? team === UPPER_TEAM : !!seat?.isAi;
+        const profile = !isAi && playerId ? profiles[playerId] : undefined;
         const fallbackResult = isDraw ? "draw" : stats.winner === team ? "win" : "loss";
         const fallbackName = seat?.label || (team === LOWER_TEAM ? "Green Player" : "Red Player");
         return {
             team,
             playerId,
-            username: settlement?.username || profile?.username || fallbackName,
-            isAi: !!seat?.isAi,
+            username:
+                previewAi && team === UPPER_TEAM
+                    ? "AI (V0.8)"
+                    : settlement?.username || profile?.username || fallbackName,
+            isAi,
             calibration: settlement?.calibration ?? profile?.state === "calibration",
             mmrAfter: settlement?.mmrAfter ?? profile?.mmr,
             mmrDelta: settlement?.delta,
@@ -1074,6 +1245,16 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
             profile,
         };
     });
+    // Reports (integrity phase 4): only a seated player, against their human opponent, after a ranked match.
+    const viewerSeated =
+        !!viewerPlayerId && resultParticipants.some((participant) => participant.playerId === viewerPlayerId);
+    const reportTarget =
+        mode === "ranked" && !previewMode && gameId && viewerSeated
+            ? resultParticipants.find(
+                  (participant) =>
+                      !participant.isAi && !!participant.playerId && participant.playerId !== viewerPlayerId,
+              )
+            : undefined;
     const resultsBackground = previewBackground ?? imgSrc("fight_results_moonlit_castle_background");
     const splitBackgroundImage = previewBackground
         ? `url(${resultsBackground})`
@@ -1155,17 +1336,18 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
 
             <Box
                 component={motion.div}
-                initial={{ opacity: 0, scale: 0.9, y: 24 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                transition={{ type: "spring", stiffness: 220, damping: 24 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
                 sx={{
                     position: "relative",
                     zIndex: 2,
                     width: "94.5%",
                     maxWidth: 960,
-                    // The reference is a compact, almost-square forged results plaque. Keep that
-                    // silhouette on large screens while still respecting short laptop viewports.
-                    height: "min(97.5vh, 940px)",
+                    boxSizing: "border-box",
+                    // Grow to fit every damage row when the screen permits it. The old fixed height
+                    // clipped even a six-unit army on tall monitors despite spare space outside the card.
+                    minHeight: "min(97.5vh, 940px)",
                     maxHeight: "97.5vh",
                     display: "flex",
                     flexDirection: "column",
@@ -1316,7 +1498,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                                 textShadow: `0 0 9px ${winnerColor}45, 0 2px 2px #000`,
                             }}
                         >
-                            {isDraw ? "DRAW" : "VICTORY"}
+                            {noResultLabel ?? (isDraw ? "DRAW" : "VICTORY")}
                         </Typography>
                         <Typography
                             sx={{
@@ -1340,6 +1522,11 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     />
                 </Stack>
 
+                {mode === "ranked" && matchExit && (
+                    <Box sx={{ flexShrink: 0, mb: 1, px: 0.25 }}>
+                        <ExitResultBanner exit={matchExit} ranked={exit?.ranked} viewerPlayerId={viewerPlayerId} />
+                    </Box>
+                )}
                 <Stack direction="row" spacing={0.75} sx={{ flexShrink: 0, mb: 1.25, px: 0.25 }}>
                     <CompactBattleStat label="LENGTH" value={`${Math.max(0, stats.totalLaps)} LAPS`} />
                     <CompactBattleStat
@@ -1355,67 +1542,64 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     />
                 </Stack>
 
-                {/* The middle band itself never moves. Only the damage list may scroll, so the chart,
-                    casualty wells and action buttons retain the same coordinates for every fight. */}
+                {/* Only the damage list shrinks and scrolls when the card reaches the viewport limit.
+                    Keep the chart, casualty rosters and action buttons visible. */}
                 <Box
                     sx={{
-                        flex: 1,
+                        flex: "1 1 auto",
                         minHeight: 0,
+                        display: "flex",
+                        flexDirection: "column",
                         overflow: "hidden",
                         pb: 1.5,
                     }}
                 >
+                    <CasualtyChartPanel
+                        series={stats.series}
+                        deaths={[...stats.leftDeaths, ...stats.rightDeaths]}
+                        ornateResultsFrame
+                    />
+
+                    {/* Both armies share one scroll area, used only when the screen is too short. */}
                     <Box
                         sx={{
-                            height: "100%",
-                            display: "flex",
-                            flexDirection: "column",
+                            flex: "1 1 auto",
+                            minHeight: 0,
+                            overflowY: "auto",
+                            overflowX: "hidden",
+                            overscrollBehavior: "contain",
+                            scrollbarWidth: "thin",
+                            scrollbarColor: "rgba(74,67,60,.58) transparent",
+                            "&::-webkit-scrollbar": { width: "5px" },
+                            "&::-webkit-scrollbar-track": { background: "transparent" },
+                            "&::-webkit-scrollbar-thumb": {
+                                backgroundColor: "rgba(74,67,60,.58)",
+                                borderRadius: "3px",
+                            },
                         }}
                     >
-                        <CasualtyChartPanel series={stats.series} ornateResultsFrame />
+                        <ResultsSectionPlaque label="DAMAGE DEALT" />
+                        <DamageBreakdown entries={stats.damageByUnit ?? []} />
+                    </Box>
 
-                        {/* Damage stays in the fixed space between the chart and roster. Longer lists
-                            scroll here instead of moving or resizing any surrounding container. */}
-                        <Box
-                            sx={{
-                                flex: 1,
-                                minHeight: 0,
-                                overflowY: "auto",
-                                overflowX: "hidden",
-                                overscrollBehavior: "contain",
-                                scrollbarWidth: "thin",
-                                scrollbarColor: "rgba(74,67,60,.58) transparent",
-                                "&::-webkit-scrollbar": { width: "5px" },
-                                "&::-webkit-scrollbar-track": { background: "transparent" },
-                                "&::-webkit-scrollbar-thumb": {
-                                    backgroundColor: "rgba(74,67,60,.58)",
-                                    borderRadius: "3px",
-                                },
-                            }}
-                        >
-                            <ResultsSectionPlaque label="DAMAGE DEALT" />
-                            <DamageBreakdown entries={stats.damageByUnit ?? []} />
-                        </Box>
-
-                        {/* Casualty rosters remain pinned to the bottom. */}
-                        <Box sx={{ flexShrink: 0 }}>
-                            <Stack direction="row" spacing={3} sx={{ px: 1, pt: 2 }}>
-                                <CasualtyColumn
-                                    team={LOWER_TEAM}
-                                    deaths={stats.leftDeaths}
-                                    killedTotal={stats.leftKilledTotal}
-                                    startTotal={stats.leftStartTotal}
-                                    fallbackPct={stats.series.at(-1)?.leftKilledPct ?? 0}
-                                />
-                                <CasualtyColumn
-                                    team={UPPER_TEAM}
-                                    deaths={stats.rightDeaths}
-                                    killedTotal={stats.rightKilledTotal}
-                                    startTotal={stats.rightStartTotal}
-                                    fallbackPct={stats.series.at(-1)?.rightKilledPct ?? 0}
-                                />
-                            </Stack>
-                        </Box>
+                    {/* Casualty rosters remain pinned to the bottom. */}
+                    <Box sx={{ flexShrink: 0 }}>
+                        <Stack direction="row" spacing={3} sx={{ px: 1, pt: 2 }}>
+                            <CasualtyColumn
+                                team={LOWER_TEAM}
+                                deaths={stats.leftDeaths}
+                                killedTotal={stats.leftKilledTotal}
+                                startTotal={stats.leftStartTotal}
+                                fallbackPct={stats.series.at(-1)?.leftKilledPct ?? 0}
+                            />
+                            <CasualtyColumn
+                                team={UPPER_TEAM}
+                                deaths={stats.rightDeaths}
+                                killedTotal={stats.rightKilledTotal}
+                                startTotal={stats.rightStartTotal}
+                                fallbackPct={stats.series.at(-1)?.rightKilledPct ?? 0}
+                            />
+                        </Stack>
                     </Box>
                 </Box>
 
@@ -1424,6 +1608,17 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     spacing={2}
                     sx={{ alignItems: "center", justifyContent: "center", mt: 2, pt: 1, flexShrink: 0 }}
                 >
+                    {reportTarget && (
+                        <ActionButton
+                            label={t("Report player")}
+                            labelColor="#dfcf91"
+                            tone="gray"
+                            frameTone="brown"
+                            backgroundOpacity={0.5}
+                            visualOpacity={0.9}
+                            onClick={() => setReportOpen(true)}
+                        />
+                    )}
                     {canReplay && (
                         <ActionButton
                             label="REPLAY"
@@ -1489,10 +1684,26 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                             }}
                         />
                     )}
+                    {!showSandboxActions && onRematch && (
+                        <ActionButton
+                            label={playAgainBusy ? "Opening…" : "⚔ Rematch"}
+                            primary
+                            disabled={playAgainBusy}
+                            onClick={() => {
+                                if (playAgainBusy) return;
+                                setPlayAgainError("");
+                                setPlayAgainBusy(true);
+                                Promise.resolve(onRematch()).catch((err: unknown) => {
+                                    setPlayAgainBusy(false);
+                                    setPlayAgainError(err instanceof Error ? err.message : "Unable to open a rematch");
+                                });
+                            }}
+                        />
+                    )}
                     {!showSandboxActions && onBackToLobby && (
                         <ActionButton
                             label={backLabel}
-                            primary={!onPlayAgainVsAi}
+                            primary={!onPlayAgainVsAi && !onRematch}
                             onClick={() => {
                                 clearReplayTimers();
                                 setDismissed(true);
@@ -1524,6 +1735,14 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     >
                         {playAgainError}
                     </Typography>
+                )}
+                {reportTarget && gameId && (
+                    <ReportPlayerDialog
+                        open={reportOpen}
+                        gameId={gameId}
+                        opponentName={reportTarget.username}
+                        onClose={() => setReportOpen(false)}
+                    />
                 )}
             </Box>
         </Box>

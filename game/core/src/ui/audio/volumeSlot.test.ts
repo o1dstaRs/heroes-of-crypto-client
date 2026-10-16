@@ -106,4 +106,32 @@ describe("volume slot ownership", () => {
         release();
         expect(getVolumeSlot()).toBe(footer);
     });
+
+    // The pick screen has both hosts on it at once. The dock's own row keeps a place for the speaker in
+    // line with the buttons beside it (bottom 12 / right 10); the draft row sits on a different line
+    // (1rem), so when it won this slot the speaker floated 4px above its neighbours with the dock's
+    // reserved place left as a hole next to the bell (owner report 2026-09-19).
+    test("the dock's own row keeps the speaker it reserves a place for, even against the draft row", () => {
+        const dockRow = host("dock-row");
+        const releaseDraft = claim(host("draft"), VOLUME_SLOT_PRIORITY.draftControls);
+        const releaseDock = claim(dockRow, VOLUME_SLOT_PRIORITY.socialDockRow);
+        expect(getVolumeSlot()).toBe(dockRow);
+
+        // Order must not decide it.
+        releaseDock();
+        releaseDraft();
+        const dockRow2 = host("dock-row-2");
+        claim(dockRow2, VOLUME_SLOT_PRIORITY.socialDockRow);
+        claim(host("draft-2"), VOLUME_SLOT_PRIORITY.draftControls);
+        expect(getVolumeSlot()).toBe(dockRow2);
+    });
+
+    // In a fight the dock rides inside the game row or hands the corner to the medallion, and the game
+    // row is the right host there — that pairing must keep working exactly as it did.
+    test("a fight dock still yields to the game row", () => {
+        const gameRow = host("game-row");
+        claim(host("fight-dock"), VOLUME_SLOT_PRIORITY.socialDock);
+        claim(gameRow, VOLUME_SLOT_PRIORITY.gameControls);
+        expect(getVolumeSlot()).toBe(gameRow);
+    });
 });

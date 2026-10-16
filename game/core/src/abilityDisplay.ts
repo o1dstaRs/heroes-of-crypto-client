@@ -34,10 +34,13 @@ export const getAbilityDisplayMetadata = (
                 .replace("{}", Number(((power * 6) / 8).toFixed()).toString())
                 .replace("{}", Number(((power * 5) / 8).toFixed()).toString());
         } else if (abilityName === "Paralysis") {
-            const power = ability.power;
+            // The ability's power sets the landing chance (doubled when it rolls); the damage cut is the
+            // Paralysis effect's own power. Both scale with stack power, as common's card does.
+            const stackShare = stackPower / HoCConstants.MAX_UNIT_STACK_POWER;
+            const effectPower = (ability.effect && HoCConfig.getEffectConfig(ability.effect)?.power) || 0;
             description = descriptionTemplate
-                .replace("{}", Number((power * 2).toFixed()).toString())
-                .replace("{}", Number(power.toFixed()).toString());
+                .replace("{}", Number(Math.min(100, ability.power * 2 * stackShare).toFixed(2)).toString())
+                .replace("{}", Number((effectPower * stackShare).toFixed(2)).toString());
         } else {
             description = descriptionTemplate.replace(/\{\}/g, ability.power.toString());
         }

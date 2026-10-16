@@ -1,4 +1,18 @@
+import {
+    normalizePlayerMetrics,
+    type PlayerMetricsMode,
+    type PlayerMetricsSummary,
+} from "../../../game/core/src/api/player_metrics_contract";
+
 import { rankedArenaCopy } from "./ranked-arena-copy";
+import {
+    normalizeRankedMatchExit,
+    normalizeRankedMatchReason,
+    normalizeRankedMatchResult,
+    type RankedMatchExit,
+    type RankedMatchReason,
+    type RankedMatchResult,
+} from "./ranked-exit";
 import { normalizeSeasonCurrency, type SeasonCurrency } from "./season-currency";
 
 /** Fallback display name when a payload omits it — the English table the server also serves. */
@@ -6,8 +20,7 @@ const fallbackLeagueName = (league: number): string =>
     rankedArenaCopy.en.leagueNames[league - 1] ?? rankedArenaCopy.en.unranked;
 
 export type RankedProfileState = "calibration" | "placed" | "recalibration";
-export type RankedMatchResult = "win" | "loss" | "draw";
-export type RankedMatchReason = "normal" | "concede" | "disconnect" | "double_disconnect" | "cancel";
+export type { RankedMatchReason, RankedMatchResult } from "./ranked-exit";
 
 export interface RankedProfileCalibration {
     required: number;
@@ -33,6 +46,8 @@ export interface RankedProfileMatch {
     finishedTime: number;
     result: RankedMatchResult;
     reason: RankedMatchReason;
+    // How an early ending was resolved (exit rules); null for a played-out game or an older record.
+    exit: RankedMatchExit | null;
     mmrDelta: number;
     goldEarned: number;
     calibration: boolean;
@@ -125,6 +140,8 @@ export interface SeasonHistoryEntry {
     league: number;
     leagueName: string;
     leaderboardRank: number;
+    /** Place in the season's gold table (final balance, its main result); 0 = none. */
+    goldPlace: number;
     wins: number;
     losses: number;
     draws: number;
@@ -279,8 +296,11 @@ export interface PublicRankedProfile {
     winRatePct: number;
     winStreak: number;
     lossStreak: number;
-    // Season currency ("Gold"): minted 1:1 with every positive MMR movement, never deducted.
+    // Available season currency ("Gold"): what the player can put into a new wager, prediction or lobby.
     gold: number;
+    // Available plus gold in play: the figure the profile SHOWS. Absent from older servers.
+    totalGold?: number;
+    goldInPlay?: number;
     placedAt: number;
     lastRankedGameAt: number;
     // Public playtime + presence: total seconds ever spent in games, and online / last-seen state.
@@ -289,6 +309,8 @@ export interface PublicRankedProfile {
     lastOnlineAt: number;
     // The player's pre-game ban preference: the ONE unit they never want offered in their drafts.
     rankedBan: { creatureId: number; name: string } | null;
+    // The one public trace of Reputation: "honorable" for the top band, null otherwise. The score itself stays private.
+    reputationBadge: ReputationBadge | null;
     predictions: PredictionHistory;
     wagers: WagerHistory;
     // Every movement of the purse, newest first — the combined view the sections above only slice.
@@ -299,7 +321,14 @@ export interface PublicRankedProfile {
     seasonHistory: SeasonHistoryEntry[];
     recentGames: RankedProfileMatch[];
     playstyle: PlayerPlaystyle | null;
+    playerMetrics: PlayerMetricsSummary | null;
 }
+
+export type ReputationBadge = "honorable";
+
+/** Only the top Reputation band has a public badge; any other value reads as no badge. */
+export const normalizeReputationBadge = (value: unknown): ReputationBadge | null =>
+    value === "honorable" ? "honorable" : null;
 
 /** Percentage of settled ranked games the player personally ended through an exit/disconnect. */
 export const rankedExitRatePct = (exitCount: number, totalGames: number): number => {
@@ -330,19 +359,9 @@ const normalizeState = (value: unknown): RankedProfileState => {
     return "calibration";
 };
 
-const normalizeResult = (value: unknown): RankedMatchResult => {
-    if (value === "win" || value === "loss") {
-        return value;
-    }
-    return "draw";
-};
+const normalizeResult = normalizeRankedMatchResult;
 
-const normalizeReason = (value: unknown): RankedMatchReason => {
-    if (value === "concede" || value === "disconnect" || value === "double_disconnect" || value === "cancel") {
-        return value;
-    }
-    return "normal";
-};
+const normalizeReason = normalizeRankedMatchReason;
 
 /** Human UUIDs and persistent `ai:` seats are both exactly 36 characters in the ranked service. */
 export const isPublicRankedPlayerId = (value: string): boolean =>
@@ -485,6 +504,7 @@ export function normalizePublicRankedProfile(value: unknown): PublicRankedProfil
                 finishedTime: nonNegativeInteger(match.finishedTime),
                 result: normalizeResult(match.result),
                 reason: normalizeReason(match.reason),
+                exit: normalizeRankedMatchExit(match.exit),
                 mmrDelta: asInteger(match.mmrDelta),
                 goldEarned: nonNegativeInteger(match.goldEarned),
                 calibration: match.calibration === true,
@@ -530,12 +550,15 @@ export function normalizePublicRankedProfile(value: unknown): PublicRankedProfil
         winStreak: nonNegativeInteger(row.winStreak),
         lossStreak: nonNegativeInteger(row.lossStreak),
         gold: nonNegativeInteger(row.gold),
+        totalGold: row.totalGold === undefined ? undefined : nonNegativeInteger(row.totalGold),
+        goldInPlay: row.goldInPlay === undefined ? undefined : nonNegativeInteger(row.goldInPlay),
         placedAt: nonNegativeInteger(row.placedAt),
         lastRankedGameAt: nonNegativeInteger(row.lastRankedGameAt),
         secondsInGame: nonNegativeInteger(row.secondsInGame),
         online: row.online === true,
         lastOnlineAt: nonNegativeInteger(row.lastOnlineAt),
         rankedBan: normalizeRankedBan(row.rankedBan),
+        reputationBadge: normalizeReputationBadge(row.reputationBadge),
         predictions: normalizePredictions(row.predictions),
         wagers: normalizeWagers(row.wagers),
         goldHistory: normalizeGoldHistory(row.goldHistory),
@@ -546,6 +569,7 @@ export function normalizePublicRankedProfile(value: unknown): PublicRankedProfil
             .sort((a, b) => b.seasonSequence - a.seasonSequence),
         recentGames,
         playstyle,
+        playerMetrics: normalizePlayerMetrics(row.playerMetrics),
     };
 }
 
@@ -674,6 +698,7 @@ function normalizeSeasonHistoryEntry(value: unknown): SeasonHistoryEntry | null 
         league,
         leagueName: asString(row.leagueName, fallbackLeagueName(league)),
         leaderboardRank: nonNegativeInteger(row.leaderboardRank),
+        goldPlace: nonNegativeInteger(row.goldPlace),
         wins: nonNegativeInteger(row.wins),
         losses: nonNegativeInteger(row.losses),
         draws: nonNegativeInteger(row.draws),
@@ -800,4 +825,46 @@ export async function fetchPublicRankedProfile(playerId: string): Promise<Public
         throw new Error("Ranked profile response was malformed");
     }
     return profile;
+}
+
+export function buildOwnRankedStandingUrl(options: RankedProfileUrlOptions = {}): string {
+    const production = options.production ?? runtimeIsProduction();
+    const baseUrl = (options.baseUrl ?? runtimeBaseUrl(production)).replace(/\/+$/, "");
+    return `${baseUrl}${production ? "/v1/ranked-standing" : "/v1/mm/ranked-standing"}`;
+}
+
+/**
+ * The signed-in player's ranked id, read from their own standing. The stored auth user carries no player id:
+ * its `in_game_id` is the match being played right now. Null when signed out, rejected, or answered by a
+ * server that predates the field — never a guess.
+ */
+export async function fetchOwnRankedPlayerId(
+    token: string | null,
+    options: RankedProfileUrlOptions = {},
+): Promise<string | null> {
+    if (!token) {
+        return null;
+    }
+    const response = await fetch(buildOwnRankedStandingUrl(options), {
+        cache: "no-store",
+        headers: { Accept: "application/json", Authorization: token },
+    });
+    if (!response.ok) {
+        return null;
+    }
+    const playerId = asString(asRecord(await response.json()).playerId);
+    return isPublicRankedPlayerId(playerId) ? playerId : null;
+}
+
+export async function fetchPublicPlayerMetrics(
+    playerId: string,
+    mode: PlayerMetricsMode = "ranked",
+): Promise<PlayerMetricsSummary> {
+    const url = new URL(buildPublicRankedProfileUrl(playerId).replace("/ranked-profile/", "/player-metrics/"));
+    url.searchParams.set("mode", mode);
+    const response = await fetch(url, { cache: "no-store", headers: { Accept: "application/json" } });
+    if (!response.ok) throw new Error(`Player metrics request failed with status ${response.status}`);
+    const metrics = normalizePlayerMetrics(await response.json());
+    if (!metrics) throw new Error("Player metrics response was malformed");
+    return metrics;
 }

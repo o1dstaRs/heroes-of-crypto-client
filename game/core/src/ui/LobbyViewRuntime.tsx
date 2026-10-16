@@ -8,9 +8,9 @@ import { useNavigate, useParams } from "react-router";
 import {
     fetchLobby,
     fetchLobbyShoutStatus,
+    followLobbyEventStream,
     joinLobby,
     leaveLobby,
-    openLobbyEventStream,
     setLobbyReady,
     shoutLobbyToArena,
     startLobby,
@@ -132,6 +132,8 @@ export const LobbyView: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuthContext();
     const myUsername = user?.username ?? "";
+    // The same rule the friends list follows: never offer to spectate while you are in a match yourself.
+    const viewerInLiveMatch = !!user?.in_game_id;
 
     const [lobby, setLobby] = useState<LobbyObject | null>(null);
     const [error, setError] = useState("");
@@ -171,11 +173,8 @@ export const LobbyView: React.FC = () => {
                     setError("Lobby not found");
                 }
             }
-            try {
-                await openLobbyEventStream(lobbyId, (next) => active && setLobby(next), controller.signal);
-            } catch {
-                /* stream ended / aborted */
-            }
+            // Reopens the stream after any drop until this screen closes; a missing lobby ends it.
+            await followLobbyEventStream(lobbyId, (next) => active && setLobby(next), controller.signal);
         })();
         return () => {
             active = false;
@@ -550,12 +549,20 @@ export const LobbyView: React.FC = () => {
                         <Typography sx={{ color: hocColors.parchment, mb: 1 }}>
                             This game is already in progress — the lobby is full.
                         </Typography>
-                        <Typography level="body-sm" sx={{ color: hocColors.muted, mb: 1.5 }}>
-                            Every game is public, so you can watch it live.
-                        </Typography>
-                        <Button sx={hocPrimaryButtonSx} onClick={spectate}>
-                            Spectate live
-                        </Button>
+                        {viewerInLiveMatch ? (
+                            <Typography level="body-sm" sx={{ color: hocColors.muted }}>
+                                You can watch it once your own match is over.
+                            </Typography>
+                        ) : (
+                            <>
+                                <Typography level="body-sm" sx={{ color: hocColors.muted, mb: 1.5 }}>
+                                    Every game is public, so you can watch it live.
+                                </Typography>
+                                <Button sx={hocPrimaryButtonSx} onClick={spectate}>
+                                    Spectate live
+                                </Button>
+                            </>
+                        )}
                     </Sheet>
                 ) : null}
 

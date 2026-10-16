@@ -36,6 +36,9 @@ export class SceneLog implements ISceneLog {
     public setSuppressed(suppressed: boolean): void {
         this.suppressed = suppressed;
     }
+    public isSuppressed(): boolean {
+        return this.suppressed;
+    }
     /**
      * Append a fully-formed line directly, bypassing both the suppression switch and the team-flag
      * resolver. Used by ranked's journal-driven log, whose lines already carry their team flag.

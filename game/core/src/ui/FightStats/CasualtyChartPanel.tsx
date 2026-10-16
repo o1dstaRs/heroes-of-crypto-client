@@ -1,7 +1,7 @@
 import Box from "@mui/joy/Box";
 import React, { useLayoutEffect, useRef, useState } from "react";
 
-import { IFightStatsSample } from "../../scenes/VisibleState";
+import { IFightDeathEntry, IFightStatsSample } from "../../scenes/VisibleState";
 import { CasualtyChart, GOLD } from "./CasualtyChart";
 
 /** Below this the plot is more axis than data, so the panel hides rather than draw a sliver. */
@@ -22,9 +22,10 @@ export const CHART_PANEL_H = 170;
  */
 export const CasualtyChartPanel: React.FC<{
     series: IFightStatsSample[];
+    deaths?: readonly IFightDeathEntry[];
     height?: number;
     ornateResultsFrame?: boolean;
-}> = ({ series, height = CHART_PANEL_H, ornateResultsFrame = false }) => {
+}> = ({ series, deaths = [], height = CHART_PANEL_H, ornateResultsFrame = false }) => {
     const boxRef = useRef<HTMLDivElement | null>(null);
     const [size, setSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
 
@@ -115,7 +116,13 @@ export const CasualtyChartPanel: React.FC<{
         >
             {roomy && innerW > 0 && (
                 <Box sx={{ position: "absolute", inset: 0, zIndex: 1 }}>
-                    <CasualtyChart series={series} viewWidth={innerW} viewHeight={innerH} drawDurationSec={1.1} />
+                    <CasualtyChart
+                        series={series}
+                        deaths={deaths}
+                        viewWidth={innerW}
+                        viewHeight={innerH}
+                        drawDurationSec={1.1}
+                    />
                 </Box>
             )}
         </Box>

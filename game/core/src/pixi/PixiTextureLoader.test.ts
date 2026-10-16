@@ -23,12 +23,22 @@ import {
     unloadRosterAssets,
 } from "./PixiTextureLoader";
 import { isUnitAnimationAtlasKey } from "./unitAtlasKeys";
+import { shouldPreloadUnitAnimationAtlas } from "./creatureAnimationSettings";
+import { isNamedUnitStateSheetKey } from "./unitStateSheetKeys";
 
 // The board renders every creature's PERMANENT art from its idle/default atlas. If those keys ride
 // in the big Tier-2b animation bundle, a fresh-cache load shows the old static tokens until hundreds
 // of MB finish downloading — the "old squared images on initial load" bug. These tests pin the
 // three-way split so the idle bundle stays small and first.
 describe("pixi texture bundle split", () => {
+    test("loads Beholder's detailed idle even while legacy animations are disabled", () => {
+        const { idleAtlases, deferredUnitAtlases, excludedFullResolutionUnitAtlases } = getSplitBundles({
+            animationsEnabled: false,
+        });
+        expect(idleAtlases.beholder_idle_atlas).toBeDefined();
+        expect(deferredUnitAtlases.beholder_idle_atlas).toBeUndefined();
+        expect(excludedFullResolutionUnitAtlases.beholder_idle_atlas).toBeUndefined();
+    });
     test("classifies the board idle/default atlases and nothing else", () => {
         expect(isIdleAtlasKey("wolf_idle_atlas_quarter")).toBe(true);
         expect(isIdleAtlasKey("behemoth_default_atlas_half")).toBe(true);
@@ -97,10 +107,11 @@ describe("pixi texture bundle split", () => {
             expect(`${key}: ${isUnitAnimationAtlasKey(key) && !isIdleAtlasKey(key)}`).toBe(`${key}: true`);
         }
         for (const key of Object.keys(core)) {
-            expect(`${key}: ${isUnitAnimationAtlasKey(key)}`).toBe(`${key}: false`);
+            expect(`${key}: ${isUnitAnimationAtlasKey(key) || isNamedUnitStateSheetKey(key)}`).toBe(`${key}: false`);
         }
+        // A creature sheet the atlas index does not list yet is recognised by its name and deferred too.
         for (const key of Object.keys(deferredUnitAtlases)) {
-            expect(`${key}: ${isUnitAnimationAtlasKey(key)}`).toBe(`${key}: true`);
+            expect(`${key}: ${isUnitAnimationAtlasKey(key) || isNamedUnitStateSheetKey(key)}`).toBe(`${key}: true`);
         }
         for (const key of Object.keys(deferredReactUiAssets)) {
             expect(`${key}: ${isDeferredReactUiAssetKey(key)}`).toBe(`${key}: true`);
@@ -174,13 +185,17 @@ describe("pixi texture bundle split", () => {
         expect(idleCount).toBeLessThan(animationCount);
     });
 
-    test("defers frozen creature animations while preserving the approved Peasant walk", () => {
+    test("preloads approved level-one motion while deferring unapproved animations", () => {
         const { idleAtlases, animations, deferredUnitAtlases } = getSplitBundles({ animationsEnabled: false });
 
-        expect(Object.keys(idleAtlases)).toHaveLength(0);
-        expect(Object.keys(animations)).toEqual(["peasant_walk_atlas_quarter"]);
-        expect(deferredUnitAtlases.wolf_idle_atlas_quarter).toBeDefined();
-        expect(deferredUnitAtlases.wolf_attack_atlas_quarter).toBeDefined();
+        expect(idleAtlases.peasant_idle_red_atlas_quarter).toBeDefined();
+        expect(animations.peasant_walk_atlas_quarter).toBeDefined();
+        expect(idleAtlases.wolf_idle_atlas_half).toBeDefined();
+        expect(animations.wolf_attack_atlas_half).toBeDefined();
+        for (const key of [...Object.keys(idleAtlases), ...Object.keys(animations)]) {
+            expect(shouldPreloadUnitAnimationAtlas(key, false), key).toBe(true);
+        }
+        expect(deferredUnitAtlases.wolf_attack_atlas_half).toBeUndefined();
     });
 
     test("leaves React-only draft and portrait art out of Pixi's texture cache", () => {
@@ -191,6 +206,9 @@ describe("pixi texture bundle split", () => {
             "board_icon",
             "pick_ban_slash_variant2_atlas",
             "wolf_left_screen_x2",
+            "manticore_left_screen_x2_green_cleanup_v2",
+            "orc_model_full",
+            "peasant_left_screen_idle_atlas",
             "black_dragon_portrait_full",
             "pick_phase_heroic_hearth_tavern_background_v10",
             "pick_phase_floor_fog_atlas",
@@ -238,10 +256,20 @@ describe("pixi texture bundle split", () => {
         }
 
         expect(isDeferredReactUiAssetKey("wolf_final")).toBe(false);
+        expect(isDeferredReactUiAssetKey("wolf_left_screen_x20")).toBe(false);
         expect(isDeferredReactUiAssetKey("wolf_pick_sandbox_x2")).toBe(false);
         expect(isDeferredReactUiAssetKey("pick_attack_melee_silver")).toBe(false);
         expect(isDeferredReactUiAssetKey("pick_movement_walk_silver")).toBe(false);
         expect(isDeferredReactUiAssetKey("background_stone_tiles_sinister")).toBe(false);
+    });
+
+    test("keeps deferred full-body portrait URLs available without blocking core startup", () => {
+        const { core, deferredReactUiAssets } = getSplitBundles();
+        for (const key of ["orc_model_full", "manticore_left_screen_x2_green_cleanup_v2"] as const) {
+            expect(core[key]).toBeUndefined();
+            expect(deferredReactUiAssets[key]?.src).toBe(images[key]);
+            expect(isProductionOmittedAssetKey(key)).toBe(false);
+        }
     });
 
     test("keeps only live environment variants in core and lets the fire pit load on demand", () => {
@@ -332,8 +360,6 @@ describe("pixi texture bundle split", () => {
             "efreet_battlefield_side_right_final_v1",
             "thunderbird_battlefield_side_right_final_v1",
             "efreet_board_128",
-            "orc_128",
-            "angel_256",
             "phoenix_256",
             "arachna_queen_board_256",
         ]) {
@@ -415,12 +441,21 @@ describe("pixi texture bundle split", () => {
     test("loads spell and status cards only when the current scene requests them", () => {
         const { core, lazySpellAssets } = getSplitBundles({ animationsEnabled: false });
 
-        for (const key of ["morale_256", "wild_regeneration_256", "fire_wall_256", "meteorite_chaos_256_v1"]) {
+        for (const key of [
+            "morale_256",
+            "wild_regeneration_256",
+            "fire_wall_256",
+            "meteorite_chaos_256_v1",
+            "quiver_of_echoes_256",
+            "gravechain_256",
+            "gravebound_256",
+            "last_fuse_256",
+        ]) {
             expect(isLazySpellAssetKey(key)).toBe(true);
             expect(lazySpellAssets[key]).toBeDefined();
             expect(core[key]).toBeUndefined();
         }
-        expect(Object.keys(lazySpellAssets)).toHaveLength(60);
+        expect(Object.keys(lazySpellAssets)).toHaveLength(64);
     });
 
     test("loads sandbox roster art only while the pre-fight overlay exists", () => {

@@ -1,0 +1,98 @@
+{
+  "output": "marketing/x/generated/2026-10-14_pin_who_moves_first_v2.png",
+  "output_sha256": "364bccec6a1a26c4f3bb7b5c570cd341cb3586671ad9ce2e68697da32094392d",
+  "format": "PNG",
+  "size": [
+    1600,
+    900
+  ],
+  "background_generator": "Built-in image_gen; empty board only; no unit images submitted.",
+  "background_preparation": "Generated 1672x941 plate resized to 1600x985 with LANCZOS; bottom-cropped to 1600x900.",
+  "unit_resampling": "Pillow NEAREST. Exact original RGB samples; Cyclops mirrored horizontally before scaling.",
+  "source_pixel_changes_beyond_allowed_scaling_and_mirroring": 0,
+  "equal_displayed_unit_heights": true,
+  "unit_display_height": 515,
+  "units": [
+    {
+      "unit": "Crusader",
+      "source": "site/public/assets/images/units/portraits/crusader_portrait_full.3480ffd9.webp",
+      "source_sha256_before": "3480ffd94a10b65cce20a324552fcbeecab0301b481287168b20e349baca835a",
+      "source_sha256_after": "3480ffd94a10b65cce20a324552fcbeecab0301b481287168b20e349baca835a",
+      "source_file_unchanged": true,
+      "source_size": [
+        1254,
+        1254
+      ],
+      "source_alpha_bbox": [
+        39,
+        42,
+        1194,
+        1214
+      ],
+      "transparent_padding_only_removed": true,
+      "horizontal_mirror": false,
+      "display_size": [
+        508,
+        515
+      ],
+      "display_bounds": [
+        235,
+        292,
+        743,
+        807
+      ],
+      "unit_fully_inside_canvas": true,
+      "source_proportions_preserved_with_integer_rounding": true,
+      "fully_opaque_displayed_pixels_checked": 101106,
+      "opaque_mismatches_vs_scaled_layer": 0,
+      "opaque_mismatches_vs_original_source_samples": 0,
+      "max_opaque_rgb_channel_difference": 0,
+      "lettering_overlaps_unit": false
+    },
+    {
+      "unit": "Cyclops",
+      "source": "site/public/assets/images/units/portraits/cyclops_portrait_full.9c6bea6c.webp",
+      "source_sha256_before": "9c6bea6cf9ed3d8328a254042e1e3cd4c9b611dea3939c447d51390b25568e0f",
+      "source_sha256_after": "9c6bea6cf9ed3d8328a254042e1e3cd4c9b611dea3939c447d51390b25568e0f",
+      "source_file_unchanged": true,
+      "source_size": [
+        1024,
+        1536
+      ],
+      "source_alpha_bbox": [
+        116,
+        126,
+        913,
+        1487
+      ],
+      "transparent_padding_only_removed": true,
+      "horizontal_mirror": true,
+      "display_size": [
+        302,
+        515
+      ],
+      "display_bounds": [
+        985,
+        292,
+        1287,
+        807
+      ],
+      "unit_fully_inside_canvas": true,
+      "source_proportions_preserved_with_integer_rounding": true,
+      "fully_opaque_displayed_pixels_checked": 79313,
+      "opaque_mismatches_vs_scaled_layer": 0,
+      "opaque_mismatches_vs_original_source_samples": 0,
+      "max_opaque_rgb_channel_difference": 0,
+      "lettering_overlaps_unit": false
+    }
+  ],
+  "copy": [
+    "Who moves first",
+    "decides the fight.",
+    "PvP tactics in the browser. The board shrinks every fight."
+  ],
+  "headline_font": "Georgia Regular",
+  "caption_font": "Helvetica Neue Regular",
+  "type_supersampling": 4,
+  "verification_method": "Reopen the final PNG and compare every displayed alpha=255 unit pixel to the scaled layer. Independently map every checked sample to the original decoded WebP, reverse the Cyclops mirror, and compare exact RGB bytes. Verify both source hashes before and after. Scaling downsamples the art; not every full-resolution source pixel appears. Partially transparent source pixels use ordinary alpha compositing."
+}

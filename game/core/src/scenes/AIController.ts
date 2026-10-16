@@ -19,7 +19,15 @@ import {
     FightStateManager,
     hasActiveTimeDenial,
 } from "@heroesofcrypto/common";
-import type { AttackHandler, AttackType, GameAction, IWeightedRoute, Spell, TeamType } from "@heroesofcrypto/common";
+import type {
+    AttackHandler,
+    AttackType,
+    GameAction,
+    IDecisionContext,
+    IWeightedRoute,
+    Spell,
+    TeamType,
+} from "@heroesofcrypto/common";
 import { RenderableUnit } from "./RenderableUnit";
 import { HoverManager } from "./HoverManager";
 import { ButtonManager } from "./ButtonManager";
@@ -36,7 +44,8 @@ import {
     type LocalModelLegalAction,
     type LocalModelOpponentConfig,
 } from "./LocalModelOpponent";
-import { alliesAreTransparent, thrownSpellReachesTarget } from "./spell_targeting";
+import { markAutoPlayedAction } from "./autoPlayedAction";
+import { throwTransparencyFor, thrownSpellReachesTarget } from "./spell_targeting";
 
 /**
  * Simple log interface for scene logging.
@@ -93,6 +102,16 @@ export interface IAIContext {
     isAuthoritativeAction?(action: GameAction): boolean;
     // Re-assert authoritative aura gates (Hidden / Range Null Field) right before an AI decision.
     ensureAuthoritativeAuraState?(): void;
+    /**
+     * Optional v0.8 A19 search. Called only after a non-mindless decideTurn succeeds. A throw, or a
+     * missing hook, keeps that policy plan. Mindless units never reach it.
+     */
+    searchAiDecision?(
+        unit: RenderableUnit,
+        version: string,
+        incumbent: GameAction[],
+        decision: IDecisionContext,
+    ): GameAction[] | Promise<GameAction[]>;
     // Rebuild grid occupancy + AGGRO board from authoritative unit positions right before an AI decision, so
     // the AI's pathfinding sees the SAME reachable set the server will validate against (otherwise the client
     // plans move/melee through enemy threat cells the server blocks -> attack_not_available / invalid_move).
@@ -413,7 +432,12 @@ export class AIController {
         return this.localModelOpponent.enabled && unit.getTeam() === modelTeam;
     }
     private modelAction<T extends GameAction>(unit: Unit, action: T): T {
-        return this.shouldControlUnit(unit) ? markLocalModelAction(action) : action;
+        if (this.shouldControlUnit(unit)) {
+            return markLocalModelAction(action);
+        }
+        // Everything else this controller applies is played without the player's input: tag it for the ranked
+        // integrity evidence (autoPlayedAction.ts). A mindless unit counts as its own rule, not as the AI toggle.
+        return markAutoPlayedAction(action, unit.hasAbilityActive("AI Driven") ? "auto_unit" : "client_ai");
     }
     /**
      * Trigger AI action with proper delay.
@@ -597,24 +621,25 @@ export class AIController {
             ((process.env.V05_CLIENT_AI ?? "on") !== "off" && this.strategyRejectedUnitId !== currentUnit.getId());
         if (USE_STRATEGY) {
             let strategyActions: GameAction[] = [];
+            let strategyDecided = false;
+            // A mindless unit ("AI Driven": Berserker, Frenzied Boar) is pinned to v0.1 — see common's
+            // ai/unit_ai_overrides. This is the single client decision point, so it covers every way
+            // such a unit gets played: the AI toggle, an AI-controlled team, player-vs-AI, and the
+            // human army whose Berserker plays itself (shouldAutoPlay's "AI Driven" branch above).
+            // Keeps the client in step with battle_engine, which resolves the same rule.
+            const unitAiVersion = mindlessAi ? MINDLESS_AI_VERSION : aiVersionForUnit(currentUnit, DEFAULT_AI_VERSION);
+            const decisionContext: IDecisionContext = {
+                grid: this.context.getGrid(),
+                matrix: this.context.getGridMatrix(),
+                unitsHolder: this.context.getUnitsHolder(),
+                pathHelper: this.context.getPathHelper(),
+                attackHandler: this.context.getAttackHandler(),
+                fightProperties: FightStateManager.getInstance().getFightProperties(),
+                decisionOrigin: "root",
+            };
             try {
-                // A mindless unit ("AI Driven": Berserker, Frenzied Boar) is pinned to v0.1 — see common's
-                // ai/unit_ai_overrides. This is the single client decision point, so it covers every way
-                // such a unit gets played: the AI toggle, an AI-controlled team, player-vs-AI, and the
-                // human army whose Berserker plays itself (shouldAutoPlay's "AI Driven" branch above).
-                // Keeps the client in step with battle_engine, which resolves the same rule.
-                const unitAiVersion = mindlessAi
-                    ? MINDLESS_AI_VERSION
-                    : aiVersionForUnit(currentUnit, DEFAULT_AI_VERSION);
-                strategyActions = getAIStrategy(unitAiVersion).decideTurn(currentUnit, {
-                    grid: this.context.getGrid(),
-                    matrix: this.context.getGridMatrix(),
-                    unitsHolder: this.context.getUnitsHolder(),
-                    pathHelper: this.context.getPathHelper(),
-                    attackHandler: this.context.getAttackHandler(),
-                    fightProperties: FightStateManager.getInstance().getFightProperties(),
-                    decisionOrigin: "root",
-                });
+                strategyActions = getAIStrategy(unitAiVersion).decideTurn(currentUnit, decisionContext);
+                strategyDecided = true;
             } catch (err) {
                 // Normal units retain the proven findTarget fallback. Mindless units release the client lock
                 // below and retry v0.1 after the activation guard, leaving final liveness to ranked recovery.
@@ -625,6 +650,21 @@ export class AIController {
                     err,
                 );
                 strategyActions = [];
+            }
+            // Search compares the policy plan with rollouts. A thrown search keeps the plan. An empty
+            // plan still searches; if that also stays empty, the findTarget ladder below still runs.
+            // Rejection recovery never enters this block, and a mindless unit never searches.
+            if (strategyDecided && !mindlessAi && this.context.searchAiDecision) {
+                try {
+                    strategyActions = await this.context.searchAiDecision(
+                        currentUnit,
+                        unitAiVersion,
+                        strategyActions,
+                        decisionContext,
+                    );
+                } catch (err) {
+                    console.error(`${DEFAULT_AI_VERSION} search failed; keeping the policy plan`, err);
+                }
             }
             // An empty normal plan falls back; an empty mindless plan follows the strict retry path below.
             if (
@@ -709,6 +749,19 @@ export class AIController {
             // An intermediate move (one that precedes another productive action) must NOT end the turn:
             // a bare move leaves the unit active in the engine, so the follow-up acts from the landed cell.
             if (action.type === "move_unit" && !isLast) {
+                if (this.moveEndsTurn(currentUnit, action)) {
+                    // Ranked: the server ends a turn on every move, as it does for a human. A planned strike
+                    // becomes the walk-in melee a human would make; any other follow-up can't happen — the
+                    // move is the whole turn.
+                    const next = payload[i + 1];
+                    if (next?.type === "melee_attack" && !next.path?.length && action.path?.length) {
+                        return this.executeStrategyAction(currentUnit, { ...next, path: action.path }, wasAIActive);
+                    }
+                    console.warn(
+                        `AI strategy sequence: move ends the turn in ranked — skipped ${payload.length - 1 - i} planned follow-up(s)`,
+                    );
+                    return this.executeStrategyAction(currentUnit, action, wasAIActive);
+                }
                 const moved = await this.executeStrategyMoveStep(currentUnit, action);
                 if (!moved) {
                     if (!landedAny) {
@@ -747,14 +800,24 @@ export class AIController {
         this.finishAIAction(wasAIActive);
         return true;
     }
+    /** True where the authoritative server ends the turn on every move (ranked, co-op sandbox). */
+    private moveEndsTurn(currentUnit: RenderableUnit, action: Extract<GameAction, { type: "move_unit" }>): boolean {
+        const moveAction = this.modelAction(currentUnit, {
+            type: "move_unit",
+            unitId: currentUnit.getId(),
+            path: action.path,
+            targetCells: action.targetCells,
+            hasLavaCell: action.hasLavaCell,
+            hasWaterCell: action.hasWaterCell,
+        });
+        return this.context.isAuthoritativeAction?.(moveAction) ?? false;
+    }
     /**
      * Drive an INTERMEDIATE strategy move — a move_unit that precedes another productive action in the
-     * same plan — without ending the turn. Resolves true once the move has been driven far enough for the
-     * next action to submit: in ranked the deferred submit is synchronous + in-order (the server sequences
-     * the follow-up right behind it, and a bare move keeps the unit active server-side); in sandbox the
-     * engine applies the move immediately and we wait for the walk animation so the follow-up fires from
-     * the landed position. Resolves false when the move can't start or its animation stalls past the move
-     * watchdog window — the caller then stops the sequence gracefully.
+     * same plan — without ending the turn, in the local sandbox engine (where a bare move leaves the unit
+     * active): resolves true once the walk animation lands, so the follow-up fires from the landed cell.
+     * Resolves false when the move can't start or its animation stalls past the move watchdog window — the
+     * caller then stops the sequence gracefully. Ranked never gets here: its moves end the turn.
      */
     private executeStrategyMoveStep(
         currentUnit: RenderableUnit,
@@ -771,22 +834,6 @@ export class AIController {
             hasLavaCell: action.hasLavaCell,
             hasWaterCell: action.hasWaterCell,
         });
-        const isAuthoritative = this.context.isAuthoritativeAction?.(moveAction) ?? false;
-        if (isAuthoritative) {
-            // Ranked: the deferred path submits and returns WITHOUT firing onComplete (see
-            // executeStrategyMove); the follow-up action is dispatched right after, in order.
-            return Promise.resolve(
-                this.context.executeMoveSequence(
-                    currentUnit,
-                    action.path,
-                    action.targetCells,
-                    undefined,
-                    moveAction,
-                    false,
-                    true,
-                ),
-            );
-        }
         return new Promise((resolve) => {
             let settled = false;
             const settle = (ok: boolean): void => {
@@ -1210,7 +1257,7 @@ export class AIController {
     }
     /**
      * Pick the best spell the caster should cast this turn, or undefined to fall through to move/attack.
-     * Covers ally heals/buffs, enemy debuffs, Castling (swap with a small enemy in move range) and
+     * Covers ally heals/buffs, enemy debuffs, Castling (swap with a same-footprint enemy in move range) and
      * summons. Each candidate is scored on a shared scale and only cast when it beats attacking, and
      * already-applied buffs/debuffs and full-HP heal targets are skipped so the AI can't loop forever.
      */
@@ -1233,7 +1280,9 @@ export class AIController {
         const MASS_VALUE = 12;
         const attackValue = this.estimateAttackValue(caster);
         const threat = (u: Unit): number => Math.max(1, u.getAttackDamageMax()) * Math.max(1, u.getAmountAlive());
-        // Small enemy cells the caster could reach — the "within movement range" set Castling needs.
+        // Anchor cells of the same-footprint enemies the caster could reach — the "within movement range"
+        // set Castling needs. Same footprint because the swap exchanges anchors, so only identical shapes
+        // land each body on the cells the other vacated.
         // Use real pathfinding (mirroring the server's enemiesCellsWithinMovementRangeForActive), NOT
         // straight-line distance: a close-as-the-crow-flies enemy can be unreachable around obstacles or
         // beyond the actual step budget, and the engine's canCastSpell rejects a Castling swap to an
@@ -1257,7 +1306,11 @@ export class AIController {
                 .cells.map((c) => (c.x << 4) | c.y),
         );
         const enemiesInRange = enemies
-            .filter((e) => e.isSmallSize() && castlingReach.has((e.getBaseCell().x << 4) | e.getBaseCell().y))
+            .filter(
+                (e) =>
+                    SpellHelper.hasSwappableFootprint(caster, e) &&
+                    castlingReach.has((e.getBaseCell().x << 4) | e.getBaseCell().y),
+            )
             .map((e) => e.getBaseCell());
         // Authoritative castability gate (same as the engine's handleMagicAttack) so we never pick a
         // single-target cast the server would reject as spell_not_available.
@@ -1282,9 +1335,11 @@ export class AIController {
                     this.context.getGrid(),
                     caster.getBaseCell(),
                     target.getBaseCell(),
-                    spell.getName() === "Fire Strike"
-                        ? alliesAreTransparent(this.context.getUnitsHolder().getAllUnits(), caster.getTeam())
-                        : undefined,
+                    throwTransparencyFor(
+                        spell.getName(),
+                        this.context.getUnitsHolder().getAllUnits(),
+                        caster.getTeam(),
+                    ),
                 ));
 
         let best: { spellName: string; targetUnitId?: string; targetCell?: HoCMath.XY } | undefined;
@@ -1379,13 +1434,15 @@ export class AIController {
                 continue;
             }
 
-            // Castling (POSITION_CHANGE): swap with a strong small enemy within the caster's reach.
+            // Castling (POSITION_CHANGE): swap with the strongest same-footprint enemy within reach.
             if (pt === SpellPowerType.POSITION_CHANGE && tt === SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE) {
                 const steps = Math.max(1, Math.ceil(caster.getSteps())) + 1;
                 let target: Unit | undefined;
                 let value = 0;
                 for (const e of enemies) {
-                    if (!e.isSmallSize()) {
+                    // The swap exchanges anchors, so only a body of the caster's own shape is a legal
+                    // target — a 2x2 Queen carrying a stolen Castling swaps with a 2x2, never with a 1x1.
+                    if (!SpellHelper.hasSwappableFootprint(caster, e)) {
                         continue;
                     }
                     const d = HoCMath.getDistance(caster.getBaseCell(), e.getBaseCell());

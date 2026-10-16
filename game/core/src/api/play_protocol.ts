@@ -32,13 +32,43 @@ export const PlayActionType = {
     AUGMENT: 20,
     ABANDON: 21,
     SYNERGY: 22,
+    ARTIFACT: 23,
+    GRID_TYPE: 24,
+    PLACE_BARREL: 25,
+    UNPLACE_BARREL: 26,
 } as const;
 
 export type PlayActionTypeValue = (typeof PlayActionType)[keyof typeof PlayActionType];
 
+/**
+ * How the client produced an action (PlayAction.input_source, play.proto field 23). The server records it as
+ * integrity evidence only (phase 1); it never changes whether or how an action is accepted.
+ */
+export const PlayInputSource = {
+    UNKNOWN: 0,
+    POINTER: 1,
+    KEYBOARD: 2,
+    AUTO_UNIT: 3,
+    CLIENT_RETRY: 4,
+    CLIENT_AI: 5,
+    LOCAL_MODEL: 6,
+} as const;
+
+export type PlayInputSourceValue = (typeof PlayInputSource)[keyof typeof PlayInputSource];
+
 // Existing `reason` field sentinel used only on MOVE_UNIT. It is intentionally not a new protobuf field:
 // old clients retain move-is-the-turn behavior, while a new client can request one planned follow-up.
 export const PLAY_MOVE_CONTINUE_TURN_REASON = "continue_turn";
+
+/** PlayAction.reason on a MOVE_INTENT that carries the armed spell instead of a move cell. */
+export const PLAY_ARMED_SPELL_INTENT_REASON = "armed_spell";
+
+/** PlayIntent.spell_state. NONE is a move aim; ARMED and CLEARED are the spell channel. */
+export const PlaySpellIntentState = {
+    NONE: 0,
+    ARMED: 1,
+    CLEARED: 2,
+} as const;
 
 export const PlayEventKind = {
     UNKNOWN: 0,
@@ -61,12 +91,43 @@ export interface PlayCell {
     y: number;
 }
 
+export interface PlayArtifactBarrel {
+    team: number;
+    index: number;
+    cell: PlayCell;
+}
+
 export interface PlayPlayerState {
     playerId: string;
     team: number;
     connected: boolean;
     aiControlled: boolean;
     lastSeenMs: number;
+    /** Server time at which a disconnected human seat is handed to the AI (0 = not pending). */
+    aiTakeoverAtMs?: number;
+    /** Server time at which a disconnected human seat forfeits the ranked fight (0 = no forfeit rule). */
+    forfeitAtMs?: number;
+    /** Exit rules (play.proto 8-10): away time used against the match's allowance, turns missed in a row while
+     * connected, and whether this seat is still in ranked calibration (its abandon would be unscored). */
+    absenceUsedMs?: number;
+    consecutiveMissedTurns?: number;
+    calibrating?: boolean;
+}
+
+/** How a match ended early, decided by the server's exit resolver (play.proto PlayExitResolution). */
+export interface PlayExitResolution {
+    kind: "concede" | "abandon" | "void" | string;
+    cause: string;
+    leaverPlayerId: string;
+    /** False for unscored and voided matches: no result for either player. */
+    scored: boolean;
+    unscoredReason: string;
+    boardBp: number;
+    phase: string;
+    lap: number;
+    /** False while the rules are only announced: the exit is shown, scoring stays on the previous rules. */
+    enforced: boolean;
+    ranked: boolean;
 }
 
 export interface PlayUnitState {
@@ -180,6 +241,23 @@ export interface PlayDamageStatistic {
     lap: number;
 }
 
+/** `kind` of a PlayTransientCell on the snapshot — see play.proto. */
+export enum PlayTransientCellKind {
+    SMOKE = 1,
+    VINE = 2,
+    FIRE_WALL = 3,
+}
+
+/** One live cell of transient terrain (smoke / vine / fire wall) carried on the play snapshot. */
+export interface PlayTransientCell {
+    kind: number;
+    x: number;
+    y: number;
+    lapsRemaining: number;
+    /** The thrower's team for a vine; 0 for the other kinds. */
+    team: number;
+}
+
 export interface PlaySnapshot {
     gameId: string;
     phase: PlayPhaseValue;
@@ -215,14 +293,25 @@ export interface PlaySnapshot {
     centerObstacleHitsRight?: number;
     /** Scattered-mountain stones still standing, decoded from wire field 58: each is a 0-based cell
      * packed as x * GRID_SIZE + y (the wire adds 1 so a genuine (0,0) survives proto3's zero-default).
-     * The LAYOUT never travels — every side derives it from the game id via scatteredMountainsForSeed. */
+     * Includes seeded neutral obstacles and player-deployed barrels on every map; authoritative cells
+     * take precedence over the locally derived seed. Ownership travels separately in fields 75/76. */
     scatteredStandingCells?: number[];
     /** How many scattered stones still stand (wire field 59, 1-based). 0 here means "scattered layout
      * active, every stone destroyed"; undefined means classic mountains (older server / pre-scattered
      * persisted game) — the scene must keep the classic pair for those. */
     scatteredStandingCount?: number;
+    /** Every live smoke / vine / fire-wall cell with its remaining laps (wire fields 60/61).
+     * `transientCellsCount` undefined = older server: the scene then rebuilds these stores from the
+     * journal tail instead. */
+    transientCells?: PlayTransientCell[];
+    transientCellsCount?: number;
     /** Server-authoritative cumulative multiplier applied to morale when deriving movement steps. */
     stepsMoraleMultiplier?: number;
+    /** What "Use additional time" would add to the running turn right now, in ms (wire field 74, 1-based);
+     * 0 = the server would refuse it. Undefined from an older server. */
+    additionalTimeMs?: number;
+    artifactBarrels?: PlayArtifactBarrel[];
+    artifactBarrelsCount?: number;
     upNext: string[];
     damageStats: PlayDamageStatistic[];
     /** Each team's army totals captured at fight start (units + cumulative HP), so the fight-results
@@ -274,6 +363,24 @@ export interface PlaySnapshot {
     leftStartRosterAmounts?: number[];
     rightStartRosterCreatureIds?: number[];
     rightStartRosterAmounts?: number[];
+    /** Exit rules (play.proto 62-73). Board casualties: the share of both armies' starting XP destroyed, in basis
+     * points (5000 = the 50% line), each side's share, and the XP numbers behind it. */
+    casualtyBp?: number;
+    leftCasualtyBp?: number;
+    rightCasualtyBp?: number;
+    boardXpDestroyed?: number;
+    boardXpTotal?: number;
+    /** The 50% line was reached at some point: leaving is a Concede for the rest of the match. */
+    exitUnlocked?: boolean;
+    /** A matchmade ranked game, where leaving can cost strikes, cooldowns and calibration results. */
+    exitRulesRanked?: boolean;
+    /** Whether exits are already scored by the rules, and from when (0 = announced, no date yet). */
+    exitRulesEnforced?: boolean;
+    exitRulesEnforceAtMs?: number;
+    absenceBudgetMs?: number;
+    afkMissedTurnsLimit?: number;
+    /** How the match ended early, once it has. */
+    exit?: PlayExitResolution;
 }
 
 export interface PlayAction {
@@ -303,13 +410,40 @@ export interface PlayAction {
     hasWaterCell?: boolean;
     reason?: string;
     amount?: number;
+    // Integrity telemetry (play.proto 23-25): self-reported evidence, never used to accept or reject an action.
+    inputSource?: number;
+    pointerEvents?: number;
+    tabHidden?: boolean;
 }
 
 export interface PlayIntent {
     unitId: string;
     targetCell?: PlayCell;
     active: boolean;
+    /** See PlaySpellIntentState. Absent or 0 means this hint is a move aim. */
+    spellState?: number;
+    spellName?: string;
 }
+
+/** What an ephemeral opponent hint should change. Spell and move channels do not clear each other. */
+export type OpponentIntentView =
+    | { kind: "spell"; unitId: string; spellName: string }
+    | { kind: "clear-spell" }
+    | { kind: "move"; unitId: string; cell: PlayCell }
+    | { kind: "clear-move" };
+
+export const readOpponentIntent = (intent: PlayIntent | undefined): OpponentIntentView => {
+    if (intent?.spellState === PlaySpellIntentState.ARMED && intent.spellName && intent.unitId) {
+        return { kind: "spell", unitId: intent.unitId, spellName: intent.spellName };
+    }
+    if (intent?.spellState === PlaySpellIntentState.CLEARED) {
+        return { kind: "clear-spell" };
+    }
+    if (intent?.active && intent.targetCell && intent.unitId) {
+        return { kind: "move", unitId: intent.unitId, cell: intent.targetCell };
+    }
+    return { kind: "clear-move" };
+};
 
 export interface PlayEvent {
     sequence: number;
@@ -589,6 +723,9 @@ export const encodePlayAction = (action: PlayAction): Uint8Array => {
     writer.int32(20, action.amount);
     writer.int32(21, action.targetSide);
     writer.int32(22, action.targetOrientation);
+    writer.int32(23, action.inputSource);
+    writer.int32(24, action.pointerEvents);
+    writer.bool(25, action.tabHidden);
     return writer.finish();
 };
 
@@ -689,6 +826,10 @@ const decodePlayIntent = (bytes: Uint8Array): PlayIntent => {
             intent.targetCell = decodeCell(reader.bytesValue());
         } else if (field === 3) {
             intent.active = reader.bool();
+        } else if (field === 4) {
+            intent.spellState = reader.varintNumber();
+        } else if (field === 5) {
+            intent.spellName = reader.string();
         } else {
             reader.skip(wireType);
         }
@@ -887,11 +1028,62 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
             (snapshot.scatteredStandingCells ??= []).push(Math.max(0, reader.varintNumber() - 1));
         } else if (field === 59) {
             snapshot.scatteredStandingCount = Math.max(0, reader.varintNumber() - 1);
+        } else if (field === 60) {
+            (snapshot.transientCells ??= []).push(decodeTransientCell(reader.bytesValue()));
+        } else if (field === 61) {
+            // 1-based on the wire so an empty board (1) survives proto3's zero-default; absent = older server.
+            snapshot.transientCellsCount = Math.max(0, reader.varintNumber() - 1);
+        } else if (field === 62) {
+            snapshot.casualtyBp = reader.varintNumber();
+        } else if (field === 63) {
+            snapshot.leftCasualtyBp = reader.varintNumber();
+        } else if (field === 64) {
+            snapshot.rightCasualtyBp = reader.varintNumber();
+        } else if (field === 65) {
+            snapshot.boardXpDestroyed = reader.varintNumber();
+        } else if (field === 66) {
+            snapshot.boardXpTotal = reader.varintNumber();
+        } else if (field === 67) {
+            snapshot.exitUnlocked = reader.bool();
+        } else if (field === 68) {
+            snapshot.exitRulesRanked = reader.bool();
+        } else if (field === 69) {
+            snapshot.exitRulesEnforced = reader.bool();
+        } else if (field === 70) {
+            snapshot.exitRulesEnforceAtMs = reader.varintNumber();
+        } else if (field === 71) {
+            snapshot.absenceBudgetMs = reader.varintNumber();
+        } else if (field === 72) {
+            snapshot.afkMissedTurnsLimit = reader.varintNumber();
+        } else if (field === 73) {
+            snapshot.exit = decodeExitResolution(reader.bytesValue());
+        } else if (field === 74) {
+            // 1-based on the wire so "refused" (1) survives proto3's zero-default; absent = older server.
+            snapshot.additionalTimeMs = Math.max(0, reader.varintNumber() - 1);
+        } else if (field === 75) {
+            (snapshot.artifactBarrels ??= []).push(decodeArtifactBarrel(reader.bytesValue()));
+        } else if (field === 76) {
+            snapshot.artifactBarrelsCount = Math.max(0, reader.varintNumber() - 1);
+            snapshot.artifactBarrels ??= [];
         } else {
             reader.skip(wireType);
         }
     }
     return snapshot;
+};
+
+const decodeArtifactBarrel = (bytes: Uint8Array): PlayArtifactBarrel => {
+    const reader = new ProtoReader(bytes);
+    const barrel: PlayArtifactBarrel = { team: 0, index: 0, cell: { x: 0, y: 0 } };
+    while (!reader.done()) {
+        const tag = reader.varintNumber();
+        const field = tag >>> 3;
+        if (field === 1) barrel.team = reader.varintNumber();
+        else if (field === 2) barrel.index = Math.max(0, reader.varintNumber() - 1);
+        else if (field === 3) barrel.cell = decodeCell(reader.bytesValue());
+        else reader.skip(tag & 7);
+    }
+    return barrel;
 };
 
 const decodeUnitState = (bytes: Uint8Array): PlayUnitState => {
@@ -1066,11 +1258,86 @@ const decodePlayerState = (bytes: Uint8Array): PlayPlayerState => {
             player.aiControlled = reader.bool();
         } else if (field === 5) {
             player.lastSeenMs = reader.varintNumber();
+        } else if (field === 6) {
+            player.aiTakeoverAtMs = reader.varintNumber();
+        } else if (field === 7) {
+            player.forfeitAtMs = reader.varintNumber();
+        } else if (field === 8) {
+            player.absenceUsedMs = reader.varintNumber();
+        } else if (field === 9) {
+            player.consecutiveMissedTurns = reader.varintNumber();
+        } else if (field === 10) {
+            player.calibrating = reader.bool();
         } else {
             reader.skip(wireType);
         }
     }
     return player;
+};
+
+export const decodeExitResolution = (bytes: Uint8Array): PlayExitResolution => {
+    const reader = new ProtoReader(bytes);
+    const exit: PlayExitResolution = {
+        kind: "",
+        cause: "",
+        leaverPlayerId: "",
+        scored: false,
+        unscoredReason: "",
+        boardBp: 0,
+        phase: "",
+        lap: 0,
+        enforced: false,
+        ranked: false,
+    };
+    while (!reader.done()) {
+        const { field, wireType } = reader.tag();
+        if (field === 1) {
+            exit.kind = reader.string();
+        } else if (field === 2) {
+            exit.cause = reader.string();
+        } else if (field === 3) {
+            exit.leaverPlayerId = reader.string();
+        } else if (field === 4) {
+            exit.scored = reader.bool();
+        } else if (field === 5) {
+            exit.unscoredReason = reader.string();
+        } else if (field === 6) {
+            exit.boardBp = reader.varintNumber();
+        } else if (field === 7) {
+            exit.phase = reader.string();
+        } else if (field === 8) {
+            exit.lap = reader.varintNumber();
+        } else if (field === 9) {
+            exit.enforced = reader.bool();
+        } else if (field === 10) {
+            exit.ranked = reader.bool();
+        } else {
+            reader.skip(wireType);
+        }
+    }
+    return exit;
+};
+
+const decodeTransientCell = (bytes: Uint8Array): PlayTransientCell => {
+    const reader = new ProtoReader(bytes);
+    const cell: PlayTransientCell = { kind: 0, x: 0, y: 0, lapsRemaining: 0, team: 0 };
+    while (!reader.done()) {
+        const { field, wireType } = reader.tag();
+        if (field === 1) {
+            cell.kind = reader.varintNumber();
+        } else if (field === 2) {
+            cell.x = reader.varintNumber();
+        } else if (field === 3) {
+            cell.y = reader.varintNumber();
+        } else if (field === 4) {
+            cell.lapsRemaining = reader.varintNumber();
+        } else if (field === 5) {
+            cell.team = reader.varintNumber();
+        } else {
+            reader.skip(wireType);
+        }
+    }
+    return cell;
 };
 
 const decodeDamageStatistic = (bytes: Uint8Array): PlayDamageStatistic => {

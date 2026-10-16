@@ -15,6 +15,10 @@ import {
     PickPairRequest,
     PickPhaseVals,
     TeamVals,
+    createTier2ArtifactDecisionContext,
+    draftCreatureCoherenceAffinity,
+    resolveSetupPolicy,
+    tier1ArtifactFitScoreV4,
     type TeamType,
 } from "@heroesofcrypto/common";
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -301,6 +305,8 @@ const buildDraftChoices = (event: IPickPhaseEventData, failedChoiceIds: Set<stri
     const unavailable = new Set([...event.b, ...ownPicked, ...knownOpponentPicked]);
     const ownRangedCount = rangedCreatureCount(ownPicked);
     const choices: DraftChoice[] = [];
+    const tier1ArtifactId = event.art?.find(([tier]) => tier === 1)?.[1];
+    const tier2ArtifactId = event.art?.find(([tier]) => tier === 2)?.[1];
 
     if (event.pp === PickPhaseVals.DOCTRINE) {
         // The AI takes the Scout doctrine (3 reveals, 6 upgrade points) by default.
@@ -321,7 +327,7 @@ const buildDraftChoices = (event: IPickPhaseEventData, failedChoiceIds: Set<stri
     }
 
     if (event.pp === PickPhaseVals.INITIAL_PICK) {
-        // Each bundle is [l1Creature, l2Creature, tier1ArtifactId]; the AI scores by the two creatures.
+        // Bundles include an artifact; its beneficiaries are the actual two creatures in this offer.
         for (const [bundleIndex, bundle] of event.ip.entries()) {
             const choiceId = `pair:${bundleIndex}`;
             if (failedChoiceIds.has(choiceId)) {
@@ -329,7 +335,11 @@ const buildDraftChoices = (event: IPickPhaseEventData, failedChoiceIds: Set<stri
             }
             const creaturePair: [number, number] = [bundle[0], bundle[1]];
             const baseScore = creaturePair.reduce((total, creatureId) => total + scoreCreature(creatureId, "pick"), 0);
-            const score = balanceDraftPickScore(baseScore, ownRangedCount, creaturePair);
+            const artifact = Artifact.getArtifactProperties(Artifact.ArtifactTier.TIER_1, bundle[2]);
+            const score =
+                balanceDraftPickScore(baseScore, ownRangedCount, creaturePair) +
+                tier1ArtifactFitScoreV4(bundle[2], creaturePair, 50) -
+                50;
             choices.push({
                 label: labels[choices.length] ?? String(choices.length + 1),
                 index: choices.length + 1,
@@ -337,7 +347,7 @@ const buildDraftChoices = (event: IPickPhaseEventData, failedChoiceIds: Set<stri
                 pairIndex: bundleIndex,
                 pair: creaturePair,
                 score,
-                summary: `Pick bundle ${bundleIndex + 1}: ${creaturePair.map(creatureName).join(" + ")}`,
+                summary: `Pick bundle ${bundleIndex + 1}: ${creaturePair.map(creatureName).join(" + ")}; ${artifact.name}: ${Artifact.formatArtifactDescription(artifact)}`,
                 tags: creaturePair.flatMap(choiceTags),
             });
         }
@@ -345,30 +355,31 @@ const buildDraftChoices = (event: IPickPhaseEventData, failedChoiceIds: Set<stri
     }
 
     if (event.pp === PickPhaseVals.ARTIFACT_1 || event.pp === PickPhaseVals.ARTIFACT_2) {
-        // The AI picks one strong, generic artifact of the phase's tier. Tier 1: Veteran Helm (+5% atk/def).
-        // Tier 2 is drafted from a random 3-of-12 offer, so the AI must choose within its offered set —
-        // preferring Warlord's Edge (+15% atk) when offered, else the first offered artifact.
         const tier = event.pp === PickPhaseVals.ARTIFACT_1 ? 1 : 2;
-        const tier2Offered = event.t2 ?? [];
-        let artifactId: number;
-        if (tier === 1) {
-            artifactId = Artifact.Tier1Artifact.VETERAN_HELM;
-        } else if (tier2Offered.includes(Artifact.Tier2Artifact.WARLORDS_EDGE)) {
-            artifactId = Artifact.Tier2Artifact.WARLORDS_EDGE;
-        } else {
-            artifactId = tier2Offered[0] ?? Artifact.Tier2Artifact.WARLORDS_EDGE;
-        }
-        const props = Artifact.getArtifactProperties(tier as Artifact.ArtifactTier, artifactId);
-        const choiceId = `artifact:${tier}:${artifactId}`;
-        if (!failedChoiceIds.has(choiceId)) {
+        const live = new Set(Artifact.TIER2_ARTIFACT_LIST.map(({ id }) => id as number));
+        const remaining =
+            tier === 1
+                ? [Artifact.Tier1Artifact.VETERAN_HELM]
+                : [...new Set(event.t2 ?? [])].filter((id) => live.has(id) && !failedChoiceIds.has(`artifact:2:${id}`));
+        const context = createTier2ArtifactDecisionContext({
+            publicOpponentCreatureIds: knownOpponentPicked,
+            ownArtifactIds: (event.art ?? []).map(([, id]) => id),
+            ...(event.pk === undefined ? {} : { ownDoctrine: event.pk }),
+        });
+        const policy = resolveSetupPolicy("artifact-fit-v5:conditional-v1:sniper+t2a19");
+        while (remaining.length) {
+            const artifactId = tier === 1 ? remaining[0] : policy.pickArtifactT2(remaining, ownPicked, context);
+            remaining.splice(remaining.indexOf(artifactId), 1);
+            const props = Artifact.getArtifactProperties(tier as Artifact.ArtifactTier, artifactId);
+            if (failedChoiceIds.has(`artifact:${tier}:${artifactId}`)) continue;
             choices.push({
-                label: labels[0] ?? "1",
-                index: 1,
+                label: labels[choices.length] ?? String(choices.length + 1),
+                index: choices.length + 1,
                 type: "artifact",
                 artifactId,
                 artifactTier: tier,
-                score: 1,
-                summary: `Pick Tier ${tier} artifact: ${props.name}`,
+                score: 100 - choices.length,
+                summary: `Pick Tier ${tier} artifact: ${props.name}; ${Artifact.formatArtifactDescription(props)}`,
                 tags: ["artifact"],
             });
         }
@@ -400,12 +411,21 @@ const buildDraftChoices = (event: IPickPhaseEventData, failedChoiceIds: Set<stri
         }
 
         const baseScore = scoreCreature(creatureId, isBan ? "ban" : "pick");
+        const artifactFit =
+            draftCreatureCoherenceAffinity(creatureId, {
+                ownCreatureIds: ownPicked,
+                tier1ArtifactId,
+                tier2ArtifactId,
+                artifactFitVersion: 5,
+            }) - draftCreatureCoherenceAffinity(creatureId, { ownCreatureIds: ownPicked });
         choices.push({
             label: labels[choices.length] ?? String(choices.length + 1),
             index: choices.length + 1,
             type: isBan ? "ban" : "pick",
             creatureId,
-            score: isPick ? balanceDraftPickScore(baseScore, ownRangedCount, [creatureId]) : baseScore,
+            score: isPick
+                ? balanceDraftPickScore(baseScore, ownRangedCount, [creatureId]) + 35 * artifactFit
+                : baseScore,
             summary: `${isBan ? "Ban" : "Pick"} ${creatureName(creatureId)}`,
             tags: choiceTags(creatureId),
         });
@@ -521,6 +541,7 @@ const buildDraftPrompt = (
         `Balanced roster rule: do not finish with more than ${MAX_MODEL_RANGED_UNITS} ranged units. Once you have 2-3 ranged units, prioritize durable frontline, caster/support, tempo, or faction synergy unless Tsar Cannon/Gargantuan is still the best legal secure-or-deny action.`,
         "Critical priority: secure Tsar Cannon and Gargantuan when legal; if you cannot secure them, ban them or ensure they stay banned.",
         "Prefer ranged pressure, Double Shot, Through Shot, Area Throw, Large Caliber, high damage, and strong level-4 stacks.",
+        "Match artifacts to their beneficiaries: Quiver needs shooters and spare ammunition; initial faction luck and Cursed Ward affect its chance; rings need damaging spells, Chain Lightning, Fire Breath or Fire Shield; a melee unit with support spells still deals physical melee damage; Tome strengthens castable buffs, not healing or resurrection. Price Gravechain's lost movement and Last Fuse's need for enemy contact. Enemy scouting is partial; do not assume hidden units match a revealed one.",
         `Your picked creatures: ${event.p.filter(normalizeVisibleCreature).map(creatureName).join(", ") || "none"} (${rangedCreatureCount(event.p.filter(normalizeVisibleCreature))}/${MAX_MODEL_RANGED_UNITS} ranged).`,
         `Known opponent creatures: ${event.op.filter(normalizeVisibleCreature).map(creatureName).join(", ") || "hidden/none"}.`,
         `Banned creatures: ${event.b.map(creatureName).join(", ") || "none"}.`,

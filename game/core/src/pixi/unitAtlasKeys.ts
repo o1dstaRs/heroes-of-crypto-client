@@ -1,10 +1,28 @@
-import { animationAtlases } from "../generated/animation_atlases";
+import { animationAtlases as generatedAnimationAtlases } from "../generated/animation_atlases";
+import { animationAtlases as levelOneAnimationAtlases } from "../animations/levelOneAtlases";
+const animationAtlases = Object.fromEntries(
+    [...new Set([...Object.keys(generatedAnimationAtlases), ...Object.keys(levelOneAnimationAtlases)])].map((name) => [
+        name,
+        {
+            ...(generatedAnimationAtlases as AnimationAtlasIndex)[name],
+            ...(levelOneAnimationAtlases as AnimationAtlasIndex)[name],
+        },
+    ]),
+);
 
 type AnimationAtlasIndex = Readonly<Record<string, Readonly<Record<string, unknown>>>>;
 
 // The generated atlas metadata also carries a small draft UI animation. It shares the same file
 // shape as creature atlases but must remain a normal React-owned asset, including in production.
-const NON_UNIT_ATLAS_NAMES = new Set(["Pick Ban Slash"]);
+// Entries of the generated atlas index that are not creatures on the board: draft UI art, battlefield
+// VFX, and the React left-sidebar portrait. They must never be routed as unit board/animation assets.
+export const NON_UNIT_ATLAS_NAMES = new Set([
+    "Pick Ban Slash",
+    "Lava Chasm Glow Level",
+    "Magic Aim Dual Helix",
+    "Peasant Left Screen",
+    ...Object.keys(animationAtlases).filter((name) => /^(Fire Pit|Lava Chasm)/.test(name)),
+]);
 
 /**
  * Every per-unit animation atlas image key BASE (`<unit>_<state>_atlas`), derived from the generated
@@ -13,7 +31,7 @@ const NON_UNIT_ATLAS_NAMES = new Set(["Pick Ban Slash"]);
 export function buildUnitAnimationAtlasKeyClassifier(atlases: AnimationAtlasIndex): (key: string) => boolean {
     const bases = new Set<string>();
     for (const [unitName, states] of Object.entries(atlases)) {
-        if (NON_UNIT_ATLAS_NAMES.has(unitName)) continue;
+        if (NON_UNIT_ATLAS_NAMES.has(unitName) || /^(Fire Pit|Lava Chasm)/.test(unitName)) continue;
         const unitBase = unitName.toLowerCase().replace(/\s+/g, "_");
         for (const state of Object.keys(states)) {
             bases.add(`${unitBase}_${state.toLowerCase()}_atlas`);
@@ -38,7 +56,9 @@ export function buildUnitAnimationAtlasKeyClassifier(atlases: AnimationAtlasInde
 const generatedUnitAnimationAtlasKey = buildUnitAnimationAtlasKeyClassifier(animationAtlases);
 
 const generatedUnitCardImageKeys = new Set(
-    Object.keys(animationAtlases).map((unitName) => `${unitName.toLowerCase().replace(/\s+/g, "_")}_512`),
+    Object.keys(animationAtlases)
+        .filter((name) => !NON_UNIT_ATLAS_NAMES.has(name) && !/^(Fire Pit|Lava Chasm)/.test(name))
+        .map((unitName) => `${unitName.toLowerCase().replace(/\s+/g, "_")}_512`),
 );
 const generatedUnitBoardImageKeys = new Set(
     Object.keys(animationAtlases)
@@ -90,6 +110,7 @@ export const isUnitBoardImageKey = (key: string): boolean =>
 // Hand-authored unit strips that intentionally live outside generated/animation_atlases.ts. Keep this
 // list beside the generated classifier so bundle routing does not mistake them for terrain/VFX.
 const specialUnitAnimationAtlasBases = new Set([
+    "peasant_idle_red_atlas",
     "ash_moth_walk_left_atlas",
     "orc_idle_axe_twirl_atlas",
     "orc_idle_battle_cry_atlas",
@@ -98,4 +119,7 @@ const specialUnitAnimationAtlasBases = new Set([
 ]);
 
 export const isUnitAnimationAtlasKey = (key: string): boolean =>
-    generatedUnitAnimationAtlasKey(key) || specialUnitAnimationAtlasBases.has(key.replace(/_(?:quarter|half)$/, ""));
+    /^arbalester_idle_page_\d{2}_atlas$/.test(key) ||
+    (key !== "peasant_left_screen_idle_atlas" &&
+        (generatedUnitAnimationAtlasKey(key) ||
+            specialUnitAnimationAtlasBases.has(key.replace(/_(?:quarter|half)$/, ""))));

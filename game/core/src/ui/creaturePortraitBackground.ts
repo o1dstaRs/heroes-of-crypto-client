@@ -49,3 +49,14 @@ export const resolveCreaturePortraitBackground = (creatureId: number): string | 
     const key = creaturePortraitBackgroundKey(creatureId);
     return key ? images[key] : undefined;
 };
+
+const FACTION_PORTRAIT_BACKGROUND_KEYS = [
+    "chaos_portrait_bg_obsidian_fissure_corner_fire_v1",
+    "life_portrait_bg_golden_dawn_four_corner_haze_v1",
+    "might_portrait_bg_blood_claw_strong_red_corners_v1",
+    "nature_portrait_bg_xray_leaf_corner_glow_v2_soft",
+] as const satisfies readonly CreaturePortraitBackgroundKey[];
+
+/** The four faction plates. Every left-sidebar card shares one of these. */
+export const factionPortraitBackgroundSources = (): string[] =>
+    FACTION_PORTRAIT_BACKGROUND_KEYS.map((key) => images[key]);

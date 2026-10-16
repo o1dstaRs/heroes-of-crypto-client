@@ -344,7 +344,7 @@ export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({
 
             {tooPoor && !hideCreate ? (
                 <Typography level="body-xs" sx={{ color: hocColors.danger }}>
-                    {tf("Opening a lobby costs {price} G — your purse holds {purse} G", { price, purse: purse ?? 0 })}
+                    {tf("Opening a lobby costs {price} G — you have {purse} G available", { price, purse: purse ?? 0 })}
                 </Typography>
             ) : null}
 

@@ -7,19 +7,28 @@
  * music's: turning the theme down (or off) leaves the chips exactly where the player put them.
  */
 
-import { effectsGain } from "../../settings/audioLevels";
+import { effectsGain, subscribeAudioLevels } from "../../settings/audioLevels";
 
 let context: AudioContext | null = null;
+let bus: GainNode | null = null;
 let noiseBuffer: AudioBuffer | null = null;
 
 const audioContext = (): AudioContext | null => {
-    if (typeof window === "undefined") {
+    if (typeof window === "undefined" || effectsGain() <= 0) {
         return null;
     }
     if (!context) {
         try {
             context = new AudioContext();
+            bus = context.createGain();
+            bus.gain.value = effectsGain();
+            bus.connect(context.destination);
+            subscribeAudioLevels(() => {
+                if (context && bus) bus.gain.setTargetAtTime(effectsGain(), context.currentTime, 0.01);
+            });
         } catch {
+            context = null;
+            bus = null;
             return null;
         }
     }
@@ -62,13 +71,13 @@ const clack = (ctx: AudioContext, at: number, pitch: number, gainScale: number):
     osc.frequency.exponentialRampToValueAtTime(140 * pitch, t + 0.07);
 
     const gain = ctx.createGain();
-    const peak = Math.max(0.0001, effectsGain() * gainScale);
+    const peak = gainScale;
     gain.gain.setValueAtTime(peak, t);
     gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.11);
 
     noise.connect(band).connect(gain);
     osc.connect(gain);
-    gain.connect(ctx.destination);
+    gain.connect(bus ?? ctx.destination);
     noise.start(t);
     osc.start(t);
     osc.stop(t + 0.12);

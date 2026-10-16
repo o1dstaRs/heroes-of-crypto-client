@@ -1,9 +1,12 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+    buildOwnRankedStandingUrl,
     buildPublicRankedProfileUrl,
+    fetchOwnRankedPlayerId,
     isPublicRankedPlayerId,
     normalizePublicRankedProfile,
+    normalizeReputationBadge,
     publicRankedProfileFallbackFromSearchParams,
     rankedExitRatePct,
 } from "./ranked-profile-client";
@@ -94,6 +97,7 @@ describe("public ranked profile normalization", () => {
                 {
                     seasonSequence: 3,
                     seasonName: "First Flame",
+                    goldPlace: 2,
                     currency: { name: "Crowns", symbol: "CR", iconSvg: "<svg></svg>" },
                 },
                 { seasonSequence: 2, seasonName: "Legacy" },
@@ -111,6 +115,7 @@ describe("public ranked profile normalization", () => {
             iconSvg: "<svg></svg>",
         });
         expect(profile?.seasonHistory[1].currency).toEqual({ name: "Gold", symbol: "G", iconSvg: "" });
+        expect(profile?.seasonHistory.map((entry) => entry.goldPlace)).toEqual([2, 0]);
     });
 
     test("normalizes and orders public prediction history by placement date", () => {
@@ -189,6 +194,54 @@ describe("public ranked profile normalization", () => {
     });
 });
 
+describe("reputation badge", () => {
+    test("only the top band's badge is kept; anything else, or nothing, reads as no badge", () => {
+        expect(normalizePublicRankedProfile({ playerId: PLAYER_ID, reputationBadge: "honorable" })?.reputationBadge).toBe(
+            "honorable",
+        );
+        for (const reputationBadge of [null, undefined, "good", "Honorable", "restricted", true, 80, { band: "honorable" }]) {
+            expect(normalizePublicRankedProfile({ playerId: PLAYER_ID, reputationBadge })?.reputationBadge).toBeNull();
+        }
+        expect(normalizePublicRankedProfile({ playerId: PLAYER_ID })?.reputationBadge).toBeNull();
+        expect(normalizeReputationBadge("honorable")).toBe("honorable");
+        expect(normalizeReputationBadge("probation")).toBeNull();
+    });
+
+    test("a leaderboard-summary fallback never claims a badge it wasn't sent", () => {
+        const fallback = publicRankedProfileFallbackFromSearchParams(
+            new URLSearchParams({ playerId: PLAYER_ID, username: "Artemis", reputationBadge: "honorable" }),
+        );
+        expect(fallback?.reputationBadge).toBeNull();
+    });
+});
+
+describe("exit rules in the profile history", () => {
+    test("recent games keep abandon, unscored and void reasons with their exit", () => {
+        const profile = normalizePublicRankedProfile({
+            playerId: PLAYER_ID,
+            recentGames: [
+                {
+                    gameId: "abandoned",
+                    finishedTime: 300,
+                    result: "loss",
+                    reason: "abandon",
+                    exit: { kind: "abandon", cause: "absence", leaverPlayerId: PLAYER_ID, scored: true, boardBp: 3100, phase: "fight", lap: 4, enforced: true },
+                },
+                { gameId: "unscored", finishedTime: 200, result: "none", reason: "unscored", exit: null },
+                { gameId: "voided", finishedTime: 100, result: "none", reason: "void", exit: "garbage" },
+            ],
+        });
+        expect(profile?.recentGames.map((match) => [match.gameId, match.result, match.reason])).toEqual([
+            ["abandoned", "loss", "abandon"],
+            ["unscored", "none", "unscored"],
+            ["voided", "none", "void"],
+        ]);
+        expect(profile?.recentGames[0].exit).toMatchObject({ kind: "abandon", cause: "absence", boardBp: 3100 });
+        expect(profile?.recentGames[1].exit).toBeNull();
+        expect(profile?.recentGames[2].exit).toBeNull();
+    });
+});
+
 describe("gold history normalization", () => {
     const withHistory = (goldHistory: unknown) =>
         normalizePublicRankedProfile({ playerId: PLAYER_ID, username: "Artemis", goldHistory }).goldHistory;
@@ -243,6 +296,48 @@ describe("gold history normalization", () => {
     test("a missing or malformed history is an empty list, never a crash", () => {
         expect(withHistory(undefined)).toEqual([]);
         expect(withHistory("nonsense")).toEqual([]);
+    });
+});
+
+describe("own ranked player id", () => {
+    test("builds the production and local own-standing routes", () => {
+        expect(buildOwnRankedStandingUrl({ baseUrl: "https://mm.example/", production: true })).toBe(
+            "https://mm.example/v1/ranked-standing",
+        );
+        expect(buildOwnRankedStandingUrl({ baseUrl: "http://localhost:3001", production: false })).toBe(
+            "http://localhost:3001/v1/mm/ranked-standing",
+        );
+    });
+
+    test("reads the id from the signed-in standing and never guesses one", async () => {
+        const realFetch = globalThis.fetch;
+        const calls: { url: string; authorization: string | null }[] = [];
+        const respondWith = (status: number, body: unknown): void => {
+            globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+                calls.push({ url: String(input), authorization: new Headers(init?.headers).get("Authorization") });
+                return new Response(JSON.stringify(body), { status });
+            }) as typeof fetch;
+        };
+        const options = { baseUrl: "https://mm.example", production: true };
+        try {
+            respondWith(200, { playerId: PLAYER_ID, state: "placed" });
+            expect(await fetchOwnRankedPlayerId("Bearer token", options)).toBe(PLAYER_ID);
+            expect(calls[0]).toEqual({ url: "https://mm.example/v1/ranked-standing", authorization: "Bearer token" });
+
+            // A server from before the field, a game id in its place, and a rejected token all read as unknown.
+            respondWith(200, { state: "placed" });
+            expect(await fetchOwnRankedPlayerId("Bearer token", options)).toBeNull();
+            respondWith(200, { playerId: "../../not-a-player" });
+            expect(await fetchOwnRankedPlayerId("Bearer token", options)).toBeNull();
+            respondWith(401, {});
+            expect(await fetchOwnRankedPlayerId("Bearer token", options)).toBeNull();
+
+            // Signed out: no request at all.
+            expect(await fetchOwnRankedPlayerId(null, options)).toBeNull();
+            expect(calls).toHaveLength(4);
+        } finally {
+            globalThis.fetch = realFetch;
+        }
     });
 });
 

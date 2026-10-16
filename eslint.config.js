@@ -40,12 +40,13 @@ const FOOTPRINT_GEOMETRY_RESTRICTIONS = [
 
 module.exports = [
     {
-        files: ["game/**/src/**/*.{ts,tsx}"],
+        files: ["game/**/src/**/*.{ts,tsx}", "scripts/**/*.ts", "site/scripts/astro_build.ts"],
         ignores: [
             "game/engine/**/*.ts",
             "docs/**/*.js",
             "game/heroes-of-crypto-common/**/*.{ts,js}",
             "game/**/dist/**",
+            "game/**/tmp/**",
             "game/core/src/generated/**",
             "node_modules/**", // Added to ignore node_modules contents
         ],
@@ -60,7 +61,6 @@ module.exports = [
             parserOptions: {
                 ecmaVersion: 12,
                 sourceType: "module",
-                project: "./tsconfig.json", // Adjust this path if necessary
             },
             globals: {
                 ...globals.browser,

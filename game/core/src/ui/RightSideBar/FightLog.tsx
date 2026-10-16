@@ -3,8 +3,13 @@ import Box from "@mui/joy/Box";
 import Typography from "@mui/joy/Typography";
 import { keyframes } from "@emotion/react";
 
+import { TeamVals } from "@heroesofcrypto/common";
+
+import { drawnSideOf } from "../../pixi/boardMirror";
+import { personalArmyCssColor } from "../../scenes/personalArmyTint";
+import { t, useTranslation } from "../../i18n/i18n";
 import { fightLogClipboardText, groupFightLogEntries } from "./fightLogGrouping";
-import { useTranslation } from "../../i18n/i18n";
+import { fightLogMarkTeam, fightLogSegments } from "./fightLogTeamNames";
 import { hocColors, hocDisplayFontFamily } from "../hocTheme";
 import { ImageScrollbar } from "./ImageScrollbar";
 import { FIGHT_LOG_SCROLLBAR_LANE_WIDTH_PX } from "./fightLogLayout";
@@ -58,6 +63,37 @@ const MAX_ENTRIES = 5000;
 
 const splitLines = (text: string): string[] => (text ? text.split("\n").filter((l) => l.length > 0) : []);
 const formatFightLogLine = (text: string): string => text.replace(/\bto\s*\(/gi, "TO (");
+
+/**
+ * Paint the actor's name in its army's colour and drop the bead that used to carry it. The emitted line
+ * and the clipboard export are untouched — see fightLogTeamNames.
+ *
+ * The name still announces the side the army is drawn on. On a mirrored board that is the other seat
+ * from the one the mark names, which is the same rule the old bead used.
+ */
+const renderFightLogMarkers = (text: string): React.ReactNode =>
+    fightLogSegments(text).map((segment, index) => {
+        if (!segment.color) return segment.text;
+        // A player who chose a personal army colour sees the name in THAT colour, exactly as the board,
+        // the stack flags and the stat pips paint the same army. Without a choice this returns undefined
+        // and the identity colour stands.
+        const team = segment.mark ? fightLogMarkTeam(segment.mark) : undefined;
+        const personal = team === undefined ? undefined : personalArmyCssColor(team);
+        const drawnSide = team === undefined ? undefined : drawnSideOf(team);
+        return (
+            <span
+                key={index}
+                style={{ color: personal ?? segment.color, fontWeight: 700 }}
+                aria-label={
+                    drawnSide === undefined
+                        ? undefined
+                        : `${segment.text}, ${drawnSide === TeamVals.LEFT ? t("Left side") : t("Right side")}`
+                }
+            >
+                {segment.text}
+            </span>
+        );
+    });
 
 export const FightLog = ({ text }: { text: string }) => {
     const [entries, setEntries] = useState<ILogEntry[]>([]);
@@ -273,41 +309,27 @@ export const FightLog = ({ text }: { text: string }) => {
                                 {group.headerEntry && (
                                     <Box
                                         sx={{
-                                            position: "relative",
-                                            mt: groupIdx === 0 ? 0 : "5px",
-                                            mx: "5px",
-                                            px: "10px",
-                                            pr: "28px",
-                                            py: "5px",
+                                            mt: groupIdx === 0 ? 0 : "6px",
+                                            mx: "8px",
+                                            px: "2px",
+                                            pt: "2px",
+                                            pb: "3px",
                                             fontSize: "10.5px",
-                                            fontWeight: 700,
+                                            fontWeight: 600,
                                             lineHeight: 1.3,
-                                            letterSpacing: "0.05em",
-                                            color: "#d9b36c",
+                                            letterSpacing: "0.04em",
+                                            color: "rgba(217, 179, 108, 0.82)",
                                             whiteSpace: "normal",
                                             wordBreak: "break-word",
-                                            background:
-                                                "repeating-linear-gradient(135deg, rgba(255,255,255,.012) 0 1px, transparent 1px 7px), linear-gradient(180deg, rgba(31,29,25,.94), rgba(10,9,8,.98))",
-                                            border: "1px solid rgba(139, 98, 56, .72)",
-                                            borderRadius: "3px",
-                                            boxShadow:
-                                                "inset 0 1px 0 rgba(220,177,88,.09), inset 0 0 12px rgba(0,0,0,.7), 0 1px 3px rgba(0,0,0,.62)",
-                                            "&::after": {
-                                                content: '"⌄"',
-                                                position: "absolute",
-                                                right: "10px",
-                                                top: "50%",
-                                                transform: "translateY(-58%)",
-                                                fontSize: "13px",
-                                                fontWeight: 400,
-                                                color: "rgba(205,151,67,.72)",
-                                            },
-                                            // The plaque keeps its carved shadow after arriving; the regular ember
-                                            // animation replaces box-shadow, so headers use only the drop-in motion.
+                                            background: "none",
+                                            border: "none",
+                                            borderBottom: "1px solid rgba(186, 148, 90, 0.22)",
+                                            borderRadius: 0,
+                                            boxShadow: "none",
                                             animation: `${rowAppear} 280ms cubic-bezier(0.22, 1, 0.36, 1)`,
                                         }}
                                     >
-                                        {group.headerLabel}
+                                        {renderFightLogMarkers(group.headerLabel ?? "")}
                                     </Box>
                                 )}
                                 {group.entries.map((entry) => (
@@ -315,9 +337,8 @@ export const FightLog = ({ text }: { text: string }) => {
                                         key={entry.id}
                                         sx={{
                                             position: "relative",
-                                            // Turn rows sit indented under their header, hanging off a faint
-                                            // sequence of nodes; the pre-turn block (no header) keeps the flush layout.
-                                            pl: group.headerEntry ? "23px" : "10px",
+                                            // Keep events indented beneath their turn header without decorative bullets.
+                                            pl: "10px",
                                             ml: group.headerEntry ? "14px" : 0,
                                             pr: "10px",
                                             py: "3px",
@@ -327,24 +348,6 @@ export const FightLog = ({ text }: { text: string }) => {
                                             color: "rgba(220, 177, 100, .94)",
                                             whiteSpace: "normal",
                                             wordBreak: "break-word",
-                                            ...(group.headerEntry
-                                                ? {
-                                                      "&::before": {
-                                                          content: '""',
-                                                          position: "absolute",
-                                                          // Keep the turn node attached to its event and clear of leading icons.
-                                                          left: "10px",
-                                                          top: "50%",
-                                                          width: "5px",
-                                                          height: "5px",
-                                                          borderRadius: "50%",
-                                                          border: "1px solid rgba(205,151,67,.92)",
-                                                          background: "#d6a44b",
-                                                          boxShadow: "none",
-                                                          transform: "translateY(-50%)",
-                                                      },
-                                                  }
-                                                : {}),
                                             // The very newest line glows a touch hotter than the rest.
                                             ...(entry.id === newestEntryId
                                                 ? {
@@ -357,7 +360,7 @@ export const FightLog = ({ text }: { text: string }) => {
                                             animation: `${rowAppear} 280ms cubic-bezier(0.22, 1, 0.36, 1), ${emberFlash} 1200ms ease-out`,
                                         }}
                                     >
-                                        {formatFightLogLine(entry.text)}
+                                        {renderFightLogMarkers(formatFightLogLine(entry.text))}
                                     </Box>
                                 ))}
                             </Box>

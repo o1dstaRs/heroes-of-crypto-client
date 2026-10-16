@@ -307,6 +307,7 @@ export class UnitChip extends Container {
             this.portraitContainer.addChild(this.portraitMask);
             this.portraitContainer.mask = this.portraitMask;
         }
+        this.updatePortraitReadiness();
 
         // The same restrained neutral frame used by available draft cards. It lives outside the masked
         // artwork so the complete rounded stroke stays crisp at every responsive size.
@@ -360,18 +361,72 @@ export class UnitChip extends Container {
     public setTicker(ticker: Ticker): void {
         this.ticker = ticker;
     }
-    /** Replace the temporary roster fallback as soon as its approved portrait finishes loading. */
+    /** Restore hover details when the shared pictograms finish their deferred texture load. */
+    public setTypeIcons(attack: Texture, movement: Texture, movementScale = 1): void {
+        if (this.destroyed || attack.destroyed || movement.destroyed) return;
+        if (attack === Texture.EMPTY || movement === Texture.EMPTY) return;
+        if (!this.attackTypeIcon || !this.movementTypeIcon) {
+            this.attackTypeIcon = new Sprite(attack);
+            this.movementTypeIcon = new Sprite(movement);
+            this.attackTypeIcon.anchor.set(0.5);
+            this.movementTypeIcon.anchor.set(0.5);
+            this.typeOverlay.addChild(this.attackTypeIcon, this.movementTypeIcon);
+        } else {
+            if (
+                this.attackTypeIcon.texture === attack &&
+                this.movementTypeIcon.texture === movement &&
+                this.movementTypeIconScale === movementScale
+            ) {
+                return;
+            }
+            this.attackTypeIcon.texture = attack;
+            this.movementTypeIcon.texture = movement;
+        }
+        this.movementTypeIconScale = movementScale;
+        if (this.lastCardWidth > 0 && this.lastCardHeight > 0) {
+            this.layoutTypeOverlay(this.lastCardWidth, this.lastCardHeight);
+        }
+        this.updateHighlight();
+    }
+    /** Keep the card's neutral base visible until its approved art and faction plate can paint together. */
+    private updatePortraitReadiness(): void {
+        if (!this.portraitFraming) return;
+        const ready = (texture: Texture): boolean =>
+            texture !== Texture.EMPTY && !texture.destroyed && !texture.source.destroyed;
+        const portraitReady =
+            ready(this.idleTexture) && (!this.portraitBackground || ready(this.portraitBackground.texture));
+        this.sprite.visible = portraitReady;
+        if (this.portraitBackground) this.portraitBackground.visible = portraitReady;
+        if (this.portraitBackgroundShade) this.portraitBackgroundShade.visible = portraitReady;
+    }
+    /** Stage deferred layers without revealing a creature or faction plate on its own. */
     public setPortraitTextures(texture: Texture, backgroundTexture?: Texture): void {
-        if (!this.portraitFraming || texture === Texture.EMPTY) return;
+        if (this.destroyed || this.sprite.destroyed || !this.portraitFraming) return;
+        let changed = false;
 
-        if (this.idleTexture !== texture) {
+        if (
+            texture !== Texture.EMPTY &&
+            !texture.destroyed &&
+            !texture.source.destroyed &&
+            this.idleTexture !== texture
+        ) {
             this.idleTexture = texture;
             if (!this.animationStepFn) this.sprite.texture = texture;
+            changed = true;
         }
-        if (backgroundTexture && backgroundTexture !== Texture.EMPTY && this.portraitBackground) {
+        if (
+            backgroundTexture &&
+            backgroundTexture !== Texture.EMPTY &&
+            !backgroundTexture.destroyed &&
+            !backgroundTexture.source.destroyed &&
+            this.portraitBackground &&
+            this.portraitBackground.texture !== backgroundTexture
+        ) {
             this.portraitBackground.texture = backgroundTexture;
+            changed = true;
         }
-        if (this.lastCardWidth > 0 && this.lastCardHeight > 0) {
+        this.updatePortraitReadiness();
+        if (changed && this.lastCardWidth > 0 && this.lastCardHeight > 0) {
             this.layout(this.lastCardWidth, this.lastCardHeight);
         }
     }
@@ -554,6 +609,19 @@ export class UnitChip extends Container {
         const framedX = (cardWidth * framing.offsetX) / 100;
         this.sprite.scale.x = Math.abs(this.sprite.scale.x) * (this.mirrorPortraitX ? -1 : 1);
         this.sprite.position.set(this.mirrorPortraitX ? -framedX : framedX, (cardHeight * framing.offsetY) / 100);
+    }
+    /** Replace a deferred portrait once Pixi finishes loading it, then restore its approved crop. */
+    public setPortraitTexture(texture: Texture): void {
+        if (this.portraitFraming) {
+            this.setPortraitTextures(texture);
+            return;
+        }
+        if (this.destroyed || this.sprite.destroyed || texture === Texture.EMPTY || texture.destroyed) return;
+        this.idleTexture = texture;
+        this.sprite.texture = texture;
+        if (this.lastCardWidth > 0 && this.lastCardHeight > 0) {
+            this.layout(this.lastCardWidth, this.lastCardHeight);
+        }
     }
     private layoutTypeOverlay(cardWidth: number, cardHeight: number): void {
         if (!this.attackTypeIcon || !this.movementTypeIcon) return;

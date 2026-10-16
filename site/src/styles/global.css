@@ -186,20 +186,19 @@ code {
     gap: 18px;
     min-height: 68px;
     padding: 10px 24px;
-    border-bottom: 1px solid rgba(220, 177, 88, 0.26);
+    border-bottom: 0;
     background:
-        linear-gradient(180deg, rgba(42, 27, 16, 0.92), rgba(7, 8, 8, 0.95)),
+        linear-gradient(180deg, rgba(42, 27, 16, 0.65), rgba(7, 8, 8, 0.65)),
         radial-gradient(circle at 50% 0, rgba(220, 177, 88, 0.12), transparent 46%);
     box-shadow:
         0 10px 30px rgba(0, 0, 0, 0.36),
         inset 0 -1px rgba(0, 0, 0, 0.72);
-    backdrop-filter: blur(18px);
 }
 
 .brand-lockup {
     display: inline-flex;
     align-items: center;
-    gap: 10px;
+    gap: 6px;
     min-width: 0;
 }
 
@@ -221,11 +220,10 @@ code {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 28px;
-    padding: 5px 8px;
-    border: 1px solid rgba(242, 199, 93, 0.28);
-    border-radius: 3px;
-    background: linear-gradient(180deg, rgba(122, 68, 5, 0.54), rgba(37, 22, 9, 0.78));
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    background: none;
     color: var(--gold);
     font-size: 0.78rem;
     font-weight: 400;
@@ -235,8 +233,6 @@ code {
 }
 
 .version-badge:hover {
-    border-color: rgba(242, 199, 93, 0.54);
-    background: rgba(242, 199, 93, 0.16);
     color: var(--ink-strong);
 }
 
@@ -260,6 +256,14 @@ code {
 
 .main-nav::-webkit-scrollbar {
     display: none;
+}
+
+@media (min-width: 1081px) {
+    .main-nav {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+    }
 }
 
 .nav-link,
@@ -324,8 +328,6 @@ code {
     align-items: center;
 }
 
-.header-start,
-.header-login-link,
 .footer-play {
     display: inline-flex;
     align-items: center;
@@ -367,7 +369,6 @@ code {
 }
 
 .header-start-secondary,
-.header-login-link,
 .footer-play-secondary {
     border: 0;
     border-radius: 0;
@@ -402,6 +403,10 @@ code {
 }
 
 .hero {
+    --hero-bottom-trim: 0px;
+    --hero-viewport-fit-trim: 0px;
+    --hero-pitch-peek-offset: 0px;
+
     position: relative;
     overflow: hidden;
     min-height: clamp(560px, calc(100svh - 120px), 740px);
@@ -414,13 +419,20 @@ code {
     inset: 0;
 }
 
+@media (min-width: 1081px) {
+    .hero {
+        /* One screen below the navigation; fit the complete composition inside it. */
+        min-height: max(616px, calc(100svh - 68px));
+        height: max(616px, calc(100svh - 68px));
+    }
+}
+
 .hero-bg {
     width: 100%;
     height: 100%;
     object-fit: cover;
     object-position: center;
-    opacity: 0.64;
-    transform: scale(1.02);
+    opacity: 1;
 }
 
 .hero-shade {
@@ -440,6 +452,15 @@ code {
     align-items: center;
     min-height: clamp(560px, calc(100svh - 120px), 740px);
     padding: 42px 0 46px;
+    transform: translateY(-5%);
+}
+
+@media (min-width: 1081px) {
+    .hero-grid {
+        min-height: 100%;
+        height: 100%;
+        transform: none;
+    }
 }
 
 .hero-content {
@@ -469,6 +490,7 @@ code {
         opacity: 0;
         transform: translateY(16px);
     }
+
     to {
         opacity: 1;
         transform: none;
@@ -532,6 +554,12 @@ code {
     height: auto;
     margin-inline: auto;
     filter: drop-shadow(0 8px 30px rgba(0, 0, 0, 0.6));
+    transform: translateY(-25%);
+}
+
+.hero-brand-block {
+    position: relative;
+    transform: translateY(-18%) scale(1.07);
 }
 
 .sr-only {
@@ -551,9 +579,10 @@ code {
     margin-inline: auto;
     margin-bottom: 26px;
     color: #fff;
-    font-size: clamp(1.3rem, 1.8vw + 0.9rem, 2.05rem);
+    font-size: clamp(1.0545rem, 1.463vw + 0.7315rem, 1.672rem);
     font-weight: 800;
     line-height: 1.13;
+    text-transform: uppercase;
     text-wrap: balance;
 }
 
@@ -1677,11 +1706,8 @@ code {
         linear-gradient(180deg, color-mix(in srgb, var(--faction) 22%, transparent), rgba(5, 6, 6, 0.2)), #090b0d;
 }
 
-.mechanic-faction-unit img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center 18%;
+/* Preserve main's composed faction portraits beneath the hero. */
+.mechanic-faction-unit .portrait {
     transform: scale(1.08);
 }
 
@@ -2012,32 +2038,33 @@ html.reveal-on .patches-section {
 }
 
 .patch-stats {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px;
-    margin: 24px 0 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 16px 0 2px;
 }
 
 .patch-stats div {
+    flex: 0 0 auto;
     min-width: 0;
-    padding: 14px 16px;
+    padding: 6px 9px;
     border: 1px solid rgba(242, 199, 93, 0.18);
-    border-radius: 8px;
+    border-radius: 6px;
     background: rgba(242, 199, 93, 0.07);
 }
 
 .patch-stats strong {
     display: block;
     color: var(--gold);
-    font-size: 1.5rem;
+    font-size: 1rem;
     line-height: 1;
 }
 
 .patch-stats span {
     display: block;
-    margin-top: 7px;
+    margin-top: 2px;
     color: rgba(251, 244, 232, 0.72);
-    font-size: 0.86rem;
+    font-size: 0.7rem;
     font-weight: 720;
 }
 
@@ -2578,8 +2605,7 @@ html.reveal-on .patches-section {
         gap: 6px;
     }
 
-    .header-start-secondary,
-    .header-login-link {
+    .header-start-secondary {
         display: none;
     }
 
@@ -2639,9 +2665,7 @@ html.reveal-on .patches-section {
     }
 
     .hero-shade {
-        background:
-            linear-gradient(180deg, rgba(5, 6, 6, 0.72) 0%, rgba(5, 6, 6, 0.64) 42%, #070808 100%),
-            linear-gradient(90deg, rgba(5, 6, 6, 0.9) 0%, rgba(5, 6, 6, 0.5) 100%);
+        background: rgba(0, 0, 0, 0.11);
     }
 
     .hero-grid {
@@ -2654,6 +2678,36 @@ html.reveal-on .patches-section {
     .hero h1,
     .hero-tagline {
         max-width: none;
+    }
+
+    .hero-brand-block {
+        transform: scale(1.07);
+    }
+
+    .hero-logo img,
+    .hero-message-block {
+        transform: none;
+    }
+
+    .hero-stats {
+        max-width: calc(100% / 1.07);
+        gap: 10px 20px;
+        margin-top: 12px;
+    }
+
+    .hero-claims {
+        width: auto;
+        margin: 0 auto;
+    }
+
+    .hero-tagline-spacer {
+        display: none;
+    }
+
+    .hero-bottom-copy {
+        position: static;
+        width: auto;
+        margin: 26px auto 0;
     }
 
     .hero-preview {
@@ -2796,14 +2850,6 @@ html.reveal-on .patches-section {
     .patch-body {
         width: 100%;
         max-width: 100%;
-    }
-
-    .patch-stats {
-        grid-template-columns: 1fr;
-    }
-
-    .patch-stats div {
-        padding: 12px 14px;
     }
 
     .release-roster-faction dl {
@@ -3089,6 +3135,11 @@ html.reveal-on .patches-section {
         padding: 11px 14px;
     }
 
+    .hero-actions .hero-play {
+        min-height: 0;
+        padding: 0;
+    }
+
     .hero-highlights {
         margin-top: 14px;
     }
@@ -3132,4 +3183,73 @@ html.reveal-on .patches-section {
         opacity: 1 !important;
         transform: none !important;
     }
+}
+
+/* ---------------------------------------------------------------------------
+   Creature portraits (CreaturePortrait.astro)
+
+   The game composes a portrait rather than storing one: faction background, a black shade, then the
+   creature art under an approved crop, scale and offsets. These rules are the CSS half of that recipe;
+   the per-creature numbers arrive inline from portrait-recipes.json.
+
+   Global, not scoped: every surface sizes .portrait from its own stylesheet, and a scoped rule could not
+   reach across the component boundary. The portrait always fills the box its parent gives it, so each
+   surface keeps its existing dimensions, radius and clip.
+   --------------------------------------------------------------------------- */
+.portrait {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+    /* The ground the art was authored against; it shows wherever a transparent cutout does not cover. */
+    background: #090806;
+    /* The layers below stack among THEMSELVES only. Without this their z-indexes join the surrounding
+       surface's stacking context, and the art (z 3) painted over a codex card's scrim (z 2) and its name
+       and stats (z 1) — the spider across "Arachna Spider" in the owner's screenshot. */
+    isolation: isolate;
+}
+
+.portrait__bg,
+.portrait__art,
+.portrait__blur {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.portrait__bg {
+    z-index: 0;
+    object-fit: cover;
+}
+
+.portrait__shade {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: #000;
+    pointer-events: none;
+}
+
+/* Only for creatures whose approved framing asks for a soft backdrop: a blown-up, blurred copy of the
+   art itself sitting behind it, so a narrow cutout does not read as pasted onto the background. */
+.portrait__blur {
+    z-index: 2;
+    object-fit: cover;
+    transform: scale(1.2);
+    filter: blur(14px) brightness(0.42) saturate(0.78);
+}
+
+.portrait__art {
+    z-index: 3;
+    object-position: center;
+    transform-origin: center;
+}
+
+/* The six creatures with no game recipe keep a plain, uncropped image. */
+.portrait__art--plain {
+    object-fit: cover;
+    object-position: center top;
 }

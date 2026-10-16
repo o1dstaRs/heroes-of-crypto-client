@@ -1,0 +1,190 @@
+import { ARTIFACT_POWER as A } from "@heroesofcrypto/common/src/artifacts/artifact_properties";
+
+import { renderNote, type NoteLanguage, type NoteSpec } from "./format";
+
+const physicalAreaAttacks = {
+    en: "Area Throw, Large Caliber, Chakram, Lightning Spin, Through Shot and the unit behind a Skewer Strike",
+    ru: "Area Throw, Large Caliber, Chakram, Lightning Spin, Through Shot и юнит за целью Skewer Strike",
+};
+
+const ARTIFACT_NOTES: Readonly<Record<string, NoteSpec>> = {
+    "Veteran Helm": {
+        en: ({ n }) =>
+            `Every unit's armor is ${n(A.VETERAN_HELM_PERCENT)}% higher for the whole fight — a defense-only artifact.`,
+        ru: ({ n }) =>
+            `Броня каждого юнита на ${n(A.VETERAN_HELM_PERCENT)}% выше весь бой — артефакт только на защиту.`,
+    },
+    "Amulet of Resolve": {
+        en: ({ n }) =>
+            `Stun, Freeze, Paralysis and mind abilities trigger ${n(A.AMULET_OF_RESOLVE_RESIST_PERCENT)}% less often against your units. Also reduces physical area and line damage.`,
+        ru: ({ n }) =>
+            `Stun, Freeze, Paralysis и ментальные способности срабатывают против ваших юнитов на ${n(A.AMULET_OF_RESOLVE_RESIST_PERCENT)}% реже. Также снижает физический урон по площади и по линии.`,
+    },
+    "Keen Blade": {
+        en: ({ n }) =>
+            `Ranged units get +${n(A.KEEN_BLADE_RANGED_FLAT)} base attack and melee units get +${n(A.KEEN_BLADE_FLAT)}. A ranged unit keeps its bonus when fighting in melee.`,
+        ru: ({ n }) =>
+            `Стрелки получают +${n(A.KEEN_BLADE_RANGED_FLAT)} к базовой атаке, а юниты ближнего боя — +${n(A.KEEN_BLADE_FLAT)}. Стрелок сохраняет свой бонус в ближнем бою.`,
+    },
+    "Iron Plate": {
+        en: ({ n }) => `+${n(A.IRON_PLATE_FLAT)} base armor for every unit.`,
+        ru: ({ n }) => `+${n(A.IRON_PLATE_FLAT)} к базовой броне каждому юниту.`,
+    },
+    "Swift Boots": {
+        en: ({ n }) =>
+            `Only non-flying units that fight in melee get +${n(A.SWIFT_BOOTS_STEPS)}% of their steps — plain melee walkers and melee/magic walkers such as the Battle Mage, Troll, Ogre Mage or Behemoth; not flyers, shooters or casters (Healer, Satyr).`,
+        ru: ({ n }) =>
+            `Только нелетающие юниты, сражающиеся в ближнем бою, получают +${n(A.SWIFT_BOOTS_STEPS)}% своих шагов — обычные бойцы ближнего боя и юниты ближнего боя с магией вроде Battle Mage, Troll, Ogre Mage или Behemoth; не летающие, не стрелки и не маги (Healer, Satyr).`,
+    },
+    "Winged Boots": {
+        en: ({ n }) =>
+            `Every flying unit gets +${n(A.WINGED_BOOTS_STEPS)} movement and +${n(A.WINGED_BOOTS_ARMOR)} armor.`,
+        ru: ({ n }) =>
+            `Каждый летающий юнит получает +${n(A.WINGED_BOOTS_STEPS)} к движению и +${n(A.WINGED_BOOTS_ARMOR)} к броне.`,
+    },
+    "Dual Strike Charm": {
+        en: ({ n }) =>
+            `Every second attack deals +${n(A.DUAL_STRIKE_SECOND_ATTACK_PERCENT)}%: the second strike of Double Punch (Berserker, Crusader, Wolf) or of a Craft-forged Double Punch, the second arrow of Double Shot (Elf) or of a Craft-forged Double Shot, and the Gargantuan's second boulder (Double Throw), its splash included. It does nothing for an army without those abilities.`,
+        ru: ({ n }) =>
+            `Каждая вторая атака наносит на ${n(A.DUAL_STRIKE_SECOND_ATTACK_PERCENT)}% больше: второй удар Double Punch (Berserker, Crusader, Wolf) или выкованного Craft Double Punch, вторая стрела Double Shot (Elf) или выкованного Craft Double Shot и второй валун Gargantuan (Double Throw) вместе с ударом по площади. Армии без этих способностей не даёт ничего.`,
+    },
+    "Wounding Charm": {
+        en: () =>
+            "Every unit in the army gets Deep Wounds Level 1: each landed melee hit adds 1.2 per stack power (6 at full stack) plus 1 per point of luck to the target's wounds for 3 laps, stacking; and every unit holding a Deep Wounds card deals that many percent more to the wounded target. Shots benefit from wounds but never add them; natives with a higher level add the two cards together.",
+        ru: () =>
+            "Каждый юнит армии получает Deep Wounds Level 1: каждое попадание в ближнем бою добавляет цели 1,2 за единицу силы стека (6 при полной силе) плюс 1 за очко удачи раны на 3 круга, с накоплением, а каждый юнит с картой Deep Wounds наносит раненой цели на столько же процентов больше. Выстрелы пользуются ранами, но не добавляют их; у юнитов со своей картой более высокого уровня карты суммируются.",
+    },
+    "Cursed Ward": {
+        en: ({ n }) =>
+            `+${n(A.CURSED_WARD_LUCK)} luck and −${n(A.CURSED_WARD_MORALE_PENALTY)} morale for every unit: less damage taken and better ability chances, paid for with more Dismorale rolls.`,
+        ru: ({ n }) =>
+            `+${n(A.CURSED_WARD_LUCK)} к удаче и −${n(A.CURSED_WARD_MORALE_PENALTY)} к морали каждому юниту: меньше получаемого урона и выше шансы способностей ценой более частых срабатываний Dismorale.`,
+    },
+    "Hunter's Longbow": {
+        en: ({ n }) =>
+            `Every ranged unit gets +${n(A.LONGBOW_ATTACK_FLAT_PER_ARCHER)} base attack per ranged stack alive in the army (recounted after every action: split stacks count, a destroyed one no longer does), while its selected attack is the shot. No downside.`,
+        ru: ({ n }) =>
+            `Каждый стрелок получает +${n(A.LONGBOW_ATTACK_FLAT_PER_ARCHER)} к базовой атаке за каждый живой стек стрелков в армии (пересчитывается после каждого действия: разделённые стеки считаются, уничтоженный — уже нет), пока его выбранная атака — выстрел. Без недостатков.`,
+    },
+    "Barrel Barricade": {
+        en: ({ n }) =>
+            `${n(A.BARREL_BARRICADE_COUNT)} single-cell barrels to deploy anywhere inside your placement zone. They block movement and ordinary shots, use no creature slots, and each is destroyed by one hit. Move or remove them before Ready; empty slots auto-place.`,
+        ru: ({ n }) =>
+            `${n(A.BARREL_BARRICADE_COUNT)} одноклеточные бочки для расстановки в своей зоне. Они блокируют движение и обычные выстрелы, не занимают слоты существ и разрушаются одним ударом. До готовности бочки можно перемещать и убирать; свободные слоты заполняются автоматически.`,
+    },
+    "Mage's Ring": {
+        en: ({ n }) =>
+            `+${n(A.MAGES_RING_MAGIC_PERCENT)}% magic damage for the army — spells, Fire Wall, Chain Lightning, Fire Breath and Fire Shield — added to the Empower augment, the Empower scroll and Sylvan Focus as one sum.`,
+        ru: ({ n }) =>
+            `+${n(A.MAGES_RING_MAGIC_PERCENT)}% к магическому урону армии — заклинания, Fire Wall, Chain Lightning, Fire Breath и Fire Shield — в одной сумме с апгрейдом «Магия», свитком Empower и Sylvan Focus.`,
+    },
+    "Warlord's Edge": {
+        en: ({ n }) =>
+            `Adds ${n(A.WARLORDS_EDGE_RANGED_PERCENT)}% of base attack when shooting and ${n(A.WARLORDS_EDGE_PERCENT)}% in melee. The bonus is added separately, so attack auras and Riot don't multiply it.`,
+        ru: ({ n }) =>
+            `Добавляет ${n(A.WARLORDS_EDGE_RANGED_PERCENT)}% базовой атаки при стрельбе и ${n(A.WARLORDS_EDGE_PERCENT)}% в ближнем бою. Бонус добавляется отдельно, поэтому ауры атаки и Riot его не умножают.`,
+    },
+    "Titan Plate": {
+        en: ({ n }) => `Every unit's defense is ${n(A.TITAN_PLATE_PERCENT)}% higher against melee and shots alike.`,
+        ru: ({ n }) => `Защита каждого юнита на ${n(A.TITAN_PLATE_PERCENT)}% выше — и от ближних атак, и от выстрелов.`,
+    },
+    "Clover of Fortune": {
+        en: ({ n }) =>
+            `+${n(A.CLOVER_LUCK)} luck for every unit. Luck is capped at +10, so most units sit at or near +10 every lap and other luck sources (Luck Aura, the Life synergy, Luck Shield) add little or nothing; Misfortune drops a Clover unit to 0 instead of −10.`,
+        ru: ({ n }) =>
+            `+${n(A.CLOVER_LUCK)} к удаче каждому юниту. Удача ограничена +10, поэтому большинство юнитов каждый круг держатся на +10 или рядом, а другие источники удачи (Luck Aura, синергия Жизни, Luck Shield) почти ничего не добавляют; Misfortune опускает такого юнита до 0, а не до −10.`,
+    },
+    "Crown of Command": {
+        en: ({ n }) =>
+            `Every unit gets +${n(A.CROWN_STEPS)} movement, +${n(A.CROWN_MORALE)} morale and +${n(A.CROWN_ARMOR)} armor. The morale means more frequent Morale rolls from the first lap.`,
+        ru: ({ n }) =>
+            `Каждый юнит получает +${n(A.CROWN_STEPS)} к движению, +${n(A.CROWN_MORALE)} к морали и +${n(A.CROWN_ARMOR)} к броне. Мораль даёт более частые срабатывания Morale с первого круга.`,
+    },
+    "Giant's Maul": {
+        en: ({ n }) =>
+            `Physical area damage your units deal is ×${n(1 + A.GIANTS_MAUL_AOE_PERCENT / 100)} for every unit hit — ${physicalAreaAttacks.en} — before the target's status resistance: an opponent's Amulet of Resolve takes most of it back.`,
+        ru: ({ n }) =>
+            `Физический урон по площади ваших юнитов умножается на ${n(1 + A.GIANTS_MAUL_AOE_PERCENT / 100)} для каждого поражённого — ${physicalAreaAttacks.ru} — до учёта сопротивления статусам цели: Amulet of Resolve соперника забирает большую часть бонуса.`,
+    },
+    "Pendant of Vitality": {
+        en: ({ n }) =>
+            `Every creature's max health is ${n(A.PENDANT_HP_PERCENT)}% higher and every unit's base attack ${n(A.PENDANT_ATTACK_PENALTY_PERCENT)}% lower.`,
+        ru: ({ n }) =>
+            `Максимальное здоровье каждого существа на ${n(A.PENDANT_HP_PERCENT)}% выше, а базовая атака каждого юнита на ${n(A.PENDANT_ATTACK_PENALTY_PERCENT)}% ниже.`,
+    },
+    "Farsight Quiver": {
+        en: () =>
+            "Every allied archer's shot stays at full damage (1/1) at any distance. It does not extend shot distance. A shot that crosses Smoke is still halved (1/2), Sniper shots included. The Sniper augment's attack bonus and Hunter's Longbow still apply; that augment's range bonus and Guiding Winds no longer change the damage fraction while this artifact is active.",
+        ru: () =>
+            "Выстрел каждого союзного стрелка остаётся полным (1/1) на любой дистанции. Дальность выстрела артефакт не увеличивает. Выстрел, прошедший через Smoke, по-прежнему ослабляется до 1/2, в том числе у Sniper. Бонус атаки апгрейда «Стрельба» и Hunter's Longbow по-прежнему действуют; бонус дальности этого апгрейда и Guiding Winds больше не меняют долю урона, пока действует этот артефакт.",
+    },
+    "Berserker's Bond": {
+        en: ({ n }) =>
+            `+${n(A.BERSERKERS_BOND_ATTACK)} base attack and −${n(A.BERSERKERS_BOND_DEFENSE_PENALTY)} defense for every unit.`,
+        ru: ({ n }) =>
+            `+${n(A.BERSERKERS_BOND_ATTACK)} к базовой атаке и −${n(A.BERSERKERS_BOND_DEFENSE_PENALTY)} к защите каждому юниту.`,
+    },
+    "Tome of Amplification": {
+        en: ({ n }) =>
+            `A buff your units cast on your own army — the caster included — works at ${n(100 + A.TOME_BUFF_POWER_PERCENT)}% of its number, mass casts included: Riot 30 → ${n(30 * (1 + A.TOME_BUFF_POWER_PERCENT / 100))}%, Mass Riot 25 → ${n(25 * (1 + A.TOME_BUFF_POWER_PERCENT / 100))}%, Spiritual Armor 30 → ${n(30 * (1 + A.TOME_BUFF_POWER_PERCENT / 100))}%, Magic Mirror 40 → ${n(40 * (1 + A.TOME_BUFF_POWER_PERCENT / 100))}%, Mass Magic Mirror 32 → ${n(Math.floor(32 * (1 + A.TOME_BUFF_POWER_PERCENT / 100)))}%, Empower 25 → ${n(25 * (1 + A.TOME_BUFF_POWER_PERCENT / 100))}%, Fireforged Sword 20 → ${n(20 * (1 + A.TOME_BUFF_POWER_PERCENT / 100))}%, Helping Hand 30 → ${n(30 * (1 + A.TOME_BUFF_POWER_PERCENT / 100))}%, Battle Roar +1 → +${n(1 + A.TOME_BUFF_POWER_PERCENT / 100)} movement per Behemoth. Wind Flow counts too, but only its armor: your own flyers get +${n(4 * (1 + A.TOME_BUFF_POWER_PERCENT / 100))} armor (enemy flyers +4) and every flyer still loses 4 movement. Heal and Resurrection are excluded, and buffs without a number (Blessing, Courage, runes) are unchanged.`,
+        ru: ({ n }) =>
+            `Бафф, который ваши юниты накладывают на свою армию — включая заклинателя, — действует на ${n(100 + A.TOME_BUFF_POWER_PERCENT)}% своего числа, включая массовые: Riot 30 → ${n(30 * (1 + A.TOME_BUFF_POWER_PERCENT / 100))}%, Mass Riot 25 → ${n(25 * (1 + A.TOME_BUFF_POWER_PERCENT / 100))}%, Spiritual Armor 30 → ${n(30 * (1 + A.TOME_BUFF_POWER_PERCENT / 100))}%, Magic Mirror 40 → ${n(40 * (1 + A.TOME_BUFF_POWER_PERCENT / 100))}%, Mass Magic Mirror 32 → ${n(Math.floor(32 * (1 + A.TOME_BUFF_POWER_PERCENT / 100)))}%, Empower 25 → ${n(25 * (1 + A.TOME_BUFF_POWER_PERCENT / 100))}%, Fireforged Sword 20 → ${n(20 * (1 + A.TOME_BUFF_POWER_PERCENT / 100))}%, Helping Hand 30 → ${n(30 * (1 + A.TOME_BUFF_POWER_PERCENT / 100))}%, Battle Roar +1 → +${n(1 + A.TOME_BUFF_POWER_PERCENT / 100)} к движению за каждого Behemoth. Wind Flow тоже усиливается, но только броня: ваши летающие получают +${n(4 * (1 + A.TOME_BUFF_POWER_PERCENT / 100))} к броне (вражеские — +4), а движения каждый летающий по-прежнему теряет 4. Heal и Resurrection не усиливаются, а баффы без числа (Blessing, Courage, руны) не меняются.`,
+    },
+    "Rime Charm": {
+        en: ({ n }) =>
+            `Every hit your units land — retaliations, second punches and arrows, and each unit struck by splash or a piercing shot included — has a ${n(A.RIME_PROC_PERCENT)}% chance plus that unit's current luck to put Quagmire (−25% movement) on the target for ${n(A.RIME_SLOW_LAPS)} laps. Hovering the unit shows the chance after luck: luck ${n(7)} reads ${n(A.RIME_PROC_PERCENT + 7)}%, not the words "plus luck". It doesn't stack or refresh, and resistances don't lower the chance, but 100% magic resistance blocks it like every spell debuff, so a Black Dragon (Enchanted Skin) is never slowed. With a Dryad's Hamstrung the slows multiply to ×0.525 movement.`,
+        ru: ({ n }) =>
+            `Каждое попадание ваших юнитов — включая ответы, вторые удары и стрелы и каждого, кого задел удар по площади или пробивающий выстрел, — с шансом ${n(A.RIME_PROC_PERCENT)}% плюс текущая удача этого юнита накладывает на цель Quagmire (−25% движения) на ${n(A.RIME_SLOW_LAPS)} круга. При наведении на юнита виден шанс уже с удачей: при удаче ${n(7)} это ${n(A.RIME_PROC_PERCENT + 7)}%, а не слова «плюс удача». Не складывается и не обновляется, сопротивления шанс не снижают, но 100% сопротивления магии блокирует его, как любой дебафф заклинания, поэтому Black Dragon (Enchanted Skin) не замедляется никогда. С Hamstrung от Dryad замедления перемножаются до ×0,525 движения.`,
+    },
+    "Lava Striders": {
+        en: () =>
+            "Every unit may cross and stand in the FIRE PIT's central lava — without it, walkers can't enter the lava and flyers can only fly over it, never stopping there; a move that crosses or ends on lava gives Made of Fire for 2 laps (+10% health, attack, armor, movement, initiative, shot range, magic resistance and ability power), not refreshed while active. It matters only on FIRE PIT and only until the pool dries (at the start of lap 10, earlier when stalled laps add narrowing rings).",
+        ru: () =>
+            "Каждый юнит может проходить по центральной лаве FIRE PIT и стоять в ней — без артефакта наземные юниты в лаву не заходят, а летающие только пролетают над ней, не останавливаясь; перемещение через лаву или с остановкой в ней даёт Made of Fire на 2 круга (+10% к здоровью, атаке, броне, движению, инициативе, дистанции выстрела, сопротивлению магии и силе способностей), не обновляясь, пока действует. Полезен только на FIRE PIT и только пока озеро не высохнет (в начале 10-го круга, раньше, если затянутые круги добавили кольца сужения).",
+    },
+    "Archmage's Ring": {
+        en: ({ n }) =>
+            `+${n(A.ARCHMAGES_RING_MAGIC_PERCENT)}% magic damage for the army — spells, Fire Wall, Chain Lightning, Fire Breath and Fire Shield — added to the Empower augment, the Empower scroll and Sylvan Focus as one sum (with Empower level 3 that is +44%).`,
+        ru: ({ n }) =>
+            `+${n(A.ARCHMAGES_RING_MAGIC_PERCENT)}% к магическому урону армии — заклинания, Fire Wall, Chain Lightning, Fire Breath и Fire Shield — в одной сумме с апгрейдом «Магия», свитком Empower и Sylvan Focus (с «Магией» 3 уровня это +44%).`,
+    },
+    "Quiver of Echoes": {
+        en: ({ n }) =>
+            `Each ranged attack action can trigger one ordinary full-strength volley, including its splash or piercing effects. Double Shot and Double Throw still work, so Gargantuan can throw three times. The echo uses normal ammunition, cannot echo again, and does not grant another counterattack. The unit's in-fight artifact card shows its actual chance: with luck +7 it reads ${n(A.QUIVER_OF_ECHOES_CHANCE + 7)}%.`,
+        ru: ({ n }) =>
+            `Каждое действие дальней атаки может вызвать один дополнительный залп полной силы вместе с его уроном по площади или по линии. Double Shot и Double Throw сохраняются: Gargantuan может бросить трижды. Эхо расходует обычные боеприпасы, не повторяет само себя и не даёт ещё одной ответной атаки. Карточка артефакта юнита в бою показывает фактический шанс: при удаче +7 это ${n(A.QUIVER_OF_ECHOES_CHANCE + 7)}%.`,
+    },
+    Gravechain: {
+        en: ({ n }) =>
+            `Cursed: every unit in the owner's army loses ${n(A.GRAVECHAIN_STEPS_PENALTY)} movement step, including shooters, flyers and magic-immune units. This flat cost applies before percentage slows. Every landed melee or ranged strike, including retaliation, checks its target and enemies connected by touching cells, including diagonals, up to ${n(A.GRAVECHAIN_CONNECTIONS)} links away. All occupied cells of large units count, including 1×2 and 2×1 footprints. Each enemy rolls once per strike at the attacker's current luck-adjusted chance; splash and piercing hits cannot reroll the same enemy within one strike, but separate additional attacks can. Failed rolls, an existing Gravebound and 100% magic resistance do not stop propagation. Gravebound is a Death debuff: −25% movement for ${n(A.GRAVECHAIN_SLOW_LAPS)} laps. It cannot stack with or refresh itself, but multiplies with Quagmire and Hamstrung. Partial magic and status resistance do not change the artifact's chance. The unit's artifact card shows the actual chance: with luck +7 it reads ${n(A.GRAVECHAIN_CHANCE + 7)}%. Its separate curse marker shows the movement cost. Each army chooses only one Tier 2 artifact: Gravechain cannot be equipped together with Quiver of Echoes or Rime Charm. Separate additional attacks here mean the unit's native repeat attacks, such as Double Shot or Double Throw.`,
+        ru: ({ n }) =>
+            `Проклятие: каждый юнит армии владельца теряет ${n(A.GRAVECHAIN_STEPS_PENALTY)} шаг перемещения, включая стрелков, летающих и невосприимчивых к магии. Эта плоская цена применяется до процентных замедлений. Каждый попавший удар или выстрел, включая ответную атаку, проверяет цель и врагов, связанных касающимися клетками, в том числе по диагонали, до ${n(A.GRAVECHAIN_CONNECTIONS)} звеньев. У крупных юнитов учитываются все занятые клетки, включая размеры 1×2 и 2×1. Каждый враг бросает один раз за удар с учётом текущей удачи атакующего; попадания по площади и по линии не дают повторного броска по тому же врагу в одном ударе, а отдельные дополнительные атаки дают. Неудачный бросок, уже действующие Могильные узы и 100% сопротивления магии не прерывают цепь. Могильные узы — дебафф Смерти: −25% перемещения на ${n(A.GRAVECHAIN_SLOW_LAPS)} круга. Он не складывается и не обновляет сам себя, но перемножается с Трясиной и Подрезанными сухожилиями. Частичное сопротивление магии и статусам не снижает шанс артефакта. Карточка артефакта юнита показывает фактический шанс: при удаче +7 это ${n(A.GRAVECHAIN_CHANCE + 7)}%. Отдельный маркер проклятия показывает цену в перемещении. Каждая армия выбирает только один артефакт 2 уровня: Могильную цепь нельзя экипировать вместе с Колчаном эха или Талисманом инея. Под отдельными дополнительными атаками здесь имеются в виду собственные повторные атаки юнита, например Двойной выстрел или Двойной бросок.`,
+    },
+    "Last Fuse": {
+        en: ({ n }) =>
+            `Last Fuse was previously called Pyre Oath. When one of your stacks is destroyed, it explodes. Each touching enemy takes the higher of ${n(A.LAST_FUSE_PERCENT)}% of the actual killing damage and ${n(A.LAST_FUSE_MIN_DAMAGE_PER_POWER)} damage per power of the exploding stack: minimums 20/40/60/80/100 at powers 1/2/3/4/5. Actual killing damage is capped at the stack's remaining HP; overkill and health lost in earlier attacks do not increase the blast. For example, a power-3 stack killed for 500 actual HP explodes for 100 damage; if only 40 HP remained, it explodes for its 60-damage minimum. Diagonals and every occupied cell of 1×2, 2×1 and 2×2 bodies count, but each enemy is hit once. Allies are safe. Armor, magic resistance and hit rolls do not reduce the blast. Water Shield absorbs one blast and breaks, even if the exploding stack is a Fire Element. A stack that resurrects does not explode. A blast killing an enemy carrying Last Fuse chains another explosion with that enemy's own damage and power. Blast deaths do not count as kills by the original strike and do not cause melee cleave or Infest. While alive, the unit's artifact hover shows the recalculated blast damage using its current remaining HP and stack power. The artifact costs no stats.`,
+        ru: ({ n }) =>
+            `Последний фитиль раньше назывался Pyre Oath. Уничтоженный союзный стек взрывается. Каждый касающийся враг получает большее из ${n(A.LAST_FUSE_PERCENT)}% фактического урона добивающего удара и ${n(A.LAST_FUSE_MIN_DAMAGE_PER_POWER)} урона за уровень силы взрывающегося стека: минимум 20/40/60/80/100 при силе 1/2/3/4/5. Урон добивания ограничен оставшимся здоровьем стека; избыточный урон и потери от предыдущих атак взрыв не усиливают. Стек силы 3, потерявший при добивании 500 здоровья, взрывается на 100 урона; если оставалось 40 здоровья, действует минимум 60. Учитываются диагонали и все клетки тел 1×2, 2×1 и 2×2, каждый враг получает урон один раз. Союзники в безопасности. Броня, сопротивление магии и броски попадания взрыв не снижают. Water Shield поглощает один взрыв и разбивается, даже если взорвался Fire Element. Воскресший стек не взрывается. Гибель врага с Последним фитилём вызывает следующий взрыв с его собственным уроном и силой. Убитые взрывом не считаются жертвами исходного удара и не вызывают рассечение или Infest. Подсказка артефакта показывает пересчитанный урон по текущему оставшемуся здоровью и силе стека. Штрафа к характеристикам нет.`,
+    },
+    "Aegis of the Arcane": {
+        en: ({ n }) => {
+            const points = A.AEGIS_OF_THE_ARCANE_MAGIC_DEFENSE;
+            const own = 15;
+            const shield = 50;
+            const withOwn = (1 - (1 - own / 100) * (1 - points / 100)) * 100;
+            const withShield = (1 - (1 - own / 100) * (1 - points / 100) * (1 - shield / 100)) * 100;
+            return `Every unit gets a separate ${n(points)}% magic-defense roll. It is combined with the defense the unit already has, and with Magic Shield, Wardguard, Warding Mane Blessing and Arcane Ward Blessing, by the same formula those use — what remains after each roll misses. A unit with ${n(own)} becomes ${n(withOwn)}, not ${n(own + points)}. With a ${n(shield)}% Magic Shield that is ${n(withShield)}, not a sum. It cuts magic damage and the chance a debuff spell lands. It does not stop Stun, Freeze, Paralysis, Blindness or the gazes. Enchanted Skin stays at 100% and ignores the roll until Break; while Broken, that unit keeps its own defense and this roll.`;
+        },
+        ru: ({ n }) => {
+            const points = A.AEGIS_OF_THE_ARCANE_MAGIC_DEFENSE;
+            const own = 15;
+            const shield = 50;
+            const withOwn = (1 - (1 - own / 100) * (1 - points / 100)) * 100;
+            const withShield = (1 - (1 - own / 100) * (1 - points / 100) * (1 - shield / 100)) * 100;
+            return `Каждый юнит получает отдельный бросок магической защиты на ${n(points)}%. Он складывается с его собственной защитой и с Magic Shield, Wardguard, Warding Mane Blessing и Arcane Ward Blessing той же формулой — остаётся то, что не отбили все броски. Юнит с ${n(own)} становится ${n(withOwn)}, а не ${n(own + points)}. С Magic Shield на ${n(shield)}% это ${n(withShield)}, а не сумма. Снижает магический урон и шанс, что сработает дебафф заклинания. Не защищает от Stun, Freeze, Paralysis, Blindness и взглядов. Enchanted Skin остаётся на 100% и игнорирует бросок, пока её не снимет Break; под Break юнит сохраняет свою защиту и этот бросок.`;
+        },
+    },
+};
+
+export const artifactNote = (name: string, language: NoteLanguage): string | undefined =>
+    renderNote(ARTIFACT_NOTES[name], 0, language);

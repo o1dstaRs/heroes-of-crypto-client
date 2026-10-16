@@ -150,4 +150,48 @@ describe("SandboxReplayRecorder", () => {
         expect(saved[0].id).toBe(`replay-${MAX_SAVED_SANDBOX_REPLAYS + 2}`);
         expect(saved.at(-1)?.id).toBe("replay-3");
     });
+
+    describe("when the browser's storage quota is full", () => {
+        /** Storage that refuses any write longer than `limit` characters, like a full localStorage. */
+        class QuotaStorage extends MemoryStorage {
+            public constructor(private readonly limit: number) {
+                super();
+            }
+            public override setItem(key: string, value: string): void {
+                if (value.length > this.limit) {
+                    throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+                }
+                super.setItem(key, value);
+            }
+        }
+        const replay = (index: number): SandboxReplay => ({
+            version: 1,
+            kind: "sandbox",
+            id: `replay-${index}`,
+            createdAtMs: index,
+            updatedAtMs: index,
+            initialState: createInitialState(),
+            actions: [],
+        });
+
+        it("drops the oldest replays until the newest fits, and never throws", () => {
+            const oneReplay = JSON.stringify([replay(0)]).length;
+            const storage = new QuotaStorage(oneReplay * 2 + 1);
+
+            expect(() => {
+                for (let i = 0; i < 5; i += 1) {
+                    saveSandboxReplay(replay(i), storage);
+                }
+            }).not.toThrow();
+
+            expect(listSandboxReplays(storage).map((saved) => saved.id)).toEqual(["replay-4", "replay-3"]);
+        });
+
+        it("skips the save when even the newest replay alone does not fit", () => {
+            const storage = new QuotaStorage(10);
+
+            expect(() => saveSandboxReplay(replay(1), storage)).not.toThrow();
+            expect(listSandboxReplays(storage)).toEqual([]);
+        });
+    });
 });

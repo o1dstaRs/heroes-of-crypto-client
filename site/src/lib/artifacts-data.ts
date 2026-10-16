@@ -2,7 +2,7 @@
 //
 // DERIVED from the game, not mirrored by hand. This file used to carry its own copy of every effect string
 // with the numbers already written in, and it silently went stale: a balance pass moved Rime Charm's proc
-// 30% -> 60%, Helm of Focus 25% -> 35%, Giant's Maul 35% -> 40% and Iron Plate 0.7 -> 1, and the codex kept
+// 30% -> 60%, Giant's Maul 35% -> 40% and Iron Plate 0.7 -> 1, and the codex kept
 // advertising the old figures. Reading the same ARTIFACT_POWER table the engine reads means the site cannot
 // disagree with the game again, and a rebalance needs no edit here at all.
 
@@ -19,13 +19,21 @@ export interface Artifact {
     tier: ArtifactTier;
     slug: string;
     name: string;
+    aliases?: string[];
     icon: string;
     description: string;
+    /** The same effect in Russian, with the same numbers. */
+    descriptionRu: string;
     /** True for the "cursed" artifacts that carry a downside — surfaced as a small tag. */
     cursed?: boolean;
 }
 
-const icon = (tier: ArtifactTier, slug: string) => `/assets/images/artifacts/artifact_t${tier}_${slug}_256.webp`;
+export const artifactIconUrl = (tier: ArtifactTier, slug: string): string => {
+    const url = `/assets/images/artifacts/artifact_t${tier}_${slug}_256.webp`;
+    if (tier === 2 && slug === "quiver_of_echoes") return `${url}?v=2d8b721f`;
+    if (tier === 2 && slug === "gravechain") return `${url}?v=1f1f818b`;
+    return tier === 1 && slug === "barrel_barricade" ? `${url}?v=1d307004` : url;
+};
 
 /**
  * The codex prints the effect on its own, so it drops the "Artifact." marker the in-game tooltip needs to
@@ -38,12 +46,86 @@ const codexDescription = (props: ArtifactProperties): string =>
         .replace(/\s*Lasts till the end of the fight\.\s*$/, "")
         .trim();
 
+/**
+ * Russian for each artifact's effect. The placeholders ({}, [], <>) are the game's own, in the order of the
+ * English template, and they are filled with the numbers the game printed into the English text — so a
+ * rebalance reaches the Russian page with no edit here, the same way it reaches the English one.
+ */
+const ARTIFACT_DESCRIPTIONS_RU: Record<string, string> = {
+    veteran_helm: "Повышает защиту всей армии ещё на {}%.",
+    amulet_of_resolve: "Даёт всей армии +{}% сопротивления эффектам Статуса и Разума.",
+    keen_blade: "Повышает базовую атаку стрелков на {}, а юнитов ближнего боя — на [].",
+    iron_plate: "Повышает базовую броню армии на {}.",
+    swift_boots: "Увеличивает перемещение юнитов ближнего боя на {}% от их базовых шагов.",
+    winged_boots: "Даёт всем летающим юнитам +{} к базовой дистанции перемещения и +[] к броне.",
+    dual_strike_charm: "Вторая атака юнита наносит на {}% больше урона.",
+    wounding_charm:
+        "Даёт всей армии Deep Wounds Level 1: каждая атака или ответ добавляет цели +{}% к получаемому урону, эффект складывается.",
+    cursed_ward: "Проклятие: +{} к удаче, но −[] к морали для всей армии.",
+    hunters_longbow: "Стрелки получают +{} к атаке за каждого стрелка в армии.",
+    barrel_barricade:
+        "Даёт {} бочки для расстановки в своей зоне. Каждая блокирует движение и выстрелы до разрушения одним ударом.",
+    mages_ring: "Увеличивает весь магический урон армии на {}%.",
+    warlords_edge: "Даёт всей армии +{}% к дальней атаке и +[]% к ближней.",
+    titan_plate: "Даёт всей армии дополнительно {}% к защите (от ближних и дальних атак).",
+    clover_of_fortune: "Повышает удачу армии на {}.",
+    crown_of_command: "Даёт всей армии +{} к перемещению, +[] к морали и +<> к броне.",
+    giants_maul:
+        "Увеличивает немагический (физический) урон по площади на {}% в момент удара; затем он снижается сопротивлением цели эффектам Статуса.",
+    pendant_of_vitality: "Проклятие: +{}% к здоровью, но −[]% к атаке для всей армии.",
+    farsight_quiver:
+        "Союзные стрелки игнорируют штраф за дальность и всегда наносят полный урон (1/1). Выстрел сквозь Smoke по-прежнему ослабляется до 1/2.",
+    berserkers_bond: "Проклятие: +{} к атаке, но −[] к защите для всей армии.",
+    tome_of_amplification:
+        "Усиливает на {}% баффы, которые союзные юниты накладывают заклинаниями на союзников. Не влияет на лечение, воскрешение, апгрейды, артефакты, ауры и пассивные эффекты.",
+    rime_charm: "{}% шанс плюс текущая удача атакующего, что любая атака замедлит цель на [] кругов.",
+    lava_striders:
+        "Все юниты армии могут пересекать лаву и стоять в ней. Проход через лаву или полёт над ней даёт Made of Fire (+10% к характеристикам и силе способностей) на 2 круга, даже при приземлении на обычную землю.",
+    quiver_of_echoes: "Стрелки с вероятностью {}% совершают одну дополнительную атаку.",
+    gravechain:
+        "Проклятие: атаки с вероятностью {}% отдельно для каждого врага накладывают Могильные узы на цель и связанных с ней врагов на расстоянии до <> звеньев: −25% перемещения на [] кругов. Неудачный бросок не прерывает цепь. Каждый юнит вашей армии теряет {} шаг перемещения.",
+    aegis_of_the_arcane:
+        "Даёт всей армии отдельный бросок магической защиты на {}%, который складывается с собственной защитой, а не прибавляется к ней.",
+    archmages_ring: "Увеличивает весь магический урон армии на {}%.",
+    last_fuse:
+        "Когда союзный стек уничтожен, он взрывается. Соседние враги получают {}% фактического урона добивающего удара, но не менее [] урона за уровень силы стека.",
+};
+
+const PLACEHOLDER = /\{\}|\[\]|<>/g;
+const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** The numbers the game filled into an English template, in order ("by {}%." + "by 4%." → ["4"]). */
+const filledValues = (template: string, filled: string): string[] | undefined =>
+    new RegExp(`^${template.split(PLACEHOLDER).map(escapeRegExp).join("(.+?)")}$`).exec(filled)?.slice(1);
+
+const pluralRu = (count: number, [one, few, many]: [string, string, string]): string => {
+    const mod10 = count % 10;
+    const mod100 = count % 100;
+    if (mod10 === 1 && mod100 !== 11) return one;
+    return mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? few : many;
+};
+
+const russianDescription = (props: ArtifactProperties, english: string): string => {
+    const template = ARTIFACT_DESCRIPTIONS_RU[props.slug];
+    const values = filledValues(props.description, formatArtifactDescription(props));
+    if (!template || !values) return english;
+    let index = 0;
+    return template
+        .replace(PLACEHOLDER, () => values[index++] ?? "")
+        .replace(
+            /(\d+) кругов/g,
+            (_, laps: string) => `${laps} ${pluralRu(Number(laps), ["круг", "круга", "кругов"])}`,
+        );
+};
+
 const toArtifact = (tier: ArtifactTier) => (props: ArtifactProperties) => ({
     tier,
     slug: props.slug,
     name: props.name,
-    icon: icon(tier, props.slug),
+    ...(props.slug === "last_fuse" ? { aliases: ["Pyre Oath", "sticky dynamite", "динамит"] } : {}),
+    icon: artifactIconUrl(tier, props.slug),
     description: codexDescription(props),
+    descriptionRu: russianDescription(props, codexDescription(props)),
     // The downside is stated by the effect text itself, so the tag follows it rather than being a second
     // fact to keep in sync.
     cursed: props.description.startsWith("Cursed:") || undefined,

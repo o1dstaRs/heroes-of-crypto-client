@@ -1,12 +1,21 @@
 import { TeamVals, TeamType } from "@heroesofcrypto/common";
 
 import Box from "@mui/joy/Box";
+import Tooltip from "@mui/joy/Tooltip";
 import { motion } from "framer-motion";
-import React from "react";
+import React, { useId } from "react";
 
-import { images } from "../../generated/image_imports";
-import { IFightStatsSample } from "../../scenes/VisibleState";
+import { IFightDeathEntry, IFightStatsSample } from "../../scenes/VisibleState";
 import { t, useTranslation } from "../../i18n/i18n";
+import { CreaturePortraitImage } from "../CreaturePortraitImage";
+import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
+import { creatureImgSrc, imgSrc } from "./creatureImage";
+import {
+    ELIMINATION_MARKER_RADIUS,
+    eliminationMarkerExtent,
+    layoutEliminationMarkers,
+    withUnmarkedEliminations,
+} from "./eliminationMarkers";
 
 // --- "Heroes" palette (matches the in-game tooltip / overlay aesthetic) ---
 export const GREEN = "#46d160";
@@ -18,7 +27,7 @@ export const WOOD_DARK = "#1c0d03";
 const teamValues = TeamVals as unknown as Record<string, number>;
 const LOWER_TEAM = (teamValues.LEFT ?? teamValues.LOWER ?? 2) as TeamType;
 
-export const imgSrc = (name: string): string | undefined => (images as Record<string, string>)[name];
+export { creatureImgSrc, imgSrc };
 export const teamColor = (team: TeamType): string => (team === LOWER_TEAM ? GREEN : RED);
 export const teamName = (team: TeamType): string => t(team === LOWER_TEAM ? "Green" : "Red");
 
@@ -37,6 +46,8 @@ type FightStatsChartMetric = "casualties" | "damage";
 
 export const CasualtyChart: React.FC<{
     series: IFightStatsSample[];
+    /** Fallen stacks. Fully wiped types missing from `series` still get a portrait on the line. */
+    deaths?: readonly IFightDeathEntry[];
     drawDurationSec?: number;
     metric?: FightStatsChartMetric;
     /**
@@ -49,12 +60,14 @@ export const CasualtyChart: React.FC<{
     viewHeight?: number;
 }> = ({
     series,
+    deaths = [],
     drawDurationSec = 1.1,
     metric = "casualties",
     viewWidth = DEFAULT_CHART_W,
     viewHeight = DEFAULT_CHART_H,
 }) => {
     useTranslation();
+    const eliminationClipPrefix = useId().replace(/[^a-zA-Z0-9_-]/g, "");
     const ChartW = Math.max(ML + MR + 40, viewWidth);
     const ChartH = Math.max(MT + MB + 30, viewHeight);
     const PLOT_W = ChartW - ML - MR;
@@ -92,6 +105,39 @@ export const CasualtyChart: React.FC<{
 
     const finalGreen = accGreen(pts[n - 1]);
     const finalRed = accRed(pts[n - 1]);
+    const timedSeries = withUnmarkedEliminations(pts, deaths, LOWER_TEAM);
+    const markerRadius = ELIMINATION_MARKER_RADIUS;
+    const markerExtent = eliminationMarkerExtent(markerRadius);
+    const markerInner = markerRadius - 2;
+    const badgeOffset = markerRadius * 0.7;
+    const badgeRadius = markerRadius * 0.45;
+    const badgeArm = markerRadius * 0.2;
+    const eliminationMarkers = layoutEliminationMarkers(
+        timedSeries.flatMap((sample, sampleIndex) =>
+            (sample.eliminations ?? []).map((elimination, eliminationIndex) => {
+                const casualtyPct = elimination.team === LOWER_TEAM ? accGreen(sample) : accRed(sample);
+                return {
+                    elimination,
+                    pointX: xFor(sampleIndex),
+                    pointY: yFor(casualtyPct),
+                    lap: sample.lap,
+                    sampleIndex,
+                    eliminationIndex,
+                };
+            }),
+        ),
+        {
+            left: ML + markerExtent,
+            right: ML + PLOT_W - markerExtent,
+            top: MT + markerExtent,
+            bottom: BASE_Y - markerExtent,
+        },
+        markerRadius,
+    ).map((marker) => ({
+        ...marker,
+        creatureId: UNIT_NAME_TO_ID[marker.elimination.name.trim()],
+        clipId: `${eliminationClipPrefix}-defeat-${marker.sampleIndex}-${marker.eliminationIndex}`,
+    }));
 
     return (
         <Box
@@ -108,6 +154,11 @@ export const CasualtyChart: React.FC<{
                     <stop offset="0%" stopColor={RED} stopOpacity={0.45} />
                     <stop offset="100%" stopColor={RED} stopOpacity={0} />
                 </linearGradient>
+                {eliminationMarkers.map((marker) => (
+                    <clipPath key={marker.clipId} id={marker.clipId}>
+                        <circle cx={marker.centerX} cy={marker.centerY} r={markerInner} />
+                    </clipPath>
+                ))}
             </defs>
 
             {/* Horizontal gridlines + Y labels */}
@@ -179,6 +230,98 @@ export const CasualtyChart: React.FC<{
                 animate={{ pathLength: 1 }}
                 transition={{ duration: drawDurationSec, ease: "easeInOut" }}
             />
+
+            {/* A crossed portrait marks when every deployed stack of that creature type has fallen. */}
+            {eliminationMarkers.map((marker, markerIndex) => {
+                const color = teamColor(marker.elimination.team);
+                const label = `${marker.elimination.name}: all stacks defeated on lap ${marker.lap}`;
+                return (
+                    <Tooltip
+                        key={`${marker.sampleIndex}:${marker.elimination.creatureKey}:${marker.eliminationIndex}`}
+                        title={label}
+                        placement="top"
+                        variant="solid"
+                        enterDelay={120}
+                        sx={{
+                            zIndex: 10001,
+                            border: `1px solid ${color}`,
+                            backgroundColor: "#211208",
+                            color: PARCHMENT,
+                            fontWeight: 800,
+                            boxShadow: "0 5px 18px rgba(0,0,0,.72)",
+                        }}
+                    >
+                        <motion.g
+                            role="img"
+                            aria-label={label}
+                            tabIndex={0}
+                            style={{ cursor: "help", outline: "none" }}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: drawDurationSec + markerIndex * 0.06, duration: 0.2 }}
+                        >
+                            {(marker.pointX !== marker.centerX || marker.pointY !== marker.centerY) && (
+                                <line
+                                    x1={marker.pointX}
+                                    y1={marker.pointY}
+                                    x2={marker.centerX}
+                                    y2={marker.centerY}
+                                    stroke={color}
+                                    strokeOpacity={0.65}
+                                    strokeWidth={1}
+                                    strokeDasharray="2 2"
+                                />
+                            )}
+                            <circle
+                                cx={marker.centerX}
+                                cy={marker.centerY}
+                                r={markerRadius}
+                                fill={WOOD_DARK}
+                                stroke="rgba(0,0,0,.9)"
+                                strokeWidth={2.5}
+                            />
+                            {marker.creatureId !== undefined && (
+                                <foreignObject
+                                    x={marker.centerX - markerInner}
+                                    y={marker.centerY - markerInner}
+                                    width={markerInner * 2}
+                                    height={markerInner * 2}
+                                    clipPath={`url(#${marker.clipId})`}
+                                >
+                                    <CreaturePortraitImage
+                                        creatureId={marker.creatureId}
+                                        alt={marker.elimination.name}
+                                        sx={{ width: "100%", height: "100%", border: "none", borderRadius: "50%" }}
+                                    />
+                                </foreignObject>
+                            )}
+                            <circle
+                                cx={marker.centerX}
+                                cy={marker.centerY}
+                                r={markerRadius - 1}
+                                fill="none"
+                                stroke={color}
+                                strokeWidth={1.75}
+                            />
+                            <circle
+                                cx={marker.centerX + badgeOffset}
+                                cy={marker.centerY + badgeOffset}
+                                r={badgeRadius}
+                                fill={WOOD_DARK}
+                                stroke={color}
+                                strokeWidth={1.25}
+                            />
+                            <path
+                                d={`M ${marker.centerX + badgeOffset - badgeArm} ${marker.centerY + badgeOffset - badgeArm} L ${marker.centerX + badgeOffset + badgeArm} ${marker.centerY + badgeOffset + badgeArm} M ${marker.centerX + badgeOffset + badgeArm} ${marker.centerY + badgeOffset - badgeArm} L ${marker.centerX + badgeOffset - badgeArm} ${marker.centerY + badgeOffset + badgeArm}`}
+                                fill="none"
+                                stroke={PARCHMENT}
+                                strokeWidth={1.6}
+                                strokeLinecap="round"
+                            />
+                        </motion.g>
+                    </Tooltip>
+                );
+            })}
 
             {/* Final value markers */}
             <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: drawDurationSec }}>

@@ -16,3 +16,17 @@ describe("Chakram ability display metadata", () => {
         expect(getAbilityDisplayMetadata("Chakram")?.description).toContain("Maximum targets: 5.");
     });
 });
+
+describe("Paralysis ability display metadata", () => {
+    test("prints the Paralysis effect's damage cut, not the ability's landing power", () => {
+        const description = getAbilityDisplayMetadata("Paralysis")?.description ?? "";
+        expect(description).toContain("100% chance");
+        expect(description).toContain("reduces their damage by 40%");
+    });
+
+    test("scales the chance and the cut with stack power", () => {
+        const description = getAbilityDisplayMetadata("Paralysis", 2)?.description ?? "";
+        expect(description).toContain("40% chance");
+        expect(description).toContain("reduces their damage by 16%");
+    });
+});

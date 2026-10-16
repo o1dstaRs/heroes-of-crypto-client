@@ -1,0 +1,12 @@
+---
+import LeavingRulesPage from "../../../components/LeavingRulesPage.astro";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { content } from "../../../lib/site-data";
+
+const lang = "ru";
+const copy = content[lang].leavingRules;
+---
+
+<BaseLayout lang={lang} title={copy.title} description={copy.description}>
+    <LeavingRulesPage lang={lang} />
+</BaseLayout>

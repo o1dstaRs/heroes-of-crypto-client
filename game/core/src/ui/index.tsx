@@ -1,6 +1,9 @@
+import { PremiumSearchProvider, PremiumSearchSlot, usePremiumSearchVisible } from "./premium/PremiumSearch";
+import { PremiumSandboxGuidance } from "./premium/PremiumSandboxGuidance";
 import {
     createPickSimState,
     CreatureByLevel,
+    CreatureVals,
     getCurrentPickPhase,
     getOmniscientCreatureChoices,
     getPickTeamView,
@@ -17,12 +20,17 @@ import {
 } from "@heroesofcrypto/common";
 import { PICK_EVENT_SOURCE } from "./env";
 import { installFootprintOverridesFromSearch } from "./footprintOverridesFromUrl";
+import { installClientErrorReporting } from "./clientErrorReport";
+import { installStaleChunkRecovery } from "./staleChunkRecovery";
 
 import CssBaseline from "@mui/joy/CssBaseline";
 import { CssVarsProvider } from "@mui/joy/styles";
+
+import { hocJoyTheme } from "./hocTheme";
+import { SEAT_RECLAIM_ATTEMPTS, SEAT_RECLAIM_INTERVAL_MS, seatReclaimDecision } from "./seatReclaim";
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter as Router, Route, Routes, useNavigate, useParams } from "react-router";
+import { BrowserRouter as Router, Route, Routes, useLocation, useNavigate, useParams } from "react-router";
 import { TextStyle } from "pixi.js";
 
 import { usePixiManager } from "../pixi/PixiGameManager";
@@ -40,6 +48,11 @@ import { AiControlBadge, aiBadgeLeft } from "./AiControlBadge";
 import { NextLapHazardBadge } from "./NextLapHazardBadge";
 import { ExitReplayBadge } from "./ExitReplayBadge";
 import { PlayRankedBadge } from "./PlayRankedBadge";
+import { InviteFriendBadge } from "./InviteFriendBadge";
+import { SandboxCoopRoute } from "./SandboxCoopRoute";
+import { LiveMatchBanner } from "./LiveMatchBanner";
+import { useCurrentLobby } from "./social/CurrentLobbyContext";
+import { registerBattleSystemControls } from "./social/systemControlsMode";
 import { LoadingFullscreenToggle } from "./LoadingFullscreenToggle";
 import { MatchupOverlay, type MatchupPlayer } from "./MatchupOverlay";
 import { useGameCursor } from "./cursor/useGameCursor";
@@ -49,6 +62,7 @@ import { AugmentStepPreview } from "./AugmentStepPreview";
 import { PlacementStepPreview } from "./PlacementStepPreview";
 import { SIDE_FIRE_DEFINITIONS } from "../scenes/sandbox/ambientFireTuning";
 import { LocalModelDraftOpponent } from "./PickAndBan/LocalModelDraftOpponent";
+import { DraftEndedNotice } from "./exitRules/DraftEndedNotice";
 import AutoPickToast from "./PickAndBan/AutoPickToast";
 import { buildApiUrl, endpoints, HOST_GAME_API } from "../api/axios";
 import { AuthProvider } from "./auth/context/auth_provider";
@@ -62,13 +76,16 @@ import { ThemeMusic } from "./audio/ThemeMusic";
 import { CurrentLobbyProvider } from "./social/CurrentLobbyContext";
 import { SocialDock } from "./social/SocialDock";
 import { SocialProvider } from "./social/SocialProvider";
-import { setPrefightMusicActive } from "./audio/prefightMusic";
+import { draftRoutePrefightMusic, setPrefightMusicActive } from "./audio/prefightMusic";
 import type { SceneGameActionTransport } from "../game_action_transport";
 import { fetchPickObserveSnapshot, fetchRankedPlaySnapshot } from "../api/ranked_play_client";
 import ObserverPickView from "./PickAndBan/ObserverPickView";
+import { t } from "../i18n/i18n";
+import { useStopWatching } from "./useStopWatching";
 import { PlayerPortalPage } from "./PlayerPortal/PlayerPortalPage";
+import { PlayerPortalLoadingPage } from "./PlayerPortal/PlayerPortalLoading";
 import { isMockPortalEnabled } from "./PlayerPortal/mockPortal";
-import { RankedGameView } from "./RankedGameView";
+import { preloadRankedGameView, RankedGameView } from "./RankedGameView";
 import { getMarkedVsAiDifficulty, isMarkedVsAiGame, vsAiDifficultyLabel } from "../utils/aiOpponent";
 import { PickExitFightControl } from "./PickExitFightControl";
 
@@ -95,6 +112,27 @@ const AmbientFireTuningEditor = React.lazy(() =>
 );
 const LavaAnimationTuningEditor = React.lazy(() =>
     import("./LavaAnimationTuningEditor").then((m) => ({ default: m.LavaAnimationTuningEditor })),
+);
+
+const ShotTrajectoryEditor = React.lazy(() =>
+    import("./ShotTrajectoryEditor").then((m) => ({ default: m.ShotTrajectoryEditor })),
+);
+const BarrelShadowEditor = React.lazy(() =>
+    import("./BarrelShadowEditor").then((m) => ({ default: m.BarrelShadowEditor })),
+);
+const PickLanternFireEditor = React.lazy(() =>
+    import("./PickLanternFireEditor").then((m) => ({ default: m.PickLanternFireEditor })),
+);
+const LavaFireVideoEditor = React.lazy(() =>
+    import("./LavaFireVideoEditor").then((m) => ({ default: m.LavaFireVideoEditor })),
+);
+const LavaPitEffectsEditor = React.lazy(() =>
+    import("./LavaPitEffectsEditor").then((m) => ({ default: m.LavaPitEffectsEditor })),
+);
+const MovementAreaEditor = React.lazy(() => import("./MovementAreaEditor"));
+const StunBadgeEditor = React.lazy(() => import("./StunBadgeEditor"));
+const CreatureAnimationLabPanel = React.lazy(() =>
+    import("./CreatureAnimationLab").then((m) => ({ default: m.CreatureAnimationLabPanel })),
 );
 
 const isEditableTarget = (target: EventTarget | null): boolean => {
@@ -184,9 +222,21 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
 }) => {
     const manager = usePixiManager();
     const navigate = useNavigate();
+    const { authenticated, user } = useAuthContext();
+    const premiumSearchVisible = usePremiumSearchVisible();
+    const { setSandboxInviteAvailable } = useCurrentLobby();
     const showFightMatchupPreview =
         Boolean(import.meta.env.DEV) && new URLSearchParams(window.location.search).get("matchupPreview") === "fight";
     const [started, setStarted] = useState(showFightMatchupPreview);
+    // A signed-in player standing in the offline sandbox can invite a friend into a co-op sandbox (the
+    // friends panel's "Invite to sandbox"). Published app-wide so the dock offers it only from here.
+    // A started fight has nothing to carry, so the invite closes when the fight begins.
+    const canInviteFriend =
+        authenticated && user?.is_active !== false && !gameActionTransport && !showFightMatchupPreview && !started;
+    useEffect(() => {
+        setSandboxInviteAvailable(canInviteFriend);
+        return () => setSandboxInviteAvailable(false);
+    }, [canInviteFriend, setSandboxInviteAvailable]);
     const [isLoading, setIsLoading] = useState(manager.isLoading);
     const [aiToggleOn, setAiToggleOn] = useState(false);
     const [replayPlaybackActive, setReplayPlaybackActive] = useState(false);
@@ -202,10 +252,72 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
                     league: 2,
                     leagueName: "Vanguard",
                     wealth: 2,
+                    mmr: 1114,
+                    peakMmr: 1198,
+                    leaderboardRank: 42,
                     wins: 142,
                     draws: 6,
                     losses: 74,
+                    totalGames: 222,
                     winRatePct: 64,
+                    winStreak: 3,
+                    recentGames: [
+                        {
+                            gameId: "preview-match-1",
+                            finishedTime: Date.now() - 18 * 60_000,
+                            result: "win",
+                            mmrDelta: 21,
+                            opponent: { playerId: "preview-nyx", username: "Nyx" },
+                            creatureIds: [
+                                CreatureVals.ANGEL,
+                                CreatureVals.ELF,
+                                CreatureVals.DRYAD,
+                                CreatureVals.GRIFFIN,
+                                CreatureVals.MERMAID,
+                                CreatureVals.BEHOLDER,
+                            ],
+                        },
+                        {
+                            gameId: "preview-match-2",
+                            finishedTime: Date.now() - 3 * 3_600_000,
+                            result: "loss",
+                            mmrDelta: -17,
+                            opponent: { playerId: "preview-rune", username: "Rune" },
+                            creatureIds: [
+                                CreatureVals.MERMAID,
+                                CreatureVals.BEHOLDER,
+                                CreatureVals.ELF,
+                                CreatureVals.WHITE_TIGER,
+                                CreatureVals.SATYR,
+                                CreatureVals.UNICORN,
+                            ],
+                        },
+                        {
+                            gameId: "preview-match-3",
+                            finishedTime: Date.now() - 26 * 3_600_000,
+                            result: "win",
+                            mmrDelta: 19,
+                            opponent: { playerId: "preview-kael", username: "Kael" },
+                            creatureIds: [
+                                CreatureVals.DRYAD,
+                                CreatureVals.ANGEL,
+                                CreatureVals.MERMAID,
+                                CreatureVals.TRENT,
+                                CreatureVals.MANTICORE,
+                                CreatureVals.BATTLE_MAGE,
+                            ],
+                        },
+                    ],
+                    playstyle: {
+                        topCreatures: [
+                            { creatureId: CreatureVals.ANGEL, name: "Angel", games: 88, winRatePct: 67 },
+                            { creatureId: CreatureVals.ELF, name: "Elf", games: 76, winRatePct: 62 },
+                            { creatureId: CreatureVals.DRYAD, name: "Dryad", games: 69, winRatePct: 65 },
+                            { creatureId: CreatureVals.MERMAID, name: "Mermaid", games: 61, winRatePct: 59 },
+                            { creatureId: CreatureVals.GRIFFIN, name: "Griffin", games: 54, winRatePct: 57 },
+                            { creatureId: CreatureVals.BEHOLDER, name: "Beholder", games: 49, winRatePct: 55 },
+                        ],
+                    },
                 },
             },
             {
@@ -217,12 +329,10 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
         [],
     );
 
-    // OWNER CALL: a logged-in player keeps the full four-button dock in the BOTTOM-RIGHT corner here —
-    // bets, friends, notifications and sound — exactly as on every non-battle screen. The sandbox used to
-    // publish setBattleSystemControlsActive(true), which collapses SocialDock into the compact top-right
-    // medallion and hides those four behind a fan. Ranked still collapses it (RankedGameView), where board
-    // space is genuinely contested; the offline sandbox has room and should not make the player open a menu
-    // to reach controls that sit in the corner everywhere else.
+    // Keep the expandable corner medallion throughout sandbox placement and combat, like ranked: with the
+    // three controls now on the sound/fullscreen line, the compact dock IS the corner row rather than a
+    // menu hiding it, and both screens wear the same one.
+    useEffect(registerBattleSystemControls, []);
 
     const closeSandbox = useCallback(() => {
         if (window.history.length > 1) {
@@ -276,16 +386,33 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
     return (
         <ButtonProvider>
             <div className="container" style={{ display: "flex" }}>
-                <CssVarsProvider>
+                <CssVarsProvider theme={hocJoyTheme}>
                     <CssBaseline />
-                    {isLoading && <LoadingFullscreenToggle />}
+                    {isLoading && <LoadingFullscreenToggle onExit={closeSandbox} />}
                     {!isLoading && <LeftSideBar gameStarted={started} windowSize={windowSize} />}
                     {!isLoading && (
                         <RightSideBar
                             gameStarted={started}
                             windowSize={windowSize}
-                            rankedFooter={!started && !replayPlaybackActive ? <PlayRankedBadge /> : undefined}
+                            showPremiumFightControls={!replayPlaybackActive && !showFightMatchupPreview}
+                            footerLeading={
+                                !replayPlaybackActive && !started && premiumSearchVisible
+                                    ? { content: <PremiumSearchSlot inline />, width: 126 }
+                                    : undefined
+                            }
+                            rankedFooter={
+                                // Setup only; combat has its own Premium chat and suggested-moves controls.
+                                !replayPlaybackActive && !started ? (
+                                    <div style={{ display: "grid", gap: 6, width: "100%", justifyItems: "center" }}>
+                                        <PlayRankedBadge />
+                                        {canInviteFriend && <InviteFriendBadge />}
+                                    </div>
+                                ) : undefined
+                            }
                             onClose={!started && !replayPlaybackActive ? closeSandbox : undefined}
+                            onStartOver={
+                                !gameActionTransport && !replayPlaybackActive ? () => manager.StartOver() : undefined
+                            }
                         />
                     )}
                     <UpNextOverlay />
@@ -299,6 +426,7 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
                         />
                     )}
                     <FightFinishedOverlay />
+                    {!isLoading && !gameActionTransport && !showFightMatchupPreview && <PremiumSandboxGuidance />}
                     {!isLoading && started && aiToggleOn && <AiControlBadge left={aiBadgeLeft(windowSize)} />}
                     {!isLoading && started && <NextLapHazardBadge />}
                     {!isLoading && replayPlaybackActive && (
@@ -334,7 +462,7 @@ const BUNDLE_PREVIEW_STATE: PickBanContextType = {
     revealsRemaining: 0,
     initialBundles: [
         [12, 24, 1], // Berserker + Elf + Veteran Helm
-        [31, 16, 11], // Peasant + Hyena + Helm of Focus
+        [31, 16, 11], // Peasant + Hyena + Barrel Barricade
     ],
     tier2Offers: [],
     doctrine: 0,
@@ -362,7 +490,7 @@ const BundlePickPreview: React.FC = () => {
     return (
         <PickBanContext.Provider value={previewState}>
             <div className="container" style={{ display: "flex" }}>
-                <CssVarsProvider>
+                <CssVarsProvider theme={hocJoyTheme}>
                     <CssBaseline />
                 </CssVarsProvider>
                 <StainedGlassWindow
@@ -390,7 +518,7 @@ const LEVEL_ONE_PICK_PREVIEW_STATE: PickBanContextType = {
 const LevelOnePickPreview: React.FC = () => (
     <PickBanContext.Provider value={LEVEL_ONE_PICK_PREVIEW_STATE}>
         <div className="container" style={{ display: "flex" }}>
-            <CssVarsProvider>
+            <CssVarsProvider theme={hocJoyTheme}>
                 <CssBaseline />
             </CssVarsProvider>
             <StainedGlassWindow
@@ -399,6 +527,77 @@ const LevelOnePickPreview: React.FC = () => (
                 opponentLabel="Opponent"
                 showOpponentRosterDuringAugmentHandoff={false}
                 systemControl={<PickExitFightControl gameId="level-one-pick-preview" />}
+            />
+        </div>
+    </PickBanContext.Provider>
+);
+
+const LEVEL_TWO_PICK_PREVIEW_STATE: PickBanContextType = {
+    ...LEVEL_ONE_PICK_PREVIEW_STATE,
+    picked: [12, 24, 31],
+    requiredLevel: 2,
+};
+
+/** Stable, backend-free canvas for the second creature-pick step. */
+const LevelTwoPickPreview: React.FC = () => (
+    <PickBanContext.Provider value={LEVEL_TWO_PICK_PREVIEW_STATE}>
+        <div className="container" style={{ display: "flex" }}>
+            <CssVarsProvider theme={hocJoyTheme}>
+                <CssBaseline />
+            </CssVarsProvider>
+            <StainedGlassWindow
+                userTeam={TeamVals.LEFT as TeamType}
+                gameId="level-two-pick-preview"
+                opponentLabel="Opponent"
+                showOpponentRosterDuringAugmentHandoff={false}
+            />
+        </div>
+    </PickBanContext.Provider>
+);
+
+const LEVEL_THREE_PICK_PREVIEW_STATE: PickBanContextType = {
+    ...LEVEL_TWO_PICK_PREVIEW_STATE,
+    picked: [12, 24, 31, 25],
+    requiredLevel: 3,
+};
+
+/** Stable, backend-free canvas for the third creature-pick step, after the map reveal. */
+const LevelThreePickPreview: React.FC = () => (
+    <PickBanContext.Provider value={LEVEL_THREE_PICK_PREVIEW_STATE}>
+        <div className="container" style={{ display: "flex" }}>
+            <CssVarsProvider>
+                <CssBaseline />
+            </CssVarsProvider>
+            <StainedGlassWindow
+                userTeam={TeamVals.LEFT as TeamType}
+                gameId="level-three-pick-preview"
+                opponentLabel="Opponent"
+                showOpponentRosterDuringAugmentHandoff={false}
+            />
+        </div>
+    </PickBanContext.Provider>
+);
+
+const LEVEL_FOUR_PICK_PREVIEW_STATE: PickBanContextType = {
+    ...LEVEL_THREE_PICK_PREVIEW_STATE,
+    picked: [12, 24, 31, 25, 37],
+    // The tier-2 artifact is answered between the third and the fourth creature pick.
+    artifactTier2: 1,
+    requiredLevel: 4,
+};
+
+/** Stable, backend-free canvas for the last creature-pick step. */
+const LevelFourPickPreview: React.FC = () => (
+    <PickBanContext.Provider value={LEVEL_FOUR_PICK_PREVIEW_STATE}>
+        <div className="container" style={{ display: "flex" }}>
+            <CssVarsProvider>
+                <CssBaseline />
+            </CssVarsProvider>
+            <StainedGlassWindow
+                userTeam={TeamVals.LEFT as TeamType}
+                gameId="level-four-pick-preview"
+                opponentLabel="Opponent"
+                showOpponentRosterDuringAugmentHandoff={false}
             />
         </div>
     </PickBanContext.Provider>
@@ -619,7 +818,7 @@ const LocalPlayableDraft: React.FC = () => {
         <AuthContext.Provider value={authValue}>
             <PickBanContext.Provider value={pickBanValue}>
                 <div className="container" style={{ display: "flex" }}>
-                    <CssVarsProvider>
+                    <CssVarsProvider theme={hocJoyTheme}>
                         <CssBaseline />
                     </CssVarsProvider>
                     <StainedGlassWindow
@@ -708,12 +907,38 @@ const pickEventUrl = (gameId: string): string => {
     return appendEncodedPath(buildApiUrl(HOST_GAME_API, endpoints.game.pickEvents), gameId);
 };
 
+// How long a participant's draft stream may stay unconnected before the view assumes the server refused it. The
+// server answers a second tab or device with 429 and the event source retries silently, which left a dead screen.
+const DRAFT_STREAM_STALL_MS = 12_000;
+
+// How long the finished draft may cover the loading board. Past this the board's own loader shows instead, so a slow
+// or failing load is never hidden behind a draft that has already ended.
+const DRAFT_HANDOFF_MAX_MS = 8_000;
+// The board view loads behind the finished draft at full size (Pixi measures its canvas) but invisible, which also
+// keeps it out of pointer hit-testing. Once shown, `display: contents` lays it out exactly as it was unwrapped.
+const BOARD_BEHIND_DRAFT_STYLE: React.CSSProperties = { position: "fixed", inset: 0, visibility: "hidden" };
+const BOARD_SHOWN_STYLE: React.CSSProperties = { display: "contents" };
+
+const DraftConnectionWatch: React.FC<{ onStalled?: () => void }> = ({ onStalled }) => {
+    const { isConnected } = usePickBanEvents();
+    useEffect(() => {
+        if (!onStalled || isConnected) {
+            return undefined;
+        }
+        const timer = window.setTimeout(onStalled, DRAFT_STREAM_STALL_MS);
+        return () => window.clearTimeout(timer);
+    }, [isConnected, onStalled]);
+    return null;
+};
+
 const PickAndBanView: React.FC<{
     windowSize: IWindowSize;
     userTeam: TeamType;
     gameId: string;
     onPickPhaseChange?: (phase: number) => void;
-}> = ({ windowSize, userTeam, gameId, onPickPhaseChange }) => {
+    /** The draft stream never connected (see DRAFT_STREAM_STALL_MS). */
+    onConnectionStalled?: () => void;
+}> = ({ windowSize, userTeam, gameId, onPickPhaseChange, onConnectionStalled }) => {
     const manager = usePixiManager();
     const [started, setStarted] = useState(false);
     const [isLoading, setIsLoading] = useState(manager.isLoading);
@@ -737,6 +962,7 @@ const PickAndBanView: React.FC<{
     return (
         <PickBanEventProvider url={pickEventsUrl} userTeam={userTeam}>
             <PickPhaseReporter onPhaseChange={onPickPhaseChange} />
+            <DraftConnectionWatch onStalled={onConnectionStalled} />
             <div
                 className="container"
                 style={{
@@ -745,7 +971,7 @@ const PickAndBanView: React.FC<{
                     // boxShadow: "0 0 150px 500px rgba(0, 0, 0, 0.5) inset",
                 }}
             >
-                <CssVarsProvider>
+                <CssVarsProvider theme={hocJoyTheme}>
                     <CssBaseline />
                     {!isLoading && <LeftSideBar gameStarted={started} windowSize={windowSize} />}
                     {!isLoading && (
@@ -769,7 +995,8 @@ const PickAndBanView: React.FC<{
                     }
                 />
                 <LocalModelDraftOpponent eventUrl={pickEventsUrl} userTeam={userTeam} />
-                <AutoPickToast />
+                <AutoPickToast gameId={gameId} />
+                <DraftEndedNotice gameId={gameId} userTeam={userTeam} />
                 <Popover />
             </div>
         </PickBanEventProvider>
@@ -825,9 +1052,21 @@ const MatchLoadingOverlay: React.FC = () => (
     </div>
 );
 
+/**
+ * A different game id is a different match: remount the route so no draft, fight or overlay state from the game
+ * watched before survives. Spectate links from the friends dock navigate between games without a reload.
+ */
+const KeyedGameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
+    const { gameId } = useParams<{ gameId: string }>();
+    return <GameRoute key={gameId} windowSize={windowSize} />;
+};
+
 const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
     const { gameId } = useParams<{ gameId: string }>();
-    const { authenticated, getCurrentGame } = useAuthContext();
+    const { authenticated, loading: authLoading, getCurrentGame } = useAuthContext();
+    const navigate = useNavigate();
+    const location = useLocation();
+    const stopWatching = useStopWatching();
     const [showOverlay, setShowOverlay] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
     const [userTeam, setUserTeam] = useState<TeamType>(TeamVals.NO_TEAM as TeamType);
@@ -836,23 +1075,42 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
     // interactive pick screen for the read-only observer view; the play route already handles
     // observers via userTeam === NO_TEAM.
     const [observerMode, setObserverMode] = useState(false);
+    // A participant whose own draft stream would not connect (a second tab or device) watches read-only instead.
+    const [draftOpenElsewhere, setDraftOpenElsewhere] = useState(false);
+    const handleDraftStalled = useCallback(() => setDraftOpenElsewhere(true), []);
+    const handleDraftHere = useCallback(() => setDraftOpenElsewhere(false), []);
+    // The error/ended overlay's way out: a spectator leaves the way they came; a signed-in player with no
+    // spectating origin goes back to the arena.
+    const leaveOverlay = useCallback(() => {
+        if (authenticated && !location.state) {
+            navigate("/play");
+            return;
+        }
+        stopWatching();
+    }, [authenticated, location.state, navigate, stopWatching]);
 
-    // "Iron and Silk" covers everything between the match being found and the first turn: the match check,
-    // picks and augments here, then placement inside RankedGameView, which takes over the flag once the
-    // board is up (it is the only screen that sees the phase). Cleared on unmount so leaving mid-draft — a
-    // decline, a reload, a navigation away — never leaves the pre-fight track playing over the menus.
+    // "Iron and Silk" covers the whole match: the match check and picks here, then placement and the fight
+    // inside RankedGameView, which takes the flag over once the match is in play (it is the only screen that
+    // sees the phase). Cleared on unmount so leaving — a decline, a reload, a navigation away — never leaves
+    // the match track playing over the menus.
     useEffect(() => {
-        setPrefightMusicActive(!!gameId && !showOverlay && routeMode !== "play");
+        const next = draftRoutePrefightMusic({ gameId, showOverlay, routeMode });
+        if (next !== undefined) {
+            setPrefightMusicActive(next);
+        }
     }, [gameId, showOverlay, routeMode]);
     useEffect(() => () => setPrefightMusicActive(false), []);
 
     // Fallback if this tab never visited the ranked arena: drafting is still idle network time, and
     // without a warmup RankedGameView blocks on the core tier behind a loading screen. A no-op when
-    // the arena already started it. Abortable here so a bounced direct-link match stops leftover work.
+    // the arena already started it. Paused once the draft hands over to the board, so it never competes with the
+    // board's own loading; the arena resumes it.
     useEffect(() => {
         if (!gameId || routeMode !== "pick") {
             return undefined;
         }
+        // The board view's code, too, so the handoff does not wait for it.
+        preloadRankedGameView();
         return startBackgroundAssetPrefetch();
     }, [gameId, routeMode]);
     // Set once the live pick-phase SSE (already open inside PickAndBanView) reports one of the two
@@ -866,10 +1124,27 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
             setPickNearingPlay(true);
         }
     }, []);
-
+    // A spectator's draft view sees the draft end directly (it never observes AUGMENTS), so hand off now.
+    const handleDraftEnded = useCallback(() => setPickNearingPlay(true), []);
+    // The finished draft ("Preparing placement…") stays on screen while the board view loads hidden underneath it,
+    // until the view reports something to show. Switching at once put a blank page, a spinner and the forge loader,
+    // in turn, between the draft and the augment step.
+    const [draftHandoff, setDraftHandoff] = useState(false);
+    const handleBoardReadyToShow = useCallback(() => setDraftHandoff(false), []);
+    useEffect(() => {
+        if (!draftHandoff) {
+            return undefined;
+        }
+        const timer = window.setTimeout(() => setDraftHandoff(false), DRAFT_HANDOFF_MAX_MS);
+        return () => window.clearTimeout(timer);
+    }, [draftHandoff]);
     useEffect(() => {
         setPickNearingPlay(false);
         setObserverMode(false);
+        setDraftHandoff(false);
+        // Per-game like the rest: a stalled stream in the previous match must not leave the next draft
+        // watching itself read-only.
+        setDraftOpenElsewhere(false);
     }, [gameId]);
 
     useEffect(() => {
@@ -891,6 +1166,11 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                             setRouteMode("pick");
                             setShowOverlay(false);
                             setErrorMessage("");
+                            return true;
+                        }
+                        if (draft?.stage === "finished") {
+                            // The live board is gone. The stored replay is what this link is for.
+                            navigate(`/game/${encodeURIComponent(gameId)}/replay`, { replace: true });
                             return true;
                         }
                     } catch (draftErr) {
@@ -915,13 +1195,20 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
         };
 
         const fetchGame = async () => {
+            // "Not signed in YET" is not "not a player". /game/:gameId is the one game route with no auth
+            // gate, so on every hard reload this effect used to run first with authenticated=false, open the
+            // read-only view, and leave a seated player watching their own draft. Wait for the session to
+            // finish restoring; the effect re-runs the moment it has.
+            if (authLoading) {
+                return;
+            }
             if (!authenticated) {
                 if (await openObserverMode()) {
                     return;
                 }
 
                 setShowOverlay(true);
-                setErrorMessage("This game is not available to observe yet");
+                setErrorMessage(t("This game is not available to observe yet"));
                 return;
             }
 
@@ -930,7 +1217,7 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
 
                 if (currentGame?.abandoned) {
                     setShowOverlay(true);
-                    setErrorMessage("This game has been abandoned!");
+                    setErrorMessage(t("This game has been abandoned!"));
                 } else {
                     setErrorMessage("");
 
@@ -942,8 +1229,12 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                             return;
                         }
                         setShowOverlay(true);
-                        setErrorMessage("The game is no longer active or you don't have access to it");
+                        setErrorMessage(t("The game is no longer active or you don't have access to it"));
                     } else {
+                        // Seated. Say so out loud: an earlier attempt in THIS match may have failed to
+                        // confirm the seat and parked the player in the read-only view, and nothing else
+                        // ever takes them out of it.
+                        setObserverMode(false);
                         setRouteMode("checking");
                         setShowOverlay(false);
                     }
@@ -954,12 +1245,60 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                     return;
                 }
                 setShowOverlay(true);
-                setErrorMessage((err as Error).message || "An unexpected error occurred");
+                setErrorMessage((err as Error).message || t("An unexpected error occurred"));
             }
         };
 
         fetchGame();
-    }, [authenticated, gameId, getCurrentGame]);
+    }, [authLoading, authenticated, gameId, getCurrentGame, navigate]);
+
+    /**
+     * Take the seat back when it was lost to a blip.
+     *
+     * Every route into the observer view above is a guess made from one answer: the session was not restored
+     * yet, the lookup threw, or it named another match. On a reconnect all three happen for a second and mean
+     * nothing — but the view they open lasts the whole match, so the player spends their own draft watching it
+     * (owner, 20 Sep). While a signed-in viewer watches, ask again a few times; the moment the server calls
+     * this match theirs, put them back in it. A spectator's lookup never names this match, so they are never
+     * seated by it — they just stop being asked about after the window closes.
+     */
+    useEffect(() => {
+        if (!authenticated || !gameId || !getCurrentGame) {
+            return undefined;
+        }
+        // Both doors into spectating are covered: the draft's read-only view, and a play route that took
+        // NO_TEAM because one lookup came back without a seat on it.
+        if (!observerMode && userTeam !== (TeamVals.NO_TEAM as TeamType)) {
+            return undefined;
+        }
+        let cancelled = false;
+        let attempts = 0;
+        const timer = window.setInterval(() => {
+            attempts += 1;
+            if (attempts > SEAT_RECLAIM_ATTEMPTS) {
+                window.clearInterval(timer);
+                return;
+            }
+            void getCurrentGame()
+                .then((currentGame) => {
+                    if (cancelled || seatReclaimDecision(currentGame, gameId) !== "seat") {
+                        return;
+                    }
+                    window.clearInterval(timer);
+                    setObserverMode(false);
+                    setUserTeam((currentGame?.team as TeamType) ?? (TeamVals.NO_TEAM as TeamType));
+                    setRouteMode("checking");
+                    setShowOverlay(false);
+                    setErrorMessage("");
+                })
+                // A failed ask is exactly the blip this is here for: keep watching, try again next tick.
+                .catch(() => undefined);
+        }, SEAT_RECLAIM_INTERVAL_MS);
+        return () => {
+            cancelled = true;
+            window.clearInterval(timer);
+        };
+    }, [observerMode, userTeam, authenticated, gameId, getCurrentGame]);
 
     // One-shot: resolve "checking" into "pick" or "play" as soon as we know which (e.g. a fresh load
     // or a mid-fight reconnect). Not an interval — the gated poll below picks up from "pick".
@@ -1005,6 +1344,7 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                 // undefined = still drafting (204). Only a real snapshot means the handoff happened.
                 const snapshot = await fetchRankedPlaySnapshot(gameId);
                 if (snapshot && !cancelled) {
+                    setDraftHandoff(true);
                     setRouteMode("play");
                 }
             } catch {
@@ -1013,13 +1353,16 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
         };
 
         void probePlaySnapshot();
-        const intervalId = window.setInterval(probePlaySnapshot, pickNearingPlay ? 2000 : 15000);
+        // Nearing play, poll briskly: this gap is dead time on both screens right before the augment step.
+        const intervalId = window.setInterval(probePlaySnapshot, pickNearingPlay ? 750 : 15000);
 
         return () => {
             cancelled = true;
             window.clearInterval(intervalId);
         };
     }, [gameId, routeMode, showOverlay, pickNearingPlay]);
+
+    const holdDraft = draftHandoff && routeMode === "play";
 
     return (
         <>
@@ -1041,25 +1384,59 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                         textShadow: "0 0 10px white",
                     }}
                 >
-                    {errorMessage}
+                    <div style={{ display: "grid", gap: 18, justifyItems: "center", padding: 24, textAlign: "center" }}>
+                        <div>{errorMessage}</div>
+                        <button
+                            type="button"
+                            onClick={leaveOverlay}
+                            style={{
+                                font: "inherit",
+                                fontSize: 18,
+                                padding: "8px 20px",
+                                borderRadius: 8,
+                                border: "1px solid rgba(255, 255, 255, 0.6)",
+                                background: "rgba(0, 0, 0, 0.35)",
+                                color: "white",
+                                textShadow: "none",
+                                cursor: "pointer",
+                            }}
+                        >
+                            {t("Leave")}
+                        </button>
+                    </div>
                 </div>
             )}
             {!showOverlay && gameId && routeMode === "checking" && <MatchLoadingOverlay />}
             {!showOverlay && gameId && routeMode !== "checking" && (
                 <>
-                    {routeMode === "pick" &&
-                        (observerMode ? (
-                            <ObserverPickView gameId={gameId} onPickPhaseChange={handlePickPhaseChange} />
+                    {(routeMode === "pick" || holdDraft) &&
+                        (observerMode || draftOpenElsewhere ? (
+                            <ObserverPickView
+                                gameId={gameId}
+                                onPickPhaseChange={handlePickPhaseChange}
+                                onDraftEnded={handleDraftEnded}
+                                draftOpenElsewhere={draftOpenElsewhere}
+                                onDraftHere={draftOpenElsewhere ? handleDraftHere : undefined}
+                            />
                         ) : (
                             <PickAndBanView
                                 windowSize={windowSize}
                                 userTeam={userTeam}
                                 gameId={gameId}
                                 onPickPhaseChange={handlePickPhaseChange}
+                                // A finished draft's stream may close while it covers the loading board.
+                                onConnectionStalled={holdDraft ? undefined : handleDraftStalled}
                             />
                         ))}
                     {routeMode === "play" && (
-                        <RankedGameView windowSize={windowSize} gameId={gameId} userTeam={userTeam} />
+                        <div style={holdDraft ? BOARD_BEHIND_DRAFT_STYLE : BOARD_SHOWN_STYLE}>
+                            <RankedGameView
+                                windowSize={windowSize}
+                                gameId={gameId}
+                                userTeam={userTeam}
+                                onReadyToShow={handleBoardReadyToShow}
+                            />
+                        </div>
                     )}
                 </>
             )}
@@ -1080,6 +1457,7 @@ const RankedReplayRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }
 
 const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
     const { loading, authenticated, user } = useAuthContext();
+    const { pathname } = useLocation();
 
     // Online play requires an activated (email-verified) account. An authenticated-but-inactive
     // user (a fresh email registration, or an old account that never verified) is funneled to the
@@ -1087,7 +1465,7 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
     const activated = authenticated && user?.is_active !== false;
 
     if (loading) {
-        return null;
+        return pathname === "/portal" || pathname === "/portal/" ? <PlayerPortalLoadingPage /> : null;
     }
 
     return (
@@ -1170,7 +1548,7 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
                     />
                     {/* Live 60-frame lava-atlas calibration: playback, color, geometry, light and procedural splashes. */}
                     <Route
-                        path="/dev/lava-editor"
+                        path="/dev/lava-animation-editor"
                         element={
                             <React.Suspense fallback={null}>
                                 <LavaAnimationTuningEditor windowSize={windowSize} />
@@ -1184,6 +1562,87 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
                             <React.Suspense fallback={null}>
                                 <LoadingScreenFireEditor />
                             </React.Suspense>
+                        }
+                    />
+                    {/* Backend-free visual fixture for the second creature-pick phase. */}
+                    <Route path="/preview/picks/level2" element={<LevelTwoPickPreview />} />
+                    {/* Backend-free visual fixture for the third creature-pick phase. */}
+                    <Route path="/preview/picks/level3" element={<LevelThreePickPreview />} />
+                    {/* Backend-free visual fixture for the fourth creature-pick phase. */}
+                    <Route path="/preview/picks/level4" element={<LevelFourPickPreview />} />
+                    {/* Four live trajectory treatments; the selected style persists locally and is used by combat. */}
+                    <Route
+                        path="/dev/shot-trajectories"
+                        element={
+                            <React.Suspense fallback={null}>
+                                <ShotTrajectoryEditor />
+                            </React.Suspense>
+                        }
+                    />
+                    {/* All nine Cemetery barrel variants with live creature-style shadow tuning. */}
+                    <Route
+                        path="/dev/barrel-shadow-editor"
+                        element={
+                            <React.Suspense fallback={null}>
+                                <BarrelShadowEditor windowSize={windowSize} />
+                            </React.Suspense>
+                        }
+                    />
+                    {/* Draft-background lantern flame: two sources, fixed bottom anchor and live colour/geometry tuning. */}
+                    <Route
+                        path="/dev/pick-lantern-fire-editor"
+                        element={
+                            <React.Suspense fallback={null}>
+                                <PickLanternFireEditor>
+                                    <BundlePickPreview />
+                                </PickLanternFireEditor>
+                            </React.Suspense>
+                        }
+                    />
+                    {/* Live 60-frame lava-atlas calibration on the video-fire pit: playback, color, geometry, light and splashes. */}
+                    <Route
+                        path="/dev/lava-editor"
+                        element={
+                            <React.Suspense fallback={null}>
+                                <LavaFireVideoEditor windowSize={windowSize} />
+                            </React.Suspense>
+                        }
+                    />
+                    <Route
+                        path="/dev/lava-pit"
+                        element={
+                            <React.Suspense fallback={null}>
+                                <LavaPitEffectsEditor windowSize={windowSize} />
+                            </React.Suspense>
+                        }
+                    />
+                    {/* Top-two-row movement-fill calibration; only each row's upper edge is adjustable. */}
+                    <Route
+                        path="/dev/movement-area-editor"
+                        element={
+                            <React.Suspense fallback={null}>
+                                <MovementAreaEditor windowSize={windowSize} />
+                            </React.Suspense>
+                        }
+                    />
+                    {/* Independent width, height and horizontal-position tuning for the battlefield stun badge. */}
+                    <Route
+                        path="/dev/stun-badge-editor"
+                        element={
+                            <React.Suspense fallback={null}>
+                                <StunBadgeEditor />
+                            </React.Suspense>
+                        }
+                    />
+                    <Route
+                        path="/dev/creature-animation-lab"
+                        element={
+                            <>
+                                <Heroes windowSize={windowSize} />
+                                <React.Suspense fallback={null}>
+                                    <CreatureAnimationLabPanel />
+                                </React.Suspense>
+                            </>
                         }
                     />
                 </>
@@ -1242,7 +1701,7 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
                 path="/game/:gameId/replay"
                 element={
                     <WalletProvider>
-                        {activated ? <RankedReplayRoute windowSize={windowSize} /> : <LoginScreen />}
+                        <RankedReplayRoute windowSize={windowSize} />
                     </WalletProvider>
                 }
             />
@@ -1250,7 +1709,16 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
                 path="/game/:gameId"
                 element={
                     <WalletProvider>
-                        <GameRoute windowSize={windowSize} />
+                        <KeyedGameRoute windowSize={windowSize} />
+                    </WalletProvider>
+                }
+            />
+            {/* Friend co-op sandbox: the invite's direct link. Host plays green, the invited friend red. */}
+            <Route
+                path="/sandbox/:gameId"
+                element={
+                    <WalletProvider>
+                        {activated ? <SandboxCoopRoute windowSize={windowSize} /> : <LoginScreen />}
                     </WalletProvider>
                 }
             />
@@ -1294,9 +1762,12 @@ const App: React.FC = () => {
                         {/* Above the routes on purpose: one long-lived <audio> means walking between the menu
                             screens does not restart the theme. It decides for itself which routes sing. */}
                         <ThemeMusic />
-                        {/* Floating notifications, friends, and messages; compact during fights. */}
-                        <SocialDock />
-                        <AuthedRoutes windowSize={windowSize} />
+                        <LiveMatchBanner />
+                        <PremiumSearchProvider>
+                            {/* Floating notifications, friends, and messages; compact during fights. */}
+                            <SocialDock />
+                            <AuthedRoutes windowSize={windowSize} />
+                        </PremiumSearchProvider>
                     </Router>
                 </CurrentLobbyProvider>
             </SocialProvider>
@@ -1305,6 +1776,9 @@ const App: React.FC = () => {
 };
 
 installFootprintOverridesFromSearch(window.location.search);
+// Uncaught errors (a blank page is all the player sees otherwise) go to the server log.
+installClientErrorReporting();
+installStaleChunkRecovery();
 
 // Reuse an existing root across hot-reloads / re-evaluations instead of calling createRoot()
 // on the same #root container twice (React warns and leaks the previous root otherwise).

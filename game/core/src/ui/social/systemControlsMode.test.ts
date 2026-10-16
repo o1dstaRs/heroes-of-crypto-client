@@ -1,6 +1,73 @@
-import { describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it } from "bun:test";
 
-import { shouldShowSystemMenuLabel, SYSTEM_MENU_ITEM_OFFSETS } from "./systemControlsMode";
+import { GAME_SYSTEM_CONTROL_SIZE_PX, GAME_SYSTEM_CONTROLS_STACK_GAP_PX } from "../GameSystemControls";
+import {
+    getBattleSystemControlsActive,
+    getBattleSystemControlsServerSnapshot,
+    registerBattleSystemControls,
+    shouldShowSystemMenuLabel,
+    subscribeBattleSystemControls,
+    SYSTEM_DOCK_BUTTON_SIZE_PX,
+    SYSTEM_DOCK_GAP_PX,
+    SYSTEM_DOCK_STEP_PX,
+    SYSTEM_MENU_ITEM_OFFSETS,
+} from "./systemControlsMode";
+
+describe("system controls ownership", () => {
+    const releases: (() => void)[] = [];
+    const mount = (): (() => void) => {
+        const release = registerBattleSystemControls();
+        releases.push(release);
+        return release;
+    };
+
+    afterEach(() => {
+        for (const release of releases.splice(0)) release();
+    });
+
+    it("keeps the compact controls through the draft-to-placement handoff", () => {
+        const releaseDraft = mount();
+        const releaseBoard = mount();
+        releaseDraft();
+        expect(getBattleSystemControlsActive()).toBe(true);
+        releaseBoard();
+        expect(getBattleSystemControlsActive()).toBe(false);
+    });
+
+    it("keeps the draft layout if a covered board unmounts first", () => {
+        const releaseDraft = mount();
+        const releaseBoard = mount();
+        releaseBoard();
+        expect(getBattleSystemControlsActive()).toBe(true);
+        releaseDraft();
+        expect(getBattleSystemControlsActive()).toBe(false);
+    });
+
+    it("a repeated cleanup cannot release another screen's controls", () => {
+        const releaseDraft = mount();
+        const releaseBoard = mount();
+        releaseDraft();
+        releaseDraft();
+        expect(getBattleSystemControlsActive()).toBe(true);
+        releaseBoard();
+        expect(getBattleSystemControlsActive()).toBe(false);
+    });
+
+    it("notifies the dock only when entering or leaving the last registered game screen", () => {
+        const states: boolean[] = [];
+        const unsubscribe = subscribeBattleSystemControls(() => states.push(getBattleSystemControlsActive()));
+        try {
+            const releaseDraft = mount();
+            const releaseBoard = mount();
+            releaseDraft();
+            releaseBoard();
+            expect(states).toEqual([true, false]);
+            expect(getBattleSystemControlsServerSnapshot()).toBe(false);
+        } finally {
+            unsubscribe();
+        }
+    });
+});
 
 describe("system controls label visibility", () => {
     it("hides the master hint immediately when the fan opens", () => {
@@ -15,14 +82,14 @@ describe("system controls label visibility", () => {
 });
 
 describe("system controls fan geometry", () => {
-    const master = { left: 0, right: 54, top: 0, bottom: 54 };
+    const master = { left: 0, right: SYSTEM_DOCK_BUTTON_SIZE_PX, top: 0, bottom: SYSTEM_DOCK_BUTTON_SIZE_PX };
     const childRect = ({ x, y }: Readonly<{ x: number; y: number }>) => ({
-        // The child starts 8px from the same right edge as the master. A negative CSS X translation
-        // moves it left, which increases this right-edge-relative coordinate.
-        left: 8 - x,
-        right: 42 - x,
-        top: 8 + y,
-        bottom: 42 + y,
+        // A child fills the master's own box and a negative CSS X translation carries it left — away
+        // from the bottom-right corner the master occupies.
+        left: x,
+        right: SYSTEM_DOCK_BUTTON_SIZE_PX + x,
+        top: y,
+        bottom: SYSTEM_DOCK_BUTTON_SIZE_PX + y,
     });
     const overlaps = (
         left: Readonly<{ left: number; right: number; top: number; bottom: number }>,
@@ -43,7 +110,31 @@ describe("system controls fan geometry", () => {
     });
 
     it("opens the three controls on one aligned row", () => {
-        const centers = Object.values(SYSTEM_MENU_ITEM_OFFSETS).map(({ y }) => 8 + y + 17);
+        const centers = Object.values(SYSTEM_MENU_ITEM_OFFSETS).map(({ y }) => y + SYSTEM_DOCK_BUTTON_SIZE_PX / 2);
         expect(new Set(centers).size).toBe(1);
+    });
+
+    it("stays on the master's own line, so the open dock is one row ending at fullscreen", () => {
+        for (const { y } of Object.values(SYSTEM_MENU_ITEM_OFFSETS)) {
+            expect(y).toBe(0);
+        }
+    });
+
+    it("opens away from the corner the medallion occupies", () => {
+        for (const { x } of Object.values(SYSTEM_MENU_ITEM_OFFSETS)) {
+            expect(x).toBeLessThan(0);
+        }
+    });
+
+    it("is built from the corner controls' own square and gap", () => {
+        expect(SYSTEM_DOCK_BUTTON_SIZE_PX).toBe(GAME_SYSTEM_CONTROL_SIZE_PX);
+        expect(SYSTEM_DOCK_GAP_PX).toBe(GAME_SYSTEM_CONTROLS_STACK_GAP_PX);
+        expect(SYSTEM_DOCK_STEP_PX).toBe(GAME_SYSTEM_CONTROL_SIZE_PX + GAME_SYSTEM_CONTROLS_STACK_GAP_PX);
+    });
+
+    it("spaces the children one control apart, nearest first", () => {
+        expect(SYSTEM_MENU_ITEM_OFFSETS.notifications.x).toBe(-SYSTEM_DOCK_STEP_PX);
+        expect(SYSTEM_MENU_ITEM_OFFSETS.friends.x).toBe(-2 * SYSTEM_DOCK_STEP_PX);
+        expect(SYSTEM_MENU_ITEM_OFFSETS.predictions.x).toBe(-3 * SYSTEM_DOCK_STEP_PX);
     });
 });

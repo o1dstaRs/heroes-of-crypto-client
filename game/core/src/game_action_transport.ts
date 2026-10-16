@@ -111,10 +111,29 @@ export interface AuthoritativeJournalEntry {
     acceptedAtMs: number;
 }
 
+/** One live cell of transient terrain on an authoritative snapshot (kind: 1 smoke, 2 vine, 3 fire wall). */
+export interface AuthoritativeTransientCell {
+    kind: number;
+    x: number;
+    y: number;
+    lapsRemaining: number;
+    team: number;
+}
+
 export interface AuthoritativeGameSnapshot {
     gameId: string;
     viewerTeam?: TeamType | number;
     localModelTeam?: TeamType | number;
+    /**
+     * Friend co-op sandbox (route /sandbox/:id): the ranked scene shows the roster overlay so the viewer
+     * spawns units by name onto their own zone, draws BOTH deployment zones, and never hides the other
+     * seat's placements. `sandboxCoopBothReady` gates the START button (the server refuses otherwise).
+     */
+    sandboxCoop?: boolean;
+    sandboxCoopBothReady?: boolean;
+    /** Co-op sandbox: each team's applied synergies ("Faction:variant:level") already during placement. */
+    leftSynergies?: string[];
+    rightSynergies?: string[];
     winnerTeam?: TeamType | number;
     phase: number;
     gridType: number;
@@ -130,6 +149,7 @@ export interface AuthoritativeGameSnapshot {
     placementStage?: number;
     /** False/absent for legacy placement where setup and positioning share one window. */
     placementSplit?: boolean;
+    viewerPlacementReady?: boolean;
     /** Explicit opt-in privacy policy; false/absent preserves public Setup roster visibility. */
     hideOpponentRosterDuringSetup?: boolean;
     currentTurnStartMs?: number;
@@ -147,8 +167,17 @@ export interface AuthoritativeGameSnapshot {
      * (older server / game persisted before scattered ranked shipped). */
     scatteredStandingCells?: number[];
     scatteredStandingCount?: number;
+    /** Every live smoke / vine / fire-wall cell with its remaining laps. `transientCellsCount` undefined =
+     * older server, and the scene rebuilds those stores from the journal tail instead. */
+    transientCells?: AuthoritativeTransientCell[];
+    transientCellsCount?: number;
     /** Cumulative server movement penalty used with unit morale when calculating effective initiative. */
     stepsMoraleMultiplier?: number;
+    /** What "Use additional time" would add to the running turn right now, in ms; 0 = the server would refuse
+     * it (already used this lap, or no budget left). Undefined from an older server, which never sent it. */
+    additionalTimeMs?: number;
+    artifactBarrels?: { team: TeamType; index: number; cell: { x: number; y: number } }[];
+    artifactBarrelsCount?: number;
     units: AuthoritativeUnitState[];
     upNext?: string[];
     damageStats?: IDamageStatistic[];

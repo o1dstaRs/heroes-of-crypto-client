@@ -6,6 +6,7 @@
         "moduleResolution": "Bundler",
 
         "jsx": "react-jsx",
+        "types": ["bun-types", "vite/client"],
         "strict": true,
         "noUnusedLocals": false,
         "noImplicitReturns": true,
@@ -18,9 +19,8 @@
         "rootDir": "src",
         "outDir": "dist",
         "noEmit": true,
-        "baseUrl": ".",
         "paths": {
-            "@/*": ["src/*"]
+            "@/*": ["./src/*"]
         }
     },
     "references": [{ "path": "../heroes-of-crypto-common/tsconfig.build.json" }],

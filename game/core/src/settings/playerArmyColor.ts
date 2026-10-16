@@ -17,8 +17,10 @@ import { TEAM_COLOR_GREEN, TEAM_COLOR_RED } from "../scenes/teamColors";
  * A player's PERSONAL army colour: a local, cosmetic override for the two armies' flags and lights.
  *
  * This is not the viewer-relative palette that was tried and reverted twice. Team IDENTITY is untouched:
- * LEFT is still the green side and RIGHT still the red one, in every log line, on the results card and in
- * match history. Only the paint on the board (and the stack flags/pips that mirror it) changes, only on the
+ * LEFT is still the green side and RIGHT still the red one wherever a side is NAMED — the results card, match
+ * history, and the text of every log line. Only PAINT follows the preset: the board, the stack flags/pips that
+ * mirror it, and the fight log's per-line side dots (owner 2026-09-18: "you may play even purple" — a green dot
+ * beside units the board draws amethyst was the one place the two answers disagreed). It applies only on the
  * CLICKING PLAYER's own machine — nothing here is sent anywhere, and the opponent's screen is unaffected.
  *
  * Choosing a colour repaints BOTH sides, and it has to: the player picks the colour of their own army, and

@@ -1,5 +1,6 @@
 import { animationAtlases, type AnimationAtlasMeta, type AnimationUnitName } from "../../generated/animation_atlases";
 import { images, type ImageKey } from "../../generated/image_imports";
+import { isDecodedImageReady, warmDecodedImage } from "../decodedImageCache";
 
 export type SidebarAtlasMeta = AnimationAtlasMeta;
 
@@ -104,27 +105,14 @@ export function getDefaultAnimationConfig(
     return imageSrc ? { meta, imageSrc } : null;
 }
 
-// Decode each atlas at most once so selection is responsive without accumulating duplicate image objects.
-const decodedImageCache = new Map<string, Promise<void>>();
-const readyAtlasSrcs = new Set<string>();
-
-export function warmAtlas(src: string): Promise<void> {
-    let existing = decodedImageCache.get(src);
-    if (!existing) {
-        existing = new Promise<void>((resolve) => {
-            const img = new Image();
-            img.decoding = "async";
-            img.src = src;
-            img.decode().then(resolve, resolve);
-        });
-        decodedImageCache.set(src, existing);
-        existing.then(() => readyAtlasSrcs.add(src));
-    }
-    return existing;
+export function warmAtlas(src: string): Promise<boolean> {
+    // Use the stills' cache for both readiness and pending work. A failed decode can retry, and an
+    // evicted sheet must be decoded again before it replaces the visible still portrait.
+    return warmDecodedImage(src, { priority: "low" });
 }
 
 export function isAtlasReady(src: string): boolean {
-    return readyAtlasSrcs.has(src);
+    return isDecodedImageReady(src);
 }
 
 /** Pre-decode a unit's sidebar animation atlas so selecting it later is instant. */

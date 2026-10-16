@@ -234,7 +234,7 @@ const auraOutline = (footprint: IFootprintExtent, range: number, xy: HoCMath.XY)
     SandboxDrawer.drawGameplayVisuals(
         graphics as never,
         {
-            fightProps: { hasFightStarted: () => true },
+            fightProps: { hasFightStarted: () => true, getLapsNarrowed: () => 0 },
             isActiveUnitMoving: false,
             gridSettings,
             hoverGlowPhase: 0,

@@ -1,23 +1,26 @@
-import Box from "@mui/joy/Box";
 import React from "react";
 
-import { FullscreenToggle } from "./RightSideBar/FullscreenToggle";
+import { GameCornerExitButton, GameCornerSlot } from "./GameCornerExit";
+import { GameSystemControls } from "./GameSystemControls";
 
 /**
- * Loading-screen fullscreen control. The Pixi loading artwork sits below the HTML input canvas, so this
- * small React overlay keeps the same clickable forged medallion used by the draft and battle footers.
+ * Loading-screen system controls. The Pixi loading artwork sits below the HTML input canvas, so this small
+ * React overlay carries the same corner HUD every in-game screen wears — sound stacked above fullscreen in
+ * the bottom-right corner, and, when the host has somewhere to go back to, the shared close button.
+ *
+ * The corner medallion is not mounted here: SocialDock lives at the app root and each host (sandbox,
+ * ranked) already publishes the compact mode on mount, loading screen included.
  */
-export const LoadingFullscreenToggle: React.FC = () => (
-    <Box
-        sx={{
-            position: "fixed",
-            left: "1rem",
-            bottom: "1rem",
-            zIndex: 60,
-            width: 32,
-            height: 32,
-        }}
-    >
-        <FullscreenToggle />
-    </Box>
+export const LoadingFullscreenToggle: React.FC<{ onExit?: () => void; exitLabel?: string }> = ({
+    onExit,
+    exitLabel = "Back",
+}) => (
+    <>
+        <GameSystemControls rightStack zIndex={60} />
+        {onExit && (
+            <GameCornerSlot>
+                <GameCornerExitButton onClick={onExit} label={exitLabel} />
+            </GameCornerSlot>
+        )}
+    </>
 );

@@ -1,0 +1,12 @@
+---
+import PrizeRulesPage from "../../../components/PrizeRulesPage.astro";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { content } from "../../../lib/site-data";
+
+const lang = "ru";
+const copy = content[lang].prizeRules;
+---
+
+<BaseLayout lang={lang} title={copy.title} description={copy.description}>
+    <PrizeRulesPage lang={lang} />
+</BaseLayout>

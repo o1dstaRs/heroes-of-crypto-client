@@ -49,8 +49,13 @@ test("loads hover artwork through the scene lease and drops references on teardo
     await Promise.resolve();
     expect(requestedKeys).toEqual([
         "cursor_melee",
-        "range_target_arrow_v7_gold_wide_crisp",
+        "shot_trajectory_gold_arrowhead_wide_socket_v6",
+        "shot_trajectory_orc_bronze_arrowhead_distant_match_v8",
+        "shot_trajectory_gold_fletching_wide_socket_v6",
+        "shot_trajectory_orc_bronze_fletching_distant_match_v8",
         "shot_trajectory_hammered_bronze_casing_sprite_v4",
+        "shot_trajectory_gold_casing_sprite_v6",
+        "magic_aim_dual_helix_default_atlas",
     ]);
     expect(internals.hoverAttackSwordTexture).toBe(Texture.WHITE);
     expect(internals.hoverRangeTargetEdgeTexture).toBe(Texture.WHITE);

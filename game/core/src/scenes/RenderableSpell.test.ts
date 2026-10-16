@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { Container, Texture } from "pixi.js";
 
-import { HoCConfig } from "@heroesofcrypto/common";
+import { Artifact, HoCConfig } from "@heroesofcrypto/common";
 
 import { PixiRenderableSpell } from "./RenderableSpell";
 
@@ -124,5 +124,276 @@ describe("PixiRenderableSpell card hit area", () => {
             spell.destroy();
             layer.destroy();
         }
+    });
+
+    test("a one-creature Wandering Mage can hit each spell name, and a locked card does not cover the next", () => {
+        const layer = new Container();
+        const names = ["Smoke", "Misfortune", "Fireforged Sword", "Fireball"] as const;
+        const spells = names.map(
+            (name) =>
+                new PixiRenderableSpell(
+                    {
+                        spellProperties: HoCConfig.getSpellConfig("Chaos", name),
+                        amount: name === "Fireforged Sword" ? 2 : 1,
+                    },
+                    layer,
+                    { spell_cell_260: Texture.WHITE },
+                    Texture.WHITE,
+                    new Map(),
+                ),
+        );
+        try {
+            spells.forEach((spell, index) => spell.renderOnPage(index + 1, 1));
+            const titlePoint = (spell: PixiRenderableSpell): { x: number; y: number } => {
+                const title = (
+                    spell as unknown as {
+                        titleText: {
+                            x: number;
+                            y: number;
+                            parent: { toGlobal: (point: { x: number; y: number }) => { x: number; y: number } };
+                        };
+                    }
+                ).titleText;
+                return title.parent.toGlobal({ x: title.x, y: title.y + 12 });
+            };
+            const rows = names.map((name, index) => {
+                const spell = spells[index]!;
+                const point = titlePoint(spell);
+                const iconBounds = spell.getSprite().getBounds();
+                const iconPoint = {
+                    x: (iconBounds.minX + iconBounds.maxX) / 2,
+                    y: (iconBounds.minY + iconBounds.maxY) / 2,
+                };
+                return {
+                    name,
+                    canUse: spell.canUse(1),
+                    titleHit: spell.isHover(point, 1, true),
+                    titleHitWhenLockedOut: spell.isHover(point, 1, false),
+                    iconHit: spell.isHover(iconPoint, 1, true),
+                    coveredBy: spells
+                        .filter((other, otherIndex) => otherIndex !== index && other.isHover(point, 1, true))
+                        .map((other) => other.getName()),
+                };
+            });
+            expect(rows).toEqual([
+                {
+                    name: "Smoke",
+                    canUse: false,
+                    titleHit: true,
+                    titleHitWhenLockedOut: false,
+                    iconHit: true,
+                    coveredBy: [],
+                },
+                {
+                    name: "Misfortune",
+                    canUse: true,
+                    titleHit: true,
+                    titleHitWhenLockedOut: true,
+                    iconHit: true,
+                    coveredBy: [],
+                },
+                {
+                    name: "Fireforged Sword",
+                    canUse: true,
+                    titleHit: true,
+                    titleHitWhenLockedOut: true,
+                    iconHit: true,
+                    coveredBy: [],
+                },
+                {
+                    name: "Fireball",
+                    canUse: false,
+                    titleHit: true,
+                    titleHitWhenLockedOut: false,
+                    iconHit: true,
+                    coveredBy: [],
+                },
+            ]);
+            const misfortune = spells[1]!;
+            const title = (
+                misfortune as unknown as {
+                    titleText: {
+                        x: number;
+                        y: number;
+                        parent: { toGlobal: (point: { x: number; y: number }) => { x: number; y: number } };
+                    };
+                }
+            ).titleText;
+            const gap = title.parent.toGlobal({ x: title.x, y: title.y + 50 });
+            expect(spells.some((spell) => spell.isHover(gap, 1, true))).toBe(false);
+        } finally {
+            for (const spell of spells) spell.destroy();
+            layer.destroy();
+        }
+    });
+});
+
+describe("PixiRenderableSpell effect summary", () => {
+    const detailsOf = (
+        faction: string,
+        name: string,
+        ownerStackPower: number,
+        casterAmountAlive: number,
+        casterCumulativeMaxHp = 1,
+        magicDamageBonusPercentage = 0,
+        healingBonusPercentage = 0,
+        tomeBuffPercentage = 0,
+    ) => {
+        const layer = new Container();
+        const spell = new PixiRenderableSpell(
+            { spellProperties: HoCConfig.getSpellConfig(faction, name), amount: 1 },
+            layer,
+            { spell_cell_260: Texture.WHITE },
+            Texture.WHITE,
+            new Map(),
+        );
+
+        try {
+            return spell.getHoverDetails(
+                ownerStackPower,
+                casterAmountAlive,
+                casterCumulativeMaxHp,
+                0,
+                magicDamageBonusPercentage,
+                healingBonusPercentage,
+                tomeBuffPercentage,
+            );
+        } finally {
+            spell.destroy();
+            layer.destroy();
+        }
+    };
+    const summaryOf = (
+        faction: string,
+        name: string,
+        ownerStackPower: number,
+        casterAmountAlive: number,
+        casterCumulativeMaxHp = 1,
+        magicDamageBonusPercentage = 0,
+        healingBonusPercentage = 0,
+        tomeBuffPercentage = 0,
+    ) =>
+        detailsOf(
+            faction,
+            name,
+            ownerStackPower,
+            casterAmountAlive,
+            casterCumulativeMaxHp,
+            magicDamageBonusPercentage,
+            healingBonusPercentage,
+            tomeBuffPercentage,
+        ).effectSummary;
+
+    test("highlights calculated spell damage", () => {
+        expect(summaryOf("Nature", "Lightning Strike", 5, 2, 1, 15)).toEqual({
+            kind: "damage",
+            label: "Spell damage",
+            value: "345",
+            detail: "Before resistance and element",
+        });
+    });
+
+    test("highlights healing in HP", () => {
+        expect(summaryOf("Life", "Heal", 1, 2)).toEqual({
+            kind: "healing",
+            label: "Healing",
+            value: "10 HP",
+        });
+        expect(summaryOf("Life", "Mass Heal", 3, 3, 1, 0, 50)).toEqual({
+            kind: "healing",
+            label: "Healing per ally",
+            value: "11 HP",
+        });
+    });
+
+    test("highlights buff and debuff percentages", () => {
+        expect(summaryOf("Life", "Spiritual Armor", 1, 2)).toEqual({
+            kind: "buff",
+            label: "Buff",
+            value: "+30%",
+        });
+        expect(summaryOf("Death", "Quagmire", 1, 2)).toEqual({
+            kind: "debuff",
+            label: "Debuff",
+            value: "−25%",
+        });
+    });
+
+    test("highlights max-HP terrain damage and smoke reduction", () => {
+        expect(summaryOf("Chaos", "Fire Wall", 4, 2)).toEqual({
+            kind: "damage",
+            label: "Damage per cell",
+            value: "25% max HP",
+            detail: "Friend or foe",
+        });
+        expect(summaryOf("Chaos", "Smoke", 4, 2)).toEqual({
+            kind: "debuff",
+            label: "Ranged damage",
+            value: "−50%",
+            detail: "When the shot crosses smoke",
+        });
+    });
+
+    test("does not invent a percentage for non-numeric status spells", () => {
+        expect(summaryOf("Chaos", "Misfortune", 1, 2)).toBeUndefined();
+    });
+
+    test("Tome of Amplification raises the buff the card promises, including armor and both mirrors", () => {
+        const tome = Artifact.ARTIFACT_POWER.TOME_BUFF_POWER_PERCENT;
+        expect(tome).toBe(35);
+        expect(summaryOf("Life", "Spiritual Armor", 1, 2, 1, 0, 0, tome)).toEqual({
+            kind: "buff",
+            label: "Buff",
+            value: "+40.5%",
+        });
+        expect(detailsOf("Life", "Spiritual Armor", 1, 2, 1, 0, 0, tome).information.join("\n")).toContain(
+            "additional 40.5% armor",
+        );
+
+        expect(summaryOf("Chaos", "Riot", 1, 2, 1, 0, 0, tome)?.value).toBe("+40.5%");
+        expect(detailsOf("Chaos", "Riot", 1, 2, 1, 0, 0, tome).information.join("\n")).toContain("Adds 40.5%");
+
+        expect(summaryOf("Chaos", "Mass Riot", 4, 2, 1, 0, 0, tome)?.value).toBe("+33.75%");
+        expect(detailsOf("Chaos", "Mass Riot", 4, 2, 1, 0, 0, tome).information.join("\n")).toContain("Adds 33.75%");
+
+        // Flat, not stack-scaled: a stack-1 Ogre still reflects the whole 40, and the tome makes it 54.
+        expect(summaryOf("Chaos", "Magic Mirror", 1, 2)).toEqual({
+            kind: "buff",
+            label: "Reflection",
+            value: "40%",
+            detail: "Damage and debuff reflection",
+        });
+        expect(summaryOf("Chaos", "Magic Mirror", 1, 2, 1, 0, 0, tome)?.value).toBe("54%");
+        expect(detailsOf("Chaos", "Magic Mirror", 1, 2, 1, 0, 0, tome).information.join("\n")).toContain(
+            "Reflects 54%",
+        );
+        // 32 × 1.35 is 43.2, and the card floors the reflected share.
+        expect(summaryOf("Chaos", "Mass Magic Mirror", 4, 2, 1, 0, 0, tome)?.value).toBe("43%");
+        expect(detailsOf("Chaos", "Mass Magic Mirror", 4, 2, 1, 0, 0, tome).information.join("\n")).toContain(
+            "Reflects 43%",
+        );
+
+        expect(summaryOf("Chaos", "Fireforged Sword", 1, 2)?.value).toBe("20% of hit");
+        // Empower, the rings and Sylvan Focus arrive as the magic-damage bonus. They do not move the blade.
+        expect(summaryOf("Chaos", "Fireforged Sword", 1, 2, 1, 40)?.value).toBe("20% of hit");
+        expect(summaryOf("Chaos", "Fireforged Sword", 1, 2, 1, 40, 0, tome)?.value).toBe("27% of hit");
+        expect(detailsOf("Chaos", "Fireforged Sword", 1, 2, 1, 40, 0, tome).information.join("\n")).toContain(
+            "for 27%",
+        );
+        const helpingHand = detailsOf("Life", "Helping Hand", 4, 2, 1, 0, 0, tome).information.join("\n");
+        expect(helpingHand).toContain("Gives 40.5%");
+        expect(helpingHand).toContain("The caster still loses 30%.");
+        expect(detailsOf("System", "Wind Flow", 5, 1, 1, 0, 0, tome).information.join("\n")).toContain(
+            "gain 5.4 of base armor points while losing 4 movement",
+        );
+    });
+
+    test("Tome of Amplification does not raise heals or enemy debuffs", () => {
+        expect(summaryOf("Life", "Heal", 1, 2, 1, 0, 0, Artifact.ARTIFACT_POWER.TOME_BUFF_POWER_PERCENT)?.value).toBe(
+            "10 HP",
+        );
+        expect(
+            summaryOf("Death", "Quagmire", 1, 2, 1, 0, 0, Artifact.ARTIFACT_POWER.TOME_BUFF_POWER_PERCENT)?.value,
+        ).toBe("−25%");
     });
 });

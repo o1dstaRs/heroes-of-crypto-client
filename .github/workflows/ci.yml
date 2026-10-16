@@ -38,6 +38,9 @@ jobs:
             - name: Test game image asset policy
               run: bun test --cwd game/core src/gameImageAssetPolicy.test.ts
 
+            - name: Test deployment routing and release guards
+              run: bun run test:deployment
+
     typecheck:
         name: Typecheck
         runs-on: ubuntu-latest
@@ -66,6 +69,9 @@ jobs:
 
             - name: Typecheck core
               run: bunx tsc --noEmit -p game/core/tsconfig.json
+
+            - name: Typecheck deployment scripts
+              run: bun run typecheck:deployment
 
     core:
         name: Core tests and build
@@ -180,6 +186,9 @@ jobs:
                   test -f site/dist/game/index.html
                   test -f site/dist/knowledge-base/index.html
                   test -f site/dist/ru/knowledge-base/index.html
+                  test -f site/dist/knowledge-graph.json
+                  grep -Fq '"id":"unit:hydra"' site/dist/knowledge-graph.json
+                  grep -Fq '"id":"rule:rule-morale"' site/dist/knowledge-graph.json
                   test -f site/dist/rules/index.html
                   grep -Fq '/knowledge-base/#rules' site/dist/rules/index.html
                   grep -Fq '<loc>https://heroesofcrypto.io/knowledge-base/</loc>' site/dist/sitemap-0.xml

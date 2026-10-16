@@ -32,7 +32,7 @@ Great turns often start with one quiet glance at the queue.
 
 Armies in Heroes of Crypto are not machines. They can surge, hesitate, rally, and break.
 
-Morale gives the fight emotional texture. A unit that gets another action feels heroic. A unit that freezes at the wrong time feels like a line losing courage. These moments create the kind of stories players remember after the match ends.
+Morale gives the fight emotional texture. A unit that surges ahead of the queue and hits a quarter harder feels heroic. A unit that trails behind everyone and hits softer feels like a line losing courage. These moments create the kind of stories players remember after the match ends.
 
 The lesson is not "hope for morale." The lesson is to make morale matter.
 

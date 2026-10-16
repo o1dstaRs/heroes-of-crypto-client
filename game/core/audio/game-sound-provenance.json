@@ -1,0 +1,196 @@
+{
+    "provider": "User-provided recordings",
+    "mastering": {
+        "target_lufs": -20.0,
+        "loudness_method": "R128 integrated, eight decoded PCM repeats, no inserted silence",
+        "true_peak_ceiling_db": -3.0,
+        "max_bytes_per_codec": 32768
+    },
+    "sounds": [
+        {
+            "id": "spellbook_open",
+            "source": {
+                "kind": "user-provided",
+                "filename": "spellbook open.mp3",
+                "sha256": "ec0ddd214385a40a206f5e63e9d31d5a48e3522ed078950c28e7f8dc26e4f5be",
+                "score": 0.4758,
+                "bursts_to_review": 0,
+                "raw_duration_ms": 1000,
+                "leading_trim_ms": 36,
+                "trailing_trim_ms": 335,
+                "raw_rms_db": -32.35,
+                "raw_peak_db": -8.3
+            },
+            "time_stretch_factor": 1.0,
+            "max_duration_ms": 1000,
+            "encoded": {
+                "webm": {
+                    "lufs": -20.17,
+                    "true_peak_db": -4.05,
+                    "bytes": 6012,
+                    "duration_ms": 604,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -22.83
+                },
+                "mp3": {
+                    "lufs": -20.57,
+                    "true_peak_db": -4.28,
+                    "bytes": 8108,
+                    "duration_ms": 604,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -23.22
+                }
+            }
+        },
+        {
+            "id": "spellbook_close",
+            "source": {
+                "kind": "user-provided",
+                "filename": "spellbook close.mp3",
+                "sha256": "5a38bb2e9f9153181f23c9c8f2cfdc63e3e56a9560a686c421523eb449e4d130",
+                "score": -0.0013,
+                "bursts_to_review": 0,
+                "raw_duration_ms": 1000,
+                "leading_trim_ms": 51,
+                "trailing_trim_ms": 130,
+                "raw_rms_db": -29.01,
+                "raw_peak_db": 0.5
+            },
+            "time_stretch_factor": 1.0,
+            "max_duration_ms": 1000,
+            "encoded": {
+                "webm": {
+                    "lufs": -20.2,
+                    "true_peak_db": -3.68,
+                    "bytes": 7332,
+                    "duration_ms": 789,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.65
+                },
+                "mp3": {
+                    "lufs": -20.57,
+                    "true_peak_db": -4.14,
+                    "bytes": 10124,
+                    "duration_ms": 789,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -22.03
+                }
+            }
+        },
+        {
+            "id": "resurrection",
+            "source": {
+                "kind": "user-provided",
+                "filename": "resurrection.mp3",
+                "sha256": "ef4730c7e81edabe213c3447fb4c16832ab2c81b5bb58b4ea96bda8ce4497ff2",
+                "score": 0.1124,
+                "bursts_to_review": 2,
+                "raw_duration_ms": 5000,
+                "leading_trim_ms": 1,
+                "trailing_trim_ms": 1575,
+                "raw_rms_db": -18.43,
+                "raw_peak_db": -1.8
+            },
+            "time_stretch_factor": 1.457,
+            "max_duration_ms": 2500,
+            "encoded": {
+                "webm": {
+                    "lufs": -19.98,
+                    "true_peak_db": -6.14,
+                    "bytes": 22949,
+                    "duration_ms": 2356,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -22.64
+                },
+                "mp3": {
+                    "lufs": -20.44,
+                    "true_peak_db": -6.85,
+                    "bytes": 29132,
+                    "duration_ms": 2356,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -23.1
+                }
+            }
+        },
+        {
+            "id": "place_unit",
+            "source": {
+                "kind": "user-provided",
+                "filename": "place unit on board.mp3",
+                "sha256": "e97c7d82f1aef646a46b5f0bb16993f1d801310ff721ce9d3b34072d0aaa5781",
+                "score": 0.6429,
+                "bursts_to_review": 0,
+                "raw_duration_ms": 1000,
+                "leading_trim_ms": 0,
+                "trailing_trim_ms": 440,
+                "raw_rms_db": -13.12,
+                "raw_peak_db": -0.16
+            },
+            "time_stretch_factor": 1.0,
+            "max_duration_ms": 1000,
+            "encoded": {
+                "webm": {
+                    "lufs": -19.98,
+                    "true_peak_db": -4.17,
+                    "bytes": 4545,
+                    "duration_ms": 519,
+                    "leading_quiet_ms": 1,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -18.34
+                },
+                "mp3": {
+                    "lufs": -20.35,
+                    "true_peak_db": -4.41,
+                    "bytes": 6956,
+                    "duration_ms": 519,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -18.71
+                }
+            }
+        },
+        {
+            "id": "heal",
+            "source": {
+                "kind": "user-provided",
+                "filename": "heal.mp3",
+                "sha256": "71e724fa054951793a0bb374af741c8a8402b472789aa1647f0eab620f3bc23a",
+                "score": 0.363,
+                "bursts_to_review": 1,
+                "raw_duration_ms": 4280,
+                "leading_trim_ms": 0,
+                "trailing_trim_ms": 1145,
+                "raw_rms_db": -21.65,
+                "raw_peak_db": -4.59
+            },
+            "time_stretch_factor": 1.4581,
+            "max_duration_ms": 2500,
+            "encoded": {
+                "webm": {
+                    "lufs": -19.97,
+                    "true_peak_db": -4.9,
+                    "bytes": 21060,
+                    "duration_ms": 2167,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.36
+                },
+                "mp3": {
+                    "lufs": -20.38,
+                    "true_peak_db": -5.25,
+                    "bytes": 26828,
+                    "duration_ms": 2167,
+                    "leading_quiet_ms": 0,
+                    "trailing_quiet_ms": 0,
+                    "rms_db": -21.78
+                }
+            }
+        }
+    ]
+}

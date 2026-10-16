@@ -11,6 +11,7 @@ export interface AuthUser {
     wins?: number;
     losses?: number;
     total_games_played?: number;
+    /** The match this player is in right now: a GAME id (empty between matches), never the player's own id. */
     in_game_id?: string;
 }
 

@@ -1,4 +1,7 @@
 ---
+import "../../../game/core/src/ui/PlayerPlaystyle/playerPlaystyle.css";
+import "../../../game/core/src/ui/PlayerPortal/profilePresentation.css";
+import { reputationRulesPath } from "../lib/reputation-rules";
 import { content, links, type Language } from "../lib/site-data";
 
 interface Props {
@@ -14,11 +17,12 @@ const arenaHref = isRu ? "/ru/#arena" : "/#arena";
 const arenaLabel = isRu ? "Назад" : "Back";
 // The ranked redirect page (/play/ranked) forwards into the game app; reuse it for the "play" CTAs.
 const rankedApp = links.rankedApp;
+const reputationHref = reputationRulesPath(lang);
 ---
 
-<section class="profile-page">
+<section class="profile-page hoc-profile-surface">
     <div class="page-shell profile-shell">
-        <header class="profile-head">
+        <header class="profile-head hoc-profile-header">
             <span class="profile-head-emblem" aria-hidden="true">
                 <img src="/assets/images/home/logo/hocai_logo_96.png" alt="" width="64" height="64" data-profile-head-emblem />
             </span>
@@ -27,6 +31,13 @@ const rankedApp = links.rankedApp;
                 <div class="profile-name-row">
                     <h1 class="profile-name" data-profile-name>{copy.title}</h1>
                     <span class="profile-gold" data-profile-gold hidden></span>
+                    <a
+                        class="profile-reputation-badge"
+                        href={reputationHref}
+                        title={copy.reputationBadgeTitle}
+                        data-profile-reputation-badge
+                        hidden>{copy.reputationBadgeHonorable}</a
+                    >
                 </div>
                 <p class="profile-standing-line" data-profile-standing-line hidden></p>
                 <p class="profile-sub" data-profile-subtitle>{copy.subtitle}</p>
@@ -34,6 +45,7 @@ const rankedApp = links.rankedApp;
                     <span class="profile-presence" data-profile-presence hidden></span>
                     <span class="profile-lastseen" data-profile-lastseen></span>
                 </div>
+                <dl class="stat-grid profile-header-stats hoc-profile-stats" data-profile-stats></dl>
             </div>
             <a class="profile-arena-link" href={arenaHref}>← {arenaLabel}</a>
         </header>
@@ -62,20 +74,13 @@ const rankedApp = links.rankedApp;
             </div>
 
             <div class="profile-body" data-profile-sections>
-                <section class="profile-section">
-                    <h2>{copy.sectionOverview}</h2>
-                    <dl class="stat-grid" data-profile-stats></dl>
+                <section class="profile-section hoc-profile-feature" data-profile-metrics-section hidden>
+                    <h2>{isRu ? "Стиль игры" : "Playstyle"}</h2>
+                    <div data-profile-metrics></div>
                 </section>
 
-                <section class="profile-section" data-profile-public-standing hidden>
-                    <h2>{copy.sectionRankedStanding}</h2>
-                    <div class="ranked-standing" data-profile-standing></div>
-                </section>
 
-                <section class="profile-section profile-section--seasons" data-profile-seasons-section hidden>
-                    <h2>{copy.publicSeasonsTitle}</h2>
-                    <div class="season-history" data-profile-seasons></div>
-                </section>
+
 
                 <section class="profile-section profile-section--predictions" data-profile-predictions-section hidden>
                     <details class="prediction-panel" data-profile-predictions-panel>
@@ -146,9 +151,21 @@ const rankedApp = links.rankedApp;
                     <div class="combo-list" data-profile-combos></div>
                 </section>
 
+
+
                 <section class="profile-section" data-profile-playstyle-section hidden>
                     <h2>{copy.publicPlaystyle}</h2>
                     <div class="playstyle" data-profile-playstyle></div>
+                </section>
+
+                <section class="profile-section" data-profile-public-standing hidden>
+                    <h2>{copy.sectionRankedStanding}</h2>
+                    <div class="ranked-standing" data-profile-standing></div>
+                </section>
+
+                <section class="profile-section profile-section--seasons" data-profile-seasons-section hidden>
+                    <h2>{copy.publicSeasonsTitle}</h2>
+                    <div class="season-history" data-profile-seasons></div>
                 </section>
 
                 <section class="profile-section">
@@ -170,6 +187,8 @@ const rankedApp = links.rankedApp;
 </section>
 
 <script>
+    import { renderPlayerPlaystyle } from "../../../game/core/src/ui/PlayerPlaystyle/renderPlayerPlaystyle";
+
     import {
         TIER1_ARTIFACTS,
         TIER2_ARTIFACTS,
@@ -179,8 +198,10 @@ const rankedApp = links.rankedApp;
     } from "@heroesofcrypto/common/src/artifacts/artifact_properties";
     import { getDoctrineProperties, type Doctrine } from "@heroesofcrypto/common/src/doctrines/doctrine_properties";
 
-    import { getAuthUser, isLoggedIn, onAuthStateChange } from "../lib/auth-state";
-    import { artifacts } from "../lib/artifacts-data";
+    import { getAuthToken, isLoggedIn, onAuthStateChange } from "../lib/auth-state";
+    import { artifactIconUrl, artifacts } from "../lib/artifacts-data";
+    import { renderProfileStat } from "../../../game/core/src/ui/PlayerPortal/renderProfileStat";
+    import { ruName } from "../lib/knowledge/names-ru";
     import { fetchPlayerPortal, PortalAuthError } from "../lib/portal-client";
     import { gameClientRoot } from "../lib/ranked-arena-client";
     import { rankedArenaCopy } from "../lib/ranked-arena-copy";
@@ -196,8 +217,8 @@ const rankedApp = links.rankedApp;
         type RankedMatchUnitPerformance,
     } from "../lib/ranked-match-client";
     import {
+        fetchOwnRankedPlayerId,
         fetchPublicRankedProfile,
-        isPublicRankedPlayerId,
         publicRankedProfileFallbackFromSearchParams,
         rankedExitRatePct,
         type PlaystyleArtifact,
@@ -207,6 +228,9 @@ const rankedApp = links.rankedApp;
         type RankedMatchResult,
         type RankedProfileMatch,
     } from "../lib/ranked-profile-client";
+    import { rankedExitLabel } from "../lib/ranked-exit";
+    import { portraitMarkup } from "../lib/portrait";
+    import { strategyArtworkMarkup, type StrategyArtwork } from "../lib/profile-strategy-artwork";
     import { creatureById, timeAgo, winRateColor, winRatePct } from "../lib/portal-data";
     import {
         fetchSeasonCurrencyCatalog,
@@ -232,6 +256,7 @@ const rankedApp = links.rankedApp;
     const sectionsEl = $("sections");
     const nameEl = $("name");
     const goldEl = $("gold");
+    const reputationBadgeEl = $("reputation-badge");
     const metaEl = $("meta");
     const presenceEl = $("presence");
     const lastSeenEl = $("lastseen");
@@ -258,6 +283,7 @@ const rankedApp = links.rankedApp;
     const requestedPlayerId = profileSearchParams.get("playerId")?.trim() ?? "";
     const publicMode = profileSearchParams.has("playerId");
     const language = document.documentElement.lang.toLowerCase().startsWith("ru") ? "ru" : "en";
+    const profileName = (name: string): string => language === "ru" ? ruName(name) ?? name : name;
     // League + wealth names live with the arena copy so every surface names a standing identically.
     const standingCopy = rankedArenaCopy[language];
 
@@ -415,17 +441,16 @@ const rankedApp = links.rankedApp;
     }
 
     function statCard(label: string, value: string, accent?: string): string {
-        const style = accent ? ` style="color:${accent}"` : "";
-        return `<div class="stat-card"><dt>${escapeHtml(label)}</dt><dd${style}>${escapeHtml(value)}</dd></div>`;
+        return renderProfileStat(label, value, accent);
     }
 
     // Public playtime: "42m" under an hour, "7.5h" under ten, whole hours beyond.
     function hoursInGameLabel(secondsInGame: number): string {
         if (!secondsInGame) return "—";
         const hours = secondsInGame / 3600;
-        if (hours < 1) return `${Math.max(1, Math.round(secondsInGame / 60))}m`;
-        if (hours < 10) return `${hours.toFixed(1).replace(/\.0$/, "")}h`;
-        return `${Math.round(hours)}h`;
+        if (hours < 1) return `${Math.max(1, Math.round(secondsInGame / 60))}${copy.agoMinute}`;
+        if (hours < 10) return `${new Intl.NumberFormat(language, { maximumFractionDigits: 1 }).format(hours)}${copy.agoHour}`;
+        return `${Math.round(hours)}${copy.agoHour}`;
     }
 
     const gamesLabelFor = (games: number): string => `${games} ${escapeHtml(copy.gamesLabel)}`;
@@ -437,12 +462,12 @@ const rankedApp = links.rankedApp;
     // "icon · name · games · win-rate bar · %" — a flat hairline-separated row rather than a boxed card,
     // so a long list reads as one scannable column. The bar takes the leftover width instead of sitting at a
     // fixed 160px, which is what stops a gap opening between the name and the figures on a wide screen.
-    function barRow(image: string, name: string, wins: number, games: number): string {
+    function barRow(icon: string, name: string, wins: number, games: number): string {
         const pct = winRatePct(wins, games);
         const color = winRateColor(pct);
         return `
             <div class="bar-row">
-                <img class="bar-icon" src="${image}" alt="" width="36" height="36" loading="lazy" ${imgFallback} />
+                ${icon}
                 <span class="bar-name">${escapeHtml(name)}</span>
                 <span class="bar-metrics">
                     <span class="bar-games">${gamesLabelFor(games)}</span>
@@ -454,12 +479,12 @@ const rankedApp = links.rankedApp;
 
     function creatureRow(id: number, wins: number, games: number): string {
         const c = creatureById(id);
-        return barRow(c.image, c.name, wins, games);
+        return barRow(portraitMarkup(c.slug, "", { className: "bar-icon" }), c.name, wins, games);
     }
 
     /** "Orc + Nomad + Hyena" — the arena's lineup label: unique creatures, in the order they were picked. */
     function comboLabel(creatureIds: number[]): string {
-        return [...new Set(creatureIds)].map((id) => creatureById(id).name).join(" + ");
+        return [...new Set(creatureIds)].map((id) => profileName(creatureById(id).name)).join(" + ");
     }
 
     // A card, not a bar row: the portraits overlap into one line-up, the lineup is named, and the win rate is
@@ -476,9 +501,7 @@ const rankedApp = links.rankedApp;
                 // line-up. The overlap stays small because a covered portrait is reduced to its left-hand
                 // strip and a creature is framed centrally.
                 const covered = index === 0 ? "" : " combo-icon--covered";
-                return `<img class="combo-icon${covered}" src="${c.image}" alt="${escapeHtml(c.name)}" title="${escapeHtml(
-                    c.name,
-                )}" width="54" height="54" loading="lazy" ${imgFallback} />`;
+                return portraitMarkup(c.slug, c.name, { className: `combo-icon${covered}`, title: c.name });
             })
             .join("");
         const tone = pct >= 55 ? " combo-row--strong" : pct <= 45 ? " combo-row--weak" : "";
@@ -605,7 +628,10 @@ const rankedApp = links.rankedApp;
         const icons = ids
             .map((id) => {
                 const creature = creatureById(id);
-                return `<img class="match-roster-icon" src="${escapeHtml(creature.image)}" alt="${escapeHtml(creature.name)}" title="${escapeHtml(creature.name)}" width="32" height="32" loading="lazy" ${imgFallback} />`;
+                return portraitMarkup(creature.slug, creature.name, {
+                    className: "match-roster-icon",
+                    title: creature.name,
+                });
             })
             .join("");
         return `<section class="match-roster"><h4>${escapeHtml(label)}</h4><div>${icons || `<span class="match-unavailable">${escapeHtml(copy.matchNotRecorded)}</span>`}</div></section>`;
@@ -624,7 +650,9 @@ const rankedApp = links.rankedApp;
             .sort((a, b) => b.damageDealt - a.damageDealt)
             .map((performance) => {
                 const creature = creatureById(performance.creatureId);
-                return `<div class="match-performance-row"><img src="${escapeHtml(creature.image)}" alt="" width="32" height="32" loading="lazy" ${imgFallback} /><span>${escapeHtml(creature.name)}</span><strong>${escapeHtml(formatDamage(performance.damageDealt))}</strong></div>`;
+                return `<div class="match-performance-row">${portraitMarkup(creature.slug, "", {
+                    className: "match-performance-icon",
+                })}<span>${escapeHtml(profileName(creature.name))}</span><strong>${escapeHtml(formatDamage(performance.damageDealt))}</strong></div>`;
             })
             .join("");
         return `<section class="match-performance"><h4>${escapeHtml(label)}</h4>${rows || `<p>${escapeHtml(copy.matchNoDamage)}</p>`}</section>`;
@@ -639,8 +667,8 @@ const rankedApp = links.rankedApp;
     function artifactChoice(tier: 1 | 2, artifactId: number): string {
         const artifact = artifactId > 0 ? artifactProperties(tier, artifactId) : undefined;
         if (!artifact) return "";
-        const image = `/assets/images/artifacts/artifact_t${tier}_${artifact.slug}_256.webp`;
-        return `<span class="match-choice" title="${escapeHtml(artifact.description)}"><img src="${escapeHtml(image)}" alt="" width="30" height="30" loading="lazy" /><span>${escapeHtml(artifact.name)}</span><b>T${tier}</b></span>`;
+        const image = artifactIconUrl(tier, artifact.slug);
+        return `<span class="match-choice" title="${escapeHtml(artifact.description)}"><img src="${escapeHtml(image)}" alt="" width="30" height="30" loading="lazy" /><span>${escapeHtml(profileName(artifact.name))}</span><b>T${tier}</b></span>`;
     }
 
     function synergyChoice(key: string): string {
@@ -713,7 +741,7 @@ const rankedApp = links.rankedApp;
         let doctrineMarkup = "";
         try {
             const doctrine = getDoctrineProperties(setup.doctrine as Doctrine);
-            if (doctrine?.name) doctrineMarkup = `<span class="match-choice"><span>${escapeHtml(doctrine.name)}</span></span>`;
+            if (doctrine?.name) doctrineMarkup = `<span class="match-choice"><span>${escapeHtml(profileName(doctrine.name))}</span></span>`;
         } catch {
             doctrineMarkup = "";
         }
@@ -742,16 +770,35 @@ const rankedApp = links.rankedApp;
         const won = match.won === true;
         const draw = match.draw === true;
         const abandoned = match.abandoned === true;
-        const resultLabel = draw ? copy.resultDraw : won ? copy.resultWin : copy.resultLoss;
-        const resultClass = draw ? "draw" : won ? "win" : "loss";
+        // Exit rules: the portal's outcome_reason tells an unscored or voided game (stored as a draw) from a real one.
+        const outcomeReason = typeof match.outcome_reason === "string" ? match.outcome_reason : "";
+        const noResult = outcomeReason === "unscored" || outcomeReason === "void";
+        const resultLabel = noResult
+            ? outcomeReason === "void"
+                ? copy.publicReasonVoid
+                : copy.publicReasonUnscored
+            : draw
+              ? copy.resultDraw
+              : won
+                ? copy.resultWin
+                : copy.resultLoss;
+        const resultClass = draw || noResult ? "draw" : won ? "win" : "loss";
         const opponentName = typeof match.opponent_username === "string" ? match.opponent_username : "—";
         const opponent = escapeHtml(opponentName);
         const matchContext = `${resultLabel} ${copy.versus} ${opponentName}`;
-        const abandonmentDetail = abandoned
-            ? match.player_abandoned === true
-                ? copy.matchYouLeft
-                : copy.matchOpponentLeft
-            : "";
+        // An in-fight abandon isn't stored as a pre-fight "left", so the leaver is read from the result: they lost.
+        const abandonmentDetail =
+            outcomeReason === "void"
+                ? copy.exitVoided
+                : outcomeReason === "abandon"
+                  ? won
+                      ? copy.matchOpponentAbandoned
+                      : copy.matchYouAbandoned
+                  : abandoned
+                    ? match.player_abandoned === true
+                        ? copy.matchYouLeft
+                        : copy.matchOpponentLeft
+                    : "";
         const when = timeAgo(num(match.finished_time), agoLabels);
         const currency = portalMatchCurrency(match);
         const gameId = typeof match.game_id === "string" ? match.game_id : "";
@@ -831,6 +878,24 @@ const rankedApp = links.rankedApp;
         standingLineEl.hidden = false;
     }
 
+    /** The Honorable badge beside the name: shown only for a profile in the top Reputation band. */
+    function paintReputationBadge(badge: PublicRankedProfile["reputationBadge"]): void {
+        if (reputationBadgeEl) reputationBadgeEl.hidden = badge !== "honorable";
+    }
+
+    /** Playstyle stays off the page until recorded battles exist. An error still explains itself. */
+    function paintPlaystyle(
+        metrics: PublicRankedProfile["playerMetrics"],
+        state: "ready" | "error" = "ready",
+    ): void {
+        const section = $("metrics-section");
+        const metricsEl = $("metrics");
+        if (!section || !metricsEl) return;
+        const html = renderPlayerPlaystyle(metrics, language, state);
+        metricsEl.innerHTML = html;
+        section.hidden = html.length === 0;
+    }
+
     function publicStateLabel(state: PublicRankedProfile["state"]): string {
         if (state === "placed") return copy.publicStatePlaced;
         if (state === "recalibration") return copy.publicStateRecalibration;
@@ -842,13 +907,22 @@ const rankedApp = links.rankedApp;
         if (reason === "disconnect") return copy.publicReasonDisconnect;
         if (reason === "double_disconnect") return copy.publicReasonDoubleDisconnect;
         if (reason === "cancel") return copy.publicReasonCancel;
+        if (reason === "abandon") return copy.publicReasonAbandon;
+        if (reason === "unscored") return copy.publicReasonUnscored;
+        if (reason === "void") return copy.publicReasonVoid;
         return copy.publicReasonNormal;
+    }
+
+    /** "Abandoned at 31% casualties" for an exit scored by the leaving rules; the plain reason otherwise. */
+    function publicFinishText(match: RankedProfileMatch): string {
+        return rankedExitLabel(match.exit, (key) => copy[key] ?? "") || publicReasonLabel(match.reason);
     }
 
     function recentForm(outcomes: RankedMatchResult[]): string {
         // Both profile APIs are newest-first. Show the form chronologically, with the latest result on
         // the right, and keep the strip at exactly ten positions even for a new commander.
-        const results = outcomes.slice(0, 10).reverse();
+        // Unscored and voided games have no result, so they take no place in the form strip.
+        const results = outcomes.filter((result) => result !== "none").slice(0, 10).reverse();
         const padded: Array<RankedMatchResult | "empty"> = [
             ...Array<"empty">(Math.max(0, 10 - results.length)).fill("empty"),
             ...results,
@@ -862,6 +936,7 @@ const rankedApp = links.rankedApp;
             win: copy.resultWin,
             draw: copy.resultDraw,
             loss: copy.resultLoss,
+            none: copy.publicReasonUnscored,
             empty: copy.publicNoResult,
         };
         return `<span class="result-form" role="img" aria-label="${escapeHtml(ariaLabel)}">${padded
@@ -876,11 +951,6 @@ const rankedApp = links.rankedApp;
         return `<div class="stat-card stat-card--form"><dt>${escapeHtml(copy.publicRecentForm)}</dt><dd>${recentForm(outcomes)}</dd></div>`;
     }
 
-    interface StrategyArtwork {
-        alt: string;
-        src: string;
-    }
-
     function strategyCard(
         label: string,
         winRate: number,
@@ -892,10 +962,7 @@ const rankedApp = links.rankedApp;
         const color = winRateColor(winRate);
         const images = artwork.length
             ? artwork
-                  .map(
-                      (item) =>
-                          `<img src="${escapeHtml(item.src)}" alt="${escapeHtml(item.alt)}" width="54" height="54" loading="lazy" ${imgFallback} />`,
-                  )
+                  .map(strategyArtworkMarkup)
                   .join("")
             : `<span class="strategy-artwork__fallback" aria-hidden="true">${escapeHtml(badge ?? "?")}</span>`;
         return `
@@ -913,7 +980,7 @@ const rankedApp = links.rankedApp;
     function creatureArtwork(creatureIds: number[]): StrategyArtwork[] {
         return creatureIds.map((id) => {
             const creature = creatureById(id);
-            return { src: creature.image, alt: creature.name };
+            return { slug: creature.slug, alt: creature.name };
         });
     }
 
@@ -925,7 +992,16 @@ const rankedApp = links.rankedApp;
     function publicMatchRow(match: RankedProfileMatch): string {
         const currency = match.season?.currency ?? LEGACY_SEASON_CURRENCY;
         const resultLabel =
-            match.result === "win" ? copy.resultWin : match.result === "loss" ? copy.resultLoss : copy.resultDraw;
+            match.result === "win"
+                ? copy.resultWin
+                : match.result === "loss"
+                  ? copy.resultLoss
+                  : match.result === "none"
+                    ? match.reason === "void"
+                        ? copy.publicReasonVoid
+                        : copy.publicReasonUnscored
+                    : copy.resultDraw;
+        const resultClass = match.result === "none" ? "draw" : match.result;
         const opponentName = match.opponent?.username ?? "—";
         const matchContext = `${resultLabel} ${copy.versus} ${opponentName}`;
         const opponent = match.opponent
@@ -936,21 +1012,21 @@ const rankedApp = links.rankedApp;
         const deltaClass = match.mmrDelta > 0 ? "positive" : match.mmrDelta < 0 ? "negative" : "";
         const mode: MatchMode = match.calibration ? "calibration" : "ranked";
         return `
-            <article class="match-row match-row--ranked match-card--expandable ${match.result}" aria-label="${escapeHtml(matchContext)}">
+            <article class="match-row match-row--ranked match-card--expandable ${resultClass}" aria-label="${escapeHtml(matchContext)}">
                 <div class="match-card-overview">
                     <div class="match-card-toggle-surface">
                         ${matchToggle(match.gameId, "public", matchContext)}
                         <div class="match-card-summary">
                             <div class="match-main">
                                 <div class="match-title">
-                                    <strong class="match-result ${match.result}">${escapeHtml(resultLabel)}</strong>
+                                    <strong class="match-result ${resultClass}">${escapeHtml(resultLabel)}</strong>
                                     <span>${escapeHtml(copy.versus)}</span>
                                     ${opponent}
                                 </div>
                                 <div class="match-meta">
                                     ${modeBadge(mode)}
                                     <span class="match-when">${escapeHtml(when)}</span>
-                                    <span class="match-reason">${escapeHtml(publicReasonLabel(match.reason))}</span>
+                                    <span class="match-reason">${escapeHtml(publicFinishText(match))}</span>
                                 </div>
                             </div>
                             <div class="match-rewards">
@@ -1177,6 +1253,8 @@ const rankedApp = links.rankedApp;
         // The crest and the standing line belong to a public profile; this view has no standing to show.
         if (headEmblemEl) headEmblemEl.src = HEAD_EMBLEM_FALLBACK;
         if (standingLineEl) standingLineEl.hidden = true;
+        // Like the crest, the badge comes from the public profile; paintOwnStanding() puts it back.
+        paintReputationBadge(null);
         for (const section of selfSections) section.hidden = false;
     }
 
@@ -1192,6 +1270,7 @@ const rankedApp = links.rankedApp;
 
     function renderPublicProfile(profile: PublicRankedProfile, summaryOnly = false): void {
         configurePublicMode();
+        paintPlaystyle(profile.playerMetrics);
         currentCurrency = profile.season?.currency ?? LEGACY_SEASON_CURRENCY;
         if (predictionsPanelEl) predictionsPanelEl.open = false;
         const placed = profile.state === "placed";
@@ -1208,12 +1287,15 @@ const rankedApp = links.rankedApp;
 
         if (nameEl) nameEl.textContent = profile.username;
         if (goldEl) {
-            const gold = numberFormatter.format(profile.gold);
-            goldEl.innerHTML = currencyMarkup(profile.gold);
+            // The total, available plus gold in play (owner decision 2026-09-13); older servers send only gold.
+            const shownGold = profile.totalGold ?? profile.gold;
+            const gold = numberFormatter.format(shownGold);
+            goldEl.innerHTML = currencyMarkup(shownGold);
             goldEl.setAttribute("aria-label", `${currentCurrency.name}: ${gold}`);
             goldEl.title = currentCurrency.name;
             goldEl.hidden = false;
         }
+        paintReputationBadge(profile.reputationBadge);
         document.title = `${profile.username} · Heroes of Crypto`;
         if (metaEl) metaEl.hidden = false;
         if (presenceEl) {
@@ -1283,14 +1365,14 @@ const rankedApp = links.rankedApp;
             const topDoctrine = profile.playstyle?.doctrines?.[0] ?? null;
             const doctrineWindowGames = profile.playstyle?.games ?? 0;
             const doctrineValue = topDoctrine
-                ? `${topDoctrine.name} · ${topDoctrine.games}/${doctrineWindowGames || topDoctrine.games} · ${topDoctrine.winRatePct}%`
+                ? `${profileName(topDoctrine.name)} · ${topDoctrine.games}/${doctrineWindowGames || topDoctrine.games} · ${topDoctrine.winRatePct}%`
                 : copy.publicDoctrineNone;
             applyStandingToHeader(profile);
             standingEl.innerHTML = `
                 <dl class="ranked-standing__facts">
                     <div class="ranked-standing__form"><dt>${escapeHtml(copy.publicRecentForm)}</dt><dd>${recentForm(profile.recentGames.map((match) => match.result))}</dd></div>
                     <div><dt>${escapeHtml(exitRateLabel)}</dt><dd title="${escapeHtml(exitRateTitle)}">${exitRateValue}</dd></div>
-                    <div><dt>${escapeHtml(copy.publicBannedUnit)}</dt><dd>${escapeHtml(profile.rankedBan ? profile.rankedBan.name : copy.publicBanNotPicked)}</dd></div>
+                    <div><dt>${escapeHtml(copy.publicBannedUnit)}</dt><dd>${escapeHtml(profile.rankedBan ? profileName(profile.rankedBan.name) : copy.publicBanNotPicked)}</dd></div>
                     <div><dt>${escapeHtml(copy.publicDoctrine)}</dt><dd>${escapeHtml(doctrineValue)}</dd></div>
                     ${profile.state === "recalibration" ? `<div class="ranked-standing__previous"><dt>${escapeHtml(copy.publicPreviousStanding)}</dt><dd>${escapeHtml(previous)}</dd></div>` : ""}
                 </dl>`;
@@ -1411,7 +1493,7 @@ const rankedApp = links.rankedApp;
                 const netSign = wagers.net > 0 ? "+" : "";
                 wagerSummaryEl.innerHTML = `
                     <span class="prediction-panel__metric"><b>${numberFormatter.format(wagers.wagers)}</b><span>${escapeHtml(copy.wagersPlayed)}</span></span>
-                    <span class="prediction-panel__metric"><b>${currencyMarkup(wagers.staked)}</b><span>${escapeHtml(copy.predictionsStaked)}</span></span>
+                    <span class="prediction-panel__metric"><b>${currencyMarkup(wagers.staked)}</b><span>${escapeHtml(copy.wagersWagered)}</span></span>
                     <span class="prediction-panel__metric"><b>${
                         wagers.won + wagers.lost > 0
                             ? `${wagers.winRatePct.toFixed(1).replace(/\.0$/, "")}%`
@@ -1575,15 +1657,16 @@ const rankedApp = links.rankedApp;
             seasonsSection.hidden = history.length === 0;
             seasonsEl.innerHTML = history
                 .map((entry) => {
-                    const rank = entry.leaderboardRank ? ` · #${entry.leaderboardRank}` : "";
-                    const standing = entry.league > 0 ? `${leagueLabel(entry.league)}${rank}` : copy.publicUnranked;
+                    // A season's place is its gold-table place (final balance); the league is the MMR standing.
+                    const place = entry.goldPlace ? `#${entry.goldPlace} · ` : "";
+                    const standing = `${place}${entry.league > 0 ? leagueLabel(entry.league) : copy.publicUnranked}`;
                     const mmr = entry.mmr ? `${numberFormatter.format(entry.mmr)} MMR` : "—";
                     const rate = entry.totalGames
                         ? `${entry.winRatePct.toFixed(1).replace(/\.0$/, "")}%`
                         : "—";
                     return `
                         <div class="season-row">
-                            <span class="season-name">${escapeHtml(entry.seasonName)}</span>
+                            <a class="season-name" href="${language === "ru" ? "/ru/seasons/" : "/seasons/"}?season=${entry.seasonSequence}">${escapeHtml(entry.seasonName)}</a>
                             <span class="season-standing">${escapeHtml(standing)}</span>
                             <span class="season-mmr">${escapeHtml(mmr)}</span>
                             <span class="season-gold">${currencyMarkup(entry.gold, "", entry.currency)}</span>
@@ -1622,11 +1705,11 @@ const rankedApp = links.rankedApp;
                             (entry) => entry.tier === artifact.tier && entry.name === artifact.name,
                         );
                         return strategyCard(
-                            artifact.name,
+                            profileName(artifact.name),
                             artifact.winRatePct,
                             artifact.games,
                             catalogEntry ? [{ src: catalogEntry.icon, alt: catalogEntry.name }] : [],
-                            `Tier ${artifact.tier}`,
+                            `${language === "ru" ? "Уровень" : "Tier"} ${artifact.tier}`,
                         );
                     });
             // Combat augments: six kinds, each shown at its display level. Localized names + icons live here,
@@ -1660,14 +1743,13 @@ const rankedApp = links.rankedApp;
                         );
                     });
             const hasData = !summaryOnly && style && style.games > 0;
-            playstyleSection.hidden = !hasData && !style;
-            playstyleEl.innerHTML = hasData
+            const html = hasData
                 ? [
                       group(
                           copy.publicPlaystyleCreatures,
                           style.topCreatures.slice(0, 6).map((creature) =>
                               strategyCard(
-                                  creature.name,
+                                  profileName(creature.name),
                                   creature.winRatePct,
                                   creature.games,
                                   creatureArtwork([creature.creatureId]),
@@ -1678,7 +1760,7 @@ const rankedApp = links.rankedApp;
                           copy.publicPlaystylePairs,
                           style.topPairs.map((pair) =>
                               strategyCard(
-                                  pair.names.join(" + "),
+                                  pair.names.map(profileName).join(" + "),
                                   pair.winRatePct,
                                   pair.games,
                                   creatureArtwork(pair.creatureIds),
@@ -1689,7 +1771,7 @@ const rankedApp = links.rankedApp;
                           copy.publicPlaystyleTriples,
                           style.topTriples.map((triple) =>
                               strategyCard(
-                                  triple.names.join(" + "),
+                                  triple.names.map(profileName).join(" + "),
                                   triple.winRatePct,
                                   triple.games,
                                   creatureArtwork(triple.creatureIds),
@@ -1699,8 +1781,10 @@ const rankedApp = links.rankedApp;
                       group(copy.publicPlaystyleArtifactsTier1, artifactCards(style.artifactsTier1)),
                       group(copy.publicPlaystyleArtifactsTier2, artifactCards(style.artifactsTier2)),
                       group(copy.publicPlaystyleAugments, augmentCards(style.augments)),
-                  ].join("") || `<p class="profile-empty-message">${escapeHtml(copy.publicPlaystyleEmpty)}</p>`
-                : `<p class="profile-empty-message">${escapeHtml(copy.publicPlaystyleEmpty)}</p>`;
+                  ].join("")
+                : "";
+            playstyleSection.hidden = !html;
+            playstyleEl.innerHTML = html;
         }
         showState("content");
     }
@@ -1783,16 +1867,32 @@ const rankedApp = links.rankedApp;
      * view — a missing id or a failed lookup simply leaves the fallback in place.
      */
     async function paintOwnStanding(): Promise<void> {
-        const ownId = (getAuthUser()?.in_game_id ?? "").trim();
-        if (!isPublicRankedPlayerId(ownId)) return;
         try {
-            applyStandingToHeader(await fetchPublicRankedProfile(ownId));
+            // The stored auth user has no player id (its in_game_id is the match being played), so the
+            // signed-in standing says whose profile this is.
+            const ownId = await fetchOwnRankedPlayerId(getAuthToken());
+            if (!ownId) {
+                paintPlaystyle(null);
+                return;
+            }
+            const standing = await fetchPublicRankedProfile(ownId);
+            applyStandingToHeader(standing);
+            paintPlaystyle(standing.playerMetrics);
+            paintReputationBadge(standing.reputationBadge);
         } catch {
+            paintPlaystyle(null, "error");
             /* no standing on show is strictly better than a wrong one */
         }
     }
 
     async function load(): Promise<void> {
+        if (import.meta.env.DEV && profileSearchParams.get("mockProfile") === "1") {
+            const { buildMockPlayerProfile } = await import("../lib/mock-player-profile");
+            renderPublicProfile(buildMockPlayerProfile());
+            if (subtitleEl) { subtitleEl.hidden = false; subtitleEl.textContent = language === "ru" ? "Пример профиля · демонстрационные данные" : "Mock profile · preview data"; }
+            return;
+        }
+
         if (publicMode) {
             configurePublicMode();
             showState("loading");
@@ -1927,6 +2027,33 @@ const rankedApp = links.rankedApp;
         letter-spacing: 0.04em;
         line-height: 1.05;
         white-space: nowrap;
+    }
+
+    /* Honorable: the top Reputation band, worn beside the nickname in the purse's gold. */
+    .profile-reputation-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 11px;
+        border: 1px solid rgba(242, 199, 93, 0.5);
+        border-radius: 999px;
+        background: rgba(242, 199, 93, 0.1);
+        color: var(--gold, #f2c75d);
+        font-size: clamp(0.78rem, 1.1vw, 0.9rem);
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        line-height: 1.05;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+
+    .profile-reputation-badge:hover,
+    .profile-reputation-badge:focus-visible {
+        border-color: var(--gold, #f2c75d);
+        background: rgba(242, 199, 93, 0.18);
+    }
+
+    .profile-reputation-badge[hidden] {
+        display: none;
     }
 
     /* The standing the header crest stands for: gold against the parchment nickname above it. */
@@ -2367,6 +2494,17 @@ const rankedApp = links.rankedApp;
        a narrow grid track wrapping "1 games" into "1" / "games" on two lines is the bug this guards
        against. min-width: 0 lets a grid item shrink below its text's intrinsic width so the ellipsis can
        actually take over instead of the row blowing out or wrapping. */
+    .season-history :global(.season-row > a.season-name) {
+        min-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        color: inherit;
+        text-decoration: underline;
+        text-decoration-color: rgba(220, 177, 88, 0.45);
+        text-underline-offset: 3px;
+    }
+
     .season-history :global(.season-row > span) {
         min-width: 0;
         overflow: hidden;
@@ -2456,7 +2594,9 @@ const rankedApp = links.rankedApp;
     .profile-body[hidden],
     [data-profile-combos-section][hidden],
     [data-profile-public-standing][hidden],
-    [data-profile-self][hidden] {
+    [data-profile-self][hidden],
+    [data-profile-metrics-section][hidden],
+    [data-profile-playstyle-section][hidden] {
         display: none;
     }
 
@@ -2772,12 +2912,16 @@ const rankedApp = links.rankedApp;
         background: rgba(220, 177, 88, 0.045);
     }
 
+    /* These tiles hold a composed portrait now, so they carry their own size: the art inside owns its
+       fit and crop, and nothing here may set object-fit on it. */
     .profile-page :global(.bar-icon),
     .profile-page :global(.match-icon) {
+        flex: 0 0 auto;
+        width: 36px;
+        height: 36px;
         border-radius: 7px;
         background: rgba(0, 0, 0, 0.35);
         border: 1px solid rgba(220, 177, 88, 0.32);
-        object-fit: cover;
     }
 
     .profile-page :global(.bar-name) {
@@ -2866,12 +3010,12 @@ const rankedApp = links.rankedApp;
     }
 
     .profile-page :global(.combo-icon) {
+        flex: 0 0 auto;
         width: 54px;
         height: 54px;
         border-radius: 7px;
         background: rgba(0, 0, 0, 0.35);
         border: 1px solid rgba(220, 177, 88, 0.32);
-        object-fit: cover;
     }
 
     /* 10 of 54px: enough to bind the portraits into one line-up, small enough that a covered creature keeps
@@ -3349,7 +3493,7 @@ const rankedApp = links.rankedApp;
         min-width: 54px;
     }
 
-    .playstyle :global(.strategy-artwork img),
+    .playstyle :global(.strategy-icon),
     .playstyle :global(.strategy-artwork__fallback) {
         display: grid;
         place-items: center;
@@ -3359,14 +3503,13 @@ const rankedApp = links.rankedApp;
         border: 1px solid rgba(220, 177, 88, 0.2);
         border-radius: 7px;
         background: linear-gradient(145deg, rgba(62, 37, 18, 0.8), rgba(8, 5, 3, 0.94));
-        object-fit: cover;
     }
 
     /* Overlap enough that a trio reads as one line-up, but no further: each portrait is painted over by
        the next, so all but the last survive only as their left-hand strip — mostly backdrop on a
        centrally framed portrait. At -24px of a 54px tile the middle creature was unidentifiable, which
        is the same bound the in-client portal keeps (PLAYER_PORTAL_STRATEGY_TILE_OVERLAP). */
-    .playstyle :global(.strategy-artwork img + img) {
+    .playstyle :global(.strategy-icon + .strategy-icon) {
         margin-left: -10px;
         box-shadow: -4px 0 10px rgba(0, 0, 0, 0.58);
     }
@@ -3423,7 +3566,7 @@ const rankedApp = links.rankedApp;
             padding-right: 8px;
         }
 
-        .playstyle :global(.strategy-artwork img),
+        .playstyle :global(.strategy-icon),
         .playstyle :global(.strategy-artwork__fallback) {
             width: 46px;
             height: 46px;
@@ -3434,7 +3577,7 @@ const rankedApp = links.rankedApp;
             min-width: 46px;
         }
 
-        .playstyle :global(.strategy-artwork img + img) {
+        .playstyle :global(.strategy-icon + .strategy-icon) {
             margin-left: -9px;
         }
     }
@@ -3678,11 +3821,13 @@ const rankedApp = links.rankedApp;
     }
 
     .profile-page :global(.match-roster-icon),
-    .profile-page :global(.match-performance-row img) {
+    .profile-page :global(.match-performance-icon) {
+        flex: 0 0 auto;
+        width: 32px;
+        height: 32px;
         border: 1px solid rgba(220, 177, 88, 0.34);
         border-radius: 6px;
         background: rgba(0, 0, 0, 0.3);
-        object-fit: cover;
     }
 
     .profile-page :global(.match-details-panel) {
@@ -3921,4 +4066,29 @@ const rankedApp = links.rankedApp;
             transition: none;
         }
     }
+
+    .profile-shell { width: min(1180px, calc(100vw - 40px)); }
+    .profile-page::before { display: none; }
+    .profile-head { padding: 20px 0; margin-bottom: 24px; backdrop-filter: none; }
+    .profile-section { padding: 24px 0; border: none; border-radius: 0; background: transparent; box-shadow: none; backdrop-filter: none; }
+    .profile-section.hoc-profile-feature { padding: clamp(20px, 3vw, 32px); }
+    .profile-section h2 { color: #efe4cc; font-size: 18px; margin-bottom: 24px; }
+    .profile-header-stats { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 14px; }
+    .profile-header-stats :global(.stat-card) { display: flex; flex-direction: row-reverse; align-items: baseline; gap: 5px; padding: 0; border: none; border-radius: 0; background: transparent; }
+    .profile-header-stats :global(.stat-card dt) { font-size: 11px; text-transform: none; letter-spacing: 0; }
+    .profile-header-stats :global(.stat-card dd) { font-size: 18px; letter-spacing: 0; }
+    .profile-header-stats :global(.stat-card--form) { flex-basis: 100%; justify-content: flex-end; }
+    .profile-head-emblem { filter: none; }
+    .profile-page.hoc-profile-surface { background: radial-gradient(ellipse at 20% 0%, rgba(173,130,64,0.09), transparent 55%), #0f0e0d; }
+    .profile-head.hoc-profile-header { border: none; border-radius: 0; background: transparent; box-shadow: none; }
+    .profile-section.hoc-profile-feature { border-radius: var(--hoc-profile-feature-radius); background: var(--hoc-profile-feature-background); }
+
+    .playstyle { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; }
+    .playstyle :global(.strategy-card),
+    .playstyle :global(.strategy-card[data-trend="strong"]),
+    .playstyle :global(.strategy-card[data-trend="weak"]) {
+        border: none; border-bottom: 1px solid rgba(239,228,204,0.08);
+        border-radius: 0; background: transparent; padding: 10px 0;
+    }
+    @media (max-width: 760px) { .playstyle { grid-template-columns: 1fr; } }
 </style>

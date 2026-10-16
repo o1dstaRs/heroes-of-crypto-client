@@ -424,3 +424,30 @@ describe("finding the counter-shot animation", () => {
         ).toBeUndefined();
     });
 });
+
+for (const [dx, dy] of [
+    [1, 0],
+    [1, 1],
+    [0, 1],
+    [-1, 1],
+    [-1, 0],
+    [-1, -1],
+    [0, -1],
+    [1, -1],
+]) {
+    it(`replays all three echo volleys along direction ${dx},${dy}`, () => {
+        const aim = { x: ATTACKER_POSITION.x + dx * 800, y: ATTACKER_POSITION.y + dy * 800 };
+        const attack = event({
+            animations: [outgoing("requested", aim), outgoing("requested", aim), outgoing("requested", aim)],
+        });
+        attack.damage.rangedVolleyCount = 3;
+        const plan = resolveRangeProjectileImpactPlan(attack, "requested", ATTACKER_POSITION, false, false);
+        expect(plan).toHaveLength(3);
+        expect(plan.every((impact) => impact.targetUnitId === "requested")).toBe(true);
+        const piercing = resolveRangeProjectileImpactPlan(attack, "requested", ATTACKER_POSITION, true, false);
+        expect(piercing).toHaveLength(3);
+        expect(
+            piercing.every((impact) => impact.targetPosition?.x === aim.x && impact.targetPosition?.y === aim.y),
+        ).toBe(true);
+    });
+}

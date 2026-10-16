@@ -20,7 +20,7 @@ import ListItemContent from "@mui/joy/ListItemContent";
 import Stack from "@mui/joy/Stack";
 import Tooltip from "@mui/joy/Tooltip";
 import Typography from "@mui/joy/Typography";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { images, type ImageKey } from "../../generated/image_imports";
 import { buildAtlasPingPongTiming } from "../../scenes/atlasAnimationTiming";
@@ -35,7 +35,18 @@ import {
     type LeftSidebarPortraitTuning,
 } from "../leftSidebarPortraitTuning";
 import { resolveLeftSidebarPortraitArt } from "../leftSidebarPortraitArt";
-import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
+import {
+    resolveLeftSidebarPortraitAnimation,
+    type LeftSidebarPortraitAnimation,
+} from "../leftSidebarPortraitAnimation";
+import {
+    displayedSidebarCreatureId,
+    clearLeftSidebarPortraitSelection,
+    isLeftSidebarPortraitReady,
+    pinLeftSidebarPortrait,
+    warmLeftSidebarPortrait,
+} from "../leftSidebarPortraitWarm";
+import { UNIT_ID_TO_NAME, UNIT_NAME_TO_ID } from "../unit_ui_constants";
 import Toggler from "../Toggler";
 import SynergiesRow from "./SynergiesRow";
 import {
@@ -44,15 +55,18 @@ import {
     isAuraRangeSynergy,
     isFlyArmorSynergy,
 } from "./SynergiesConstants";
+import { effectIconsPerLane, effectLaneWellHeight, planEffectLanes } from "./effectLanes";
 import { orderSidebarBuffs, orderSidebarDebuffs } from "./effectOrder";
 import { formatSidebarStat, useSidebarMetrics, type ISidebarMetrics } from "./sidebarMetrics";
 
 import { commonTooltipSx } from "./tooltipStyles";
-import { areUnitStatsPropsEqual, type UnitStatsListItemProps } from "./unitStatsMemo";
+import { areUnitStatsPropsEqual, getSidebarRangedStats, type UnitStatsListItemProps } from "./unitStatsMemo";
 import { getDefaultAnimationConfig, isAtlasReady, type SidebarAtlasMeta, warmAtlas } from "./unitAtlas";
 import { stonePlateSx } from "./stonePlateStyles";
 import { hocDisplayFontFamily } from "../hocTheme";
+import { selectedUnitNamePlaqueBackground } from "./namePlaqueColor";
 import { personalArmyCssColor } from "../../scenes/personalArmyTint";
+import { PremiumUnitInspectionContext, PremiumUnitQuestionButton } from "../premium/PremiumUnitInspection";
 
 interface IAbilityStackProps {
     abilities: IVisibleImpact[];
@@ -118,42 +132,64 @@ const AtlasAnimation: React.FC<{
     onLoaded: () => void;
     /** Ceiling for the rendered portrait; the frame keeps its aspect ratio and centres inside the slot. */
     maxHeight: number;
-}> = ({ meta, src, onLoaded, maxHeight }) => {
-    const [isImageLoaded, setIsImageLoaded] = React.useState(() => isAtlasReady(src));
+    playback?: "ping-pong" | "loop";
+    /** Fit the complete authored frame into the existing portrait box. */
+    fillHeight?: boolean;
+}> = ({ meta, src, onLoaded, maxHeight, playback = "ping-pong", fillHeight = false }) => {
+    const [loadedSource, setLoadedSource] = React.useState<string | undefined>(() =>
+        isAtlasReady(src) ? src : undefined,
+    );
+    const isImageLoaded = loadedSource === src;
     const bgRef = React.useRef<HTMLDivElement | null>(null);
+    const onLoadedRef = React.useRef(onLoaded);
+    React.useLayoutEffect(() => {
+        onLoadedRef.current = onLoaded;
+    }, [onLoaded]);
 
     // Decode off-thread + cache per src: first selection stays responsive, repeats are instant.
     // If the atlas is already decoded (prefetched), start on frame 0 right away — no portrait
     // fallback flash. Otherwise show the portrait until the atlas finishes decoding.
-    React.useEffect(() => {
+    React.useLayoutEffect(() => {
         let cancelled = false;
-        setIsImageLoaded(isAtlasReady(src));
-        warmAtlas(src).then(() => {
-            if (!cancelled) {
-                setIsImageLoaded(true);
-                onLoaded();
+        setLoadedSource(isAtlasReady(src) ? src : undefined);
+        warmAtlas(src).then((ready) => {
+            if (ready && !cancelled) {
+                setLoadedSource(src);
+                onLoadedRef.current();
             }
         });
         return () => {
             cancelled = true;
         };
-    }, [src, onLoaded]);
+    }, [src]);
 
     // Derive a stable timing config from meta primitives so the rAF loop isn't restarted on every
     // parent re-render (e.g. HP changes) — only when the actual atlas shape/timing changes. Uses the
     // same shared helper as the board sprite so both views ping-pong identically and stay in phase.
-    const timing = React.useMemo(
-        () => buildAtlasPingPongTiming(meta),
-        [
-            meta.frameCount,
-            meta.fps,
-            meta.totalDurationSec,
-            meta.loopDurationMs,
-            meta.pauseMs,
-            meta.layout?.cols,
-            meta.layout?.rows,
-        ],
-    );
+    const timing = React.useMemo(() => {
+        if (playback === "ping-pong") return buildAtlasPingPongTiming(meta);
+
+        const cols = meta.layout?.cols ?? 1;
+        const rows = meta.layout?.rows ?? 1;
+        const frameCount = Math.max(1, meta.frameCount ?? 1);
+        const frameDurationMs = 1000 / Math.max(0.01, meta.fps || 4);
+        return {
+            cols,
+            rows,
+            frameCount,
+            cycleMs: frameDurationMs * frameCount,
+            frameForElapsed: (absMs: number) => Math.floor(absMs / frameDurationMs) % frameCount,
+        };
+    }, [
+        playback,
+        meta.frameCount,
+        meta.fps,
+        meta.totalDurationSec,
+        meta.loopDurationMs,
+        meta.pauseMs,
+        meta.layout?.cols,
+        meta.layout?.rows,
+    ]);
 
     // Imperative frame stepping: write backgroundPosition straight to the DOM each rAF tick instead
     // of going through React state (no reconciliation 12x/sec).
@@ -200,10 +236,11 @@ const AtlasAnimation: React.FC<{
         <Box
             sx={{
                 position: "relative",
-                width: "100%",
+                width: fillHeight ? "auto" : "100%",
+                height: fillHeight ? "100%" : "auto",
                 // Height, not width, is the scarce resource in the sidebar: cap the portrait and let the
                 // frame's own aspect ratio decide how wide it may be inside that cap.
-                maxWidth: `${Math.round(maxHeight * (frameWidth / frameHeight))}px`,
+                maxWidth: fillHeight ? "100%" : `${Math.round(maxHeight * (frameWidth / frameHeight))}px`,
                 mx: "auto",
                 aspectRatio: `${frameWidth} / ${frameHeight}`,
                 overflow: "visible",
@@ -230,11 +267,56 @@ const AtlasAnimation: React.FC<{
                     opacity: isImageLoaded ? 1 : 0,
                     transform: "translateZ(0)",
                     backfaceVisibility: "hidden",
-                    transition: "opacity 180ms ease-out",
+                    transition: fillHeight ? "none" : "opacity 180ms ease-out",
                     willChange: "background-position, opacity",
                 }}
             />
         </Box>
+    );
+};
+
+/** The still and atlas share local readiness, including while this complete portrait is held on screen. */
+const SidebarPortraitAnimation = ({
+    art,
+    config,
+    maxHeight,
+    onLoaded,
+}: {
+    art: React.ReactElement<React.ImgHTMLAttributes<HTMLImageElement>>;
+    config: Readonly<LeftSidebarPortraitAnimation>;
+    maxHeight: number;
+    onLoaded: () => void;
+}) => {
+    const [ready, setReady] = useState(() => isAtlasReady(config.src));
+    const markLoaded = useCallback(() => {
+        setReady(true);
+        onLoaded();
+    }, [onLoaded]);
+    return (
+        <>
+            {React.cloneElement(art, { style: { ...art.props.style, opacity: ready ? 0 : 1 } })}
+            <Box
+                aria-label={`${art.props.alt} animated portrait`}
+                sx={{
+                    position: "absolute",
+                    inset: 0,
+                    zIndex: 4,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    pointerEvents: "none",
+                }}
+            >
+                <AtlasAnimation
+                    meta={config.meta}
+                    src={config.src}
+                    onLoaded={markLoaded}
+                    maxHeight={maxHeight}
+                    playback="ping-pong"
+                    fillHeight
+                />
+            </Box>
+        </>
     );
 };
 
@@ -321,8 +403,8 @@ const EFFECT_TO_ABILITY_RATIO = 0.71;
 const EFFECT_TILE_SCALE = 0.94;
 const EFFECT_TILE_BORDER_PX = 2;
 
-// Buffs and debuffs use four fixed slots across the expanded sidebar. Their wells keep a fixed layout
-// height; overflowing buff rows scroll vertically inside that slot instead of changing the card's fit scale.
+// Buffs and debuffs use four fixed slots across the expanded sidebar. Their wells reveal additional
+// rows when the card viewport has spare height, then scroll whatever does not fit.
 const effectTileSize = (metrics: ISidebarMetrics): number => {
     const tileGap = metrics.gapPx * 0.6;
     const innerInset = Math.max(6, Math.round(metrics.padPx * 0.32) + 4);
@@ -398,11 +480,17 @@ const AbilityCell: React.FC<{
                             {`includes +${ability.amplifiedBy.percent}% from ${ability.amplifiedBy.name}`}
                         </Box>
                     )}
+                    <Box sx={{ display: "flex", mt: 0.5 }}>
+                        <PremiumUnitQuestionButton topic={{ kind: "ability", name: ability.name }} />
+                    </Box>
                 </>
             }
+            describeChild
             sx={commonTooltipSx}
         >
             <Box
+                tabIndex={0}
+                aria-label={ability.name}
                 sx={{
                     position: "relative",
                     // Sized in px from the measured bar width so the tiles neither overhang a 128px bar
@@ -632,14 +720,21 @@ const ScrollWell: React.FC<{
     );
 };
 
-// Fixed-height icon well. Abilities/debuffs remain horizontal strips; Buffs opts into a wrapped vertical
-// well whose scrollbar sits on the right, so a normal mouse-wheel gesture reaches additional rows.
+// Fixed-height icon well. Abilities remain horizontal strips; Buffs and Debuffs opt into a wrapped
+// vertical well whose scrollbar sits on the right, so a normal mouse-wheel gesture reaches additional rows.
+//
+// `rowStepPx` makes that well page by whole rows: one wheel notch advances exactly one row, and a drag of
+// the thumb settles on a row boundary the moment it stops. A well this short (barely one row tall) can
+// otherwise come to rest showing the bottom of one row and the top of the next, which reads as clipped art
+// rather than as a row of effects.
 const IconScrollWell: React.FC<{
     height: number;
     children: React.ReactNode;
     offsetY?: number;
     vertical?: boolean;
-}> = ({ height, children, offsetY = 0, vertical = false }) => (
+    /** Keep the last icon clear of the sidebar's right rail, which paints over the row. */
+    edgeInset?: number;
+}> = ({ height, children, offsetY = 0, vertical = false, edgeInset = 0 }) => (
     <Box
         onWheel={
             vertical
@@ -655,12 +750,12 @@ const IconScrollWell: React.FC<{
             position: "relative",
             // Keep the vertical rail inside the sidebar's decorative right frame instead of painting
             // underneath it, where the thumb looked absent even while the well was scrollable.
-            width: vertical ? "calc(100% - 8px)" : "100%",
-            mr: vertical ? "8px" : 0,
+            width: edgeInset > 0 ? `calc(100% - ${edgeInset}px)` : "100%",
+            mr: edgeInset > 0 ? `${edgeInset}px` : 0,
             height: `${height}px`,
             boxSizing: "border-box",
             overflowX: vertical ? "hidden" : "auto",
-            overflowY: vertical ? "scroll" : "hidden",
+            overflowY: vertical ? "auto" : "hidden",
             whiteSpace: vertical ? "normal" : "nowrap",
             pr: vertical ? "5px" : 0,
             scrollbarGutter: vertical ? "stable" : "auto",
@@ -685,8 +780,21 @@ export const SectionTitle: React.FC<{
     displayFont?: boolean;
     preserveCase?: boolean;
     namePlaque?: boolean;
+    namePlaqueTeam?: TeamType;
     heightScale?: number;
-}> = ({ title, metrics, displayFont = false, preserveCase = false, namePlaque = false, heightScale = 1 }) => {
+    leftRuleLiftPx?: number;
+    rightRuleLiftPx?: number;
+}> = ({
+    title,
+    metrics,
+    displayFont = false,
+    preserveCase = false,
+    namePlaque = false,
+    namePlaqueTeam = TeamVals.NO_TEAM,
+    heightScale = 1,
+    leftRuleLiftPx = 0,
+    rightRuleLiftPx = 0,
+}) => {
     const fontSizeRem = metrics.sectionTitleRem * (namePlaque ? 1.45 : displayFont ? 1.1 : 1);
     const naturalHeightPx = fontSizeRem * 16 + (namePlaque ? 6 : 12);
     const scaledHeightPx = naturalHeightPx * heightScale;
@@ -705,7 +813,27 @@ export const SectionTitle: React.FC<{
             }}
         >
             <Box
-                sx={{ height: "1px", flex: 1, background: "linear-gradient(90deg, transparent, rgba(132,91,52,.58))" }}
+                sx={{
+                    height: "1px",
+                    flex: 1,
+                    position: "relative",
+                    background: "linear-gradient(90deg, transparent, rgba(132,91,52,.58))",
+                    transform: leftRuleLiftPx ? `translateY(-${leftRuleLiftPx}px)` : "none",
+                    ...(leftRuleLiftPx
+                        ? {
+                              "&::after": {
+                                  content: '""',
+                                  position: "absolute",
+                                  left: "100%",
+                                  top: 0,
+                                  // Bridge the flex gap and the plaque's clipped corner.
+                                  width: "13px",
+                                  height: "1px",
+                                  background: "rgba(132,91,52,.58)",
+                              },
+                          }
+                        : {}),
+                }}
             />
             <Typography
                 level="title-sm"
@@ -738,11 +866,13 @@ export const SectionTitle: React.FC<{
                               alignItems: "center",
                               justifyContent: "center",
                           }),
+                    position: "relative",
+                    zIndex: 1,
                     minWidth: namePlaque ? "58.8%" : "42%",
                     textAlign: "center",
                     clipPath: "polygon(7px 0, calc(100% - 7px) 0, 100% 50%, calc(100% - 7px) 100%, 7px 100%, 0 50%)",
                     background: namePlaque
-                        ? "linear-gradient(180deg, rgba(44,37,30,.59), rgba(14,13,12,.605))"
+                        ? selectedUnitNamePlaqueBackground(namePlaqueTeam)
                         : "linear-gradient(180deg, rgba(44,37,30,.96), rgba(14,13,12,.98)) padding-box, linear-gradient(90deg, #241a12, #8b6238, #241a12) border-box",
                     border: "1px solid transparent",
                     ...(namePlaque
@@ -759,7 +889,23 @@ export const SectionTitle: React.FC<{
                 sx={{
                     height: "1px",
                     flex: 1,
+                    position: "relative",
                     background: "linear-gradient(90deg, rgba(132,91,52,.58), transparent)",
+                    transform: rightRuleLiftPx ? `translateY(-${rightRuleLiftPx}px)` : "none",
+                    ...(rightRuleLiftPx
+                        ? {
+                              "&::before": {
+                                  content: '""',
+                                  position: "absolute",
+                                  right: "100%",
+                                  top: 0,
+                                  // Bridge the flex gap and the plaque's clipped corner.
+                                  width: "13px",
+                                  height: "1px",
+                                  background: "rgba(132,91,52,.58)",
+                              },
+                          }
+                        : {}),
                 }}
             />
         </Box>
@@ -773,7 +919,18 @@ const PanelSection: React.FC<{
     overlayTitle?: boolean;
     offsetY?: number;
     titleHeightScale?: number;
-}> = ({ title, metrics, children, overlayTitle = false, offsetY = 0, titleHeightScale = 1 }) => (
+    leftRuleLiftPx?: number;
+    rightRuleLiftPx?: number;
+}> = ({
+    title,
+    metrics,
+    children,
+    overlayTitle = false,
+    offsetY = 0,
+    titleHeightScale = 1,
+    leftRuleLiftPx = 0,
+    rightRuleLiftPx = 0,
+}) => (
     <Box
         sx={{
             width: "100%",
@@ -798,10 +955,20 @@ const PanelSection: React.FC<{
                           height: `${Math.round(metrics.gapPx)}px`,
                           transform: `translateY(calc(-50% - ${Math.round(metrics.gapPx * 0.5)}px))`,
                       }
-                    : undefined
+                    : // The wells below are lifted into their plaque and carry transforms of their own, so
+                      // they open a later stacking context and used to paint over the caption. The plaque
+                      // owns that overlap: it stays legible and the tile that reaches it slides beneath.
+                      { position: "relative", zIndex: 7 }
             }
         >
-            <SectionTitle title={title} metrics={metrics} displayFont heightScale={titleHeightScale} />
+            <SectionTitle
+                title={title}
+                metrics={metrics}
+                displayFont
+                heightScale={titleHeightScale}
+                leftRuleLiftPx={leftRuleLiftPx}
+                rightRuleLiftPx={rightRuleLiftPx}
+            />
         </Box>
         {children}
     </Box>
@@ -850,10 +1017,20 @@ const EffectTiles: React.FC<{
                 {effects.map((effect, index) => (
                     <Tooltip
                         key={`${title}-${effect.name}-${effect.smallTextureName}-${index}`}
-                        title={`${effect.name}: ${effect.description.substring(0, effect.description.length - 1)}${effect.laps > 0 && effect.laps !== Number.MAX_SAFE_INTEGER && effect.laps !== HoCConstants.NUMBER_OF_LAPS_TOTAL ? ` (remaining ${HoCLib.getLapString(effect.laps)})` : ""}`}
+                        title={
+                            <>
+                                {`${effect.name}: ${effect.description.substring(0, effect.description.length - 1)}${effect.laps > 0 && effect.laps !== Number.MAX_SAFE_INTEGER && effect.laps !== HoCConstants.NUMBER_OF_LAPS_TOTAL ? ` (remaining ${HoCLib.getLapString(effect.laps)})` : ""}`}
+                                <Box sx={{ display: "flex", mt: 0.5 }}>
+                                    <PremiumUnitQuestionButton topic={{ kind: "status", name: effect.name }} />
+                                </Box>
+                            </>
+                        }
+                        describeChild
                         sx={commonTooltipSx}
                     >
                         <Box
+                            tabIndex={0}
+                            aria-label={effect.name}
                             sx={{
                                 position: "relative",
                                 display: "inline-flex",
@@ -1112,18 +1289,49 @@ const UnitStatsLayout: React.FC<{
     team,
 }) => {
     const creatureId = UNIT_NAME_TO_ID[unitProperties.name.trim()];
-    const sidebarPortraitArt = creatureId === undefined ? {} : resolveLeftSidebarPortraitArt(creatureId);
+    // The cutout and the faction background are different files, and the cutout is large enough that a
+    // synchronous decode lets the background paint first. Keep the previous pair on screen until both
+    // new files have decoded, then swap them on the same frame. The name and the stats still follow the
+    // live unit.
+    const portraitReady = creatureId !== undefined && isLeftSidebarPortraitReady(creatureId);
+    const [heldPortraitId, setHeldPortraitId] = useState<number | undefined>(undefined);
+    useEffect(() => {
+        if (creatureId === undefined) {
+            setHeldPortraitId(undefined);
+            return;
+        }
+        let cancelled = false;
+        // A cached selection must become the held picture immediately too; otherwise the next cold
+        // selection falls back to an older creature while an optional atlas is still loading.
+        if (isLeftSidebarPortraitReady(creatureId)) setHeldPortraitId(creatureId);
+        const portraitWarm = warmLeftSidebarPortrait(creatureId);
+        void portraitWarm.then((ready) => {
+            if (ready && !cancelled) setHeldPortraitId(creatureId);
+        });
+        return () => {
+            cancelled = true;
+            clearLeftSidebarPortraitSelection(creatureId, portraitWarm);
+        };
+    }, [creatureId]);
+    const displayedCreatureId = displayedSidebarCreatureId(creatureId, heldPortraitId, portraitReady);
+    useEffect(() => {
+        if (displayedCreatureId !== undefined) pinLeftSidebarPortrait(displayedCreatureId);
+    }, [displayedCreatureId]);
+    const sidebarPortraitArt =
+        displayedCreatureId === undefined ? {} : resolveLeftSidebarPortraitArt(displayedCreatureId);
+    const portraitAnimationConfig =
+        displayedCreatureId === undefined ? null : resolveLeftSidebarPortraitAnimation(displayedCreatureId);
     const [sidebarPortraitTuning, setSidebarPortraitTuning] = useState<LeftSidebarPortraitTuning>(() =>
-        creatureId === undefined
+        displayedCreatureId === undefined
             ? { ...DEFAULT_LEFT_SIDEBAR_PORTRAIT_TUNING }
-            : resolveLeftSidebarPortraitTuning(creatureId),
+            : resolveLeftSidebarPortraitTuning(displayedCreatureId),
     );
     useEffect(() => {
         const syncTuning = () =>
             setSidebarPortraitTuning(
-                creatureId === undefined
+                displayedCreatureId === undefined
                     ? { ...DEFAULT_LEFT_SIDEBAR_PORTRAIT_TUNING }
-                    : resolveLeftSidebarPortraitTuning(creatureId),
+                    : resolveLeftSidebarPortraitTuning(displayedCreatureId),
             );
         const syncStoredTuning = (event: StorageEvent) => {
             if (event.key === LEFT_SIDEBAR_PORTRAIT_TUNING_STORAGE_KEY) syncTuning();
@@ -1136,13 +1344,9 @@ const UnitStatsLayout: React.FC<{
             window.removeEventListener(LEFT_SIDEBAR_PORTRAIT_TUNING_EVENT, syncTuning);
             window.removeEventListener("storage", syncStoredTuning);
         };
-    }, [creatureId]);
+    }, [displayedCreatureId]);
     const animationConfig = creatureId === undefined ? getDefaultAnimationConfig(unitProperties.name) : null;
-    const showRangedStats =
-        unitProperties.attack_type === AttackVals.RANGE ||
-        // Runtime shooter: a melee unit holding a stolen Endless Quiver gains shots
-        // (range_shots_mod) and a granted shot_distance — show its ranged stats too.
-        (unitProperties.shot_distance > 0 && (unitProperties.range_shots_mod || unitProperties.range_shots) > 0);
+    const rangedStats = getSidebarRangedStats(unitProperties);
 
     // Order matters: the seven stats every creature has come first, in a fixed sequence, and the handful
     // that only some carry are appended after them. Otherwise a conditional cell in the middle re-seats
@@ -1206,7 +1410,7 @@ const UnitStatsLayout: React.FC<{
                 }
                 // OWNER call: show the exact fractional stat (Elf's 2.93), with insignificant trailing
                 // zeroes dropped — and since 2026-08-06 the ENGINE moves on the same pure fraction (no rounding:
-                // a straight cell costs 1, a diagonal ~1.41, Trent's own vines 0.5), so the display and
+                // a straight cell costs 1, a diagonal ~1.41, Trent's own vines 0), so the display and
                 // the board can no longer disagree.
                 value={formatSidebarStat(unitProperties.steps + stepsMod)}
                 tooltip="Movement budget in cells: straight costs 1, diagonal ~1.41 — spent exactly, no rounding"
@@ -1242,22 +1446,19 @@ const UnitStatsLayout: React.FC<{
                     metrics={metrics}
                 />
             )}
-            {showRangedStats && (
+            {/* Range and ammunition share the final cell so shooters with scrolls still fit three rows.
+                Keep the count visible at zero, when the player needs to know the quiver is exhausted. */}
+            {rangedStats && (
                 <StatItem
                     icon={images.stat_shot_range_gold_v2_arc}
-                    value={formatSidebarStat(unitProperties.shot_distance)}
+                    value={formatSidebarStat(rangedStats.shotDistance)}
                     tooltip="Ranged shot distance in cells"
                     color="#ffff00"
                     metrics={metrics}
-                />
-            )}
-            {showRangedStats && !!(unitProperties.range_shots_mod || unitProperties.range_shots) && (
-                <StatItem
-                    icon={images.stat_ammo_gold_v2}
-                    value={formatSidebarStat(unitProperties.range_shots_mod || unitProperties.range_shots)}
-                    tooltip="Number of ranged shots"
-                    color="#cd5c5c"
-                    metrics={metrics}
+                    secondIcon={images.stat_ammo_gold_v2}
+                    secondValue={formatSidebarStat(rangedStats.remainingShots)}
+                    secondColor="#cd5c5c"
+                    secondTooltip="Number of ranged shots"
                 />
             )}
         </>
@@ -1280,30 +1481,173 @@ const UnitStatsLayout: React.FC<{
     // army-wide augments settle at the far end.
     const orderedBuffs = orderSidebarBuffs(buffs);
     const orderedDebuffs = orderSidebarDebuffs(debuffs);
+    const effectTile = effectTileSize(metrics);
+    const effectGap = metrics.gapPx * 0.6;
+    // The right rail is drawn over the row. An icon that only fits by sliding under it belongs on the next line.
+    const effectEdgeInset = Math.max(8, Math.min(13, Math.round(metrics.barSize * 0.03 * 0.7)));
+    const layoutRootRef = useRef<HTMLDivElement | null>(null);
+    const effectBlockRef = useRef<HTMLDivElement | null>(null);
+    const buffWellRef = useRef<HTMLDivElement | null>(null);
+    const appliedExtraRef = useRef(0);
+    const [laneRoom, setLaneRoom] = useState({ perLane: 1, extraSlots: 0 });
+    useLayoutEffect(() => {
+        const root = layoutRootRef.current;
+        const block = effectBlockRef.current;
+        if (!root || !block) return;
+        const card = root.closest<HTMLElement>(".SidebarCard");
+        const viewport = card?.parentElement ?? root;
+        const footer = root.closest(".Sidebar")?.querySelector<HTMLElement>("[data-sidebar-footer]");
+        const measure = () => {
+            const cardHeight = card?.offsetHeight ?? 0;
+            // Use the current painted scale, including an in-progress fit transition.
+            const scaleRaw = card && cardHeight > 0 ? card.getBoundingClientRect().height / cardHeight : 1;
+            const fitScale = Number.isFinite(scaleRaw) && scaleRaw > 0 ? scaleRaw : 1;
+            const wellWidth = buffWellRef.current?.clientWidth ?? 0;
+            // The well has not been laid out yet. Guessing one icon per line would open a lane per buff.
+            if (wellWidth <= 0) return;
+            const perLane = effectIconsPerLane(wellWidth, effectTile, effectGap);
+            // The inner content box can end at Debuffs even when the card has hundreds of free
+            // pixels below it. Compare painted bounds against the actual viewport/footer boundary.
+            let availableBottom = viewport.getBoundingClientRect().bottom;
+            if (footer && footer.getBoundingClientRect().height > 0) {
+                availableBottom = Math.min(availableBottom, footer.getBoundingClientRect().top);
+            }
+            const leftover =
+                (availableBottom - block.getBoundingClientRect().bottom) / fitScale + appliedExtraRef.current;
+            const stride = effectTile + effectGap;
+            const extraSlots = stride > 0 ? Math.max(0, Math.floor(leftover / stride)) : 0;
+            setLaneRoom((current) =>
+                current.perLane === perLane && current.extraSlots === extraSlots ? current : { perLane, extraSlots },
+            );
+        };
+        const observer = new ResizeObserver(measure);
+        for (const element of new Set([root, block, viewport, card, buffWellRef.current, footer])) {
+            if (element) observer.observe(element);
+        }
+        // Fit scaling changes painted bounds without resizing the underlying layout boxes.
+        const fitObserver = new MutationObserver(measure);
+        const onFitTransitionEnd = (event: TransitionEvent) => {
+            if (event.target === card && event.propertyName === "transform") measure();
+        };
+        if (card) {
+            fitObserver.observe(card, { attributes: true, attributeFilter: ["class", "style"] });
+            card.addEventListener("transitionend", onFitTransitionEnd);
+        }
+        measure();
+        return () => {
+            observer.disconnect();
+            fitObserver.disconnect();
+            card?.removeEventListener("transitionend", onFitTransitionEnd);
+        };
+    }, [effectGap, effectTile, orderedBuffs.length, orderedDebuffs.length, shownSynergies.length]);
     // Three stat rows, always — the well below scrolls if a creature carries more than nine.
     const statRowHeight = Math.round(metrics.statIconPx + 12);
     const statWellHeight = statRowHeight * 3 + STAT_ROW_GAP * 2;
-    // One row of tiles each; anything beyond that scrolls inside the well rather than growing the card.
+    // Abilities keep one row and scroll horizontally when more tiles are present.
     const abilityWellHeight = abilityTileSize(metrics) + 6;
     // The shared effect size also applies to synergy/augment markers. The extra band holds their level
     // dots and the scrollbar without changing the section's position.
-    const effectWellHeight = effectTileSize(metrics) + 9;
+    const lanePlan = planEffectLanes({
+        perLane: laneRoom.perLane,
+        buffItems: shownSynergies.length + orderedBuffs.length,
+        debuffItems: orderedDebuffs.length,
+        extraSlots: laneRoom.extraSlots,
+    });
+    const effectChrome = 9;
+    const effectWellHeight = effectLaneWellHeight(lanePlan.buffLanes, effectTile, effectGap, effectChrome);
+    appliedExtraRef.current = (lanePlan.buffLanes - 1 + lanePlan.debuffLanes - 1) * (effectTile + effectGap);
     // This is only the PAINT viewport inside the fixed-height Debuffs layout slot. It is deliberately
     // taller than the tile + frame + scrollbar, so the complete unscaled art can move upward without the
     // scrolling element clipping its lower edge. The outer wrapper below keeps the layout height unchanged.
-    const debuffPaintWellHeight = effectTileSize(metrics) + 20;
+    const debuffPaintWellHeight =
+        lanePlan.debuffLanes > 1
+            ? effectLaneWellHeight(lanePlan.debuffLanes, effectTile, effectGap, effectChrome)
+            : effectTile + 20;
     const layout = bannerLayout(metrics);
     const portraitHeight = layout.portraitHeight;
+    const portraitAlt =
+        displayedCreatureId === undefined
+            ? unitProperties.name
+            : (UNIT_ID_TO_NAME[displayedCreatureId] ?? unitProperties.name);
+    const {
+        artScale: portraitArtScale,
+        artOffsetX: portraitOffsetX,
+        artOffsetY: portraitOffsetY,
+    } = sidebarPortraitTuning;
+    const portraitArtScaleX = 0.96 * (sidebarPortraitArt.artScaleX ?? 1);
+    const portraitSource = sidebarPortraitArt.source;
+    const portraitUsesFraming = sidebarPortraitArt.usesFraming !== false;
+    const portraitFit = sidebarPortraitArt.fit;
+    const portraitBaseScale = sidebarPortraitArt.baseScale;
+    const portraitAtlasSource = portraitAnimationConfig?.src;
+    const portraitAtlasMeta = portraitAnimationConfig?.meta;
+    // Live stat/impact changes keep the complete mounted portrait intact. Only its actual source,
+    // authored framing, animation, or responsive size needs to reconcile this image-heavy subtree.
+    const sidebarPortrait = React.useMemo(
+        () =>
+            displayedCreatureId === undefined ? null : (
+                <CreaturePortraitImage
+                    creatureId={displayedCreatureId}
+                    alt={portraitAlt}
+                    artScale={portraitArtScale}
+                    artScaleX={portraitArtScaleX}
+                    backgroundFit="fill"
+                    artOffsetX={portraitOffsetX}
+                    artOffsetY={portraitOffsetY}
+                    artSource={portraitSource}
+                    artSourceUsesFraming={portraitUsesFraming}
+                    artFit={portraitFit}
+                    artBaseScale={portraitBaseScale}
+                    highQualityArt
+                    sx={{ width: "100%", height: "100%", bgcolor: "transparent" }}
+                    imageStyle={{ transition: "none", imageRendering: "auto" }}
+                    animatedArtSource={portraitAtlasSource}
+                    renderArt={
+                        portraitAtlasMeta
+                            ? (art) => (
+                                  <SidebarPortraitAnimation
+                                      key={portraitAtlasSource}
+                                      art={art}
+                                      config={{ src: portraitAtlasSource!, meta: portraitAtlasMeta }}
+                                      onLoaded={onImageLoaded}
+                                      maxHeight={portraitHeight}
+                                  />
+                              )
+                            : undefined
+                    }
+                />
+            ),
+        [
+            displayedCreatureId,
+            portraitAlt,
+            portraitArtScale,
+            portraitArtScaleX,
+            portraitOffsetX,
+            portraitOffsetY,
+            portraitSource,
+            portraitUsesFraming,
+            portraitFit,
+            portraitBaseScale,
+            portraitAtlasSource,
+            portraitAtlasMeta,
+            portraitHeight,
+            onImageLoaded,
+        ],
+    );
     // The frame itself closes on the centre of the Abilities divider. PanelSection first advances by the
     // card gap, then lifts its title wrapper by one full section gap; half of the plaque's rendered height
     // lands the border exactly on the horizontal rules running through the plaque centre.
     const abilityTitleHeightPx = metrics.sectionTitleRem * 1.1 * 16 + 12;
+    // The right-hand divider follows the actual lower edge of the creature artwork: only a shallow step
+    // above the regular Abilities axis. The portrait uses the same boundary, so no fragment hangs below it.
+    const abilityRightStepPx = Math.round(abilityTitleHeightPx * UNIT_SECTION_PLAQUE_HEIGHT_SCALE * 0.32);
     const abilityDividerCenterExtensionPx = Math.round(
         Math.round(metrics.gapPx * 0.5) - Math.round(metrics.gapPx) + abilityTitleHeightPx * 0.5,
     );
 
     return (
         <Box
+            ref={layoutRootRef}
             sx={{
                 position: "relative",
                 width: "100%",
@@ -1400,29 +1744,21 @@ const UnitStatsLayout: React.FC<{
                             justifyContent: "center",
                         }}
                     >
-                        {creatureId !== undefined ? (
-                            <CreaturePortraitImage
-                                creatureId={creatureId}
-                                alt={unitProperties.name}
-                                artScale={sidebarPortraitTuning.artScale}
-                                artScaleX={0.96 * (sidebarPortraitArt.artScaleX ?? 1)}
-                                artOffsetX={sidebarPortraitTuning.artOffsetX}
-                                artOffsetY={sidebarPortraitTuning.artOffsetY}
-                                artSource={sidebarPortraitArt.source}
-                                artSourceUsesFraming={sidebarPortraitArt.usesFraming !== false}
-                                artFit={sidebarPortraitArt.fit}
-                                artBaseScale={sidebarPortraitArt.baseScale}
-                                highQualityArt
+                        {displayedCreatureId !== undefined ? (
+                            <Box
                                 sx={{
+                                    position: "relative",
                                     width: "100%",
                                     height: "100%",
-                                    bgcolor: "transparent",
+                                    clipPath: `inset(0 0 ${abilityRightStepPx}px 0)`,
                                 }}
-                                imageStyle={{
-                                    transition: "opacity 120ms ease-out",
-                                    imageRendering: "auto",
-                                }}
-                            />
+                            >
+                                {sidebarPortrait}
+                            </Box>
+                        ) : creatureId !== undefined ? (
+                            // Waiting on the cutout and the plate together. A lone large-texture fallback
+                            // here is a third image that pops in and then gets replaced.
+                            <Box sx={{ position: "absolute", inset: 0, bgcolor: "#090806" }} />
                         ) : animationConfig ? (
                             <AtlasAnimation
                                 meta={animationConfig.meta}
@@ -1461,6 +1797,8 @@ const UnitStatsLayout: React.FC<{
                             // to the frame on the Abilities divider. Its top and stat positions stay fixed.
                             bottom: `${-abilityDividerCenterExtensionPx}px`,
                             zIndex: 2,
+                            // Clip both surfaces at the divider, including beneath the plaque corners.
+                            clipPath: `inset(0 0 ${abilityRightStepPx}px 0)`,
                             ...stonePlateSx,
                             paddingBottom: `calc(10px + ${abilityDividerCenterExtensionPx}px)`,
                             // Twenty-five percent transparent: the creature continues visibly behind the plate,
@@ -1475,11 +1813,12 @@ const UnitStatsLayout: React.FC<{
                             boxShadow: "inset 0 2px 12px rgba(0,0,0,.55)",
                         }}
                     >
-                        {/* Exactly three columns by three rows, always. A creature with extra stats (scrolls,
-                            shot distance, shot count, separate range armour) scrolls inside this well instead
-                            of adding a fourth row and pushing everything below the plate down. */}
+                        {/* Exactly three columns by three rows. Armor, movement, morale and ranged stats
+                            are paired so scroll count and remaining shots both fit without scrolling. */}
                         <ScrollWell height={statWellHeight}>
                             <Box
+                                role="group"
+                                aria-label="Unit stats"
                                 sx={{
                                     display: "grid",
                                     gridTemplateColumns: `repeat(${metrics.statColumns}, minmax(0, 1fr))`,
@@ -1498,13 +1837,14 @@ const UnitStatsLayout: React.FC<{
                 </Box>
             </Box>
 
-            {/* All three blocks are always rendered at a constant height, empty or not, so the card is the
-                same shape for every creature and nothing below it ever moves. */}
+            {/* Abilities keep one row; effect wells below use the spare card height for visible rows. */}
             <PanelSection
                 title="Abilities"
                 metrics={metrics}
                 overlayTitle
                 titleHeightScale={UNIT_SECTION_PLAQUE_HEIGHT_SCALE}
+                leftRuleLiftPx={abilityRightStepPx}
+                rightRuleLiftPx={abilityRightStepPx}
             >
                 <IconScrollWell height={abilityWellHeight}>
                     <AbilityStack
@@ -1520,6 +1860,7 @@ const UnitStatsLayout: React.FC<{
                 the extra empty band below the ability tiles and makes it match the plaque-to-tiles gap
                 above them. Keeping both sections in this wrapper preserves their authored relationship. */}
             <Box
+                ref={effectBlockRef}
                 sx={{
                     width: "100%",
                     display: "flex",
@@ -1529,9 +1870,15 @@ const UnitStatsLayout: React.FC<{
                 }}
             >
                 <PanelSection title="Buffs" metrics={metrics} titleHeightScale={UNIT_SECTION_PLAQUE_HEIGHT_SCALE}>
-                    <IconScrollWell height={effectWellHeight} offsetY={-Math.round(metrics.gapPx)} vertical>
-                        {/* Additional buffs wrap into rows inside this fixed-height vertically scrolling well. */}
+                    <IconScrollWell
+                        height={effectWellHeight}
+                        offsetY={-Math.round(metrics.gapPx)}
+                        vertical
+                        edgeInset={effectEdgeInset}
+                    >
+                        {/* Reveal as many wrapped rows as the viewport can fit; scroll any remaining effects. */}
                         <Box
+                            ref={buffWellRef}
                             sx={{
                                 display: "flex",
                                 flexDirection: "row",
@@ -1570,21 +1917,41 @@ const UnitStatsLayout: React.FC<{
                     offsetY={-Math.round(metrics.gapPx * 3)}
                     titleHeightScale={UNIT_SECTION_PLAQUE_HEIGHT_SCALE}
                 >
-                    <Box
-                        sx={{
-                            position: "relative",
-                            width: "100%",
-                            height: `${effectWellHeight}px`,
-                            overflow: "visible",
-                            // Move the complete original-size row. The scrolling/clipping viewport itself
-                            // is no longer transformed, which prevents its lower edge slicing the artwork.
-                            transform: "translateY(-17.5%)",
-                        }}
-                    >
-                        <IconScrollWell height={debuffPaintWellHeight}>
-                            <EffectTiles effects={orderedDebuffs} title="Debuffs" metrics={metrics} />
+                    {lanePlan.debuffLanes > 1 ? (
+                        <IconScrollWell height={debuffPaintWellHeight} vertical edgeInset={effectEdgeInset}>
+                            <Box
+                                sx={{
+                                    display: "flex",
+                                    flexDirection: "row",
+                                    flexWrap: "wrap",
+                                    alignItems: "flex-start",
+                                    alignContent: "flex-start",
+                                    width: "100%",
+                                    height: "max-content",
+                                    minWidth: 0,
+                                    gap: `${effectGap}px`,
+                                }}
+                            >
+                                <EffectTiles effects={orderedDebuffs} title="Debuffs" metrics={metrics} inline />
+                            </Box>
                         </IconScrollWell>
-                    </Box>
+                    ) : (
+                        <Box
+                            sx={{
+                                position: "relative",
+                                width: "100%",
+                                height: `${effectTile + effectChrome}px`,
+                                overflow: "visible",
+                                // Move the complete original-size row. The scrolling/clipping viewport itself
+                                // is no longer transformed, which prevents its lower edge slicing the artwork.
+                                transform: "translateY(-17.5%)",
+                            }}
+                        >
+                            <IconScrollWell height={debuffPaintWellHeight} edgeInset={effectEdgeInset}>
+                                <EffectTiles effects={orderedDebuffs} title="Debuffs" metrics={metrics} />
+                            </IconScrollWell>
+                        </Box>
+                    )}
                 </PanelSection>
             </Box>
         </Box>
@@ -1869,7 +2236,19 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({ unitProperti
                             displayFont
                             preserveCase
                             namePlaque
+                            namePlaqueTeam={unitProperties.team}
                         />
+                        <Box
+                            sx={{
+                                position: "absolute",
+                                right: 0,
+                                top: "50%",
+                                transform: "translateY(-50%)",
+                                zIndex: 2,
+                            }}
+                        >
+                            <PremiumUnitQuestionButton iconOnly />
+                        </Box>
                     </Box>
                     <List sx={{ p: 0, gap: 0, flex: 1, minHeight: 0 }}>
                         <UnitStatsLayout
@@ -1900,4 +2279,14 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({ unitProperti
     return <ListItem nested />;
 };
 
-export const UnitStatsListItem = React.memo(UnitStatsListItemInner, areUnitStatsPropsEqual);
+const UnitStatsListItemWithInspection: React.FC<UnitStatsListItemProps> = (props) => (
+    <PremiumUnitInspectionContext.Provider
+        value={
+            props.unitProperties.id ? { unitId: props.unitProperties.id, name: props.unitProperties.name } : undefined
+        }
+    >
+        <UnitStatsListItemInner {...props} />
+    </PremiumUnitInspectionContext.Provider>
+);
+
+export const UnitStatsListItem = React.memo(UnitStatsListItemWithInspection, areUnitStatsPropsEqual);

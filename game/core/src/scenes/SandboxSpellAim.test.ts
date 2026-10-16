@@ -64,8 +64,8 @@ const unitLike = (params: {
     stackPower?: number;
     luck?: number;
     magicReflectionPower?: number;
-    /** Buff powers by name, as Unit.getBuffPower reports them: absent buff -> undefined, never 0. */
-    buffPowers?: Record<string, number>;
+    mirrorPower?: number;
+    massMirrorPower?: number;
 }): Unit => {
     const abilities = new Set(params.abilities ?? []);
     if (params.magicReflectionPower) {
@@ -77,13 +77,19 @@ const unitLike = (params: {
         getStackPower: () => params.stackPower ?? 1,
         getLuck: () => params.luck ?? 0,
         getMagicResist: () => params.magicResist ?? 0,
+        // Heavy Armor's +magic damage taken; none of these fixtures wear it.
+        getMagicDamageTakenMultiplier: () => 1,
         getMagicDamageBonusPercentage: () => 0,
         getAbilityPower: () => params.magicReflectionPower ?? 0,
-        // getMagicMirrorPower reads Magic Mirror / Mass Magic Mirror through this. Returning undefined
-        // for an absent buff is the real contract — 0 would read as a buff that reflects nothing, which
-        // is a different statement — and these fixtures carry the dragon's ABILITY, not the mage's buff.
-        getBuffPower: (name: string) => params.buffPowers?.[name],
         hasAbilityActive: (name: string) => abilities.has(name),
+        // Magic Mirror / Mass Magic Mirror are read through these. Returning undefined for an absent buff
+        // is the real contract — 0 would read as a buff that reflects nothing, which is a different
+        // statement — and these fixtures carry the dragon's ABILITY, not the mage's buff.
+        getBuff: (name: string) => {
+            const power = name === "Magic Mirror" ? params.mirrorPower : params.massMirrorPower;
+            return power === undefined ? undefined : ({ getPower: () => power } as never);
+        },
+        getBuffPower: (name: string) => (name === "Magic Mirror" ? params.mirrorPower : params.massMirrorPower),
         // Mirrors Unit.willWaterShieldAbsorb: an intact shield eats anything but a Fire Element's hit.
         willWaterShieldAbsorb: (attacker?: { hasAbilityActive: (name: string) => boolean }) =>
             !!params.waterShield && !attacker?.hasAbilityActive("Fire Element"),
@@ -107,7 +113,18 @@ describe("cell-targeted spell aim footprint", () => {
         }
     });
 
-    // Meteorite (and Smoke / Craft) have no centre cell, so their 2x2 hangs up-and-right of the cursor —
+    // Smoke is 3x3 too, and odd-sided means centred: smokeCast reads action.targetCell as the middle of the
+    // cloud. A corner-anchored preview would highlight a block one cell off the one that actually smokes.
+    test("Smoke covers the 3x3 centred on the aimed cell", () => {
+        const cells = cellTargetedSpellBlockCells("Smoke", { x: 6, y: 4 });
+
+        expect(cells).toHaveLength(9);
+        expect(new Set(cells.map(key))).toEqual(
+            new Set(["5,3", "5,4", "5,5", "6,3", "6,4", "6,5", "7,3", "7,4", "7,5"]),
+        );
+    });
+
+    // Meteorite (and Craft) have no centre cell, so their 2x2 hangs up-and-right of the cursor —
     // the corner convention meteoriteCast reads.
     test("Meteorite covers the 2x2 anchored at the aimed cell's bottom-left corner", () => {
         const cells = cellTargetedSpellBlockCells("Meteorite", { x: 4, y: 5 });
@@ -116,8 +133,8 @@ describe("cell-targeted spell aim footprint", () => {
         expect(new Set(cells.map(key))).toEqual(new Set(["4,5", "5,5", "4,6", "5,6"]));
     });
 
-    test("anything that is not Meteor Shower keeps the 2x2 corner footprint", () => {
-        for (const name of ["Smoke", "Craft", "Fire Strike"]) {
+    test("an even-sided spell keeps the 2x2 corner footprint", () => {
+        for (const name of ["Craft", "Fire Strike"]) {
             expect(cellTargetedSpellBlockCells(name, { x: 0, y: 0 })).toHaveLength(4);
         }
     });
@@ -155,50 +172,34 @@ describe("cell-targeted spell aim footprint", () => {
 
 describe("spell damage preview parity", () => {
     test("includes every caster magic-damage bonus before applying target resistance", () => {
-        // Lightning Strike: 30 * 2 creatures * 5 stack = 300. A combined +15% from
-        // Empower/Sylvan raises it to 345; 20% magic resistance then lands exactly 276.
-        expect(offensiveSpellDamageAgainstTarget(SpellMultiplierType.UNIT_AMOUNT_STACK_POWER, 30, 2, 5, 15, 20)).toBe(
-            276,
-        );
-        expect(offensiveSpellDamageAgainstTarget(SpellMultiplierType.UNIT_AMOUNT_STACK_POWER, 30, 2, 5, 0, 20)).toBe(
-            240,
-        );
+        // Lightning Strike: 150 * 2 creatures = 300. A combined +15% from Empower/Sylvan raises it to 345;
+        // 20% magic resistance then lands exactly 276.
+        expect(offensiveSpellDamageAgainstTarget(SpellMultiplierType.UNIT_AMOUNT_DAMAGE, 150, 2, 15, 20)).toBe(276);
+        expect(offensiveSpellDamageAgainstTarget(SpellMultiplierType.UNIT_AMOUNT_DAMAGE, 150, 2, 0, 20)).toBe(240);
     });
 
-    // The regression this projection was rebuilt for: the Battle Mage's book is UNIT_AMOUNT_DAMAGE (flat per
-    // caster), and pricing it with the stack-powered shape showed up to 5x the damage the cast would deal.
-    test("prices the Battle Mage's flat-per-caster book without the caster's stack power", () => {
-        // Fire Strike, power 6, 50 casters -> 300 whatever the stack power is.
-        expect(offensiveSpellDamageAgainstTarget(SpellMultiplierType.UNIT_AMOUNT_DAMAGE, 6, 50, 5, 0, 0)).toBe(300);
-        expect(offensiveSpellDamageAgainstTarget(SpellMultiplierType.UNIT_AMOUNT_DAMAGE, 6, 50, 1, 0, 0)).toBe(300);
+    // Every damage spell is head-count times power — stack power is not an input at all (owner call
+    // 2026-09-19), so a lone dragon throws exactly half of a pair's bolt.
+    test("prices every book per caster, so a pair deals exactly twice a single", () => {
+        // Fire Strike, power 6, 50 casters -> 300.
+        expect(offensiveSpellDamageAgainstTarget(SpellMultiplierType.UNIT_AMOUNT_DAMAGE, 6, 50, 0, 0)).toBe(300);
         // Meteorite, power 4, 50 casters -> 200, and the target's resistance still applies on top.
-        expect(offensiveSpellDamageAgainstTarget(SpellMultiplierType.UNIT_AMOUNT_DAMAGE, 4, 50, 5, 0, 0)).toBe(200);
-        expect(offensiveSpellDamageAgainstTarget(SpellMultiplierType.UNIT_AMOUNT_DAMAGE, 4, 50, 5, 0, 50)).toBe(100);
-        // The Magic Dragon's stack-powered shape is unchanged, which is why this bug stayed invisible there.
-        expect(offensiveSpellDamageAgainstTarget(SpellMultiplierType.UNIT_AMOUNT_STACK_POWER, 6, 50, 5, 0, 0)).toBe(
-            1500,
-        );
+        expect(offensiveSpellDamageAgainstTarget(SpellMultiplierType.UNIT_AMOUNT_DAMAGE, 4, 50, 0, 0)).toBe(200);
+        expect(offensiveSpellDamageAgainstTarget(SpellMultiplierType.UNIT_AMOUNT_DAMAGE, 4, 50, 0, 50)).toBe(100);
+        // Lightning Strike, power 150: one dragon 150, two dragons 300.
+        expect(offensiveSpellDamageAgainstTarget(SpellMultiplierType.UNIT_AMOUNT_DAMAGE, 150, 1, 0, 0)).toBe(150);
+        expect(offensiveSpellDamageAgainstTarget(SpellMultiplierType.UNIT_AMOUNT_DAMAGE, 150, 2, 0, 0)).toBe(300);
     });
 
     test("prices the target's element before its resistance, and leaves elementless spells alone", () => {
-        // Ring of Fire at 24: 24 * 1 creature * 5 stack = 120 against an elementless target.
-        expect(offensiveSpellDamageAgainstTarget(SpellMultiplierType.UNIT_AMOUNT_STACK_POWER, 24, 1, 5, 0, 0)).toBe(
-            120,
-        );
-        expect(offensiveSpellDamageAgainstTarget(SpellMultiplierType.UNIT_AMOUNT_STACK_POWER, 24, 1, 5, 0, 0, 1)).toBe(
-            120,
-        );
+        // Ring of Fire at 120: 120 * 1 creature = 120 against an elementless target.
+        expect(offensiveSpellDamageAgainstTarget(SpellMultiplierType.UNIT_AMOUNT_DAMAGE, 120, 1, 0, 0)).toBe(120);
+        expect(offensiveSpellDamageAgainstTarget(SpellMultiplierType.UNIT_AMOUNT_DAMAGE, 120, 1, 0, 0, 1)).toBe(120);
         // A Fire Element previews as nothing at all rather than as a number the cast will never deal.
-        expect(offensiveSpellDamageAgainstTarget(SpellMultiplierType.UNIT_AMOUNT_STACK_POWER, 24, 1, 5, 0, 0, 0)).toBe(
-            0,
-        );
+        expect(offensiveSpellDamageAgainstTarget(SpellMultiplierType.UNIT_AMOUNT_DAMAGE, 120, 1, 0, 0, 0)).toBe(0);
         // A Water Element takes fire half again as hard, and only then resists it: 120 * 1.5 = 180, less 20%.
-        expect(
-            offensiveSpellDamageAgainstTarget(SpellMultiplierType.UNIT_AMOUNT_STACK_POWER, 24, 1, 5, 0, 0, 1.5),
-        ).toBe(180);
-        expect(
-            offensiveSpellDamageAgainstTarget(SpellMultiplierType.UNIT_AMOUNT_STACK_POWER, 24, 1, 5, 0, 20, 1.5),
-        ).toBe(144);
+        expect(offensiveSpellDamageAgainstTarget(SpellMultiplierType.UNIT_AMOUNT_DAMAGE, 120, 1, 0, 0, 1.5)).toBe(180);
+        expect(offensiveSpellDamageAgainstTarget(SpellMultiplierType.UNIT_AMOUNT_DAMAGE, 120, 1, 0, 20, 1.5)).toBe(144);
     });
 
     test("reads spell Flesh Shield transfers even when no primary damage remains", () => {
@@ -333,6 +334,23 @@ describe("Magic Reflection rebound projection", () => {
 
             expect(rebound?.reflectionPercent).toBe(15);
             expect(rebound?.damage).toBe(expected);
+        }
+    });
+
+    test("Magic Mirror spell buffs project their guaranteed configured share", () => {
+        for (const [holder, percent, damage] of [
+            [unitLike({ id: "mirror", mirrorPower: 30 }), 30, 180],
+            [unitLike({ id: "mass-mirror", massMirrorPower: 25 }), 25, 150],
+        ] as const) {
+            const rebound = projectSpellRebound({
+                spell: lightning,
+                caster: casterWithResist(0),
+                holder,
+                landedOnHolder: 600,
+            });
+
+            expect(rebound?.reflectionPercent).toBe(percent);
+            expect(rebound?.damage).toBe(damage);
         }
     });
 

@@ -2,40 +2,35 @@ import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore }
 import { createPortal } from "react-dom";
 import { useLocation } from "react-router";
 
-import { images as rawImages } from "../../generated/image_imports";
 import {
-    DEFAULT_MUSIC_VOLUME,
     getAudioLevels,
     getAudioLevelsServerSnapshot,
-    setMusicMuted,
-    setMusicVolume,
+    musicGain,
     subscribeAudioLevels,
 } from "../../settings/audioLevels";
+import { AudioControl } from "./AudioControl";
 import { isPrefightMusicActive, subscribePrefightMusic } from "./prefightMusic";
 import { createThemeMusicPlayer, type ThemeMusicPlayer } from "./themeMusicPlayer";
 import { getVolumeSlot, getVolumeSlotServerSnapshot, subscribeVolumeSlot } from "./volumeSlot";
 
-const images = rawImages as Record<string, string>;
-const musicMutedControlImage = images.ui_control_music_muted_forged_bronze_v1;
-const musicOnControlImage = images.ui_control_music_on_forged_bronze_v1;
-
 /**
- * The menu theme ("The Last Stand") and the volume control that governs it.
+ * The menu theme ("The Last Stand") and the shared sound control.
  *
  * Mounted ONCE, above the router, rather than inside each screen: a single long-lived <audio> element means
  * walking from matchmaking to the lobby list and on to the portal does not restart the track, which is
  * exactly what re-mounting per route would do.
  *
- * Which screens sing is decided here (see SINGING_ROUTES) — the fight itself is deliberately silent, and so
- * is the offline sandbox at "/".
+ * Which menu screens sing is decided here (see SINGING_ROUTES). A ranked match is not one of those routes:
+ * it plays "Iron and Silk" from the moment it is found until the player leaves, fight included. The offline
+ * sandbox at "/" stays quiet.
  *
  * The site (heroesofcrypto.io) plays the same track on mode select and profile through its own copy of this,
  * site/src/components/ThemeMusic.astro. It is a DIFFERENT ORIGIN and cannot see this localStorage, so the
  * redirect pages under /play hand the setting over in the query string; the keys and the parameter names
  * used by settings/audioLevels have to match on both sides.
  *
- * The LEVEL itself is not owned here — it lives in settings/audioLevels alongside the separate one for
- * sound effects, so this medallion and the Audio section of the player settings move the same value.
+ * All levels live in settings/audioLevels. The medallion controls master sound and offers the music
+ * checkbox on every route; music and effects keep their separate balances in player settings.
  */
 const FADE_MS = 900;
 
@@ -53,18 +48,19 @@ const PLAYLIST = [
 ] as const;
 
 /**
- * The pre-fight track. It replaces the menu playlist from the moment a ranked match is found until the fight
- * starts — match check, picks, augments, placement — then hands back to silence when the first turn begins.
- * A single track rather than a list: that stretch is a few minutes at most and wants one continuous mood.
+ * The match track. It replaces the menu playlist from the moment a ranked match is found and stays there
+ * through the fight — match check, picks, augments, placement, combat — until the player leaves. A single
+ * track rather than a list: the match wants one continuous mood, and a fight can run long enough that
+ * swapping tracks at the first turn is the thing that used to make the room go quiet.
  */
 const PREFIGHT_TRACK = { webm: "/audio/iron_and_silk.webm", mp3: "/audio/iron_and_silk.mp3" } as const;
 
-/** Route prefixes that carry the theme. Everything else — the fight, the sandbox — stays quiet.
+/** Route prefixes that carry the menu theme. A ranked match sings via the match-track flag instead, and
+ * the offline sandbox stays quiet.
  *
  * Note this governs what PLAYS, not where the speaker is offered: the control sits in the bottom-right
  * corner on every screen, the silent ones included. It is a setting, not a now-playing indicator — muting
- * or setting the level mid-fight is exactly when a player reaches for it, and the choice is stored, so it
- * is already in force by the time the music comes back. */
+ * or setting the level mid-fight is exactly when a player reaches for it, and the choice is stored. */
 const SINGING_ROUTES = ["/play", "/lobbies", "/lobby/", "/portal"] as const;
 
 const clamp01 = (value: number): number => Math.min(1, Math.max(0, value));
@@ -79,56 +75,26 @@ export const ThemeMusic: React.FC = () => {
     const mp3SourceRef = useRef<HTMLSourceElement | null>(null);
     const playerRef = useRef<ThemeMusicPlayer | null>(null);
     const fadeRef = useRef<number | null>(null);
-    const effectiveVolumeRef = useRef(0);
     // Whether the last pass was on a singing screen: it separates "arrived somewhere with music" (fade it
     // in) from "the player moved a slider" (follow the handle).
     const wasSingingRef = useRef(false);
-    const [volumeExpanded, setVolumeExpanded] = useState(false);
     // Shared with the Audio section of the player settings: whichever one the player reaches for, both
     // show the same level and the track follows it live.
-    const { musicVolume: volume, musicMuted: muted } = useSyncExternalStore(
-        subscribeAudioLevels,
-        getAudioLevels,
-        getAudioLevelsServerSnapshot,
-    );
+    const levels = useSyncExternalStore(subscribeAudioLevels, getAudioLevels, getAudioLevelsServerSnapshot);
     const [prefight, setPrefight] = useState(false);
     const [needsUnlock, setNeedsUnlock] = useState(true);
-    const volumeCollapseTimerRef = useRef<number | null>(null);
     // Rendered into the sidebar's footer when there is one, beside the fullscreen toggle; otherwise it
     // floats in the bottom-right corner as before.
     const dockSlot = useSyncExternalStore(subscribeVolumeSlot, getVolumeSlot, getVolumeSlotServerSnapshot);
 
-    const cancelVolumeCollapse = useCallback(() => {
-        if (volumeCollapseTimerRef.current !== null) {
-            window.clearTimeout(volumeCollapseTimerRef.current);
-            volumeCollapseTimerRef.current = null;
-        }
-    }, []);
-
-    const showVolumeControl = useCallback(() => {
-        cancelVolumeCollapse();
-        setVolumeExpanded(true);
-    }, [cancelVolumeCollapse]);
-
-    const scheduleVolumeCollapse = useCallback(() => {
-        cancelVolumeCollapse();
-        volumeCollapseTimerRef.current = window.setTimeout(() => {
-            setVolumeExpanded(false);
-            volumeCollapseTimerRef.current = null;
-        }, 260);
-    }, [cancelVolumeCollapse]);
-
-    useEffect(() => cancelVolumeCollapse, [cancelVolumeCollapse]);
-
     useEffect(() => subscribePrefightMusic(setPrefight), []);
 
-    // The pre-fight stretch sings wherever it happens — it lives under /game, which is otherwise silent.
+    // The match sings wherever it happens — it lives under /game, which is otherwise silent.
     const singing = prefight || shouldSing(pathname);
-    const effectiveVolume = muted ? 0 : volume;
-    effectiveVolumeRef.current = effectiveVolume;
+    const effectiveVolume = musicGain(levels);
 
     const getTargetVolume = useCallback(
-        () => (shouldSing(window.location.pathname) || isPrefightMusicActive() ? effectiveVolumeRef.current : 0),
+        () => (shouldSing(window.location.pathname) || isPrefightMusicActive() ? musicGain() : 0),
         [],
     );
 
@@ -245,7 +211,8 @@ export const ThemeMusic: React.FC = () => {
         };
     }, [effectiveVolume, needsUnlock, singing, start]);
 
-    // Leaving for the fight silences it; coming back picks it up again.
+    // Leaving the match silences it; coming back to a menu picks the playlist up again. The fight itself
+    // does not: the match flag stays on, so this fade never runs at the first turn.
     useEffect(() => {
         const audio = audioRef.current;
         const player = playerRef.current;
@@ -257,7 +224,12 @@ export const ThemeMusic: React.FC = () => {
         const target = singing ? effectiveVolume : 0;
         player.setTargetVolume(target);
         if (target === 0) {
-            fadeTo(0);
+            if (effectiveVolume === 0) {
+                stopFade();
+                player.releaseMedia();
+            } else {
+                fadeTo(0);
+            }
             return;
         }
         if (player.hasStarted()) {
@@ -276,146 +248,24 @@ export const ThemeMusic: React.FC = () => {
         }
     }, [singing, effectiveVolume, fadeTo, stopFade]);
 
-    const silent = muted || volume === 0;
+    const applyControlChange = useCallback(() => {
+        // Read the store in the same gesture: React has not necessarily re-rendered after the checkbox
+        // or slider writes it, and starting media here preserves the browser's user-gesture permission.
+        const target = getTargetVolume();
+        const audio = audioRef.current;
+        const player = playerRef.current;
+        player?.setTargetVolume(target);
+        stopFade();
+        if (target === 0) {
+            player?.releaseMedia();
+        } else if (player && (audio?.paused || !player.hasStarted())) {
+            void player.start(target, true);
+        } else if (audio) {
+            audio.volume = target;
+        }
+    }, [getTargetVolume, stopFade]);
 
-    // The forged medallion stays the same size in both placements. Docking only changes who owns the
-    // positioning, while the floating fallback keeps its fixed bottom-corner anchor.
-    const containerStyle: React.CSSProperties = dockSlot
-        ? {
-              position: "relative",
-              width: 32,
-              height: 32,
-              flex: "0 0 32px",
-              color: "#dcb158",
-          }
-        : {
-              position: "fixed",
-              right: "1rem",
-              bottom: "1rem",
-              zIndex: 60,
-              width: 32,
-              height: 32,
-              color: "#e8e2d4",
-          };
-
-    const control = (
-        <div
-            onMouseEnter={showVolumeControl}
-            onMouseLeave={scheduleVolumeCollapse}
-            onFocus={showVolumeControl}
-            onBlur={scheduleVolumeCollapse}
-            style={containerStyle}
-        >
-            <button
-                type="button"
-                aria-pressed={silent}
-                aria-label="Toggle music"
-                onClick={() => {
-                    const nextMuted = !muted;
-                    setMusicMuted(nextMuted);
-                    // Pressing the speaker at zero means "I want to hear it" — do not unmute into silence.
-                    const nextVolume = !nextMuted && volume === 0 ? DEFAULT_MUSIC_VOLUME : volume;
-                    if (nextVolume !== volume) {
-                        setMusicVolume(nextVolume);
-                    }
-                    const nextTarget = singing && !nextMuted ? nextVolume : 0;
-                    const audio = audioRef.current;
-                    const player = playerRef.current;
-                    player?.setTargetVolume(nextTarget);
-                    if (nextTarget === 0) {
-                        fadeTo(0);
-                    } else if (player && (audio?.paused || !player.hasStarted())) {
-                        void player.start(nextTarget, true);
-                    } else {
-                        fadeTo(nextTarget);
-                    }
-                }}
-                style={{
-                    display: "grid",
-                    placeItems: "center",
-                    width: 32,
-                    height: 32,
-                    flex: "0 0 auto",
-                    padding: 0,
-                    // Artwork supplies both the circular frame and its pictogram; the button retains the
-                    // interaction and the slider remains a separate layer above it.
-                    borderRadius: 0,
-                    border: "none",
-                    backgroundColor: "transparent",
-                    backgroundImage: `url(${silent ? musicMutedControlImage : musicOnControlImage})`,
-                    backgroundPosition: "center",
-                    backgroundRepeat: "no-repeat",
-                    backgroundSize: "contain",
-                    color: "inherit",
-                    cursor: "pointer",
-                    transition: "filter 140ms ease, transform 140ms ease",
-                }}
-            />
-            <div
-                style={{
-                    position: "absolute",
-                    left: "50%",
-                    bottom: "100%",
-                    width: 32,
-                    height: 94,
-                    transform: "translateX(-50%)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    opacity: volumeExpanded ? 1 : 0,
-                    pointerEvents: volumeExpanded ? "auto" : "none",
-                    transition: "opacity 140ms ease",
-                }}
-                onMouseEnter={showVolumeControl}
-                onMouseLeave={scheduleVolumeCollapse}
-            >
-                <div
-                    className="hoc-volume-slider-shell"
-                    style={
-                        {
-                            // The visible fill ends at the centre of the 12px thumb while respecting the
-                            // range input's six-pixel end stops. Keep the thumb itself exactly the same size.
-                            "--hoc-volume-level": `${Math.round(4 + volume * 78)}px`,
-                        } as React.CSSProperties
-                    }
-                >
-                    <input
-                        type="range"
-                        className="hoc-volume-slider"
-                        min={0}
-                        max={100}
-                        step={1}
-                        value={Math.round(volume * 100)}
-                        aria-label="Music volume"
-                        aria-orientation="vertical"
-                        onChange={(event) => {
-                            const next = clamp01(Number(event.target.value) / 100);
-                            setMusicVolume(next);
-                            if (next > 0) {
-                                setMusicMuted(false);
-                            }
-                            const audio = audioRef.current;
-                            const player = playerRef.current;
-                            const nextTarget = singing ? next : 0;
-                            player?.setTargetVolume(nextTarget);
-                            if (audio) {
-                                // Dragging is continuous, so track it directly rather than fading to each step.
-                                stopFade();
-                                if (nextTarget === 0) {
-                                    audio.volume = 0;
-                                    player?.releaseMedia();
-                                } else if (player && (audio.paused || !player.hasStarted())) {
-                                    void player.start(nextTarget, true);
-                                } else {
-                                    audio.volume = nextTarget;
-                                }
-                            }
-                        }}
-                    />
-                </div>
-            </div>
-        </div>
-    );
+    const control = <AudioControl docked={Boolean(dockSlot)} onSettingsChange={applyControlChange} />;
 
     return (
         <>

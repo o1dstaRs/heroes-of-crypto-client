@@ -19,6 +19,14 @@ export interface MatchFoundOpponentPreviewProps {
 
 const whole = (value: number | undefined): number => Math.max(0, Math.trunc(Number(value) || 0));
 
+// Joy's skeleton is a light-scheme fill (near-white surface, light gray pulse). On this dark card
+// that is a white blob sitting above Accept for as long as the opponent record is in flight.
+const dossierSkeletonSx = {
+    bgcolor: "rgba(239,228,204,0.1)",
+    "--unstable_pulse-bg": "rgba(239,228,204,0.22)",
+    "&::before, &::after": { backgroundColor: "rgba(239,228,204,0.14)" },
+} as const;
+
 const MatchMetric: React.FC<{
     children: React.ReactNode;
     label: string;
@@ -78,12 +86,12 @@ export const MatchFoundOpponentPreview: React.FC<MatchFoundOpponentPreviewProps>
                 }}
             >
                 <Stack direction="row" spacing={1.4} alignItems="center">
-                    <Skeleton variant="circular" width={68} height={68} animation={loading ? "pulse" : false} />
+                    <Skeleton variant="circular" width={68} height={68} animation={false} sx={dossierSkeletonSx} />
                     <Box sx={{ minWidth: 0, flex: 1, textAlign: "left" }}>
                         {loading ? (
                             <>
-                                <Skeleton width="38%" />
-                                <Skeleton width="62%" />
+                                <Skeleton animation={false} width="38%" sx={dossierSkeletonSx} />
+                                <Skeleton animation={false} width="62%" sx={dossierSkeletonSx} />
                             </>
                         ) : (
                             <Typography level="body-sm" sx={{ color: hocColors.muted }}>

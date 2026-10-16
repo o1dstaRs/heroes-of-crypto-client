@@ -1,6 +1,8 @@
 import { v4 as uuidv4 } from "uuid";
 
 import { axiosMMInstance, buildApiUrl, endpoints, HOST_MATCHMAKING_API } from "./axios";
+import { normalizePlayerMetrics, type PlayerMetricsMode, type PlayerMetricsSummary } from "./player_metrics_contract";
+import type { PresenceActivity } from "../ui/social/presenceActivity";
 
 /**
  * Client for the authenticated social API (notifications, friends/blocks, presence). Plain JSON
@@ -28,6 +30,10 @@ export interface PendingIncomingRequest {
 export interface PresencePingResult {
     unseenCount: number;
     pendingIncoming: PendingIncomingRequest[];
+    /** How many friends are online right now (absent from an older server). */
+    friendsOnline?: number;
+    /** The viewer's own live ranked/lobby game, for the "return to your match" banner. */
+    liveGame?: { gameId: string; stage: FriendGameStage };
 }
 
 export interface SocialNotification {
@@ -37,6 +43,7 @@ export interface SocialNotification {
         | "friend_accepted"
         | "friend_message"
         | "lobby_invite"
+        | "sandbox_invite"
         | "chat_mention"
         | "chat_reply"
         | "system";
@@ -45,10 +52,51 @@ export interface SocialNotification {
     requestId?: string;
     messageId?: string;
     lobbyId?: string;
+    /** Co-op sandbox session id carried by a `sandbox_invite` — the direct link is /sandbox/<id>. */
+    sandboxId?: string;
     body?: string;
+    /** `system` only: what the notice is about, so the tray can word it in the player's language from `params`. */
+    systemKind?: "ranked_lock" | "appeal_decision" | "report_actioned" | "report_weight_muted";
+    params?: Record<string, unknown>;
     createdAt: number;
     seenAt: number;
+    /** Invites only: when this player joined the room through the invite. */
+    acceptedAt?: number;
+    /** Invites only: whether the room can still be joined (false = closed, greyed and dead in the tray). */
+    roomOpen?: boolean;
 }
+
+export const isRoomInvite = (notification: Pick<SocialNotification, "type">): boolean =>
+    notification.type === "sandbox_invite" || notification.type === "lobby_invite";
+
+/** The room an invite leads to, or undefined when the invite carries no room or the room has closed. */
+export const inviteTarget = (
+    notification: Pick<SocialNotification, "type" | "sandboxId" | "lobbyId" | "roomOpen">,
+): string | undefined => {
+    if (notification.roomOpen === false) {
+        return undefined;
+    }
+    if (notification.type === "sandbox_invite" && notification.sandboxId) {
+        return `/sandbox/${encodeURIComponent(notification.sandboxId)}`;
+    }
+    if (notification.type === "lobby_invite" && notification.lobbyId) {
+        return `/lobby/${encodeURIComponent(notification.lobbyId)}`;
+    }
+    return undefined;
+};
+
+/** The short state word the tray appends to an invite: "accepted", "closed", or nothing. */
+export const inviteStateLabel = (
+    notification: Pick<SocialNotification, "type" | "acceptedAt" | "roomOpen">,
+): string | undefined => {
+    if (!isRoomInvite(notification)) {
+        return undefined;
+    }
+    if (notification.roomOpen === false) {
+        return "closed";
+    }
+    return notification.acceptedAt ? "accepted" : undefined;
+};
 
 export interface FriendEntry {
     playerId: string;
@@ -63,7 +111,92 @@ export interface FriendEntry {
      * "no figure", which the row draws as a dash — never as a zero the player has not earned.
      */
     gold?: number;
+    /** Available gold plus gold in play; the figure a row SHOWS (see goldDisplay). Optional like `gold`. */
+    totalGold?: number;
+    goldInPlay?: number;
+    /** The ranked/lobby game the friend is in right now (only while it is live) and where it stands. */
+    inGameId?: string;
+    gameStage?: FriendGameStage;
+    /** Waiting in the ranked matchmaking queue. */
+    inQueue?: boolean;
+    /** What their client last reported while online; `lobbyOpen` says whether that lobby still takes a guest. */
+    activity?: PresenceActivity & { lobbyOpen?: boolean };
 }
+
+/**
+ * The status word for a friend row, most binding state first: a live game, then the queue, then what their
+ * client reports, then plain online/offline (the caller renders the latter).
+ */
+export const friendActivityLabel = (
+    friend: Pick<FriendEntry, "inGameId" | "gameStage" | "inQueue" | "activity" | "online">,
+): string | undefined => {
+    const inGame = friendGameLabel(friend);
+    if (inGame) {
+        return inGame;
+    }
+    if (!friend.online) {
+        return undefined;
+    }
+    if (friend.inQueue) {
+        return "In the queue";
+    }
+    switch (friend.activity?.kind) {
+        case "lobby":
+            return "In a lobby";
+        case "lobbies":
+            return "Browsing lobbies";
+        case "sandbox":
+            return "In the sandbox";
+        case "coop":
+            return "In a co-op sandbox";
+        case "arena":
+            return "In the arena";
+        case "game":
+            return "Spectating";
+        default:
+            return undefined;
+    }
+};
+
+/** A friend sitting in a joinable lobby can be joined straight from their row, unless you are in a game. */
+export const joinableFriendLobbyId = (
+    friend: Pick<FriendEntry, "inGameId" | "activity" | "online">,
+    viewerInGameId: string | undefined,
+): string | undefined =>
+    friend.online &&
+    !friend.inGameId &&
+    !viewerInGameId &&
+    friend.activity?.kind === "lobby" &&
+    friend.activity.lobbyOpen
+        ? friend.activity.lobbyId
+        : undefined;
+
+export type FriendGameStage = "confirming" | "pick" | "play";
+
+/** What the friends row says next to a friend who is in a game. Undefined when they are not. */
+export const friendGameLabel = (friend: Pick<FriendEntry, "inGameId" | "gameStage">): string | undefined => {
+    if (!friend.inGameId) {
+        return undefined;
+    }
+    switch (friend.gameStage) {
+        case "play":
+            return "In game · Fighting";
+        case "pick":
+            return "In game · Drafting";
+        default:
+            return "In game · Starting";
+    }
+};
+
+/**
+ * Spectating is offered for a friend's draft or fight, and never while YOU are in a game yourself: your
+ * own match is what the game route would send you to. A match that is still being accepted has nothing
+ * to watch yet.
+ */
+export const canSpectateFriend = (
+    friend: Pick<FriendEntry, "inGameId" | "gameStage">,
+    viewerInGameId: string | undefined,
+): boolean => !!friend.inGameId && (friend.gameStage === "pick" || friend.gameStage === "play") && !viewerInGameId;
 
 export interface FriendMessage {
     id: string;
@@ -83,6 +216,8 @@ export interface FriendConversation {
 
 export interface FriendsOverview {
     friends: FriendEntry[];
+    /** The viewer's own live game, if any — while present, no friend can be spectated. */
+    viewerInGameId?: string;
     incoming: PendingIncomingRequest[];
     outgoing: { requestId: string; toPlayerId: string; toUsername: string; createdAt: number }[];
     blocked: { playerId: string; username: string; createdAt: number }[];
@@ -101,6 +236,9 @@ export interface PlayerSearchHit {
     lastOnlineAt?: number;
     /** Season gold, on the same optional terms as the presence pair above. */
     gold?: number;
+    /** Available gold plus gold in play; the figure a row SHOWS (see goldDisplay). */
+    totalGold?: number;
+    goldInPlay?: number;
 }
 
 const post = async <T>(path: string, body?: Record<string, unknown>): Promise<T> => {
@@ -115,10 +253,32 @@ const get = async <T>(path: string): Promise<T> => {
     return response.data as T;
 };
 
-export const presencePing = (): Promise<PresencePingResult> => post(endpoints.social.presencePing);
+export const presencePing = (activity?: PresenceActivity): Promise<PresencePingResult> =>
+    post(
+        endpoints.social.presencePing,
+        activity ? { activity: activity.kind, ...(activity.lobbyId ? { lobbyId: activity.lobbyId } : {}) } : {},
+    );
 
-export const fetchNotifications = (): Promise<{ notifications: SocialNotification[]; unseenCount: number }> =>
-    get(endpoints.social.notifications);
+/** Notification types that mean "a friend is asking for you" — they get the friend-invite sound. */
+export const isFriendInviteNotification = (type: SocialNotification["type"]): boolean =>
+    type === "friend_request" || type === "lobby_invite" || type === "sandbox_invite";
+
+/**
+ * Which slice of the tray to read.
+ *
+ * "unseen" (the default the server applies when nothing is asked for) is what the player has not been shown
+ * yet, plus any friend request still waiting for an answer. "all" is the read history — fetched only when
+ * the player clicks "Earlier", never on open, because opening the tray marks everything seen and re-serving
+ * that history buried the new items in a week of notices the player had already read.
+ */
+export type NotificationScope = "unseen" | "all";
+
+export const fetchNotifications = (
+    scope: NotificationScope = "unseen",
+): Promise<{ notifications: SocialNotification[]; unseenCount: number; scope?: NotificationScope }> =>
+    // An older server ignores the parameter and answers with everything — the tray still works, it just
+    // shows the history it used to show.
+    get(scope === "all" ? `${endpoints.social.notifications}?scope=all` : endpoints.social.notifications);
 
 export const markNotificationsSeen = (): Promise<{ ok: boolean }> => post(endpoints.social.notificationsSeen);
 
@@ -174,6 +334,7 @@ export const setRankedBan = (creatureId: number): Promise<RankedBanPreference> =
     post(endpoints.social.rankedBan, { creatureId });
 
 export interface RankedStanding {
+    playerId?: string;
     state: "calibration" | "placed" | "recalibration";
     mmr: number;
     peakMmr: number;
@@ -200,7 +361,11 @@ export interface RankedStanding {
     totalGames: number;
     winStreak: number;
     lossStreak: number;
+    /** Available gold: what a new wager, prediction or lobby can spend. */
     gold: number;
+    /** Available gold plus gold in play; the figure to SHOW (see goldDisplay). Absent from older servers. */
+    totalGold?: number;
+    goldInPlay?: number;
 }
 
 /** The signed-in player's own ranked standing (calibration progress, or league once placed). */
@@ -270,9 +435,15 @@ export const fetchPredictionMarkets = async (): Promise<PredictionMarket[]> => {
     return result.markets ?? [];
 };
 
-/** Every bet this player has placed, newest first (all statuses). */
-export const fetchMyPredictionBets = async (): Promise<PredictionBet[]> => {
-    const result = await get<{ bets?: PredictionBet[] }>(endpoints.social.predictionBets);
+/**
+ * This player's bets, newest first (all statuses). Pass `gameIds` to ask about specific games: the unscoped
+ * list stops at the server's 200 newest, so only a scoped read reliably answers "did I bet on this game".
+ */
+export const fetchMyPredictionBets = async (gameIds?: readonly string[]): Promise<PredictionBet[]> => {
+    const path = gameIds?.length
+        ? `${endpoints.social.predictionBets}?gameIds=${gameIds.map(encodeURIComponent).join(",")}`
+        : endpoints.social.predictionBets;
+    const result = await get<{ bets?: PredictionBet[] }>(path);
     return result.bets ?? [];
 };
 
@@ -479,13 +650,39 @@ export interface PublicPlayerStats {
     winStreak?: number;
     lossStreak?: number;
     gold?: number;
+    totalGold?: number;
+    goldInPlay?: number;
+    peakMmr?: number;
+    lastRankedGameAt?: number;
+    /** Public recent form. Creature ids are optional until the ranked profile API exposes each lineup. */
+    recentGames?: Array<{
+        gameId: string;
+        finishedTime: number;
+        result: "win" | "loss" | "draw";
+        mmrDelta?: number;
+        creatureIds?: number[];
+        opponent?: { playerId: string; username: string } | null;
+    }>;
+    /** The public profile's aggregate picks, used when historical matches predate lineup storage. */
+    playerMetrics?: PlayerMetricsSummary | null;
+    playstyle?: {
+        topCreatures?: Array<{
+            creatureId: number;
+            name?: string;
+            games?: number;
+            winRatePct?: number;
+        }>;
+    } | null;
 }
 
 export const fetchPublicPlayerStats = async (playerId: string): Promise<PublicPlayerStats> => {
     const response = await axiosMMInstance.get(`${endpoints.mm.rankedProfile}/${encodeURIComponent(playerId)}`, {
         headers: authHeaders(),
     });
-    return response.data as PublicPlayerStats;
+    return {
+        ...response.data,
+        playerMetrics: normalizePlayerMetrics(response.data?.playerMetrics),
+    } as PublicPlayerStats;
 };
 
 /** One rendered run of a chat line: plain text, a resolved @tag, or an internal link. */
@@ -529,4 +726,17 @@ export const chatSegments = (body: string, selfUsername?: string): ChatSegment[]
         segments.push({ kind: "text", text: body.slice(cursor) });
     }
     return segments;
+};
+
+export const fetchPlayerMetrics = async (
+    playerId: string,
+    mode: PlayerMetricsMode = "ranked",
+): Promise<PlayerMetricsSummary> => {
+    const response = await axiosMMInstance.get(`${endpoints.mm.playerMetrics}/${encodeURIComponent(playerId)}`, {
+        params: { mode },
+        headers: authHeaders(),
+    });
+    const metrics = normalizePlayerMetrics(response.data);
+    if (!metrics) throw new Error("Player metrics response was malformed");
+    return metrics;
 };

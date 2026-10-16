@@ -2,8 +2,16 @@ import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from "bun:
 
 import { axiosMMInstance, buildApiUrl, endpoints, HOST_MATCHMAKING_API } from "./axios";
 import {
+    canSpectateFriend,
     eligiblePredictionMarkets,
     fetchFriendMessages,
+    fetchNotifications,
+    friendActivityLabel,
+    friendGameLabel,
+    inviteStateLabel,
+    joinableFriendLobbyId,
+    inviteTarget,
+    isFriendInviteNotification,
     chatSegments,
     searchHitPresenceLabel,
     searchPlayers,
@@ -194,5 +202,102 @@ describe("arena chat rendering", () => {
 
     test("an email is not a tag", () => {
         expect(chatSegments("write to me@example.com").some((s) => s.kind === "mention")).toBe(false);
+    });
+});
+
+describe("notifications tray scope", () => {
+    // The tray opens on what is new: the read history is a separate, explicit request. Asking for it by
+    // default is what buried new notices under a week of already-read ones (owner report 2026-09-19).
+    test("the default read asks for no scope and the history asks for scope=all", async () => {
+        const get = spyOn(axiosMMInstance, "get").mockResolvedValue({
+            data: { notifications: [], unseenCount: 0 },
+        } as never);
+
+        await fetchNotifications();
+        await fetchNotifications("all");
+
+        expect(get.mock.calls.map((call) => call[0])).toEqual([
+            buildApiUrl(HOST_MATCHMAKING_API, endpoints.social.notifications),
+            buildApiUrl(HOST_MATCHMAKING_API, `${endpoints.social.notifications}?scope=all`),
+        ]);
+        for (const call of get.mock.calls) {
+            expect(call[1]).toEqual({
+                headers: expect.objectContaining({
+                    Authorization: "social-token",
+                    "x-request-id": expect.any(String),
+                }),
+            });
+        }
+    });
+});
+
+describe("notification sound classes", () => {
+    test("only invitations from a friend get the friend-invite fanfare", () => {
+        expect(isFriendInviteNotification("friend_request")).toBe(true);
+        expect(isFriendInviteNotification("lobby_invite")).toBe(true);
+        expect(isFriendInviteNotification("sandbox_invite")).toBe(true);
+        expect(isFriendInviteNotification("friend_message")).toBe(false);
+        expect(isFriendInviteNotification("chat_reply")).toBe(false);
+        expect(isFriendInviteNotification("system")).toBe(false);
+    });
+});
+
+describe("friends in game", () => {
+    test("labels the friend's stage and offers spectating only for a live draft or fight", () => {
+        expect(friendGameLabel({})).toBeUndefined();
+        expect(friendGameLabel({ inGameId: "g", gameStage: "confirming" })).toBe("In game · Starting");
+        expect(friendGameLabel({ inGameId: "g", gameStage: "pick" })).toBe("In game · Drafting");
+        expect(friendGameLabel({ inGameId: "g", gameStage: "play" })).toBe("In game · Fighting");
+
+        expect(canSpectateFriend({ inGameId: "g", gameStage: "play" }, undefined)).toBe(true);
+        expect(canSpectateFriend({ inGameId: "g", gameStage: "pick" }, undefined)).toBe(true);
+        expect(canSpectateFriend({ inGameId: "g", gameStage: "confirming" }, undefined)).toBe(false);
+        expect(canSpectateFriend({}, undefined)).toBe(false);
+    });
+
+    test("never offers spectating while the viewer is in a game", () => {
+        expect(canSpectateFriend({ inGameId: "g", gameStage: "play" }, "mine")).toBe(false);
+    });
+});
+
+describe("invite lifecycle", () => {
+    test("an open invite links to its room, a closed one links nowhere and reads closed", () => {
+        expect(inviteTarget({ type: "sandbox_invite", sandboxId: "s1" })).toBe("/sandbox/s1");
+        expect(inviteTarget({ type: "lobby_invite", lobbyId: "l1", roomOpen: true })).toBe("/lobby/l1");
+        expect(inviteTarget({ type: "sandbox_invite", sandboxId: "s1", roomOpen: false })).toBeUndefined();
+        expect(inviteTarget({ type: "chat_reply" })).toBeUndefined();
+        expect(inviteStateLabel({ type: "sandbox_invite", roomOpen: false, acceptedAt: 5 })).toBe("closed");
+        expect(inviteStateLabel({ type: "lobby_invite", roomOpen: true, acceptedAt: 5 })).toBe("accepted");
+        expect(inviteStateLabel({ type: "lobby_invite", roomOpen: true })).toBeUndefined();
+        expect(inviteStateLabel({ type: "friend_request", roomOpen: false })).toBeUndefined();
+    });
+});
+
+describe("friend activity labels", () => {
+    const LOBBY = "11111111-0000-4000-8000-000000000001";
+    test("a live game outranks the queue, which outranks the reported activity", () => {
+        expect(friendActivityLabel({ online: true, inGameId: "g", gameStage: "play", inQueue: true })).toBe(
+            "In game · Fighting",
+        );
+        expect(friendActivityLabel({ online: true, inQueue: true, activity: { kind: "lobby" } })).toBe("In the queue");
+        expect(friendActivityLabel({ online: true, activity: { kind: "lobby", lobbyId: LOBBY } })).toBe("In a lobby");
+        expect(friendActivityLabel({ online: true, activity: { kind: "coop" } })).toBe("In a co-op sandbox");
+        expect(friendActivityLabel({ online: true, activity: { kind: "game" } })).toBe("Spectating");
+        expect(friendActivityLabel({ online: true, activity: { kind: "portal" } })).toBeUndefined();
+        expect(friendActivityLabel({ online: false, activity: { kind: "arena" } })).toBeUndefined();
+    });
+
+    test("a joinable lobby is offered only while the room is open and the viewer is free", () => {
+        const inOpenLobby = { online: true, activity: { kind: "lobby" as const, lobbyId: LOBBY, lobbyOpen: true } };
+        expect(joinableFriendLobbyId(inOpenLobby, undefined)).toBe(LOBBY);
+        expect(joinableFriendLobbyId(inOpenLobby, "my-game")).toBeUndefined();
+        expect(
+            joinableFriendLobbyId(
+                { ...inOpenLobby, activity: { ...inOpenLobby.activity, lobbyOpen: false } },
+                undefined,
+            ),
+        ).toBeUndefined();
+        expect(joinableFriendLobbyId({ ...inOpenLobby, inGameId: "g" }, undefined)).toBeUndefined();
+        expect(joinableFriendLobbyId({ ...inOpenLobby, online: false }, undefined)).toBeUndefined();
     });
 });

@@ -1,11 +1,15 @@
 import { describe, expect, it, afterEach } from "bun:test";
+import { GridVals } from "@heroesofcrypto/common";
 import { ARMY_COLOR_PRESETS } from "../settings/playerArmyColor";
+import { getMapDisplay } from "../ui/PickAndBan/mapDisplay";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, getLanguage, setLanguage, t, tf } from "./i18n";
 import { RU_TRANSLATIONS } from "./ru";
 import { standingLabel } from "./standing";
+
+const IDENTITY_TRANSLATION_ALLOWLIST = new Set(["FIRE PIT"]);
 
 afterEach(() => {
     setLanguage(DEFAULT_LANGUAGE);
@@ -60,10 +64,12 @@ describe("game-client i18n", () => {
         expect(getLanguage()).toBe("ru");
     });
 
-    it("has no empty or identity Russian entries", () => {
+    it("has no empty or accidental identity Russian entries", () => {
         for (const [english, russian] of Object.entries(RU_TRANSLATIONS)) {
             expect(russian.trim().length).toBeGreaterThan(0);
-            expect(russian).not.toBe(english);
+            if (!IDENTITY_TRANSLATION_ALLOWLIST.has(english)) {
+                expect(russian).not.toBe(english);
+            }
         }
     });
 });
@@ -100,6 +106,11 @@ describe("ranked flow localization", () => {
             join(ui, "PublicLobbiesPanelRuntime.tsx"),
             join(ui, "RankedBanPicker.tsx"),
             join(ui, "RankedGameViewRuntime.tsx"),
+            join(ui, "SandboxCoopControls.tsx"),
+            join(ui, "SandboxCoopRoute.tsx"),
+            join(ui, "LiveMatchBanner.tsx"),
+            join(ui, "OpponentConnectionBadge.tsx"),
+            join(ui, "liveMatchBannerModel.ts"),
             join(ui, "PlayerSettingsPanel.tsx"),
             join(ui, "AugmentStepPreviewRuntime.tsx"),
             join(ui, "ExitReplayBadge.tsx"),
@@ -112,6 +123,9 @@ describe("ranked flow localization", () => {
             join(ui, "FightStats"),
             join(ui, "DraggableToolbar"),
             join(ui, "UpNextOverlay"),
+            join(ui, "exitRules"),
+            join(ui, "Reputation"),
+            join(ui, "PickExitFightControl.tsx"),
             join(ui, "PlayerPortal", "LivePredictionMarkets.tsx"),
             join(ui, "WagerNegotiator.tsx"),
             join(ui, "WagerStakeBox.tsx"),
@@ -141,14 +155,30 @@ describe("ranked flow localization", () => {
             "Half their army, spread across every tier",
             "The whole enemy draft, live",
             "Draft blind, field the strongest army",
-            "Standard",
-            "Lava",
-            "Cemetery",
+            "Normal",
+            "FIRE PIT",
+            "Barrels",
             "Water",
+            "Open stone field — no central hazard.",
+            "A lava pool scars the center of the board.",
+            "Destructible barrels obstruct routes across the board.",
+            "A pool of water splits the center of the board.",
             "Armageddon next lap",
             "Map narrows next lap",
+            "No spells to cast",
+            "Cannot cast spells right now",
         ];
         expect(dynamicKeys.filter((key) => !(key in RU_TRANSLATIONS))).toEqual([]);
+    });
+
+    it("has Russian for every map name and blurb the map reveal shows", () => {
+        // The reveal reads these off getMapDisplay at runtime, so a renamed map (Standard -> Normal,
+        // Cemetery -> Barrels) left the Russian behind without the literal scan noticing.
+        const missing = [GridVals.NORMAL, GridVals.LAVA_CENTER, GridVals.BLOCK_CENTER, GridVals.WATER_CENTER]
+            .map((mapType) => getMapDisplay(mapType))
+            .flatMap((display) => (display ? [display.name, display.blurb] : ["<no display>"]))
+            .filter((key) => !(key in RU_TRANSLATIONS));
+        expect(missing).toEqual([]);
     });
 
     it("covers the league and wealth names the server renders into a standing", () => {

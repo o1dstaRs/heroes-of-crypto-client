@@ -3,7 +3,7 @@ import { AttackVals, MovementVals } from "@heroesofcrypto/common";
 
 import { HOC_GAME_FONT_FAMILY } from "../../fontFamilies";
 import { usePixiManager } from "../../pixi/PixiGameManager";
-import { IHoverInfo } from "../../scenes/VisibleState";
+import { IHoverInfo, ISpellEffectSummary, SpellEffectSummaryKind } from "../../scenes/VisibleState";
 import { spellElementStyle, type SpellElementStyle } from "../spellElementStyle";
 import { popoverPositionAtPointer } from "./popoverPosition";
 
@@ -107,6 +107,77 @@ const spellElementChip = (style: SpellElementStyle): React.JSX.Element => {
     );
 };
 
+/**
+ * The spellbook headline: one scan-friendly number for what the spell actually does, above the rules text.
+ * Colour carries the KIND (damage / healing / buff / debuff) so the answer to "is this good for me?" lands
+ * before a word is read, and the figure itself comes from the same calculation the card body prints.
+ */
+const SPELL_EFFECT_COLORS: Record<
+    SpellEffectSummaryKind,
+    { border: string; background: string; label: string; value: string }
+> = {
+    damage: { border: "#ff8a55", background: "rgba(111, 34, 18, 0.82)", label: "#ffb18b", value: "#ffe0c7" },
+    healing: { border: "#56d89c", background: "rgba(15, 83, 57, 0.82)", label: "#87ebba", value: "#d5ffe9" },
+    buff: { border: "#6fb8ff", background: "rgba(20, 65, 110, 0.82)", label: "#9dd0ff", value: "#e0f1ff" },
+    debuff: { border: "#d58aff", background: "rgba(77, 31, 104, 0.82)", label: "#e4b0ff", value: "#f5e2ff" },
+};
+
+const spellEffectSummaryCard = (summary: ISpellEffectSummary): React.JSX.Element => {
+    const colors = SPELL_EFFECT_COLORS[summary.kind];
+    return (
+        <div
+            style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                width: "fit-content",
+                minWidth: "170px",
+                marginTop: "6px",
+                marginBottom: "5px",
+                padding: "6px 10px",
+                border: `1px solid ${colors.border}`,
+                borderLeftWidth: "4px",
+                borderRadius: "5px",
+                background: colors.background,
+                boxShadow: `0 0 10px ${colors.background}`,
+                fontFamily: HOC_GAME_FONT_FAMILY,
+            }}
+        >
+            <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                <span
+                    style={{
+                        color: colors.label,
+                        fontSize: "0.72em",
+                        fontWeight: 800,
+                        letterSpacing: "0.08em",
+                        lineHeight: 1.1,
+                        textTransform: "uppercase",
+                    }}
+                >
+                    {summary.label}
+                </span>
+                {summary.detail ? (
+                    <span style={{ marginTop: "2px", color: "rgba(255, 255, 255, 0.78)", fontSize: "0.75em" }}>
+                        {summary.detail}
+                    </span>
+                ) : null}
+            </span>
+            <span
+                style={{
+                    marginLeft: "auto",
+                    color: colors.value,
+                    fontSize: "1.2em",
+                    fontWeight: 900,
+                    lineHeight: 1,
+                    whiteSpace: "nowrap",
+                }}
+            >
+                {summary.value}
+            </span>
+        </div>
+    );
+};
+
 const generalInfoElement = (hoverInfo: IHoverInfo): React.JSX.Element => {
     if (!hoverInfo.information?.length) {
         return <></>;
@@ -127,6 +198,7 @@ const generalInfoElement = (hoverInfo: IHoverInfo): React.JSX.Element => {
                         {spellElementChip(elementStyle)}
                     </>
                 ) : null}
+                {hoverInfo.spellEffectSummary ? spellEffectSummaryCard(hoverInfo.spellEffectSummary) : null}
                 {rest.map((info, index) => (
                     <React.Fragment key={index}>
                         <br />

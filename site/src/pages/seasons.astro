@@ -1,0 +1,12 @@
+---
+import SeasonResultsPage from "../components/SeasonResultsPage.astro";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { content } from "../lib/site-data";
+
+const lang = "en";
+const copy = content[lang];
+---
+
+<BaseLayout lang={lang} title={`${copy.seasons.title} · Heroes of Crypto`} description={copy.seasons.subtitle}>
+    <SeasonResultsPage lang={lang} />
+</BaseLayout>

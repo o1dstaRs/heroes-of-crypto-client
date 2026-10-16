@@ -1,11 +1,287 @@
-// Temporary art-direction switch: keep every creature on the first authored frame. Board interpolation,
-// facing and gameplay VFX remain active, but no creature sprite-sheet frames (idle, walk, action or special)
-// advance until this is switched back on.
-export const CREATURE_SPRITE_ANIMATION_SETTINGS = { enabled: false };
+// Keep legacy/unapproved motion frozen. The approved base package has its own switch;
+// enabling it does not enable older animation sheets or special flourishes for other creatures.
+export const CREATURE_SPRITE_ANIMATION_SETTINGS = { enabled: false, approvedBaseEnabled: true };
 
-// Peasant's walk is separately approved and remains active while the global creature-animation freeze
-// is in place. These are the only unit atlases worth decoding in that mode.
-const UNIT_ATLASES_USED_WHILE_ANIMATIONS_DISABLED = new Set(["peasant_walk_atlas_quarter"]);
+// Approved creature packages use the same renderer in combat and the animation lab.
+// Keep the global switch off so unrelated creature tiers retain their existing presentation.
+const APPROVED_BASE_ANIMATION_UNITS = new Set([
+    "Blacksmith",
+    "Squire",
+    "Peasant",
+    "Arbalester",
+    "Fairy",
+    "Dryad",
+    "Elf",
+    "Wolf",
+    "Leprechaun",
+    "Scavenger",
+    "Orc",
+    "Troglodyte",
+    "Wandering Mage",
+    "Mermaid",
+    "Berserker",
+    "Centaur",
+    "Wolf Rider",
+    "White Tiger",
+    "Manticore",
+    "Valkyrie",
+    "Healer",
+    "Battle Mage",
+    "Troll",
+    "Medusa",
+]);
+
+export const usesApprovedBaseAnimations = (unitName: string): boolean =>
+    CREATURE_SPRITE_ANIMATION_SETTINGS.approvedBaseEnabled && APPROVED_BASE_ANIMATION_UNITS.has(unitName);
+
+// These shooters release their projectile from an authored frame, in every scene.
+export const usesAuthoredRangedRelease = (unitName: string): boolean =>
+    ["Orc", "Arbalester", "Dryad", "Centaur", "Elf", "Medusa"].includes(unitName);
+
+// Approved movement and Squire reactions must be decoded before their first use in combat,
+// including while the global creature-animation freeze remains in place.
+const UNIT_ATLASES_USED_WHILE_ANIMATIONS_DISABLED = new Set([
+    "beholder_idle_atlas",
+    "white_tiger_lab_walk_atlas",
+    "white_tiger_lab_idle_atlas",
+    "white_tiger_lab_hit_atlas",
+    "white_tiger_lab_death_atlas",
+    "white_tiger_lab_melee_attack_atlas",
+    "white_tiger_lab_melee_attack_up_atlas",
+    "white_tiger_lab_melee_attack_down_atlas",
+    "elf_lab_walk_atlas",
+    "elf_lab_idle_atlas",
+    "elf_lab_hit_atlas",
+    "elf_lab_death_atlas",
+    "elf_lab_melee_attack_atlas",
+    "elf_lab_melee_attack_up_atlas",
+    "elf_lab_melee_attack_down_atlas",
+    "elf_lab_attack_atlas",
+    "elf_lab_attack_up_atlas",
+    "elf_lab_attack_down_atlas",
+    "troll_lab_walk_atlas",
+    "troll_lab_idle_atlas",
+    "troll_lab_hit_atlas",
+    "troll_lab_death_atlas",
+    "troll_lab_cast_atlas",
+    "troll_lab_melee_attack_atlas",
+    "troll_lab_melee_attack_up_atlas",
+    "troll_lab_melee_attack_down_atlas",
+    "battle_mage_lab_walk_atlas",
+    "battle_mage_lab_hit_atlas",
+    "battle_mage_lab_death_atlas",
+    "battle_mage_lab_melee_attack_atlas",
+    "battle_mage_lab_melee_attack_up_atlas",
+    "battle_mage_lab_melee_attack_down_atlas",
+    "battle_mage_lab_cast_atlas",
+    "healer_lab_walk_atlas",
+    "healer_lab_idle_atlas",
+    "healer_lab_hit_atlas",
+    "healer_lab_death_atlas",
+    "healer_lab_attack_atlas",
+    "healer_lab_attack_up_atlas",
+    "healer_lab_attack_down_atlas",
+    "healer_lab_cast_atlas",
+    "pikeman_walk_atlas",
+    "pikeman_lab_idle_atlas",
+    "pikeman_lab_hit_atlas",
+    "pikeman_lab_death_atlas",
+    "pikeman_lab_attack_atlas",
+    "pikeman_lab_attack_up_atlas",
+    "pikeman_lab_attack_down_atlas",
+    "medusa_lab_walk_atlas",
+    "medusa_lab_idle_atlas",
+    "medusa_lab_hit_atlas",
+    "medusa_lab_melee_attack_atlas",
+    "medusa_lab_melee_attack_up_atlas",
+    "medusa_lab_melee_attack_down_atlas",
+    "medusa_lab_death_atlas",
+    "medusa_lab_attack_atlas",
+    "medusa_lab_attack_up_atlas",
+    "medusa_lab_attack_down_atlas",
+    "medusa_lab_projectile_atlas",
+    "dryad_lab_walk_atlas",
+    "dryad_lab_hit_atlas",
+    "dryad_lab_death_atlas",
+    "dryad_lab_melee_attack_atlas",
+    "dryad_lab_melee_attack_up_atlas",
+    "dryad_lab_melee_attack_down_atlas",
+    "dryad_lab_attack_atlas",
+    "dryad_lab_attack_up_atlas",
+    "dryad_lab_attack_down_atlas",
+    "valkyrie_lab_current_walk_atlas",
+    "valkyrie_lab_current_hit_atlas",
+    "valkyrie_lab_current_death_atlas",
+    "valkyrie_lab_current_cast_atlas",
+    "valkyrie_lab_current_melee_attack_atlas",
+    "valkyrie_lab_current_melee_attack_up_atlas",
+    "valkyrie_lab_current_melee_attack_down_atlas",
+    "manticore_lab_walk_atlas",
+    "manticore_lab_death_atlas",
+    "manticore_lab_hit_atlas",
+    "manticore_lab_melee_attack_atlas",
+    "manticore_lab_melee_attack_up_atlas",
+    "manticore_lab_melee_attack_down_atlas",
+    "fairy_lab_walk_atlas",
+    "fairy_lab_idle_atlas",
+    "fairy_lab_hit_atlas",
+    "fairy_lab_death_atlas",
+    "fairy_lab_melee_attack_atlas",
+    "fairy_lab_melee_attack_up_atlas",
+    "fairy_lab_melee_attack_down_atlas",
+    "berserker_walk_atlas",
+    "berserker_sword_idle_atlas",
+    "berserker_hit_atlas",
+    "berserker_death_atlas",
+    "berserker_melee_attack_atlas",
+    "berserker_melee_attack_up_atlas",
+    "berserker_melee_attack_down_atlas",
+    "centaur_lab_walk_atlas",
+    "centaur_lab_idle_atlas",
+    "centaur_lab_hit_atlas",
+    "centaur_lab_death_atlas",
+    "centaur_lab_melee_attack_atlas",
+    "centaur_lab_melee_attack_up_atlas",
+    "centaur_lab_melee_attack_down_atlas",
+    "centaur_lab_attack_atlas",
+    "centaur_lab_attack_up_atlas",
+    "centaur_lab_attack_down_atlas",
+    "leprechaun_lab_walk_atlas",
+    "leprechaun_lab_idle_atlas",
+    "leprechaun_lab_hit_atlas",
+    "leprechaun_lab_death_atlas",
+    "leprechaun_lab_melee_attack_atlas",
+    "leprechaun_lab_melee_attack_up_atlas",
+    "leprechaun_lab_melee_attack_down_atlas",
+    "orc_idle_atlas",
+    "orc_walk_atlas",
+    "mermaid_walk_atlas_quarter",
+    "mermaid_idle_atlas_quarter",
+    "mermaid_hit_atlas_quarter",
+    "mermaid_death_atlas_quarter",
+    "mermaid_melee_attack_atlas_quarter",
+    "mermaid_melee_attack_up_atlas_quarter",
+    "mermaid_melee_attack_down_atlas_quarter",
+    "orc_hit_atlas",
+    "orc_death_atlas",
+    "orc_attack_atlas",
+    "orc_attack_up_atlas",
+    "orc_attack_down_atlas",
+    "orc_melee_attack_atlas",
+    "orc_melee_attack_up_atlas",
+    "orc_melee_attack_down_atlas",
+    "arbalester_walk_atlas",
+    "arbalester_hit_atlas",
+    "arbalester_death_atlas",
+    "arbalester_attack_atlas",
+    "arbalester_attack_up_atlas",
+    "arbalester_attack_down_atlas",
+    "arbalester_melee_attack_atlas",
+    "arbalester_melee_attack_up_atlas",
+    "arbalester_melee_attack_down_atlas",
+    "blacksmith_walk_atlas",
+    "blacksmith_idle_atlas",
+    "blacksmith_hit_atlas",
+    "blacksmith_death_atlas",
+    "blacksmith_melee_attack_atlas",
+    "blacksmith_cast_atlas",
+    "blacksmith_melee_attack_up_atlas",
+    "blacksmith_melee_attack_down_atlas",
+    "ash_moth_walk_atlas_quarter",
+    "ash_moth_idle_atlas_quarter",
+    "ash_moth_cast_atlas_quarter",
+    "ash_moth_melee_attack_atlas_quarter",
+    "ash_moth_melee_attack_up_atlas_quarter",
+    "ash_moth_melee_attack_down_atlas_quarter",
+    "ash_moth_hit_atlas_quarter",
+    "ash_moth_death_atlas_quarter",
+    "peasant_walk_atlas_quarter",
+    "peasant_attack_atlas_quarter",
+    "peasant_attack_up_atlas_quarter",
+    "peasant_attack_down_atlas_quarter",
+    "peasant_hit_atlas_quarter",
+    "peasant_death_atlas_quarter",
+    "wolf_idle_atlas_half",
+    "wolf_walk_atlas_half",
+    "wolf_hit_atlas_half",
+    "wolf_death_atlas_half",
+    "wolf_attack_atlas_half",
+    "wolf_attack_up_atlas_half",
+    "wolf_attack_down_atlas_half",
+    "wolf_rider_walk_atlas_quarter",
+    "wolf_rider_idle_atlas_quarter",
+    "wolf_rider_hit_atlas_quarter",
+    "wolf_rider_death_atlas_quarter",
+    "wolf_rider_attack_atlas_quarter",
+    "wolf_rider_attack_up_atlas_quarter",
+    "wolf_rider_attack_down_atlas_quarter",
+    "thief_walk_atlas_quarter",
+    "scavenger_homm_idle_atlas_quarter",
+    "scavenger_combat_hit_atlas_quarter",
+    "scavenger_combat_death_atlas_quarter",
+    "scavenger_combat_attack_atlas_quarter",
+    "scavenger_combat_attack_up_atlas_quarter",
+    "scavenger_combat_attack_down_atlas_quarter",
+    "troglodyte_walk_atlas_quarter",
+    "troglodyte_idle_atlas_quarter",
+    "troglodyte_hit_atlas_quarter",
+    "troglodyte_death_atlas_quarter",
+    "troglodyte_attack_atlas_quarter",
+    "troglodyte_attack_up_atlas_quarter",
+    "troglodyte_attack_down_atlas_quarter",
+    "squire_walk_atlas_quarter",
+    "squire_default_atlas_quarter",
+    "squire_idle_atlas_quarter",
+    "peasant_idle_red_atlas_quarter",
+    "squire_hit_atlas_quarter",
+    "squire_attack_atlas_quarter",
+    "squire_attack_up_atlas_quarter",
+    "squire_attack_down_atlas_quarter",
+    "squire_death_atlas_quarter",
+]);
 
 export const shouldPreloadUnitAnimationAtlas = (key: string, animationsEnabled: boolean): boolean =>
-    animationsEnabled || UNIT_ATLASES_USED_WHILE_ANIMATIONS_DISABLED.has(key);
+    // The native pager owns a bounded current/next working set, including when all motion is enabled.
+    !/^arbalester_idle_page_\d{2}_atlas$/.test(key) &&
+    (animationsEnabled || UNIT_ATLASES_USED_WHILE_ANIMATIONS_DISABLED.has(key));
+
+/** Only the visible creature's approved sheets; the idle pager retains its own bounded working set. */
+export const approvedAnimationAssetKeysForUnit = (unitName: string): string[] => {
+    if (!usesApprovedBaseAnimations(unitName)) return [];
+    const prefix = unitName === "Wandering Mage" ? "ash_moth_" : unitName.toLowerCase().replaceAll(" ", "_") + "_";
+    return [...UNIT_ATLASES_USED_WHILE_ANIMATIONS_DISABLED]
+        .filter((key) => key !== "squire_default_atlas_quarter")
+        .filter(
+            (key) =>
+                (key.startsWith(prefix) && !(unitName === "Wolf" && key.startsWith("wolf_rider_"))) ||
+                (unitName === "Scavenger" && key === "thief_walk_atlas_quarter"),
+        )
+        .sort((a, b) => {
+            const priority = (key: string) => (/_(idle|default)_/.test(key) ? 0 : /_walk_/.test(key) ? 1 : 2);
+            return priority(a) - priority(b);
+        });
+};
+
+const ARBALESTER_IDLE_PAGE_ATLAS = /^arbalester_idle_page_\d{2}_atlas$/;
+
+/**
+ * Combat sheets hitch the action frame the first time they are drawn. The resting loop is already
+ * on screen, and the Arbalester idle pager keeps its own bounded working set.
+ * Lower rank uploads sooner.
+ */
+export function animationAtlasPrewarmRank(imageKey: string): number {
+    if (ARBALESTER_IDLE_PAGE_ATLAS.test(imageKey)) return 3;
+    if (imageKey.includes("_walk_")) return 1;
+    if (imageKey.includes("_idle_") || imageKey.includes("_default_")) return 2;
+    return 0;
+}
+
+/** Approved sheets for one creature, combat first, plus an optional already-decoded resting key. */
+export function animationAtlasPrewarmKeys(unitName: string, extraImageKey?: string): string[] {
+    const keys = approvedAnimationAssetKeysForUnit(unitName).filter((key) => !ARBALESTER_IDLE_PAGE_ATLAS.test(key));
+    keys.sort((a, b) => animationAtlasPrewarmRank(a) - animationAtlasPrewarmRank(b));
+    if (extraImageKey && !keys.includes(extraImageKey) && !ARBALESTER_IDLE_PAGE_ATLAS.test(extraImageKey)) {
+        keys.push(extraImageKey);
+    }
+    return keys;
+}

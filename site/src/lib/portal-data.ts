@@ -7,9 +7,8 @@ import creaturesJson from "@heroesofcrypto/common/src/configuration/creatures.js
 import { CreatureVals } from "@heroesofcrypto/common/src/generated/protobuf/v1/enums_reexports";
 import { ToFactionName } from "@heroesofcrypto/common/src/factions/faction_type";
 
+import { portraitArtUrl, UNKNOWN_CREATURE_PORTRAIT } from "./portrait";
 import { factionColors, type FactionName } from "./units-data";
-
-const UNKNOWN_CREATURE_IMAGE = "/assets/images/units/units/unknown_creature_512.webp";
 
 // Same slug rule the unit catalog uses so image paths line up (lowercase, non-alnum -> "_").
 const slugify = (name: string): string =>
@@ -22,6 +21,13 @@ const FACTION_NAMES: FactionName[] = ["Life", "Nature", "Chaos", "Death", "Might
 
 export interface CreatureInfo {
     name: string;
+    /** Slug for the composed portrait; see portraitMarkup in ./portrait. */
+    slug: string;
+    /**
+     * The creature art on its own, for the few places that want a bare <img> rather than the composed
+     * portrait. It is the art layer only — no faction background, no approved crop — so anything showing
+     * a creature to a reader should render the portrait instead.
+     */
     image: string;
 }
 
@@ -37,7 +43,7 @@ const creatureBySlug = new Map<string, CreatureInfo>();
         }
         for (const creature of Object.values(group)) {
             const s = slugify(creature.name);
-            creatureBySlug.set(s, { name: creature.name, image: `/assets/images/units/units/${s}_512.webp` });
+            creatureBySlug.set(s, { name: creature.name, slug: s, image: portraitArtUrl(s) });
         }
     }
 }
@@ -57,7 +63,11 @@ export function creatureById(id: number): CreatureInfo {
     if (info) {
         return info;
     }
-    return { name: enumKey ? titleCase(enumKey) : `#${id}`, image: UNKNOWN_CREATURE_IMAGE };
+    return {
+        name: enumKey ? titleCase(enumKey) : `#${id}`,
+        slug: "unknown_creature",
+        image: UNKNOWN_CREATURE_PORTRAIT,
+    };
 }
 
 export interface FactionInfo {
@@ -75,8 +85,7 @@ export function factionById(faction: number): FactionInfo {
     };
 }
 
-export const winRatePct = (wins: number, games: number): number =>
-    games > 0 ? Math.round((wins / games) * 100) : 0;
+export const winRatePct = (wins: number, games: number): number => (games > 0 ? Math.round((wins / games) * 100) : 0);
 
 // Green when winning, gold around even, red when losing — matches the in-game portal palette.
 export const winRateColor = (pct: number): string => (pct >= 60 ? "#46d160" : pct >= 45 ? "#f2c75d" : "#ff5a5a");

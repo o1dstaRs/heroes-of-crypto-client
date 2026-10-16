@@ -31,6 +31,11 @@ const scanImageKeys = (directory) => {
     }
 };
 scanImageKeys(sourceDir);
+for (const { key } of require("../src/animations/battlefieldEnvironmentAssets.json")) imageKeys.add(key);
+for (const { key } of require("../src/animations/levelOneAssets.json")) imageKeys.add(key);
+for (const { key } of require("../src/pixi/shotTrajectoryAssets.json")) imageKeys.add(key);
+for (const key of Object.values(require("../src/pixi/battlefieldTextureKeys.ts").FINAL_STATIC_BATTLEFIELD_TEXTURES))
+    imageKeys.add(key);
 for (const key of [
     "chaos_portrait_bg_obsidian_fissure_corner_fire_v1",
     "life_portrait_bg_golden_dawn_four_corner_haze_v1",
@@ -38,6 +43,48 @@ for (const key of [
     "nature_portrait_bg_xray_leaf_corner_glow_v2_soft",
 ]) {
     imageKeys.add(key);
+}
+
+// The bundle-split contract tests assert membership (and exact sizes) for every key of the static
+// lazy/deferred sets in imageAssetTiers.ts and unitAtlasKeys.ts. Most of those keys never appear as
+// a literal `images.foo` access anywhere, so the scanner above cannot see them and CI drifts red
+// whenever a set gains keys while the real (Drive-generated) manifest keeps local runs green.
+// Harvest every quoted snake_case literal from those two files instead: the strict shape (no
+// leading/trailing underscore) drops the startsWith/endsWith prefix fragments quoted there too.
+const NON_ASSET_LITERALS = new Set(["background_stone_tiles"]);
+const harvestAssetLiterals = (file) => {
+    const keys = new Set();
+    for (const match of fs.readFileSync(file, "utf8").matchAll(/"([a-z0-9]+(?:_[a-z0-9]+)*)"/g)) {
+        if (!NON_ASSET_LITERALS.has(match[1])) keys.add(match[1]);
+    }
+    return keys;
+};
+for (const file of ["../src/pixi/imageAssetTiers.ts", "../src/pixi/unitAtlasKeys.ts"]) {
+    for (const key of harvestAssetLiterals(path.resolve(__dirname, file))) imageKeys.add(key);
+}
+
+// Mirrors NON_UNIT_ATLAS_NAMES in src/pixi/unitAtlasKeys.ts: entries of the generated atlas index that
+// are draft UI art, battlefield VFX or the React sidebar portrait, never board chips.
+const NON_UNIT_ATLAS_NAMES = new Set([
+    "Pick Ban Slash",
+    "Lava Chasm Glow Level",
+    "Magic Aim Dual Helix",
+    "Peasant Left Screen",
+]);
+
+// Board (`<unit>_128/_256`) and card (`<unit>_512`) keys are derived at runtime from the unit names
+// in the COMMITTED animation atlas metadata, so derive the same keys here instead of listing units
+// by hand.
+const committedAnimationAtlasesPath = path.resolve(__dirname, "../src/generated/animation_atlases.ts");
+if (fs.existsSync(committedAnimationAtlasesPath)) {
+    const { animationAtlases } = require(committedAnimationAtlasesPath);
+    for (const unitName of Object.keys(animationAtlases)) {
+        const slug = unitName.toLowerCase().replace(/\s+/g, "_");
+        imageKeys.add(`${slug}_512`);
+        if (NON_UNIT_ATLAS_NAMES.has(unitName)) continue;
+        imageKeys.add(`${slug}_128`);
+        imageKeys.add(`${slug}_256`);
+    }
 }
 for (const name of [
     "Valkyrie",
@@ -51,6 +98,7 @@ for (const name of [
     "Thunderbird",
     "Behemoth",
     "Frenzied Boar",
+    "Black Dragon",
 ]) {
     imageKeys.add(`${name.toLowerCase().replaceAll(" ", "_")}_portrait_full`);
 }
@@ -90,7 +138,22 @@ for (const columns of [3, 4, 5, 6]) {
         imageKeys.add(`placement_gold_outer_border_green_continuous_${columns}col_${rows}row_v23`);
     }
 }
-const knownImageKeys = [...imageKeys].sort();
+const knownImageKeys = fs.existsSync(path.join(generatedDir, "image_keys.json"))
+    ? // The committed catalog is the exact universe the real generator derives from the art Drive;
+      // using it verbatim keeps CI's enumerable manifest (and every bundle-split bucket size)
+      // identical to local runs. The scans and derivations above remain the fallback when a
+      // checkout somehow lacks the catalog, approximating it from source instead.
+      [
+          ...new Set([
+              ...JSON.parse(fs.readFileSync(path.join(generatedDir, "image_keys.json"), "utf8")),
+              ...require("../src/animations/levelOneAssets.json").map((asset) => asset.key),
+              ...require("../src/pixi/shotTrajectoryAssets.json").map((asset) => asset.key),
+              ...require("../src/animations/battlefieldEnvironmentAssets.json").map((asset) => asset.key),
+              ...Object.values(require("../src/pixi/battlefieldTextureKeys.ts").FINAL_STATIC_BATTLEFIELD_TEXTURES),
+              ...require("../src/pixi/creaturePortraitAssetKeys.ts").CREATURE_PORTRAIT_ASSET_KEYS,
+          ]),
+      ].sort()
+    : [...imageKeys].sort();
 
 const imageImportsStub = `/* CI stub — replaced locally by scripts/generate_image_imports.js */
 // Asset-policy and portrait tests exercise the generated lookup contract without downloading the
@@ -103,7 +166,7 @@ const knownImages = Object.fromEntries(
 ) as Record<string, string>;
 export const images = new Proxy<Record<string, string>>(knownImages, {
     get: (_target, key) => typeof key === "string" ? stubImageUrl(key) : undefined,
-    has: (_target, key) => typeof key === "string",
+    has: (target, key) => typeof key === "string" && Object.prototype.hasOwnProperty.call(target, key),
 });
 export type ImageKey = keyof typeof images;
 `;

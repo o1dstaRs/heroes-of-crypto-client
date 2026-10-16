@@ -24,6 +24,7 @@ import {
     GridSettings,
     type GameAction,
     type GameEvent,
+    SpellElement,
 } from "@heroesofcrypto/common";
 import type {
     AuthoritativeGameSnapshot,
@@ -34,6 +35,7 @@ import { getAbilityDisplayMetadata } from "../abilityDisplay";
 import type { SandboxReplay } from "../replay/sandbox_replay";
 
 import {
+    ISpellEffectSummary,
     IVisibleButton,
     IVisibleImpact,
     IVisibleOverallImpact,
@@ -49,6 +51,7 @@ import { PixiDrawer } from "./PixiDrawer";
 import { SimplePhysicsManager } from "./SimplePhysicsManager";
 import { PreloadedPixiTextures } from "./PixiTextureLoader";
 import { boardFitHeight, boardFitWidth } from "./boardFit";
+import { releaseBoardMirror } from "./boardMirror";
 import {
     isLazyBattlefieldCreatureAssetKey,
     isLazyAbilityAssetKey,
@@ -56,11 +59,22 @@ import {
     isLazyMapTextureAssetKey,
     isLazySpellAssetKey,
 } from "./imageAssetTiers";
+import {
+    boardFirstTextureLoads,
+    boardImageRetryDelayMs,
+    isBoardImageTextureKey,
+    type TextureLoadOptions,
+} from "./boardFirstTextureLoads";
 import { images as rawImageUrls } from "../imageAssets";
 import { UnitsOverlay } from "../scenes/UnitsOverlay";
+import type { PremiumTurnPreview } from "../api/premium_client";
 import { destroyContainerChildren, destroyContainerFilters } from "./filterLifecycle";
 
 export { getScenesGrouped, registerScene } from "./sceneRegistry";
+
+/** Co-op sandbox setup picks that are not GameActions: a free artifact, or the shared board. */
+export type SandboxSetupPick =
+    { kind: "artifact"; team: TeamType; tier: number; artifactId: number } | { kind: "grid_type"; gridType: GridType };
 
 export interface AuthoritativeSnapshotOptions {
     /**
@@ -82,6 +96,8 @@ export interface AuthoritativeSnapshotOptions {
 const STEPS_BETWEEN_MOUSE_ACTIONS_MIN = 2;
 const lazyTextureLoads = new Map<string, Promise<Texture>>();
 const lazyTextureLeaseCounts = new Map<string, number>();
+// Board images whose last download failed: how many times in a row, and when to ask again.
+const boardImageRetries = new Map<string, { failures: number; retryAt: number }>();
 
 /** Minimal shape of objects your scene selects / manipulates. */
 export interface BodyLike {
@@ -107,6 +123,23 @@ export interface SceneEntry {
     group: string;
     name: string;
     SceneClass: SceneConstructor;
+}
+
+export type CreatureAnimationLabState =
+    | "idle"
+    | "attack_up"
+    | "attack_down"
+    | "attack"
+    | "melee_attack"
+    | "melee_attack_up"
+    | "melee_attack_down"
+    | "cast"
+    | "hit"
+    | "death";
+
+export interface CreatureAnimationLabResult {
+    ok: boolean;
+    message: string;
 }
 
 export type SceneGroup = "Heroes";
@@ -147,9 +180,13 @@ export abstract class PixiScene {
     private readonly sc_viewportSize = { width: 0, height: 0 };
     private readonly sc_lazyTextureUrls = new Map<string, string>();
     private readonly sc_pendingLazyTextureKeys = new Set<string>();
+    private readonly sc_boardImageRetryTimers = new Set<ReturnType<typeof setTimeout>>();
+    private sc_supplementaryTextureFrame?: number;
     public readonly sc_debugLines: Array<[string, string]> = [];
     public readonly sc_statisticLines: Array<[string, string]> = [];
     public readonly sc_sceneLog = new SceneLog();
+    /** A sentence the player must see for a click that did nothing. The view copies it into the error banner. */
+    public sc_playerNotice = "";
     public readonly sc_maxProfile = { step: 0, collide: 0, solve: 0 }; // parity with old UI
     public readonly sc_totalProfile = { step: 0, collide: 0, solve: 0 }; // parity with old UI
     public readonly sc_sceneSettings: SceneSettings;
@@ -160,7 +197,13 @@ export abstract class PixiScene {
     public sc_attackRangeDamageDivisorStr = "";
     public sc_attackKillSpreadStr = "";
     public sc_hoverInfoArr: string[] = [];
+    // The element of the spell currently hovered in the book, so the card can mark it in that element's
+    // own colour. Carried as its own field rather than another line of body text because the card's
+    // descriptions already contain the phrase "Fire magic:", which string-matching would collide with.
+    public sc_hoverSpellElement: SpellElement = SpellElement.NO_ELEMENT;
+    public sc_hoverSpellEffectSummary?: ISpellEffectSummary;
     public sc_hoverUnitNameStr = "";
+    public sc_hoveredUnitProperties: UnitProperties | undefined;
     public sc_hoverUnitLevel = 0;
     public sc_hoverUnitMovementType = MovementVals.NO_MOVEMENT;
     public sc_pointCount = 0; // parity field
@@ -215,6 +258,8 @@ export abstract class PixiScene {
     protected drawer!: PixiDrawer;
     protected physicsManager!: SimplePhysicsManager;
     protected sc_gameActionTransport?: SceneGameActionTransport;
+    /** Co-op sandbox: where a setup pick that is not a GameAction goes (artifact, map); set by the ranked view. */
+    protected sc_sandboxSetupTransport?: (pick: SandboxSetupPick) => void;
     protected animating = false;
     protected constructor(sceneSettings: SceneSettings) {
         this.sc_sceneSettings = sceneSettings;
@@ -233,6 +278,9 @@ export abstract class PixiScene {
     public setGameActionTransport(transport?: SceneGameActionTransport): void {
         this.sc_gameActionTransport = transport;
     }
+    public setSandboxSetupTransport(transport?: (pick: SandboxSetupPick) => void): void {
+        this.sc_sandboxSetupTransport = transport;
+    }
     public applyAuthoritativeSnapshot(
         _snapshot: AuthoritativeGameSnapshot,
         _options?: AuthoritativeSnapshotOptions,
@@ -244,6 +292,14 @@ export abstract class PixiScene {
     public isTeamAiControlled(_team: TeamType): boolean {
         return false;
     }
+    /** Local sandbox-only creature placement, movement and animation preview controls. */
+    public setCreatureAnimationLabEnabled(_enabled: boolean): void {}
+    public playCreatureAnimationLabState(_state: CreatureAnimationLabState): CreatureAnimationLabResult {
+        return { ok: false, message: "Animation Lab недоступен в этой сцене" };
+    }
+    public moveCreatureAnimationLabSelection(_dx: number, _dy: number): CreatureAnimationLabResult {
+        return { ok: false, message: "Animation Lab недоступен в этой сцене" };
+    }
     /**
      * TEMPORARY, sandbox-only: paint the board with the PREVIOUS floor texture instead of the current one,
      * so the two can be compared live. Only the floor painting changes — lighting and atmosphere are
@@ -252,6 +308,16 @@ export abstract class PixiScene {
     public setLegacyBoardBackground(_enabled: boolean): void {}
     public isLegacyBoardBackground(): boolean {
         return false;
+    }
+    /** Sandbox-only fourth visual map; mechanics remain the normal 16x16 board. */
+    public setTestBoardBackground(_enabled: boolean): void {}
+    public isTestBoardBackground(): boolean {
+        return false;
+    }
+    /** Sandbox-only preview selector for approved baked map-narrowing levels. */
+    public setTestBoardNarrowingLevel(_level: number): void {}
+    public getTestBoardNarrowingLevel(): number {
+        return 1;
     }
     public applyAuthoritativeReplaySnapshot(snapshot: AuthoritativeGameSnapshot): void {
         this.applyAuthoritativeSnapshot(snapshot);
@@ -267,6 +333,10 @@ export abstract class PixiScene {
     // Ranked move-intent relay (implemented by Sandbox); no-ops in the base scene.
     public setMoveIntentSink(_sink?: (unitId: string | undefined, cell: HoCMath.XY | undefined) => void): void {}
     public setOpponentMoveIntent(_intent?: { unitId: string; cell: HoCMath.XY }): void {}
+    public setSpellIntentSink(_sink?: (unitId: string | undefined, spellName: string | undefined) => void): void {}
+    public setOpponentSpellIntent(_intent?: { unitId: string; spellName: string }): void {}
+    public setPremiumTurnPreview(_turn?: PremiumTurnPreview): void {}
+    public setPremiumSandboxGuidance(_enabled: boolean): void {}
     protected dispatchExternalGameAction(
         action: Parameters<SceneGameActionTransport>[0],
         options?: Parameters<SceneGameActionTransport>[1],
@@ -365,7 +435,7 @@ export abstract class PixiScene {
             void Assets.unload(url).catch(() => undefined);
         });
     }
-    protected texAny = (key: string): Texture | undefined => {
+    protected texAny = (key: string, options?: TextureLoadOptions): Texture | undefined => {
         if (this.sc_destroyed) return undefined;
         const url = (rawImageUrls as unknown as Record<string, string>)[key];
         const isSceneLeasedTexture =
@@ -401,15 +471,32 @@ export abstract class PixiScene {
         // Large optional families (notably the approved 768px battlefield figures) stay out of the
         // all-assets core bundle. Load the exact requested key once, then repaint live units when it lands.
         // Returning undefined meanwhile lets callers keep their existing static/vector fallback.
+        // Visible roster art has its own lane; optional textures still wait for board images.
         let pending = lazyTextureLoads.get(url);
         if (!pending) {
-            pending = Assets.load<Texture>(url);
+            // A board image that just failed waits out its retry delay instead of being re-requested on every repaint.
+            if ((boardImageRetries.get(url)?.retryAt ?? 0) > Date.now()) {
+                return undefined;
+            }
+            pending = boardFirstTextureLoads.load(key, () => Assets.load<Texture>(url), options);
             lazyTextureLoads.set(url, pending);
             void pending.then(
-                () => lazyTextureLoads.delete(url),
-                () => lazyTextureLoads.delete(url),
+                () => {
+                    lazyTextureLoads.delete(url);
+                    boardImageRetries.delete(url);
+                },
+                () => {
+                    lazyTextureLoads.delete(url);
+                    if (isBoardImageTextureKey(key)) {
+                        const failures = (boardImageRetries.get(url)?.failures ?? 0) + 1;
+                        boardImageRetries.set(url, {
+                            failures,
+                            retryAt: Date.now() + boardImageRetryDelayMs(failures),
+                        });
+                    }
+                },
             );
-        }
+        } else if (options?.priority === "visible") boardFirstTextureLoads.promote(pending, options);
         // Every interested scene gets its own completion observer. This matters when New Battle replaces
         // a scene while its first creature is still decoding: the retired scene drops out, while the new
         // one can claim the shared in-flight request instead of receiving a texture that is immediately
@@ -425,13 +512,57 @@ export abstract class PixiScene {
                     }
                     (this.textures as unknown as Record<string, Texture>)[key] = texture;
                     if (isSceneLeasedTexture) this.retainLazyTexture(key, url);
-                    this.onSupplementaryTexturesLoaded?.();
+                    this.scheduleSupplementaryTextureRefresh();
                 },
-                () => this.sc_pendingLazyTextureKeys.delete(key),
+                () => {
+                    this.sc_pendingLazyTextureKeys.delete(key);
+                    // A unit whose board image failed would stay invisible: repaint when the retry is due, so it asks again.
+                    if (!this.sc_destroyed && isBoardImageTextureKey(key)) this.scheduleBoardImageRetry(url);
+                },
             );
         }
         return undefined;
     };
+    /** Await decoding through the same loader/cache/leases used by rendering. */
+    protected async preloadTextureKeys(keys: readonly string[], options?: TextureLoadOptions): Promise<void> {
+        const urls = rawImageUrls as unknown as Record<string, string>;
+        await Promise.all(
+            [...new Set(keys)]
+                .filter((key) => !!urls[key])
+                .map(async (key) => {
+                    if (this.sc_destroyed || this.texAny(key, options)) return;
+                    const pending = lazyTextureLoads.get(urls[key]);
+                    if (pending) await pending;
+                    if (!this.sc_destroyed && !this.texAny(key, options))
+                        throw new Error(`Scene texture failed to load: ${key}`);
+                }),
+        );
+    }
+    protected async waitForPendingTextures(): Promise<void> {
+        while (!this.sc_destroyed && this.sc_pendingLazyTextureKeys.size) {
+            await this.preloadTextureKeys([...this.sc_pendingLazyTextureKeys]);
+        }
+    }
+    private scheduleBoardImageRetry(url: string): void {
+        const delayMs = Math.max(0, (boardImageRetries.get(url)?.retryAt ?? 0) - Date.now());
+        const timer = setTimeout(() => {
+            this.sc_boardImageRetryTimers.delete(timer);
+            if (!this.sc_destroyed) this.scheduleSupplementaryTextureRefresh();
+        }, delayMs);
+        this.sc_boardImageRetryTimers.add(timer);
+    }
+    private scheduleSupplementaryTextureRefresh(): void {
+        if (this.sc_destroyed) return;
+        if (typeof globalThis.requestAnimationFrame !== "function") {
+            this.onSupplementaryTexturesLoaded?.();
+            return;
+        }
+        if (this.sc_supplementaryTextureFrame !== undefined) return;
+        this.sc_supplementaryTextureFrame = globalThis.requestAnimationFrame(() => {
+            this.sc_supplementaryTextureFrame = undefined;
+            if (!this.sc_destroyed) this.onSupplementaryTexturesLoaded?.();
+        });
+    }
     /** Resolve an optional texture that texAny started loading, while respecting scene teardown. */
     protected async waitForTexture(key: string): Promise<Texture | undefined> {
         const immediate = this.texAny(key);
@@ -495,7 +626,7 @@ export abstract class PixiScene {
     }
     /**
      * Shift pressed or released, independent of the mouse. Scenes that let Shift modify what is being aimed
-     * (Fire Wall rotates its 3-cell footprint) override this; everyone else ignores it, which is why the
+     * (Fire Wall rotates its 4-cell footprint) override this; everyone else ignores it, which is why the
      * default is a no-op rather than an abstract.
      *
      * Only fires on a real transition — the manager swallows auto-repeat — so an override can treat every
@@ -522,6 +653,11 @@ export abstract class PixiScene {
     protected hover(): void {}
     /** Optional hook for scenes to react to background asset loading progress (Tier 2) */
     public onBackgroundAssetLoad?(progress: number): void;
+    /** Map layers that must be decoded before the blocking loading screen reveals this scene. */
+    public async prepareMapTextures(): Promise<void> {}
+    public isMapLoading(): boolean {
+        return false;
+    }
     /**
      * Optional hook fired after a background texture bundle merges into the SHARED textures map.
      * Scenes re-resolve any visuals that fell back to static art while the atlases were missing.
@@ -586,6 +722,8 @@ export abstract class PixiScene {
         this.sc_attackRangeDamageDivisorStr = "";
         this.sc_hoverUnitNameStr = "";
         this.sc_hoverInfoArr = [];
+        this.sc_hoverSpellElement = SpellElement.NO_ELEMENT;
+        this.sc_hoverSpellEffectSummary = undefined;
         this.sc_selectedAttackType = AttackVals.NO_ATTACK;
         this.sc_attackKillSpreadStr = "";
         this.sc_hoverUnitLevel = 0;
@@ -599,6 +737,11 @@ export abstract class PixiScene {
         this.sc_selectedFactionType = FactionVals.NO_FACTION as FactionType;
         this.sc_factionNameUpdateNeeded = true;
 
+        this.sc_visibleOverallImpact = this.getUnitVisibleImpact(unitProperties);
+        this.sc_unitPropertiesUpdateNeeded = true;
+    }
+    /** Build the same card for hover inspection without changing the placement/combat selection. */
+    public getUnitVisibleImpact(unitProperties: UnitProperties): IVisibleOverallImpact {
         const visibleAbilitiesImpact: IVisibleImpact[] = [];
         const visibleBuffsImpact: IVisibleImpact[] = [];
         const visibleDebuffsImpact: IVisibleImpact[] = [];
@@ -608,9 +751,14 @@ export abstract class PixiScene {
         // hover tooltip shows the real value instead of a literal "{}". Empty props are skipped.
         const fillDescProps = (raw: string): string => {
             const parts = raw.split(";");
-            let text = parts[0] ?? "";
-            for (let p = 1; p < parts.length; p++) {
-                const value = parts[p];
+            const values: string[] = [];
+            while (parts.length > 1 && values.length < 2) {
+                const value = parts[parts.length - 1];
+                if (value !== "" && !Number.isFinite(Number(value))) break;
+                values.unshift(parts.pop()!);
+            }
+            let text = parts.join(";");
+            for (const value of values) {
                 if (value === undefined || value === "" || !text.includes("{}")) {
                     continue;
                 }
@@ -784,13 +932,11 @@ export abstract class PixiScene {
             return a.laps - b.laps;
         });
 
-        this.sc_visibleOverallImpact = {
+        return {
             abilities: visibleAbilitiesImpact,
             buffs: visibleBuffsImpact,
             debuffs: visibleDebuffsImpact,
         };
-
-        this.sc_unitPropertiesUpdateNeeded = true;
     }
     public addStatistic(label: string, value: string | number | boolean): void {
         this.sc_statisticLines.push([label, `${value}`]);
@@ -862,12 +1008,21 @@ export abstract class PixiScene {
     public Destroy() {
         if (this.sc_destroyed) return;
         this.sc_destroyed = true;
+        if (this.sc_supplementaryTextureFrame !== undefined) {
+            globalThis.cancelAnimationFrame?.(this.sc_supplementaryTextureFrame);
+            this.sc_supplementaryTextureFrame = undefined;
+        }
+        for (const timer of this.sc_boardImageRetryTimers) clearTimeout(timer);
+        this.sc_boardImageRetryTimers.clear();
         this.cancelSceneTimeouts();
         this.releaseLazyTextures();
         this.sc_pendingLazyTextureKeys.clear();
         // The camera and world root survive scene replacement. Their filters do not: Sandbox creates
         // scene-owned cinematic/blur filters, and Container.destroy() only detaches filters without
         // releasing their shader resources.
+        // Screen shake offsets this persistent root. A replacement scene has no record of the old
+        // offset to undo, so an interrupted shake would displace its board for the whole next match.
+        this.pixiApp.getWorldRoot().position.set(0, 0);
         destroyContainerFilters(this.pixiApp.getCamera());
         destroyContainerFilters(this.pixiApp.getWorldRoot());
         // The cursor overlay is another app-owned, persistent camera child. Damage forecasts, kill icons,
@@ -878,6 +1033,9 @@ export abstract class PixiScene {
         // interaction blocker under this app-owned container; LoadGame reuses the app, so leaving its
         // children attached retained the complete prior spellbook after every New Battle.
         destroyContainerChildren(this.pixiApp.getUIContainer());
+        // The board root survives scene replacement too. A fight that mirrored it for its seated player
+        // hands it back unmirrored, so the next scene (the sandbox, say) starts with the true sides.
+        releaseBoardMirror(this);
         if (this.drawer) this.drawer.destroy();
     }
     // ------- Delegates from Manager -------
@@ -953,6 +1111,23 @@ export abstract class PixiScene {
     }
     public getUnitsOverlay(): UnitsOverlay | undefined {
         return undefined;
+    }
+    /** The units a team has placed on the board, by name and cells — what a co-op sandbox can be seeded with. */
+    public beginBarrelPlacement(_team: TeamType, _index: number): boolean {
+        return false;
+    }
+    public cancelBarrelPlacement(): void {}
+    public getBarrelPlacementIndex(_team: TeamType): number | undefined {
+        return undefined;
+    }
+    public getBarrelPlacementState(_team: TeamType): { index: number; cell: { x: number; y: number } }[] {
+        return [];
+    }
+    public removePlacedBarrel(_team: TeamType, _index: number): boolean {
+        return false;
+    }
+    public getPlacedArmyExport(_team: TeamType): { unitName: string; cells: { x: number; y: number }[] }[] {
+        return [];
     }
     public HomeCamera(): void {
         const minX = -1024,

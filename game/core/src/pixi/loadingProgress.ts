@@ -1,4 +1,7 @@
 export const MINIMUM_LOADING_SCREEN_DURATION_MS = 2000;
+// Pixi can report bundle progress 1 before loadBundle resolves while the browser finalizes hundreds of
+// decoded textures. Do not leave the user behind a visually completed loader indefinitely.
+export const CORE_ASSET_FINALIZATION_GRACE_MS = 1500;
 
 export function minimumLoadingScreenDurationMs(sceneTitle: string): number {
     return sceneTitle === "Sandbox" ? MINIMUM_LOADING_SCREEN_DURATION_MS : 0;

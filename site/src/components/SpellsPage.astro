@@ -1,7 +1,11 @@
 ---
+import CreaturePortrait from "./CreaturePortrait.astro";
+import MechanicsNote from "./MechanicsNote.astro";
 import { content, type Language } from "../lib/site-data";
 import { localizedFactionName } from "../lib/localization";
 import { knowledgeEntryId, knowledgePath } from "../lib/knowledge-base";
+import { ruLabel } from "../lib/knowledge/names-ru";
+import { spellNote } from "../lib/mechanics";
 import {
     bookColors,
     buffCount,
@@ -9,6 +13,7 @@ import {
     factionColors,
     spellBooks,
     spellbookCount,
+    spellSourceType,
     spells,
     spellsCount,
     type Spell,
@@ -41,7 +46,7 @@ const labels =
               filterKind: "Фильтр по типу",
               filterBook: "Фильтр по школе",
               castBy: "Носители",
-              appliedBy: "Способность",
+              appliedBy: "Источник",
               scroll: "свиток",
               scrolls: "свитка",
               scrollsMany: "свитков",
@@ -74,7 +79,7 @@ const labels =
               filterKind: "Filter by type",
               filterBook: "Filter by school",
               castBy: "Cast by",
-              appliedBy: "Ability",
+              appliedBy: "Applied by",
               scroll: "scroll",
               scrolls: "scrolls",
               scrollsMany: "scrolls",
@@ -181,13 +186,14 @@ const books: { key: string; label: string; color: string }[] = [
 const searchText = (spell: Spell) =>
     [
         spell.name,
+        ruLabel(spell.name),
         description(spell),
         bookLabels[spell.book],
         kindLabels[spell.kind],
         targetLabel(spell.target),
         polarityLabel(spell) ?? "",
         spell.casters.map((c) => `${c.name} ${c.faction} ${localizedFactionName(lang, c.faction)}`).join(" "),
-        spell.appliedBy.join(" "),
+        spell.appliedBy.map(ruLabel).join(" "),
     ]
         .join(" ")
         .toLowerCase();
@@ -305,6 +311,7 @@ const metaRows = (spell: Spell) => {
                         </header>
 
                         <p class="spell-card-desc">{description(spell)}</p>
+                        <MechanicsNote lang={lang} note={spellNote(spell.name, lang)} />
 
                         <dl class="spell-meta">
                             {metaRows(spell).map((row) => (
@@ -332,14 +339,7 @@ const metaRows = (spell: Spell) => {
                                             style={`--faction: ${factionColors[caster.faction]}`}
                                             title={`${caster.name} · ${localizedFactionName(lang, caster.faction)}`}
                                         >
-                                            <img
-                                                src={caster.icon}
-                                                alt=""
-                                                width="34"
-                                                height="34"
-                                                loading="lazy"
-                                                onerror="this.onerror=null;this.src='/assets/images/units/units/unknown_creature_512.webp'"
-                                            />
+                                            <CreaturePortrait slug={caster.slug} name="" />
                                             <span>{caster.name}</span>
                                             <em>{scrollsLabel(caster.scrolls)}</em>
                                         </a>
@@ -352,12 +352,15 @@ const metaRows = (spell: Spell) => {
                             <div class="spell-card-casters">
                                 <span class="spell-casters-label">{labels.appliedBy}</span>
                                 <div class="spell-caster-chips">
-                                    {spell.appliedBy.map((ability) => (
+                                    {spell.appliedBy.map((source) => (
                                         <a
                                             class="spell-source-chip"
-                                            href={knowledgePath(lang, { section: "abilities", entry: ability })}
+                                            href={knowledgePath(lang, {
+                                                section: spellSourceType(source) === "artifact" ? "artifacts" : "abilities",
+                                                entry: source,
+                                            })}
                                         >
-                                            {ability}
+                                            {source}
                                         </a>
                                     ))}
                                 </div>
@@ -774,12 +777,11 @@ const metaRows = (spell: Spell) => {
         background: rgba(0, 0, 0, 0.4);
     }
 
-    .spell-caster-chip img {
+    .spell-caster-chip img :global(.portrait) {
+        flex: 0 0 auto;
         width: 28px;
         height: 28px;
         border-radius: 50%;
-        object-fit: cover;
-        object-position: center top;
         background: #0b0d0f;
     }
 

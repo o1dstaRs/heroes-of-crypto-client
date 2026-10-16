@@ -9,6 +9,8 @@ import {
     encodePlayAction,
     PlayActionType,
     PlayEventKind,
+    PlaySpellIntentState,
+    readOpponentIntent,
     type PlayAction,
 } from "./play_protocol";
 
@@ -67,6 +69,24 @@ const doubleField = (field: number, value: number): number[] => {
 };
 
 describe("play protobuf decoder", () => {
+    test("decodes owned barrel slots, zero coordinates, and an authoritative empty list", () => {
+        const barrel = (team: number, index: number, x: number, y: number) =>
+            messageField(75, [
+                ...intField(1, team),
+                ...intField(2, index + 1),
+                ...messageField(3, [...intField(1, x), ...intField(2, y)]),
+            ]);
+        const snapshot = decodePlaySnapshot(
+            new Uint8Array([...barrel(2, 0, 0, 15), ...barrel(2, 1, 1, 0), ...intField(76, 3)]),
+        );
+        expect(snapshot.artifactBarrels).toEqual([
+            { team: 2, index: 0, cell: { x: 0, y: 15 } },
+            { team: 2, index: 1, cell: { x: 1, y: 0 } },
+        ]);
+        expect(snapshot.artifactBarrelsCount).toBe(2);
+        expect(decodePlaySnapshot(new Uint8Array(intField(76, 1))).artifactBarrels).toEqual([]);
+        expect(decodePlaySnapshot(new Uint8Array()).artifactBarrels).toBeUndefined();
+    });
     test("encodes split Setup duration and its explicit opponent-roster policy", () => {
         const encoded = Array.from(
             encodeDevCreatePlayGameRequest({
@@ -229,6 +249,53 @@ describe("play protobuf decoder", () => {
 
         expect(decoded.scatteredStandingCells).toEqual([0, 99, 249]);
         expect(decoded.scatteredStandingCount).toBe(3);
+    });
+
+    test("decodes transient terrain cells and their 1-based count (snapshot fields 60 and 61)", () => {
+        const cell = (kind: number, x: number, y: number, laps: number, team: number): number[] => [
+            ...intField(1, kind),
+            ...intField(2, x),
+            ...intField(3, y),
+            ...intField(4, laps),
+            ...intField(5, team),
+        ];
+        const snapshot = new Uint8Array([
+            ...stringField(1, "game-1"),
+            ...messageField(60, cell(1, 5, 5, 4, 0)),
+            ...messageField(60, cell(2, 10, 12, 2, 1)),
+            ...messageField(60, cell(3, 8, 9, 3, 0)),
+            ...intField(61, 4),
+        ]);
+
+        const decoded = decodePlaySnapshot(snapshot);
+
+        expect(decoded.transientCells).toEqual([
+            { kind: 1, x: 5, y: 5, lapsRemaining: 4, team: 0 },
+            { kind: 2, x: 10, y: 12, lapsRemaining: 2, team: 1 },
+            { kind: 3, x: 8, y: 9, lapsRemaining: 3, team: 0 },
+        ]);
+        expect(decoded.transientCellsCount).toBe(3);
+    });
+
+    test("an empty transient-cell list still decodes its count, and an older server leaves both undefined", () => {
+        const empty = decodePlaySnapshot(new Uint8Array([...stringField(1, "game-1"), ...intField(61, 1)]));
+        expect(empty.transientCells).toBeUndefined();
+        expect(empty.transientCellsCount).toBe(0);
+
+        const older = decodePlaySnapshot(new Uint8Array([...stringField(1, "game-1")]));
+        expect(older.transientCells).toBeUndefined();
+        expect(older.transientCellsCount).toBeUndefined();
+    });
+
+    test("decodes the additional time on offer from its 1-based field 74, refused as 0 and absent as undefined", () => {
+        const offered = decodePlaySnapshot(new Uint8Array([...stringField(1, "game-1"), ...intField(74, 12_001)]));
+        expect(offered.additionalTimeMs).toBe(12_000);
+
+        const refused = decodePlaySnapshot(new Uint8Array([...stringField(1, "game-1"), ...intField(74, 1)]));
+        expect(refused.additionalTimeMs).toBe(0);
+
+        const older = decodePlaySnapshot(new Uint8Array([...stringField(1, "game-1")]));
+        expect(older.additionalTimeMs).toBeUndefined();
     });
 
     test("scattered fields absent (older server / classic game) stay undefined", () => {
@@ -471,5 +538,44 @@ describe("play protobuf decoder", () => {
 
         expect(decoded.intent).toEqual({ unitId: "unit-42", active: false });
         expect(decoded.intent?.targetCell).toBeUndefined();
+    });
+
+    test("decodes an armed-spell intent without treating it as a move", () => {
+        const intent = [
+            ...stringField(1, "unit-42"),
+            ...intField(3, 1),
+            ...intField(4, PlaySpellIntentState.ARMED),
+            ...stringField(5, "Courage"),
+        ];
+        const event = new Uint8Array([...intField(2, PlayEventKind.MOVE_INTENT), ...messageField(10, intent)]);
+
+        const decoded = decodePlayEvent(event);
+
+        expect(decoded.intent).toEqual({
+            unitId: "unit-42",
+            active: true,
+            spellState: PlaySpellIntentState.ARMED,
+            spellName: "Courage",
+        });
+        expect(readOpponentIntent(decoded.intent)).toEqual({
+            kind: "spell",
+            unitId: "unit-42",
+            spellName: "Courage",
+        });
+    });
+
+    test("a cleared spell intent does not clear a move aim", () => {
+        const intent = [...stringField(1, "unit-42"), ...intField(4, PlaySpellIntentState.CLEARED)];
+        const decoded = decodePlayEvent(
+            new Uint8Array([...intField(2, PlayEventKind.MOVE_INTENT), ...messageField(10, intent)]),
+        );
+
+        expect(readOpponentIntent(decoded.intent)).toEqual({ kind: "clear-spell" });
+        expect(readOpponentIntent({ unitId: "unit-42", active: true, targetCell: { x: 1, y: 2 } })).toEqual({
+            kind: "move",
+            unitId: "unit-42",
+            cell: { x: 1, y: 2 },
+        });
+        expect(readOpponentIntent({ unitId: "unit-42", active: false })).toEqual({ kind: "clear-move" });
     });
 });

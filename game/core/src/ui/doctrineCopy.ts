@@ -42,8 +42,9 @@ export interface DoctrineCopy {
 /**
  * Scout's three slots are NOT drawn uniformly. The six-slot army layout is
  * [L1, L1, L2, L2, L3, L4] (CreaturePoolByLevel = [2, 2, 1, 1]) and the doctrine rolls ONE slot per
- * tier block — see applyDoctrine in common's picks/pick_sim.ts. That guarantee is the whole reason to
- * take Scout, so it is stated explicitly rather than as "3 random slots".
+ * tier block, with L3 guaranteed when the opponent makes the last L4 pick — see applyDoctrine in common's
+ * picks/pick_sim.ts. That guarantee is the whole reason to take Scout, so it is stated explicitly rather
+ * than as "3 random slots".
  */
 export const DOCTRINE_COPY: Record<number, DoctrineCopy> = {
     [Doctrine.Doctrine.THREE_REVEALS]: {
@@ -52,7 +53,8 @@ export const DOCTRINE_COPY: Record<number, DoctrineCopy> = {
         detail:
             "Opens three of the opponent's six army slots — one per tier block, not three at random: " +
             "one of their two Level 1 picks, one of their two Level 2 picks, and either their Level 3 or " +
-            "their Level 4. The slots are rolled the moment the draft opens and stay open as those picks " +
+            "their Level 4. If the opponent's Level 4 pick ends the draft, you watch their Level 3 instead. " +
+            "The slots are rolled the moment the draft opens and stay open as those picks " +
             "fill in. The other three never open.",
         budget: "6 of 7 upgrade points — one augment level short of the maximum.",
         why:

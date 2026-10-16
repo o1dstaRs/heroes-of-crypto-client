@@ -1,0 +1,39 @@
+{
+    "sounds": [
+        {
+            "id": "spellbook_open",
+            "label": "Spellbook opens",
+            "source_filename": "spellbook open.mp3",
+            "target_duration_ms": 950,
+            "max_duration_ms": 1000
+        },
+        {
+            "id": "spellbook_close",
+            "label": "Spellbook closes",
+            "source_filename": "spellbook close.mp3",
+            "target_duration_ms": 950,
+            "max_duration_ms": 1000
+        },
+        {
+            "id": "resurrection",
+            "label": "Resurrection",
+            "source_filename": "resurrection.mp3",
+            "target_duration_ms": 2350,
+            "max_duration_ms": 2500
+        },
+        {
+            "id": "place_unit",
+            "label": "Unit placed on the board",
+            "source_filename": "place unit on board.mp3",
+            "target_duration_ms": 850,
+            "max_duration_ms": 1000
+        },
+        {
+            "id": "heal",
+            "label": "Healing",
+            "source_filename": "heal.mp3",
+            "target_duration_ms": 2150,
+            "max_duration_ms": 2500
+        }
+    ]
+}

@@ -249,6 +249,36 @@ export function projectedRangeAttackCellSideCenter(
     return projectBattlefieldPoint(rangeAttackCellSideCenter(cell, side, gs), gs);
 }
 
+/**
+ * Point where a ray leaves the shooter's rectangular footprint.
+ *
+ * Unit positions are footprint centres. Starting a trajectory there is correct only for a point-sized
+ * body: on a 2x2 Tsar Cannon it puts the fletching between the four occupied cells. Intersect the aiming
+ * ray with the body's front edge instead, so a horizontal cannon shot begins exactly one cell to the left
+ * or right of its centre and diagonal shots use the corresponding front edge/corner.
+ */
+export function rangeAttackFootprintEdgePoint(
+    center: HoCMath.XY,
+    target: HoCMath.XY,
+    footprintWidth: number,
+    footprintHeight: number,
+    gs: GridSettings,
+): HoCMath.XY {
+    const dx = target.x - center.x;
+    const dy = target.y - center.y;
+    const absDx = Math.abs(dx);
+    const absDy = Math.abs(dy);
+    if (absDx < 0.001 && absDy < 0.001) return { ...center };
+
+    const halfWidth = (Math.max(1, footprintWidth) * gs.getStep()) / 2;
+    const halfHeight = (Math.max(1, footprintHeight) * gs.getStep()) / 2;
+    const xScale = absDx > 0.001 ? halfWidth / absDx : Number.POSITIVE_INFINITY;
+    const yScale = absDy > 0.001 ? halfHeight / absDy : Number.POSITIVE_INFINITY;
+    // Do not overshoot an unusually close target inside the footprint.
+    const scale = Math.min(1, xScale, yScale);
+    return { x: center.x + dx * scale, y: center.y + dy * scale };
+}
+
 /** Resolve a pointer on the painted floor back to the unchanged square-mechanics board. */
 export function unprojectBattlefieldPoint(point: HoCMath.XY, gs: GridSettings): HoCMath.XY | undefined {
     const artworkPoint = worldPointToArtwork(point, gs);

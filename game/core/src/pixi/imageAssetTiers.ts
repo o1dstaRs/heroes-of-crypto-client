@@ -1,9 +1,17 @@
+import shotTrajectoryAssets from "./shotTrajectoryAssets.json";
+import { CREATURE_PORTRAIT_ASSET_KEYS } from "./creaturePortraitAssetKeys";
+import battlefieldEnvironmentAssets from "../animations/battlefieldEnvironmentAssets.json";
+const approvedEnvironmentKeys = new Set(battlefieldEnvironmentAssets.map((asset) => asset.key));
+import { BATTLEFIELD_TEXTURE_KEYS } from "./battlefieldTextureKeys";
 import { isUnitAnimationAtlasKey, isUnitBoardImageKey, isUnitCardImageKey } from "./unitAtlasKeys";
+import { isNamedUnitStateSheetKey } from "./unitStateSheetKeys";
+import { isLavaPitAssetKey } from "../scenes/sandbox/lavaPitAssets";
 
 // Keep asset routing free of Pixi imports so non-renderer surfaces (notably the ranked draft) can
 // reuse the exact runtime split without pulling Pixi into their entry bundle.
 
 export function isIdleAtlasKey(key: string): boolean {
+    if (key === "blacksmith_idle_atlas" || key === "orc_idle_atlas" || key === "beholder_idle_atlas") return true;
     return (
         isUnitAnimationAtlasKey(key) &&
         (key.includes("_idle") || key.includes("_default")) &&
@@ -12,6 +20,184 @@ export function isIdleAtlasKey(key: string): boolean {
 }
 
 export function isRedundantFullResolutionUnitAtlasKey(key: string): boolean {
+    if (key === "beholder_idle_atlas") return false;
+    if (approvedEnvironmentKeys.has(key)) return false;
+    if (/^white_tiger_lab_(idle|walk|hit|death|melee_attack(?:_up|_down)?)_atlas$/.test(key)) return false;
+    if (
+        key === "manticore_lab_walk_atlas" ||
+        key === "manticore_lab_death_atlas" ||
+        key === "manticore_lab_hit_atlas" ||
+        key === "manticore_lab_melee_attack_atlas" ||
+        key === "manticore_lab_melee_attack_up_atlas" ||
+        key === "manticore_lab_melee_attack_down_atlas"
+    )
+        return false;
+    if (
+        key === "valkyrie_lab_current_walk_atlas" ||
+        key === "valkyrie_lab_current_hit_atlas" ||
+        key === "valkyrie_lab_current_death_atlas" ||
+        key === "valkyrie_lab_current_cast_atlas" ||
+        key === "valkyrie_lab_current_melee_attack_atlas" ||
+        key === "valkyrie_lab_current_melee_attack_up_atlas" ||
+        key === "valkyrie_lab_current_melee_attack_down_atlas"
+    )
+        return false;
+    if (/^medusa_lab_(walk|idle|hit|death|projectile|(?:melee_)?attack(?:_up|_down)?)_atlas$/.test(key)) return false;
+    if (
+        [
+            "troll_lab_walk_atlas",
+            "troll_lab_idle_atlas",
+            "troll_lab_hit_atlas",
+            "troll_lab_death_atlas",
+            "troll_lab_cast_atlas",
+            "troll_lab_melee_attack_atlas",
+            "troll_lab_melee_attack_up_atlas",
+            "troll_lab_melee_attack_down_atlas",
+        ].includes(key)
+    )
+        return false;
+    if (key === "battle_mage_lab_walk_atlas") return false;
+    if (key === "battle_mage_lab_hit_atlas" || key === "battle_mage_lab_death_atlas") return false;
+    if (
+        [
+            "battle_mage_lab_melee_attack_atlas",
+            "battle_mage_lab_melee_attack_up_atlas",
+            "battle_mage_lab_melee_attack_down_atlas",
+            "battle_mage_lab_cast_atlas",
+        ].includes(key)
+    )
+        return false;
+    if (key === "healer_lab_walk_atlas") return false;
+    if (key === "healer_lab_idle_atlas") return false;
+    if (key === "healer_lab_hit_atlas" || key === "healer_lab_death_atlas") return false;
+    if (
+        [
+            "healer_lab_attack_atlas",
+            "healer_lab_attack_up_atlas",
+            "healer_lab_attack_down_atlas",
+            "healer_lab_cast_atlas",
+        ].includes(key)
+    )
+        return false;
+    if (key === "elf_lab_walk_atlas") return false;
+    if (key === "elf_lab_idle_atlas") return false;
+    if (key === "elf_lab_hit_atlas" || key === "elf_lab_death_atlas") return false;
+    if (["elf_lab_attack_atlas", "elf_lab_attack_up_atlas", "elf_lab_attack_down_atlas"].includes(key)) return false;
+    if (
+        ["elf_lab_melee_attack_atlas", "elf_lab_melee_attack_up_atlas", "elf_lab_melee_attack_down_atlas"].includes(key)
+    )
+        return false;
+    if (key === "pikeman_walk_atlas") return false;
+    if (key === "pikeman_lab_idle_atlas") return false;
+    if (key === "pikeman_lab_hit_atlas" || key === "pikeman_lab_death_atlas") return false;
+    if (["pikeman_lab_attack_atlas", "pikeman_lab_attack_up_atlas", "pikeman_lab_attack_down_atlas"].includes(key))
+        return false;
+    if (
+        [
+            "berserker_walk_atlas",
+            "berserker_sword_idle_atlas",
+            "berserker_hit_atlas",
+            "berserker_death_atlas",
+            "berserker_melee_attack_atlas",
+            "berserker_melee_attack_up_atlas",
+            "berserker_melee_attack_down_atlas",
+        ].includes(key)
+    )
+        return false;
+    if (
+        [
+            "dryad_lab_walk_atlas",
+            "dryad_lab_hit_atlas",
+            "dryad_lab_death_atlas",
+            "dryad_lab_melee_attack_atlas",
+            "dryad_lab_melee_attack_up_atlas",
+            "dryad_lab_melee_attack_down_atlas",
+            "dryad_lab_attack_atlas",
+            "dryad_lab_attack_up_atlas",
+            "dryad_lab_attack_down_atlas",
+        ].includes(key)
+    )
+        return false;
+    if (key === "leprechaun_lab_walk_atlas") return false;
+    if (key === "leprechaun_lab_idle_atlas") return false;
+    if (key === "leprechaun_lab_hit_atlas" || key === "leprechaun_lab_death_atlas") return false;
+    if (
+        [
+            "leprechaun_lab_melee_attack_atlas",
+            "leprechaun_lab_melee_attack_up_atlas",
+            "leprechaun_lab_melee_attack_down_atlas",
+        ].includes(key)
+    )
+        return false;
+    if (key === "fairy_lab_walk_atlas" || key === "fairy_lab_idle_atlas") return false;
+    if (key === "fairy_lab_hit_atlas" || key === "fairy_lab_death_atlas") return false;
+    if (
+        [
+            "fairy_lab_melee_attack_atlas",
+            "fairy_lab_melee_attack_up_atlas",
+            "fairy_lab_melee_attack_down_atlas",
+        ].includes(key)
+    )
+        return false;
+    if (/^arbalester_idle_page_\d{2}_atlas$/.test(key)) return false;
+    if (
+        [
+            "arbalester_walk_atlas",
+            "arbalester_hit_atlas",
+            "arbalester_death_atlas",
+            "arbalester_attack_atlas",
+            "arbalester_attack_up_atlas",
+            "arbalester_attack_down_atlas",
+            "arbalester_melee_attack_atlas",
+            "arbalester_melee_attack_up_atlas",
+            "arbalester_melee_attack_down_atlas",
+        ].includes(key)
+    )
+        return false;
+    if (
+        [
+            "centaur_lab_walk_atlas",
+            "centaur_lab_idle_atlas",
+            "centaur_lab_hit_atlas",
+            "centaur_lab_death_atlas",
+            "centaur_lab_melee_attack_atlas",
+            "centaur_lab_melee_attack_up_atlas",
+            "centaur_lab_melee_attack_down_atlas",
+            "centaur_lab_attack_atlas",
+            "centaur_lab_attack_up_atlas",
+            "centaur_lab_attack_down_atlas",
+        ].includes(key)
+    )
+        return false;
+    if (
+        [
+            "orc_idle_atlas",
+            "orc_walk_atlas",
+            "orc_hit_atlas",
+            "orc_death_atlas",
+            "orc_attack_atlas",
+            "orc_attack_up_atlas",
+            "orc_attack_down_atlas",
+            "orc_melee_attack_atlas",
+            "orc_melee_attack_up_atlas",
+            "orc_melee_attack_down_atlas",
+        ].includes(key)
+    )
+        return false;
+    // The approved Blacksmith detail pass is rendered from its original 768px frames.
+    if (
+        [
+            "blacksmith_walk_atlas",
+            "blacksmith_idle_atlas",
+            "blacksmith_hit_atlas",
+            "blacksmith_death_atlas",
+            "blacksmith_melee_attack_atlas",
+            "blacksmith_cast_atlas",
+            "blacksmith_melee_attack_up_atlas",
+            "blacksmith_melee_attack_down_atlas",
+        ].includes(key)
+    )
+        return false;
     return isUnitAnimationAtlasKey(key) && key.endsWith("_atlas");
 }
 
@@ -35,6 +221,7 @@ const DEFERRED_REACT_OR_LEGACY_UI_ASSETS = new Set([
     "might_512",
     "nature_512",
     "order_512",
+    "orc_model_full",
     "slider_dot",
     "stop",
     "logo_hoc",
@@ -49,7 +236,7 @@ const DEFERRED_REACT_OR_LEGACY_UI_ASSETS = new Set([
 ]);
 
 export function isDeferredReactUiAssetKey(key: string): boolean {
-    if (DEFERRED_REACT_OR_LEGACY_UI_ASSETS.has(key)) return true;
+    if (key === "peasant_left_screen_idle_atlas" || DEFERRED_REACT_OR_LEGACY_UI_ASSETS.has(key)) return true;
     return (
         key.startsWith("pick_ban_") ||
         key.startsWith("pick_phase_") ||
@@ -68,7 +255,7 @@ export function isDeferredReactUiAssetKey(key: string): boolean {
         key.startsWith("wealth_") ||
         key.startsWith("doctrine_") ||
         key.endsWith("_augment_256") ||
-        key.endsWith("_left_screen_x2") ||
+        /_left_screen_x2(?:_[a-z0-9]+)*$/.test(key) ||
         key.endsWith("_portrait_full")
     );
 }
@@ -103,11 +290,12 @@ const LAZY_MAP_TEXTURE_ASSETS = new Set([
 
 /** Map-specific source sheets retained only while a scene actually uses that map. */
 export function isLazyMapTextureAssetKey(key: string): boolean {
-    return LAZY_MAP_TEXTURE_ASSETS.has(key);
+    return LAZY_MAP_TEXTURE_ASSETS.has(key) || isLavaPitAssetKey(key);
 }
 
 export function isDeferredEnvironmentAssetKey(key: string): boolean {
     if (LIVE_ENVIRONMENT_ASSETS.has(key)) return false;
+    if (approvedEnvironmentKeys.has(key)) return true;
     if (isLazyMapTextureAssetKey(key)) return true;
     if (
         key === "active_turn_blue_fire_atlas" ||
@@ -138,6 +326,7 @@ export function isDeferredPlacementAssetKey(key: string): boolean {
 }
 
 export function isDeferredLegacyCreatureAssetKey(key: string): boolean {
+    if (BATTLEFIELD_TEXTURE_KEYS.has(key)) return false;
     if (key.endsWith("_final")) return true;
     if (/_portrait_full_v\d+$/.test(key)) return true;
     return key.includes("_battlefield_side_right_") && !key.endsWith("_battlefield_side_right_final_v1");
@@ -148,6 +337,7 @@ export function isDeferredUnitCardAssetKey(key: string): boolean {
 }
 
 export function isLazyBattlefieldCreatureAssetKey(key: string): boolean {
+    if (BATTLEFIELD_TEXTURE_KEYS.has(key)) return true;
     return key === "efreet_board_128" || key.endsWith("_battlefield_side_right_final_v1") || isUnitBoardImageKey(key);
 }
 
@@ -179,7 +369,7 @@ const LAZY_COMBAT_EFFECT_ASSETS = new Set([
     "shot_range_corner_aaa_v1",
     "shot_range_corner_aaa_v4_green",
     "shot_range_corner_aaa_v4_red",
-    "shot_trajectory_hammered_bronze_casing_sprite_v4",
+    ...shotTrajectoryAssets.map((asset) => asset.key),
     "vfx_dust_smoky_ash_atlas",
 ]);
 
@@ -244,7 +434,7 @@ const LAZY_ABILITY_ASSETS = new Set([
     "range_null_field_aura_256",
     "luck_aura_256",
     "arrows_wingshield_aura_256",
-    "rallying_volley_aura_256",
+    "rallying_volley_blessing_256",
     "angelic_host_256",
     "ai_driven_256",
     "magic_shield_256",
@@ -361,7 +551,6 @@ const LAZY_SPELL_ASSETS = new Set([
     "warding_mane_blessing_256",
     "cursed_ward_256",
     "hunters_longbow_256",
-    "helm_of_focus_256",
     "amulet_of_resolve_256",
     "warlords_edge_256",
     "titan_plate_256",
@@ -387,6 +576,11 @@ const LAZY_SPELL_ASSETS = new Set([
     "hidden_256",
     "mages_ring_256",
     "archmages_ring_256",
+    "aegis_of_the_arcane_256",
+    "quiver_of_echoes_256",
+    "gravechain_256",
+    "gravebound_256",
+    "last_fuse_256",
     "heal_256",
     "spiritual_armor_256",
     "blessing_256",
@@ -431,6 +625,7 @@ export function isLazySpellAssetKey(key: string): boolean {
 export function isCoreTextureAssetKey(key: string): boolean {
     return (
         !isUnitAnimationAtlasKey(key) &&
+        !isNamedUnitStateSheetKey(key) &&
         !isDeferredReactUiAssetKey(key) &&
         !isDeferredEnvironmentAssetKey(key) &&
         !isDeferredPlacementAssetKey(key) &&
@@ -448,6 +643,8 @@ export function isCoreTextureAssetKey(key: string): boolean {
 
 /** Authoring/superseded exports that no production path can request, even lazily. */
 export function isProductionOmittedAssetKey(key: string): boolean {
+    if (CREATURE_PORTRAIT_ASSET_KEYS.has(key)) return false;
+    if (approvedEnvironmentKeys.has(key)) return false;
     return (
         isRedundantFullResolutionUnitAtlasKey(key) ||
         (isDeferredPlacementAssetKey(key) && !isLivePlacementAssetKey(key)) ||

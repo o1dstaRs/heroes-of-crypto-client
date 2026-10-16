@@ -17,6 +17,7 @@ import {
     createSandboxReplayFromRankedReplay,
     mergeRankedJournalEntries,
     parseRankedReplayAction,
+    withReplayJournalTails,
 } from "./ranked_replay";
 
 const createEntry = (sequence: number): PlayJournalEntry => ({
@@ -316,6 +317,140 @@ describe("ranked replay helpers", () => {
         expect(sandboxReplay?.actions[1]?.sequence).toBe(3);
         expect(sandboxReplay?.actions[1]?.action.type).toBe("melee_attack");
         expect(sandboxReplay?.actions[1]?.events[0]?.type).toBe("unit_attacked");
+    });
+
+    it("carries each action's whole snapshot, so a replay can show more than the board", () => {
+        // The scene state a replay hydrates is deliberately narrow. The combat log, the stats graph, the
+        // turn clock and the journal-driven VFX are fed from fields it does not carry, so the snapshot
+        // itself rides along on the record and the ranked scene presents it after each hydrate.
+        const initialSnapshot = createSnapshot([], 1);
+        const afterAttackSnapshot = createSnapshot([], 2);
+        const replay = createRankedReplayFromPayload({
+            gameId: "game-1",
+            latestSequence: 2,
+            completeReplay: true,
+            currentSnapshot: afterAttackSnapshot,
+            journal: [createProtocolEntry(2)],
+            events: [
+                {
+                    sequence: 1,
+                    kind: PlayEventKind.SNAPSHOT,
+                    gameId: "game-1",
+                    playerId: "",
+                    snapshot: initialSnapshot,
+                    rejectionReason: "",
+                    message: "snapshot",
+                    serverTimeMs: 1000,
+                },
+                {
+                    sequence: 2,
+                    kind: PlayEventKind.ACTION_ACCEPTED,
+                    gameId: "game-1",
+                    playerId: "player-1",
+                    snapshot: afterAttackSnapshot,
+                    journalEntry: createProtocolEntry(2),
+                    rejectionReason: "",
+                    message: "melee_attack",
+                    serverTimeMs: 1100,
+                },
+            ],
+        });
+        const toState = (snapshot: PlaySnapshot) => ({
+            gridType: snapshot.gridType,
+            currentLap: snapshot.currentLap,
+            fightStarted: snapshot.fightStarted,
+            fightFinished: snapshot.fightFinished,
+            currentUnitId: snapshot.currentUnitId || undefined,
+            units: [],
+        });
+
+        const withSnapshots = createSandboxReplayFromRankedReplay(replay, {
+            nowMs: 5000,
+            snapshotToState: toState,
+            snapshotToAuthoritative: (snapshot) =>
+                ({ gameId: "game-1", latestSequence: snapshot.latestSequence }) as never,
+        });
+        expect(withSnapshots?.actions[0]?.authoritativeSnapshot?.latestSequence).toBe(2);
+
+        // And a caller that asks for no presentation still gets a playable board-only replay.
+        const boardOnly = createSandboxReplayFromRankedReplay(replay, { nowMs: 5000, snapshotToState: toState });
+        expect(boardOnly?.actions[0]?.authoritativeSnapshot).toBeUndefined();
+    });
+
+    it("restores a trimmed journal onto the snapshots a replay actually presents", () => {
+        // Stored replays keep the journal beside the snapshots and leave every snapshot tail empty.
+        // The opening board is not presented (playback clears the log right after it), so the first
+        // presented snapshot has to carry the history and later ones only the lines since.
+        const opening = createSnapshot([], 0);
+        const afterWait = createSnapshot([], 1);
+        const afterAttack = createSnapshot([], 2);
+        const wait = createEntry(1);
+        const attack = createProtocolEntry(2);
+        const replay = createRankedReplayFromPayload({
+            gameId: "game-1",
+            latestSequence: 2,
+            completeReplay: true,
+            currentSnapshot: afterAttack,
+            journal: [wait, attack],
+            events: [
+                {
+                    sequence: 0,
+                    kind: PlayEventKind.SNAPSHOT,
+                    gameId: "game-1",
+                    playerId: "",
+                    snapshot: opening,
+                    rejectionReason: "",
+                    message: "snapshot",
+                    serverTimeMs: 900,
+                },
+                {
+                    sequence: 1,
+                    kind: PlayEventKind.ACTION_ACCEPTED,
+                    gameId: "game-1",
+                    playerId: "player-1",
+                    snapshot: afterWait,
+                    journalEntry: wait,
+                    rejectionReason: "",
+                    message: "wait",
+                    serverTimeMs: 1000,
+                },
+                {
+                    sequence: 2,
+                    kind: PlayEventKind.ACTION_ACCEPTED,
+                    gameId: "game-1",
+                    playerId: "player-1",
+                    snapshot: afterAttack,
+                    journalEntry: attack,
+                    rejectionReason: "",
+                    message: "melee_attack",
+                    serverTimeMs: 1100,
+                },
+            ],
+        });
+        const tails: number[][] = [];
+        const sandboxReplay = createSandboxReplayFromRankedReplay(replay, {
+            nowMs: 5000,
+            snapshotToState: (snapshot) => ({
+                gridType: snapshot.gridType,
+                currentLap: snapshot.currentLap,
+                fightStarted: snapshot.fightStarted,
+                fightFinished: snapshot.fightFinished,
+                currentUnitId: snapshot.currentUnitId || undefined,
+                units: [],
+            }),
+            snapshotToAuthoritative: (snapshot) => {
+                tails.push(snapshot.journalTail.map((entry) => entry.sequence));
+                return { gameId: "game-1", latestSequence: snapshot.latestSequence } as never;
+            },
+        });
+
+        expect(sandboxReplay?.actions).toHaveLength(2);
+        expect(tails).toEqual([[1], [2]]);
+        // A tail the snapshot already carried is the one the fight showed live. Don't replace it.
+        expect(withReplayJournalTails([createSnapshot([wait], 1), createSnapshot([], 2)], [wait, attack])).toEqual([
+            createSnapshot([wait], 1),
+            expect.objectContaining({ journalTail: [attack] }),
+        ]);
     });
 
     it("does not build a sandbox replay when a post-action snapshot is missing", () => {

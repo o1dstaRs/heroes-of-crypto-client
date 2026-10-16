@@ -11,7 +11,13 @@
 
 import { IDamageStatistic, TeamType, TeamVals } from "@heroesofcrypto/common";
 
-import { IFightDamageEntry, IFightDeathEntry, IFightStatsReport, IFightStatsSample } from "./VisibleState";
+import {
+    IFightDamageEntry,
+    IFightDeathEntry,
+    IFightCreatureElimination,
+    IFightStatsReport,
+    IFightStatsSample,
+} from "./VisibleState";
 
 /** The only thing the damage breakdown needs from a roster entry. */
 export interface IRosterTexture {
@@ -103,6 +109,7 @@ export class FightStatsTracker {
     private series: IFightStatsSample[] = [];
     private readonly leftRoster = new Map<string, IRosterEntry>();
     private readonly rightRoster = new Map<string, IRosterEntry>();
+    private readonly aliveCreatureGroups = new Map<string, IFightCreatureElimination>();
     public reset(): void {
         this.started = false;
         this.leftStartTotal = 0;
@@ -116,6 +123,7 @@ export class FightStatsTracker {
         this.series = [];
         this.leftRoster.clear();
         this.rightRoster.clear();
+        this.aliveCreatureGroups.clear();
     }
     /** Snapshot the starting roster. Call once, right after the fight starts. */
     public start(units: Iterable<IStatUnit>): void {
@@ -137,6 +145,13 @@ export class FightStatsTracker {
             }
 
             const name = unit.getName();
+            const creatureKey = FightStatsTracker.creatureKey(team, name);
+            this.aliveCreatureGroups.set(creatureKey, {
+                creatureKey,
+                name,
+                smallTextureName: unit.getSmallTextureName(),
+                team,
+            });
             const entry = roster.get(name);
             if (entry) {
                 entry.start += amount;
@@ -173,16 +188,34 @@ export class FightStatsTracker {
         let rightAlive = 0;
         let leftHp = 0;
         let rightHp = 0;
+        const currentCreatureGroups = new Map<string, IFightCreatureElimination>();
         for (const unit of units) {
             const team = unit.getTeam();
+            const amountAlive = unit.getAmountAlive();
+            if (amountAlive > 0 && (team === TeamVals.LEFT || team === TeamVals.RIGHT)) {
+                const name = unit.getName();
+                const creatureKey = FightStatsTracker.creatureKey(team, name);
+                currentCreatureGroups.set(creatureKey, {
+                    creatureKey,
+                    name,
+                    smallTextureName: unit.getSmallTextureName(),
+                    team,
+                });
+            }
             if (team === TeamVals.LEFT) {
-                leftAlive += unit.getAmountAlive();
+                leftAlive += amountAlive;
                 leftHp += unit.getCumulativeHp();
             } else if (team === TeamVals.RIGHT) {
-                rightAlive += unit.getAmountAlive();
+                rightAlive += amountAlive;
                 rightHp += unit.getCumulativeHp();
             }
         }
+
+        const eliminations = Array.from(this.aliveCreatureGroups.entries())
+            .filter(([creatureKey]) => !currentCreatureGroups.has(creatureKey))
+            .map(([, creature]) => creature);
+        this.aliveCreatureGroups.clear();
+        currentCreatureGroups.forEach((creature, creatureKey) => this.aliveCreatureGroups.set(creatureKey, creature));
 
         const leftKilled = Math.max(0, this.leftStartTotal - leftAlive);
         const rightKilled = Math.max(0, this.rightStartTotal - rightAlive);
@@ -192,7 +225,8 @@ export class FightStatsTracker {
             leftKilled === this.lastLeftKilled &&
             rightKilled === this.lastRightKilled &&
             leftHp === this.lastLeftHp &&
-            rightHp === this.lastRightHp
+            rightHp === this.lastRightHp &&
+            eliminations.length === 0
         ) {
             return false;
         }
@@ -211,6 +245,7 @@ export class FightStatsTracker {
             // opening sample at 50/50 even when the two armies never had equal health to begin with.
             leftHpPct: FightStatsTracker.pct(leftHp, this.leftStartHp),
             rightHpPct: FightStatsTracker.pct(rightHp, this.rightStartHp),
+            ...(eliminations.length > 0 ? { eliminations } : {}),
         });
         return true;
     }
@@ -266,5 +301,8 @@ export class FightStatsTracker {
     private static pct(killed: number, total: number): number {
         if (total <= 0) return 0;
         return Math.round((killed / total) * 1000) / 10;
+    }
+    private static creatureKey(team: TeamType, name: string): string {
+        return `${team}|${name.trim().toLowerCase()}`;
     }
 }

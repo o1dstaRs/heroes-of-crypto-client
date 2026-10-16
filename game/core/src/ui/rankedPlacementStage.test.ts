@@ -2,10 +2,12 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
+import { TeamVals } from "@heroesofcrypto/common";
 
 import { PlayActionType, PlayPhase } from "../api/play_protocol";
 import {
     isRankedBoardPlacementStage,
+    observerPlacementRosterIds,
     rankedPlacementLockActionType,
     shouldHideRankedSetupOpponentRoster,
     shouldShowRankedAugmentPicker,
@@ -80,6 +82,41 @@ describe("ranked opponent roster visibility", () => {
         const fight = { phase: PlayPhase.PLAY, placementSplit: true, placementStage: 1 };
 
         expect(shouldShowRankedPlacementRosters(fight, false)).toBe(false);
+    });
+});
+
+describe("spectator placement rosters", () => {
+    const boardUnits = [
+        { team: TeamVals.LEFT, creatureId: 31, dead: false },
+        { team: TeamVals.RIGHT, creatureId: 46, dead: false },
+        { team: TeamVals.LEFT, creatureId: 48, dead: false },
+        { team: TeamVals.LEFT, creatureId: 16, dead: true },
+        { team: TeamVals.LEFT, creatureId: 0, dead: false },
+    ];
+
+    test("lists only the creatures the snapshot already exposes for that team", () => {
+        const board = { phase: PlayPhase.PLACEMENT, fightStarted: false, units: boardUnits };
+
+        expect(observerPlacementRosterIds(board, TeamVals.LEFT)).toEqual([31, 48]);
+        expect(observerPlacementRosterIds(board, TeamVals.RIGHT)).toEqual([46]);
+    });
+
+    test("shows nothing while the server withholds a private Setup roster", () => {
+        expect(
+            observerPlacementRosterIds({ phase: PlayPhase.PLACEMENT, fightStarted: false, units: [] }, TeamVals.LEFT),
+        ).toEqual([]);
+    });
+
+    test("stops once the fight starts, where the board shows the armies", () => {
+        expect(
+            observerPlacementRosterIds({ phase: PlayPhase.PLAY, fightStarted: true, units: boardUnits }, TeamVals.LEFT),
+        ).toEqual([]);
+        expect(
+            observerPlacementRosterIds(
+                { phase: PlayPhase.PLACEMENT, fightStarted: true, units: boardUnits },
+                TeamVals.LEFT,
+            ),
+        ).toEqual([]);
     });
 });
 
@@ -162,7 +199,7 @@ describe("the ranked sidebar uses the compact augment picker", () => {
     test("the sidebar mounts the compact container and the full-screen step keeps the expanded one", () => {
         const sidebar = source.slice(
             source.indexOf("augmentsEditableInSidebar ? ("),
-            source.indexOf("<RankedAugmentSummary"),
+            source.indexOf("{/* The augment step is its own full screen"),
         );
         expect(sidebar).toContain("<SandboxToggleContainer");
         expect(sidebar).not.toContain("<SideToggleContainer");
@@ -175,10 +212,11 @@ describe("the ranked sidebar uses the compact augment picker", () => {
         // or leave the "Lock in augments" button unable to tell when the points are spent.
         const sidebar = source.slice(
             source.indexOf("<SandboxToggleContainer"),
-            source.indexOf("<RankedAugmentSummary"),
+            source.indexOf("{/* The augment step is its own full screen"),
         );
         expect(sidebar).toContain("authoritativeSelections={augmentAuthoritativeSelections}");
         expect(sidebar).toContain("onReadyChange={setAugmentReady}");
-        expect(sidebar).toContain("showArtifactPicker={false}");
+        // Ranked hides the free artifact picker (artifacts are drafted); the co-op sandbox shows it.
+        expect(sidebar).toContain("showArtifactPicker={skipAugmentStep}");
     });
 });

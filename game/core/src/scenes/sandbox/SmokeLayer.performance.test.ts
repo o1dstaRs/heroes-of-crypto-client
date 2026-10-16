@@ -68,13 +68,15 @@ describe("smoke trail allocation", () => {
             expect(loadCalls).toBe(0);
 
             layer.update(1 / 60, [track(false)]);
-            expect(loadCalls).toBe(1);
+            // Ground movement decodes the shared dust atlas and the Squire footstep atlas.
+            expect(loadCalls).toBe(2);
             layer.destroy();
             finishLoad(atlas);
             await Promise.resolve();
             await Promise.resolve();
 
-            expect(unloaded).toEqual([images.vfx_dust_smoky_ash_atlas]);
+            // finishLoad resolves the most recent request: the Squire footstep atlas queued right after the dust sheet.
+            expect(unloaded).toEqual([images.squire_footstep_dust_compact_atlas]);
         } finally {
             mutableAssets.load = originalLoad;
             mutableAssets.unload = originalUnload;

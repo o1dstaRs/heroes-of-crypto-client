@@ -1,11 +1,15 @@
 ---
+import CreaturePortrait from "./CreaturePortrait.astro";
 import { knowledgePath } from "../lib/knowledge-base";
 import { localizedFactionName } from "../lib/localization";
-import { content, contractAddress, links, localPath, type Language } from "../lib/site-data";
+import { content, links, localPath, type Language } from "../lib/site-data";
 import { abilityCount, factionColors, factionUnits, unitCount } from "../lib/units-data";
 import HeroLeaderboard from "./HeroLeaderboard.astro";
 import MetaSnapshot from "./MetaSnapshot.astro";
 import RankedArena from "./RankedArena.astro";
+import SwordFire from "./SwordFire.astro";
+import AxeGlow from "./AxeGlow.astro";
+import PlumeWind from "./PlumeWind.astro";
 
 interface Props {
     lang: Language;
@@ -51,6 +55,8 @@ const featureCards = copy.features.items.map((item, index) => ({
     ...item,
     visual: featureVisuals[index] ?? featureVisuals[0],
 }));
+const heroPitchLines =
+    lang === "en" ? copy.hero.pitch.replace(" single‑session", "|single‑session").split("|") : [copy.hero.pitch];
 const rulesHref = knowledgePath(lang, { section: "rules" });
 const playHref = lang === "ru" ? "/ru/play/" : links.play;
 const factionLabel = (faction: string) => localizedFactionName(lang, faction);
@@ -59,12 +65,15 @@ const factionLabel = (faction: string) => localizedFactionName(lang, faction);
 <section class="hero">
     <img
         class="hero-bg"
-        src="/assets/images/background_dark_old.webp"
+        src="/assets/images/home/hero/generated/crusader_berserker_legs_redrawn_20260922.webp"
         alt=""
-        width="1024"
-        height="1024"
+        width="1750"
+        height="899"
         fetchpriority="high"
     />
+    <SwordFire />
+    <AxeGlow />
+    <PlumeWind />
     <div class="hero-shade"></div>
     <div class="hero-grid page-shell">
         <div class="hero-content">
@@ -106,14 +115,8 @@ const factionLabel = (faction: string) => localizedFactionName(lang, faction);
     <div class="page-shell">
         <HeroLeaderboard lang={lang} topN={10} />
     </div>
-</section>
 
-<RankedArena lang={lang} />
-
-<MetaSnapshot lang={lang} />
-
-<section class="section feature-section" id="features">
-    <div class="page-shell">
+    <div class="page-shell hero-feature-content">
         <div class="section-heading centered">
             <p class="eyebrow">{copy.features.eyebrow}</p>
             <h2>{copy.features.title}</h2>
@@ -152,7 +155,7 @@ const factionLabel = (faction: string) => localizedFactionName(lang, faction);
                                     <div class="mechanic-factions">
                                         {item.visual.units.map((unit) => (
                                             <span class="mechanic-faction-unit" style={`--faction: ${factionColors[unit.faction]}`}>
-                                                <img src={unit.icon} alt="" width="512" height="512" loading="lazy" />
+                                                <CreaturePortrait slug={unit.slug} name="" />
                                                 <em>{factionLabel(unit.faction)}</em>
                                             </span>
                                         ))}
@@ -182,39 +185,15 @@ const factionLabel = (faction: string) => localizedFactionName(lang, faction);
     </div>
 </section>
 
-<section class="section token-preview">
+<section class="section hero-ladder-band">
     <div class="page-shell">
-        <div class="section-heading">
-            <p class="eyebrow">{copy.token.eyebrow}</p>
-            <h2>{copy.token.title}</h2>
-            <p>{copy.token.body}</p>
-        </div>
-
-        <div class="token-layout">
-            <div class="contract-box">
-                <span>{copy.token.contractLabel}</span>
-                <code>{contractAddress}</code>
-                <div class="token-links compact">
-                    {copy.token.links.map((link) => <a href={link.href} target="_blank" rel="noopener">{link.label}</a>)}
-                </div>
-            </div>
-            <div class="allocation-list">
-                {
-                    copy.token.allocation.map((item) => (
-                        <article class="allocation-item" style={`--bar-value: ${item.value}%`}>
-                            <div class="allocation-title">
-                                <h3>{item.label}</h3>
-                                <strong>{item.value}%</strong>
-                            </div>
-                            <div class="allocation-bar" aria-hidden="true"><span></span></div>
-                            <p>{item.description}</p>
-                        </article>
-                    ))
-                }
-            </div>
-        </div>
+        <HeroLeaderboard lang={lang} topN={10} />
     </div>
 </section>
+
+<RankedArena lang={lang} />
+
+<MetaSnapshot lang={lang} />
 
 <section class="final-cta">
     <div class="page-shell final-cta-inner">

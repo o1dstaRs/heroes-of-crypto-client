@@ -59,7 +59,11 @@ export const FIGHT_EVENT_VFX: Record<GameEvent["type"], FightEventVfx> = {
         ranked: "replay",
         note: "AOE splash + secondary numbers; playReplayAreaThrowAction->performAreaThrow->showSplashDamage. The boulder impact (flash + shockwave ring + dust + rock chips) rides the SAME splash[] through the shared renderAreaImpactVfx, called from showSplashDamage (both sandbox paths) AND ranked's applyAuthoritativeSplashVfx, which runs neither of them. Centre and reach are derived from the splash entries, so the ring stops where the damage did",
     },
-    obstacle_attacked: { rendered: true, ranked: "replay", note: "obstacle hit; playReplayObstacleAttackAction" },
+    obstacle_attacked: {
+        rendered: true,
+        ranked: "replay",
+        note: "obstacle hit; playReplayObstacleAttackAction. Stones tagged source lightning_spin fall on the aimed blow's impact (obstacleImpactEvents), and a spin's unit hits ride damage.secondary on the action's first obstacle_attacked -> showObstacleStrikeUnitDamage, in both the live and replay strike paths",
+    },
     ability_stolen: {
         rendered: true,
         ranked: "replay",
@@ -75,6 +79,9 @@ export const FIGHT_EVENT_VFX: Record<GameEvent["type"], FightEventVfx> = {
             "replay reads record.events, never its local re-run). Offensive fire spells ride it the same " +
             "way via renderSpellDamageVfx off damaged[]: thrown ones sweep embers caster->victim, called-down " +
             "ones just burst, and Ring of Fire instead lays ONE spawnFireRing on event.targetCell (no " +
+            "per-victim sweeps). Lightning Strike is the one called-down spell that does NOT burst in fire: " +
+            "it takes spawnLightningStrike, a white-blue bolt down out of the sky onto the victim, because " +
+            "it is an AIR spell and the amber puff read as Fire Strike (no " +
             "per-victim sweeps — those read as a volley of fire arrows and hid the ring). A Magic Mirror " +
             "rebound (damaged[].rebounded) takes the mirror treatment instead of the fire: " +
             "spawnMagicMirrorRebound draws the glass pane on the holder (damaged[].reboundedFromUnitId) and " +
@@ -153,6 +160,8 @@ export const FIGHT_EVENT_VFX: Record<GameEvent["type"], FightEventVfx> = {
         ranked: "none",
         note: "skip; the stop-icon rides the snapshot `skipping` field (setSkipping), not this event",
     },
+    barrel_placed: { rendered: false, ranked: "none", note: "placement terrain from the authoritative snapshot" },
+    barrel_unplaced: { rendered: false, ranked: "none", note: "placement terrain from the authoritative snapshot" },
     unit_placed: { rendered: false, ranked: "none", note: "placement (board rebuild)" },
     unit_split: { rendered: false, ranked: "none", note: "split (board rebuild)" },
     unit_moved_by_system: { rendered: false, ranked: "none", note: "forced move (narrowing/system); no distinct VFX" },
@@ -195,7 +204,7 @@ export const FIGHT_EVENT_VFX: Record<GameEvent["type"], FightEventVfx> = {
     fire_wall_placed: {
         rendered: true,
         ranked: "snapshot-diff",
-        note: "3 cells catch fire; FireWallLayer reconciles from fightProperties.fireWalls, like smoke",
+        note: "up to 4 cells catch fire (free cells of the line only); FireWallLayer reconciles from fightProperties.fireWalls, like smoke",
     },
     fire_wall_expired: {
         rendered: true,
@@ -204,9 +213,14 @@ export const FIGHT_EVENT_VFX: Record<GameEvent["type"], FightEventVfx> = {
     },
     // The one fire-wall event that is NOT snapshot-driven: a burn happens once, at a moment, so the floating
     // damage number has to ride the event (the store only says which cells are alight, never who they hurt).
+    pyre_exploded: {
+        rendered: true,
+        ranked: "journal",
+        note: "a removed Last Fuse stack detonates into fire, smoke, tumbling flesh, blood and sparks. Each damaged enemy gets a directional blood/ember impact, scorch flash, hit reaction and orange damage number. Chain delays also time the hit reactions. Sandbox plays engine events; ranked and replays consume new journal entries once, without replaying reconnect history",
+    },
     fire_wall_burned: {
         rendered: true,
         ranked: "replay",
-        note: "a creature walked into the flames; pops the damage it took over the crossing",
+        note: "a creature walked (or flew) through the flames: every burning cell flares up as the walk animation reaches it (spawnFireWallCrossing — a low wading burst for a walker, a column leaping up under a flyer), flames cling to the body and gutter out as it moves on (igniteUnit + flashScorch), and the burn number pops where the body leaves the fire. Timed by fireWallCrossingSchedule off the same worldPath the animation walks; every move path (live, replay/ranked records, melee approach) hands its burn to playFireWallCrossingVfx, the bare event case is only the fallback number",
     },
 };

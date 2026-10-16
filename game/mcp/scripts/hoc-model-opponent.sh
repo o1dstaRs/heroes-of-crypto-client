@@ -18,6 +18,7 @@ Usage: $(basename "$0") <command>
 Commands:
   ui        Start the normal browser UI with local model opponent enabled
   play      Play a local headless full game: you vs model opponent
+  vs-a19    Model seat vs the real brutal v0.8 (a19) bot on the local server
   demo      Let the built-in/model loop control both teams for smoke testing
   status    Check whether the model API is reachable and action-choice capable
 
@@ -109,6 +110,18 @@ ui() {
     )
 }
 
+vs_a19() {
+    local server_dir
+    server_dir="$(cd "$CLIENT_DIR/../heroes-of-crypto-server" && pwd)"
+    echo "Model vs brutal a19 on ${HOC_PLAY_BASE_URL:-http://localhost:3001}"
+    echo "Restart the local server first if it was started before the model-actions route existed."
+    (
+        cd "$server_dir"
+        HOC_MODEL_API_BASE="$MODEL_API_BASE" HOC_MODEL_NAME="${HOC_MODEL_NAME:-auto}" \
+            HOC_VS_AI_DIFFICULTY=brutal bun simple_client/model_vs_a19.ts
+    )
+}
+
 demo() {
     (
         cd "$MCP_DIR"
@@ -120,6 +133,7 @@ demo() {
 case "${1:-}" in
     ui) ui ;;
     play) play ;;
+    vs-a19) vs_a19 ;;
     demo)
         shift
         demo "$@"

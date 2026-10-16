@@ -74,6 +74,52 @@ export const legacyBoardChildScaleCompensation = (
 };
 
 /**
+ * How much a world-space vertical extent must be multiplied by to come out SQUARE on screen.
+ *
+ * The board camera is deliberately anisotropic (`PixiScene.fitWorldToViewport` sets scaleX from the full
+ * width between the narrowed sidebars and scaleY from the painted 16-row floor), so at 16:9 a world square
+ * renders roughly 1.4x wider than tall. Cell POSITIONS and cell-area coverage should keep inheriting that
+ * — the board's own cells are drawn wider than tall and effects that blanket a cell must agree with them.
+ * Artwork must not: a drawn thing (a creature, a spell icon, a flame sprite) deforms visibly, which is why
+ * `legacyBoardChildScaleCompensation` exists for units.
+ *
+ * This is the lighter-weight sibling of that helper, for pictures that only need their ASPECT fixed and
+ * must keep the on-screen width they already have — multiply the Y scale by this and a square sprite is
+ * square again. Returns exactly 1 under a uniform camera (unit tests, previews, non-battle scenes), and is
+ * clamped so a mid-resize or a degenerate viewport can never explode a sprite.
+ */
+export const boardVerticalStretch = (inheritedScaleX: number, inheritedScaleY: number): number => {
+    const scaleX = Math.abs(inheritedScaleX);
+    const scaleY = Math.abs(inheritedScaleY);
+    if (!Number.isFinite(scaleX) || !Number.isFinite(scaleY) || scaleX <= 0 || scaleY <= 0) {
+        return 1;
+    }
+    if (Math.abs(scaleX - scaleY) <= Math.max(scaleX, scaleY) * 1e-6) {
+        return 1;
+    }
+    return Math.max(0.75, Math.min(2.5, scaleX / scaleY));
+};
+
+/**
+ * Absolute scale a container inherits from every ancestor, including its own.
+ *
+ * Pixi only refreshes `worldTransform` at render time, but `scale` is a plain property that is current the
+ * moment the camera is fitted, so walking the parent chain is both cheaper and safe to call straight after
+ * attaching a freshly spawned effect.
+ */
+export const inheritedAbsoluteScaleOf = (container: { scale: { x: number; y: number }; parent: unknown } | null) => {
+    let x = 1;
+    let y = 1;
+    let current = container as { scale: { x: number; y: number }; parent: unknown } | null;
+    while (current) {
+        x *= Math.abs(current.scale.x);
+        y *= Math.abs(current.scale.y);
+        current = current.parent as { scale: { x: number; y: number }; parent: unknown } | null;
+    }
+    return { x, y };
+};
+
+/**
  * Compatibility alias for callers that still need a single baseline size. New rendering code must use
  * boardFitWidth/boardFitHeight because the battlefield is intentionally rectangular now.
  */

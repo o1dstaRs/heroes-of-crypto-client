@@ -1,4 +1,5 @@
 import { getDefaultConfig } from "@rainbow-me/rainbowkit";
+import type { Config as WagmiConfig } from "wagmi";
 import { injectedWallet } from "@rainbow-me/rainbowkit/wallets";
 
 import { mainnet } from "wagmi/chains";
@@ -16,7 +17,7 @@ export const normalizeWalletConnectProjectId = (value: string | undefined): stri
     return candidate;
 };
 
-export const createWagmiConfig = (projectId: string | undefined) => {
+export const createWagmiConfig = (projectId: string | undefined): WagmiConfig => {
     const walletConnectProjectId = normalizeWalletConnectProjectId(projectId);
 
     return getDefaultConfig({

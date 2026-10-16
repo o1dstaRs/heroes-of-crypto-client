@@ -6,7 +6,7 @@ import { describe, expect, test } from "bun:test";
 
 import type { GameEvent } from "@heroesofcrypto/common";
 
-import { nextObstacleHits, obstacleStrikePositions } from "./Sandbox";
+import { nextObstacleHits, obstacleImpactEvents, obstacleStrikePositions } from "./Sandbox";
 
 type ObstacleEvent = Extract<GameEvent, { type: "obstacle_attacked" }>;
 
@@ -125,5 +125,46 @@ describe("obstacle strike animation positions", () => {
             doubleHit.targetPosition,
             doubleHit.targetPosition,
         ]);
+    });
+});
+
+// Hydra's Lightning Spin breaks every barrel around her in ONE radial impact. The engine tags those stones
+// source "lightning_spin": they must not each get a lunge of their own, they fall with the blow that set the
+// spin off.
+describe("Lightning Spin tombstones", () => {
+    const aimed = event({ targetPosition: { x: -64, y: 256 }, hitsBefore: 9, hitsAfter: 9 });
+    const spunLeft = event({
+        targetPosition: { x: -192, y: 128 },
+        hitsBefore: 9,
+        hitsAfter: 9,
+        source: "lightning_spin",
+    });
+    const spunAbove = event({
+        targetPosition: { x: -128, y: 384 },
+        hitsBefore: 9,
+        hitsAfter: 9,
+        source: "lightning_spin",
+    });
+
+    test("a spun stone adds no strike: one lunge for the aimed barrel", () => {
+        expect(obstacleStrikePositions([aimed, spunLeft, spunAbove], { x: 0, y: 0 })).toEqual([aimed.targetPosition]);
+    });
+
+    test("the spun stones land on the aimed blow's impact", () => {
+        expect(obstacleImpactEvents([aimed, spunLeft, spunAbove])).toEqual([[aimed, spunLeft, spunAbove]]);
+    });
+
+    test("a pierce keeps its own second impact and the spin still rides the first", () => {
+        const pierced = event({ targetPosition: { x: 64, y: 256 }, hitsBefore: 9, hitsAfter: 9 });
+        expect(obstacleImpactEvents([aimed, pierced, spunLeft])).toEqual([[aimed, spunLeft], [pierced]]);
+        expect(obstacleStrikePositions([aimed, pierced, spunLeft], { x: 0, y: 0 })).toEqual([
+            aimed.targetPosition,
+            pierced.targetPosition,
+        ]);
+    });
+
+    test("stones a unit strike's spin broke form a single impact of their own", () => {
+        expect(obstacleImpactEvents([spunLeft, spunAbove])).toEqual([[spunLeft, spunAbove]]);
+        expect(obstacleImpactEvents([])).toEqual([]);
     });
 });

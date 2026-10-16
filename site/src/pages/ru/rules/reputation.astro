@@ -1,0 +1,12 @@
+---
+import ReputationRulesPage from "../../../components/ReputationRulesPage.astro";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { content } from "../../../lib/site-data";
+
+const lang = "ru";
+const copy = content[lang].reputationRules;
+---
+
+<BaseLayout lang={lang} title={copy.title} description={copy.description}>
+    <ReputationRulesPage lang={lang} />
+</BaseLayout>

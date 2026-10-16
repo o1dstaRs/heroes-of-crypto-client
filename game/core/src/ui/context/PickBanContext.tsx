@@ -96,6 +96,21 @@ export const PickBanEventProvider: React.FC<{
             debug: !IS_PROD ? false : false,
         });
 
+        /**
+         * An OPEN stream is a connected stream.
+         *
+         * isConnected only flipped on a decoded pick frame, and a draft is quiet between picks — the
+         * heartbeats that keep it alive are SSE comments, which the parser drops. So a reconnect into a
+         * thinking opponent read as "never connected", and twelve seconds later the stall watch handed the
+         * player the read-only observer view of their own draft (owner, 20 Sep). onopen fires only on a real
+         * 200: a draft genuinely open in another tab answers 429 and never reaches here, so that signal —
+         * the one the read-only view exists for — still works.
+         */
+        eventSource.onopen = () => {
+            setIsConnected(true);
+            setError(null);
+        };
+
         eventSource.onmessage = (event: IPickPhaseEventData) => {
             setEvents((prevEvents) => [...prevEvents, event]);
             setIsConnected(true);

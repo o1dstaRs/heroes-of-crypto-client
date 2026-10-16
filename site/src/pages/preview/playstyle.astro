@@ -1,0 +1,35 @@
+---
+import "../../../../game/core/src/ui/PlayerPlaystyle/playerPlaystyle.css";
+import { buildMockPlayerMetrics } from "../../../../game/core/src/ui/PlayerPlaystyle/mockPlayerMetrics";
+import { renderPlayerPlaystyle } from "../../../../game/core/src/ui/PlayerPlaystyle/renderPlayerPlaystyle";
+---
+<!doctype html>
+<html lang="en">
+    <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><meta name="robots" content="noindex,nofollow" /><title>Playstyle preview · Heroes of Crypto</title></head>
+    <body>
+        <main>
+            <header><a href="/">HEROES OF CRYPTO</a><span class="mock-label">MOCK DATA · DESIGN PREVIEW</span></header>
+            <div class="preview-heading"><div><p class="eyebrow">COMMANDER DOSSIER</p><h1>Playstyle</h1><p class="intro">Your army identity. Your decisions on the battlefield.</p></div></div>
+            <nav aria-label="Preview settings"><label>Player style<select id="preset"><option value="adaptive">Adaptive commander</option><option value="ranged">Ranged specialist</option><option value="magic">Magic & support</option><option value="new">New player · 3 recorded games</option></select></label><label>Profile layout<select id="layout"><option value="public">Public profile</option><option value="arena">Arena sidebar</option></select></label><label>Language<select id="language"><option value="en">English</option><option value="ru">Русский</option></select></label></nav>
+            <article id="profile-card"><div class="card-heading"><div><p class="eyebrow">ARTEMIS</p><h2 id="card-title">Playstyle</h2></div><span class="season-tag">RANKED</span></div><div id="metrics" aria-live="polite" set:html={renderPlayerPlaystyle(buildMockPlayerMetrics())}></div></article>
+        </main>
+        <script>
+            import { buildMockPlayerMetrics, type MockPlaystyle } from "../../../../game/core/src/ui/PlayerPlaystyle/mockPlayerMetrics";
+            import { renderPlayerPlaystyle } from "../../../../game/core/src/ui/PlayerPlaystyle/renderPlayerPlaystyle";
+            const preset = document.querySelector<HTMLSelectElement>("#preset")!;
+            const layout = document.querySelector<HTMLSelectElement>("#layout")!;
+            const language = document.querySelector<HTMLSelectElement>("#language")!;
+            const card = document.querySelector<HTMLElement>("#profile-card")!;
+            function update() {
+                card.classList.toggle("arena", layout.value === "arena");
+                document.documentElement.lang = language.value;
+                document.querySelector("#card-title")!.textContent = language.value === "ru" ? "Стиль игры" : "Playstyle";
+                document.querySelector("#metrics")!.innerHTML = renderPlayerPlaystyle(buildMockPlayerMetrics(preset.value as MockPlaystyle), language.value);
+            }
+            for (const control of [preset, layout, language]) control.addEventListener("change", update);
+        </script>
+    </body>
+</html>
+<style>
+    :global(*){box-sizing:border-box} :global(body){margin:0;background:#100e0c;color:#efe4cc;font-family:Arial,sans-serif;background-image:radial-gradient(ellipse at 15% 0%,#3c281740,transparent 60%)}main{max-width:1050px;margin:auto;padding:32px 28px 60px}header{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:48px}header a{color:#edbd69;text-decoration:none;font-size:12px;letter-spacing:.16em;font-weight:600}.mock-label{font-size:10px;letter-spacing:.09em;color:#b5aa98}.eyebrow{font-size:11px;color:#edbd69;letter-spacing:.16em;margin:0 0 10px}h1{font-family:Georgia,serif;font-size:42px;font-weight:400;margin:0}.intro{color:#b5aa98;font-size:14px;margin:14px 0 28px}nav{display:flex;flex-wrap:wrap;gap:16px;margin-bottom:24px}nav label{display:grid;gap:8px;font-size:11px;color:#b5aa98}select{background:#211b15;color:#efe4cc;border:1px solid #51412e;border-radius:6px;font-size:13px;padding:10px 30px 10px 12px;min-height:40px}select:focus-visible{outline:2px solid #edbd69;outline-offset:3px}article{background:linear-gradient(135deg,#211a13,#151210 60%);border:1px solid #604327;border-radius:16px;padding:28px;max-width:100%;box-shadow:0 18px 60px #0003}article.arena{max-width:420px;padding:22px}.card-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:24px;padding-bottom:22px;border-bottom:1px solid #efe4cc16}.card-heading h2{font-family:Georgia,serif;font-size:26px;font-weight:400;margin:0}.season-tag{font-size:10px;letter-spacing:.12em;color:#b5aa98}@media(max-width:500px){main{padding:20px 16px}header{align-items:flex-start;flex-direction:column;margin-bottom:32px}article{padding:20px}h1{font-size:34px}nav{gap:12px}nav label{flex:1;min-width:140px}select{width:100%}}
+</style>

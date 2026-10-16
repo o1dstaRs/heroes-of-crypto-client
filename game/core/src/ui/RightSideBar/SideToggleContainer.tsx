@@ -1,11 +1,14 @@
+import { PremiumContext } from "../premium/PremiumAdvisor";
+import { PremiumIcon } from "../PremiumIcon";
 import { Augment, HoCConstants, TeamType, FactionType } from "@heroesofcrypto/common";
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { Sheet, Box, Radio, Tooltip, Typography } from "@mui/joy";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { t, tf, useTranslation } from "../../i18n/i18n";
 import { hocFantasyRadioSx } from "../hocTheme";
 import { ArtifactToggler } from "./ArtifactToggler";
 import { AugmentSelections, remainingAugmentPoints } from "./augmentSelectionState";
+import { AUGMENT_DESCRIPTIONS } from "./augmentLabels";
 const augmentBoardImg = new URL("../../../images/board_augment_256.webp", import.meta.url).toString();
 const augmentArmorImg = new URL("../../../images/armor_augment_256.webp", import.meta.url).toString();
 const augmentMightImg = new URL("../../../images/might_augment_256.webp", import.meta.url).toString();
@@ -13,15 +16,6 @@ const augmentEmpowerImg = new URL("../../../images/empower_augment_256.webp", im
 const augmentSniperImg = new URL("../../../images/sniper_augment_256.webp", import.meta.url).toString();
 const augmentMovementImg = new URL("../../../images/movement_augment_256.webp", import.meta.url).toString();
 type AugmentCardOption = { value: number; label: string };
-
-const AUGMENT_DESCRIPTIONS: Record<Augment.AugmentType["type"], string> = {
-    Placement: "Expands the deployment zone before battle.",
-    Armor: "Raises physical Armor and adds flat Magic Armor to every unit.",
-    Might: "Increases every unit's melee attack damage.",
-    Empower: "Increases magic damage from spells, abilities and effects.",
-    Sniper: "Increases ranged attack damage and effective shooting range.",
-    Movement: "Adds movement steps to every unit.",
-};
 
 const PlacementMiniBoard: React.FC<{
     rows: number;
@@ -127,6 +121,8 @@ const AugmentCard = ({
 }) => {
     const manager = usePixiManager();
     const selected = currentSelection ?? 0;
+    const premium = useContext(PremiumContext);
+    const recommended = premium?.augments?.find((choice) => choice.kind === kind)?.value;
 
     const select = (value: number) => {
         if (manager.PropagateAugmentation(teamType, { type: kind, value } as Augment.AugmentType)) {
@@ -255,7 +251,15 @@ const AugmentCard = ({
                         <Box
                             key={option.value}
                             component="label"
+                            title={
+                                option.value === recommended
+                                    ? "Premium recommended level for your army and visible opponent roster"
+                                    : undefined
+                            }
+                            data-premium-recommended={option.value === recommended || undefined}
                             sx={{
+                                outline: option.value === recommended ? "2px solid #d77429" : undefined,
+                                outlineOffset: "-2px",
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "space-between",
@@ -276,7 +280,10 @@ const AugmentCard = ({
                                 ...hocFantasyRadioSx,
                             }}
                         >
-                            <span>{option.label}</span>
+                            <span>
+                                {option.value === recommended && <PremiumIcon size={16} style={{ marginRight: 5 }} />}
+                                {option.label}
+                            </span>
                             <Radio
                                 name={`augment-${kind}`}
                                 value={option.value}
@@ -314,6 +321,7 @@ const SideToggleContainer = ({
     // Ranked snapshots own the committed build. Rehydrate from it so a refresh/remount does not show a
     // blank picker with a full budget while the server is still enforcing the already-spent points.
     authoritativeSelections,
+    draftLayout = false,
 }: {
     side: string;
     teamType: TeamType;
@@ -322,6 +330,7 @@ const SideToggleContainer = ({
     budgetPoints?: number;
     onReadyChange?: (state: { pointsRemaining: number; allSynergiesSelected: boolean }) => void;
     authoritativeSelections?: AugmentSelections;
+    draftLayout?: boolean;
 }) => {
     useTranslation();
     const authoritativePlacement = authoritativeSelections?.placement;
@@ -533,7 +542,9 @@ const SideToggleContainer = ({
             <Box
                 sx={{
                     display: "grid",
-                    gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(3, minmax(0, 1fr))" },
+                    gridTemplateColumns: draftLayout
+                        ? "repeat(3, minmax(0, 1fr))"
+                        : { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(3, minmax(0, 1fr))" },
                     gap: "10px",
                     width: "100%",
                     height: "100%",

@@ -1,0 +1,43 @@
+{
+  "output": "marketing/x/generated/2026-10-14_pin_who_moves_first.png",
+  "format": "PNG",
+  "size": [
+    1600,
+    900
+  ],
+  "source": "site/public/assets/images/units/portraits/cyclops_portrait_full.9c6bea6c.webp",
+  "source_sha256_before": "9c6bea6cf9ed3d8328a254042e1e3cd4c9b611dea3939c447d51390b25568e0f",
+  "source_sha256_after": "9c6bea6cf9ed3d8328a254042e1e3cd4c9b611dea3939c447d51390b25568e0f",
+  "source_file_unchanged": true,
+  "source_alpha_bbox": [
+    116,
+    126,
+    913,
+    1487
+  ],
+  "removed_padding": "Fully transparent pixels outside the alpha bounding box only.",
+  "unit_size": [
+    476,
+    812
+  ],
+  "unit_placement": [
+    202,
+    44
+  ],
+  "unit_resampling": "Pillow NEAREST; proportional fit; no color interpolation.",
+  "fully_opaque_pixels_checked": 197151,
+  "opaque_mismatches_vs_scaled_source": 0,
+  "opaque_mismatches_vs_original_source_samples": 0,
+  "max_opaque_rgb_channel_difference": 0,
+  "unit_fully_inside_canvas_and_left_55_percent": true,
+  "no_recolor_retouch_redraw_mirror_or_overlays_on_unit": true,
+  "copy": [
+    "Who moves first",
+    "decides the fight.",
+    "PvP tactics in the browser."
+  ],
+  "headline_font": "Georgia Regular",
+  "caption_font": "Helvetica Neue Regular",
+  "background": "Built-in imagegen; environment only; resized to canvas with Pillow LANCZOS.",
+  "verification_method": "Reopen the final PNG; compare RGB at every scaled-source alpha=255 pixel. Independently map those pixels to original WebP coordinates using nearest-neighbor sample centers and compare RGB byte-for-byte. Hash the source before and after. The source is downsampled to fit; not every full-resolution source pixel appears."
+}

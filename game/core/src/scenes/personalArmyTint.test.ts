@@ -7,6 +7,7 @@ import {
     clearPersonalArmyTint,
     personalArmyFlagGradient,
     personalArmyPresetFor,
+    personalArmyTintSeat,
     refreshPersonalArmyTint,
     setPersonalArmyTint,
 } from "./personalArmyTint";
@@ -32,6 +33,31 @@ const store = new Map<string, string>();
 afterEach(() => {
     clearPersonalArmyTint();
     writePlayerArmyColorId(TEAM_DEFAULT_ARMY_COLOR_ID);
+});
+
+describe("which seat the tint follows", () => {
+    // A co-op sandbox is one table: the player usually clashes both armies without inviting anybody, so
+    // painting "the opponent" red recoloured a side that is also theirs. Sandboxes keep green vs red
+    // (owner 2026-09-18: "weird that in sandbox right side takes my selected color ... not inviting opponent").
+    test("a sandbox keeps the canonical team colours, however the seat is filled", () => {
+        expect(personalArmyTintSeat(TeamVals.RIGHT, true)).toBeUndefined();
+        expect(personalArmyTintSeat(TeamVals.LEFT, true)).toBeUndefined();
+        expect(personalArmyTintSeat(undefined, true)).toBeUndefined();
+    });
+
+    test("a real match still follows the viewer's own seat", () => {
+        expect(personalArmyTintSeat(TeamVals.RIGHT, false)).toBe(TeamVals.RIGHT);
+        expect(personalArmyTintSeat(TeamVals.LEFT, false)).toBe(TeamVals.LEFT);
+        expect(personalArmyTintSeat(undefined, false)).toBeUndefined();
+    });
+
+    test("a sandbox seat armed through the store paints nothing", () => {
+        writePlayerArmyColorId(AMETHYST.id);
+        setPersonalArmyTint(personalArmyTintSeat(TeamVals.RIGHT, true), true);
+
+        expect(personalArmyPresetFor(TeamVals.LEFT)).toBeUndefined();
+        expect(personalArmyPresetFor(TeamVals.RIGHT)).toBeUndefined();
+    });
 });
 
 describe("personal army tint", () => {

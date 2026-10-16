@@ -1,7 +1,9 @@
-import { Button, Divider, Input, Sheet, Stack, Tab, TabList, TabPanel, Tabs, Typography } from "@mui/joy";
+import CasinoRoundedIcon from "@mui/icons-material/CasinoRounded";
+import { Button, Input, Sheet, Stack, Tab, TabList, TabPanel, Tabs, Typography } from "@mui/joy";
 import React, { useCallback, useEffect, useState } from "react";
 
 import {
+    eligiblePredictionMarkets,
     fetchMyPredictionBets,
     fetchPredictionMarkets,
     placePredictionBet,
@@ -13,11 +15,12 @@ import {
 } from "../../api/social_client";
 import { fetchRankedStanding } from "../../api/social_client";
 import { t, tf } from "../../i18n/i18n";
+import { useAuthContext } from "../auth/context/auth_context";
 import { CurrencyIcon } from "../GoldCurrencyIcon";
 import { hocColors, hocInputSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "../hocTheme";
 import { useRankedSeason } from "../useRankedSeason";
 import { startVisibleInterval } from "../visibleInterval";
-import { DockPanelCloseButton, DockPanelShell } from "./DockPanelShell";
+import { DockPanelHeader, DockPanelShell } from "./DockPanelShell";
 
 /**
  * In-game prediction tray: the markets you can still bet on, and everything you have bet already.
@@ -38,7 +41,7 @@ const statusLabel = (status: PredictionBet["status"]): string =>
         open: t("In play"),
         won: t("Won"),
         lost: t("Lost"),
-        burned: t("Burned"),
+        burned: t("Forfeited"),
         refunded: t("Refunded"),
     })[status];
 
@@ -60,16 +63,21 @@ export const PredictionsPanel: React.FC<PredictionsPanelProps> = ({ open, onClos
     const [armedSide, setArmedSide] = useState("");
     const [amount, setAmount] = useState("");
 
+    // The same eligibility the portal card applies: a player's own draft is never offered (the server refuses
+    // it anyway), matched by the auth payload's username and current game.
+    const { user } = useAuthContext();
+    const viewerUsername = user?.username;
+    const viewerGameId = user?.in_game_id;
     const reload = useCallback(async (): Promise<void> => {
         const [nextMarkets, nextBets, standing] = await Promise.all([
             fetchPredictionMarkets().catch(() => [] as PredictionMarket[]),
             fetchMyPredictionBets().catch(() => [] as PredictionBet[]),
             fetchRankedStanding().catch(() => null),
         ]);
-        setMarkets(nextMarkets);
+        setMarkets(eligiblePredictionMarkets(nextMarkets, { gameId: viewerGameId, username: viewerUsername }));
         setBets(nextBets);
         setGold(standing?.gold ?? 0);
-    }, []);
+    }, [viewerGameId, viewerUsername]);
 
     useEffect(() => {
         if (!open) {
@@ -108,6 +116,8 @@ export const PredictionsPanel: React.FC<PredictionsPanelProps> = ({ open, onClos
             await reload();
         } catch (err) {
             setError(socialErrorMessage(err, t("Could not place the prediction")));
+            // A rejection is final (draft over, already predicted, purse moved): re-read the books.
+            void reload();
         } finally {
             setBusy(false);
         }
@@ -124,7 +134,7 @@ export const PredictionsPanel: React.FC<PredictionsPanelProps> = ({ open, onClos
             <Sheet key={market.gameId} variant="outlined" sx={{ ...hocPanelSx, p: 1.25, mb: 1 }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="baseline" sx={{ mb: 0.5 }}>
                     <Typography level="body-xs" sx={{ color: hocColors.muted }}>
-                        {tf("{amount} {symbol} · {count} bets", {
+                        {tf("{amount} {symbol} · {count} predictions", {
                             amount: market.totalPool,
                             count: market.totalBets,
                             symbol: currency.symbol,
@@ -167,7 +177,7 @@ export const PredictionsPanel: React.FC<PredictionsPanelProps> = ({ open, onClos
 
                 {mine ? (
                     <Typography level="body-xs" sx={{ color: hocColors.gold, mt: 0.75 }}>
-                        {t("Your bet")}: {mine.amount} {currency.symbol}
+                        {t("Your prediction")}: {mine.amount} {currency.symbol}
                     </Typography>
                 ) : armed ? (
                     <Stack spacing={0.75} sx={{ mt: 0.75 }}>
@@ -176,7 +186,7 @@ export const PredictionsPanel: React.FC<PredictionsPanelProps> = ({ open, onClos
                                 size="sm"
                                 type="number"
                                 slotProps={{ input: { min: 1, step: 1 } }}
-                                placeholder={tf("{currency} to stake", { currency: t(currency.name) })}
+                                placeholder={tf("{currency} to predict", { currency: t(currency.name) })}
                                 value={amount}
                                 onChange={(event) => setAmount(event.target.value)}
                                 sx={{ ...hocInputSx, flex: 1 }}
@@ -188,7 +198,7 @@ export const PredictionsPanel: React.FC<PredictionsPanelProps> = ({ open, onClos
                                 disabled={busy || stake < 1 || stake > gold}
                                 onClick={() => void submit(market)}
                             >
-                                {busy ? t("Placing…") : t("Place bet")}
+                                {busy ? t("Placing…") : t("Predict")}
                             </Button>
                         </Stack>
                         {stake > 0 && chosen && (
@@ -231,22 +241,23 @@ export const PredictionsPanel: React.FC<PredictionsPanelProps> = ({ open, onClos
     };
 
     return (
-        <DockPanelShell open={open} onClose={onClose} width={520}>
-            <Stack direction="row" justifyContent="space-between" alignItems="baseline">
-                <Typography level="title-lg" sx={{ color: hocColors.gold }}>
-                    {t("Predictions")}
-                </Typography>
-                <Typography
-                    level="body-sm"
-                    sx={{ display: "inline-flex", alignItems: "center", gap: 0.4, color: hocColors.gold }}
-                    title={`${t(currency.name)} (${currency.symbol})`}
-                >
-                    <CurrencyIcon iconSvg={currency.iconSvg} size={15} /> {gold} {currency.symbol}
-                </Typography>
-            </Stack>
-            <Typography level="body-xs" sx={{ color: hocColors.muted }}>
-                {t("Back a side while a game is still drafting. One bet per game, final once placed.")}
-            </Typography>
+        <DockPanelShell open={open} onClose={onClose} width={520} anchorOffset={146}>
+            <DockPanelHeader
+                title={t("Predictions")}
+                subtitle={t("Back a side while a game is still drafting. One prediction per game, final once made.")}
+                leading={<CasinoRoundedIcon sx={{ color: hocColors.gold, fontSize: 21 }} />}
+                action={
+                    <Typography
+                        level="body-sm"
+                        sx={{ display: "inline-flex", alignItems: "center", gap: 0.4, color: hocColors.gold }}
+                        title={`${t(currency.name)} (${currency.symbol})`}
+                    >
+                        <CurrencyIcon iconSvg={currency.iconSvg} size={15} />{" "}
+                        {tf("Available: {amount} {symbol}", { amount: gold, symbol: currency.symbol })}
+                    </Typography>
+                }
+                onClose={onClose}
+            />
 
             <Tabs defaultValue={0} sx={{ bgcolor: "transparent", mt: 0.5 }}>
                 <TabList sx={{ bgcolor: "transparent" }}>
@@ -273,7 +284,7 @@ export const PredictionsPanel: React.FC<PredictionsPanelProps> = ({ open, onClos
                 <TabPanel value={1} sx={{ px: 0, maxHeight: "52vh", overflowY: "auto" }}>
                     {openBets.length === 0 ? (
                         <Typography level="body-sm" sx={{ color: hocColors.muted }}>
-                            {t("No bets in play.")}
+                            {t("No predictions in play.")}
                         </Typography>
                     ) : (
                         openBets.map(renderBet)
@@ -290,9 +301,6 @@ export const PredictionsPanel: React.FC<PredictionsPanelProps> = ({ open, onClos
                     )}
                 </TabPanel>
             </Tabs>
-
-            <Divider sx={{ my: 0.5 }} />
-            <DockPanelCloseButton onClose={onClose} />
         </DockPanelShell>
     );
 };

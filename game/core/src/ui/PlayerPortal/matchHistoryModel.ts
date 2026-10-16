@@ -1,5 +1,6 @@
 import { PortalMatchKind, type ResponsePlayerPortalObject } from "@heroesofcrypto/common";
 import { siteUrlBase } from "../../api/site_origin";
+import { casualtyPercent } from "../exitRules/exitRulesModel";
 
 type PortalMatchBase = NonNullable<ResponsePlayerPortalObject["recent_matches"]>[number];
 
@@ -62,6 +63,10 @@ export type PortalMatchData = PortalMatchBase & {
     gold_earned?: number;
     opponent_player_id?: string;
     outcome_reason?: string;
+    // Exit rules: the board casualties when an early ending resolved, and who left ("player", "opponent", "both").
+    exit_recorded?: boolean;
+    exit_casualty_bp?: number;
+    exit_leaver?: string;
     /** Dev-preview enrichment; live history resolves the opponent's current public standing on demand. */
     opponent_mmr?: number;
     opponent_standing_title?: string;
@@ -73,7 +78,10 @@ export type MatchResultTone = "draw" | "loss" | "win";
 
 export interface MatchResultPresentation {
     detail: string;
-    label: "Defeat" | "Draw" | "Victory";
+    // Slots for a detail template ("You abandoned at {pct}% casualties"); render with tf.
+    detailParams?: Record<string, number>;
+    // "Unscored" / "Voided": an early exit or a server problem left the match without a result (exit rules).
+    label: "Defeat" | "Draw" | "Victory" | "Unscored" | "Voided";
     tone: MatchResultTone;
 }
 
@@ -148,16 +156,50 @@ export const normalizeMatchSetup = (setup: PortalMatchSetupData | undefined): Ma
     };
 };
 
-export const matchResultPresentation = (match: PortalMatchData): MatchResultPresentation => {
-    const detail = match.abandoned ? (match.player_abandoned ? "You left" : "Opponent left") : "";
-    if (match.draw) {
-        return { detail, label: "Draw", tone: "draw" };
-    }
-    return match.won ? { detail, label: "Victory", tone: "win" } : { detail, label: "Defeat", tone: "loss" };
+// The same details with the board casualties the exit resolved at, when the result recorded them.
+const DETAIL_WITH_CASUALTIES: Record<string, string> = {
+    "You abandoned": "You abandoned at {pct}% casualties",
+    "Opponent abandoned": "Opponent abandoned at {pct}% casualties",
+    "You conceded": "You conceded at {pct}% casualties",
+    "Opponent conceded": "Opponent conceded at {pct}% casualties",
 };
 
+export const matchResultPresentation = (match: PortalMatchData): MatchResultPresentation => {
+    const reason = match.outcome_reason ?? "";
+    const exitParams = match.exit_recorded ? { pct: casualtyPercent(match.exit_casualty_bp ?? 0) } : undefined;
+    if (reason === "void") {
+        return { detail: "Server problem, match voided", label: "Voided", tone: "draw" };
+    }
+    if (reason === "unscored") {
+        if (exitParams && (match.exit_leaver === "player" || match.exit_leaver === "opponent")) {
+            const detail =
+                match.exit_leaver === "player"
+                    ? "You left at {pct}% casualties, so the match is unscored"
+                    : "Your opponent left at {pct}% casualties, so the match is unscored";
+            return { detail, detailParams: exitParams, label: "Unscored", tone: "draw" };
+        }
+        return { detail: "An early exit left this match unscored", label: "Unscored", tone: "draw" };
+    }
+    let detail = match.abandoned ? (match.player_abandoned ? "You left" : "Opponent left") : "";
+    if (reason === "abandon") {
+        detail = match.won ? "Opponent abandoned" : "You abandoned";
+    } else if (reason === "concede" && !match.abandoned && !match.draw) {
+        detail = match.won ? "Opponent conceded" : "You conceded";
+    }
+    const withCasualties = exitParams ? DETAIL_WITH_CASUALTIES[detail] : undefined;
+    const shown = withCasualties ? { detail: withCasualties, detailParams: exitParams } : { detail };
+    if (match.draw) {
+        return { ...shown, label: "Draw", tone: "draw" };
+    }
+    return match.won ? { ...shown, label: "Victory", tone: "win" } : { ...shown, label: "Defeat", tone: "loss" };
+};
+
+// No "concede" entry: under the exit rules a Concede counts toward calibration, and the history row can't tell a
+// concede settled before the rules from one settled after them.
 const CALIBRATION_MISS_DETAIL: Record<string, string> = {
-    concede: "Didn't count toward calibration — a player conceded",
+    abandon: "Didn't count toward calibration — the opponent abandoned",
+    unscored: "Didn't count — an early exit left the match unscored",
+    void: "Didn't count — the match was voided",
     disconnect: "Didn't count toward calibration — a player disconnected",
     double_disconnect: "Didn't count toward calibration — both players disconnected",
     cancel: "Didn't count toward calibration — cancelled before it started",

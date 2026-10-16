@@ -70,9 +70,9 @@ Peers push to these branches continuously, so "it was current when I started" is
 finish. Skipping this produces a non-fast-forward rejection at best, and at worst a deploy built from code
 that is already behind what the PR claims.
 
-**Resolve conflicts per HUNK, not per file.** `git checkout --theirs <file>` replaces the *entire* file and
+**Resolve conflicts per HUNK, not per file.** `git checkout --theirs <file>` replaces the _entire_ file and
 silently discards your unrelated edits elsewhere in it. Prefer `git merge -X theirs` (or `-X ours`), which
-only decides the *conflicting* hunks and keeps both sides' untouched work, or edit the conflict markers by
+only decides the _conflicting_ hunks and keeps both sides' untouched work, or edit the conflict markers by
 hand. After resolving, verify both sides survived — grep for a symbol you added and one the other side
 added — rather than assuming the merge kept them.
 
@@ -136,12 +136,38 @@ refresh (vite serves common via the `src` alias).
 
 ## Conventions
 
+- **No per-user absolute paths in tracked files.** Never commit `/Users/<name>/…`, `~`, npx-cache
+  module paths, or sibling repos referenced by absolute path — in code, scripts, docs, or env
+  examples. They only work on one machine and leak the owner's username.
+    - Env-var examples in docs use `"$HOME/Google Drive/…"` — `$HOME` expands inside double quotes;
+      a quoted `"~/…"` stays literal and nothing downstream expands it (see `assetLocations.ts`).
+    - Sibling repos (e.g. `../heroes-of-crypto-server`) are resolved relative to the importing file
+      or via an env override (`HOC_SERVER_LOC`, `PLAYWRIGHT_LOC`), never hard-coded.
+    - One-off local convenience paths belong in your shell profile or an untracked `.env`, not the repo.
 - `RenderableUnit.fromBase()` uses `Object.setPrototypeOf` — class field defaults don't run. Always explicitly initialize new fields in `fromBase()` or they'll be `undefined`.
 - World root has `scale.y = -1` (y-up). All world-space graphics/text must account for the flip.
+- A seated player can see the board mirrored left-to-right (settings → "Your side of the battlefield";
+  `pixi/boardMirror.ts`). World-space text and other glyphs that are read rather than looked at take their x
+  scale from `glyphScaleX()` (or `keepGlyphRowUpright()` for an icon-and-number row), and code comparing a
+  unit's facing with screen-space bounds uses `screenFacing()`. Otherwise the text renders backwards.
 - Pixi z-index: terrain ~20, gameplay graphics ~55, units ~4000 (sorted by Y), overlays ~5500+.
+- **A visible frame must begin and end with an empty Pixi filter stack.** Keep `PixiApp` rendering behind
+  `renderWithFilterRecovery`, including recovery before the draw and in `finally`. Catching a render error
+  alone leaves filter bounds active and shifts units/obstacles away from the floor on later frames. Do not
+  reset the stack inside a valid nested render, or return stale/popped filter textures still leased by Text.
+  Changes to Pixi versions, filters, texture lifetime, or render entry points must pass
+  `recoverInterruptedFilters.test.ts` and `PixiApp.lifecycle.test.ts`; both run in the existing core CI suite.
 - The `@heroesofcrypto/common` submodule tracks `main`. Run `git submodule update --remote` to pull latest.
+- **No two tracked paths may differ only by letter case** (`ui/liveMatchBanner.ts` next to `ui/LiveMatchBanner.tsx`).
+  macOS and Windows see one path, so bun and Vite resolve whichever they find first and Vite caches it until
+  restarted, while Linux CI stays green. `bun run check:case` (part of `bun run check`) fails on any such pair.
 
 ## AI tournament analyser
+
+Placement research has an explicit [promotion gate](game/heroes-of-crypto-common/docs/placement_research_promotion.md).
+Negative or inconclusive explorations stay outside shipped profiles. Extra early attacks, a favorable matchup,
+or a positive subgroup cannot replace a fully funded gain against both current behavior and a matched free
+formation, followed by fresh held-out confirmation. Keep `placement_research_isolation.test.ts` passing.
 
 Benchmarks the versioned AI (`common/src/ai`: `v0.1`/`v0.2`/`v0.3`) in headless mirrored battles.
 Run from `game/heroes-of-crypto-common`:
@@ -184,6 +210,48 @@ under `.claude/skills/heroes-e2e`; `.agents/skills/heroes-e2e` is a relative sym
   task explicitly requests a versioned fixture. Keep normal run output outside Git and attach review
   artifacts to the PR or issue.
 
+## ElevenLabs MCP
+
+Hosted connector for voice, music, image, and video. US account endpoint only:
+
+`https://api.us.elevenlabs.io/v1/mcp`
+
+This is user config (`~/.codex/config.toml` or `~/.grok/config.toml`), not a file in this repo. Sign-in is OAuth. Do not put an API key in the server block, and do not add `oauth_client_id` or scopes by hand.
+
+Do not open the connector URL in a browser. A GET returns `405 Method Not Allowed`; the client must POST. Do not open `https://elevenlabs.io/app/oauth/authorize` by itself either. That page rejects a request missing `client_id`, `redirect_uri`, `scope`, and `state`. The only usable consent link is the one the login command or the TUI prints.
+
+### Codex
+
+```bash
+codex mcp remove elevenlabs
+codex mcp add elevenlabs --url https://api.us.elevenlabs.io/v1/mcp
+codex mcp login elevenlabs
+```
+
+`codex mcp login` opens the browser. Approve the ElevenLabs page. That completes sign-in.
+
+### Grok
+
+Grok has no `mcp login` subcommand. Reset the server the same way, then sign in inside a session:
+
+```bash
+grok mcp remove elevenlabs
+grok mcp add elevenlabs https://api.us.elevenlabs.io/v1/mcp
+```
+
+A bare `https://` URL is stored as HTTP. Do not pass `--transport stdio`.
+
+Then, in the Grok session that should call the tools:
+
+1. Run `/mcps`.
+2. Select **elevenlabs**. Press `r` if the list still shows the server from before the reset.
+3. Press `i`.
+4. Approve the page Grok opens. Use only a link Grok prints that starts with `Open this URL in your browser to approve:`.
+
+`grok mcp doctor elevenlabs` does not sign you in. Outside the TUI it stops at "OAuth authorization required". Headless `grok -p` cannot finish this login. After consent, tokens are in `~/.grok/mcp_credentials.json` (owner-only, mode `0600`). A missing file means this session is not signed in, even when `grok mcp list` shows the URL. Never commit that file or paste it into chat.
+
+A session that was already open when the server was re-added does not see it until `/mcps` → `r`, or until a new session starts.
+
 ## Parallel agents / mainline workflow
 
 Multiple agents run on this repo **at the same time**. Rules:
@@ -202,13 +270,36 @@ Multiple agents run on this repo **at the same time**. Rules:
 
 ## Game image assets
 
-- Runtime game images are canonical only in the Google Drive directory referenced by HOC_IMAGES_LOC
-  (normally ~/Google Drive/My Drive/heroesofcrypto/images). Animation atlases and metadata are canonical only
-  under HOC_ANIMATIONS_LOC/output (normally ~/Google Drive/My Drive/heroesofcrypto/animations/output). Never add
-  game art to game/core/public or another tracked game directory.
-- Store static game images as compressed WebP files in the images Google Drive folder; store animation atlas
-  WebPs and *_meta.json files in the animations Google Drive output folder. Every image in the static images
-  folder must be a valid WebP no larger than 120,000 bytes, including atlas-named files. Run
+- For any AI redraw or regeneration of a transparent game cutout (including battlefield creature figures),
+  generate the artwork first on a flat, fully opaque chroma-key green background (`#00FF00`). Remove that
+  green with edge-aware alpha reconstruction, then apply a final green de-spill. Never use a checkerboard,
+  white, gray, or transparency-looking baked background as the extraction source; reject and regenerate an
+  output that contains one. Before replacing a canonical asset, inspect the cutout on a dark background and
+  verify that no green spill or unwanted light/dark matte remains around the contour.
+- Creature balance, abilities, levels, factions, names, and roster changes must not alter existing portrait
+  sources, framing, mirroring, or backgrounds. Change creature portraits only when the user explicitly requests
+  a portrait change in the current task.
+- The user explicitly requested that all game image assets and their authoring materials be synchronized to
+  the shared Google Drive. Before finishing image work, save the approved runtime assets, source artwork,
+  prompts, references, variants, processing recipes, and relevant metadata there, then verify the copied files
+  by SHA-256. Keep working intermediates under game/core/tmp/imagegen; hand off source packages under
+  the shared heroesofcrypto/image-sources folder, outside the runtime images directory.
+  Other game files (audio, video, fonts, datasets, and unrelated work) stay local unless the user requests
+  synchronization. Never use Dropbox or another synchronized cloud folder for game art.
+- Runtime game images are canonical only in the directory referenced by HOC_IMAGES_LOC. Since 2026-08 that
+  is the shared Google Drive art folder ("$HOME/Google Drive/My Drive/heroesofcrypto/images"); a machine
+  without the Drive mount may keep a local checkout at "$HOME/Workplace/heroesofcrypto-assets/images" and point
+  HOC_IMAGES_LOC at it (the build never guesses a path when HOC_IMAGES_LOC is unset). Animation atlases and
+  metadata are canonical only under HOC_ANIMATIONS_LOC/output. The former Dropbox folder is RETIRED: never
+  read from or write to it (stale copies there silently roll art back), and never scatter game art into any
+  other synchronized cloud folder.
+  Never overwrite shared masters with stale local checkouts or optimized build copies. Check the approved
+  revision and preserve differing previous artwork in source-package history before replacing it.
+  Never add game art to game/core/public or another tracked game directory.
+- Store intermediate image-generation work under game/core/tmp/imagegen. Store final static game images as
+  compressed WebP files in the configured HOC_IMAGES_LOC folder; store animation atlas WebPs and *_meta.json
+  files in the configured HOC_ANIMATIONS_LOC/output folder. Static images must be valid WebP
+  files no larger than 1,766,026 bytes; animation atlas WebPs are exempt from only that size ceiling. Run
   bun run --cwd game/core check:image-assets (also enforced by build:images), then reference assets through
   src/generated/image_imports.ts or texAny(). Do not hard-code public image URLs such as
   /textures/foo.webp or call Assets.load() with a public image path.
@@ -216,5 +307,5 @@ Multiple agents run on this repo **at the same time**. Rules:
 - The sole tracked game-image exception is game/core/public/favicon.ico. All other tracked images belong
   under site/public. Attach gameplay review
   screenshots to the PR or issue instead of committing them.
-- game/core/images and game/core/src/generated remain gitignored build outputs copied/generated from
-  Google Drive; do not force-add them.
+- game/core/images and game/core/src/generated remain gitignored build outputs copied/generated from the
+  configured canonical asset directories; do not force-add them.

@@ -1,0 +1,219 @@
+<!doctype html><html><head><meta charset="utf-8"><title>X case studies — Heroes of Crypto</title><style>body{font:15px/1.6 -apple-system,Segoe UI,Inter,sans-serif;max-width:1100px;margin:40px auto;padding:0 24px;color:#1b1f24;background:#fafbfc}
+h1{font-size:28px;border-bottom:3px solid #0f766e;padding-bottom:8px}h2{margin-top:44px;color:#0f766e;border-left:4px solid #0f766e;padding-left:10px}h3{color:#134e4a}
+table{border-collapse:collapse;width:100%;margin:14px 0;font-size:13px;background:#fff;box-shadow:0 1px 3px #0001}
+th{background:#0f766e;color:#fff;text-align:left;padding:8px}td{padding:7px 8px;border-bottom:1px solid #e5e7eb;vertical-align:top;word-break:break-word}
+tr:nth-child(even) td{background:#f3faf9}a{color:#0f766e}blockquote{background:#ecfdf5;border-left:4px solid #10b981;margin:10px 0;padding:10px 14px;border-radius:6px}
+code{background:#eef;padding:1px 4px;border-radius:3px}hr{border:0;border-top:1px solid #ddd;margin:36px 0}</style></head><body><h1>Case studies: three turn-based / PvP indie accounts that grew on X, and what @Heroes0fcrypto copies</h1>
+<p>Read-only research, 14 Oct 2026, around 3:15-3:45 PM PT. About 25 X API calls and 3 web searches. Metrics are X API public_metrics at fetch time: L = likes, RT = reposts, R = replies, V = views.</p>
+<h2>API limits: read this first</h2>
+<ul>
+<li><strong>No follower history.</strong> The API returns only today's follower count. Growth is reconstructed from milestone posts the accounts wrote themselves, from engagement on old posts, and from press.</li>
+<li><strong>No view counts before late 2022.</strong> Older posts show V = 0, meaning "not recorded", not zero views.</li>
+<li><strong>Search is a sample.</strong> Results are capped at 25 per call and sorted by relevancy, then re-ranked by likes + 2×RTs. A top-10 list here is the top 10 of what I sampled per era, not a full timeline census.</li>
+<li><strong>Mention counts aren't usable.</strong> <code>get_posts_counts_recent</code> for the game names came back at about 7,000-7,800 posts a day. "MENACE" and "Battle Brothers" are ordinary words, so that number is polluted and I don't use it.</li>
+<li><strong>@songsofconquest</strong> is the dedicated Songs of Conquest account. Press and Lavapotion retweets cite it, but it doesn't resolve via the API today: renamed, deactivated, or restricted. Unknown which.</li>
+</ul>
+<h2>Why these three</h2>
+<table>
+<thead>
+<tr>
+<th>Pick</th>
+<th>Handle (followers today)</th>
+<th>Why it is comparable</th>
+<th>Evidence of growth</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Super Auto Pets</td>
+<td>@TeamWoodGames (27,323; created Jan 2021)</td>
+<td>2-person team, <strong>async PvP</strong>, turn-based shop and battle, <strong>was playable free in the browser</strong></td>
+<td>Launch posts got 10-21 likes (Apr 2021). Peaks of 580 L (2022) and 540 L / 25,981 V (2024)</td>
+</tr>
+<tr>
+<td>Songs of Conquest</td>
+<td>@Lavapotion (25,294; created May 2019)</td>
+<td>Closest genre match: HoMM-like turn-based battles, with PvP and co-op multiplayer</td>
+<td>Self-reported 10k followers on 28 Dec 2020 (<a href="https://x.com/Lavapotion/status/1343655319096975360">https://x.com/Lavapotion/status/1343655319096975360</a>). Now 25,294</td>
+</tr>
+<tr>
+<td>Battle Brothers / MENACE</td>
+<td>@OverhypeStudios (8,272; created Jan 2014)</td>
+<td>2-3 person team, hardcore turn-based tactics</td>
+<td>2014 posts got 2-7 likes. MENACE screenshot post 2,232 L / 70,456 V (May 2026)</td>
+</tr>
+</tbody>
+</table>
+<p>Rejected:
+- @OneManLeft (Hex Gambit, Outwitters). This is the most PvP-pure turn-based tactics dev I found, but there's no growth to learn from: 3,988 followers after 17 years, and most posts get 0-6 likes. Kept as a <strong>cautionary contrast</strong>.
+- @subsetgames: not PvP, and the account is dormant.
+- Legion TD 2: 2,451 followers, and it's a tower defense game.
+- Warno/Eugen: real-time strategy, and the account is small.</p>
+<hr />
+<h2>Case 1: Super Auto Pets (@TeamWoodGames). The closest model for a free PvP browser game</h2>
+<p><strong>How it started (Jan-May 2021):</strong>
+- First pitch, 30 Jan 2021, in the second post window: <em>"To all of you who loves Hearthstone Battleground. We are making a similar game that contains way more muffins and way less stressful timers."</em> 14 L. <a href="https://x.com/TeamWoodGames/status/1355562939567247366">https://x.com/TeamWoodGames/status/1355562939567247366</a>
+  - That's a comparison hook plus a pain point the audience already feels (stressful timers).
+- Early formats:
+  - Screenshot Saturday clips ("Dear Deer. Revenge time!", 12 L)
+  - "Who will win?" matchup clips (11 L)
+  - A mascot comic series with Turtle (16-21 L each, Apr 2021)
+- Removing friction was announced as news: <em>"you can now play online without having to sign up"</em> (5 May 2021, 14 L) <a href="https://x.com/TeamWoodGames/status/1389929783128117255">https://x.com/TeamWoodGames/status/1389929783128117255</a>
+- Free-to-play push "Play Super Auto Pets!" with video: 143 L / 23 R (9 May 2021) <a href="https://x.com/TeamWoodGames/status/1391344696518086656">https://x.com/TeamWoodGames/status/1391344696518086656</a>
+- Friends multiplayer mode: "Play it here for free", 18 L (26 Jun 2021) <a href="https://x.com/TeamWoodGames/status/1408748122088542211">https://x.com/TeamWoodGames/status/1408748122088542211</a></p>
+<p><strong>Inflection point: creators, not their own posts.</strong>
+- Steam release was 24 Sep 2021 (Wikipedia, <a href="https://en.wikipedia.org/wiki/Super_Auto_Pets">https://en.wikipedia.org/wiki/Super_Auto_Pets</a>).
+- From Oct 2021, X fills with viewers discovering it through <strong>Northernlion and Ludwig</strong> streams:
+  - "whenever i look over on my follow list on twitch ludwig is always playing super auto pets" (39 L) <a href="https://x.com/strawbyeji/status/1459012662893948943">https://x.com/strawbyeji/status/1459012662893948943</a>
+  - "Animal Crossing -&gt; Super Auto Pets (shoutout @Northernlion)" (38 L) <a href="https://x.com/gmart711/status/1449805599110320129">https://x.com/gmart711/status/1449805599110320129</a>
+  - "Watching Northernlion for months... finally baited me into Super Auto Pets" <a href="https://x.com/Redhac_/status/1553125725883863040">https://x.com/Redhac_/status/1553125725883863040</a>
+- The devs' own explanation (via Medium, <a href="https://medium.com/codex/why-super-auto-pets-is-so-good-and-what-is-still-to-come-5c02854c675b">https://medium.com/codex/why-super-auto-pets-is-so-good-and-what-is-still-to-come-5c02854c675b</a>): <em>"We like to think they play Super Auto Pets because it's very viewer-friendly and delivers good streaming content."</em> Discord grew to 35,000+ members per that article.
+- Fan voice on X: obsessive "I will not play super auto pets at the work event" posts (<a href="https://x.com/ironlungchef/status/1712908007674171509">https://x.com/ironlungchef/status/1712908007674171509</a>).</p>
+<p><strong>Top 10 sampled posts:</strong>
+| # | Date | Post | L / RT / R / V | Format |
+|---|---|---|---|---|
+| 1 | 2022-06-09 | Roadmap: translations into 11 languages <a href="https://x.com/TeamWoodGames/status/1534893002199601154">https://x.com/TeamWoodGames/status/1534893002199601154</a> | 580 / 23 / 34 / n/a | text |
+| 2 | 2024-05-14 | Quote of @hankgreen's turtle pick <a href="https://x.com/TeamWoodGames/status/1790491030296342931">https://x.com/TeamWoodGames/status/1790491030296342931</a> | 540 / 7 / 2 / 25,981 | quote |
+| 3 | 2025-05-20 | Danger Pack expansion live <a href="https://x.com/TeamWoodGames/status/1924811403539476958">https://x.com/TeamWoodGames/status/1924811403539476958</a> | 443 / 27 / 14 / 26,975 | photo |
+| 4 | 2022-06-24 | "Help! The next expansion need pet sounds" hiring <a href="https://x.com/TeamWoodGames/status/1540269651107659777">https://x.com/TeamWoodGames/status/1540269651107659777</a> | 342 / 11 / 21 / n/a | text |
+| 5 | 2024-05-10 | Star Pack improvements <a href="https://x.com/TeamWoodGames/status/1788947174509658155">https://x.com/TeamWoodGames/status/1788947174509658155</a> | 249 / 8 / 6 / 12,942 | photo |
+| 6 | 2024-05-15 | New friends joining Star Pack <a href="https://x.com/TeamWoodGames/status/1790774943426208046">https://x.com/TeamWoodGames/status/1790774943426208046</a> | 238 / 3 / 3 / 13,471 | photo |
+| 7 | 2024-05-13 | New food reveal <a href="https://x.com/TeamWoodGames/status/1790049371347988954">https://x.com/TeamWoodGames/status/1790049371347988954</a> | 147 / 3 / 2 / 11,208 | photo |
+| 8 | 2024-06-03 | "Surprise! Things are going to get wacky" <a href="https://x.com/TeamWoodGames/status/1797432538010726455">https://x.com/TeamWoodGames/status/1797432538010726455</a> | 147 / 2 / 13 / 12,111 | photo |
+| 9 | 2021-05-09 | "Play Super Auto Pets!" <a href="https://x.com/TeamWoodGames/status/1391344696518086656">https://x.com/TeamWoodGames/status/1391344696518086656</a> | 143 / 20 / 23 / n/a | video |
+| 10 | 2024-05-14 | Reply to @LudwigAhgren and @hankgreen <a href="https://x.com/TeamWoodGames/status/1790477694037000359">https://x.com/TeamWoodGames/status/1790477694037000359</a> | 140 / 1 / 0 / 4,162 | reply |</p>
+<p><strong>Patterns:</strong>
+- One reveal per post, one image, a near-daily drumbeat in update weeks (May 2024: nine sampled reveal posts in about 20 days).
+- <strong>Player-made packs credited by name.</strong> "New user submitted weekly from Fumofacedvd on Discord" got 122 L / 13,581 V (<a href="https://x.com/TeamWoodGames/status/1764425530198167801">https://x.com/TeamWoodGames/status/1764425530198167801</a>). There's also a creator-tournament pack from @KelbyM_ (<a href="https://x.com/TeamWoodGames/status/1769483857462427789">https://x.com/TeamWoodGames/status/1769483857462427789</a>).
+- Replying to and quoting the creators who play: posts #2 and #10.
+- Voice is short and playful. No hype words, no stats.</p>
+<h2>Case 2: Songs of Conquest (@Lavapotion). The HoMM-like genre match</h2>
+<p><strong>How it started:</strong>
+- The oldest posts the search returns are from Jul-Aug 2019. The account was created in May 2019, so earlier posts may not be indexed.
+- It opened with <strong>world-building concept art written in-voice</strong>, e.g. <em>"Official decree from empress Aurelia"</em>: 163 L (<a href="https://x.com/Lavapotion/status/1160871400909000704">https://x.com/Lavapotion/status/1160871400909000704</a>). A faction lore video got 149 L (<a href="https://x.com/Lavapotion/status/1159037208243970048">https://x.com/Lavapotion/status/1159037208243970048</a>).
+- A Reddit r/pcgaming AMA, announced on X (<a href="https://x.com/Lavapotion/status/1164451603270836224">https://x.com/Lavapotion/status/1164451603270836224</a>).
+- Many small, warm replies to individual users in the first months (dozens of 0-2 like "Thank you!" replies).
+- The publisher's interview says the 2019 trailer plus <strong>"art posts that have been trickling out on the twitter-account"</strong> and an active Discord drove exposure (Cubed3, <a href="https://www.cubed3.com/features/interviews/songs-of-conquest">https://www.cubed3.com/features/interviews/songs-of-conquest</a>).</p>
+<p><strong>Inflection points:</strong>
+1. Reached 10k followers by Dec 2020 (self-reported).
+2. Early Access date run-up, Dec 2021-May 2022. This is the biggest cluster:
+   - "BIG NEWS! Early Access in early Q2": 529 L / 91 RT
+   - Trailer and date: 491 L
+   - "How far we have come" comparisons: 702 L and 1,124 L
+3. The 1.0 announcement, Apr 2024. Wishlists spiked to "almost half a million across Steam, GOG and EGS", per the studio's own post as reported by Game World Observer (<a href="https://gameworldobserver.com/2024/04/27/songs-of-conquest-500k-wishlists-1-0-launch">https://gameworldobserver.com/2024/04/27/songs-of-conquest-500k-wishlists-1-0-launch</a>). 500k copies were sold in week one (<a href="https://insider-gaming.com/songs-of-conquest-sells-500000-copies-announces-new-roadmap/">https://insider-gaming.com/songs-of-conquest-sells-500000-copies-announces-new-roadmap/</a>).
+4. The 2026 pivot to a new game (Wielders of the Essence) is carried by nostalgia and personality posts.</p>
+<p><strong>Top 10 sampled posts:</strong>
+| # | Date | Post | L / RT / R / V | Format |
+|---|---|---|---|---|
+| 1 | 2022-05-30 | "Even though our art style has changed... this pixel art aged quite well" <a href="https://x.com/Lavapotion/status/1531282879422005248">https://x.com/Lavapotion/status/1531282879422005248</a> | 1,349 / 102 / 6 / n/a | photo |
+| 2 | 2022-04-30 | Screenshot Saturday "how far we have come", 10 days to EA <a href="https://x.com/Lavapotion/status/1520344982007304193">https://x.com/Lavapotion/status/1520344982007304193</a> | 1,124 / 99 / 39 / n/a | photo |
+| 3 | 2022-01-27 | "fun to look back at how long we have come" <a href="https://x.com/Lavapotion/status/1486610071425531906">https://x.com/Lavapotion/status/1486610071425531906</a> | 702 / 84 / 35 / n/a | 2 photos |
+| 4 | 2026-10-01 | Creature animation GIF, "twitching feet" <a href="https://x.com/Lavapotion/status/2105572070281412965">https://x.com/Lavapotion/status/2105572070281412965</a> | 554 / 34 / 4 / 11,347 | GIF |
+| 5 | 2021-12-16 | "BIG NEWS!" Early Access window <a href="https://x.com/Lavapotion/status/1471505958492786690">https://x.com/Lavapotion/status/1471505958492786690</a> | 529 / 91 / 32 / n/a | photo |
+| 6 | 2022-03-25 | EA start date <a href="https://x.com/Lavapotion/status/1507282467996287003">https://x.com/Lavapotion/status/1507282467996287003</a> | 491 / 79 / 30 / n/a | photo |
+| 7 | 2022-05-07 | "Are you ready for next week?" <a href="https://x.com/Lavapotion/status/1522977810494676993">https://x.com/Lavapotion/status/1522977810494676993</a> | 396 / 33 / 22 / n/a | photo |
+| 8 | 2024-05-30 | Joining an indie-dev meme trend <a href="https://x.com/Lavapotion/status/1796264211657670876">https://x.com/Lavapotion/status/1796264211657670876</a> | 303 / 23 / 13 / 7,334 | photo |
+| 9 | 2022-03-24 | New trailer + date <a href="https://x.com/Lavapotion/status/1507127869876711430">https://x.com/Lavapotion/status/1507127869876711430</a> | 254 / 54 / 22 / n/a | text+link |
+| 10 | 2024-05-31 | Follow-up meme <a href="https://x.com/Lavapotion/status/1796445337357566219">https://x.com/Lavapotion/status/1796445337357566219</a> | 185 / 9 / 10 / 7,041 | photo |</p>
+<p><strong>Patterns:</strong>
+- <strong>Then-vs-now development comparisons</strong> are their single best format: positions 1-3.
+- Dev process in the open: <em>"Niklas is working on a way to redo the battles if you don't like the outcome of the quick battle"</em> (78 L, <a href="https://x.com/Lavapotion/status/1531249518116732929">https://x.com/Lavapotion/status/1531249518116732929</a>). Named people, real work.
+- Community: fan-art reposts ("Our players make just the most beautiful things", 141 L / 5,248 V) and boosting a Discord member's fansite.
+- PvP and multiplayer are handled as roadmap items (PvP and co-op improvements in the 1.0 roadmap) rather than as competitive hype.</p>
+<h2>Case 3: Battle Brothers / MENACE (@OverhypeStudios). Slow, honest, dev-diary growth</h2>
+<p><strong>How it started (2014):</strong>
+- Every post was a dev blog link plus a screenshot, with Screenshot Saturday used constantly:
+  - "New #Battlebrothers Dev Blog on procedural character backgrounds" (6 L / 7 RT)
+  - "Dont lose your head! now with gore galore! #ScreenshotSaturday"
+- A free demo announced on X (Apr 2014, <a href="https://x.com/OverhypeStudios/status/459644737838792704">https://x.com/OverhypeStudios/status/459644737838792704</a>).
+- The best 2014 post got about 7 likes.
+- The devs' own story (Turn Based Lovers, <a href="https://turnbasedlovers.com/10-turns-interview/with-battle-brothers-developer/">https://turnbasedlovers.com/10-turns-interview/with-battle-brothers-developer/</a>): it began as a hobby, "a medieval/fantasy version of the original X-com". Early Access in 2015 let them quit their jobs, with a core team of three.
+- Per a 2015 forum thread, coverage came from a Rock Paper Shotgun article plus <em>"positive word of mouth... your efforts at documenting your thoughts... are generating a lot of confidence and goodwill"</em> (<a href="http://battlebrothersgame.com/forums/topic/got-an-article-on-rps/">http://battlebrothersgame.com/forums/topic/got-an-article-on-rps/</a>).
+- Updates shipped every 1-3 weeks during Early Access, and they passed 50,000 sales by the March 2017 full release (ArchaeoGames interview).</p>
+<p><strong>Inflection points:</strong>
+- Battle Brothers DLC announces in 2019-2020: 114-195 L.
+- MENACE with publisher Hooded Horse. Hooded Horse's post got 501 L / 54,100 V (<a href="https://x.com/HoodedHorseInc/status/1995499666071253246">https://x.com/HoodedHorseInc/status/1995499666071253246</a>).
+- The "250,000 copies sold" milestone: 764 L / 46,548 V (<a href="https://x.com/OverhypeStudios/status/2039332150537859328">https://x.com/OverhypeStudios/status/2039332150537859328</a>). This is their real number to share; we have no equivalent.
+- <strong>Player screenshot reposts</strong> with credit, e.g. "courtesy of Steam user BLASTER": 2,232 L / 70,456 V, their #1.</p>
+<p><strong>Top 10 sampled posts:</strong>
+| # | Date | Post | L / RT / R / V | Format |
+|---|---|---|---|---|
+| 1 | 2026-05-09 | Player cinematic screenshots, credited <a href="https://x.com/OverhypeStudios/status/2053097733787922625">https://x.com/OverhypeStudios/status/2053097733787922625</a> | 2,232 / 145 / 14 / 70,456 | 3 photos |
+| 2 | 2026-04-01 | 250k copies sold <a href="https://x.com/OverhypeStudios/status/2039332150537859328">https://x.com/OverhypeStudios/status/2039332150537859328</a> | 764 / 62 / 26 / 46,548 | photo |
+| 3 | 2026-06-06 | Player screenshot "light walker at dusk" <a href="https://x.com/OverhypeStudios/status/2063274758985142663">https://x.com/OverhypeStudios/status/2063274758985142663</a> | 454 / 28 / 3 / 7,781 | photo |
+| 4 | 2026-06-18 | Battle Brothers content update <a href="https://x.com/OverhypeStudios/status/2067681634254520376">https://x.com/OverhypeStudios/status/2067681634254520376</a> | 346 / 46 / 21 / 68,594 | photo |
+| 5 | 2026-08-06 | Terrain Update live <a href="https://x.com/OverhypeStudios/status/2085356383092793811">https://x.com/OverhypeStudios/status/2085356383092793811</a> | 341 / 26 / 3 / 12,420 | photo |
+| 6 | 2026-08-08 | Old vs new terrain side-by-side <a href="https://x.com/OverhypeStudios/status/2086086634999513301">https://x.com/OverhypeStudios/status/2086086634999513301</a> | 320 / 15 / 9 / 18,417 | 4 photos |
+| 7 | 2026-08-20 | Alien Update shipped <a href="https://x.com/OverhypeStudios/status/2090446019704025521">https://x.com/OverhypeStudios/status/2090446019704025521</a> | 264 / 31 / 7 / 5,605 | text |
+| 8 | 2026-10-02 | Mission Selection Overhaul live <a href="https://x.com/OverhypeStudios/status/2106010077664555487">https://x.com/OverhypeStudios/status/2106010077664555487</a> | 259 / 22 / 5 / 4,300 | photo |
+| 9 | 2026-10-10 | 2026 roadmap <a href="https://x.com/OverhypeStudios/status/2108906660546671057">https://x.com/OverhypeStudios/status/2108906660546671057</a> | 256 / 22 / 7 / 5,166 | photo |
+| 10 | 2026-09-11 | Dev diary: "where the current system falls short" <a href="https://x.com/OverhypeStudios/status/2098453013610324117">https://x.com/OverhypeStudios/status/2098453013610324117</a> | 231 / 25 / 8 / 5,677 | photo |</p>
+<p><strong>Patterns:</strong>
+- A <strong>paired cadence</strong>: a dev diary explains the problem, then a "now live" post 1-2 weeks later. Examples: the OCI dev diary (<a href="https://x.com/OverhypeStudios/status/2075948357248319531">https://x.com/OverhypeStudios/status/2075948357248319531</a>) followed by the live post (<a href="https://x.com/OverhypeStudios/status/2077066564294054363">https://x.com/OverhypeStudios/status/2077066564294054363</a>).
+- Voice is flat and factual: "The X Update is live. It includes..." No emoji, few hashtags since 2020.
+- This is <strong>the closest voice to XCOM.md's rules.</strong></p>
+<h2>Contrast: @OneManLeft (PvP turn-based tactics, little X growth)</h2>
+<ul>
+<li>Hex Gambit was Kickstarted and covered by Nintendo press in 2018: Nintendo Everything footage got 6 L (<a href="https://x.com/NinEverything/status/980965785618141184">https://x.com/NinEverything/status/980965785618141184</a>).</li>
+<li>The studio's own posts are mostly 0-6 L, e.g. faction statues at 1 L (<a href="https://x.com/OneManLeft/status/955606260904353792">https://x.com/OneManLeft/status/955606260904353792</a>) and "multiplayer servers get set up, I'm drawin' pirates" at 2 L.</li>
+<li>What went wrong:</li>
+<li>Posts are announcements with no hook.</li>
+<li>The game focus switches often: Tilt to Live, Outwitters, Hex Gambit, a pirate RPG, Mage Food Truck.</li>
+<li>There's no creator or streamer loop.</li>
+<li>Community was outsourced to a fan Facebook group.</li>
+<li>PvP alone did not grow the account.</li>
+</ul>
+<hr />
+<h2>What we copy for @Heroes0fcrypto</h2>
+<p>Context: 90 followers, PvP, browser, not on Steam, under the XCOM.md bans (no hashtags, emoji, token talk, invented numbers).</p>
+<ol>
+<li><strong>Make the free browser game the news, like SAP.</strong> "No sign-up / no install" was SAP's headline in 2021. For us it's "No install. No wallet to start." It's already in the pin, so keep it in the pin, not in every post.</li>
+<li><strong>The comparison hook in the first post of a series, like SAP's "If you love Hearthstone Battlegrounds".</strong> For us: HoMM battles and Into the Breach, stated honestly. One concrete pain point, e.g. "the fight where you didn't check who acts next".</li>
+<li><strong>Then-vs-now dev comparisons, Lavapotion's #1 format.</strong> Only with real old and new screenshots from the repo, and only describing what actually changed. Stepan supplies the facts; we never invent the history.</li>
+<li><strong>The paired dev diary → "now live" cadence, like Overhype.</strong> One problem post, then one shipped post, in a flat factual voice. Map the problem to a news article on heroesofcrypto.io and put the link in the reply, per XCOM.md.</li>
+<li><strong>Credited player boards, like Overhype's #1 and SAP's player-submitted weeklies.</strong> When a real player shares an end position or a clip, the human reposts or quotes it with credit. It's the top-performing format for both studios, and it's PvP-native: two humans, one board.</li>
+<li><strong>The PvP creator loop, SAP's inflection.</strong> Small tactics streamers matter more than any post. The human can offer a match on stream; I can draft outreach but won't send it. Rewards are mentioned only when someone asks, per XCOM.md.</li>
+<li><strong>Reply like early Lavapotion.</strong> Many short, warm, specific replies to every person who engages, especially anyone arguing about a move.</li>
+<li><strong>Avoid the OneManLeft pattern.</strong> No unhooked announcements, no switching topics, and keep the community on X and on the site, not in a side channel.</li>
+</ol>
+<h3>Draft posts (all follow XCOM.md; bracketed parts need real facts or assets from Stepan)</h3>
+<p><strong>A. Comparison hook, PvP framing</strong></p>
+<blockquote>
+<p>If you played Heroes battles against a friend, you know the fight was decided the moment someone forgot who acts next. This board shows the queue and shrinks every fight. Two players, one browser tab.</p>
+</blockquote>
+<p>Reply: <code>https://heroesofcrypto.io/news/2026-06-22-how-to-read-the-board/</code>
+Attach: <code>site/public/assets/images/preview_game.webp</code></p>
+<p><strong>B. Credited player board</strong> (only with a real screenshot and the player's permission)</p>
+<blockquote>
+<p>[Player handle] sent this end position from a ranked match. Two units each, and the outer cells go next turn. Who moves first, and what do they do?</p>
+</blockquote>
+<p>Reply the next day: the actual result, as the player described it.</p>
+<p><strong>C. Dev diary problem → live (Overhype style)</strong></p>
+<blockquote>
+<p>Problem we are fixing: [one real sentence from the changelog]. What it means on the board: [one sentence].</p>
+</blockquote>
+<p>Follow-up when shipped:</p>
+<blockquote>
+<p>The [name] change is live. [What it does, one sentence.]</p>
+</blockquote>
+<p><strong>D. Then vs now</strong> (only with real old and new images from the repo)</p>
+<blockquote>
+<p>An early version of the board next to today's. [The one real difference, e.g. "The queue now sits under the board."]</p>
+</blockquote>
+<p><strong>E. Friction-removal news (SAP style)</strong></p>
+<blockquote>
+<p>You can play a ranked match in the browser without installing anything or connecting a wallet. Pick a faction and go.</p>
+</blockquote>
+<p>This is likely a pin-style post only. Don't repeat it often.</p>
+<p><strong>F. Streamer outreach</strong>
+For the parent to turn into a DM or reply via DraftExternalMessage after approval. Not posted by me.</p>
+<blockquote>
+<p>We make a free PvP turn-based tactics game that runs in the browser. If you ever want a match on stream, we are happy to play you. No install, no wallet.</p>
+</blockquote>
+<h3>Don't copy</h3>
+<ul>
+<li>SAP's mascot comics. They need emoji-free personality art we don't have.</li>
+<li>Lavapotion's meme trends. Too far from "one board decision".</li>
+<li>Sales milestones. We have none to share, and must not invent any.</li>
+<li>Hashtag-heavy Screenshot Saturday posts, like early Overhype. A plain reply to a host works without the hashtag.</li>
+</ul></body></html>

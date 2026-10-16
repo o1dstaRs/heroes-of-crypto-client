@@ -1,3 +1,5 @@
+import { extendTheme } from "@mui/joy/styles";
+
 import { HOC_NUMERIC_FONT_FAMILY } from "../fontFamilies";
 import { images } from "../generated/image_imports";
 
@@ -53,6 +55,21 @@ export const hocPrimaryButtonSx = {
         bgcolor: "rgba(255, 143, 0, 0.24)",
         color: "rgba(239, 228, 204, 0.42)",
     },
+};
+
+/**
+ * A status chip that is NOT a control. The arena header sits readouts (battle art, players online) right
+ * beside a real button; when all three wore the same gold outline and dark fill, the only thing separating
+ * "press me" from "look at me" was a hover state — which does not exist on a touch screen. Readouts stay
+ * flat and dim, so the outlined, hoverable treatment means the thing does something.
+ */
+export const hocReadoutChipSx = {
+    minHeight: 38,
+    px: 1.15,
+    borderRadius: "10px",
+    color: hocColors.mutedStrong,
+    bgcolor: "rgba(0, 0, 0, 0.18)",
+    border: "1px solid rgba(255, 255, 255, 0.05)",
 };
 
 export const hocSoftButtonSx = {
@@ -393,6 +410,13 @@ export const hocInputSx = {
     color: hocColors.parchment,
     borderColor: hocColors.orangeBorder,
     "--Input-focusedHighlight": hocColors.orange,
+    // Joy re-declares the focus colour inside this guard, which outranks a plain variable here — so the
+    // focus ring stayed its default blue until it was set under the same selector. Textarea reads its own
+    // variable, so a shared style has to carry both names.
+    '&:not([data-inverted-colors="false"])': {
+        "--Input-focusedHighlight": hocColors.orange,
+        "--Textarea-focusedHighlight": hocColors.orange,
+    },
     "&:hover": {
         borderColor: hocColors.orange,
     },
@@ -401,3 +425,45 @@ export const hocInputSx = {
         opacity: 1,
     },
 };
+
+/**
+ * The house tooltip: dark wood, gold border, parchment text — the look the sidebar's tooltips have always
+ * had, now the default for every one of them.
+ *
+ * The app runs Joy in its stock LIGHT palette (no provider sets a mode) and paints its own dark surfaces by
+ * hand, so any Tooltip that did not carry a style of its own opened as a near-white slab — with gold and
+ * parchment text on it, which is how the creature hover card in the portal became unreadable (owner,
+ * 20 Sep: "why is it white"). Fixing it per call site meant forty of them and the next new tooltip white
+ * again, so it lives on the theme instead. A call site that passes its own `sx` still wins.
+ */
+export const hocTooltipSx = {
+    backgroundColor: "#2d1606", // deep dark wood
+    border: `2px solid ${hocColors.gold}`, // metallic gold rim
+    color: hocColors.parchment,
+    borderRadius: "8px",
+    boxShadow: "0 6px 12px rgba(0,0,0,0.8)",
+    fontSize: "0.85rem",
+    fontWeight: 500,
+    // Wide enough for the portal's hover cards (InfoCard authors itself at 340) so this clamp never
+    // re-wraps a card that already reads well.
+    maxWidth: "360px",
+    zIndex: 10000,
+};
+
+export const hocJoyTheme = extendTheme({
+    components: {
+        JoyTooltip: {
+            styleOverrides: {
+                root: hocTooltipSx,
+                // The pointer is part of the same slab: without this it kept the stock light fill and read
+                // as a white chip hanging off a dark card.
+                arrow: {
+                    "&::before": {
+                        background: "#2d1606",
+                        border: `1px solid ${hocColors.gold}`,
+                    },
+                },
+            },
+        },
+    },
+});

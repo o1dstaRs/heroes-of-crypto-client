@@ -12,15 +12,42 @@ const sliceFrom = (source: string, anchor: string, length: number): string => {
 };
 
 describe("Cemetery barrel danger highlights", () => {
+    test("only treats cells occupied by still-standing barrels as obstacle targets", () => {
+        const source = sceneSource();
+        const standingCellHelper = sliceFrom(source, "private isStandingAttackObstacleCell(", 800);
+        expect(standingCellHelper).toContain("this.grid.getScatteredMountainsStanding()");
+
+        const attackResolver = sliceFrom(source, "private resolveObstacleAttack(", 1_800);
+        expect(attackResolver).toContain("this.isStandingAttackObstacleCell(hoveredCell)");
+
+        const hover = sliceFrom(source, "private updateObstacleHover(): boolean", 3_000);
+        expect(hover).toContain("this.isStandingAttackObstacleCell(hoveredCell)");
+    });
+
+    test("checks standing scattered barrels before resolving a ranged target behind them", () => {
+        const source = sceneSource();
+        const blockerHelper = sliceFrom(source, "private hasStandingShotBlockingObstacle(", 800);
+        expect(blockerHelper).toContain("this.grid.getScatteredMountainsStanding().length > 0");
+
+        const rangedAim = sliceFrom(source, "let blockedByObstacle: IAttackObstacle | undefined;", 3_500);
+        expect(rangedAim).toContain("if (this.hasStandingShotBlockingObstacle())");
+        expect(rangedAim).toContain("this.attackHandler.evaluateRangeAttack(");
+    });
+
     test("uses the attack engine's obstacle intersections for every trajectory preview", () => {
         const source = sceneSource();
         const helper = sliceFrom(source, "private highlightScatteredObstaclesAlongTrajectory(", 1_100);
         expect(helper).toContain("this.attackHandler.getObstacleIntersections(from, to)");
         expect(helper).toContain("this.dungeonVisuals.highlightScatteredMountains(");
 
-        expect(sliceFrom(source, "private updateAreaThrowHover()", 5_500)).toContain(
-            "this.highlightScatteredObstaclesAlongTrajectory(activeUnit.getPosition(), impactPos)",
-        );
+        // Area Throw is the exception: its rock flies OVER the barrels on its line (the engine ignores structures
+        // there) and breaks every barrel in the 3x3 it lands on, so its preview marks the blast, not the line.
+        const areaThrowHover = sliceFrom(source, "private updateAreaThrowHover()", 5_500);
+        expect(areaThrowHover).toContain("this.highlightScatteredObstaclesInCells(cells)");
+        expect(areaThrowHover).not.toContain("this.highlightScatteredObstaclesAlongTrajectory(");
+        const blastHelper = sliceFrom(source, "private highlightScatteredObstaclesInCells(", 800);
+        expect(blastHelper).toContain(".filter((cell) => this.isStandingAttackObstacleCell(cell))");
+        expect(blastHelper).toContain("this.dungeonVisuals.highlightScatteredMountains(");
         expect(sliceFrom(source, "protected renderIncomingThreatPreview(", 6_500)).toContain(
             "this.highlightScatteredObstaclesAlongTrajectory(shooterLogical, impactLogical)",
         );
@@ -37,6 +64,82 @@ describe("Cemetery barrel danger highlights", () => {
         const magicGateIndex = hover.indexOf("unit.getAttackTypeSelection() === AttackVals.MAGIC");
         expect(highlightIndex).toBeGreaterThan(-1);
         expect(magicGateIndex).toBeGreaterThan(highlightIndex);
+    });
+
+    test("clicks the same canonical barrel centre used by the hover preview", () => {
+        const source = sceneSource();
+        // Wide enough to reach the RANGE return past the aiming-mode guards that stand in front of it
+        // (Area Throw, Large Caliber, free Through Shot) and the reasons they are each there.
+        const resolver = sliceFrom(source, "private resolveObstacleAttack(", 3_500);
+        expect(resolver).toContain("const hoveredCell = GridMath.getCellForPosition(gs, worldPos)");
+        expect(resolver).toContain("const targetPosition = GridMath.getPositionForCell(");
+        expect(resolver).toContain("return { unit, attackType: AttackVals.RANGE, targetPosition }");
+
+        const click = sliceFrom(source, "private attemptObstacleAttack(", 900);
+        expect(click).toContain(
+            "this.executeObstacleAttackSequence(resolved.unit, resolved.targetPosition, resolved.attackFrom)",
+        );
+        expect(click).not.toContain("this.executeObstacleAttackSequence(resolved.unit, worldPos, resolved.attackFrom)");
+    });
+
+    // The hover tries the free ray FIRST (updateFreeThroughShotHover, then updateObstacleHover) while the
+    // click tries the obstacle first — so the obstacle path has to stand aside for an aiming mode that owns
+    // its whole ray, as it already does for Area Throw and Large Caliber. Without this, a Tsar Cannon
+    // free-aiming at a barrel with an enemy stack in between broke the barrel while the stack the cursor had
+    // outlined and priced took nothing (audit 2026-09-19).
+    test("stands aside for every aiming mode that owns its own ray", () => {
+        const resolver = sliceFrom(sceneSource(), "private resolveObstacleAttack(", 3_500);
+        const rangeBranch = resolver.slice(resolver.indexOf('if (kind === "range")'));
+        expect(rangeBranch).toContain("this.isAreaThrowAiming() && this.grid.hasScatteredMountains()");
+        expect(rangeBranch).toContain("this.isLargeCaliberBarrelAiming(worldPos)");
+        expect(rangeBranch).toContain("if (this.isFreeThroughShotAiming())");
+    });
+
+    test("clears the movement ghost when ranged aiming starts on a barrel", () => {
+        const hover = sliceFrom(sceneSource(), "private updateObstacleHover(): boolean", 7_000);
+        const rangedBranch = hover.indexOf("unit.getAttackTypeSelection() === AttackVals.RANGE && canRangeObstacle");
+        const clearGhost = hover.indexOf("this.hoverManager.clearHoverSilhouette(true)", rangedBranch);
+        const footprintExit = hover.indexOf("rangeTrajectoryFootprintExit(", rangedBranch);
+        const drawTerminal = hover.indexOf("this.hoverManager.drawRangeTerminalArrowhead(", rangedBranch);
+        const drawAim = hover.indexOf("this.hoverManager.drawAttackArrow(", rangedBranch);
+
+        expect(rangedBranch).toBeGreaterThan(-1);
+        expect(clearGhost).toBeGreaterThan(rangedBranch);
+        expect(footprintExit).toBeGreaterThan(clearGhost);
+        expect(drawTerminal).toBeGreaterThan(footprintExit);
+        expect(drawTerminal).toBeGreaterThan(clearGhost);
+        expect(drawAim).toBeGreaterThan(clearGhost);
+        expect(drawAim).toBeGreaterThan(drawTerminal);
+        expect(hover.slice(drawAim, drawAim + 300)).toContain("projectedCasingJoint");
+    });
+
+    test("moves the terminal arrowhead to the barrel that actually stops a creature-targeted shot", () => {
+        const hover = sliceFrom(sceneSource(), "if (blockedByObstacle) {", 2_000);
+        const drawTerminal = hover.indexOf("this.hoverManager.drawRangeTerminalArrowhead(");
+        const drawAim = hover.indexOf("this.hoverManager.drawAttackArrow(");
+
+        expect(drawTerminal).toBeGreaterThan(-1);
+        expect(drawAim).toBeGreaterThan(drawTerminal);
+        expect(hover.slice(drawTerminal, drawAim)).toContain("blockedVisual");
+        expect(hover.slice(drawAim, drawAim + 300)).toContain("blockedCasingJoint");
+    });
+
+    test("prices every unit a barrel-aimed melee strike's riders hit with the unit hover's own rider projection", () => {
+        const source = sceneSource();
+        const hover = sliceFrom(source, "private updateObstacleHover(): boolean", 16_000);
+        expect(hover).toContain('riderHits.push({ unit: enemy, source: "Lightning Spin" })');
+        expect(hover).toContain('riderHits.push({ unit: skeweredBehind, source: "Skewer Strike" })');
+        expect(hover).toContain('riderHits.push({ unit: burnedBehind, source: "Fire Breath" })');
+        expect(hover).toContain("this.drawObstacleStrikeRiderPredictions(unit, attackFromCell, riderHits)");
+
+        const predictions = sliceFrom(source, "private drawObstacleStrikeRiderPredictions(", 4_500);
+        expect(predictions).toContain("this.projectMeleeRiderDamage(");
+        expect(predictions).toContain("projectKillBand(struck.unit, struck.min, struck.max)");
+        expect(predictions).toContain("this.hoverManager.addAOEDamagePrediction(");
+
+        // The unit-target hover prices the same riders through the same method, so the two numbers cannot drift.
+        const unitHoverRiders = sliceFrom(source, "for (const secondaryHit of secondaryHits) {", 1_200);
+        expect(unitHoverRiders).toContain("this.projectMeleeRiderDamage(");
     });
 
     test("renders a red alpha wash above the exact authored barrel silhouette", () => {

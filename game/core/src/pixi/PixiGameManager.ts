@@ -9,8 +9,10 @@ import {
     SynergyWithLevel,
     FactionVals,
     TeamType,
+    TeamVals,
     FactionType,
     GridType,
+    GridVals,
     FightStateManager,
     HoCMath,
     type GameAction,
@@ -21,6 +23,7 @@ import { Signal } from "typed-signals";
 
 import {
     IHoverInfo,
+    IUnitInspection,
     IVisibleButton,
     IVisibleOverallImpact,
     IVisibleState,
@@ -28,19 +31,30 @@ import {
 } from "../scenes/VisibleState";
 import { MAX_FPS } from "../statics";
 import { boardFitPadding } from "./boardFit";
+import { resizeBoard } from "./boardResize";
+import { observeElementBox } from "./observeElementBox";
 import { FpsCalculator } from "./FpsCalculator";
 import { HotKey, hotKeyPress } from "../utils/hotkeys";
 import type { UnitsOverlay } from "../scenes/UnitsOverlay";
 import type { PixiApp } from "./PixiApp";
 // import { PixiSceneManager } from "./PixiSceneManager"; // Deprecated
 import type { PreloadedPixiTextures } from "./PixiTextureLoader";
-import { displayedLoadingProgress, MINIMUM_LOADING_SCREEN_DURATION_MS } from "./loadingProgress";
+import { displayedLoadingProgress, minimumLoadingScreenDurationMs } from "./loadingProgress";
 
-import type { PixiScene, PixiSceneContext, SceneConstructor, SceneEntry } from "./PixiScene";
+import type {
+    CreatureAnimationLabResult,
+    CreatureAnimationLabState,
+    PixiScene,
+    PixiSceneContext,
+    SceneConstructor,
+    SceneEntry,
+    SandboxSetupPick,
+} from "./PixiScene";
 import type { AuthoritativeSnapshotOptions } from "./PixiScene";
 import type { LoadingScreen } from "../scenes/LoadingScreen";
 import { getScenesGrouped } from "./sceneRegistry";
 import type { AuthoritativeGameSnapshot, SceneGameActionTransport } from "../game_action_transport";
+import type { PremiumTurnPreview } from "../api/premium_client";
 import type { SandboxReplay } from "../replay/sandbox_replay";
 
 // Every fight this client hosts — sandbox, vs-AI, previews, ranked hydration — plays the
@@ -78,6 +92,9 @@ export class PixiGameManager {
     }
     private sceneConstructor: SceneConstructor | null = null;
     private sceneTitle = "Heroes";
+    private testBoardBackground = false;
+    private testBoardNarrowingLevel = 1;
+    private creatureAnimationLabEnabled = false;
     public readonly onHasStarted = new Signal<(started: boolean) => void>();
     // Scenes receive a scoped signal rather than the public, manager-lifetime signal. A Sandbox scene
     // subscribes to its own start events, so handing it the public signal retained every replaced scene
@@ -88,7 +105,10 @@ export class PixiGameManager {
     public readonly onAugmentChanged = new Signal<(changed: boolean) => void>();
     public readonly onArtifactChanged = new Signal<(changed: boolean) => void>();
     public readonly onGridTypeChanged = new Signal<(gridType: GridType) => void>();
+    public readonly onTestBoardBackgroundChanged = new Signal<(enabled: boolean) => void>();
+    public readonly onTestBoardNarrowingLevelChanged = new Signal<(level: number) => void>();
     public readonly onAttackLanded = new Signal<(attackMessage: string) => void>();
+    public readonly onPlayerNotice = new Signal<(message: string) => void>();
     public readonly onDamageReceived = new Signal<(attackDamage: number) => void>();
     // public readonly onUnitSelected = new Signal<(unitProperties: UnitProperties) => void>();
     public readonly onDamageStatisticsUpdated = new Signal<(damageStats: IDamageStatistic[]) => void>();
@@ -97,6 +117,8 @@ export class PixiGameManager {
     public readonly onVisibleStateUpdated = new Signal<(visibleState: IVisibleState) => void>();
     // public readonly onVisibleOverallImpactUpdated = new Signal<(impact: IVisibleOverallImpact) => void>();
     public readonly onHoverInfoUpdated = new Signal<(hover: IHoverInfo) => void>();
+    public readonly onUnitInspectionUpdated = new Signal<(inspection: IUnitInspection | null) => void>();
+    private lastInspectedUnit: UnitProperties | undefined;
     public readonly onSelectionCombined = new Signal<
         (payload: { unit: UnitProperties | null; impact: IVisibleOverallImpact | null; faction: FactionType }) => void
     >();
@@ -118,6 +140,7 @@ export class PixiGameManager {
     private forwardOverlayInteraction?: (e: PointerEvent) => void;
     private overlayDebugCanvas?: HTMLCanvasElement;
     private gameActionTransport?: SceneGameActionTransport;
+    private premiumSandboxGuidanceEnabled = false;
     private lastAuthoritativeViewportKey = "";
     private overlayMouseSuppression?: {
         clientX: number;
@@ -270,14 +293,27 @@ export class PixiGameManager {
                 debugCanvas.height = h;
             }
 
-            this.pixiApp!.resize(w, h);
-            this.m_scene?.Resize(w, h); // Resize scene first
-            loadingScreen?.resize(w, h); // Resize loader if active
-            this.fitViewToWindow();
+            // The camera is fitted even if the scene's resize throws; see resizeBoard.
+            resizeBoard({
+                resizeCanvas: () => this.pixiApp!.resize(w, h),
+                resizeScene: () => this.m_scene?.Resize(w, h),
+                resizeLoader: () => loadingScreen?.resize(w, h),
+                fitCamera: () => this.fitViewToWindow(),
+            });
         };
 
         this.addInitEventListener(window, "resize", onResize);
         this.addInitEventListener(window, "orientationchange", onResize);
+        // The window is not the only thing that resizes the board. Its wrapper is a flex item sitting next
+        // to the sidebars, so a panel that mounts or grows mid-match — ranked placement mounts several —
+        // re-lays the board out while the window never changes. The canvas then kept the pixel size it was
+        // last given (PixiApp.resize writes explicit px) and the camera stayed fit to that stale box: the
+        // board slid up-left off centre and the sidebar was pushed past the window edge.
+        this.initEventCleanups.push(
+            observeElementBox(wrapper, () => {
+                if (isCurrentLifecycle()) onResize();
+            }),
+        );
         onResize(); // first sizing pass to set correct canvas size
         if (!isCurrentLifecycle()) {
             pixiApp.destroy();
@@ -288,6 +324,21 @@ export class PixiGameManager {
         const stage = this.pixiApp.getStage();
         // Now use the CORRECT CURRENT dimensions after onResize()
         const { width, height } = this.pixiApp.getApplication().renderer;
+
+        // 0. Start the core assets now. The loading screen's own art (~1.5 MB) used to be fetched first, so on a
+        // cold cache the board's download only began once the loader's pictures had arrived.
+        let actualLoadingProgress = 0;
+        let renderCoreProgress = (): void => undefined;
+        const textureLoader = import("./PixiTextureLoader");
+        const coreAssets = textureLoader.then(({ preloadCoreAssets }) =>
+            preloadCoreAssets((p) => {
+                if (!isCurrentLifecycle()) return;
+                actualLoadingProgress = p * 0.9;
+                renderCoreProgress();
+            }),
+        );
+        // An init superseded before it awaits this must not surface the failure as an unhandled rejection.
+        coreAssets.catch(() => undefined);
 
         // 1. Show Blocking Loading Screen
         const { LoadingScreen } = await import("../scenes/LoadingScreen");
@@ -301,16 +352,23 @@ export class PixiGameManager {
             pixiApp.destroy();
             return;
         }
-        // Ensure it's on top of everything (UI container usually) but for now just add to stage
+        // The scene is constructed underneath this screen, including its stage-level creature roster.
+        stage.sortableChildren = true;
+        loadingScreen.zIndex = 10000;
         stage.addChild(loadingScreen);
         const loadingScreenShownAt = performance.now();
-        let actualLoadingProgress = 0;
+        // The sandbox keeps its loading art up for a moment; a ranked or co-op board (the augment step
+        // waits behind it) shows the loader only as long as the assets actually take. The helper always
+        // existed for this split but the constant was used directly, so every route sat through 2 s.
+        const minimumDurationMs = minimumLoadingScreenDurationMs(this.sceneTitle);
         let minimumDurationElapsed = false;
         const renderLoadingProgress = (now = performance.now()) => {
             if (!isCurrentLifecycle() || !loadingScreen) return;
-            const elapsedMs = minimumDurationElapsed ? MINIMUM_LOADING_SCREEN_DURATION_MS : now - loadingScreenShownAt;
-            loadingScreen.setProgress(displayedLoadingProgress(actualLoadingProgress, elapsedMs));
+            const elapsedMs = minimumDurationElapsed ? minimumDurationMs : now - loadingScreenShownAt;
+            loadingScreen.setProgress(displayedLoadingProgress(actualLoadingProgress, elapsedMs, minimumDurationMs));
         };
+        renderCoreProgress = renderLoadingProgress;
+        renderLoadingProgress();
         const minimumLoadingScreenDuration = new Promise<void>((resolve) => {
             let animationFrameId = 0;
             let fallbackTimeoutId = 0;
@@ -332,7 +390,7 @@ export class PixiGameManager {
                 }
 
                 renderLoadingProgress(now);
-                if (now - loadingScreenShownAt >= MINIMUM_LOADING_SCREEN_DURATION_MS) {
+                if (now - loadingScreenShownAt >= minimumDurationMs) {
                     finish();
                     return;
                 }
@@ -340,7 +398,7 @@ export class PixiGameManager {
             };
 
             animationFrameId = window.requestAnimationFrame(animate);
-            fallbackTimeoutId = window.setTimeout(finish, MINIMUM_LOADING_SCREEN_DURATION_MS);
+            fallbackTimeoutId = window.setTimeout(finish, minimumDurationMs);
         });
 
         // 2. Load Core Assets (Blocking)
@@ -348,20 +406,16 @@ export class PixiGameManager {
         this._isLoading = true;
         this.onLoadingChanged.emit(true);
 
-        const { preloadCoreAssets, preloadIdleAtlasAssets, preloadAnimationAssets } =
-            await import("./PixiTextureLoader");
+        const { preloadIdleAtlasAssets, preloadAnimationAssets } = await textureLoader;
+        const { boardFirstTextureLoads } = await import("./boardFirstTextureLoads");
         if (!isCurrentLifecycle()) {
             cleanupLoadingScreen();
             pixiApp.destroy();
             return;
         }
 
-        this.textures = (await preloadCoreAssets((p) => {
-            if (!isCurrentLifecycle()) return;
-            actualLoadingProgress = p;
-            renderLoadingProgress();
-        })) as PreloadedPixiTextures;
-        actualLoadingProgress = 1;
+        this.textures = (await coreAssets) as PreloadedPixiTextures;
+        actualLoadingProgress = 0.9;
         renderLoadingProgress();
         if (!isCurrentLifecycle()) {
             cleanupLoadingScreen();
@@ -369,17 +423,7 @@ export class PixiGameManager {
             return;
         }
 
-        await minimumLoadingScreenDuration;
-        if (!isCurrentLifecycle()) {
-            cleanupLoadingScreen();
-            pixiApp.destroy();
-            return;
-        }
-
-        // 3. Remove Loading Screen & Start Game
-        cleanupLoadingScreen();
-
-        // 4. Init Scene Manager & Game
+        // 3. Construct the scene behind the loading screen so its selected map can request its layers.
         // const gridSettings = new GridSettings(32, 1024, 0, 1024, 0, 32, 16);
         // this.pixiSceneManager = new PixiSceneManager(this.pixiApp, gridSettings);
 
@@ -396,6 +440,21 @@ export class PixiGameManager {
         );
 
         this.LoadGame();
+        await this.m_scene?.prepareMapTextures();
+        if (!isCurrentLifecycle()) {
+            cleanupLoadingScreen();
+            pixiApp.destroy();
+            return;
+        }
+        actualLoadingProgress = 1;
+        renderLoadingProgress();
+        await minimumLoadingScreenDuration;
+        if (!isCurrentLifecycle()) {
+            cleanupLoadingScreen();
+            pixiApp.destroy();
+            return;
+        }
+        cleanupLoadingScreen();
 
         // 5. Tier 2: Background Load Animations — idle atlases FIRST, then the rest.
         //
@@ -410,13 +469,23 @@ export class PixiGameManager {
             Object.assign(this.textures as Record<string, unknown>, newTextures);
             this.m_scene?.onSupplementaryTexturesLoaded?.();
         };
-        preloadIdleAtlasAssets((p) => {
-            if (!isCurrentLifecycle()) return;
-            // The idle bundle is ~5% of the payload; report it as the first slice of the bar.
-            this.m_scene?.onBackgroundAssetLoad?.(p * 0.1);
-        })
+        // The bundles are extras: the creatures' board images go first (boardFirstTextureLoads). Two frames let the
+        // scene's first sync pass request those images; the bundles start once they have settled.
+        const nextFrame = (): Promise<void> => new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
+        nextFrame()
+            .then(nextFrame)
+            .then(() => boardFirstTextureLoads.afterBoardImages())
+            .then(() =>
+                isCurrentLifecycle()
+                    ? preloadIdleAtlasAssets((p) => {
+                          if (!isCurrentLifecycle()) return;
+                          // The idle bundle is ~5% of the payload; report it as the first slice of the bar.
+                          this.m_scene?.onBackgroundAssetLoad?.(p * 0.1);
+                      })
+                    : undefined,
+            )
             .then((idleTextures) => {
-                if (!isCurrentLifecycle()) return undefined;
+                if (!isCurrentLifecycle() || !idleTextures) return undefined;
                 applyLoadedTextures(idleTextures);
                 return preloadAnimationAssets((p) => {
                     if (!isCurrentLifecycle()) return;
@@ -429,8 +498,12 @@ export class PixiGameManager {
                 this.m_scene?.onBackgroundAssetLoad?.(1.0);
             });
 
-        const initialOverlay = getUnitsOverlayFromScene(this.m_scene);
-        if (initialOverlay) {
+        // Wire the roster-overlay pointer forwarding for ANY scene that can host the overlay, not only one
+        // that exposes it at init: the ranked scene hides it (getUnitsOverlay -> undefined) until a snapshot
+        // marks the game a friend co-op sandbox, and each handler re-reads the overlay at event time anyway.
+        const supportsUnitsOverlay =
+            typeof (this.m_scene as SceneWithUnitsOverlay | null)?.getUnitsOverlay === "function";
+        if (supportsUnitsOverlay) {
             const forwardOverlayInteraction = (e: PointerEvent) => {
                 // 🔥 FIX: If the fight has started, do not let the overlay intercept clicks.
                 // This ensures clicks pass through to HandleMouseDown for unit movement.
@@ -533,11 +606,31 @@ export class PixiGameManager {
         this.gameActionTransport = transport;
         this.m_scene?.setGameActionTransport(transport);
     }
+    /** Co-op sandbox: the channel setup picks that are not GameActions (artifact, map) are sent through. */
+    public SetSandboxSetupTransport(transport?: (pick: SandboxSetupPick) => void): void {
+        this.m_scene?.setSandboxSetupTransport(transport);
+    }
+    public GetGridType(): GridType {
+        return this.m_scene?.getGridType() ?? (GridVals.NORMAL as GridType);
+    }
     public SetMoveIntentSink(sink?: (unitId: string | undefined, cell: HoCMath.XY | undefined) => void): void {
         this.m_scene?.setMoveIntentSink(sink);
     }
     public SetOpponentMoveIntent(intent?: { unitId: string; cell: HoCMath.XY }): void {
         this.m_scene?.setOpponentMoveIntent(intent);
+    }
+    public SetSpellIntentSink(sink?: (unitId: string | undefined, spellName: string | undefined) => void): void {
+        this.m_scene?.setSpellIntentSink(sink);
+    }
+    public SetOpponentSpellIntent(intent?: { unitId: string; spellName: string }): void {
+        this.m_scene?.setOpponentSpellIntent(intent);
+    }
+    public SetPremiumTurnPreview(turn?: PremiumTurnPreview): void {
+        this.m_scene?.setPremiumTurnPreview(turn);
+    }
+    public SetPremiumSandboxGuidance(enabled: boolean): void {
+        this.premiumSandboxGuidanceEnabled = enabled;
+        this.m_scene?.setPremiumSandboxGuidance(enabled);
     }
     public ApplyAuthoritativeSnapshot(
         snapshot: AuthoritativeGameSnapshot,
@@ -596,18 +689,19 @@ export class PixiGameManager {
     }
     private emitAuthoritativeDamageStats(snapshot: AuthoritativeGameSnapshot): void {
         if (snapshot.damageStats) {
-            this.onDamageStatisticsUpdated.emit(structuredClone(snapshot.damageStats));
+            // The scene may have rejected a stale/live snapshot while full replay owns the board.
+            // Publish the totals it actually accepted, just as the regular frame update does.
+            this.onDamageStatisticsUpdated.emit(this.GetCurrentDamageStatistics());
         }
     }
     private shouldFitAuthoritativeSnapshot(snapshot: AuthoritativeGameSnapshot, wasStarted: boolean): boolean {
-        const viewportKey = [
-            snapshot.gridType,
-            snapshot.fightStarted ? 1 : 0,
-            snapshot.fightFinished ? 1 : 0,
-            snapshot.narrowingLayers ?? 0,
-            snapshot.centerDried ? 1 : 0,
-        ].join(":");
-        const shouldFit = viewportKey !== this.lastAuthoritativeViewportKey || wasStarted !== this.started;
+        // The board itself does not move when a fight ends. Refitting then — started flips off, and the
+        // results panel is mounting in the same turn — read a transient viewport and slid the whole
+        // battlefield up-left. Fit when the grid, the narrowing, or the dried centre actually changes,
+        // and once when the fight begins. Ending it leaves the camera where the fight put it.
+        const viewportKey = [snapshot.gridType, snapshot.narrowingLayers ?? 0, snapshot.centerDried ? 1 : 0].join(":");
+        const fightBeginning = !wasStarted && this.started;
+        const shouldFit = viewportKey !== this.lastAuthoritativeViewportKey || fightBeginning;
         this.lastAuthoritativeViewportKey = viewportKey;
         return shouldFit;
     }
@@ -634,6 +728,7 @@ export class PixiGameManager {
         // }
     }
     public HandleMouseDown(e: MouseEvent): void {
+        if (this.m_scene?.isMapLoading?.()) return;
         if (this.shouldSuppressOverlayMouseEvent(e, "down")) {
             e.preventDefault();
             e.stopPropagation();
@@ -705,7 +800,19 @@ export class PixiGameManager {
         if (index >= this.flatScenes.length) this.activateScene(this.flatScenes[0]);
         else this.activateScene(this.flatScenes[index]);
     }
+    /**
+     * What the offline sandbox would hand a co-op sandbox: its map and the green army as placed. Undefined
+     * once a fight has started (there is nothing to carry) or before a scene exists.
+     */
+    public GetSandboxCarryOver():
+        { gridType: number; army: { unitName: string; cells: { x: number; y: number }[] }[] } | undefined {
+        if (!this.m_scene || this.started) {
+            return undefined;
+        }
+        return { gridType: this.m_scene.getGridType(), army: this.m_scene.getPlacedArmyExport(TeamVals.LEFT) };
+    }
     public StartGame(): void {
+        if (this.m_scene?.isMapLoading?.()) return;
         if (this.m_scene && this.m_scene.startScene()) this.started = true;
         this.emitHasStarted(this.started);
         this.fitViewToWindow(); // keep neutral after start too
@@ -718,12 +825,50 @@ export class PixiGameManager {
     public IsTeamAiControlled(team: TeamType): boolean {
         return this.m_scene?.isTeamAiControlled(team) ?? false;
     }
+    public SetCreatureAnimationLabEnabled(enabled: boolean): void {
+        this.creatureAnimationLabEnabled = enabled;
+        this.m_scene?.setCreatureAnimationLabEnabled(enabled);
+    }
+    public PlayCreatureAnimationLabState(state: CreatureAnimationLabState): CreatureAnimationLabResult {
+        return (
+            this.m_scene?.playCreatureAnimationLabState(state) ?? {
+                ok: false,
+                message: "Sandbox ещё загружается",
+            }
+        );
+    }
+    public MoveCreatureAnimationLabSelection(dx: number, dy: number): CreatureAnimationLabResult {
+        return (
+            this.m_scene?.moveCreatureAnimationLabSelection(dx, dy) ?? {
+                ok: false,
+                message: "Sandbox ещё загружается",
+            }
+        );
+    }
     /** TEMPORARY sandbox comparison toggle: paint the board with the previous floor texture. */
     public SetLegacyBoardBackground(enabled: boolean): void {
         this.m_scene?.setLegacyBoardBackground(enabled);
     }
     public IsLegacyBoardBackground(): boolean {
         return this.m_scene?.isLegacyBoardBackground() ?? false;
+    }
+    /** Fourth sandbox map: generated abyss art over the unchanged normal 16x16 mechanics. */
+    public SetTestBoardBackground(enabled: boolean): void {
+        this.testBoardBackground = enabled;
+        this.m_scene?.setTestBoardBackground(enabled);
+        this.onTestBoardBackgroundChanged.emit(enabled);
+    }
+    public IsTestBoardBackground(): boolean {
+        return this.m_scene?.isTestBoardBackground() ?? this.testBoardBackground;
+    }
+    public SetTestBoardNarrowingLevel(level: number): void {
+        const nextLevel = Math.max(0, Math.min(5, Math.round(level)));
+        this.testBoardNarrowingLevel = nextLevel;
+        this.m_scene?.setTestBoardNarrowingLevel(nextLevel);
+        this.onTestBoardNarrowingLevelChanged.emit(nextLevel);
+    }
+    public GetTestBoardNarrowingLevel(): number {
+        return this.m_scene?.getTestBoardNarrowingLevel() ?? this.testBoardNarrowingLevel;
     }
     /** Replay the previous fight with the exact same units, positions and map. */
     public Rematch(): void {
@@ -742,6 +887,9 @@ export class PixiGameManager {
         return this.m_scene?.sc_visibleState
             ? structuredClone(this.m_scene.sc_visibleState as IVisibleState)
             : ({} as IVisibleState);
+    }
+    public GetCurrentDamageStatistics(): IDamageStatistic[] {
+        return structuredClone(this.m_scene?.getDamageStatisics() ?? []);
     }
     public async PlaySandboxReplay(replay: SandboxReplay, throughSequence?: number): Promise<boolean> {
         const applied = (await this.m_scene?.playSandboxReplay(replay, throughSequence)) ?? false;
@@ -827,6 +975,8 @@ export class PixiGameManager {
         this.disconnectSceneStartListeners();
         this.m_scene?.Destroy();
         this.started = false;
+        this.lastInspectedUnit = undefined;
+        this.onUnitInspectionUpdated.emit(null);
         this.lastAuthoritativeViewportKey = "";
         if (_restartScene) {
             this.onSelectionCombined.emit({
@@ -845,7 +995,26 @@ export class PixiGameManager {
             onHasStarted: this.onSceneHasStarted,
             gameActionTransport: this.gameActionTransport,
         };
+        // A brand-new LOCAL scene must never inherit the previous game's fight state. This manager lives
+        // for the whole app, and a route change (a co-op or ranked board back to the offline sandbox) only
+        // swaps the scene class — the process-global FightProperties kept the old game's map, placement
+        // upgrades, doctrine and artifacts, and the sandbox constructor's default-placement call is a
+        // no-op once a team already has one. Live report: the offline sandbox opened with the previous
+        // game's deployment zones drawn.
+        //
+        // An AUTHORITATIVE board (ranked / co-op sandbox — the ones that carry a game action transport)
+        // is deliberately left alone: hydrateSceneState performs this same reset itself, but around a
+        // capture/restore of the server's setup (doctrine, augments, artifacts, synergies), which the
+        // snapshot does not re-send on every delivery. Resetting here would drop that setup for however
+        // long it takes the next snapshot to re-sync it.
+        if (!this.gameActionTransport) {
+            FightStateManager.getInstance().reset();
+        }
         this.m_scene = new SceneClass(context);
+        this.m_scene.setPremiumSandboxGuidance?.(this.premiumSandboxGuidanceEnabled);
+        this.m_scene.setCreatureAnimationLabEnabled?.(this.creatureAnimationLabEnabled);
+        this.m_scene.setTestBoardBackground?.(this.testBoardBackground);
+        this.m_scene.setTestBoardNarrowingLevel?.(this.testBoardNarrowingLevel);
 
         this.m_scene.setupControls();
         this.sceneBaseHotKeys = this.m_scene.getBaseHotkeys();
@@ -921,6 +1090,21 @@ export class PixiGameManager {
         }
         return augmented || false;
     }
+    public BeginBarrelPlacement(team: TeamType, index: number): boolean {
+        return this.m_scene?.beginBarrelPlacement(team, index) ?? false;
+    }
+    public GetBarrelPlacementIndex(team: TeamType): number | undefined {
+        return this.m_scene?.getBarrelPlacementIndex(team);
+    }
+    public CancelBarrelPlacement(): void {
+        this.m_scene?.cancelBarrelPlacement();
+    }
+    public RemovePlacedBarrel(team: TeamType, index: number): boolean {
+        return this.m_scene?.removePlacedBarrel(team, index) ?? false;
+    }
+    public GetBarrelPlacementState(team: TeamType): { index: number; cell: { x: number; y: number } }[] {
+        return this.m_scene?.getBarrelPlacementState(team) ?? [];
+    }
     public PropagateArtifact(teamType: TeamType, tier: number, artifactId: number): boolean {
         const applied = this.m_scene?.propagateArtifact(teamType, tier, artifactId);
         if (applied) {
@@ -946,6 +1130,10 @@ export class PixiGameManager {
             ).selectSynergyVariant(teamType, factionName, synergyName);
         }
         return false;
+    }
+    /** The synergies each team could field right now (a copy), for a sidebar mounting after the last emit. */
+    public GetPossibleSynergies(): Map<TeamType, SynergyWithLevel[]> {
+        return new Map(this.m_scene?.sc_possibleSynergiesPerTeam ?? []);
     }
     /** Applied synergy entries ("Faction:variant:level") for a team, for the sidebar's chosen-state. */
     public GetAppliedSynergies(teamType: TeamType): string[] {
@@ -1037,9 +1225,16 @@ export class PixiGameManager {
         if (this.m_scene?.sc_sceneLog.hasBeenUpdated()) {
             this.onAttackLanded.emit(this.m_scene.sc_sceneLog.getLog());
         }
+        const noticeScene = this.m_scene;
+        const playerNotice = noticeScene?.sc_playerNotice;
+        if (noticeScene && playerNotice) {
+            noticeScene.sc_playerNotice = "";
+            this.onPlayerNotice.emit(playerNotice);
+        }
 
         // Unit / faction updates
         const scene = this.m_scene;
+        this.updateUnitInspection();
         if (scene) {
             // ✅ Combined selection: unit + impact + faction
             if (scene.sc_unitPropertiesUpdateNeeded || scene.sc_factionNameUpdateNeeded) {
@@ -1071,7 +1266,7 @@ export class PixiGameManager {
 
         // Damage stats
         if (this.m_scene?.sc_damageStatsUpdateNeeded) {
-            this.onDamageStatisticsUpdated.emit(structuredClone(this.m_scene.getDamageStatisics()));
+            this.onDamageStatisticsUpdated.emit(this.GetCurrentDamageStatistics());
             this.m_scene.sc_damageStatsUpdateNeeded = false;
         }
 
@@ -1104,6 +1299,19 @@ export class PixiGameManager {
             this.m_scene.sc_buttonGroupUpdated = false;
         }
     }
+    private updateUnitInspection(): void {
+        const scene = this.m_scene;
+        const inspectedUnit = this.m_hoveringCanvas
+            ? (getUnitsOverlayFromScene(scene)?.getHoveredUnitProperties() ?? scene?.sc_hoveredUnitProperties)
+            : undefined;
+        if (inspectedUnit === this.lastInspectedUnit && !(inspectedUnit && scene?.sc_unitPropertiesUpdateNeeded)) {
+            return;
+        }
+        this.lastInspectedUnit = inspectedUnit;
+        this.onUnitInspectionUpdated.emit(
+            inspectedUnit && scene ? { unit: inspectedUnit, impact: scene.getUnitVisibleImpact(inspectedUnit) } : null,
+        );
+    }
     private sceneHasHoverInfo(): boolean {
         return (
             !!this.m_scene?.sc_attackDamageSpreadStr ||
@@ -1128,6 +1336,8 @@ export class PixiGameManager {
                 unitLevel: this.m_scene.sc_hoverUnitLevel,
                 unitMovementType: this.m_scene.sc_hoverUnitMovementType,
                 information: this.m_scene.sc_hoverInfoArr,
+                spellElement: this.m_scene.sc_hoverSpellElement,
+                spellEffectSummary: this.m_scene.sc_hoverSpellEffectSummary,
                 isHoveringAttackTarget: this.m_scene.sc_isHoveringAttackTarget,
                 meleeCursorDirection: this.m_scene.sc_meleeCursorDirection,
             });

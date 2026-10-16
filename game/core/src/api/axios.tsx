@@ -1,6 +1,7 @@
 import axios, { AxiosRequestConfig, AxiosInstance } from "axios";
 
 import { adoptRotatedStoredAccessToken, registerAccessTokenListener } from "./access_token";
+import { DEVICE_ID_HEADER, getDeviceId } from "./deviceId";
 
 const DEFAULT_DEV_API = "http://127.0.0.1:3001";
 const PROD_AUTH_API = "https://auth.heroesofcrypto.io";
@@ -33,9 +34,28 @@ const IS_PROD =
 // origin served the client (buildApiUrl falls back to window.location.origin; the axios instances
 // get no baseURL, i.e. relative requests). Single-box rigs — UI and APIs on one port — build with
 // this so the SAME bundle works from a LAN IP, a public hostname, or a tunnel, no rebake needed.
-const resolveHost = (configured: string | undefined, fallback: string): string => {
+const isLoopbackOrigin = (value: string): boolean => {
+    try {
+        const hostname = new URL(value).hostname.toLowerCase();
+        return (
+            hostname === "localhost" ||
+            hostname.endsWith(".localhost") ||
+            hostname === "0.0.0.0" ||
+            hostname === "::1" ||
+            hostname === "[::1]" ||
+            hostname.startsWith("127.")
+        );
+    } catch {
+        return false;
+    }
+};
+
+export const resolveHost = (configured: string | undefined, fallback: string, production = IS_PROD): string => {
     if (configured === "same-origin") {
         return "";
+    }
+    if (production && configured && isLoopbackOrigin(configured)) {
+        return fallback;
     }
     return configured || fallback;
 };
@@ -83,6 +103,11 @@ const syncAuthorizationDefaults = (accessToken: string | null): void => {
 };
 
 registerAccessTokenListener(syncAuthorizationDefaults);
+
+// Ranked integrity phase 1: a random per-install id the server keeps only as a keyed hash (see deviceId.ts).
+for (const instance of [axiosAuthInstance, axiosMMInstance, axiosGameInstance]) {
+    instance.defaults.headers.common[DEVICE_ID_HEADER] = getDeviceId();
+}
 
 const adoptRotatedAccessToken = (headers: unknown): void => {
     if (!headers || typeof headers !== "object") {
@@ -213,12 +238,21 @@ export const endpoints = {
         seasonCurrent: IS_PROD ? "/v1/season-current" : "/v1/mm/season-current",
         // Public ranked profile (username, placed MMR, league) — the observer HUD names each side.
         rankedProfile: IS_PROD ? "/v1/ranked-profile" : "/v1/mm/ranked-profile",
+        playerMetrics: IS_PROD ? "/v1/player-metrics" : "/v1/mm/player-metrics",
         // Public settled result: both seats' names, visible MMR movement and gold earned.
         rankedMatch: IS_PROD ? "/v1/ranked-match" : "/v1/mm/ranked-match",
+        // Signed in: the player's own conduct record and the exit rules' numbers; and acknowledging the rules card.
+        rankedConduct: IS_PROD ? "/v1/ranked-conduct" : "/v1/mm/ranked-conduct",
+        rankedRulesAccept: IS_PROD ? "/v1/ranked-rules-accept" : "/v1/mm/ranked-rules-accept",
+        rankedAppeal: IS_PROD ? "/v1/ranked-appeal" : "/v1/mm/ranked-appeal",
+        reputation: IS_PROD ? "/v1/reputation" : "/v1/mm/reputation",
+        rankedReport: IS_PROD ? "/v1/ranked-report" : "/v1/mm/ranked-report",
+        rankedExitRules: IS_PROD ? "/v1/ranked-exit-rules" : "/v1/mm/ranked-exit-rules",
     },
     // Authenticated social layer: notifications tray, friends/blocks, presence heartbeat.
     social: {
         presencePing: IS_PROD ? "/v1/presence-ping" : "/v1/mm/presence-ping",
+        clientError: IS_PROD ? "/v1/client-error" : "/v1/mm/client-error",
         notifications: IS_PROD ? "/v1/notifications" : "/v1/mm/notifications",
         notificationsSeen: IS_PROD ? "/v1/notifications-seen" : "/v1/mm/notifications-seen",
         friendRequest: IS_PROD ? "/v1/friend-request" : "/v1/mm/friend-request",
@@ -256,6 +290,9 @@ export const endpoints = {
         playReplay: IS_PROD ? "/v1/play-replay" : "/v1/game/play-replay",
         playSnapshot: IS_PROD ? "/v1/play-snapshot" : "/v1/game/play-snapshot",
         playAction: IS_PROD ? "/v1/play-action" : "/v1/game/play-action",
+        // Friend co-op sandbox: open one and invite a friend / resolve your seat from the invite link.
+        sandboxCreate: IS_PROD ? "/v1/sandbox-create" : "/v1/game/sandbox-create",
+        sandboxJoin: IS_PROD ? "/v1/sandbox-join" : "/v1/game/sandbox-join",
         pickPair: IS_PROD ? "/v1/pick-pair" : "/v1/game/pick-pair",
         // Public, spoiler-safe draft spectator snapshot (no auth): what each team's OPPONENT already
         // sees (slot reveals), plus bans and the current phase/deadline.

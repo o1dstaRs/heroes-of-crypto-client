@@ -5,6 +5,7 @@ import type { AuthoritativeGameSnapshot, SceneGameActionTransport } from "../gam
 import { createRankedReplayFromPayload, type RankedReplay, type RankedReplayPayload } from "../replay/ranked_replay";
 import { appendBoundedDiagnosticLine } from "../utils/boundedDiagnosticLog";
 import { buildApiUrl, endpoints, HOST_GAME_API, axiosGameInstance } from "./axios";
+import { deviceIdHeaders } from "./deviceId";
 import { createPlayActionFromGameAction } from "./game_action_play_codec";
 import { isPreviewPlayGame } from "./previewPlayGate";
 import {
@@ -12,6 +13,7 @@ import {
     decodePlaySnapshot,
     decodeSsePlayEvent,
     encodePlayAction,
+    PLAY_ARMED_SPELL_INTENT_REASON,
     PlayActionType,
     PlayPhase,
 } from "./play_protocol";
@@ -24,6 +26,7 @@ const authHeaders = (authorization?: string): Record<string, string> => {
     return {
         "Content-Type": "application/octet-stream",
         "x-request-id": uuidv4(),
+        ...deviceIdHeaders(),
         ...(token ? { Authorization: token } : {}),
     };
 };
@@ -32,6 +35,7 @@ export const rankedEventHeaders = (): Record<string, string> => {
     const token = localStorage.getItem(STORAGE_KEY);
     return {
         Accept: "text/event-stream",
+        ...deviceIdHeaders(),
         ...(token ? { Authorization: token } : {}),
     };
 };
@@ -243,6 +247,36 @@ export const sendRankedPlayAction = async (
 };
 
 /**
+ * Broadcast the spell the local player has armed, so the opponent can show its name and icon.
+ * Fire-and-forget, same as a move aim. Omit `spellName` to clear a previously armed spell.
+ */
+export const sendRankedPlaySpellIntent = (
+    gameId: string,
+    args: { playerId: string; team: TeamType; unitId: string; spellName?: string },
+): void => {
+    if (isPreviewPlayGame(gameId)) {
+        return;
+    }
+    const payload: PlayAction = {
+        actionId: uuidv4(),
+        gameId,
+        playerId: args.playerId,
+        expectedSequence: 0,
+        type: PlayActionType.MOVE_INTENT,
+        unitId: args.unitId,
+        team: args.team,
+        spellName: args.spellName,
+        reason: PLAY_ARMED_SPELL_INTENT_REASON,
+    };
+    void axiosGameInstance
+        .post(playActionUrl(gameId), encodePlayAction(payload), {
+            responseType: "arraybuffer",
+            headers: authHeaders(),
+        })
+        .catch(() => undefined);
+};
+
+/**
  * Broadcast the local player's in-progress move aim so the opponent can preview a
  * silhouette of the active unit. Fire-and-forget: intents are ephemeral hints, so we
  * never advance the sequence or surface transport errors to the player. Omit
@@ -349,10 +383,21 @@ export const toAuthoritativeGameSnapshot = (
     snapshot: PlaySnapshot,
     viewerTeam?: TeamType,
     localModelTeam?: TeamType,
+    sandboxCoop = false,
 ): AuthoritativeGameSnapshot => ({
     gameId: snapshot.gameId,
     viewerTeam,
     localModelTeam,
+    ...(sandboxCoop
+        ? {
+              sandboxCoop: true,
+              sandboxCoopBothReady:
+                  snapshot.players.length > 0 &&
+                  snapshot.players.every((player) => snapshot.readyPlayerIds.includes(player.playerId)),
+              leftSynergies: snapshot.leftSynergies ?? [],
+              rightSynergies: snapshot.rightSynergies ?? [],
+          }
+        : {}),
     winnerTeam: winnerTeamFromSnapshot(snapshot),
     phase: snapshot.phase,
     gridType: snapshot.gridType,
@@ -366,6 +411,9 @@ export const toAuthoritativeGameSnapshot = (
     placementDeadlineMs: snapshot.placementDeadlineMs,
     placementStage: snapshot.placementStage,
     placementSplit: snapshot.placementSplit,
+    viewerPlacementReady: snapshot.players.some(
+        (player) => player.team === viewerTeam && snapshot.readyPlayerIds.includes(player.playerId),
+    ),
     hideOpponentRosterDuringSetup: snapshot.hideOpponentRosterDuringSetup,
     currentTurnStartMs: snapshot.currentTurnStartMs,
     currentTurnEndMs: snapshot.currentTurnEndMs,
@@ -373,9 +421,14 @@ export const toAuthoritativeGameSnapshot = (
     centerDried: snapshot.centerDried,
     centerObstacleHitsLeft: snapshot.centerObstacleHitsLeft,
     centerObstacleHitsRight: snapshot.centerObstacleHitsRight,
+    artifactBarrels: snapshot.artifactBarrels?.map((barrel) => ({ ...barrel, team: barrel.team as 1 | 2 })),
+    artifactBarrelsCount: snapshot.artifactBarrelsCount,
     scatteredStandingCells: snapshot.scatteredStandingCells,
     scatteredStandingCount: snapshot.scatteredStandingCount,
+    transientCells: snapshot.transientCells,
+    transientCellsCount: snapshot.transientCellsCount,
     stepsMoraleMultiplier: snapshot.stepsMoraleMultiplier,
+    additionalTimeMs: snapshot.additionalTimeMs,
     units: snapshot.units,
     upNext: snapshot.upNext,
     leftStartUnits: snapshot.leftStartUnits,

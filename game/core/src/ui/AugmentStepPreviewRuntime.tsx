@@ -20,15 +20,17 @@ import { GridVals, HoCConstants, Doctrine, TeamType, TeamVals } from "@heroesofc
 import { Box, Stack } from "@mui/joy";
 import CssBaseline from "@mui/joy/CssBaseline";
 import { CssVarsProvider } from "@mui/joy/styles";
-import React, { useCallback, useMemo, useState } from "react";
+
+import { hocJoyTheme } from "./hocTheme";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { PixiGameManager, PixiManagerContext } from "../pixi/PixiGameManager";
 import {
     DRAFT_ARMIES_HEIGHT,
     DRAFT_HEADER_HEIGHT,
     DRAFT_ZONE_GAP,
-    DraftBottomControls,
     CreatureDetailPanel,
+    DraftBottomControls,
     DraftTitle,
     MyDraftBar,
     OpponentDraftBar,
@@ -41,6 +43,7 @@ import {
 import { PickLanternFire } from "./PickAndBan/PickLanternFire";
 import { MapBadge } from "./PickAndBan/MapReveal";
 import SideToggleContainer from "./RightSideBar/SideToggleContainer";
+import { registerBattleSystemControls } from "./social/systemControlsMode";
 
 /*
  * A card only commits its level if the manager accepts it, and the real manager only accepts what a live
@@ -74,6 +77,7 @@ const PREVIEW_MAP_TYPES: Record<string, number> = {
 };
 
 export const AugmentStepPreview: React.FC = () => {
+    useEffect(registerBattleSystemControls, []);
     const params = new URLSearchParams(window.location.search);
     const doctrineId =
         PREVIEW_DOCTRINES[params.get("doctrine")?.toLowerCase() ?? ""] ?? Doctrine.Doctrine.THREE_REVEALS;
@@ -88,6 +92,25 @@ export const AugmentStepPreview: React.FC = () => {
     const [ready, setReady] = useState(false);
     const [inspectedCreatureId, setInspectedCreatureId] = useState(0);
     const [pointsRemaining, setPointsRemaining] = useState(budgetPoints);
+    const inspectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const cancelInspectEnd = useCallback(() => {
+        if (inspectTimer.current) {
+            clearTimeout(inspectTimer.current);
+            inspectTimer.current = null;
+        }
+    }, []);
+    const beginInspect = useCallback(
+        (creatureId: number) => {
+            cancelInspectEnd();
+            setInspectedCreatureId(creatureId);
+        },
+        [cancelInspectEnd],
+    );
+    const endInspect = useCallback(() => {
+        cancelInspectEnd();
+        inspectTimer.current = setTimeout(() => setInspectedCreatureId(0), 90);
+    }, [cancelInspectEnd]);
+    useEffect(() => cancelInspectEnd, [cancelInspectEnd]);
     // SideToggleContainer re-runs its report effect whenever this identity changes, so it has to be stable.
     const onReadyChange = useCallback(
         (state: { pointsRemaining: number; allSynergiesSelected: boolean }) =>
@@ -103,12 +126,12 @@ export const AugmentStepPreview: React.FC = () => {
 
     return (
         <PixiManagerContext.Provider value={PREVIEW_MANAGER}>
-            <CssVarsProvider>
+            <CssVarsProvider theme={hocJoyTheme}>
                 <CssBaseline />
                 <Box sx={draftShellSx}>
                     <PickLanternFire slot={0} />
                     <PickLanternFire slot={1} />
-                    <Box sx={draftBoardSx(draftScale)}>
+                    <Box sx={draftBoardSx(draftScale)} onMouseLeave={endInspect}>
                         <Box
                             sx={{
                                 width: "100%",
@@ -121,6 +144,8 @@ export const AugmentStepPreview: React.FC = () => {
                                 justifyContent: "center",
                                 overflow: "hidden",
                             }}
+                            onMouseEnter={cancelInspectEnd}
+                            onMouseLeave={endInspect}
                         >
                             {inspectedCreatureId ? (
                                 <CreatureDetailPanel creatureId={inspectedCreatureId} />
@@ -148,8 +173,8 @@ export const AugmentStepPreview: React.FC = () => {
                                 artifactTier1={1}
                                 artifactTier2={1}
                                 gameId="augment-step-preview"
-                                onInspect={setInspectedCreatureId}
-                                onInspectEnd={() => setInspectedCreatureId(0)}
+                                onInspect={beginInspect}
+                                onInspectEnd={endInspect}
                             />
                             <Box sx={{ flex: "0 0 auto", display: "flex", alignItems: "center" }}>
                                 <MapBadge mapType={mapType} />
@@ -159,8 +184,8 @@ export const AugmentStepPreview: React.FC = () => {
                                 opponentLabel="Opponent"
                                 watchedSlots={[0, 1, 2, 3, 4, 5]}
                                 gameId="augment-step-preview"
-                                onInspect={setInspectedCreatureId}
-                                onInspectEnd={() => setInspectedCreatureId(0)}
+                                onInspect={beginInspect}
+                                onInspectEnd={endInspect}
                             />
                         </Stack>
                         <Box

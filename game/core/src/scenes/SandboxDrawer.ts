@@ -1,5 +1,14 @@
-import { Container, Graphics, Matrix, Sprite, Texture } from "pixi.js";
-import { FightProperties, FightStateManager, GridSettings, HoCMath, TeamType } from "@heroesofcrypto/common";
+import { BlurFilter, BufferImageSource, Container, Graphics, Matrix, Sprite, Texture } from "pixi.js";
+import {
+    FightProperties,
+    FightStateManager,
+    GridMath,
+    GridSettings,
+    HoCConstants,
+    HoCMath,
+    type IWeightedRoute,
+    TeamType,
+} from "@heroesofcrypto/common";
 
 /**
  * The aura rings a unit should DISPLAY: real auras only, each widened by the team's "+N aura range"
@@ -33,6 +42,7 @@ import { RenderableUnit } from "./RenderableUnit";
 import { placementZonePolygon } from "@/pixi/PixiDrawablePlacement";
 import { projectedPolyline, projectedRectPoints } from "./sandbox/BattlefieldVisualGrid";
 import { drawMovementArea, drawMovementAreaCalibration, ENEMY_MOVEMENT_HIGHLIGHT_COLOR } from "./movementAreaVisual";
+import { drawMovementPathPreview } from "./movementPathPreview";
 export { movementFillAlphaForPhase } from "./movementAreaVisual";
 
 /**
@@ -40,7 +50,7 @@ export { movementFillAlphaForPhase } from "./movementAreaVisual";
  * aura, the movement highlight, and the board-edge glow all share this color for a consistent cue.
  */
 export const ENEMY_TURN_HIGHLIGHT_COLOR = 0xff3636;
-const ALLY_MOVEMENT_INSPECTION_COLOR = 0xc08a45;
+export const ALLY_MOVEMENT_INSPECTION_COLOR = 0xc08a45;
 /** Neutral cold-steel treatment selected for the active/shift-selected shooting range. */
 export const SHOT_RANGE_COLOR = 0xaeb9bd;
 export const ALLY_HOVERED_SHOT_RANGE_COLOR = 0x35df72;
@@ -119,6 +129,27 @@ export const SHOT_RANGE_CORNER_SPRITE_ANCHOR = { x: 0.137, y: 0.891 } as const;
 /** Each shared source needs its downsampling setup once, before its next GPU upload. */
 const stableShotRangeCornerSources = new WeakSet<object>();
 
+let shotRangeRailTexture: Texture | undefined;
+const smoothShotRangeRailTexture = (): Texture => {
+    if (shotRangeRailTexture) return shotRangeRailTexture;
+    const pixels = new Uint8Array(64 * 4);
+    for (let y = 0; y < 64; y += 1) {
+        // Premultiplied white, fading continuously to transparent at both edges of the strip.
+        const alpha = Math.round(255 * Math.sin((y / 63) * Math.PI) ** 2);
+        pixels.fill(alpha, y * 4, y * 4 + 4);
+    }
+    shotRangeRailTexture = new Texture({
+        source: new BufferImageSource({
+            resource: pixels,
+            width: 1,
+            height: 64,
+            scaleMode: "linear",
+            alphaMode: "premultiplied-alpha",
+        }),
+    });
+    return shotRangeRailTexture;
+};
+
 export interface ShotRangeCornerSpritePlacement {
     xy: HoCMath.XY;
     horizontal: HoCMath.XY;
@@ -127,10 +158,11 @@ export interface ShotRangeCornerSpritePlacement {
 
 /** Scene-owned ornament pool reused while animated range frames repaint. */
 export interface ShotRangeCornerSpritePool {
-    sprites: Sprite[];
+    sprites: (Container & { ornament: Sprite; glow: Sprite })[];
     matrices: Matrix[];
     placements: ShotRangeCornerSpritePlacement[];
     used: number;
+    rails?: Sprite[];
 }
 
 const setShotRangeCornerPlacement = (
@@ -241,6 +273,8 @@ export interface ILingeringTrack {
     dirX: number;
     dirY: number;
     cellSize: number;
+    /** Authored walkers use foot-contact puffs instead of the shared continuous movement trail. */
+    kind?: "movement-trail" | "walk-dust";
 }
 
 export interface IGameplayDrawContext {
@@ -251,7 +285,11 @@ export interface IGameplayDrawContext {
     isActiveUnitMoving: boolean;
     gridSettings: GridSettings;
     hoverGlowPhase: number;
+    /** Real-time phase for corner ornaments, independent of the slower simulation clock. */
+    shotRangePulsePhase?: number;
     currentActivePath?: HoCMath.XY[];
+    /** Chosen routes keyed by destination anchor, shared with move and melee-approach execution. */
+    currentActiveKnownPaths?: Map<number, IWeightedRoute[]>;
     sc_isAnimating: boolean;
     currentActiveUnit?: RenderableUnit;
     hoverManager: HoverManager;
@@ -297,6 +335,63 @@ export interface IGameplayDrawContext {
     movementCellsScratch?: HoCMath.XY[];
 }
 
+/** One pip of a stack-power row, in BOARD coordinates — the caller projects it onto the battlefield. */
+export interface IStackPowerPipRect {
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+    filled: boolean;
+}
+
+/**
+ * Where a unit's stack-power pips sit: a centred row of MAX_UNIT_STACK_POWER, laid along the inside of its
+ * footprint's lower edge, filled up to its power.
+ *
+ * Board coordinates, and pure, because the thing most likely to go wrong here is arithmetic — a row that
+ * drifts off a 2x1 body, or pips that overrun their own footprint — and that is answerable without a GPU.
+ * The row is sized from the footprint so a wide body spreads its pips instead of bunching them.
+ */
+export const stackPowerPipRects = (
+    cells: readonly HoCMath.XY[],
+    gs: GridSettings,
+    stackPower: number,
+): IStackPowerPipRect[] => {
+    const size = gs.getCellSize();
+    let minX = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    for (const cell of cells) {
+        const position = GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+        minX = Math.min(minX, position.x - size / 2);
+        maxX = Math.max(maxX, position.x + size / 2);
+        minY = Math.min(minY, position.y - size / 2);
+    }
+    if (!Number.isFinite(minX) || !Number.isFinite(minY)) {
+        return [];
+    }
+    const total = HoCConstants.MAX_UNIT_STACK_POWER;
+    const filled = Math.max(0, Math.min(total, Math.round(stackPower)));
+    const gap = size * 0.05;
+    const pipWidth = Math.max(2, Math.min(size * 0.15, ((maxX - minX) * 0.82 - gap * (total - 1)) / total));
+    const pipHeight = Math.max(2, size * 0.07);
+    const rowWidth = pipWidth * total + gap * (total - 1);
+    const left = (minX + maxX) / 2 - rowWidth / 2;
+    // The battlefield root is y-up, so the row sits just INSIDE the footprint's lower edge.
+    const bottom = minY + size * 0.1;
+    return Array.from({ length: total }, (_unused, index) => {
+        const x = left + index * (pipWidth + gap);
+        return { x1: x, y1: bottom, x2: x + pipWidth, y2: bottom + pipHeight, filled: index < filled };
+    });
+};
+
+/** One unit under ALT: the ground it holds, the colour of the army holding it, and how full its stack is. */
+export interface IAltInspectFootprint {
+    cells: readonly HoCMath.XY[];
+    color: number;
+    stackPower: number;
+}
+
 export interface IPlacementDrawContext {
     fightProps: FightProperties;
     placementManager: PlacementManager;
@@ -334,6 +429,7 @@ export class SandboxDrawer {
             isActiveUnitMoving,
             gridSettings: gs,
             hoverGlowPhase,
+            shotRangePulsePhase = hoverGlowPhase,
             currentActivePath,
             sc_isAnimating,
             currentActiveUnit,
@@ -347,6 +443,9 @@ export class SandboxDrawer {
             shotRangeCornerEnemyTexture,
         } = ctx;
         const fightStarted = fightProps.hasFightStarted();
+        const narrowingLayers = fightStarted
+            ? Math.min(Math.max(0, fightProps.getLapsNarrowed()), HoCConstants.MAX_HOLE_LAYERS)
+            : 0;
         const movementGraphics = ctx.movementGraphics ?? g;
         // The unit whose turn is active always receives a neutral white movement preview. Team colours are
         // reserved for placement zones and hovered-unit inspection, so overlapping aura/team overlays stay legible.
@@ -409,9 +508,9 @@ export class SandboxDrawer {
                 distance,
                 verticalDistance,
                 gs,
-                hoverGlowPhase,
+                shotRangePulsePhase,
                 SHOT_RANGE_COLOR,
-                fightStarted,
+                narrowingLayers,
                 shotRangeCornerContainer,
                 shotRangeCornerPool,
                 shotRangeCornerTextureForColor(
@@ -432,9 +531,9 @@ export class SandboxDrawer {
                 distance,
                 verticalDistance,
                 gs,
-                hoverGlowPhase,
+                shotRangePulsePhase,
                 color,
-                fightStarted,
+                narrowingLayers,
                 shotRangeCornerContainer,
                 shotRangeCornerPool,
                 shotRangeCornerTextureForColor(
@@ -460,9 +559,9 @@ export class SandboxDrawer {
                 distance,
                 verticalDistance,
                 gs,
-                hoverGlowPhase,
+                shotRangePulsePhase,
                 color,
-                fightStarted,
+                narrowingLayers,
                 shotRangeCornerContainer,
                 shotRangeCornerPool,
                 shotRangeCornerTextureForColor(
@@ -515,9 +614,34 @@ export class SandboxDrawer {
             );
         }
 
+        const landing = ctx.hoverManager.hoverBattlefieldFootprintCells;
+        if (
+            fightStarted &&
+            !sc_isAnimating &&
+            !isActiveUnitMoving &&
+            landing?.length &&
+            ctx.currentActiveKnownPaths &&
+            currentActiveUnit?.canMove() &&
+            !currentActiveUnit.canFly() &&
+            fightProps.getFireWalls().size() > 0
+        ) {
+            // Hover already resolved the legal move/melee landing. Its maximum corner is the route's
+            // anchor, even when the cursor is over a different part of a large creature's footprint.
+            const anchorX = Math.max(...landing.map((cell) => cell.x));
+            const anchorY = Math.max(...landing.map((cell) => cell.y));
+            const route = ctx.currentActiveKnownPaths.get((anchorX << 4) | anchorY)?.[0]?.route;
+            if (route?.length) drawMovementPathPreview(g, route, currentActiveUnit, gs, fightProps.getFireWalls());
+        }
+
         // The silhouette shows the creature, while these cells show the exact board footprint it will
         // occupy after a move or a melee approach. This is especially important for 2x2 creatures.
         ctx.hoverManager.drawHoverBattlefieldFootprint(g);
+
+        if (shotRangeCornerPool?.rails) {
+            for (let index = shotRangeCornerPool.used; index < shotRangeCornerPool.rails.length; index += 1) {
+                shotRangeCornerPool.rails[index].visible = false;
+            }
+        }
 
         // 3. Active unit indication is the pulsing light-wave aura rendered on the unit itself
         //    (see RenderableUnit.updateActiveAura) — no separate highlight glow here.
@@ -550,6 +674,53 @@ export class SandboxDrawer {
             // the cell the player is about to click, and the hover's own footprint reads on top of it.
             SandboxDrawer.drawOccupiedFootprints(g, ctx.occupiedFootprints, ctx.gridSettings);
             hoverManager.drawHoverPlacementCell(g);
+        }
+    }
+    /**
+     * ALT during a fight: the ground each unit holds, painted in its own army's colour, with its stack
+     * power spelled out along the bottom edge.
+     *
+     * Same question placement answers — a tall silhouette covers far more board than the cells beneath it,
+     * so "where does this body actually stand" is guesswork from the artwork alone — except that mid-fight
+     * the answer belongs to a side, which is why this wash is coloured where placement's is white.
+     */
+    public static drawAltInspect(
+        g: Graphics,
+        footprints: readonly IAltInspectFootprint[] | undefined,
+        gs: GridSettings | undefined,
+    ): void {
+        if (!footprints?.length || !gs) return;
+        const size = gs.getCellSize();
+        for (const { cells, color, stackPower } of footprints) {
+            if (!cells.length) continue;
+            g.poly(placementZonePolygon(cells, gs))
+                .fill({ color, alpha: 0.18 })
+                .stroke({ width: Math.max(1, size * 0.025), color, alpha: 0.55 });
+            SandboxDrawer.drawStackPowerPips(g, cells, gs, color, stackPower);
+        }
+    }
+    /**
+     * Five pips along the bottom of a footprint, filled up to the stack's power.
+     *
+     * The banner beside a unit already carries its power in five sections, but that answers for one stack
+     * at a time and only for whoever is looking closely. On the ground, in the army's colour, the whole
+     * board can be compared at a glance — which is what ALT is for. Drawn as projected rectangles like
+     * every other ground mark, so the pips lie ON the board instead of floating over it.
+     */
+    private static drawStackPowerPips(
+        g: Graphics,
+        cells: readonly HoCMath.XY[],
+        gs: GridSettings,
+        color: number,
+        stackPower: number,
+    ): void {
+        for (const pip of stackPowerPipRects(cells, gs, stackPower)) {
+            const points = projectedRectPoints(pip.x1, pip.y1, pip.x2, pip.y2, gs);
+            if (pip.filled) {
+                g.poly(points).fill({ color, alpha: 0.95 });
+            } else {
+                g.poly(points).fill({ color: 0x000000, alpha: 0.38 }).stroke({ width: 1, color, alpha: 0.38 });
+            }
         }
     }
     /**
@@ -668,11 +839,13 @@ export class SandboxDrawer {
         horizontalHalfExtent: number,
         verticalHalfExtent: number,
         gs: GridSettings,
+        narrowingLayers = 0,
     ): ShotRangeBounds | undefined {
-        const left = Math.max(xy.x - horizontalHalfExtent, gs.getMinX());
-        const right = Math.min(xy.x + horizontalHalfExtent, gs.getMaxX());
-        const bottom = Math.max(xy.y - verticalHalfExtent, gs.getMinY());
-        const top = Math.min(xy.y + verticalHalfExtent, gs.getMaxY());
+        const inset = narrowingLayers * gs.getCellSize();
+        const left = Math.max(xy.x - horizontalHalfExtent, gs.getMinX() + inset);
+        const right = Math.min(xy.x + horizontalHalfExtent, gs.getMaxX() - inset);
+        const bottom = Math.max(xy.y - verticalHalfExtent, gs.getMinY() + inset);
+        const top = Math.min(xy.y + verticalHalfExtent, gs.getMaxY() - inset);
         const width = right - left;
         const height = top - bottom;
         return width > 0 && height > 0 ? { left, bottom, width, height } : undefined;
@@ -683,32 +856,43 @@ export class SandboxDrawer {
         horizontalHalfExtent: number,
         verticalHalfExtent: number,
         gs: GridSettings,
-        _pulsePhase: number,
+        pulsePhase: number,
         color: number,
-        _fightStarted: boolean,
+        narrowingLayers: number,
         cornerContainer?: Container,
         cornerPool?: ShotRangeCornerSpritePool,
         cornerTexture?: Texture,
     ): void {
-        const bounds = SandboxDrawer.clampSquareToBoard(xy, horizontalHalfExtent, verticalHalfExtent, gs);
+        const bounds = SandboxDrawer.clampSquareToBoard(
+            xy,
+            horizontalHalfExtent,
+            verticalHalfExtent,
+            gs,
+            narrowingLayers,
+        );
         if (!bounds) return;
         const { left, bottom, width, height } = bounds;
         const cellSize = gs.getCellSize();
         const lineWidth = Math.max(1.15, cellSize * SHOT_RANGE_LINE_WIDTH_CELLS);
-        const lineAlpha = 0.83;
-        const cornerAlpha = 0.85;
-        // One unbroken perimeter follows the hand-painted perspective seams exactly.
-        // A single opaque rail keeps all four sides pixel-identical. The former dark bed + bright
-        // highlight blended differently over light and dark floor tiles and read as dashes/tone shifts.
-        g.poly(projectedRectPoints(left, bottom, left + width, bottom + height, gs)).stroke({
-            width: lineWidth,
-            color,
-            alpha: lineAlpha,
-            cap: "square",
-            join: "miter",
-        });
+        const lineAlpha = 0.75;
+        const cornerAlpha = 0.8;
+        // The dedicated wall-clock phase completes one smooth breath every 2.5 seconds.
+        const cornerPulse = Math.sin(pulsePhase);
+        const cornerScale = 1 + 0.08 * cornerPulse;
+        const hasCornerArtwork = cornerContainer && cornerTexture && cornerTexture !== Texture.EMPTY;
+        // Texture strips provide continuous edge coverage even when the main renderer disables MSAA.
+        // Keep the vector fallback available while corner artwork is loading.
+        if (!hasCornerArtwork)
+            g.poly(projectedRectPoints(left, bottom, left + width, bottom + height, gs)).stroke({
+                width: lineWidth,
+                pixelLine: true,
+                color,
+                alpha: lineAlpha,
+                cap: "square",
+                join: "miter",
+            });
 
-        if (cornerContainer && cornerTexture && cornerTexture !== Texture.EMPTY) {
+        if (hasCornerArtwork) {
             const source = cornerTexture.source;
             if (!stableShotRangeCornerSources.has(source)) {
                 // The 512 px hammered-metal art is rendered at roughly 20-30 px. Mipmaps keep its tiny
@@ -720,27 +904,68 @@ export class SandboxDrawer {
             }
             const spriteSize = cellSize * SHOT_RANGE_CORNER_SPRITE_SIZE_CELLS;
             const textureWidth = Math.max(1, cornerTexture.width);
-            const scale = spriteSize / textureWidth;
-            for (const placement of shotRangeCornerSpritePlacements(bounds, cornerPool?.placements)) {
-                const cornerIndex = cornerPool?.used ?? 0;
+            const scale = (spriteSize / textureWidth) * cornerScale;
+            const placements = shotRangeCornerSpritePlacements(bounds, cornerPool?.placements);
+            const camera = cornerContainer.getGlobalTransform(new Matrix());
+            const rails = cornerPool ? (cornerPool.rails ??= []) : [];
+            for (let index = 0; index < placements.length; index += 1) {
+                const placement = placements[index];
+                const cornerIndex = cornerPool?.used ?? index;
+                let rail = rails[cornerIndex];
+                if (!rail || rail.destroyed) {
+                    rail = new Sprite(smoothShotRangeRailTexture());
+                    rail.anchor.set(0, 0.5);
+                    rail.eventMode = "none";
+                    rail.roundPixels = false;
+                    rails[cornerIndex] = rail;
+                    cornerContainer.addChild(rail);
+                }
+                const [x, y] = projectedPolyline([placement.xy], gs);
+                const [nextX, nextY] = projectedPolyline([placements[(index + 1) % 4].xy], gs);
+                const dx = nextX - x;
+                const dy = nextY - y;
+                const length = Math.hypot(dx, dy);
+                const screenLength = Math.hypot(camera.a * dx + camera.c * dy, camera.b * dx + camera.d * dy);
+                const normalScale =
+                    (Math.abs(camera.a * camera.d - camera.b * camera.c) * length) / Math.max(screenLength, 1e-6);
+                rail.position.set(x, y);
+                rail.rotation = Math.atan2(dy, dx);
+                // 2.4 px including the feathered edges, with a thin bright centre at every camera zoom.
+                rail.scale.set(length, 2.4 / (64 * Math.max(normalScale, 1e-6)));
+                rail.tint = color;
+                rail.alpha = lineAlpha;
+                rail.visible = true;
                 let corner = cornerPool?.sprites[cornerIndex];
                 if (!corner || corner.destroyed) {
-                    corner = new Sprite(cornerTexture);
-                    corner.anchor.set(SHOT_RANGE_CORNER_SPRITE_ANCHOR.x, SHOT_RANGE_CORNER_SPRITE_ANCHOR.y);
+                    const ornament = new Sprite(cornerTexture);
+                    const glow = new Sprite(cornerTexture);
+                    corner = Object.assign(new Container(), { ornament, glow });
+                    ornament.anchor.set(SHOT_RANGE_CORNER_SPRITE_ANCHOR.x, SHOT_RANGE_CORNER_SPRITE_ANCHOR.y);
+                    ornament.eventMode = "none";
                     corner.eventMode = "none";
                     // The projected corners are rotated/sheared. Pixel snapping makes their vertices jump by a
                     // whole screen pixel during small camera movements, which reads as a metallic shimmer.
-                    corner.roundPixels = false;
+                    ornament.roundPixels = false;
+                    glow.anchor.copyFrom(ornament.anchor);
+                    glow.eventMode = "none";
+                    glow.roundPixels = false;
+                    glow.blendMode = "add";
+                    glow.filters = [new BlurFilter({ strength: 3, quality: 3 })];
+                    corner.addChild(ornament, glow);
                     if (cornerPool) cornerPool.sprites[cornerIndex] = corner;
                     cornerContainer.addChild(corner);
                 } else {
-                    corner.texture = cornerTexture;
+                    corner.ornament.texture = cornerTexture;
                     corner.visible = true;
                 }
                 if (cornerPool) cornerPool.used += 1;
                 const matrix = cornerPool ? (cornerPool.matrices[cornerIndex] ??= new Matrix()) : new Matrix();
                 corner.setFromMatrix(shotRangeCornerSpriteMatrix(placement, scale, cellSize, gs, matrix));
                 corner.alpha = cornerAlpha;
+                // Reuse the halo with its parent, including when the pooled corner changes team color.
+                const glow = corner.glow;
+                glow.texture = cornerTexture;
+                glow.alpha = 0.55 + 0.45 * cornerPulse;
             }
         }
     }

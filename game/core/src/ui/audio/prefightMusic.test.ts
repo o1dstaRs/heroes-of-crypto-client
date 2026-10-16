@@ -1,6 +1,12 @@
 import { describe, expect, it } from "bun:test";
 
-import { isPrefightMusicActive, setPrefightMusicActive, subscribePrefightMusic } from "./prefightMusic";
+import {
+    boardViewPrefightMusic,
+    draftRoutePrefightMusic,
+    isPrefightMusicActive,
+    setPrefightMusicActive,
+    subscribePrefightMusic,
+} from "./prefightMusic";
 
 // Two screens drive this flag from different places — the route (match check, picks, augments) and
 // RankedGameView (placement) — and both fire it from effects that re-run on every snapshot. So the contract
@@ -49,5 +55,43 @@ describe("pre-fight music flag", () => {
         offA();
         offB();
         setPrefightMusicActive(false);
+    });
+});
+
+describe("who drives the pre-fight track through a ranked match", () => {
+    const apply = (next: boolean | undefined) => {
+        if (next !== undefined) {
+            setPrefightMusicActive(next);
+        }
+    };
+
+    it("plays once from the match check through placement and keeps going once the fight starts", () => {
+        setPrefightMusicActive(false);
+        const seen: boolean[] = [];
+        const off = subscribePrefightMusic((active) => seen.push(active));
+
+        apply(draftRoutePrefightMusic({ gameId: "g", showOverlay: false, routeMode: "checking" }));
+        apply(draftRoutePrefightMusic({ gameId: "g", showOverlay: false, routeMode: "pick" }));
+        // The handoff, in React's effect order: the board view mounts without a snapshot, then the route enters
+        // play. Neither may switch the track off, or the menu playlist cuts in and the track restarts from the top.
+        apply(boardViewPrefightMusic({ replayOnly: false, hasSnapshot: false }));
+        apply(draftRoutePrefightMusic({ gameId: "g", showOverlay: false, routeMode: "play" }));
+        apply(boardViewPrefightMusic({ replayOnly: false, hasSnapshot: true }));
+        expect(seen).toEqual([false, true]);
+
+        // The first turn used to be the moment the flag dropped and the room went quiet. It must not.
+        apply(boardViewPrefightMusic({ replayOnly: false, hasSnapshot: true }));
+        expect(seen).toEqual([false, true]);
+        expect(isPrefightMusicActive()).toBe(true);
+        off();
+        setPrefightMusicActive(false);
+    });
+
+    it("stays silent without a game, behind the error overlay, and for a replay", () => {
+        expect(draftRoutePrefightMusic({ gameId: undefined, showOverlay: false, routeMode: "pick" })).toBe(false);
+        expect(draftRoutePrefightMusic({ gameId: "g", showOverlay: true, routeMode: "pick" })).toBe(false);
+        expect(draftRoutePrefightMusic({ gameId: "g", showOverlay: true, routeMode: "play" })).toBe(false);
+        expect(boardViewPrefightMusic({ replayOnly: true, hasSnapshot: false })).toBe(false);
+        expect(boardViewPrefightMusic({ replayOnly: true, hasSnapshot: true })).toBe(false);
     });
 });

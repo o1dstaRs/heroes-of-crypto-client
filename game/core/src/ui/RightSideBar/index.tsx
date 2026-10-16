@@ -1,6 +1,7 @@
 import { IDamageStatistic } from "@heroesofcrypto/common";
 import { FIGHT_LOG_SURFACE_BACKGROUND } from "./fightLogLayout";
-import { toolbarColumnHeightPx } from "../DraggableToolbar/toolbarMetrics";
+import { toolbarColumnHeightPx, toolbarSlotCount } from "../DraggableToolbar/toolbarMetrics";
+import { ButtonContext } from "../context/ButtonContextDefs";
 import {
     RIGHT_SIDEBAR_BG_IMAGE,
     RIGHT_SIDEBAR_BG_POSITION,
@@ -13,8 +14,7 @@ import Box from "@mui/joy/Box";
 import List from "@mui/joy/List";
 import Sheet from "@mui/joy/Sheet";
 import Typography from "@mui/joy/Typography";
-import React, { useEffect, useState, useCallback, useLayoutEffect, useRef } from "react";
-import Button from "@mui/joy/Button";
+import React, { useContext, useEffect, useState, useCallback, useLayoutEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router";
 import { useAuthContext } from "../auth/context/auth_context";
 import { usePixiManager } from "../../pixi/PixiGameManager";
@@ -25,9 +25,11 @@ import FightControlToggler from "./FightControlToggler";
 import { WalletLinker } from "../WalletLinker";
 import { IWindowSize } from "../../scenes/VisibleState";
 import { sidebarPlainFrameSideInsetPx, sidebarPlainFrameVerticalInsetPx } from "../LeftSideBar/sidebarMetrics";
-import { exitFightButtonSx } from "../exitFightButtonSx";
-import { useFullscreenActive } from "../useFullscreenActive";
-import { GameSystemControls } from "../GameSystemControls";
+import { GameCornerExitButton, GameCornerSlot, GameCornerStartOverButton } from "../GameCornerExit";
+import { GAME_SYSTEM_CONTROLS_STACK_HEIGHT_PX, GameSystemControls } from "../GameSystemControls";
+import { PremiumFightControls } from "../premium/PremiumFightControls";
+import { usePremiumAccess } from "../premium/PremiumAccess";
+import { usePremiumPreference } from "../premium/usePremiumPreference";
 
 const DraggableToolbar = React.lazy(() => import("../DraggableToolbar"));
 const FightLog = React.lazy(() => import("./FightLog").then(({ FightLog }) => ({ default: FightLog })));
@@ -57,34 +59,54 @@ export default function RightSideBar({
     windowSize,
     rankedPanel,
     rankedFooter,
+    footerLeading,
     showWallet = false,
     showSystemControls = true,
+    showPremiumFightControls = false,
     onClose,
+    onStartOver,
 }: {
     gameStarted: boolean;
     windowSize: IWindowSize;
     rankedPanel?: React.ReactNode;
     rankedFooter?: React.ReactNode;
+    footerLeading?: React.ComponentProps<typeof GameSystemControls>["leading"];
     showWallet?: boolean;
     showSystemControls?: boolean;
+    showPremiumFightControls?: boolean;
     onClose?: () => void;
+    onStartOver?: () => void;
 }) {
     const navigate = useNavigate();
     const { authenticated } = useAuthContext();
-    const isFullscreen = useFullscreenActive();
-    const [unitDamageStatistics, setUnitDamageStatistics] = useState([] as IDamageStatistic[]);
+    const manager = usePixiManager();
+    const premiumAccess = usePremiumAccess();
+    const premiumEnabled = usePremiumPreference("enabled");
+    const premiumFightVisible = gameStarted && showPremiumFightControls && premiumAccess?.active && premiumEnabled;
+    const [footerHeight, setFooterHeight] = useState(GAME_SYSTEM_CONTROLS_STACK_HEIGHT_PX);
+    const [sandboxSetupRevision, setSandboxSetupRevision] = useState(0);
+    const handleStartOver = () => {
+        onStartOver?.();
+        setSandboxSetupRevision((revision) => revision + 1);
+    };
+    const [unitDamageStatistics, setUnitDamageStatistics] = useState<IDamageStatistic[]>(() =>
+        gameStarted ? manager.GetCurrentDamageStatistics() : [],
+    );
 
     // See the note at the log itself: its height is measured on the first layout and then held, so nothing
-    // that happens later in the fight can re-deal it. The window size and leaving the fight are the only
-    // things that release it — both change what "the spare height" even means.
+    // that happens later in the fight can re-deal it. The window size, leaving the fight and the button row
+    // settling on its slot count are the only things that release it — each changes what "the spare height" means.
     const logBoxRef = useRef<HTMLDivElement>(null);
     const [frozenLogHeight, setFrozenLogHeight] = useState<number | null>(null);
     const damageListSpaceRef = useRef<HTMLDivElement>(null);
     const [damageListViewportHeight, setDamageListViewportHeight] = useState<number | null>(null);
+    // The button row gives up its AI slot when the scene offers no AI toggle (ranked, lobby, vs-AI), and the
+    // log takes that height. Read without the throwing hook: the draft screen mounts this bar with no ButtonProvider.
+    const toolbarSlots = toolbarSlotCount(useContext(ButtonContext)?.buttons ?? []);
 
     useLayoutEffect(() => {
         setFrozenLogHeight(null);
-    }, [windowSize.width, windowSize.height, gameStarted]);
+    }, [windowSize.width, windowSize.height, gameStarted, toolbarSlots, footerHeight]);
 
     useLayoutEffect(() => {
         if (frozenLogHeight !== null) {
@@ -115,12 +137,6 @@ export default function RightSideBar({
         return () => resizeObserver.disconnect();
     }, [gameStarted]);
 
-    useEffect(() => {
-        if (!gameStarted) {
-            setUnitDamageStatistics([]);
-        }
-    }, [gameStarted]);
-    const manager = usePixiManager();
     const [barSize, setBarSize] = useState(280);
 
     const adjustBarSize = useCallback(() => {
@@ -143,98 +159,109 @@ export default function RightSideBar({
 
     useEffect(() => {
         const connection2 = manager.onDamageStatisticsUpdated.connect(setUnitDamageStatistics);
+        // Replay can publish damage before the fight chrome mounts (or before this sidebar reopens).
+        // Subscribe first, then read the current totals so an already-presented action is not missed.
+        setUnitDamageStatistics(gameStarted ? manager.GetCurrentDamageStatistics() : []);
         return () => {
             connection2.disconnect();
         };
-    }, [manager]);
+    }, [gameStarted, manager]);
 
-    const unitStats: IDamageStatistic[] = [];
-    let maxDmg = Number.MIN_SAFE_INTEGER;
-    for (const s of unitDamageStatistics) {
-        let { unitName } = s;
-        if (s.unitName.includes(" ")) {
-            const stringParts = s.unitName.split(/\s/);
-            unitName = `${stringParts[0][0]}. ${stringParts[1]}`;
+    // Log updates keep the same damage totals, so reuse their rows until a statistics snapshot changes.
+    const unitStatsElements = useMemo(() => {
+        const unitStats: IDamageStatistic[] = [];
+        let maxDmg = Number.MIN_SAFE_INTEGER;
+        for (const s of unitDamageStatistics) {
+            let { unitName } = s;
+            if (s.unitName.includes(" ")) {
+                const stringParts = s.unitName.split(/\s/);
+                unitName = `${stringParts[0][0]}. ${stringParts[1]}`;
+            }
+            unitStats.push({ unitName: unitName.toUpperCase(), damage: s.damage, team: s.team, lap: s.lap });
+            maxDmg = Math.max(maxDmg, s.damage);
         }
-        unitStats.push({ unitName: unitName.toUpperCase(), damage: s.damage, team: s.team, lap: s.lap });
-        maxDmg = Math.max(maxDmg, s.damage);
-    }
 
-    const unitStatsElements = unitStats.map((stat) => {
-        const isEnemy = stat.team === 1;
-        const teamColor = isEnemy ? hocColors.danger : hocColors.green;
-        const value = maxDmg > 0 ? (stat.damage / maxDmg) * 100 : 0;
-        const key = `${stat.unitName}-${stat.team}`;
+        return unitStats.map((stat) => {
+            const isEnemy = stat.team === 1;
+            const teamColor = isEnemy ? hocColors.danger : hocColors.green;
+            const value = maxDmg > 0 ? (stat.damage / maxDmg) * 100 : 0;
+            const key = `${stat.unitName}-${stat.team}`;
 
-        return (
-            <Box
-                key={key}
-                sx={{
-                    height: `${DAMAGE_ROW_HEIGHT_PX}px`,
-                    boxSizing: "border-box",
-                    pt: "2px",
-                    scrollSnapAlign: "start",
-                }}
-            >
-                <Box sx={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 1 }}>
-                    <Typography
-                        sx={{
-                            minWidth: 0,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                            fontFamily: hocDisplayFontFamily,
-                            fontSize: "0.72rem",
-                            fontWeight: 600,
-                            letterSpacing: "0.045em",
-                            color: teamColor,
-                        }}
-                    >
-                        {stat.unitName}
-                    </Typography>
-                    <Typography
-                        sx={{ flexShrink: 0, fontFamily: hocDisplayFontFamily, fontSize: "0.73rem", color: teamColor }}
-                    >
-                        {stat.damage}
-                    </Typography>
-                </Box>
+            return (
                 <Box
+                    key={key}
                     sx={{
-                        position: "relative",
-                        mt: "6px",
-                        mx: "5px",
-                        height: 10.35,
-                        p: "1px",
-                        border: "2px solid rgba(118,76,30,.94)",
-                        bgcolor: "rgba(3,3,2,.72)",
-                        boxShadow: "inset 0 1px 2px rgba(0,0,0,.9)",
-                        "&::before, &::after": {
-                            content: '""',
-                            position: "absolute",
-                            top: "50%",
-                            width: 8.05,
-                            height: 8.05,
-                            border: "2px solid rgba(118,76,30,.94)",
-                            bgcolor: "#100b06",
-                            transform: "translateY(-50%) rotate(45deg)",
-                            zIndex: 1,
-                        },
-                        "&::before": { left: -6 },
-                        "&::after": { right: -6 },
+                        height: `${DAMAGE_ROW_HEIGHT_PX}px`,
+                        boxSizing: "border-box",
+                        pt: "2px",
+                        scrollSnapAlign: "start",
                     }}
                 >
+                    <Box sx={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 1 }}>
+                        <Typography
+                            sx={{
+                                minWidth: 0,
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                                fontFamily: hocDisplayFontFamily,
+                                fontSize: "0.72rem",
+                                fontWeight: 600,
+                                letterSpacing: "0.045em",
+                                color: teamColor,
+                            }}
+                        >
+                            {stat.unitName}
+                        </Typography>
+                        <Typography
+                            sx={{
+                                flexShrink: 0,
+                                fontFamily: hocDisplayFontFamily,
+                                fontSize: "0.73rem",
+                                color: teamColor,
+                            }}
+                        >
+                            {stat.damage}
+                        </Typography>
+                    </Box>
                     <Box
                         sx={{
-                            width: `${value}%`,
-                            height: "100%",
-                            bgcolor: teamColor,
-                            boxShadow: `inset 0 1px 0 rgba(255,255,255,.18), 0 0 3px ${teamColor}`,
+                            position: "relative",
+                            mt: "6px",
+                            mx: "5px",
+                            height: 10.35,
+                            p: "1px",
+                            border: "2px solid rgba(118,76,30,.94)",
+                            bgcolor: "rgba(3,3,2,.72)",
+                            boxShadow: "inset 0 1px 2px rgba(0,0,0,.9)",
+                            "&::before, &::after": {
+                                content: '""',
+                                position: "absolute",
+                                top: "50%",
+                                width: 8.05,
+                                height: 8.05,
+                                border: "2px solid rgba(118,76,30,.94)",
+                                bgcolor: "#100b06",
+                                transform: "translateY(-50%) rotate(45deg)",
+                                zIndex: 1,
+                            },
+                            "&::before": { left: -6 },
+                            "&::after": { right: -6 },
                         }}
-                    />
+                    >
+                        <Box
+                            sx={{
+                                width: `${value}%`,
+                                height: "100%",
+                                bgcolor: teamColor,
+                                boxShadow: `inset 0 1px 0 rgba(255,255,255,.18), 0 0 3px ${teamColor}`,
+                            }}
+                        />
+                    </Box>
                 </Box>
-            </Box>
-        );
-    });
+            );
+        });
+    }, [unitDamageStatistics]);
 
     return (
         <Sheet
@@ -291,61 +318,13 @@ export default function RightSideBar({
                 backgroundPosition: RIGHT_SIDEBAR_BG_POSITION,
             }}
         >
+            {/* Back out of the sandbox. Same plate as every other in-game exit, in the same corner —
+                the sandbox used to spend its own gothic button on this in the bar's title row. */}
             {onClose && (
-                <Box
-                    component="button"
-                    type="button"
-                    aria-label="Close sandbox"
-                    title="Back"
-                    onClick={onClose}
-                    sx={{
-                        position: "absolute",
-                        top: `${Math.max(10, sidebarPlainFrameVerticalInsetPx(windowSize.height) - 4)}px`,
-                        right: `${Math.max(10, sidebarPlainFrameSideInsetPx(barSize) - 4)}px`,
-                        width: "clamp(28px, 2.1vw, 38px)",
-                        height: "clamp(28px, 2.1vw, 38px)",
-                        p: 0,
-                        border: 0,
-                        borderRadius: 0,
-                        backgroundColor: "transparent",
-                        backgroundImage: `url(${images.ui_close_button_square_gothic_frame_v1})`,
-                        // The picture-backed frame is exactly 7% smaller than the old button footprint.
-                        // The X remains a separate image layer so its scale and plate-relative centre stay independent.
-                        backgroundSize: "93% 93%",
-                        backgroundPosition: "center",
-                        backgroundRepeat: "no-repeat",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        cursor: "var(--hoc-cursor-interactive), pointer",
-                        zIndex: 4,
-                        filter: "drop-shadow(0 2px 4px rgba(0, 0, 0, .82))",
-                        transition: "transform .14s ease, filter .14s ease",
-                        "&:hover": {
-                            transform: "scale(1.06)",
-                            filter: "brightness(1.08) drop-shadow(0 2px 4px rgba(0, 0, 0, .82)) drop-shadow(0 0 5px rgba(205, 91, 33, .48))",
-                        },
-                        "&:active": { transform: "scale(.97)" },
-                    }}
-                >
-                    <Box
-                        component="img"
-                        src={images.ui_close_button_sidebar_title_x_v2}
-                        aria-hidden="true"
-                        sx={{
-                            position: "absolute",
-                            left: "50%",
-                            // The lower gothic point is outside the square plate. Its visual centre is at
-                            // about 43% of the complete frame height, rather than the image's 50% midpoint.
-                            top: "43%",
-                            width: "41.4%",
-                            height: "41.4%",
-                            objectFit: "contain",
-                            transform: "translate(-50%, -50%)",
-                            pointerEvents: "none",
-                        }}
-                    />
-                </Box>
+                <GameCornerSlot>
+                    {onStartOver && <GameCornerStartOverButton onClick={handleStartOver} />}
+                    <GameCornerExitButton onClick={onClose} label="Back" />
+                </GameCornerSlot>
             )}
             <Box
                 sx={{
@@ -374,7 +353,10 @@ export default function RightSideBar({
                         <Box sx={{ flex: "1 1 0", minHeight: 0, display: "flex", width: "100%" }}>{rankedPanel}</Box>
                     )}
                     {!gameStarted && !rankedPanel && (
-                        <FightControlToggler scrollRailInsetPx={sidebarPlainFrameSideInsetPx(barSize)} />
+                        <FightControlToggler
+                            key={sandboxSetupRevision}
+                            scrollRailInsetPx={sidebarPlainFrameSideInsetPx(barSize)}
+                        />
                     )}
                     {/* Turn actions live here rather than floating over the board — those cells have to stay
                         clickable to move and attack. The buttons keep their own narrow column and the damage
@@ -396,7 +378,8 @@ export default function RightSideBar({
                                 // this row is the one place in the bar whose height would otherwise swing
                                 // with the turn, and everything under it — the log especially — is pinned
                                 // by where it ends.
-                                height: `${toolbarColumnHeightPx()}px`,
+                                // Five slots when the scene offers no AI toggle, six otherwise.
+                                height: `${toolbarColumnHeightPx(toolbarSlots)}px`,
                                 flexShrink: 0,
                                 gap: "6px",
                             }}
@@ -523,34 +506,45 @@ export default function RightSideBar({
                     {showWallet && <WalletLinker />}
                 </List>
             </Box>
-            {/* These controls belong to the viewport, not the sidebar. Keeping one shared row here makes
-                their positions identical in placement and combat; pick/ban mounts the same row over its
-                full-screen draft and asks this hidden sidebar not to publish a duplicate. */}
+            {/* Reserve space beneath the log for the sidebar's fixed footer row. */}
+            {showSystemControls && (
+                <Box sx={{ height: Math.max(GAME_SYSTEM_CONTROLS_STACK_HEIGHT_PX, footerHeight), flexShrink: 0 }} />
+            )}
+            {showSystemControls && !rankedPanel && gameStarted && (
+                // Sandbox exit stays in the shared top-right corner once the fight starts, even when the
+                // centre plate is Invite a friend. An anonymous player has nothing behind /play but the
+                // login gate, so leaving just resets the sandbox. A signed-in player goes to the play hub.
+                <GameCornerSlot>
+                    {onStartOver && <GameCornerStartOverButton onClick={handleStartOver} />}
+                    <GameCornerExitButton
+                        onClick={() => {
+                            if (authenticated) {
+                                navigate("/play");
+                            } else {
+                                manager.StartOver();
+                            }
+                        }}
+                    />
+                </GameCornerSlot>
+            )}
             {showSystemControls && (
                 <GameSystemControls
+                    sidebarWidth={barSize}
+                    onHeightChange={setFooterHeight}
+                    rightStack
+                    centerInRow={Boolean(rankedFooter)}
+                    centerMinWidth={premiumFightVisible ? 132 : undefined}
+                    leading={footerLeading}
                     center={
-                        rankedFooter ? (
+                        premiumFightVisible ? (
+                            <>
+                                <PremiumFightControls />
+                                {rankedPanel}
+                            </>
+                        ) : rankedFooter ? (
                             rankedFooter
                         ) : rankedPanel && gameStarted ? (
                             rankedPanel
-                        ) : !rankedPanel && gameStarted ? (
-                            <Button
-                                variant="soft"
-                                color="danger"
-                                // Sandbox exit: an anonymous player has nothing behind /play but the login
-                                // gate, so leaving the fight just resets the sandbox to a fresh placement
-                                // (start over). A signed-in player keeps the trip to the play hub.
-                                onClick={() => {
-                                    if (authenticated) {
-                                        navigate("/play");
-                                    } else {
-                                        manager.StartOver();
-                                    }
-                                }}
-                                sx={exitFightButtonSx(isFullscreen)}
-                            >
-                                EXIT FIGHT
-                            </Button>
                         ) : undefined
                     }
                 />

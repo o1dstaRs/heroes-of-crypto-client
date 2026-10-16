@@ -1,0 +1,99 @@
+{
+  "output": "marketing/x/generated/2026-10-14_pin_only_the_battle.png",
+  "output_sha256": "25b3d1fb9c73ff76ed42cf6465f6656fdfcb1c81206a5beebbc7c86e4ffa61b0",
+  "source": "marketing/x/generated/2026-10-14_pin_who_moves_first_v2.png",
+  "format": "PNG",
+  "size": [
+    1600,
+    900
+  ],
+  "method": "Deterministic text-layer replacement; existing v2 composite reused.",
+  "copy": [
+    "The map made us wait.",
+    "So we built only the battle.",
+    "Turn-based PvP in the browser. The board shrinks."
+  ],
+  "headline_font": "Georgia Regular",
+  "headline_size_px": 80,
+  "headline_colors": [
+    "#F1ECE1",
+    "#B99B61"
+  ],
+  "headline_top_y": [
+    40,
+    128
+  ],
+  "caption_font": "Helvetica Neue Regular",
+  "caption_size_px": 26,
+  "caption_color": "#C7C3B9",
+  "caption_top_y": 250,
+  "type_supersampling": 4,
+  "gold_rule_pixel_identical_to_v2": true,
+  "gold_rule_region": [
+    477,
+    223,
+    1124,
+    232
+  ],
+  "changed_pixel_bounds": [
+    333,
+    37,
+    1265,
+    277
+  ],
+  "changed_pixels": 63571,
+  "changed_pixels_outside_old_or_new_text_glyphs": 0,
+  "background_pixels_outside_text_unchanged": true,
+  "protected_region_pixel_identical_to_v2": [
+    0,
+    284,
+    1600,
+    900
+  ],
+  "protected_region_pixels_checked": 985600,
+  "protected_region_v2_rgb_sha256": "91f90e5c0ad0caa315640f7bcf4874dfb4ac70b8b3832000a89b89dc87bd5ca6",
+  "protected_region_output_rgb_sha256": "91f90e5c0ad0caa315640f7bcf4874dfb4ac70b8b3832000a89b89dc87bd5ca6",
+  "unit_pixels_changed_vs_v2": 0,
+  "unit_resampling_or_recompositing": false,
+  "minimum_text_to_unit_vertical_clearance_px": 21,
+  "units": [
+    {
+      "unit": "Crusader",
+      "bounds": [
+        235,
+        292,
+        743,
+        807
+      ],
+      "pixels_checked": 261620,
+      "changed_pixels_vs_v2": 0,
+      "v2_composite_rgb_sha256": "65b53fc7f9ddbecae7d9fdd37da4779201632ce196d85cd71d28d603c1426684",
+      "output_composite_rgb_sha256": "65b53fc7f9ddbecae7d9fdd37da4779201632ce196d85cd71d28d603c1426684",
+      "includes_every_unit_pixel_and_antialiased_edge": true,
+      "text_overlaps_unit": false
+    },
+    {
+      "unit": "Cyclops",
+      "bounds": [
+        985,
+        292,
+        1287,
+        807
+      ],
+      "pixels_checked": 155530,
+      "changed_pixels_vs_v2": 0,
+      "v2_composite_rgb_sha256": "efa659844023bc75252bcef446146838f99ee566e1ae923e3206e012a9c0ca00",
+      "output_composite_rgb_sha256": "efa659844023bc75252bcef446146838f99ee566e1ae923e3206e012a9c0ca00",
+      "includes_every_unit_pixel_and_antialiased_edge": true,
+      "text_overlaps_unit": false
+    }
+  ],
+  "inputs_unchanged": {
+    "marketing/x/generated/2026-10-14_pin_who_moves_first_v2.png": "364bccec6a1a26c4f3bb7b5c570cd341cb3586671ad9ce2e68697da32094392d",
+    "marketing/x/generated/2026-10-14_pin_who_moves_first_v2.background.png": "13c4f67a974edaacbc47f0204ed532773931c23542e7a2d8fa94e86596438fd1",
+    "marketing/x/generated/2026-10-14_pin_who_moves_first_v2.verification.json": "66f1a10af272aa4d654b7368ba204a919a613b70744d6b80de0b40acb0aee462",
+    "site/public/assets/images/units/portraits/crusader_portrait_full.3480ffd9.webp": "3480ffd94a10b65cce20a324552fcbeecab0301b481287168b20e349baca835a",
+    "site/public/assets/images/units/portraits/cyclops_portrait_full.9c6bea6c.webp": "9c6bea6cf9ed3d8328a254042e1e3cd4c9b611dea3939c447d51390b25568e0f"
+  },
+  "verification_method": "Reopen the saved PNG and compare every RGB pixel against v2. Require all changes to fall within old or new text glyphs. Compare the gold rule and entire unit rectangles, including composited partially transparent edges, byte for byte. Compare everything below y=284 byte for byte. Verify all input file hashes are unchanged."
+}

@@ -32,7 +32,7 @@ export const isAuraEffectName = (name: string): boolean => HoCConfig.isAuraEffec
  * EFFECT-type ability), hence this explicit list.
  */
 const NON_ANIMATABLE_PASSIVE_EFFECT_NAMES: ReadonlySet<string> = new Set(["Pegasus Light"]);
-const EVENT_DRIVEN_EFFECT_NAMES: ReadonlySet<string> = new Set(["Dulling Defense"]);
+const EVENT_DRIVEN_EFFECT_NAMES: ReadonlySet<string> = new Set(["Dulling Defense", "Gravebound"]);
 
 /**
  * Morale / Dismorale are lap-scoped SYSTEM effects applied to many units at once at the start of a lap
@@ -64,6 +64,29 @@ export function animatableEffectNames(names: Iterable<string>): Set<string> {
     return result;
 }
 
+const isLandedDullingDefense = (
+    application: Extract<GameEvent, { type: "effects_applied" }>["applications"][number],
+): boolean => application.name === "Dulling Defense" && application.kind === "debuff" && !application.resisted;
+
+/** Units a recorded action actually dulled, in first-seen order. */
+export function dullingDefenseRecipientIds(events: readonly GameEvent[] | undefined): string[] {
+    const ids: string[] = [];
+    const seen = new Set<string>();
+    for (const event of events ?? []) {
+        if (event.type !== "effects_applied") {
+            continue;
+        }
+        for (const application of event.applications) {
+            if (!isLandedDullingDefense(application) || !application.unitId || seen.has(application.unitId)) {
+                continue;
+            }
+            seen.add(application.unitId);
+            ids.push(application.unitId);
+        }
+    }
+    return ids;
+}
+
 export function dullingDefenseApplicationCount(events: readonly GameEvent[] | undefined, unitId: string): number {
     let count = 0;
     for (const event of events ?? []) {
@@ -71,11 +94,7 @@ export function dullingDefenseApplicationCount(events: readonly GameEvent[] | un
             continue;
         }
         count += event.applications.filter(
-            (application) =>
-                application.unitId === unitId &&
-                application.name === "Dulling Defense" &&
-                application.kind === "debuff" &&
-                !application.resisted,
+            (application) => application.unitId === unitId && isLandedDullingDefense(application),
         ).length;
     }
     return count;

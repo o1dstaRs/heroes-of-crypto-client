@@ -1,0 +1,4 @@
+interface:
+  display_name: "HOC Sprite Animation"
+  short_description: "Create production-ready creature animations"
+  default_prompt: "Use $hoc-sprite-animation to create and prepare a creature animation for Heroes of Crypto."

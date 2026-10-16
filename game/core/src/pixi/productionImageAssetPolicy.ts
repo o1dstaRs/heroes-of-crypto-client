@@ -1,3 +1,7 @@
+import { isRetiredCreatureThumbnail } from "./retiredCreatureThumbnails";
+import shotTrajectoryAssets from "./shotTrajectoryAssets.json";
+import { CREATURE_PORTRAIT_ASSET_KEYS } from "./creaturePortraitAssetKeys";
+import battlefieldEnvironmentAssets from "../animations/battlefieldEnvironmentAssets.json";
 import { isDeferredEnvironmentAssetKey } from "./imageAssetTiers";
 import { CREATURE_SPRITE_ANIMATION_SETTINGS, shouldPreloadUnitAnimationAtlas } from "./creatureAnimationSettings";
 import { isUnitAnimationAtlasKey } from "./unitAtlasKeys";
@@ -8,6 +12,7 @@ import { isUnitAnimationAtlasKey } from "./unitAtlasKeys";
  * source into a release even though no production path can request one.
  */
 const LIVE_PRODUCTION_ENVIRONMENT_ASSETS = new Set([
+    ...battlefieldEnvironmentAssets.map((asset) => asset.key),
     "ambient_fire_left_furnace_atlas",
     "cemetery_obstacles_9x_256",
     "cemetery_obstacles_9x_256_hp",
@@ -138,7 +143,7 @@ const LIVE_PRODUCTION_VERSIONED_UI_ASSETS = new Set([
     "shot_range_corner_aaa_v1",
     "shot_range_corner_aaa_v4_green",
     "shot_range_corner_aaa_v4_red",
-    "shot_trajectory_hammered_bronze_casing_sprite_v4",
+    ...shotTrajectoryAssets.map((asset) => asset.key),
     // Current social dock and both responsive Up Next surfaces.
     "ui_social_friends_redrawn_complete_frame_v2",
     "ui_social_notifications_redrawn_complete_frame_v2",
@@ -151,6 +156,11 @@ const LIVE_PRODUCTION_VERSIONED_UI_ASSETS = new Set([
     "life_portrait_bg_golden_dawn_four_corner_haze_v1",
     "might_portrait_bg_blood_claw_strong_red_corners_v1",
     "nature_portrait_bg_xray_leaf_corner_glow_v2_soft",
+    // The live faction portrait motion pulses these masks over the matching environment plates.
+    "chaos_portrait_bg_emissive_glow_v1",
+    "life_portrait_bg_emissive_glow_v1",
+    "might_portrait_bg_emissive_glow_v1",
+    "nature_portrait_bg_emissive_glow_v1",
     // Current map-selection thumbnails.
     "map_badge_barrels_frameless_v2",
     "map_badge_lava_frameless_v2",
@@ -179,6 +189,7 @@ const LIVE_UNIT_ATLASES_WHILE_ANIMATION_IS_DISABLED = new Set(["orc_idle_atlas_q
 
 /** Animation sheets that no compiled production path can request under the current art-direction switch. */
 export function isProductionOmittedDisabledUnitAnimationAssetKey(key: string): boolean {
+    if (/^arbalester_idle_page_\d{2}_atlas$/.test(key)) return false;
     if (CREATURE_SPRITE_ANIMATION_SETTINGS.enabled || !isUnitAnimationAtlasKey(key)) return false;
     return !shouldPreloadUnitAnimationAtlas(key, false) && !LIVE_UNIT_ATLASES_WHILE_ANIMATION_IS_DISABLED.has(key);
 }
@@ -189,17 +200,16 @@ export function isProductionOmittedEnvironmentAssetKey(key: string): boolean {
 }
 
 export function isProductionOmittedUnreferencedAssetKey(key: string): boolean {
-    return UNUSED_PRODUCTION_ASSETS.has(key);
+    if (CREATURE_PORTRAIT_ASSET_KEYS.has(key)) return false;
+    return isRetiredCreatureThumbnail(key) || UNUSED_PRODUCTION_ASSETS.has(key);
 }
 
 /** Retired UI exports with no runtime consumer; their current replacements use distinct keys. */
 export function isProductionOmittedLegacyUiAssetKey(key: string): boolean {
+    if (CREATURE_PORTRAIT_ASSET_KEYS.has(key)) return false;
     if (UNUSED_PRODUCTION_LEGACY_UI_ASSETS.has(key)) return true;
-    // The old full-body exports were superseded by the approved `*_pick_sandbox_x2` portraits. The
-    // current fullBodyCreatureImage() selector deliberately aliases that same approved source, so no
-    // live surface can request an unversioned `*_portrait_full` file anymore. Keep those authoring
-    // references in Drive without copying ~20 MiB of compressed (and much more decoded) art into each
-    // release.
+    // Approved full-body portrait sources are protected above: their close-up crop cannot be reused
+    // on a _512 fallback. Omit only the remaining, unused authoring exports from this family.
     if (key.endsWith("_portrait_full")) return true;
     // These named UI families were superseded by the generated `*_left_screen_x2` portraits or other
     // current replacements. They remain in Drive for comparison/editing but have no production selector.

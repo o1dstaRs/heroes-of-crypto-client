@@ -9,7 +9,12 @@
  * -----------------------------------------------------------------------------
  */
 
-import { TeamType, MovementType, AttackType, SpellElement } from "@heroesofcrypto/common";
+import { TeamType, MovementType, AttackType, SpellElement, type UnitProperties } from "@heroesofcrypto/common";
+
+export interface IUnitInspection {
+    unit: UnitProperties;
+    impact: IVisibleOverallImpact;
+}
 
 export interface IVisibleUnit {
     id: string;
@@ -77,6 +82,16 @@ export interface IFightStatsSample {
     rightDamage?: number;
     leftDamagePct?: number;
     rightDamagePct?: number;
+    /** Creature groups whose combined deployed stacks reached zero during this sample. */
+    eliminations?: IFightCreatureElimination[];
+}
+
+/** All deployed stacks of one creature type defeated at a specific point in the fight timeline. */
+export interface IFightCreatureElimination {
+    creatureKey: string;
+    name: string;
+    smallTextureName: string;
+    team: TeamType;
 }
 
 /** A single unit type's casualties for one team. */
@@ -135,8 +150,14 @@ export interface IVisibleState {
     lapsNarrowed: number;
     /** Whether the local AI toggle is currently on (drives the "AI Toggle On" badge). */
     aiToggleOn?: boolean;
-    /** Whether a fight replay is currently playing back (drives the bottom-left "Exit Replay" button). */
+    /** Full-fight replay playback for the "Exit Replay" button; excludes live action animations. */
     replayPlaybackActive?: boolean;
+    /**
+     * The replay's React snapshot stays on the opening board for the whole playback. This is set once that
+     * playback is actually showing the fight, so the battle log can mount without applying those snapshots
+     * again (doing so rewinds the board).
+     */
+    replayFightVisible?: boolean;
     /** Set when the fight ends: which team won (LEFT = green, RIGHT = red). */
     teamWin?: TeamType;
     /** Set when the fight ends: casualty stats for the Fight Finished overlay. */
@@ -160,6 +181,16 @@ export interface IVisibleButton {
     customSpriteName?: string;
 }
 
+export type SpellEffectSummaryKind = "damage" | "healing" | "buff" | "debuff";
+
+/** Scan-friendly headline for the main numeric effect of a spellbook card. */
+export interface ISpellEffectSummary {
+    kind: SpellEffectSummaryKind;
+    label: string;
+    value: string;
+    detail?: string;
+}
+
 export interface IHoverInfo {
     attackType: AttackType;
     damageSpread: string;
@@ -171,6 +202,8 @@ export interface IHoverInfo {
     information: string[];
     /** Element of the hovered spell, so its card can be marked in that element's colour. */
     spellElement?: SpellElement;
+    /** Main damage/healing/buff value, rendered separately from the longer rules text. */
+    spellEffectSummary?: ISpellEffectSummary;
     // True while the cursor is hovering an enemy unit that the active unit can attack. Drives the
     // HoMM-style attack cursor (themed melee/ranged/magic PNG only shows when actively aiming at a
     // valid target). Optional because UpdateHoverInfo emits {} when no hover info is present.

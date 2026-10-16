@@ -1,0 +1,22 @@
+---
+import "../../../game/core/src/ui/premium/premiumBrand.css";
+
+interface Props {
+    size?: string;
+    class?: string;
+}
+const { size = "1.25em", class: className } = Astro.props;
+---
+<span class:list={["premium-icon", className]} style={{ "--premium-icon-size": size }} aria-hidden="true"></span>
+<style is:global>
+    .premium-icon {
+        display: inline-block;
+        flex-shrink: 0;
+        width: var(--premium-icon-size, 1.25em);
+        height: var(--premium-icon-size, 1.25em);
+        vertical-align: -0.2em;
+        background-color: var(--hoc-premium-accent);
+        -webkit-mask: url("/assets/icons/premium.svg") center / contain no-repeat;
+        mask: url("/assets/icons/premium.svg") center / contain no-repeat;
+    }
+</style>

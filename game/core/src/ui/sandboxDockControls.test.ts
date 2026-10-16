@@ -15,37 +15,38 @@ import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 
 /**
- * OWNER CALL: a logged-in player keeps the full four-button dock in the bottom-right corner of the
- * SANDBOX — bets, friends, notifications and sound — the same four that sit there on every non-battle
- * screen.
+ * OWNER CALL (2026-09-20, supersedes the earlier sandbox-only rule): every IN-GAME screen — sandbox,
+ * ranked battle and the draft — wears the same corner HUD, and that includes folding the four dock
+ * buttons into the compact medallion. Menus keep the full bottom-right dock.
  *
  * SocialDock renders one of two shapes: `systemMenuMode ? systemDockControls : dockControls`. The first
- * is the compact top-right medallion, which folds those four behind a fan. The offline sandbox used to
- * publish setBattleSystemControlsActive(true) on mount, so it always got the folded shape. Ranked keeps
- * that collapse (RankedGameView), where board space is genuinely contested; the sandbox has room.
+ * is the compact corner medallion, which folds bets/friends/notifications/sound behind a fan. Publishing
+ * registerBattleSystemControls on mount is what selects it, so each in-game host must do so and
+ * must release it on unmount — otherwise a menu reached from a fight keeps the folded shape.
  *
  * Source-contract, like the sibling pointer/placement specs: this repo has no DOM harness, and the
- * regression is a re-added effect rather than anything observable from a unit test.
+ * regression is a dropped (or unreleased) effect rather than anything observable from a unit test.
  */
 const read = (relative: string): string => readFileSync(join(import.meta.dir, relative), "utf8");
 
 const withoutComments = (source: string): string =>
     source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
 
-describe("the sandbox keeps the bottom-right dock", () => {
-    test("it does not switch SocialDock into the collapsed medallion", () => {
-        const code = withoutComments(read("index.tsx"));
-        // Naming it in prose is fine; calling it is what folds the four buttons away.
-        expect(code).not.toContain("setBattleSystemControlsActive(");
-    });
+describe("every in-game screen wears the collapsed medallion", () => {
+    // Each host publishes the mode on mount and releases it on unmount. A host that only set it would
+    // leave the menu it navigates to wearing the fight's HUD.
+    for (const [screen, file] of [
+        ["sandbox", "index.tsx"],
+        ["ranked battle", "RankedGameViewRuntime.tsx"],
+        ["draft", "PickAndBan/runtime.tsx"],
+    ] as const) {
+        test(`the ${screen} collapses SocialDock and releases it again`, () => {
+            const code = withoutComments(read(file));
+            expect(code).toContain("useEffect(registerBattleSystemControls, [])");
+        });
+    }
 
-    test("ranked still collapses it — this is a sandbox-only rule, not a global one", () => {
-        const ranked = withoutComments(read("RankedGameViewRuntime.tsx"));
-        expect(ranked).toContain("setBattleSystemControlsActive(true)");
-        expect(ranked).toContain("setBattleSystemControlsActive(false)");
-    });
-
-    test("the dock still carries all four controls, gated only on being logged in", () => {
+    test("the dock still carries all four controls, gated in production on being logged in", () => {
         const dock = read("social/SocialDockRuntime.tsx");
         for (const control of [
             'aria-label="Bets and predictions"',
@@ -56,8 +57,11 @@ describe("the sandbox keeps the bottom-right dock", () => {
         }
         // Sound is a slot the volume control mounts into rather than an IconButton of its own.
         expect(dock).toContain('data-volume-control="social-dock"');
-        // The only thing that may hide the dock is an inactive/logged-out account.
-        expect(withoutComments(dock)).toContain("const active = authenticated && user?.is_active !== false");
+        // Production still gates the dock on an active account; the existing dev-only portal preview
+        // may render it without a session so the social bubbles can be reviewed in the browser.
+        expect(withoutComments(dock)).toContain(
+            "const active = (authenticated && user?.is_active !== false) || mockPreview",
+        );
     });
 
     test("the dock reserves the speaker footprint while the game footer owns the live control", () => {

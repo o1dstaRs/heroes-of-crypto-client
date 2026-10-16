@@ -1,3 +1,8 @@
+import { PremiumSetupPanel } from "./premium/PremiumAdvisor";
+import { PremiumSearchSlot } from "./premium/PremiumSearch";
+import { PremiumFightOverlay } from "./premium/PremiumFightOverlay";
+import { useReportPremiumSearchMatch } from "./premium/PremiumSearchMatchContext";
+import { premiumSearchPlayStage, premiumSearchPlayVersion } from "./premium/premiumSearchFreshness";
 import {
     Artifact,
     Augment,
@@ -6,6 +11,8 @@ import {
     TeamVals,
     type GameAction,
     type TeamType,
+    GridVals,
+    type GridType,
 } from "@heroesofcrypto/common";
 import {
     Alert,
@@ -22,6 +29,7 @@ import {
 } from "@mui/joy";
 import CssBaseline from "@mui/joy/CssBaseline";
 import { CssVarsProvider } from "@mui/joy/styles";
+import BarrelPlacementControls from "./BarrelPlacementControls";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { v4 as uuidv4 } from "uuid";
@@ -37,11 +45,19 @@ import {
     rankedEventHeaders,
     sendRankedPlayAction,
     sendRankedPlayMoveIntent,
+    sendRankedPlaySpellIntent,
     toAuthoritativeGameSnapshot,
 } from "../api/ranked_play_client";
-import { PlayActionType, PlayEventKind, PlayPhase, PLAY_MOVE_CONTINUE_TURN_REASON } from "../api/play_protocol";
+import {
+    PlayActionType,
+    PlayEventKind,
+    PlayInputSource,
+    PlayPhase,
+    PLAY_MOVE_CONTINUE_TURN_REASON,
+    readOpponentIntent,
+} from "../api/play_protocol";
 import { createInitialPlayerPlacementActions, createModelPlacementActions } from "./rankedPlacementGeometry";
-import { setPrefightMusicActive } from "./audio/prefightMusic";
+import { boardViewPrefightMusic, setPrefightMusicActive } from "./audio/prefightMusic";
 import type { PlayAction, PlaySnapshot, PlayUnitState } from "../api/play_protocol";
 import type { SceneGameActionTransport, SceneGameActionTransportOptions } from "../game_action_transport";
 import { axiosMMInstance, endpoints } from "../api/axios";
@@ -53,13 +69,20 @@ import {
     collectRankedReplaySnapshots,
     createSandboxReplayFromRankedReplay,
     parseRankedReplayAction,
+    withReplayJournalTails,
     type RankedReplay,
     type RankedReplayActionRecord,
 } from "../replay/ranked_replay";
+import { autoPlayedInputSource } from "../scenes/autoPlayedAction";
 import { getLocalModelOpponentConfig, isLocalModelAction } from "../scenes/LocalModelOpponent";
 import { authoritativeSnapshotToSandboxSceneState, RankedPlayScene } from "../scenes/RankedPlayScene";
 import type { IWindowSize } from "../scenes/VisibleState";
 import { FightFinishedOverlay } from "./FightFinishedOverlay";
+import { AwayTimeToast } from "./exitRules/AwayTimeToast";
+import { ExitMatchDialog } from "./exitRules/ExitMatchDialog";
+import { exitStandingFromSnapshot, type IExitStanding } from "./exitRules/exitRulesModel";
+import { useLeaveGuard } from "./exitRules/useLeaveGuard";
+import { installInputTelemetry, takeInputTelemetry } from "./inputTelemetry";
 import LeftSideBar from "./LeftSideBar";
 import SynergiesRow from "./LeftSideBar/SynergiesRow";
 import { Main } from "./Main";
@@ -72,8 +95,8 @@ import {
     DRAFT_ARMIES_HEIGHT,
     DRAFT_HEADER_HEIGHT,
     DRAFT_ZONE_GAP,
-    DraftBottomControls,
     CreatureDetailPanel,
+    DraftBottomControls,
     draftBoardSx,
     draftShellSx,
     DraftTitle,
@@ -85,25 +108,44 @@ import {
 } from "./PickAndBan/runtime";
 import { PickLanternFire } from "./PickAndBan/PickLanternFire";
 import SandboxToggleContainer from "./RightSideBar/SandboxToggleContainer";
+import { SynergySlots } from "./RightSideBar/SynergySlots";
 import SideToggleContainer from "./RightSideBar/SideToggleContainer";
 import { UpNextOverlay } from "./UpNextOverlay";
-import { AiControlBadge, aiBadgeLeft } from "./AiControlBadge";
+import { SeatAiControlNotice, aiBadgeLeft } from "./AiControlBadge";
 import { NextLapHazardBadge } from "./NextLapHazardBadge";
 import { ExitReplayBadge } from "./ExitReplayBadge";
-import { setBattleSystemControlsActive } from "./social/systemControlsMode";
+import { registerBattleSystemControls } from "./social/systemControlsMode";
 import { CreaturePortraitImage } from "./CreaturePortraitImage";
 import { UNIT_ID_TO_NAME } from "./unit_ui_constants";
 import { ButtonProvider } from "./context/ButtonContext";
-import { exitFightButtonSx } from "./exitFightButtonSx";
-import { useFullscreenActive } from "./useFullscreenActive";
+import { GameCornerExitButton, GameCornerSlot } from "./GameCornerExit";
+import { useBoardMirrored } from "./useBoardMirrored";
 import { startVisibleInterval } from "./visibleInterval";
-import { ViewerTeamContext } from "./context/ViewerTeamContext";
+import { isOlderRankedSnapshot, waitForRankedPlayback } from "./rankedSnapshotSync";
+import { eventStreamRetryDelayMs } from "./eventStreamRetry";
+import { dragObserverPanelOffset, type PanelOffset } from "./observerPanelDrag";
+import { SpectatorContext, ViewerTeamContext } from "./context/ViewerTeamContext";
+import { SANDBOX_UNREADY_REASON, sandboxCoopSeatStatuses } from "./SandboxCoopControls";
+import { useStopWatching } from "./useStopWatching";
+import { takeCoopCarryOver } from "./social/coopCarryOver";
+import { clearTurnAlert, isTabUnwatched, signalYourTurn, yourTurnActivationKey } from "./turnAlert";
+import { OpponentConnectionBadge } from "./OpponentConnectionBadge";
+import { connectionSeatName, opponentConnectionLabel, type OpponentConnectionLabel } from "./opponentConnection";
+import { useOpponentConnectionNotices } from "./useOpponentConnectionNotices";
+import {
+    createSandboxCoop,
+    sandboxCoopErrorMessage,
+    sandboxCoopPath,
+    type SandboxCoopSession,
+} from "../api/sandbox_coop_client";
 import {
     hocColors,
     hocDangerAlertSx,
     hocDisplayFontFamily,
     hocDisplayLetterSpacing,
+    hocJoyTheme,
     hocPanelSx,
+    hocPrimaryButtonSx,
     hocSidebarImageButtonSx,
     hocSidebarSectionSx,
     hocSoftButtonSx,
@@ -112,6 +154,7 @@ import {
 } from "./hocTheme";
 import {
     hasOffGridSubmitCell,
+    playerFacingRejection,
     rejectionErrorFromPlayEvent,
     resolveEffectiveLocalModelOpponentConfig,
     shouldApplyActionResponseSnapshotToViewer,
@@ -120,6 +163,7 @@ import {
 } from "./rankedActionResponse";
 import {
     isRankedBoardPlacementStage,
+    observerPlacementRosterIds,
     rankedPlacementLockActionType,
     shouldHideRankedSetupOpponentRoster,
     shouldShowRankedAugmentPicker,
@@ -132,6 +176,7 @@ import {
     getAiSeatDifficulty,
     getMarkedVsAiDifficulty,
     hasAiSeatPlayer,
+    isAiSeatPlayerId,
     isMarkedVsAiGame,
     markVsAiGame,
     vsAiDifficultyLabel,
@@ -199,7 +244,12 @@ const controlledUnitIdForAction = (action: GameAction): string | undefined => {
 };
 
 const teamForAction = (snapshot: PlaySnapshot | null, action: GameAction): TeamType | undefined => {
-    if (action.type === "place_unit" || action.type === "request_additional_time") {
+    if (
+        action.type === "place_unit" ||
+        action.type === "place_barrel" ||
+        action.type === "unplace_barrel" ||
+        action.type === "request_additional_time"
+    ) {
         return action.team as TeamType;
     }
     const controlledUnitId = controlledUnitIdForAction(action);
@@ -233,6 +283,8 @@ const canPlayAuthoritativeRecord = (action: GameAction, snapshot: PlaySnapshot |
 
     switch (action.type) {
         case "start_fight":
+        case "place_barrel":
+        case "unplace_barrel":
         case "place_unit":
         case "delete_unit":
         case "split_unit":
@@ -247,6 +299,10 @@ type Props = {
     userTeam: TeamType;
     windowSize: IWindowSize;
     replayOnly?: boolean;
+    /** Friend co-op sandbox (route /sandbox/:id): the two seats and which one is ours. */
+    sandboxCoop?: SandboxCoopSession;
+    /** Called once the view has a board (or the reason it cannot load) to show; the draft covers it until then. */
+    onReadyToShow?: () => void;
 };
 
 type PendingAuthoritativePlayback = {
@@ -254,7 +310,14 @@ type PendingAuthoritativePlayback = {
     stateAfterSnapshot?: PlaySnapshot;
 };
 
-export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, replayOnly = false }) => {
+export const RankedGameView: React.FC<Props> = ({
+    gameId,
+    userTeam,
+    windowSize,
+    replayOnly = false,
+    sandboxCoop,
+    onReadyToShow,
+}) => {
     // Re-renders the ranked chrome when the profile's language changes; render sites use the module t().
     useTranslation();
     const manager = usePixiManager();
@@ -262,6 +325,12 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     const localModelConfig = useMemo(() => getLocalModelOpponentConfig(), []);
     const viewerTeam = userTeam === TeamVals.NO_TEAM ? undefined : userTeam;
     const [snapshot, setSnapshot] = useState<PlaySnapshot | null>(null);
+    useReportPremiumSearchMatch(
+        gameId,
+        "play",
+        snapshot?.gameId === gameId && !replayOnly && !sandboxCoop ? premiumSearchPlayVersion(snapshot) : undefined,
+        snapshot ? premiumSearchPlayStage(snapshot) : undefined,
+    );
     const effectiveLocalModelConfig = useMemo(
         () => resolveEffectiveLocalModelOpponentConfig(localModelConfig, snapshot, viewerTeam),
         [localModelConfig, snapshot, viewerTeam],
@@ -269,6 +338,9 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     const [selectedUnitId, setSelectedUnitId] = useState("");
     const [aiToggleOn, setAiToggleOn] = useState(false);
     const [replayPlaybackActive, setReplayPlaybackActive] = useState(false);
+    // Playback does not advance `snapshot` (that rewound the board). This follows the scene instead,
+    // and only while playback is running, so a finished replay does not pin the fight chrome on afterwards.
+    const [replayFightVisible, setReplayFightVisible] = useState(false);
     const [busy, setBusy] = useState(false);
     const [status, setStatus] = useState(replayOnly ? "Loading replay" : "Connecting");
     const [error, setError] = useState("");
@@ -336,6 +408,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
         const connection = manager.onVisibleStateUpdated.connect((state) => {
             setAiToggleOn(!!state.aiToggleOn);
             setReplayPlaybackActive(!!state.replayPlaybackActive);
+            setReplayFightVisible(!!state.replayFightVisible);
         });
         return () => {
             connection.disconnect();
@@ -361,7 +434,12 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     const forceBoardRebuildRef = useRef(false);
 
     const applySnapshot = useCallback(
-        (nextSnapshot: PlaySnapshot, options?: { skipBoardRebuild?: boolean; forceBoardRebuild?: boolean }) => {
+        (
+            nextSnapshot: PlaySnapshot,
+            options?: { skipBoardRebuild?: boolean; forceBoardRebuild?: boolean; replayRewind?: boolean },
+        ) => {
+            if (nextSnapshot.gameId !== gameId) return;
+            if (!options?.replayRewind && isOlderRankedSnapshot(nextSnapshot, snapshotRef.current)) return;
             const continuedMoveUnitId = pendingMoveFollowUpUnitIdRef.current;
             if (continuedMoveUnitId && nextSnapshot.currentUnitId !== continuedMoveUnitId) {
                 pendingMoveFollowUpUnitIdRef.current = undefined;
@@ -377,7 +455,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             snapshotRef.current = nextSnapshot;
             setSnapshot(nextSnapshot);
         },
-        [],
+        [gameId],
     );
     const toSceneSnapshot = useCallback(
         (playSnapshot: PlaySnapshot) =>
@@ -385,8 +463,9 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                 playSnapshot,
                 viewerTeam,
                 effectiveLocalModelConfig.enabled ? effectiveLocalModelConfig.modelTeam : undefined,
+                !!sandboxCoop,
             ),
-        [effectiveLocalModelConfig.enabled, effectiveLocalModelConfig.modelTeam, viewerTeam],
+        [effectiveLocalModelConfig.enabled, effectiveLocalModelConfig.modelTeam, sandboxCoop, viewerTeam],
     );
 
     const rememberAuthoritativeRecord = useCallback(
@@ -416,11 +495,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     );
 
     const waitForAuthoritativePlayback = useCallback(async (): Promise<void> => {
-        try {
-            await authoritativePlaybackQueueRef.current;
-        } catch {
-            return;
-        }
+        await waitForRankedPlayback(() => authoritativePlaybackQueueRef.current);
     }, []);
 
     const playAuthoritativeRecordData = useCallback(
@@ -512,9 +587,13 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
         const nextSnapshot = await fetchRankedPlaySnapshot(gameId);
         // undefined = the game is still drafting (204); there is nothing to reconcile against yet.
         if (nextSnapshot) {
+            // A poll sees the final exchange while we may still be presenting its first blow. Applying
+            // it now can remove a fighter and cancel their animation callback, delaying the next blow
+            // until the replay timeout. Let the exchange settle before reconciling the board and UI.
+            await waitForAuthoritativePlayback();
             applySnapshot(nextSnapshot);
         }
-    }, [applySnapshot, gameId]);
+    }, [applySnapshot, gameId, waitForAuthoritativePlayback]);
 
     const clearReplayTimers = useCallback(() => {
         replayTimersRef.current.forEach(window.clearTimeout);
@@ -524,6 +603,17 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     useEffect(() => {
         const connection = manager.onLoadingChanged.connect((loading) => {
             setPixiReady(!loading);
+        });
+        return () => {
+            connection.disconnect();
+        };
+    }, [manager]);
+
+    useEffect(() => {
+        const connection = manager.onPlayerNotice.connect((message) => {
+            if (message) {
+                setError(message);
+            }
         });
         return () => {
             connection.disconnect();
@@ -563,7 +653,8 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
         let cancelled = false;
         void (async () => {
             const playedPendingRecords = await drainPendingAuthoritativeRecords(snapshot);
-            if (cancelled) {
+            await waitForAuthoritativePlayback();
+            if (cancelled || snapshotRef.current !== snapshot) {
                 return;
             }
             const forceBoardRebuild = forceBoardRebuildRef.current;
@@ -589,10 +680,14 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
         selectedUnitId,
         snapshot,
         toSceneSnapshot,
+        waitForAuthoritativePlayback,
     ]);
 
+    // Once the match is over the board no longer changes, so the fallback poll stops; a co-op sandbox keeps it
+    // for its rematch flow. A results screen left open used to request a snapshot every 4s indefinitely.
+    const matchFinished = !!snapshot && (snapshot.fightFinished || snapshot.phase === PlayPhase.FINISHED);
     useEffect(() => {
-        if (replayOnly) {
+        if (replayOnly || (matchFinished && !sandboxCoop)) {
             return undefined;
         }
         let cancelled = false;
@@ -627,7 +722,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             cancelled = true;
             stopPolling();
         };
-    }, [refreshSnapshot, replayOnly]);
+    }, [matchFinished, refreshSnapshot, replayOnly, sandboxCoop]);
 
     useEffect(() => {
         // The preview session (/preview/placement) has no event stream to connect to — its snapshot lives
@@ -643,6 +738,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             const controller = new AbortController();
             abortRef.current = controller;
 
+            let failedStatus = 0;
             try {
                 setStatus("Connecting");
                 const response = await fetch(playEventsUrl(gameId, latestSequenceRef.current), {
@@ -653,7 +749,14 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                 });
 
                 if (!response.ok || !response.body) {
-                    throw new Error(`Event stream failed: ${response.status}`);
+                    failedStatus = response.status;
+                    // 429: the game already has as many spectators as the server accepts. Say so and back off
+                    // instead of hammering it every second.
+                    throw new Error(
+                        response.status === 429
+                            ? t("Too many people are watching this match. Trying again shortly.")
+                            : `Event stream failed: ${response.status}`,
+                    );
                 }
 
                 setStatus("Connected");
@@ -673,14 +776,20 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                         const event = parseRankedPlaySseFrame(frame);
                         if (!event) continue;
 
-                        // Ephemeral opponent move-aim hint: forward the silhouette to the scene
-                        // and skip all authoritative processing (no snapshot/journal/sequence).
+                        // Ephemeral opponent hint: a move aim or an armed spell. Neither is authoritative
+                        // (no snapshot, journal, or sequence). Arming a spell drops the move ghost; a move
+                        // aim does not hide a spell that is still armed.
                         if (event.kind === PlayEventKind.MOVE_INTENT) {
-                            const intent = event.intent;
-                            if (intent?.active && intent.targetCell && intent.unitId) {
+                            const view = readOpponentIntent(event.intent);
+                            if (view.kind === "spell") {
+                                manager.SetOpponentSpellIntent({ unitId: view.unitId, spellName: view.spellName });
+                                manager.SetOpponentMoveIntent(undefined);
+                            } else if (view.kind === "clear-spell") {
+                                manager.SetOpponentSpellIntent(undefined);
+                            } else if (view.kind === "move") {
                                 manager.SetOpponentMoveIntent({
-                                    unitId: intent.unitId,
-                                    cell: { x: intent.targetCell.x, y: intent.targetCell.y },
+                                    unitId: view.unitId,
+                                    cell: { x: view.cell.x, y: view.cell.y },
                                 });
                             } else {
                                 manager.SetOpponentMoveIntent(undefined);
@@ -709,7 +818,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                 if (!closed && (err as Error).name !== "AbortError") {
                     setStatus("Reconnecting");
                     setError((err as Error).message || "Event stream disconnected");
-                    retryTimer = window.setTimeout(connect, 1200);
+                    retryTimer = window.setTimeout(connect, eventStreamRetryDelayMs(failedStatus));
                 }
             }
         };
@@ -766,17 +875,18 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     const location = useLocation();
     const observerOrigin = (location.state ?? null) as { from?: string; lobbyId?: string } | null;
     const cameFromLobby = observerOrigin?.from === "lobby";
+    // A spectator who followed a friend's "Spectate" goes back to the arena with the friends panel open.
+    const cameFromFriends = observerOrigin?.from === "friends";
+    // Spectators leave the way they came in: their lobby, the friends panel, or THIS deployment's website
+    // (it used to be production's even on the test server) — see spectatorExitFor.
+    const stopWatching = useStopWatching();
     const handleBackToLobby = useCallback(() => {
         if (isObserver && !replayOnly) {
-            if (cameFromLobby) {
-                navigate(observerOrigin?.lobbyId ? `/lobby/${observerOrigin.lobbyId}` : "/lobbies");
-            } else {
-                window.location.assign("https://heroesofcrypto.io");
-            }
+            stopWatching();
             return;
         }
         navigate(replayOnly ? "/portal" : "/play");
-    }, [navigate, replayOnly, isObserver, cameFromLobby, observerOrigin]);
+    }, [navigate, replayOnly, isObserver, stopWatching]);
     const handlePlayAgainVsAi = useCallback(async () => {
         // Always rematch the default AI (no difficulty tiers) — matches the tier-less "Play vs AI" entry.
         // The just-finished match's result write (game doc -> finished, both players' inGameId released)
@@ -816,9 +926,36 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     const ready = !isObserver && !!myPlayer && !!snapshot?.readyPlayerIds.includes(myPlayer.playerId);
     const canSubmit = !!snapshot && !isObserver && !!myPlayer && !busy;
     const hasSnapshot = !!snapshot;
-    const gameStarted =
+    const snapshotFightStarted =
         !!snapshot &&
         (snapshot.fightStarted || snapshot.phase === PlayPhase.PLAY || snapshot.phase === PlayPhase.FINISHED);
+    // A replay seeds React with the opening snapshot and leaves it there until playback ends, so the
+    // battle log (mounted only once the fight chrome is up) never appeared while you were watching.
+    const gameStarted = snapshotFightStarted || (replayPlaybackActive && replayFightVisible);
+    // Exit rules (plan §5): what leaving counts as for this seat right now, for the dialogs, the Alt strip and the toast.
+    const exitStanding = useMemo<IExitStanding | undefined>(
+        () => (snapshot && myPlayer && !isObserver ? exitStandingFromSnapshot(snapshot, myPlayer.playerId) : undefined),
+        [isObserver, myPlayer, snapshot],
+    );
+    // Closing the tab mid-match is leaving too: in ranked the browser asks first. Friend sandboxes leave freely.
+    useLeaveGuard(
+        !!exitStanding?.ranked &&
+            !sandboxCoop &&
+            !replayOnly &&
+            !snapshot?.fightFinished &&
+            (snapshot?.phase === PlayPhase.PLACEMENT || snapshot?.phase === PlayPhase.PLAY),
+    );
+    // One presence clock for the whole view: the matchup strip wears it beside each name, and the floating
+    // banner says the same thing in full while that strip is still off screen (ranked placement).
+    const connectionNotices = useOpponentConnectionNotices(snapshot, viewerTeam, aiSeatPlayerId);
+    const connectionBySeat = useMemo(() => {
+        const labels = new Map<string, OpponentConnectionLabel>();
+        for (const notice of connectionNotices) {
+            labels.set(notice.playerId, opponentConnectionLabel(notice, connectionSeatName(notice.team, viewerTeam)));
+        }
+        return labels;
+    }, [connectionNotices, viewerTeam]);
+
     const battleMatchupPlayers = useMemo<readonly MatchupPlayer[]>(
         () =>
             snapshot?.players.map((player) => ({
@@ -828,26 +965,35 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                 // making the strip wait on a request that will correctly return 404.
                 label: player.playerId === aiSeatPlayerId ? vsAiOpponentLabel : undefined,
                 isAi: player.playerId === aiSeatPlayerId,
+                connection: connectionBySeat.get(player.playerId),
             })) ?? [],
-        [aiSeatPlayerId, snapshot, vsAiOpponentLabel],
+        [aiSeatPlayerId, connectionBySeat, snapshot, vsAiOpponentLabel],
     );
 
     // Placement and combat share the compact top-right system-controls medallion. Publishing the whole
     // ranked-board lifetime (rather than only the first combat turn) removes the three loose bottom-right
     // social buttons during placement too.
-    useEffect(() => {
-        setBattleSystemControlsActive(true);
-        return () => setBattleSystemControlsActive(false);
-    }, []);
+    useEffect(registerBattleSystemControls, []);
 
-    // "Iron and Silk" runs from the match being found until the first turn. The route hands the flag over
-    // once the board is up; from here it is simply "we have a board and the fight has not started", which is
-    // placement. It goes quiet the moment the fight begins, and a replay never plays it — the outcome is
-    // already decided, so there is no tension to score.
+    // "Iron and Silk" runs for the whole match: on through placement and the fight, off for a replay. Until the
+    // first snapshot arrives this view leaves the flag as the draft left it, so the track plays straight through
+    // the handoff instead of cutting out and restarting (see boardViewPrefightMusic).
     useEffect(() => {
-        setPrefightMusicActive(!replayOnly && hasSnapshot && !gameStarted);
-    }, [replayOnly, hasSnapshot, gameStarted]);
+        const next = boardViewPrefightMusic({ replayOnly, hasSnapshot });
+        if (next !== undefined) {
+            setPrefightMusicActive(next);
+        }
+    }, [replayOnly, hasSnapshot]);
     useEffect(() => () => setPrefightMusicActive(false), []);
+
+    // The draft route keeps the finished draft on screen while this view loads behind it. Tell it once there is
+    // something real to show: the board (a snapshot with Pixi loaded) or the reason there cannot be one.
+    const readyToShow = gameUnavailable || (hasSnapshot && pixiReady) || (!hasSnapshot && !!error);
+    useEffect(() => {
+        if (readyToShow) {
+            onReadyToShow?.();
+        }
+    }, [onReadyToShow, readyToShow]);
 
     const sendPlayAction = useCallback(
         async (payload: PlayAction, options?: { authorization?: string; silent?: boolean }): Promise<boolean> => {
@@ -875,7 +1021,20 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                 setError("");
             }
             try {
-                const result = await sendRankedPlayAction(gameId, payload, options);
+                // Integrity telemetry rides every real action, never the heartbeat: evidence only (inputTelemetry.ts).
+                const telemetry = payload.type === PlayActionType.PING ? undefined : takeInputTelemetry();
+                const result = await sendRankedPlayAction(
+                    gameId,
+                    telemetry
+                        ? {
+                              ...payload,
+                              inputSource: payload.inputSource ?? telemetry.inputSource,
+                              pointerEvents: telemetry.pointerEvents,
+                              tabHidden: telemetry.tabHidden,
+                          }
+                        : payload,
+                    options,
+                );
                 latestSequenceRef.current = Math.max(latestSequenceRef.current, result.sequence);
                 if (payload.type === PlayActionType.PING && result.accepted) {
                     return true;
@@ -937,7 +1096,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                     // scared players with an alarming red "fight_not_started" banner for a condition that
                     // silently self-heals. Every other rejection reason is still shown as-is.
                     if (reason !== "fight_not_started") {
-                        setError(reason);
+                        setError(playerFacingRejection(result.rejectionReason, result.message) || reason);
                     }
 
                     const continuedMoveUnitId = pendingMoveFollowUpUnitIdRef.current;
@@ -961,6 +1120,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                                     targetCells: [],
                                     reason: "manual",
                                     expectedSequence: latestSequenceRef.current,
+                                    inputSource: PlayInputSource.CLIENT_RETRY,
                                 },
                                 options,
                             ).catch(() => undefined);
@@ -1005,6 +1165,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                                 path: [],
                                 targetCells: [],
                                 expectedSequence: latestSequenceRef.current,
+                                inputSource: PlayInputSource.CLIENT_RETRY,
                             },
                             options,
                         ).catch(() => undefined);
@@ -1105,13 +1266,17 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             team: TeamType,
             authorization?: string,
             transportOptions?: SceneGameActionTransportOptions,
+            inputSource?: number,
         ) => {
             await queueActionSubmission(async () => {
                 const envelope = buildActionEnvelope(team);
                 if (!envelope) return;
 
                 await sendPlayAction(
-                    createPlayActionFromGameAction(action, envelope, transportOptions),
+                    {
+                        ...createPlayActionFromGameAction(action, envelope, transportOptions),
+                        ...(inputSource !== undefined ? { inputSource } : {}),
+                    },
                     authorization ? { authorization } : undefined,
                 );
             });
@@ -1120,8 +1285,8 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     );
 
     const submitGameAction = useCallback(
-        async (action: GameAction, transportOptions?: SceneGameActionTransportOptions) => {
-            await submitGameActionForTeam(action, userTeam, undefined, transportOptions);
+        async (action: GameAction, transportOptions?: SceneGameActionTransportOptions, inputSource?: number) => {
+            await submitGameActionForTeam(action, userTeam, undefined, transportOptions, inputSource);
         },
         [submitGameActionForTeam, userTeam],
     );
@@ -1161,6 +1326,10 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
         return startVisibleInterval(pingHumanPlayer, 8_000);
     }, [gameId, hasSnapshot, isObserver, submitProtocolActionForTeam, userTeam]);
 
+    useEffect(() => {
+        installInputTelemetry();
+    }, []);
+
     const transport = useCallback<SceneGameActionTransport>(
         (action, transportOptions) => {
             // Auto-expire the turn-resolution gate: if it has been pending too long, the submit/playback
@@ -1189,7 +1358,11 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                     handled: true,
                     completed: false,
                     message:
-                        action.type === "place_unit" || action.type === "delete_unit" || action.type === "split_unit"
+                        action.type === "place_unit" ||
+                        action.type === "place_barrel" ||
+                        action.type === "unplace_barrel" ||
+                        action.type === "delete_unit" ||
+                        action.type === "split_unit"
                             ? "Opponent placement is controlled by the opponent"
                             : "Opponent turn is controlled by the opponent",
                 };
@@ -1224,6 +1397,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                     effectiveLocalModelConfig.modelTeam,
                     effectiveLocalModelConfig.authorization,
                     transportOptions,
+                    PlayInputSource.LOCAL_MODEL,
                 );
                 return { handled: true, completed: true };
             }
@@ -1246,7 +1420,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             // gate ("your units, your zone, no cross-team ordering dependency"). Stale optimistic state is
             // repaired by reconciling from the authoritative snapshot — see shouldPlayAuthoritativeAction —
             // not by throwing the player's input away.
-            void submitGameAction(action, transportOptions);
+            void submitGameAction(action, transportOptions, autoPlayedInputSource(action));
             return { handled: true, completed: true };
         },
         [
@@ -1268,16 +1442,20 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             setError("");
 
             try {
-                const replaySnapshots = collectRankedReplaySnapshots(replay);
+                const replaySnapshots = withReplayJournalTails(collectRankedReplaySnapshots(replay), replay.journal);
                 const initialSnapshot = replaySnapshots[0] ?? replay.currentSnapshot;
                 if (initialSnapshot) {
-                    applySnapshot(initialSnapshot, { forceBoardRebuild: true });
+                    applySnapshot(initialSnapshot, { forceBoardRebuild: true, replayRewind: true });
                     await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
                 }
 
                 const sandboxReplay = createSandboxReplayFromRankedReplay(replay, {
                     snapshotToState: (playSnapshot) =>
                         authoritativeSnapshotToSandboxSceneState(toSceneSnapshot(playSnapshot)),
+                    // The whole snapshot rides along too: the board comes from the scene state above, but
+                    // the combat log, the stats graph, the turn clock and the journal-driven VFX are fed
+                    // from fields a scene state does not carry.
+                    snapshotToAuthoritative: (playSnapshot) => toSceneSnapshot(playSnapshot),
                 });
 
                 setStatus("Replaying");
@@ -1387,11 +1565,34 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
         return () => manager.SetGameActionTransport(undefined);
     }, [manager, replayOnly, transport]);
 
+    // Co-op sandbox: a free artifact pick from the sidebar goes to the server as an ARTIFACT action (the
+    // ranked scene applies it locally first). Re-armed once Pixi is up, since it lands on the live scene.
+    useEffect(() => {
+        if (!sandboxCoop || replayOnly || isObserver || !pixiReady) {
+            manager.SetSandboxSetupTransport(undefined);
+            return undefined;
+        }
+        manager.SetSandboxSetupTransport((pick) => {
+            if (pick.kind === "artifact") {
+                void submitProtocolAction({
+                    type: PlayActionType.ARTIFACT,
+                    team: pick.team,
+                    attackType: pick.tier,
+                    amount: pick.artifactId,
+                });
+                return;
+            }
+            void submitProtocolAction({ type: PlayActionType.GRID_TYPE, team: userTeam, amount: pick.gridType });
+        });
+        return () => manager.SetSandboxSetupTransport(undefined);
+    }, [isObserver, manager, pixiReady, replayOnly, sandboxCoop, submitProtocolAction, userTeam]);
+
     // Relay our live move aim to the opponent, throttled so a fast-moving cursor produces a
     // steady trickle of hints rather than a flood. Clears (no cell) are sent immediately.
     useEffect(() => {
         if (isObserver) {
             manager.SetMoveIntentSink(undefined);
+            manager.SetSpellIntentSink(undefined);
             return undefined;
         }
         const MIN_INTERVAL_MS = 80;
@@ -1442,21 +1643,43 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             }
         };
 
+        const spellSink = (unitId: string | undefined, spellName: string | undefined) => {
+            const snap = snapshotRef.current;
+            const me = snap?.players.find((player) => player.team === userTeam);
+            if (!snap || !me) {
+                return;
+            }
+            // An armed spell is only meaningful on our own turn; a clear always goes through.
+            if (spellName && snap.currentTurnTeam !== userTeam) {
+                return;
+            }
+            sendRankedPlaySpellIntent(gameId, {
+                playerId: me.playerId,
+                team: userTeam,
+                unitId: unitId ?? "",
+                spellName,
+            });
+        };
+
         manager.SetMoveIntentSink(sink);
+        manager.SetSpellIntentSink(spellSink);
         return () => {
             if (pendingTimer !== undefined) {
                 window.clearTimeout(pendingTimer);
             }
             manager.SetMoveIntentSink(undefined);
+            manager.SetSpellIntentSink(undefined);
         };
     }, [manager, gameId, isObserver, userTeam]);
 
     const modelPlacementRunKeyRef = useRef("");
     const playerInitialPlacementRunKeyRef = useRef("");
     useEffect(() => {
+        // A co-op sandbox opens with an empty army: there is nothing to auto-place.
         if (
             replayOnly ||
             isObserver ||
+            !!sandboxCoop ||
             !snapshot ||
             snapshot.phase !== PlayPhase.PLACEMENT ||
             (snapshot.placementSplit && snapshot.placementStage !== 1)
@@ -1478,7 +1701,163 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                 await submitProtocolAction(action);
             }
         })();
-    }, [isObserver, replayOnly, snapshot, submitProtocolAction, userTeam]);
+    }, [isObserver, replayOnly, sandboxCoop, snapshot, submitProtocolAction, userTeam]);
+
+    // "Your turn" for a player who tabbed away: flash the tab title (plus a silent OS toast) while the tab
+    // is not being watched. No sound — the owner wants audio limited to the interface cues (notifications,
+    // invites, panels), and a chime on every own-unit activation read as "weird sounds on attack". Seats
+    // the AI is driving need no nudge. The first snapshot after a (re)load only seeds the key.
+    const lastTurnKeyRef = useRef<string | undefined>(undefined);
+    const seatIsAutomated = aiToggleOn || !!myPlayer?.aiControlled;
+    useEffect(() => {
+        if (!snapshot || isObserver || replayOnly) {
+            return;
+        }
+        const key = yourTurnActivationKey(snapshot, userTeam);
+        const previous = lastTurnKeyRef.current;
+        lastTurnKeyRef.current = key;
+        if (!key) {
+            clearTurnAlert();
+            return;
+        }
+        if (previous === undefined || key === previous || seatIsAutomated) {
+            return;
+        }
+        if (isTabUnwatched()) {
+            const unitName = snapshot.units.find((unit) => unit.id === snapshot.currentUnitId)?.name ?? "";
+            signalYourTurn(unitName);
+        }
+    }, [isObserver, replayOnly, seatIsAutomated, snapshot, userTeam]);
+    useEffect(() => {
+        const onAttention = (): void => {
+            if (!isTabUnwatched()) {
+                clearTurnAlert();
+            }
+        };
+        window.addEventListener("focus", onAttention);
+        document.addEventListener("visibilitychange", onAttention);
+        return () => {
+            window.removeEventListener("focus", onAttention);
+            document.removeEventListener("visibilitychange", onAttention);
+            clearTurnAlert();
+        };
+    }, []);
+
+    // Co-op sandbox: who sits where, live from the snapshot (connected / ready), named by the invite.
+    const sandboxSeats = useMemo(
+        () => (sandboxCoop ? sandboxCoopSeatStatuses(sandboxCoop, snapshot, viewerTeam) : []),
+        [sandboxCoop, snapshot, viewerTeam],
+    );
+    const sandboxHasPlacedUnits = useMemo(
+        () => !!snapshot?.units.some((unit) => unit.team === userTeam && unit.placed && !unit.dead),
+        [snapshot, userTeam],
+    );
+    // The matchup strip's two sides for a co-op sandbox: the invite's seats, each annotated with where
+    // they stand in the READY handshake until the fight starts (then the strip reads like a ranked one).
+    const coopMatchupPlayers = useMemo<readonly MatchupPlayer[]>(
+        () =>
+            sandboxCoop
+                ? [sandboxCoop.host, sandboxCoop.guest].map((seat) => {
+                      const live = sandboxSeats.find((status) => status.team === seat.team);
+                      const started = !!snapshot?.fightStarted;
+                      return {
+                          playerId: seat.playerId,
+                          team: seat.team as TeamType,
+                          label: seat.username,
+                          note: started
+                              ? undefined
+                              : !live?.connected
+                                ? t("Away")
+                                : live.ready
+                                  ? t("Ready")
+                                  : t("Not ready"),
+                          noteTone: started ? undefined : !live?.connected ? "warn" : live.ready ? "good" : "muted",
+                          // While setting up, the seat's own Ready / Not ready / Away line already says it.
+                          connection: started ? connectionBySeat.get(seat.playerId) : undefined,
+                      };
+                  })
+                : [],
+        [connectionBySeat, sandboxCoop, sandboxSeats, snapshot?.fightStarted],
+    );
+    const coopMatchupStatus = useMemo(() => {
+        if (!sandboxCoop || !snapshot || snapshot.fightStarted) {
+            return undefined;
+        }
+        const other = sandboxSeats.find((seat) => !seat.isViewer);
+        if (other && !other.connected) {
+            return t("Waiting for friend");
+        }
+        return sandboxSeats.length && sandboxSeats.every((seat) => seat.ready)
+            ? t("Both ready — press START")
+            : t("Placement");
+    }, [sandboxCoop, sandboxSeats, snapshot]);
+    // A sandbox that ended before its fight started was closed by a seat leaving (or by a newer invite).
+    const sandboxClosedEarly =
+        !!sandboxCoop &&
+        !!snapshot &&
+        !snapshot.fightStarted &&
+        (snapshot.phase === PlayPhase.FINISHED || snapshot.phase === PlayPhase.ABANDONED);
+    // The army the host placed in the offline sandbox lands on the co-op board the first time it shows
+    // them an empty one (the invite stored it in this tab). Replayed once, as ordinary placements the
+    // server validates like any other; anything it refuses (a cell outside the zone) is simply skipped.
+    const carryOverRunKeyRef = useRef("");
+    useEffect(() => {
+        if (
+            !sandboxCoop ||
+            isObserver ||
+            replayOnly ||
+            !snapshot ||
+            snapshot.phase !== PlayPhase.PLACEMENT ||
+            ready ||
+            snapshot.units.some((unit) => unit.team === userTeam)
+        ) {
+            return;
+        }
+        if (carryOverRunKeyRef.current === snapshot.gameId) {
+            return;
+        }
+        carryOverRunKeyRef.current = snapshot.gameId;
+        const army = takeCoopCarryOver(snapshot.gameId);
+        if (!army.length) {
+            return;
+        }
+        void (async () => {
+            for (const unit of army) {
+                await submitGameAction({
+                    type: "place_unit",
+                    unitId: uuidv4(),
+                    team: userTeam,
+                    unitName: unit.unitName,
+                    cells: unit.cells,
+                });
+            }
+        })();
+    }, [isObserver, ready, replayOnly, sandboxCoop, snapshot, submitGameAction, userTeam]);
+
+    // Rematch: whoever presses it hosts a fresh sandbox with the same friend in the other seat; the
+    // friend gets the usual invite toast and follows when ready.
+    const rematchSandboxCoop = useCallback(async () => {
+        if (!sandboxCoop || !myPlayer) {
+            return;
+        }
+        const other = sandboxCoop.host.playerId === myPlayer.playerId ? sandboxCoop.guest : sandboxCoop.host;
+        try {
+            // Same map as the board they just played on.
+            const session = await createSandboxCoop(other.playerId, { gridType: snapshotRef.current?.gridType });
+            navigate(sandboxCoopPath(session.gameId));
+        } catch (err) {
+            throw new Error(sandboxCoopErrorMessage(err, "Unable to open a rematch"));
+        }
+    }, [myPlayer, navigate, sandboxCoop]);
+    // Leaving concedes if the fight is live (the friend keeps the board) and returns to the offline sandbox.
+    const leaveSandboxCoop = useCallback(async () => {
+        if (!isObserver && snapshotRef.current && !snapshotRef.current.fightFinished) {
+            await submitProtocolAction({ type: PlayActionType.ABANDON }).catch(() => undefined);
+        }
+        navigate("/");
+    }, [isObserver, navigate, submitProtocolAction]);
+    // The scene mirrors the board when this player wants their army on the other side; the strip follows it.
+    const boardMirrored = useBoardMirrored();
 
     useEffect(() => {
         if (
@@ -1666,6 +2045,12 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             submitProtocolAction={submitProtocolAction}
             userTeam={userTeam}
             isObserver={isObserver}
+            exitStanding={exitStanding}
+            vsAi={isVsAiMatch}
+            allowPlacementExit={!sandboxCoop}
+            skipAugmentStep={!!sandboxCoop}
+            replayOnly={replayOnly}
+            onStopWatching={isObserver && !replayOnly ? handleBackToLobby : undefined}
         />
     );
     const rankedFooter =
@@ -1675,11 +2060,17 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                 ready={ready}
                 snapshot={snapshot}
                 submitProtocolAction={submitProtocolAction}
+                coop={sandboxCoop ? { hasPlacedUnits: sandboxHasPlacedUnits } : undefined}
             />
         ) : undefined;
 
+    // Where the seats' names live. Once it is up, presence notices ride beside the name they belong to.
+    const matchupStripVisible =
+        pixiReady && (snapshot.phase === PlayPhase.PLAY || (!!sandboxCoop && snapshot.phase === PlayPhase.PLACEMENT));
+
+    // A spectator's toolbar mirrors the fight but must not drive it: every button disabled, clicks dropped.
     return (
-        <ButtonProvider>
+        <ButtonProvider readOnly={isObserver}>
             <div
                 className="container"
                 style={{
@@ -1691,7 +2082,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                     backgroundColor: "#07090d",
                 }}
             >
-                <CssVarsProvider>
+                <CssVarsProvider theme={hocJoyTheme}>
                     <CssBaseline />
                     {!pixiReady && <LoadingFullscreenToggle />}
                     {/* The gold rule closing the gap between the board and each bar. It was mounted only in
@@ -1701,7 +2092,9 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                         they are used. */}
                     {pixiReady && (
                         <ViewerTeamContext.Provider value={viewerTeam}>
-                            <LeftSideBar gameStarted={gameStarted} windowSize={windowSize} />
+                            <SpectatorContext.Provider value={isObserver}>
+                                <LeftSideBar gameStarted={gameStarted} windowSize={windowSize} />
+                            </SpectatorContext.Provider>
                         </ViewerTeamContext.Provider>
                     )}
                     {pixiReady && (
@@ -1710,22 +2103,81 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                             windowSize={windowSize}
                             rankedPanel={rankedPanel}
                             rankedFooter={rankedFooter}
+                            showPremiumFightControls={
+                                snapshot.phase === PlayPhase.PLAY && !isObserver && !replayOnly && !replayPlaybackActive
+                            }
+                            onClose={
+                                sandboxCoop && !gameStarted && !isObserver ? () => void leaveSandboxCoop() : undefined
+                            }
                         />
                     )}
-                    {pixiReady && gameStarted && <UpNextOverlay />}
-                    {pixiReady && snapshot.phase === PlayPhase.PLAY && (
+                    {pixiReady && !isObserver && !replayOnly && !replayPlaybackActive && (
+                        <PremiumFightOverlay snapshot={snapshot} userTeam={userTeam} disabled={busy || !canSubmit} />
+                    )}
+                    {sandboxClosedEarly && (
+                        <Box
+                            sx={{
+                                position: "fixed",
+                                inset: 0,
+                                zIndex: 1300,
+                                display: "grid",
+                                placeItems: "center",
+                                bgcolor: "rgba(0,0,0,0.72)",
+                            }}
+                        >
+                            <Stack spacing={2} alignItems="center" sx={{ textAlign: "center", px: 2 }}>
+                                <Typography level="title-lg" sx={{ color: hocColors.gold }}>
+                                    {t("This sandbox was closed")}
+                                </Typography>
+                                <Typography sx={{ color: hocColors.parchment }}>
+                                    {t("Your friend left, or a newer sandbox replaced this one.")}
+                                </Typography>
+                                <Button sx={hocPrimaryButtonSx} onClick={() => navigate("/")}>
+                                    {t("Back to sandbox")}
+                                </Button>
+                            </Stack>
+                        </Box>
+                    )}
+                    {pixiReady && gameStarted && <UpNextOverlay exitStanding={exitStanding} />}
+                    {matchupStripVisible && (
+                        // The co-op sandbox shows the same matchup strip from placement on: who sits on green
+                        // and red, whether they are here and ready, and a Leave button while setting up.
                         <MatchupOverlay
-                            players={battleMatchupPlayers}
+                            players={sandboxCoop ? coopMatchupPlayers : battleMatchupPlayers}
                             placement="fight"
                             fightStarted={snapshot.fightStarted}
+                            status={sandboxCoop ? coopMatchupStatus : undefined}
                             windowSize={windowSize}
                             viewerTeam={viewerTeam}
+                            mirrored={boardMirrored}
+                            action={
+                                sandboxCoop && !gameStarted && !isObserver && !sandboxClosedEarly ? (
+                                    <Button
+                                        size="sm"
+                                        variant="outlined"
+                                        sx={hocSoftButtonSx}
+                                        onClick={() => void leaveSandboxCoop()}
+                                    >
+                                        {t("Leave")}
+                                    </Button>
+                                ) : undefined
+                            }
                         />
                     )}
                     {pixiReady && gameStarted && <NextLapHazardBadge />}
-                    {pixiReady && gameStarted && (aiToggleOn || !!myPlayer?.aiControlled) && (
-                        <AiControlBadge left={aiBadgeLeft(windowSize)} />
+                    {/* While the matchup strip is up it carries these notices beside the player's own name;
+                        this banner covers the stretch before it appears (ranked placement). */}
+                    {pixiReady && !replayOnly && !matchupStripVisible && (
+                        <OpponentConnectionBadge notices={connectionNotices} viewerTeam={viewerTeam} top={14} />
                     )}
+                    {pixiReady && gameStarted && (
+                        <SeatAiControlNotice
+                            aiControlled={!!myPlayer?.aiControlled}
+                            toggleOn={aiToggleOn}
+                            left={aiBadgeLeft(windowSize)}
+                        />
+                    )}
+                    {!replayOnly && exitStanding && <AwayTimeToast standing={exitStanding} />}
                     {pixiReady && (replayOnly || replayPlaybackActive) && (
                         // Ranked: leaving the replay returns to the account / game-selection screen.
                         <ExitReplayBadge
@@ -1738,14 +2190,19 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                             backLabel={
                                 replayOnly
                                     ? "Match History"
-                                    : isObserver
-                                      ? cameFromLobby
-                                          ? t("Back to lobby")
-                                          : t("Back to website")
-                                      : undefined
+                                    : sandboxCoop
+                                      ? t("Back to sandbox")
+                                      : isObserver
+                                        ? cameFromLobby
+                                            ? t("Back to lobby")
+                                            : cameFromFriends
+                                              ? t("Back to friends")
+                                              : t("Back to website")
+                                        : undefined
                             }
                             canReplay={snapshot.phase === PlayPhase.FINISHED || snapshot.fightFinished}
                             gameId={gameId}
+                            exit={snapshot.exit}
                             mode="ranked"
                             players={snapshot.players.map((player) => ({
                                 playerId: player.playerId,
@@ -1756,7 +2213,8 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                             viewerPlayerId={myPlayer?.playerId}
                             onReplay={replayRankedFight}
                             onPlayAgainVsAi={isVsAiMatch && !isObserver ? handlePlayAgainVsAi : undefined}
-                            onBackToLobby={handleBackToLobby}
+                            onRematch={sandboxCoop && !isObserver ? rematchSandboxCoop : undefined}
+                            onBackToLobby={sandboxCoop ? () => navigate("/") : handleBackToLobby}
                         />
                     )}
                 </CssVarsProvider>
@@ -1768,6 +2226,11 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
 };
 
 interface RankedOverlayProps {
+    /** How leaving counts for this seat right now (exit rules); undefined for observers. */
+    exitStanding?: IExitStanding;
+    vsAi?: boolean;
+    /** Placement gets an exit control too (a friend sandbox has its own Leave button instead). */
+    allowPlacementExit?: boolean;
     busy: boolean;
     canSubmit: boolean;
     currentUnit?: PlayUnitState;
@@ -1783,6 +2246,12 @@ interface RankedOverlayProps {
     submitProtocolAction: (action: Partial<PlayAction>) => Promise<void>;
     userTeam: TeamType;
     isObserver: boolean;
+    /** Co-op sandbox: no draft, so the full-screen augment step never opens (the sidebar picker stays). */
+    skipAugmentStep?: boolean;
+    /** A portal replay: the observer copy speaks of the replay, not of a live match. */
+    replayOnly?: boolean;
+    /** A live spectator's way out (see spectatorExitFor). Absent for players and replays. */
+    onStopWatching?: () => void;
 }
 
 interface RankedPlacementStackActionsProps {
@@ -1791,7 +2260,57 @@ interface RankedPlacementStackActionsProps {
     snapshot: PlaySnapshot;
     submitGameAction: (action: GameAction) => Promise<void>;
     userTeam: TeamType;
+    /** Co-op sandbox: the D key deletes at once, as in the offline sandbox; ranked keeps the two-step. */
+    immediateDelete?: boolean;
 }
+
+/**
+ * Co-op sandbox: the shared board, picked by either seat while setting up (the same three maps the offline
+ * sandbox offers). Routes through the pixi manager like the sandbox's picker; the other seat's switch
+ * arrives with the snapshot and lands here through onGridTypeChanged.
+ */
+const CoopMapPicker: React.FC<{ disabled: boolean }> = ({ disabled }) => {
+    const manager = usePixiManager();
+    const [gridType, setGridType] = useState<number>(() => manager.GetGridType());
+    useEffect(() => {
+        const connection = manager.onGridTypeChanged.connect((next: number) => setGridType(next));
+        return () => {
+            connection.disconnect();
+        };
+    }, [manager]);
+    const options: { value: number; label: string }[] = [
+        { value: GridVals.NORMAL, label: "NORMAL" },
+        { value: GridVals.LAVA_CENTER, label: "FIRE PIT" },
+        { value: GridVals.BLOCK_CENTER, label: "BARRELS" },
+    ];
+    return (
+        <Box sx={{ width: "100%", px: 1, pt: 0.75, pb: 0.5, borderBottom: "1px solid rgba(112, 75, 42, .42)" }}>
+            <Typography level="body-xs" sx={{ color: hocColors.sidebarTitle, mb: 0.25 }}>
+                Map
+            </Typography>
+            <Stack direction="row" spacing={0.5}>
+                {options.map((option) => (
+                    <Button
+                        key={option.value}
+                        size="sm"
+                        variant={option.value === gridType ? "solid" : "outlined"}
+                        disabled={disabled}
+                        onClick={() => manager.SetGridType(option.value as GridType)}
+                        sx={{
+                            ...(option.value === gridType ? hocPrimaryButtonSx : hocSoftButtonSx),
+                            flex: 1,
+                            minWidth: 0,
+                            px: 0.5,
+                            fontSize: "0.68rem",
+                        }}
+                    >
+                        {option.label}
+                    </Button>
+                ))}
+            </Stack>
+        </Box>
+    );
+};
 
 const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = ({
     canSubmit,
@@ -1799,6 +2318,7 @@ const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = 
     snapshot,
     submitGameAction,
     userTeam,
+    immediateDelete = false,
 }) => {
     const amountAlive = Math.max(0, Math.floor(selectedUnit.amountAlive));
     const maxSplitAmount = Math.max(0, amountAlive - 1);
@@ -1834,6 +2354,37 @@ const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = 
     // A 1-unit stack cannot split, but it can still be DELETED — with auto-deploy there is no
     // bench, so hiding the whole panel here removed the only way to act on single-unit screens.
     const canShowSplit = maxSplitAmount >= 1;
+    // The sandbox's keyboard shortcuts here too: S splits the selected stack by the slider's amount, D
+    // deletes it — at once in the co-op sandbox, arm-then-confirm (like the button) in ranked.
+    useEffect(() => {
+        const onKeyDown = (event: KeyboardEvent): void => {
+            if (event.repeat || event.metaKey || event.ctrlKey || event.altKey) {
+                return;
+            }
+            const target = event.target as HTMLElement | null;
+            if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) {
+                return;
+            }
+            const key = event.key.toLowerCase();
+            if ((key !== "s" && key !== "d") || (key === "s" && !canSplit) || (key === "d" && !canSubmit)) {
+                return;
+            }
+            event.preventDefault();
+            event.stopPropagation();
+            if (key === "s") {
+                void submitGameAction({ type: "split_unit", unitId: selectedUnit.id, amount: sliderValue });
+                return;
+            }
+            if (!immediateDelete && !deleteArmed) {
+                setDeleteArmed(true);
+                return;
+            }
+            setDeleteArmed(false);
+            void submitGameAction({ type: "delete_unit", unitId: selectedUnit.id });
+        };
+        window.addEventListener("keydown", onKeyDown, { capture: true });
+        return () => window.removeEventListener("keydown", onKeyDown, { capture: true });
+    }, [canSplit, canSubmit, deleteArmed, immediateDelete, selectedUnit.id, sliderValue, submitGameAction]);
 
     return (
         <Box
@@ -2112,6 +2663,12 @@ const ObserverTeamSetup: React.FC<{
         },
     ].filter((entry) => entry.level > 0);
 
+    // Before the fight a spectator is shown only what BOTH players can already see. The server blanks every
+    // side's doctrine, artifacts and augments until the fight starts, so those blanks must not read as "None";
+    // the army itself appears once board placement has exposed it to both seats.
+    const beforeFight = snapshot.phase === PlayPhase.PLACEMENT && !snapshot.fightStarted;
+    const exposedRoster = observerPlacementRosterIds(snapshot, side === "lower" ? TeamVals.LEFT : TeamVals.RIGHT);
+
     return (
         <Stack spacing={0.5} sx={{ minWidth: 130 }}>
             <Typography level="body-xs" textColor={hocColors.gold}>
@@ -2122,37 +2679,60 @@ const ObserverTeamSetup: React.FC<{
                     {identityLine}
                 </Typography>
             )}
-            <Typography level="body-xs" textColor={hocColors.mutedStrong}>
-                {`Doctrine: ${observerDoctrineName(doctrineId)}`}
-            </Typography>
-            {(tier1 > 0 || tier2 > 0) && <ArtifactTierIcons tier1Id={tier1} tier2Id={tier2} />}
-            {augments.length > 0 && (
-                <Stack direction="row" spacing={0.75} flexWrap="wrap" alignItems="center">
-                    {augments.map(({ category, level }) => {
-                        const imageKey = AUGMENT_SIDEBAR_IMAGES[category];
-                        const src = imageKey ? images[imageKey] : undefined;
-                        return (
-                            <Stack key={category} direction="row" spacing={0.25} alignItems="center">
-                                {src && (
-                                    <Box
-                                        component="img"
-                                        src={src}
-                                        alt={category}
-                                        sx={{ width: 18, height: 18, borderRadius: "4px" }}
-                                    />
-                                )}
-                                <Typography level="body-xs" textColor={hocColors.mutedStrong}>
-                                    {`${category} ${level}`}
-                                </Typography>
-                            </Stack>
-                        );
-                    })}
-                </Stack>
-            )}
-            {synergies.length > 0 && (
-                <Typography level="body-xs" textColor={hocColors.muted}>
-                    {`Synergies: ${synergies.map(observerSynergyLabel).join(", ")}`}
-                </Typography>
+            {beforeFight ? (
+                <>
+                    {exposedRoster.length > 0 ? (
+                        <RankedRosterRow
+                            title={t("Army")}
+                            accent={hocColors.parchment}
+                            borderColor="rgba(255,255,255,0.12)"
+                            bgcolor="#171a23"
+                            creatureIds={exposedRoster}
+                        />
+                    ) : (
+                        <Typography level="body-xs" textColor={hocColors.muted}>
+                            {t("Revealed during board placement")}
+                        </Typography>
+                    )}
+                    <Typography level="body-xs" textColor={hocColors.muted}>
+                        {t("Doctrine, artifacts and augments are revealed when the fight starts")}
+                    </Typography>
+                </>
+            ) : (
+                <>
+                    <Typography level="body-xs" textColor={hocColors.mutedStrong}>
+                        {`Doctrine: ${observerDoctrineName(doctrineId)}`}
+                    </Typography>
+                    {(tier1 > 0 || tier2 > 0) && <ArtifactTierIcons tier1Id={tier1} tier2Id={tier2} />}
+                    {augments.length > 0 && (
+                        <Stack direction="row" spacing={0.75} flexWrap="wrap" alignItems="center">
+                            {augments.map(({ category, level }) => {
+                                const imageKey = AUGMENT_SIDEBAR_IMAGES[category];
+                                const src = imageKey ? images[imageKey] : undefined;
+                                return (
+                                    <Stack key={category} direction="row" spacing={0.25} alignItems="center">
+                                        {src && (
+                                            <Box
+                                                component="img"
+                                                src={src}
+                                                alt={category}
+                                                sx={{ width: 18, height: 18, borderRadius: "4px" }}
+                                            />
+                                        )}
+                                        <Typography level="body-xs" textColor={hocColors.mutedStrong}>
+                                            {`${category} ${level}`}
+                                        </Typography>
+                                    </Stack>
+                                );
+                            })}
+                        </Stack>
+                    )}
+                    {synergies.length > 0 && (
+                        <Typography level="body-xs" textColor={hocColors.muted}>
+                            {`Synergies: ${synergies.map(observerSynergyLabel).join(", ")}`}
+                        </Typography>
+                    )}
+                </>
             )}
         </Stack>
     );
@@ -2177,7 +2757,8 @@ const useObserverIdentities = (snapshot: PlaySnapshot): Record<string, IObserver
         .join(",");
     useEffect(() => {
         let cancelled = false;
-        for (const playerId of playerIds.split(",").filter(Boolean)) {
+        // AI seats have no ranked profile (the lookup only 404s); their panel line comes from the seat id.
+        for (const playerId of playerIds.split(",").filter((id) => id && !isAiSeatPlayerId(id))) {
             axiosMMInstance
                 .get(`${endpoints.mm.rankedProfile}/${encodeURIComponent(playerId)}`)
                 .then((response) => {
@@ -2220,25 +2801,32 @@ const observerIdentityLine = (identity: IObserverIdentity | undefined): string =
 
 const ObserverSetupPanel: React.FC<{ snapshot: PlaySnapshot }> = ({ snapshot }) => {
     const identities = useObserverIdentities(snapshot);
-    const identityFor = (team: number): IObserverIdentity | undefined => {
+    const identityLineFor = (team: number): string => {
         const player = snapshot.players.find((candidate) => candidate.team === team);
-        return player ? identities[player.playerId] : undefined;
+        if (!player) {
+            return "";
+        }
+        if (isAiSeatPlayerId(player.playerId)) {
+            return aiOpponentLabel(player.playerId) ?? t("AI");
+        }
+        return observerIdentityLine(identities[player.playerId]);
     };
     return (
         <Stack spacing={0.5}>
             <Typography level="body-sm" textColor={hocColors.parchment}>
-                Army setups
+                {t("Army setups")}
             </Typography>
-            <Stack direction="row" spacing={2} flexWrap="wrap">
+            {/* useFlexGap: plain spacing is a left margin, so a wrapped second team kept it and sat indented. */}
+            <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
                 <ObserverTeamSetup
                     label={teamLabel(TeamVals.LEFT)}
-                    identityLine={observerIdentityLine(identityFor(TeamVals.LEFT))}
+                    identityLine={identityLineFor(TeamVals.LEFT)}
                     snapshot={snapshot}
                     side="lower"
                 />
                 <ObserverTeamSetup
                     label={teamLabel(TeamVals.RIGHT)}
-                    identityLine={observerIdentityLine(identityFor(TeamVals.RIGHT))}
+                    identityLine={identityLineFor(TeamVals.RIGHT)}
                     snapshot={snapshot}
                     side="upper"
                 />
@@ -2283,10 +2871,8 @@ const augmentEffectText = (label: string, level: number): string => {
     }
 };
 
-// Read-only recap of the augments/synergies chosen in the placement overlay, shown in the sidebar
-// while the player positions units. Augment levels come straight from the authoritative snapshot;
-// faction synergies come from the local FightProperties. Read-only on purpose: augments are committed
-// in the Setup stage, so there is no edit affordance here.
+// Recap the selected build throughout placement, including while the sidebar editor is available.
+// Augment levels come from the authoritative snapshot; faction synergies come from FightProperties.
 const RankedAugmentSummary: React.FC<{
     snapshot: PlaySnapshot;
     userTeam: TeamType;
@@ -2311,7 +2897,7 @@ const RankedAugmentSummary: React.FC<{
     return (
         <Stack spacing={0.5}>
             <Typography level="body-sm" textColor={hocColors.parchment}>
-                Augments ({spent}/{budget} pts)
+                Your augments ({spent}/{budget} pts)
             </Typography>
             <Stack direction="row" spacing={0.6} flexWrap="wrap" useFlexGap>
                 {chosen.length === 0 ? (
@@ -2623,19 +3209,32 @@ const RankedReadyPlacementButton: React.FC<{
     ready: boolean;
     snapshot: PlaySnapshot;
     submitProtocolAction: (action: Partial<PlayAction>) => Promise<void>;
-}> = ({ canSubmit, ready, snapshot, submitProtocolAction }) => {
+    /**
+     * Co-op sandbox: the same button, but READY is a lobby-style toggle (press again to cancel) that needs
+     * at least one unit on the board, and there is no clock. START is the sidebar's usual button.
+     */
+    coop?: { hasPlacedUnits: boolean };
+}> = ({ canSubmit, ready, snapshot, submitProtocolAction, coop }) => {
     const [nowMs, setNowMs] = useState(Date.now());
     useEffect(() => {
         return startVisibleInterval(() => setNowMs(Date.now()), 1000);
     }, []);
     const secondsLeft =
         snapshot.placementDeadlineMs > 0 ? Math.max(0, Math.ceil((snapshot.placementDeadlineMs - nowMs) / 1000)) : -1;
+    const disabled = coop ? !canSubmit || (!ready && !coop.hasPlacedUnits) : !canSubmit || ready;
+    const label = coop ? (ready ? t("Cancel ready") : "READY PLACEMENT") : ready ? "READY" : "READY PLACEMENT";
 
     return (
         <Button
             variant="plain"
-            disabled={!canSubmit || ready}
-            onClick={() => void submitProtocolAction({ type: PlayActionType.READY_PLACEMENT })}
+            disabled={disabled}
+            title={coop && !ready && !coop.hasPlacedUnits ? t("Place at least one unit first") : undefined}
+            onClick={() =>
+                void submitProtocolAction({
+                    type: PlayActionType.READY_PLACEMENT,
+                    ...(coop && ready ? { reason: SANDBOX_UNREADY_REASON } : {}),
+                })
+            }
             sx={rankedReadyPlacementButtonSx}
         >
             <Box
@@ -2650,9 +3249,10 @@ const RankedReadyPlacementButton: React.FC<{
                     overflow: "hidden",
                     fontSize: "93%",
                     transform: "translateX(2%)",
+                    textTransform: "uppercase",
                 }}
             >
-                {ready ? "READY" : "READY PLACEMENT"}
+                {label}
             </Box>
             {secondsLeft >= 0 && (
                 <Box
@@ -2703,10 +3303,63 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     submitProtocolAction,
     userTeam,
     isObserver,
+    skipAugmentStep = false,
+    replayOnly = false,
+    onStopWatching,
+    exitStanding,
+    vsAi = false,
+    allowPlacementExit = false,
 }) => {
-    const isFullscreen = useFullscreenActive();
     const navigate = useNavigate();
     const [confirmExitOpen, setConfirmExitOpen] = useState(false);
+    // A spectator's FIGHT panel floats bottom-centre over the board (GameSystemControls' centre slot), where it
+    // hides the units it describes — so its header drags it anywhere, and a double-click puts it back.
+    const panelDraggable = isObserver && gameStarted;
+    const panelRef = useRef<HTMLDivElement | null>(null);
+    const [panelOffset, setPanelOffset] = useState<PanelOffset>({ x: 0, y: 0 });
+    const panelDragRef = useRef<{ pointerX: number; pointerY: number; offset: PanelOffset; rect: DOMRect } | null>(
+        null,
+    );
+    const endPanelDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId);
+        }
+        panelDragRef.current = null;
+    };
+    const panelDragHandleProps = panelDraggable
+        ? {
+              title: t("Drag to move · double-click to reset"),
+              onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => {
+                  if (event.button !== 0 || !panelRef.current) {
+                      return;
+                  }
+                  event.currentTarget.setPointerCapture(event.pointerId);
+                  panelDragRef.current = {
+                      pointerX: event.clientX,
+                      pointerY: event.clientY,
+                      offset: panelOffset,
+                      rect: panelRef.current.getBoundingClientRect(),
+                  };
+              },
+              onPointerMove: (event: React.PointerEvent<HTMLDivElement>) => {
+                  const start = panelDragRef.current;
+                  if (!start || !event.currentTarget.hasPointerCapture(event.pointerId)) {
+                      return;
+                  }
+                  setPanelOffset(
+                      dragObserverPanelOffset(
+                          start.offset,
+                          start.rect,
+                          { x: event.clientX - start.pointerX, y: event.clientY - start.pointerY },
+                          { width: window.innerWidth, height: window.innerHeight },
+                      ),
+                  );
+              },
+              onPointerUp: endPanelDrag,
+              onPointerCancel: endPanelDrag,
+              onDoubleClick: () => setPanelOffset({ x: 0, y: 0 }),
+          }
+        : {};
     const [augmentInspectedCreatureId, setAugmentInspectedCreatureId] = useState(0);
     // The doctrine sets the upgrade-point budget (5/6/7 via getUpgradePoints).
     const userDoctrineId = ((userTeam === TeamVals.LEFT ? snapshot?.leftDoctrine : snapshot?.rightDoctrine) ||
@@ -2726,7 +3379,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     // stage, and in the legacy combined window it opens once and closes on lock-in.
     const augmentOverlayOpen = inSetupStage
         ? true
-        : snapshot.placementSplit
+        : snapshot.placementSplit || skipAugmentStep
           ? false
           : (augmentOverlayOpenState ?? true);
     // Same fit-to-window scale the pick/ban board uses, so the augment step never re-flows either.
@@ -2823,43 +3476,23 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     }, [augmentOverlayOpen, cancelAugmentInspectEnd]);
 
     const confirmExitModal = (
-        <Modal open={confirmExitOpen} onClose={() => !busy && setConfirmExitOpen(false)}>
-            <ModalDialog sx={hocPanelSx}>
-                <Typography level="h4" sx={{ color: hocColors.parchment }}>
-                    Exit the fight?
-                </Typography>
-                <Stack spacing={2} sx={{ mt: 1, minWidth: 300, maxWidth: 360 }}>
-                    <Typography level="body-sm" textColor={hocColors.mutedStrong}>
-                        This forfeits the fight — your opponent is declared the winner immediately and it counts as a
-                        loss for you. This cannot be undone.
-                    </Typography>
-                    <Stack direction="row" spacing={1} justifyContent="flex-end">
-                        <Button
-                            variant="plain"
-                            disabled={busy}
-                            onClick={() => setConfirmExitOpen(false)}
-                            sx={hocSoftButtonSx}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            variant="solid"
-                            color="danger"
-                            loading={busy}
-                            onClick={async () => {
-                                // Record the forfeit (opponent wins), then drop the player back to
-                                // game-mode selection instead of leaving them on the finished board.
-                                await submitProtocolAction({ type: PlayActionType.ABANDON });
-                                setConfirmExitOpen(false);
-                                navigate("/play");
-                            }}
-                        >
-                            Forfeit
-                        </Button>
-                    </Stack>
-                </Stack>
-            </ModalDialog>
-        </Modal>
+        <ExitMatchDialog
+            open={confirmExitOpen}
+            phase={gameStarted ? "fight" : "placement"}
+            outcome={exitStanding?.leaveOutcome ?? "casual"}
+            standing={exitStanding}
+            rules={exitStanding ?? { ranked: false, enforced: false, enforceAtMs: 0 }}
+            vsAi={vsAi}
+            busy={busy}
+            onCancel={() => setConfirmExitOpen(false)}
+            onConfirm={async () => {
+                // The server resolves how it counts (Concede, Abandon, unscored), then the player goes back to
+                // game-mode selection instead of staying on the finished board.
+                await submitProtocolAction({ type: PlayActionType.ABANDON });
+                setConfirmExitOpen(false);
+                navigate("/play");
+            }}
+        />
     );
 
     // Fight phase: the sheet has nothing left to say, so it does not render one. Returning the button bare
@@ -2868,15 +3501,13 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     if (gameStarted && !isObserver) {
         return (
             <>
-                <Button
-                    variant="soft"
-                    color="danger"
-                    disabled={busy}
-                    onClick={() => setConfirmExitOpen(true)}
-                    sx={exitFightButtonSx(isFullscreen)}
-                >
-                    EXIT FIGHT
-                </Button>
+                <GameCornerSlot>
+                    <GameCornerExitButton
+                        disabled={busy}
+                        label={t("Exit fight")}
+                        onClick={() => setConfirmExitOpen(true)}
+                    />
+                </GameCornerSlot>
                 {confirmExitModal}
             </>
         );
@@ -2884,9 +3515,11 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
 
     return (
         <Sheet
+            ref={panelRef}
             variant="plain"
             sx={{
                 position: embedded ? "static" : "fixed",
+                transform: panelDraggable ? `translate(${panelOffset.x}px, ${panelOffset.y}px)` : undefined,
                 top: embedded ? undefined : 12,
                 right: embedded ? undefined : 12,
                 zIndex: embedded ? "auto" : 20,
@@ -2921,7 +3554,23 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
             }}
         >
             <Stack spacing={1} sx={{ height: "100%", minHeight: 0, flex: "1 1 auto" }}>
-                <Stack direction="row" spacing={1} alignItems="center" justifyContent="center">
+                <Stack
+                    direction="row"
+                    spacing={1}
+                    alignItems="center"
+                    justifyContent="center"
+                    {...panelDragHandleProps}
+                    sx={
+                        panelDraggable
+                            ? {
+                                  cursor: "grab",
+                                  touchAction: "none",
+                                  userSelect: "none",
+                                  "&:active": { cursor: "grabbing" },
+                              }
+                            : undefined
+                    }
+                >
                     <Typography
                         level="title-md"
                         textColor={hocColors.parchment}
@@ -2952,10 +3601,15 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                     </Typography>
                 )}
 
-                {(isObserver || currentUnit) && (
+                {/* Two lines, not one: rendered back to back they read "Watching as observerActive: …". */}
+                {isObserver && (
                     <Typography level="body-sm" textColor={hocColors.mutedStrong}>
-                        {isObserver ? t("Watching as observer") : ""}
-                        {currentUnit ? `${t("Active")}: ${currentUnit.name} (${teamLabel(currentUnit.team)})` : ""}
+                        {t("Watching as observer")}
+                    </Typography>
+                )}
+                {currentUnit && (
+                    <Typography level="body-sm" textColor={hocColors.mutedStrong}>
+                        {`${t("Active")}: ${currentUnit.name} (${teamLabel(currentUnit.team)})`}
                     </Typography>
                 )}
 
@@ -2965,6 +3619,24 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                             <RankedPlacementRosters snapshot={snapshot} userTeam={userTeam} />
                         )}
                         <RankedArtifactsPanel snapshot={snapshot} userTeam={userTeam} />
+                        {!augmentOverlayOpen && (
+                            <>
+                                <PremiumSetupPanel
+                                    gameId={snapshot.gameId}
+                                    stageKey={`${snapshot.phase}:${snapshot.placementStage}`}
+                                    auto
+                                />
+                                {inBoardStage && <PremiumSearchSlot inline />}
+                            </>
+                        )}
+                        {(userTeam === TeamVals.LEFT ? snapshot.leftArtifactTier1 : snapshot.rightArtifactTier1) ===
+                            Artifact.Tier1Artifact.BARREL_BARRICADE && (
+                            <BarrelPlacementControls
+                                team={userTeam}
+                                barrels={snapshot.artifactBarrels?.filter((barrel) => barrel.team === userTeam)}
+                                disabled={ready || (snapshot.placementSplit === true && snapshot.placementStage === 0)}
+                            />
+                        )}
                         {/* The augment/synergy picker lives HERE in the sidebar — the pre-#129 home,
                             restored by owner request: pick augments beside the board instead of inside a
                             fullscreen draft step. Interactive while augments are still editable (the split
@@ -2983,14 +3655,36 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                             // narrow column stacks three tall radio groups and pushes the artifacts and the
                             // rest of the panel off the bottom. Same picker underneath — both route their
                             // choice through the pixi manager — so this is layout only.
-                            <SandboxToggleContainer
-                                side={userTeam === TeamVals.LEFT ? "green" : "red"}
-                                teamType={userTeam}
-                                showArtifactPicker={false}
-                                budgetPoints={augmentBudget}
-                                authoritativeSelections={augmentAuthoritativeSelections}
-                                onReadyChange={setAugmentReady}
-                            />
+                            <>
+                                <RankedAugmentSummary snapshot={snapshot} userTeam={userTeam} budget={augmentBudget} />
+                                {/* Co-op sandbox: the offline sandbox's synergy slots, for the viewer's own
+                                    army — click an unlocked one to field it instead of the game's default. */}
+                                {skipAugmentStep && (
+                                    <Box
+                                        sx={{
+                                            width: "100%",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            px: 1.25,
+                                            pt: 0.75,
+                                            pb: 0.9,
+                                            borderBottom: "1px solid rgba(112, 75, 42, .42)",
+                                        }}
+                                    >
+                                        <SynergySlots teamType={userTeam} size="clamp(22px, 1.75vw, 34px)" />
+                                    </Box>
+                                )}
+                                {skipAugmentStep && <CoopMapPicker disabled={ready} />}
+                                <SandboxToggleContainer
+                                    side={userTeam === TeamVals.LEFT ? "green" : "red"}
+                                    teamType={userTeam}
+                                    showArtifactPicker={skipAugmentStep}
+                                    budgetPoints={augmentBudget}
+                                    authoritativeSelections={augmentAuthoritativeSelections}
+                                    onReadyChange={setAugmentReady}
+                                />
+                            </>
                         ) : (
                             <RankedAugmentSummary snapshot={snapshot} userTeam={userTeam} budget={augmentBudget} />
                         )}
@@ -2998,7 +3692,6 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                             same gradient, same 1340px column, army rails on top and the progress rail at the
                             bottom — not a dialog floating over the placement board. */}
                         <Modal
-                            keepMounted
                             open={augmentOverlayOpen}
                             onClose={() => {
                                 if (!inSetupStage) {
@@ -3138,14 +3831,21 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                                         opacity: ready ? 0.64 : 1,
                                                     }}
                                                 >
-                                                    <SideToggleContainer
-                                                        side={userTeam === TeamVals.LEFT ? "green" : "red"}
-                                                        teamType={userTeam}
-                                                        showArtifactPicker={false}
-                                                        budgetPoints={augmentBudget}
-                                                        authoritativeSelections={augmentAuthoritativeSelections}
-                                                        onReadyChange={setAugmentReady}
-                                                    />
+                                                    <PremiumSetupPanel
+                                                        setupView
+                                                        gameId={snapshot.gameId}
+                                                        stageKey={`${snapshot.phase}:${snapshot.placementStage}`}
+                                                    >
+                                                        <SideToggleContainer
+                                                            draftLayout
+                                                            side={userTeam === TeamVals.LEFT ? "green" : "red"}
+                                                            teamType={userTeam}
+                                                            showArtifactPicker={false}
+                                                            budgetPoints={augmentBudget}
+                                                            authoritativeSelections={augmentAuthoritativeSelections}
+                                                            onReadyChange={setAugmentReady}
+                                                        />
+                                                    </PremiumSetupPanel>
                                                 </Box>
                                             </PhasePanel>
                                         </Box>
@@ -3185,7 +3885,9 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                         />
                                     </Box>
                                 </Box>
-                                <DraftBottomControls step={7} userTeam={userTeam} draftScale={draftScale} />
+                                {augmentOverlayOpen && (
+                                    <DraftBottomControls step={7} userTeam={userTeam} draftScale={draftScale} />
+                                )}
                             </ModalDialog>
                         </Modal>
                         {/* Split Setup: lock-in advances the stage once every point is spent (both-ready or
@@ -3196,6 +3898,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                             during the split Setup stage, when the board is locked. */}
                         {inBoardStage && selectedUnit?.placed && selectedUnit.team === userTeam && (
                             <RankedPlacementStackActions
+                                immediateDelete={skipAugmentStep}
                                 canSubmit={canSubmit}
                                 selectedUnit={selectedUnit}
                                 snapshot={snapshot}
@@ -3208,10 +3911,28 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
 
                 {isObserver && (
                     <Typography level="body-xs" textColor={hocColors.muted}>
-                        Live observer mode. Controls are disabled; replay is available after the fight ends.
+                        {replayOnly
+                            ? t("Watching a replay. Controls are disabled.")
+                            : snapshot.fightFinished || snapshot.phase === PlayPhase.FINISHED
+                              ? t("This match has ended. Controls are disabled.")
+                              : t(
+                                    "Live observer mode. Controls are disabled; replay is available after the fight ends.",
+                                )}
                     </Typography>
                 )}
                 {isObserver && <ObserverSetupPanel snapshot={snapshot} />}
+                {/* The corner button below is the placement exit. It follows allowPlacementExit, so a
+                    co-op sandbox does not grow a second way out. */}
+                {onStopWatching && (
+                    <Button
+                        variant="soft"
+                        size="sm"
+                        onClick={onStopWatching}
+                        sx={{ ...hocSoftButtonSx, alignSelf: "flex-start" }}
+                    >
+                        {t("Stop watching")}
+                    </Button>
+                )}
 
                 {busy && (
                     <Stack direction="row" spacing={1} alignItems="center">
@@ -3227,6 +3948,15 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                     </Alert>
                 )}
 
+                {allowPlacementExit && !isObserver && !replayOnly && snapshot.phase === PlayPhase.PLACEMENT && (
+                    <GameCornerSlot>
+                        <GameCornerExitButton
+                            disabled={busy}
+                            label={t("Leave match")}
+                            onClick={() => setConfirmExitOpen(true)}
+                        />
+                    </GameCornerSlot>
+                )}
                 {confirmExitModal}
             </Stack>
         </Sheet>

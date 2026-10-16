@@ -128,7 +128,11 @@ const GameScreen: React.FC<SceneComponentProps> = ({ entry: { name, SceneClass }
              * on the board can't start a native text/element selection — that would paint a
              * translucent blue selection highlight over the whole render ("whole render selected").
              */}
-            <main ref={wrapperRef} style={{ position: "relative", width: "100%", height: "100%", ...noSelectStyle }}>
+            <main
+                className="hoc-board"
+                ref={wrapperRef}
+                style={{ position: "relative", width: "100%", height: "100%", ...noSelectStyle }}
+            >
                 {/* Pixi renders to glCanvas; debugCanvas is for picking/overlay input */}
                 <canvas ref={glCanvasRef} style={{ position: "absolute", inset: 0, ...noSelectStyle }} />
                 <canvas

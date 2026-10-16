@@ -1,0 +1,4 @@
+interface:
+  display_name: "HOC Idle Animation"
+  short_description: "Create seamless standing creature idle loops"
+  default_prompt: "Use $hoc-idle-animation to create a standing idle animation for a Heroes of Crypto creature."

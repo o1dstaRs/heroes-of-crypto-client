@@ -4,6 +4,25 @@
  * here — v1 localizes the pick-phase and in-game interface chrome.
  */
 export const RU_TRANSLATIONS: Record<string, string> = {
+    "Temporary: {duration} total, {time} remaining. Automatically ends {date}.":
+        "Временно: общий срок — {duration}, осталось {time}. Автоматически закончится {date}.",
+    "Temporary: {time} remaining. Automatically ends {date}.":
+        "Временно: осталось {time}. Автоматически закончится {date}.",
+    "Indefinite ranked suspension: no automatic expiry. Support must lift it before you can play ranked again.":
+        "Бессрочное отстранение от рейтинговой игры: автоматического окончания нет. Для возвращения в рейтинг его должна снять поддержка.",
+    "Ranked suspended indefinitely": "Бессрочное отстранение от рейтинга",
+    "RANKED SUSPENDED": "РЕЙТИНГ НЕДОСТУПЕН",
+    "Ranked suspended": "Рейтинг недоступен",
+    "Ranked suspensions and leave cooldowns are disabled on this server.":
+        "На этом сервере отключены отстранения от рейтинга и ожидание после выхода из матча.",
+    "3 abandons in a row suspend ranked indefinitely until support lifts the suspension.":
+        "3 выхода подряд бессрочно закрывают рейтинговую игру, пока поддержка не снимет отстранение.",
+    "Leave once half the board's XP is destroyed and it's an ordinary loss. Leave before that and it's an Abandon: a loss.":
+        "Выход после уничтожения половины опыта на поле — обычное поражение. Более ранний выход — покидание матча: поражение.",
+    "Before that, or during the draft or placement, leaving is an Abandon: a loss.":
+        "Более ранний выход, а также выход при выборе армии или расстановке — покидание матча: поражение.",
+    "Before that, or during the draft or placement, leaving is an Abandon: a loss, and a 5-minute wait before you can queue ranked again. 3 abandons in a row suspend ranked indefinitely until support lifts the suspension.":
+        "Более ранний выход, а также выход при выборе армии или расстановке — покидание матча: поражение и 5 минут ожидания до нового поиска. 3 выхода подряд бессрочно закрывают рейтинговую игру, пока поддержка не снимет отстранение.",
     // ~~~ Shared chrome ~~~
     Language: "Язык",
     Choose: "Выбрать",
@@ -98,7 +117,11 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     Connecting: "Подключение",
     Connected: "Подключено",
     Reconnecting: "Переподключение…",
+    "Too many people are watching this match. Trying again shortly.":
+        "Слишком много зрителей у этого матча. Скоро попробуем снова.",
     "Watching as observer": "Режим наблюдателя",
+    "Drag to move · double-click to reset": "Перетащите, чтобы переместить · двойной щелчок — вернуть на место",
+    "Your prediction: {amount} {symbol} on {name}": "Ваш прогноз: {amount} {symbol} на {name}",
     "Fight started!": "Бой начался!",
     "Preparing replay": "Подготовка повтора",
     "Loading replay": "Загрузка повтора",
@@ -110,9 +133,36 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Play again": "Играть снова",
     "Back to lobby": "Назад в лобби",
     "Back to website": "На сайт",
+    "Back to friends": "Назад к друзьям",
+    "Match found — accept it in the arena": "Матч найден — примите его на арене",
+    "Your draft is in progress": "Ваш драфт продолжается",
+    "Your fight is in progress": "Ваш бой продолжается",
+    "Return to match": "Вернуться в матч",
+    "Go to arena": "На арену",
+    "Green player": "Зелёный игрок",
+    "Red player": "Красный игрок",
+    "{seat} is back": "{seat} снова на связи",
+    disconnected: "отключился",
+    "AI takes over in {time}": "ИИ возьмёт управление через {time}",
+    "the AI is playing their turns": "ИИ ходит за него",
+    "forfeits in {time}": "поражение через {time}",
+    "{seat} is away": "{seat} не отвечает",
+    // Short forms of the four lines above — the plaque beside a player's name in the matchup strip.
+    Back: "На связи",
+    Gone: "Ушёл",
+    "AI {time}": "ИИ {time}",
+    "AI plays": "Ходит ИИ",
+    "forfeit {time}": "пораж. {time}",
+    "You were away — the AI is playing your turns": "Вас не было — ИИ ходит за вас",
+    "Make your next move to take back control": "Сделайте ход, чтобы вернуть управление",
+    "You're back in control": "Управление снова у вас",
     Copy: "Копировать",
     Copied: "Скопировано",
     "Copy battle log": "Скопировать журнал боя",
+    // Read out for the fight log's side markers, which are painted dots rather than named colours: a player
+    // fighting in amethyst sees their own dot in amethyst, so "green"/"red" would not describe them.
+    "Left side": "Левая сторона",
+    "Right side": "Правая сторона",
     Calibrating: "На калибровке",
 
     // ~~~ Player portal: header + shell ~~~
@@ -122,6 +172,8 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Player profile summary": "Сводка профиля игрока",
     Refresh: "Обновить",
     "Ranked arena": "Рейтинговая арена",
+    "Exit account": "Выйти из аккаунта",
+    "Signing out…": "Выходим…",
     "Loading your profile…": "Загрузка профиля…",
     "Loading your battle record…": "Загрузка боевой летописи…",
     "Unable to load profile": "Не удалось загрузить профиль",
@@ -324,6 +376,23 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "{kind} augment, level {level}": "{kind}, уровень {level}",
     "{name}, level {level}: {description}": "{name}, уровень {level}: {description}",
     "Level {level}: {description}": "Уровень {level}: {description}",
+    // Portal hover cards: what a creature, an augment, an artifact or a synergy in a recorded build does.
+    "Level {level}": "Уровень {level}",
+    "Stack of {count}": "Отряд из {count}",
+    "Tier {tier} artifact": "Артефакт уровня {tier}",
+    Melee: "Ближний бой",
+    Ranged: "Дальний бой",
+    Flying: "Летающий",
+    "+{value}% armor and +{value} magic armor for every unit":
+        "+{value}% брони и +{value} магической брони каждому отряду",
+    "+{value}% melee damage for every unit": "+{value}% урона в ближнем бою каждому отряду",
+    "+{value}% magic damage from spells, abilities and effects":
+        "+{value}% магического урона от заклинаний, способностей и эффектов",
+    "+{damage}% ranged damage and +{range}% shooting range": "+{damage}% урона стрельбы и +{range}% дальности стрельбы",
+    "+{count} movement steps for every unit": "+{count} к шагам каждому отряду",
+    "Standard deployment zone": "Стандартная зона расстановки",
+    "Wider deployment zone": "Расширенная зона расстановки",
+    "Widest deployment zone, up to the board's edge": "Максимальная зона расстановки — до края поля",
     "{faction} synergy": "синергия: {faction}",
     "Deep reserves": "Глубокие резервы",
     "High spirits": "Боевой дух",
@@ -338,8 +407,8 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "{currency} on the line": "{currency} на кону",
     "Win ranked games to earn {currency} — then put it on your matches, winner takes all.":
         "Побеждайте в рейтинговых матчах, чтобы получать {currency}, и ставьте их на свои бои — победитель забирает всё.",
-    "{currency} rides your next match. If your opponent puts in too — winner takes the pot, a tie burns it.":
-        "{currency} поставлены на следующий матч. Если соперник тоже сделает ставку, победитель заберёт банк, а при ничьей он сгорит.",
+    "{currency} is your next-match wager. If your opponent sets one too, the winner takes the pot; a draw forfeits it.":
+        "{currency} — ваша ставка на следующий матч. Если соперник тоже сделает ставку, победитель заберёт банк, а при ничьей банк не возвращается.",
     "Put {currency} on your next match. Matched amounts play as-is; if yours is lower you can call or raise when the match is found.":
         "Поставьте {currency} на следующий матч. Равные ставки играются сразу; если ваша ниже, после поиска матча её можно уравнять или повысить.",
     "{currency} to put": "Сколько поставить ({currency})",
@@ -347,20 +416,27 @@ export const RU_TRANSLATIONS: Record<string, string> = {
         "на столе — если соперник тоже поставит, пари откроется прямо здесь.",
     "Put {currency} on THIS match — winner takes the pot.":
         "Поставьте {currency} на ЭТОТ матч — победитель забирает банк.",
-    "If the draft ends first, your wager rides your next match instead.":
+    "If the draft ends first, this becomes your next-match wager instead.":
         "Если драфт закончится раньше, ставка перейдёт на ваш следующий матч.",
-    "Wager locked: {amount} {symbol} each — winner takes {pot} {symbol}":
-        "Ставка зафиксирована: по {amount} {symbol}, победитель получит {pot} {symbol}",
+    "Wager confirmed: {amount} {symbol} each — winner takes {pot} {symbol}":
+        "Ставка подтверждена: по {amount} {symbol}, победитель получит {pot} {symbol}",
     "Wager settled: {amount} {symbol} to the winner": "Ставка рассчитана: победителю {amount} {symbol}",
-    "Draw — the pot of {pot} {symbol} burns": "Ничья — банк {pot} {symbol} сгорает",
+    "Draw — the pot of {pot} {symbol} is forfeited": "Ничья — банк {pot} {symbol} не возвращается",
     "{symbol} each — you already committed it.": "{symbol} с каждого — ваша ставка уже внесена.",
     "Do nothing and the match plays for {pot} {symbol} total.":
         "Если ничего не делать, матч будет сыгран за общий банк {pot} {symbol}.",
-    "{amount} {symbol} · {count} bets": "{amount} {symbol} · ставок: {count}",
+    "{amount} {symbol} · {count} predictions": "{amount} {symbol} · прогнозов: {count}",
     "Not enough {currency}": "Недостаточно: {currency}",
 
     // ~~~ Ranked arena + matchmaking ~~~
     "Ranked Arena": "Рейтинговая арена",
+    "Battle art": "Графика боя",
+    "Battle art ready": "Графика боя загружена",
+    "Battle art {percent}%": "Графика боя {percent}%",
+    "Battle art is downloaded: units appear on the board the moment a match starts.":
+        "Графика боя загружена: отряды появятся на поле сразу, как начнётся матч.",
+    "Downloading battle art in the background so units appear on the board the moment a match starts.":
+        "Загружаем графику боя в фоне, чтобы отряды появились на поле сразу, как начнётся матч.",
     Sandbox: "Песочница",
     Profile: "Профиль",
     "Game navigation": "Навигация по игре",
@@ -375,12 +451,31 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Leave matchmaking before navigating away": "Выйдите из подбора игры перед переходом",
     "Leave matchmaking before starting an AI match": "Выйдите из подбора игры перед матчем с ИИ",
     MATCHMAKING: "ПОДБОР ИГРЫ",
-    "Looking for opponent": "Поиск соперника",
-    "Looking for opponent ({count} in queue)": "Поиск соперника (в очереди: {count})",
-    "{count} player is currently in the queue.": "Сейчас в очереди {count} игрок.",
-    "{count} players are currently in the queue.": "Сейчас в очереди игроков: {count}.",
+    // The ranked search cycles through these while it waits (see ui/matchmakingHeadlines.ts).
     "Scouting for a worthy rival": "Ищем достойного соперника",
-    "Stay ready while we search the live ranked queue.": "Будьте готовы — идёт поиск в рейтинговой очереди.",
+    "Sounding the horn for a challenger": "Трубим в рог, созывая соперника",
+    "Reading the field for a rival": "Осматриваем поле в поисках соперника",
+    "Sizing up the warbands": "Присматриваемся к дружинам",
+    "Calling challengers to the arena": "Зовём бойцов на арену",
+    "Combing the ranks for your match": "Ищем вам ровню в строю",
+    "Tip: {hint}": "Совет: {hint}",
+    // Rotating queue hints reach t() dynamically (see ui/matchmakingHints.ts).
+    "Check the turn order before committing. A threat that acts next may deserve your attention first.":
+        "Прежде чем действовать, проверьте порядок ходов. Возможно, стоит сначала заняться врагом, который ходит следующим.",
+    "Keep vulnerable stacks apart when facing attacks that can hit several units at once.":
+        "Держите уязвимые отряды подальше друг от друга, если враг может атаковать несколько целей одновременно.",
+    "Before a melee attack, check whether the target can retaliate.":
+        "Перед атакой в ближнем бою проверьте, сможет ли цель ответить.",
+    "Protect your ranged attackers from enemies that can reach them on their next turn.":
+        "Прикрывайте стрелков от врагов, которые могут добраться до них на следующем ходу.",
+    "Spell charges are limited. Save them for moments when they can change the fight.":
+        "Заряды заклинаний ограничены. Берегите их для моментов, когда они могут изменить ход боя.",
+    "Balance your draft with damage, protection, and support instead of relying on one role.":
+        "При выборе армии сочетайте урон, защиту и поддержку, а не полагайтесь на одну роль.",
+    "Spend all your upgrade points before locking in your army.":
+        "Потратьте все очки улучшений, прежде чем подтвердить армию.",
+    "Read enemy abilities before choosing a target. The nearest stack is not always the biggest threat.":
+        "Изучите способности врагов перед выбором цели. Ближайший отряд не всегда самый опасный.",
     "Leave ranked queue": "Покинуть рейтинговую очередь",
     "Unable to enter matchmaking": "Не удалось начать поиск игры",
     "Unable to leave matchmaking": "Не удалось выйти из поиска игры",
@@ -457,8 +552,8 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Half their army, spread across every tier": "Половина армии — по всем уровням",
     "The whole enemy draft, live": "Весь драфт противника в реальном времени",
     "Draft blind, field the strongest army": "Драфт вслепую, зато сильнейшая армия",
-    "Opens three of the opponent's six army slots — one per tier block, not three at random: one of their two Level 1 picks, one of their two Level 2 picks, and either their Level 3 or their Level 4. The slots are rolled the moment the draft opens and stay open as those picks fill in. The other three never open.":
-        "Открывает три из шести слотов армии противника — по одному из каждого блока уровней: один из двух выборов 1-го уровня, один из двух выборов 2-го и один выбор 3-го или 4-го уровня. Слоты определяются при открытии драфта и остаются видимыми по мере заполнения. Остальные три не откроются.",
+    "Opens three of the opponent's six army slots — one per tier block, not three at random: one of their two Level 1 picks, one of their two Level 2 picks, and either their Level 3 or their Level 4. If the opponent's Level 4 pick ends the draft, you watch their Level 3 instead. The slots are rolled the moment the draft opens and stay open as those picks fill in. The other three never open.":
+        "Открывает три из шести слотов армии противника — по одному из каждого блока уровней: один из двух выборов 1-го уровня, один из двух выборов 2-го и один выбор 3-го или 4-го уровня. Если выбор соперника 4-го уровня завершает драфт, вместо него открывается слот 3-го уровня. Слоты определяются при открытии драфта и остаются видимыми по мере заполнения. Остальные три не откроются.",
     "Every one of the opponent's six picks is visible for the entire draft, each revealed as they lock it in — so you always know what they have taken before you commit your next pick or ban.":
         "Все шесть выборов противника видны весь драфт и открываются сразу после подтверждения — вы всегда знаете его состав перед своим следующим выбором или баном.",
     "You see none of the opponent's picks at any point. You draft entirely on your own plan and meet whatever they built on the board.":
@@ -496,13 +591,13 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Points you can spend on upgrades before placement": "Очки, которые можно потратить на усиления перед расстановкой",
     Reveal: "Открыть",
     Rules: "Правила",
-    Standard: "Обычная",
-    Lava: "Лава",
-    Cemetery: "Кладбище",
+    Normal: "Обычная",
+    "FIRE PIT": "FIRE PIT",
+    Barrels: "Бочки",
     Water: "Вода",
-    "Open field — no central hazard.": "Открытое поле без опасности в центре.",
+    "Open stone field — no central hazard.": "Открытое каменное поле без опасности в центре.",
     "A lava pool scars the center of the board.": "В центре поля разлилась лава.",
-    "Tombstones crowd a narrow central corridor.": "Надгробия заполняют узкий центральный проход.",
+    "Destructible barrels obstruct routes across the board.": "Разрушаемые бочки перекрывают пути по полю.",
     "A pool of water splits the center of the board.": "Водоём разделяет центр поля.",
     "Map type": "Тип карты",
     "Map type — {name}": "Тип карты — {name}",
@@ -541,8 +636,7 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Spectating the draft": "Наблюдение за драфтом",
     "Connecting to the draft": "Подключение к драфту",
     " — phase {current}/{total}": " — фаза {current}/{total}",
-    "Creature picks follow scouting reveals; selected artifacts are public as soon as they are locked in.":
-        "Выборы существ видны по правилам разведки; выбранные артефакты открываются сразу после подтверждения.",
+    "Creature picks and artifacts stay hidden until the fight starts.": "Существа и артефакты скрыты до начала боя.",
     "Left team": "Нижняя команда",
     "Right team": "Верхняя команда",
     VS: "ПРОТИВ",
@@ -566,6 +660,28 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Observer setups": "Составы для наблюдателя",
     "Opponent army": "Армия противника",
     "Revealed during board placement": "Откроется во время расстановки",
+    Army: "Армия",
+    "Doctrine, artifacts and augments are revealed when the fight starts":
+        "Перк, артефакты и усиления откроются в начале боя",
+    // Spectator exits, finished matches and the draft watcher.
+    "Stop watching": "Выйти из просмотра",
+    "This match has ended": "Этот матч завершён",
+    "This match ended before the fight": "Матч завершился до боя",
+    "This match has ended. Controls are disabled.": "Матч завершён. Управление отключено.",
+    "Watching a replay. Controls are disabled.": "Просмотр повтора. Управление отключено.",
+    "This game is not available to observe yet": "Эту игру пока нельзя смотреть",
+    "This game has been abandoned!": "Эта игра прервана!",
+    "The game is no longer active or you don't have access to it":
+        "Игра больше не активна, или у вас нет к ней доступа",
+    "An unexpected error occurred": "Произошла непредвиденная ошибка",
+    "Your draft is open in another tab or on another device, so you're watching it here.":
+        "Ваш драфт открыт в другой вкладке или на другом устройстве, поэтому здесь вы его смотрите.",
+    "Draft here": "Продолжить драфт здесь",
+    "Recent games": "Последние игры",
+    "Loading…": "Загрузка…",
+    "No ranked games yet": "Пока нет рейтинговых игр",
+    "vs {name}": "против {name}",
+    "Ranked game": "Рейтинговая игра",
     Yours: "Ваш",
     None: "Нет",
     "{tier} artifact": "артефакт {tier}-го уровня",
@@ -714,6 +830,8 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Switch AI state": "Включить или выключить ИИ",
     "Switch attack type": "Сменить тип атаки",
     "Select spell": "Выбрать заклинание",
+    "No spells to cast": "Нет заклинаний для применения",
+    "Cannot cast spells right now": "Сейчас нельзя применять заклинания",
     "Time Denial — an active holder prevents either side from using Hourglass.":
         "Отрицание времени — пока носитель активен, обе стороны не могут отложить ход.",
     ON: "ВКЛ",
@@ -803,11 +921,12 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Red AI": "Красный ИИ",
     "Unable to start another match": "Не удалось начать новый матч",
     "Exit the fight?": "Выйти из боя?",
-    "This forfeits the fight — your opponent is declared the winner immediately and it counts as a loss for you. This cannot be undone.":
-        "Это сдача: соперник сразу станет победителем, а вам засчитают поражение. Отменить действие нельзя.",
+    "This forfeits the fight — your opponent is declared the winner immediately and it counts as a loss for you. In ranked, leaving 3 matches in a row suspends your ranked play. This cannot be undone.":
+        "Это сдача: соперник сразу станет победителем, а вам засчитают поражение. В рейтинге 3 выхода из матчей подряд приостанавливают доступ к рейтинговым играм. Отменить действие нельзя.",
     Cancel: "Отмена",
     Forfeit: "Сдаться",
     "EXIT FIGHT": "ВЫЙТИ ИЗ БОЯ",
+    "Exit fight": "Выйти из боя",
     "Exit Replay": "Выйти из повтора",
     // Arena settings menu — the personal army-colour picker. The preset names are looked up through a
     // variable, so they are pinned by the data-driven i18n test rather than the literal scan.
@@ -815,9 +934,33 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Your army colour": "Цвет вашей армии",
     "Player settings": "Настройки игрока",
     "Saved on this device only.": "Сохраняется только на этом устройстве.",
+    Premium: "Премиум",
+    "Included during calibration.": "Доступно во время калибровки.",
+    "Included during testing.": "Доступно во время тестирования.",
+    "Available with your Premium access.": "Доступно с вашим Премиумом.",
+    "Premium assistance": "Помощь Премиума",
+    "Turn all Premium capabilities on or off. Your individual choices are kept.":
+        "Включить или выключить все возможности Премиума. Настройки отдельных возможностей сохраняются.",
+    "Ask Premium": "Спросить Премиум",
+    "Show the chat button for questions about the game and your match.":
+        "Показывать кнопку чата для вопросов об игре и вашем матче.",
+    "Draft advice": "Советы при выборе армии",
+    "Highlight recommended picks and show notes on your army so far.":
+        "Подсвечивать рекомендуемый выбор и показывать замечания о вашей текущей армии.",
+    "Army setup guidance": "Помощь в подготовке армии",
+    "Recommend builds and arrange your army during placement.":
+        "Рекомендовать улучшения и расставлять армию на этапе размещения.",
+    "Suggested moves": "Рекомендуемые ходы",
+    "Draw recommended actions on the battlefield during combat.": "Показывать рекомендуемые действия на поле боя.",
     Appearance: "Внешний вид",
     Audio: "Звук",
-    // The Audio section: two levels with a mute each — the music and everything else that makes a noise.
+    // Master sound plus independent music/effects balances.
+    Sound: "Звук",
+    "Sound volume": "Общая громкость",
+    "Mute sound": "Выключить звук",
+    "Unmute sound": "Включить звук",
+    "Sound volume controls music and effects.": "Общая громкость управляет музыкой и звуковыми эффектами.",
+    "Combat, spells and interface sounds.": "Звуки боя, заклинаний и интерфейса.",
     Music: "Музыка",
     "Sound effects": "Звуковые эффекты",
     Muted: "Без звука",
@@ -827,7 +970,15 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Unmute sound effects": "Включить звуковые эффекты",
     "Interface sounds, like the wager chips.": "Звуки интерфейса, например фишки ставок.",
     Gameplay: "Игровой процесс",
-    "Nothing to configure here yet.": "Здесь пока нечего настраивать.",
+    // The Gameplay section: which side of the battlefield the player sees their own army on. The two sides reuse
+    // "Left side" / "Right side" from the fight log's markers.
+    "Your side of the battlefield": "Ваша сторона поля боя",
+    "Only you see this. Your board is mirrored so your army stands where you like it; replays and spectators keep the true sides.":
+        "Видно только вам. Поле отражается так, чтобы ваша армия стояла там, где вам удобнее; в повторах и у зрителей стороны остаются настоящими.",
+    Random: "Случайно",
+    "You play from whichever side the match seats you on.": "Вы играете с той стороны, на которую вас посадит матч.",
+    "Your army always stands on the left.": "Ваша армия всегда стоит слева.",
+    "Your army always stands on the right.": "Ваша армия всегда стоит справа.",
     "Only you see this. Your opponent's army turns red, and replays keep the true colours.":
         "Видно только вам. Армия соперника становится красной, а в повторах сохраняются истинные цвета.",
     "Team colours": "Цвета сторон",
@@ -853,12 +1004,18 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Live draft: {players}": "Текущий драфт: {players}",
     Spectate: "Наблюдать",
     "Spectate {players} in a new tab": "Наблюдать за матчем {players} в новой вкладке",
-    Bet: "Поставить",
+    Predict: "Сделать прогноз",
     "Could not place the prediction": "Не удалось сделать прогноз",
-    "{currency} to bet": "Ставка ({currency})",
+    "{currency} to predict": "Прогноз ({currency})",
     "{amount} {symbol} pool": "банк {amount} {symbol}",
     "Returns {return} {symbol} (+{profit})": "Выплата {return} {symbol} (+{profit})",
-    Purse: "Баланс",
+    Available: "Доступно",
+    "Available: {amount} {symbol}": "Доступно: {amount} {symbol}",
+    "Your prediction": "Ваш прогноз",
+    Forfeited: "Не возвращено",
+    "Back a side while a game is still drafting. One prediction per game, final once made.":
+        "Поддержите сторону, пока идёт драфт. Один прогноз на игру, изменить нельзя.",
+    "No predictions in play.": "Нет прогнозов в игре.",
     "Your wager": "Ваша ставка",
     Put: "Поставить",
     "Take it back": "Забрать ставку",
@@ -925,8 +1082,8 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "The season holds {gold} G across {players} calibrated players — that gold spread over {slots} slots each sets the price. It is charged to the host and never returned; whatever you put on the game itself is separate.":
         "В сезоне {gold} G на {players} откалиброванных игроков — это золото, разделённое на {slots} слотов для каждого, и задаёт цену. Она списывается с создателя и не возвращается; то, что вы ставите на саму игру, — отдельно.",
     "Opening a lobby costs {price} G.": "Открытие лобби стоит {price} G.",
-    "Opening a lobby costs {price} G — your purse holds {purse} G":
-        "Открытие лобби стоит {price} G — в вашем кошельке {purse} G",
+    "Opening a lobby costs {price} G — you have {purse} G available":
+        "Открытие лобби стоит {price} G — вам доступно {purse} G",
     Friend: "Друг",
     "Hosted by": "Создатель:",
     ago: "назад",
@@ -980,4 +1137,297 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Could not send that message": "Не удалось отправить сообщение",
     "Could not register that vote": "Не удалось учесть голос",
     "Could not report that message": "Не удалось отправить жалобу",
+
+    // ~~~ Friend co-op sandbox ~~~
+    "Co-op sandbox": "Совместная песочница",
+    you: "вы",
+    Away: "Не здесь",
+    Leave: "Выйти",
+    "Cancel ready": "Отменить готовность",
+    "Waiting for {name} to join…": "Ожидание, пока {name} присоединится…",
+    "Waiting for friend": "Ждём друга",
+    "Both ready — press START": "Оба готовы — нажмите СТАРТ",
+    "Place your army, then press READY": "Расставьте армию и нажмите ГОТОВО",
+    "Place at least one unit first": "Сначала поставьте хотя бы один отряд",
+    "This sandbox is no longer open": "Эта песочница больше не открыта",
+    "Unable to join this sandbox": "Не удалось присоединиться к песочнице",
+    "Joining the sandbox…": "Входим в песочницу…",
+    "Back to sandbox": "Назад в песочницу",
+    "This sandbox was closed": "Эта песочница закрыта",
+    "Your friend left, or a newer sandbox replaced this one.": "Ваш друг вышел, или её заменила новая песочница.",
+    // Exit rules (ranked integrity phase 2): exit dialogs, Alt strip, away-time notice, results banner, rules card.
+    // Terms match the website: Concede = "сдача", Abandon = "выход из матча", Unscored = "без результата".
+    "Board destroyed · {destroyed} / {total} XP": "Уничтожено на поле · {destroyed} / {total} XP",
+    "The fight hasn't started: nothing destroyed yet": "Бой ещё не начался: потерь пока нет",
+    "Rules apply from {date}": "Правила действуют с {date}",
+    "Rules start soon": "Правила скоро вступят в силу",
+    "These rules apply from {date}. Until then, leaving counts as it does today.":
+        "Эти правила действуют с {date}. До этого выход засчитывается так же, как сейчас.",
+    "These rules start soon. Until then, leaving counts as it does today.":
+        "Эти правила скоро вступят в силу. До этого выход засчитывается так же, как сейчас.",
+    "Leaving a ranked match": "Выход из рейтингового матча",
+    "You can always leave, but when you leave decides how it counts.":
+        "Выйти можно всегда, но от момента выхода зависит, как он будет засчитан.",
+    "Concede or Abandon": "Сдача или выход из матча",
+    "Board casualties count the XP destroyed across both armies: every stack is worth its creatures' XP at the start of the fight, and summoned creatures don't count. Hold Alt during a fight to see them.":
+        "Потери на поле считаются по уничтоженному XP обеих армий: каждый отряд стоит XP своих существ на начало боя, призванные существа не учитываются. Удерживайте Alt во время боя, чтобы увидеть потери.",
+    "Once half the board's XP is destroyed, leaving is a Concede: an ordinary loss, with no strike. It stays that way for the rest of the match.":
+        "Когда уничтожена половина XP поля, выход считается сдачей: обычное поражение без штрафа. Так остаётся до конца матча.",
+    "Before that, or during the draft or placement, leaving is an Abandon: a loss, and a 5-minute wait before you can queue ranked again. 3 abandons in a row suspend your ranked play until support reviews it.":
+        "До этого, а также во время драфта или расстановки, это выход из матча: поражение и 5 минут ожидания до следующего рейтингового поиска. 3 выхода подряд приостанавливают рейтинговую игру, пока поддержка не проверит аккаунт.",
+    "The line is the same for every player, and no ending ever halves the rating change.":
+        "Порог одинаков для всех игроков, и никакой исход не уменьшает изменение рейтинга вдвое.",
+    "During calibration": "Во время калибровки",
+    "If you abandon while you're still calibrating, the match is unscored for both players. It still counts as an abandon for you.":
+        "Если вы выходите из матча во время калибровки, матч остаётся без результата для обоих игроков. Для вас он всё равно засчитывается как выход.",
+    "If you disconnect or step away": "Если вы отключились или отошли",
+    "Each match gives you 5 minutes of away time: time disconnected after the first 10 seconds of each drop, turns that run out while you're connected, and draft picks made for you.":
+        "В каждом матче у вас есть 5 минут отсутствия: время без подключения после первых 10 секунд каждого обрыва, ходы, истёкшие при подключении, и выборы на драфте, сделанные за вас.",
+    "While you're away, your units only wait or defend. The match ends for you when your away time runs out, when you miss 4 turns in a row, or when 3 of your draft picks are made for you. It counts as a Concede or an Abandon by the rule above.":
+        "Пока вас нет, ваши юниты только ждут или защищаются. Матч для вас заканчивается, когда время отсутствия исчерпано, когда вы пропускаете 4 хода подряд или когда игра делает за вас 3 выбора на драфте. Это засчитывается как сдача или выход по правилу выше.",
+    "Money and server problems": "Ставки и проблемы сервера",
+    "If you abandon, your wager goes to your opponent and bets on the match are refunded. If our servers have a problem, the match is voided: no result, no penalty, and stakes are returned.":
+        "Если вы выходите из матча, ваша ставка достаётся сопернику, а прогнозы на матч возвращаются. Если у наших серверов проблема, матч аннулируется: без результата, без наказания, ставки возвращаются.",
+    "Casual lobby and vs-AI matches have no penalties.": "В обычных лобби и матчах против ИИ наказаний нет.",
+    "Leave this match?": "Покинуть матч?",
+    "Concede this match?": "Сдать матч?",
+    "Leave the draft?": "Покинуть драфт?",
+    "Abandon this match?": "Выйти из матча?",
+    "The AI wins this match. Nothing else changes.": "Матч выигрывает ИИ. Больше ничего не меняется.",
+    "This is a casual match: your opponent wins, and nothing else changes.":
+        "Это обычный матч: побеждает соперник, больше ничего не меняется.",
+    "Half the battlefield has fallen, so leaving now is a Concede: an ordinary loss, with no strike and no cooldown.":
+        "Половина поля уже уничтожена, поэтому выход сейчас — это сдача: обычное поражение без штрафа и без ожидания.",
+    "You're still in your calibration matches, so abandoning makes this match unscored for both players: nobody wins, loses or gains rating. It still counts as an abandon for you.":
+        "Вы ещё проходите калибровку, поэтому выход оставит матч без результата для обоих игроков: никто не побеждает, не проигрывает и не получает рейтинг. Для вас он всё равно засчитывается как выход.",
+    "Less than half the battlefield has fallen, so leaving now is an Abandon.":
+        "Уничтожено меньше половины поля, поэтому выход сейчас — это выход из матча.",
+    "The fight hasn't started, so leaving now is an Abandon.":
+        "Бой ещё не начался, поэтому выход сейчас — это выход из матча.",
+    "Leave match": "Покинуть матч",
+    Concede: "Сдать матч",
+    "Abandon match": "Выйти из матча",
+    "Back to draft": "Назад к драфту",
+    "Back to placement": "Назад к расстановке",
+    "Keep playing": "Продолжить игру",
+    "You take the loss, at full rating": "Вам засчитывается поражение с полным изменением рейтинга",
+    "You wait 5 minutes before you can queue ranked again": "5 минут ожидания до следующего рейтингового поиска",
+    "3 abandons in a row suspend your ranked play": "3 выхода подряд приостанавливают рейтинговую игру",
+    "How leaving works": "Как работает выход",
+    "Leave once half the board's XP is destroyed and it's an ordinary loss. Leave before that and it's an Abandon: a loss, and a 5-minute wait before your next ranked search.":
+        "Выход после уничтожения половины XP поля — обычное поражение. Выход раньше — это выход из матча: поражение и 5 минут ожидания до следующего рейтингового поиска.",
+    "If you abandon during your calibration matches, the match is unscored for both players.":
+        "Если вы выходите из матча во время калибровки, матч остаётся без результата для обоих игроков.",
+    "You have 5 minutes of away time per match. While you're away, your units only wait or defend.":
+        "В каждом матче у вас есть 5 минут отсутствия. Пока вас нет, ваши юниты только ждут или защищаются.",
+    "3 abandons in a row suspend your ranked play.": "3 выхода подряд приостанавливают рейтинговую игру.",
+    "How ranked works": "Как устроен рейтинг",
+    "Read the full rules": "Полные правила",
+    "Got it": "Понятно",
+    "Leaving now: Concede, no penalty": "Выход сейчас: сдача, без наказания",
+    "Leaving now: Abandon, unscored for both": "Выход сейчас: выход из матча, без результата для обоих",
+    "Leaving now: Abandon": "Выход сейчас: выход из матча",
+    "Casual match: leaving has no penalty": "Обычный матч: выход без наказания",
+    "Concede unlocked for the rest of the match": "Сдача доступна до конца матча",
+    "Concede unlocks at 50%": "Сдача откроется при 50%",
+    "Away time {used} / {budget}": "Время отсутствия {used} / {budget}",
+    "You were away {used} this match. If you're away another {left}, the match ends for you.":
+        "В этом матче вас не было {used}. Если отсутствие продлится ещё {left}, матч для вас закончится.",
+    "It would count as a Concede: half the board is already destroyed.":
+        "Это засчитается как сдача: половина поля уже уничтожена.",
+    "It would count as an Abandon unless half the board is destroyed by then.":
+        "Это засчитается как выход из матча, если к тому моменту не будет уничтожена половина поля.",
+    "You were away {used} this match. From {date}, away time is limited to {budget} per match.":
+        "В этом матче вас не было {used}. С {date} время отсутствия ограничено {budget} на матч.",
+    "You were away {used} this match. Soon, away time will be limited to {budget} per match.":
+        "В этом матче вас не было {used}. Скоро время отсутствия будет ограничено {budget} на матч.",
+    "Server problem: this match is voided. No result, no penalty, and stakes are returned.":
+        "Проблема сервера: матч аннулирован. Без результата, без наказания, ставки возвращаются.",
+    "Both players left, so this match is unscored for both.":
+        "Оба игрока вышли, поэтому матч остаётся без результата для обоих.",
+    "You left the match.": "Вы покинули матч.",
+    "Your opponent left the match.": "Соперник покинул матч.",
+    "Under the new exit rules, this ending would count as a Concede: an ordinary loss.":
+        "По новым правилам выхода такой исход засчитается как сдача: обычное поражение.",
+    "Under the new exit rules, this ending would count as an Abandon.":
+        "По новым правилам выхода такой исход засчитается как выход из матча.",
+    "Under the new exit rules, this match would be unscored for both players.":
+        "По новым правилам выхода этот матч остался бы без результата для обоих игроков.",
+    "You conceded at {pct}% casualties: an ordinary loss, with no penalty.":
+        "Вы сдались при потерях {pct}%: обычное поражение без наказания.",
+    "Your opponent conceded at {pct}% casualties.": "Соперник сдался при потерях {pct}%.",
+    "A player conceded at {pct}% casualties.": "Игрок сдался при потерях {pct}%.",
+    "You abandoned at {pct}% casualties: a loss, and ranked search reopens in 5 minutes.":
+        "Вы вышли из матча при потерях {pct}%: поражение, рейтинговый поиск откроется через 5 минут.",
+    "Your opponent abandoned at {pct}% casualties. You get the full win.":
+        "Соперник вышел из матча при потерях {pct}%. Вам засчитывается полная победа.",
+    "A player abandoned at {pct}% casualties.": "Игрок вышел из матча при потерях {pct}%.",
+    "You abandoned during calibration, so this match is unscored for both players. It still counts as an abandon for you.":
+        "Вы вышли из матча во время калибровки, поэтому матч остаётся без результата для обоих игроков. Для вас он всё равно засчитывается как выход.",
+    "Your opponent abandoned during their calibration, so this match doesn't count for either of you.":
+        "Соперник вышел из матча во время своей калибровки, поэтому матч не засчитывается никому из вас.",
+    "A calibrating player abandoned, so this match is unscored for both.":
+        "Игрок на калибровке вышел из матча, поэтому матч остаётся без результата для обоих.",
+    "Your away time ran out.": "Ваше время отсутствия закончилось.",
+    "Their away time ran out.": "Время отсутствия соперника закончилось.",
+    "You missed 4 turns in a row.": "Вы пропустили 4 хода подряд.",
+    "They missed 4 turns in a row.": "Соперник пропустил 4 хода подряд.",
+    "The match could not be left. Please try again.": "Не удалось покинуть матч. Попробуйте ещё раз.",
+    "You abandoned a ranked match — search again in {time}":
+        "Вы вышли из рейтингового матча — поиск снова через {time}",
+    Reputation: "Репутация",
+    "How reliably you play ranked. Everyone starts at 50.":
+        "Насколько надёжно вы играете рейтинговые матчи. Все начинают с 50.",
+    Honorable: "Почётная",
+    Good: "Хорошая",
+    Probation: "Под наблюдением",
+    Restricted: "Ограниченная",
+    "New account": "Новый аккаунт",
+    "Recent changes": "Последние изменения",
+    "No changes yet. Finished ranked matches add points.":
+        "Изменений пока нет. Доигранные рейтинговые матчи добавляют очки.",
+    "Account bonuses": "Бонусы аккаунта",
+    "Show all changes": "Показать все изменения",
+    "Show fewer": "Свернуть",
+    "Couldn't load your Reputation.": "Не удалось загрузить репутацию.",
+    "Arena chat opens again when your Reputation reaches {n} (it is {score}). Finished ranked matches raise it.":
+        "Чат арены снова откроется, когда репутация достигнет {n} (сейчас {score}). Доигранные рейтинговые матчи повышают её.",
+    "Report player": "Пожаловаться",
+    "A player you reported was penalised. Thanks for telling us.":
+        "Игрок, на которого вы пожаловались, наказан. Спасибо, что сообщили.",
+    "Several of your recent reports were found to have no basis, so your reports count for nothing until {date}.":
+        "Несколько ваших недавних жалоб оказались необоснованными, поэтому до {date} ваши жалобы не учитываются.",
+    "Report {name}": "Жалоба на {name}",
+    "Ranked match · {date}": "Рейтинговый матч · {date}",
+    "What happened?": "Что случилось?",
+    "Was away, or let the AI play": "Отсутствовал или играл ИИ",
+    "Win trading or boosting": "Договорные победы или буст",
+    "Cheating or exploiting a bug": "Читы или использование ошибки",
+    "Abusive name or chat": "Оскорбительное имя или чат",
+    "Something else": "Другое",
+    "Anything we should look at? (optional)": "На что нам посмотреть? (необязательно)",
+    "Send report": "Отправить жалобу",
+    "Thanks. If we act on this, you'll get a notification.": "Спасибо. Если мы примем меры, вы получите уведомление.",
+    "Couldn't send the report. Please try again.": "Не удалось отправить жалобу. Попробуйте ещё раз.",
+    "Reports never lock anyone on their own: a person reviews them, with the match's data.":
+        "Жалобы сами по себе никого не блокируют: их проверяет человек по данным матча.",
+    "Finished a ranked match vs {name}": "Доигран рейтинговый матч против {name}",
+    "Finished a ranked match": "Доигран рейтинговый матч",
+    "Abandoned a ranked match vs {name}": "Выход из рейтингового матча против {name}",
+    "Abandoned a ranked match": "Выход из рейтингового матча",
+    "Played under 60% of your own turns vs {name}": "Сыграно меньше 60% своих ходов против {name}",
+    "Played under 60% of your own turns": "Сыграно меньше 60% своих ходов",
+    "Didn't confirm a found match in time": "Найденный матч не подтверждён вовремя",
+    "A report against you is being reviewed": "Жалоба на вас на проверке",
+    "A report against you was upheld": "Жалоба на вас подтверждена",
+    "Confirmed AI assistance: Reputation capped at 20": "Подтверждена помощь ИИ: репутация не выше 20",
+    "Confirmed win trading or multi-accounting: Reputation capped at 0":
+        "Подтверждены договорные победы или мультиаккаунт: репутация не выше 0",
+    "Adjusted by a reviewer": "Изменено проверяющим",
+    "points returned": "очки возвращены",
+    "daily limit of {count} reached": "дневной лимит {count} исчерпан",
+    "Account age (+1 a week, up to {max})": "Возраст аккаунта (+1 в неделю, до {max})",
+    "Verified email": "Подтверждённая почта",
+    "Google sign-in": "Вход через Google",
+    "A linked wallet with 90+ days of on-chain history": "Привязанный кошелёк с историей в сети 90+ дней",
+    "Below {n}, wagers, prediction bets and arena chat are closed. Finished ranked matches raise your Reputation.":
+        "Ниже {n} ставки, прогнозы и чат арены закрыты. Доигранные рейтинговые матчи повышают репутацию.",
+    "Below {n}, wagers, prediction bets and arena chat will close once these limits start.":
+        "Ниже {n} ставки, прогнозы и чат арены закроются, когда эти ограничения начнут действовать.",
+    "Ranked locked · {time}": "Рейтинг заблокирован · {time}",
+    "RANKED LOCKED": "РЕЙТИНГ ЗАБЛОКИРОВАН",
+    "Ranked locked": "Рейтинг заблокирован",
+    "vs AI, sandbox and casual lobbies stay open.": "Матчи против ИИ, песочница и обычные лобби остаются доступными.",
+    "24 hours": "24 часа",
+    "7 days": "7 дней",
+    "30 days": "30 дней",
+    "You abandoned {count} ranked matches in a row.": "Вы вышли из {count} рейтинговых матчей подряд.",
+    "You abandoned {count} of your recent ranked matches.": "Вы вышли из {count} недавних рейтинговых матчей.",
+    "You abandoned a ranked match within 30 days of a 7-day lock.":
+        "Вы вышли из рейтингового матча в течение 30 дней после 7-дневной блокировки.",
+    "Your ranked suspension for leaving matches is now a timed lock.":
+        "Ваша приостановка рейтинговой игры за выходы из матчей стала блокировкой на срок.",
+    "left the draft": "выход на драфте",
+    "left during placement": "выход во время расстановки",
+    "left at {pct}% casualties, lap {lap}": "выход при потерях {pct}%, круг {lap}",
+    "vs {opponent} on {date}": "против {opponent}, {date}",
+    "We got your appeal. A person will review it and reply in your notifications.":
+        "Мы получили вашу апелляцию. Её проверит человек, ответ придёт в уведомления.",
+    "Your appeal was reviewed and the lock stays.": "Апелляция рассмотрена, блокировка остаётся.",
+    "Your appeal was reviewed and we found no reason to lift the lock.":
+        "Апелляция рассмотрена: оснований снять блокировку нет.",
+    "Your appeal was accepted.": "Апелляция принята.",
+    "Reviewer's note: {note}": "Комментарий проверяющего: {note}",
+    "Appeals are paused on this account until {date}.": "Апелляции для этого аккаунта приостановлены до {date}.",
+    "Something went wrong? Tell us what happened.": "Что-то пошло не так? Расскажите, что случилось.",
+    "At least {min} characters. One message per lock; we reply in your notifications.":
+        "Не меньше {min} символов. Одно сообщение на блокировку, ответ придёт в уведомления.",
+    "{count} / {max} characters": "{count} / {max} символов",
+    "Send for review": "Отправить на проверку",
+    "Couldn't send your appeal. Please try again.": "Не удалось отправить апелляцию. Попробуйте ещё раз.",
+    "Ranked locked for {length}. {cause} vs AI, sandbox and casual lobbies stay open. Something went wrong? Send an appeal from the Ranked Arena.":
+        "Рейтинговая игра заблокирована на {length}. {cause} Матчи против ИИ, песочница и обычные лобби остаются доступными. Что-то пошло не так? Отправьте апелляцию на странице рейтинговой арены.",
+    "Your appeal was reviewed and your ranked lock is lifted. The abandons stay on your record.":
+        "Апелляция рассмотрена, блокировка рейтинговой игры снята. Выходы из матчей остаются в вашей истории.",
+    "Your appeal was reviewed: your ranked lock is lifted and those abandons no longer count.":
+        "Апелляция рассмотрена: блокировка рейтинговой игры снята, и эти выходы больше не засчитываются.",
+    "Your appeal was reviewed and your ranked lock stays.":
+        "Апелляция рассмотрена, блокировка рейтинговой игры остаётся.",
+    "Your appeal was reviewed and we found no reason to lift your ranked lock.":
+        "Апелляция рассмотрена: оснований снять блокировку рейтинговой игры нет.",
+    "2 abandons in a row lock ranked for 24 hours, 3 in a row for 7 days":
+        "2 выхода подряд блокируют рейтинговую игру на 24 часа, 3 подряд — на 7 дней",
+    "2 abandons in a row lock ranked for 24 hours, 3 in a row for 7 days. You can appeal a lock.":
+        "2 выхода подряд блокируют рейтинговую игру на 24 часа, 3 подряд — на 7 дней. Блокировку можно обжаловать.",
+    "Before that, or during the draft or placement, leaving is an Abandon: a loss, and a 5-minute wait before you can queue ranked again.":
+        "До этого, а также во время драфта или расстановки, это выход из матча: поражение и 5 минут ожидания до следующего рейтингового поиска.",
+    "Ranked locks": "Блокировки рейтинговой игры",
+    "Ranked locks apply from {date}: until then, the rule above applies.":
+        "Блокировки рейтинговой игры действуют с {date}: до этого действует правило выше.",
+    "Ranked locks start soon: until then, the rule above applies.":
+        "Блокировки рейтинговой игры скоро вступят в силу: до этого действует правило выше.",
+    "2 abandons in a row lock ranked for 24 hours; 3 in a row lock it for 7 days. A finished match or a Concede resets the count.":
+        "2 выхода подряд блокируют рейтинговую игру на 24 часа, 3 подряд — на 7 дней. Доигранный матч или сдача обнуляют счёт.",
+    "Abandoning often counts too: 3 abandons in your last 10 ranked matches lock ranked for 24 hours, and 5 in your last 20 lock it for 7 days.":
+        "Частые выходы тоже учитываются: 3 выхода за последние 10 рейтинговых матчей блокируют рейтинговую игру на 24 часа, 5 за последние 20 — на 7 дней.",
+    "An abandon within 30 days after a 7-day lock ends locks ranked for 30 days. Abandons stop counting after 30 days without one.":
+        "Выход из матча в течение 30 дней после окончания 7-дневной блокировки блокирует рейтинговую игру на 30 дней. Выходы перестают учитываться после 30 дней без них.",
+    "A lock also closes wagers and prediction bets. vs AI, sandbox and casual lobbies stay open.":
+        "Блокировка также закрывает ставки и прогнозы. Матчи против ИИ, песочница и обычные лобби остаются доступными.",
+    "If a lock was a mistake, send one written appeal from the Ranked Arena. A person reviews it and can lift the lock early.":
+        "Если блокировка ошибочна, отправьте одну письменную апелляцию на странице рейтинговой арены. Её проверит человек, который может снять блокировку досрочно.",
+    "RANKED COOLDOWN": "ПАУЗА РЕЙТИНГА",
+    "Ranked search reopens in {time}": "Рейтинговый поиск откроется через {time}",
+    "You abandoned your last ranked match. Casual lobbies and vs-AI games are open.":
+        "Вы вышли из последнего рейтингового матча. Обычные лобби и игры против ИИ доступны.",
+    "Search again in {time}": "Поиск снова через {time}",
+    "You abandoned your last ranked match. You can search again in {time}.":
+        "Вы вышли из последнего рейтингового матча. Искать снова можно через {time}.",
+    "Couldn't save that. Please try again.": "Не удалось сохранить. Попробуйте ещё раз.",
+    "Opponent abandoned": "Соперник покинул матч",
+    "You abandoned": "Вы покинули матч",
+    "Opponent conceded": "Соперник сдался",
+    "You conceded": "Вы сдались",
+    "The draft has ended": "Драфт завершён",
+    "The match ended before the fight.": "Матч закончился до боя.",
+    "The match ended before the fight. Checking how it counts…": "Матч закончился до боя. Проверяем, как он засчитан…",
+    "Back to the arena": "Назад на арену",
+    "Time ran out — we auto-picked for you.": "Время вышло — мы выбрали за вас.",
+    "{count} auto-picks in one ranked draft end the match as your abandon.":
+        "{count} автовыбора в одном рейтинговом драфте засчитываются как ваш выход из матча.",
+    "You abandoned at {pct}% casualties": "Вы покинули матч при потерях {pct}%",
+    "Opponent abandoned at {pct}% casualties": "Соперник покинул матч при потерях {pct}%",
+    "You conceded at {pct}% casualties": "Вы сдались при потерях {pct}%",
+    "Opponent conceded at {pct}% casualties": "Соперник сдался при потерях {pct}%",
+    "You left at {pct}% casualties, so the match is unscored":
+        "Вы вышли при потерях {pct}%, поэтому матч без результата",
+    "Your opponent left at {pct}% casualties, so the match is unscored":
+        "Соперник вышел при потерях {pct}%, поэтому матч без результата",
+    Unscored: "Без результата",
+    Voided: "Аннулирован",
+    "Server problem, match voided": "Проблема сервера, матч аннулирован",
+    "An early exit left this match unscored": "Ранний выход оставил матч без результата",
+    "Didn't count toward calibration — the opponent abandoned": "Не засчитан в калибровку — соперник покинул матч",
+    "Didn't count — an early exit left the match unscored": "Не засчитан — ранний выход оставил матч без результата",
+    "Didn't count — the match was voided": "Не засчитан — матч аннулирован",
 };

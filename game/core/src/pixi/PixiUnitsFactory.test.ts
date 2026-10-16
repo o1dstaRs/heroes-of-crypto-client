@@ -64,11 +64,82 @@ const FINAL_BATTLEFIELD_CREATURES = [
     ["Frenzied Boar", "frenzied_boar", 2, 2],
 ] as const;
 
+const DISTANCE_READABLE_CREATURES = new Set<string>([
+    "blacksmith",
+    "squire",
+    "peasant",
+    "arbalester",
+    "pikeman",
+    "valkyrie",
+    "healer",
+    "battle_mage",
+    "crusader",
+    "griffin",
+    "monk",
+    "tsar_cannon",
+    "angel",
+    "champion",
+    "scavenger",
+    "fairy",
+    "dryad",
+    "wolf",
+    "leprechaun",
+    "white_tiger",
+    "elf",
+    "satyr",
+    "trent",
+    "unicorn",
+    "mantis",
+    "pegasus",
+    "efreet",
+    "goblin_knight",
+    "nightmare",
+    "wandering_mage",
+    "troglodyte",
+    "centaur",
+    "mermaid",
+    "berserker",
+    "wolf_rider",
+    "magic_dragon",
+    "gargantuan",
+    "arachna_queen",
+    "black_dragon",
+    "hydra",
+    "abomination",
+    "ogre_mage",
+    "cyclops",
+    "zena",
+]);
+
+const DISTANCE_READABLE_V2_CREATURES = new Set<string>([
+    "valkyrie",
+    "healer",
+    "leprechaun",
+    "elf",
+    "satyr",
+    "trent",
+    "hydra",
+    "arachna_queen",
+    "tsar_cannon",
+    "angel",
+    "champion",
+]);
+
+const DISTANCE_READABLE_V3_CREATURES = new Set<string>(["goblin_knight"]);
+
+const DISTANCE_READABLE_V4_CREATURES = new Set<string>();
+
+const DISTANCE_READABLE_V5_CREATURES = new Set<string>(["zena", "black_dragon"]);
+
+const DISTANCE_READABLE_V6_CREATURES = new Set<string>(["nightmare"]);
+
 test("uses every approved final figure only for battlefield textures", () => {
     expect(FINAL_BATTLEFIELD_CREATURES).toHaveLength(57);
 
     for (const [name, slug, width, height] of FINAL_BATTLEFIELD_CREATURES) {
-        const texture = `${slug}_battlefield_side_right_final_v1`;
+        const texture = `${slug}_battlefield_side_right_${
+            DISTANCE_READABLE_CREATURES.has(slug) ? "distance_readable" : "final"
+        }_${DISTANCE_READABLE_V6_CREATURES.has(slug) ? "v6" : DISTANCE_READABLE_V5_CREATURES.has(slug) ? "v5" : DISTANCE_READABLE_V4_CREATURES.has(slug) ? "v4" : DISTANCE_READABLE_V3_CREATURES.has(slug) ? "v3" : DISTANCE_READABLE_V2_CREATURES.has(slug) ? "v2" : "v1"}`;
         expect(staticBattlefieldTextureNameForUnit(name, width, height)).toBe(texture);
         expect(unitToTextureName(name, TextureType.SMALL, width, height)).toBe(texture);
         expect(texture in images).toBe(true);
@@ -89,8 +160,53 @@ test("keeps card and sidebar portraits unchanged", () => {
     }
 });
 
+test("uses the reviewed distance-readable restyles for the screenshot battlefield units", () => {
+    for (const [name, slug, footprint, version] of [
+        ["Arachna Queen", "arachna_queen", 2, "v2"],
+        ["Gargantuan", "gargantuan", 2, "v1"],
+        ["Magic Dragon", "magic_dragon", 2, "v1"],
+    ] as const) {
+        expect(staticBattlefieldTextureNameForUnit(name, footprint, footprint)).toBe(
+            `${slug}_battlefield_side_right_distance_readable_${version}`,
+        );
+        expect(unitToTextureName(name, TextureType.LARGE, footprint, footprint)).toBe(`${slug}_512`);
+    }
+    expect(staticBattlefieldTextureNameForUnit("Arachna Spider", 1, 1)).toBe(
+        "arachna_spider_battlefield_side_right_final_v1",
+    );
+});
+
+test("uses the new Black Dragon, Hydra, and Abomination only on the battlefield", () => {
+    for (const [name, slug, version] of [
+        ["Black Dragon", "black_dragon", "v5"],
+        ["Hydra", "hydra", "v2"],
+        ["Abomination", "abomination", "v1"],
+    ] as const) {
+        expect(staticBattlefieldTextureNameForUnit(name, 2, 2)).toBe(
+            `${slug}_battlefield_side_right_distance_readable_${version}`,
+        );
+        expect(unitToTextureName(name, TextureType.SMALL, 2, 2)).toBe(
+            `${slug}_battlefield_side_right_distance_readable_${version}`,
+        );
+        expect(unitToTextureName(name, TextureType.LARGE, 2, 2)).toBe(`${slug}_512`);
+    }
+});
+
+test("uses the distance-readable restyles for Angel, Champion and Tsar Cannon", () => {
+    for (const [name, slug, version] of [
+        ["Angel", "angel", "v2"],
+        ["Champion", "champion", "v2"],
+        ["Tsar Cannon", "tsar_cannon", "v2"],
+    ] as const) {
+        expect(staticBattlefieldTextureNameForUnit(name, 2, 2)).toBe(
+            `${slug}_battlefield_side_right_distance_readable_${version}`,
+        );
+        expect(unitToTextureName(name, TextureType.LARGE, 2, 2)).toBe(`${slug}_512`);
+    }
+});
+
 test("keeps the final figure independent from the logical footprint", () => {
-    const texture = "griffin_battlefield_side_right_final_v1";
+    const texture = "griffin_battlefield_side_right_distance_readable_v1";
     expect(unitToTextureName("Griffin", TextureType.SMALL, 1, 1)).toBe(texture);
     expect(unitToTextureName("Griffin", TextureType.SMALL, 2, 1)).toBe(texture);
     expect(unitToTextureName("Griffin", TextureType.SMALL, 2, 2)).toBe(texture);

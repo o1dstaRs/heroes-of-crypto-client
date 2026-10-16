@@ -1,0 +1,20 @@
+{
+  "description": "Approved Champion left portrait, Peasant sidebar animation and shared battlefield idle",
+  "files": [
+    {
+      "file": "champion_left_screen_x2.webp",
+      "sha256": "960dbe069a7f9d7ae144389f7a99a1abe8b715a3a1d524f54a6327079778790f",
+      "bytes": 469656
+    },
+    {
+      "file": "peasant_idle_red_atlas_quarter.webp",
+      "sha256": "e2bb771c8e530dce4a74a2598fb04caec5c6004e22fa697d4540ff7eb50cbd7e",
+      "bytes": 127742
+    },
+    {
+      "file": "peasant_left_screen_idle_atlas.webp",
+      "sha256": "4e87ae92489b083fb0ee4cdc52b6d4e8914bb09c989f4eac3779d45ff4209af7",
+      "bytes": 3949146
+    }
+  ]
+}

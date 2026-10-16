@@ -292,63 +292,6 @@ const FightControlToggler: React.FC<{ scrollRailInsetPx: number }> = ({ scrollRa
                         defaultExpanded={false}
                         deferChildrenUntilExpanded
                         renderToggle={({ open, setOpen }) => {
-                            setOpenRefs.current.red = setOpen;
-                            return (
-                                <ListItemButton
-                                    onClick={() => {
-                                        if (!open) {
-                                            closeAllExcept("red");
-                                        }
-                                        setOpen(!open);
-                                    }}
-                                    sx={{
-                                        ...hocSidebarSectionHeaderSx,
-                                        px: 1.25,
-                                        columnGap: "6px",
-                                        backgroundColor: "transparent",
-                                        transform: open ? "scale(1.012)" : "scale(1)",
-                                    }}
-                                >
-                                    <Box
-                                        component="img"
-                                        src={images.flag_red_icon}
-                                        sx={{
-                                            ...teamFlagSx,
-                                            filter: "saturate(1.38) brightness(1.28) contrast(1.06)",
-                                            // The flag IS the team colour — it is what tells Reds from Greens at a
-                                            // glance. Graying it while the section is closed (which the Army and
-                                            // Board icons do, where colour carries nothing) left both sections
-                                            // reading as the same slate flag. Only the dimming is kept.
-                                            opacity: open ? 1 : teamFlagSx.opacity,
-                                        }}
-                                    />
-                                    <ListItemContent sx={teamTitleSlotSx}>
-                                        <Typography
-                                            level="title-sm"
-                                            sx={{ ...sectionTitleSx, color: open ? "#dc9a78" : sectionTitleSx.color }}
-                                        >
-                                            Red
-                                        </Typography>
-                                    </ListItemContent>
-                                    <Box component="img" src={images.tr_up} sx={chevronSx(open)} />
-                                </ListItemButton>
-                            );
-                        }}
-                    >
-                        <List>
-                            <Box sx={expandedTeamSynergyRowSx}>
-                                <SynergySlots teamType={TeamVals.RIGHT} size="clamp(22px, 1.75vw, 34px)" />
-                            </Box>
-                            <SandboxToggleContainer side="red" teamType={TeamVals.RIGHT} />
-                        </List>
-                    </Toggler>
-                </Box>
-
-                <Box sx={hocSidebarSectionSx("team")}>
-                    <Toggler
-                        defaultExpanded={false}
-                        deferChildrenUntilExpanded
-                        renderToggle={({ open, setOpen }) => {
                             setOpenRefs.current.green = setOpen;
                             return (
                                 <ListItemButton
@@ -397,6 +340,63 @@ const FightControlToggler: React.FC<{ scrollRailInsetPx: number }> = ({ scrollRa
                                 <SynergySlots teamType={TeamVals.LEFT} size="clamp(22px, 1.75vw, 34px)" />
                             </Box>
                             <SandboxToggleContainer side="green" teamType={TeamVals.LEFT} />
+                        </List>
+                    </Toggler>
+                </Box>
+
+                <Box sx={hocSidebarSectionSx("team")}>
+                    <Toggler
+                        defaultExpanded={false}
+                        deferChildrenUntilExpanded
+                        renderToggle={({ open, setOpen }) => {
+                            setOpenRefs.current.red = setOpen;
+                            return (
+                                <ListItemButton
+                                    onClick={() => {
+                                        if (!open) {
+                                            closeAllExcept("red");
+                                        }
+                                        setOpen(!open);
+                                    }}
+                                    sx={{
+                                        ...hocSidebarSectionHeaderSx,
+                                        px: 1.25,
+                                        columnGap: "6px",
+                                        backgroundColor: "transparent",
+                                        transform: open ? "scale(1.012)" : "scale(1)",
+                                    }}
+                                >
+                                    <Box
+                                        component="img"
+                                        src={images.flag_red_icon}
+                                        sx={{
+                                            ...teamFlagSx,
+                                            filter: "saturate(1.38) brightness(1.28) contrast(1.06)",
+                                            // The flag IS the team colour — it is what tells Reds from Greens at a
+                                            // glance. Graying it while the section is closed (which the Army and
+                                            // Board icons do, where colour carries nothing) left both sections
+                                            // reading as the same slate flag. Only the dimming is kept.
+                                            opacity: open ? 1 : teamFlagSx.opacity,
+                                        }}
+                                    />
+                                    <ListItemContent sx={teamTitleSlotSx}>
+                                        <Typography
+                                            level="title-sm"
+                                            sx={{ ...sectionTitleSx, color: open ? "#dc9a78" : sectionTitleSx.color }}
+                                        >
+                                            Red
+                                        </Typography>
+                                    </ListItemContent>
+                                    <Box component="img" src={images.tr_up} sx={chevronSx(open)} />
+                                </ListItemButton>
+                            );
+                        }}
+                    >
+                        <List>
+                            <Box sx={expandedTeamSynergyRowSx}>
+                                <SynergySlots teamType={TeamVals.RIGHT} size="clamp(22px, 1.75vw, 34px)" />
+                            </Box>
+                            <SandboxToggleContainer side="red" teamType={TeamVals.RIGHT} />
                         </List>
                     </Toggler>
                 </Box>

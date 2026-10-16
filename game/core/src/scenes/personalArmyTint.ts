@@ -72,6 +72,16 @@ const resolveTintState = (
 export const CAN_RENDER_FLAG_GRADIENT =
     typeof document !== "undefined" && document.createElement("canvas").getContext("2d") !== null;
 
+/**
+ * Which seat the personal tint follows for this game, or undefined to keep the canonical team colours.
+ *
+ * A co-op sandbox is a shared practice board rather than a match: one player usually clashes both armies
+ * without inviting anybody, and painting "the opponent" red then recolours a side that belongs to the same
+ * person. Sandboxes therefore read green against red, exactly as replays and observers do (owner 2026-09-18).
+ */
+export const personalArmyTintSeat = (viewerTeam: TeamType | undefined, sandboxCoop: boolean): TeamType | undefined =>
+    sandboxCoop ? undefined : viewerTeam;
+
 export const setPersonalArmyTint = (viewerTeam: TeamType | undefined, live: boolean): void => {
     state = resolveTintState(viewerTeam, readPlayerArmyColorId(), live);
 };

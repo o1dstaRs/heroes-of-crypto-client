@@ -24,8 +24,10 @@ import {
 } from "@heroesofcrypto/common";
 
 import type { AuthoritativeGameSnapshot, AuthoritativeUnitState } from "../game_action_transport";
+import { PlayTransientCellKind } from "../api/play_protocol";
 import {
     authoritativeSnapshotToSandboxSceneState,
+    canMoveRankedArtifactBarrel,
     planScatteredMountainSync,
     applyRankedUnitMechanicalEffects,
     applyRankedUnitSnapshotStats,
@@ -33,7 +35,10 @@ import {
     rankedUnitMechanicsMatch,
     rankedUnitAliveHealth,
     rankedSecondarySceneLogLines,
+    rankedBlastDamageSceneLogLines,
+    rankedPerVictimSpellHeadline,
     rankedSpellPrimaryDamageSummary,
+    spellReportsDamagePerVictim,
     rankedSystemMoveSceneLogLine,
     rankedUnitStartAmount,
     rankedUnitStartHealth,
@@ -92,6 +97,68 @@ const placementSnapshot = (units: AuthoritativeUnitState[]): AuthoritativeGameSn
     centerDried: false,
     units,
     upNext: [],
+});
+
+describe("ranked barrel placement permissions", () => {
+    test("allows only the viewer's editable board placement, including legacy placement", () => {
+        const snapshot = placementSnapshot([]);
+        expect(canMoveRankedArtifactBarrel(snapshot, TeamVals.LEFT)).toBe(true);
+        expect(canMoveRankedArtifactBarrel(snapshot, TeamVals.RIGHT)).toBe(false);
+        expect(canMoveRankedArtifactBarrel({ ...snapshot, viewerTeam: undefined }, TeamVals.LEFT)).toBe(false);
+        expect(canMoveRankedArtifactBarrel({ ...snapshot, viewerPlacementReady: true }, TeamVals.LEFT)).toBe(false);
+        expect(
+            canMoveRankedArtifactBarrel({ ...snapshot, placementSplit: true, placementStage: 0 }, TeamVals.LEFT),
+        ).toBe(false);
+        expect(
+            canMoveRankedArtifactBarrel({ ...snapshot, placementSplit: true, placementStage: 1 }, TeamVals.LEFT),
+        ).toBe(true);
+        expect(canMoveRankedArtifactBarrel({ ...snapshot, phase: 2 }, TeamVals.LEFT)).toBe(false);
+        expect(canMoveRankedArtifactBarrel({ ...snapshot, fightStarted: true }, TeamVals.LEFT)).toBe(false);
+        expect(canMoveRankedArtifactBarrel({ ...snapshot, fightFinished: true }, TeamVals.LEFT)).toBe(false);
+    });
+});
+
+describe("ranked smoke hydration", () => {
+    for (const team of [TeamVals.LEFT, TeamVals.RIGHT]) {
+        test(`team ${team}: reconnect and replay states exclude smoke under the whole placed footprint`, () => {
+            const cells = GridMath.getFootprintCellsForAnchor({ x: 6, y: 6 }, 2, 2);
+            const neighbor = { x: 7, y: 7 };
+            const snapshot: AuthoritativeGameSnapshot = {
+                ...placementSnapshot([
+                    unitState({
+                        name: "Angel",
+                        creatureId: CreatureVals.ANGEL,
+                        team,
+                        placed: true,
+                        size: 2,
+                        footprintWidth: 2,
+                        footprintHeight: 2,
+                        baseCell: { x: 6, y: 6 },
+                        cells,
+                    }),
+                ]),
+                fightStarted: true,
+                transientCellsCount: cells.length + 3,
+                transientCells: [
+                    ...[...cells, neighbor].map((cell) => ({
+                        kind: PlayTransientCellKind.SMOKE,
+                        ...cell,
+                        lapsRemaining: 3,
+                        team: 0,
+                    })),
+                    { kind: PlayTransientCellKind.VINE, ...cells[0], lapsRemaining: 2, team },
+                    { kind: PlayTransientCellKind.FIRE_WALL, ...cells[0], lapsRemaining: 2, team: 0 },
+                ],
+            };
+            const before = JSON.stringify(snapshot);
+            expect(authoritativeSnapshotToSandboxSceneState(snapshot).terrainCells).toEqual([
+                { kind: "smoke", ...neighbor, lapsRemaining: 3, team: 0 },
+                { kind: "vine", ...cells[0], lapsRemaining: 2, team },
+                { kind: "fire_wall", ...cells[0], lapsRemaining: 2, team: 0 },
+            ]);
+            expect(JSON.stringify(snapshot)).toBe(before);
+        });
+    }
 });
 
 describe("ranked rectangular footprints", () => {
@@ -780,10 +847,10 @@ describe("ranked placement scene state", () => {
         expect(descriptionFor(6, 4)).not.toContain("{}");
     });
 
-    test("prints Magic Reflection's stack-scaled chance, not the config's full-stack 75", () => {
+    test("prints Magic Reflection's stack-scaled share, not the config's full-stack 75", () => {
         // The card is built from static config, which only knows the FULL-stack figure. A depleted or
-        // unlucky dragon rebounds at a different rate, and the card has to say so -- it advertised a flat
-        // 75% while the engine rolled 30%.
+        // unlucky dragon returns a different share, and the card has to say so -- it advertised a flat
+        // 75% while the engine charged the caster 30%.
         const descriptionFor = (stackPower: number, luck: number): string => {
             const state = authoritativeSnapshotToSandboxSceneState(
                 placementSnapshot([
@@ -803,11 +870,11 @@ describe("ranked placement scene state", () => {
             return properties?.abilities_descriptions[index] ?? "";
         };
 
-        expect(descriptionFor(1, 0)).toContain("15% of the time");
-        expect(descriptionFor(3, 0)).toContain("45% of the time");
-        expect(descriptionFor(5, 0)).toContain("75% of the time");
-        expect(descriptionFor(5, 10)).toContain("85% of the time");
-        expect(descriptionFor(2, 5)).toContain("35% of the time");
+        expect(descriptionFor(1, 0)).toContain("caster takes 15%");
+        expect(descriptionFor(3, 0)).toContain("caster takes 45%");
+        expect(descriptionFor(5, 0)).toContain("caster takes 75%");
+        expect(descriptionFor(5, 10)).toContain("caster takes 85%");
+        expect(descriptionFor(2, 5)).toContain("caster takes 35%");
     });
 
     test("prints Chakram's live total-target limit for native and stolen cards", () => {
@@ -1180,6 +1247,38 @@ describe("ranked placement scene state", () => {
         expect(liveUnit.getUnitProperties().applied_debuffs_descriptions).toEqual([
             "Base armor permanently reduced by {}.;1.2;",
         ]);
+    });
+
+    test("preserves Amulet resistance when ranked and replay buffs are hydrated as display state", () => {
+        const properties = authoritativeSnapshotToSandboxSceneState({
+            ...placementSnapshot([
+                unitState({
+                    buffs: ["Amulet of Resolve"],
+                    buffLaps: [15],
+                    buffDescriptions: ["Artifact. Increases status and mind resistance by 25%.;25;"],
+                }),
+            ]),
+            fightStarted: true,
+        }).units[0]!.properties;
+        const effectFactory = new EffectFactory();
+        const unit = RenderableUnit.fromBase(
+            Unit.createUnit(
+                properties,
+                new GridSettings(16, 1600, 0, 1600, 0, 0, 0),
+                TeamVals.LEFT,
+                UnitVals.CREATURE,
+                new AbilityFactory(effectFactory),
+                effectFactory,
+                false,
+            ),
+            undefined as never,
+        );
+
+        expect(unit.getBuff("Amulet of Resolve")).toBeUndefined();
+        expect(properties.applied_buffs_powers).toEqual([0]);
+        expect(unit.getStatusResist()).toBe(25);
+        expect(unit.getMindResist()).toBe(25);
+        expect(unit.getPhysicalAoeDamageMultiplier()).toBe(0.75);
     });
 
     test("syncs authoritative rune attack and armor modifiers without rebuilding the ranked unit", () => {
@@ -1619,8 +1718,8 @@ describe("ranked multi-hit scene log", () => {
         expect(multiHitSceneLogLines(undefined, "Peasant", "Orc", "⚔️", "🟢")).toEqual([]);
     });
 
-    test("skips a strike that neither damaged nor killed (a whiffed second punch)", () => {
-        const secondWhiffed = {
+    test("logs a landed second punch even when it deals zero damage", () => {
+        const secondAbsorbed = {
             amount: 7,
             hits: [
                 { amount: 7, unitsDied: 0 },
@@ -1628,8 +1727,54 @@ describe("ranked multi-hit scene log", () => {
             ],
         } as never;
 
-        expect(multiHitSceneLogLines(secondWhiffed, "Berserker", "Peasant", "⚔️", "🟢")).toEqual([
+        expect(multiHitSceneLogLines(secondAbsorbed, "Berserker", "Peasant", "⚔️", "🟢")).toEqual([
             "🟢 Berserker ⚔️ Peasant (7)",
+            "🟢 Berserker ⚔️ Peasant (0)",
+        ]);
+    });
+
+    test("logs both punches when Flesh Shield absorbs all primary damage", () => {
+        const attack: Extract<GameEvent, { type: "unit_attacked" }> = {
+            type: "unit_attacked",
+            attackType: "melee",
+            attackerId: "berserker",
+            targetId: "leprechaun",
+            unitIdsDied: [],
+            animations: [],
+            damage: {
+                amount: 0,
+                render: true,
+                unitId: "leprechaun",
+                unitPosition: { x: 2, y: 3 },
+                unitIsSmall: true,
+                hits: [
+                    { amount: 0, unitsDied: 0 },
+                    { amount: 0, unitsDied: 0 },
+                ],
+                secondary: [
+                    {
+                        source: "flesh_shield",
+                        unitId: "abomination",
+                        position: { x: 2, y: 1 },
+                        amount: 239,
+                        unitsDied: 0,
+                    },
+                ],
+            },
+        };
+        const unitNames = new Map([
+            ["berserker", "Berserker"],
+            ["leprechaun", "Leprechaun"],
+            ["abomination", "Abomination"],
+        ]);
+
+        expect([
+            ...multiHitSceneLogLines(attack.damage, "Berserker", "Leprechaun", "⚔️", "🔴"),
+            ...rankedSecondarySceneLogLines(attack, unitNames, () => "🟢"),
+        ]).toEqual([
+            "🔴 Berserker ⚔️ Leprechaun (0)",
+            "🔴 Berserker ⚔️ Leprechaun (0)",
+            "🟢 Abomination absorbed (239) with Flesh Shield",
         ]);
     });
 });
@@ -1715,6 +1860,38 @@ describe("ranked spell secondary-damage scene log", () => {
         ]);
         expect(rankedSecondarySceneLogLines(attackEvent, shieldNames, () => "🔴")).toEqual([
             "🔴 Mermaid's Water Shield absorbs Orc's hit and breaks",
+        ]);
+    });
+
+    test("a Lightning Spin off a barrel strike logs each enemy it caught", () => {
+        // The spin's unit hits ride the first obstacle_attacked of the action — a barrel has no attack payload.
+        const obstacleEvent = {
+            type: "obstacle_attacked",
+            attackerId: "hydra",
+            targetPosition: { x: -64, y: 256 },
+            hitsBefore: 6,
+            hitsAfter: 6,
+            animations: [],
+            unitIdsDied: ["goblin"],
+            damage: {
+                amount: 0,
+                render: false,
+                unitPosition: { x: 0, y: 0 },
+                unitIsSmall: true,
+                secondary: [
+                    { source: "lightning_spin", unitId: "goblin", position: { x: 1, y: 2 }, amount: 30, unitsDied: 3 },
+                    { source: "lightning_spin", unitId: "orc", position: { x: 3, y: 2 }, amount: 25, unitsDied: 0 },
+                ],
+            },
+        } as unknown as GameEvent;
+        const spinNames = new Map([
+            ["hydra", "Hydra"],
+            ["goblin", "Goblin"],
+            ["orc", "Orc"],
+        ]);
+        expect(rankedSecondarySceneLogLines(obstacleEvent, spinNames, () => "🟢")).toEqual([
+            "🟢 Goblin hit 30 by Lightning Spin 💀 3",
+            "🟢 Orc hit 25 by Lightning Spin",
         ]);
     });
 });
@@ -1859,12 +2036,11 @@ describe("ranked ability-transfer scene log", () => {
 
 // Ranked and the sandbox build a cemetery through the SAME seeded generator, so the count is derived on
 // both sides rather than restated on either. Sandbox.ts used to keep a Math.random() twin of that
-// generator, which meant a ranked-side change left static games scattering the old number. The count is
-// the owner's fixed twelve (2026-08-28); the range plumbing survives so restoring variety is one
-// constant.
+// generator, which meant a ranked-side change left static games scattering the old number. Ranked rolls
+// 9-12 from the game id.
 describe("cemetery barrel count", () => {
     test("every board rolls a count inside the range, and derives exactly that many stones", () => {
-        expect(SCATTERED_MOUNTAIN_MIN_COUNT).toBe(12);
+        expect(SCATTERED_MOUNTAIN_MIN_COUNT).toBe(9);
         expect(SCATTERED_MOUNTAIN_MAX_COUNT).toBe(12);
         for (let i = 0; i < 200; i++) {
             const gameId = `cemetery-game-${i}`;
@@ -1875,12 +2051,12 @@ describe("cemetery barrel count", () => {
         }
     });
 
-    test("every ranked board carries the same twelve barrels", () => {
+    test("ranked boards roll every count from 9 through 12", () => {
         const seen = new Set<number>();
-        for (let i = 0; i < 200; i++) {
+        for (let i = 0; i < 400; i++) {
             seen.add(scatteredMountainCountForSeed(`ranked-spread-${i}`));
         }
-        expect([...seen]).toEqual([12]);
+        expect([...seen].sort((a, b) => a - b)).toEqual([9, 10, 11, 12]);
     });
 
     test("even the largest roll fits the neutral band with room to spare", () => {
@@ -1982,5 +2158,189 @@ describe("planScatteredMountainSync", () => {
         const plan = planScatteredMountainSync(gameId, undefined, 0);
         expect(plan?.standing).toEqual([]);
         expect(plan?.destroyed).toHaveLength(layout.length);
+    });
+});
+
+/**
+ * A replay does NOT take the live snapshot path (applyAuthoritativeSnapshot, which syncs these flags onto
+ * the units it finds): it converts each snapshot into a scene state and hydrates it, rebuilding every unit
+ * from scratch. Anything the scene state drops is therefore invisible for the whole replayed fight — which
+ * is what happened to the stun badge (Stun/Blindness are effects, and effects are not on the wire) and to
+ * the Up Next order (frozen at the fight's opening queue, so its markers never lit either).
+ */
+describe("replay carries the turn-status state the icons are drawn from", () => {
+    const fightSnapshot = (units: AuthoritativeUnitState[], upNext: string[] = []): AuthoritativeGameSnapshot => ({
+        ...placementSnapshot(units),
+        phase: 2,
+        fightStarted: true,
+        currentLap: 3,
+        currentUnitId: units[0]?.id ?? "",
+        upNext,
+    });
+
+    test("the waiting unit keeps its hourglass and the stunned unit keeps its stun", () => {
+        const state = authoritativeSnapshotToSandboxSceneState(
+            fightSnapshot([
+                unitState({
+                    id: "waiter",
+                    placed: true,
+                    baseCell: { x: 2, y: 2 },
+                    cells: [{ x: 2, y: 2 }],
+                    onHourglass: true,
+                    hasHourglassed: true,
+                }),
+                unitState({
+                    id: "stunned",
+                    placed: true,
+                    baseCell: { x: 4, y: 2 },
+                    cells: [{ x: 4, y: 2 }],
+                    skipping: true,
+                }),
+            ]),
+        );
+
+        const waiter = state.units.find((unit) => unit.properties.id === "waiter");
+        expect(waiter?.onHourglass).toBe(true);
+        expect(waiter?.hasHourglassed).toBe(true);
+        expect(waiter?.skipping).toBeFalsy();
+
+        const stunned = state.units.find((unit) => unit.properties.id === "stunned");
+        expect(stunned?.skipping).toBe(true);
+        expect(stunned?.onHourglass).toBe(false);
+    });
+
+    test("replay carries owned deployment barrels on every map, including cells outside the neutral band", () => {
+        for (const gridType of [GridVals.NORMAL, GridVals.WATER_CENTER, GridVals.LAVA_CENTER, GridVals.BLOCK_CENTER]) {
+            const barrels = [
+                { team: TeamVals.LEFT, index: 0, cell: { x: 1, y: 2 } },
+                { team: TeamVals.LEFT, index: 1, cell: { x: 4, y: 15 } },
+            ];
+            const state = authoritativeSnapshotToSandboxSceneState({
+                ...fightSnapshot([]),
+                gridType,
+                artifactBarrels: barrels,
+                artifactBarrelsCount: 2,
+                scatteredStandingCells: [18, 79],
+                scatteredStandingCount: 2,
+            });
+            expect(state.artifactBarrels).toEqual(barrels);
+            expect(state.scatteredMountains?.map(({ x, y }) => ({ x, y }))).toEqual(
+                barrels.map((barrel) => barrel.cell),
+            );
+        }
+    });
+
+    test("the turn queue travels with the snapshot, so Up Next follows the replayed moment", () => {
+        const state = authoritativeSnapshotToSandboxSceneState(
+            fightSnapshot(
+                [
+                    unitState({ id: "first", placed: true, baseCell: { x: 1, y: 1 }, cells: [{ x: 1, y: 1 }] }),
+                    unitState({ id: "second", placed: true, baseCell: { x: 3, y: 1 }, cells: [{ x: 3, y: 1 }] }),
+                ],
+                ["second", "first"],
+            ),
+        );
+        expect(state.upNext).toEqual(["second", "first"]);
+    });
+
+    test("a snapshot without a queue leaves the scene state's queue unset rather than empty", () => {
+        const snapshot = fightSnapshot([
+            unitState({ id: "only", placed: true, baseCell: { x: 1, y: 1 }, cells: [{ x: 1, y: 1 }] }),
+        ]);
+        const state = authoritativeSnapshotToSandboxSceneState({ ...snapshot, upNext: undefined });
+        expect(state.upNext).toBeUndefined();
+    });
+});
+
+// A blast prices every victim separately, so the ranked log breaks the damage out per creature rather than
+// reporting one summed number — matching the engine's own sandbox lines (owner report 2026-09-20).
+describe("blast spell damage lines", () => {
+    const blast = (damaged: { unitId: string; amount: number; unitsDied: number; rebounded?: boolean }[]) =>
+        ({
+            type: "spell_cast",
+            casterId: "mage",
+            spellName: "Fireball",
+            targetId: "centaur",
+            unitIdsDied: [],
+            animations: [],
+            damaged: damaged.map((entry) => ({ ...entry, position: { x: 0, y: 0 } })),
+        }) as unknown as GameEvent;
+
+    const names = new Map([
+        ["mage", "Wandering Mage"],
+        ["centaur", "Centaur"],
+        ["peasant", "Peasant"],
+        ["wolf", "Wolf"],
+    ]);
+
+    test("only a blast reports per victim; ordinary casts keep their single line", () => {
+        expect(spellReportsDamagePerVictim("Fireball")).toBe(true);
+        expect(spellReportsDamagePerVictim("Meteor Shower")).toBe(true);
+        expect(spellReportsDamagePerVictim("Fire Strike")).toBe(false);
+        expect(spellReportsDamagePerVictim("Ring of Fire")).toBe(false);
+        expect(spellReportsDamagePerVictim("Meteorite")).toBe(false);
+    });
+
+    test("Meteor Shower names the cast, then each creature and what it took", () => {
+        expect(rankedPerVictimSpellHeadline("Magic Dragon", "Meteor Shower")).toBe("Magic Dragon cast Meteor Shower");
+        expect(rankedPerVictimSpellHeadline("Wandering Mage", "Fireball", "Wolf")).toBe(
+            "Wandering Mage burst a Fireball on Wolf",
+        );
+
+        const shower = {
+            ...(blast([{ unitId: "centaur", amount: 200, unitsDied: 11 }]) as object),
+            spellName: "Meteor Shower",
+            targetId: undefined,
+            damaged: [
+                { unitId: "centaur", amount: 200, unitsDied: 11, position: { x: 0, y: 0 } },
+                { unitId: "wolf", amount: 119, unitsDied: 5, position: { x: 1, y: 0 } },
+            ],
+        } as GameEvent;
+        const lines = rankedBlastDamageSceneLogLines(shower, names);
+
+        expect(lines).toEqual([
+            "Centaur hit for (200) by Meteor Shower 💀11",
+            "Wolf hit for (119) by Meteor Shower 💀5",
+        ]);
+        expect(lines.some((line) => line.includes("319") || line.includes("across"))).toBe(false);
+    });
+
+    test("writes one line per creature with its own damage and kills", () => {
+        const lines = rankedBlastDamageSceneLogLines(
+            blast([
+                { unitId: "centaur", amount: 412, unitsDied: 2 },
+                { unitId: "peasant", amount: 300, unitsDied: 0 },
+                { unitId: "wolf", amount: 272, unitsDied: 0 },
+            ]),
+            names,
+        );
+
+        expect(lines).toEqual([
+            "Centaur burned for (412) by Fireball 💀2",
+            "Peasant burned for (300) by Fireball",
+            "Wolf burned for (272) by Fireball",
+        ]);
+        // The number a player could not act on: nothing reports the sum.
+        expect(lines.some((line) => line.includes("984"))).toBe(false);
+    });
+
+    test("leaves a Magic Mirror rebound to its own follow-up line", () => {
+        const lines = rankedBlastDamageSceneLogLines(
+            blast([
+                { unitId: "centaur", amount: 412, unitsDied: 0 },
+                { unitId: "mage", amount: 90, unitsDied: 0, rebounded: true },
+            ]),
+            names,
+        );
+
+        expect(lines).toEqual(["Centaur burned for (412) by Fireball"]);
+    });
+
+    test("ignores events that are not a per-victim blast", () => {
+        const fireStrike = {
+            ...(blast([{ unitId: "centaur", amount: 10, unitsDied: 0 }]) as object),
+            spellName: "Fire Strike",
+        } as GameEvent;
+        expect(rankedBlastDamageSceneLogLines(fireStrike, names)).toEqual([]);
     });
 });

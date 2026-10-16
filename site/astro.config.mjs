@@ -40,6 +40,8 @@ export default defineConfig({
         "/ru/abilities": "/ru/knowledge-base/#abilities",
         "/ru/spells": "/ru/knowledge-base/#spells",
         "/ru/artifacts": "/ru/knowledge-base/#artifacts",
+        "/token": "/seasons/#token",
+        "/ru/token": "/ru/seasons/#token",
     },
     integrations: [
         sitemap({
