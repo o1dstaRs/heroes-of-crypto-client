@@ -216,7 +216,7 @@ export const FIGHT_EVENT_VFX: Record<GameEvent["type"], FightEventVfx> = {
     pyre_exploded: {
         rendered: true,
         ranked: "journal",
-        note: "a removed Last Fuse stack detonates into fire, smoke, tumbling flesh, blood and sparks. Each damaged enemy gets a directional blood/ember impact, scorch flash, hit reaction and orange damage number. Chain delays also time the hit reactions. Sandbox plays engine events; ranked and replays consume new journal entries once, without replaying reconnect history",
+        note: "an enemy destroyed by a Last Fuse holder detonates into fire, smoke, tumbling flesh, blood and sparks. Each damaged ally of the defeated enemy gets a directional blood/ember impact, scorch flash, hit reaction and orange damage number. Chain delays also time the hit reactions. Sandbox plays engine events; ranked and replays consume new journal entries once, without replaying reconnect history",
     },
     fire_wall_burned: {
         rendered: true,
