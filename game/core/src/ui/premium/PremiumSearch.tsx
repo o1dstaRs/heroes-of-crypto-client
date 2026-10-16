@@ -2,12 +2,23 @@ import { premiumSourceHref } from "./premiumSourceHref";
 import { PremiumAnswer } from "./PremiumAnswer";
 import { PremiumSearchMatchProvider, usePremiumSearchMatch } from "./PremiumSearchMatchContext";
 import { premiumSearchMatchChanged, type PremiumSearchMatchVersion } from "./premiumSearchFreshness";
+import { PremiumSearchPromptContext, type PremiumInspectionFocus } from "./PremiumSearchPromptContext";
+import { premiumQuestions } from "./premiumQuestions";
 import { useAuthContext } from "../auth/context/auth_context";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import { Box, IconButton, Input, Typography } from "@mui/joy";
 import Popper from "@mui/material/Popper";
 import { motion, useReducedMotion } from "framer-motion";
-import React, { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import React, {
+    createContext,
+    useCallback,
+    useContext,
+    useEffect,
+    useId,
+    useLayoutEffect,
+    useRef,
+    useState,
+} from "react";
 import { createPortal } from "react-dom";
 import { useLocation } from "react-router";
 
@@ -21,7 +32,7 @@ import {
     type PremiumSearchMessage,
 } from "../../api/premium_search";
 import type { PremiumEvidence } from "../../api/premium_client";
-import { EvidenceText } from "./PremiumAdvisor";
+import { EvidenceText } from "./PremiumEvidenceText";
 import { PremiumAccessProvider, usePremiumAccess } from "./PremiumAccess";
 import { usePremiumCapability } from "./usePremiumPreference";
 import { hocFontFamily, hocInputSx } from "../hocTheme";
@@ -35,17 +46,33 @@ const DockVisibleContext = createContext(false);
 const SearchVisibleContext = createContext(false);
 const SetSearchVisibleContext = createContext<(visible: boolean) => void>(() => {});
 
+interface PremiumSearchPrompt {
+    question: string;
+    focus?: PremiumInspectionFocus;
+    pathname: string;
+    accountKey?: string;
+}
+
 /** True once Ask Premium has an answer surface. */
 export const usePremiumSearchVisible = (): boolean => useContext(SearchVisibleContext);
 
 /**
- * Search is available from menus, placement, sandbox setup and the bottom-right fight footer.
+ * Search is available from menus, draft, setup, placement and the bottom-right fight footer.
  * The fight's suggested-moves preference controls board drawings independently of chat.
  */
 export const PremiumSearchProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [anchor, setAnchor] = useState<HTMLDivElement | null>(null);
     const [dockAnchor, setDockAnchor] = useState<HTMLDivElement | null>(null);
     const [visible, setVisible] = useState(false);
+    const [prompt, setPrompt] = useState<PremiumSearchPrompt>();
+    const { pathname } = useLocation();
+    const { user } = useAuthContext();
+    const accountKey = user?.email || user?.username;
+    const prefill = useCallback(
+        (question: string, focus?: PremiumInspectionFocus) => setPrompt({ question, focus, pathname, accountKey }),
+        [pathname, accountKey],
+    );
+    useLayoutEffect(() => setPrompt(undefined), [pathname, accountKey, visible]);
     return (
         <PremiumAccessProvider>
             <SetAnchorContext.Provider value={setAnchor}>
@@ -54,8 +81,16 @@ export const PremiumSearchProvider: React.FC<{ children: React.ReactNode }> = ({
                         <PremiumSearchMatchProvider>
                             <SetDockAnchorContext.Provider value={setDockAnchor}>
                                 <DockVisibleContext.Provider value={visible && !anchor}>
-                                    <PremiumSearch anchor={anchor ?? dockAnchor} compact={Boolean(anchor)} />
-                                    {children}
+                                    <PremiumSearchPromptContext.Provider
+                                        value={visible && premiumSearchGameId(pathname) ? prefill : undefined}
+                                    >
+                                        <PremiumSearch
+                                            anchor={anchor ?? dockAnchor}
+                                            compact={Boolean(anchor) || pathname.startsWith("/game/")}
+                                            prompt={prompt}
+                                        />
+                                        {children}
+                                    </PremiumSearchPromptContext.Provider>
                                 </DockVisibleContext.Provider>
                             </SetDockAnchorContext.Provider>
                         </PremiumSearchMatchProvider>
@@ -96,8 +131,10 @@ export const PremiumSearchSlot: React.FC<{ inline?: boolean }> = ({ inline = fal
     );
 };
 
-/** Search beside the social controls on menu screens. */
-export const PremiumSearchDockSlot: React.FC = () => {
+export const PremiumSearchDockSlot: React.FC<{ compact?: boolean; inline?: boolean }> = ({
+    compact = false,
+    inline = false,
+}) => {
     const setAnchor = useContext(SetDockAnchorContext);
     const visible = useContext(DockVisibleContext);
     const ref = useRef<HTMLDivElement>(null);
@@ -109,12 +146,13 @@ export const PremiumSearchDockSlot: React.FC = () => {
         <Box
             ref={ref}
             sx={{
-                position: "absolute",
-                right: "calc(100% + 10px)",
-                top: "50%",
-                transform: "translateY(-50%)",
-                width: 168,
-                height: PREMIUM_SEARCH_HEIGHT_PX,
+                position: inline ? "relative" : "absolute",
+                right: inline ? undefined : "calc(100% + 10px)",
+                top: inline ? undefined : "50%",
+                transform: inline ? undefined : "translateY(-50%)",
+                width: compact ? 132 : 168,
+                height: compact ? 35.2 : PREMIUM_SEARCH_HEIGHT_PX,
+                containerType: "inline-size",
                 display: visible ? "flex" : "none",
                 alignItems: "center",
                 pointerEvents: "auto",
@@ -124,7 +162,11 @@ export const PremiumSearchDockSlot: React.FC = () => {
     );
 };
 
-export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; compact: boolean }> = ({ anchor, compact }) => {
+export const PremiumSearch: React.FC<{
+    anchor: HTMLDivElement | null;
+    compact: boolean;
+    prompt?: PremiumSearchPrompt;
+}> = ({ anchor, compact, prompt }) => {
     const setVisible = useContext(SetSearchVisibleContext);
     const access = usePremiumAccess();
     const chatEnabled = usePremiumCapability("chat");
@@ -132,13 +174,16 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; compact: b
     const accountKey = user?.email || user?.username;
     const available = Boolean(access?.active) && chatEnabled;
     const location = useLocation();
-    const matchVersion = usePremiumSearchMatch(premiumSearchGameId(location.pathname));
+    const gameId = premiumSearchGameId(location.pathname);
+    const matchVersion = usePremiumSearchMatch(gameId);
+    const suggestions = premiumQuestions(Boolean(gameId), matchVersion?.stage);
     const reduceMotion = useReducedMotion();
     const searchId = useId();
     const buttonRef = useRef<HTMLButtonElement | null>(null);
     const panelRef = useRef<HTMLDivElement | null>(null);
     const [open, setOpen] = useState(false);
     const [question, setQuestion] = useState("");
+    const [focus, setFocus] = useState<PremiumInspectionFocus>();
     const [answer, setAnswer] = useState("");
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
@@ -151,9 +196,23 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; compact: b
         query: string;
         history: PremiumSearchMessage[];
         version?: PremiumSearchMatchVersion;
+        focus?: PremiumInspectionFocus;
     }>();
     const matchChanged = premiumSearchMatchChanged(lastRequest?.version, matchVersion);
     const controller = useRef<AbortController | null>(null);
+    const handledPrompt = useRef<PremiumSearchPrompt | undefined>(undefined);
+    const clearConversation = useCallback(() => {
+        setLastRequest(undefined);
+        setHistory([]);
+        setAnswer("");
+        setQuestion("");
+        setFocus(undefined);
+        setEvidence([]);
+        setSources([]);
+        setError("");
+        setStatus("");
+        setContextLabel("");
+    }, []);
     useEffect(() => () => controller.current?.abort(), []);
     useLayoutEffect(() => {
         setVisible(available);
@@ -166,16 +225,27 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; compact: b
         controller.current?.abort();
         controller.current = null;
         setBusy(false);
-        setHistory([]);
-        setQuestion("");
-        setLastRequest(undefined);
-        setStatus("");
-        setContextLabel("");
-        setAnswer("");
-        setEvidence([]);
-        setSources([]);
-        setError("");
-    }, [location.pathname, available, accountKey]);
+        clearConversation();
+    }, [location.pathname, available, accountKey, clearConversation]);
+    useEffect(() => {
+        if (
+            !available ||
+            !anchor ||
+            !prompt ||
+            handledPrompt.current === prompt ||
+            prompt.pathname !== location.pathname ||
+            prompt.accountKey !== accountKey
+        )
+            return;
+        handledPrompt.current = prompt;
+        controller.current?.abort();
+        controller.current = null;
+        setBusy(false);
+        clearConversation();
+        setQuestion(prompt.question);
+        setFocus(prompt.focus);
+        setOpen(true);
+    }, [prompt, available, anchor, location.pathname, accountKey, clearConversation]);
     useEffect(() => {
         if (!open || !available) return;
         const onPointerDown = (event: PointerEvent) => {
@@ -197,24 +267,17 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; compact: b
         };
     }, [open, available]);
     if (!available || !anchor) return null;
-    const clearConversation = () => {
-        setLastRequest(undefined);
-        setHistory([]);
-        setAnswer("");
-        setQuestion("");
-        setEvidence([]);
-        setSources([]);
-        setError("");
-        setStatus("");
-        setContextLabel("");
-    };
     const stop = () => {
         controller.current?.abort();
         controller.current = null;
         setBusy(false);
         setStatus("Stopped. Any partial answer has not been added to the conversation.");
     };
-    const ask = async (input = question, priorHistory = history) => {
+    const ask = async (
+        input = question,
+        priorHistory = history,
+        inspected: PremiumInspectionFocus | null = focus ?? null,
+    ) => {
         if (!input.trim() || busy) return;
         controller.current?.abort();
         const abort = new AbortController();
@@ -227,49 +290,53 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; compact: b
         setEvidence([]);
         setSources([]);
         const query = input.trim();
-        setLastRequest({ query, history: priorHistory, version: matchVersion });
+        setLastRequest({ query, history: priorHistory, version: matchVersion, focus: inspected ?? undefined });
         let completed = "";
         try {
             const response = await fetchPremiumSearch(
-                premiumSearchBody(query, location.pathname, priorHistory),
+                premiumSearchBody(query, location.pathname, priorHistory, inspected?.unitId),
                 { Authorization: localStorage.getItem("accessToken") ?? "", ...deviceIdHeaders() },
                 abort.signal,
             );
-            completed = await readPremiumSearch(response, (kind, event) => {
-                if (controller.current !== abort || abort.signal.aborted) return;
-                if (kind === "meta") {
-                    const scope =
-                        event.context === "match"
-                            ? `Match when asked${event.stage ? ` · ${event.stage === "board" ? "placement" : event.stage}` : ""}`
-                            : "General tactical advice";
-                    setContextLabel(scope);
-                }
-                if (kind === "status")
-                    setStatus(
-                        event.phase === "answering"
-                            ? "Writing your plan…"
-                            : "Checking mechanics and comparing options…",
-                    );
-                if (kind === "delta") {
-                    completed += event.text ?? "";
-                    setAnswer(completed);
-                }
-                if (kind === "reset") {
-                    completed = "";
-                    setAnswer("");
-                }
-                if (kind === "done") {
-                    setAnswer(event.answer ?? completed);
-                    setSources(event.sources ?? []);
-                    setStatus("Answer ready.");
-                }
-                if (kind === "sources") setSources(event.items ?? []);
-                if (kind === "premium_evidence" && event.packet)
-                    setEvidence((previous) => [
-                        ...previous.filter((item) => item.evidenceId !== event.packet!.evidenceId),
-                        event.packet!,
-                    ]);
-            });
+            completed = await readPremiumSearch(
+                response,
+                (kind, event) => {
+                    if (controller.current !== abort || abort.signal.aborted) return;
+                    if (kind === "meta") {
+                        const scope =
+                            event.context === "match"
+                                ? `Match when asked${event.stage ? ` · ${event.stage === "board" ? "placement" : event.stage}` : ""}`
+                                : "General tactical advice";
+                        setContextLabel(scope);
+                    }
+                    if (kind === "status")
+                        setStatus(
+                            event.phase === "answering"
+                                ? "Writing your plan…"
+                                : "Checking mechanics and comparing options…",
+                        );
+                    if (kind === "delta") {
+                        completed += event.text ?? "";
+                        setAnswer(completed);
+                    }
+                    if (kind === "reset") {
+                        completed = "";
+                        setAnswer("");
+                    }
+                    if (kind === "done") {
+                        setAnswer(event.answer ?? completed);
+                        setSources(event.sources ?? []);
+                        setStatus("Answer ready.");
+                    }
+                    if (kind === "sources") setSources(event.items ?? []);
+                    if (kind === "premium_evidence" && event.packet)
+                        setEvidence((previous) => [
+                            ...previous.filter((item) => item.evidenceId !== event.packet!.evidenceId),
+                            event.packet!,
+                        ]);
+                },
+                inspected?.unitId,
+            );
             if (controller.current !== abort || abort.signal.aborted) return;
             setHistory([
                 ...priorHistory.slice(-4),
@@ -410,10 +477,55 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; compact: b
                             </IconButton>
                         </Box>
                         <Typography level="body-sm" sx={{ color: "#ceb399" }}>
-                            {premiumSearchGameId(location.pathname)
+                            {gameId
                                 ? "Get a plan for your current match, compare choices, or ask why a move helps."
                                 : "Compare builds, counters and tradeoffs. Name your army and opponent for a specific plan."}
                         </Typography>
+                        {focus && (
+                            <Box
+                                sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}
+                            >
+                                <Typography level="body-xs" sx={{ color: "#f6b87e" }}>
+                                    About: {focus.name} · inspected stack
+                                </Typography>
+                                <IconButton
+                                    aria-label="Clear inspected unit"
+                                    size="sm"
+                                    variant="plain"
+                                    disabled={busy}
+                                    onClick={clearConversation}
+                                    sx={{ minHeight: 24, minWidth: 24, color: "#d5b698" }}
+                                >
+                                    <CloseRoundedIcon fontSize="small" />
+                                </IconButton>
+                            </Box>
+                        )}
+                        {!lastRequest && !focus && (
+                            <Box
+                                role="group"
+                                aria-label="Suggested Premium questions"
+                                sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}
+                            >
+                                {suggestions.map((suggestion) => (
+                                    <PremiumButton
+                                        key={suggestion.label}
+                                        size="sm"
+                                        variant="outlined"
+                                        startDecorator={null}
+                                        title={suggestion.question}
+                                        disabled={busy}
+                                        onClick={() => {
+                                            setFocus(undefined);
+                                            setQuestion(suggestion.question);
+                                            void ask(suggestion.question, [], null);
+                                        }}
+                                        sx={{ minHeight: 28, px: 0.8, fontSize: 11 }}
+                                    >
+                                        {suggestion.label}
+                                    </PremiumButton>
+                                ))}
+                            </Box>
+                        )}
                         <Box
                             component="form"
                             onSubmit={(event) => {
@@ -429,7 +541,7 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; compact: b
                                 onChange={(event) => setQuestion(event.target.value)}
                                 size="sm"
                                 sx={{ ...hocInputSx, flex: 1, minWidth: 0 }}
-                                slotProps={{ input: { maxLength: 600, autoFocus: true } }}
+                                slotProps={{ input: { maxLength: 600, autoFocus: true, title: question || undefined } }}
                             />
                             <PremiumButton
                                 type="submit"
@@ -474,7 +586,9 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; compact: b
                                     size="sm"
                                     variant="plain"
                                     disabled={busy}
-                                    onClick={() => void ask(lastRequest.query, lastRequest.history)}
+                                    onClick={() =>
+                                        void ask(lastRequest.query, lastRequest.history, lastRequest.focus ?? null)
+                                    }
                                     sx={{ minHeight: 24, p: 0.5 }}
                                 >
                                     Update for current match
@@ -484,7 +598,7 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; compact: b
                         {(error || answer || busy || status || sources.length > 0 || evidence.length > 0) && (
                             <Box
                                 sx={{
-                                    maxHeight: "min(300px, max(80px, calc(100dvh - 280px)))",
+                                    maxHeight: "min(300px, max(80px, calc(100dvh - 310px)))",
                                     overflowY: "auto",
                                     overflowWrap: "anywhere",
                                     overscrollBehavior: "contain",
@@ -495,6 +609,11 @@ export const PremiumSearch: React.FC<{ anchor: HTMLDivElement | null; compact: b
                                     scrollbarColor: "#84502f transparent",
                                 }}
                             >
+                                {lastRequest && (
+                                    <Typography level="body-xs" sx={{ color: "#d9b99b" }}>
+                                        <strong>You asked:</strong> {lastRequest.query}
+                                    </Typography>
+                                )}
                                 {error && (
                                     <Typography role="alert" sx={{ color: "#f6b287" }}>
                                         {error}

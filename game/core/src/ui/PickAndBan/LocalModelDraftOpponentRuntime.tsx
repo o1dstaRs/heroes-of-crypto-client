@@ -366,7 +366,7 @@ const buildDraftChoices = (event: IPickPhaseEventData, failedChoiceIds: Set<stri
             ownArtifactIds: (event.art ?? []).map(([, id]) => id),
             ...(event.pk === undefined ? {} : { ownDoctrine: event.pk }),
         });
-        const policy = resolveSetupPolicy("artifact-fit-v4:conditional-v1:sniper+t2a19");
+        const policy = resolveSetupPolicy("artifact-fit-v5:conditional-v1:sniper+t2a19");
         while (remaining.length) {
             const artifactId = tier === 1 ? remaining[0] : policy.pickArtifactT2(remaining, ownPicked, context);
             remaining.splice(remaining.indexOf(artifactId), 1);
@@ -416,7 +416,7 @@ const buildDraftChoices = (event: IPickPhaseEventData, failedChoiceIds: Set<stri
                 ownCreatureIds: ownPicked,
                 tier1ArtifactId,
                 tier2ArtifactId,
-                artifactFitVersion: 4,
+                artifactFitVersion: 5,
             }) - draftCreatureCoherenceAffinity(creatureId, { ownCreatureIds: ownPicked });
         choices.push({
             label: labels[choices.length] ?? String(choices.length + 1),

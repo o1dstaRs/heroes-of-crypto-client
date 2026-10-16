@@ -1,6 +1,14 @@
 import { Assets, Container, Sprite, Text as PixiText, TextStyle, Texture, Rectangle, Graphics, Matrix } from "pixi.js";
 
-import { GridSettings, HoCMath, GridMath, Unit, UnitProperties, UnitsHolder } from "@heroesofcrypto/common";
+import {
+    GridSettings,
+    HoCMath,
+    GridMath,
+    Unit,
+    UnitProperties,
+    UnitsHolder,
+    type IGravechainWave,
+} from "@heroesofcrypto/common";
 import { RenderableUnit } from "../RenderableUnit";
 import { images } from "../../generated/image_imports";
 import { HOC_NUMERIC_ARIAL_FONT_FAMILY } from "../../fontFamilies";
@@ -8,6 +16,8 @@ import { boardVerticalStretch } from "../../pixi/boardFit";
 import { glyphScaleX } from "../../pixi/boardMirror";
 import { projectBattlefieldPoint } from "./BattlefieldVisualGrid";
 import { playCombatSound } from "../../ui/audio/combatSounds";
+import { GravechainVfx } from "./GravechainVfx";
+import { LastFuseVfx } from "./LastFuseVfx";
 
 export interface ICombatVisualsContext {
     getGridSettings(): GridSettings;
@@ -219,6 +229,7 @@ interface IDelayedFloatingDamage {
     remainingSec: number;
     fill: string;
     stroke: string;
+    zIndex?: number;
 }
 
 interface IForgeSpark {
@@ -679,13 +690,6 @@ const AREA_IMPACT_LIFE = 0.85; // seconds
 const AREA_IMPACT_DUST = 0xb9a288; // kicked-up dirt
 const AREA_IMPACT_DEBRIS = 0x6b5a45; // dark rock chips
 const AREA_IMPACT_FLASH = 0xfff0d0; // brief pale flash at the moment of landing
-const PYRE_Z = 1940;
-const PYRE_LIFE = 0.85;
-const PYRE_CORE = 0xfff4d2;
-const PYRE_FIRE = 0xff6a12;
-const PYRE_DEEP = 0xc41700;
-const PYRE_EMBER = 0xffc14a;
-const PYRE_SCORCH = 0x3a0c06;
 
 interface IAreaImpactDebris {
     /** Radians around the impact centre. */
@@ -696,23 +700,6 @@ interface IAreaImpactDebris {
     lift: number;
     size: number;
     spin: number;
-}
-
-interface IPyreSpark {
-    angle: number;
-    speed: number;
-    lift: number;
-    size: number;
-}
-
-interface IPyreExplosionVfx {
-    graphics: Graphics;
-    pos: HoCMath.XY;
-    age: number;
-    delay: number;
-    life: number;
-    radius: number;
-    sparks: IPyreSpark[];
 }
 
 interface IAreaImpact {
@@ -731,6 +718,8 @@ interface IHealBurst {
     pos: HoCMath.XY;
     age: number;
     life: number;
+    ringColor: number;
+    moteColor: number;
     motes: { angle: number; radius: number; speed: number }[];
 }
 // Resurrection: the heal burst's bigger, golden sibling. Longer-lived and taller because a raise is a far
@@ -762,6 +751,7 @@ const easeOutBack = (t: number): number => {
 };
 
 export class CombatVisuals {
+    private gravechains = new GravechainVfx((container) => this.attachEffect(container, 5505));
     private audioEpoch = 0;
     private context: ICombatVisualsContext;
     /**
@@ -790,7 +780,10 @@ export class CombatVisuals {
     private poisonClouds: IFireSweep[] = [];
     private healBursts: IHealBurst[] = [];
     private areaImpacts: IAreaImpact[] = [];
-    private pyreExplosions: IPyreExplosionVfx[] = [];
+    private lastFuse = new LastFuseVfx(
+        (container) => this.attachEffect(container, 4555),
+        () => this.getFireTexture(),
+    );
     private resurrectBursts: IResurrectBurst[] = [];
     private chainLightnings: IChainLightning[] = [];
     private lightningStrikes: ILightningStrike[] = [];
@@ -1015,6 +1008,7 @@ export class CombatVisuals {
         direction?: HoCMath.XY,
         flagTopAnchor?: HoCMath.XY,
         screenBottomExtent = 0,
+        zIndex = 2000,
     ): void {
         // Anti-overlap: if numbers are already floating near this spot, stack this one
         // above them instead of drawing on top.
@@ -1050,7 +1044,7 @@ export class CombatVisuals {
         container.scale.set(glyphScaleX(FT_START_SCALE), -FT_START_SCALE);
         container.alpha = 0;
         container.position.set(startX, startY);
-        this.attachEffect(container, 2000);
+        this.attachEffect(container, zIndex);
 
         this.floatingTexts.push({
             container,
@@ -1171,7 +1165,14 @@ export class CombatVisuals {
      * visual sync. `unitsDied` belongs only to this absorbed chunk, so its skull never duplicates a primary
      * or response hit's losses.
      */
-    public showFloatingAbsorbed(pos: HoCMath.XY, amount: number, direction?: HoCMath.XY, unitsDied?: number): void {
+    public showFloatingAbsorbed(
+        pos: HoCMath.XY,
+        amount: number,
+        direction?: HoCMath.XY,
+        unitsDied?: number,
+        unit?: Unit,
+    ): void {
+        if (unit instanceof RenderableUnit) unit.presentDamageCasualties(unitsDied ?? 0);
         const container = new Container();
         const label = new PixiText({ text: "ABSORBED", style: this.getAbsorbedLabelStyle() });
         label.anchor.set(0.5);
@@ -1647,6 +1648,7 @@ export class CombatVisuals {
      */
     public clear(options?: { keepDetachedOverlays?: boolean }): void {
         this.audioEpoch += 1;
+        if (!options?.keepDetachedOverlays) this.gravechains.clear();
         const keepDetachedOverlays = options?.keepDetachedOverlays ?? false;
         if (!keepDetachedOverlays) {
             for (const ft of this.floatingTexts) {
@@ -1707,10 +1709,7 @@ export class CombatVisuals {
                 impact.graphics.destroy();
             }
             this.areaImpacts.length = 0;
-            for (const blast of this.pyreExplosions) {
-                blast.graphics.destroy();
-            }
-            this.pyreExplosions.length = 0;
+            this.lastFuse.clear();
             for (const burst of this.resurrectBursts) {
                 burst.graphics.destroy();
             }
@@ -1799,9 +1798,10 @@ export class CombatVisuals {
             this.poisonClouds.length === 0 &&
             this.healBursts.length === 0 &&
             this.areaImpacts.length === 0 &&
-            this.pyreExplosions.length === 0 &&
+            !this.lastFuse.active &&
             this.resurrectBursts.length === 0 &&
             this.chainLightnings.length === 0 &&
+            !this.gravechains.active &&
             this.lightningStrikes.length === 0 &&
             this.mirrorRebounds.length === 0 &&
             this.windSpears.length === 0 &&
@@ -1888,9 +1888,10 @@ export class CombatVisuals {
         this.stepPoisonClouds(dt);
         this.stepHealBursts(dt);
         this.stepAreaImpacts(dt);
-        this.stepPyreExplosions(dt);
+        this.lastFuse.update(dt);
         this.stepResurrectBursts(dt);
         this.stepChainLightnings(dt);
+        this.gravechains.update(dt);
         this.stepLightningStrikes(dt);
         this.stepMirrorRebounds(dt);
         this.stepWindSpears(dt);
@@ -3277,6 +3278,7 @@ export class CombatVisuals {
         fill: string,
         stroke: string,
         audioUnit?: Pick<Unit, "getName" | "getId">,
+        zIndex?: number,
     ): void {
         this.delayedFloatingDamage.push({
             pos: { x: pos.x, y: pos.y },
@@ -3286,6 +3288,7 @@ export class CombatVisuals {
             fill,
             stroke,
             audioUnit,
+            zIndex,
         });
     }
     private stepDelayedFloatingDamage(dt: number): void {
@@ -3305,6 +3308,7 @@ export class CombatVisuals {
                 pending.stroke,
                 undefined,
                 pending.audioUnit,
+                pending.zIndex,
             );
         }
     }
@@ -3962,6 +3966,9 @@ export class CombatVisuals {
                 }
             }
         }
+    }
+    public spawnGravechain(links: IGravechainWave["links"], cellSize: number, onBind: (unitId: string) => void): void {
+        this.gravechains.spawn(links, cellSize, onBind);
     }
     /**
      * Chain Lightning arc: a purple bolt jumps from the attacker to the target and then on through
@@ -4727,7 +4734,9 @@ export class CombatVisuals {
         stroke = "#4a0000",
         flagTopAnchor?: HoCMath.XY,
         audioUnit?: Pick<Unit, "getName" | "getId">,
+        zIndex?: number,
     ): void {
+        if (audioUnit instanceof RenderableUnit) audioUnit.presentDamageCasualties(unitsDied ?? 0);
         if (amount > 0 && audioUnit) {
             const epoch = this.audioEpoch;
             playCombatSound(audioUnit.getName(), "hurt", audioUnit.getId(), false, () => epoch === this.audioEpoch);
@@ -4767,6 +4776,7 @@ export class CombatVisuals {
             direction,
             flagTopAnchor,
             unitsDied && unitsDied > 0 ? FT_DAMAGE_WITH_KILLS_BOTTOM : FT_DAMAGE_ONLY_BOTTOM,
+            zIndex,
         );
     }
     /**
@@ -4793,7 +4803,18 @@ export class CombatVisuals {
      * Stepped from the scene's dt loop like every other effect here (NOT requestAnimationFrame), so it
      * pauses with the scene instead of running on while the board is frozen.
      */
-    private spawnHealBurst(pos: HoCMath.XY): void {
+    public showCleanse(pos: HoCMath.XY): void {
+        const container = new Container();
+        const label = new PixiText({
+            text: "CLEANSED",
+            style: this.getDamageStyle("#fff3c4", "#625012"),
+        });
+        label.anchor.set(0.5);
+        container.addChild(label);
+        this.enqueueFloatingContainer(container, pos);
+        this.spawnHealBurst(pos, 0xffd76a, 0xfff3c4);
+    }
+    private spawnHealBurst(pos: HoCMath.XY, ringColor = 0x66ff99, moteColor = 0xaaffcc): void {
         const graphics = new Graphics();
         this.attachEffect(graphics, HEAL_BURST_Z);
         this.healBursts.push({
@@ -4801,6 +4822,8 @@ export class CombatVisuals {
             pos: { x: pos.x, y: pos.y },
             age: 0,
             life: HEAL_BURST_LIFE,
+            ringColor,
+            moteColor,
             motes: Array.from({ length: 8 }, (_, i) => ({
                 angle: (i / 8) * Math.PI * 2,
                 radius: 8 + (i % 3) * 4,
@@ -4970,87 +4993,15 @@ export class CombatVisuals {
         }
     }
     public spawnPyreExplosion(pos: HoCMath.XY, cellSize: number, delaySec = 0): void {
-        const radius = cellSize * 1.65;
-        const graphics = new Graphics();
-        this.attachEffect(graphics, PYRE_Z);
-        this.pyreExplosions.push({
-            graphics,
-            pos: { x: pos.x, y: pos.y },
-            age: 0,
-            delay: Math.max(0, delaySec),
-            life: PYRE_LIFE,
-            radius,
-            sparks: Array.from({ length: 18 }, (_, i) => ({
-                angle: (i / 18) * Math.PI * 2 + (i % 4) * 0.17,
-                speed: radius * (0.45 + (i % 5) * 0.12),
-                lift: cellSize * (0.85 + (i % 6) * 0.22),
-                size: cellSize * (0.045 + (i % 3) * 0.02),
-            })),
-        });
+        this.lastFuse.spawn(pos, cellSize, delaySec);
     }
-    private stepPyreExplosions(dt: number): void {
-        for (let i = this.pyreExplosions.length - 1; i >= 0; i--) {
-            const blast = this.pyreExplosions[i];
-            blast.age += dt;
-            if (blast.age < blast.delay) {
-                continue;
-            }
-            const elapsed = blast.age - blast.delay;
-            if (elapsed >= blast.life) {
-                blast.graphics.destroy();
-                this.pyreExplosions.splice(i, 1);
-                continue;
-            }
-            const t = elapsed / blast.life;
-            const eased = 1 - (1 - t) * (1 - t);
-            const fade = 1 - t;
-            const g = blast.graphics;
-            g.clear();
-
-            g.ellipse(
-                blast.pos.x,
-                blast.pos.y,
-                blast.radius * (0.42 + 0.7 * eased),
-                blast.radius * (0.42 + 0.7 * eased) * 0.36,
-            ).fill({ color: PYRE_SCORCH, alpha: 0.45 * fade });
-
-            if (t < 0.22) {
-                const flash = 1 - t / 0.22;
-                g.circle(blast.pos.x, blast.pos.y, blast.radius * (0.18 + 0.35 * (1 - flash))).fill({
-                    color: PYRE_CORE,
-                    alpha: 0.85 * flash,
-                });
-            }
-
-            const column = blast.radius * (0.55 + 0.9 * (1 - t));
-            g.ellipse(blast.pos.x, blast.pos.y + column * 0.35, blast.radius * (0.28 + 0.22 * fade), column).fill({
-                color: PYRE_DEEP,
-                alpha: 0.55 * fade,
-            });
-            g.ellipse(
-                blast.pos.x,
-                blast.pos.y + column * 0.48,
-                blast.radius * (0.16 + 0.12 * fade),
-                column * 0.72,
-            ).fill({ color: PYRE_FIRE, alpha: 0.7 * fade });
-
-            g.ellipse(blast.pos.x, blast.pos.y, blast.radius * eased, blast.radius * eased * 0.4).stroke({
-                width: Math.max(1, 6 * fade),
-                color: PYRE_EMBER,
-                alpha: 0.75 * fade,
-            });
-
-            for (const spark of blast.sparks) {
-                const distance = eased * spark.speed;
-                const height = spark.lift * (t * 2.2) * (1 - t);
-                const size = spark.size * (1 - 0.4 * t);
-                g.circle(
-                    blast.pos.x + Math.cos(spark.angle) * distance,
-                    blast.pos.y + Math.sin(spark.angle) * distance * 0.38 + Math.max(0, height),
-                    size,
-                ).fill({ color: t < 0.45 ? PYRE_CORE : PYRE_EMBER, alpha: 0.9 * fade });
-            }
-        }
+    public spawnPyreHit(unitId: string, pos: HoCMath.XY, origin: HoCMath.XY, cellSize: number, delaySec = 0): void {
+        this.lastFuse.hit(pos, origin, cellSize, delaySec, (direction) => {
+            const unit = this.context.getUnitsHolder()?.getAllUnits().get(unitId) as RenderableUnit | undefined;
+            if (!unit || unit.isDead()) return;
+            unit.flashScorch();
+            unit.applyHitReaction(direction.x * cellSize * 0.3, direction.y * cellSize * 0.3);
+        });
     }
     private stepHealBursts(dt: number): void {
         for (let i = this.healBursts.length - 1; i >= 0; i--) {
@@ -5069,7 +5020,7 @@ export class CombatVisuals {
             // Ground ring pushing outward and fading.
             g.circle(burst.pos.x, burst.pos.y, 18 + eased * 46).stroke({
                 width: 4,
-                color: 0x66ff99,
+                color: burst.ringColor,
                 alpha: 0.55 * fade,
             });
             // Motes rising out of the ring. worldRoot is y-up, so a POSITIVE y offset rises.
@@ -5079,7 +5030,7 @@ export class CombatVisuals {
                     burst.pos.x + Math.cos(mote.angle) * r,
                     burst.pos.y + Math.sin(mote.angle) * r * 0.45 + eased * 46,
                     4,
-                ).fill({ color: 0xaaffcc, alpha: 0.85 * fade });
+                ).fill({ color: burst.moteColor, alpha: 0.85 * fade });
             }
         }
     }
