@@ -1394,7 +1394,7 @@ export const SocialDock: React.FC = () => {
                 "&:hover": { opacity: 1 },
             }}
         >
-            {!inGame && !fightDockSlot && <PremiumSearchDockSlot />}
+            {!fightDockSlot && <PremiumSearchDockSlot compact={inGame} />}
             <IconButton
                 aria-label="Bets and predictions"
                 aria-pressed={predictionsOpen}
@@ -1540,6 +1540,17 @@ export const SocialDock: React.FC = () => {
 
     const systemDockControls = (
         <>
+            <Box
+                sx={{
+                    position: "fixed",
+                    bottom: `calc(${GAME_SYSTEM_CONTROLS_BOTTOM_INSET} + ${SYSTEM_DOCK_BUTTON_SIZE_PX + 12}px)`,
+                    right: GAME_SYSTEM_CONTROLS_SIDE_INSET,
+                    zIndex: 1500,
+                    pointerEvents: "none",
+                }}
+            >
+                <PremiumSearchDockSlot compact inline />
+            </Box>
             <Box
                 ref={floatingVolumeSlotRef}
                 data-volume-control="social-dock"
