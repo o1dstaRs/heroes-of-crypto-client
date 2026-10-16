@@ -1,8 +1,21 @@
 type Point = { x: number; y: number };
+type Rivulet = Point & {
+    originX: number;
+    radius: number;
+    speed: number;
+    phase: number;
+    remaining: number;
+    opacity: number;
+};
 
-/** Screen-space ink, independent of the world camera and its mirror/zoom. Draws only on input or impact. */
+const FADE_START_MS = 2_000;
+const LIFETIME_MS = 14_000;
+
+/** Persistent, wipeable ink on glass; the display layer supplies fading without restoring erased pixels. */
 export class ScreenBloodCanvas {
     private readonly ctx: CanvasRenderingContext2D;
+    private readonly display: CanvasRenderingContext2D;
+    private readonly ink = document.createElement("canvas");
     private readonly probe = document.createElement("canvas");
     private readonly brush = document.createElement("canvas");
     private width = 1;
@@ -12,11 +25,16 @@ export class ScreenBloodCanvas {
     private inkAtImpact = 0;
     private previous?: Point;
     private probeTimer?: ReturnType<typeof setTimeout>;
+    private frame?: number;
+    private lastFrame = 0;
+    private lastImpact = 0;
+    private rivulets: Rivulet[] = [];
     public constructor(
         private readonly canvas: HTMLCanvasElement,
         private readonly onActiveChange: (active: boolean) => void,
     ) {
-        this.ctx = canvas.getContext("2d")!;
+        this.ctx = this.ink.getContext("2d")!;
+        this.display = canvas.getContext("2d")!;
         this.probe.width = 64;
         this.probe.height = 40;
         this.brush.width = this.brush.height = 128;
@@ -36,21 +54,44 @@ export class ScreenBloodCanvas {
         // Preserve the erased pixels too: repainting the original splats would undo the player's wiping.
         const old = this.active ? document.createElement("canvas") : undefined;
         if (old) {
-            old.width = this.canvas.width;
-            old.height = this.canvas.height;
-            old.getContext("2d")!.drawImage(this.canvas, 0, 0);
+            old.width = this.ink.width;
+            old.height = this.ink.height;
+            old.getContext("2d")!.drawImage(this.ink, 0, 0);
+        }
+        const scaleX = width / this.width;
+        const scaleY = height / this.height;
+        for (const drip of this.rivulets) {
+            drip.x *= scaleX;
+            drip.originX *= scaleX;
+            drip.y *= scaleY;
+            drip.radius *= Math.min(scaleX, scaleY);
+            drip.speed *= scaleY;
         }
         this.width = width;
         this.height = height;
         this.ratio = ratio;
-        this.canvas.width = Math.round(width * ratio);
-        this.canvas.height = Math.round(height * ratio);
+        this.ink.width = this.canvas.width = Math.round(width * ratio);
+        this.ink.height = this.canvas.height = Math.round(height * ratio);
         this.ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+        this.display.setTransform(ratio, 0, 0, ratio, 0, 0);
         if (old) this.ctx.drawImage(old, 0, 0, width, height);
+        this.paint(performance.now());
         this.leave();
     }
     public splash(impacts = 1): void {
         if (!Number.isFinite(impacts) || impacts < 1) return;
+        const now = performance.now();
+        if (this.active) {
+            // Bake the old fade before starting the new impact's lifetime: old blood must not flash opaque.
+            const opacity = this.opacity(now);
+            this.ctx.save();
+            this.ctx.globalCompositeOperation = "destination-in";
+            this.ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
+            this.ctx.fillRect(0, 0, this.width, this.height);
+            this.ctx.restore();
+            for (const drip of this.rivulets) drip.opacity *= opacity;
+        }
+        this.lastImpact = now;
         const scale = Math.max(0.5, Math.min(1.3, Math.min(this.width, this.height) / 750));
         this.ctx.save();
         this.ctx.globalCompositeOperation = "source-over";
@@ -69,11 +110,17 @@ export class ScreenBloodCanvas {
             );
         }
         this.ctx.restore();
+        this.rivulets = this.rivulets.slice(-24);
         this.leave();
+        this.paint(now);
         this.inkAtImpact = this.measureInk();
         if (!this.active) {
             this.active = true;
             this.onActiveChange(true);
+        }
+        if (this.frame === undefined) {
+            this.lastFrame = now;
+            this.frame = requestAnimationFrame(this.animate);
         }
     }
     public wipe(x: number, y: number): void {
@@ -93,7 +140,18 @@ export class ScreenBloodCanvas {
             this.ctx.drawImage(this.brush, px - radius, py - radius, radius * 2, radius * 2);
         }
         this.ctx.restore();
+        // A wiped droplet stops feeding its trail. Animating it again would paint blood back onto clean glass.
+        const dx = x - from.x;
+        const dy = y - from.y;
+        const lengthSquared = dx * dx + dy * dy;
+        this.rivulets = this.rivulets.filter((drip) => {
+            const t = lengthSquared
+                ? Math.max(0, Math.min(1, ((drip.x - from.x) * dx + (drip.y - from.y) * dy) / lengthSquared))
+                : 0;
+            return Math.hypot(drip.x - from.x - t * dx, drip.y - from.y - t * dy) > radius * 0.85 + drip.radius;
+        });
         this.previous = { x, y };
+        this.paint(performance.now());
         // A tiny downsample checks for stray flecks without reading a full retina canvas on every move.
         if (this.probeTimer === undefined) {
             this.probeTimer = setTimeout(() => {
@@ -109,11 +167,71 @@ export class ScreenBloodCanvas {
         clearTimeout(this.probeTimer);
         this.probeTimer = undefined;
         this.ctx.clearRect(0, 0, this.width, this.height);
+        this.display.clearRect(0, 0, this.width, this.height);
+        if (this.frame !== undefined) cancelAnimationFrame(this.frame);
+        this.frame = undefined;
+        this.rivulets = [];
         this.leave();
         if (this.active) {
             this.active = false;
             this.onActiveChange(false);
         }
+    }
+    private opacity(now: number): number {
+        const progress = Math.max(
+            0,
+            Math.min(1, (now - this.lastImpact - FADE_START_MS) / (LIFETIME_MS - FADE_START_MS)),
+        );
+        return Math.pow(1 - progress, 1.4);
+    }
+    private paint(now: number): void {
+        this.display.clearRect(0, 0, this.width, this.height);
+        this.display.globalAlpha = this.opacity(now);
+        this.display.drawImage(this.ink, 0, 0, this.width, this.height);
+        this.display.globalAlpha = 1;
+    }
+    private readonly animate = (now: number): void => {
+        this.frame = undefined;
+        if (!this.active) return;
+        if (now - this.lastImpact >= LIFETIME_MS) {
+            this.clear();
+            return;
+        }
+        // Slow viscous runoff needs only 30 fps. No animation loop remains after wiping or natural fading.
+        const elapsed = now - this.lastFrame;
+        if (elapsed >= 1_000 / 30) {
+            this.lastFrame = now;
+            const seconds = Math.min(0.1, elapsed / 1_000);
+            for (const drip of this.rivulets) this.flow(drip, seconds);
+            this.rivulets = this.rivulets.filter((drip) => drip.remaining > 0 && drip.y < this.height + drip.radius);
+            this.paint(now);
+        }
+        this.frame = requestAnimationFrame(this.animate);
+    };
+    private flow(drip: Rivulet, seconds: number): void {
+        const ctx = this.ctx;
+        const from = { x: drip.x, y: drip.y };
+        drip.remaining -= seconds;
+        // Surface tension makes the bead hesitate and snake slightly instead of falling like rain.
+        drip.phase += seconds * 1.8;
+        const speed = drip.speed * (0.65 + Math.sin(drip.phase) * 0.35);
+        drip.y += speed * seconds;
+        drip.x = drip.originX + Math.sin(drip.phase * 0.45) * drip.radius * 0.7;
+        ctx.save();
+        ctx.globalAlpha = drip.opacity;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(from.x, from.y);
+        ctx.lineTo(drip.x, drip.y);
+        ctx.strokeStyle = "rgba(36, 0, 7, 0.72)";
+        ctx.lineWidth = drip.radius * 1.55;
+        ctx.stroke();
+        ctx.strokeStyle = "rgba(111, 9, 21, 0.75)";
+        ctx.lineWidth = drip.radius * 0.85;
+        ctx.stroke();
+        // A heavy rounded bead and a narrow reflected glint sell wet glass at screen scale.
+        this.drop(drip.x, drip.y, drip.radius, 1.55);
+        ctx.restore();
     }
     private measureInk(): number {
         const ctx = this.probe.getContext("2d", { willReadFrequently: true })!;
@@ -130,23 +248,19 @@ export class ScreenBloodCanvas {
     private drawSplat(x: number, y: number, radius: number): void {
         const ctx = this.ctx;
         const squash = this.between(0.65, 1);
-        // Runoff sits behind the contact patch, hiding the join. Gravity stays screen-down when mirrored.
+        // Beads start at the lower edge of the impact and feed narrow trails down the glass.
         for (let i = 0; i < (radius > 100 ? 2 : 1); i++) {
             const dx = x + radius * this.between(-0.35, 0.35);
-            const end = y + radius * this.between(1, 1.9);
-            const width = radius * this.between(0.008, 0.022);
-            const trail = ctx.createLinearGradient(dx - width * 2, 0, dx + width * 2, 0);
-            trail.addColorStop(0, "rgba(42, 0, 7, 0.72)");
-            trail.addColorStop(0.4, "rgba(112, 13, 22, 0.86)");
-            trail.addColorStop(1, "rgba(48, 0, 8, 0.8)");
-            ctx.fillStyle = trail;
-            ctx.beginPath();
-            ctx.moveTo(dx - width * 1.8, y);
-            ctx.quadraticCurveTo(dx - width * 0.4, end - width * 3, dx - width, end);
-            ctx.quadraticCurveTo(dx, end + width * 3, dx + width, end);
-            ctx.quadraticCurveTo(dx + width * 0.6, end - width * 5, dx + width * 1.8, y);
-            ctx.fill();
-            this.drop(dx, end, width, 1.5);
+            this.rivulets.push({
+                x: dx,
+                originX: dx,
+                y: y + radius * squash * 0.48,
+                radius: radius * this.between(0.015, 0.027),
+                speed: radius * this.between(0.14, 0.28),
+                phase: this.between(0, Math.PI * 2),
+                remaining: this.between(5, 9),
+                opacity: 1,
+            });
         }
         ctx.save();
         ctx.translate(x, y);
@@ -238,13 +352,17 @@ export class ScreenBloodCanvas {
     }
     private drop(x: number, y: number, radius: number, stretch: number, rotation = 0): void {
         const ctx = this.ctx;
-        ctx.fillStyle = "rgba(91, 3, 16, 0.87)";
+        const wet = ctx.createRadialGradient(x - radius * 0.3, y - radius * 0.4, 0, x, y, radius * stretch);
+        wet.addColorStop(0, "rgba(161, 27, 35, 0.92)");
+        wet.addColorStop(0.5, "rgba(87, 3, 16, 0.96)");
+        wet.addColorStop(1, "rgba(28, 0, 6, 0.9)");
+        ctx.fillStyle = wet;
         ctx.beginPath();
         ctx.ellipse(x, y, radius, radius * stretch, rotation, 0, Math.PI * 2);
         ctx.fill();
         if (radius < 1.5) return;
-        ctx.strokeStyle = "rgba(230, 94, 82, 0.25)";
-        ctx.lineWidth = Math.max(0.6, radius * 0.18);
+        ctx.strokeStyle = "rgba(255, 194, 170, 0.46)";
+        ctx.lineWidth = Math.max(0.6, radius * 0.2);
         ctx.beginPath();
         ctx.ellipse(x - radius * 0.16, y - radius * 0.16, radius * 0.55, radius * stretch * 0.65, rotation, 3.5, 4.8);
         ctx.stroke();
