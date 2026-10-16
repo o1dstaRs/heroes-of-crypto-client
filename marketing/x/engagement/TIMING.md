@@ -117,11 +117,37 @@ Own account: not pulled this run.
 
 Recommendation: still not enough data for a firm window (six runs, two weekdays). Signal so far: replies arrive mostly in the first 2–4 hours, and afternoon balance/question posts can keep collecting into the evening; a reply draft is still most useful within ~2 hours of the source post. Keep logging.
 
-## Fri 16 Oct 2026, ~9:42 AM PT (own-account 24h snapshots)
+## Fri 16 Oct 2026, 7:41 AM PT run (window: 7:41 PM Thu – 7:41 AM Fri PT)
 
-First comparable own 24h ERs (age 20–48h at pull):
-- evening story-pin (Wed 8:03 PM): ER 0.06 (50 views, 2 likes, 1 external reply)
-- morning tactics-calendar (Thu 6:48 AM): ER 0.0625 (16 views, 0 likes; reply_count is own link-reply)
-- midday story-origin (Thu 11:48 AM): ER 0.10 (20 views, 1 like; reply_count is own link-reply)
+Official game/studio posts in window (posted time PT, public metrics at read time ~7:45 AM). Skipped: FE Heroes banner posts (gacha, weak tactics angle), @Lavapotion Wielders of the Essence devlog (survivors-style game, not tactics), @holoindie_ccmc and @micro_prose (publishers).
+- @MeltedGames, skeletons reanimate / Wight targets hardest hitter, 6:53 AM Fri: 19 impressions, 1 like, 0 replies, 1 repost
+- @Lavapotion, Wielders of the Essence spells devlog, 5:42 AM Fri: 606 impressions, 10 likes, 2 replies, 3 reposts (skipped)
+- @Conviction_SRPG, Langrisser-inspired tactical RPG UI/video update, 10:39 PM Thu: 589 impressions, 11 likes, 1 reply (own link), 1 repost
+- @FE_Heroes_EN, Duo/Vista heroes live, 12:04 AM Fri: 8,443 impressions, 130 likes, 12 replies, 11 reposts (timing only)
+- @FE_Heroes_EN, Celebration Hero Battle, 12:02 AM Fri: 7,950 impressions, 150 likes, 5 replies (timing only)
+- @FE_Heroes_EN, Your Time to Shine, 12:00 AM Fri: 6,044 impressions, 51 likes, 0 replies (timing only)
+- @FE_Heroes_EN, hero reveals 8:00 / 9:00 / 10:00 PM Thu: 6 / 4 / 1 replies (19,114 / 11,629 / 8,501 impressions) (timing only)
+- @holoindie_ccmc, Holo-Strike! turn-based team PvP demo, 8:03 PM Thu: 13,969 impressions, 348 likes, 5 replies, 44 reposts (publisher, timing only)
+- @micro_prose, Archrebel Tactics demo, 3:00 AM Fri: 685 impressions, 12 likes, 0 replies (publisher, timing only)
+- No new root posts from @totalwar, @PlayHearthstone, @MARVELSNAP, @TFT, @OverhypeStudios, @MightMagicGame or @Unfrozen_Studio in this window.
 
-Slot comparison (n=1 per slot): midday > morning ≈ evening on ER; evening leads absolute views. Too few posts to change schedule. Chaos (~16.8h) and edge (~2.7h) not yet eligible.
+Thread open vs peak (this run only): overnight was quiet for the big Western accounts; the only reply volume came from FE Heroes' midnight PT banner drop (12 replies by morning) and an 8 PM PT PvP demo announcement (5 replies). Small studio drops from late evening and early morning stayed at 0–2 replies.
+
+Recommendation: still not enough data for a firm window (seven runs, three days). Signal so far holds: Western strategy studios post and gather replies from ~6:30 AM PT onward, so the 11:37 AM run usually has fresher, busier threads than this overnight sweep. Keep logging.
+
+## Fri 16 Oct 2026, 11:41 AM PT run (window: 11:41 PM Thu – 11:41 AM Fri PT)
+
+Official game/studio posts in window (posted time PT, public metrics at read time ~11:42 AM). Skipped: @TFT Ivern meme (0 replies), FE Heroes midnight banner posts (gacha, weak angle; timing only), @Lavapotion Wielders devlog (not tactics), @PlayHearthstone deck-share prompt (second Hearthstone post today; held back so we don't stack two replies on one account), @BalorGamesGG and @SlitherineGames (publishers).
+- @PlayHearthstone, Ritual of Summoning banned from Pre-Release Tavern Brawl, 11:29 AM Fri: 2,136 impressions, 26 likes, 5 replies, 4 reposts, 2 quotes (about 12 minutes old)
+- @Nomadgames, HeroQuest coming to PC announcement, 10:32 AM Fri: 94 impressions, 2 likes, 1 reply, 1 quote
+- @PlayHearthstone, "share your deck" Tavern Brawl prompt, 10:00 AM Fri: 4,840 impressions, 23 likes, 4 replies, 1 repost (skipped)
+- @TFT, Ivern meme, 10:00 AM Fri: 7,766 impressions, 40 likes, 0 replies (skipped)
+- @BalorGamesGG, HeroQuest: Digital Edition wishlist, 10:50 AM Fri: 367 impressions, 7 likes, 1 reply (publisher, timing only)
+- @FE_Heroes_EN, Duo/Vista heroes live (re-read), 12:04 AM Fri: 9,752 impressions, 162 likes, 14 replies (was 12 at 7:45 AM; timing only)
+- @Lavapotion, Wielders spells devlog (re-read), 5:42 AM Fri: 822 impressions, 16 likes, 2 replies (skipped)
+- @MeltedGames, skeletons/Wight (re-read, already surfaced), 6:53 AM Fri: 96 impressions, 2 likes, 1 reply
+- No new root posts from @totalwar, @MARVELSNAP, @OverhypeStudios, @MightMagicGame, @Unfrozen_Studio, @shirogames, @Wartales_Game, @mechabellum or @Midjiwan in this window.
+
+Thread open vs peak (this run only): Friday morning was quiet for the big Western strategy accounts compared with Thursday. Hearthstone again posted on the hour (10:00 AM) plus an unscheduled balance note at 11:29 AM that drew 5 replies within about 12 minutes, the fastest open of the day. That matches the pattern that balance and ban posts open fastest. FE Heroes' midnight PT drop kept climbing slowly through the morning (12 to 14 replies).
+
+Recommendation: still not enough data for a firm window (eight runs, three days). Signal holds: replies arrive mostly in the first 2–4 hours, balance/patch posts open fastest, and late morning PT (10 AM–noon) is when the Friday threads opened. Keep logging.
