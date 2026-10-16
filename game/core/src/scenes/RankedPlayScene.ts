@@ -612,6 +612,7 @@ export const applyRankedUnitSnapshotStats = (unit: RenderableUnit, properties: U
         return false;
     }
 
+    unit.clearDamagePresentation();
     let changed = false;
     const hp = Math.max(0, Math.floor(properties.hp));
     if (unit.getAmountAlive() !== alive || unit.getHp() !== hp) {
@@ -1655,8 +1656,23 @@ export class RankedPlayScene extends Sandbox {
         this.selectSceneUnitForPlacement(unitId);
     }
     public override applyAuthoritativeVfx(events: GameEvent[]): void {
+        if (
+            events.some(
+                (event) => event.type === "effects_applied" && event.applications.some((a) => a.name === "Gravebound"),
+            )
+        )
+            this.showLegacyGraveboundVfx(events);
         for (const event of events) {
+            if (
+                (event.type === "unit_attacked" ||
+                    event.type === "area_attacked" ||
+                    event.type === "obstacle_attacked") &&
+                event.damage?.gravechains?.length
+            ) {
+                this.showGravechainVfx(event.damage);
+            }
             if (event.type === "unit_attacked") {
+                this.showAbsolvingArrowVfx(event.damage);
                 // Attribute kills (melee vs range + direction) before this batch's unit_destroyed /
                 // unit_deleted events — and the later snapshot diff — spawn the death visuals.
                 this.noteDeathBlowsFromAttackEvent(event);

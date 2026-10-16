@@ -2,7 +2,7 @@ import { PremiumSetupPanel } from "./premium/PremiumAdvisor";
 import { PremiumSearchSlot } from "./premium/PremiumSearch";
 import { PremiumFightOverlay } from "./premium/PremiumFightOverlay";
 import { useReportPremiumSearchMatch } from "./premium/PremiumSearchMatchContext";
-import { premiumSearchPlayVersion } from "./premium/premiumSearchFreshness";
+import { premiumSearchPlayStage, premiumSearchPlayVersion } from "./premium/premiumSearchFreshness";
 import {
     Artifact,
     Augment,
@@ -329,6 +329,7 @@ export const RankedGameView: React.FC<Props> = ({
         gameId,
         "play",
         snapshot?.gameId === gameId && !replayOnly && !sandboxCoop ? premiumSearchPlayVersion(snapshot) : undefined,
+        snapshot ? premiumSearchPlayStage(snapshot) : undefined,
     );
     const effectiveLocalModelConfig = useMemo(
         () => resolveEffectiveLocalModelOpponentConfig(localModelConfig, snapshot, viewerTeam),

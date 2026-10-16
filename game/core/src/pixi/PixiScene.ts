@@ -746,9 +746,14 @@ export abstract class PixiScene {
         // hover tooltip shows the real value instead of a literal "{}". Empty props are skipped.
         const fillDescProps = (raw: string): string => {
             const parts = raw.split(";");
-            let text = parts[0] ?? "";
-            for (let p = 1; p < parts.length; p++) {
-                const value = parts[p];
+            const values: string[] = [];
+            while (parts.length > 1 && values.length < 2) {
+                const value = parts[parts.length - 1];
+                if (value !== "" && !Number.isFinite(Number(value))) break;
+                values.unshift(parts.pop()!);
+            }
+            let text = parts.join(";");
+            for (const value of values) {
                 if (value === undefined || value === "" || !text.includes("{}")) {
                     continue;
                 }
