@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { Assets, Container, Graphics, Sprite, Texture } from "pixi.js";
+import { Container, Graphics, Sprite, Texture, TextureSource } from "pixi.js";
 
 import { FightStateManager, GridSettings, GridVals } from "@heroesofcrypto/common";
 
@@ -18,7 +18,7 @@ import {
     lavaSplashOriginWithinGrateOpening,
     narrowingRingCells,
 } from "./DungeonVisuals";
-import { images } from "../../generated/image_imports";
+import { LAVA_PIT_ASSETS, lavaPitTextureKeys } from "./lavaPitAssets";
 
 describe("Map narrowing rings", () => {
     test("switches approved baked narrowing backgrounds in TEST and real narrowing", () => {
@@ -366,50 +366,102 @@ describe("DungeonVisuals lifecycle", () => {
 
         try {
             visuals.ensureCenterTerrainSprite();
-            expect(requested).toEqual(["water_256"]);
+            expect(requested).toEqual(["background_stone_tiles_sinister_16x16_original_restored", "water_256"]);
         } finally {
             visuals.destroy();
             fightState.setFightProperties(previousFight);
         }
     });
 
-    test("evicts a large deferred fire atlas that finishes decoding after teardown", async () => {
+    test("requests the complete firepit together and keeps the map covered until the final layer decodes", () => {
+        const fightState = FightStateManager.getInstance();
+        const previousFight = fightState.getFightProperties();
+        fightState.reset();
+        fightState.getFightProperties().setGridType(GridVals.LAVA_CENTER);
         const stage = new Container();
         const worldRoot = new Container();
-        const gridSettings = new GridSettings(16, 1024, 0, 1024, 0, 64, 32);
+        const loadingRoot = new Container();
+        let mapKnown = false;
+        const textures = new Map<string, Texture>();
+        const requested: Array<[string, string | undefined]> = [];
+        const atlas = new Texture({ source: new TextureSource({ width: 4096, height: 4096 }) });
+        const still = new Texture({ source: new TextureSource({ width: 512, height: 512 }) });
         const visuals = new DungeonVisuals({
             getStage: () => stage,
             getWorldRoot: () => worldRoot,
-            getViewportSize: () => ({ width: 1024, height: 1024 }),
-            getGridSettings: () => gridSettings,
-            texAny: () => undefined,
-            attachToWorldRoot: () => undefined,
+            getLoadingRoot: () => loadingRoot,
+            isMapStateKnown: () => mapKnown,
+            getViewportSize: () => ({ width: 1024, height: 768 }),
+            getGridSettings: () => new GridSettings(16, 1024, 0, 1024, 0, 64, 32),
+            texAny: (key, options) => {
+                requested.push([key, options?.priority]);
+                return textures.get(key);
+            },
+            attachToWorldRoot: (object) => {
+                worldRoot.addChild(object);
+            },
         });
-        const internals = visuals as unknown as { firePitOverlayTexture(): Texture | undefined };
-        const mutableAssets = Assets as unknown as {
-            load: typeof Assets.load;
-            unload: typeof Assets.unload;
+        const internals = visuals as unknown as {
+            updateMapLoadingCover(): void;
+            centerDried: boolean;
+            firePitOverlayTexture(): Texture | undefined;
         };
-        const originalLoad = mutableAssets.load;
-        const originalUnload = mutableAssets.unload;
-        let finishLoad!: (texture: Texture) => void;
-        const unloaded: string[] = [];
-        mutableAssets.load = (() => new Promise<Texture>((resolve) => (finishLoad = resolve))) as typeof Assets.load;
-        mutableAssets.unload = (async (url: string) => {
-            unloaded.push(url);
-        }) as typeof Assets.unload;
-
         try {
-            expect(internals.firePitOverlayTexture()).toBeUndefined();
-            visuals.destroy();
-            finishLoad(Texture.WHITE);
-            await Promise.resolve();
-            await Promise.resolve();
+            // Renderer boot must not download a random placeholder pit before the ranked map arrives.
+            internals.updateMapLoadingCover();
+            expect(visuals.isMapLoading()).toBe(true);
+            expect(requested.map(([key]) => key)).toEqual(["background_stone_tiles_sinister_16x16_original_restored"]);
+            mapKnown = true;
+            requested.length = 0;
+            internals.updateMapLoadingCover();
+            const cover = loadingRoot.children[0];
+            expect(cover.visible).toBe(true);
+            expect(visuals.isMapLoading()).toBe(true);
+            const keys = visuals.getMapTextureKeys();
+            expect(requested.slice(0, keys.length)).toEqual(keys.map((key) => [key, "visible"]));
+            expect(keys).toEqual(expect.arrayContaining([...lavaPitTextureKeys(false)]));
 
-            expect(unloaded).toEqual([images.fire_pit_grok_video_fire_under_v2_64_atlas]);
+            for (const key of keys) {
+                if (key !== LAVA_PIT_ASSETS.under) textures.set(key, key.endsWith("_atlas") ? atlas : still);
+            }
+            internals.updateMapLoadingCover();
+            expect(cover.visible).toBe(true);
+            textures.set(LAVA_PIT_ASSETS.under, atlas);
+            internals.updateMapLoadingCover();
+            expect(cover.visible).toBe(false);
+            expect(visuals.isMapLoading()).toBe(false);
+            expect(internals.firePitOverlayTexture()?.source).toBe(atlas.source);
+
+            // A newly-selected cold pit stays covered until BOTH replacement layers arrive.
+            internals.centerDried = true;
+            internals.updateMapLoadingCover();
+            expect(cover.visible).toBe(true);
+            textures.set(LAVA_PIT_ASSETS.extinguished, still);
+            internals.updateMapLoadingCover();
+            expect(cover.visible).toBe(true);
+            textures.set(LAVA_PIT_ASSETS.extinguishedGrate, still);
+            internals.updateMapLoadingCover();
+            expect(cover.visible).toBe(false);
+
+            // Switching away while a different pit state is pending releases the cover immediately.
+            textures.delete(LAVA_PIT_ASSETS.under);
+            internals.centerDried = false;
+            internals.updateMapLoadingCover();
+            expect(cover.visible).toBe(true);
+            fightState.getFightProperties().setGridType(GridVals.NORMAL);
+            internals.updateMapLoadingCover();
+            expect(cover.visible).toBe(false);
+            visuals.destroy();
+            expect(cover.destroyed).toBe(true);
+            expect(atlas.destroyed).toBe(false);
         } finally {
-            mutableAssets.load = originalLoad;
-            mutableAssets.unload = originalUnload;
+            visuals.destroy();
+            atlas.destroy(true);
+            still.destroy(true);
+            stage.destroy({ children: true });
+            worldRoot.destroy({ children: true });
+            loadingRoot.destroy({ children: true });
+            fightState.setFightProperties(previousFight);
         }
     });
 });
