@@ -66,6 +66,7 @@ import { stonePlateSx } from "./stonePlateStyles";
 import { hocDisplayFontFamily } from "../hocTheme";
 import { selectedUnitNamePlaqueBackground } from "./namePlaqueColor";
 import { personalArmyCssColor } from "../../scenes/personalArmyTint";
+import { PremiumUnitInspectionContext, PremiumUnitQuestionButton } from "../premium/PremiumUnitInspection";
 
 interface IAbilityStackProps {
     abilities: IVisibleImpact[];
@@ -479,11 +480,17 @@ const AbilityCell: React.FC<{
                             {`includes +${ability.amplifiedBy.percent}% from ${ability.amplifiedBy.name}`}
                         </Box>
                     )}
+                    <Box sx={{ display: "flex", mt: 0.5 }}>
+                        <PremiumUnitQuestionButton topic={{ kind: "ability", name: ability.name }} />
+                    </Box>
                 </>
             }
+            describeChild
             sx={commonTooltipSx}
         >
             <Box
+                tabIndex={0}
+                aria-label={ability.name}
                 sx={{
                     position: "relative",
                     // Sized in px from the measured bar width so the tiles neither overhang a 128px bar
@@ -1010,10 +1017,20 @@ const EffectTiles: React.FC<{
                 {effects.map((effect, index) => (
                     <Tooltip
                         key={`${title}-${effect.name}-${effect.smallTextureName}-${index}`}
-                        title={`${effect.name}: ${effect.description.substring(0, effect.description.length - 1)}${effect.laps > 0 && effect.laps !== Number.MAX_SAFE_INTEGER && effect.laps !== HoCConstants.NUMBER_OF_LAPS_TOTAL ? ` (remaining ${HoCLib.getLapString(effect.laps)})` : ""}`}
+                        title={
+                            <>
+                                {`${effect.name}: ${effect.description.substring(0, effect.description.length - 1)}${effect.laps > 0 && effect.laps !== Number.MAX_SAFE_INTEGER && effect.laps !== HoCConstants.NUMBER_OF_LAPS_TOTAL ? ` (remaining ${HoCLib.getLapString(effect.laps)})` : ""}`}
+                                <Box sx={{ display: "flex", mt: 0.5 }}>
+                                    <PremiumUnitQuestionButton topic={{ kind: "status", name: effect.name }} />
+                                </Box>
+                            </>
+                        }
+                        describeChild
                         sx={commonTooltipSx}
                     >
                         <Box
+                            tabIndex={0}
+                            aria-label={effect.name}
                             sx={{
                                 position: "relative",
                                 display: "inline-flex",
@@ -2221,6 +2238,17 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({ unitProperti
                             namePlaque
                             namePlaqueTeam={unitProperties.team}
                         />
+                        <Box
+                            sx={{
+                                position: "absolute",
+                                right: 0,
+                                top: "50%",
+                                transform: "translateY(-50%)",
+                                zIndex: 2,
+                            }}
+                        >
+                            <PremiumUnitQuestionButton iconOnly />
+                        </Box>
                     </Box>
                     <List sx={{ p: 0, gap: 0, flex: 1, minHeight: 0 }}>
                         <UnitStatsLayout
@@ -2251,4 +2279,14 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({ unitProperti
     return <ListItem nested />;
 };
 
-export const UnitStatsListItem = React.memo(UnitStatsListItemInner, areUnitStatsPropsEqual);
+const UnitStatsListItemWithInspection: React.FC<UnitStatsListItemProps> = (props) => (
+    <PremiumUnitInspectionContext.Provider
+        value={
+            props.unitProperties.id ? { unitId: props.unitProperties.id, name: props.unitProperties.name } : undefined
+        }
+    >
+        <UnitStatsListItemInner {...props} />
+    </PremiumUnitInspectionContext.Provider>
+);
+
+export const UnitStatsListItem = React.memo(UnitStatsListItemWithInspection, areUnitStatsPropsEqual);

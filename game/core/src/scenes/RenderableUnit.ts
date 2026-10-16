@@ -2696,6 +2696,9 @@ export class RenderableUnit extends Unit {
     // Split preview: temporarily enlarge the count badge and (optionally) show a projected amount.
     private badgeEmphasisScale = 1;
     private badgeAmountOverride?: number;
+    /** Casualties advance with the damage pops while the engine may already hold the whole exchange. */
+    private combatAmountOverride?: number;
+    private combatAmountModel?: number;
     // Grayscale filter for the "revealed" mode (ranked placement: opponent roster shown in B&W).
     // Attached lazily from one immutable roster-wide instance.
     private desaturateFilter?: ColorMatrixFilter;
@@ -2856,6 +2859,8 @@ export class RenderableUnit extends Unit {
         ru.restingBadgeOffsetY = undefined;
         ru.movementBadgeOffsetY = undefined;
         ru.badgeAmountOverride = undefined;
+        ru.combatAmountOverride = undefined;
+        ru.combatAmountModel = undefined;
         ru.badgeHeader = undefined;
         ru.badgeFlagGlow = undefined;
         ru.activeTurnPointer = undefined;
@@ -3146,7 +3151,7 @@ export class RenderableUnit extends Unit {
                 y: pos.y,
                 side: gs.getCellSize() * Math.min(footprintWidth, footprintHeight) * perspectiveScale,
                 team: this.getTeam(),
-                amount: this.badgeAmountOverride ?? this.getAmountAlive(),
+                amount: this.getDisplayedAmount(),
                 compensation: legacyBoardChildScaleCompensation(inheritedScale.x, inheritedScale.y),
             });
             return;
@@ -8244,6 +8249,26 @@ export class RenderableUnit extends Unit {
         this.badgeEmphasisScale = 1;
         this.badgeAmountOverride = undefined;
     }
+    public getDisplayedAmount(): number {
+        if (this.combatAmountModel !== undefined && this.combatAmountModel !== this.getAmountAlive()) {
+            this.clearDamagePresentation();
+        }
+        return this.badgeAmountOverride ?? this.combatAmountOverride ?? this.getAmountAlive();
+    }
+    public beginDamagePresentation(amount = this.getAmountAlive()): void {
+        this.combatAmountOverride = Math.max(0, Math.floor(amount));
+        this.combatAmountModel = this.getAmountAlive();
+    }
+    public presentDamageCasualties(unitsDied: number): void {
+        this.getDisplayedAmount();
+        if (this.combatAmountOverride !== undefined && unitsDied > 0) {
+            this.combatAmountOverride = Math.max(0, this.combatAmountOverride - Math.floor(unitsDied));
+        }
+    }
+    public clearDamagePresentation(): void {
+        this.combatAmountOverride = undefined;
+        this.combatAmountModel = undefined;
+    }
     public setProjectedStackPower(power: number): void {
         this.projectedStackPower = Math.max(1, Math.min(HoCConstants.MAX_UNIT_STACK_POWER, Math.round(power)));
     }
@@ -8603,7 +8628,7 @@ export class RenderableUnit extends Unit {
             this.badgeDrawState = undefined;
         }
         const iconSide = gs.getCellSize() * this.visualScaleMultiplier;
-        const amount = this.badgeAmountOverride ?? this.getAmountAlive();
+        const amount = this.getDisplayedAmount();
         const stackPower = Math.max(0, Math.min(5, Math.round(this.projectedStackPower ?? this.getStackPower())));
         const header = this.badgeHeader!;
         const flagGlow = this.badgeFlagGlow!;
@@ -9110,6 +9135,7 @@ export class RenderableUnit extends Unit {
      * otherwise leave the on-board count frozen. Pure display reconciliation, hence a client concern.
      */
     public setRemainingStats(amountAlive: number, hp: number, amountDied: number): void {
+        this.clearDamagePresentation();
         const alive = Math.max(0, Math.floor(amountAlive));
         this.unitProperties.amount_alive = alive;
         this.initialUnitProperties.amount_alive = alive;

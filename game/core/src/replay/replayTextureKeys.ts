@@ -2,6 +2,8 @@ import { approvedAnimationAssetKeysForUnit } from "../pixi/creatureAnimationSett
 import { getSplitBundles } from "../pixi/PixiTextureLoader";
 import { TextureType, unitToTextureName } from "../pixi/PixiUnitsFactory";
 import type { SandboxReplay } from "./sandbox_replay";
+import { GridVals } from "@heroesofcrypto/common";
+import { lavaPitTextureKeys } from "../scenes/sandbox/lavaPitAssets";
 
 /** Include later summons too, so their first action never begins with missing artwork. */
 export function replayTextureKeys(replay: SandboxReplay, sequence: number): string[] {
@@ -11,6 +13,9 @@ export function replayTextureKeys(replay: SandboxReplay, sequence: number): stri
         replay.initialState,
         ...replay.actions.slice(0, sequence).map((record) => record.stateAfter),
     ]) {
+        if (state.gridType === GridVals.LAVA_CENTER) {
+            for (const key of lavaPitTextureKeys(!!state.centerDried)) keys.add(key);
+        }
         for (const unit of state.units) names.add(unit.properties.name);
     }
     for (const name of names) {

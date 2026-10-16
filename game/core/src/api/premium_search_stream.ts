@@ -37,6 +37,7 @@ export interface PremiumSearchEvent {
     mode?: string;
     context?: "match" | "general";
     evidenceAvailable?: boolean;
+    inspectedUnitId?: string;
     stage?: "draft" | "setup" | "board" | "fight";
     phase?: string;
     items?: { id: string; name: string; href: string }[];
@@ -92,7 +93,8 @@ const validEvent = (kind: string, event: Record<string, unknown>): boolean => {
         return (
             (event.context === undefined || ["match", "general"].includes(event.context as string)) &&
             (event.stage === undefined || ["draft", "setup", "board", "fight"].includes(event.stage as string)) &&
-            (event.evidenceAvailable === undefined || typeof event.evidenceAvailable === "boolean")
+            (event.evidenceAvailable === undefined || typeof event.evidenceAvailable === "boolean") &&
+            (event.inspectedUnitId === undefined || typeof event.inspectedUnitId === "string")
         );
     if (kind === "delta") return typeof event.text === "string";
     if (kind === "done") return event.sources === undefined || isSources(event.sources);
@@ -107,6 +109,7 @@ const validEvent = (kind: string, event: Record<string, unknown>): boolean => {
 export const readPremiumSearch = async (
     response: Response,
     onEvent: (kind: string, event: PremiumSearchEvent) => void,
+    inspectedUnitId?: string,
 ): Promise<string> => {
     if (!response.ok || !response.body) {
         const failure = (await response.json().catch(() => ({}))) as { code?: string };
@@ -115,6 +118,8 @@ export const readPremiumSearch = async (
         if (response.status === 403) throw new Error("Premium access could not be verified for this account or match.");
         if (failure?.code === "premium_context_unavailable")
             throw new Error("Your match could not be read. Try again for advice on its current state.");
+        if (failure?.code === "premium_focus_unavailable")
+            throw new Error("This stack is no longer visible. Inspect a visible unit and ask again.");
         throw new Error("Premium advice is unavailable. Please try again shortly.");
     }
     const reader = response.body.getReader();
@@ -155,6 +160,8 @@ export const readPremiumSearch = async (
                 if (kind === "meta") premium = event.mode === "premium";
                 if (!premium)
                     throw new Error("Premium advice needs a server update. Please try again after the update.");
+                if (kind === "meta" && inspectedUnitId && event.inspectedUnitId !== inspectedUnitId)
+                    throw new Error("Advice for this inspected stack could not be confirmed. Please try again later.");
                 if (kind === "done" && (typeof event.answer !== "string" || !event.answer.trim()))
                     throw new Error("The answer was interrupted. Please try again.");
                 onEvent(kind, event);
