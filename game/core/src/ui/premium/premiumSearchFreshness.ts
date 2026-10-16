@@ -1,15 +1,27 @@
-import type { PlaySnapshot } from "../../api/play_protocol";
+import { PlayPhase, type PlaySnapshot } from "../../api/play_protocol";
 
 export interface PremiumSearchMatchVersion {
     gameId: string;
     source: "draft" | "play";
     key: string;
+    stage?: "draft" | "setup" | "board" | "fight" | "finished";
 }
+
+export const premiumSearchPlayStage = (snapshot: PlaySnapshot): PremiumSearchMatchVersion["stage"] => {
+    if (snapshot.fightFinished || snapshot.phase === PlayPhase.FINISHED || snapshot.phase === PlayPhase.ABANDONED)
+        return "finished";
+    if (snapshot.fightStarted || snapshot.phase === PlayPhase.PLAY) return "fight";
+    if (snapshot.phase === PlayPhase.PLACEMENT)
+        return snapshot.placementSplit && snapshot.placementStage === 0 ? "setup" : "board";
+    return undefined;
+};
 
 export const premiumSearchPlayVersion = (snapshot: PlaySnapshot): string =>
     JSON.stringify([
         snapshot.phase,
         snapshot.placementStage,
+        snapshot.placementSplit,
+        snapshot.fightStarted,
         snapshot.latestSequence,
         snapshot.currentLap,
         snapshot.currentUnitId,
