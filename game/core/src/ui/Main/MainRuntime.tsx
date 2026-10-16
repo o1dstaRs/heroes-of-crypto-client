@@ -11,6 +11,7 @@ import { usePixiManager } from "../../pixi/PixiGameManager"; // adjust the path 
 import type { SceneEntry } from "../../pixi/PixiScene"; // adjust the path if needed
 
 import { getSceneLink } from "../../utils/reactUtils";
+import { ScreenBloodOverlay } from "../ScreenBloodOverlay";
 
 interface SceneComponentProps {
     entry: SceneEntry;
@@ -139,6 +140,7 @@ const GameScreen: React.FC<SceneComponentProps> = ({ entry: { name, SceneClass }
                     ref={debugCanvasRef}
                     style={{ position: "absolute", inset: 0, pointerEvents: "auto", ...noSelectStyle }}
                 />
+                <ScreenBloodOverlay />
             </main>
         </>
     );

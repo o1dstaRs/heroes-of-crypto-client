@@ -110,6 +110,7 @@ export class PixiGameManager {
     public readonly onAttackLanded = new Signal<(attackMessage: string) => void>();
     public readonly onPlayerNotice = new Signal<(message: string) => void>();
     public readonly onDamageReceived = new Signal<(attackDamage: number) => void>();
+    public readonly onScreenBlood = new Signal<(impacts: number) => void>();
     // public readonly onUnitSelected = new Signal<(unitProperties: UnitProperties) => void>();
     public readonly onDamageStatisticsUpdated = new Signal<(damageStats: IDamageStatistic[]) => void>();
     public readonly onPossibleSynergiesUpdated = new Signal<(possible: Map<TeamType, SynergyWithLevel[]>) => void>();
@@ -1256,6 +1257,11 @@ export class PixiGameManager {
         }
 
         // Damage animation surface
+        if (scene && scene.sc_screenBloodImpacts > 0) {
+            const impacts = scene.sc_screenBloodImpacts;
+            scene.sc_screenBloodImpacts = 0;
+            this.onScreenBlood.emit(impacts);
+        }
         if (this.m_scene?.sc_damageForAnimation.render) {
             this.onDamageReceived.emit(this.m_scene.sc_damageForAnimation.amount);
             this.m_scene.sc_damageForAnimation.render = false;

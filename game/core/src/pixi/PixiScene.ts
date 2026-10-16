@@ -187,6 +187,8 @@ export abstract class PixiScene {
     public readonly sc_sceneLog = new SceneLog();
     /** A sentence the player must see for a click that did nothing. The view copies it into the error banner. */
     public sc_playerNotice = "";
+    /** Pending hits for the seated victim's wipeable screen overlay; consumed once by the manager. */
+    public sc_screenBloodImpacts = 0;
     public readonly sc_maxProfile = { step: 0, collide: 0, solve: 0 }; // parity with old UI
     public readonly sc_totalProfile = { step: 0, collide: 0, solve: 0 }; // parity with old UI
     public readonly sc_sceneSettings: SceneSettings;

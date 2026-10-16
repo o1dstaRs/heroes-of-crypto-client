@@ -1559,6 +1559,20 @@ export class RankedPlayScene extends Sandbox {
     protected override getViewerTeam(): TeamType | undefined {
         return this.viewerTeam;
     }
+    protected override onCombatImpact(attacker: Unit, victimTeam: TeamType | undefined, amount: number): void {
+        if (
+            this.fullReplayPlaybackActive ||
+            this.replayViewingActive ||
+            (this.viewerTeam !== TeamVals.LEFT && this.viewerTeam !== TeamVals.RIGHT) ||
+            attacker.getName() !== "Zena" ||
+            attacker.getTeam() === this.viewerTeam ||
+            victimTeam !== this.viewerTeam ||
+            !(amount > 0)
+        ) {
+            return;
+        }
+        this.sc_screenBloodImpacts += 1;
+    }
     private upNextUnitIds?: string[];
     // Per-unit sets of currently-active debuff / buff names, tracked across snapshots so we can pop a
     // "nice" icon + name animation the moment a new one lands (e.g. Beholder's Spit Ball, or a buff

@@ -69,7 +69,10 @@ const sceneFor = (units: readonly UnitStub[]) => {
     const wounds: XY[] = [];
     const slashes: XY[] = [];
     const missPops: XY[] = [];
+    const impacts: { source: string; victimTeam?: TeamType; amount: number }[] = [];
     const scene = {
+        onCombatImpact: (source: UnitStub, victimTeam: TeamType | undefined, amount: number) =>
+            impacts.push({ source: source.getId(), victimTeam, amount }),
         sc_sceneSettings: { getGridSettings: () => gs },
         unitsHolder: { getAllUnits: () => byId },
         rangedProjectiles: {
@@ -96,7 +99,7 @@ const sceneFor = (units: readonly UnitStub[]) => {
         chakramWorldDir: (Sandbox.prototype as unknown as { chakramWorldDir: (from: XY, to: XY) => XY })
             .chakramWorldDir,
     };
-    return { scene, byId, paths, damagePops, wounds, slashes, missPops };
+    return { scene, byId, paths, damagePops, wounds, slashes, missPops, impacts };
 };
 
 const splash = (victim: UnitStub, amount = 10, unitsDied = 0): Splash => ({
@@ -308,6 +311,7 @@ describe("Each recorded Chakram throw owns its damage and path", () => {
         await flush();
         expect(harness.paths).toHaveLength(1);
         expect(deaths).toEqual([]);
+        expect(harness.impacts).toEqual([{ source: "Zena", victimTeam: TeamVals.RIGHT, amount: 10 }]);
 
         landFirst();
         await playing;
@@ -316,6 +320,9 @@ describe("Each recorded Chakram throw owns its damage and path", () => {
         expect(harness.byId.has(killed.getId())).toBe(false);
         expect(harness.paths[2]).toContainEqual(projectedCell(killed.getBaseCell()));
         expect(harness.damagePops.map((pop) => pop.amount)).toEqual([10, 9, 5, 3]);
+        expect(harness.impacts).toEqual(
+            [10, 9, 5, 3].map((amount) => ({ source: "Zena", victimTeam: TeamVals.RIGHT, amount })),
+        );
     });
 
     test("a final-dead stack's partial first-bounce loss waits until the second bounce exhausts it", async () => {
@@ -1009,6 +1016,11 @@ describe("Chakram belongs to the ranged strike that threw it", () => {
             [bounce.getProjectileImpactPoint(), zena.getRangedProjectileOrigin()],
         ]);
         expect(harness.damagePops.map((pop) => pop.amount)).toEqual([20, 10, 7]);
+        expect(harness.impacts).toEqual([
+            { source: "Shooter", victimTeam: TeamVals.RIGHT, amount: 20 },
+            { source: "Zena", victimTeam: TeamVals.LEFT, amount: 10 },
+            { source: "Zena", victimTeam: TeamVals.LEFT, amount: 7 },
+        ]);
     });
 
     test("two Zenas replay their own arcs and damage once each", async () => {
@@ -1078,6 +1090,7 @@ describe("Chakram belongs to the ranged strike that threw it", () => {
         expect(harness.paths).toEqual([]);
         expect(harness.shots).toEqual([]);
         expect(harness.damagePops.map((pop) => pop.amount)).toEqual([10]);
+        expect(harness.impacts).toEqual([{ source: "Attacker", victimTeam: TeamVals.RIGHT, amount: 10 }]);
     });
 
     test("an initiating miss does not mark a landed counter-throw as missed", async () => {
@@ -1097,6 +1110,7 @@ describe("Chakram belongs to the ranged strike that threw it", () => {
 
         expect(harness.paths).toEqual([[shooter.getProjectileImpactPoint(), zena.getRangedProjectileOrigin()]]);
         expect(harness.wounds).toEqual([shooter.getVisualCenter()]);
+        expect(harness.impacts).toEqual([{ source: "Zena", victimTeam: TeamVals.LEFT, amount: 10 }]);
     });
 
     test("a dodged counter uses its own miss verdict without wounding the shooter", async () => {
@@ -1119,6 +1133,7 @@ describe("Chakram belongs to the ranged strike that threw it", () => {
         ]);
         expect(harness.wounds).toEqual([defender.getVisualCenter()]);
         expect(harness.damagePops.map((pop) => pop.amount)).toEqual([10]);
+        expect(harness.impacts).toEqual([{ source: "Attacker", victimTeam: TeamVals.RIGHT, amount: 10 }]);
     });
 
     test("a removed shield still identifies its response hop in an older recording", async () => {
@@ -1167,6 +1182,7 @@ describe("Chakram belongs to the ranged strike that threw it", () => {
         );
 
         expect(harness.paths[0].at(-1)).toEqual(bounce.getProjectileImpactPoint());
+        expect(harness.impacts.at(-1)).toEqual({ source: "Zena", victimTeam: TeamVals.LEFT, amount: 7 });
         expect(harness.damagePops.at(-1)).toEqual({
             center: bounce.getVisualCenter(),
             amount: 7,
@@ -1340,6 +1356,7 @@ describe("Chakram follows the authoritative footprint bridge", () => {
             [projectedCell(shieldCell), zena.getRangedProjectileOrigin()],
         ]);
         expect(harness.damagePops).toEqual([]);
+        expect(harness.impacts).toEqual([]);
     });
 
     test("legacy target-only arcs exclude exactly the same victims from generic splash playback", () => {

@@ -1931,6 +1931,8 @@ export class Sandbox extends PixiScene {
     protected getViewerTeam(): TeamType | undefined {
         return undefined;
     }
+    /** Personal screen effects belong to seated live players; sandbox and replay views have no victim screen. */
+    protected onCombatImpact(_attacker: Unit, _victimTeam: TeamType | undefined, _amount: number): void {}
     public override getUnitsOverlay(): UnitsOverlay | undefined {
         return this.sc_gameActionTransport ? undefined : this.unitsOverlay;
     }
@@ -5461,6 +5463,7 @@ export class Sandbox extends PixiScene {
                     : (fallbackPosition ?? victim.getVisualCenter(gs));
                 const direction = { x: to.x - from.x, y: to.y - from.y };
                 if (strike.amount > 0) {
+                    if (!strike.missed) this.onCombatImpact?.(source, victimTeam, strike.amount);
                     if (renderedVictim) this.playUnitCombatSound(renderedVictim, "hurt");
                     this.combatVisuals.showFloatingDamage(
                         this.offsetReplayDamagePosition(to, victim, direction),
@@ -10347,6 +10350,7 @@ export class Sandbox extends PixiScene {
                 cells: HoCMath.XY[];
                 isSmall: boolean;
                 flagAnchor?: HoCMath.XY;
+                team?: TeamType;
             }
         >();
         // Ranked cleanup can remove lethal victims while an earlier hop is flying. Capture every
@@ -10376,6 +10380,7 @@ export class Sandbox extends PixiScene {
                 cells: unit?.getCells?.() ?? (unit ? [unit.getBaseCell()] : []),
                 isSmall: unit?.isSmallSize() ?? true,
                 flagAnchor: unit?.getDamagePredictionAnchor?.(gs),
+                team: unit?.getTeam?.(),
             });
         }
         const popChakramMiss = (center: HoCMath.XY, dir: HoCMath.XY, isSmall: boolean): void => {
@@ -10457,6 +10462,7 @@ export class Sandbox extends PixiScene {
                     continue;
                 }
                 if (dmg && dmg.amount > 0) {
+                    this.onCombatImpact?.(attacker, unit?.getTeam?.() ?? captured?.team, dmg.amount);
                     this.combatVisuals?.showFloatingDamage(
                         center,
                         dmg.amount,
