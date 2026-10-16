@@ -16,6 +16,8 @@ import { EvidenceText } from "./PremiumEvidenceText";
 import { usePremiumCapability } from "./usePremiumPreference";
 import { PremiumIcon } from "../PremiumIcon";
 import { PremiumButton } from "./PremiumButton";
+import { useAskPremiumQuestion } from "./PremiumSearchPromptContext";
+import { premiumChoiceQuestion } from "./premiumQuestions";
 
 export { EvidenceText } from "./PremiumEvidenceText";
 
@@ -107,27 +109,61 @@ export const usePremiumAdvisor = (gameId?: string, refreshKey?: string | number,
     return { advice: enabled ? advice : undefined, apply, busy, error };
 };
 
-const ChoiceExplanation: React.FC<{ choice: PremiumChoice }> = ({ choice }) => (
-    <Box sx={{ maxWidth: 350, p: 0.5 }}>
-        <Typography level="title-sm" sx={{ color: orange }}>
-            {choice.label}
-        </Typography>
-        {choice.reasons.map((reason) => (
-            <Typography key={reason} level="body-sm" sx={{ mt: 0.75, color: "#f3dfcb" }}>
-                {reason}
+const ChoiceExplanation: React.FC<{ choice: PremiumChoice }> = ({ choice }) => {
+    const askQuestion = useAskPremiumQuestion();
+    return (
+        <Box sx={{ maxWidth: 350, p: 0.5 }}>
+            <Typography level="title-sm" sx={{ color: orange }}>
+                {choice.label}
             </Typography>
-        ))}
-        <Box sx={{ mt: 1 }}>
-            <EvidenceText evidence={choice.evidence} />
+            {choice.reasons.map((reason) => (
+                <Typography key={reason} level="body-sm" sx={{ mt: 0.75, color: "#f3dfcb" }}>
+                    {reason}
+                </Typography>
+            ))}
+            <Box sx={{ mt: 1 }}>
+                <EvidenceText evidence={choice.evidence} />
+            </Box>
+            {askQuestion && (
+                <PremiumButton
+                    size="sm"
+                    variant="plain"
+                    onClick={(event) => {
+                        event.stopPropagation();
+                        askQuestion(premiumChoiceQuestion(choice));
+                    }}
+                    sx={{ mt: 0.75, px: 0.5 }}
+                >
+                    Ask about this choice
+                </PremiumButton>
+            )}
         </Box>
-    </Box>
-);
+    );
+};
 
 export const PremiumMark: React.FC<{ kind: PremiumChoice["kind"]; value: number }> = ({ kind, value }) => {
     const advice = useContext(PremiumContext);
+    const askQuestion = useAskPremiumQuestion();
     const index = advice?.choices?.findIndex((choice) => choice.kind === kind && choice.value === value) ?? -1;
     const choice = index >= 0 ? advice?.choices?.[index] : undefined;
-    if (!choice) return null;
+    if (!choice) {
+        const offer = advice?.offers?.find((item) => item.kind === kind && item.value === value);
+        if (!offer || !askQuestion) return null;
+        return (
+            <PremiumButton
+                size="sm"
+                variant="outlined"
+                aria-label={`Ask Premium about ${offer.label}`}
+                onClick={(event) => {
+                    event.stopPropagation();
+                    askQuestion(premiumChoiceQuestion(offer));
+                }}
+                sx={{ position: "absolute", zIndex: 9, top: 5, left: 5, minHeight: 24, px: 0.7, fontSize: 11 }}
+            >
+                Ask Premium
+            </PremiumButton>
+        );
+    }
     return (
         <Box
             data-testid={`premium-${kind}-${value}`}
@@ -143,6 +179,7 @@ export const PremiumMark: React.FC<{ kind: PremiumChoice["kind"]; value: number 
         >
             <Tooltip
                 title={<ChoiceExplanation choice={choice} />}
+                describeChild
                 placement="top"
                 arrow
                 enterDelay={100}
@@ -268,6 +305,7 @@ export const PremiumDraftBanner: React.FC<{ advice?: PremiumAdvice; draft: Premi
                     bottom: 16,
                     zIndex: 35,
                     maxWidth: "min(340px, 42vw)",
+                    boxSizing: "border-box",
                     px: 1.2,
                     py: 0.8,
                     border: "1px solid #aa5424",
@@ -301,6 +339,7 @@ export const PremiumSetupPanel: React.FC<{
 }> = ({ gameId, stageKey, auto = false, setupView = false, children }) => {
     const enabled = usePremiumCapability("setup");
     const { advice, apply, busy, error } = usePremiumAdvisor(gameId, stageKey, enabled);
+    const askQuestion = useAskPremiumQuestion();
     const autoAttempt = useRef<string | undefined>(undefined);
     useEffect(() => {
         if (!auto || advice?.stage !== "board" || !advice.canAutoArrange || advice.ready || busy) return;
@@ -409,6 +448,22 @@ export const PremiumSetupPanel: React.FC<{
                             <p key={reason}>{reason}</p>
                         ))}
                         <EvidenceText evidence={advice.evidence} />
+                        {askQuestion && (
+                            <PremiumButton
+                                size="sm"
+                                variant="plain"
+                                onClick={() =>
+                                    askQuestion(
+                                        advice.stage === "setup"
+                                            ? "Explain Premium's recommended build for my current army and artifacts. Compare it with my actual selected upgrades, explain the main tradeoff, and respect my current budget."
+                                            : "Explain Premium's formation guidance for my current army and artifacts. Check my visible placement and spacing risks without guessing hidden opponent positions.",
+                                    )
+                                }
+                                sx={{ mt: 0.75, px: 0.5 }}
+                            >
+                                Ask about this {advice.stage === "setup" ? "build" : "formation"}
+                            </PremiumButton>
+                        )}
                     </Box>
                     {advice.stage === "board" && !setupView && (
                         <Typography level="body-xs" sx={{ mt: 0.5 }}>

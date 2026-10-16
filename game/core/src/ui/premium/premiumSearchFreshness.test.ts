@@ -49,5 +49,11 @@ describe("Premium answer freshness", () => {
         expect(premiumSearchPlayVersion({ ...snapshot, currentUnitId: "angel" })).not.toBe(
             premiumSearchPlayVersion(snapshot),
         );
+        expect(premiumSearchPlayVersion({ ...snapshot, placementSplit: true })).not.toBe(
+            premiumSearchPlayVersion(snapshot),
+        );
+        expect(premiumSearchPlayVersion({ ...snapshot, fightStarted: true })).not.toBe(
+            premiumSearchPlayVersion(snapshot),
+        );
     });
 });

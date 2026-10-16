@@ -1,37 +1,8 @@
-import { Container, Graphics } from "pixi.js";
+import { Container, Graphics, Rectangle, Sprite, Texture } from "pixi.js";
 
 import type { HoCMath } from "@heroesofcrypto/common";
 
-/**
- * The burning cells laid down by Fire Wall (the Nightmare's Book of Nightmares).
- *
- * Driven straight off the authoritative `FightProperties.fireWalls` store rather than off the
- * fire_wall_placed/fire_wall_expired events — the same choice SmokeCloudLayer and VineLayer make, and for the
- * same reason: that store rides the fight snapshot, so the ranked client already has it without replaying
- * anything, and sandbox and ranked share one code path.
- *
- * Visually this is the loudest of the three ground effects, which is the point — the wall is the one a player
- * must not walk into by accident. It is drawn in four passes per cell: an additive heat glow pooled on the
- * ground, a fan of flame tongues, embers rising off the top, and the bed of coals they stand in. Everything
- * is seeded per cell so neighbouring cells never animate in lockstep (which would read as one flat band) but
- * an individual cell never flickers between frames either.
- *
- * Three rules keep it from reading as drawn rather than burning, and they are the whole reason the shapes
- * here are as fussy as they are:
- *   - NOTHING IS ON ONE RATE. Every wobble sums two sines whose ratio is irrational, so no motion repeats on
- *     a period the eye can catch. A single sine is instantly recognisable as machinery.
- *   - NOTHING IS SYMMETRIC OR EVENLY SPACED. Tongue count, spacing, root depth, both shoulders of every
- *     curve and the height of each cell's crest all come off the cell seed. An even fan of identical leaves
- *     was what made a 4-cell wall look like four copies of one clump.
- *   - THE WALL SHARES ITS AIR. One draught term, `windAt`, leans every cell the same way at the same moment,
- *     and leans each flame more the further it is from its root. Independent per-cell lean is what made a
- *     row of cells read as separate campfires instead of one burning line.
- *
- * A cell on its last lap burns visibly low — shorter tongues, fewer embers, redder and dimmer — which is the
- * player's warning that the wall is about to go out.
- */
-
-/** One burning cell as the engine reports it: board cell + laps of life left. */
+/** One burning cell from the authoritative fight snapshot (sandbox, ranked and replay share this layer). */
 export interface IFireWallCell {
     x: number;
     y: number;
@@ -39,115 +10,239 @@ export interface IFireWallCell {
 }
 
 type ToWorld = (cell: HoCMath.XY) => (HoCMath.XY & { cellSize?: number }) | undefined;
+type TextureLookup = (key: string) => Texture | undefined;
 
-/** Seconds a wall takes to catch when cast, and to burn down once the engine drops it. */
-const IGNITE_SECONDS = 0.32;
-const BURNOUT_SECONDS = 0.26;
+// The same approved, video-derived fire as the dungeon braziers. Reuse the scene's texture lease;
+// only the frame views belong to this layer, never the shared atlas/source.
+const FIRE_ATLAS = "ambient_fire_video_torch_left_natural_v4_64_atlas";
+const FRAME_SIZE = 256;
+const FRAME_COUNT = 64;
+const ATLAS_COLUMNS = 8;
+const IGNITE_SECONDS = 0.38;
+const BURNOUT_SECONDS = 0.6;
+const EMBERS = 6;
+const SMOKE_PUFFS = 3;
 
-/** Flame palette, coolest (the outer heat haze) to hottest (the core). */
-const EMBER_RED = 0x7a1500;
-const FLAME_ORANGE = 0xff6a00;
-const FLAME_YELLOW = 0xffd04a;
-const FLAME_CORE = 0xfff2c4;
-/** The colour the fire fades toward on its last lap: mostly spent embers. */
-const DYING_ORANGE = 0xc23a00;
+// Staggered roots fill the burning tile in depth as well as width. A vertical/diagonal wall must read
+// as burning terrain too, rather than a row of isolated torches on the front edges of its cells.
+const FLAME_ROOTS = [
+    { x: -0.31, y: 0.14 },
+    { x: 0.04, y: 0.21 },
+    { x: 0.32, y: 0.1 },
+    { x: -0.19, y: -0.16 },
+    { x: 0.2, y: -0.19 },
+] as const;
 
-/**
- * Flame tongues per cell, and embers rising off each cell.
- *
- * The tongue count is a RANGE, not a constant: a fixed fan gave every cell the same silhouette, so a 4-cell
- * wall read as four copies of one clump. Each cell picks its own count from its seed and keeps it for life.
- */
-const MIN_TONGUES = 4;
-const MAX_TONGUES = 7;
-const EMBERS = 3;
+interface IFlame {
+    body: Sprite;
+    light: Sprite;
+    phase: number;
+    speed: number;
+    width: number;
+    height: number;
+    mirror: number;
+}
 
 interface IFireVisual {
-    cell: HoCMath.XY;
     x: number;
     y: number;
     cellSize: number;
-    /** Base grid size used when the cached world projection was resolved. */
     projectionCellSize: number;
-    /** 0..1 catch-fire / burn-down progress. */
     life: number;
-    /** True while the authoritative store reports this cell during the current reconciliation. */
     alive: boolean;
-    /** True once the engine stopped reporting this cell — animate out, then drop. */
-    dying: boolean;
     lapsRemaining: number;
+    heat: number;
     phase: number;
+    ground: Container;
+    fire: Container;
+    smoke: Container;
+    sparks: Container;
+    scorch: Sprite;
+    glow: Sprite;
+    core: Sprite;
+    coals: Graphics;
+    fallback: Graphics;
+    flames: IFlame[];
+    wisps: Sprite[];
+    embers: Sprite[];
 }
 
+/**
+ * Persistent, grounded fire: textured turbulent flames, warm falloff on the stone, a charred ember bed,
+ * drifting soot and tiny sparks. Normal-blend flame bodies retain their dark folds; a restrained additive
+ * copy supplies hot filaments. No filters or per-frame textures/geometry are needed for the fire itself.
+ *
+ * Lifetime still comes exclusively from the engine. The final lap burns lower and redder, and missing
+ * cells extinguish smoothly. Empty boards do no animation work and request no assets.
+ */
 export class FireWallLayer {
     private readonly container = new Container();
-    /** Heat haze, drawn additively so overlapping cells pool into a brighter band along the wall. */
-    private readonly glow = new Graphics();
-    /** The flames and embers themselves, drawn normally on top of the glow. */
-    private readonly flames = new Graphics();
+    private readonly ground = new Container();
+    private readonly smoke = new Container();
+    private readonly fire = new Container();
+    private readonly sparks = new Container();
     private readonly visuals = new Map<number, IFireVisual>();
+    private frames: Texture[] = [];
+    private softTexture?: Texture;
     private time = 0;
-    /** Avoid repeatedly invalidating both Graphics buffers after the last wall burns out. */
-    private hasGeometry = false;
-    public constructor() {
-        this.glow.blendMode = "add";
-        this.container.addChild(this.glow);
-        this.container.addChild(this.flames);
+    private atlasPresence = 0;
+    public constructor(private readonly texAny: TextureLookup = () => undefined) {
+        this.container.eventMode = "none";
+        this.fire.sortableChildren = true;
+        this.container.addChild(this.ground, this.smoke, this.fire, this.sparks);
+        // Sandbox destroys world-root attachments directly. Cover that path as well as destroy().
+        this.container.once("destroyed", () => {
+            for (const frame of this.frames) frame.destroy(false);
+            this.frames = [];
+            if (this.softTexture && this.softTexture !== Texture.WHITE) this.softTexture.destroy(true);
+            this.softTexture = undefined;
+            this.visuals.clear();
+        });
     }
     public getContainer(): Container {
         return this.container;
     }
-    private static key(cell: { x: number; y: number }): number {
+    private static key(cell: HoCMath.XY): number {
         return (cell.x << 8) | (cell.y & 0xff);
     }
-    /** Stable per-cell pseudo-random in 0..1 — keeps each cell's flame shape fixed across frames. */
     private static seed(key: number, salt: number): number {
-        const x = Math.sin(key * 73.17 + salt * 19.31 + 1.77) * 37619.4271;
-        return x - Math.floor(x);
+        const value = Math.sin(key * 73.17 + salt * 19.31 + 1.77) * 37619.4271;
+        return value - Math.floor(value);
     }
-    /**
-     * Two sines at deliberately incommensurate rates, summed to -1..1.
-     *
-     * A single sine is what made the old flames read as mechanical: every tongue swept left-right on an
-     * obvious loop, and the eye locks onto that period immediately. Summing two rates whose ratio is
-     * irrational never repeats on any interval a player can perceive, which is what fire actually looks
-     * like, and it costs one extra sine per use.
-     */
-    private static wobble(t: number, phase: number, rate: number): number {
-        return 0.62 * Math.sin(t * rate + phase) + 0.38 * Math.sin(t * rate * 1.618 + phase * 1.7 + 1.3);
+    /** One small runtime light falloff, shared by the ground lighting, soot and all burning cells. */
+    private getSoftTexture(): Texture {
+        if (this.softTexture) return this.softTexture;
+        if (typeof document === "undefined") return Texture.WHITE;
+        const canvas = document.createElement("canvas");
+        canvas.width = canvas.height = 64;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return Texture.WHITE;
+        const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+        gradient.addColorStop(0, "rgba(255,255,255,1)");
+        gradient.addColorStop(0.22, "rgba(255,255,255,0.72)");
+        gradient.addColorStop(0.55, "rgba(255,255,255,0.22)");
+        gradient.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 64, 64);
+        this.softTexture = Texture.from(canvas);
+        return this.softTexture;
     }
-    /**
-     * The draught blowing along the whole wall, -1..1, shared by every cell.
-     *
-     * Real fire on open ground leans together: gusts are far wider than a 2-metre cell, so neighbouring
-     * flames agree about which way the air is moving even while each one flickers on its own. Giving every
-     * cell an independent lean is the single biggest reason a row of procedural flames reads as separate
-     * campfires instead of one burning line.
-     */
-    private windAt(): number {
-        return 0.6 * Math.sin(this.time * 0.63) + 0.4 * Math.sin(this.time * 0.29 + 1.1);
-    }
-    /**
-     * Sync to the authoritative cell list and advance the animations.
-     *
-     * `cells` is the whole truth: anything present catches fire, anything that disappeared burns out. The
-     * engine owns lifetime — this layer never expires a wall on its own.
-     */
-    public update(dt: number, cells: readonly IFireWallCell[], cellSize: number, toWorld: ToWorld): void {
-        // Fire Wall is absent for most of a match. Leave its clock and both Graphics buffers completely
-        // dormant until an authoritative cell exists or an old wall is still burning out.
-        if (!cells.length && !this.visuals.size) return;
-        this.time += dt;
-
-        for (const visual of this.visuals.values()) {
-            visual.alive = false;
+    private ensureFrames(): void {
+        if (this.frames.length) return;
+        const atlas = this.texAny(FIRE_ATLAS);
+        if (!atlas || atlas.destroyed || atlas.width < FRAME_SIZE * ATLAS_COLUMNS || atlas.height < FRAME_SIZE * 8) {
+            return;
         }
+        for (let i = 0; i < FRAME_COUNT; i++) {
+            this.frames.push(
+                new Texture({
+                    source: atlas.source,
+                    frame: new Rectangle(
+                        (i % ATLAS_COLUMNS) * FRAME_SIZE,
+                        Math.floor(i / ATLAS_COLUMNS) * FRAME_SIZE,
+                        FRAME_SIZE,
+                        FRAME_SIZE,
+                    ),
+                }),
+            );
+        }
+    }
+    private softSprite(parent: Container, tint: number, additive = false): Sprite {
+        const sprite = new Sprite(this.getSoftTexture());
+        sprite.anchor.set(0.5);
+        sprite.tint = tint;
+        if (additive) sprite.blendMode = "add";
+        parent.addChild(sprite);
+        return sprite;
+    }
+    private createVisual(
+        key: number,
+        cell: IFireWallCell,
+        world: HoCMath.XY & { cellSize?: number },
+        cellSize: number,
+    ): IFireVisual {
+        const ground = this.ground.addChild(new Container());
+        const smoke = this.smoke.addChild(new Container());
+        const fire = this.fire.addChild(new Container());
+        const sparks = this.sparks.addChild(new Container());
+        const scorch = this.softSprite(ground, 0x100b0a);
+        const glow = this.softSprite(ground, 0xff5a16, true);
+        const core = this.softSprite(ground, 0xffb448, true);
+        const coals = ground.addChild(new Graphics());
+        const fallback = fire.addChild(new Graphics());
+        coals.blendMode = "add";
+        // Fixed coal geometry: flicker its opacity, never rebuild it each animation tick.
+        for (let i = 0; i < 22; i++) {
+            const seed = FireWallLayer.seed(key, i + 90);
+            const x = (FireWallLayer.seed(key, i + 120) - 0.5) * 0.84;
+            const y = (FireWallLayer.seed(key, i + 150) - 0.5) * 0.54;
+            coals.ellipse(x, y, 0.013 + seed * 0.023, 0.005 + seed * 0.009).fill({
+                color: i % 4 === 0 ? 0xffc36b : 0xc64a1c,
+                alpha: 0.45 + seed * 0.4,
+            });
+        }
+        const wisps = Array.from({ length: SMOKE_PUFFS }, () => this.softSprite(smoke, 0x302b29));
+        const embers = Array.from({ length: EMBERS }, () => this.softSprite(sparks, 0xffda8c, true));
+        return {
+            x: world.x,
+            y: world.y,
+            cellSize: world.cellSize ?? cellSize,
+            projectionCellSize: cellSize,
+            life: 0,
+            alive: true,
+            lapsRemaining: cell.l,
+            heat: cell.l <= 1 ? 0.4 : 1,
+            phase: FireWallLayer.seed(key, 1) * Math.PI * 2,
+            ground,
+            fire,
+            smoke,
+            sparks,
+            scorch,
+            glow,
+            core,
+            coals,
+            fallback,
+            flames: [],
+            wisps,
+            embers,
+        };
+    }
+    private ensureFlames(key: number, visual: IFireVisual): void {
+        if (!this.frames.length || visual.flames.length) return;
+        for (let i = 0; i < FLAME_ROOTS.length; i++) {
+            const seed = FireWallLayer.seed(key, i + 20);
+            const body = new Sprite(this.frames[0]);
+            const light = new Sprite(this.frames[0]);
+            body.anchor.set(0.5, 0.96);
+            light.anchor.copyFrom(body.anchor);
+            light.blendMode = "add";
+            visual.fire.addChild(body);
+            visual.flames.push({
+                body,
+                light,
+                phase: FireWallLayer.seed(key, i + 40) * FRAME_COUNT,
+                speed: 14 + seed * 4,
+                width: 0.97 + seed * 0.28,
+                height: 0.58 + FireWallLayer.seed(key, i + 60) * 0.35,
+                mirror: i % 2 ? -1 : 1,
+            });
+        }
+        // Keep equal blend modes together so a cell batches its flames, rather than forcing a GPU
+        // draw-call break between every body and its additive copy.
+        for (const flame of visual.flames) visual.fire.addChild(flame.light);
+    }
+    public update(dt: number, cells: readonly IFireWallCell[], cellSize: number, toWorld: ToWorld): void {
+        if (this.container.destroyed || (!cells.length && !this.visuals.size)) return;
+        this.time += dt;
+        this.ensureFrames();
+        if (this.frames.length) this.atlasPresence = Math.min(1, this.atlasPresence + dt / 0.2);
+
+        for (const visual of this.visuals.values()) visual.alive = false;
         for (const cell of cells) {
             const key = FireWallLayer.key(cell);
             const existing = this.visuals.get(key);
             if (existing) {
                 existing.alive = true;
-                existing.dying = false;
                 existing.lapsRemaining = cell.l;
                 if (existing.projectionCellSize !== cellSize) {
                     const world = toWorld(cell);
@@ -160,217 +255,118 @@ export class FireWallLayer {
                 }
             } else {
                 const world = toWorld(cell);
-                if (!world) {
-                    continue;
-                }
-                this.visuals.set(key, {
-                    cell: { x: cell.x, y: cell.y },
-                    x: world.x,
-                    y: world.y,
-                    cellSize: world.cellSize ?? cellSize,
-                    projectionCellSize: cellSize,
-                    life: 0,
-                    alive: true,
-                    dying: false,
-                    lapsRemaining: cell.l,
-                    phase: FireWallLayer.seed(key, 1) * Math.PI * 2,
-                });
+                if (world) this.visuals.set(key, this.createVisual(key, cell, world, cellSize));
             }
         }
 
+        const wind = 0.6 * Math.sin(this.time * 0.63) + 0.4 * Math.sin(this.time * 0.29 + 1.1);
         for (const [key, visual] of this.visuals) {
-            if (!visual.alive) {
-                visual.dying = true;
-            }
-            const rate = visual.dying ? -dt / BURNOUT_SECONDS : dt / IGNITE_SECONDS;
-            visual.life = Math.min(1, Math.max(0, visual.life + rate));
-            if (visual.dying && visual.life <= 0) {
+            visual.life = Math.min(
+                1,
+                Math.max(0, visual.life + dt * (visual.alive ? 1 / IGNITE_SECONDS : -1 / BURNOUT_SECONDS)),
+            );
+            if (!visual.alive && visual.life <= 0) {
+                visual.ground.destroy({ children: true });
+                visual.fire.destroy({ children: true });
+                visual.smoke.destroy({ children: true });
+                visual.sparks.destroy({ children: true });
                 this.visuals.delete(key);
+                continue;
             }
+            visual.heat += ((visual.lapsRemaining <= 1 ? 0.4 : 1) - visual.heat) * Math.min(1, dt * 4);
+            this.ensureFlames(key, visual);
+            this.drawCell(key, visual, wind);
         }
-
-        this.redraw();
     }
-    private redraw(): void {
-        const glow = this.glow;
-        const flames = this.flames;
-        if (!this.visuals.size) {
-            if (this.hasGeometry) {
-                glow.clear();
-                flames.clear();
-                this.hasGeometry = false;
-            }
-            return;
+    private drawCell(key: number, v: IFireVisual, wind: number): void {
+        const size = v.cellSize;
+        const life = v.life * v.life * (3 - 2 * v.life);
+        const breath =
+            0.88 + 0.08 * Math.sin(this.time * 6.1 + v.phase) + 0.04 * Math.sin(this.time * 13.7 + v.phase * 2.3);
+        const strength = life * (0.42 + v.heat * 0.58);
+        for (const group of [v.ground, v.fire, v.smoke, v.sparks]) {
+            group.position.set(v.x, v.y);
+            group.scale.set(size);
         }
-        glow.clear();
-        flames.clear();
-        this.hasGeometry = true;
+        // Higher world Y is farther away. Front cells draw over the roots of cells behind them.
+        v.fire.zIndex = -v.y;
+        v.scorch.width = 1.05;
+        v.scorch.height = 0.7;
+        v.scorch.alpha = life * 0.48;
+        v.glow.width = 1.65;
+        v.glow.height = 1.06;
+        v.glow.alpha = strength * breath * 0.35;
+        v.core.width = 1.03;
+        v.core.height = 0.58;
+        v.core.alpha = strength * breath * 0.42;
+        v.coals.alpha = life * (0.48 + v.heat * 0.52) * breath;
 
-        for (const [key, visual] of this.visuals) {
-            const pos = visual;
-            const localCellSize = visual.cellSize;
-            const isLastLap = visual.lapsRemaining <= 1;
-            const half = localCellSize * 0.5;
-            const life = visual.life;
-            // The whole cell breathes on its own phase, so a 4-cell wall never pulses as one block. Two
-            // rates rather than one: a slow swell with a faster flicker riding it, which is how a real
-            // flame's brightness behaves — it never settles into a hum.
-            const breath =
-                0.82 +
-                0.13 * FireWallLayer.wobble(this.time, visual.phase, 6.1) +
-                0.05 * Math.sin(this.time * 14.7 + visual.phase * 2.3);
-            // Each cell burns a little taller or shorter than its neighbours and keeps that for life, so the
-            // top of the wall is a ragged crest instead of one ruled line.
-            const crest = 0.82 + FireWallLayer.seed(key, 31) * 0.36;
-            const height = half * (isLastLap ? 0.72 : 1.12) * life * breath * crest;
-            const alpha = life * (isLastLap ? 0.6 : 0.95);
-            const hot = isLastLap ? DYING_ORANGE : FLAME_ORANGE;
-            // The draught, shared along the wall, plus a little per-cell disagreement so the lean is not
-            // perfectly rigid either. A dying cell is pushed around more easily than a full-strength one.
-            const wind =
-                (this.windAt() * 0.8 + FireWallLayer.wobble(this.time, visual.phase * 2.1, 1.7) * 0.2) *
-                (isLastLap ? 1.35 : 1);
+        for (let i = 0; i < v.flames.length; i++) {
+            const flame = v.flames[i];
+            const root = FLAME_ROOTS[i];
+            const texture = this.frames[Math.floor(this.time * flame.speed + flame.phase) % FRAME_COUNT];
+            const swell = 1 + 0.035 * Math.sin(this.time * 4.7 + flame.phase);
+            const height = flame.height * (0.48 + v.heat * 0.52) * (0.22 + life * 0.78) * swell;
+            for (const sprite of [flame.body, flame.light]) {
+                sprite.texture = texture;
+                sprite.position.set(root.x, root.y);
+                // The artwork is y-down; negative local Y makes its flames rise in the y-up world.
+                sprite.scale.set((flame.mirror * flame.width) / FRAME_SIZE, -height / FRAME_SIZE);
+                sprite.skew.x = wind * 0.1;
+                sprite.tint = v.lapsRemaining <= 1 ? 0xffad77 : 0xffffff;
+            }
+            flame.body.alpha = strength * this.atlasPresence * 0.93;
+            flame.light.alpha = strength * this.atlasPresence * breath * 0.2;
+        }
 
-            // 1. Heat glow: two additive pools, the inner one hotter. Cheap, and it is what makes a run of
-            //    burning cells read as a continuous wall rather than separate campfires. Ellipses, not
-            //    discs — heat spills sideways along the ground far more than it stacks upward, and a
-            //    circle put a visible halo above each cell that looked like a lamp rather than a fire.
-            glow.ellipse(pos.x, pos.y + half * 0.1, half * 1.12 * life * breath, half * 0.66 * life * breath).fill({
-                color: EMBER_RED,
-                alpha: alpha * 0.34,
-            });
-            glow.ellipse(
-                pos.x + wind * half * 0.1,
-                pos.y + half * 0.14,
-                half * 0.58 * life * breath,
-                half * 0.4 * life * breath,
-            ).fill({
-                color: hot,
-                alpha: alpha * 0.38,
-            });
-
-            // 2. Flame tongues: each one a tapering curve leaning on the draught and its own wobble.
-            //    The count, the spacing and the shape all come off the cell's seed, so no two cells in a
-            //    wall silhouette alike and none of them is symmetric.
-            const tongues = MIN_TONGUES + Math.floor(FireWallLayer.seed(key, 41) * (MAX_TONGUES - MIN_TONGUES + 1));
-            for (let i = 0; i < tongues; i++) {
-                const tongueSeed = FireWallLayer.seed(key, i + 2);
-                const placeSeed = FireWallLayer.seed(key, i + 53);
-                // Evenly fanned, then nudged off the grid by up to a third of a slot. An exactly even fan is
-                // the tell that this is drawn rather than burning.
-                const slot = tongues === 1 ? 0 : (i / (tongues - 1) - 0.5) * 2; // -1..1 across the cell
-                const spread = slot + (placeSeed - 0.5) * (0.66 / Math.max(1, tongues - 1)) * 2;
-                const wobble =
-                    FireWallLayer.wobble(this.time, visual.phase + i * 1.9, 4.3 + tongueSeed * 2.6) *
-                    localCellSize *
-                    0.075;
-                const baseX = pos.x + spread * half * 0.72;
-                // Stagger the roots slightly in depth too, so the bases do not all sit on one ruled line.
-                const baseY = pos.y + half * (0.3 + placeSeed * 0.09);
-                // Middle tongues stand tallest, so the cell silhouettes as a flame rather than a hedge.
-                const tongueHeight = height * (0.55 + 0.45 * (1 - Math.abs(spread))) * (0.75 + tongueSeed * 0.5);
-                // A flame leans more the further it gets from its root: the tip is in moving air, the base
-                // is anchored in the fuel. Scaling the lean by height is what turns a wobble into a lean.
-                const lean = wind * tongueHeight * 0.28;
-                const tipX = baseX + wobble + lean;
-                const tipY = baseY - tongueHeight;
-                const width = localCellSize * 0.15 * (0.6 + tongueSeed * 0.6) * life;
-                // Independent left and right shoulders. Sharing one control point mirrored the curve and
-                // gave every tongue the same leaf shape; real ones are lopsided.
-                const leftBulge = 0.28 + tongueSeed * 0.34;
-                const rightBulge = 0.28 + placeSeed * 0.34;
-
-                // Outer, cooler body of the tongue.
-                flames
-                    .moveTo(baseX - width, baseY)
-                    .quadraticCurveTo(
-                        baseX - width * leftBulge + (wobble + lean) * 0.5,
-                        baseY - tongueHeight * (0.48 + tongueSeed * 0.16),
-                        tipX,
-                        tipY,
-                    )
-                    .quadraticCurveTo(
-                        baseX + width * rightBulge + (wobble + lean) * 0.5,
-                        baseY - tongueHeight * (0.48 + placeSeed * 0.16),
-                        baseX + width,
-                        baseY,
-                    )
-                    .closePath()
-                    .fill({ color: hot, alpha: alpha * 0.8 });
-
-                // Hot inner sliver, shorter and narrower — the bit that sells it as fire and not orange paint.
-                const innerW = width * 0.42;
-                const innerH = tongueHeight * 0.62;
-                const innerLean = wind * innerH * 0.24;
-                flames
-                    .moveTo(baseX - innerW, baseY)
-                    .quadraticCurveTo(
-                        baseX + wobble * 0.4 + innerLean * 0.5,
-                        baseY - innerH * 0.6,
-                        baseX + wobble * 0.6 + innerLean,
-                        baseY - innerH,
-                    )
-                    .quadraticCurveTo(baseX + innerW * 0.6, baseY - innerH * 0.5, baseX + innerW, baseY)
-                    .closePath()
-                    .fill({ color: isLastLap ? FLAME_ORANGE : FLAME_YELLOW, alpha: alpha * 0.85 });
-
-                // Every so often a tip pinches off and rises as its own teardrop before burning out. Fire
-                // sheds its tips constantly; flames that stay attached for their whole life look like cloth.
-                if (!isLastLap && tongueHeight > half * 0.35) {
-                    const shedT = (this.time * (0.5 + tongueSeed * 0.45) + tongueSeed * 7.3) % 1;
-                    if (shedT < 0.55) {
-                        const rise = shedT / 0.55;
-                        const shedY = tipY - rise * tongueHeight * 0.55;
-                        const shedR = width * 0.4 * (1 - rise * 0.75);
-                        flames
-                            .ellipse(tipX + wind * tongueHeight * 0.16 * rise, shedY, shedR * 0.8, shedR * 1.25)
-                            .fill({ color: FLAME_YELLOW, alpha: alpha * 0.5 * (1 - rise) });
-                    }
+        // Keep the hazard legible while the lazy atlas downloads or if it cannot be loaded.
+        v.fallback.visible = this.atlasPresence < 1;
+        if (v.fallback.visible) {
+            v.fallback.clear();
+            for (let i = 0; i < FLAME_ROOTS.length; i++) {
+                const root = FLAME_ROOTS[i];
+                const height = (0.32 + FireWallLayer.seed(key, i + 20) * 0.25) * life * (0.5 + v.heat * 0.5);
+                const lean = wind * height * 0.2 + Math.sin(this.time * 5 + i + v.phase) * 0.04;
+                for (let band = 0; band < 3; band++) {
+                    const width = 0.13 * (1 - band * 0.25);
+                    const h = height * (1 - band * 0.23);
+                    v.fallback
+                        .moveTo(root.x - width, root.y)
+                        .quadraticCurveTo(root.x - width * 0.6, root.y + h * 0.5, root.x + lean, root.y + h)
+                        .quadraticCurveTo(root.x + width + lean, root.y + h * 0.35, root.x + width, root.y)
+                        .closePath()
+                        .fill({
+                            color: [0xba3912, 0xf77c24, 0xffce75][band],
+                            alpha: strength * (1 - this.atlasPresence) * 0.65,
+                        });
                 }
             }
+        }
 
-            // 3. Embers drifting up out of the flames. Each rides its own looping 0..1 ramp, so they leave the
-            //    cell at different times and the wall keeps shedding sparks instead of pulsing them in unison.
-            if (!isLastLap || life > 0.5) {
-                for (let i = 0; i < EMBERS; i++) {
-                    const emberSeed = FireWallLayer.seed(key, i + 12);
-                    const t = (this.time * (0.55 + emberSeed * 0.5) + emberSeed) % 1;
-                    const driftX = FireWallLayer.wobble(this.time, emberSeed * 9.4, 2.1) * localCellSize * 0.16;
-                    // An ember is a loose particle, so the draught owns it far more than it owns a rooted
-                    // tongue, and it keeps accelerating downwind the higher and lighter it gets.
-                    const carried = wind * localCellSize * 0.42 * t * t;
-                    const ex = pos.x + (emberSeed - 0.5) * localCellSize * 0.6 + driftX * t + carried;
-                    const ey = pos.y + half * 0.3 - t * (height + half * 0.5);
-                    // Embers cool as they climb: core white at the flame, deep ember red by the time they go
-                    // out. Snapping between two colours mid-flight was a visible pop.
-                    const fade = (1 - t) * alpha * 0.9;
-                    flames
-                        .circle(ex, ey, localCellSize * 0.035 * (1 - t * 0.6) * life)
-                        .fill({ color: t < 0.3 ? FLAME_CORE : t < 0.68 ? FLAME_YELLOW : EMBER_RED, alpha: fade });
-                }
-            }
-
-            // 4. The bed of burning fuel, so the cell still reads as "on fire" even at the bottom of the
-            //    ignite animation, before any tongue is tall enough to be visible. This used to be a single
-            //    rect, and a crisp horizontal edge with square corners was the most artificial thing on the
-            //    board — nothing about a fire is axis-aligned. Three overlapping ellipses of different
-            //    sizes and heats give it a ragged, glowing edge for the same handful of draw calls.
-            for (let i = 0; i < 3; i++) {
-                const bedSeed = FireWallLayer.seed(key, i + 71);
-                const bedX = pos.x + (bedSeed - 0.5) * half * 0.9;
-                const bedY = pos.y + half * (0.3 + (i % 2) * 0.035);
-                const bedW = half * (0.34 + bedSeed * 0.3);
-                // The bed itself pulses gently, a beat behind the flames above it, like coals drawing air.
-                const bedPulse = 0.85 + 0.15 * Math.sin(this.time * 3.3 + visual.phase + i);
-                flames.ellipse(bedX, bedY, bedW * bedPulse, localCellSize * 0.042 * bedPulse).fill({
-                    color: i === 1 ? hot : EMBER_RED,
-                    alpha: alpha * (i === 1 ? 0.4 : 0.55),
-                });
-            }
+        for (let i = 0; i < v.wisps.length; i++) {
+            const seed = FireWallLayer.seed(key, i + 180);
+            const t = (this.time * (0.23 + seed * 0.1) + seed) % 1;
+            const wisp = v.wisps[i];
+            wisp.position.set((seed - 0.5) * 0.65 + wind * t * 0.3, 0.3 + t * 0.95);
+            wisp.width = 0.32 + t * 0.54;
+            wisp.height = 0.4 + t * 0.6;
+            wisp.alpha = life * Math.sin(Math.PI * t) ** 2 * 0.17;
+        }
+        for (let i = 0; i < EMBERS; i++) {
+            const seed = FireWallLayer.seed(key, i + 210);
+            const t = (this.time * (0.38 + seed * 0.32) + seed) % 1;
+            const ember = v.embers[i];
+            ember.position.set(
+                (seed - 0.5) * 0.76 + wind * t * t * 0.3 + Math.sin(t * 8 + seed * 20) * t * 0.07,
+                0.12 + t * (0.65 + seed * 0.65),
+            );
+            ember.width = 0.028 + seed * 0.018;
+            ember.height = 0.065 * (1 - t * 0.5);
+            ember.tint = t < 0.4 ? 0xffda8c : 0xe77a31;
+            ember.alpha = strength * Math.sin(Math.PI * t) * (1 - t) * 0.9;
         }
     }
     public destroy(): void {
-        this.visuals.clear();
-        this.container.destroy({ children: true });
+        if (!this.container.destroyed) this.container.destroy({ children: true });
     }
 }
