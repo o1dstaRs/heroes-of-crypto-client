@@ -983,6 +983,9 @@ export class Sandbox extends PixiScene {
     private readonly shownBuffsByUnit = new Map<string, Set<string>>();
     /** Recipients already given a Dulling Defense pop for the attack currently on screen. */
     private dullingPopShownForAction = new Set<string>();
+    private shownAbsolutions?: WeakSet<object>;
+    private shownGravechains?: WeakSet<object>;
+    private legacyGraveboundShown?: Set<string>;
     // Buff/debuff pops whose strike hasn't connected yet — see queueOrPlayEffectPops. Held while an
     // attack animation is in flight (projectile still travelling, melee still approaching) and released
     // at impact by flushEffectPops, so an effect never pops before the blow that applied it lands.
@@ -1261,6 +1264,7 @@ export class Sandbox extends PixiScene {
     // [NEW] Sub-Managers
     // Protected: the ranked scene installs/clears the seeded scattered stones on it from snapshots.
     protected dungeonVisuals: DungeonVisuals;
+    protected sc_mapStateHydrated = false;
     private moveAnimManager: MoveAnimationManager;
     private smokeLayer?: SmokeLayer;
     private smokeCloudLayer?: SmokeCloudLayer;
@@ -1327,7 +1331,9 @@ export class Sandbox extends PixiScene {
             getWorldRoot: () => this.pixiApp.getWorldRoot(),
             getViewportSize: () => this.getViewportSize(),
             getGridSettings: () => this.sc_sceneSettings.getGridSettings(),
-            texAny: (n) => this.texAny(n),
+            texAny: (n, options) => this.texAny(n, options),
+            getLoadingRoot: () => this.pixiApp.getUIContainer(),
+            isMapStateKnown: () => this.isMapStateKnown(),
             attachToWorldRoot: (o, z) => this.attachToWorldRoot(o, z ?? 0),
             attachToUnitDepthRoot: (o, z) => this.attachToUnitDepthRoot(o, z ?? 0),
             getMovableArtifactBarrelCells: () =>
@@ -1385,7 +1391,7 @@ export class Sandbox extends PixiScene {
         this.attachToWorldRoot(this.vineLayer.getContainer(), 52);
         // Fire walls sit at the top of the ground-terrain stack: they are the loudest of the three and the
         // one a player must never miss, but still well under the units for the same reason as the vines.
-        this.fireWallLayer = new FireWallLayer();
+        this.fireWallLayer = new FireWallLayer((name) => this.texAny(name));
         this.attachToWorldRoot(this.fireWallLayer.getContainer(), 53);
         this.windLayer = new WindLayer();
         this.attachToWorldRoot(this.windLayer.getContainer(), 50);
@@ -2861,6 +2867,18 @@ export class Sandbox extends PixiScene {
     protected ensureCenterTerrainSprite(): void {
         this.dungeonVisuals.ensureCenterTerrainSprite();
     }
+    public override async prepareMapTextures(): Promise<void> {
+        await this.preloadTextureKeys(this.dungeonVisuals.getMapTextureKeys(), { priority: "visible" });
+        if (this.isSceneDestroyed()) return;
+        this.dungeonVisuals.ensureBackgroundSprite();
+        this.dungeonVisuals.ensureCenterTerrainSprite();
+    }
+    public override isMapLoading(): boolean {
+        return this.dungeonVisuals.isMapLoading();
+    }
+    protected isMapStateKnown(): boolean {
+        return true;
+    }
     private stepMoveAnimation(dt: number): void {
         this.moveAnimManager.update(dt);
         const wasMoving = this.isActiveUnitMoving;
@@ -3144,6 +3162,7 @@ export class Sandbox extends PixiScene {
         return renderableUnit;
     }
     protected hydrateSceneState(snapshot: SandboxSceneState): void {
+        this.sc_mapStateHydrated = true;
         // Carry the INSPECTED unit across the rebuild. A hydrate tears the board down and recreates every
         // RenderableUnit, so a shift-selected stack loses its card and its ring even though the player never
         // dismissed it. That is invisible in live play, where a full hydrate is occasional — but a REPLAY
@@ -3967,6 +3986,9 @@ export class Sandbox extends PixiScene {
         const replayActorId = this.getReplayTurnActorId(action);
         if (replayActorId && !this.ensureReplayActiveUnit(replayActorId)) {
             return false;
+        }
+        if (FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
+            this.beginStackCountPresentation();
         }
         switch (action.type) {
             case "start_fight": {
@@ -5324,6 +5346,11 @@ export class Sandbox extends PixiScene {
         units.set(target.getId(), target);
         preloadCombatSounds(Array.from(units.values(), (unit) => unit.getName()));
         const remainingAmounts = new Map(deathState?.amountsBefore);
+        for (const [id, unit] of units) {
+            if (unit instanceof RenderableUnit) {
+                unit.beginDamagePresentation(remainingAmounts.get(id) ?? unit.getAmountAlive());
+            }
+        }
         const consumeLoss = (unitId: string, unitsDied: number): number | undefined => {
             const before = remainingAmounts.get(unitId);
             if (before === undefined) return undefined;
@@ -5400,16 +5427,34 @@ export class Sandbox extends PixiScene {
             ];
             await Promise.all(textureKeys.filter((key): key is string => !!key).map((key) => this.waitForTexture(key)));
             if (this.isSceneDestroyed()) break;
+            const absolvingProgress = event.damage?.absolutions?.length
+                ? this.createAbsolvingArrowProgress(
+                      source,
+                      victim,
+                      event.damage,
+                      strike,
+                      units,
+                      renderedVictim ? undefined : fallbackPosition,
+                  )
+                : undefined;
             let reaction = Promise.resolve();
             let chakramFlight = Promise.resolve();
             let impacted = false;
             const impact = (): void => {
                 if (impacted || this.isSceneDestroyed()) return;
                 impacted = true;
+                absolvingProgress?.(1);
+                if (event.damage?.gravechains?.length) {
+                    const deferredRoots = isChakramFlight
+                        ? new Set(arcs.flatMap((arc) => arc.hitUnitIds ?? (arc.targetUnitId ? [arc.targetUnitId] : [])))
+                        : undefined;
+                    this.showGravechainVfx(event.damage, strike, units, undefined, deferredRoots);
+                }
                 // The unit this blow struck. The incoming hit lists both fighters too, and popping there
                 // showed Dulling Defense before the knight had answered.
                 this.popRecordedDullingDefense(dullingEvents, new Set([strike.targetId]));
                 consumeLoss(strike.targetId, strike.unitsDied);
+                renderedVictim?.presentDamageCasualties?.(strike.unitsDied);
                 const from = source.getVisualCenter(gs);
                 const to = renderedVictim
                     ? victim.getVisualCenter(gs)
@@ -5466,6 +5511,12 @@ export class Sandbox extends PixiScene {
                             missed: primaryMissed,
                             splash,
                             chakramArcs: arcs,
+                            gravechains: event.damage.gravechains?.filter(
+                                (wave) =>
+                                    wave.sourceUnitId === strike.attackerId &&
+                                    wave.response === strike.response &&
+                                    wave.hitIndex === strike.hitIndex,
+                            ),
                         },
                         renderedVictim,
                         units,
@@ -5510,6 +5561,7 @@ export class Sandbox extends PixiScene {
                     renderedVictim ? undefined : fallbackPosition,
                     impact,
                     isChakramFlight,
+                    absolvingProgress,
                 );
                 await Promise.all([attack, reaction, chakramFlight]);
                 // Projectile arrival can precede the authored shooter's recovery frames.
@@ -5524,12 +5576,160 @@ export class Sandbox extends PixiScene {
         }
         return shownDeaths;
     }
+    private createAbsolvingArrowProgress(
+        source: RenderableUnit,
+        victim: RenderableUnit,
+        damage: IVisibleDamage | undefined,
+        strike: CombatExchangeStrike,
+        units: ReadonlyMap<string, Unit>,
+        toPosition?: HoCMath.XY,
+    ): ((progress: number) => void) | undefined {
+        const entries = damage?.absolutions?.filter(
+            (entry) =>
+                entry.sourceUnitId === source.getId() &&
+                entry.response === strike.response &&
+                entry.hitIndex === strike.hitIndex &&
+                entry.liftedNames.length > 0,
+        );
+        if (!entries?.length) return undefined;
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const to = toPosition ?? victim.getProjectileImpactPoint(gs);
+        const from = source.getRangedProjectileOrigin(to, gs);
+        const dx = to.x - from.x;
+        const dy = to.y - from.y;
+        const lengthSquared = dx * dx + dy * dy;
+        const crossings = entries.map((entry) => {
+            const ally = units.get(entry.unitId) as RenderableUnit | undefined;
+            const position = ally?.getProjectileImpactPoint(gs) ?? projectBattlefieldPoint(entry.position, gs);
+            const progress =
+                lengthSquared > 0 ? ((position.x - from.x) * dx + (position.y - from.y) * dy) / lengthSquared : 1;
+            return { entry, progress: Math.max(0, Math.min(1, progress)) };
+        });
+        return (progress) => {
+            for (const crossing of crossings) {
+                if (progress >= crossing.progress) this.showAbsolvingArrowCleanse(crossing.entry, units);
+            }
+        };
+    }
+    private showAbsolvingArrowCleanse(
+        entry: NonNullable<IVisibleDamage["absolutions"]>[number],
+        capturedUnits?: ReadonlyMap<string, Unit>,
+    ): void {
+        if (!entry.liftedNames.length || this.isSceneDestroyed()) return;
+        const shown = (this.shownAbsolutions ??= new WeakSet());
+        if (shown.has(entry)) return;
+        shown.add(entry);
+        const unit = capturedUnits?.get(entry.unitId) ?? this.unitsHolder.getAllUnits().get(entry.unitId);
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const renderable = unit as RenderableUnit | undefined;
+        const center = renderable?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs);
+        renderable?.flashBuffApplied();
+        this.combatVisuals.showCleanse(center);
+    }
+    protected showAbsolvingArrowVfx(damage?: IVisibleDamage): void {
+        for (const entry of damage?.absolutions ?? []) this.showAbsolvingArrowCleanse(entry);
+    }
+    /** The route is authoritative; failed rolls relay the chain but never get a binding popup. */
+    protected showGravechainVfx(
+        damage?: IVisibleDamage,
+        strike?: Pick<CombatExchangeStrike, "attackerId" | "response" | "hitIndex">,
+        capturedUnits?: ReadonlyMap<string, Unit>,
+        onlyRoots?: ReadonlySet<string>,
+        deferredRoots?: ReadonlySet<string>,
+    ): void {
+        if (this.isSceneDestroyed()) return;
+        const shown = (this.shownGravechains ??= new WeakSet());
+        const gs = this.sc_sceneSettings.getGridSettings();
+        for (const wave of damage?.gravechains ?? []) {
+            if (
+                shown.has(wave) ||
+                !wave.links.some((link) => link.applied) ||
+                (onlyRoots && !onlyRoots.has(wave.rootUnitId)) ||
+                deferredRoots?.has(wave.rootUnitId) ||
+                (strike &&
+                    (wave.sourceUnitId !== strike.attackerId ||
+                        wave.response !== strike.response ||
+                        wave.hitIndex !== strike.hitIndex))
+            ) {
+                continue;
+            }
+            shown.add(wave);
+            const links = wave.links.map((link) => {
+                const unit = capturedUnits?.get(link.unitId) ?? this.unitsHolder.getAllUnits().get(link.unitId);
+                const renderable = unit as RenderableUnit | undefined;
+                return {
+                    ...link,
+                    position:
+                        renderable?.getVisualCenter(gs) ??
+                        this.preDeferredActionUnitHp?.get(link.unitId)?.visualCenter ??
+                        projectBattlefieldPoint(link.position, gs),
+                };
+            });
+            this.combatVisuals.spawnGravechain(links, gs.getCellSize(), (unitId) => {
+                if (this.isSceneDestroyed()) return;
+                // Hydration may have replaced the original figure while a later hop was travelling.
+                const unit = this.unitsHolder.getAllUnits().get(unitId) as RenderableUnit | undefined;
+                if (!unit || unit.isDead()) return;
+                unit.flashDebuffDarken();
+                this.popEffectOnUnit(unit, "Gravebound", 0, "debuff");
+            });
+        }
+    }
+    /** Older journals have successful applications but no route; still give each binding its burst. */
+    protected showLegacyGraveboundVfx(events: readonly GameEvent[]): void {
+        if (
+            events.some(
+                (event) =>
+                    (event.type === "unit_attacked" ||
+                        event.type === "area_attacked" ||
+                        event.type === "obstacle_attacked") &&
+                    event.damage?.gravechains !== undefined,
+            )
+        ) {
+            return;
+        }
+        const shown = (this.legacyGraveboundShown ??= new Set());
+        for (const event of events) {
+            if (event.type !== "effects_applied") continue;
+            for (const application of event.applications) {
+                if (
+                    application.name !== "Gravebound" ||
+                    application.kind !== "debuff" ||
+                    application.resisted ||
+                    shown.has(application.unitId)
+                ) {
+                    continue;
+                }
+                const unit = this.unitsHolder.getAllUnits().get(application.unitId);
+                if (!unit) continue;
+                shown.add(application.unitId);
+                this.showGravechainVfx({
+                    amount: 0,
+                    render: false,
+                    unitPosition: unit.getPosition(),
+                    unitIsSmall: unit.isSmallSize(),
+                    gravechains: [
+                        {
+                            sourceUnitId: "",
+                            rootUnitId: application.unitId,
+                            response: false,
+                            hitIndex: 0,
+                            links: [
+                                { unitId: application.unitId, position: unit.getPosition(), depth: 0, applied: true },
+                            ],
+                        },
+                    ],
+                });
+            }
+        }
+    }
     private async playReplayProjectile(
         attacker: RenderableUnit,
         target: RenderableUnit,
         toPosition?: HoCMath.XY,
         onImpact?: () => void,
         chakram?: boolean,
+        onProgress?: (progress: number) => void,
     ): Promise<void> {
         const gs = this.sc_sceneSettings.getGridSettings();
         // Playback resolution supplies the actual victim's torso (or its captured pre-removal anchor).
@@ -5542,6 +5742,7 @@ export class Sandbox extends PixiScene {
             from: muzzle,
             to: targetPosition,
             onImpact,
+            onProgress,
             big: bigProjectile,
             chakram: chakram ?? attacker.hasAbilityActive("Chakram"),
             orcAxe: attacker.getName().trim().toLowerCase() === "orc",
@@ -5735,7 +5936,7 @@ export class Sandbox extends PixiScene {
             const pos = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs);
             const direction = attackerCenter ? { x: pos.x - attackerCenter.x, y: pos.y - attackerCenter.y } : undefined;
             const show = (): void => {
-                this.combatVisuals.showFloatingAbsorbed(pos, entry.amount, direction, entry.unitsDied);
+                this.combatVisuals.showFloatingAbsorbed(pos, entry.amount, direction, entry.unitsDied, unit);
             };
             if (delayMs > 0) {
                 this.scheduleSceneTimeout(show, delayMs);
@@ -5930,6 +6131,7 @@ export class Sandbox extends PixiScene {
         const damage = events.find(
             (event): event is ObstacleAttackedEvent => event.type === "obstacle_attacked" && !!event.damage,
         )?.damage;
+        if (damage?.gravechains?.length) this.showGravechainVfx(damage);
         if (!damage?.secondary?.length) {
             return;
         }
@@ -10244,6 +10446,8 @@ export class Sandbox extends PixiScene {
 
             // The engine truncates a connecting leg at its one victim, so land it here as the disc arrives.
             for (const unitId of hitIds) {
+                if (damage?.gravechains?.length)
+                    this.showGravechainVfx(damage, undefined, capturedUnits, new Set([unitId]));
                 const unit = this.unitsHolder.getAllUnits().get(unitId) as RenderableUnit | undefined;
                 const captured = capturedByUnit.get(unitId);
                 const center = unit?.getVisualCenter(gs) ?? captured?.center ?? arrival;
@@ -10733,6 +10937,9 @@ export class Sandbox extends PixiScene {
     }
     private beginDullingDefensePresentation(): void {
         this.dullingPopShownForAction = new Set();
+        this.shownAbsolutions = new WeakSet();
+        this.shownGravechains = new WeakSet();
+        this.legacyGraveboundShown = new Set();
     }
     /**
      * Dulling Defense lands on the unit the knight's own attack or retaliation struck. Pop that unit,
@@ -17888,7 +18095,15 @@ export class Sandbox extends PixiScene {
                     this.replayRecorder.beginAction();
                 }
 
+                const amountsBefore = FightStateManager.getInstance().getFightProperties().hasFightStarted()
+                    ? this.beginStackCountPresentation()
+                    : new Map<RenderableUnit, number>();
                 const result = engine.apply(action);
+                for (const [unit, amount] of amountsBefore) {
+                    // Refused actions and raises have no casualty timeline to hold on the ribbon.
+                    if (!result.completed || unit.getAmountAlive() > amount) unit.clearDamagePresentation();
+                    else if (unit.getAmountAlive() < amount) unit.beginDamagePresentation(amount);
+                }
                 if (shouldRecord && result.completed) {
                     this.pendingReplayRecords.push({
                         action: cloneReplayData(action),
@@ -17901,6 +18116,16 @@ export class Sandbox extends PixiScene {
                 return result;
             },
         };
+    }
+    private beginStackCountPresentation(): Map<RenderableUnit, number> {
+        const amounts = new Map<RenderableUnit, number>();
+        for (const unit of this.unitsHolder.getAllUnits().values()) {
+            if (!(unit instanceof RenderableUnit)) continue;
+            const amount = unit.getAmountAlive();
+            amounts.set(unit, amount);
+            unit.beginDamagePresentation(amount);
+        }
+        return amounts;
     }
     private flushPendingReplayRecords(): void {
         if (this.replayRecordingSuspended || !this.shouldRecordSandboxReplay()) {
@@ -18014,17 +18239,35 @@ export class Sandbox extends PixiScene {
         }
         const gs = this.sc_sceneSettings.getGridSettings();
         const cell = gs.getCellSize();
-        visuals.spawnPyreExplosion(projectBattlefieldPoint(event.position, gs), cell, delaySec);
+        const origin = projectBattlefieldPoint(event.position, gs);
+        visuals.spawnPyreExplosion(origin, cell, delaySec);
         for (const hit of event.hits) {
+            if (hit.amount <= 0) continue;
             const unit = this.unitsHolder.getAllUnits().get(hit.unitId) as RenderableUnit | undefined;
             const pos = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(hit.position, gs);
-            visuals.showFloatingDamageDelayed(pos, hit.amount, hit.unitsDied, delaySec, "#ff7a18", "#4a1208");
+            visuals.spawnPyreHit(hit.unitId, pos, origin, cell, delaySec);
+            visuals.showFloatingDamageDelayed(
+                pos,
+                hit.amount,
+                hit.unitsDied,
+                delaySec,
+                "#ff9a48",
+                "#4a1208",
+                unit,
+                4560,
+            );
         }
         if (delaySec === 0) {
             this.triggerScreenShake(11, 0.4);
         }
     }
     private applyTurnEngineEvents(events: GameEvent[], unitSnapshot: ReadonlyMap<string, RenderableUnit>): void {
+        if (
+            events.some(
+                (event) => event.type === "effects_applied" && event.applications.some((a) => a.name === "Gravebound"),
+            )
+        )
+            this.showLegacyGraveboundVfx(events);
         if (events.length) {
             this.sandboxPremiumRevision += 1;
             this.clearSandboxPremiumGuidance();
@@ -18193,6 +18436,8 @@ export class Sandbox extends PixiScene {
                     shouldRefreshVisibleState = true;
                     break;
                 case "obstacle_attacked": {
+                    if (event.damage?.gravechains?.length)
+                        this.showGravechainVfx(event.damage, undefined, unitSnapshot);
                     // A Lightning Spin off the strike may have killed: attribute those blows before this batch's
                     // teardown events spawn the death visuals, exactly as unit_attacked does below.
                     this.noteDeathBlowsFromAttackEvent(event);
@@ -18249,6 +18494,9 @@ export class Sandbox extends PixiScene {
                     break;
                 case "unit_attacked":
                 case "area_attacked":
+                    this.showAbsolvingArrowVfx(event.damage);
+                    if (event.damage?.gravechains?.length)
+                        this.showGravechainVfx(event.damage, undefined, unitSnapshot);
                     // Attribute the kill (melee vs range + direction) before the same batch's
                     // unit_deleted / unit_destroyed teardown spawns the death visuals — the
                     // death-animation choice needs the blow recorded first.

@@ -8,6 +8,7 @@ import {
     PerspectiveMesh,
     Rectangle,
     Sprite,
+    Text,
     Texture,
     type ColorMatrix,
 } from "pixi.js";
@@ -22,6 +23,9 @@ import {
 } from "@heroesofcrypto/common";
 
 import { boardFitHeight, boardFitWidth } from "../../pixi/boardFit";
+import type { TextureLoadOptions } from "../../pixi/boardFirstTextureLoads";
+import { HOC_NUMERIC_ARIAL_FONT_FAMILY } from "../../fontFamilies";
+import { LAVA_PIT_ASSETS, lavaPitTextureKeys } from "./lavaPitAssets";
 import { images } from "../../generated/image_imports";
 import {
     BARREL_SHADOW_TUNING_CHANGE_EVENT,
@@ -80,7 +84,11 @@ export interface IDungeonVisualsContext {
     getWorldRoot(): Container;
     getViewportSize(): { width: number; height: number };
     getGridSettings(): GridSettings;
-    texAny(name: string): Texture | undefined;
+    texAny(name: string, options?: TextureLoadOptions): Texture | undefined;
+    /** Unmirrored screen-space parent for the map-loading cover. */
+    getLoadingRoot?(): Container;
+    /** Ranked scenes receive the map in their first authoritative snapshot, after renderer boot. */
+    isMapStateKnown?(): boolean;
     attachToWorldRoot(obj: Container, zIndex?: number): void;
     /** Shared depth-sorted parent used by live creatures and tall battlefield obstacles. */
     attachToUnitDepthRoot?(obj: Container, zIndex?: number): void;
@@ -750,6 +758,11 @@ export class DungeonVisuals {
     private dungeonOverlay?: Container;
     private holeContainer: Container;
     private bgSprite?: Sprite;
+    private mapLoadingCover?: Container;
+    private mapLoading = false;
+    private mapLoadingViewport?: { width: number; height: number };
+    private mapLoadingBackdrop?: Graphics;
+    private mapLoadingLabel?: Text;
     private backgroundTextureKey?: string;
     /** Authored transparent fire atlases aligned to the background painting in source pixels. */
     private ambientFireLayer?: Container;
@@ -927,18 +940,18 @@ export class DungeonVisuals {
     private static readonly LAVA_ANIM_COLS = 8;
     private static readonly LAVA_ANIM_FRAMES = 60;
     /** Approved static four-by-four furnace: its forged bars are baked exactly onto the map-cell seams. */
-    private static readonly FIRE_PIT_KEY = "fire_pit_grid_map_palette_v8_512";
+    private static readonly FIRE_PIT_KEY = LAVA_PIT_ASSETS.still;
     /** The approved furnace already contains its fire and grate, so production no longer stacks animated layers. */
     private static readonly USE_STATIC_LAVA_PIT_ART = false;
-    private static readonly FIRE_PIT_EXTINGUISHED_KEY = "fire_pit_extinguished_deep_background_v16_512";
-    private static readonly FIRE_PIT_EXTINGUISHED_GRATE_KEY = "fire_pit_grate_burning_charred_v18_512";
-    private static readonly FIRE_PIT_EDITOR_BOWL_KEY = "fire_pit_dark_bowl_v1_512";
-    private static readonly FIRE_PIT_EDITOR_GRATE_KEY = "fire_pit_grate_burning_exact_v17_512";
+    private static readonly FIRE_PIT_EXTINGUISHED_KEY = LAVA_PIT_ASSETS.extinguished;
+    private static readonly FIRE_PIT_EXTINGUISHED_GRATE_KEY = LAVA_PIT_ASSETS.extinguishedGrate;
+    private static readonly FIRE_PIT_EDITOR_BOWL_KEY = LAVA_PIT_ASSETS.bowl;
+    private static readonly FIRE_PIT_EDITOR_GRATE_KEY = LAVA_PIT_ASSETS.grate;
     private static readonly FIRE_PIT_VIDEO_LOOP = true;
-    private static readonly FIRE_PIT_ANIM_KEY = "fire_pit_grok_video_fire_under_v2_64_atlas";
-    private static readonly FIRE_PIT_EDITOR_ANIM_KEY = "fire_pit_grok_video_fire_under_v2_64_atlas";
-    private static readonly FIRE_PIT_OVER_ANIM_KEY = "fire_pit_grok_video_fire_over_v2_64_atlas";
-    private static readonly FIRE_PIT_SPILL_ANIM_KEY = "fire_pit_grok_video_fire_actual_extent_v4_64_atlas";
+    private static readonly FIRE_PIT_ANIM_KEY = LAVA_PIT_ASSETS.under;
+    private static readonly FIRE_PIT_EDITOR_ANIM_KEY = LAVA_PIT_ASSETS.under;
+    private static readonly FIRE_PIT_OVER_ANIM_KEY = LAVA_PIT_ASSETS.over;
+    private static readonly FIRE_PIT_SPILL_ANIM_KEY = LAVA_PIT_ASSETS.spill;
     private static readonly FIRE_PIT_ANIM_FRAME_PX = 512;
     private static readonly FIRE_PIT_ANIM_COLS = 8;
     private static readonly FIRE_PIT_ANIM_FRAMES = 64;
@@ -950,13 +963,10 @@ export class DungeonVisuals {
     private firePitOverlayFrames?: Texture[];
     private firePitOverlayAtlas?: Texture;
     private firePitOverlayAtlasKey?: string;
-    private firePitOverlayLoadStarted = false;
     private firePitOverFrames?: Texture[];
     private firePitOverAtlas?: Texture;
-    private firePitOverLoadStarted = false;
     private firePitSpillFrames?: Texture[];
     private firePitSpillAtlas?: Texture;
-    private firePitSpillLoadStarted = false;
     private firePitCenterFrames?: Texture[];
     private firePitCenterFramesB?: Texture[];
     public constructor(context: IDungeonVisualsContext) {
@@ -970,6 +980,57 @@ export class DungeonVisuals {
     }
     public getHoleContainer(): Container {
         return this.holeContainer;
+    }
+    public getMapTextureKeys(): readonly string[] {
+        const keys = [this.backgroundKey()];
+        if (this.context.isMapStateKnown?.() === false) return keys;
+        if (FightStateManager.getInstance().getFightProperties().getGridType() === GridVals.LAVA_CENTER) {
+            const mode = lavaPitVisualModeForScene(isLavaAnimationEditorActive(), resolveLavaPitVisualMode());
+            keys.push(...lavaPitTextureKeys(lavaPitVisualState(this.centerDried, mode).extinguishedPit));
+        }
+        return keys;
+    }
+    public isMapLoading(): boolean {
+        return this.mapLoading;
+    }
+    private updateMapLoadingCover(): void {
+        if (this.destroyed) return;
+        // Request every layer together in the visible lane, before optional creature animation sheets.
+        const ready =
+            this.getMapTextureKeys()
+                .map((key) => this.context.texAny(key, { priority: "visible" }))
+                .every(Boolean) && this.context.isMapStateKnown?.() !== false;
+        this.mapLoading = !ready;
+        if (ready) {
+            if (this.mapLoadingCover) this.mapLoadingCover.visible = false;
+            return;
+        }
+        const root = this.context.getLoadingRoot?.();
+        if (!root) return;
+        if (!this.mapLoadingCover) {
+            const cover = new Container();
+            cover.zIndex = 10000;
+            cover.eventMode = "static";
+            const backdrop = new Graphics();
+            const label = new Text({
+                text: "Loading battlefield…",
+                style: { fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY, fontSize: 20, fill: 0xd9c7aa },
+            });
+            label.anchor.set(0.5);
+            cover.addChild(backdrop, label);
+            root.sortableChildren = true;
+            root.addChild(cover);
+            this.mapLoadingCover = cover;
+            this.mapLoadingBackdrop = backdrop;
+            this.mapLoadingLabel = label;
+        }
+        const { width, height } = this.context.getViewportSize();
+        if (this.mapLoadingViewport?.width !== width || this.mapLoadingViewport.height !== height) {
+            this.mapLoadingBackdrop!.clear().rect(0, 0, width, height).fill(0x080706);
+            this.mapLoadingLabel!.position.set(width / 2, height / 2);
+            this.mapLoadingViewport = { width, height };
+        }
+        this.mapLoadingCover.visible = true;
     }
     public clearHoleLayers(): void {
         for (const child of this.holeContainer.removeChildren()) {
@@ -1172,40 +1233,12 @@ export class DungeonVisuals {
             this.firePitCenterFrames = undefined;
             this.firePitCenterFramesB = undefined;
             this.firePitOverlayAtlas = undefined;
-            this.firePitOverlayLoadStarted = false;
             this.firePitOverlayAtlasKey = requestedAtlasKey;
         }
         if (!this.firePitOverlayFrames) {
-            const atlasUrl = (images as Readonly<Record<string, string | undefined>>)[requestedAtlasKey];
-            const atlas = this.firePitOverlayAtlas;
-            if (!atlas) {
-                // Keep the large atlas out of the blocking core bundle. Load it in the background when a live
-                // lava board asks for it; until then the complete still pit remains visible as a safe fallback.
-                if (!this.firePitOverlayLoadStarted && atlasUrl) {
-                    this.firePitOverlayLoadStarted = true;
-                    void Assets.load<Texture>(atlasUrl)
-                        .then((loaded) => {
-                            if (this.destroyed) {
-                                void Assets.unload(atlasUrl).catch(() => undefined);
-                                return;
-                            }
-                            if (this.firePitOverlayAtlasKey === requestedAtlasKey) {
-                                this.loadedMapAtlasUrls.add(atlasUrl);
-                                this.firePitOverlayAtlas = loaded;
-                                // The base bowl and grate are available synchronously, while the 4096px fire
-                                // atlas is intentionally lazy. Rebuild immediately when it arrives so the fire
-                                // layer appears without waiting for a tuning interaction or scene transition.
-                                this.ensureCenterTerrainSprite();
-                            } else {
-                                void Assets.unload(atlasUrl).catch(() => undefined);
-                            }
-                        })
-                        .catch(() => {
-                            this.firePitOverlayLoadStarted = false;
-                        });
-                }
-                return undefined;
-            }
+            const atlas = this.firePitOverlayAtlas ?? this.context.texAny(requestedAtlasKey, { priority: "visible" });
+            if (!atlas) return undefined;
+            this.firePitOverlayAtlas = atlas;
             const side = DungeonVisuals.FIRE_PIT_ANIM_FRAME_PX;
             const frames: Texture[] = [];
             for (let index = 0; index < DungeonVisuals.FIRE_PIT_ANIM_FRAMES; index++) {
@@ -1267,23 +1300,11 @@ export class DungeonVisuals {
     /** Flames crossing the grate, synchronized with the under-fire loop. */
     private firePitOverTexture(): Texture | undefined {
         if (!this.firePitOverFrames) {
-            const atlasUrl = (images as Readonly<Record<string, string | undefined>>)[
-                DungeonVisuals.FIRE_PIT_OVER_ANIM_KEY
-            ];
-            if (!this.firePitOverAtlas) {
-                if (!this.firePitOverLoadStarted && atlasUrl) {
-                    this.firePitOverLoadStarted = true;
-                    void Assets.load<Texture>(atlasUrl)
-                        .then((loaded) => {
-                            this.firePitOverAtlas = loaded;
-                            this.ensureCenterTerrainSprite();
-                        })
-                        .catch(() => {
-                            this.firePitOverLoadStarted = false;
-                        });
-                }
-                return undefined;
-            }
+            const atlas =
+                this.firePitOverAtlas ??
+                this.context.texAny(DungeonVisuals.FIRE_PIT_OVER_ANIM_KEY, { priority: "visible" });
+            if (!atlas) return undefined;
+            this.firePitOverAtlas = atlas;
             const side = DungeonVisuals.FIRE_PIT_ANIM_FRAME_PX;
             this.firePitOverFrames = Array.from(
                 { length: DungeonVisuals.FIRE_PIT_ANIM_FRAMES },
@@ -1307,23 +1328,11 @@ export class DungeonVisuals {
     /** Soft animated glow in the narrow seam beyond the fixed four-by-four pit. */
     private firePitSpillTexture(): Texture | undefined {
         if (!this.firePitSpillFrames) {
-            const atlasUrl = (images as Readonly<Record<string, string | undefined>>)[
-                DungeonVisuals.FIRE_PIT_SPILL_ANIM_KEY
-            ];
-            if (!this.firePitSpillAtlas) {
-                if (!this.firePitSpillLoadStarted && atlasUrl) {
-                    this.firePitSpillLoadStarted = true;
-                    void Assets.load<Texture>(atlasUrl)
-                        .then((loaded) => {
-                            this.firePitSpillAtlas = loaded;
-                            this.ensureCenterTerrainSprite();
-                        })
-                        .catch(() => {
-                            this.firePitSpillLoadStarted = false;
-                        });
-                }
-                return undefined;
-            }
+            const atlas =
+                this.firePitSpillAtlas ??
+                this.context.texAny(DungeonVisuals.FIRE_PIT_SPILL_ANIM_KEY, { priority: "visible" });
+            if (!atlas) return undefined;
+            this.firePitSpillAtlas = atlas;
             const side = DungeonVisuals.FIRE_PIT_ANIM_FRAME_PX;
             this.firePitSpillFrames = Array.from(
                 { length: DungeonVisuals.FIRE_PIT_ANIM_FRAMES },
@@ -2242,6 +2251,8 @@ export class DungeonVisuals {
         return this.scatteredMountains.map((mountain) => ({ ...mountain }));
     }
     public ensureCenterTerrainSprite(): void {
+        this.updateMapLoadingCover();
+        if (this.context.isMapStateKnown?.() === false) return;
         // A layout that arrived before its atlas did has no sprites yet — build them the first frame the
         // texture is available. Once they exist this costs one length comparison; mountainTiles() returns
         // undefined and this returns straight back out while the atlas is still loading.
@@ -3542,6 +3553,7 @@ export class DungeonVisuals {
         if (this.bgSprite && texture) this.bgSprite.texture = texture;
     }
     public ensureBackgroundSprite(): void {
+        this.updateMapLoadingCover();
         if (!this.bgSprite) {
             const resolved = this.resolveBackgroundTexture();
             if (!resolved) return;
@@ -4138,6 +4150,7 @@ export class DungeonVisuals {
         if (this.lightOverlay) this.lightOverlay.filters = [];
         this.dungeonOverlay?.destroy({ children: true });
         this.bgSprite?.destroy();
+        this.mapLoadingCover?.destroy({ children: true });
         this.ambientFireLayer?.destroy({ children: true });
         this.chasmGlowLayer?.destroy({ children: true });
         this.topBlankMask?.destroy();
@@ -4216,15 +4229,12 @@ export class DungeonVisuals {
         this.firePitOverlayFrames = undefined;
         this.firePitOverlayAtlas = undefined;
         this.firePitOverlayAtlasKey = undefined;
-        this.firePitOverlayLoadStarted = false;
         this.firePitCenterFrames = undefined;
         this.firePitCenterFramesB = undefined;
         this.firePitOverFrames = undefined;
         this.firePitOverAtlas = undefined;
-        this.firePitOverLoadStarted = false;
         this.firePitSpillFrames = undefined;
         this.firePitSpillAtlas = undefined;
-        this.firePitSpillLoadStarted = false;
         this.lavaTerrainMesh = undefined;
         this.lavaPitLight = undefined;
         this.lavaFireOverlayMesh = undefined;
