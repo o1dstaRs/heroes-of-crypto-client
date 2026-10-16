@@ -167,7 +167,7 @@ export const premiumMoveDrawing = (
     return drawing.label && drawing.cells.every(validCell) ? drawing : undefined;
 };
 
-const COLORS = [0xffc65a, 0x80d9ec] as const;
+const COLORS = [0xffc65a, 0x80d9ec, 0xc6b6ff] as const;
 
 /** Floor paths and non-interactive labels live on the board, so camera fitting and mirroring follow it. */
 export class PremiumTurnOverlay {
@@ -186,7 +186,7 @@ export class PremiumTurnOverlay {
         for (const child of this.labels.removeChildren()) child.destroy({ children: true });
         const step = gs.getStep();
         // Paint the preferred path last so a shared approach remains gold and legible.
-        for (let index = Math.min(2, turn.options.length) - 1; index >= 0; index -= 1) {
+        for (let index = Math.min(COLORS.length, turn.options.length) - 1; index >= 0; index -= 1) {
             const drawing = premiumMoveDrawing(turn.options[index], actor, units, gs);
             if (!drawing) continue;
             const color = COLORS[index];

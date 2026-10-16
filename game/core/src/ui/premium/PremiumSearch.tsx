@@ -4,6 +4,7 @@ import { PremiumSearchMatchProvider, usePremiumSearchMatch } from "./PremiumSear
 import { premiumSearchMatchChanged, type PremiumSearchMatchVersion } from "./premiumSearchFreshness";
 import { PremiumSearchPromptContext, type PremiumInspectionFocus } from "./PremiumSearchPromptContext";
 import { premiumQuestions } from "./premiumQuestions";
+import { PremiumTurnPreviewProvider } from "./PremiumTurnPreviewContext";
 import { useAuthContext } from "../auth/context/auth_context";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import { Box, IconButton, Input, Typography } from "@mui/joy";
@@ -75,28 +76,30 @@ export const PremiumSearchProvider: React.FC<{ children: React.ReactNode }> = ({
     useLayoutEffect(() => setPrompt(undefined), [pathname, accountKey, visible]);
     return (
         <PremiumAccessProvider>
-            <SetAnchorContext.Provider value={setAnchor}>
-                <SetSearchVisibleContext.Provider value={setVisible}>
-                    <SearchVisibleContext.Provider value={visible}>
-                        <PremiumSearchMatchProvider>
-                            <SetDockAnchorContext.Provider value={setDockAnchor}>
-                                <DockVisibleContext.Provider value={visible && !anchor}>
-                                    <PremiumSearchPromptContext.Provider
-                                        value={visible && premiumSearchGameId(pathname) ? prefill : undefined}
-                                    >
-                                        <PremiumSearch
-                                            anchor={anchor ?? dockAnchor}
-                                            compact={Boolean(anchor) || pathname.startsWith("/game/")}
-                                            prompt={prompt}
-                                        />
-                                        {children}
-                                    </PremiumSearchPromptContext.Provider>
-                                </DockVisibleContext.Provider>
-                            </SetDockAnchorContext.Provider>
-                        </PremiumSearchMatchProvider>
-                    </SearchVisibleContext.Provider>
-                </SetSearchVisibleContext.Provider>
-            </SetAnchorContext.Provider>
+            <PremiumTurnPreviewProvider scope={JSON.stringify([pathname, accountKey])}>
+                <SetAnchorContext.Provider value={setAnchor}>
+                    <SetSearchVisibleContext.Provider value={setVisible}>
+                        <SearchVisibleContext.Provider value={visible}>
+                            <PremiumSearchMatchProvider>
+                                <SetDockAnchorContext.Provider value={setDockAnchor}>
+                                    <DockVisibleContext.Provider value={visible && !anchor}>
+                                        <PremiumSearchPromptContext.Provider
+                                            value={visible && premiumSearchGameId(pathname) ? prefill : undefined}
+                                        >
+                                            <PremiumSearch
+                                                anchor={anchor ?? dockAnchor}
+                                                compact={Boolean(anchor) || pathname.startsWith("/game/")}
+                                                prompt={prompt}
+                                            />
+                                            {children}
+                                        </PremiumSearchPromptContext.Provider>
+                                    </DockVisibleContext.Provider>
+                                </SetDockAnchorContext.Provider>
+                            </PremiumSearchMatchProvider>
+                        </SearchVisibleContext.Provider>
+                    </SetSearchVisibleContext.Provider>
+                </SetAnchorContext.Provider>
+            </PremiumTurnPreviewProvider>
         </PremiumAccessProvider>
     );
 };
