@@ -5,6 +5,7 @@ const approvedEnvironmentKeys = new Set(battlefieldEnvironmentAssets.map((asset)
 import { BATTLEFIELD_TEXTURE_KEYS } from "./battlefieldTextureKeys";
 import { isUnitAnimationAtlasKey, isUnitBoardImageKey, isUnitCardImageKey } from "./unitAtlasKeys";
 import { isNamedUnitStateSheetKey } from "./unitStateSheetKeys";
+import { isLavaPitAssetKey } from "../scenes/sandbox/lavaPitAssets";
 
 // Keep asset routing free of Pixi imports so non-renderer surfaces (notably the ranked draft) can
 // reuse the exact runtime split without pulling Pixi into their entry bundle.
@@ -289,7 +290,7 @@ const LAZY_MAP_TEXTURE_ASSETS = new Set([
 
 /** Map-specific source sheets retained only while a scene actually uses that map. */
 export function isLazyMapTextureAssetKey(key: string): boolean {
-    return LAZY_MAP_TEXTURE_ASSETS.has(key);
+    return LAZY_MAP_TEXTURE_ASSETS.has(key) || isLavaPitAssetKey(key);
 }
 
 export function isDeferredEnvironmentAssetKey(key: string): boolean {

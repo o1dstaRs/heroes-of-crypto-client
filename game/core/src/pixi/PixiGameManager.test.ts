@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, mock } from "bun:test";
 import {
     Augment,
     FactionVals,
@@ -28,6 +28,23 @@ class SceneDouble {
 }
 
 describe("PixiGameManager scene reload", () => {
+    it("blocks board clicks and fight start while the selected map is still loading", () => {
+        const manager = new PixiGameManager();
+        let loading = true;
+        const scene = {
+            isMapLoading: () => loading,
+            MouseDown: mock(() => {}),
+            startScene: mock(() => false),
+        };
+        Object.assign(manager, { m_scene: scene });
+        manager.HandleMouseDown({} as MouseEvent);
+        manager.StartGame();
+        expect(scene.MouseDown).not.toHaveBeenCalled();
+        expect(scene.startScene).not.toHaveBeenCalled();
+        loading = false;
+        manager.StartGame();
+        expect(scene.startScene).toHaveBeenCalledTimes(1);
+    });
     it("keeps Premium guidance through New Battle and drops it when account access is removed", () => {
         const manager = new PixiGameManager();
         Object.assign(manager, {

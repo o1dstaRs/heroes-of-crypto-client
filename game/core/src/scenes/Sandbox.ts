@@ -1264,6 +1264,7 @@ export class Sandbox extends PixiScene {
     // [NEW] Sub-Managers
     // Protected: the ranked scene installs/clears the seeded scattered stones on it from snapshots.
     protected dungeonVisuals: DungeonVisuals;
+    protected sc_mapStateHydrated = false;
     private moveAnimManager: MoveAnimationManager;
     private smokeLayer?: SmokeLayer;
     private smokeCloudLayer?: SmokeCloudLayer;
@@ -1330,7 +1331,9 @@ export class Sandbox extends PixiScene {
             getWorldRoot: () => this.pixiApp.getWorldRoot(),
             getViewportSize: () => this.getViewportSize(),
             getGridSettings: () => this.sc_sceneSettings.getGridSettings(),
-            texAny: (n) => this.texAny(n),
+            texAny: (n, options) => this.texAny(n, options),
+            getLoadingRoot: () => this.pixiApp.getUIContainer(),
+            isMapStateKnown: () => this.isMapStateKnown(),
             attachToWorldRoot: (o, z) => this.attachToWorldRoot(o, z ?? 0),
             attachToUnitDepthRoot: (o, z) => this.attachToUnitDepthRoot(o, z ?? 0),
             getMovableArtifactBarrelCells: () =>
@@ -2864,6 +2867,18 @@ export class Sandbox extends PixiScene {
     protected ensureCenterTerrainSprite(): void {
         this.dungeonVisuals.ensureCenterTerrainSprite();
     }
+    public override async prepareMapTextures(): Promise<void> {
+        await this.preloadTextureKeys(this.dungeonVisuals.getMapTextureKeys(), { priority: "visible" });
+        if (this.isSceneDestroyed()) return;
+        this.dungeonVisuals.ensureBackgroundSprite();
+        this.dungeonVisuals.ensureCenterTerrainSprite();
+    }
+    public override isMapLoading(): boolean {
+        return this.dungeonVisuals.isMapLoading();
+    }
+    protected isMapStateKnown(): boolean {
+        return true;
+    }
     private stepMoveAnimation(dt: number): void {
         this.moveAnimManager.update(dt);
         const wasMoving = this.isActiveUnitMoving;
@@ -3147,6 +3162,7 @@ export class Sandbox extends PixiScene {
         return renderableUnit;
     }
     protected hydrateSceneState(snapshot: SandboxSceneState): void {
+        this.sc_mapStateHydrated = true;
         // Carry the INSPECTED unit across the rebuild. A hydrate tears the board down and recreates every
         // RenderableUnit, so a shift-selected stack loses its card and its ring even though the player never
         // dismissed it. That is invisible in live play, where a full hydrate is occasional — but a REPLAY

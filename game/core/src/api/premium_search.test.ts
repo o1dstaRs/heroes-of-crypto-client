@@ -15,6 +15,18 @@ const stream = (text: string) =>
     );
 
 describe("Premium search requests", () => {
+    it("sends only the inspected stack ID and drops it outside a live match", () => {
+        expect(premiumSearchBody("Explain this stack", `/game/${gameId}`, [], "split-squire-2")).toMatchObject({
+            gameId,
+            inspectedUnitId: "split-squire-2",
+        });
+        expect(
+            premiumSearchBody("Explain this stack", `/game/${gameId}/replay`, [], "split-squire-2"),
+        ).not.toHaveProperty("inspectedUnitId");
+        expect(premiumSearchBody("Explain this stack", "/play", [], "split-squire-2")).not.toHaveProperty(
+            "inspectedUnitId",
+        );
+    });
     it("requests Premium explicitly with only the current live match ID", () => {
         expect(premiumSearchBody(" Why this pick? ", `/game/${gameId}`, [])).toEqual({
             mode: "premium",
@@ -59,6 +71,37 @@ describe("Premium search requests", () => {
 });
 
 describe("Premium answer stream", () => {
+    it.each([undefined, "different-squire"])(
+        "does not display a stack answer without its matching confirmation: %s",
+        async (confirmed) => {
+            const displayed: string[] = [];
+            await expect(
+                readPremiumSearch(
+                    stream(
+                        frame("meta", { mode: "premium", context: "match", inspectedUnitId: confirmed }) +
+                            frame("delta", { text: "Unbound answer" }),
+                    ),
+                    (kind) => displayed.push(kind),
+                    "selected-squire",
+                ),
+            ).rejects.toThrow("could not be confirmed");
+            expect(displayed).toEqual([]);
+        },
+    );
+
+    it("accepts a stack answer confirmed by the authorized server", async () => {
+        expect(
+            await readPremiumSearch(
+                stream(
+                    frame("meta", { mode: "premium", context: "match", inspectedUnitId: "selected-squire" }) +
+                        frame("done", { answer: "This selected Squire is affected by Break." }),
+                ),
+                () => {},
+                "selected-squire",
+            ),
+        ).toBe("This selected Squire is affected by Break.");
+    });
+
     it("reads fragmented UTF-8 and CRLF frames and keeps the completed answer", async () => {
         const kinds: string[] = [];
         const response = stream(
@@ -99,6 +142,12 @@ describe("Premium answer stream", () => {
         await expect(
             readPremiumSearch(Response.json({ code: "premium_context_unavailable" }, { status: 503 }), () => {}),
         ).rejects.toThrow("match could not be read");
+    });
+
+    it("asks for a fresh inspection when the selected stack is no longer visible", async () => {
+        await expect(
+            readPremiumSearch(Response.json({ code: "premium_focus_unavailable" }, { status: 409 }), () => {}),
+        ).rejects.toThrow("Inspect a visible unit");
     });
 });
 

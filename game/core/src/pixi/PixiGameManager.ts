@@ -333,7 +333,7 @@ export class PixiGameManager {
         const coreAssets = textureLoader.then(({ preloadCoreAssets }) =>
             preloadCoreAssets((p) => {
                 if (!isCurrentLifecycle()) return;
-                actualLoadingProgress = p;
+                actualLoadingProgress = p * 0.9;
                 renderCoreProgress();
             }),
         );
@@ -352,7 +352,9 @@ export class PixiGameManager {
             pixiApp.destroy();
             return;
         }
-        // Ensure it's on top of everything (UI container usually) but for now just add to stage
+        // The scene is constructed underneath this screen, including its stage-level creature roster.
+        stage.sortableChildren = true;
+        loadingScreen.zIndex = 10000;
         stage.addChild(loadingScreen);
         const loadingScreenShownAt = performance.now();
         // The sandbox keeps its loading art up for a moment; a ranked or co-op board (the augment step
@@ -413,7 +415,7 @@ export class PixiGameManager {
         }
 
         this.textures = (await coreAssets) as PreloadedPixiTextures;
-        actualLoadingProgress = 1;
+        actualLoadingProgress = 0.9;
         renderLoadingProgress();
         if (!isCurrentLifecycle()) {
             cleanupLoadingScreen();
@@ -421,17 +423,7 @@ export class PixiGameManager {
             return;
         }
 
-        await minimumLoadingScreenDuration;
-        if (!isCurrentLifecycle()) {
-            cleanupLoadingScreen();
-            pixiApp.destroy();
-            return;
-        }
-
-        // 3. Remove Loading Screen & Start Game
-        cleanupLoadingScreen();
-
-        // 4. Init Scene Manager & Game
+        // 3. Construct the scene behind the loading screen so its selected map can request its layers.
         // const gridSettings = new GridSettings(32, 1024, 0, 1024, 0, 32, 16);
         // this.pixiSceneManager = new PixiSceneManager(this.pixiApp, gridSettings);
 
@@ -448,6 +440,21 @@ export class PixiGameManager {
         );
 
         this.LoadGame();
+        await this.m_scene?.prepareMapTextures();
+        if (!isCurrentLifecycle()) {
+            cleanupLoadingScreen();
+            pixiApp.destroy();
+            return;
+        }
+        actualLoadingProgress = 1;
+        renderLoadingProgress();
+        await minimumLoadingScreenDuration;
+        if (!isCurrentLifecycle()) {
+            cleanupLoadingScreen();
+            pixiApp.destroy();
+            return;
+        }
+        cleanupLoadingScreen();
 
         // 5. Tier 2: Background Load Animations — idle atlases FIRST, then the rest.
         //
@@ -721,6 +728,7 @@ export class PixiGameManager {
         // }
     }
     public HandleMouseDown(e: MouseEvent): void {
+        if (this.m_scene?.isMapLoading?.()) return;
         if (this.shouldSuppressOverlayMouseEvent(e, "down")) {
             e.preventDefault();
             e.stopPropagation();
@@ -804,6 +812,7 @@ export class PixiGameManager {
         return { gridType: this.m_scene.getGridType(), army: this.m_scene.getPlacedArmyExport(TeamVals.LEFT) };
     }
     public StartGame(): void {
+        if (this.m_scene?.isMapLoading?.()) return;
         if (this.m_scene && this.m_scene.startScene()) this.started = true;
         this.emitHasStarted(this.started);
         this.fitViewToWindow(); // keep neutral after start too

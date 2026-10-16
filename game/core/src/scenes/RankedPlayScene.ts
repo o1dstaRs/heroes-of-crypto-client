@@ -1479,6 +1479,9 @@ export const shouldPublishRankedFinish = (
 };
 
 export class RankedPlayScene extends Sandbox {
+    protected override isMapStateKnown(): boolean {
+        return this.sc_mapStateHydrated;
+    }
     private premiumTurnPreview?: PremiumTurnPreview;
     private drawnPremiumTurnPreview?: PremiumTurnPreview;
     private premiumTurnOverlay?: PremiumTurnOverlay;
