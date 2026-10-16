@@ -16,7 +16,42 @@ export interface PremiumTurnAdvice {
     lap: number;
     unitId: string;
     status: "ready" | "waiting" | "automatic" | "unavailable";
-    options: { id: string; label: string; reasons: string[]; actions?: GameAction[] }[];
+    options: {
+        id: string;
+        label: string;
+        reasons: string[];
+        actions?: GameAction[];
+        assessment?: PremiumTurnAssessment;
+    }[];
+}
+
+export interface PremiumTurnAssessment {
+    recommended: boolean;
+    purpose: "attack" | "ally-spell" | "enemy-spell" | "spell" | "move" | "wait" | "defend" | "obstacle";
+    attackMode: number;
+    resources: {
+        usesAmmunition: boolean;
+        usesSpellCharge: boolean;
+        spendsSelfResurrection: boolean;
+        usesHourglass: boolean;
+        baseMoraleChange: number;
+        baseLuckChange: number;
+    };
+    position?: {
+        plannedAnchor: { x: number; y: number };
+        crossesLava: boolean;
+        crossesWater: boolean;
+        touchingEnemies: { id: string; name: string }[];
+    };
+    damage?: {
+        kind: "chance-weighted-shot-hp";
+        enemyHpLoss: number;
+        alliedHpLoss: number;
+        primaryHpLoss: number;
+        primaryTarget: { id: string; name: string };
+        aimedTarget?: { id: string; name: string; hpLoss?: number };
+        limits: string[];
+    };
 }
 
 export interface PremiumTurnPreview extends PremiumTurnAdvice {
