@@ -11,6 +11,7 @@ export const premiumSearchBody = (
     pathname: string,
     history: PremiumSearchMessage[],
     inspectedUnitId?: string,
+    inspectedOptionId?: string,
 ) => {
     const gameId = premiumSearchGameId(pathname);
     const body = {
@@ -19,6 +20,7 @@ export const premiumSearchBody = (
         lang: "en",
         gameId,
         ...(gameId && inspectedUnitId ? { inspectedUnitId } : {}),
+        ...(gameId && inspectedUnitId && inspectedOptionId ? { inspectedOptionId } : {}),
         history: history.slice(-6).map(({ role, content }) => ({ role, content: content.slice(0, 2000) })),
     };
     while (body.history.length && new TextEncoder().encode(JSON.stringify(body)).length > 15_000)

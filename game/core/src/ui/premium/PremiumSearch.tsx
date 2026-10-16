@@ -297,7 +297,7 @@ export const PremiumSearch: React.FC<{
         let completed = "";
         try {
             const response = await fetchPremiumSearch(
-                premiumSearchBody(query, location.pathname, priorHistory, inspected?.unitId),
+                premiumSearchBody(query, location.pathname, priorHistory, inspected?.unitId, inspected?.optionId),
                 { Authorization: localStorage.getItem("accessToken") ?? "", ...deviceIdHeaders() },
                 abort.signal,
             );
@@ -339,6 +339,7 @@ export const PremiumSearch: React.FC<{
                         ]);
                 },
                 inspected?.unitId,
+                inspected?.optionId,
             );
             if (controller.current !== abort || abort.signal.aborted) return;
             setHistory([
@@ -489,7 +490,8 @@ export const PremiumSearch: React.FC<{
                                 sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}
                             >
                                 <Typography level="body-xs" sx={{ color: "#f6b87e" }}>
-                                    About: {focus.name} · inspected stack
+                                    About: {focus.name} ·{" "}
+                                    {focus.moveNumber ? `move ${focus.moveNumber}` : "inspected stack"}
                                 </Typography>
                                 <IconButton
                                     aria-label="Clear inspected unit"

@@ -99,8 +99,13 @@ export const PremiumMoveReview: React.FC<{ turn: PremiumTurnReview }> = ({ turn 
                                 onClick={(event) => {
                                     event.stopPropagation();
                                     askQuestion(
-                                        `Explain the current turn option "${option.label}" for this inspected ${turn.actorName} stack. Compare its resources, planned position and supported damage estimates with the current recommendation and other legal options. If this option is no longer offered, explain the updated choices.`,
-                                        { unitId: turn.unitId, name: turn.actorName },
+                                        `Explain marked move ${index + 1}, "${option.label}", for this ${turn.actorName} stack. Compare its resources, planned position and supported damage estimates with the preferred move and other legal options.`,
+                                        {
+                                            unitId: turn.unitId,
+                                            name: turn.actorName,
+                                            optionId: option.id,
+                                            moveNumber: index + 1,
+                                        },
                                     );
                                 }}
                             >
