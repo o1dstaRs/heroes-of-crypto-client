@@ -5012,7 +5012,12 @@ export class Sandbox extends PixiScene {
         this.spawnAbilityStealVfx(record.events, attacker.getId());
         // Shatter Armor: red wound gashes across the target, at impact (with the damage number).
         this.spawnShatterArmorSlashVfx(attacker, target, attackEvent.damage);
-        this.applyReplayAttackRecoil(attacker, attackEvent, new Set([...destroyedUnitIds, ...presentedUnitIds]));
+        this.applyReplayAttackRecoil(
+            attacker,
+            attackEvent,
+            new Set([...destroyedUnitIds, ...presentedUnitIds]),
+            record,
+        );
         // Pikeman Skewer Strike: light streak through the pierced units + a wind-up thrust on the
         // attacker. Applied AFTER applyReplayAttackRecoil so the wind-up lunge overrides the plain recoil.
         this.spawnSkewerWindSpearVfx(attacker, target, attackEvent.damage);
@@ -5462,8 +5467,9 @@ export class Sandbox extends PixiScene {
                     ? victim.getVisualCenter(gs)
                     : (fallbackPosition ?? victim.getVisualCenter(gs));
                 const direction = { x: to.x - from.x, y: to.y - from.y };
-                if (strike.amount > 0) {
-                    if (!strike.missed) this.onCombatImpact?.(source, victimTeam, strike.amount);
+                const receivedDamage = !strike.missed && strike.amount > 0;
+                if (receivedDamage) {
+                    this.onCombatImpact?.(source, victimTeam, strike.amount);
                     if (renderedVictim) this.playUnitCombatSound(renderedVictim, "hurt");
                     this.combatVisuals.showFloatingDamage(
                         this.offsetReplayDamagePosition(to, victim, direction),
@@ -5535,11 +5541,11 @@ export class Sandbox extends PixiScene {
                 }
                 if (strike.lethal) {
                     presentDeath(strike.targetId, strikeIndex);
-                } else if (strike.amount > 0 && renderedVictim) {
+                } else if (receivedDamage && renderedVictim) {
                     // Final engine HP can already be zero after a later blow. This hit still precedes it.
                     reaction = this.playReplayOneShot(victim, "hit", 3000, true);
                     if ((victim.getUnitProperties?.().level ?? 0) > 2) {
-                        this.applyReplayHitKnockback(victim, source);
+                        this.applyReplayHitKnockback(victim, source, strike.amount);
                         reaction = Promise.all([reaction, this.delayReplay(330)]).then(() => {});
                     }
                 }
@@ -6147,7 +6153,7 @@ export class Sandbox extends PixiScene {
             const struckByTheBlow =
                 entry.source === "lightning_spin" || entry.source === "skewer_strike" || entry.source === "fire_breath";
             if (struckByTheBlow && entry.amount > 0 && victim && !victim.isDead()) {
-                this.applyReplayHitKnockback(victim, attacker);
+                this.applyReplayHitKnockback(victim, attacker, entry.amount);
             }
         }
         this.flushEffectPops();
@@ -6346,7 +6352,8 @@ export class Sandbox extends PixiScene {
     private applyReplayAttackRecoil(
         attacker: RenderableUnit,
         attackEvent: Extract<GameEvent, { type: "unit_attacked" }>,
-        skipUnitIds: ReadonlySet<string> = new Set<string>(),
+        skipUnitIds: ReadonlySet<string>,
+        record: SandboxReplay["actions"][number],
     ): void {
         const gs = this.sc_sceneSettings.getGridSettings();
         const attackerCenter = attacker.getVisualCenter(gs);
@@ -6356,6 +6363,10 @@ export class Sandbox extends PixiScene {
                 ? (this.unitsHolder.getAllUnits().get(unitId) as RenderableUnit | undefined)
                 : undefined;
             if (!unit || unit.isDead() || skipUnitIds.has(unit.getId())) {
+                continue;
+            }
+            // These entries also describe approaches and projectiles. Only an actual HP loss warrants a flinch.
+            if (!(this.getReplayUnitDamage(record, unit.getId()).amount > 0)) {
                 continue;
             }
             const from = animation.fromPosition ?? attackerCenter;
@@ -6370,8 +6381,13 @@ export class Sandbox extends PixiScene {
         }
     }
     /** Push a surviving unit away from an impact origin and let RenderableUnit spring it back. */
-    private applyHitReactionFromPoint(unit: Unit | undefined, source: HoCMath.XY, magnitudeScale = 0.22): void {
-        if (!(unit instanceof RenderableUnit) || unit.isDead()) {
+    private applyHitReactionFromPoint(
+        unit: Unit | undefined,
+        source: HoCMath.XY,
+        damageReceived: number,
+        magnitudeScale = 0.22,
+    ): void {
+        if (!(damageReceived > 0) || !(unit instanceof RenderableUnit) || unit.isDead()) {
             return;
         }
         const gs = this.sc_sceneSettings.getGridSettings();
@@ -6386,10 +6402,10 @@ export class Sandbox extends PixiScene {
         unit.applyHitReaction((dx / len) * magnitude, (dy / len) * magnitude);
     }
     /** Knock `unit` back along the vector pointing away from `source` — a brief defensive hit reaction. */
-    private applyReplayHitKnockback(unit: RenderableUnit, source: RenderableUnit): void {
+    private applyReplayHitKnockback(unit: RenderableUnit, source: RenderableUnit, damageReceived: number): void {
         const gs = this.sc_sceneSettings.getGridSettings();
         const sourceCenter = source.getVisualCenter(gs);
-        this.applyHitReactionFromPoint(unit, sourceCenter, 0.28);
+        this.applyHitReactionFromPoint(unit, sourceCenter, damageReceived, 0.28);
     }
     /** Lunge `unit` toward `target` — a brief forward strike (applyRecoil's out-and-back envelope). */
     private applyReplayLunge(unit: RenderableUnit, target: RenderableUnit): void {
@@ -13302,7 +13318,12 @@ export class Sandbox extends PixiScene {
             const struckUnit =
                 this.unitsHolder.getAllUnits().get(primaryVictimId) ??
                 (primaryVictimId === target.getId() ? target : undefined);
-            this.applyHitReactionFromPoint(struckUnit, aCenter);
+            const beforeHit = unitSnapshots.get(primaryVictimId);
+            const receivedDamage =
+                beforeHit && struckUnit && !damageForAnimation.missed
+                    ? (beforeHit.amount - 1) * beforeHit.maxHp + beforeHit.hp - struckUnit.getCumulativeHp()
+                    : 0;
+            this.applyHitReactionFromPoint(struckUnit, aCenter, receivedDamage);
 
             // An intercepted shot damages the SCREEN, and the unit we aimed at stands BEHIND it —
             // attacker, screen and aimed unit are collinear by construction. The offsets below push the
@@ -13572,11 +13593,14 @@ export class Sandbox extends PixiScene {
 
             const primaryVictimId = damageForAnimation.unitId ?? target.getId();
             const primaryReactionAlreadyPlayed =
-                uId === primaryVictimId && !damageForAnimation.splash?.length && damageForAnimation.amount > 0;
+                uId === primaryVictimId &&
+                !damageForAnimation.splash?.length &&
+                !damageForAnimation.missed &&
+                damageForAnimation.amount > 0;
             if (diff > 0 && !primaryReactionAlreadyPlayed && !exchangeDamage.has(uId)) {
                 // Splash and other secondary victims recoil away from the attack origin too. Missing or
                 // dead units are ignored by the helper, leaving lethal hits to the death animation.
-                this.applyHitReactionFromPoint(u, attacker.getVisualCenter(gs), 0.2);
+                this.applyHitReactionFromPoint(u, attacker.getVisualCenter(gs), diff, 0.2);
             }
 
             const diedCount = Math.max(0, snap.amount - currentAmount - explosionDamage.unitsDied);

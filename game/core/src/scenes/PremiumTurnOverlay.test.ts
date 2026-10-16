@@ -175,7 +175,7 @@ test("area spells highlight their actual footprint and reject blocks outside the
     ).toBeUndefined();
 });
 
-test("suggestion labels keep their proportions as a rectangular camera resizes and mirrors", () => {
+test("all three suggestion labels keep their proportions as a rectangular camera resizes and mirrors", () => {
     const root = new Container();
     const overlay = new PremiumTurnOverlay(root);
     try {
@@ -185,7 +185,11 @@ test("suggestion labels keep their proportions as a rectangular camera resizes a
                 lap: 1,
                 unitId: "actor",
                 status: "ready",
-                options: [option([{ type: "wait_turn", unitId: "actor" }])],
+                options: [
+                    option([{ type: "wait_turn", unitId: "actor" }]),
+                    option([{ type: "move_unit", unitId: "actor", path: [{ x: 4, y: 4 }] }]),
+                    option([{ type: "defend_turn", unitId: "actor" }]),
+                ],
             },
             actor,
             units,
@@ -200,13 +204,15 @@ test("suggestion labels keep their proportions as a rectangular camera resizes a
             ]) {
                 root.scale.set(mirrored ? -x : x, -y);
                 overlay.setVisible(true);
-                const label = root.children[1].children[0];
-                const origin = label.toGlobal({ x: 0, y: 0 });
-                const right = label.toGlobal({ x: 1, y: 0 });
-                const down = label.toGlobal({ x: 0, y: 1 });
-                expect(right.x).toBeGreaterThan(origin.x);
-                expect(down.y).toBeGreaterThan(origin.y);
-                expect(right.x - origin.x).toBeCloseTo(down.y - origin.y, 8);
+                expect(root.children[1].children).toHaveLength(3);
+                for (const label of root.children[1].children) {
+                    const origin = label.toGlobal({ x: 0, y: 0 });
+                    const right = label.toGlobal({ x: 1, y: 0 });
+                    const down = label.toGlobal({ x: 0, y: 1 });
+                    expect(right.x).toBeGreaterThan(origin.x);
+                    expect(down.y).toBeGreaterThan(origin.y);
+                    expect(right.x - origin.x).toBeCloseTo(down.y - origin.y, 8);
+                }
             }
         }
     } finally {
