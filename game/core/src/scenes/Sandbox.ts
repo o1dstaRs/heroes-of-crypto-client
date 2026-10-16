@@ -1388,7 +1388,7 @@ export class Sandbox extends PixiScene {
         this.attachToWorldRoot(this.vineLayer.getContainer(), 52);
         // Fire walls sit at the top of the ground-terrain stack: they are the loudest of the three and the
         // one a player must never miss, but still well under the units for the same reason as the vines.
-        this.fireWallLayer = new FireWallLayer();
+        this.fireWallLayer = new FireWallLayer((name) => this.texAny(name));
         this.attachToWorldRoot(this.fireWallLayer.getContainer(), 53);
         this.windLayer = new WindLayer();
         this.attachToWorldRoot(this.windLayer.getContainer(), 50);
@@ -18223,11 +18223,23 @@ export class Sandbox extends PixiScene {
         }
         const gs = this.sc_sceneSettings.getGridSettings();
         const cell = gs.getCellSize();
-        visuals.spawnPyreExplosion(projectBattlefieldPoint(event.position, gs), cell, delaySec);
+        const origin = projectBattlefieldPoint(event.position, gs);
+        visuals.spawnPyreExplosion(origin, cell, delaySec);
         for (const hit of event.hits) {
+            if (hit.amount <= 0) continue;
             const unit = this.unitsHolder.getAllUnits().get(hit.unitId) as RenderableUnit | undefined;
             const pos = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(hit.position, gs);
-            visuals.showFloatingDamageDelayed(pos, hit.amount, hit.unitsDied, delaySec, "#ff7a18", "#4a1208");
+            visuals.spawnPyreHit(hit.unitId, pos, origin, cell, delaySec);
+            visuals.showFloatingDamageDelayed(
+                pos,
+                hit.amount,
+                hit.unitsDied,
+                delaySec,
+                "#ff9a48",
+                "#4a1208",
+                unit,
+                4560,
+            );
         }
         if (delaySec === 0) {
             this.triggerScreenShake(11, 0.4);
