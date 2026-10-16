@@ -86,6 +86,17 @@ test.each(["melee", "range"])("%s movement and projectile metadata do not hurt u
     expect(reactions).toEqual([]);
 });
 
+test("moving into an attack does not play a hurt animation on an attacker that received no counter", () => {
+    const { scene, attacker, event, record, reactions } = fixture();
+    scene.applyReplayAttackRecoil(
+        attacker,
+        { ...event, damage: { ...event.damage, hits: [{ amount: 1, unitsDied: 0 }] } },
+        new Set(["target"]),
+        record(99),
+    );
+    expect(reactions).toEqual([]);
+});
+
 test("an absorbed hit and an effect application do not become damage reactions", () => {
     const { scene, attacker, event, record, reactions } = fixture();
     const shielded = {
@@ -99,6 +110,24 @@ test("an absorbed hit and an effect application do not become damage reactions",
         ...record(),
         events: [{ type: "effects_applied", applications: [{ unitId: "target", name: "Dulling Defense" }] }],
     });
+    expect(reactions).toEqual([]);
+});
+
+test("healing secondary metadata cannot make the recipient flinch", () => {
+    const { scene, attacker, target, event, record, reactions } = fixture();
+    target.getCumulativeHp = () => 90;
+    scene.applyReplayAttackRecoil(
+        attacker,
+        {
+            ...event,
+            damage: {
+                ...event.damage,
+                secondary: [{ source: "devour_essence", unitId: "target", amount: 10, unitsDied: 0 }],
+            },
+        },
+        new Set(),
+        record(),
+    );
     expect(reactions).toEqual([]);
 });
 
