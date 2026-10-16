@@ -130,7 +130,6 @@ export const PremiumSearchSlot: React.FC<{ inline?: boolean }> = ({ inline = fal
     );
 };
 
-/** Search beside menu controls or above the in-game system controls. */
 export const PremiumSearchDockSlot: React.FC<{ compact?: boolean; inline?: boolean }> = ({
     compact = false,
     inline = false,
