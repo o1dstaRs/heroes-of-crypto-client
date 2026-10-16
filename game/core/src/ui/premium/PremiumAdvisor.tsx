@@ -143,9 +143,27 @@ const ChoiceExplanation: React.FC<{ choice: PremiumChoice }> = ({ choice }) => {
 
 export const PremiumMark: React.FC<{ kind: PremiumChoice["kind"]; value: number }> = ({ kind, value }) => {
     const advice = useContext(PremiumContext);
+    const askQuestion = useAskPremiumQuestion();
     const index = advice?.choices?.findIndex((choice) => choice.kind === kind && choice.value === value) ?? -1;
     const choice = index >= 0 ? advice?.choices?.[index] : undefined;
-    if (!choice) return null;
+    if (!choice) {
+        const offer = advice?.offers?.find((item) => item.kind === kind && item.value === value);
+        if (!offer || !askQuestion) return null;
+        return (
+            <PremiumButton
+                size="sm"
+                variant="outlined"
+                aria-label={`Ask Premium about ${offer.label}`}
+                onClick={(event) => {
+                    event.stopPropagation();
+                    askQuestion(premiumChoiceQuestion(offer));
+                }}
+                sx={{ position: "absolute", zIndex: 9, top: 5, left: 5, minHeight: 24, px: 0.7, fontSize: 11 }}
+            >
+                Ask Premium
+            </PremiumButton>
+        );
+    }
     return (
         <Box
             data-testid={`premium-${kind}-${value}`}

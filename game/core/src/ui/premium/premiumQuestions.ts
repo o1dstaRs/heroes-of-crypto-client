@@ -132,4 +132,11 @@ export const premiumQuestions = (inMatch: boolean, stage?: PremiumSearchMatchVer
     questions[inMatch ? (stage ?? "match") : "general"];
 
 export const premiumChoiceQuestion = (choice: Pick<PremiumChoice, "label">): string =>
-    `Why is ${choice.label} recommended for my current army? Compare it with the other currently legal offers, including my selected artifacts and the revealed opponent. Explain the main tradeoff.`;
+    `How does ${choice.label} compare with the highlighted choices and other currently legal offers for my army? Include my selected artifacts and the revealed opponent, explain its main tradeoff, and do not assume it is recommended just because I inspected it.`;
+
+export const premiumUnitQuestion = (name: string, topic?: { kind: "ability" | "status"; name: string }): string =>
+    topic?.kind === "status"
+        ? `What does ${topic.name} currently do to this inspected ${name} stack, and what legal ways could remove or work around it? Use this exact stack's current effects and resources; distinguish verified options from conditions that are not yet met.`
+        : topic?.kind === "ability"
+          ? `How does ${topic.name} work for this inspected ${name} stack right now? Check whether it is owned, suppressed or spent, and explain its trigger, beneficiaries and main restriction using the current authorized board.`
+          : `Explain this inspected ${name} stack's role and biggest current restriction or risk, using its live resources, effects, artifacts and the visible opponent. Distinguish this exact stack from the acting unit and say whether I can act with it now.`;

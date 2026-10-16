@@ -6,12 +6,19 @@ export type { PremiumSearchMessage, PremiumSearchEvent } from "./premium_search_
 export const premiumSearchGameId = (pathname: string): string | undefined =>
     /^\/game\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/i.exec(pathname)?.[1];
 
-export const premiumSearchBody = (question: string, pathname: string, history: PremiumSearchMessage[]) => {
+export const premiumSearchBody = (
+    question: string,
+    pathname: string,
+    history: PremiumSearchMessage[],
+    inspectedUnitId?: string,
+) => {
+    const gameId = premiumSearchGameId(pathname);
     const body = {
         mode: "premium",
         question: question.trim(),
         lang: "en",
-        gameId: premiumSearchGameId(pathname),
+        gameId,
+        ...(gameId && inspectedUnitId ? { inspectedUnitId } : {}),
         history: history.slice(-6).map(({ role, content }) => ({ role, content: content.slice(0, 2000) })),
     };
     while (body.history.length && new TextEncoder().encode(JSON.stringify(body)).length > 15_000)

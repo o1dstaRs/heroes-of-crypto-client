@@ -2,7 +2,7 @@ import { premiumSourceHref } from "./premiumSourceHref";
 import { PremiumAnswer } from "./PremiumAnswer";
 import { PremiumSearchMatchProvider, usePremiumSearchMatch } from "./PremiumSearchMatchContext";
 import { premiumSearchMatchChanged, type PremiumSearchMatchVersion } from "./premiumSearchFreshness";
-import { PremiumSearchPromptContext } from "./PremiumSearchPromptContext";
+import { PremiumSearchPromptContext, type PremiumInspectionFocus } from "./PremiumSearchPromptContext";
 import { premiumQuestions } from "./premiumQuestions";
 import { useAuthContext } from "../auth/context/auth_context";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
@@ -48,6 +48,7 @@ const SetSearchVisibleContext = createContext<(visible: boolean) => void>(() => 
 
 interface PremiumSearchPrompt {
     question: string;
+    focus?: PremiumInspectionFocus;
     pathname: string;
     accountKey?: string;
 }
@@ -68,7 +69,7 @@ export const PremiumSearchProvider: React.FC<{ children: React.ReactNode }> = ({
     const { user } = useAuthContext();
     const accountKey = user?.email || user?.username;
     const prefill = useCallback(
-        (question: string) => setPrompt({ question, pathname, accountKey }),
+        (question: string, focus?: PremiumInspectionFocus) => setPrompt({ question, focus, pathname, accountKey }),
         [pathname, accountKey],
     );
     useLayoutEffect(() => setPrompt(undefined), [pathname, accountKey, visible]);
@@ -182,6 +183,7 @@ export const PremiumSearch: React.FC<{
     const panelRef = useRef<HTMLDivElement | null>(null);
     const [open, setOpen] = useState(false);
     const [question, setQuestion] = useState("");
+    const [focus, setFocus] = useState<PremiumInspectionFocus>();
     const [answer, setAnswer] = useState("");
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
@@ -194,6 +196,7 @@ export const PremiumSearch: React.FC<{
         query: string;
         history: PremiumSearchMessage[];
         version?: PremiumSearchMatchVersion;
+        focus?: PremiumInspectionFocus;
     }>();
     const matchChanged = premiumSearchMatchChanged(lastRequest?.version, matchVersion);
     const controller = useRef<AbortController | null>(null);
@@ -203,6 +206,7 @@ export const PremiumSearch: React.FC<{
         setHistory([]);
         setAnswer("");
         setQuestion("");
+        setFocus(undefined);
         setEvidence([]);
         setSources([]);
         setError("");
@@ -239,6 +243,7 @@ export const PremiumSearch: React.FC<{
         setBusy(false);
         clearConversation();
         setQuestion(prompt.question);
+        setFocus(prompt.focus);
         setOpen(true);
     }, [prompt, available, anchor, location.pathname, accountKey, clearConversation]);
     useEffect(() => {
@@ -268,7 +273,11 @@ export const PremiumSearch: React.FC<{
         setBusy(false);
         setStatus("Stopped. Any partial answer has not been added to the conversation.");
     };
-    const ask = async (input = question, priorHistory = history) => {
+    const ask = async (
+        input = question,
+        priorHistory = history,
+        inspected: PremiumInspectionFocus | null = focus ?? null,
+    ) => {
         if (!input.trim() || busy) return;
         controller.current?.abort();
         const abort = new AbortController();
@@ -281,49 +290,53 @@ export const PremiumSearch: React.FC<{
         setEvidence([]);
         setSources([]);
         const query = input.trim();
-        setLastRequest({ query, history: priorHistory, version: matchVersion });
+        setLastRequest({ query, history: priorHistory, version: matchVersion, focus: inspected ?? undefined });
         let completed = "";
         try {
             const response = await fetchPremiumSearch(
-                premiumSearchBody(query, location.pathname, priorHistory),
+                premiumSearchBody(query, location.pathname, priorHistory, inspected?.unitId),
                 { Authorization: localStorage.getItem("accessToken") ?? "", ...deviceIdHeaders() },
                 abort.signal,
             );
-            completed = await readPremiumSearch(response, (kind, event) => {
-                if (controller.current !== abort || abort.signal.aborted) return;
-                if (kind === "meta") {
-                    const scope =
-                        event.context === "match"
-                            ? `Match when asked${event.stage ? ` · ${event.stage === "board" ? "placement" : event.stage}` : ""}`
-                            : "General tactical advice";
-                    setContextLabel(scope);
-                }
-                if (kind === "status")
-                    setStatus(
-                        event.phase === "answering"
-                            ? "Writing your plan…"
-                            : "Checking mechanics and comparing options…",
-                    );
-                if (kind === "delta") {
-                    completed += event.text ?? "";
-                    setAnswer(completed);
-                }
-                if (kind === "reset") {
-                    completed = "";
-                    setAnswer("");
-                }
-                if (kind === "done") {
-                    setAnswer(event.answer ?? completed);
-                    setSources(event.sources ?? []);
-                    setStatus("Answer ready.");
-                }
-                if (kind === "sources") setSources(event.items ?? []);
-                if (kind === "premium_evidence" && event.packet)
-                    setEvidence((previous) => [
-                        ...previous.filter((item) => item.evidenceId !== event.packet!.evidenceId),
-                        event.packet!,
-                    ]);
-            });
+            completed = await readPremiumSearch(
+                response,
+                (kind, event) => {
+                    if (controller.current !== abort || abort.signal.aborted) return;
+                    if (kind === "meta") {
+                        const scope =
+                            event.context === "match"
+                                ? `Match when asked${event.stage ? ` · ${event.stage === "board" ? "placement" : event.stage}` : ""}`
+                                : "General tactical advice";
+                        setContextLabel(scope);
+                    }
+                    if (kind === "status")
+                        setStatus(
+                            event.phase === "answering"
+                                ? "Writing your plan…"
+                                : "Checking mechanics and comparing options…",
+                        );
+                    if (kind === "delta") {
+                        completed += event.text ?? "";
+                        setAnswer(completed);
+                    }
+                    if (kind === "reset") {
+                        completed = "";
+                        setAnswer("");
+                    }
+                    if (kind === "done") {
+                        setAnswer(event.answer ?? completed);
+                        setSources(event.sources ?? []);
+                        setStatus("Answer ready.");
+                    }
+                    if (kind === "sources") setSources(event.items ?? []);
+                    if (kind === "premium_evidence" && event.packet)
+                        setEvidence((previous) => [
+                            ...previous.filter((item) => item.evidenceId !== event.packet!.evidenceId),
+                            event.packet!,
+                        ]);
+                },
+                inspected?.unitId,
+            );
             if (controller.current !== abort || abort.signal.aborted) return;
             setHistory([
                 ...priorHistory.slice(-4),
@@ -468,7 +481,26 @@ export const PremiumSearch: React.FC<{
                                 ? "Get a plan for your current match, compare choices, or ask why a move helps."
                                 : "Compare builds, counters and tradeoffs. Name your army and opponent for a specific plan."}
                         </Typography>
-                        {!lastRequest && (
+                        {focus && (
+                            <Box
+                                sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}
+                            >
+                                <Typography level="body-xs" sx={{ color: "#f6b87e" }}>
+                                    About: {focus.name} · inspected stack
+                                </Typography>
+                                <IconButton
+                                    aria-label="Clear inspected unit"
+                                    size="sm"
+                                    variant="plain"
+                                    disabled={busy}
+                                    onClick={clearConversation}
+                                    sx={{ minHeight: 24, minWidth: 24, color: "#d5b698" }}
+                                >
+                                    <CloseRoundedIcon fontSize="small" />
+                                </IconButton>
+                            </Box>
+                        )}
+                        {!lastRequest && !focus && (
                             <Box
                                 role="group"
                                 aria-label="Suggested Premium questions"
@@ -483,8 +515,9 @@ export const PremiumSearch: React.FC<{
                                         title={suggestion.question}
                                         disabled={busy}
                                         onClick={() => {
+                                            setFocus(undefined);
                                             setQuestion(suggestion.question);
-                                            void ask(suggestion.question, []);
+                                            void ask(suggestion.question, [], null);
                                         }}
                                         sx={{ minHeight: 28, px: 0.8, fontSize: 11 }}
                                     >
@@ -553,7 +586,9 @@ export const PremiumSearch: React.FC<{
                                     size="sm"
                                     variant="plain"
                                     disabled={busy}
-                                    onClick={() => void ask(lastRequest.query, lastRequest.history)}
+                                    onClick={() =>
+                                        void ask(lastRequest.query, lastRequest.history, lastRequest.focus ?? null)
+                                    }
                                     sx={{ minHeight: 24, p: 0.5 }}
                                 >
                                     Update for current match
