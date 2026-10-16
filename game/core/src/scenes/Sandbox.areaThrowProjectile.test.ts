@@ -14,6 +14,7 @@ import {
     GridVals,
     HoCConfig,
     MoveHandler,
+    RayTraversal,
     TeamVals,
     Unit,
     UnitsHolder,
@@ -269,7 +270,11 @@ describe("Sandbox Area Throw projectile landing", () => {
                 const target = f.enemy({ x: 7, y: height === 1 ? 3 : 4 }, width, height);
                 const launch = await f.capture();
                 const { event } = f.resolve();
-                expect(event.targetCell).toEqual(target.getBaseCell());
+                expect(event.targetCell).toEqual(
+                    RayTraversal.traceGridRayCells(settings, f.attacker.getPosition(), point(f.aim)).find(([cell]) =>
+                        target.getCells().some((occupied) => occupied.x === cell.x && occupied.y === cell.y),
+                    )![0],
+                );
                 expect(event.targetCell).not.toEqual(f.aim);
                 expect(launch.to).toEqual(event.targetPosition);
                 expect(launch.to).toEqual(point(event.targetCell));
@@ -280,7 +285,11 @@ describe("Sandbox Area Throw projectile landing", () => {
                 const f = fixture(team);
                 const target = f.enemy({ x: 7, y: 4 }, 1, 2);
                 const { event, record } = f.resolve();
-                expect(event.targetCell).toEqual(target.getBaseCell());
+                expect(event.targetCell).toEqual(
+                    RayTraversal.traceGridRayCells(settings, f.attacker.getPosition(), point(f.aim)).find(([cell]) =>
+                        target.getCells().some((occupied) => occupied.x === cell.x && occupied.y === cell.y),
+                    )![0],
+                );
                 f.remove(target);
                 if (change === "moved") f.place(target, { x: 7, y: 10 });
                 if (change === "replaced") f.enemy({ x: team === TeamVals.LEFT ? 5 : 10, y: 3 });
@@ -293,12 +302,25 @@ describe("Sandbox Area Throw projectile landing", () => {
                 expect(launch.to).not.toEqual(point(f.aim));
             });
         }
+        test(`team ${team}, old recorded far-cell throws keep their original landing after the contact fix`, async () => {
+            const f = fixture(team);
+            const target = f.enemy({ x: 7, y: 4 }, 1, 2);
+            const { event, record } = f.resolve();
+            expect(event.targetCell).toEqual({ x: 7, y: 3 });
+            const oldImpact = target.getBaseCell();
+            event.targetCell = { ...oldImpact };
+            event.targetPosition = point(oldImpact);
+            event.animations = event.animations.map((animation) => ({ ...animation, toPosition: point(oldImpact) }));
+            const launch = await f.capture(record);
+            expect(launch.to).toEqual(point(oldImpact));
+            expect(launch.to).not.toEqual(point({ x: 7, y: 3 }));
+        });
         test(`team ${team}, ranked submission retains the original empty aim and waits for replay before flight`, async () => {
             const f = fixture(team);
             const target = f.enemy({ x: 7, y: 4 }, 1, 2);
-            expect(f.handler.projectAreaThrowTargetCell(f.holder.getAllUnits(), f.attacker, f.aim)).toEqual(
-                target.getBaseCell(),
-            );
+            const impact = { x: 7, y: 3 };
+            expect(f.handler.projectAreaThrowTargetCell(f.holder.getAllUnits(), f.attacker, f.aim)).toEqual(impact);
+            expect(impact).not.toEqual(target.getBaseCell());
             expect(target.getBaseCell()).not.toEqual(f.aim);
             const { submitted, launches } = await f.defer();
             expect(submitted).toEqual([
@@ -307,7 +329,7 @@ describe("Sandbox Area Throw projectile landing", () => {
             expect(launches).toHaveLength(0);
             const { record } = f.resolve();
             const replayLaunch = await f.capture(record);
-            expect(replayLaunch.to).toEqual(point(target.getBaseCell()));
+            expect(replayLaunch.to).toEqual(point(impact));
         });
         test(`team ${team}, Double Throw flies twice to the same empty landing even when neither wave deals splash`, async () => {
             const f = fixture(team);
