@@ -116,3 +116,12 @@ Thread open vs peak (this run only): afternoon balance/OTA threads kept collecti
 Own account: not pulled this run.
 
 Recommendation: still not enough data for a firm window (six runs, two weekdays). Signal so far: replies arrive mostly in the first 2–4 hours, and afternoon balance/question posts can keep collecting into the evening; a reply draft is still most useful within ~2 hours of the source post. Keep logging.
+
+## Fri 16 Oct 2026, ~9:42 AM PT (own-account 24h snapshots)
+
+First comparable own 24h ERs (age 20–48h at pull):
+- evening story-pin (Wed 8:03 PM): ER 0.06 (50 views, 2 likes, 1 external reply)
+- morning tactics-calendar (Thu 6:48 AM): ER 0.0625 (16 views, 0 likes; reply_count is own link-reply)
+- midday story-origin (Thu 11:48 AM): ER 0.10 (20 views, 1 like; reply_count is own link-reply)
+
+Slot comparison (n=1 per slot): midday > morning ≈ evening on ER; evening leads absolute views. Too few posts to change schedule. Chaos (~16.8h) and edge (~2.7h) not yet eligible.
