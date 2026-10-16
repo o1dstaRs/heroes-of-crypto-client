@@ -1658,6 +1658,7 @@ export class RankedPlayScene extends Sandbox {
     public override applyAuthoritativeVfx(events: GameEvent[]): void {
         for (const event of events) {
             if (event.type === "unit_attacked") {
+                this.showAbsolvingArrowVfx(event.damage);
                 // Attribute kills (melee vs range + direction) before this batch's unit_destroyed /
                 // unit_deleted events — and the later snapshot diff — spawn the death visuals.
                 this.noteDeathBlowsFromAttackEvent(event);

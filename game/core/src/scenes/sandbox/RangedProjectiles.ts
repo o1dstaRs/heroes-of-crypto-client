@@ -40,6 +40,8 @@ export interface IFireProjectileOptions {
     signal?: AbortSignal;
     /** Invoked only on arrival; cancellation and scene teardown never count as a hit. */
     onImpact?: () => void;
+    /** Flight fraction, used for effects on allies the projectile has actually crossed. */
+    onProgress?: (progress: number) => void;
     /** Zena's Chakram: a spinning bladed disc rather than a bolt or a cannonball. */
     chakram?: boolean;
     /** Trent's Vine Throw: a braided, thorn-clawed length of living wood. */
@@ -107,6 +109,7 @@ interface IProjectile {
     spin: number; // radians of blade rotation accumulated in flight
     resolve: () => void;
     onImpact?: () => void;
+    onProgress?: (progress: number) => void;
     removeAbortListener?: () => void;
 }
 
@@ -442,6 +445,7 @@ export class RangedProjectiles {
                 spin: 0,
                 resolve,
                 onImpact: opts.onImpact,
+                onProgress: opts.onProgress,
             };
             if (opts.medusaArmSerpent && this.medusaArmSerpentFrames?.length) {
                 projectile.sprite?.destroy();
@@ -488,6 +492,7 @@ export class RangedProjectiles {
                 y += Math.sin(Math.PI * t) * p.arc;
             }
             this.draw(p, x, y);
+            p.onProgress?.(t);
 
             if (t >= 1) {
                 if (p.cyclopsRock || p.gargantuanRock) this.spawnRockImpact(p, p.gargantuanRock);

@@ -731,6 +731,8 @@ interface IHealBurst {
     pos: HoCMath.XY;
     age: number;
     life: number;
+    ringColor: number;
+    moteColor: number;
     motes: { angle: number; radius: number; speed: number }[];
 }
 // Resurrection: the heal burst's bigger, golden sibling. Longer-lived and taller because a raise is a far
@@ -4801,7 +4803,18 @@ export class CombatVisuals {
      * Stepped from the scene's dt loop like every other effect here (NOT requestAnimationFrame), so it
      * pauses with the scene instead of running on while the board is frozen.
      */
-    private spawnHealBurst(pos: HoCMath.XY): void {
+    public showCleanse(pos: HoCMath.XY): void {
+        const container = new Container();
+        const label = new PixiText({
+            text: "CLEANSED",
+            style: this.getDamageStyle("#fff3c4", "#625012"),
+        });
+        label.anchor.set(0.5);
+        container.addChild(label);
+        this.enqueueFloatingContainer(container, pos);
+        this.spawnHealBurst(pos, 0xffd76a, 0xfff3c4);
+    }
+    private spawnHealBurst(pos: HoCMath.XY, ringColor = 0x66ff99, moteColor = 0xaaffcc): void {
         const graphics = new Graphics();
         this.attachEffect(graphics, HEAL_BURST_Z);
         this.healBursts.push({
@@ -4809,6 +4822,8 @@ export class CombatVisuals {
             pos: { x: pos.x, y: pos.y },
             age: 0,
             life: HEAL_BURST_LIFE,
+            ringColor,
+            moteColor,
             motes: Array.from({ length: 8 }, (_, i) => ({
                 angle: (i / 8) * Math.PI * 2,
                 radius: 8 + (i % 3) * 4,
@@ -5077,7 +5092,7 @@ export class CombatVisuals {
             // Ground ring pushing outward and fading.
             g.circle(burst.pos.x, burst.pos.y, 18 + eased * 46).stroke({
                 width: 4,
-                color: 0x66ff99,
+                color: burst.ringColor,
                 alpha: 0.55 * fade,
             });
             // Motes rising out of the ring. worldRoot is y-up, so a POSITIVE y offset rises.
@@ -5087,7 +5102,7 @@ export class CombatVisuals {
                     burst.pos.x + Math.cos(mote.angle) * r,
                     burst.pos.y + Math.sin(mote.angle) * r * 0.45 + eased * 46,
                     4,
-                ).fill({ color: 0xaaffcc, alpha: 0.85 * fade });
+                ).fill({ color: burst.moteColor, alpha: 0.85 * fade });
             }
         }
     }

@@ -983,6 +983,7 @@ export class Sandbox extends PixiScene {
     private readonly shownBuffsByUnit = new Map<string, Set<string>>();
     /** Recipients already given a Dulling Defense pop for the attack currently on screen. */
     private dullingPopShownForAction = new Set<string>();
+    private shownAbsolutions?: WeakSet<object>;
     // Buff/debuff pops whose strike hasn't connected yet — see queueOrPlayEffectPops. Held while an
     // attack animation is in flight (projectile still travelling, melee still approaching) and released
     // at impact by flushEffectPops, so an effect never pops before the blow that applied it lands.
@@ -5408,12 +5409,23 @@ export class Sandbox extends PixiScene {
             ];
             await Promise.all(textureKeys.filter((key): key is string => !!key).map((key) => this.waitForTexture(key)));
             if (this.isSceneDestroyed()) break;
+            const absolvingProgress = event.damage?.absolutions?.length
+                ? this.createAbsolvingArrowProgress(
+                      source,
+                      victim,
+                      event.damage,
+                      strike,
+                      units,
+                      renderedVictim ? undefined : fallbackPosition,
+                  )
+                : undefined;
             let reaction = Promise.resolve();
             let chakramFlight = Promise.resolve();
             let impacted = false;
             const impact = (): void => {
                 if (impacted || this.isSceneDestroyed()) return;
                 impacted = true;
+                absolvingProgress?.(1);
                 // The unit this blow struck. The incoming hit lists both fighters too, and popping there
                 // showed Dulling Defense before the knight had answered.
                 this.popRecordedDullingDefense(dullingEvents, new Set([strike.targetId]));
@@ -5519,6 +5531,7 @@ export class Sandbox extends PixiScene {
                     renderedVictim ? undefined : fallbackPosition,
                     impact,
                     isChakramFlight,
+                    absolvingProgress,
                 );
                 await Promise.all([attack, reaction, chakramFlight]);
                 // Projectile arrival can precede the authored shooter's recovery frames.
@@ -5533,12 +5546,66 @@ export class Sandbox extends PixiScene {
         }
         return shownDeaths;
     }
+    private createAbsolvingArrowProgress(
+        source: RenderableUnit,
+        victim: RenderableUnit,
+        damage: IVisibleDamage | undefined,
+        strike: CombatExchangeStrike,
+        units: ReadonlyMap<string, Unit>,
+        toPosition?: HoCMath.XY,
+    ): ((progress: number) => void) | undefined {
+        const entries = damage?.absolutions?.filter(
+            (entry) =>
+                entry.sourceUnitId === source.getId() &&
+                entry.response === strike.response &&
+                entry.hitIndex === strike.hitIndex &&
+                entry.liftedNames.length > 0,
+        );
+        if (!entries?.length) return undefined;
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const to = toPosition ?? victim.getProjectileImpactPoint(gs);
+        const from = source.getRangedProjectileOrigin(to, gs);
+        const dx = to.x - from.x;
+        const dy = to.y - from.y;
+        const lengthSquared = dx * dx + dy * dy;
+        const crossings = entries.map((entry) => {
+            const ally = units.get(entry.unitId) as RenderableUnit | undefined;
+            const position = ally?.getProjectileImpactPoint(gs) ?? projectBattlefieldPoint(entry.position, gs);
+            const progress =
+                lengthSquared > 0 ? ((position.x - from.x) * dx + (position.y - from.y) * dy) / lengthSquared : 1;
+            return { entry, progress: Math.max(0, Math.min(1, progress)) };
+        });
+        return (progress) => {
+            for (const crossing of crossings) {
+                if (progress >= crossing.progress) this.showAbsolvingArrowCleanse(crossing.entry, units);
+            }
+        };
+    }
+    private showAbsolvingArrowCleanse(
+        entry: NonNullable<IVisibleDamage["absolutions"]>[number],
+        capturedUnits?: ReadonlyMap<string, Unit>,
+    ): void {
+        if (!entry.liftedNames.length || this.isSceneDestroyed()) return;
+        const shown = (this.shownAbsolutions ??= new WeakSet());
+        if (shown.has(entry)) return;
+        shown.add(entry);
+        const unit = capturedUnits?.get(entry.unitId) ?? this.unitsHolder.getAllUnits().get(entry.unitId);
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const renderable = unit as RenderableUnit | undefined;
+        const center = renderable?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs);
+        renderable?.flashBuffApplied();
+        this.combatVisuals.showCleanse(center);
+    }
+    protected showAbsolvingArrowVfx(damage?: IVisibleDamage): void {
+        for (const entry of damage?.absolutions ?? []) this.showAbsolvingArrowCleanse(entry);
+    }
     private async playReplayProjectile(
         attacker: RenderableUnit,
         target: RenderableUnit,
         toPosition?: HoCMath.XY,
         onImpact?: () => void,
         chakram?: boolean,
+        onProgress?: (progress: number) => void,
     ): Promise<void> {
         const gs = this.sc_sceneSettings.getGridSettings();
         // Playback resolution supplies the actual victim's torso (or its captured pre-removal anchor).
@@ -5551,6 +5618,7 @@ export class Sandbox extends PixiScene {
             from: muzzle,
             to: targetPosition,
             onImpact,
+            onProgress,
             big: bigProjectile,
             chakram: chakram ?? attacker.hasAbilityActive("Chakram"),
             orcAxe: attacker.getName().trim().toLowerCase() === "orc",
@@ -10742,6 +10810,7 @@ export class Sandbox extends PixiScene {
     }
     private beginDullingDefensePresentation(): void {
         this.dullingPopShownForAction = new Set();
+        this.shownAbsolutions = new WeakSet();
     }
     /**
      * Dulling Defense lands on the unit the knight's own attack or retaliation struck. Pop that unit,
@@ -18276,6 +18345,7 @@ export class Sandbox extends PixiScene {
                     break;
                 case "unit_attacked":
                 case "area_attacked":
+                    this.showAbsolvingArrowVfx(event.damage);
                     // Attribute the kill (melee vs range + direction) before the same batch's
                     // unit_deleted / unit_destroyed teardown spawns the death visuals — the
                     // death-animation choice needs the blow recorded first.
