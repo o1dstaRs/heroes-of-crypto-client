@@ -10,3 +10,5 @@ Started 2026-10-14. Baseline week: 15-21 Oct.
 - 2026-10-15 11:48 PT: Story origin (STORY #3) posted: https://x.com/Heroes0fcrypto/status/2110805506940153982 (250 chars). Reply with GitHub client link: https://x.com/Heroes0fcrypto/status/2110805592323572126. Text-only.
 
 - 2026-10-15 16:54 PT: Chaos tactics post (calendar Fri 16, a slot early) posted: https://x.com/Heroes0fcrypto/status/2110882073452167680 (118 chars). Reply with faction guide link: https://x.com/Heroes0fcrypto/status/2110882131291635810. Text-only.
+
+- 2026-10-16 06:57 PT: Edge tactics post (calendar Sat 17, a day early) posted: https://x.com/Heroes0fcrypto/status/2111094220920643925 (111 chars). Reply with five-positioning link: https://x.com/Heroes0fcrypto/status/2111094354408530359. Text-only.
