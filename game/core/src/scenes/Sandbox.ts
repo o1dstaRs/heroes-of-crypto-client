@@ -4238,6 +4238,7 @@ export class Sandbox extends PixiScene {
             (event) => !(destroyedUnitIds.size > 0 && event === attackEvent) && event !== approachBurn,
         );
         this.applyReplayEvents(replayEvents, record.stateAfter);
+        this.popRecordedDullingDefense(record.events);
         // The pre-action HP snapshot has now served this exchange; drop it so a later replay falls back
         // to live HP (it only applies to the locally-applied action that captured it).
         this.preDeferredActionUnitHp = undefined;
@@ -5586,6 +5587,7 @@ export class Sandbox extends PixiScene {
             this.prepareDirectionalAttackState(attacker, target, false);
             return Promise.resolve();
         }
+        if (melee) this.playUnitCombatSound(attacker, "attack", true);
         return this.playReplayOneShot(attacker, this.prepareDirectionalAttackState(attacker, target, melee), timeoutMs);
     }
     protected getSecondaryDamageStyle(source: string): { fill: string; stroke: string } {
@@ -6331,6 +6333,7 @@ export class Sandbox extends PixiScene {
         if (facingTarget) {
             caster.faceBoardTarget(facingTarget);
         }
+        this.playUnitCombatSound(caster, "attack");
         if (action.spellName === "Vine Throw" && caster.getName() === "Trent") {
             const targetCell = action.targetId
                 ? this.unitsHolder.getAllUnits().get(action.targetId)?.getBaseCell()
@@ -8877,6 +8880,7 @@ export class Sandbox extends PixiScene {
             return false;
         }
         caster.faceBoardTarget(targetUnit.getPosition());
+        this.playUnitCombatSound(caster, "attack");
         if (caster.hasAnimationState("cast") && !(isSwap && caster.getName() === "Harpy")) {
             caster.playOneShotAnimation("cast");
         }
