@@ -939,7 +939,9 @@ function sha256(file) {
 // See src/assetLocations.ts for why there is no fallback path here.
 const { resolveAnimationsOutputLocation } = require("../src/assetLocations");
 
-const animationsRoot = resolveAnimationsOutputLocation(process.env, process.argv[2]);
+const copyOnly = process.argv.includes("--copy-only");
+const rootArgument = process.argv[2]?.startsWith("--") ? undefined : process.argv[2];
+const animationsRoot = resolveAnimationsOutputLocation(process.env, rootArgument);
 // A local animation replacement can refresh its runtime copies without overwriting unrelated
 // in-progress art. Metadata still comes from the complete canonical animation directory.
 const copyAtlasArg = process.argv.indexOf("--copy-atlas");
@@ -1009,6 +1011,10 @@ function parseMetaFileName(filePath) {
 
 function main() {
     const root = path.resolve(animationsRoot);
+
+    if (copyOnly && !fs.existsSync(outputFile)) {
+        throw new Error("Release atlas copying requires the versioned animation_atlases.ts index.");
+    }
 
     if (!fs.existsSync(root)) {
         console.warn(`Animations root does not exist: ${root}`);
@@ -1214,8 +1220,12 @@ function main() {
     lines.push("export type AnimationAtlasMeta = IAtlasAnimationMeta;");
     lines.push("");
 
-    fs.writeFileSync(outputFile, lines.join("\n"), "utf8");
-    console.log(`✅ Animation atlas meta generated successfully: ${outputFile}`);
+    if (!copyOnly) {
+        fs.writeFileSync(outputFile, lines.join("\n"), "utf8");
+        console.log(`✅ Animation atlas meta generated successfully: ${outputFile}`);
+    } else {
+        console.log(`✅ Preserved versioned animation atlas settings: ${outputFile}`);
+    }
 
     // --- Copy atlas .webp files into ../images ------------------------------
     let copied = 0;
@@ -1241,7 +1251,7 @@ function main() {
             }
         }
         try {
-            fs.copyFileSync(file, dest);
+            fs.copyFileSync(file, dest, fs.constants.COPYFILE_FICLONE);
             copied++;
         } catch (err) {
             console.warn(`Failed to copy atlas webp: ${file} -> ${dest}`, err);
