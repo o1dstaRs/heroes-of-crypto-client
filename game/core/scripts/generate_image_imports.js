@@ -13,7 +13,7 @@ if (testAssets && fs.existsSync(outputFile) && fs.readFileSync(outputFile, "utf8
     process.exit(0);
 }
 const { isWebPFile } = require("../src/gameImageAssetPolicy.ts");
-require("./prepare_level_one_assets.ts").prepareLevelOneAssets();
+require("./prepare_level_one_assets.ts").prepareLevelOneAssets(undefined, { reuseVerifiedInstalled: testAssets });
 
 // Tests exercise authoring-only animation states too, even after a production build pruned their URLs.
 const productionBuild = !testAssets && process.env.NODE_ENV === "production";

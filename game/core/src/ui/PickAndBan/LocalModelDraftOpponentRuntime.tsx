@@ -366,7 +366,7 @@ const buildDraftChoices = (event: IPickPhaseEventData, failedChoiceIds: Set<stri
             ownArtifactIds: (event.art ?? []).map(([, id]) => id),
             ...(event.pk === undefined ? {} : { ownDoctrine: event.pk }),
         });
-        const policy = resolveSetupPolicy("artifact-fit-v5:conditional-v1:sniper+t2a19");
+        const policy = resolveSetupPolicy("artifact-fit-v6:conditional-v1:sniper+t2a19");
         while (remaining.length) {
             const artifactId = tier === 1 ? remaining[0] : policy.pickArtifactT2(remaining, ownPicked, context);
             remaining.splice(remaining.indexOf(artifactId), 1);
