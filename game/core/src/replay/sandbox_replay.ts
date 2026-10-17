@@ -1,5 +1,6 @@
 import type { GameAction, GameEvent, IGameActionResult } from "@heroesofcrypto/common";
 
+import { isQuotaExceededError, reserveStorageHeadroom } from "../api/local_storage_quota";
 import type { AuthoritativeGameSnapshot } from "../game_action_transport";
 import type { SandboxSceneState } from "../scenes/Sandbox";
 
@@ -104,8 +105,9 @@ export const loadSandboxReplay = (id: string, storage = getBrowserStorage()): Sa
 /**
  * Store the newest replays that fit. A long fight snapshots the whole board per action and can outgrow the
  * browser's storage quota; a throwing save used to surface as an uncaught error on every action (37 error
- * reports from one spectator tab). Older replays are dropped until the write fits, and if even the newest
- * alone does not, the save is skipped: a local replay is a convenience, never worth an error.
+ * reports from one spectator tab). Older replays are dropped until the write fits and still leaves room for
+ * the session token. If even the newest alone does not, the save is skipped: a local replay is a convenience,
+ * never worth an error or a failed login.
  */
 export const saveSandboxReplay = (replay: SandboxReplay, storage = getBrowserStorage()): void => {
     if (!storage) {
@@ -120,11 +122,20 @@ export const saveSandboxReplay = (replay: SandboxReplay, storage = getBrowserSto
     while (kept.length > 0) {
         try {
             storage.setItem(SANDBOX_REPLAY_STORAGE_KEY, JSON.stringify(kept));
-            return;
-        } catch {
+        } catch (err) {
+            if (!isQuotaExceededError(err)) {
+                throw err;
+            }
             kept = kept.slice(0, -1);
+            continue;
         }
+        // Leave room for the session token. Packing replays to the last byte makes the next login throw.
+        if (reserveStorageHeadroom(storage)) {
+            return;
+        }
+        kept = kept.slice(0, -1);
     }
+    storage.removeItem(SANDBOX_REPLAY_STORAGE_KEY);
 };
 
 export const deleteSandboxReplay = (id: string, storage = getBrowserStorage()): void => {

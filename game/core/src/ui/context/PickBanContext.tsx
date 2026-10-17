@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { PickPhaseVals, TeamType, TeamVals } from "@heroesofcrypto/common";
+import { setStoredAccessToken } from "../../api/access_token";
 import { followPickEventStream, pickStreamId } from "../../api/pick_event_stream";
 import { tokenExpSafe } from "../auth/context/auth_utils";
 import { IPickPhaseEventData, pickPhaseIdentity, PickBanContext } from "./PickBanContextDefs";
@@ -78,7 +79,7 @@ export const PickBanEventProvider: React.FC<{
                     cookieExp > Date.now() / 1000 &&
                     (storedExp === null || cookieExp > storedExp)
                 ) {
-                    localStorage.setItem(STORAGE_KEY, accessTokenCookie);
+                    setStoredAccessToken(accessTokenCookie);
                 }
                 document.cookie = `${STORAGE_KEY}=; Max-Age=0; path=/`;
                 const hostname = window.location.hostname;
