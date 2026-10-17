@@ -69,9 +69,19 @@ export const usesApprovedBaseAnimations = (unitName: string): boolean =>
 
 // These shooters release their projectile from an authored frame, in every scene.
 export const usesAuthoredRangedRelease = (unitName: string): boolean =>
-    ["Orc", "Arbalester", "Dryad", "Centaur", "Elf", "Medusa", "Beholder", "Monk", "Cyclops", "Gargantuan"].includes(
-        unitName,
-    );
+    [
+        "Orc",
+        "Arbalester",
+        "Dryad",
+        "Centaur",
+        "Elf",
+        "Medusa",
+        "Beholder",
+        "Monk",
+        "Cyclops",
+        "Gargantuan",
+        "Zena",
+    ].includes(unitName);
 
 // Approved movement and Squire reactions must be decoded before their first use in combat,
 // including while the global creature-animation freeze remains in place.

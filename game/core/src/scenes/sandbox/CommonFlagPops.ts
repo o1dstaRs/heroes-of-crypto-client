@@ -3,6 +3,7 @@ import { Assets, Container, Rectangle, Sprite, Texture } from "pixi.js";
 import { animationAtlases } from "../../generated/animation_atlases";
 import { images } from "../../imageAssets";
 import type { OgreSpellFlagKind } from "../ogreSpellFlagEffects";
+import { statusEffectElapsedMs } from "../../settings/statusEffectTiming";
 
 type Anchor = Readonly<{ x: number; y: number }>;
 export const COMMON_FLAG_POP_KINDS = [
@@ -159,7 +160,8 @@ export class CommonFlagPops {
         for (let i = this.pops.length - 1; i >= 0; i--) {
             const pop = this.pops[i];
             const ageMs = Math.max(0, now - pop.startedAtMs);
-            const frame = commonFlagFrameAt(this.kind, ageMs);
+            const combatResult = ["lucky", "miss", "resist", "heal", "absorb"].includes(this.kind);
+            const frame = commonFlagFrameAt(this.kind, combatResult ? ageMs : statusEffectElapsedMs(ageMs));
             const position = pop.follow?.();
             if (frame === undefined || (pop.follow && !position)) {
                 pop.container.destroy({ children: true });

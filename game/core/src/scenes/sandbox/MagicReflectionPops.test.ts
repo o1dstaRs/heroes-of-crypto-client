@@ -46,7 +46,7 @@ test("reflection coalesces hits, follows a rebuilt flag, keeps artwork scale and
         expect(pop.scale.y).toBeCloseTo(-1.6);
         expect(sprite.width).toBe(width);
         expect(sprite.texture).not.toBe(first);
-        now = 1000;
+        now = 1800;
         layer.update(1 / 240);
         expect(pop.destroyed).toBe(true);
         expect(layer.active).toBe(false);

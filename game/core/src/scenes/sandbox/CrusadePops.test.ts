@@ -55,7 +55,7 @@ describe("Crusade banner above the flag", () => {
             expect(sprite.texture.width).toBe(256);
             await layer.spawn("champion", anchor, 64);
             expect(root.children).toHaveLength(1);
-            now = 1000;
+            now = 1800;
             layer.update(1 / 240);
             expect(layer.active).toBe(false);
             expect(container.destroyed).toBe(true);

@@ -54,6 +54,12 @@ test("buffs, debuffs and morale follow the live flag across hydration and expire
         }
         now = 1000;
         f.visuals.update(0);
+        expect(debuff.destroyed).toBe(false);
+        expect(buff.destroyed).toBe(false);
+        expect(debuff.alpha).toBe(1);
+        expect(buff.alpha).toBe(1);
+        now = 1800;
+        f.visuals.update(0);
         expect(debuff.destroyed).toBe(true);
         expect(buff.destroyed).toBe(true);
     } finally {

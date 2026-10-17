@@ -4277,7 +4277,7 @@ export class Sandbox extends PixiScene {
                 cannonballDiameter: unit.getCannonballDiameter(this.sc_sceneSettings.getGridSettings()),
             };
         }
-        if (opts.tsarCannonball && !opts.cannonImpactPosition) {
+        if (opts.tsarCannonball && !opts.cannonImpactPosition && !opts.cannonPiercing) {
             const gs = this.sc_sceneSettings.getGridSettings();
             const traceTarget = opts.cannonTraceTarget ?? opts.to;
             const evaluation = this.attackHandler.evaluateRangeAttack(
@@ -5134,6 +5134,12 @@ export class Sandbox extends PixiScene {
                 GridMath.projectLineToFieldEdge(gs, attacker.getPosition().x, attacker.getPosition().y, aim.x, aim.y);
             const to = projectBattlefieldPoint(lineEnd, gs);
             const opts = this.getReplayProjectileOptions(attacker, target, to, undefined, false);
+            // A piercing shot keeps travelling to the field edge. It must not explode on the
+            // primary victim, and its contacts are owned by the authoritative splash progress.
+            opts.to = to;
+            opts.cannonPiercing = true;
+            opts.cannonImpactPosition = undefined;
+            opts.cannonExplodeOnImpact = !!endpoint;
             const from = opts.from;
             const dx = to.x - from.x;
             const dy = to.y - from.y;

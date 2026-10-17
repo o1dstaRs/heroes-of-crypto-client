@@ -64,7 +64,7 @@ describe("painted Boar Saliva flag cue", () => {
             expect(sprite.scale.x).toBe(scale.x);
             expect(sprite.scale.y).toBe(scale.y);
             expect(pop.alpha).toBe(1); // Pixel-authored appearance/fade, no engine deformation.
-            now = 1000;
+            now = 1800;
             layer.update(0);
             expect(layer.active).toBe(false);
             expect(pop.destroyed).toBe(true);

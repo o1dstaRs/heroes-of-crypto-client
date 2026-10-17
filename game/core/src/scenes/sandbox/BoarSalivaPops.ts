@@ -1,3 +1,4 @@
+import { statusEffectElapsedMs } from "../../settings/statusEffectTiming";
 import { Assets, Container, Rectangle, Sprite, Texture } from "pixi.js";
 
 import { animationAtlases } from "../../generated/animation_atlases";
@@ -111,7 +112,7 @@ export class BoarSalivaPops {
         const now = this.now();
         for (let i = this.pops.length - 1; i >= 0; i--) {
             const pop = this.pops[i];
-            const frame = boarSalivaFrameAt(Math.max(0, now - pop.startedAtMs));
+            const frame = boarSalivaFrameAt(statusEffectElapsedMs(Math.max(0, now - pop.startedAtMs)));
             const position = pop.follow?.();
             if (frame === undefined || (pop.follow && !position)) {
                 pop.container.destroy({ children: true });

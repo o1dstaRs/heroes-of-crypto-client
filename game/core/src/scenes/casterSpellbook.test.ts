@@ -37,7 +37,7 @@ const spellbookCasters = [
     ["Might", "Ogre Mage", ["Riot", "Magic Mirror"]],
 ] as const;
 
-const createCaster = (faction: string, name: string, entries?: string[]): RenderableUnit => {
+const createCaster = (faction: string, name: string, entries?: string[], missingIcon?: string): RenderableUnit => {
     const effectFactory = new EffectFactory();
     const properties = HoCConfig.getCreatureConfig(TeamVals.LEFT, faction, name, "", 1);
     const configuredEntries = [...properties.spells];
@@ -61,7 +61,9 @@ const createCaster = (faction: string, name: string, entries?: string[]): Render
         "meteorite_chaos_256_v1",
         ...configuredEntries.map((entry) => SpellHelper.spellToTextureName(entry.split(":")[1])),
     ]);
-    const caster = RenderableUnit.fromBase(base, (key) => (keys.has(key) ? Texture.WHITE : undefined));
+    const caster = RenderableUnit.fromBase(base, (key) =>
+        keys.has(key) && key !== missingIcon ? Texture.WHITE : undefined,
+    );
     caster.setStackPower(1);
     return caster;
 };
@@ -84,7 +86,7 @@ const clickCard = (caster: RenderableUnit, spellName: string) => {
     });
     const card = caster.getBookSpellByName(spellName)!;
     expect(card).toBeDefined();
-    expect(card.canUse(1)).toBe(true);
+    expect(card.canUse(caster.getStackPower())).toBe(true);
     const bounds = card.getSprite().getBounds();
     const point = { x: (bounds.minX + bounds.maxX) / 2, y: (bounds.minY + bounds.maxY) / 2 };
     expect(caster.getHoveredSpell(point)?.getName()).toBe(spellName);
@@ -96,6 +98,19 @@ const clickCard = (caster: RenderableUnit, spellName: string) => {
 };
 
 describe("single-creature spellbooks", () => {
+    test("Fireball remains selectable while its icon is missing or still loading", () => {
+        const caster = createCaster("Chaos", "Wandering Mage", undefined, "fireball_256");
+        const layer = new Container();
+        caster.setStackPower(3);
+        try {
+            caster.ensureSpellBookRendering(layer, new Map());
+            caster.renderSpells(1);
+            clickCard(caster, "Fireball");
+        } finally {
+            caster.hideSpells();
+            layer.destroy({ children: true });
+        }
+    });
     for (const [faction, name, basics] of spellbookCasters) {
         test(`${name} can pick its basic cards at stack power 1`, () => {
             const caster = createCaster(faction, name);

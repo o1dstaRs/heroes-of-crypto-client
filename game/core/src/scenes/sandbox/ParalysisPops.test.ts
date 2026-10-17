@@ -57,7 +57,7 @@ test("paralysis follows the live flag, coalesces hits and expires using Ogre Mag
         expect(pop.y).toBeCloseTo(400 + 64 * 0.07);
         expect(pop.scale.y).toBeCloseTo(-1.6);
         expect(sprite.texture).not.toBe(first);
-        now = 1000;
+        now = 1800;
         pops.update();
         expect(pop.destroyed).toBe(true);
         await pops.spawn("victim", 64, () => anchor);

@@ -109,6 +109,8 @@ export interface IFireProjectileOptions {
     labIronCannonball?: boolean;
     cannonExplodeOnImpact?: boolean;
     cannonImpactPosition?: HoCMath.XY;
+    /** Piercing volleys travel through recorded victims to their endpoint. */
+    cannonPiercing?: boolean;
     cannonTraceTarget?: HoCMath.XY;
     /** Painted ball diameter in world pixels, measured from the firing unit's inner muzzle. */
     cannonballDiameter?: number;
@@ -495,7 +497,7 @@ export class RangedProjectiles {
         const cell = this.context.getGridSettings().getCellSize();
         const from = { x: opts.from.x, y: opts.from.y };
         const to =
-            opts.tsarCannonball && opts.cannonImpactPosition
+            opts.tsarCannonball && opts.cannonImpactPosition && !opts.cannonPiercing
                 ? cannonContactCenter(from, opts.cannonImpactPosition, opts.cannonballDiameter ?? cell)
                 : opts.cyclopsRock && opts.cyclopsImpactPosition
                   ? { x: opts.cyclopsImpactPosition.x, y: opts.cyclopsImpactPosition.y + cell * 0.3 }

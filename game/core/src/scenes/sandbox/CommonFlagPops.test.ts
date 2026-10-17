@@ -6,6 +6,39 @@ import { isLazyCombatEffectAssetKey, isProductionOmittedAssetKey } from "../../p
 
 const meta = animationAtlases["Vfx Common Lucky"].pop;
 
+test.each(["empower", "dulling_defense", "enchanted_skin", "ogre_riot"] as const)(
+    "%s status holds its painted cels for 1.8 seconds",
+    async (kind) => {
+        const atlas = new Texture({ source: new TextureSource({ width: 4096, height: 4096 }) });
+        const load = spyOn(Assets, "load").mockResolvedValue(atlas as unknown as Record<string, unknown>);
+        const unload = spyOn(Assets, "unload").mockResolvedValue();
+        const root = new Container();
+        let now = 0;
+        const layer = new CommonFlagPops(
+            kind,
+            (container) => root.addChild(container),
+            () => now,
+        );
+        try {
+            await layer.spawn("unit", { x: 0, y: 0 }, 64);
+            now = 1000;
+            layer.update(0);
+            expect(layer.active).toBe(true);
+            now = 1799;
+            layer.update(0);
+            expect(layer.active).toBe(true);
+            now = 1800;
+            layer.update(0);
+            expect(layer.active).toBe(false);
+        } finally {
+            layer.clear();
+            root.destroy({ children: true });
+            load.mockRestore();
+            unload.mockRestore();
+        }
+    },
+);
+
 test("Enchanted Skin uses nine shield cels for one second and loads on demand", () => {
     const shield = animationAtlases["Vfx Enchanted Skin"].pop;
     expect(shield.frameCount).toBe(9);

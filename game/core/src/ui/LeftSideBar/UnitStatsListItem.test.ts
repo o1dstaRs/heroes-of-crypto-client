@@ -28,7 +28,9 @@ const unit = (rangeShots: number): UnitProperties =>
 test("selecting an inspected unit enables its portrait animation even when its stats are unchanged", () => {
     const props = { unitProperties: unit(5), overallImpact: impact(), factionType: FactionVals.NO_FACTION };
     expect(areUnitStatsPropsEqual({ ...props, animatePortrait: false }, props)).toBe(false);
-    expect(areUnitStatsPropsEqual({ ...props, animatePortrait: false }, { ...props, animatePortrait: false })).toBe(true);
+    expect(areUnitStatsPropsEqual({ ...props, animatePortrait: false }, { ...props, animatePortrait: false })).toBe(
+        true,
+    );
 });
 
 test("remaining shots invalidate the memoized sidebar card", () => {

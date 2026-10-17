@@ -67,7 +67,7 @@ describe("painted Deep Wounds flag effects", () => {
             expect(sprite.texture.width).toBe(384);
             expect(sprite.texture.frame.x).toBe((deepWoundsFrameAt(2, 500)! % 4) * 384);
             expect(container.alpha).toBe(1); // The sprite already carries its fade.
-            now = 1000;
+            now = 1800;
             layer.update(1 / 240);
             expect(layer.active).toBe(false);
             expect(container.destroyed).toBe(true);

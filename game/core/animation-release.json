@@ -12778,6 +12778,10 @@
             "sha256": "40e73bfff6e768fc112e16c8e78adff9b0bcdcc57031dc5e41c9e3dbe8f4db7d",
             "bytes": 1487660
         },
+        "images/cyclops_lab_boulder.webp": {
+            "sha256": "62cdb428f30068c314ca284599afb7c1bdb1ae01894975c6525284c3b8afde7a",
+            "bytes": 368384
+        },
         "images/cyclops_left_screen_x2.webp": {
             "sha256": "e3a50b64d4a146d99956c4f1a405d8f9d8e90d6e96392b1d972f040afd402ee9",
             "bytes": 1478536
@@ -13625,6 +13629,10 @@
         "images/fire_wall_256.webp": {
             "sha256": "39bc220a61e10595d92a14f6b69b9c070dc5056bab8016c399364ce56b58e289",
             "bytes": 37352
+        },
+        "images/fireball_256.webp": {
+            "sha256": "f3a0e5e6790b05fb43aeabb4aacb844c15548f60d81a9e2280f45f1054e9379d",
+            "bytes": 36412
         },
         "images/fireforged_sword_256.webp": {
             "sha256": "dc17929c01a39fb77fcef4022141ed180b769073f336d789a64df0bc8c95811a",
@@ -17654,6 +17662,10 @@
             "sha256": "e4c1748ac8c7c8386c07f20c9289b885d1a7e304346a7f484787846981c2efa6",
             "bytes": 496212
         },
+        "images/vfx_griffin_question_bow_aura_v3.webp": {
+            "sha256": "395ef94a877a3c988759defe954f27ed121e5dbfcdd41dafa1d765da87b8093b",
+            "bytes": 245534
+        },
         "images/vfx_pegasus_four_swords_aura_v2.webp": {
             "sha256": "ec2591cfbbd6ed959d8f642e04e71464e8d67de88c188b0d3284568109b5b6bf",
             "bytes": 358140
@@ -18093,14 +18105,10 @@
         "images/zombie_512.webp": {
             "sha256": "ff1de5aaf5bc290d03a0cea7d4ad309964027540252b47861337d82d2966fa97",
             "bytes": 75536
-        },
-        "images/vfx_griffin_question_bow_aura_v3.webp": {
-            "sha256": "395ef94a877a3c988759defe954f27ed121e5dbfcdd41dafa1d765da87b8093b",
-            "bytes": 245534
-        },
-        "images/cyclops_lab_boulder.webp": {
-            "sha256": "62cdb428f30068c314ca284599afb7c1bdb1ae01894975c6525284c3b8afde7a",
-            "bytes": 368384
         }
+    },
+    "reviewPatch": {
+        "file": "animation-review-fixes-20261017.zip",
+        "sha256": "ed980af7da72e034e0c3b6f86edafc4a3a481710212c98ecb4cb3439f7bce6c4"
     }
 }

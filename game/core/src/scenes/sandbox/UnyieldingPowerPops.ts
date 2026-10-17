@@ -1,3 +1,4 @@
+import { statusEffectElapsedMs } from "../../settings/statusEffectTiming";
 import { Assets, Container, Rectangle, Sprite, Texture } from "pixi.js";
 
 import { animationAtlases } from "../../generated/animation_atlases";
@@ -108,7 +109,7 @@ export class UnyieldingPowerPops {
         const now = this.now();
         for (let i = this.pops.length - 1; i >= 0; i--) {
             const pop = this.pops[i];
-            const ageMs = Math.max(0, now - pop.startedAtMs);
+            const ageMs = statusEffectElapsedMs(Math.max(0, now - pop.startedAtMs));
             const frame = unyieldingPowerFrameAt(ageMs);
             const position = pop.follow?.();
             if (frame === undefined || (pop.follow && !position)) {

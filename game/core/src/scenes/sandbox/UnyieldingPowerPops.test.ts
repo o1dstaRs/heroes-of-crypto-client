@@ -60,7 +60,7 @@ describe("Unyielding Power painted curl", () => {
             expect(sprite.texture.width).toBe(384);
             await layer.spawn("behemoth", anchor, 64);
             expect(root.children).toHaveLength(1);
-            now = 1000;
+            now = 1800;
             layer.update(1 / 240);
             expect(layer.active).toBe(false);
             expect(container.destroyed).toBe(true);

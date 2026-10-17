@@ -3464,19 +3464,19 @@ export class RenderableUnit extends Unit {
 
             // Art can arrive after the book opens. A missing icon must never hide an available spell.
             const newSpell = new PixiRenderableSpell(
-                    { spellProperties: spellProperties, amount: v },
-                    this.spellBookLayer,
-                    {
-                        spell_cell_260: cellTex ?? Texture.EMPTY,
-                        scrollBadge: scrollBadgeTex,
-                        innerFrame: innerFrameTex,
-                        stackRail: stackRailTex,
-                        stackFillGreen: stackFillGreenTex,
-                        stackFillRed: stackFillRedTex,
-                    },
-                    iconTex ?? Texture.EMPTY,
-                    this.digitTextures,
-                );
+                { spellProperties: spellProperties, amount: v },
+                this.spellBookLayer,
+                {
+                    spell_cell_260: cellTex ?? Texture.EMPTY,
+                    scrollBadge: scrollBadgeTex,
+                    innerFrame: innerFrameTex,
+                    stackRail: stackRailTex,
+                    stackFillGreen: stackFillGreenTex,
+                    stackFillRed: stackFillRedTex,
+                },
+                iconTex ?? Texture.EMPTY,
+                this.digitTextures,
+            );
             this.pixiSpells.push(newSpell);
         }
     }
