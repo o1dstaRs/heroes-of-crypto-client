@@ -18,6 +18,11 @@ export interface BattlefieldShadowTuning {
     contactShadowVisible: boolean;
 }
 
+export type ReadonlyBattlefieldShadowTuning = Readonly<Omit<BattlefieldShadowTuning, "bottom" | "top">> & {
+    readonly bottom: Readonly<BattlefieldShadowRowTuning>;
+    readonly top: Readonly<BattlefieldShadowRowTuning>;
+};
+
 export interface BattlefieldShadowSegmentVisualBounds {
     x: number;
     y: number;
@@ -390,6 +395,28 @@ const approvedBattlefieldShadowTuning = (unitName?: string): BattlefieldShadowTu
         unitName ? BATTLEFIELD_SHADOW_TUNING_BY_CREATURE[unitName] : DEFAULT_BATTLEFIELD_SHADOW_TUNING,
     );
 
+const freezeTuning = (value: BattlefieldShadowTuning): ReadonlyBattlefieldShadowTuning => {
+    Object.freeze(value.bottom.segmentLengthMultipliers);
+    Object.freeze(value.top.segmentLengthMultipliers);
+    Object.freeze(value.bottom);
+    Object.freeze(value.top);
+    return Object.freeze(value);
+};
+
+// Saved and polled profiles are replaced on every edit. Weak keys let retired drafts disappear while
+// each unchanged source is normalized only once. Never freeze the editor's input or return its objects.
+const runtimeTuningSnapshots = new WeakMap<BattlefieldShadowTuning, ReadonlyBattlefieldShadowTuning>();
+const runtimeTuningSnapshot = (
+    source: BattlefieldShadowTuning = DEFAULT_BATTLEFIELD_SHADOW_TUNING,
+): ReadonlyBattlefieldShadowTuning => {
+    let snapshot = runtimeTuningSnapshots.get(source);
+    if (!snapshot) {
+        snapshot = freezeTuning(normalizeBattlefieldShadowTuning(source));
+        runtimeTuningSnapshots.set(source, snapshot);
+    }
+    return snapshot;
+};
+
 const isBattlefieldShadowProductionBuild = (): boolean =>
     String(import.meta.env.PROD).toLowerCase() === "true" ||
     String(import.meta.env.VITE_IS_PROD).toLowerCase() === "true";
@@ -488,6 +515,61 @@ const readCookieJar = (): string => {
     }
 };
 
+let runtimeCookieDocument: Document | undefined;
+let runtimeCookieJar: string | undefined;
+let runtimeCookieResetQueued = false;
+const clearRuntimeCookieSnapshot = (): void => {
+    runtimeCookieDocument = undefined;
+    runtimeCookieJar = undefined;
+};
+
+const readRuntimeCookieJar = (): string => {
+    if (typeof document === "undefined") return "";
+    if (runtimeCookieJar !== undefined && runtimeCookieDocument === document) return runtimeCookieJar;
+    runtimeCookieDocument = document;
+    runtimeCookieJar = readCookieJar();
+    // All units in a synchronous visual update share one host-cookie read. Refresh at the next
+    // microtask, rather than on a timer, so other tabs/ports are observed by the next visual update.
+    if (!runtimeCookieResetQueued) {
+        runtimeCookieResetQueued = true;
+        queueMicrotask(() => {
+            runtimeCookieResetQueued = false;
+            clearRuntimeCookieSnapshot();
+        });
+    }
+    return runtimeCookieJar;
+};
+
+let parsedRuntimeCookieJar: string | undefined;
+const runtimeCookieTunings = new Map<string, ReadonlyBattlefieldShadowTuning | undefined>();
+const readRuntimeCookieTuning = (unitName?: string): ReadonlyBattlefieldShadowTuning | undefined => {
+    if (!unitName) return undefined;
+    const jar = readRuntimeCookieJar();
+    if (jar !== parsedRuntimeCookieJar) {
+        parsedRuntimeCookieJar = jar;
+        runtimeCookieTunings.clear();
+        for (const part of jar.split(";")) {
+            const entry = part.trim();
+            if (!entry.startsWith(BATTLEFIELD_SHADOW_TUNING_COOKIE_PREFIX)) continue;
+            const separator = entry.indexOf("=");
+            if (separator < 0) continue;
+            const name = entry.slice(0, separator);
+            // Match the first cookie of a given name, including a malformed one, just like find() below.
+            if (runtimeCookieTunings.has(name)) continue;
+            let tuning: ReadonlyBattlefieldShadowTuning | undefined;
+            try {
+                tuning = freezeTuning(
+                    normalizeBattlefieldShadowTuning(JSON.parse(decodeURIComponent(entry.slice(separator + 1)))),
+                );
+            } catch {
+                tuning = undefined;
+            }
+            runtimeCookieTunings.set(name, tuning);
+        }
+    }
+    return runtimeCookieTunings.get(sharedCookieName(unitName));
+};
+
 const readSharedCookieTuning = (unitName?: string): BattlefieldShadowTuning | undefined => {
     if (!unitName) return undefined;
     const jar = readCookieJar();
@@ -512,6 +594,8 @@ const writeSharedCookieTuning = (unitName: string, value: BattlefieldShadowTunin
         document.cookie = `${sharedCookieName(unitName)}=${encoded}; Path=/; Max-Age=${BATTLEFIELD_SHADOW_TUNING_COOKIE_MAX_AGE_SECONDS}; SameSite=Lax`;
     } catch {
         return;
+    } finally {
+        clearRuntimeCookieSnapshot();
     }
 };
 
@@ -610,9 +694,20 @@ export const resetStoredBattlefieldShadowTuning = (unitName: string): void => {
  * Development gameplay must resolve the exact same saved profile as the shadow editor. The editor authors
  * the upper-row endpoint; RenderableUnit then interpolates that shared profile toward the lower-row values.
  * Production remains pinned to the reviewed table because browser-local drafts are not a deployable asset.
+ * Runtime callers share immutable snapshots; editor read APIs still return editable copies.
  */
-export const resolveBattlefieldShadowTuning = (unitName?: string): BattlefieldShadowTuning => {
-    return resolveBattlefieldShadowTuningForBuild(unitName, isBattlefieldShadowProductionBuild());
+export const resolveBattlefieldShadowTuning = (unitName?: string): ReadonlyBattlefieldShadowTuning => {
+    if (isBattlefieldShadowProductionBuild()) {
+        return runtimeTuningSnapshot(unitName ? BATTLEFIELD_SHADOW_TUNING_BY_CREATURE[unitName] : undefined);
+    }
+    ensureSharedDevTuningPolling();
+    const shared = unitName ? (sharedDevTunings[unitName] ?? sharedDevTunings["*"]) : sharedDevTunings["*"];
+    if (shared) return runtimeTuningSnapshot(shared);
+    const cookie = readRuntimeCookieTuning(unitName);
+    if (cookie) return cookie;
+    const values = readStoredMap();
+    const stored = unitName ? (values[unitName] ?? values["*"]) : values["*"];
+    return runtimeTuningSnapshot(stored ?? (unitName ? BATTLEFIELD_SHADOW_TUNING_BY_CREATURE[unitName] : undefined));
 };
 
 export const resolveBattlefieldShadowTuningForBuild = (
