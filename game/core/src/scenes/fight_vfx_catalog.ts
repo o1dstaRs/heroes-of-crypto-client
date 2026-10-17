@@ -52,7 +52,7 @@ export const FIGHT_EVENT_VFX: Record<GameEvent["type"], FightEventVfx> = {
     unit_attacked: {
         rendered: true,
         ranked: "replay",
-        note: "attack lunge + floating damage; showReplayAttackDamage (replay) / executeAttackSequence (live). Ability VFX ride the same event via shared spawn*Vfx helpers called from BOTH paths — incl. spawnFireDamageVfx (Fire Shield reflect / dragon-breath burn / Fireforged Sword), keyed off damage.secondary. Ranked runs NEITHER sandbox path: it renders damage.secondary itself in applyAuthoritativeSecondaryVfx, which colours each number by source (getSecondaryDamageStyle) and draws the Chain Lightning arc from the authoritative bounce entries",
+        note: "attack lunge + floating damage; showReplayAttackDamage (replay) / executeAttackSequence (live). Zena's lethal strikes and chakram ricochets record noteZenaKill at their individual impact in shared playCombatExchange; playCustomDeathAnimation replaces the victim's authored death with a flying head, blood fountain and collapse. Counters use their actual source; misses, absorbed hits, resurrections and blast casualties do not decapitate. Ability VFX ride the same event via shared spawn*Vfx helpers called from BOTH paths — incl. spawnFireDamageVfx (Fire Shield reflect / dragon-breath burn / Fireforged Sword), keyed off damage.secondary. Ranked runs NEITHER sandbox path: it renders damage.secondary itself in applyAuthoritativeSecondaryVfx, which colours each number by source (getSecondaryDamageStyle) and draws the Chain Lightning arc from the authoritative bounce entries",
     },
     area_attacked: {
         rendered: true,
@@ -215,8 +215,8 @@ export const FIGHT_EVENT_VFX: Record<GameEvent["type"], FightEventVfx> = {
     // damage number has to ride the event (the store only says which cells are alight, never who they hurt).
     pyre_exploded: {
         rendered: true,
-        ranked: "journal",
-        note: "an enemy destroyed by a Last Fuse holder detonates into fire, smoke, tumbling flesh, blood and sparks. Each damaged ally of the defeated enemy gets a directional blood/ember impact, scorch flash, hit reaction and orange damage number. Chain delays also time the hit reactions. Sandbox plays engine events; ranked and replays consume new journal entries once, without replaying reconnect history",
+        ranked: "replay",
+        note: "Last Fuse replaces the defeated stack's ordinary death animation at the killing impact. Its body disappears on the first explosion frame; chain victims remain until their own delayed bursts. Fire, smoke, flesh, blood, sparks and orange damage numbers share the blast clock. Ranked journal fallback deduplicates explosions already played by the attack and skips reconnect history",
     },
     fire_wall_burned: {
         rendered: true,

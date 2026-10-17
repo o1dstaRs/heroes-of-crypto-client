@@ -18,6 +18,7 @@ import { projectBattlefieldPoint } from "./BattlefieldVisualGrid";
 import { playCombatSound } from "../../ui/audio/combatSounds";
 import { GravechainVfx } from "./GravechainVfx";
 import { LastFuseVfx } from "./LastFuseVfx";
+import { ZenaBrutalityVfx } from "./ZenaBrutalityVfx";
 
 export interface ICombatVisualsContext {
     getGridSettings(): GridSettings;
@@ -751,6 +752,9 @@ const easeOutBack = (t: number): number => {
 };
 
 export class CombatVisuals {
+    private zenaBrutality = new ZenaBrutalityVfx((container) => this.attachEffect(container, 4550));
+    private zenaKills = new Map<string, HoCMath.XY>();
+    private zenaDeathBodies = new WeakSet<RenderableUnit>();
     private gravechains = new GravechainVfx((container) => this.attachEffect(container, 5505));
     private audioEpoch = 0;
     private context: ICombatVisualsContext;
@@ -1710,6 +1714,9 @@ export class CombatVisuals {
             }
             this.areaImpacts.length = 0;
             this.lastFuse.clear();
+            this.zenaBrutality.clear();
+            this.zenaKills.clear();
+            this.zenaDeathBodies = new WeakSet();
             for (const burst of this.resurrectBursts) {
                 burst.graphics.destroy();
             }
@@ -1799,6 +1806,7 @@ export class CombatVisuals {
             this.healBursts.length === 0 &&
             this.areaImpacts.length === 0 &&
             !this.lastFuse.active &&
+            !this.zenaBrutality.active &&
             this.resurrectBursts.length === 0 &&
             this.chainLightnings.length === 0 &&
             !this.gravechains.active &&
@@ -1889,6 +1897,7 @@ export class CombatVisuals {
         this.stepHealBursts(dt);
         this.stepAreaImpacts(dt);
         this.lastFuse.update(dt);
+        this.zenaBrutality.update(dt);
         this.stepResurrectBursts(dt);
         this.stepChainLightnings(dt);
         this.gravechains.update(dt);
@@ -2214,6 +2223,33 @@ export class CombatVisuals {
                 this.iceBreaks.splice(i, 1);
             }
         }
+    }
+    public noteZenaKill(
+        attacker: Pick<Unit, "getName" | "getTeam">,
+        victim: Pick<Unit, "getId" | "getTeam">,
+        direction: HoCMath.XY,
+    ): void {
+        if (attacker.getName() !== "Zena" || attacker.getTeam() === victim.getTeam()) return;
+        this.zenaKills.set(victim.getId(), { ...direction });
+    }
+    public playZenaBrutalityDeath(unit: RenderableUnit): boolean {
+        if (this.zenaDeathBodies.has(unit)) return true;
+        const direction = this.zenaKills.get(unit.getId());
+        if (!direction) return false;
+        this.zenaKills.delete(unit.getId());
+        const gs = this.context.getGridSettings();
+        const pose = unit.getStaticBattlefieldPreviewAt(unit.getPosition(), gs, true);
+        if (!pose) return false;
+        const spawned = this.zenaBrutality.spawn(pose, unit.getName(), gs.getCellSize(), direction);
+        if (spawned) {
+            this.zenaDeathBodies.add(unit);
+            this.deathBlowByUnitId.delete(unit.getId());
+        }
+        return spawned;
+    }
+    public resetZenaDeath(unitId: string, unit?: RenderableUnit): void {
+        this.zenaKills.delete(unitId);
+        if (unit) this.zenaDeathBodies.delete(unit);
     }
     /**
      * Record what killed a unit (and the blow's direction, attacker → victim) BEFORE its death
@@ -4992,8 +5028,8 @@ export class CombatVisuals {
             }
         }
     }
-    public spawnPyreExplosion(pos: HoCMath.XY, cellSize: number, delaySec = 0): void {
-        this.lastFuse.spawn(pos, cellSize, delaySec);
+    public spawnPyreExplosion(pos: HoCMath.XY, cellSize: number, delaySec = 0, removeBody?: () => void): void {
+        this.lastFuse.spawn(pos, cellSize, delaySec, removeBody);
     }
     public spawnPyreHit(unitId: string, pos: HoCMath.XY, origin: HoCMath.XY, cellSize: number, delaySec = 0): void {
         this.lastFuse.hit(pos, origin, cellSize, delaySec, (direction) => {

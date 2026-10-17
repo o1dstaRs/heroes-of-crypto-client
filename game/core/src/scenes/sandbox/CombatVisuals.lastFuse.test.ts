@@ -24,6 +24,33 @@ function fixture() {
 
 const target = () => ({ isDead: () => false, flashScorch: mock(), applyHitReaction: mock() });
 
+test("a Last Fuse body disappears on the first visible explosion frame", () => {
+    const { visuals, attached } = fixture();
+    const removeBody = mock();
+    visuals.spawnPyreExplosion({ x: 100, y: 100 }, 64, 0.18, removeBody);
+    visuals.update(0.1);
+    expect(removeBody).not.toHaveBeenCalled();
+    expect(attached[0].visible).toBe(false);
+    visuals.update(0.1);
+    expect(removeBody).toHaveBeenCalledTimes(1);
+    expect(attached[0].visible).toBe(true);
+    visuals.update(0.1);
+    expect(removeBody).toHaveBeenCalledTimes(1);
+    visuals.clear();
+});
+
+test("a skipped explosion frame or reset still cleans up the replaced body", () => {
+    const { visuals } = fixture();
+    const skipped = mock();
+    visuals.spawnPyreExplosion({ x: 0, y: 0 }, 64, 0.18, skipped);
+    visuals.update(5);
+    expect(skipped).toHaveBeenCalledTimes(1);
+    const reset = mock();
+    visuals.spawnPyreExplosion({ x: 0, y: 0 }, 64, 0.18, reset);
+    visuals.clear();
+    expect(reset).toHaveBeenCalledTimes(1);
+});
+
 test("Last Fuse waits for the chain delay, throws solid chunks through the fire, then disposes every child", () => {
     const { visuals, attached } = fixture();
     visuals.spawnPyreExplosion({ x: 100, y: 100 }, 64, 0.4);

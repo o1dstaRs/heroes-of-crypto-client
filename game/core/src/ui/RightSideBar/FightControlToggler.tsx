@@ -1,6 +1,6 @@
 // game/core/src/ui/FightControlToggler.tsx
 import { UnitProperties, TeamVals } from "@heroesofcrypto/common";
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useLayoutEffect, useState, useRef } from "react";
 import List from "@mui/joy/List";
 import ListItem from "@mui/joy/ListItem";
 import ListItemButton from "@mui/joy/ListItemButton";
@@ -17,8 +17,7 @@ import MapSettingsRadioButtons from "./MapSettingsRadioButtons";
 // expanded at once, which in this narrow panel stacks three tall radio groups and pushes the artifacts and
 // the other team's section off the bottom. Sandbox wants the pre-redesign shape instead — one row of augment
 // icons, and only the CHOSEN augment's options underneath — so it mounts SandboxToggleContainer, where that
-// augment and artifact blocks are independently collapsible, with both shown when the available height can
-// hold them.
+// Augments can collapse independently; Artifacts stay visible whenever the team's section is open.
 import SandboxToggleContainer from "./SandboxToggleContainer";
 import { SynergySlots } from "./SynergySlots";
 import { ImageScrollbar } from "./ImageScrollbar";
@@ -89,8 +88,10 @@ const SANDBOX_SCROLLBAR_FRAME_GAP_PX = 4;
 const SANDBOX_LEGACY_SCROLLBAR_GUTTER_PX = 6;
 
 const FightControlToggler: React.FC<{ scrollRailInsetPx: number }> = ({ scrollRailInsetPx }) => {
-    const [unitProperties, setUnitProperties] = useState({} as UnitProperties);
     const manager = usePixiManager();
+    const [unitProperties, setUnitProperties] = useState(
+        () => ({ ...manager.m_scene?.sc_selectedUnitProperties }) as UnitProperties,
+    );
     const scrollViewportRef = useRef<HTMLDivElement>(null);
     // The parent reserves this inset for the ornamental right rail. Extend only the scrolling shell into
     // that empty strip; the section cards below retain their original width.
@@ -113,16 +114,24 @@ const FightControlToggler: React.FC<{ scrollRailInsetPx: number }> = ({ scrollRa
     });
 
     useEffect(() => {
-        // ✅ Subscribe to the new combined selection signal
-        const connection = manager.onSelectionCombined.connect(({ unit }) => {
-            // unit can be null → fall back to empty object
-            setUnitProperties((unit ?? {}) as UnitProperties);
-        });
+        // Copy the properties: the scene can update a selected stack's team in place.
+        const updateSelection = ({ unit }: { unit: UnitProperties | null }) =>
+            setUnitProperties({ ...unit } as UnitProperties);
+        const connection = manager.onSelectionCombined.connect(updateSelection);
+        updateSelection({ unit: manager.m_scene?.sc_selectedUnitProperties ?? null });
 
         return () => {
             connection.disconnect();
         };
     }, [manager]);
+
+    useLayoutEffect(() => {
+        if (!unitProperties.id || ![TeamVals.LEFT, TeamVals.RIGHT].includes(unitProperties.team)) return;
+        setOpenRefs.current.green?.(unitProperties.team === TeamVals.LEFT);
+        setOpenRefs.current.red?.(unitProperties.team === TeamVals.RIGHT);
+        // Follow a new selection without reopening a manually closed section on ordinary stat updates.
+        // Army and Board keep their state so selecting a stack does not hide its editing controls.
+    }, [unitProperties.id, unitProperties.team]);
 
     const handleSplit = (group1: number, group2: number) => {
         if (group1 > 0 && group2 > 0) {
@@ -166,7 +175,7 @@ const FightControlToggler: React.FC<{ scrollRailInsetPx: number }> = ({ scrollRa
                     "&::-webkit-scrollbar": { display: "none", width: 0, height: 0 },
                     // Let the active framed section keep its natural content height. Otherwise flexbox shrinks
                     // the frame itself, whose overflow:hidden then clips the bottom before this parent can
-                    // expose a scrollbar or make the both-panels fit decision.
+                    // expose a scrollbar.
                     "& > *": {
                         flexShrink: 0,
                         width: `calc(100% - ${scrollRailExtensionPx - SANDBOX_LEGACY_SCROLLBAR_GUTTER_PX}px)`,
@@ -195,6 +204,7 @@ const FightControlToggler: React.FC<{ scrollRailInsetPx: number }> = ({ scrollRa
                             setOpenRefs.current.army = setOpen;
                             return (
                                 <ListItemButton
+                                    aria-expanded={open}
                                     onClick={() => {
                                         if (!open) {
                                             closeAllExcept("army");
@@ -247,6 +257,7 @@ const FightControlToggler: React.FC<{ scrollRailInsetPx: number }> = ({ scrollRa
                             setOpenRefs.current.map = setOpen;
                             return (
                                 <ListItemButton
+                                    aria-expanded={open}
                                     onClick={() => {
                                         if (!open) {
                                             closeAllExcept("map");
@@ -295,6 +306,7 @@ const FightControlToggler: React.FC<{ scrollRailInsetPx: number }> = ({ scrollRa
                             setOpenRefs.current.green = setOpen;
                             return (
                                 <ListItemButton
+                                    aria-expanded={open}
                                     onClick={() => {
                                         if (!open) {
                                             closeAllExcept("green");
@@ -352,6 +364,7 @@ const FightControlToggler: React.FC<{ scrollRailInsetPx: number }> = ({ scrollRa
                             setOpenRefs.current.red = setOpen;
                             return (
                                 <ListItemButton
+                                    aria-expanded={open}
                                     onClick={() => {
                                         if (!open) {
                                             closeAllExcept("red");

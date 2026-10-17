@@ -42,7 +42,7 @@ test("the shared exchange targets the counter's actual screening victim by its o
     expect(plan[1].amount).toBe(12);
 });
 
-test("a defender killed by the first hit retains its recorded response before death", () => {
+test("a defender killed by the first hit retains its simultaneous response", () => {
     const attacker = {
         getId: () => "A",
         getPosition: () => ({ x: 0, y: 0 }),
@@ -69,7 +69,7 @@ test("a defender killed by the first hit retains its recorded response before de
         { amount: 4, unitsDied: 0 },
     );
     expect(plan.map((strike: { response: boolean; lethal: boolean }) => [strike.response, strike.lethal])).toEqual([
-        [true, false],
         [false, true],
+        [true, false],
     ]);
 });

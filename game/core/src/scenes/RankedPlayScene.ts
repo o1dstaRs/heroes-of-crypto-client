@@ -3938,9 +3938,6 @@ export class RankedPlayScene extends Sandbox {
     protected override shouldRenderPoisonInline(): boolean {
         return false;
     }
-    protected override shouldRenderPyreInline(): boolean {
-        return false;
-    }
     /**
      * Render the lap-start Morale (green) / Dismorale (violet) pops from the authoritative journal. The
      * `morale_applied` events ride on the lap-flipping action's journal entry (the scene log reads them
@@ -4087,11 +4084,13 @@ export class RankedPlayScene extends Sandbox {
             if (entry.sequence <= this.pyreVfxSequence) {
                 continue;
             }
-            for (const event of this.parseJournalEvents(entry)) {
+            const events = this.parseJournalEvents(entry);
+            this.preparePyreDeaths(events);
+            for (const event of events) {
                 if (event.type !== "pyre_exploded") {
                     continue;
                 }
-                this.renderPyreExplosion(event, pyreIndex * 0.18);
+                this.playPyreDeath(event.unitId, pyreIndex * 0.18);
                 pyreIndex += 1;
             }
         }
@@ -4119,6 +4118,8 @@ export class RankedPlayScene extends Sandbox {
             if (newAlive !== undefined && newAlive > 0) {
                 continue;
             }
+            // The active attack owns these deaths, including bodies waiting on a chained burst.
+            if (this.hasPyreDeath(renderable.getId())) continue;
             // No live sprite (never shown, or the replay already shattered + tore it down) → nothing to do.
             const shatterInfo = renderable.getShatterInfo();
             if (!shatterInfo) {

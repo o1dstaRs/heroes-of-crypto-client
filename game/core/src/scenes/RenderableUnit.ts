@@ -3924,9 +3924,15 @@ export class RenderableUnit extends Unit {
         return ghost;
     }
     /** A fixed battle pose for destination ghosts, independent of the live idle/action frame. */
-    public getStaticBattlefieldPreviewAt(position: HoCMath.XY, gs: GridSettings): BattlefieldUnitPreview | undefined {
+    public getStaticBattlefieldPreviewAt(
+        position: HoCMath.XY,
+        gs: GridSettings,
+        canonicalPose = false,
+    ): BattlefieldUnitPreview | undefined {
         const src = this.sprite;
-        const texture = this.selectionAnimFrames?.[0] ?? this.resolveBaseTexture();
+        const texture = canonicalPose
+            ? this.resolveBaseTexture()
+            : (this.selectionAnimFrames?.[0] ?? this.resolveBaseTexture());
         if (!src?.parent || !texture) return undefined;
         const props = this.getUnitProperties();
         const width = this.getFootprintWidth();

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { orderCombatExchange, type CombatExchangeStrike } from "./combat_exchange";
+import { groupCombatExchange, orderCombatExchange, type CombatExchangeStrike } from "./combat_exchange";
 const hit = (attackerId: string, targetId: string, hitIndex = 0, lethal = false): CombatExchangeStrike => ({
     attackerId,
     targetId,
@@ -11,7 +11,7 @@ const hit = (attackerId: string, targetId: string, hitIndex = 0, lethal = false)
 });
 const labels = (plan: CombatExchangeStrike[]) =>
     plan.map((strike) => `${strike.attackerId}>${strike.targetId}:${strike.hitIndex}${strike.lethal ? "†" : ""}`);
-test("ordinary and double blows interleave the response", () => {
+test("ordinary and double blows pair the response with the first strike", () => {
     expect(labels(orderCombatExchange([hit("A", "B")], hit("B", "A")))).toEqual(["A>B:0", "B>A:0"]);
     expect(labels(orderCombatExchange([hit("A", "B"), hit("A", "B", 1)], hit("B", "A")))).toEqual([
         "A>B:0",
@@ -19,11 +19,28 @@ test("ordinary and double blows interleave the response", () => {
         "A>B:1",
     ]);
 });
-test("a first-blow lethal response is shown first, without hitting the corpse again", () => {
+test("a first-blow kill keeps the simultaneous response without hitting the corpse again", () => {
     expect(labels(orderCombatExchange([hit("A", "B", 0, true), hit("A", "B", 1)], hit("B", "A")))).toEqual([
-        "B>A:0",
         "A>B:0†",
+        "B>A:0",
     ]);
+});
+test("mutually lethal first strikes both survive the plan, with no second blow", () => {
+    expect(labels(orderCombatExchange([hit("A", "B", 0, true), hit("A", "B", 1)], hit("B", "A", 0, true)))).toEqual([
+        "A>B:0†",
+        "B>A:0†",
+    ]);
+});
+test("only the first strike shares a group with the response", () => {
+    expect(
+        groupCombatExchange(orderCombatExchange([hit("A", "B"), hit("A", "B", 1)], hit("B", "A"))).map(labels),
+    ).toEqual([["A>B:0", "B>A:0"], ["A>B:1"]]);
+    expect(groupCombatExchange(orderCombatExchange([hit("A", "B"), hit("A", "B", 1)])).map(labels)).toEqual([
+        ["A>B:0"],
+        ["A>B:1"],
+    ]);
+    expect(groupCombatExchange([])).toEqual([]);
+    expect(orderCombatExchange([], hit("B", "A"))).toEqual([]);
 });
 test("a second-blow kill stays after the response; a killed attacker cannot strike twice", () => {
     expect(labels(orderCombatExchange([hit("A", "B"), hit("A", "B", 1, true)], hit("B", "A")))).toEqual([

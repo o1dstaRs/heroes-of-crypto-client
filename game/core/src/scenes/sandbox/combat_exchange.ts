@@ -11,24 +11,31 @@ export interface CombatExchangeStrike {
     position?: { x: number; y: number };
 }
 
-/** Separate blows, with one retaliation between them. A dying responder acts before the fatal blow. */
+/** The first blow and its recorded response are simultaneous; later blows follow that exchange. */
+export function groupCombatExchange(plan: readonly CombatExchangeStrike[]): CombatExchangeStrike[][] {
+    if (!plan.length) return [];
+    return [
+        [plan[0], ...plan.slice(1).filter((strike) => strike.response)],
+        ...plan
+            .slice(1)
+            .filter((strike) => !strike.response)
+            .map((strike) => [strike]),
+    ];
+}
+
+/** Preserve both sides of the first exchange, then omit later blows by or against a dead stack. */
 export function orderCombatExchange(
     primary: readonly CombatExchangeStrike[],
     response?: CombatExchangeStrike,
 ): CombatExchangeStrike[] {
     if (!primary.length) return [];
-    const responseFirst = !!response && primary[0].lethal && primary[0].targetId === response.attackerId;
-    const ordered = responseFirst
-        ? [response!, ...primary]
-        : [primary[0], ...(response ? [response] : []), ...primary.slice(1)];
+    const ordered = [primary[0], ...(response ? [response] : []), ...primary.slice(1)];
     const dead = new Set<string>();
     const result: CombatExchangeStrike[] = [];
-    for (const strike of ordered) {
-        if (dead.has(strike.targetId)) continue;
-        // The initial blow remains simultaneous in a mutually lethal first exchange.
-        if (dead.has(strike.attackerId) && !(responseFirst && strike === primary[0])) continue;
-        result.push(strike);
-        if (strike.lethal) dead.add(strike.targetId);
+    for (const group of groupCombatExchange(ordered)) {
+        const simultaneous = group.filter((strike) => !dead.has(strike.targetId) && !dead.has(strike.attackerId));
+        result.push(...simultaneous);
+        for (const strike of simultaneous) if (strike.lethal) dead.add(strike.targetId);
     }
     return result;
 }

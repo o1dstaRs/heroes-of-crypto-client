@@ -202,10 +202,12 @@ describe("stack counts at damage impact", () => {
         );
         await flush();
         expect(countsAtPop).toEqual([]);
+        expect(contacts).toHaveLength(2);
         expect(target.getDisplayedAmount()).toBe(10);
         contacts.shift()!();
         await flush();
         expect(countsAtPop).toEqual([[10, 8]]);
+        expect(contacts).toHaveLength(1);
         contacts.shift()!();
         await flush();
         expect(countsAtPop).toEqual([
