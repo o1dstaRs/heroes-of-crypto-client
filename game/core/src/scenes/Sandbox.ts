@@ -34,6 +34,7 @@ import { Assets, Sprite, Graphics, Container, Texture, BlurFilter, Text, TextSty
 import { PixiDrawer } from "../pixi/PixiDrawer";
 import { usesApprovedBaseAnimations, usesAuthoredRangedRelease } from "../pixi/creatureAnimationSettings";
 import { AtlasTexturePrewarmer } from "../pixi/prewarmAtlasTexture";
+import { AtlasPrewarmSources } from "../pixi/atlasPrewarmSources";
 import {
     SandboxDrawer,
     ALLY_MOVEMENT_INSPECTION_COLOR,
@@ -19379,11 +19380,13 @@ export class Sandbox extends PixiScene {
             .catch((error) => console.warn("[premium] Sandbox turn suggestions unavailable", error));
     }
     private productionAiSearchModule?: Promise<typeof import("./sandboxAiSearch")>;
-    private readonly prewarmedAtlasSources = new WeakSet<object>();
+    private readonly prewarmedAtlasSources = new AtlasPrewarmSources(() => this.pixiApp.getApplication()?.renderer.uid);
     private readonly atlasTexturePrewarmer = new AtlasTexturePrewarmer();
     private atlasPrewarmQuietScans = 0;
+    private atlasPrewarmNextQuietScanAt = 0;
     private atlasPrewarmUnitCount = -1;
     private static readonly ATLAS_PREWARM_QUIET_SCANS = 180;
+    private static readonly ATLAS_PREWARM_QUIET_INTERVAL_MS = 1000;
     private altInspectGraphics?: Graphics;
     private altInspectPainted = false;
     protected sc_mapStateHydrated = false;
@@ -19977,17 +19980,24 @@ export class Sandbox extends PixiScene {
             this.atlasPrewarmUnitCount = units.size;
             this.atlasPrewarmQuietScans = 0;
         }
-        if (this.atlasPrewarmQuietScans >= Sandbox.ATLAS_PREWARM_QUIET_SCANS) return;
-        if (this.oneShotPresentationActive()) return;
+        if (this.oneShotPresentationActive() || this.moveAnimManager.isMoving() || this.rangedProjectiles.hasActive())
+            return;
+        if (this.atlasPrewarmQuietScans >= Sandbox.ATLAS_PREWARM_QUIET_SCANS) {
+            const now = performance.now();
+            if (now < this.atlasPrewarmNextQuietScanAt) return;
+            // Pixi can evict a source or replace its allocation on context recovery without a source
+            // event. Recheck occasionally, instead of abandoning readiness after the first quiet spell.
+            this.atlasPrewarmNextQuietScanAt = now + Sandbox.ATLAS_PREWARM_QUIET_INTERVAL_MS;
+        }
         const frame = this.nextUnuploadedAtlasFrame();
         if (!frame?.source) {
             this.atlasTexturePrewarmer.cancel();
             this.atlasPrewarmQuietScans++;
             return;
         }
+        this.atlasPrewarmQuietScans = 0;
         if (!this.uploadAtlasFrame(frame)) return;
         this.prewarmedAtlasSources.add(frame.source);
-        this.atlasPrewarmQuietScans = 0;
     }
     private oneShotPresentationActive(): boolean {
         for (const unit of this.unitsHolder.getAllUnits().values()) {
