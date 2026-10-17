@@ -2,6 +2,8 @@ import { expect, test } from "bun:test";
 import { Sandbox } from "./Sandbox";
 
 function fixture() {
+    const casualties: number[] = [];
+    const presentCasualties = () => undefined;
     const unit = {
         getId: () => "unit",
         getName: () => "Magic Dragon",
@@ -14,6 +16,10 @@ function fixture() {
         },
         flashLuckyStrike: () => undefined,
         flashBuffApplied: () => undefined,
+        captureDamageCasualties: (amount: number) => {
+            casualties.push(amount);
+            return presentCasualties;
+        },
     };
     const calls: { kind: string; args: unknown[] }[] = [];
     const record =
@@ -34,7 +40,7 @@ function fixture() {
         creatureAnimationLabPlacedUnit: () => ({ ok: true, unit }),
         moveAnimManager: { isMoving: () => false },
     });
-    return { scene, unit, calls };
+    return { scene, unit, calls, casualties, presentCasualties };
 }
 
 test("confirmed misses, luck and snare saves pass the actual recipient to the common flag layer", () => {
@@ -68,8 +74,11 @@ test("authoritative healing and both shield sources retain numbers and identify 
     ]);
     expect(f.calls.map((c) => c.kind)).toEqual(["heal", "absorb", "absorb"]);
     expect(f.calls.map((c) => c.args[1])).toEqual([17, 23, 31]);
-    for (const c of f.calls) expect(c.args.at(-1)).toBe(f.unit);
+    expect(f.calls[0].args[2]).toBe(f.unit);
+    for (const c of f.calls.slice(1)) expect(c.args[4]).toBe(f.unit);
     expect(f.calls[1].args[3]).toBe(1);
+    expect(f.calls[1].args[5]).toBe(f.presentCasualties);
+    expect(f.casualties).toEqual([1]);
 });
 
 test("resisted debuff records coalesce per recipient; successful debuffs stay silent", () => {
