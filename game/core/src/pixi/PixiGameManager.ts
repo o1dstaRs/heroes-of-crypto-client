@@ -1239,9 +1239,10 @@ export class PixiGameManager {
     }
     private updateUnitInspection(): void {
         const scene = this.m_scene;
-        const inspectedUnit = this.m_hoveringCanvas
-            ? (getUnitsOverlayFromScene(scene)?.getHoveredUnitProperties() ?? scene?.sc_hoveredUnitProperties)
-            : undefined;
+        const inspectedUnit =
+            this.m_hoveringCanvas && !this.started
+                ? getUnitsOverlayFromScene(scene)?.getHoveredUnitProperties()
+                : undefined;
         if (inspectedUnit === this.lastInspectedUnit && !(inspectedUnit && scene?.sc_unitPropertiesUpdateNeeded)) {
             return;
         }

@@ -29,7 +29,7 @@ import ListItemContent from "@mui/joy/ListItemContent";
 import Stack from "@mui/joy/Stack";
 import Tooltip from "@mui/joy/Tooltip";
 import Typography from "@mui/joy/Typography";
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 
 import { images, type ImageKey } from "../../generated/image_imports";
 import { buildAtlasPingPongTiming } from "../../scenes/atlasAnimationTiming";
@@ -55,13 +55,14 @@ import {
     isAuraRangeSynergy,
     isFlyArmorSynergy,
 } from "./SynergiesConstants";
-import { effectIconsPerLane } from "./effectLanes";
 import { orderSidebarBuffs, orderSidebarDebuffs } from "./effectOrder";
 import { formatSidebarStat, useSidebarMetrics, type ISidebarMetrics } from "./sidebarMetrics";
 
 import { commonTooltipSx } from "./tooltipStyles";
 import { areUnitStatsPropsEqual, getSidebarRangedStats, type UnitStatsListItemProps } from "./unitStatsMemo";
 import { getDefaultAnimationConfig, isAtlasReady, type SidebarAtlasMeta, warmAtlas } from "./unitAtlas";
+import { getDecodedImage } from "../decodedImageCache";
+import { playSidebarAtlas } from "./sidebarAtlasCanvas";
 import { stonePlateSx } from "./stonePlateStyles";
 import { hocDisplayFontFamily } from "../hocTheme";
 import { selectedUnitNamePlaqueBackground } from "./namePlaqueColor";
@@ -143,22 +144,20 @@ const AtlasAnimation: React.FC<{
         isAtlasReady(src) ? src : undefined,
     );
     const isImageLoaded = loadedSource === src;
-    const bgRef = React.useRef<HTMLDivElement | null>(null);
+    const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
     const onLoadedRef = React.useRef(onLoaded);
     React.useLayoutEffect(() => {
         onLoadedRef.current = onLoaded;
     }, [onLoaded]);
 
-    // Decode off-thread + cache per src: first selection stays responsive, repeats are instant.
-    // If the atlas is already decoded (prefetched), start on frame 0 right away — no portrait
-    // fallback flash. Otherwise show the portrait until the atlas finishes decoding.
+    // Reuse the shared asynchronous decode. The still stays visible until the canvas paints its
+    // first cel; cached sheets resume immediately at the current authored clock phase.
     React.useLayoutEffect(() => {
         let cancelled = false;
         setLoadedSource(isAtlasReady(src) ? src : undefined);
         warmAtlas(src).then((ready) => {
             if (ready && !cancelled) {
                 setLoadedSource(src);
-                onLoadedRef.current();
             }
         });
         return () => {
@@ -194,46 +193,18 @@ const AtlasAnimation: React.FC<{
         meta.layout?.rows,
     ]);
 
-    // Imperative frame stepping: write backgroundPosition straight to the DOM each rAF tick instead
-    // of going through React state (no reconciliation 12x/sec).
-    React.useEffect(() => {
-        const el = bgRef.current;
-        if (!el) return;
-        const { cols, rows, frameForElapsed } = timing;
-
-        const applyFrame = (frame: number) => {
-            const col = frame % cols;
-            const row = Math.floor(frame / cols);
-            const bgPosX = cols > 1 ? (col / (cols - 1)) * 100 : 0;
-            const bgPosY = rows > 1 ? (row / (rows - 1)) * 100 : 0;
-            el.style.backgroundPosition = `${bgPosX}% ${bgPosY}%`;
-        };
-
-        let raf: number | undefined;
-        let lastFrame = -1;
-        // Absolute timestamp (not start-relative): the rAF `time` arg shares its origin with the
-        // board's performance.now(), so feeding it straight in keeps this portrait phase-locked
-        // with the board sprite. A late-mounting sidebar snaps into the board's current phase.
-        const animate = (time: number) => {
-            const f = frameForElapsed(time);
-            if (f !== lastFrame) {
-                lastFrame = f;
-                applyFrame(f);
-            }
-            raf = window.requestAnimationFrame(animate);
-        };
-        raf = window.requestAnimationFrame(animate);
-        return () => {
-            if (raf !== undefined) window.cancelAnimationFrame(raf);
-        };
-    }, [timing]);
+    // Only the cropped cel reaches the canvas; never repaint a 100-frame CSS background sheet.
+    React.useLayoutEffect(() => {
+        if (!isImageLoaded || !canvasRef.current) return;
+        const image = getDecodedImage(src) as HTMLImageElement | undefined;
+        if (!image) return;
+        const stop = playSidebarAtlas(canvasRef.current, image, timing);
+        if (stop) onLoadedRef.current();
+        return stop;
+    }, [src, timing, isImageLoaded]);
 
     const frameWidth = meta.frameWidth ?? 512;
     const frameHeight = meta.frameHeight ?? 512;
-    const cols = meta.layout?.cols ?? 1;
-    const rows = meta.layout?.rows ?? 1;
-    const bgSizeX = cols * 100;
-    const bgSizeY = rows * 100;
 
     return (
         <Box
@@ -251,29 +222,24 @@ const AtlasAnimation: React.FC<{
                 transformOrigin: "center center",
             }}
         >
-            {/* The atlas's own frame 0 fades straight in from transparent — no static-portrait
-                fallback. The portrait and frame 0 are different renders, so crossfading between
-                them reads as a "shift"; a single-image fade-in is smooth. The atlas is decoded
-                off-thread (and prefetched for up-next units) so this is usually instant. */}
+            {/* The backing store contains only the visible cel, capped at its source resolution. */}
             <Box
-                ref={bgRef}
+                component="canvas"
+                ref={canvasRef}
+                aria-hidden
+                data-sidebar-atlas={src}
                 sx={{
                     position: "absolute",
                     top: 0,
                     left: 0,
                     width: "100%",
                     height: "100%",
-                    backgroundImage: `url(${src})`,
-                    backgroundRepeat: "no-repeat",
-                    backgroundSize: `${bgSizeX}% ${bgSizeY}%`,
-                    backgroundPosition: "0% 0%",
                     imageRendering: "auto",
                     zIndex: 5,
                     opacity: isImageLoaded ? 1 : 0,
                     transform: "translateZ(0)",
                     backfaceVisibility: "hidden",
                     transition: fillHeight ? "none" : "opacity 180ms ease-out",
-                    willChange: "background-position, opacity",
                 }}
             />
         </Box>
@@ -1292,59 +1258,25 @@ const StatItem: React.FC<{
     );
 };
 
-const UnitStatsLayout: React.FC<{
-    unitProperties: UnitProperties;
-    damageRange: string;
-    attackTypeSelected: AttackType;
-    attackDamage: number;
-    meleeArmor: number;
-    rangeArmor: number;
-    stepsMod: number;
-    hasDifferentRangeArmor: boolean;
-    isDarkMode: boolean;
-    metrics: ISidebarMetrics;
-    largeTextureName: string;
-    images: { [key: string]: string };
-    onImageLoaded: () => void;
-    abilities: IVisibleImpact[];
-    buffs: IVisibleImpact[];
-    debuffs: IVisibleImpact[];
-    hasBreakApplied: boolean;
-    team: TeamType;
-    animatePortrait: boolean;
-}> = ({
-    unitProperties,
-    damageRange,
-    attackTypeSelected,
-    attackDamage,
-    meleeArmor,
-    rangeArmor,
-    stepsMod,
-    hasDifferentRangeArmor,
-    isDarkMode,
-    metrics,
-    largeTextureName,
-    images,
-    onImageLoaded,
-    abilities,
-    buffs,
-    debuffs,
-    hasBreakApplied,
-    team,
+// Keep portrait decoding, tuning and the held-image handoff out of the stat/effect render tree.
+const SelectedUnitPortrait = React.memo(function SelectedUnitPortrait({
+    creatureId,
     animatePortrait,
-}) => {
-    const creatureId = UNIT_NAME_TO_ID[unitProperties.name.trim()];
+    onImageLoaded,
+    portraitHeight,
+}: {
+    creatureId: number;
+    animatePortrait: boolean;
+    onImageLoaded: () => void;
+    portraitHeight: number;
+}) {
     // The cutout and the faction background are different files, and the cutout is large enough that a
     // synchronous decode lets the background paint first. Keep the previous pair on screen until both
     // new files have decoded, then swap them on the same frame. The name and the stats still follow the
     // live unit.
-    const portraitReady = creatureId !== undefined && isLeftSidebarPortraitReady(creatureId);
+    const portraitReady = isLeftSidebarPortraitReady(creatureId);
     const [heldPortraitId, setHeldPortraitId] = useState<number | undefined>(undefined);
     useEffect(() => {
-        if (creatureId === undefined) {
-            setHeldPortraitId(undefined);
-            return;
-        }
         let cancelled = false;
         // A cached selection must become the held picture immediately too; otherwise the next cold
         // selection falls back to an older creature while an optional atlas is still loading.
@@ -1395,6 +1327,123 @@ const UnitStatsLayout: React.FC<{
             window.removeEventListener("storage", syncStoredTuning);
         };
     }, [displayedCreatureId]);
+    const portraitAlt =
+        displayedCreatureId === undefined
+            ? (UNIT_ID_TO_NAME[creatureId] ?? "Creature")
+            : (UNIT_ID_TO_NAME[displayedCreatureId] ?? "Creature");
+    const {
+        artScale: portraitArtScale,
+        artOffsetX: portraitOffsetX,
+        artOffsetY: portraitOffsetY,
+    } = sidebarPortraitTuning;
+    const portraitArtScaleX = 0.96 * (sidebarPortraitArt.artScaleX ?? 1);
+    const portraitSource = sidebarPortraitArt.source;
+    const portraitUsesFraming = sidebarPortraitArt.usesFraming !== false;
+    const portraitFit = sidebarPortraitArt.fit;
+    const portraitBaseScale = sidebarPortraitArt.baseScale;
+    const portraitAtlasSource = portraitAnimationConfig?.src;
+    const portraitAtlasMeta = portraitAnimationConfig?.meta;
+    const portraitPlayback = ["Arbalester", "Squire", "Blacksmith"].includes(portraitAlt) ? "loop" : "ping-pong";
+    // Live stat/impact changes keep the complete mounted portrait intact. Only its actual source,
+    // authored framing, animation, or responsive size needs to reconcile this image-heavy subtree.
+    const sidebarPortrait = React.useMemo(
+        () =>
+            displayedCreatureId === undefined ? null : (
+                <CreaturePortraitImage
+                    creatureId={displayedCreatureId}
+                    alt={portraitAlt}
+                    artScale={portraitArtScale * LEFT_SIDEBAR_ART_SCALE}
+                    artScaleX={portraitArtScaleX}
+                    backgroundFit="fill"
+                    artOffsetX={portraitOffsetX}
+                    artOffsetY={portraitOffsetY}
+                    artSource={portraitSource}
+                    artSourceUsesFraming={portraitUsesFraming}
+                    artFit={portraitFit}
+                    artBaseScale={portraitBaseScale}
+                    highQualityArt
+                    sx={{ width: "100%", height: "100%", bgcolor: "transparent" }}
+                    imageStyle={{ transition: "none", imageRendering: "auto" }}
+                    animatedArtSource={portraitAtlasSource}
+                    renderArt={
+                        portraitAtlasMeta
+                            ? (art) => (
+                                  <SidebarPortraitAnimation
+                                      key={portraitAtlasSource}
+                                      art={art}
+                                      config={{ src: portraitAtlasSource!, meta: portraitAtlasMeta }}
+                                      onLoaded={onImageLoaded}
+                                      maxHeight={portraitHeight}
+                                      playback={portraitPlayback}
+                                  />
+                              )
+                            : undefined
+                    }
+                />
+            ),
+        [
+            displayedCreatureId,
+            portraitAlt,
+            portraitArtScale,
+            portraitArtScaleX,
+            portraitOffsetX,
+            portraitOffsetY,
+            portraitSource,
+            portraitUsesFraming,
+            portraitFit,
+            portraitBaseScale,
+            portraitAtlasSource,
+            portraitAtlasMeta,
+            portraitHeight,
+            portraitPlayback,
+            onImageLoaded,
+        ],
+    );
+    return sidebarPortrait ?? <Box sx={{ position: "absolute", inset: 0, bgcolor: "#090806" }} />;
+});
+
+const UnitStatsLayout: React.FC<{
+    unitProperties: UnitProperties;
+    damageRange: string;
+    attackTypeSelected: AttackType;
+    attackDamage: number;
+    meleeArmor: number;
+    rangeArmor: number;
+    stepsMod: number;
+    hasDifferentRangeArmor: boolean;
+    isDarkMode: boolean;
+    metrics: ISidebarMetrics;
+    largeTextureName: string;
+    images: { [key: string]: string };
+    onImageLoaded: () => void;
+    abilities: IVisibleImpact[];
+    buffs: IVisibleImpact[];
+    debuffs: IVisibleImpact[];
+    hasBreakApplied: boolean;
+    team: TeamType;
+    animatePortrait: boolean;
+}> = ({
+    unitProperties,
+    damageRange,
+    attackTypeSelected,
+    attackDamage,
+    meleeArmor,
+    rangeArmor,
+    stepsMod,
+    hasDifferentRangeArmor,
+    isDarkMode,
+    metrics,
+    largeTextureName,
+    images,
+    onImageLoaded,
+    abilities,
+    buffs,
+    debuffs,
+    hasBreakApplied,
+    team,
+    animatePortrait,
+}) => {
+    const creatureId = UNIT_NAME_TO_ID[unitProperties.name.trim()];
     const animationConfig = creatureId === undefined ? getDefaultAnimationConfig(unitProperties.name) : null;
     const rangedStats = getSidebarRangedStats(unitProperties);
 
@@ -1531,65 +1580,6 @@ const UnitStatsLayout: React.FC<{
     // army-wide augments settle at the far end.
     const orderedBuffs = orderSidebarBuffs(buffs);
     const orderedDebuffs = orderSidebarDebuffs(debuffs);
-    const effectTile = effectTileSize(metrics);
-    const effectGap = metrics.gapPx * 0.6;
-    // The right rail is drawn over the row. An icon that only fits by sliding under it belongs on the next line.
-    Math.max(8, Math.min(13, Math.round(metrics.barSize * 0.03 * 0.7)));
-    const layoutRootRef = useRef<HTMLDivElement | null>(null);
-    const effectBlockRef = useRef<HTMLDivElement | null>(null);
-    const buffWellRef = useRef<HTMLDivElement | null>(null);
-    const appliedExtraRef = useRef(0);
-    const [, setLaneRoom] = useState({ perLane: 1, extraSlots: 0 });
-    useLayoutEffect(() => {
-        const root = layoutRootRef.current;
-        const block = effectBlockRef.current;
-        if (!root || !block) return;
-        const card = root.closest<HTMLElement>(".SidebarCard");
-        const viewport = card?.parentElement ?? root;
-        const footer = root.closest(".Sidebar")?.querySelector<HTMLElement>("[data-sidebar-footer]");
-        const measure = () => {
-            const cardHeight = card?.offsetHeight ?? 0;
-            // Use the current painted scale, including an in-progress fit transition.
-            const scaleRaw = card && cardHeight > 0 ? card.getBoundingClientRect().height / cardHeight : 1;
-            const fitScale = Number.isFinite(scaleRaw) && scaleRaw > 0 ? scaleRaw : 1;
-            const wellWidth = buffWellRef.current?.clientWidth ?? 0;
-            // The well has not been laid out yet. Guessing one icon per line would open a lane per buff.
-            if (wellWidth <= 0) return;
-            const perLane = effectIconsPerLane(wellWidth, effectTile, effectGap);
-            // The inner content box can end at Debuffs even when the card has hundreds of free
-            // pixels below it. Compare painted bounds against the actual viewport/footer boundary.
-            let availableBottom = viewport.getBoundingClientRect().bottom;
-            if (footer && footer.getBoundingClientRect().height > 0) {
-                availableBottom = Math.min(availableBottom, footer.getBoundingClientRect().top);
-            }
-            const leftover =
-                (availableBottom - block.getBoundingClientRect().bottom) / fitScale + appliedExtraRef.current;
-            const stride = effectTile + effectGap;
-            const extraSlots = stride > 0 ? Math.max(0, Math.floor(leftover / stride)) : 0;
-            setLaneRoom((current) =>
-                current.perLane === perLane && current.extraSlots === extraSlots ? current : { perLane, extraSlots },
-            );
-        };
-        const observer = new ResizeObserver(measure);
-        for (const element of new Set([root, block, viewport, card, buffWellRef.current, footer])) {
-            if (element) observer.observe(element);
-        }
-        // Fit scaling changes painted bounds without resizing the underlying layout boxes.
-        const fitObserver = new MutationObserver(measure);
-        const onFitTransitionEnd = (event: TransitionEvent) => {
-            if (event.target === card && event.propertyName === "transform") measure();
-        };
-        if (card) {
-            fitObserver.observe(card, { attributes: true, attributeFilter: ["class", "style"] });
-            card.addEventListener("transitionend", onFitTransitionEnd);
-        }
-        measure();
-        return () => {
-            observer.disconnect();
-            fitObserver.disconnect();
-            card?.removeEventListener("transitionend", onFitTransitionEnd);
-        };
-    }, [effectGap, effectTile, orderedBuffs.length, orderedDebuffs.length, shownSynergies.length]);
     // Three stat rows, always — the well below scrolls if a creature carries more than nine.
     const statRowHeight = Math.round(metrics.statIconPx + 12);
     const statWellHeight = statRowHeight * 3 + STAT_ROW_GAP * 2;
@@ -1601,78 +1591,6 @@ const UnitStatsLayout: React.FC<{
     const effectWellHeight = effectRowStep;
     const layout = bannerLayout(metrics);
     const portraitHeight = layout.portraitHeight;
-    const portraitAlt =
-        displayedCreatureId === undefined
-            ? unitProperties.name
-            : (UNIT_ID_TO_NAME[displayedCreatureId] ?? unitProperties.name);
-    const {
-        artScale: portraitArtScale,
-        artOffsetX: portraitOffsetX,
-        artOffsetY: portraitOffsetY,
-    } = sidebarPortraitTuning;
-    const portraitArtScaleX = 0.96 * (sidebarPortraitArt.artScaleX ?? 1);
-    const portraitSource = sidebarPortraitArt.source;
-    const portraitUsesFraming = sidebarPortraitArt.usesFraming !== false;
-    const portraitFit = sidebarPortraitArt.fit;
-    const portraitBaseScale = sidebarPortraitArt.baseScale;
-    const portraitAtlasSource = portraitAnimationConfig?.src;
-    const portraitAtlasMeta = portraitAnimationConfig?.meta;
-    const portraitPlayback = ["Arbalester", "Squire", "Blacksmith"].includes(portraitAlt) ? "loop" : "ping-pong";
-    // Live stat/impact changes keep the complete mounted portrait intact. Only its actual source,
-    // authored framing, animation, or responsive size needs to reconcile this image-heavy subtree.
-    const sidebarPortrait = React.useMemo(
-        () =>
-            displayedCreatureId === undefined ? null : (
-                <CreaturePortraitImage
-                    creatureId={displayedCreatureId}
-                    alt={portraitAlt}
-                    artScale={portraitArtScale * LEFT_SIDEBAR_ART_SCALE}
-                    artScaleX={portraitArtScaleX}
-                    backgroundFit="fill"
-                    artOffsetX={portraitOffsetX}
-                    artOffsetY={portraitOffsetY}
-                    artSource={portraitSource}
-                    artSourceUsesFraming={portraitUsesFraming}
-                    artFit={portraitFit}
-                    artBaseScale={portraitBaseScale}
-                    highQualityArt
-                    sx={{ width: "100%", height: "100%", bgcolor: "transparent" }}
-                    imageStyle={{ transition: "none", imageRendering: "auto" }}
-                    animatedArtSource={portraitAtlasSource}
-                    renderArt={
-                        portraitAtlasMeta
-                            ? (art) => (
-                                  <SidebarPortraitAnimation
-                                      key={portraitAtlasSource}
-                                      art={art}
-                                      config={{ src: portraitAtlasSource!, meta: portraitAtlasMeta }}
-                                      onLoaded={onImageLoaded}
-                                      maxHeight={portraitHeight}
-                                      playback={portraitPlayback}
-                                  />
-                              )
-                            : undefined
-                    }
-                />
-            ),
-        [
-            displayedCreatureId,
-            portraitAlt,
-            portraitArtScale,
-            portraitArtScaleX,
-            portraitOffsetX,
-            portraitOffsetY,
-            portraitSource,
-            portraitUsesFraming,
-            portraitFit,
-            portraitBaseScale,
-            portraitAtlasSource,
-            portraitAtlasMeta,
-            portraitHeight,
-            portraitPlayback,
-            onImageLoaded,
-        ],
-    );
     // The frame itself closes on the centre of the Abilities divider. PanelSection first advances by the
     // card gap, then lifts its title wrapper by one full section gap; half of the plaque's rendered height
     // lands the border exactly on the horizontal rules running through the plaque centre.
@@ -1686,7 +1604,6 @@ const UnitStatsLayout: React.FC<{
 
     return (
         <Box
-            ref={layoutRootRef}
             sx={{
                 position: "relative",
                 width: "100%",
@@ -1783,7 +1700,7 @@ const UnitStatsLayout: React.FC<{
                             justifyContent: "center",
                         }}
                     >
-                        {displayedCreatureId !== undefined ? (
+                        {creatureId !== undefined ? (
                             <Box
                                 sx={{
                                     position: "relative",
@@ -1792,10 +1709,13 @@ const UnitStatsLayout: React.FC<{
                                     clipPath: `inset(0 0 ${abilityRightStepPx}px 0)`,
                                 }}
                             >
-                                {sidebarPortrait}
+                                <SelectedUnitPortrait
+                                    creatureId={creatureId}
+                                    animatePortrait={animatePortrait}
+                                    onImageLoaded={onImageLoaded}
+                                    portraitHeight={portraitHeight}
+                                />
                             </Box>
-                        ) : creatureId !== undefined ? (
-                            <Box sx={{ position: "absolute", inset: 0, bgcolor: "#090806" }} />
                         ) : animationConfig ? (
                             <AtlasAnimation
                                 meta={animationConfig.meta}
@@ -1899,7 +1819,6 @@ const UnitStatsLayout: React.FC<{
                 the extra empty band below the ability tiles and makes it match the plaque-to-tiles gap
                 above them. Keeping both sections in this wrapper preserves their authored relationship. */}
             <Box
-                ref={effectBlockRef}
                 sx={{
                     width: "100%",
                     display: "flex",
@@ -1917,7 +1836,6 @@ const UnitStatsLayout: React.FC<{
                     >
                         {/* Additional buffs wrap into rows inside this fixed-height vertically scrolling well. */}
                         <Box
-                            ref={buffWellRef}
                             sx={{
                                 display: "flex",
                                 flexDirection: "row",

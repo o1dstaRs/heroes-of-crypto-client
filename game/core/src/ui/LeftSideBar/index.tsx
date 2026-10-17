@@ -16,6 +16,8 @@ import { MessageBox } from "./MessageBox";
 import { images } from "../../generated/image_imports";
 import { battleSidebarWidth } from "../../pixi/boardFit";
 import { usePixiManager } from "../../pixi/PixiGameManager";
+import { clearLeftSidebarPortraitSelection, warmLeftSidebarPortrait } from "../leftSidebarPortraitWarm";
+import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
 import { upNextSmokyChainsBackgroundLayer } from "../upNextBackground";
 // Black under everything. The hide is laid over it at partial opacity, so this is what mutes it — and what
 // shows on its own for the moment before the texture arrives.
@@ -82,7 +84,7 @@ export const sidebarBackgroundSize = (barSize: number): string => {
     return `100% 100%, ${ornamentWidth}px auto, ${ornamentWidth}px auto, ${outerRailWidth}px 103%, ${innerRailWidth}px 103%, 100% 103%`;
 };
 
-import { DeferredUnitStatsListItem } from "./DeferredUnitStatsListItem";
+import { DeferredUnitStatsListItem, preloadUnitStatsListItem } from "./DeferredUnitStatsListItem";
 import {
     computeBattleSidebarMetrics,
     SIDEBAR_FRAME_RIGHT_INSET_PX,
@@ -150,8 +152,32 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
         adjustBarSize();
     }, [adjustBarSize]);
 
+    useEffect(() => {
+        if (window.requestIdleCallback) {
+            const handle = window.requestIdleCallback(preloadUnitStatsListItem, { timeout: 1500 });
+            return () => window.cancelIdleCallback(handle);
+        }
+        const handle = window.setTimeout(preloadUnitStatsListItem, 200);
+        return () => window.clearTimeout(handle);
+    }, []);
+
     // ✅ Subscribe to combined selection event
     useEffect(() => {
+        let preparedName: string | undefined;
+        let preparedPortrait: { creatureId: number; readiness: Promise<boolean> } | undefined;
+        const preparePortrait = (unit: UnitProperties | null | undefined) => {
+            if (unit?.name === preparedName) return;
+            preparedName = unit?.name;
+            const creatureId = unit?.name ? UNIT_NAME_TO_ID[unit.name.trim()] : undefined;
+            // Overlap the critical pair with the card render/module load. Its own effect hands off the
+            // same retained pair; optional motion still waits for an actual animated card to mount.
+            if (creatureId !== undefined) {
+                preparedPortrait = { creatureId, readiness: warmLeftSidebarPortrait(creatureId, false) };
+            } else if (preparedPortrait) {
+                clearLeftSidebarPortraitSelection(preparedPortrait.creatureId, preparedPortrait.readiness);
+                preparedPortrait = undefined;
+            }
+        };
         const handleCombined = (payload: {
             unit: UnitProperties | null;
             impact: IVisibleOverallImpact | null;
@@ -160,6 +186,8 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
             const unit = (payload.unit ?? emptyUnit) as UnitProperties;
             const impact = (payload.impact ?? emptyImpact) as IVisibleOverallImpact;
             const factionType = (payload.faction ?? (FactionVals.NO_FACTION as FactionType)) as FactionType;
+
+            preparePortrait(payload.unit);
 
             setSelection((previousSelection) => {
                 if (
@@ -179,10 +207,16 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
         };
 
         const conn = manager.onSelectionCombined.connect(handleCombined);
-        const inspectionConn = manager.onUnitInspectionUpdated.connect(setInspection);
+        const inspectionConn = manager.onUnitInspectionUpdated.connect((nextInspection) => {
+            if (nextInspection) preparePortrait(nextInspection.unit);
+            setInspection(nextInspection);
+        });
         return () => {
             conn.disconnect();
             inspectionConn.disconnect();
+            if (preparedPortrait) {
+                clearLeftSidebarPortraitSelection(preparedPortrait.creatureId, preparedPortrait.readiness);
+            }
         };
     }, [manager]);
 

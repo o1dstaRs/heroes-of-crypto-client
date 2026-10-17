@@ -3,9 +3,14 @@ import React from "react";
 
 import type { UnitStatsListItemProps } from "./unitStatsMemo";
 
-const LazyUnitStatsListItem = React.lazy(() =>
-    import("./UnitStatsListItem").then(({ UnitStatsListItem }) => ({ default: UnitStatsListItem })),
-);
+const loadUnitStatsListItem = () =>
+    import("./UnitStatsListItem").then(({ UnitStatsListItem }) => ({ default: UnitStatsListItem }));
+const LazyUnitStatsListItem = React.lazy(loadUnitStatsListItem);
+
+/** Warm the split card module after the board paints, before the first selection needs it. */
+export const preloadUnitStatsListItem = (): void => {
+    void loadUnitStatsListItem().catch(() => undefined);
+};
 
 /**
  * The selected-unit card is one of the heaviest UI modules in the battle shell. Keep it out of the
