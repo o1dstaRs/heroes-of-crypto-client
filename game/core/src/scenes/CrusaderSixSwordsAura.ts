@@ -1,10 +1,13 @@
 import { type GridSettings, type HoCMath } from "@heroesofcrypto/common";
 import { Container, Mesh, MeshGeometry, Texture } from "pixi.js";
-import { projectBattlefieldPoint } from "./sandbox/BattlefieldVisualGrid";
+import {
+    rotatingAuraProjection,
+    syncRotatingAuraGeometry,
+    type RotatingAuraProjection,
+} from "./RotatingAuraProjection";
 
 export const CRUSADER_SIX_SWORDS_AURA_KEY = "vfx_crusader_six_swords_aura_v1";
 export const CRUSADER_AURA_ROTATION_MS = 24000;
-const SUBDIVISIONS = 24;
 // The authored six-sword circle includes a transparent glow margin.
 const TEXTURE_RADIUS = 0.5;
 const ARTWORK_SCALE = 1.1;
@@ -21,43 +24,16 @@ export function crusaderAuraProjection(
     rotation: number,
     gs: GridSettings,
     narrowing = 0,
+    previous?: RotatingAuraProjection,
 ) {
     if (!(range > 0)) return undefined;
     const cell = gs.getCellSize();
     const rx = (range + footprint.width / 2 - 0.055) * cell * ARTWORK_SCALE;
     const ry = (range + footprint.height / 2 - 0.055) * cell * ARTWORK_SCALE;
-    const inset = Math.max(0, narrowing) * cell;
-    const left = Math.max(center.x - rx, gs.getMinX() + inset);
-    const right = Math.min(center.x + rx, gs.getMaxX() - inset);
-    const bottom = Math.max(center.y - ry, gs.getMinY() + inset);
-    const top = Math.min(center.y + ry, gs.getMaxY() - inset);
-    if (right <= left || top <= bottom) return undefined;
-    const positions: number[] = [],
-        uvs: number[] = [],
-        indices: number[] = [];
-    const cos = Math.cos(rotation),
-        sin = Math.sin(rotation);
-    for (let row = 0; row <= SUBDIVISIONS; row++) {
-        for (let col = 0; col <= SUBDIVISIONS; col++) {
-            const x = left + ((right - left) * col) / SUBDIVISIONS;
-            const y = top - ((top - bottom) * row) / SUBDIVISIONS;
-            const projected = projectBattlefieldPoint({ x, y }, gs);
-            positions.push(projected.x, projected.y);
-            const dx = (x - center.x) / rx,
-                dy = (y - center.y) / ry;
-            // Inverse rotation samples a rigid emblem; clipping never recentres or stretches it.
-            uvs.push(0.5 + (cos * dx + sin * dy) * TEXTURE_RADIUS, 0.5 - (-sin * dx + cos * dy) * TEXTURE_RADIUS);
-            if (row < SUBDIVISIONS && col < SUBDIVISIONS) {
-                const a = row * (SUBDIVISIONS + 1) + col,
-                    b = a + SUBDIVISIONS + 1;
-                indices.push(a, b, a + 1, a + 1, b, b + 1);
-            }
-        }
-    }
-    return { positions: new Float32Array(positions), uvs: new Float32Array(uvs), indices: new Uint32Array(indices) };
+    return rotatingAuraProjection(center, rx, ry, rotation, gs, narrowing, 1, TEXTURE_RADIUS, previous);
 }
 
-type Aura = { mesh: Mesh<MeshGeometry>; started: number; seen: number };
+type Aura = { mesh: Mesh<MeshGeometry>; started: number; seen: number; projection: RotatingAuraProjection };
 const owners = new WeakMap<Container, Map<string, Aura>>();
 
 export function resetCrusaderSixSwordsAuras(container?: Container, now = performance.now()): void {
@@ -99,6 +75,7 @@ export function drawCrusaderSixSwordsAura(
         crusaderAuraRotation(now - (aura?.started ?? now)),
         gs,
         narrowing,
+        aura?.projection,
     );
     if (!projection) return;
     if (!aura) {
@@ -109,13 +86,11 @@ export function drawCrusaderSixSwordsAura(
         mesh.blendMode = "add";
         mesh.once("destroyed", () => geometry.destroy());
         container.addChild(mesh);
-        aura = { mesh, started: now, seen: now };
+        aura = { mesh, started: now, seen: now, projection };
         entries.set(key, aura);
     } else {
-        aura.mesh.geometry.positions.set(projection.positions);
-        aura.mesh.geometry.uvs.set(projection.uvs);
-        aura.mesh.geometry.getBuffer("aPosition").update();
-        aura.mesh.geometry.getBuffer("aUV").update();
+        syncRotatingAuraGeometry(aura.mesh.geometry, projection);
+        aura.projection = projection;
     }
     aura.seen = now;
     aura.mesh.texture = texture;

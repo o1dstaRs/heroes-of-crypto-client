@@ -11,6 +11,7 @@ import { GoblinKnightIdleFilter } from "./GoblinKnightIdleVisuals";
 import { BattleMageReactionFilter } from "./BattleMageLabReactions";
 import { PikemanIdleFilter } from "./PikemanLabIdleVisuals";
 import { PIKEMAN_IDLE_PERIOD_MS, PIKEMAN_IDLE_START_HOLD_MS, PIKEMAN_IDLE_MOTION_MS } from "./PikemanLabIdleMotion";
+import { readBattlefieldShadowVisualBounds, setBattlefieldShadowEditorActive } from "../ui/battlefieldShadowTuning";
 
 import { BufferImageSource, ColorMatrixFilter, Container, Graphics, Rectangle, Sprite, Texture } from "pixi.js";
 import { blacksmithWalkColorFilter } from "./BlacksmithWalkColorFilter";
@@ -342,6 +343,49 @@ describe("battlefield movement preview", () => {
         expect(second?.stableOrder).toBe(3);
         expect(second?.bounds.left).not.toBe(firstLeft);
         expect(getBoundsCalls).toBe(1);
+    });
+
+    assetTest("normal battle skips editor bounds and reuses shadow calculations without freezing them", () => {
+        const unit = createRenderableUnit(TeamVals.RIGHT, "Nature", "Wolf", "wolf_512", () => Texture.WHITE);
+        unit.setPosition(384, 640);
+        unit.setBattlefieldVisualProjection(true);
+        const root = new Container();
+        setBattlefieldShadowEditorActive(false);
+        unit.ensureVisual(root, gridSettings, 1000);
+        const state = unit as unknown as {
+            silhouetteShadow: Sprite;
+            silhouetteShadowSegments: Sprite[];
+            battlefieldShadowProjection: { lengthScale: number };
+            shadowSegmentLengthMultipliers: number[];
+        };
+        const projection = state.battlefieldShadowProjection;
+        const segments = state.shadowSegmentLengthMultipliers;
+        const length = projection.lengthScale;
+        const measurements = [state.silhouetteShadow, ...state.silhouetteShadowSegments].map((shadow) =>
+            spyOn(shadow, "getBounds"),
+        );
+        try {
+            unit.setPosition(384, 1024);
+            unit.ensureVisual(root, gridSettings, 1000);
+            expect(state.battlefieldShadowProjection).toBe(projection);
+            expect(state.shadowSegmentLengthMultipliers).toBe(segments);
+            expect(projection.lengthScale).not.toBe(length);
+            for (const measurement of measurements) expect(measurement).not.toHaveBeenCalled();
+            expect(readBattlefieldShadowVisualBounds("Wolf")).toBeUndefined();
+            setBattlefieldShadowEditorActive(true);
+            unit.ensureVisual(root, gridSettings, 1000);
+            expect(measurements.some((measurement) => measurement.mock.calls.length > 0)).toBe(true);
+            const original = readBattlefieldShadowVisualBounds("Wolf")!;
+            root.scale.x = -1;
+            root.position.x = 200;
+            unit.ensureVisual(root, gridSettings, 1000);
+            expect(readBattlefieldShadowVisualBounds("Wolf")!.bounds.x).not.toBe(original.bounds.x);
+        } finally {
+            setBattlefieldShadowEditorActive(false);
+            for (const measurement of measurements) measurement.mockRestore();
+            unit.destroyVisuals();
+            root.destroy({ children: true });
+        }
     });
 
     assetTest("keeps stationary creature bounds across simulation ticks", () => {

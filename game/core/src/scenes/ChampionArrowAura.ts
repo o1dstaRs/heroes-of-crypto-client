@@ -1,6 +1,7 @@
 import { type GridSettings, type HoCMath } from "@heroesofcrypto/common";
 import { Container, Mesh, MeshGeometry, Texture } from "pixi.js";
 import { arachnaWebProjection as championArrowProjection } from "./ArachnaQueenWebAura";
+import { auraProjectionKey } from "./auraProjectionKey";
 export { arachnaWebProjection as championArrowProjection } from "./ArachnaQueenWebAura";
 
 export const CHAMPION_ARROW_ATLAS_KEY = "vfx_champion_arrow_aura_atlas";
@@ -21,6 +22,10 @@ type ArrowSprite = {
     meshes: [Mesh<MeshGeometry>, Mesh<MeshGeometry>];
     started: number;
     seen: number;
+    layout: string;
+    sourceUvs: Float32Array;
+    frames: [number, number];
+    facing: -1 | 1;
 };
 const owners = new WeakMap<Container, Map<string, ArrowSprite>>();
 
@@ -60,13 +65,18 @@ export function drawChampionArrowAura(
     facing: -1 | 1 = 1,
 ): void {
     if (!container || !texture || texture === Texture.EMPTY || !(alpha > 0)) return;
-    const projection = championArrowProjection(center, footprint, range, gs, narrowing);
-    if (!projection) return;
     let sprites = owners.get(container);
     if (!sprites) owners.set(container, (sprites = new Map()));
     const key = `${ownerId}:${range}`;
     let sprite = sprites.get(key);
-    if (!sprite) {
+    if (sprite?.meshes[0].visible) return;
+    const layout = auraProjectionKey(center, footprint, range, gs, narrowing);
+    const projection =
+        !sprite || sprite.layout !== layout
+            ? championArrowProjection(center, footprint, range, gs, narrowing)
+            : undefined;
+    if ((!sprite || sprite.layout !== layout) && !projection) return;
+    if (!sprite && projection) {
         const makeMesh = () => {
             const geometry = new MeshGeometry({
                 positions: projection.positions.slice(),
@@ -84,9 +94,23 @@ export function drawChampionArrowAura(
             container.addChild(mesh);
             return mesh;
         };
-        sprite = { meshes: [makeMesh(), makeMesh()], started: now, seen: now };
+        sprite = {
+            meshes: [makeMesh(), makeMesh()],
+            started: now,
+            seen: now,
+            layout,
+            sourceUvs: projection.uvs,
+            frames: [-1, -1],
+            facing,
+        };
         sprites.set(key, sprite);
+    } else if (sprite && projection) {
+        for (const mesh of sprite.meshes) mesh.geometry.positions = projection.positions;
+        sprite.sourceUvs = projection.uvs;
+        sprite.layout = layout;
+        sprite.frames[0] = sprite.frames[1] = -1;
     }
+    if (!sprite) return;
     // Selected, hovered and active previews share one effect per owner.
     if (sprite.meshes[0].visible) return;
     // Keep forward motion continuous through slow rendering and brief changes
@@ -98,6 +122,10 @@ export function drawChampionArrowAura(
     const reveal = revealProgress * revealProgress * (3 - 2 * revealProgress);
     const opacity = Math.min(1, alpha * 1.3) * reveal * 0.8;
     const tint = championArrowGlowTint(age);
+    if (sprite.facing !== facing) {
+        sprite.frames[0] = sprite.frames[1] = -1;
+        sprite.facing = facing;
+    }
     for (let layer = 0; layer < 2; layer++) {
         const mesh = sprite.meshes[layer];
         const index = layer === 0 ? frame : next;
@@ -105,21 +133,18 @@ export function drawChampionArrowAura(
         mesh.texture = texture;
         mesh.tint = tint;
         mesh.alpha = opacity * (layer === 0 ? 1 - mix : mix);
+        if (sprite.frames[layer] === index) continue;
         const geometry = mesh.geometry;
-        geometry.positions.set(projection.positions);
-        geometry.indices.set(projection.indices);
-        geometry.getIndex().update();
-        // Project the same clipped footprint for both adjacent painted frames.
-        geometry.getBuffer("aPosition").update();
-        for (let i = 0; i < projection.uvs.length; i += 2) {
-            const sourceU = facing < 0 ? 1 - projection.uvs[i] : projection.uvs[i];
+        for (let i = 0; i < sprite.sourceUvs.length; i += 2) {
+            const sourceU = facing < 0 ? 1 - sprite.sourceUvs[i] : sprite.sourceUvs[i];
             const u = Math.max(0.5 / FRAME_SIZE, Math.min(1 - 0.5 / FRAME_SIZE, sourceU));
             // Six authored rows fill the base 6x6 field; buffs use the actual projected aura extent too.
-            const sourceV = projection.uvs[i + 1];
+            const sourceV = sprite.sourceUvs[i + 1];
             const v = Math.max(0.5 / FRAME_SIZE, Math.min(1 - 0.5 / FRAME_SIZE, sourceV));
             geometry.uvs[i] = ((index % COLS) + u) / COLS;
             geometry.uvs[i + 1] = (Math.floor(index / COLS) + v) / COLS;
         }
         geometry.getBuffer("aUV").update();
+        sprite.frames[layer] = index;
     }
 }

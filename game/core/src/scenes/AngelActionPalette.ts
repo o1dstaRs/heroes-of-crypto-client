@@ -122,6 +122,9 @@ export class AngelActionPaletteFilter extends Filter {
         this.update(frame);
     }
     private update(frame: number): void {
+        if (this.appliedState === this.state && this.appliedFrame === frame) return;
+        this.appliedState = this.state;
+        this.appliedFrame = frame;
         const calibration = ANGEL_CAST_MELEE_CALIBRATION[angelActionState(this.state)]?.[frame];
         const melee = ANGEL_MELEE_MATERIALS[angelActionState(this.state)]?.[frame];
         const curves = melee ?? calibration?.curves ?? angelActionPalette(this.state, frame);
@@ -144,6 +147,8 @@ export class AngelActionPaletteFilter extends Filter {
                 }
             }
     }
+    private appliedState?: string;
+    private appliedFrame?: number;
     public override apply(...args: Parameters<Filter["apply"]>): void {
         if (this.frames) this.update(this.frames.indexOf(this.sprite.texture));
         args[0].calculateSpriteMatrix(this.resources.palette.uniforms.uBodyMatrix, this.sprite);
@@ -173,9 +178,11 @@ export function syncAngelActionPalette(
     }
     if (!filter) return;
     const installed = sprite.filters ?? [];
-    const others = installed.filter((entry) => entry !== filter);
     if (active) {
         filter.bind(state, frames, frame);
-        if (installed[0] !== filter) sprite.filters = [filter, ...others];
-    } else if (installed.includes(filter)) sprite.filters = others.length ? others : null;
+        if (installed[0] !== filter) sprite.filters = [filter, ...installed.filter((entry) => entry !== filter)];
+    } else if (installed.includes(filter)) {
+        const others = installed.filter((entry) => entry !== filter);
+        sprite.filters = others.length ? others : null;
+    }
 }

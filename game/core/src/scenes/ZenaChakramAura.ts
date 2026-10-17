@@ -1,11 +1,14 @@
 import { type GridSettings, type HoCMath } from "@heroesofcrypto/common";
 import { Container, Mesh, MeshGeometry, Texture } from "pixi.js";
-import { projectBattlefieldPoint } from "./sandbox/BattlefieldVisualGrid";
+import {
+    rotatingAuraProjection,
+    syncRotatingAuraGeometry,
+    type RotatingAuraProjection,
+} from "./RotatingAuraProjection";
 
 type Point = HoCMath.XY;
 export const ZENA_CHAKRAM_AURA_KEY = "vfx_zena_chakram_aura_v2";
 const ROTATION_MS = 40000;
-const SUBDIVISIONS = 24;
 // Authored ring radius inside the padded sprite; arrows extend 20% beyond it.
 const TEXTURE_RADIUS = 0.42;
 const SPRITE_EXTENT = 1.2;
@@ -28,41 +31,12 @@ export function zenaAuraProjection(
     rotation: number,
     gs: GridSettings,
     narrowing = 0,
+    previous?: RotatingAuraProjection,
 ) {
-    if (!(rx > 0 && ry > 0)) return undefined;
-    const inset = Math.max(0, narrowing) * gs.getCellSize();
-    const left = Math.max(center.x - rx * SPRITE_EXTENT, gs.getMinX() + inset);
-    const right = Math.min(center.x + rx * SPRITE_EXTENT, gs.getMaxX() - inset);
-    const bottom = Math.max(center.y - ry * SPRITE_EXTENT, gs.getMinY() + inset);
-    const top = Math.min(center.y + ry * SPRITE_EXTENT, gs.getMaxY() - inset);
-    if (right <= left || top <= bottom) return undefined;
-    const positions: number[] = [],
-        uvs: number[] = [],
-        indices: number[] = [];
-    const cos = Math.cos(rotation),
-        sin = Math.sin(rotation);
-    for (let row = 0; row <= SUBDIVISIONS; row++) {
-        for (let col = 0; col <= SUBDIVISIONS; col++) {
-            const x = left + ((right - left) * col) / SUBDIVISIONS;
-            const y = top - ((top - bottom) * row) / SUBDIVISIONS;
-            const projected = projectBattlefieldPoint({ x, y }, gs);
-            positions.push(projected.x, projected.y);
-            const dx = (x - center.x) / rx,
-                dy = (y - center.y) / ry;
-            // Keep affine UVs beyond the image bounds: the sampler clamps to its transparent border.
-            // Clamping individual vertices would deform the rim on diagonal waves.
-            uvs.push(0.5 + (cos * dx + sin * dy) * TEXTURE_RADIUS, 0.5 - (-sin * dx + cos * dy) * TEXTURE_RADIUS);
-            if (row < SUBDIVISIONS && col < SUBDIVISIONS) {
-                const a = row * (SUBDIVISIONS + 1) + col,
-                    b = a + SUBDIVISIONS + 1;
-                indices.push(a, b, a + 1, a + 1, b, b + 1);
-            }
-        }
-    }
-    return { positions: new Float32Array(positions), uvs: new Float32Array(uvs), indices: new Uint32Array(indices) };
+    return rotatingAuraProjection(center, rx, ry, rotation, gs, narrowing, SPRITE_EXTENT, TEXTURE_RADIUS, previous);
 }
 
-type AuraSprite = { meshes: Mesh<MeshGeometry>[]; seen: number; drawn: boolean };
+type AuraSprite = { meshes: Mesh<MeshGeometry>[]; projections: RotatingAuraProjection[]; seen: number; drawn: boolean };
 const owners = new WeakMap<Container, Map<string, AuraSprite>>();
 export function resetZenaChakramAuras(container?: Container, now = performance.now()): void {
     if (!container) return;
@@ -100,7 +74,7 @@ export function drawZenaChakramAura(
     }
     let sprite = sprites.get(ownerId);
     if (!sprite) {
-        sprite = { meshes: [], seen: nowMs, drawn: false };
+        sprite = { meshes: [], projections: [], seen: nowMs, drawn: false };
         sprites.set(ownerId, sprite);
     }
     if (sprite.drawn) return;
@@ -112,8 +86,9 @@ export function drawZenaChakramAura(
             ry = extentY * progress;
         const alpha = fade * alphaMultiplier;
         if (!(alpha > 0)) continue;
-        const projection = zenaAuraProjection(center, rx, ry, rotation, gs, narrowing);
+        const projection = zenaAuraProjection(center, rx, ry, rotation, gs, narrowing, sprite.projections[slot]);
         if (!projection) continue;
+        sprite.projections[slot] = projection;
         let mesh = sprite.meshes[slot++];
         if (!mesh) {
             const geometry = new MeshGeometry(projection);
@@ -123,10 +98,7 @@ export function drawZenaChakramAura(
             container.addChild(mesh);
             sprite.meshes.push(mesh);
         } else {
-            mesh.geometry.positions.set(projection.positions);
-            mesh.geometry.uvs.set(projection.uvs);
-            mesh.geometry.getBuffer("aPosition").update();
-            mesh.geometry.getBuffer("aUV").update();
+            syncRotatingAuraGeometry(mesh.geometry, projection);
         }
         mesh.texture = texture;
         mesh.visible = true;

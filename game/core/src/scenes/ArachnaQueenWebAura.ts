@@ -1,6 +1,7 @@
 import { type GridSettings, type HoCMath } from "@heroesofcrypto/common";
 import { Container, Mesh, MeshGeometry, Texture } from "pixi.js";
 import { projectBattlefieldPoint } from "./sandbox/BattlefieldVisualGrid";
+import { auraProjectionKey } from "./auraProjectionKey";
 
 type Point = HoCMath.XY;
 type Footprint = { width: number; height: number };
@@ -68,7 +69,14 @@ export function arachnaWebProjection(
     return { positions: new Float32Array(positions), uvs: new Float32Array(uvs), indices: new Uint32Array(indices) };
 }
 
-type WebSprite = { mesh: Mesh<MeshGeometry>; started: number; seen: number };
+type WebSprite = {
+    mesh: Mesh<MeshGeometry>;
+    started: number;
+    seen: number;
+    layout: string;
+    sourceUvs: Float32Array;
+    frame: number;
+};
 const owners = new WeakMap<Container, Map<string, WebSprite>>();
 export function resetArachnaQueenWebAuras(container?: Container, now = performance.now()): void {
     if (!container) return;
@@ -97,23 +105,31 @@ export function drawArachnaQueenWebAura(
     now = performance.now(),
 ): void {
     if (!container || !texture || texture === Texture.EMPTY) return;
-    const projection = arachnaWebProjection(center, footprint, range, gs, narrowing);
-    if (!projection) return;
     let sprites = owners.get(container);
     if (!sprites) {
         sprites = new Map();
         owners.set(container, sprites);
     }
     let sprite = sprites.get(ownerId);
-    if (!sprite) {
-        const geometry = new MeshGeometry(projection);
+    const layout = auraProjectionKey(center, footprint, range, gs, narrowing);
+    const projection =
+        !sprite || sprite.layout !== layout ? arachnaWebProjection(center, footprint, range, gs, narrowing) : undefined;
+    if ((!sprite || sprite.layout !== layout) && !projection) return;
+    if (!sprite && projection) {
+        const geometry = new MeshGeometry({ ...projection, uvs: projection.uvs.slice() });
         const mesh = new Mesh({ texture, geometry });
         mesh.eventMode = "none";
         mesh.once("destroyed", () => geometry.destroy());
         container.addChild(mesh);
-        sprite = { mesh, started: now, seen: now };
+        sprite = { mesh, started: now, seen: now, layout, sourceUvs: projection.uvs, frame: -1 };
         sprites.set(ownerId, sprite);
+    } else if (sprite && projection) {
+        sprite.mesh.geometry.positions = projection.positions;
+        sprite.sourceUvs = projection.uvs;
+        sprite.layout = layout;
+        sprite.frame = -1;
     }
+    if (!sprite) return;
     if (now - sprite.seen > 180) sprite.started = now;
     sprite.seen = now;
     const frame = arachnaWebFrame(now - sprite.started);
@@ -121,15 +137,15 @@ export function drawArachnaQueenWebAura(
     mesh.visible = true;
     mesh.alpha = Math.min(1, alpha * 1.12);
     mesh.texture = texture;
+    if (sprite.frame === frame) return;
     const geometry = mesh.geometry;
-    geometry.positions.set(projection.positions);
-    geometry.getBuffer("aPosition").update();
-    for (let i = 0; i < projection.uvs.length; i += 2) {
+    for (let i = 0; i < sprite.sourceUvs.length; i += 2) {
         // Half-pixel guards prevent sampling a neighbouring frame at clipped sheet edges.
-        const u = Math.max(0.5 / FRAME_SIZE, Math.min(1 - 0.5 / FRAME_SIZE, projection.uvs[i]));
-        const v = Math.max(0.5 / FRAME_SIZE, Math.min(1 - 0.5 / FRAME_SIZE, projection.uvs[i + 1]));
+        const u = Math.max(0.5 / FRAME_SIZE, Math.min(1 - 0.5 / FRAME_SIZE, sprite.sourceUvs[i]));
+        const v = Math.max(0.5 / FRAME_SIZE, Math.min(1 - 0.5 / FRAME_SIZE, sprite.sourceUvs[i + 1]));
         geometry.uvs[i] = ((frame % COLS) + u) / COLS;
         geometry.uvs[i + 1] = (Math.floor(frame / COLS) + v) / ROWS;
     }
     geometry.getBuffer("aUV").update();
+    sprite.frame = frame;
 }

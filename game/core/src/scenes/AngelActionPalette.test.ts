@@ -10,6 +10,44 @@ beforeAll(() =>
     DOMAdapter.set({ ...adapter, createCanvas: () => ({ getContext: () => null }) as unknown as HTMLCanvasElement }),
 );
 afterAll(() => DOMAdapter.set(adapter));
+test("held attack cels reuse colors while draw-time texture changes and all directions update immediately", () => {
+    const frames = Array.from({ length: 8 }, () => new Texture({ source: Texture.WHITE.source }));
+    const sprite = new Sprite(frames[2]);
+    const filter = new AngelActionPaletteFilter(sprite);
+    const calibration = spyOn(filter.resources.palette.uniforms.uCalibration, "set");
+    const draw = spyOn(Filter.prototype, "apply").mockImplementation(() => {});
+    let transforms = 0;
+    const render = () =>
+        filter.apply(
+            { calculateSpriteMatrix: () => transforms++ } as unknown as Parameters<Filter["apply"]>[0],
+            Texture.WHITE,
+            Texture.WHITE,
+            true,
+        );
+    try {
+        for (const state of ["melee_attack", "melee_attack_up", "melee_attack_down"]) {
+            calibration.mockClear();
+            sprite.texture = frames[2];
+            for (let i = 0; i < 30; i++) {
+                filter.bind(state, frames, 2);
+                render();
+            }
+            expect(calibration).toHaveBeenCalledTimes(1);
+            sprite.texture = frames[4];
+            render();
+            expect(calibration).toHaveBeenCalledTimes(2);
+            render();
+            expect(calibration).toHaveBeenCalledTimes(2);
+        }
+        expect(transforms).toBe(96);
+    } finally {
+        calibration.mockRestore();
+        draw.mockRestore();
+        filter.destroy();
+        sprite.destroy();
+        frames.forEach((frame) => frame.destroy());
+    }
+});
 test("a melee texture swap updates both the second contact and measured material colors before drawing", () => {
     const frames = Array.from({ length: 8 }, () => new Texture({ source: Texture.WHITE.source }));
     const sprite = new Sprite(frames[0]);
