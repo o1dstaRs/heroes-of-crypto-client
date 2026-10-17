@@ -1,10 +1,10 @@
-import { PlayerPlaystyle } from "../PlayerPlaystyle/PlayerPlaystyle";
+import { PlayerPlaystyleView } from "../PlayerPlaystyle/PlayerPlaystyle";
+import { usePlayerMetrics } from "../PlayerPlaystyle/usePlayerMetrics";
 import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
 import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
-import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
 import HistoryRoundedIcon from "@mui/icons-material/HistoryRounded";
 import ReplayRoundedIcon from "@mui/icons-material/ReplayRounded";
-import { Box, Button, CircularProgress, IconButton, Sheet, Stack, Tooltip, Typography } from "@mui/joy";
+import { Box, Button, IconButton, Sheet, Skeleton, Stack, Tooltip, Typography } from "@mui/joy";
 import React from "react";
 import { useNavigate } from "react-router";
 
@@ -29,7 +29,8 @@ import {
 } from "./matchHistoryModel";
 import { CreatureIcon, timeAgo, winRateColor, winRatePct } from "./portalFormat";
 import { usePlayerPortal } from "./usePlayerPortal";
-import { useRankedStanding } from "./useRankedStanding";
+import { portalRevealSx } from "./PlayerPortalLoading";
+import { useRankedStandingState } from "./useRankedStanding";
 
 const RESULT_COLORS: Record<MatchResultTone, string> = {
     draw: hocColors.gold,
@@ -434,23 +435,68 @@ export interface PlayerPortalSidebarProps {
     navigationDisabled?: boolean;
 }
 
+/** Reserve the record, chart and battle rows while the first responses arrive together. */
+const SidebarContentSkeleton: React.FC = () => (
+    <Stack
+        spacing={2}
+        role="status"
+        aria-label={t("Loading your battle record…")}
+        sx={{ "& .MuiSkeleton-root": { bgcolor: "rgba(220,177,88,0.075)" } }}
+    >
+        <Stack direction="row" justifyContent="space-around" aria-hidden>
+            {[0, 1, 2].map((index) => (
+                <Skeleton key={index} animation={false} variant="rectangular" width={64} height={20} />
+            ))}
+        </Stack>
+        <Box aria-hidden sx={{ minWidth: 0 }}>
+            <Skeleton animation={false} variant="rectangular" width={90} height={20} sx={{ mb: 1 }} />
+            <Skeleton animation={false} variant="rectangular" width="60%" height={16.5} sx={{ mb: 0.5 }} />
+            <Skeleton
+                animation={false}
+                variant="rectangular"
+                sx={{ width: "100%", maxWidth: 290, aspectRatio: "380 / 330", mx: "auto", borderRadius: "12px" }}
+            />
+            <Stack direction="row" spacing={1.5} sx={{ mt: 0.5, mb: 1.25 }}>
+                <Skeleton animation={false} variant="rectangular" width="50%" height={52} />
+                <Skeleton animation={false} variant="rectangular" width="50%" height={52} />
+            </Stack>
+        </Box>
+        <Stack spacing={0.9} aria-hidden>
+            <Skeleton animation={false} variant="rectangular" width="45%" height={20} sx={{ mb: 0.1 }} />
+            {[0, 1, 2].map((index) => (
+                <Skeleton
+                    key={index}
+                    animation={false}
+                    variant="rectangular"
+                    height={99}
+                    sx={{ borderRadius: "11px" }}
+                />
+            ))}
+        </Stack>
+        <Box aria-hidden />
+        <Skeleton animation={false} variant="rectangular" height={48} aria-hidden sx={{ borderRadius: "10px" }} />
+    </Stack>
+);
+
 /** In-flow profile summary shown alongside ranked matchmaking. */
-export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ navigationDisabled = false }) => {
+export const PlayerPortalSidebar = React.memo(function PlayerPortalSidebar({
+    navigationDisabled = false,
+}: PlayerPortalSidebarProps) {
     const navigate = useNavigate();
     const { user } = useAuthContext();
     const { data, loading, error, reload, reloadKey } = usePlayerPortal();
     // Ranked standing rides its own small call (see useRankedStanding); re-read whenever the portal
     // payload reloads so finishing a placement match updates the pips without a page refresh.
-    const standing = useRankedStanding(`${reloadKey}:${data?.total_games_played ?? 0}`);
+    const { data: standing, loading: standingLoading } = useRankedStandingState(
+        `${reloadKey}:${data?.total_games_played ?? 0}`,
+    );
+    // Start the chart as soon as the player id arrives, even while the heavier history call is pending.
+    const metrics = usePlayerMetrics(standing?.playerId, reloadKey);
+    const initialLoading =
+        (loading && !data) || (data && ((!standing && standingLoading) || (!metrics.data && metrics.loading)));
     // Subscribes this subtree to the profile language picker, so switching repaints it without a reload.
     const { language } = useTranslation();
     const { currency } = useRankedSeason();
-    const [predictionsVisible, setPredictionsVisible] = React.useState(false);
-    const [recentBattlesExpanded, setRecentBattlesExpanded] = React.useState(false);
-    const handlePredictionsVisibility = React.useCallback((visible: boolean) => {
-        setPredictionsVisible(visible);
-        if (visible) setRecentBattlesExpanded(false);
-    }, []);
 
     const overallPct = data ? winRatePct(data.wins ?? 0, data.total_games_played ?? 0) : 0;
     const recent = (data?.recent_matches ?? []).slice(0, 3);
@@ -461,7 +507,6 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
     const gold = availableGold({ gold: Number(data?.gold ?? 0) });
     const shownGold = displayedGold({ gold, totalGold: standing?.totalGold }) ?? gold;
     const localizedGold = shownGold.toLocaleString(language === "ru" ? "ru-RU" : "en-US");
-    const showRecentBattles = !predictionsVisible || recentBattlesExpanded;
 
     return (
         <Box
@@ -479,33 +524,34 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
             <Sheet
                 component="aside"
                 aria-label={t("Player profile summary")}
+                aria-busy={!!initialLoading}
                 variant="outlined"
                 sx={{
                     minWidth: 0,
-                    minHeight: predictionsVisible ? undefined : { lg: 724 },
+                    minHeight: { lg: 724 },
                     boxSizing: "border-box",
                     display: "flex",
                     flexDirection: "column",
                     overflow: "hidden",
-                    borderRadius: predictionsVisible ? "18px" : "22px",
+                    borderRadius: "22px",
                     ...hocPanelSx,
                     bgcolor: "rgba(12,8,5,0.91)",
-                    borderColor: predictionsVisible ? "rgba(255,143,0,0.16)" : "rgba(255,143,0,0.25)",
-                    boxShadow: predictionsVisible ? "0 16px 48px rgba(0,0,0,0.34)" : "0 28px 80px rgba(0,0,0,0.48)",
+                    borderColor: "rgba(255,143,0,0.25)",
+                    boxShadow: "0 28px 80px rgba(0,0,0,0.48)",
                     backdropFilter: "blur(16px)",
                 }}
             >
                 <Box
                     sx={{
                         position: "relative",
-                        p: predictionsVisible ? { xs: 1.5, sm: 1.75 } : { xs: 2.25, sm: 2.75 },
+                        p: { xs: 2.25, sm: 2.75 },
                         borderBottom: "1px solid rgba(239,228,204,0.09)",
                         background:
                             "radial-gradient(circle at 92% 0%, rgba(255,143,0,0.18), transparent 40%), linear-gradient(135deg, rgba(255,143,0,0.1), transparent 60%)",
                     }}
                 >
-                    <Stack direction="row" spacing={predictionsVisible ? 1 : 1.25} alignItems="center">
-                        <PortalAvatar standing={standing} size={predictionsVisible ? 58 : 72} />
+                    <Stack direction="row" spacing={1.25} alignItems="center">
+                        <PortalAvatar standing={standing} size={72} />
                         <Box sx={{ flex: 1, minWidth: 0 }}>
                             <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
                                 <Typography level="title-lg" noWrap sx={{ minWidth: 0, color: hocColors.parchment }}>
@@ -530,7 +576,16 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
                             </Stack>
                             {/* Placement progress reads right under the name: while calibrating it is the
                                 single most actionable thing on this panel ("two more and you are placed"). */}
-                            {standing && <CalibrationProgress standing={standing} dense />}
+                            {standing ? (
+                                <CalibrationProgress standing={standing} dense />
+                            ) : standingLoading ? (
+                                <Skeleton
+                                    animation={false}
+                                    width="75%"
+                                    height={21}
+                                    sx={{ bgcolor: "rgba(220,177,88,0.075)" }}
+                                />
+                            ) : null}
                             <SidebarRecentForm matches={recentFormMatches} />
                         </Box>
                         <Tooltip
@@ -558,34 +613,16 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
                 </Box>
 
                 <Stack
-                    spacing={predictionsVisible ? 1.15 : 2}
+                    spacing={2}
                     sx={{
                         flex: 1,
                         minHeight: 0,
-                        p: predictionsVisible ? { xs: 1.5, sm: 1.75 } : { xs: 2.25, sm: 2.75 },
+                        p: { xs: 2.25, sm: 2.75 },
                     }}
                 >
-                    {loading && !data && (
-                        <Stack
-                            spacing={1.25}
-                            alignItems="center"
-                            justifyContent="center"
-                            sx={{ flex: 1, minHeight: 320 }}
-                        >
-                            <CircularProgress
-                                size="md"
-                                sx={{
-                                    "--CircularProgress-progressColor": hocColors.orange,
-                                    "--CircularProgress-trackColor": "rgba(255,143,0,0.16)",
-                                }}
-                            />
-                            <Typography level="body-sm" sx={{ color: hocColors.muted }}>
-                                {t("Loading your battle record…")}
-                            </Typography>
-                        </Stack>
-                    )}
+                    {initialLoading && <SidebarContentSkeleton />}
 
-                    {!loading && error && (
+                    {!loading && !data && error && (
                         <Stack
                             spacing={1.25}
                             alignItems="center"
@@ -602,8 +639,8 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
                         </Stack>
                     )}
 
-                    {data && (
-                        <>
+                    {data && !initialLoading && (
+                        <Stack spacing={2} sx={{ flex: 1, ...portalRevealSx }}>
                             <Box
                                 sx={{
                                     display: "grid",
@@ -620,10 +657,11 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
                                 />
                             </Box>
 
-                            <PlayerPlaystyle
+                            <PlayerPlaystyleView
                                 compact
-                                playerId={standing?.playerId}
-                                reloadKey={reloadKey}
+                                metrics={metrics.data}
+                                loading={metrics.loading}
+                                error={metrics.error}
                                 language={language}
                                 wrap={(body) => (
                                     <Box sx={{ minWidth: 0, color: hocColors.parchment }}>
@@ -636,127 +674,69 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
                             />
 
                             <Box sx={{ minWidth: 0 }}>
-                                {predictionsVisible ? (
-                                    <Button
-                                        fullWidth
-                                        size="sm"
-                                        variant="plain"
-                                        aria-label={
-                                            recentBattlesExpanded
-                                                ? t("Collapse recent battles")
-                                                : t("Expand recent battles")
-                                        }
-                                        aria-expanded={recentBattlesExpanded}
-                                        onClick={() => setRecentBattlesExpanded((expanded) => !expanded)}
-                                        startDecorator={
-                                            <HistoryRoundedIcon sx={{ color: hocColors.muted, fontSize: 15 }} />
-                                        }
-                                        endDecorator={
-                                            <ExpandMoreRoundedIcon
-                                                sx={{
-                                                    fontSize: 17,
-                                                    opacity: 0.7,
-                                                    transform: recentBattlesExpanded ? "rotate(180deg)" : "none",
-                                                    transition: "transform 160ms ease",
-                                                }}
-                                            />
-                                        }
-                                        sx={{
-                                            justifyContent: "flex-start",
-                                            minHeight: 28,
-                                            mb: recentBattlesExpanded ? 0.75 : 0,
-                                            px: 0.25,
-                                            py: 0.15,
-                                            color: hocColors.muted,
-                                            bgcolor: "transparent",
-                                            "&:hover": { bgcolor: "rgba(255,143,0,0.035)", color: hocColors.gold },
-                                        }}
-                                    >
-                                        <Stack
-                                            component="span"
-                                            direction="row"
-                                            alignItems="center"
-                                            justifyContent="space-between"
-                                            sx={{ flex: 1, minWidth: 0 }}
-                                        >
-                                            <Typography level="body-sm" sx={{ color: "inherit", fontWeight: 600 }}>
-                                                {t("Recent battles")}
-                                            </Typography>
-                                            <Typography level="body-xs" sx={{ color: hocColors.muted, opacity: 0.72 }}>
-                                                {recent.length}
-                                            </Typography>
-                                        </Stack>
-                                    </Button>
-                                ) : (
-                                    <Stack
-                                        direction="row"
-                                        spacing={1}
-                                        alignItems="center"
-                                        justifyContent="space-between"
-                                        sx={{ mb: 1 }}
-                                    >
-                                        <Stack direction="row" spacing={0.75} alignItems="center">
-                                            <HistoryRoundedIcon sx={{ color: hocColors.gold, fontSize: 18 }} />
-                                            <Typography level="title-sm" sx={{ color: hocColors.parchment }}>
-                                                {t("Recent battles")}
-                                            </Typography>
-                                        </Stack>
-                                        <Typography level="body-xs" sx={{ color: hocColors.muted }}>
-                                            {tf("Last {count}", { count: recent.length })}
+                                <Stack
+                                    direction="row"
+                                    spacing={1}
+                                    alignItems="center"
+                                    justifyContent="space-between"
+                                    sx={{ mb: 1 }}
+                                >
+                                    <Stack direction="row" spacing={0.75} alignItems="center">
+                                        <HistoryRoundedIcon sx={{ color: hocColors.gold, fontSize: 18 }} />
+                                        <Typography level="title-sm" sx={{ color: hocColors.parchment }}>
+                                            {t("Recent battles")}
                                         </Typography>
                                     </Stack>
-                                )}
+                                    <Typography level="body-xs" sx={{ color: hocColors.muted }}>
+                                        {tf("Last {count}", { count: recent.length })}
+                                    </Typography>
+                                </Stack>
 
-                                {showRecentBattles &&
-                                    (recent.length > 0 ? (
-                                        <Stack spacing={0.9}>
-                                            {recent.map((match) => (
-                                                <RecentMatchRow
-                                                    key={match.game_id}
-                                                    match={match}
-                                                    navigationDisabled={navigationDisabled}
-                                                    onReplay={() => navigate(matchReplayPath(match))}
-                                                />
-                                            ))}
-                                        </Stack>
-                                    ) : (
-                                        <Sheet
-                                            variant="soft"
-                                            sx={{
-                                                p: 2.5,
-                                                textAlign: "center",
-                                                borderRadius: "11px",
-                                                bgcolor: "rgba(0,0,0,0.25)",
-                                                border: "1px dashed rgba(239,228,204,0.14)",
-                                            }}
-                                        >
-                                            <HistoryRoundedIcon sx={{ color: hocColors.gold, fontSize: 28 }} />
-                                            <Typography level="body-sm" sx={{ color: hocColors.muted, mt: 0.6 }}>
-                                                {t("Your finished matches will appear here.")}
-                                            </Typography>
-                                        </Sheet>
-                                    ))}
+                                {recent.length > 0 ? (
+                                    <Stack spacing={0.9}>
+                                        {recent.map((match) => (
+                                            <RecentMatchRow
+                                                key={match.game_id}
+                                                match={match}
+                                                navigationDisabled={navigationDisabled}
+                                                onReplay={() => navigate(matchReplayPath(match))}
+                                            />
+                                        ))}
+                                    </Stack>
+                                ) : (
+                                    <Sheet
+                                        variant="soft"
+                                        sx={{
+                                            p: 2.5,
+                                            textAlign: "center",
+                                            borderRadius: "11px",
+                                            bgcolor: "rgba(0,0,0,0.25)",
+                                            border: "1px dashed rgba(239,228,204,0.14)",
+                                        }}
+                                    >
+                                        <HistoryRoundedIcon sx={{ color: hocColors.gold, fontSize: 28 }} />
+                                        <Typography level="body-sm" sx={{ color: hocColors.muted, mt: 0.6 }}>
+                                            {t("Your finished matches will appear here.")}
+                                        </Typography>
+                                    </Sheet>
+                                )}
                             </Box>
 
                             <Box sx={{ flex: 1 }} />
-                            {!predictionsVisible && (
-                                <Button
-                                    fullWidth
-                                    variant="soft"
-                                    disabled={navigationDisabled}
-                                    onClick={() => navigate("/portal")}
-                                    endDecorator={<ArrowForwardRoundedIcon />}
-                                    title={
-                                        navigationDisabled
-                                            ? t("Leave matchmaking before opening your profile")
-                                            : undefined
-                                    }
-                                    sx={{ ...hocSoftButtonSx, minHeight: 48 }}
-                                >
-                                    {t("View full profile")}
-                                </Button>
-                            )}
-                        </>
+                            <Button
+                                fullWidth
+                                variant="soft"
+                                disabled={navigationDisabled}
+                                onClick={() => navigate("/portal")}
+                                endDecorator={<ArrowForwardRoundedIcon />}
+                                title={
+                                    navigationDisabled ? t("Leave matchmaking before opening your profile") : undefined
+                                }
+                                sx={{ ...hocSoftButtonSx, minHeight: 48 }}
+                            >
+                                {t("View full profile")}
+                            </Button>
+                        </Stack>
                     )}
                 </Stack>
             </Sheet>
@@ -767,9 +747,8 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
                     viewerGameId={user?.in_game_id}
                     gold={gold}
                     onBetPlaced={reload}
-                    onVisibilityChange={handlePredictionsVisibility}
                 />
             )}
         </Box>
     );
-};
+});

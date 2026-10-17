@@ -513,7 +513,7 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
         knowledgeEntryMatches,
         knowledgeSearchRank,
         type KnowledgeSection,
-    } from "../lib/knowledge-base";
+    } from "../lib/knowledge-search";
     import { factionImagePath, isDownsideQualifier, isVisualKnowledgeSource } from "../lib/knowledge-ai-figures";
     import { RU_NAMES } from "../lib/knowledge/names-ru";
     import { renderMarkdown } from "../lib/markdown-lite";
@@ -1044,37 +1044,29 @@ const panelCopy = KNOWLEDGE_AI_PANEL_COPY[lang];
             const searching = Boolean(query);
             let visible = 0;
 
-            resultRows.forEach((row) => {
-                const queryMatch =
-                    searching &&
-                    (aiSearchEnabled
-                        ? Number.isFinite(
-                              knowledgeAiSearchRank(row.dataset.name ?? "", row.dataset.search ?? "", query),
-                          )
-                        : knowledgeEntryMatches(row.dataset.search ?? "", query));
-                const shown = queryMatch;
-                row.hidden = !shown;
-                if (shown) visible += 1;
-            });
-
+            const rankedRows: Array<{ row: HTMLTableRowElement; rank: number }> = [];
+            for (const row of resultRows) {
+                const name = row.dataset.name ?? "";
+                const text = row.dataset.search ?? "";
+                const rank = !searching
+                    ? Infinity
+                    : aiSearchEnabled
+                      ? knowledgeAiSearchRank(name, text, query)
+                      : knowledgeEntryMatches(text, query)
+                        ? knowledgeSearchRank(name, text, query)
+                        : Infinity;
+                const shown = Number.isFinite(rank);
+                if (row.hidden === shown) row.hidden = !shown;
+                if (shown) rankedRows.push({ row, rank });
+            }
+            visible = rankedRows.length;
             const resultBody = resultRows[0]?.parentElement;
             if (searching && resultBody) {
-                resultRows
-                    .sort(
-                        (a, b) =>
-                            (aiSearchEnabled ? knowledgeAiSearchRank : knowledgeSearchRank)(
-                                a.dataset.name ?? "",
-                                a.dataset.search ?? "",
-                                query,
-                            ) -
-                                (aiSearchEnabled ? knowledgeAiSearchRank : knowledgeSearchRank)(
-                                    b.dataset.name ?? "",
-                                    b.dataset.search ?? "",
-                                    query,
-                                ) ||
-                            (a.dataset.name ?? "").localeCompare(b.dataset.name ?? ""),
-                    )
-                    .forEach((row) => resultBody.append(row));
+                rankedRows.sort((a, b) => a.rank - b.rank ||
+                    (a.row.dataset.name ?? "").localeCompare(b.row.dataset.name ?? ""));
+                const fragment = document.createDocumentFragment();
+                for (const { row } of rankedRows) fragment.append(row);
+                resultBody.append(fragment);
             }
 
             if (searching) {

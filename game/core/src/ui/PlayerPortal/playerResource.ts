@@ -5,7 +5,7 @@ export interface PlayerResourceSnapshot<T> {
 }
 
 /** Keep a player's last successful response on screen while revalidating, sharing concurrent reads. */
-export const createPlayerResource = <T>(fetchData: () => Promise<T>, fallbackError: () => string) => {
+export const createPlayerResource = <T>(fetchData: (key: string) => Promise<T>, fallbackError: () => string) => {
     const entries = new Map<
         string,
         {
@@ -45,7 +45,7 @@ export const createPlayerResource = <T>(fetchData: () => Promise<T>, fallbackErr
             };
             publish({ ...entry.snapshot, loading: true, error: "" });
             entry.pending = Promise.resolve()
-                .then(fetchData)
+                .then(() => fetchData(account))
                 .then((data) => publish({ data, loading: false, error: "" }))
                 .catch((error: unknown) => {
                     publish({

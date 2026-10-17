@@ -54,77 +54,68 @@ const MatchMetric: React.FC<{
         >
             {label}
         </Typography>
-        <Box sx={{ mt: 0.3, color: hocColors.parchment, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>
+        <Box
+            sx={{
+                mt: 0.3,
+                minHeight: 27,
+                color: hocColors.parchment,
+                fontWeight: 800,
+                fontVariantNumeric: "tabular-nums",
+            }}
+        >
             {children}
         </Box>
     </Box>
 );
 
 /** The accept-window dossier: enough information to recognize and size up the rival at one glance. */
-export const MatchFoundOpponentPreview: React.FC<MatchFoundOpponentPreviewProps> = ({
+export const MatchFoundOpponentPreview = React.memo(function MatchFoundOpponentPreview({
     accepted,
     currency,
     language,
     loading,
     stats,
-}) => {
+}: MatchFoundOpponentPreviewProps) {
     const locale = language === "ru" ? "ru-RU" : "en-US";
     const number = new Intl.NumberFormat(locale);
 
-    if (!stats) {
-        return (
-            <Sheet
-                variant="outlined"
-                sx={{
-                    width: "100%",
-                    maxWidth: 820,
-                    mt: 2.2,
-                    p: { xs: 1.5, sm: 2 },
-                    borderRadius: "12px",
-                    borderColor: "rgba(220,177,88,0.2)",
-                    bgcolor: "rgba(8,7,6,0.76)",
-                }}
-            >
-                <Stack direction="row" spacing={1.4} alignItems="center">
-                    <Skeleton variant="circular" width={68} height={68} animation={false} sx={dossierSkeletonSx} />
-                    <Box sx={{ minWidth: 0, flex: 1, textAlign: "left" }}>
-                        {loading ? (
-                            <>
-                                <Skeleton variant="text" animation={false} width="38%" sx={dossierSkeletonSx} />
-                                <Skeleton variant="text" animation={false} width="62%" sx={dossierSkeletonSx} />
-                            </>
-                        ) : (
-                            <Typography level="body-sm" sx={{ color: hocColors.muted }}>
-                                {t("Opponent profile unavailable")}
-                            </Typography>
-                        )}
-                    </Box>
-                    {loading ? (
-                        <Typography level="body-xs" sx={{ color: hocColors.gold }}>
-                            {t("Reading opponent record…")}
-                        </Typography>
-                    ) : null}
-                </Stack>
-            </Sheet>
-        );
-    }
-
-    const placed = stats.state === "placed";
-    const league = placed ? whole(stats.league) : 0;
-    const wealth = placed ? whole(stats.wealth) : 0;
+    const placed = stats?.state === "placed";
+    const league = placed ? whole(stats?.league) : 0;
+    const wealth = placed ? whole(stats?.wealth) : 0;
     const standing = placed
-        ? standingLabel(wealth, stats.wealthName ?? "", stats.leagueName ?? stats.standingTitle ?? "")
-        : `${t("Calibrating")} ${whole(stats.calibration?.gamesPlayed)} / ${Math.max(1, whole(stats.calibration?.required))}`;
-    const wins = whole(stats.wins);
-    const losses = whole(stats.losses);
-    const draws = whole(stats.draws);
-    const winRate = Math.max(0, Math.min(100, Number(stats.winRatePct) || 0));
-    const leaderboardRank = whole(stats.leaderboardRank);
+        ? standingLabel(wealth, stats?.wealthName ?? "", stats?.leagueName ?? stats?.standingTitle ?? "")
+        : `${t("Calibrating")} ${whole(stats?.calibration?.gamesPlayed)} / ${Math.max(1, whole(stats?.calibration?.required))}`;
+    const wins = whole(stats?.wins);
+    const losses = whole(stats?.losses);
+    const draws = whole(stats?.draws);
+    const winRate = Math.max(0, Math.min(100, Number(stats?.winRatePct) || 0));
+    const leaderboardRank = whole(stats?.leaderboardRank);
+    const metric = (value: React.ReactNode) =>
+        stats ? (
+            value
+        ) : loading ? (
+            <Skeleton
+                animation={false}
+                variant="rectangular"
+                height={25}
+                width="65%"
+                sx={{ ...dossierSkeletonSx, mx: { sm: "auto" } }}
+            />
+        ) : (
+            "—"
+        );
 
     return (
         <Sheet
             variant="outlined"
-            aria-label={`${t("OPPONENT FOUND")}: ${stats.username}`}
+            aria-label={
+                stats
+                    ? `${t("OPPONENT FOUND")}: ${stats.username}`
+                    : loading
+                      ? t("Reading opponent record…")
+                      : t("Opponent profile unavailable")
+            }
+            aria-busy={loading}
             sx={{
                 position: "relative",
                 width: "100%",
@@ -132,6 +123,12 @@ export const MatchFoundOpponentPreview: React.FC<MatchFoundOpponentPreviewProps>
                 mt: 2.2,
                 overflow: "hidden",
                 borderRadius: "14px",
+                "@keyframes hocOpponentReveal": {
+                    from: { opacity: 0, transform: "translateY(6px)" },
+                    to: { opacity: 1, transform: "translateY(0)" },
+                },
+                animation: "hocOpponentReveal 180ms ease-out both",
+                "@media (prefers-reduced-motion: reduce)": { animation: "none" },
                 borderColor: accepted ? "rgba(85,216,120,0.34)" : "rgba(255,209,102,0.36)",
                 background: accepted
                     ? "linear-gradient(118deg, rgba(19,48,28,0.82), rgba(8,8,7,0.96) 52%, rgba(14,12,8,0.92))"
@@ -167,7 +164,17 @@ export const MatchFoundOpponentPreview: React.FC<MatchFoundOpponentPreviewProps>
             />
             <Box sx={{ position: "relative", p: { xs: 1.6, sm: 2.2 } }}>
                 <Stack direction="row" spacing={{ xs: 1.25, sm: 1.8 }} alignItems="center" sx={{ minWidth: 0 }}>
-                    <LeagueEmblem league={league} wealth={wealth} label={standing} size={104} />
+                    {stats ? (
+                        <LeagueEmblem league={league} wealth={wealth} label={standing} size={104} />
+                    ) : (
+                        <Skeleton
+                            variant="circular"
+                            width={104}
+                            height={104}
+                            animation={false}
+                            sx={{ ...dossierSkeletonSx, flexShrink: 0 }}
+                        />
+                    )}
                     <Box sx={{ minWidth: 0, flex: 1, textAlign: "left" }}>
                         <Typography
                             level="body-xs"
@@ -184,7 +191,7 @@ export const MatchFoundOpponentPreview: React.FC<MatchFoundOpponentPreviewProps>
                         <Typography
                             level="h2"
                             noWrap
-                            title={stats.username}
+                            title={stats?.username}
                             sx={{
                                 mt: 0.2,
                                 color: hocColors.parchment,
@@ -192,14 +199,33 @@ export const MatchFoundOpponentPreview: React.FC<MatchFoundOpponentPreviewProps>
                                 lineHeight: 1.05,
                             }}
                         >
-                            {stats.username}
+                            {stats?.username ??
+                                (loading ? (
+                                    <Skeleton animation={false} variant="text" sx={dossierSkeletonSx} />
+                                ) : (
+                                    t("Opponent profile unavailable")
+                                ))}
                         </Typography>
-                        <Typography level="body-sm" sx={{ mt: 0.35, color: hocColors.gold, fontWeight: 700 }}>
-                            {standing}
+                        <Typography level="body-sm" noWrap sx={{ mt: 0.35, color: hocColors.gold, fontWeight: 700 }}>
+                            {stats ? (
+                                standing
+                            ) : loading ? (
+                                <Skeleton animation={false} variant="text" width="70%" sx={dossierSkeletonSx} />
+                            ) : (
+                                "—"
+                            )}
                         </Typography>
-                        <Typography level="body-xs" sx={{ mt: 0.45, color: hocColors.muted }}>
-                            {number.format(whole(stats.totalGames))} {t("Ranked games")} ·{" "}
-                            {winRate.toFixed(1).replace(/\.0$/, "")}% {t("Win rate").toLowerCase()}
+                        <Typography level="body-xs" noWrap sx={{ mt: 0.45, color: hocColors.muted }}>
+                            {stats ? (
+                                <>
+                                    {number.format(whole(stats.totalGames))} {t("Ranked games")} ·{" "}
+                                    {winRate.toFixed(1).replace(/\.0$/, "")}% {t("Win rate").toLowerCase()}
+                                </>
+                            ) : loading ? (
+                                <Skeleton animation={false} variant="text" width="80%" sx={dossierSkeletonSx} />
+                            ) : (
+                                "—"
+                            )}
                         </Typography>
                     </Box>
                 </Stack>
@@ -214,38 +240,48 @@ export const MatchFoundOpponentPreview: React.FC<MatchFoundOpponentPreviewProps>
                     }}
                 >
                     <MatchMetric label={t("Rank")}>
-                        <Typography level="title-lg" sx={{ color: hocColors.parchment, fontWeight: 800 }}>
-                            {placed && leaderboardRank > 0 ? `#${number.format(leaderboardRank)}` : "—"}
-                        </Typography>
+                        {metric(
+                            <Typography level="title-lg" sx={{ color: hocColors.parchment, fontWeight: 800 }}>
+                                {placed && leaderboardRank > 0 ? `#${number.format(leaderboardRank)}` : "—"}
+                            </Typography>,
+                        )}
                     </MatchMetric>
                     <MatchMetric label={`${t("Rating")} · MMR`}>
-                        <Typography level="title-lg" sx={{ color: hocColors.parchment, fontWeight: 800 }}>
-                            {placed ? number.format(whole(stats.mmr)) : t("Hidden")}
-                        </Typography>
+                        {metric(
+                            <Typography level="title-lg" sx={{ color: hocColors.parchment, fontWeight: 800 }}>
+                                {placed ? number.format(whole(stats?.mmr)) : t("Hidden")}
+                            </Typography>,
+                        )}
                     </MatchMetric>
                     <MatchMetric label={t(currency.name)}>
-                        <Stack direction="row" spacing={0.5} alignItems="center" justifyContent={{ sm: "center" }}>
-                            <CurrencyIcon iconSvg={currency.iconSvg} prominent size={23} />
-                            <Typography level="title-lg" sx={{ color: hocColors.parchment, fontWeight: 800 }}>
-                                {number.format(whole(stats.gold))}
-                            </Typography>
-                            <Typography level="body-xs" sx={{ color: hocColors.gold, fontWeight: 800 }}>
-                                {currency.symbol}
-                            </Typography>
-                        </Stack>
+                        {metric(
+                            <Stack direction="row" spacing={0.5} alignItems="center" justifyContent={{ sm: "center" }}>
+                                <CurrencyIcon iconSvg={currency.iconSvg} prominent size={23} />
+                                <Typography level="title-lg" sx={{ color: hocColors.parchment, fontWeight: 800 }}>
+                                    {number.format(whole(stats?.gold))}
+                                </Typography>
+                                <Typography level="body-xs" sx={{ color: hocColors.gold, fontWeight: 800 }}>
+                                    {currency.symbol}
+                                </Typography>
+                            </Stack>,
+                        )}
                     </MatchMetric>
                     <MatchMetric label={`${t("Record")} · W–L–D`}>
-                        <Typography level="title-lg" sx={{ color: hocColors.parchment, fontWeight: 800 }}>
-                            {wins}–{losses}–{draws}
-                        </Typography>
+                        {metric(
+                            <Typography level="title-lg" sx={{ color: hocColors.parchment, fontWeight: 800 }}>
+                                {wins}–{losses}–{draws}
+                            </Typography>,
+                        )}
                     </MatchMetric>
                     <MatchMetric label={t("Win rate")}>
-                        <Typography level="title-lg" sx={{ color: hocColors.parchment, fontWeight: 800 }}>
-                            {winRate.toFixed(1).replace(/\.0$/, "")}%
-                        </Typography>
+                        {metric(
+                            <Typography level="title-lg" sx={{ color: hocColors.parchment, fontWeight: 800 }}>
+                                {winRate.toFixed(1).replace(/\.0$/, "")}%
+                            </Typography>,
+                        )}
                     </MatchMetric>
                 </Box>
             </Box>
         </Sheet>
     );
-};
+});

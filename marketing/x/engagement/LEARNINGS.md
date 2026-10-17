@@ -11,3 +11,8 @@ Started 2026-10-14. Baseline week: 15-21 Oct.
 
 - First 24h windows filled: pin (evening story-pin + image) 50 views / ER 0.06; queue (morning tactics-calendar + still) 16 views / ER 0.0625; origin (midday story-origin, text-only) 20 views / ER 0.10. Absolute reach still favors the pin; ER leader is midday origin (own-link reply inflates ER on queue/origin — pin's reply is external follow-back). North star still 0 tactics replies across all three.
 - Lesson: Midday text-only story beat evening pin and morning image tactics on 24h ER, but pin still leads views and no tactics replies yet — keep the three-slot cadence until the north star moves.
+
+## 2026-10-17 (daily)
+
+- Three new 24h windows: Chaos (evening tactics-calendar, text-only) 14 views / ER 0.0714; Edge (morning tactics-calendar, text-only) 14 views / ER 0.0714; board-flash (midday story-devdiary, text-only) 10 views / ER 0.10. Pin still leads views (50 at 24h); midday story posts (origin + board-flash) share the ER lead at 0.10. Life (~16.7h) and Through Shot (~2.7h) still too young. North star still 0 tactics replies / 0 token across all scored posts.
+- Lesson: Midday text-only story beat morning and evening text-only tactics on 24h ER again (0.10 vs 0.0714); Chaos and Edge matched each other on views and ER, so slot alone among tactics posts is not differentiating yet. Keep the three-slot cadence until tactics replies appear.

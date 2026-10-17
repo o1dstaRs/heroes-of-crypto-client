@@ -151,3 +151,17 @@ Official game/studio posts in window (posted time PT, public metrics at read tim
 Thread open vs peak (this run only): Friday morning was quiet for the big Western strategy accounts compared with Thursday. Hearthstone again posted on the hour (10:00 AM) plus an unscheduled balance note at 11:29 AM that drew 5 replies within about 12 minutes, the fastest open of the day. That matches the pattern that balance and ban posts open fastest. FE Heroes' midnight PT drop kept climbing slowly through the morning (12 to 14 replies).
 
 Recommendation: still not enough data for a firm window (eight runs, three days). Signal holds: replies arrive mostly in the first 2–4 hours, balance/patch posts open fastest, and late morning PT (10 AM–noon) is when the Friday threads opened. Keep logging.
+
+## Sat 17 Oct 2026, 9:37 AM PT (daily engagement review)
+
+Own-account 24h snapshots filled today:
+- Chaos https://x.com/Heroes0fcrypto/status/2110882073452167680 posted Thu 4:54 PM PT (~40.7h): 14 impressions, 0 likes, reply_count 1 = own link-reply, ER 0.0714
+- Edge https://x.com/Heroes0fcrypto/status/2111094220920643925 posted Fri 6:57 AM PT (~26.7h): 14 impressions, 0 likes, reply_count 1 = own link-reply, ER 0.0714
+- Board-flash https://x.com/Heroes0fcrypto/status/2111168270522822947 posted Fri 11:51 AM PT (~21.8h): 10 impressions, 0 likes, reply_count 1 = own link-reply, ER 0.10
+- Life (~16.7h) and Through Shot (~2.7h) still below the 20h floor; no 7d yet (pin ~61.5h, needs 6–10 days)
+
+Slot check: Fri 16 Oct all three slots (6:48 / 11:48 / 4:48) posted with URLs — no failures. Sat 6:48 Through Shot already posted; 11:48 and 4:48 still queued (normal at 9:37 AM).
+
+Audience timing: own sample now has six scored posts; midday story slots lead ER, morning/evening tactics match each other. Still zero external tactics replies, so no slot change recommended.
+
+Recommendation: keep current slots (6:48 / 11:48 / 4:48). First 7d window for the pin opens around Wed 21 Oct evening.

@@ -8,7 +8,7 @@ import { CreatureVals } from "@heroesofcrypto/common/src/generated/protobuf/v1/e
 import { ToFactionName } from "@heroesofcrypto/common/src/factions/faction_type";
 
 import { portraitArtUrl, UNKNOWN_CREATURE_PORTRAIT } from "./portrait";
-import { factionColors, type FactionName } from "./units-data";
+import { factionColors, type FactionName } from "./factions";
 
 // Same slug rule the unit catalog uses so image paths line up (lowercase, non-alnum -> "_").
 const slugify = (name: string): string =>

@@ -1061,7 +1061,7 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
 
         <div class="rules-showcase" aria-label={copy.heroLabel}>
             <figure class="rules-board-shot rules-hero-board">
-                <img src={rulesCombatImage} alt={rulesVisuals.combatAlt} width="1920" height="947" loading="eager" />
+                <img src={rulesCombatImage} alt={rulesVisuals.combatAlt} width="1920" height="947" loading="lazy" />
                 <figcaption class="rules-capture-caption">
                     <span class="rules-capture-kicker"><i aria-hidden="true"></i>{rulesVisuals.liveBadge}</span>
                     <span>{rulesVisuals.combatCaption}</span>
@@ -1121,7 +1121,7 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
                 <p>{copy.loopIntro}</p>
             </div>
             {embedded && <figure class="rules-game-capture rules-game-capture-wide">
-                <img src={rulesCombatImage} alt={rulesVisuals.combatAlt} width="1920" height="947" loading="eager" />
+                <img src={rulesCombatImage} alt={rulesVisuals.combatAlt} width="1920" height="947" loading="lazy" />
                 <figcaption class="rules-capture-caption">
                     <span class="rules-capture-kicker"><i aria-hidden="true"></i>{rulesVisuals.liveBadge}</span>
                     <span>{rulesVisuals.combatCaption}</span>
