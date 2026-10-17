@@ -94,6 +94,7 @@ for (const file of files) {
 // Use the existing portrait WebP recipe for reachable production atlases too. Encode before hashing
 // the URLs, retain exact alpha/canvas geometry, and never recompress an already-lossy sheet.
 if (productionBuild && !testAssets) {
+    await require("../src/build/verifySidebarPortraitPages.ts").verifySidebarPortraitPages(imageDir);
     require("./verify_animation_release.ts").verifyProductionImageSources(
         entries.filter((entry) => !entry.productionOmitted).map((entry) => entry.file),
     );

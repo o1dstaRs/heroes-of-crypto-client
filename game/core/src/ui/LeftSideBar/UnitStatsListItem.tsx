@@ -63,6 +63,7 @@ import { areUnitStatsPropsEqual, getSidebarRangedStats, type UnitStatsListItemPr
 import { getDefaultAnimationConfig, isAtlasReady, type SidebarAtlasMeta, warmAtlas } from "./unitAtlas";
 import { getDecodedImage } from "../decodedImageCache";
 import { playSidebarAtlas } from "./sidebarAtlasCanvas";
+import { playPagedSidebarAtlas } from "./pagedSidebarAtlasCanvas";
 import { stonePlateSx } from "./stonePlateStyles";
 import { hocDisplayFontFamily } from "../hocTheme";
 import { selectedUnitNamePlaqueBackground } from "./namePlaqueColor";
@@ -260,7 +261,7 @@ const SidebarPortraitAnimation = ({
     onLoaded: () => void;
     playback: "ping-pong" | "loop";
 }) => {
-    const [ready, setReady] = useState(() => isAtlasReady(config.src));
+    const [ready, setReady] = useState(() => !config.pages && isAtlasReady(config.src));
     const markLoaded = useCallback(() => {
         setReady(true);
         onLoaded();
@@ -280,17 +281,72 @@ const SidebarPortraitAnimation = ({
                     pointerEvents: "none",
                 }}
             >
-                <AtlasAnimation
-                    meta={config.meta}
-                    src={config.src}
-                    onLoaded={markLoaded}
-                    maxHeight={maxHeight}
-                    playback={playback}
-                    fillHeight
-                    uniformScale={LEFT_SIDEBAR_ART_SCALE}
-                />
+                {config.pages ? (
+                    <PagedPortraitCanvas config={config} playback={playback} onLoaded={markLoaded} />
+                ) : (
+                    <AtlasAnimation
+                        meta={config.meta}
+                        src={config.src}
+                        onLoaded={markLoaded}
+                        maxHeight={maxHeight}
+                        playback={playback}
+                        fillHeight
+                        uniformScale={LEFT_SIDEBAR_ART_SCALE}
+                    />
+                )}
             </Box>
         </>
+    );
+};
+
+const PagedPortraitCanvas = ({
+    config,
+    playback,
+    onLoaded,
+}: {
+    config: Readonly<LeftSidebarPortraitAnimation>;
+    playback: "ping-pong" | "loop";
+    onLoaded: () => void;
+}) => {
+    const canvas = React.useRef<HTMLCanvasElement>(null);
+    const ready = React.useRef(onLoaded);
+    React.useLayoutEffect(() => {
+        ready.current = onLoaded;
+    }, [onLoaded]);
+    React.useLayoutEffect(() => {
+        if (!canvas.current || !config.pages) return;
+        const { meta } = config;
+        const timing =
+            playback === "ping-pong"
+                ? buildAtlasPingPongTiming(meta)
+                : { frameForElapsed: (elapsed: number) => Math.floor(elapsed / (1000 / meta.fps)) % meta.frameCount };
+        return playPagedSidebarAtlas(
+            canvas.current,
+            { frameWidth: meta.frameWidth, frameHeight: meta.frameHeight, fps: meta.fps, pages: config.pages },
+            timing,
+            () => ready.current(),
+        );
+    }, [config, playback]);
+    return (
+        <Box
+            sx={{
+                position: "relative",
+                height: "100%",
+                maxWidth: "100%",
+                aspectRatio: `${config.meta.frameWidth} / ${config.meta.frameHeight}`,
+                transform: `scale(${LEFT_SIDEBAR_ART_SCALE})`,
+                transformOrigin: "center",
+            }}
+        >
+            <Box
+                component="canvas"
+                ref={canvas}
+                aria-hidden
+                data-sidebar-atlas={config.src}
+                data-sidebar-pages={config.pages?.length}
+                sx={{ position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: 5 }}
+            />
+        </Box>
     );
 };
 
@@ -1343,6 +1399,7 @@ const SelectedUnitPortrait = React.memo(function SelectedUnitPortrait({
     const portraitBaseScale = sidebarPortraitArt.baseScale;
     const portraitAtlasSource = portraitAnimationConfig?.src;
     const portraitAtlasMeta = portraitAnimationConfig?.meta;
+    const portraitPages = portraitAnimationConfig?.pages;
     const portraitPlayback = ["Arbalester", "Squire", "Blacksmith"].includes(portraitAlt) ? "loop" : "ping-pong";
     // Live stat/impact changes keep the complete mounted portrait intact. Only its actual source,
     // authored framing, animation, or responsive size needs to reconcile this image-heavy subtree.
@@ -1371,7 +1428,11 @@ const SelectedUnitPortrait = React.memo(function SelectedUnitPortrait({
                                   <SidebarPortraitAnimation
                                       key={portraitAtlasSource}
                                       art={art}
-                                      config={{ src: portraitAtlasSource!, meta: portraitAtlasMeta }}
+                                      config={{
+                                          src: portraitAtlasSource!,
+                                          meta: portraitAtlasMeta,
+                                          pages: portraitPages,
+                                      }}
                                       onLoaded={onImageLoaded}
                                       maxHeight={portraitHeight}
                                       playback={portraitPlayback}
@@ -1394,6 +1455,7 @@ const SelectedUnitPortrait = React.memo(function SelectedUnitPortrait({
             portraitBaseScale,
             portraitAtlasSource,
             portraitAtlasMeta,
+            portraitPages,
             portraitHeight,
             portraitPlayback,
             onImageLoaded,

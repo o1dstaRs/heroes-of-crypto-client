@@ -424,6 +424,29 @@ describe("pixi texture bundle split", () => {
         }
     });
 
+    test("paged and integrated Arbalester portraits never enter a global Pixi preload bundle", () => {
+        const keys = [
+            "arbalester_v8_atlas",
+            "arbalester_v8_page_00_atlas",
+            "arbalester_v8_page_19_atlas",
+            "blacksmith_left_screen_idle_page_00_atlas",
+        ];
+        for (const key of keys) {
+            expect(isDeferredReactUiAssetKey(key), key).toBe(true);
+            expect(isCoreTextureAssetKey(key), key).toBe(false);
+            if (key.includes("_page_")) expect(isProductionOmittedAssetKey(key), key).toBe(false);
+        }
+        const split = getSplitBundles();
+        for (const key of Object.keys(images).filter((key) =>
+            /_left_screen_.*_page_\d{2}_atlas$|^arbalester_v8_page_\d{2}_atlas$/.test(key),
+        )) {
+            expect(split.deferredReactUiAssets[key]?.src, key).toBe((images as Record<string, string>)[key]);
+            expect(split.core[key], key).toBeUndefined();
+            expect(split.idleAtlases[key], key).toBeUndefined();
+            expect(split.animations[key], key).toBeUndefined();
+        }
+    });
+
     test("keeps only live environment variants in core and lets the fire pit load on demand", () => {
         const { core } = getSplitBundles({ animationsEnabled: false });
         const deferred = [

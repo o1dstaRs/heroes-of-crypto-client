@@ -78,6 +78,9 @@ export function getDecodedImage(src: string): PortraitImageStub | undefined {
     return retained.get(src);
 }
 
+/** Optional animation pages yield to the selected still portrait's critical pair. */
+export const isPortraitForegroundDecodePending = (): boolean => foreground.size > 0;
+
 export function pinDecodedImages(srcs: Array<string | undefined>): void {
     pinned.clear();
     for (const src of srcs) {

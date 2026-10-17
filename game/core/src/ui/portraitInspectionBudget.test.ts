@@ -65,7 +65,7 @@ test("a 100-frame portrait sheet is released when it leaves the screen, even bel
     expect(isDecodedImageReady("current-sheet")).toBe(false);
 });
 
-test("selecting Arbalester warms the same integrated atlas painted by its sidebar portrait", async () => {
+test("selecting Arbalester prepares its still without starting an optional animation download", async () => {
     const requested: string[] = [];
     installPortraitImageFactoryForTests(() => ({
         decoding: "",
@@ -84,11 +84,12 @@ test("selecting Arbalester warms the same integrated atlas painted by its sideba
     expect(await warmLeftSidebarPortrait(CreatureVals.ARBALESTER)).toBe(true);
     const displayedAtlas = resolveIntegratedArbalesterPortrait(CreatureVals.ARBALESTER, null)!.src;
     const supersededAtlas = resolveLeftSidebarPortraitAnimation(CreatureVals.ARBALESTER)!.src;
-    expect(requested).toContain(displayedAtlas);
+    expect(requested).not.toContain(displayedAtlas);
+    expect(requested).not.toContain(leftSidebarPortraitSources(CreatureVals.ARBALESTER).atlas!);
     expect(requested).not.toContain(supersededAtlas);
 });
 
-test("the displayed Arbalester atlas stays decoded until another sidebar portrait replaces it", async () => {
+test("an explicitly pinned legacy Arbalester fallback stays decoded until the next portrait", async () => {
     installPortraitImageFactoryForTests(() => ({
         decoding: "",
         naturalWidth: 5720,
@@ -99,7 +100,7 @@ test("the displayed Arbalester atlas stays decoded until another sidebar portrai
         decode: () => Promise.resolve(),
     }));
     const displayedAtlas = resolveIntegratedArbalesterPortrait(CreatureVals.ARBALESTER, null)!.src;
-    pinLeftSidebarPortrait(CreatureVals.ARBALESTER);
+    pinDecodedImages([displayedAtlas]);
     expect(await warmDecodedImage(displayedAtlas)).toBe(true);
     expect(isDecodedImageReady(displayedAtlas)).toBe(true);
     pinLeftSidebarPortrait(CreatureVals.PEASANT);

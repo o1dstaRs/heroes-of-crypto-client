@@ -66,6 +66,7 @@ const fixture = (name: string, completed = true, authoritative = false) => {
     } as unknown as PixiRenderableSpell;
     const caster = {
         getId: () => "caster",
+        getName: () => "Behemoth",
         getAmountAlive: () => 10,
         hasAnimationState: () => true,
         playOneShotAnimation: mock(() => undefined),
@@ -82,6 +83,8 @@ const fixture = (name: string, completed = true, authoritative = false) => {
         submit,
         spawnBattleRoarPop,
         spawnCommonFlagPop,
+        units,
+        events,
     };
 };
 
@@ -107,6 +110,28 @@ test.each(cases)(
         expect(f.resisted.flashBuffApplied).not.toHaveBeenCalled();
     },
 );
+
+test("manual Battle Roar keeps the Behemoth cast and shows its buff over different allied creatures", () => {
+    const f = fixture("Battle Roar");
+    const allies = ["Peasant", "Blacksmith"].map((name) => ({
+        getName: () => name,
+        isDead: () => false,
+        flashBuffApplied: mock(() => undefined),
+    }));
+    const event = f.events[0];
+    if (event.type !== "effects_applied") throw new Error("Expected confirmed applications");
+    for (const ally of allies) {
+        f.units.set(ally.getName(), ally);
+        event.applications.push({ unitId: ally.getName(), name: "Battle Roar", kind: "buff" });
+    }
+    f.scene.castMassOrSummonSpell(f.spell, f.caster);
+    expect(f.caster.playOneShotAnimation).toHaveBeenCalledWith("cast");
+    expect(f.spawnBattleRoarPop).toHaveBeenCalledTimes(3);
+    for (const ally of allies) {
+        expect(f.spawnBattleRoarPop).toHaveBeenCalledWith(ally);
+        expect(ally.flashBuffApplied).toHaveBeenCalledTimes(1);
+    }
+});
 
 test.each(cases)("a rejected local $name cast never presents a successful application", ({ name }) => {
     const f = fixture(name, false);

@@ -1057,6 +1057,9 @@ function main() {
             continue;
         }
 
+        // UI streaming pages have their own checked catalog and never become creature animation states.
+        if (json.surface === "left-sidebar-paged") continue;
+
         if (!json.meta) {
             console.warn(`Skipping (no "meta" field): ${file}`);
             continue;

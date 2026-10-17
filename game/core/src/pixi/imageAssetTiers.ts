@@ -390,6 +390,7 @@ export function isDeferredReactUiAssetKey(key: string): boolean {
         /_left_screen_x2(?:_[a-z0-9]+)*$/.test(key) ||
         // Include alternate portrait exports without an idle state, plus reduced-size sheets.
         /_left_screen_(?:[a-z0-9]+_)*atlas(?:_(?:half|quarter))?$/.test(key) ||
+        /^arbalester_v8(?:_page_\d{2})?_atlas$/.test(key) ||
         /_portrait_full(?:_v\d+)?$/.test(key)
     );
 }

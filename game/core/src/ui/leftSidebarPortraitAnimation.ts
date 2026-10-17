@@ -4,10 +4,13 @@ import type { AnimationAtlasMeta } from "../generated/animation_atlases";
 import { images } from "../generated/image_imports";
 import { LEFT_SIDEBAR_PORTRAIT_ATLASES } from "./leftSidebarPortraitAnimationSources";
 import { UNIT_ID_TO_NAME } from "./unit_ui_constants";
+import { resolveSidebarPortraitPages } from "./sidebarPortraitPageSources";
+import type { SidebarPortraitPage } from "./sidebarPortraitPagePool";
 
 export interface LeftSidebarPortraitAnimation {
     src: string;
     meta: AnimationAtlasMeta;
+    pages?: readonly SidebarPortraitPage[];
 }
 
 const PEASANT_LEFT_SCREEN_IDLE: Readonly<LeftSidebarPortraitAnimation> = Object.freeze({
@@ -79,8 +82,29 @@ const animatedPortraitBySlug: Readonly<Record<string, Readonly<LeftSidebarPortra
 export const resolveLeftSidebarPortraitAnimation = (
     creatureId: number,
 ): Readonly<LeftSidebarPortraitAnimation> | null => {
-    if (creatureId === CreatureVals.PEASANT) return PEASANT_LEFT_SCREEN_IDLE;
+    if (creatureId === CreatureVals.PEASANT)
+        return withSidebarPortraitPages(PEASANT_LEFT_SCREEN_IDLE, "peasant_left_screen_idle_atlas.webp");
     const name = UNIT_ID_TO_NAME[creatureId];
     if (!name) return null;
-    return animatedPortraitBySlug[name.toLowerCase().replaceAll(" ", "_")] ?? null;
+    const slug = name.toLowerCase().replaceAll(" ", "_");
+    const animation = animatedPortraitBySlug[slug];
+    return animation ? withSidebarPortraitPages(animation, `${slug}_left_screen_idle_atlas.webp`) : null;
 };
+
+const paged = new WeakMap<Readonly<LeftSidebarPortraitAnimation>, Readonly<LeftSidebarPortraitAnimation>>();
+export function withSidebarPortraitPages(
+    animation: Readonly<LeftSidebarPortraitAnimation>,
+    sourceFile: string,
+): Readonly<LeftSidebarPortraitAnimation> {
+    const cached = paged.get(animation);
+    if (cached) return cached;
+    const pages = resolveSidebarPortraitPages(
+        sourceFile,
+        animation.meta.frameWidth,
+        animation.meta.frameHeight,
+        animation.meta.frameCount,
+    );
+    const result = pages ? Object.freeze({ ...animation, pages }) : animation;
+    paged.set(animation, result);
+    return result;
+}
