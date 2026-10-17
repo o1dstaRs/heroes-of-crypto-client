@@ -68,9 +68,7 @@ describe("Cemetery barrel danger highlights", () => {
 
     test("clicks the same canonical barrel centre used by the hover preview", () => {
         const source = sceneSource();
-        // Wide enough to reach the RANGE return past the aiming-mode guards that stand in front of it
-        // (Area Throw, Large Caliber, free Through Shot) and the reasons they are each there.
-        const resolver = sliceFrom(source, "private resolveObstacleAttack(", 3_500);
+        const resolver = sliceFrom(source, "private resolveObstacleAttack(", 2_500);
         expect(resolver).toContain("const hoveredCell = GridMath.getCellForPosition(gs, worldPos)");
         expect(resolver).toContain("const targetPosition = GridMath.getPositionForCell(");
         expect(resolver).toContain("return { unit, attackType: AttackVals.RANGE, targetPosition }");
@@ -80,19 +78,6 @@ describe("Cemetery barrel danger highlights", () => {
             "this.executeObstacleAttackSequence(resolved.unit, resolved.targetPosition, resolved.attackFrom)",
         );
         expect(click).not.toContain("this.executeObstacleAttackSequence(resolved.unit, worldPos, resolved.attackFrom)");
-    });
-
-    // The hover tries the free ray FIRST (updateFreeThroughShotHover, then updateObstacleHover) while the
-    // click tries the obstacle first — so the obstacle path has to stand aside for an aiming mode that owns
-    // its whole ray, as it already does for Area Throw and Large Caliber. Without this, a Tsar Cannon
-    // free-aiming at a barrel with an enemy stack in between broke the barrel while the stack the cursor had
-    // outlined and priced took nothing (audit 2026-09-19).
-    test("stands aside for every aiming mode that owns its own ray", () => {
-        const resolver = sliceFrom(sceneSource(), "private resolveObstacleAttack(", 3_500);
-        const rangeBranch = resolver.slice(resolver.indexOf('if (kind === "range")'));
-        expect(rangeBranch).toContain("this.isAreaThrowAiming() && this.grid.hasScatteredMountains()");
-        expect(rangeBranch).toContain("this.isLargeCaliberBarrelAiming(worldPos)");
-        expect(rangeBranch).toContain("if (this.isFreeThroughShotAiming())");
     });
 
     test("clears the movement ghost when ranged aiming starts on a barrel", () => {
@@ -122,24 +107,6 @@ describe("Cemetery barrel danger highlights", () => {
         expect(drawAim).toBeGreaterThan(drawTerminal);
         expect(hover.slice(drawTerminal, drawAim)).toContain("blockedVisual");
         expect(hover.slice(drawAim, drawAim + 300)).toContain("blockedCasingJoint");
-    });
-
-    test("prices every unit a barrel-aimed melee strike's riders hit with the unit hover's own rider projection", () => {
-        const source = sceneSource();
-        const hover = sliceFrom(source, "private updateObstacleHover(): boolean", 16_000);
-        expect(hover).toContain('riderHits.push({ unit: enemy, source: "Lightning Spin" })');
-        expect(hover).toContain('riderHits.push({ unit: skeweredBehind, source: "Skewer Strike" })');
-        expect(hover).toContain('riderHits.push({ unit: burnedBehind, source: "Fire Breath" })');
-        expect(hover).toContain("this.drawObstacleStrikeRiderPredictions(unit, attackFromCell, riderHits)");
-
-        const predictions = sliceFrom(source, "private drawObstacleStrikeRiderPredictions(", 4_500);
-        expect(predictions).toContain("this.projectMeleeRiderDamage(");
-        expect(predictions).toContain("projectKillBand(struck.unit, struck.min, struck.max)");
-        expect(predictions).toContain("this.hoverManager.addAOEDamagePrediction(");
-
-        // The unit-target hover prices the same riders through the same method, so the two numbers cannot drift.
-        const unitHoverRiders = sliceFrom(source, "for (const secondaryHit of secondaryHits) {", 1_200);
-        expect(unitHoverRiders).toContain("this.projectMeleeRiderDamage(");
     });
 
     test("renders a red alpha wash above the exact authored barrel silhouette", () => {

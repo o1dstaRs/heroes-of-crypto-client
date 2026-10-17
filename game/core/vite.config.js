@@ -1,9 +1,14 @@
 // game/core/vite.config.ts
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
+import { animationLabProfilePlugin, resolveAnimationProfileDirectory } from "./scripts/animation_lab_profile";
+import { approvedBrowserPreferencesPlugin } from "./scripts/approved_browser_preferences";
 import fs from "node:fs/promises";
 import { realpathSync } from "node:fs";
 import path from "path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const DEV_SHADOW_TUNING_ENDPOINT = "/__hoc-dev/battlefield-shadow-tuning";
 const DEV_SHADOW_TUNING_FILE = path.resolve(__dirname, "tmp/dev/battlefield-shadow-tuning-v8.json");
@@ -178,7 +183,26 @@ export default defineConfig(({ mode }) => {
         envDir: __dirname,
         envPrefix: ["VITE_"],
 
-        plugins: [react(), devShadowTuningPlugin()],
+        plugins: [
+            approvedBrowserPreferencesPlugin(),
+            animationLabProfilePlugin(resolveAnimationProfileDirectory({ ...env, ...process.env })),
+            react(),
+            devShadowTuningPlugin(),
+            {
+                name: "hoc-reload-generated-atlases",
+                // React refresh preserves the scene and Pixi's global bundle registry. Recreate both
+                // when atlas URLs or frame metadata change so old pixels cannot use the new layout.
+                handleHotUpdate({ file, server }) {
+                    if (
+                        file === path.resolve(__dirname, "src/generated/image_imports.ts") ||
+                        file === path.resolve(__dirname, "src/generated/animation_atlases.ts")
+                    ) {
+                        server.ws.send({ type: "full-reload" });
+                        return [];
+                    }
+                },
+            },
+        ],
 
         // Keep app root at UI folder
         root: path.resolve(__dirname, "src/ui"),
@@ -190,19 +214,15 @@ export default defineConfig(({ mode }) => {
                 "@": path.resolve(__dirname, "src"),
                 // point to source of the workspace for live HMR
                 "@heroesofcrypto/common": commonSourceDir,
-                // The A19 search driver imports these. The browser never calls them: audit and dataset
-                // recording are off in the sealed profile. Bun tests resolve the real node modules.
-                "node:fs": path.resolve(__dirname, "src/shims/node-fs.ts"),
-                "node:path": path.resolve(__dirname, "src/shims/node-path.ts"),
-                "node:crypto": path.resolve(__dirname, "src/shims/node-crypto.ts"),
             },
-            // avoid duplicate React from the workspace
-            dedupe: ["react", "react-dom"],
+            // React and Pixi must each share one module instance across the workspace.
+            dedupe: ["react", "react-dom", "pixi.js"],
         },
 
-        // Prebundle `buffer` shim for the browser
+        // Prebundle both Pixi entry points together before serving the lab. With Bun's isolated
+        // dependency layout, serving a raw symlinked Pixi entry can lose its nested dependencies.
         optimizeDeps: {
-            include: ["buffer"],
+            include: ["buffer", "pixi.js", "pixi.js/unsafe-eval"],
         },
 
         // Some third-party code still checks process.env; prevent “process is not defined”
@@ -225,6 +245,7 @@ export default defineConfig(({ mode }) => {
         },
 
         server: {
+            host: "127.0.0.1",
             port: 5173,
             open: true,
             host: true,

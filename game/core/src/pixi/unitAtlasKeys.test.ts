@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 
 import { animationAtlases } from "../generated/animation_atlases";
 import {
-    NON_UNIT_ATLAS_NAMES,
     buildUnitAnimationAtlasKeyClassifier,
     isUnitAnimationAtlasKey,
     isUnitBoardImageKey,
@@ -32,7 +31,23 @@ describe("unit animation atlas key split", () => {
     test("every generated creature state maps to supplementary in all three size variants", () => {
         const units = Object.entries(animationAtlases);
         for (const [unitName, states] of units) {
-            if (NON_UNIT_ATLAS_NAMES.has(unitName)) continue;
+            if (
+                [
+                    "Pick Ban Slash",
+                    "Vfx Arachna Web",
+                    "Vfx Abomination Sand",
+                    "Vfx Abomination Hand",
+                    "Vfx Abomination Dust",
+                    "Vfx Abomination Sand Gust",
+                    "Vfx Battle Roar",
+                    "Vfx Unyielding Power Curl",
+                    "Vfx Deep Wounds Level",
+                    "Vfx Whirlpool",
+                    "Vfx Enchanted Skin",
+                    "Vfx Dulling Defense",
+                ].includes(unitName)
+            )
+                continue;
             const base = unitName.toLowerCase().replace(/\s+/g, "_");
             for (const state of Object.keys(states)) {
                 const key = `${base}_${state.toLowerCase()}_atlas`;
@@ -55,7 +70,25 @@ describe("unit animation atlas key split", () => {
         expect(isUnitAnimationAtlasKey("pick_ban_slash_variant2_atlas")).toBe(false);
     });
 
+    test("Battle Roar effect atlases are not creature animations", () => {
+        for (const variant of ["short", "long"]) {
+            for (const suffix of ["", "_half", "_quarter"]) {
+                expect(isUnitAnimationAtlasKey(`vfx_battle_roar_${variant}_atlas${suffix}`)).toBe(false);
+            }
+        }
+    });
+
+    test("Unyielding Power effects stay available independently of creature animation", () => {
+        for (const variant of ["short", "long"]) {
+            for (const suffix of ["", "_half", "_quarter"]) {
+                expect(isUnitAnimationAtlasKey(`vfx_unyielding_power_curl_${variant}_atlas${suffix}`)).toBe(false);
+            }
+        }
+    });
+
     test("hand-authored creature strips stay with generated unit atlases", () => {
+        expect(isUnitAnimationAtlasKey("arbalester_idle_page_00_atlas")).toBe(true);
+        expect(isUnitAnimationAtlasKey("arbalester_idle_page_21_atlas")).toBe(true);
         expect(isUnitAnimationAtlasKey("orc_idle_axe_twirl_atlas_quarter")).toBe(true);
         expect(isUnitAnimationAtlasKey("thief_idle_battle_cry_atlas_quarter")).toBe(true);
         expect(isUnitAnimationAtlasKey("ash_moth_walk_left_atlas")).toBe(true);

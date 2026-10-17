@@ -417,6 +417,11 @@ export class AIController {
         const controlledTeam = this.context.getToggleAiControlledTeam?.();
         return controlledTeam === undefined || unit.getTeam() === controlledTeam;
     }
+    /** Visual activation state includes the decision delay and in-flight actions. */
+    public isCurrentTurnAutoPlayed(): boolean {
+        const unit = this.context.getCurrentActiveUnit();
+        return !this.destroyed && !!unit && !unit.isDead() && this.shouldAutoPlay(unit);
+    }
     public shouldControlCurrentUnit(): boolean {
         const currentUnit = this.context.getCurrentActiveUnit();
         return !!currentUnit && this.shouldControlUnit(currentUnit);

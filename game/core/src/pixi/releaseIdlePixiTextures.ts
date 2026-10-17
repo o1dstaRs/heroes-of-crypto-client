@@ -1,6 +1,6 @@
 import { releaseIdlePooledTextures } from "./texturePoolRelease";
 
-/** Release unused GPU targets without invalidating textures still borrowed by canvas text. */
+/** Release unused GPU allocations while retaining Pixi's pooled texture/source identities. */
 export function releaseIdlePixiTextures(): void {
     releaseIdlePooledTextures();
 }

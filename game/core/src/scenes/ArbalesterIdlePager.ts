@@ -177,12 +177,18 @@ export class ArbalesterIdlePager {
     public constructor(
         public readonly format: ArbalesterIdlePages,
         private readonly pool = sharedPagePool,
+        private readonly retainShortLoop = false,
     ) {
         let total = 0;
         this.ends = format.durations.map((duration) => (total += duration));
         this.duration = total;
         this.retain(0);
         this.retain(1 % format.pages.length);
+        // Small native loops (Abomination: four pages) must not decode/upload the
+        // same large textures every lap and stall unrelated floor animations.
+        if (this.retainShortLoop && format.pages.length <= 4) {
+            for (let index = 2; index < format.pages.length; index++) this.retain(index);
+        }
     }
     public frameIndex(elapsedMs: number): number {
         const elapsed = Math.max(0, Number.isFinite(elapsedMs) ? elapsedMs : 0) % this.duration;
@@ -209,6 +215,7 @@ export class ArbalesterIdlePager {
             this.displayedPage = pageIndex;
         }
         for (const retained of this.retained) {
+            if (this.retainShortLoop && this.format.pages.length <= 4) continue;
             if (retained === pageIndex || retained === nextIndex || retained === this.displayedPage) continue;
             this.pool.release(this.format.pages[retained], this.owner);
             this.retained.delete(retained);

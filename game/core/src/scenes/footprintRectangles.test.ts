@@ -213,6 +213,7 @@ describe("rectangular footprints on the sandbox interaction surface", () => {
 /** Just enough of the Pixi Graphics chaining API to record what the drawer asked for. */
 const recorder = () => {
     const polygons: number[][] = [];
+    const holes: number[][] = [];
     const graphics = {
         poly(points: number[]) {
             polygons.push([...points]);
@@ -224,8 +225,12 @@ const recorder = () => {
         lineTo: () => graphics,
         stroke: () => graphics,
         fill: () => graphics,
+        cut: () => {
+            holes.push(polygons.at(-1)!);
+            return graphics;
+        },
     };
-    return { graphics, polygons };
+    return { graphics, polygons, holes };
 };
 
 /** The outermost aura sheet — the first thing drawn for a hovered unit's aura, at its full extent. */
@@ -251,6 +256,72 @@ describe("aura squares hug the owner's body", () => {
     const cellSize = gridSettings.getCellSize();
     const xy = { x: 0, y: 0 };
     const extentFor = (side: number) => (range + side / 2) * cellSize - cellSize * 0.055;
+
+    test("every generic buff/debuff excludes its owner's footprint except the spider queen", () => {
+        for (const name of ["Wolf", "Dark Champion", "Arachna Queen"]) {
+            for (const footprint of [
+                { width: 1, height: 1 },
+                { width: 2, height: 2 },
+                { width: 2, height: 1 },
+            ]) {
+                for (const isBuff of [true, false]) {
+                    // The queen's native debuff uses her unchanged sprite renderer.
+                    if (name === "Arachna Queen" && !isBuff) continue;
+                    const floor = recorder();
+                    SandboxDrawer.drawGameplayVisuals(
+                        floor.graphics as never,
+                        {
+                            fightProps: { hasFightStarted: () => true, getLapsNarrowed: () => 0 },
+                            isActiveUnitMoving: false,
+                            gridSettings,
+                            hoverGlowPhase: 0.5,
+                            sc_isAnimating: false,
+                            hoverManager: { drawHoverBattlefieldFootprint: () => undefined },
+                            hoveredAuraRanges: {
+                                xy,
+                                auraRanges: [{ range, isBuff }],
+                                footprint,
+                                auraOwner: { name, id: name },
+                            },
+                            auraFloorGraphics: floor.graphics,
+                        } as unknown as IGameplayDrawContext,
+                    );
+                    expect(floor.holes).toHaveLength(name === "Arachna Queen" ? 0 : 5);
+                    for (const hole of floor.holes)
+                        expect(hole).toEqual(
+                            projectedRectPoints(
+                                xy.x - (footprint.width * cellSize) / 2,
+                                xy.y - (footprint.height * cellSize) / 2,
+                                xy.x + (footprint.width * cellSize) / 2,
+                                xy.y + (footprint.height * cellSize) / 2,
+                                gridSettings,
+                            ),
+                        );
+                }
+            }
+        }
+    });
+
+    test("generic aura fills and travelling waves use the floor instead of the targeting overlay", () => {
+        const overlay = recorder();
+        const floor = recorder();
+        SandboxDrawer.drawGameplayVisuals(
+            overlay.graphics as never,
+            {
+                fightProps: { hasFightStarted: () => true, getLapsNarrowed: () => 0 },
+                isActiveUnitMoving: false,
+                gridSettings,
+                hoverGlowPhase: 0,
+                sc_isAnimating: false,
+                hoverManager: { drawHoverBattlefieldFootprint: () => undefined },
+                hoveredAuraRanges: { xy, auraRanges: [{ range, isBuff: true }], footprint: { width: 2, height: 2 } },
+                auraFloorGraphics: floor.graphics,
+            } as unknown as IGameplayDrawContext,
+        );
+        expect(overlay.polygons).toHaveLength(0);
+        expect(floor.holes).toHaveLength(5);
+        expect(floor.polygons.length).toBeGreaterThan(10);
+    });
 
     test("a square body draws exactly the square it always did", () => {
         for (const side of [1, 2]) {

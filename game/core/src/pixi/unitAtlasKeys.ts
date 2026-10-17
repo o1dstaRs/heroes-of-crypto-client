@@ -14,14 +14,37 @@ type AnimationAtlasIndex = Readonly<Record<string, Readonly<Record<string, unkno
 
 // The generated atlas metadata also carries a small draft UI animation. It shares the same file
 // shape as creature atlases but must remain a normal React-owned asset, including in production.
-// Entries of the generated atlas index that are not creatures on the board: draft UI art, battlefield
-// VFX, and the React left-sidebar portrait. They must never be routed as unit board/animation assets.
-export const NON_UNIT_ATLAS_NAMES = new Set([
+const NON_UNIT_ATLAS_NAMES = new Set([
+    "Vfx Paralysis",
+    "Vfx Unicorn One In The Field",
+    "Vfx Unicorn Blindness",
+    "Vfx Absolving Arrow",
+    "Vfx Borrowed Grace",
     "Pick Ban Slash",
-    "Lava Chasm Glow Level",
-    "Magic Aim Dual Helix",
-    "Peasant Left Screen",
-    ...Object.keys(animationAtlases).filter((name) => /^(Fire Pit|Lava Chasm)/.test(name)),
+    "Vfx Arachna Web",
+    "Vfx Abomination Sand",
+    "Vfx Abomination Hand",
+    "Vfx Abomination Dust",
+    "Vfx Abomination Sand Gust",
+    "Vfx Battle Roar",
+    "Vfx Predatory Assimilation",
+    "Vfx Arachna Infest",
+    "Vfx Arachna Infest Spider",
+    "Vfx Arachna Infest Queen",
+    "Vfx Unyielding Power Curl",
+    "Vfx Angel Resurrection",
+    "Vfx Deep Wounds Level",
+    "Vfx Boar Saliva",
+    "Vfx Devour Essence",
+    "Vfx Ai Turn Brain",
+    "Vfx Thunderbird Chain",
+    "Vfx Whirlpool",
+    "Vfx Ring Fire",
+    "Vfx Meteor Shower",
+    "Vfx Magic Reflection",
+    "Vfx Enchanted Skin",
+    "Vfx Empower",
+    "Vfx Dulling Defense",
 ]);
 
 /**
@@ -120,6 +143,7 @@ const specialUnitAnimationAtlasBases = new Set([
 
 export const isUnitAnimationAtlasKey = (key: string): boolean =>
     /^arbalester_idle_page_\d{2}_atlas$/.test(key) ||
-    (key !== "peasant_left_screen_idle_atlas" &&
-        (generatedUnitAnimationAtlasKey(key) ||
-            specialUnitAnimationAtlasBases.has(key.replace(/_(?:quarter|half)$/, ""))));
+    generatedUnitAnimationAtlasKey(key) ||
+    specialUnitAnimationAtlasBases.has(key.replace(/_(?:quarter|half)$/, ""));
+
+export { NON_UNIT_ATLAS_NAMES };

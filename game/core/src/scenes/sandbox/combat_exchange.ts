@@ -7,8 +7,9 @@ export interface CombatExchangeStrike {
     lethal: boolean;
     response: boolean;
     hitIndex: number;
-    missed?: boolean;
     position?: { x: number; y: number };
+
+    missed?: boolean;
 }
 
 /** Separate blows, with one retaliation between them. A dying responder acts before the fatal blow. */

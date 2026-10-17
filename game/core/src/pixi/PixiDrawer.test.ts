@@ -4,6 +4,7 @@ import { Application, Container } from "pixi.js";
 import { Grid } from "@heroesofcrypto/common";
 
 import { PixiDrawer } from "./PixiDrawer";
+import { FLOOR_AURA_Z_INDEX } from "./floorAuraLayer";
 
 describe("PixiDrawer idle update", () => {
     test("clears the retired flying path without replacing its array every frame", () => {
@@ -35,6 +36,16 @@ describe("PixiDrawer idle update", () => {
             }),
         } as unknown as Grid;
         const drawer = new PixiDrawer(grid, { stage: root } as Application, root);
+        const layers = drawer as unknown as {
+            auraGfx: Container;
+            terrainContainerBack: Container;
+            terrainContainerFront: Container;
+        };
+        expect(layers.auraGfx.parent).toBe(root);
+        expect(layers.auraGfx.zIndex).toBe(FLOOR_AURA_Z_INDEX);
+        expect(layers.auraGfx.zIndex).toBeGreaterThan(layers.terrainContainerBack.zIndex);
+        expect(layers.auraGfx.zIndex).toBeLessThan(layers.terrainContainerFront.zIndex);
+        expect(layers.auraGfx.zIndex).toBeLessThan(drawer.getUnitsContainer().zIndex);
         const interactionContainer = (
             drawer as unknown as {
                 interactionContainer: Container;
@@ -46,6 +57,7 @@ describe("PixiDrawer idle update", () => {
 
         expect(interactionContainer.destroyed).toBeTrue();
         expect(interactionContainer.parent).toBeNull();
+        expect(layers.auraGfx.destroyed).toBeTrue();
         expect(root.children).toHaveLength(0);
         root.destroy();
     });

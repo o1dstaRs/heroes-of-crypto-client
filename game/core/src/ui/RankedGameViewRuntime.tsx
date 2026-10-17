@@ -1,3 +1,4 @@
+import { useBoardMirrored } from "./useBoardMirrored";
 import { PremiumSetupPanel } from "./premium/PremiumAdvisor";
 import { PremiumSearchSlot } from "./premium/PremiumSearch";
 import { PremiumFightOverlay } from "./premium/PremiumFightOverlay";
@@ -114,12 +115,10 @@ import { UpNextOverlay } from "./UpNextOverlay";
 import { SeatAiControlNotice, aiBadgeLeft } from "./AiControlBadge";
 import { NextLapHazardBadge } from "./NextLapHazardBadge";
 import { ExitReplayBadge } from "./ExitReplayBadge";
-import { registerBattleSystemControls } from "./social/systemControlsMode";
 import { CreaturePortraitImage } from "./CreaturePortraitImage";
 import { UNIT_ID_TO_NAME } from "./unit_ui_constants";
 import { ButtonProvider } from "./context/ButtonContext";
 import { GameCornerExitButton, GameCornerSlot } from "./GameCornerExit";
-import { useBoardMirrored } from "./useBoardMirrored";
 import { startVisibleInterval } from "./visibleInterval";
 import { isOlderRankedSnapshot, waitForRankedPlayback } from "./rankedSnapshotSync";
 import { eventStreamRetryDelayMs } from "./eventStreamRetry";
@@ -970,14 +969,10 @@ export const RankedGameView: React.FC<Props> = ({
         [aiSeatPlayerId, connectionBySeat, snapshot, vsAiOpponentLabel],
     );
 
-    // Placement and combat share the compact top-right system-controls medallion. Publishing the whole
-    // ranked-board lifetime (rather than only the first combat turn) removes the three loose bottom-right
-    // social buttons during placement too.
-    useEffect(registerBattleSystemControls, []);
-
-    // "Iron and Silk" runs for the whole match: on through placement and the fight, off for a replay. Until the
-    // first snapshot arrives this view leaves the flag as the draft left it, so the track plays straight through
-    // the handoff instead of cutting out and restarting (see boardViewPrefightMusic).
+    // "Iron and Silk" runs from the match being found until the first turn. The route hands the flag over
+    // once the board is up; from here it is simply "we have a board and the fight has not started", which is
+    // placement. It goes quiet the moment the fight begins, and a replay never plays it — the outcome is
+    // already decided, so there is no tension to score.
     useEffect(() => {
         const next = boardViewPrefightMusic({ replayOnly, hasSnapshot });
         if (next !== undefined) {
@@ -3308,7 +3303,6 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     onStopWatching,
     exitStanding,
     vsAi = false,
-    allowPlacementExit = false,
 }) => {
     const navigate = useNavigate();
     const [confirmExitOpen, setConfirmExitOpen] = useState(false);
@@ -3502,11 +3496,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
         return (
             <>
                 <GameCornerSlot>
-                    <GameCornerExitButton
-                        disabled={busy}
-                        label={t("Exit fight")}
-                        onClick={() => setConfirmExitOpen(true)}
-                    />
+                    <GameCornerExitButton disabled={busy} onClick={() => setConfirmExitOpen(true)} />
                 </GameCornerSlot>
                 {confirmExitModal}
             </>
@@ -3948,13 +3938,11 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                     </Alert>
                 )}
 
-                {allowPlacementExit && !isObserver && !replayOnly && snapshot.phase === PlayPhase.PLACEMENT && (
+                {/* Setup carries the same corner exit as combat — the confirmation dialog below was
+                    already mounted here with nothing able to open it. */}
+                {!isObserver && (
                     <GameCornerSlot>
-                        <GameCornerExitButton
-                            disabled={busy}
-                            label={t("Leave match")}
-                            onClick={() => setConfirmExitOpen(true)}
-                        />
+                        <GameCornerExitButton disabled={busy} onClick={() => setConfirmExitOpen(true)} />
                     </GameCornerSlot>
                 )}
                 {confirmExitModal}

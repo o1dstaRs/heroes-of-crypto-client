@@ -54,7 +54,6 @@ beforeAll(() => {
             cookie: "",
             createElement: () => ({ getContext: () => null, setAttribute: () => {} }),
             querySelector: () => null,
-            querySelectorAll: () => [],
         };
     CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
     CREATURE_SPRITE_ANIMATION_SETTINGS.approvedBaseEnabled = false;
@@ -301,7 +300,7 @@ test("limb correction follows takeoff/contact poses and is isolated between spri
 
 test("flight reference is the actual factory-selected battlefield idle", async () => {
     const { staticBattlefieldTextureNameForUnit } = await import("../pixi/PixiUnitsFactory");
-    expect(VALKYRIE_LAB_SOURCE_TEXTURE).toBe(staticBattlefieldTextureNameForUnit("Valkyrie")!);
+    expect<unknown>(VALKYRIE_LAB_SOURCE_TEXTURE).toBe(staticBattlefieldTextureNameForUnit("Valkyrie"));
     expect(VALKYRIE_LAB_SOURCE_TEXTURE).not.toBe("valkyrie_final");
     expect(make().unit.getAnimationTextureKey("idle")).toBe(VALKYRIE_LAB_SOURCE_TEXTURE);
 });

@@ -1,3 +1,12 @@
+import { type LeftSidebarPortraitAnimation } from "../leftSidebarPortraitAnimation";
+import {
+    displayedSidebarCreatureId,
+    clearLeftSidebarPortraitSelection,
+    isLeftSidebarPortraitReady,
+    pinLeftSidebarPortrait,
+    warmLeftSidebarPortrait,
+} from "../leftSidebarPortraitWarm";
+import { UNIT_ID_TO_NAME } from "../unit_ui_constants";
 import {
     HoCConstants,
     UnitProperties,
@@ -35,18 +44,9 @@ import {
     type LeftSidebarPortraitTuning,
 } from "../leftSidebarPortraitTuning";
 import { resolveLeftSidebarPortraitArt } from "../leftSidebarPortraitArt";
-import {
-    resolveLeftSidebarPortraitAnimation,
-    type LeftSidebarPortraitAnimation,
-} from "../leftSidebarPortraitAnimation";
-import {
-    displayedSidebarCreatureId,
-    clearLeftSidebarPortraitSelection,
-    isLeftSidebarPortraitReady,
-    pinLeftSidebarPortrait,
-    warmLeftSidebarPortrait,
-} from "../leftSidebarPortraitWarm";
-import { UNIT_ID_TO_NAME, UNIT_NAME_TO_ID } from "../unit_ui_constants";
+import { resolveLeftSidebarPortraitAnimation } from "../leftSidebarPortraitAnimation";
+import { resolveIntegratedArbalesterPortrait } from "../integratedArbalesterPortrait";
+import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
 import Toggler from "../Toggler";
 import SynergiesRow from "./SynergiesRow";
 import {
@@ -55,7 +55,7 @@ import {
     isAuraRangeSynergy,
     isFlyArmorSynergy,
 } from "./SynergiesConstants";
-import { effectIconsPerLane, effectLaneWellHeight, planEffectLanes } from "./effectLanes";
+import { effectIconsPerLane } from "./effectLanes";
 import { orderSidebarBuffs, orderSidebarDebuffs } from "./effectOrder";
 import { formatSidebarStat, useSidebarMetrics, type ISidebarMetrics } from "./sidebarMetrics";
 
@@ -75,6 +75,7 @@ interface IAbilityStackProps {
 
 const FACTION_SYNERGY_IDS = [1, 2] as const;
 const FACTION_SYNERGY_LEVELS = [1, 2, 3] as const;
+const LEFT_SIDEBAR_ART_SCALE = 1.08;
 const FACTION_SYNERGY_LEVEL_TO_UNITS: Record<number, number> = {
     1: 2,
     2: 4,
@@ -135,7 +136,9 @@ const AtlasAnimation: React.FC<{
     playback?: "ping-pong" | "loop";
     /** Fit the complete authored frame into the existing portrait box. */
     fillHeight?: boolean;
-}> = ({ meta, src, onLoaded, maxHeight, playback = "ping-pong", fillHeight = false }) => {
+    /** Enlarge the authored portrait equally in both dimensions. */
+    uniformScale?: number;
+}> = ({ meta, src, onLoaded, maxHeight, playback = "ping-pong", fillHeight = false, uniformScale = 1 }) => {
     const [loadedSource, setLoadedSource] = React.useState<string | undefined>(() =>
         isAtlasReady(src) ? src : undefined,
     );
@@ -164,8 +167,8 @@ const AtlasAnimation: React.FC<{
     }, [src]);
 
     // Derive a stable timing config from meta primitives so the rAF loop isn't restarted on every
-    // parent re-render (e.g. HP changes) — only when the actual atlas shape/timing changes. Uses the
-    // same shared helper as the board sprite so both views ping-pong identically and stay in phase.
+    // parent re-render (e.g. HP changes) — only when the actual atlas shape/timing changes.
+    // Older atlases use the board sprite's ping-pong timing; full-video portraits play forward.
     const timing = React.useMemo(() => {
         if (playback === "ping-pong") return buildAtlasPingPongTiming(meta);
 
@@ -244,6 +247,8 @@ const AtlasAnimation: React.FC<{
                 mx: "auto",
                 aspectRatio: `${frameWidth} / ${frameHeight}`,
                 overflow: "visible",
+                transform: uniformScale === 1 ? undefined : `scale(${uniformScale})`,
+                transformOrigin: "center center",
             }}
         >
             {/* The atlas's own frame 0 fades straight in from transparent — no static-portrait
@@ -732,43 +737,78 @@ const IconScrollWell: React.FC<{
     children: React.ReactNode;
     offsetY?: number;
     vertical?: boolean;
-    /** Keep the last icon clear of the sidebar's right rail, which paints over the row. */
-    edgeInset?: number;
-}> = ({ height, children, offsetY = 0, vertical = false, edgeInset = 0 }) => (
-    <Box
-        onWheel={
-            vertical
-                ? (event) => {
-                      const well = event.currentTarget;
-                      if (well.scrollHeight <= well.clientHeight) return;
-                      well.scrollTop += event.deltaY;
-                      event.stopPropagation();
-                  }
-                : undefined
-        }
-        sx={{
-            position: "relative",
-            // Keep the vertical rail inside the sidebar's decorative right frame instead of painting
-            // underneath it, where the thumb looked absent even while the well was scrollable.
-            width: edgeInset > 0 ? `calc(100% - ${edgeInset}px)` : "100%",
-            mr: edgeInset > 0 ? `${edgeInset}px` : 0,
-            height: `${height}px`,
-            boxSizing: "border-box",
-            overflowX: vertical ? "hidden" : "auto",
-            overflowY: vertical ? "auto" : "hidden",
-            whiteSpace: vertical ? "normal" : "nowrap",
-            pr: vertical ? "5px" : 0,
-            scrollbarGutter: vertical ? "stable" : "auto",
-            overscrollBehaviorY: vertical ? "contain" : "auto",
-            touchAction: vertical ? "pan-y" : "auto",
-            transform: offsetY ? `translateY(${offsetY}px)` : "none",
-            ...hocScrollSx,
-            "&::-webkit-scrollbar": vertical ? { width: "7px" } : { height: "5px" },
-        }}
-    >
-        {children}
-    </Box>
-);
+    rowStepPx?: number;
+}> = ({ height, children, offsetY = 0, vertical = false, rowStepPx = 0 }) => {
+    const wellRef = React.useRef<HTMLDivElement | null>(null);
+    const settleRef = React.useRef<number | undefined>(undefined);
+
+    const snapToRow = React.useCallback(() => {
+        const well = wellRef.current;
+        if (!well || rowStepPx <= 0) return;
+        const limit = well.scrollHeight - well.clientHeight;
+        if (limit <= 0) return;
+        const settled = Math.max(0, Math.min(limit, Math.round(well.scrollTop / rowStepPx) * rowStepPx));
+        if (Math.abs(settled - well.scrollTop) < 0.5) return;
+        well.scrollTo({ top: settled, behavior: "smooth" });
+    }, [rowStepPx]);
+
+    // The thumb is dragged continuously; only where it is LEFT matters, so the snap waits for the stream
+    // of scroll events to stop instead of fighting the drag.
+    const onScroll = React.useCallback(() => {
+        if (rowStepPx <= 0) return;
+        window.clearTimeout(settleRef.current);
+        settleRef.current = window.setTimeout(snapToRow, 120);
+    }, [rowStepPx, snapToRow]);
+
+    React.useEffect(() => () => window.clearTimeout(settleRef.current), []);
+
+    return (
+        <Box
+            ref={wellRef}
+            onScroll={vertical && rowStepPx > 0 ? onScroll : undefined}
+            onWheel={
+                vertical
+                    ? (event) => {
+                          const well = event.currentTarget;
+                          const limit = well.scrollHeight - well.clientHeight;
+                          if (limit <= 0) return;
+                          if (rowStepPx > 0) {
+                              const row = Math.round(well.scrollTop / rowStepPx) + (event.deltaY > 0 ? 1 : -1);
+                              well.scrollTo({
+                                  top: Math.max(0, Math.min(limit, row * rowStepPx)),
+                                  behavior: "smooth",
+                              });
+                          } else {
+                              well.scrollTop += event.deltaY;
+                          }
+                          event.stopPropagation();
+                      }
+                    : undefined
+            }
+            sx={{
+                position: "relative",
+                // Keep the vertical rail inside the sidebar's decorative right frame instead of painting
+                // underneath it, where the thumb looked absent even while the well was scrollable.
+                width: vertical ? "calc(100% - 8px)" : "100%",
+                mr: vertical ? "8px" : 0,
+                height: `${height}px`,
+                boxSizing: "border-box",
+                overflowX: vertical ? "hidden" : "auto",
+                overflowY: vertical ? "scroll" : "hidden",
+                whiteSpace: vertical ? "normal" : "nowrap",
+                pr: vertical ? "5px" : 0,
+                scrollbarGutter: vertical ? "stable" : "auto",
+                overscrollBehaviorY: vertical ? "contain" : "auto",
+                touchAction: vertical ? "pan-y" : "auto",
+                transform: offsetY ? `translateY(${offsetY}px)` : "none",
+                ...hocScrollSx,
+                "&::-webkit-scrollbar": vertical ? { width: "7px" } : { height: "5px" },
+            }}
+        >
+            {children}
+        </Box>
+    );
+};
 
 // Section caption + the 2px rule under it. Used for Abilities / Buffs / Debuffs here and for Up next in
 // the sidebar itself, so all four headings read as one family.
@@ -1320,7 +1360,20 @@ const UnitStatsLayout: React.FC<{
     const sidebarPortraitArt =
         displayedCreatureId === undefined ? {} : resolveLeftSidebarPortraitArt(displayedCreatureId);
     const portraitAnimationConfig =
-        displayedCreatureId === undefined ? null : resolveLeftSidebarPortraitAnimation(displayedCreatureId);
+        displayedCreatureId === undefined
+            ? null
+            : resolveIntegratedArbalesterPortrait(
+                  displayedCreatureId,
+                  resolveLeftSidebarPortraitAnimation(displayedCreatureId),
+              );
+    const [portraitAnimationReady, setPortraitAnimationReady] = useState(false);
+    useEffect(() => {
+        setPortraitAnimationReady(false);
+    }, [portraitAnimationConfig?.src]);
+    const handlePortraitAnimationLoaded = useCallback(() => {
+        setPortraitAnimationReady(true);
+        onImageLoaded();
+    }, [onImageLoaded]);
     const [sidebarPortraitTuning, setSidebarPortraitTuning] = useState<LeftSidebarPortraitTuning>(() =>
         displayedCreatureId === undefined
             ? { ...DEFAULT_LEFT_SIDEBAR_PORTRAIT_TUNING }
@@ -1484,12 +1537,12 @@ const UnitStatsLayout: React.FC<{
     const effectTile = effectTileSize(metrics);
     const effectGap = metrics.gapPx * 0.6;
     // The right rail is drawn over the row. An icon that only fits by sliding under it belongs on the next line.
-    const effectEdgeInset = Math.max(8, Math.min(13, Math.round(metrics.barSize * 0.03 * 0.7)));
+    Math.max(8, Math.min(13, Math.round(metrics.barSize * 0.03 * 0.7)));
     const layoutRootRef = useRef<HTMLDivElement | null>(null);
     const effectBlockRef = useRef<HTMLDivElement | null>(null);
     const buffWellRef = useRef<HTMLDivElement | null>(null);
     const appliedExtraRef = useRef(0);
-    const [laneRoom, setLaneRoom] = useState({ perLane: 1, extraSlots: 0 });
+    const [, setLaneRoom] = useState({ perLane: 1, extraSlots: 0 });
     useLayoutEffect(() => {
         const root = layoutRootRef.current;
         const block = effectBlockRef.current;
@@ -1545,24 +1598,10 @@ const UnitStatsLayout: React.FC<{
     const statWellHeight = statRowHeight * 3 + STAT_ROW_GAP * 2;
     // Abilities keep one row and scroll horizontally when more tiles are present.
     const abilityWellHeight = abilityTileSize(metrics) + 6;
-    // The shared effect size also applies to synergy/augment markers. The extra band holds their level
-    // dots and the scrollbar without changing the section's position.
-    const lanePlan = planEffectLanes({
-        perLane: laneRoom.perLane,
-        buffItems: shownSynergies.length + orderedBuffs.length,
-        debuffItems: orderedDebuffs.length,
-        extraSlots: laneRoom.extraSlots,
-    });
-    const effectChrome = 9;
-    const effectWellHeight = effectLaneWellHeight(lanePlan.buffLanes, effectTile, effectGap, effectChrome);
-    appliedExtraRef.current = (lanePlan.buffLanes - 1 + lanePlan.debuffLanes - 1) * (effectTile + effectGap);
-    // This is only the PAINT viewport inside the fixed-height Debuffs layout slot. It is deliberately
-    // taller than the tile + frame + scrollbar, so the complete unscaled art can move upward without the
-    // scrolling element clipping its lower edge. The outer wrapper below keeps the layout height unchanged.
-    const debuffPaintWellHeight =
-        lanePlan.debuffLanes > 1
-            ? effectLaneWellHeight(lanePlan.debuffLanes, effectTile, effectGap, effectChrome)
-            : effectTile + 20;
+    // A viewport shows exactly one complete row, including its gap. Keep the fractional CSS pitch
+    // so long lists never drift between wheel steps; the final padding lets the last row align too.
+    const effectRowStep = effectTileSize(metrics) + metrics.gapPx * 0.6;
+    const effectWellHeight = effectRowStep;
     const layout = bannerLayout(metrics);
     const portraitHeight = layout.portraitHeight;
     const portraitAlt =
@@ -1583,7 +1622,7 @@ const UnitStatsLayout: React.FC<{
     const portraitAtlasMeta = portraitAnimationConfig?.meta;
     // Live stat/impact changes keep the complete mounted portrait intact. Only its actual source,
     // authored framing, animation, or responsive size needs to reconcile this image-heavy subtree.
-    const sidebarPortrait = React.useMemo(
+    React.useMemo(
         () =>
             displayedCreatureId === undefined ? null : (
                 <CreaturePortraitImage
@@ -1744,7 +1783,7 @@ const UnitStatsLayout: React.FC<{
                             justifyContent: "center",
                         }}
                     >
-                        {displayedCreatureId !== undefined ? (
+                        {creatureId !== undefined ? (
                             <Box
                                 sx={{
                                     position: "relative",
@@ -1753,18 +1792,68 @@ const UnitStatsLayout: React.FC<{
                                     clipPath: `inset(0 0 ${abilityRightStepPx}px 0)`,
                                 }}
                             >
-                                {sidebarPortrait}
+                                <CreaturePortraitImage
+                                    creatureId={creatureId}
+                                    alt={unitProperties.name}
+                                    artScale={sidebarPortraitTuning.artScale * LEFT_SIDEBAR_ART_SCALE}
+                                    artScaleX={0.96 * (sidebarPortraitArt.artScaleX ?? 1)}
+                                    backgroundFit="fill"
+                                    artOffsetX={sidebarPortraitTuning.artOffsetX}
+                                    artOffsetY={sidebarPortraitTuning.artOffsetY}
+                                    artSource={sidebarPortraitArt.source}
+                                    artSourceUsesFraming={sidebarPortraitArt.usesFraming !== false}
+                                    artFit={sidebarPortraitArt.fit}
+                                    artBaseScale={sidebarPortraitArt.baseScale}
+                                    highQualityArt
+                                    sx={{
+                                        width: "100%",
+                                        height: "100%",
+                                        bgcolor: "transparent",
+                                    }}
+                                    imageStyle={{
+                                        opacity: portraitAnimationReady ? 0 : 1,
+                                        transition: "none",
+                                        imageRendering: "auto",
+                                    }}
+                                />
+                                {portraitAnimationConfig && (
+                                    <Box
+                                        aria-label={`${unitProperties.name} animated portrait`}
+                                        sx={{
+                                            position: "absolute",
+                                            inset: 0,
+                                            zIndex: 4,
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            pointerEvents: "none",
+                                        }}
+                                    >
+                                        <AtlasAnimation
+                                            meta={portraitAnimationConfig.meta}
+                                            src={portraitAnimationConfig.src}
+                                            onLoaded={handlePortraitAnimationLoaded}
+                                            maxHeight={portraitHeight}
+                                            playback={
+                                                unitProperties.name === "Arbalester" ||
+                                                unitProperties.name === "Squire" ||
+                                                unitProperties.name === "Blacksmith"
+                                                    ? "loop"
+                                                    : "ping-pong"
+                                            }
+                                            fillHeight
+                                            uniformScale={LEFT_SIDEBAR_ART_SCALE}
+                                        />
+                                    </Box>
+                                )}
                             </Box>
-                        ) : creatureId !== undefined ? (
-                            // Waiting on the cutout and the plate together. A lone large-texture fallback
-                            // here is a third image that pops in and then gets replaced.
-                            <Box sx={{ position: "absolute", inset: 0, bgcolor: "#090806" }} />
                         ) : animationConfig ? (
                             <AtlasAnimation
                                 meta={animationConfig.meta}
                                 src={animationConfig.imageSrc}
                                 onLoaded={onImageLoaded}
                                 maxHeight={portraitHeight}
+                                uniformScale={LEFT_SIDEBAR_ART_SCALE}
                             />
                         ) : (
                             <Box
@@ -1780,7 +1869,8 @@ const UnitStatsLayout: React.FC<{
                                     mx: "auto",
                                     transition: "opacity 120ms ease-out",
                                     imageRendering: "auto",
-                                    transform: "translateZ(0)",
+                                    transform: `translateZ(0) scale(${LEFT_SIDEBAR_ART_SCALE})`,
+                                    transformOrigin: "center center",
                                 }}
                                 onLoad={onImageLoaded}
                                 onError={onImageLoaded}
@@ -1874,9 +1964,9 @@ const UnitStatsLayout: React.FC<{
                         height={effectWellHeight}
                         offsetY={-Math.round(metrics.gapPx)}
                         vertical
-                        edgeInset={effectEdgeInset}
+                        rowStepPx={effectRowStep}
                     >
-                        {/* Reveal as many wrapped rows as the viewport can fit; scroll any remaining effects. */}
+                        {/* Additional buffs wrap into rows inside this fixed-height vertically scrolling well. */}
                         <Box
                             ref={buffWellRef}
                             sx={{
@@ -1889,6 +1979,7 @@ const UnitStatsLayout: React.FC<{
                                 height: "max-content",
                                 minWidth: 0,
                                 gap: `${metrics.gapPx * 0.6}px`,
+                                pb: `${metrics.gapPx * 0.6}px`,
                             }}
                         >
                             {/* Synergies lead. They hold for the whole fight, so they are the stable part of
@@ -1917,8 +2008,21 @@ const UnitStatsLayout: React.FC<{
                     offsetY={-Math.round(metrics.gapPx * 3)}
                     titleHeightScale={UNIT_SECTION_PLAQUE_HEIGHT_SCALE}
                 >
-                    {lanePlan.debuffLanes > 1 ? (
-                        <IconScrollWell height={debuffPaintWellHeight} vertical edgeInset={effectEdgeInset}>
+                    <Box
+                        sx={{
+                            position: "relative",
+                            width: "100%",
+                            height: `${effectWellHeight}px`,
+                            overflow: "visible",
+                            // Move the complete original-size row. The scrolling/clipping viewport itself
+                            // is no longer transformed, which prevents its lower edge slicing the artwork.
+                            transform: "translateY(-17.5%)",
+                        }}
+                    >
+                        {/* The same wrapped, row-paged well the Buffs section uses. Debuffs used to be a
+                            horizontal strip with a thin bottom rail of its own, so the two sections read as
+                            two different controls and the overflowing tiles were reachable only sideways. */}
+                        <IconScrollWell height={effectWellHeight} vertical rowStepPx={effectRowStep}>
                             <Box
                                 sx={{
                                     display: "flex",
@@ -1929,29 +2033,14 @@ const UnitStatsLayout: React.FC<{
                                     width: "100%",
                                     height: "max-content",
                                     minWidth: 0,
-                                    gap: `${effectGap}px`,
+                                    gap: `${metrics.gapPx * 0.6}px`,
+                                    pb: `${metrics.gapPx * 0.6}px`,
                                 }}
                             >
                                 <EffectTiles effects={orderedDebuffs} title="Debuffs" metrics={metrics} inline />
                             </Box>
                         </IconScrollWell>
-                    ) : (
-                        <Box
-                            sx={{
-                                position: "relative",
-                                width: "100%",
-                                height: `${effectTile + effectChrome}px`,
-                                overflow: "visible",
-                                // Move the complete original-size row. The scrolling/clipping viewport itself
-                                // is no longer transformed, which prevents its lower edge slicing the artwork.
-                                transform: "translateY(-17.5%)",
-                            }}
-                        >
-                            <IconScrollWell height={debuffPaintWellHeight} edgeInset={effectEdgeInset}>
-                                <EffectTiles effects={orderedDebuffs} title="Debuffs" metrics={metrics} />
-                            </IconScrollWell>
-                        </Box>
-                    )}
+                    </Box>
                 </PanelSection>
             </Box>
         </Box>

@@ -1,3 +1,7 @@
+import { useContext, useMemo } from "react";
+import { PremiumFightControls } from "../premium/PremiumFightControls";
+import { usePremiumAccess } from "../premium/PremiumAccess";
+import { usePremiumPreference } from "../premium/usePremiumPreference";
 import { IDamageStatistic } from "@heroesofcrypto/common";
 import { FIGHT_LOG_SURFACE_BACKGROUND } from "./fightLogLayout";
 import { toolbarColumnHeightPx, toolbarSlotCount } from "../DraggableToolbar/toolbarMetrics";
@@ -14,7 +18,7 @@ import Box from "@mui/joy/Box";
 import List from "@mui/joy/List";
 import Sheet from "@mui/joy/Sheet";
 import Typography from "@mui/joy/Typography";
-import React, { useContext, useEffect, useState, useCallback, useLayoutEffect, useMemo, useRef } from "react";
+import React, { useEffect, useState, useCallback, useLayoutEffect, useRef } from "react";
 import { useNavigate } from "react-router";
 import { useAuthContext } from "../auth/context/auth_context";
 import { usePixiManager } from "../../pixi/PixiGameManager";
@@ -25,11 +29,8 @@ import FightControlToggler from "./FightControlToggler";
 import { WalletLinker } from "../WalletLinker";
 import { IWindowSize } from "../../scenes/VisibleState";
 import { sidebarPlainFrameSideInsetPx, sidebarPlainFrameVerticalInsetPx } from "../LeftSideBar/sidebarMetrics";
-import { GameCornerExitButton, GameCornerSlot, GameCornerStartOverButton } from "../GameCornerExit";
+import { GameCornerExitButton, GameCornerSlot } from "../GameCornerExit";
 import { GAME_SYSTEM_CONTROLS_STACK_HEIGHT_PX, GameSystemControls } from "../GameSystemControls";
-import { PremiumFightControls } from "../premium/PremiumFightControls";
-import { usePremiumAccess } from "../premium/PremiumAccess";
-import { usePremiumPreference } from "../premium/usePremiumPreference";
 
 const DraggableToolbar = React.lazy(() => import("../DraggableToolbar"));
 const FightLog = React.lazy(() => import("./FightLog").then(({ FightLog }) => ({ default: FightLog })));
@@ -86,7 +87,8 @@ export default function RightSideBar({
     const [footerHeight, setFooterHeight] = useState(GAME_SYSTEM_CONTROLS_STACK_HEIGHT_PX);
     const [sandboxSetupRevision, setSandboxSetupRevision] = useState(0);
     const handleStartOver = () => {
-        onStartOver?.();
+        if (onStartOver) onStartOver();
+        else manager.StartOver();
         setSandboxSetupRevision((revision) => revision + 1);
     };
     const [unitDamageStatistics, setUnitDamageStatistics] = useState<IDamageStatistic[]>(() =>
@@ -322,7 +324,6 @@ export default function RightSideBar({
                 the sandbox used to spend its own gothic button on this in the bar's title row. */}
             {onClose && (
                 <GameCornerSlot>
-                    {onStartOver && <GameCornerStartOverButton onClick={handleStartOver} />}
                     <GameCornerExitButton onClick={onClose} label="Back" />
                 </GameCornerSlot>
             )}
@@ -507,34 +508,14 @@ export default function RightSideBar({
                 </List>
             </Box>
             {/* Reserve space beneath the log for the sidebar's fixed footer row. */}
-            {showSystemControls && (
-                <Box sx={{ height: Math.max(GAME_SYSTEM_CONTROLS_STACK_HEIGHT_PX, footerHeight), flexShrink: 0 }} />
-            )}
-            {showSystemControls && !rankedPanel && gameStarted && (
-                // Sandbox exit stays in the shared top-right corner once the fight starts, even when the
-                // centre plate is Invite a friend. An anonymous player has nothing behind /play but the
-                // login gate, so leaving just resets the sandbox. A signed-in player goes to the play hub.
-                <GameCornerSlot>
-                    {onStartOver && <GameCornerStartOverButton onClick={handleStartOver} />}
-                    <GameCornerExitButton
-                        onClick={() => {
-                            if (authenticated) {
-                                navigate("/play");
-                            } else {
-                                manager.StartOver();
-                            }
-                        }}
-                    />
-                </GameCornerSlot>
-            )}
+            {/* Reserve the full stacked footer height: sound now sits ABOVE fullscreen in the corner. */}
+            {showSystemControls && <Box sx={{ height: `${footerHeight}px`, flexShrink: 0 }} />}
             {showSystemControls && (
                 <GameSystemControls
-                    sidebarWidth={barSize}
-                    onHeightChange={setFooterHeight}
-                    rightStack
-                    centerInRow={Boolean(rankedFooter)}
-                    centerMinWidth={premiumFightVisible ? 132 : undefined}
                     leading={footerLeading}
+                    onHeightChange={setFooterHeight}
+                    sidebarWidth={barSize}
+                    rightStack
                     center={
                         premiumFightVisible ? (
                             <>
@@ -545,6 +526,22 @@ export default function RightSideBar({
                             rankedFooter
                         ) : rankedPanel && gameStarted ? (
                             rankedPanel
+                        ) : !rankedPanel && gameStarted ? (
+                            // Sandbox exit: an anonymous player has nothing behind /play but the login
+                            // gate, so leaving the fight just resets the sandbox to a fresh placement
+                            // (start over). A signed-in player keeps the trip to the play hub. The control
+                            // itself paints in the shared top-right corner, not in this centre slot.
+                            <GameCornerSlot>
+                                <GameCornerExitButton
+                                    onClick={() => {
+                                        if (authenticated) {
+                                            navigate("/play");
+                                        } else {
+                                            handleStartOver();
+                                        }
+                                    }}
+                                />
+                            </GameCornerSlot>
                         ) : undefined
                     }
                 />

@@ -1,3 +1,4 @@
+import { verifyAnimationRelease } from "../game/core/scripts/verify_animation_release";
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { prepareBuildEnvironment } from "./build_environment";
@@ -103,7 +104,7 @@ async function verifyRoutes(): Promise<void> {
     }
 }
 
-function verifyReleaseAssets(): void {
+async function verifyReleaseAssets(): Promise<void> {
     if (process.env.CI === "true")
         throw new Error("Deploy locally with canonical art; CI stub builds are never release artifacts.");
     if (process.env.HOC_BUILD_NODE_ENV && process.env.HOC_BUILD_NODE_ENV !== "production")
@@ -116,6 +117,7 @@ function verifyReleaseAssets(): void {
         if (!location || !statSync(resolve(location, suffix)).isDirectory())
             throw new Error(`${key} must point to the canonical local release assets.`);
     }
+    await verifyAnimationRelease();
 }
 
 async function localReadiness(checkCachedRefs = true): Promise<void> {
@@ -123,7 +125,7 @@ async function localReadiness(checkCachedRefs = true): Promise<void> {
         throw new Error("Server deployer not found. Set HOC_SERVER_LOC to the server checkout.");
     verifyPins();
     await verifyRoutes();
-    verifyReleaseAssets();
+    await verifyReleaseAssets();
     for (const directory of repositories) {
         requireClean(directory);
         if (checkCachedRefs) verifyPublished(directory);

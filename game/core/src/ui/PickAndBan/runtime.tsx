@@ -1,5 +1,7 @@
+import { CREATURES_JSON } from "@heroesofcrypto/common";
+import { registerBattleSystemControls } from "../social/systemControlsMode";
 import { useReportPremiumSearchMatch } from "../premium/PremiumSearchMatchContext";
-import { PremiumContext, PremiumDraftBanner, PremiumMark, usePremiumAdvisor } from "../premium/PremiumAdvisor";
+import { PremiumMark, usePremiumAdvisor } from "../premium/PremiumAdvisor";
 import { usePremiumCapability } from "../premium/usePremiumPreference";
 import {
     AllAbilities,
@@ -37,7 +39,6 @@ import { runDraftSubmission, type DraftCommit } from "./draftSubmission";
 import { usePickBanEvents } from "../context/PickBanContext";
 import { useAuthContext } from "../auth/context/auth_context";
 import { CreaturePortraitImage } from "../CreaturePortraitImage";
-import { creatureCatalogEntry, startingStackAmount } from "../creatureCatalog";
 import { hocDisplayFontFamily } from "../hocTheme";
 import { ownArmyAccent } from "../ownArmyAccent";
 import { SYNERGY_KEY_TO_IMAGE } from "../LeftSideBar/SynergiesConstants";
@@ -45,7 +46,7 @@ import { SynergyLadderTip } from "../LeftSideBar/SynergyLadderTip";
 import { DoctrineIcon } from "../DoctrineIcon";
 import { UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "../unit_ui_constants";
 import { getDoctrineCopy } from "../doctrineCopy";
-import { MapBadge, MapRevealModal } from "./MapReveal";
+import { MapBadge } from "./MapReveal";
 import { PickMatchupOverlay } from "../MatchupOverlay";
 import { PickLanternFire } from "./PickLanternFire";
 import { Timer } from "./Timer";
@@ -65,7 +66,6 @@ import {
     GAME_SYSTEM_CONTROLS_BOTTOM_INSET,
     GameSystemControls,
 } from "../GameSystemControls";
-import { registerBattleSystemControls } from "../social/systemControlsMode";
 import { VOLUME_SLOT_PRIORITY } from "../audio/volumeSlot";
 
 const images = rawImages as Record<string, string>;
@@ -106,9 +106,53 @@ const creatureName = (creatureId: number): string => UNIT_ID_TO_NAME[creatureId]
 const creatureImage = (creatureId: number): string | undefined => UNIT_ID_TO_IMAGE[creatureId];
 
 // ---- Creature stats + abilities lookup (shared creatures.json / abilities.json) ------------------
-// The catalogue index itself lives in ../creatureCatalog, shared with the portal's hover cards so both
-// surfaces quote the same numbers for a creature.
-const creatureFullConfig = creatureCatalogEntry;
+
+interface CreatureFullConfig {
+    name: string;
+    exp: number;
+    hp: number;
+    attack: number;
+    attack_damage_min: number;
+    attack_damage_max: number;
+    armor: number;
+    initiative: number;
+    steps: number;
+    movement_type: string;
+    magic_resist: number;
+    attack_type: string;
+    range_shots: number;
+    shot_distance: number;
+    level: number;
+    size: number;
+    footprint_width?: number;
+    footprint_height?: number;
+    abilities?: string[];
+}
+
+// Ranked turns every drafted creature into a stack worth roughly 1000 creature experience. Keep the
+// draft readout on the same rule as play_session so the amount shown before a pick is the amount that
+// will actually reach placement.
+const STARTING_STACK_EXPERIENCE_BUDGET = 1000;
+
+const startingStackAmount = (config: CreatureFullConfig): number =>
+    config.exp > 0 ? Math.max(1, Math.ceil(STARTING_STACK_EXPERIENCE_BUDGET / config.exp)) : 1;
+
+// Index every creature by name once (creatures.json is faction -> { name -> config }, plus a version key).
+const creatureConfigByName: Map<string, { faction: string; config: CreatureFullConfig }> = (() => {
+    const map = new Map<string, { faction: string; config: CreatureFullConfig }>();
+    for (const faction of Object.keys(CREATURES_JSON)) {
+        const roster = (CREATURES_JSON as Record<string, unknown>)[faction];
+        if (!roster || typeof roster !== "object") {
+            continue; // skip the top-level "version" number
+        }
+        for (const [unitName, cfg] of Object.entries(roster as Record<string, CreatureFullConfig>)) {
+            map.set(unitName, { faction, config: cfg });
+        }
+    }
+    return map;
+})();
+
+const creatureFullConfig = (creatureId: number) => creatureConfigByName.get(creatureName(creatureId));
 
 // Ability description with the {} power placeholder filled in (mirrors how the game renders it).
 const abilityDescription = (abilityName: string): string => {
@@ -1422,7 +1466,7 @@ export const PickCommitButton: React.FC<{
                         ? "hocCommitWaiting 1.35s ease-in-out infinite"
                         : effectiveArmed
                           ? `${tone === "gold" ? "hocCommitPlateGold" : "hocCommitPlate"} 1.5s ease-in-out infinite`
-                          : "none",
+                          : "hocCommitAvailable 1.5s ease-in-out infinite",
                     "&:hover":
                         effectiveArmed && tone !== "gold"
                             ? {
@@ -1444,6 +1488,13 @@ export const PickCommitButton: React.FC<{
                         "0%, 100%": { opacity: 1 },
                         "50%": { opacity: 0.3 },
                     },
+                    // The whole neutral plate breathes as soon as our choice opens, including its clock
+                    // and divider. Selecting a creature retains the same cadence with the green treatment.
+                    "@keyframes hocCommitAvailable": {
+                        "0%, 100%": { transform: "translateY(3vh) scale(1)", filter: "brightness(1)" },
+                        "50%": { transform: "translateY(3vh) scale(1.012)", filter: "brightness(1.039)" },
+                    },
+                    "@media (prefers-reduced-motion: reduce)": { animation: "none" },
                     "@keyframes hocCommitPlate": {
                         "0%, 100%": {
                             transform: "translateY(3vh) scale(1)",
@@ -2810,7 +2861,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
     } = usePickBanEvents();
     const { doctrine: sendDoctrine, pickPair, pick, artifact } = useAuthContext();
     const premiumDraftEnabled = usePremiumCapability("draft");
-    const premium = usePremiumAdvisor(gameId, phaseIdentity, premiumDraftEnabled);
+    usePremiumAdvisor(gameId, phaseIdentity, premiumDraftEnabled);
     useReportPremiumSearchMatch(
         gameId,
         "draft",
@@ -3244,288 +3295,329 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
     }
 
     return (
-        <PremiumContext.Provider value={premium.advice}>
-            <Sheet variant="solid" sx={draftShellSx}>
-                <PickLanternFire slot={0} />
-                <PickLanternFire slot={1} />
-                {/* While a card is being read, the stats own the header band: the strip drops behind the board
+        <Sheet variant="solid" sx={draftShellSx}>
+            <PickLanternFire slot={0} />
+            <PickLanternFire slot={1} />
+            {/* While a card is being read, the stats own the header band: the strip drops behind the board
                 instead of sitting on top of the readout. */}
-                <PickMatchupOverlay
-                    gameId={gameId}
-                    userTeam={userTeam}
-                    opponentLabel={opponentLabel}
-                    demoted={!!(inspectedId || inspectedArtifact)}
-                />
-                {/* One fixed-size board. The shell around it only paints background, so enlarging the window
+            <PickMatchupOverlay
+                gameId={gameId}
+                userTeam={userTeam}
+                opponentLabel={opponentLabel}
+                demoted={!!(inspectedId || inspectedArtifact)}
+            />
+            {/* One fixed-size board. The shell around it only paints background, so enlarging the window
                 (or going fullscreen) adds empty background around this box and never reflows it. */}
-                <Box sx={draftBoardSx(draftScale)} onMouseMove={trackCursor} onMouseLeave={endInspect}>
-                    {/* The header reserves the inspector's height even when no unit is hovered. That keeps the
+            <Box sx={draftBoardSx(draftScale)} onMouseMove={trackCursor} onMouseLeave={endInspect}>
+                {/* The header reserves the inspector's height even when no unit is hovered. That keeps the
                 cards stable under the cursor, and the readout replaces the draft title instead of covering it. */}
-                    <Box
-                        data-testid="draft-header-zone"
-                        sx={{
-                            width: "100%",
-                            height: DRAFT_HEADER_HEIGHT,
-                            minHeight: DRAFT_HEADER_HEIGHT,
-                            maxHeight: DRAFT_HEADER_HEIGHT,
-                            flex: "0 0 auto",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            overflow: "hidden",
-                        }}
-                        onMouseEnter={holdInspect}
-                        onMouseLeave={endInspect}
-                    >
-                        {/* ONE title element for both states. A second copy inside the inspected branch would
+                <Box
+                    data-testid="draft-header-zone"
+                    sx={{
+                        width: "100%",
+                        height: DRAFT_HEADER_HEIGHT,
+                        minHeight: DRAFT_HEADER_HEIGHT,
+                        maxHeight: DRAFT_HEADER_HEIGHT,
+                        flex: "0 0 auto",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        overflow: "hidden",
+                    }}
+                    onMouseEnter={holdInspect}
+                    onMouseLeave={endInspect}
+                >
+                    {/* ONE title element for both states. A second copy inside the inspected branch would
                         remount on every hover, and so would `display: none` — both restart the entrance
                         animation, making the title pop each time the cursor leaves a portrait. Taking it
                         out of flow and hiding it keeps the very same element (and its finished animation)
                         alive while the read-out owns the band on wide screens. */}
-                        <Box
-                            sx={{
-                                display: "flex",
-                                justifyContent: "center",
-                                ...(inspectedId || inspectedArtifact
-                                    ? {
-                                          position: { xs: "static", md: "absolute" },
-                                          visibility: { xs: "visible", md: "hidden" },
-                                          pointerEvents: "none",
-                                      }
-                                    : {}),
-                            }}
-                        >
-                            <DraftTitle
-                                subtitle={
-                                    hint && !isCommitPhase && !isPreparing ? (
-                                        <Typography
-                                            level="body-sm"
-                                            sx={{ opacity: 0.7, textAlign: "center", maxWidth: 560 }}
-                                        >
-                                            {hint}
-                                        </Typography>
-                                    ) : undefined
-                                }
-                            >
-                                {headerTitle}
-                            </DraftTitle>
-                        </Box>
-                        {inspectedArtifact ? (
-                            <ArtifactDetailPanel artifact={inspectedArtifact} />
-                        ) : inspectedId ? (
-                            <CreatureDetailPanel creatureId={inspectedId} />
-                        ) : null}
-                    </Box>
-
                     <Box
-                        sx={{
-                            display: isCommitPhase || isPreparing ? "none" : "flex",
-                            alignItems: "center",
-                            gap: 1.5,
-                        }}
-                    >
-                        <Chip color={isYourTurn ? "success" : "warning"} variant="soft">
-                            {isYourTurn ? t("Your turn") : `${opponentLabel}'s turn`}
-                        </Chip>
-                        {upgradePoints > 0 && (
-                            <Tooltip title="Points you can spend on upgrades before placement" variant="soft">
-                                <Chip color="primary" variant="soft">
-                                    {upgradePoints} upgrade pts
-                                </Chip>
-                            </Tooltip>
-                        )}
-                        {secondsRemaining >= 0 && !isHandoff && !isCommitPhase && (
-                            <Timer localSeconds={secondsRemaining} isYourTurn={!!isYourTurn} />
-                        )}
-                    </Box>
-
-                    {/* Imperative "what to do now" so first-time players always know the expected action. */}
-                    {isYourTurn &&
-                        !isHandoff &&
-                        !isCommitPhase &&
-                        !isPreparing &&
-                        phaseAction(pickPhase, requiredLevel) && (
-                            <Typography
-                                level="title-sm"
-                                sx={{ color: "#7CFC9B", fontWeight: 700, textAlign: "center", mt: -0.5 }}
-                            >
-                                👉 {phaseAction(pickPhase, requiredLevel)}
-                            </Typography>
-                        )}
-
-                    {pickPhase !== PickPhaseVals.DOCTRINE && (
-                        <>
-                            {/* Both armies sit above the grid by default. Ranked/private callers can suppress the
-                            opponent rail during the zero-second augment handoff before private Setup opens. */}
-                            <Box
-                                data-testid="draft-armies-zone"
-                                sx={{
-                                    display: "flex",
-                                    gap: 1.5,
-                                    width: "100%",
-                                    height: DRAFT_ARMIES_HEIGHT,
-                                    minHeight: DRAFT_ARMIES_HEIGHT,
-                                    maxHeight: DRAFT_ARMIES_HEIGHT,
-                                    justifyContent: "center",
-                                    alignItems: "center",
-                                    flexWrap: "nowrap",
-                                    flex: "0 0 auto",
-                                }}
-                            >
-                                <MyDraftBar
-                                    doctrine={doctrine}
-                                    picked={picked}
-                                    artifactTier1={artifactTier1}
-                                    artifactTier2={artifactTier2}
-                                    onInspect={beginInspect}
-                                    onArtifactInspect={beginArtifactInspect}
-                                    onInspectEnd={endInspect}
-                                    gameId={gameId}
-                                    pendingId={pendingPick}
-                                />
-                                {/* Reads t("Map: ?") until the server reveals the map right before the L3 picks, then
-                                the name — dead centre between the two armies. */}
-                                <Box sx={{ flex: "0 0 auto", display: "flex", justifyContent: "center" }}>
-                                    <MapBadge mapType={mapType} />
-                                </Box>
-                                {shouldShowOpponentDraftRail(pickPhase, showOpponentRosterDuringAugmentHandoff) && (
-                                    <OpponentDraftBar
-                                        opponentPicked={opponentPicked}
-                                        opponentLabel={opponentLabel}
-                                        watchedSlots={watchedSlots}
-                                        onInspect={beginInspect}
-                                        onInspectEnd={endInspect}
-                                        gameId={gameId}
-                                    />
-                                )}
-                            </Box>
-                        </>
-                    )}
-
-                    <Box
-                        data-testid="draft-choice-action-zone"
                         sx={{
                             display: "flex",
-                            flexDirection: "column",
-                            alignItems: "center",
-                            gap: DRAFT_ZONE_GAP,
+                            justifyContent: "center",
+                            ...(inspectedId || inspectedArtifact
+                                ? {
+                                      position: { xs: "static", md: "absolute" },
+                                      visibility: { xs: "visible", md: "hidden" },
+                                      pointerEvents: "none",
+                                  }
+                                : {}),
+                        }}
+                    >
+                        <DraftTitle
+                            subtitle={
+                                hint && !isCommitPhase && !isPreparing ? (
+                                    <Typography
+                                        level="body-sm"
+                                        sx={{ opacity: 0.7, textAlign: "center", maxWidth: 560 }}
+                                    >
+                                        {hint}
+                                    </Typography>
+                                ) : undefined
+                            }
+                        >
+                            {headerTitle}
+                        </DraftTitle>
+                    </Box>
+                    {inspectedArtifact ? (
+                        <ArtifactDetailPanel artifact={inspectedArtifact} />
+                    ) : inspectedId ? (
+                        <CreatureDetailPanel creatureId={inspectedId} />
+                    ) : null}
+                </Box>
+
+                <Box
+                    sx={{
+                        display: isCommitPhase || isPreparing ? "none" : "flex",
+                        alignItems: "center",
+                        gap: 1.5,
+                    }}
+                >
+                    <Chip color={isYourTurn ? "success" : "warning"} variant="soft">
+                        {isYourTurn ? t("Your turn") : `${opponentLabel}'s turn`}
+                    </Chip>
+                    {upgradePoints > 0 && (
+                        <Tooltip title="Points you can spend on upgrades before placement" variant="soft">
+                            <Chip color="primary" variant="soft">
+                                {upgradePoints} upgrade pts
+                            </Chip>
+                        </Tooltip>
+                    )}
+                    {secondsRemaining >= 0 && !isHandoff && !isCommitPhase && (
+                        <Timer localSeconds={secondsRemaining} isYourTurn={!!isYourTurn} />
+                    )}
+                </Box>
+
+                {/* Imperative "what to do now" so first-time players always know the expected action. */}
+                {isYourTurn &&
+                    !isHandoff &&
+                    !isCommitPhase &&
+                    !isPreparing &&
+                    phaseAction(pickPhase, requiredLevel) && (
+                        <Typography
+                            level="title-sm"
+                            sx={{ color: "#7CFC9B", fontWeight: 700, textAlign: "center", mt: -0.5 }}
+                        >
+                            👉 {phaseAction(pickPhase, requiredLevel)}
+                        </Typography>
+                    )}
+
+                {pickPhase !== PickPhaseVals.DOCTRINE && (
+                    <>
+                        {/* Both armies sit above the grid by default. Ranked/private callers can suppress the
+                            opponent rail during the zero-second augment handoff before private Setup opens. */}
+                        <Box
+                            data-testid="draft-armies-zone"
+                            sx={{
+                                display: "flex",
+                                gap: 1.5,
+                                width: "100%",
+                                height: DRAFT_ARMIES_HEIGHT,
+                                minHeight: DRAFT_ARMIES_HEIGHT,
+                                maxHeight: DRAFT_ARMIES_HEIGHT,
+                                justifyContent: "center",
+                                alignItems: "center",
+                                flexWrap: "nowrap",
+                                flex: "0 0 auto",
+                            }}
+                        >
+                            <MyDraftBar
+                                doctrine={doctrine}
+                                picked={picked}
+                                artifactTier1={artifactTier1}
+                                artifactTier2={artifactTier2}
+                                onInspect={beginInspect}
+                                onArtifactInspect={beginArtifactInspect}
+                                onInspectEnd={endInspect}
+                                gameId={gameId}
+                                pendingId={pendingPick}
+                            />
+                            {/* Reads t("Map: ?") until the server reveals the map right before the L3 picks, then
+                                the name — dead centre between the two armies. */}
+                            <Box sx={{ flex: "0 0 auto", display: "flex", justifyContent: "center" }}>
+                                <MapBadge mapType={mapType} />
+                            </Box>
+                            {shouldShowOpponentDraftRail(pickPhase, showOpponentRosterDuringAugmentHandoff) && (
+                                <OpponentDraftBar
+                                    opponentPicked={opponentPicked}
+                                    opponentLabel={opponentLabel}
+                                    watchedSlots={watchedSlots}
+                                    onInspect={beginInspect}
+                                    onInspectEnd={endInspect}
+                                    gameId={gameId}
+                                />
+                            )}
+                        </Box>
+                    </>
+                )}
+
+                <Box
+                    data-testid="draft-choice-action-zone"
+                    sx={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: DRAFT_ZONE_GAP,
+                        width: "100%",
+                        flex: "1 1 0",
+                        minHeight: 0,
+                    }}
+                >
+                    {/* Flexible slot for the phase's choice frame. Every phase receives this exact region;
+                        only the grid rendered inside it changes. */}
+                    <Box
+                        data-testid="draft-choice-zone"
+                        sx={{
+                            position: "relative",
+                            display: "flex",
+                            justifyContent: "center",
+                            alignItems: "stretch",
                             width: "100%",
                             flex: "1 1 0",
                             minHeight: 0,
+                            overflow: "visible",
                         }}
                     >
-                        {/* Flexible slot for the phase's choice frame. Every phase receives this exact region;
-                        only the grid rendered inside it changes. */}
-                        <Box
-                            data-testid="draft-choice-zone"
-                            sx={{
-                                position: "relative",
-                                display: "flex",
-                                justifyContent: "center",
-                                alignItems: "stretch",
-                                width: "100%",
-                                flex: "1 1 0",
-                                minHeight: 0,
-                                overflow: "visible",
-                            }}
-                        >
-                            {userTeam ? panel : null}
-                        </Box>
-
-                        {userTeam && isCommitPhase && pickPhase >= 0 && (
-                            <PickCommitButton
-                                key={phaseIdentity}
-                                label={commitLabel}
-                                tone="green"
-                                armed={
-                                    !!isYourTurn &&
-                                    !busy &&
-                                    (pickPhase === PickPhaseVals.ARTIFACT_2
-                                        ? pendingArtifact > 0
-                                        : pickPhase === PickPhaseVals.INITIAL_PICK
-                                          ? pendingBundle >= 0 && !bundleLocked
-                                          : pendingPick > 0)
-                                }
-                                isYourTurn={!!isYourTurn}
-                                blockedHint={
-                                    !isYourTurn
-                                        ? undefined
-                                        : pickPhase === PickPhaseVals.ARTIFACT_2
-                                          ? t("Choose one of the three artifacts first.")
-                                          : pickPhase === PickPhaseVals.INITIAL_PICK
-                                            ? t("Choose one of the two bundles first.")
-                                            : "Choose a creature first — click a portrait, then confirm."
-                                }
-                                seconds={secondsRemaining}
-                                submissionKey={phaseIdentity}
-                                onCommit={() => {
-                                    if (pickPhase === PickPhaseVals.ARTIFACT_2) {
-                                        return commitArtifact(pendingArtifact);
-                                    }
-                                    if (pickPhase === PickPhaseVals.INITIAL_PICK) {
-                                        return commitBundle(pendingBundle);
-                                    }
-                                    return commitCreature(pendingPick);
-                                }}
-                            />
-                        )}
-
-                        {/* Each phase is a simultaneous both-teams choice; show "waiting" while the opponent hasn't acted. */}
-                        {!isYourTurn && !isHandoff && !isCommitPhase && (
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 1, opacity: 0.7 }}>
-                                <CircularProgress size="sm" />
-                                <Typography level="body-sm">
-                                    {selectedValue >= 0
-                                        ? t("Locked in — waiting for your opponent…")
-                                        : t("Waiting for your opponent…")}
-                                </Typography>
-                            </Box>
-                        )}
+                        {userTeam ? panel : null}
                     </Box>
 
-                    {/* Fires once, right before the L3 picks, the moment the server reveals the map type. */}
-                    <MapRevealModal mapType={mapType} />
+                    {userTeam && isCommitPhase && pickPhase >= 0 && (
+                        <PickCommitButton
+                            key={phaseIdentity}
+                            label={commitLabel}
+                            tone="green"
+                            armed={
+                                !!isYourTurn &&
+                                !busy &&
+                                (pickPhase === PickPhaseVals.ARTIFACT_2
+                                    ? pendingArtifact > 0
+                                    : pickPhase === PickPhaseVals.INITIAL_PICK
+                                      ? pendingBundle >= 0 && !bundleLocked
+                                      : pendingPick > 0)
+                            }
+                            isYourTurn={!!isYourTurn}
+                            blockedHint={
+                                !isYourTurn
+                                    ? undefined
+                                    : pickPhase === PickPhaseVals.ARTIFACT_2
+                                      ? t("Choose one of the three artifacts first.")
+                                      : pickPhase === PickPhaseVals.INITIAL_PICK
+                                        ? t("Choose one of the two bundles first.")
+                                        : "Choose a creature first — click a portrait, then confirm."
+                            }
+                            seconds={secondsRemaining}
+                            submissionKey={phaseIdentity}
+                            onCommit={() => {
+                                if (pickPhase === PickPhaseVals.ARTIFACT_2) {
+                                    return commitArtifact(pendingArtifact);
+                                }
+                                if (pickPhase === PickPhaseVals.INITIAL_PICK) {
+                                    return commitBundle(pendingBundle);
+                                }
+                                return commitCreature(pendingPick);
+                            }}
+                        />
+                    )}
+
+                    {/* Each phase is a simultaneous both-teams choice; show "waiting" while the opponent hasn't acted. */}
+                    {!isYourTurn && !isHandoff && !isCommitPhase && (
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1, opacity: 0.7 }}>
+                            <CircularProgress size="sm" />
+                            <Typography level="body-sm">
+                                {selectedValue >= 0
+                                    ? t("Locked in — waiting for your opponent…")
+                                    : t("Waiting for your opponent…")}
+                            </Typography>
+                        </Box>
+                    )}
                 </Box>
-                {/* Keep draft progress out of the fixed board and just above the shared system-control row, so
-                the rail and fullscreen / exit / sound controls remain anchored throughout every phase. */}
-                <DraftBottomControls
-                    step={currentStep(pickPhase, requiredLevel)}
-                    userTeam={userTeam}
-                    draftScale={draftScale}
-                />
-                <Tooltip title={t("Open the full How-to-Play guide in a new tab")} variant="soft" placement="right">
-                    <Typography
-                        component="a"
-                        href={RULES_URL}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        level="body-sm"
-                        sx={{
-                            position: "fixed",
-                            top: "1rem",
-                            left: "1rem",
-                            zIndex: 60,
-                            color: "#9fd0ff",
-                            textDecoration: "none",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 0.5,
-                            fontWeight: 600,
-                            "&:hover": { textDecoration: "underline" },
+
+                {userTeam && isCommitPhase && pickPhase >= 0 && (
+                    <PickCommitButton
+                        key={phaseIdentity}
+                        label={commitLabel}
+                        tone="green"
+                        armed={
+                            !!isYourTurn &&
+                            !busy &&
+                            (pickPhase === PickPhaseVals.ARTIFACT_2
+                                ? pendingArtifact > 0
+                                : pickPhase === PickPhaseVals.INITIAL_PICK
+                                  ? pendingBundle >= 0 && !bundleLocked
+                                  : pendingPick > 0)
+                        }
+                        isYourTurn={!!isYourTurn}
+                        blockedHint={
+                            !isYourTurn
+                                ? undefined
+                                : pickPhase === PickPhaseVals.ARTIFACT_2
+                                  ? t("Choose one of the three artifacts first.")
+                                  : pickPhase === PickPhaseVals.INITIAL_PICK
+                                    ? t("Choose one of the two bundles first.")
+                                    : "Choose a creature first — click a portrait, then confirm."
+                        }
+                        seconds={secondsRemaining}
+                        submissionKey={phaseIdentity}
+                        onCommit={() => {
+                            if (pickPhase === PickPhaseVals.ARTIFACT_2) {
+                                return commitArtifact(pendingArtifact);
+                            }
+                            if (pickPhase === PickPhaseVals.INITIAL_PICK) {
+                                return commitBundle(pendingBundle);
+                            }
+                            return commitCreature(pendingPick);
                         }}
-                    >
-                        📖 {t("Rules")}
-                    </Typography>
-                </Tooltip>
-                {/* The corner the Rules link used to own: the draft's only destructive action, kept small and
+                    />
+                )}
+
+                {/* Each phase is a simultaneous both-teams choice; show "waiting" while the opponent hasn't acted. */}
+                {!isYourTurn && !isHandoff && !isCommitPhase && (
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, opacity: 0.7 }}>
+                        <CircularProgress size="sm" />
+                        <Typography level="body-sm">
+                            {selectedValue >= 0
+                                ? t("Locked in — waiting for your opponent…")
+                                : t("Waiting for your opponent…")}
+                        </Typography>
+                    </Box>
+                )}
+            </Box>
+            {/* Keep draft progress out of the fixed board and just above the shared system-control row, so
+                the rail and fullscreen / exit / sound controls remain anchored throughout every phase. */}
+            <DraftBottomControls
+                step={currentStep(pickPhase, requiredLevel)}
+                userTeam={userTeam}
+                draftScale={draftScale}
+            />
+            <Tooltip title={t("Open the full How-to-Play guide in a new tab")} variant="soft" placement="right">
+                <Typography
+                    component="a"
+                    href={RULES_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    level="body-sm"
+                    sx={{
+                        position: "fixed",
+                        top: "1rem",
+                        left: "1rem",
+                        zIndex: 60,
+                        color: "#9fd0ff",
+                        textDecoration: "none",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                        fontWeight: 600,
+                        "&:hover": { textDecoration: "underline" },
+                    }}
+                >
+                    📖 {t("Rules")}
+                </Typography>
+            </Tooltip>
+            {/* The corner the Rules link used to own: the draft's only destructive action, kept small and
                 far away from the cards it would otherwise sit under. */}
-                {systemControl && <GameCornerSlot>{systemControl}</GameCornerSlot>}
-                <PremiumDraftBanner
-                    advice={premium.advice}
-                    draft={{ gameId, picked, opponentPicked, artifactTier1, artifactTier2, isYourTurn }}
-                />
-            </Sheet>
-        </PremiumContext.Provider>
+            {systemControl && <GameCornerSlot>{systemControl}</GameCornerSlot>}
+        </Sheet>
     );
 };
 

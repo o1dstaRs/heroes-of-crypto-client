@@ -15,6 +15,10 @@ function createPreview(unitName = "Arbalester") {
         getProjectileImpactPoint: () => ({ x, y: y + 80 }),
         getCells: () => (placed ? [{ x, y }] : []),
         hasAnimationState: () => true,
+        isDead: () => dead,
+        catchZenaChakram: () => undefined,
+        getDryadArrowLength: () => 44,
+        getRangedProjectileOrigin: () => ({ x, y }),
         isPlayingOneShotAnimation: (state?: string) => state === "death" && dead,
         hasPendingArbalesterRangedShot: () => false,
         hasPendingDryadRangedShot: () => false,
@@ -310,4 +314,93 @@ test.each([
     else expect(routed[0].options.medusaArmSerpent).toBe(true);
     expect(routed[0].options.elfArrow).toBe(false);
     expect(routed[0].options.to).toEqual({ x: 400, y });
+});
+
+test.each(["attack", "attack_up", "attack_down"] as const)("Beholder lab %s launches an eye projectile", (state) => {
+    const { scene, shots } = createPreview("Beholder");
+    expect(scene.playCreatureAnimationLabState(state).ok).toBe(true);
+    expect(shots).toHaveLength(1);
+    expect(shots[0].state).toBe(state);
+    expect(shots[0].options.beholderEye).toBe(true);
+    expect(shots[0].options.orcAxe).toBe(false);
+});
+
+test.each(["attack", "attack_up", "attack_down"] as const)(
+    "Zena lab %s launches the chakram and hits only on arrival",
+    (state) => {
+        const { scene, units, makeUnit, hits, shots } = createPreview("Zena");
+        const target = makeUnit("target", 300, state === "attack_up" ? 1200 : state === "attack_down" ? 800 : 1000, {
+            team: 2,
+        });
+        units.set(target.getId(), target);
+        expect(scene.playCreatureAnimationLabState(state).ok).toBe(true);
+        expect(shots).toHaveLength(1);
+        expect(shots[0].state).toBe(state);
+        expect(shots[0].options.chakram).toBe(true);
+        expect(shots[0].options.orcAxe).toBe(false);
+        expect(hits).toHaveLength(0);
+        shots[0].options.onImpact?.();
+        expect(hits).toEqual(["target"]);
+    },
+);
+
+test("Zena CAST continues through unresolved flashes and catches after the final return", async () => {
+    const { scene, units, makeUnit, hits, shots } = createPreview("Zena");
+    units.get("shooter")!.hasAnimationState = () => false;
+    for (let i = 1; i <= 3; i++) units.set(`target${i}`, makeUnit(`target${i}`, i * 200, 1000));
+    const events: string[] = [];
+    units.get("shooter")!.catchZenaChakram = () => {
+        events.push("catch");
+    };
+    Object.assign(scene, {
+        rangedProjectiles: {
+            hasActive: () => false,
+            showChakramBounce: () => {
+                events.push("burst");
+                return new Promise<void>(() => undefined);
+            },
+            fireAlongPath: async () => {
+                events.push("flight");
+            },
+        },
+    });
+    expect(scene.playCreatureAnimationLabState("cast").ok).toBe(true);
+    expect(scene.playCreatureAnimationLabState("cast").ok).toBe(false);
+    expect(shots).toHaveLength(1);
+    expect(hits).toEqual([]);
+    expect(shots[0].options.path).toEqual([
+        { x: 400, y: 1080 },
+        { x: 600, y: 1080 },
+    ]);
+    expect(shots[0].options.returnToOrigin).toBe(true);
+    for (let i = 0; i < 4; i++) shots[0].options.onWaypoint?.(i);
+    for (let i = 0; i < 12; i++) await Promise.resolve();
+    expect(hits).toEqual(["target1", "target2", "target3"]);
+    expect(events).toEqual(["burst", "burst", "catch"]);
+});
+
+describe("Gargantuan lab throws", () => {
+    test.each(["attack", "attack_up", "attack_down"] as const)(
+        "%s requests a stone, never the Orc axe fallback",
+        (state) => {
+            const { scene, shots } = createPreview("Gargantuan");
+            expect(scene.playCreatureAnimationLabState(state).ok).toBe(true);
+            expect(shots).toHaveLength(1);
+            expect(shots[0].state).toBe(state);
+            expect(shots[0].options.gargantuanRock).toBe(true);
+            expect(shots[0].options.orcAxe).toBe(false);
+        },
+    );
+});
+
+describe("Gargantuan lab stone melee", () => {
+    test.each(["melee_attack", "melee_attack_up", "melee_attack_down"])(
+        "%s plays the held-stone cel sequence without firing",
+        (state) => {
+            const { scene, hits, shots } = createPreview("Gargantuan");
+            expect(scene.playCreatureAnimationLabState(state).ok).toBe(true);
+            expect(shots).toHaveLength(0);
+            expect(hits).toEqual(["shooter"]);
+        },
+    );
 });

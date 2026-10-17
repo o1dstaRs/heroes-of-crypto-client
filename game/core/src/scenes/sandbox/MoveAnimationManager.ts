@@ -1,3 +1,4 @@
+import { harpyCastlingDurations, sampleHarpyCastling, type HarpyCastlingPhase } from "./HarpyCastlingMotion";
 import { RenderableUnit } from "../RenderableUnit";
 import { GridSettings, HoCMath, TeamType, GridMath } from "@heroesofcrypto/common";
 import { HoverManager } from "../HoverManager";
@@ -8,15 +9,8 @@ import {
     type MutableProjectedBattlefieldMetrics,
 } from "./BattlefieldVisualGrid";
 
-/**
- * Real fights keep movement dust and flight wind. The animation lab turns this off while it is open,
- * so an authored walk can be read without the trails drawn over it.
- */
-export let MOVEMENT_PARTICLES_ENABLED = true;
-
-export const setMovementParticlesEnabled = (enabled: boolean): void => {
-    MOVEMENT_PARTICLES_ENABLED = enabled;
-};
+/** Movement uses the creature animation alone, without ground dust or airborne trails. */
+export let MOVEMENT_PARTICLES_ENABLED = false;
 
 // Rapid Charge: a fast accelerating dash with a motion-blur streak instead of a flat-speed glide.
 const RC_MIN_SPEED_MULT = 0.7; // starts a touch slower than a normal move...
@@ -90,6 +84,7 @@ interface ISwapAnimSegment {
 }
 
 interface ISwapAnimState {
+    harpy?: { durations: number[]; phase?: HarpyCastlingPhase; shoulderHeight: number; distanceCells: number };
     a: ISwapAnimSegment;
     b: ISwapAnimSegment;
     elapsed: number;
@@ -100,7 +95,6 @@ interface ISwapAnimState {
 
 export class MoveAnimationManager {
     private context: IMoveAnimationContext;
-    // State
     private moveAnimation?: IMoveAnimationState;
     private swapAnimation?: ISwapAnimState;
     private moveTrackPath?: HoCMath.XY[];
@@ -135,18 +129,13 @@ export class MoveAnimationManager {
             this.swapAnimation?.b.unit === unit
         );
     }
-    /**
-     * Force any in-flight move/swap animation to its end state immediately, firing its onComplete so
-     * an awaiting caller (e.g. a replay) can't hang if the per-frame update somehow stops driving it.
-     * A safety valve against a stuck animation freezing the whole scene (no AI re-trigger, snapshots
-     * ignored). No-op when nothing is animating.
-     */
     public forceFinish(): void {
         if (this.moveAnimation) {
             this.finishMoveAnimation(true);
         }
         if (this.swapAnimation) {
             const s = this.swapAnimation;
+            this.clearHarpyTransport(s);
             s.a.unit.setPosition(s.a.to.x, s.a.to.y);
             s.b.unit.setPosition(s.b.to.x, s.b.to.y);
             const onComplete = s.onComplete;
@@ -157,14 +146,14 @@ export class MoveAnimationManager {
             if (onComplete) onComplete();
         }
     }
-    /**
-     * Abandon scene-owned motion without committing its gameplay completion. Scene replacement stops
-     * driving update(), so leaving these callbacks pending would keep an awaiting replay (and therefore
-     * the complete retired Sandbox scene) reachable indefinitely.
-     */
     public cancel(): void {
         const move = this.moveAnimation;
         const swap = this.swapAnimation;
+        if (swap?.harpy) {
+            this.clearHarpyTransport(swap);
+            swap.a.unit.setPosition(swap.a.to.x, swap.a.to.y);
+            swap.b.unit.setPosition(swap.b.to.x, swap.b.to.y);
+        }
         this.moveAnimation = undefined;
         this.swapAnimation = undefined;
 
@@ -296,11 +285,28 @@ export class MoveAnimationManager {
             const bow = len * 0.3;
             return { x: mx + px * bow * side, y: my + py * bow * side };
         };
+        const distanceCells = Math.hypot(fB.x - fA.x, fB.y - fA.y) / this.context.getGridSettings().getCellSize();
+        const harpy =
+            unitA.getName() === "Harpy" && unitA.hasAnimationState("cast")
+                ? { durations: harpyCastlingDurations(distanceCells), shoulderHeight: 0, distanceCells }
+                : undefined;
+        if (harpy) {
+            unitA.returnToIdleAnimation();
+            unitB.returnToIdleAnimation();
+            unitA.setPosition(fA.x, fA.y);
+            unitB.setPosition(fB.x, fB.y);
+            const gs = this.context.getGridSettings();
+            const root = this.context.getWorldRoot();
+            unitB.syncVisual(root, gs);
+            harpy.shoulderHeight = unitB.getCastlingShoulderPoint(gs).y - unitB.getVisualCenter(gs).y;
+            unitA.startBoardWalkAnimation(fB.x - fA.x, distanceCells);
+        }
         this.swapAnimation = {
+            harpy,
             a: { unit: unitA, from: fA, to: tA, ctrl: arcCtrl(fA, tA, 1) },
             b: { unit: unitB, from: fB, to: tB, ctrl: arcCtrl(fB, tB, -1) },
             elapsed: 0,
-            duration: 0.45,
+            duration: harpy ? harpy.durations.reduce((sum, duration) => sum + duration, 0) : 0.45,
             onComplete,
             onCancel,
         };
@@ -328,7 +334,11 @@ export class MoveAnimationManager {
     private stepSwapAnimation(dt: number): void {
         const s = this.swapAnimation;
         if (!s) return;
-        s.elapsed += dt;
+        s.elapsed += Math.max(0, dt);
+        if (s.harpy) {
+            this.stepHarpyCastling(s);
+            return;
+        }
         const raw = Math.min(1, s.elapsed / s.duration);
         // ease-in-out for a smooth glide.
         const t = raw < 0.5 ? 2 * raw * raw : 1 - Math.pow(-2 * raw + 2, 2) / 2;
@@ -349,6 +359,75 @@ export class MoveAnimationManager {
             this.context.setMoveBlocked(false);
             this.context.requestVisibleStateUpdate();
             if (onComplete) onComplete();
+        }
+    }
+    private clearHarpyTransport(s: ISwapAnimState): void {
+        if (!s.harpy) return;
+        for (const segment of [s.a, s.b]) {
+            segment.unit.setTransportVisual(0);
+            segment.unit.returnToIdleAnimation();
+        }
+    }
+    private stepHarpyCastling(s: ISwapAnimState): void {
+        const h = s.harpy!;
+        const pose = sampleHarpyCastling(s.elapsed, h.durations, s.a.from, s.b.from, s.b.to, s.a.to);
+        const gs = this.context.getGridSettings();
+        const root = this.context.getWorldRoot();
+        const cell = gs.getCellSize();
+        const caster = s.a.unit;
+        const passenger = s.b.unit;
+        caster.setPosition(pose.caster.x, pose.caster.y);
+        passenger.setPosition(pose.passenger.x, pose.passenger.y);
+        passenger.setTransportVisual(pose.passengerLift * cell * 0.65);
+        passenger.syncVisual(root, gs, true);
+        const gripping = ["grip", "lift", "carry", "drop", "release"].includes(pose.phase);
+        if (gripping) {
+            // Requested carry-only cadence: 35% faster than the base 1.3-cell wing beat.
+            const distance =
+                pose.phase === "carry"
+                    ? Math.hypot(pose.passenger.x - s.b.from.x, pose.passenger.y - s.b.from.y) / cell
+                    : 0;
+            const frame =
+                pose.phase === "grip" || pose.phase === "release"
+                    ? 1
+                    : pose.phase === "carry"
+                      ? 2 + Math.floor((((distance * 1.35) / 1.3) % 1) * 2)
+                      : 2;
+            caster.setHarpyCastFrame(frame);
+            if (pose.phase === "carry") caster.setBoardFacingFromMovement(s.b.to.x - s.b.from.x);
+            const blending = pose.phase === "grip" ? pose.progress : 1;
+            caster.setTransportVisual(h.shoulderHeight + pose.casterLift * cell * 0.35, passenger, blending);
+        } else {
+            if (pose.phase === "return" && h.phase !== "return") {
+                caster.returnToIdleAnimation();
+                caster.startBoardWalkAnimation(s.a.to.x - s.b.to.x, h.distanceCells);
+            }
+            const legStart = pose.phase === "return" || pose.phase === "land" ? s.b.to : s.a.from;
+            const legEnd = pose.phase === "return" || pose.phase === "land" ? s.a.to : s.b.from;
+            caster.setBoardFacingFromMovement(legEnd.x - legStart.x);
+            caster.setBoardWalkDistanceCells(Math.hypot(pose.caster.x - legStart.x, pose.caster.y - legStart.y) / cell);
+            const altitude =
+                pose.phase === "return"
+                    ? h.shoulderHeight + Math.sin(pose.progress * Math.PI) * cell * 0.35
+                    : pose.phase === "land"
+                      ? h.shoulderHeight * pose.casterLift
+                      : (h.shoulderHeight + cell * 0.35) * pose.casterLift;
+            caster.setTransportVisual(altitude);
+            if (pose.phase === "land" && h.phase !== "land") caster.finishBoardWalkAnimationAfterFullCycle();
+        }
+        h.phase = pose.phase;
+        caster.syncVisual(root, gs, true);
+        if (pose.finished) {
+            this.clearHarpyTransport(s);
+            caster.setPosition(s.a.to.x, s.a.to.y);
+            passenger.setPosition(s.b.to.x, s.b.to.y);
+            caster.syncVisual(root, gs);
+            passenger.syncVisual(root, gs);
+            this.swapAnimation = undefined;
+            this.isActiveUnitMoving = false;
+            this.context.setMoveBlocked(false);
+            this.context.requestVisibleStateUpdate();
+            s.onComplete?.();
         }
     }
     private stepMoveAnimation(dt: number): void {
@@ -691,3 +770,7 @@ export class MoveAnimationManager {
         return result;
     }
 }
+
+export const setMovementParticlesEnabled = (enabled: boolean): void => {
+    MOVEMENT_PARTICLES_ENABLED = enabled;
+};

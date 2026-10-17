@@ -51,8 +51,20 @@ const makeScene = () => {
     // distinguishes "bled" from "dodged".
     let aimedAt = "";
     const record = (visual: string) => () => calls.push({ visual, unitId: aimedAt });
+    const flightEvents: string[] = [];
     const scene = {
-        rangedProjectiles: { fireAlongPath: () => Promise.resolve() },
+        flightEvents,
+        isSceneDestroyed: () => false,
+        rangedProjectiles: {
+            prepare: async () => undefined,
+            fireAlongPath: async (points: unknown[], opts: { onWaypoint?: (index: number) => void }) => {
+                flightEvents.push("flight");
+                for (let index = 0; index < points.length - 1; index++) opts.onWaypoint?.(index);
+            },
+            showChakramBounce: async () => {
+                flightEvents.push("burst");
+            },
+        },
         sc_sceneSettings: { getGridSettings: () => gridSettings },
         unitsHolder: {
             getAllUnits: () => ({
@@ -139,4 +151,78 @@ describe("Zena's chakram, when a victim dodges", () => {
         expect(scene.calls.filter((call) => call.visual === "blood")).toEqual([]);
         expect(scene.calls.filter((call) => call.visual === "slash")).toEqual([]);
     });
+});
+
+test("contact flashes only before connecting ricochets, never on the final return", async () => {
+    const scene = makeScene();
+    await play(
+        scene,
+        [
+            { unitId: "Primary", amount: 10 },
+            { unitId: "Bounce", amount: 10 },
+        ],
+        [...bounceArc, ...bounceArc],
+    );
+    expect(scene.flightEvents).toEqual(["burst", "flight", "burst"]);
+});
+test("no ricochet means no contact flare", async () => {
+    const scene = makeScene();
+    await play(scene, [{ unitId: "Primary", amount: 10 }], []);
+    expect(scene.flightEvents).toEqual(["flight"]);
+});
+
+test("the initial shot, adjacent bounce and return share one flight with contact-time effects", async () => {
+    const scene = makeScene();
+    let flightPoints: unknown[] = [];
+    let contact!: (index: number) => void;
+    let finish!: () => void;
+    scene.rangedProjectiles.fireAlongPath = (points, options) => {
+        flightPoints = points;
+        contact = options.onWaypoint!;
+        return new Promise<void>((resolve) => {
+            finish = resolve;
+        });
+    };
+    const prototype = Sandbox.prototype as unknown as {
+        playChakramArcs: (...args: unknown[]) => Promise<void>;
+        chakramWorldDir: (from: unknown, to: unknown) => unknown;
+    };
+    Object.assign(scene, { chakramWorldDir: prototype.chakramWorldDir });
+    let primaryHits = 0;
+    const pending = prototype.playChakramArcs.call(
+        scene,
+        unitStub("Zena"),
+        {
+            splash: [
+                { unitId: "Primary", amount: 10 },
+                { unitId: "Bounce", amount: 10 },
+            ],
+            chakramArcs: [{ ...bounceArc[0], cells: [{ x: 6, y: 5 }] }],
+        },
+        unitStub("Primary"),
+        {
+            from: { x: 25, y: 80 },
+            to: { x: 100, y: 0 },
+            onImpact: () => primaryHits++,
+        },
+    );
+    await Promise.resolve();
+    expect(flightPoints).toHaveLength(4);
+    expect(flightPoints.at(-1)).toEqual({ x: 25, y: 80 });
+    expect(scene.calls).toEqual([]);
+    expect(primaryHits).toBe(0);
+    contact(0);
+    expect(primaryHits).toBe(1);
+    expect(scene.flightEvents).toEqual(["burst"]);
+    expect(scene.calls.some((call) => call.unitId === "Bounce")).toBe(false);
+    contact(1);
+    expect(scene.calls.filter((call) => call.unitId === "Bounce").map((call) => call.visual)).toEqual([
+        "damage",
+        "blood",
+        "slash",
+    ]);
+    contact(2);
+    finish();
+    await pending;
+    expect(primaryHits).toBe(1);
 });

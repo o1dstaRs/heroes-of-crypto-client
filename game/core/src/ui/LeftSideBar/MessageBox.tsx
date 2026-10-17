@@ -1,3 +1,4 @@
+import { isFullscreenActive, onFullscreenChange } from "../fullscreen";
 import { TeamVals, type TeamType } from "@heroesofcrypto/common";
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
 import TimelapseRoundedIcon from "@mui/icons-material/TimelapseRounded";
@@ -189,8 +190,10 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
     const boardMirrored = useBoardMirrored();
     const countdownInterval = useRef<NodeJS.Timeout | null>(null);
     const manager = usePixiManager();
+    const [isFullscreen, setIsFullscreen] = useState(isFullscreenActive);
+    useEffect(() => onFullscreenChange(() => setIsFullscreen(isFullscreenActive())), []);
     const metrics = useSidebarMetrics();
-    const iconOnlyMoreTime = metrics.barSize < 200;
+
     const aiToggleSize = Math.max(30, Math.round(42 * metrics.startButtonScale));
     // Set only in ranked play (the viewer has a fixed side); undefined in sandbox/observer.
     const viewerTeam = useViewerTeam();
@@ -746,17 +749,22 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
             messageBoxTitle = "Calculating next turn";
         } else if (perspectiveTeam !== undefined) {
             // Frame the turn from the watcher's side instead of by absolute team colours. On the other
-            messageBoxTitle = visibleState.teamTypeTurn === perspectiveTeam ? "Your turn" : "Opponent's turn";
+            // side's turn the heading is left EMPTY on purpose — the button below says "Enemy turn" for
+            // the whole of it, and printing it twice was the only thing in this card saying the same word
+            // to itself. The header row keeps its height either way: the hazard icon beside it sits in a
+            // fixed slot.
+            messageBoxTitle = visibleState.teamTypeTurn === perspectiveTeam ? "Your turn" : "";
         } else {
             // Sandbox/observer: the side on the clock is already named by the board, the Up Next queue and
-            // the timer's own fill, and this heading was the one piece of chrome costing the card a whole
-            // row of height — the row the effect wells need to show their icons whole in a browser window.
+            // the timer's own fill, and the heading was the one line of chrome costing the card a whole row
+            // of height — the row the effect wells need to show their icons whole in a windowed browser.
             messageBoxTitle = "";
         }
         messageBoxText = "";
     }
 
     // --- ICON LOGIC ---
+    const useFullscreenMoreTimeLabel = isFullscreen || metrics.barSize < 300;
     let footerIndicator: React.ReactNode;
 
     // Shared with the bottom-centre NextLapHazardBadge and the UpNextOverlay icon, so all three warnings
@@ -860,57 +868,117 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
                                 </Typography>
                             ) : undefined
                         }
-                        footerIndicator={footerIndicator}
+                        footerIndicator={
+                            <Box
+                                sx={{
+                                    width: 22,
+                                    height: 22,
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    color: hocColors.gold,
+                                    filter: `drop-shadow(0 0 3px ${hocColors.gold}66)`,
+                                    "& svg": { color: "inherit" },
+                                }}
+                            >
+                                {footerIndicator}
+                            </Box>
+                        }
+                        // Keep the opponent-turn label, but remove the action completely as soon as this
+                        // turn's reserve has been spent. A single click issues a single request.
                         footer={
-                            !cannotAct && visibleState.canRequestAdditionalTime ? (
+                            cannotAct || visibleState.canRequestAdditionalTime ? (
                                 <Button
-                                    aria-label="More time"
                                     onClick={() => manager.RequestTime(visibleState.teamTypeTurn)}
                                     size="sm"
-                                    variant="plain"
-                                    startDecorator={iconOnlyMoreTime ? undefined : <TimelapseRoundedIcon />}
+                                    variant="solid"
+                                    disabled={cannotAct || !visibleState.canRequestAdditionalTime}
                                     sx={{
-                                        width: iconOnlyMoreTime
-                                            ? `${Math.round(27 * metrics.fontScale)}px`
-                                            : "fit-content",
-                                        minWidth: iconOnlyMoreTime ? 0 : metrics.compact ? 88 : 126,
-                                        maxWidth: "100%",
+                                        width: "100%",
                                         minHeight: 0,
-                                        height: `${Math.round(27 * metrics.fontScale)}px`,
+                                        position: "relative",
+                                        // Keep the active plate at the same visual height in wide and narrow
+                                        // sidebars. Deriving height from its width made it shrink in the expanded
+                                        // viewport and left oversized empty gaps above and below it. The footer
+                                        // itself is absolutely positioned, so this does not move other content.
+                                        height: `${Math.round(20 * metrics.fontScale)}px`,
                                         py: 0,
-                                        px: metrics.compact ? 1 : 1.5,
-                                        border: `1px solid ${hocColors.gold}99`,
-                                        borderRadius: "999px",
-                                        background: "linear-gradient(180deg, rgba(60,42,19,.94), rgba(20,13,7,.98))",
-                                        color: hocColors.parchment,
-                                        boxShadow:
-                                            "inset 0 1px rgba(255,232,180,.16), inset 0 -1px rgba(0,0,0,.7), 0 2px 5px rgba(0,0,0,.45)",
-                                        fontFamily: hocDisplayFontFamily,
-                                        fontSize: `${0.62 * metrics.fontScale}rem`,
-                                        fontWeight: 700,
+                                        px: "2px",
+                                        // Both states use the same forged silhouette. The opponent state swaps
+                                        // in a text-free plate so its live label remains localizable and legible.
+                                        border: 0,
+                                        borderRadius: 0,
+                                        backgroundColor: "transparent",
+                                        backgroundImage: `url(${
+                                            cannotAct ? enemyTurnButtonBlankUrl : moreTimeButtonLabelPlus4Url
+                                        })`,
+                                        backgroundRepeat: "no-repeat",
+                                        backgroundPosition: "center",
+                                        backgroundSize: "100% 100%",
+                                        fontSize: `${0.66 * metrics.fontScale}rem`,
                                         lineHeight: 1,
-                                        letterSpacing: hocDisplayLetterSpacing,
+                                        fontWeight: 800,
                                         textTransform: "uppercase",
-                                        textShadow: "0 1px 1px rgba(0,0,0,.9)",
-                                        transition: "transform 100ms ease",
-                                        "& .MuiButton-startDecorator": {
-                                            marginInlineEnd: metrics.compact ? "4px" : "7px",
-                                            color: hocColors.gold,
-                                            "& svg": { fontSize: `${Math.round(16 * metrics.fontScale)}px` },
-                                        },
-                                        "&:hover": {
+                                        // The active label is baked into the exact-size v2 bitmap at 104% of
+                                        // the previous lettering. Keep the live text only for accessibility.
+                                        color: cannotAct ? hocColors.parchment : "transparent",
+                                        textShadow: cannotAct
+                                            ? "0 1px 1px rgba(0,0,0,.95), 0 0 2px rgba(224,183,100,.38)"
+                                            : "none",
+                                        letterSpacing: cannotAct ? hocDisplayLetterSpacing : undefined,
+                                        // Width keeps the approved slight overpaint. Height is now explicit above,
+                                        // so no fullscreen-state guess is needed and the centre stays fixed.
+                                        transform: "scale(1.2, 1)",
+                                        transformOrigin: "center",
+                                        transition:
+                                            "border-color 140ms ease, box-shadow 140ms ease, filter 140ms ease, transform 140ms ease",
+                                        // Lights up under the cursor: the hairline goes to full gold and a soft
+                                        // glow comes up around it, so the control announces itself as pressable
+                                        // on a card where everything else is a readout. Gated on :not(:disabled)
+                                        // — on the opponent's clock, or with the reserve spent, it stays inert
+                                        // rather than inviting a click that does nothing.
+                                        "&:hover:not(:disabled)": {
+                                            borderColor: cannotAct ? hocColors.gold : "transparent",
                                             backgroundColor: "transparent",
+                                            boxShadow: cannotAct
+                                                ? `0 0 10px 1px ${hocColors.gold}59, inset 0 0 9px ${hocColors.gold}33`
+                                                : "none",
+                                            // The active control is a transparent bitmap, so drop-shadow follows
+                                            // the forged silhouette more clearly than a rectangular box shadow.
+                                            filter: cannotAct
+                                                ? "brightness(1.18)"
+                                                : `brightness(1.3) saturate(1.2) drop-shadow(0 0 4px ${hocColors.gold}cc) drop-shadow(0 0 10px ${hocColors.gold}73)`,
+                                            transform: cannotAct ? "none" : "scale(1.24, 1.04)",
                                         },
-                                        "&:active": { transform: "translateY(1px)" },
+                                        "&:disabled": {
+                                            opacity: 1,
+                                            color: hocColors.parchment,
+                                            WebkitTextFillColor: hocColors.parchment,
+                                        },
+                                        // The label is baked into the bitmap. In the expanded viewport, repaint
+                                        // only its central strip at the measured windowed/fullscreen width ratio;
+                                        // the forged frame, button footprint, height and centre remain untouched.
+                                        ...(useFullscreenMoreTimeLabel && !cannotAct
+                                            ? {
+                                                  "&::after": {
+                                                      content: '""',
+                                                      position: "absolute",
+                                                      inset: "18%",
+                                                      pointerEvents: "none",
+                                                      backgroundImage: `url(${moreTimeButtonLabelPlus4Url})`,
+                                                      backgroundRepeat: "no-repeat",
+                                                      backgroundPosition: "center",
+                                                      backgroundSize: "156.25% 156.25%",
+                                                      transform: "scaleX(1.42)",
+                                                      transformOrigin: "center",
+                                                  },
+                                              }
+                                            : {}),
                                     }}
                                 >
-                                    {iconOnlyMoreTime ? (
-                                        <TimelapseRoundedIcon
-                                            sx={{ fontSize: `${Math.round(15 * metrics.fontScale)}px` }}
-                                        />
-                                    ) : (
-                                        "More time"
-                                    )}
+                                    {/* On the other side's clock this stops being an action and becomes the
+                                        label for the wait. */}
+                                    {cannotAct ? "Enemy turn" : "More time"}
                                 </Button>
                             ) : undefined
                         }
@@ -920,3 +988,13 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
         </>
     );
 };
+
+const moreTimeButtonLabelPlus4Url = new URL(
+    "../../../images/ui_more_time_button_forged_label_plus4_v2.webp",
+    import.meta.url,
+).toString();
+
+const enemyTurnButtonBlankUrl = new URL(
+    "../../../images/ui_enemy_turn_button_forged_blank_v1.webp",
+    import.meta.url,
+).toString();

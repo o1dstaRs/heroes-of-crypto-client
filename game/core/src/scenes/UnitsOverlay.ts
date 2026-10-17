@@ -1,6 +1,7 @@
 // game/core/src/overlays/UnitsOverlay.ts
 import {
     Application,
+    Assets,
     Container,
     Rectangle,
     Text,
@@ -258,22 +259,14 @@ export const unitsOverlayTopBandLayout = (stageW: number, stageH: number): Units
 export class UnitsOverlay {
     private app: Application;
     private getTex: GetTexture;
-    /** Root overlay container */
     public readonly container = new Container();
-    /** Holds backdrop + headers + rows */
     private content = new Container();
     private backdrop = new Graphics();
-    /** The L1..L4 tabs down the left rail. */
     private levelRail = new Container();
-    /** One row per level; only the selected one is expanded. */
     private rowsContainer = new Container();
-    /** Clips the active roster to the fitted upper-background frame. */
     private rowsMask = new Graphics();
-    /** Keep the complete creature roster visible in the two-row layout. */
     private isListExpanded = true;
-    /** Panel height locked to the fitted upper-background band. */
     private panelDisplayH = 0;
-    /** Visible frame width, trimmed to the active two-row roster instead of retaining empty background. */
     private panelDisplayW = 0;
     private scrollbarTrack = new Graphics();
     private scrollbarThumb = new Graphics();
@@ -297,20 +290,12 @@ export class UnitsOverlay {
     private readonly stopScrollbarDrag = (): void => {
         this.scrollbarDragging = false;
     };
-    /** Toggle button container */
     private toggleBtn = new Container();
     private toggleGlowPhase = 0;
     private toggleGlowStep?: (ticker: Ticker) => void;
     private toggleGlowRegistered = false;
-    /** Production PNG contains the complete frame, metal treatment and chevron. */
     private toggleButtonSprite = new Sprite(Texture.EMPTY);
-    /**
-     * Where the panel is HEADING, as opposed to `isOpen`, which only flips once the slide finishes because
-     * hit-testing keys off it. The image direction follows the target immediately rather than waiting for
-     * the 350ms panel slide to finish.
-     */
     private openTarget = true;
-    /** Layout state */
     private overlayW = 0;
     private overlayH = 0;
     private leftColW = 0;
@@ -319,19 +304,9 @@ export class UnitsOverlay {
     private allChips: UnitChip[] = [];
     private chipLevels = new Map<UnitChip, UnitLevelId>();
     private levelTabs: LevelTab[] = [];
-    /** Last board cell size. */
     private cellSize = 0;
-    /** The one expanded level. Starts on L1 so the overlay opens showing something rather than a bare ladder. */
     private selectedLevel = 1;
-    private visibleTextureOptions: TextureLoadOptions = { priority: "visible", group: {} };
-    private visiblePortraitsReady = false;
-    private readonly sidebarPortraitPrefetchOwner = {};
-    private readonly hoverPortraitPrefetchOwner = {};
-    private hoverPortraitPrefetchTimer?: ReturnType<typeof setTimeout>;
-    private sidebarWarmLevel?: number;
-    private selectionPortraitWarm?: { creatureId: number; readiness: Promise<boolean> };
     private selectedName: string | null = null;
-    /** Column order. One column per faction, all four the same width. */
     private readonly factions: { type: FactionType }[] = [
         { type: FactionVals.LIFE },
         { type: FactionVals.NATURE },
@@ -451,7 +426,6 @@ export class UnitsOverlay {
 
         this.app.stage.addChild(this.container);
     }
-    /** Size and orient the complete authored PNG; no part of the button is drawn procedurally. */
     private updateButtonVisuals(isHovered: boolean): void {
         const r = this.btnRadius;
         if (r <= 0) {
@@ -567,7 +541,6 @@ export class UnitsOverlay {
 
         return false;
     }
-    /** The transparent interaction canvas also owns hover; native Pixi pointerover may never fire. */
     public handlePointerMove(globalX: number, globalY: number): boolean {
         const local = this.container.toLocal({ x: globalX, y: globalY });
         const insideRoster =
@@ -591,12 +564,10 @@ export class UnitsOverlay {
               })
             : undefined;
         if (hoveredChip !== this.hoveredChip) {
-            this.clearHoveredPortraitPrefetch();
             this.hoveredChip?.setHovered(false);
             hoveredChip?.setHovered(true);
             this.hoveredChip = hoveredChip;
             this.hoveredUnitProperties = hoveredChip ? this.getUnitProperties(hoveredChip.nameKey) : undefined;
-            if (hoveredChip) this.warmCreatureForSelection(hoveredChip);
         }
         if (!this.scrollbarDragging || this.maxScrollX <= 0) return false;
         const ratio = (local.x - this.scrollbarDragOffset - this.scrollTrackX) / this.scrollThumbTravel;
@@ -608,7 +579,6 @@ export class UnitsOverlay {
         this.scrollbarDragging = false;
         return wasDragging;
     }
-    /** Convert either a vertical mouse wheel or a horizontal trackpad gesture into roster movement. */
     public handleWheel(globalX: number, globalY: number, deltaX: number, deltaY: number): boolean {
         if (!this.isOpen || this.isListExpanded || this.maxScrollX <= 0) return false;
         const local = this.container.toLocal({ x: globalX, y: globalY });
@@ -618,11 +588,6 @@ export class UnitsOverlay {
         this.setScrollX(this.scrollX + delta);
         return true;
     }
-    /**
-     * DEV automation/QA: canvas-space centers of everything currently clickable — the level tabs and the
-     * expanded band's chips (each with the unit it must select). Lets a browser rig click every chip and
-     * assert the selection matches instead of guessing coordinates.
-     */
     public getDebugClickMap(): {
         tabs: { level: number; x: number; y: number }[];
         chips: { name: string; x: number; y: number }[];
@@ -640,8 +605,15 @@ export class UnitsOverlay {
         }
         return { tabs, chips, selectedLevel: this.selectedLevel };
     }
+    private creatureAnimationLabEnabled = false;
+    public setCreatureAnimationLabEnabled(enabled: boolean): void {
+        if (this.creatureAnimationLabEnabled === enabled) return;
+        this.creatureAnimationLabEnabled = enabled;
+        this.clearSelection(true);
+        this.build();
+    }
     public getUnitProperties(unitName: string): UnitProperties {
-        let faction: FactionType = FactionVals.NO_FACTION;
+        let faction: FactionType = unitName === "Arachna Spider" ? FactionVals.NATURE : FactionVals.NO_FACTION;
         const target = unitName;
         let found = false;
 
@@ -674,6 +646,7 @@ export class UnitsOverlay {
         this.visiblePortraitsReady = true;
         this.refreshToggleTexture();
         this.levelRail.removeChildren();
+        for (const chip of this.allChips) chip.destroy();
         this.rowsContainer.removeChildren();
         this.allChips = [];
         this.chipLevels.clear();
@@ -745,6 +718,12 @@ export class UnitsOverlay {
                     .map((id: CreatureId) => UNIT_ID_TO_NAME[id as number])
                     .filter(Boolean) as string[];
 
+                // The summoned one-cell spider is exposed beside its queen only in the lab.
+                const queenIndex = namesForLevel.indexOf("Arachna Queen");
+                if (this.creatureAnimationLabEnabled && queenIndex >= 0) {
+                    namesForLevel.splice(queenIndex + 1, 0, "Arachna Spider");
+                }
+
                 for (const unitName of namesForLevel) {
                     const unitProperties = this.getUnitProperties(unitName);
                     const creatureId = UNIT_NAME_TO_ID[unitName];
@@ -776,12 +755,11 @@ export class UnitsOverlay {
                     // Fall back only for an unknown/unregistered creature. The normal sandbox roster uses
                     // the exact source, faction background and crop already approved for the pick cards.
                     const fallbackTexture =
-                        loadPortraitNow && !portraitVisual
-                            ? this.getTex(
-                                  unitToTextureName(unitName, TextureType.LARGE, sizeFlag),
-                                  this.visibleTextureOptions,
-                              )
-                            : undefined;
+                        unitName === "Arachna Spider"
+                            ? this.getTex("arachna_spider_battlefield_side_right_final_v1")
+                            : loadPortraitNow && !portraitVisual
+                              ? this.getTex(unitToTextureName(unitName, TextureType.LARGE, sizeFlag))
+                              : undefined;
                     if (
                         loadPortraitNow &&
                         (!isReadyTexture(portraitTexture ?? fallbackTexture) ||
@@ -819,6 +797,25 @@ export class UnitsOverlay {
                                   }
                                 : undefined,
                     });
+                    if (portraitVisual && !portraitTexture) {
+                        void Assets.load<Texture>(portraitVisual.source)
+                            .then((texture) => chip.setPortraitTexture(texture))
+                            .catch((error: unknown) => {
+                                if (process.env.NODE_ENV === "development") {
+                                    console.warn(
+                                        `[portrait] Failed to load deferred roster portrait for ${unitName}`,
+                                        error,
+                                    );
+                                }
+                            });
+                    }
+                    if (unitName === "Arachna Spider" && (!fallbackTexture || fallbackTexture === Texture.EMPTY)) {
+                        void Assets.load<Texture>(images.arachna_spider_battlefield_side_right_final_v1)
+                            .then((texture) => {
+                                if (!chip.destroyed) chip.setPortraitTexture(texture);
+                            })
+                            .catch(() => undefined);
+                    }
                     chip.setTicker(this.app.ticker);
                     bucketCont.addChild(chip);
                     this.allChips.push(chip);
@@ -833,7 +830,6 @@ export class UnitsOverlay {
         this.container.sortChildren();
         this.warmVisibleSidebarPortraits();
     }
-    /** Refresh portraits and hover pictograms as their deferred textures enter Pixi's cache. */
     public refreshLazyTextures(): void {
         if (this.container.destroyed || !this.container.visible || !this.openTarget) return;
         this.visiblePortraitsReady = true;
@@ -877,8 +873,6 @@ export class UnitsOverlay {
         const ratio = this.maxScrollX > 0 ? this.scrollX / this.maxScrollX : 0;
         this.scrollbarThumb.x = this.scrollTrackX + this.scrollThumbTravel * ratio;
     }
-    /** Expand one level and collapse the rest. Chips of a collapsed level are hidden, so they also stop
-     *  answering hit-tests — the pointer code walks `allChips` flat and cannot otherwise tell them apart. */
     private setSelectedLevel(level: number): void {
         // Never leave a creature from the collapsed row active in the player's hand. Besides being invisible,
         // that stale selection makes the next board click place the old level before the player has actually
@@ -896,67 +890,6 @@ export class UnitsOverlay {
         this.onResize(this.app.renderer.width, this.app.renderer.height);
         this.refreshLazyTextures();
         this.warmVisibleSidebarPortraits();
-    }
-    /** Speculate on two likely selections only after the current Pixi cards have finished loading. */
-    private warmVisibleSidebarPortraits(): void {
-        if (
-            !this.visiblePortraitsReady ||
-            !this.container.visible ||
-            !this.openTarget ||
-            this.sidebarWarmLevel === this.selectedLevel
-        )
-            return;
-        const creatureIds: number[] = [];
-        for (const chip of this.allChips) {
-            if (this.chipLevels.get(chip) !== this.selectedLevel) continue;
-            const creatureId = UNIT_NAME_TO_ID[chip.nameKey];
-            if (creatureId !== undefined) creatureIds.push(creatureId);
-            if (creatureIds.length === 2) break;
-        }
-        this.sidebarWarmLevel = this.selectedLevel;
-        enqueueLeftSidebarPortraits(creatureIds, this.sidebarPortraitPrefetchOwner);
-    }
-    private clearSidebarPortraitPrefetch(): void {
-        clearLeftSidebarPortraitPrefetch(this.sidebarPortraitPrefetchOwner);
-        this.clearSelectionPortraitWarm();
-        this.clearHoveredPortraitPrefetch();
-        this.sidebarWarmLevel = undefined;
-    }
-    private clearHoveredPortraitPrefetch(): void {
-        if (this.hoverPortraitPrefetchTimer !== undefined) clearTimeout(this.hoverPortraitPrefetchTimer);
-        this.hoverPortraitPrefetchTimer = undefined;
-        clearLeftSidebarPortraitPrefetch(this.hoverPortraitPrefetchOwner);
-    }
-    private clearSelectionPortraitWarm(): void {
-        const request = this.selectionPortraitWarm;
-        this.selectionPortraitWarm = undefined;
-        if (request) clearLeftSidebarPortraitSelection(request.creatureId, request.readiness);
-    }
-    /** The hovered/selected creature may be placed next; warming the entire band hid the visible cards. */
-    private warmCreatureForSelection(chip: UnitChip, urgent: boolean = false): void {
-        const level = this.chipLevels.get(chip);
-        if (!level) return;
-        const size = this.levelBuckets[level - 1].unitSize;
-        this.getTex(unitToTextureName(chip.nameKey, TextureType.SMALL, size));
-        const creatureId = UNIT_NAME_TO_ID[chip.nameKey];
-        if (creatureId === undefined) return;
-        if (urgent) {
-            this.selectionPortraitWarm = { creatureId, readiness: warmLeftSidebarPortrait(creatureId) };
-        } else {
-            // Sweeping across the cards must not start a row of HD downloads or optional idle atlases.
-            this.hoverPortraitPrefetchTimer = setTimeout(() => {
-                this.hoverPortraitPrefetchTimer = undefined;
-                if (
-                    this.container.destroyed ||
-                    !this.container.visible ||
-                    !this.openTarget ||
-                    this.hoveredChip !== chip
-                )
-                    return;
-                clearLeftSidebarPortraitPrefetch(this.sidebarPortraitPrefetchOwner);
-                enqueueLeftSidebarPortraits([creatureId], this.hoverPortraitPrefetchOwner);
-            }, 150);
-        }
     }
     public onResize(stageW: number, stageH: number): void {
         if (stageW <= 0 || stageH <= 0) return;
@@ -1318,6 +1251,72 @@ export class UnitsOverlay {
     public setShowAllAmounts(show: boolean): void {
         for (const c of this.allChips) {
             c.setForceBadgeVisible(show);
+        }
+    }
+    private visibleTextureOptions: TextureLoadOptions = { priority: "visible", group: {} };
+    private visiblePortraitsReady = false;
+    private readonly sidebarPortraitPrefetchOwner = {};
+    private readonly hoverPortraitPrefetchOwner = {};
+    private hoverPortraitPrefetchTimer?: ReturnType<typeof setTimeout>;
+    private sidebarWarmLevel?: number;
+    private selectionPortraitWarm?: { creatureId: number; readiness: Promise<boolean> };
+    private warmVisibleSidebarPortraits(): void {
+        if (
+            !this.visiblePortraitsReady ||
+            !this.container.visible ||
+            !this.openTarget ||
+            this.sidebarWarmLevel === this.selectedLevel
+        )
+            return;
+        const creatureIds: number[] = [];
+        for (const chip of this.allChips) {
+            if (this.chipLevels.get(chip) !== this.selectedLevel) continue;
+            const creatureId = UNIT_NAME_TO_ID[chip.nameKey];
+            if (creatureId !== undefined) creatureIds.push(creatureId);
+            if (creatureIds.length === 2) break;
+        }
+        this.sidebarWarmLevel = this.selectedLevel;
+        enqueueLeftSidebarPortraits(creatureIds, this.sidebarPortraitPrefetchOwner);
+    }
+    private clearSidebarPortraitPrefetch(): void {
+        clearLeftSidebarPortraitPrefetch(this.sidebarPortraitPrefetchOwner);
+        this.clearSelectionPortraitWarm();
+        this.clearHoveredPortraitPrefetch();
+        this.sidebarWarmLevel = undefined;
+    }
+    private clearHoveredPortraitPrefetch(): void {
+        if (this.hoverPortraitPrefetchTimer !== undefined) clearTimeout(this.hoverPortraitPrefetchTimer);
+        this.hoverPortraitPrefetchTimer = undefined;
+        clearLeftSidebarPortraitPrefetch(this.hoverPortraitPrefetchOwner);
+    }
+    private clearSelectionPortraitWarm(): void {
+        const request = this.selectionPortraitWarm;
+        this.selectionPortraitWarm = undefined;
+        if (request) clearLeftSidebarPortraitSelection(request.creatureId, request.readiness);
+    }
+    private warmCreatureForSelection(chip: UnitChip, urgent: boolean = false): void {
+        const level = this.chipLevels.get(chip);
+        if (!level) return;
+        const size = this.levelBuckets[level - 1].unitSize;
+        this.getTex(unitToTextureName(chip.nameKey, TextureType.SMALL, size));
+        const creatureId = UNIT_NAME_TO_ID[chip.nameKey];
+        if (creatureId === undefined) return;
+        if (urgent) {
+            this.selectionPortraitWarm = { creatureId, readiness: warmLeftSidebarPortrait(creatureId) };
+        } else {
+            // Sweeping across the cards must not start a row of HD downloads or optional idle atlases.
+            this.hoverPortraitPrefetchTimer = setTimeout(() => {
+                this.hoverPortraitPrefetchTimer = undefined;
+                if (
+                    this.container.destroyed ||
+                    !this.container.visible ||
+                    !this.openTarget ||
+                    this.hoveredChip !== chip
+                )
+                    return;
+                clearLeftSidebarPortraitPrefetch(this.sidebarPortraitPrefetchOwner);
+                enqueueLeftSidebarPortraits([creatureId], this.hoverPortraitPrefetchOwner);
+            }, 150);
         }
     }
 }

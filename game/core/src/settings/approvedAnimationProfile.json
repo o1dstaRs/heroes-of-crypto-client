@@ -1,0 +1,9 @@
+{
+    "version": 1,
+    "values": {
+        "cyclops.impactMode": "engine",
+        "stone.playbackRate": 1.6,
+        "stone.settledHoldMs": 30,
+        "cyclops.clothPeriodMs": 1800
+    }
+}

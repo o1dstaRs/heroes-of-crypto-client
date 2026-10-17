@@ -1,6 +1,7 @@
 // scripts/generate_image_imports.js
 const fs = require("fs");
 const path = require("path");
+const { createHash } = require("node:crypto");
 
 const imageDir = path.resolve(__dirname, "../images");
 const generatedDir = path.resolve(__dirname, "../src/generated");
@@ -11,8 +12,9 @@ if (testAssets && fs.existsSync(outputFile) && fs.readFileSync(outputFile, "utf8
     console.log("Keeping CI image stubs for core tests.");
     process.exit(0);
 }
-require("./prepare_level_one_assets.ts").prepareLevelOneAssets();
 const { isWebPFile } = require("../src/gameImageAssetPolicy.ts");
+require("./prepare_level_one_assets.ts").prepareLevelOneAssets();
+
 // Tests exercise authoring-only animation states too, even after a production build pruned their URLs.
 const productionBuild = !testAssets && process.env.NODE_ENV === "production";
 const { isProductionOmittedAssetKey } = require("../src/pixi/imageAssetTiers.ts");
@@ -102,7 +104,18 @@ lines.push("export const images = {");
 for (const { key, file, productionOmitted } of entries) {
     if (productionOmitted) continue;
     // IMPORTANT: path is relative to THIS .ts file location (src/generated)
-    lines.push(`  "${key}": new URL("../../images/${file}", import.meta.url).toString(),`);
+    // Atlas names stay constant when artists replace their pixels/layout. A content revision keeps
+    // browser and Pixi caches from serving an older sheet with the newly generated frame metadata.
+    const revision =
+        /_atlas(?:_half|_quarter)?$/.test(key) ||
+        /^(fire|earth|water|wind)_element_256$/.test(key) ||
+        key === "champion_lab_plume"
+            ? `?v=${createHash("sha256")
+                  .update(fs.readFileSync(path.join(imageDir, file)))
+                  .digest("hex")
+                  .slice(0, 16)}`
+            : "";
+    lines.push(`  "${key}": new URL("../../images/${file}${revision}", import.meta.url).toString(),`);
 }
 // The production object intentionally excludes unreachable files, while ImageKey remains the complete
 // source catalog so every call site gets the same compile-time API in development and production.

@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
+import { Texture, Mesh, RopeGeometry } from "pixi.js";
+
 import { VineLayer } from "./VineLayer";
 
 type VineLayerInternals = {
@@ -88,4 +90,122 @@ describe("VineLayer", () => {
         expect(projectionCalls).toBe(2);
         layer.destroy();
     });
+});
+
+test("cast preview waits for impact and never mutates authoritative terrain", () => {
+    const layer = new VineLayer();
+    const cells: { x: number; y: number; l: number }[] = [];
+    layer.previewCast(
+        [
+            { x: 2, y: 3 },
+            { x: 3, y: 3 },
+        ],
+        470,
+    );
+    layer.update(0.02, cells, 32, toWorld);
+    const vines = (layer as unknown as { vines: Map<number, { presence: number }> }).vines;
+    expect(vines.size).toBe(2);
+    expect([...vines.values()].every((vine) => vine.presence === 0)).toBe(true);
+    expect(cells).toEqual([]);
+    layer.destroy();
+});
+
+test("authoritative cells replace a preview without duplicating the path", () => {
+    const layer = new VineLayer();
+    layer.previewCast([{ x: 2, y: 3 }], 0);
+    layer.update(0.02, [], 32, toWorld);
+    layer.update(0.1, [{ x: 2, y: 3, l: 2 }], 32, toWorld);
+    const internals = layer as unknown as { vines: Map<number, unknown>; previews: Map<number, unknown> };
+    expect(internals.vines.size).toBe(1);
+    expect(internals.previews.size).toBe(0);
+    layer.destroy();
+});
+
+test("authored vines use one continuous texture across the whole diagonal lane", () => {
+    const layer = new VineLayer(() => Texture.WHITE);
+    const cells = [
+        { x: 2, y: 2, l: 2 },
+        { x: 3, y: 3, l: 2 },
+        { x: 4, y: 4, l: 2 },
+    ];
+    layer.update(0.01, cells, 32, toWorld);
+    layer.update(1, cells, 32, toWorld);
+    const ribbons = (layer as unknown as { ribbons: Map<number, { mesh: Mesh<RopeGeometry> }> }).ribbons;
+    expect(ribbons.size).toBe(1);
+    const mesh = [...ribbons.values()][0].mesh;
+    const uv = mesh.geometry.getBuffer("aUV").data;
+    expect(uv[0]).toBe(0);
+    // Square test texture must retain equal world-space scales on U and V.
+    const points = mesh.geometry.points;
+    for (let i = 1; i < points.length; i++) {
+        const distance = Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
+        expect((uv[i * 4] - uv[(i - 1) * 4]) * (32 * 0.62)).toBeCloseTo(distance, 4);
+    }
+    for (let i = 4; i < uv.length; i += 4) expect(uv[i]).toBeGreaterThan(uv[i - 4]);
+    const before = mesh.geometry;
+    layer.update(0.01, cells, 32, toWorld);
+    expect([...ribbons.values()][0].mesh.geometry).toBe(before);
+    layer.update(1, [], 32, toWorld);
+    expect(ribbons.size).toBe(0);
+    layer.destroy();
+});
+
+test("diagonal cast starts inside the caster cell and retains its anchor after terrain takes over", () => {
+    const layer = new VineLayer(() => Texture.WHITE);
+    const cells = [
+        { x: 3, y: 3, l: 2 },
+        { x: 4, y: 4, l: 2 },
+    ];
+    layer.previewCast(cells, 0, { x: 2, y: 2 });
+    layer.update(0.01, [], 32, toWorld);
+    layer.update(1, cells, 32, toWorld);
+    const ribbons = (
+        layer as unknown as {
+            ribbons: Map<number, { mesh: Mesh<RopeGeometry>; points: { x: number; y: number }[]; width: number }>;
+        }
+    ).ribbons;
+    const ribbon = [...ribbons.values()][0];
+    expect(ribbon.points[0].x).toBeGreaterThan(48);
+    expect(ribbon.points[0].x).toBeLessThan(64);
+    expect(ribbon.points[0].y).toBeGreaterThan(48);
+    expect(ribbon.points[0].y).toBeLessThan(64);
+    expect(ribbon.width).toBeLessThan(32 * 0.65);
+    const vertices = ribbon.mesh.geometry.getBuffer("aPosition").data;
+    for (let i = 0; i < 4; i++) {
+        expect(vertices[i]).toBeGreaterThan(48);
+        expect(vertices[i]).toBeLessThan(80);
+    }
+    layer.update(1, [], 32, toWorld);
+    expect(ribbons.size).toBe(0);
+    layer.destroy();
+});
+
+test("reveal travels along the path without changing vine thickness, and retracts on expiration", () => {
+    const layer = new VineLayer(() => Texture.WHITE);
+    const cells = [
+        { x: 2, y: 2, l: 2 },
+        { x: 3, y: 3, l: 2 },
+        { x: 4, y: 4, l: 2 },
+    ];
+    layer.update(0.01, cells, 32, toWorld);
+    layer.update(0.1, cells, 32, toWorld);
+    const ribbon = [
+        ...(
+            layer as unknown as { ribbons: Map<number, { mesh: Mesh<RopeGeometry>; reveal: number; width: number }> }
+        ).ribbons.values(),
+    ][0];
+    const early = ribbon.reveal;
+    expect(early).toBeGreaterThan(0);
+    expect(early).toBeLessThan(1);
+    const vertices = ribbon.mesh.geometry.getBuffer("aPosition").data;
+    expect(Math.hypot(vertices[0] - vertices[2], vertices[1] - vertices[3])).toBeCloseTo(ribbon.width, 4);
+    layer.update(1, cells, 32, toWorld);
+    expect(ribbon.reveal).toBe(1);
+    layer.update(0.04, [], 32, toWorld);
+    const retracting = ribbon.reveal;
+    expect(retracting).toBeLessThan(1);
+    layer.update(0.04, [], 32, toWorld);
+    expect(ribbon.reveal).toBeLessThan(retracting);
+    expect(Math.hypot(vertices[0] - vertices[2], vertices[1] - vertices[3])).toBeCloseTo(ribbon.width, 4);
+    layer.destroy();
 });

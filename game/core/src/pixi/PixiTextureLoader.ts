@@ -2,6 +2,7 @@ import { Assets, Texture, loadTextures } from "pixi.js";
 import { images as rawImages } from "../imageAssets";
 import { CREATURE_SPRITE_ANIMATION_SETTINGS, shouldPreloadUnitAnimationAtlas } from "./creatureAnimationSettings";
 import {
+    NARROWING_BACKGROUND_KEYS,
     isDeferredEnvironmentAssetKey,
     isDeferredLegacyCreatureAssetKey,
     isDeferredPlacementAssetKey,
@@ -272,15 +273,34 @@ export async function preloadCoreAssets(onProgress?: (p: number) => void): Promi
     return loadedTextures;
 }
 
+let narrowingBackgroundLoad: Promise<void> | undefined;
+
+/** Warm later floors one at a time after scene creation. texAny also resolves this shared URL cache. */
+export function preloadNarrowingBackgroundAssets(): Promise<void> {
+    if (narrowingBackgroundLoad) return narrowingBackgroundLoad;
+    narrowingBackgroundLoad = (async () => {
+        for (const key of NARROWING_BACKGROUND_KEYS) {
+            const src = rawImages[key];
+            if (!src) continue;
+            try {
+                await Assets.load<Texture>(normalizeUrl(src, key));
+            } catch (error) {
+                // Optional warmup must not block the scene or the remaining stages. texAny retries on use.
+                console.warn(`Could not preload narrowing background ${key}`, error);
+            }
+        }
+    })().finally(() => {
+        narrowingBackgroundLoad = undefined;
+    });
+    return narrowingBackgroundLoad;
+}
+
 /** Tier 2a: the idle/default board atlases only — small, and every visible creature needs one. */
 export async function preloadIdleAtlasAssets(
     onProgress?: (p: number) => void,
 ): Promise<Partial<PreloadedPixiTextures>> {
-    // Approved creatures request their own sheets after their base portrait is available.
-    // Loading the whole roster here starves placement textures on slower connections.
-    if (!CREATURE_SPRITE_ANIMATION_SETTINGS.enabled && CREATURE_SPRITE_ANIMATION_SETTINGS.approvedBaseEnabled) {
-        return loadedTextures;
-    }
+    // PixiGameManager calls this only after LoadGame; never wait for future floors here.
+    void preloadNarrowingBackgroundAssets();
     const { idleAtlases } = getSplitBundles();
     if (Object.keys(idleAtlases).length === 0) return loadedTextures;
 

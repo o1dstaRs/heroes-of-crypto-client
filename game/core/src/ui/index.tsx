@@ -52,7 +52,6 @@ import { InviteFriendBadge } from "./InviteFriendBadge";
 import { SandboxCoopRoute } from "./SandboxCoopRoute";
 import { LiveMatchBanner } from "./LiveMatchBanner";
 import { useCurrentLobby } from "./social/CurrentLobbyContext";
-import { registerBattleSystemControls } from "./social/systemControlsMode";
 import { LoadingFullscreenToggle } from "./LoadingFullscreenToggle";
 import { MatchupOverlay, type MatchupPlayer } from "./MatchupOverlay";
 import { useGameCursor } from "./cursor/useGameCursor";
@@ -329,11 +328,6 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
         [],
     );
 
-    // Keep the expandable corner medallion throughout sandbox placement and combat, like ranked: with the
-    // three controls now on the sound/fullscreen line, the compact dock IS the corner row rather than a
-    // menu hiding it, and both screens wear the same one.
-    useEffect(registerBattleSystemControls, []);
-
     const closeSandbox = useCallback(() => {
         if (window.history.length > 1) {
             navigate(-1);
@@ -542,7 +536,7 @@ const LEVEL_TWO_PICK_PREVIEW_STATE: PickBanContextType = {
 const LevelTwoPickPreview: React.FC = () => (
     <PickBanContext.Provider value={LEVEL_TWO_PICK_PREVIEW_STATE}>
         <div className="container" style={{ display: "flex" }}>
-            <CssVarsProvider theme={hocJoyTheme}>
+            <CssVarsProvider>
                 <CssBaseline />
             </CssVarsProvider>
             <StainedGlassWindow

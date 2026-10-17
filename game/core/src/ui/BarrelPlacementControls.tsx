@@ -47,7 +47,10 @@ export default function BarrelPlacementControls({ team, barrels, disabled = fals
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
                 <Box
                     component="img"
-                    src={images.artifact_t1_barrel_barricade_256}
+                    src={
+                        (images as Readonly<Record<string, string | undefined>>).artifact_t1_barrel_barricade_256 ??
+                        images.map_badge_barrels_medallion_v1
+                    }
                     alt=""
                     sx={{ width: 32, height: 32 }}
                 />

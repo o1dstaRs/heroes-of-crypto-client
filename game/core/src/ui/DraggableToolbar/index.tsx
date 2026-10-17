@@ -1,3 +1,4 @@
+import { useTranslation } from "../../i18n/i18n";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Box, Tooltip } from "@mui/joy";
 import { styled } from "@mui/system";
@@ -17,7 +18,6 @@ const luckShieldIconImage = images.combat_toolbar_ember_luck;
 const activeOptionIconImage = new URL("../../../images/icon_active_option.webp", import.meta.url).toString();
 const inactiveOptionIconImage = new URL("../../../images/icon_inactive_option.webp", import.meta.url).toString();
 const DENIED_SLASH_FRAME_COUNT = 14;
-import { useTranslation } from "../../i18n/i18n";
 import { IVisibleButton, VisibleButtonState } from "../../scenes/VisibleState";
 import { useButtonContext } from "../context/ButtonContext";
 

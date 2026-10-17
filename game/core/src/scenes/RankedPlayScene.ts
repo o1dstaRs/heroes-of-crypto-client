@@ -1,3 +1,5 @@
+import { borrowedGraceBuffsByThief } from "./sandbox/borrowedGraceTransfers";
+import { chainLightningRecipients } from "./sandbox/chainLightningRecipients";
 import {
     AllAbilities,
     allFactions,
@@ -1479,69 +1481,9 @@ export const shouldPublishRankedFinish = (
 };
 
 export class RankedPlayScene extends Sandbox {
-    protected override isMapStateKnown(): boolean {
-        return this.sc_mapStateHydrated;
-    }
-    private premiumTurnPreview?: PremiumTurnPreview;
-    private drawnPremiumTurnPreview?: PremiumTurnPreview;
-    private premiumTurnOverlay?: PremiumTurnOverlay;
-    private premiumSnapshot?: Pick<
-        AuthoritativeGameSnapshot,
-        "gameId" | "latestSequence" | "currentLap" | "currentUnitId" | "phase" | "fightFinished"
-    >;
-    public override setPremiumTurnPreview(turn?: PremiumTurnPreview): void {
-        this.premiumTurnPreview = turn;
-        if (!turn) this.premiumTurnOverlay?.setVisible(false);
-    }
-    public override Step(timeStep: number): void {
-        super.Step(timeStep);
-        const turn = this.premiumTurnPreview;
-        const snapshot = this.premiumSnapshot;
-        const actor = this.getCurrentActiveUnit();
-        const visible = Boolean(
-            turn &&
-            snapshot &&
-            actor &&
-            !actor.isDead() &&
-            actor.getTeam() === this.viewerTeam &&
-            !this.fullReplayPlaybackActive &&
-            !this.replayViewingActive &&
-            !this.sc_isAIActive &&
-            !this.isPlayingActionAnimation() &&
-            snapshot.phase === PlayPhase.PLAY &&
-            !snapshot.fightFinished &&
-            turn.gameId === snapshot.gameId &&
-            turn.sequence === snapshot.latestSequence &&
-            turn.sequence === this.lastAuthoritativeSequence &&
-            turn.lap === snapshot.currentLap &&
-            turn.unitId === snapshot.currentUnitId &&
-            turn.unitId === actor.getId(),
-        );
-        if (visible && turn && actor && this.drawnPremiumTurnPreview !== turn) {
-            this.premiumTurnOverlay ??= new PremiumTurnOverlay(this.pixiApp.getWorldRoot());
-            this.premiumTurnOverlay.draw(
-                turn,
-                actor,
-                this.unitsHolder.getAllUnits(),
-                this.sc_sceneSettings.getGridSettings(),
-            );
-            this.drawnPremiumTurnPreview = turn;
-        }
-        this.premiumTurnOverlay?.setVisible(visible);
-    }
-    public override Destroy(): void {
-        this.premiumTurnOverlay?.destroy();
-        this.premiumTurnOverlay = undefined;
-        super.Destroy();
-    }
     private lastAuthoritativeSequence = -1;
     private lastBoardSignature = "";
-    /** True while playSandboxReplay drives a FULL fight playback (the fight-results Replay button /
-     * replay-only view) — distinct from the shared replayPlaybackActive, which single-record replays
-     * of live actions also set. Gates live snapshot applies out of the playback entirely. */
     private fullReplayPlaybackActive = false;
-    /** Latched by the replay-snapshot entry, whose only caller is the replay view. A replay shows the match
-     *  as it was — green against red — so the personal army tint stays off for the rest of this scene. */
     private replayViewingActive = false;
     private lastPlacementUnitIdsKey = "";
     private readonly lastPlacementStateByUnitId = new Map<string, string>();
@@ -1549,13 +1491,8 @@ export class RankedPlayScene extends Sandbox {
     private authoritativePlaybackGameId = "";
     private readonly rankedStatsLeftRoster = new Map<string, RankedFightRosterEntry>();
     private readonly rankedStatsRightRoster = new Map<string, RankedFightRosterEntry>();
-    // Unit ids already folded into the casualty roster, so each stack is counted exactly once as the
-    // roster is accumulated across snapshots (see mergeRankedRoster).
     private readonly rankedStatsCountedUnitIds = new Set<string>();
     private viewerTeam?: TeamType;
-    private barrelPlacementAvailable = false;
-    /** Hover concealment (Hidden units) is from the viewer's perspective: own Hidden units still preview,
-     *  the opponent's do not. */
     protected override getViewerTeam(): TeamType | undefined {
         return this.viewerTeam;
     }
@@ -1574,24 +1511,12 @@ export class RankedPlayScene extends Sandbox {
         this.sc_screenBloodImpacts += 1;
     }
     private upNextUnitIds?: string[];
-    // Per-unit sets of currently-active debuff / buff names, tracked across snapshots so we can pop a
-    // "nice" icon + name animation the moment a new one lands (e.g. Beholder's Spit Ball, or a buff
-    // cast). Keyed by unit id (survives unit rebuilds); seeded silently on first sight so reconnects
-    // don't burst.
     private readonly unitDebuffs = new Map<string, Set<string>>();
     private readonly unitBuffs = new Map<string, Set<string>>();
-    // High-water sequence for effect-pop diffing, kept separate from the board sequence so a freshly
-    // applied debuff/buff is popped exactly once, in order — even when the snapshot that carries it is
-    // otherwise board-skipped (mid-animation), which used to defer or drop the pop on the receiving side.
     private effectPopsSequence = -1;
     private effectPopsGameId = "";
-    // True between an authoritative action's animation finishing and the next snapshot reassigning the
-    // active unit — keeps the just-finished unit's pulse aura suppressed across that gap (no flicker).
     private awaitingTurnHandoff = false;
     private rankedStatsGameId = "";
-    // Ranked action playback may only animate recorded events. Its local attack handler therefore
-    // cannot supply the server's cumulative damage, including spell and retaliation damage.
-    private rankedDamageStatistics: IDamageStatistic[] = [];
     private rankedStatsStarted = false;
     private rankedStatsLeftStartTotal = 0;
     private rankedStatsRightStartTotal = 0;
@@ -1602,50 +1527,25 @@ export class RankedPlayScene extends Sandbox {
     private rankedStatsLastLeftDamage = 0;
     private rankedStatsLastRightDamage = 0;
     private rankedStatsSeries: IFightStatsSample[] = [];
-    /** Latest snapshot sequence folded into the casualty timeline. Stale polls must not rewind it. */
-    private rankedStatsSequence = -1;
-    private readonly rankedStatsAliveCreatureGroups = new Map<string, IFightCreatureElimination>();
     private rankedSceneLogGameId = "";
     private rankedSceneLogSequence = -1;
-    // Turn-grouping state for the journal-rebuilt log: the current lap and the unit whose turn header
-    // is open (cleared by its turn_completed so a re-selected unit next lap gets a fresh header).
     private rankedSceneLogLap = 1;
     private rankedSceneLogHeaderUnitId?: string;
-    // High-water mark for Armageddon-wave VFX driven off the authoritative journal. Tracked separately
-    // from the scene-log sequence so the wave's floating damage + shake fire exactly once when the wave
-    // first appears, and historical waves already in the journal on (re)join aren't replayed.
     private armageddonVfxGameId = "";
     private armageddonVfxSequence = -1;
-    // Same journal-driven, once-per-sequence pattern for the lap-start Morale/Dismorale pops.
     private moraleVfxGameId = "";
     private moraleVfxSequence = -1;
     private poisonVfxGameId = "";
     private poisonVfxSequence = -1;
-    private pyreVfxGameId = "";
-    private pyreVfxSequence = -1;
-    // Remembers every unit's name (and team) as it appears in snapshots, so log lines for units
-    // that have since died — and dropped out of the live snapshot — still resolve a real name.
     private readonly rankedUnitNamesById = new Map<string, string>();
     private readonly rankedUnitTeamsById = new Map<string, number>();
-    // How many (id, name, team) entries were persisted to sessionStorage last write — lets
-    // persistRankedUnitNames skip a redundant write when nothing new was learned this snapshot.
     private rankedUnitNamesPersistedCount = 0;
     private rankedPlacementDeadlineServerMs = 0;
     private rankedPlacementEndLocalMs = 0;
     private rankedPlacementSecondsMax = 0;
     private rankedTurnStartLocalMs = 0;
     private rankedTurnEndLocalMs = 0;
-    /** The server's "additional time on offer" for the team whose turn it is; undefined from an older server. */
-    private rankedAdditionalTime?: { team: TeamType; ms: number };
-    // Raw server tuple used by AIController retry guards. Do not use rankedTurnStartLocalMs: its clock-offset
-    // conversion can jitter between snapshots, while the authoritative start is stable for one activation.
     private rankedTurnActivationKey = "";
-    // Friend co-op sandbox (snapshot.sandboxCoop): the roster overlay is on, BOTH deployment zones are
-    // drawn, the other seat's placements are never hidden, and START waits for both seats to ready up.
-    private sandboxCoop = false;
-    private sandboxCoopBothReady = false;
-    // The map the last co-op snapshot carried, so a switch by the other seat is told from the first load.
-    private lastCoopGridType?: number;
     public override getUnitsOverlay(): UnitsOverlay | undefined {
         return this.sandboxCoop ? this.unitsOverlay : undefined;
     }
@@ -1679,15 +1579,21 @@ export class RankedPlayScene extends Sandbox {
             )
         )
             this.showLegacyGraveboundVfx(events);
+        if (
+            events.some(
+                (event) => event.type === "effects_applied" && event.applications.some((a) => a.name === "Gravebound"),
+            )
+        )
+            this.showLegacyGraveboundVfx(events);
         for (const event of events) {
             if (
                 (event.type === "unit_attacked" ||
                     event.type === "area_attacked" ||
                     event.type === "obstacle_attacked") &&
                 event.damage?.gravechains?.length
-            ) {
+            )
                 this.showGravechainVfx(event.damage);
-            }
+            this.renderAngelResurrectionEvent(event);
             if (event.type === "unit_attacked") {
                 this.showAbsolvingArrowVfx(event.damage);
                 // Attribute kills (melee vs range + direction) before this batch's unit_destroyed /
@@ -1696,6 +1602,7 @@ export class RankedPlayScene extends Sandbox {
                 // AOE attacks (Cyclops' Large Caliber, etc.) carry a per-affected-unit breakdown so each
                 // splashed unit gets its own floating number AT ITS OWN POSITION — the single-target
                 // payload below only knows the primary target's spot.
+                void this.playFireShieldPassives(event.attackerId, event.targetId, event.damage);
                 this.applyAuthoritativeSecondaryVfx(event.attackerId, event.damage);
                 if (this.applyAuthoritativeSplashVfx(event.attackerId, event.damage)) continue;
                 if (!event.damage?.render) continue;
@@ -1733,6 +1640,7 @@ export class RankedPlayScene extends Sandbox {
                 }
             } else if (event.type === "area_attacked") {
                 this.noteDeathBlowsFromAttackEvent(event);
+                void this.playFireShieldPassives(event.attackerId, event.damage.unitId ?? "", event.damage);
                 this.applyAuthoritativeSecondaryVfx(event.attackerId, event.damage);
                 if (this.applyAuthoritativeSplashVfx(event.attackerId, event.damage)) continue;
                 if (!event.damage?.render) continue;
@@ -1803,13 +1711,6 @@ export class RankedPlayScene extends Sandbox {
         const len = Math.hypot(dx, dy);
         return len < 0.001 ? undefined : { x: dx / len, y: dy / len };
     }
-    /**
-     * Draw an AOE attack's floating damage on EVERY affected unit at its own position. The engine
-     * fills `damage.splash` for Large Caliber / Area Throw; each entry already carries the impact-time
-     * position so units that died (and were removed) still show their number. Returns true when it
-     * handled the event, so the caller skips the single-target fallback. The damage direction points
-     * from the attacker to each splashed unit so the number flings outward correctly.
-     */
     private applyAuthoritativeSplashVfx(attackerId: string, damage?: IVisibleDamage): boolean {
         const splash = damage?.splash;
         if (!splash?.length) return false;
@@ -1850,12 +1751,6 @@ export class RankedPlayScene extends Sandbox {
         }
         return true;
     }
-    /**
-     * Draw floating numbers for secondary damage that triggers during an attack — Fire Shield
-     * reflect, Chain Lightning bounces, Petrifying Gaze kills, Magic Mirror — each on the affected
-     * unit (impact-time position fallback for units that died). Additive: called alongside the
-     * splash/primary rendering, never instead of it.
-     */
     private applyAuthoritativeSecondaryVfx(attackerId: string, damage?: IVisibleDamage): void {
         const secondary = damage?.secondary;
         if (!secondary?.length) return;
@@ -1869,20 +1764,18 @@ export class RankedPlayScene extends Sandbox {
         // Devour Essence heal (Hydra): green "+N" + buff-wash on the devourer; skipped in the generic
         // red-number loop below.
         this.showDevourEssenceHeals(secondary);
-        // The purple arc itself. Sandbox draws it from spawnChainLightningVfx on its own attack paths, which
+        // The violet procedural overhead strike and chain. Sandbox calls spawnChainLightningVfx on its attack paths, which
         // ranked never runs — so a Thunderbird's bounces used to appear as bare numbers with nothing visibly
         // jumping between them. Built from the AUTHORITATIVE bounce entries rather than re-deriving the chain
         // off the local grid, so the arc lands on exactly the units the server said it hit, in that order.
-        const chainEntries = secondary.filter((entry) => entry.source === "chain_lightning");
-        if (chainEntries.length && attackerPos) {
-            const points: HoCMath.XY[] = [attackerPos];
-            if (damage?.unitPosition) {
-                points.push(projectBattlefieldPoint(damage.unitPosition, gs));
-            }
-            for (const entry of chainEntries) {
-                const bounced = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
-                points.push(bounced?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs));
-            }
+        const chainEntries = chainLightningRecipients(damage);
+        if (chainEntries.length) {
+            const points = chainEntries.map((entry) => {
+                const bounced = entry.unitId
+                    ? (this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined)
+                    : undefined;
+                return bounced?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs);
+            });
             this.combatVisuals?.spawnChainLightning(points, gs.getCellSize());
         }
         for (const entry of secondary) {
@@ -1918,24 +1811,6 @@ export class RankedPlayScene extends Sandbox {
     protected override getUpNextUnitIds(): string[] | undefined {
         return this.upNextUnitIds;
     }
-    /**
-     * Ranked reads the queue from its own authoritative copy, so a hydrate has to refresh THAT too — live
-     * snapshots set it alongside (applyAuthoritativeSnapshot), but a replay never runs that path.
-     */
-    protected override applySceneStateUpNext(upNext: string[] | undefined): void {
-        super.applySceneStateUpNext(upNext);
-        if (upNext) {
-            this.upNextUnitIds = [...upNext];
-        }
-    }
-    /**
-     * Diff each unit's active debuffs AND buffs against the previously-seen sets and pop a nice icon +
-     * name (plus a colour wash) over any unit that just gained one — a debuff (e.g. Beholder's Spit Ball
-     * landing Sadness / Quagmire / Weakness, violet) or a buff (green). Aura effects are excluded (see
-     * animatableEffectNames) since they toggle as units move in and out of range. A unit's effects are
-     * seeded silently the first time we see it — and only during the fight — so joining/reconnecting
-     * mid-game doesn't burst every existing effect at once.
-     */
     private processDebuffPops(snapshot: AuthoritativeGameSnapshot): void {
         if (!snapshot.fightStarted || snapshot.fightFinished) {
             return;
@@ -1955,6 +1830,13 @@ export class RankedPlayScene extends Sandbox {
         if (snapshot.latestSequence <= this.effectPopsSequence) {
             return;
         }
+        const stolenBuffs = borrowedGraceBuffsByThief(
+            (snapshot.journalTail ?? [])
+                .filter(
+                    (entry) => entry.sequence > this.effectPopsSequence && entry.sequence <= snapshot.latestSequence,
+                )
+                .flatMap((entry) => this.parseJournalEvents(entry)),
+        );
         this.effectPopsSequence = snapshot.latestSequence;
         const seen = new Set<string>();
         for (const unitState of snapshot.units) {
@@ -2001,7 +1883,7 @@ export class RankedPlayScene extends Sandbox {
                 unit,
                 flash: diff.flash,
                 debuffs: [...diff.newDebuffs],
-                buffs: [...diff.newBuffs],
+                buffs: diff.newBuffs.filter((name) => !stolenBuffs.get(unitState.id)?.has(name)),
             });
         }
         for (const id of [...this.unitDebuffs.keys()]) {
@@ -2010,27 +1892,6 @@ export class RankedPlayScene extends Sandbox {
                 this.unitBuffs.delete(id);
             }
         }
-    }
-    /**
-     * A player may tint their OWN army and pick which side of the board they see it on (settings menu).
-     * Both are armed only for a live authoritative fight this client is PLAYING, one it holds an action
-     * transport for. Everything else keeps the true team colours and sides: the results REPLAY, the replay
-     * page (which runs without a transport even though its snapshots name the viewer's seat), observers,
-     * and sandboxes, where the two armies are often the same person's. Team identity is untouched either way.
-     */
-    private applyPersonalView(): void {
-        const personalSeat = personalArmyTintSeat(this.viewerTeam, this.sandboxCoop);
-        const personalView =
-            !!this.sc_gameActionTransport && !this.replayViewingActive && !this.fullReplayPlaybackActive;
-        setPersonalArmyTint(personalSeat, personalView);
-        setBoardMirror(
-            this,
-            shouldMirrorBoard({
-                viewerTeam: personalSeat,
-                preference: readBoardSidePreference(),
-                live: personalView,
-            }),
-        );
     }
     private applyRankedSnapshotMetadata(snapshot: AuthoritativeGameSnapshot): void {
         // This affects reachability without changing the board, so restore it before the board-signature
@@ -2067,8 +1928,6 @@ export class RankedPlayScene extends Sandbox {
         }
         this.upNextUnitIds = [...(snapshot.upNext ?? [])];
     }
-    // Persist the manual AI toggle per game so a page reload keeps auto-play on. One key holds the
-    // current game's choice, so it never leaks to a different match and doesn't accumulate.
     private static readonly RANKED_AI_TOGGLE_KEY = "hoc:rankedAiToggle";
     protected override onAiToggleChanged(active: boolean): void {
         const gameId = this.authoritativePlaybackGameId;
@@ -2468,25 +2327,9 @@ export class RankedPlayScene extends Sandbox {
             }
         }
     }
-    /**
-     * Ranked never rolls its own scattered stones: the layout is SEEDED from the game id so the server
-     * and both seats agree (the sandbox Math.random() roll is exactly what put different stones on each
-     * ranked screen while the server played the classic pair). Installed from snapshots instead — see
-     * applyScatteredMountainsFromSnapshot.
-     */
     protected override scatteredMountainsAutoRoll(): boolean {
         return false;
     }
-    /**
-     * Install/reconcile the seeded scattered-mountain layout from an authoritative snapshot (wire fields
-     * 58/59 — the reconnect truth; the obstacle_attacked events that mined a stone were consumed before a
-     * cold-loaded client subscribed). No-op when the snapshot carries no scattered state (older server /
-     * pre-scattered persisted game): those keep the classic mountain pair.
-     *
-     * reinstallLayout is for the full-hydrate path, where refreshWithNewType just re-carved the classic
-     * pair: the layout is re-stamped from scratch. Only STANDING stones are stamped — writing a destroyed
-     * stone's cell would overwrite whatever unit now stands on it.
-     */
     private applyScatteredMountainsFromSnapshot(
         snapshot: AuthoritativeGameSnapshot,
         options?: { reinstallLayout?: boolean },
@@ -2494,6 +2337,13 @@ export class RankedPlayScene extends Sandbox {
         if (snapshot.artifactBarrelsCount !== undefined)
             this.grid.restoreArtifactBarrels(snapshot.artifactBarrels ?? []);
         if (isBarrelShadowEditorActive() && snapshot.gridType === GridVals.BLOCK_CENTER) {
+            const layout = BARREL_SHADOW_EDITOR_LAYOUT.map((barrel) => ({ ...barrel }));
+            this.grid.setScatteredMountains(layout.map(({ x, y }) => ({ x, y })));
+            this.dungeonVisuals?.setScatteredMountains(layout, true);
+            this.refreshGridMatrices();
+            return;
+        }
+        if (isBarrelShadowEditorActive()) {
             const layout = BARREL_SHADOW_EDITOR_LAYOUT.map((barrel) => ({ ...barrel }));
             this.grid.setScatteredMountains(layout.map(({ x, y }) => ({ x, y })));
             this.dungeonVisuals?.setScatteredMountains(layout, true);
@@ -2536,7 +2386,6 @@ export class RankedPlayScene extends Sandbox {
             this.refreshGridMatrices();
         }
     }
-    /** Self-heal both grid occupancy and stale renderable geometry from the authoritative snapshot. */
     private healRankedGridOccupancy(units: SandboxSceneUnitState[]): void {
         const fixed = reconcileRankedGridOccupancy(this.grid, units);
         const occupancyFixed = new Set(fixed);
@@ -2577,35 +2426,6 @@ export class RankedPlayScene extends Sandbox {
         }
         return changed;
     }
-    /**
-     * Re-baseline everything the ranked presentation accumulates, so a replay starts from nothing instead
-     * of continuing the live fight's log / stats / high-water marks. Shared by both replay entry points:
-     * the snapshot-by-snapshot fallback and the full action playback.
-     */
-    private resetRankedReplayPresentation(): void {
-        this.resetRankedFightStats();
-        this.rankedSceneLogGameId = "";
-        this.rankedSceneLogSequence = -1;
-        this.rankedSceneLogLap = 1;
-        this.rankedSceneLogHeaderUnitId = undefined;
-        // Re-baseline the Armageddon high-water mark so the next snapshot doesn't replay historical waves.
-        this.armageddonVfxGameId = "";
-        this.armageddonVfxSequence = -1;
-        // Same for the lap-start Morale/Dismorale pops.
-        this.moraleVfxGameId = "";
-        this.moraleVfxSequence = -1;
-        this.poisonVfxGameId = "";
-        this.poisonVfxSequence = -1;
-        this.pyreVfxGameId = "";
-        this.pyreVfxSequence = -1;
-        // Re-baseline effect pops so the replay's first snapshot seeds silently instead of bursting.
-        this.effectPopsGameId = "";
-        this.effectPopsSequence = -1;
-        if (this.sc_visibleState?.replayFightVisible) {
-            this.sc_visibleState.replayFightVisible = false;
-            this.sc_visibleStateUpdateNeeded = true;
-        }
-    }
     public override applyAuthoritativeReplaySnapshot(snapshot: AuthoritativeGameSnapshot): void {
         // Stepping a replay one snapshot at a time used to re-baseline on every step, which wiped the log
         // back to that snapshot's tail. Continue once this playback has already started the same game and
@@ -2634,43 +2454,6 @@ export class RankedPlayScene extends Sandbox {
     public override canPlayCurrentSandboxReplay(): boolean {
         return false;
     }
-    /**
-     * A replayed action's own snapshot. Present for ranked replays (createSandboxReplayFromRankedReplay
-     * attaches it); absent for a sandbox replay, which has no server snapshots and no ranked presentation.
-     */
-    private static replayRecordSnapshot(record: SandboxReplayActionRecord): AuthoritativeGameSnapshot | undefined {
-        return record.authoritativeSnapshot;
-    }
-    protected override onReplayRecordSettling(record: SandboxReplayActionRecord): void {
-        const snapshot = RankedPlayScene.replayRecordSnapshot(record);
-        if (!snapshot) {
-            return;
-        }
-        // A unit killed without an event of its own — a Flesh Shield bearer dropped by damage it absorbed
-        // for someone else, say — is simply gone from the next state. Shattered here, while its sprite is
-        // still on the board, it dies the same way it died in the fight.
-        this.shatterNewlyDeadUnits(snapshot);
-    }
-    protected override onReplayRecordPresented(record: SandboxReplayActionRecord): void {
-        const snapshot = RankedPlayScene.replayRecordSnapshot(record);
-        if (!snapshot) {
-            return;
-        }
-        // Everything the live snapshot path does around a hydrate that is NOT the board itself. Each of
-        // these is already gated on its own game id + sequence, so replaying them in order behaves exactly
-        // as it did live: seed on the first record, then emit only what is new.
-        this.processDebuffPops(snapshot);
-        this.applyAuthoritativeSceneLog(snapshot);
-        this.renderNewlyAppliedMorale(snapshot);
-        this.renderNewlyAppliedPoison(snapshot);
-        this.renderNewlyAppliedArmageddon(snapshot);
-        this.renderNewlyAppliedPyre(snapshot, true);
-        this.reconcileAuraEffectsFromSnapshot(snapshot);
-        this.applyRankedTimer(snapshot);
-        this.applyRankedFightStats(snapshot, record.stateAfter.units);
-    }
-    /** Mark FULL fight playback (fight-results Replay / replay-only view) so live snapshot polls are
-     * dropped for its whole duration — see the guard at the top of applyAuthoritativeSnapshot. */
     public override async playSandboxReplay(replay: SandboxReplay, throughSequence?: number): Promise<boolean> {
         this.fullReplayPlaybackActive = true;
         clearPersonalArmyTint();
@@ -2732,21 +2515,6 @@ export class RankedPlayScene extends Sandbox {
     protected override getPlacementDrawTeam(): TeamType | undefined {
         return this.sandboxCoop ? undefined : this.viewerTeam;
     }
-    protected override getPlacementOwnerTeam(): TeamType | undefined {
-        return this.viewerTeam;
-    }
-    protected override canStartFightNow(leftPlaced: boolean, rightPlaced: boolean): boolean {
-        return leftPlaced && rightPlaced && (!this.sandboxCoop || this.sandboxCoopBothReady);
-    }
-    /**
-     * During placement the opponent's placement zone is never drawn (see getPlacementDrawTeam). Instead,
-     * lay the opponent's revealed roster out in a centered vertical column INSIDE the footprint of their
-     * left/right placement zone, so the units sit where the opponent's army will actually deploy. The geometry
-     * comes from the client-side PlacementManager, which during ranked placement always holds the
-     * opponent's BASELINE (LEVEL_1) zone — their real Placement augment is sanitized to 0 by the server
-     * until fight start. These are synthetic display positions — the opponent's real placement cells
-     * stay hidden until the fight starts.
-     */
     protected override getRevealedOpponentUnitPositions(units: SandboxSceneUnitState[]): Map<string, HoCMath.XY> {
         const positions = new Map<string, HoCMath.XY>();
         if (this.viewerTeam === undefined) {
@@ -2851,10 +2619,6 @@ export class RankedPlayScene extends Sandbox {
         // centre-board bench: hiding unplaced remnants also guarantees its backdrop is never drawn.
         return false;
     }
-    /**
-     * Spread the placement roster evenly across the full board width (like the sandbox
-     * UnitsOverlay) instead of the base centered cluster, vertically centered on the board.
-     */
     protected override getUnplacedUnitBenchPosition(
         index: number,
         total: number,
@@ -2890,29 +2654,9 @@ export class RankedPlayScene extends Sandbox {
     protected override canSelectUnitForPlacement(unit: Unit): boolean {
         return this.viewerTeam !== undefined && unit.getTeam() === this.viewerTeam;
     }
-    protected override canMoveArtifactBarrel(team: TeamType): boolean {
-        return (
-            !!this.sc_gameActionTransport &&
-            this.barrelPlacementAvailable &&
-            team === this.viewerTeam &&
-            super.canMoveArtifactBarrel(team)
-        );
-    }
-    // The drag-to-split placement gesture works in ranked now that split_unit carries the peeled stack's
-    // target cells, so the server splits AND places in one authoritative action. See commitPlacementSplit.
     protected override placementSplitEnabled(): boolean {
         return true;
     }
-    /**
-     * Ranked drag-split. The sandbox peels the stack locally (create unit -> place_unit -> decrement source);
-     * here the whole gesture rides in a single `split_unit` carrying the dragged cells, and the new stack
-     * comes back on the next authoritative snapshot.
-     *
-     * We deliberately do NOT peel optimistically first: the client would have to invent a unit id the server
-     * never agreed to, and reconciling that against the server's own split-off is exactly the desync this
-     * design avoids. The local validation below is only so an illegal drag fails instantly instead of after
-     * a round-trip — the server re-checks all of it.
-     */
     protected override commitPlacementSplit(source: Unit, amount: number, targetCells: HoCMath.XY[]): boolean {
         const transport = this.sc_gameActionTransport;
         if (!transport) {
@@ -2935,22 +2679,11 @@ export class RankedPlayScene extends Sandbox {
         this.playSceneGameSound("place_unit");
         return true;
     }
-    /**
-     * Suppress hover visuals (move silhouette, attack highlights, spell targeting) when the
-     * active unit belongs to the enemy team. The viewer should only see their own unit's
-     * hover previews — not the opponent's movement/attack range.
-     */
     protected override canShowHoverForActiveUnit(): boolean {
         const currentActiveUnit = this.getCurrentActiveUnit();
         if (!currentActiveUnit || this.viewerTeam === undefined) return false;
         return currentActiveUnit.getTeam() === this.viewerTeam;
     }
-    /**
-     * The local player may only act on the active unit when it is on their own team. On the opponent's
-     * turn this disables every toolbar action button — including the spellbook, which is otherwise a
-     * purely-local overlay the server never sees, so it would open over the opponent's turn (bug fix).
-     * With no active unit (e.g. placement) there is nothing to gate, so the toolbar stays usable.
-     */
     protected override canControlCurrentActiveUnit(): boolean {
         const currentActiveUnit = this.getCurrentActiveUnit();
         if (!currentActiveUnit) return true;
@@ -2958,17 +2691,9 @@ export class RankedPlayScene extends Sandbox {
         if (this.viewerTeam === undefined) return false;
         return currentActiveUnit.getTeam() === this.viewerTeam;
     }
-    /** Only the viewer's own turn may extend the clock — never the opponent's. */
     protected override canOfferAdditionalTimeForTeam(team: TeamType): boolean {
         return this.viewerTeam !== undefined && team === this.viewerTeam;
     }
-    /**
-     * Ranked routes placement-time augment spending through the authoritative server: send an `augment`
-     * action for the viewer's own team. The server validates the upgrade-point budget (canAugment against
-     * the seeded doctrine), stores it, resizes the placement grid / applies stats, and re-broadcasts the
-     * snapshot. We optimistically apply locally too so the sidebar's remaining-points + selection update
-     * immediately; the next authoritative snapshot reconciles. Only the viewer's own team, never the opponent.
-     */
     public override propagateAugmentation(teamType: TeamType, augmentType: Augment.AugmentType): boolean {
         const transport = this.sc_gameActionTransport;
         if (!transport) {
@@ -3008,12 +2733,6 @@ export class RankedPlayScene extends Sandbox {
         });
         return true;
     }
-    /**
-     * Ranked synergy selection also routes through the authoritative server: apply optimistically for
-     * instant sidebar feedback (super derives the specific synergy + updateSynergyPerTeam), then send a
-     * `synergy` action for the viewer's own team. The server resolves the pick, re-derives the level from
-     * army composition, and rebroadcasts — so synergies finally apply to the ranked fight. Own team only.
-     */
     public override propagateSynergy(
         teamType: TeamType,
         faction: FactionType,
@@ -3036,81 +2755,6 @@ export class RankedPlayScene extends Sandbox {
         transport({ type: "synergy", team: teamType, faction, synergyName, level: synergyLevel });
         return true;
     }
-    /**
-     * Co-op sandbox: choosing which of a faction's two synergies the team fields applies locally (super)
-     * and travels to the server as a SYNERGY action at the level the army currently unlocks; the server
-     * keeps the choice across recounts. Ranked plays the variant the game drew and never gets here.
-     */
-    public override selectSynergyVariant(teamType: TeamType, factionName: string, synergyName: string): boolean {
-        const transport = this.sc_gameActionTransport;
-        if (!transport) {
-            return super.selectSynergyVariant(teamType, factionName, synergyName);
-        }
-        if (!this.sandboxCoop || this.viewerTeam === undefined || teamType !== this.viewerTeam) {
-            return false;
-        }
-        const applied = super.selectSynergyVariant(teamType, factionName, synergyName);
-        const faction = this.factionTypeByName(factionName);
-        if (!applied || faction === undefined) {
-            return applied;
-        }
-        const level = FightStateManager.getInstance()
-            .getFightProperties()
-            .getPossibleSynergies(teamType)
-            .filter((entry) => entry.faction === faction && entry.synergy === synergyName)
-            .reduce((best, entry) => Math.max(best, entry.level), 0);
-        if (level > 0) {
-            transport({ type: "synergy", team: teamType, faction, synergyName, level });
-        }
-        return applied;
-    }
-    /**
-     * Co-op sandbox: the map is shared, so a pick from the sidebar applies locally (Sandbox.setGridType — the
-     * ranked scene never rolls its own stones, the seeded layout arrives with the snapshot) and travels to
-     * the server as a GRID_TYPE action; the other seat's board follows through the snapshot. Ranked keeps
-     * the map it was created with.
-     */
-    public override setGridType(gridType: GridType): void {
-        if (!this.sc_gameActionTransport) {
-            super.setGridType(gridType);
-            return;
-        }
-        if (
-            !this.sandboxCoop ||
-            this.viewerTeam === undefined ||
-            FightStateManager.getInstance().getFightProperties().hasFightStarted()
-        ) {
-            return;
-        }
-        super.setGridType(gridType);
-        // The sidebar's picker listens to onGridTypeChanged; the sandbox override raises no flag itself.
-        this.sc_gridTypeUpdateNeeded = true;
-        this.sc_sandboxSetupTransport?.({ kind: "grid_type", gridType });
-    }
-    /**
-     * Co-op sandbox: artifacts are picked freely, like the offline sandbox, and the pick travels to the
-     * authoritative server (ARTIFACT play action) so it folds into stats at fight start on both screens.
-     * Ranked artifacts come from the draft and cannot change here.
-     */
-    public override propagateArtifact(teamType: TeamType, tier: number, artifactId: number): boolean {
-        if (!this.sc_gameActionTransport) {
-            return super.propagateArtifact(teamType, tier, artifactId);
-        }
-        if (!this.sandboxCoop || this.viewerTeam === undefined || teamType !== this.viewerTeam) {
-            return false;
-        }
-        const applied = super.propagateArtifact(teamType, tier, artifactId);
-        if (applied) {
-            this.sc_sandboxSetupTransport?.({ kind: "artifact", team: teamType, tier, artifactId });
-        }
-        return applied;
-    }
-    /**
-     * Ranked routes "Use additional time" through the authoritative server: send a
-     * request_additional_time action for the viewer's team. The server validates (owns the team, its
-     * active turn, once per lap), extends fightProperties.currentTurnEnd, and re-broadcasts the snapshot
-     * — which updates the visible timer. Optimistically hide the button until that snapshot lands.
-     */
     public override requestTime(team: number): void {
         const transport = this.sc_gameActionTransport;
         if (!transport) {
@@ -3126,10 +2770,6 @@ export class RankedPlayScene extends Sandbox {
         }
         transport({ type: "request_additional_time", team: team as TeamType });
     }
-    /**
-     * Show a destination silhouette while an opponent unit's move animates, so the viewer can see
-     * the target cell even when no live move-aim was relayed (e.g. the opponent clicked quickly).
-     */
     protected override shouldShowMoveDestinationSilhouette(unit: RenderableUnit): boolean {
         // A spectator chooses no destinations, so every move gets its preview.
         if (this.viewerTeam === undefined) {
@@ -3148,46 +2788,13 @@ export class RankedPlayScene extends Sandbox {
         const ownTeam = unit.getTeam();
         return this.isTeamAiControlled(ownTeam) || (this.sc_isAIActive && this.getToggleAiControlledTeam() === ownTeam);
     }
-    /**
-     * It is the enemy's turn whenever the active unit is on the opposing team from the viewer.
-     * Drives the red active-unit aura, movement highlight, and board-edge glow.
-     */
     protected override isEnemyActiveTurn(): boolean {
         const currentActiveUnit = this.getCurrentActiveUnit();
         if (!currentActiveUnit || this.viewerTeam === undefined) return false;
         return currentActiveUnit.getTeam() !== this.viewerTeam;
     }
-    /**
-     * A spectator has no side, so "your turn" and "enemy turn" mean nothing to them: the active unit's ring
-     * takes its team's colour instead (LOWER green, UPPER red), which says whose turn it is. The pulse itself
-     * is the same for every unit, as the owner asked.
-     */
-    protected override activeTurnAuraColor(): number {
-        const currentActiveUnit = this.getCurrentActiveUnit();
-        if (this.viewerTeam === undefined && currentActiveUnit) {
-            return teamColor(currentActiveUnit.getTeam());
-        }
-        return super.activeTurnAuraColor();
-    }
-    /** Ranked and co-op boards are server-authoritative and replay from the server: never fill local storage. */
-    protected override shouldRecordSandboxReplay(): boolean {
-        return false;
-    }
-    /**
-     * The AI toggle (autobattle) may only auto-play the local player's own units in ranked — never
-     * the opponent's. Returning the viewer's team team-gates the toggle-driven AI so enabling it
-     * autobattles the player's turns while the opponent stays under the server's control.
-     */
     protected override getToggleAiControlledTeam(): TeamType | undefined {
         return this.viewerTeam;
-    }
-    /**
-     * Autobattle is a sandbox tool. The friend co-op sandbox keeps it; in ranked, lobby and vs-AI games the
-     * button is not rendered, so a seat is only ever automated by the server's absence takeover, which both
-     * players are shown.
-     */
-    protected override isAiToggleAllowed(): boolean {
-        return this.sandboxCoop;
     }
     protected override updateVisibleTurnTimer(): void {
         // The base sets aiToggleOn from the live toggle; this override drives the timer off the server
@@ -3208,34 +2815,6 @@ export class RankedPlayScene extends Sandbox {
         this.applyRankedPlacementTimer(snapshot);
         this.applyRankedTurnTimer(snapshot);
         this.applyRankedAdditionalTime(snapshot);
-    }
-    /**
-     * "Use additional time" is offered from the server's answer, not the local FightProperties: those never
-     * learn that the team already asked this lap, so the button came back on its next unit and the request
-     * was refused (additional_time_not_available). Every snapshot re-states it, including the one right
-     * after an accepted request.
-     */
-    private applyRankedAdditionalTime(snapshot: AuthoritativeGameSnapshot): void {
-        if (snapshot.additionalTimeMs === undefined) {
-            this.rankedAdditionalTime = undefined;
-            return;
-        }
-        const team = snapshot.currentTurnTeam as TeamType;
-        this.rankedAdditionalTime = { team, ms: snapshot.additionalTimeMs };
-        if (this.sc_visibleState) {
-            this.sc_visibleState.canRequestAdditionalTime =
-                snapshot.fightStarted &&
-                !snapshot.fightFinished &&
-                this.canOfferAdditionalTimeForTeam(team) &&
-                snapshot.additionalTimeMs > 0;
-            this.sc_visibleStateUpdateNeeded = true;
-        }
-    }
-    protected override additionalTimeOnOffer(team: TeamType): boolean {
-        if (!this.rankedAdditionalTime) {
-            return super.additionalTimeOnOffer(team);
-        }
-        return this.rankedAdditionalTime.team === team && this.rankedAdditionalTime.ms > 0;
     }
     private applyRankedPlacementTimer(snapshot: AuthoritativeGameSnapshot): void {
         if (
@@ -3309,20 +2888,9 @@ export class RankedPlayScene extends Sandbox {
         this.sc_visibleState.secondsRemaining = remaining > 0 ? remaining : 0;
         this.sc_visibleStateUpdateNeeded = true;
     }
-    /** sessionStorage key holding this game's accumulated unit id -> [name, team] map (see below). */
     private rankedUnitNamesStorageKey(gameId: string): string {
         return `hoc_ranked_unit_names_${gameId}`;
     }
-    /**
-     * A cold load (fresh mount / page refresh) after the fight has finished only ever sees ONE
-     * snapshot — the final one — and the server prunes the losing team's dead units out of it (see
-     * FightFinishedOverlay's comment on the same cleanup). Without a name learned from an earlier LIVE
-     * snapshot, every historical log line mentioning one of those units degrades to the generic "Unit"
-     * fallback (nameOf in buildAuthoritativeSceneLogLines). sessionStorage survives a same-tab refresh
-     * (unlike this in-memory map, which starts empty on every mount), so persist the accumulated names
-     * as they're learned and reseed from it here — recovering the "played the fight, then refreshed"
-     * case, which is exactly the flow a finished ranked match funnels the player through.
-     */
     private loadPersistedRankedUnitNames(gameId: string): void {
         try {
             const raw = window.sessionStorage?.getItem(this.rankedUnitNamesStorageKey(gameId));
@@ -3359,18 +2927,6 @@ export class RankedPlayScene extends Sandbox {
         } catch {
             // Storage full/unavailable — best-effort cache only, never fatal.
         }
-    }
-    /** The fight sidebar, battle log included, follows playback. Live snapshots already drive that from React. */
-    private publishReplayFightChrome(snapshot: AuthoritativeGameSnapshot): void {
-        if (!this.fullReplayPlaybackActive && !this.replayViewingActive) {
-            return;
-        }
-        const visible = snapshot.fightStarted;
-        if (!this.sc_visibleState || this.sc_visibleState.replayFightVisible === visible) {
-            return;
-        }
-        this.sc_visibleState.replayFightVisible = visible;
-        this.sc_visibleStateUpdateNeeded = true;
     }
     private applyAuthoritativeSceneLog(snapshot: AuthoritativeGameSnapshot): void {
         this.publishReplayFightChrome(snapshot);
@@ -3559,16 +3115,6 @@ export class RankedPlayScene extends Sandbox {
         }
         return lines;
     }
-    /** See rankedBlastDamageSceneLogLines — this only supplies the scene's team flags. */
-    private blastDamageLogLines(event: GameEvent, unitNames: ReadonlyMap<string, string>): string[] {
-        return rankedBlastDamageSceneLogLines(event, unitNames, (unitId) => this.logTeamFlag(unitId));
-    }
-    /**
-     * One scene-log line per unit hit by an AOE range attack (Gargantuan Area Throw / Cyclops Large
-     * Caliber). The shot's damage is carried per-unit in damage.splash[] (NOT damage.amount, which is 0
-     * for a pure-splash shot), so eventToSceneLogLine suppresses the single "(0)" primary line and each
-     * splashed unit is logged here with its own ranged damage + kills.
-     */
     private splashLogLines(event: GameEvent, unitNames: ReadonlyMap<string, string>): string[] {
         if (event.type !== "unit_attacked" && event.type !== "area_attacked") {
             return [];
@@ -3602,17 +3148,6 @@ export class RankedPlayScene extends Sandbox {
         }
         return lines;
     }
-    /**
-     * One scene-log line per landed strike of a MULTI-HIT attack — Double Punch / Double Shot and the
-     * Crafted variants the Blacksmith grants. The engine pushes one damage.hits[] entry per strike and
-     * folds their sum into damage.amount, so eventToSceneLogLine suppresses the aggregate line and each
-     * strike is reported here with its OWN damage and kills.
-     *
-     * This is the ranked counterpart of two lines the sandbox gets for free: there the engine writes the
-     * second strike itself (processDoublePunchAbility / processDoubleShotAbility call sceneLog.updateLog),
-     * but ranked suppresses that text channel and rebuilds the log from the authoritative journal, whose
-     * single unit_attacked event carries the whole combo. Without this the second punch was silent.
-     */
     private multiHitLogLines(event: GameEvent, unitNames: ReadonlyMap<string, string>): string[] {
         if (event.type !== "unit_attacked") {
             return [];
@@ -3625,11 +3160,9 @@ export class RankedPlayScene extends Sandbox {
             this.logTeamFlag(event.attackerId),
         );
     }
-    /** Log lines for secondary-damage abilities carried on an attack's damage payload. */
     private secondaryLogLines(event: GameEvent, unitNames: ReadonlyMap<string, string>): string[] {
         return rankedSecondarySceneLogLines(event, unitNames, (unitId) => this.logTeamFlag(unitId));
     }
-    /** Unit id for an event where the unit actively took its turn (so a trailing manual skip is noise). */
     private actedUnitId(event: GameEvent): string | undefined {
         switch (event.type) {
             case "unit_moved":
@@ -3647,7 +3180,6 @@ export class RankedPlayScene extends Sandbox {
                 return undefined;
         }
     }
-    /** The unit a log line is "about", used to tag the line with its team flag. */
     private logActorUnitId(event: GameEvent): string | undefined {
         switch (event.type) {
             case "unit_moved":
@@ -3679,15 +3211,9 @@ export class RankedPlayScene extends Sandbox {
                 return undefined;
         }
     }
-    /**
-     * Ranked rebuilds its scene log from the authoritative journal and prefixes each line with the
-     * acting unit's team flag by unit id (logTeamFlag), so the sandbox's name-based resolver — which
-     * would double-tag or mis-tag the already-formatted lines — is disabled here.
-     */
     protected override resolveSceneLogTeamFlag(): string {
         return "";
     }
-    /** Green/red marker for the acting unit's team (LEFT = green, RIGHT = red), the same on every screen. */
     private logTeamFlag(unitId: string): string {
         // Prefer the team captured from authoritative snapshots; fall back to the live units holder so
         // units that never appear in a snapshot (a local-model opponent's units, units summoned
@@ -3695,7 +3221,6 @@ export class RankedPlayScene extends Sandbox {
         const team = this.rankedUnitTeamsById.get(unitId) ?? this.unitsHolder.getAllUnits().get(unitId)?.getTeam();
         return this.teamFlag(team);
     }
-    /** Green/red marker straight from a team value (for team-scoped lines with no acting unit). */
     private teamFlag(team: number | undefined): string {
         return team === TeamVals.LEFT || team === TeamVals.RIGHT ? (isGreenTeam(team as TeamType) ? "🟢" : "🔴") : "";
     }
@@ -3885,24 +3410,12 @@ export class RankedPlayScene extends Sandbox {
                 return undefined;
         }
     }
-    /**
-     * Kill-count suffix (e.g. " 💀 3") for an attack's scene-log line. The ranked log is rebuilt from
-     * events, so reconstruct the creatures killed from the damage breakdown: hits[] for
-     * single/double-shot, splash[] for AOE (Cyclops' Large Caliber / Gargantuan's Area Throw).
-     */
     private killSuffix(damage: IVisibleDamage): string {
         const killed =
             (damage.hits?.reduce((sum, hit) => sum + hit.unitsDied, 0) ?? 0) +
             (damage.splash?.reduce((sum, entry) => sum + entry.unitsDied, 0) ?? 0);
         return killed > 0 ? ` 💀 ${killed}` : "";
     }
-    /**
-     * Icon for an attack's scene-log line so the kind of strike reads at a glance: ⚔️ melee, 🏹
-     * range, 🏹💥 ranged splash/AOE (Cyclops' Large Caliber, Gargantuan's Area Throw — both RANGE, so
-     * the splash keeps the arrow). AOE is detected via the per-unit splash breakdown so a splashing
-     * range shot reads as splash, not a plain arrow. (In practice splash-carrying events are logged
-     * per-unit by splashLogLines(); this branch only fires for a target-less area_throw.)
-     */
     private attackIcon(attackType: "melee" | "range" | "area_throw", damage: IVisibleDamage): string {
         if (damage.splash?.length || attackType === "area_throw") {
             return "🏹💥";
@@ -3921,32 +3434,15 @@ export class RankedPlayScene extends Sandbox {
         }
         return "new";
     }
-    /**
-     * Ranked drives the Armageddon wave VFX from the authoritative journal (see
-     * renderNewlyAppliedArmageddon), not inline from the engine events — the inline path doesn't fire
-     * reliably here, which is why the wave's damage numbers never showed.
-     */
     protected override shouldRenderArmageddonInline(): boolean {
         return false;
     }
-    /** Ranked renders the lap-start Morale/Dismorale pops from the journal, not inline (same as the wave). */
     protected override shouldRenderMoraleInline(): boolean {
         return false;
     }
-    /** Ranked renders poison DoT ticks from the journal (renderNewlyAppliedPoison), not inline — otherwise
-     * the replayed action that carries poison_ticked renders each tick a second time. Same as morale/wave. */
     protected override shouldRenderPoisonInline(): boolean {
         return false;
     }
-    protected override shouldRenderPyreInline(): boolean {
-        return false;
-    }
-    /**
-     * Render the lap-start Morale (green) / Dismorale (violet) pops from the authoritative journal. The
-     * `morale_applied` events ride on the lap-flipping action's journal entry (the scene log reads them
-     * from journalTail already), so we drive the pops off the same source. Deduped by a per-game
-     * high-water sequence so each is popped once and historical ones on (re)join aren't replayed.
-     */
     private renderNewlyAppliedMorale(snapshot: AuthoritativeGameSnapshot): void {
         const journalTail = snapshot.journalTail;
         if (!journalTail?.length) {
@@ -3975,16 +3471,6 @@ export class RankedPlayScene extends Sandbox {
         }
         this.moraleVfxSequence = maxSequence;
     }
-    /**
-     * Render the poison DoT tick VFX (green number + drifting cloud) from the authoritative journal, exactly
-     * like Morale/Armageddon. poison_ticked is emitted in the turn-advance batch (activateNextUnit, every
-     * poisoned unit's turn start) and rides the REPLAYED player action's journal entry — so the inherited
-     * applyTurnEngineEvents replay path would render it inline; shouldRenderPoisonInline() is overridden to
-     * false in ranked to suppress that, making this the SOLE ranked renderer (no double green number/cloud).
-     * (scene.applyAuthoritativeVfx, where the first attempt lived, is dead — ApplyAuthoritativeVfx has no
-     * callers.) Deduped by a per-game high-water sequence so each tick pops once and history on (re)join
-     * isn't replayed.
-     */
     private renderNewlyAppliedPoison(snapshot: AuthoritativeGameSnapshot): void {
         const journalTail = snapshot.journalTail;
         if (!journalTail?.length) {
@@ -4015,13 +3501,6 @@ export class RankedPlayScene extends Sandbox {
         }
         this.poisonVfxSequence = maxSequence;
     }
-    /**
-     * Render the Armageddon wave's floating damage + screen shake from the authoritative snapshot's
-     * journal. The wave's `armageddon_applied` events ride on a turn-ending action's journal entry; the
-     * scene log already reads them from journalTail reliably, so we render the VFX from the same source.
-     * Deduped by a per-game high-water sequence so each wave fires once and historical waves present on
-     * (re)join aren't replayed.
-     */
     private renderNewlyAppliedArmageddon(snapshot: AuthoritativeGameSnapshot): void {
         const journalTail = snapshot.journalTail;
         if (!journalTail?.length) {
@@ -4070,40 +3549,6 @@ export class RankedPlayScene extends Sandbox {
         }
         this.armageddonVfxSequence = maxSequence;
     }
-    private renderNewlyAppliedPyre(snapshot: AuthoritativeGameSnapshot, replaying = false): void {
-        const journalTail = snapshot.journalTail ?? [];
-        const sorted = [...journalTail].sort((a, b) => a.sequence - b.sequence);
-        const maxSequence = Math.max(snapshot.latestSequence, sorted.at(-1)?.sequence ?? -1);
-        if (this.pyreVfxGameId !== snapshot.gameId) {
-            this.pyreVfxGameId = snapshot.gameId;
-            this.pyreVfxSequence = replaying ? snapshot.latestSequence - 1 : maxSequence;
-            if (!replaying) return;
-        }
-        if (maxSequence <= this.pyreVfxSequence) {
-            return;
-        }
-        let pyreIndex = 0;
-        for (const entry of sorted) {
-            if (entry.sequence <= this.pyreVfxSequence) {
-                continue;
-            }
-            for (const event of this.parseJournalEvents(entry)) {
-                if (event.type !== "pyre_exploded") {
-                    continue;
-                }
-                this.renderPyreExplosion(event, pyreIndex * 0.18);
-                pyreIndex += 1;
-            }
-        }
-        this.pyreVfxSequence = maxSequence;
-    }
-    /**
-     * Spawn the "broken mirror" death shatter for any unit that just died, then tear its sprite down.
-     * Detect alive→dead transitions by comparing the local board (units with live sprites) against the
-     * authoritative snapshot: a unit we are still rendering that the snapshot reports dead/absent has just
-     * died. getShatterInfo() returns null once visuals are gone, so a unit the action replay already
-     * shattered + destroyed is skipped here — no double shatter. Only runs once the fight is underway.
-     */
     private shatterNewlyDeadUnits(snapshot: AuthoritativeGameSnapshot): void {
         if (!snapshot.fightStarted) {
             return;
@@ -4133,13 +3578,6 @@ export class RankedPlayScene extends Sandbox {
             renderable.destroyVisuals();
         }
     }
-    /**
-     * Reconcile each living unit's remaining stack stats (alive count, top-unit hp, dead count) to the
-     * authoritative snapshot WITHOUT a destructive board rebuild. Replayed action events animate a hit
-     * but never mutate the stack, and the skip-rebuild snapshot path would otherwise leave the count
-     * frozen — so attack/retaliation damage must be applied here. Units that dropped to 0 are left to
-     * the unit_destroyed/hydrate paths to remove.
-     */
     private applyRankedUnitStats(units: SandboxSceneUnitState[]): void {
         let changed = false;
         for (const u of units) {
@@ -4163,13 +3601,6 @@ export class RankedPlayScene extends Sandbox {
             }
             this.sc_visibleStateUpdateNeeded = true;
         }
-    }
-    public override getDamageStatisics(): IDamageStatistic[] {
-        return this.rankedDamageStatistics;
-    }
-    private applyRankedDamageStatistics(damageStats: IDamageStatistic[] | undefined): void {
-        this.rankedDamageStatistics = structuredClone(damageStats ?? []).sort((a, b) => b.damage - a.damage);
-        this.sc_damageStatsUpdateNeeded = true;
     }
     private applyRankedFightStats(snapshot: AuthoritativeGameSnapshot, units: SandboxSceneUnitState[]): void {
         if (this.rankedStatsGameId && this.rankedStatsGameId !== snapshot.gameId) {
@@ -4254,9 +3685,6 @@ export class RankedPlayScene extends Sandbox {
 
         return this.winnerByAliveTotals(units);
     }
-    // The fight is decided once a team has no units left alive — derived purely from the snapshot, so it
-    // holds even when the server only emits the fight_finished event without flagging the snapshot
-    // (older servers): otherwise the results overlay never appears in ranked.
     private winnerByAliveTotals(units: SandboxSceneUnitState[]): TeamType {
         const leftAlive = this.aliveTotal(units, TeamVals.LEFT as TeamType);
         const rightAlive = this.aliveTotal(units, TeamVals.RIGHT as TeamType);
@@ -4295,13 +3723,6 @@ export class RankedPlayScene extends Sandbox {
             this.sc_visibleStateUpdateNeeded = true;
         }
     }
-    /**
-     * Prefer the server's authoritative fight-start army totals when present, overriding what we
-     * captured locally. This makes casualty stats correct even when a team has been fully wiped and its
-     * units are gone from the snapshot — e.g. a completed game loaded cold (the local capture would see
-     * only the survivor's units), or a mid-fight join. Older servers omit these (0) and we keep the
-     * locally-captured totals.
-     */
     private applyServerStartTotals(snapshot: AuthoritativeGameSnapshot): void {
         if (snapshot.leftStartUnits && snapshot.leftStartUnits > 0) {
             this.rankedStatsLeftStartTotal = snapshot.leftStartUnits;
@@ -4328,14 +3749,6 @@ export class RankedPlayScene extends Sandbox {
             this.rankedStatsRightRoster,
         );
     }
-    /**
-     * Same override as applyServerStartTotals, but for the PER-CREATURE breakdown that drives the
-     * casualty roster's icons/names: replaces whatever mergeRankedRoster accumulated from live-visible
-     * units with the server's authoritative fight-start composition, which — unlike `units` — still
-     * covers creature types that are already fully wiped (dropped from the engine, never seen live).
-     * A cold-loaded/reloaded finished game only ever gets ONE snapshot, so without this override any
-     * creature type with zero survivors at that point never made it into the roster at all.
-     */
     private applyServerStartRoster(
         team: TeamType,
         creatureIds: number[] | undefined,
@@ -4396,13 +3809,6 @@ export class RankedPlayScene extends Sandbox {
 
         this.rankedStatsStarted = true;
     }
-    /**
-     * Fold every unit we can see into the casualty roster + start totals, cumulatively across snapshots
-     * (each stack counted once via its id). A unit that dies is dropped from later snapshots, and a
-     * cold-loaded / mid-joined client may never see the fight-start roster — capturing only at fight
-     * start would then leave those units out of the FALLEN list. A stack's amount_alive + amount_died is
-     * constant, so recording its total whenever we first see it is exact regardless of timing.
-     */
     private mergeRankedRoster(units: SandboxSceneUnitState[]): void {
         for (const unit of units) {
             const id = unit.properties.id;
@@ -4440,35 +3846,6 @@ export class RankedPlayScene extends Sandbox {
                 });
             }
         }
-    }
-    /**
-     * A creature type on the fight-start roster that this timeline has neither marked dead nor seen
-     * alive. Adding it before the diff makes the next sample record the wipe if the stack is already
-     * gone, which is how a death that preceded the first sampled snapshot still gets a portrait.
-     */
-    private rememberUnseenRosterCreatures(): void {
-        const marked = new Set<string>();
-        for (const sample of this.rankedStatsSeries) {
-            for (const elimination of sample.eliminations ?? []) {
-                marked.add(elimination.creatureKey);
-            }
-        }
-        const remember = (roster: ReadonlyMap<string, RankedFightRosterEntry>, team: TeamType): void => {
-            for (const [name, entry] of roster) {
-                const creatureKey = `${team}|${name.trim().toLowerCase()}`;
-                if (marked.has(creatureKey) || this.rankedStatsAliveCreatureGroups.has(creatureKey)) {
-                    continue;
-                }
-                this.rankedStatsAliveCreatureGroups.set(creatureKey, {
-                    creatureKey,
-                    name,
-                    smallTextureName: entry.smallTextureName,
-                    team,
-                });
-            }
-        };
-        remember(this.rankedStatsLeftRoster, TeamVals.LEFT as TeamType);
-        remember(this.rankedStatsRightRoster, TeamVals.RIGHT as TeamType);
     }
     private sampleRankedFightStats(units: SandboxSceneUnitState[], lap: number): boolean {
         if (!this.rankedStatsStarted) {
@@ -4729,20 +4106,6 @@ export class RankedPlayScene extends Sandbox {
         const cells = unit.cells.map((cell) => `${cell.x}:${cell.y}`).join(",");
         return `${unit.team}|${unit.name}|${unit.creatureId}|${unit.placed ? 1 : 0}|${unit.dead ? 1 : 0}|${unit.amountAlive}|${cells}`;
     }
-    /**
-     * Force each Disguise-Aura bearer's "Hidden" buff to match the authoritative snapshot. The client
-     * recomputes Hidden locally (refreshStackPowerForAllUnits, position-based), but that recompute can
-     * diverge from the ranked server's (aura-range / synergy state), leaving a unit Visible on our board
-     * while the server has it Hidden — the AI then fires a melee the server rejects as
-     * attack_not_available. The snapshot carries the server's authoritative buff list, so we trust it
-     * here and only ever touch units that actually carry the Disguise Aura.
-     */
-    // Authoritative sets of the position-dependent AURA gates from the last snapshot: units the SERVER
-    // has Hidden (Disguise, untargetable) and units it has inside a Range Null Field (ranged-disabled).
-    // The client recomputes these locally (refreshStackPowerForAllUnits, re-run after each AI action via
-    // refreshUnits) and can diverge, so we cache the server truth and re-assert it both on every snapshot
-    // AND right before the AI picks a target (ensureAuthoritativeAuraState) — otherwise a local recompute
-    // between snapshot and decision wipes the gate and the AI proposes an engine-rejected attack.
     private authoritativeHiddenIds = new Set<string>();
     private authoritativeRangeNullIds = new Set<string>();
     private reconcileAuraEffectsFromSnapshot(snapshot: AuthoritativeGameSnapshot): void {
@@ -4816,11 +4179,6 @@ export class RankedPlayScene extends Sandbox {
             .restoreAlreadyHourglass(snapshot.units.filter((u) => u.hasHourglassed && !u.dead).map((u) => u.id));
         this.applyAuthoritativeAuraState();
     }
-    /**
-     * Force each unit's Hidden buff / Range Null Field debuff to match the last authoritative snapshot.
-     * Called on every snapshot and again right before every AI decision (via ensureAuthoritativeAuraState)
-     * so a local aura recompute can't leave the gate stale when the AI chooses a target.
-     */
     private applyAuthoritativeAuraState(): void {
         for (const [id, unit] of this.unitsHolder.getAllUnits()) {
             const hidden = this.authoritativeHiddenIds.has(id);
@@ -4854,17 +4212,6 @@ export class RankedPlayScene extends Sandbox {
     protected override ensureAuthoritativeAuraState(): void {
         this.applyAuthoritativeAuraState();
     }
-    /**
-     * Re-stamp the grid (occupancy + AGGRO board) from the CURRENT authoritative unit positions before the AI
-     * pathfinds. On ranked skip-rebuild snapshots the aggro board isn't rebuilt, so it drifts LESS restrictive
-     * than the server's — the AI then plans a move / move+melee whose path threads enemy threat cells the
-     * server blocks, and the action is refused (attack_not_available / invalid_move) until the reject-streak
-     * force-skips the turn. Diagnosed (server-instrumented): 89% of attack_not_available were exactly this.
-     * Two passes (clear every unit, then re-occupy every unit) so a unit that moved onto another's vacated
-     * cell can't transiently collide. Obstacles/narrowing aren't units, so they're left intact. Cheap: one
-     * pass per AI decision, not per frame, and it keeps the aggro MECHANIC fully functional — it just makes
-     * the client's copy match the server's.
-     */
     protected override ensureAuthoritativeGrid(): void {
         const ranges = new Map<string, number>();
         for (const u of this.unitsHolder.getAllUnits().values()) {
@@ -4914,5 +4261,322 @@ export class RankedPlayScene extends Sandbox {
                 spellEntries: unit.spellEntriesAuthoritative ? (unit.spellEntries ?? []) : undefined,
             })),
         });
+    }
+    protected override isMapStateKnown(): boolean {
+        return this.sc_mapStateHydrated;
+    }
+    private premiumTurnPreview?: PremiumTurnPreview;
+    private drawnPremiumTurnPreview?: PremiumTurnPreview;
+    private premiumTurnOverlay?: PremiumTurnOverlay;
+    private premiumSnapshot?: Pick<
+        AuthoritativeGameSnapshot,
+        "gameId" | "latestSequence" | "currentLap" | "currentUnitId" | "phase" | "fightFinished"
+    >;
+    public override setPremiumTurnPreview(turn?: PremiumTurnPreview): void {
+        this.premiumTurnPreview = turn;
+        if (!turn) this.premiumTurnOverlay?.setVisible(false);
+    }
+    public override Step(timeStep: number): void {
+        super.Step(timeStep);
+        const turn = this.premiumTurnPreview;
+        const snapshot = this.premiumSnapshot;
+        const actor = this.getCurrentActiveUnit();
+        const visible = Boolean(
+            turn &&
+            snapshot &&
+            actor &&
+            !actor.isDead() &&
+            actor.getTeam() === this.viewerTeam &&
+            !this.fullReplayPlaybackActive &&
+            !this.replayViewingActive &&
+            !this.sc_isAIActive &&
+            !this.isPlayingActionAnimation() &&
+            snapshot.phase === PlayPhase.PLAY &&
+            !snapshot.fightFinished &&
+            turn.gameId === snapshot.gameId &&
+            turn.sequence === snapshot.latestSequence &&
+            turn.sequence === this.lastAuthoritativeSequence &&
+            turn.lap === snapshot.currentLap &&
+            turn.unitId === snapshot.currentUnitId &&
+            turn.unitId === actor.getId(),
+        );
+        if (visible && turn && actor && this.drawnPremiumTurnPreview !== turn) {
+            this.premiumTurnOverlay ??= new PremiumTurnOverlay(this.pixiApp.getWorldRoot());
+            this.premiumTurnOverlay.draw(
+                turn,
+                actor,
+                this.unitsHolder.getAllUnits(),
+                this.sc_sceneSettings.getGridSettings(),
+            );
+            this.drawnPremiumTurnPreview = turn;
+        }
+        this.premiumTurnOverlay?.setVisible(visible);
+    }
+    public override Destroy(): void {
+        this.premiumTurnOverlay?.destroy();
+        this.premiumTurnOverlay = undefined;
+        super.Destroy();
+    }
+    private barrelPlacementAvailable = false;
+    private rankedDamageStatistics: IDamageStatistic[] = [];
+    private rankedStatsSequence = -1;
+    private readonly rankedStatsAliveCreatureGroups = new Map<string, IFightCreatureElimination>();
+    private pyreVfxGameId = "";
+    private pyreVfxSequence = -1;
+    private rankedAdditionalTime?: { team: TeamType; ms: number };
+    private sandboxCoop = false;
+    private sandboxCoopBothReady = false;
+    private lastCoopGridType?: number;
+    protected override applySceneStateUpNext(upNext: string[] | undefined): void {
+        super.applySceneStateUpNext(upNext);
+        if (upNext) {
+            this.upNextUnitIds = [...upNext];
+        }
+    }
+    private applyPersonalView(): void {
+        const personalSeat = personalArmyTintSeat(this.viewerTeam, this.sandboxCoop);
+        const personalView =
+            !!this.sc_gameActionTransport && !this.replayViewingActive && !this.fullReplayPlaybackActive;
+        setPersonalArmyTint(personalSeat, personalView);
+        setBoardMirror(
+            this,
+            shouldMirrorBoard({
+                viewerTeam: personalSeat,
+                preference: readBoardSidePreference(),
+                live: personalView,
+            }),
+        );
+    }
+    private resetRankedReplayPresentation(): void {
+        this.resetRankedFightStats();
+        this.rankedSceneLogGameId = "";
+        this.rankedSceneLogSequence = -1;
+        this.rankedSceneLogLap = 1;
+        this.rankedSceneLogHeaderUnitId = undefined;
+        // Re-baseline the Armageddon high-water mark so the next snapshot doesn't replay historical waves.
+        this.armageddonVfxGameId = "";
+        this.armageddonVfxSequence = -1;
+        // Same for the lap-start Morale/Dismorale pops.
+        this.moraleVfxGameId = "";
+        this.moraleVfxSequence = -1;
+        this.poisonVfxGameId = "";
+        this.poisonVfxSequence = -1;
+        this.pyreVfxGameId = "";
+        this.pyreVfxSequence = -1;
+        // Re-baseline effect pops so the replay's first snapshot seeds silently instead of bursting.
+        this.effectPopsGameId = "";
+        this.effectPopsSequence = -1;
+        if (this.sc_visibleState?.replayFightVisible) {
+            this.sc_visibleState.replayFightVisible = false;
+            this.sc_visibleStateUpdateNeeded = true;
+        }
+    }
+    private static replayRecordSnapshot(record: SandboxReplayActionRecord): AuthoritativeGameSnapshot | undefined {
+        return record.authoritativeSnapshot;
+    }
+    protected override onReplayRecordSettling(record: SandboxReplayActionRecord): void {
+        const snapshot = RankedPlayScene.replayRecordSnapshot(record);
+        if (!snapshot) {
+            return;
+        }
+        // A unit killed without an event of its own — a Flesh Shield bearer dropped by damage it absorbed
+        // for someone else, say — is simply gone from the next state. Shattered here, while its sprite is
+        // still on the board, it dies the same way it died in the fight.
+        this.shatterNewlyDeadUnits(snapshot);
+    }
+    protected override onReplayRecordPresented(record: SandboxReplayActionRecord): void {
+        const snapshot = RankedPlayScene.replayRecordSnapshot(record);
+        if (!snapshot) {
+            return;
+        }
+        // Everything the live snapshot path does around a hydrate that is NOT the board itself. Each of
+        // these is already gated on its own game id + sequence, so replaying them in order behaves exactly
+        // as it did live: seed on the first record, then emit only what is new.
+        this.processDebuffPops(snapshot);
+        this.applyAuthoritativeSceneLog(snapshot);
+        this.renderNewlyAppliedMorale(snapshot);
+        this.renderNewlyAppliedPoison(snapshot);
+        this.renderNewlyAppliedArmageddon(snapshot);
+        this.renderNewlyAppliedPyre(snapshot, true);
+        this.reconcileAuraEffectsFromSnapshot(snapshot);
+        this.applyRankedTimer(snapshot);
+        this.applyRankedFightStats(snapshot, record.stateAfter.units);
+    }
+    protected override getPlacementOwnerTeam(): TeamType | undefined {
+        return this.viewerTeam;
+    }
+    protected override canStartFightNow(leftPlaced: boolean, rightPlaced: boolean): boolean {
+        return leftPlaced && rightPlaced && (!this.sandboxCoop || this.sandboxCoopBothReady);
+    }
+    protected override canMoveArtifactBarrel(team: TeamType): boolean {
+        return (
+            !!this.sc_gameActionTransport &&
+            this.barrelPlacementAvailable &&
+            team === this.viewerTeam &&
+            super.canMoveArtifactBarrel(team)
+        );
+    }
+    public override selectSynergyVariant(teamType: TeamType, factionName: string, synergyName: string): boolean {
+        const transport = this.sc_gameActionTransport;
+        if (!transport) {
+            return super.selectSynergyVariant(teamType, factionName, synergyName);
+        }
+        if (!this.sandboxCoop || this.viewerTeam === undefined || teamType !== this.viewerTeam) {
+            return false;
+        }
+        const applied = super.selectSynergyVariant(teamType, factionName, synergyName);
+        const faction = this.factionTypeByName(factionName);
+        if (!applied || faction === undefined) {
+            return applied;
+        }
+        const level = FightStateManager.getInstance()
+            .getFightProperties()
+            .getPossibleSynergies(teamType)
+            .filter((entry) => entry.faction === faction && entry.synergy === synergyName)
+            .reduce((best, entry) => Math.max(best, entry.level), 0);
+        if (level > 0) {
+            transport({ type: "synergy", team: teamType, faction, synergyName, level });
+        }
+        return applied;
+    }
+    public override setGridType(gridType: GridType): void {
+        if (!this.sc_gameActionTransport) {
+            super.setGridType(gridType);
+            return;
+        }
+        if (
+            !this.sandboxCoop ||
+            this.viewerTeam === undefined ||
+            FightStateManager.getInstance().getFightProperties().hasFightStarted()
+        ) {
+            return;
+        }
+        super.setGridType(gridType);
+        // The sidebar's picker listens to onGridTypeChanged; the sandbox override raises no flag itself.
+        this.sc_gridTypeUpdateNeeded = true;
+        this.sc_sandboxSetupTransport?.({ kind: "grid_type", gridType });
+    }
+    public override propagateArtifact(teamType: TeamType, tier: number, artifactId: number): boolean {
+        if (!this.sc_gameActionTransport) {
+            return super.propagateArtifact(teamType, tier, artifactId);
+        }
+        if (!this.sandboxCoop || this.viewerTeam === undefined || teamType !== this.viewerTeam) {
+            return false;
+        }
+        const applied = super.propagateArtifact(teamType, tier, artifactId);
+        if (applied) {
+            this.sc_sandboxSetupTransport?.({ kind: "artifact", team: teamType, tier, artifactId });
+        }
+        return applied;
+    }
+    protected override activeTurnAuraColor(): number {
+        const currentActiveUnit = this.getCurrentActiveUnit();
+        if (this.viewerTeam === undefined && currentActiveUnit) {
+            return teamColor(currentActiveUnit.getTeam());
+        }
+        return super.activeTurnAuraColor();
+    }
+    protected override shouldRecordSandboxReplay(): boolean {
+        return false;
+    }
+    protected override isAiToggleAllowed(): boolean {
+        return this.sandboxCoop;
+    }
+    private applyRankedAdditionalTime(snapshot: AuthoritativeGameSnapshot): void {
+        if (snapshot.additionalTimeMs === undefined) {
+            this.rankedAdditionalTime = undefined;
+            return;
+        }
+        const team = snapshot.currentTurnTeam as TeamType;
+        this.rankedAdditionalTime = { team, ms: snapshot.additionalTimeMs };
+        if (this.sc_visibleState) {
+            this.sc_visibleState.canRequestAdditionalTime =
+                snapshot.fightStarted &&
+                !snapshot.fightFinished &&
+                this.canOfferAdditionalTimeForTeam(team) &&
+                snapshot.additionalTimeMs > 0;
+            this.sc_visibleStateUpdateNeeded = true;
+        }
+    }
+    protected override additionalTimeOnOffer(team: TeamType): boolean {
+        if (!this.rankedAdditionalTime) {
+            return super.additionalTimeOnOffer(team);
+        }
+        return this.rankedAdditionalTime.team === team && this.rankedAdditionalTime.ms > 0;
+    }
+    private publishReplayFightChrome(snapshot: AuthoritativeGameSnapshot): void {
+        if (!this.fullReplayPlaybackActive && !this.replayViewingActive) {
+            return;
+        }
+        const visible = snapshot.fightStarted;
+        if (!this.sc_visibleState || this.sc_visibleState.replayFightVisible === visible) {
+            return;
+        }
+        this.sc_visibleState.replayFightVisible = visible;
+        this.sc_visibleStateUpdateNeeded = true;
+    }
+    private blastDamageLogLines(event: GameEvent, unitNames: ReadonlyMap<string, string>): string[] {
+        return rankedBlastDamageSceneLogLines(event, unitNames, (unitId) => this.logTeamFlag(unitId));
+    }
+    protected override shouldRenderPyreInline(): boolean {
+        return false;
+    }
+    private renderNewlyAppliedPyre(snapshot: AuthoritativeGameSnapshot, replaying = false): void {
+        const journalTail = snapshot.journalTail ?? [];
+        const sorted = [...journalTail].sort((a, b) => a.sequence - b.sequence);
+        const maxSequence = Math.max(snapshot.latestSequence, sorted.at(-1)?.sequence ?? -1);
+        if (this.pyreVfxGameId !== snapshot.gameId) {
+            this.pyreVfxGameId = snapshot.gameId;
+            this.pyreVfxSequence = replaying ? snapshot.latestSequence - 1 : maxSequence;
+            if (!replaying) return;
+        }
+        if (maxSequence <= this.pyreVfxSequence) {
+            return;
+        }
+        let pyreIndex = 0;
+        for (const entry of sorted) {
+            if (entry.sequence <= this.pyreVfxSequence) {
+                continue;
+            }
+            for (const event of this.parseJournalEvents(entry)) {
+                if (event.type !== "pyre_exploded") {
+                    continue;
+                }
+                this.renderPyreExplosion(event, pyreIndex * 0.18);
+                pyreIndex += 1;
+            }
+        }
+        this.pyreVfxSequence = maxSequence;
+    }
+    public override getDamageStatisics(): IDamageStatistic[] {
+        return this.rankedDamageStatistics;
+    }
+    private applyRankedDamageStatistics(damageStats: IDamageStatistic[] | undefined): void {
+        this.rankedDamageStatistics = structuredClone(damageStats ?? []).sort((a, b) => b.damage - a.damage);
+        this.sc_damageStatsUpdateNeeded = true;
+    }
+    private rememberUnseenRosterCreatures(): void {
+        const marked = new Set<string>();
+        for (const sample of this.rankedStatsSeries) {
+            for (const elimination of sample.eliminations ?? []) {
+                marked.add(elimination.creatureKey);
+            }
+        }
+        const remember = (roster: ReadonlyMap<string, RankedFightRosterEntry>, team: TeamType): void => {
+            for (const [name, entry] of roster) {
+                const creatureKey = `${team}|${name.trim().toLowerCase()}`;
+                if (marked.has(creatureKey) || this.rankedStatsAliveCreatureGroups.has(creatureKey)) {
+                    continue;
+                }
+                this.rankedStatsAliveCreatureGroups.set(creatureKey, {
+                    creatureKey,
+                    name,
+                    smallTextureName: entry.smallTextureName,
+                    team,
+                });
+            }
+        };
+        remember(this.rankedStatsLeftRoster, TeamVals.LEFT as TeamType);
+        remember(this.rankedStatsRightRoster, TeamVals.RIGHT as TeamType);
     }
 }

@@ -1,3 +1,4 @@
+import { FLOOR_AURA_Z_INDEX } from "./floorAuraLayer";
 // game/core/src/pixi/PixiDrawer.ts
 import { Application, Container, Graphics, Sprite, Texture } from "pixi.js";
 import { Grid, GridType, GridVals, GridSettings, HoCMath, UnitsHolder, ObstacleType } from "@heroesofcrypto/common";
@@ -93,13 +94,10 @@ export class PixiDrawer {
         this.attackFromToGfx = new Graphics();
         this.gridGfx = new Graphics();
 
-        this.overlayContainer.addChild(
-            this.gridGfx,
-            this.pathGfx,
-            this.auraGfx,
-            this.highlightedCellsGfx,
-            this.hoverAreaGfx,
-        );
+        this.overlayContainer.addChild(this.gridGfx, this.pathGfx, this.highlightedCellsGfx, this.hoverAreaGfx);
+
+        parent.addChild(this.auraGfx);
+        this.auraGfx.zIndex = FLOOR_AURA_Z_INDEX;
 
         // Interaction Container (Z=1500): Above units (Cursor, Attack Target, AOE)
         this.interactionContainer = new Container();
@@ -424,6 +422,7 @@ export class PixiDrawer {
         this.unitsContainer.destroy({ children: true });
         this.terrainContainerFront.destroy({ children: true });
         this.overlayContainer.destroy({ children: true });
+        this.auraGfx.destroy();
         // This is a sibling of overlayContainer, not one of its children. Leaving it out retained the
         // hover/attack/AOE graphics and one attached container after every scene replacement.
         this.interactionContainer.destroy({ children: true });
