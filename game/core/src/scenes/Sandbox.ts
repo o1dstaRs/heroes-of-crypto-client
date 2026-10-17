@@ -33,7 +33,7 @@ import { mantisLabFlightSettings } from "./MantisLabFlight";
 import { Assets, Sprite, Graphics, Container, Texture, BlurFilter, Text, TextStyle } from "pixi.js";
 import { PixiDrawer } from "../pixi/PixiDrawer";
 import { usesApprovedBaseAnimations, usesAuthoredRangedRelease } from "../pixi/creatureAnimationSettings";
-import { prewarmAtlasTexture } from "../pixi/prewarmAtlasTexture";
+import { AtlasTexturePrewarmer } from "../pixi/prewarmAtlasTexture";
 import {
     SandboxDrawer,
     ALLY_MOVEMENT_INSPECTION_COLOR,
@@ -16433,6 +16433,7 @@ export class Sandbox extends PixiScene {
         return false;
     }
     public override Destroy(): void {
+        this.atlasTexturePrewarmer.destroy();
         this.sandboxPremiumEnabled = false;
         this.clearSandboxPremiumGuidance();
         this.sandboxPremiumOverlay?.destroy();
@@ -19312,6 +19313,7 @@ export class Sandbox extends PixiScene {
     }
     private productionAiSearchModule?: Promise<typeof import("./sandboxAiSearch")>;
     private readonly prewarmedAtlasSources = new WeakSet<object>();
+    private readonly atlasTexturePrewarmer = new AtlasTexturePrewarmer();
     private atlasPrewarmQuietScans = 0;
     private atlasPrewarmUnitCount = -1;
     private static readonly ATLAS_PREWARM_QUIET_SCANS = 180;
@@ -19909,6 +19911,7 @@ export class Sandbox extends PixiScene {
         if (this.oneShotPresentationActive()) return;
         const frame = this.nextUnuploadedAtlasFrame();
         if (!frame?.source) {
+            this.atlasTexturePrewarmer.cancel();
             this.atlasPrewarmQuietScans++;
             return;
         }
@@ -19942,7 +19945,7 @@ export class Sandbox extends PixiScene {
         return undefined;
     }
     private uploadAtlasFrame(frame: Texture): boolean {
-        return prewarmAtlasTexture(this.pixiApp.getApplication()?.renderer, frame);
+        return this.atlasTexturePrewarmer.prewarm(this.pixiApp.getApplication()?.renderer, frame);
     }
     private isBarrelCellAllowed(team: TeamType, cell: HoCMath.XY): boolean {
         return [0, 1].some((index) =>
