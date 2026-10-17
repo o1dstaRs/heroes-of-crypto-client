@@ -11,13 +11,13 @@ type Listener = () => void;
 export const SYSTEM_DOCK_BUTTON_SIZE_PX = 32;
 export const SYSTEM_DOCK_GAP_PX = 5.28;
 /**
- * The dock artwork is authored with ~13% transparent margin around its forged ring, while the bronze
- * sound and fullscreen medallions beside it use ~2%. Drawn at `contain` in the same 32px box the dock
- * therefore READS about a tenth smaller than its neighbours. Painting the background at this size makes
- * the visible ring the same diameter as theirs; everything cropped at the box edge is that transparent
- * margin, and the box — hit target, gaps, fan offsets — is untouched.
+ * The dock artwork's bronze ring fills about 86% of its canvas. The sound and fullscreen medallions
+ * fill about 92% of theirs, so `contain` in the same 32px box leaves this ring short of them. Both
+ * axes are set (a single percentage is width plus `auto` height, which keeps the contained size in
+ * Safari). 116% brings the ring out to the 32px box. The cropped edge is the transparent margin
+ * around the ring. The box — hit target, gaps, fan offsets — is untouched.
  */
-export const SYSTEM_DOCK_ARTWORK_BACKGROUND_SIZE = "112%";
+export const SYSTEM_DOCK_ARTWORK_BACKGROUND_SIZE = "116% 116%";
 
 /**
  * How far the medallion grows while it is hovered or its fan is open. It is the control the cursor is
