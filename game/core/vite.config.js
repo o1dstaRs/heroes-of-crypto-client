@@ -214,6 +214,11 @@ export default defineConfig(({ mode }) => {
                 "@": path.resolve(__dirname, "src"),
                 // point to source of the workspace for live HMR
                 "@heroesofcrypto/common": commonSourceDir,
+                // A19's optional dataset/audit helpers are also imported by browser Premium advice.
+                // Keep their browser-safe implementations so loading search never externalizes Node APIs.
+                "node:fs": path.resolve(__dirname, "src/shims/node-fs.ts"),
+                "node:path": path.resolve(__dirname, "src/shims/node-path.ts"),
+                "node:crypto": path.resolve(__dirname, "src/shims/node-crypto.ts"),
             },
             // React and Pixi must each share one module instance across the workspace.
             dedupe: ["react", "react-dom", "pixi.js"],
