@@ -153,6 +153,13 @@ function fixture(team: TeamType) {
             currentActiveUnit: attacker,
             sc_sceneSettings: { getGridSettings: () => settings },
             shouldDeferActionToAuthoritativeReplay: () => false,
+            snapshotRenderableUnits: () => new Map(),
+            createActionEngine: () => ({ apply: () => ({ completed: true, events: [] }) }),
+            noteDeathBlowsFromAttackEvent: () => {},
+            preparePyreDeaths: () => {},
+            waitForTexture: () => Promise.resolve(),
+            playReplayOneShot: () => Promise.resolve(),
+            isSceneDestroyed: () => false,
             rangedProjectiles: {
                 fire: (options: IFireProjectileOptions) => {
                     launches.push(options);
@@ -177,9 +184,14 @@ function fixture(team: TeamType) {
             currentActiveUnit: attacker,
             sc_sceneSettings: { getGridSettings: () => settings },
             shouldDeferActionToAuthoritativeReplay: () => false,
+            preparePyreDeaths: () => {},
+            waitForTexture: () => Promise.resolve(),
+            playReplayOneShot: () => Promise.resolve(),
+            isSceneDestroyed: () => false,
             rangedProjectiles: {
                 fire: (options: IFireProjectileOptions) => {
                     launches.push(options);
+                    options.onImpact?.();
                     return Promise.resolve();
                 },
             },
@@ -193,9 +205,9 @@ function fixture(team: TeamType) {
             noteDeathBlowsFromAttackEvent: () => {},
             showFleshShieldAbsorbedDamage: () => new Map<string, number>(),
             showWaterShieldAbsorbs: () => {},
-            showSplashDamage: (splash: AreaEvent["damage"]["splash"]) => {
+            playAreaThrowImpact: (_unit: RenderableUnit, splash: AreaEvent["damage"]["splash"]) => {
                 waveSizes.push(splash?.length ?? 0);
-                return !!splash?.length;
+                return Promise.resolve();
             },
             combatVisuals: { showDamageVisualsFromDiff: () => {} },
             hoverManager: {
