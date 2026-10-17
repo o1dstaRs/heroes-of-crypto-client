@@ -202,10 +202,10 @@ describe("Zena lethal impact routing", () => {
         }
     });
 
-    test("a different killer and a headless cannon keep their own authored death", async () => {
+    test("a different killer and an unknown future creature keep their own authored death", async () => {
         for (const [source, victim] of [
             ["Elf", "Peasant"],
-            ["Zena", "Tsar Cannon"],
+            ["Zena", "Unknown Creature"],
         ]) {
             const f = fixture(false, source, victim);
             try {
@@ -215,6 +215,17 @@ describe("Zena lethal impact routing", () => {
             } finally {
                 f.cleanup();
             }
+        }
+    });
+
+    test("Zena's cannon kill uses the matching mechanical finisher", async () => {
+        const f = fixture(false, "Zena", "Tsar Cannon");
+        try {
+            await f.run([strike()], {}, true);
+            expect(f.roots()).toHaveLength(1);
+            expect(f.b.playOneShotAnimation).not.toHaveBeenCalled();
+        } finally {
+            f.cleanup();
         }
     });
 

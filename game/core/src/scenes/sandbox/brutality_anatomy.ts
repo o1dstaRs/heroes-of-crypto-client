@@ -1,6 +1,7 @@
 export interface BrutalityAnatomy {
     head: readonly [left: number, top: number, right: number, bottom: number];
     neck?: readonly [x: number, y: number];
+    mechanical?: boolean;
 }
 
 // Normalized regions of the canonical right-facing battlefield poses, including helmets/hair.
@@ -17,6 +18,7 @@ export const BRUTALITY_ANATOMY: Readonly<Record<string, BrutalityAnatomy>> = {
     Crusader: { head: [0.28, 0.015, 0.55, 0.215], neck: [0.44, 0.21] },
     Griffin: { head: [0.73, 0.2, 0.995, 0.47], neck: [0.81, 0.46] },
     Monk: { head: [0.43, 0.02, 0.6, 0.215] },
+    "Tsar Cannon": { head: [0.76, 0.3, 0.995, 0.525], neck: [0.77, 0.42], mechanical: true },
     Angel: { head: [0.5, 0.035, 0.62, 0.18] },
     Champion: { head: [0.345, 0.09, 0.54, 0.25], neck: [0.43, 0.245] },
     Fairy: { head: [0.48, 0.06, 0.61, 0.24] },

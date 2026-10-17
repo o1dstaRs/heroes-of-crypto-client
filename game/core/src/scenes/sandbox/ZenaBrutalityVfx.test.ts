@@ -91,13 +91,14 @@ describe("Zena brutality", () => {
         texture.destroy(true);
     });
 
-    test("an army-wide kill stays bounded and headless siege engines keep their normal death", () => {
+    test("an army-wide kill stays bounded and the cannon ejects its muzzle using the same art", () => {
         const { effect, pose, world, texture } = setup();
-        expect(effect.spawn(pose, "Tsar Cannon", 128, { x: 1, y: 0 })).toBe(false);
         expect(effect.spawn({ ...pose, texture: Texture.WHITE }, "Peasant", 128, { x: 1, y: 0 })).toBe(false);
         expect(world.children).toHaveLength(0);
-        effect.spawn(pose, "Peasant", 128, { x: 1, y: 0 });
+        expect(effect.spawn(pose, "Tsar Cannon", 128, { x: 1, y: 0 })).toBe(true);
         const oldest = world.children[0];
+        const muzzle = oldest.getChildByLabel("severed-head")!.children[0].children[0] as Sprite;
+        expect(muzzle.texture).toBe(texture);
         for (let i = 0; i < 30; i++) effect.spawn(pose, "Peasant", 128, { x: 1, y: 0 });
         expect(world.children).toHaveLength(24);
         expect(oldest.destroyed).toBe(true);
@@ -106,10 +107,9 @@ describe("Zena brutality", () => {
         texture.destroy(true);
     });
 
-    test("every current living battlefield creature has an explicit head region", () => {
+    test("every current battlefield creature has an explicit severed part", () => {
         const names = new Set(Object.keys(BRUTALITY_ANATOMY).map((name) => name.toLowerCase().replaceAll(" ", "_")));
         for (const name of Object.keys(FINAL_STATIC_BATTLEFIELD_TEXTURES)) {
-            if (name === "tsar_cannon") continue;
             expect(names.has(name)).toBe(true);
         }
         for (const { head, neck } of Object.values(BRUTALITY_ANATOMY)) {

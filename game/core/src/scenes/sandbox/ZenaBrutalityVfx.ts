@@ -37,6 +37,9 @@ interface Brutality {
     vx: number;
     vy: number;
     side: number;
+    mechanical: boolean;
+    blood: number;
+    dark: number;
     drops: Drop[];
 }
 
@@ -50,15 +53,25 @@ const noise = (i: number, salt: number): number => {
     return value - Math.floor(value);
 };
 
-const splat = (graphics: Graphics, x: number, y: number, rx: number, ry: number, salt: number, alpha: number): void => {
+const splat = (
+    graphics: Graphics,
+    x: number,
+    y: number,
+    rx: number,
+    ry: number,
+    salt: number,
+    alpha: number,
+    blood: number,
+    dark: number,
+): void => {
     const points: number[] = [];
     for (let i = 0; i < 15; i++) {
         const angle = (i / 15) * Math.PI * 2;
         const radius = 0.7 + noise(i, salt) * 0.4;
         points.push(x + Math.cos(angle) * rx * radius, y + Math.sin(angle) * ry * radius);
     }
-    graphics.poly(points).fill({ color: DARK_BLOOD, alpha });
-    graphics.ellipse(x - rx * 0.12, y + ry * 0.08, rx * 0.57, ry * 0.43).fill({ color: BLOOD, alpha: alpha * 0.47 });
+    graphics.poly(points).fill({ color: dark, alpha });
+    graphics.ellipse(x - rx * 0.12, y + ry * 0.08, rx * 0.57, ry * 0.43).fill({ color: blood, alpha: alpha * 0.47 });
 };
 
 export class ZenaBrutalityVfx {
@@ -144,6 +157,9 @@ export class ZenaBrutalityVfx {
             vx,
             vy,
             side,
+            mechanical: anatomy.mechanical ?? false,
+            blood: anatomy.mechanical ? 0x453329 : BLOOD,
+            dark: anatomy.mechanical ? 0x100f0b : DARK_BLOOD,
             drops: [],
         };
         for (let i = 0; i < 62; i++) {
@@ -204,7 +220,7 @@ export class ZenaBrutalityVfx {
         };
     }
     private draw(death: Brutality): void {
-        const { age, size, side, floor, ground, ink, slash } = death;
+        const { age, size, side, floor, ground, ink, slash, blood, dark } = death;
         const fade = 1 - ease((age - 1.8) / (LIFE - 1.8));
         death.container.alpha = fade;
         const fall = ease((age - 0.06) / 0.73);
@@ -219,7 +235,7 @@ export class ZenaBrutalityVfx {
         ink.clear();
         slash.clear();
         const pool = ease(age / 0.7);
-        splat(ground, death.neck.x, floor, size * 0.33 * pool, size * 0.105 * pool, 12, 0.8);
+        splat(ground, death.neck.x, floor, size * 0.33 * pool, size * 0.105 * pool, 12, 0.8, blood, dark);
         const shadow = Math.max(0.15, 1 - Math.max(0, headPoint.y - floor) / (size * 2.4));
         ground
             .ellipse(headPoint.x, floor - size * 0.025, size * 0.105, size * 0.035)
@@ -232,8 +248,8 @@ export class ZenaBrutalityVfx {
                 const vy = size * (3 + noise(jet, 9) * 0.9) * (0.65 + pulse * 0.35);
                 const travel = Math.min(0.32, age + 0.025);
                 for (const [color, thickness] of [
-                    [DARK_BLOOD, 0.066],
-                    [BLOOD, 0.04],
+                    [dark, 0.066],
+                    [blood, 0.04],
                 ] as const) {
                     const left: number[] = [];
                     const right: number[] = [];
@@ -253,6 +269,8 @@ export class ZenaBrutalityVfx {
         for (const [index, drop] of death.drops.entries()) {
             const t = age - drop.birth;
             if (t < 0) continue;
+            const spark = death.mechanical && index < 12;
+            if (spark && t > 0.34) continue;
             if (t >= drop.landing) {
                 const spread = ease((t - drop.landing) / 0.12);
                 ground
@@ -262,7 +280,7 @@ export class ZenaBrutalityVfx {
                         drop.radius * (1.6 + spread),
                         drop.radius * 0.55,
                     )
-                    .fill({ color: index % 3 ? DARK_BLOOD : BLOOD, alpha: 0.65 });
+                    .fill({ color: index % 3 ? dark : blood, alpha: 0.65 });
                 continue;
             }
             const x = drop.x + drop.vx * t;
@@ -270,20 +288,25 @@ export class ZenaBrutalityVfx {
             const tail = Math.max(0, t - 0.022);
             ink.moveTo(drop.x + drop.vx * tail, drop.y + drop.vy * tail - size * 3.5 * tail ** 2)
                 .lineTo(x, y)
-                .stroke({ color: DARK_BLOOD, width: drop.radius * 1.75, alpha: 0.95, cap: "round" });
-            ink.circle(x, y, drop.radius * 0.78).fill({ color: index % 3 ? BLOOD : 0x861026, alpha: 0.94 });
+                .stroke({
+                    color: spark ? 0xffc281 : dark,
+                    width: drop.radius * (spark ? 0.7 : 1.75),
+                    alpha: 0.95,
+                    cap: "round",
+                });
+            ink.circle(x, y, drop.radius * 0.78).fill({ color: spark ? 0xffd49a : blood, alpha: 0.94 });
         }
         if (age > 0.04 && age < FLIGHT) {
             for (let i = 1; i <= 6; i++) {
                 const t = Math.max(0, age - i * 0.022);
                 const p = this.headAt(death, t);
                 ink.circle(p.x, p.y - size * i * 0.007, size * (0.022 - i * 0.002)).fill({
-                    color: BLOOD,
+                    color: blood,
                     alpha: (1 - i / 7) * 0.7,
                 });
             }
         }
-        if (age >= FLIGHT) splat(ground, headPoint.x, floor, size * 0.15, size * 0.05, 14, 0.8);
+        if (age >= FLIGHT) splat(ground, headPoint.x, floor, size * 0.15, size * 0.05, 14, 0.8, blood, dark);
         if (age < 0.17) {
             const t = age / 0.17;
             const neck = death.neck;
