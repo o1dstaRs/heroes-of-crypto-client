@@ -90,6 +90,8 @@ export interface AuthoritativeUnitState {
      */
     baseArmor?: number;
     baseAttack?: number;
+    helpingHandCasterId?: string;
+    helpingHandPenaltyId?: string;
     /**
      * The unit's board footprint in cells, anchored on the max-corner `baseCell`. The play decoder always
      * resolves these (falling back to a `size` x `size` square for an older server), so a snapshot that

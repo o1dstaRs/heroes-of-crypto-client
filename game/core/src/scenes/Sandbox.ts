@@ -182,6 +182,7 @@ import {
     preservesFacingForPureVerticalSingleCellAttack,
     RenderableUnit,
 } from "./RenderableUnit";
+import type { HelpingHandReplayStatState } from "./sandbox/HelpingHandReplayState";
 import { resolveCreatureHeadPriorityDepths, type CreatureDepthSortCandidate } from "./battlefieldCreatureDepthSort";
 import { projectPlacementSplitStackPowers } from "./placementSplitPower";
 import { shouldCommitPlacementBeforeUnitSelection } from "./placementClickPriority";
@@ -558,6 +559,7 @@ export type SceneActionEngine = Pick<GameActionEngine, "apply">;
 
 export interface SandboxSceneUnitState {
     properties: UnitProperties;
+    helpingHandStatState?: HelpingHandReplayStatState;
     team: TeamType;
     placed: boolean;
     dead: boolean;
@@ -3102,6 +3104,9 @@ export class Sandbox extends PixiScene {
             summoned,
         );
         const renderableUnit = RenderableUnit.fromBase(base, this.texAny);
+        if (unitState.helpingHandStatState) {
+            renderableUnit.restoreHelpingHandReplayStatState(unitState.helpingHandStatState);
+        }
         renderableUnit.setBattlefieldVisualProjection(true);
         if (renderableUnit.getSpellsCount() > 0) {
             this.ensureDigitTextures();
@@ -3144,6 +3149,8 @@ export class Sandbox extends PixiScene {
             const baseCell = unit.getBaseCell();
             units.push({
                 properties: unit.getAllProperties(),
+                helpingHandStatState:
+                    unit instanceof RenderableUnit ? unit.captureHelpingHandReplayStatState() : undefined,
                 team: unit.getTeam(),
                 placed: occupiedCells.length > 0,
                 dead: unit.isDead(),
@@ -3372,7 +3379,7 @@ export class Sandbox extends PixiScene {
             record.action.type === "delete_unit"
         );
     }
-    private async playSandboxReplayRecord(record: SandboxReplay["actions"][number]): Promise<boolean> {
+    protected async playSandboxReplayRecord(record: SandboxReplay["actions"][number]): Promise<boolean> {
         this.preparePyreDeaths?.(record.events);
         const action = cloneReplayData(record.action);
         const replayActorId = this.getReplayTurnActorId(action);
@@ -6032,6 +6039,7 @@ export class Sandbox extends PixiScene {
         unit.applyRecoil((dx / len) * magnitude, (dy / len) * magnitude);
     }
     protected playCustomDeathAnimation(unit: RenderableUnit): boolean {
+        this.endHelpingHandLinksAtImpact(unit.getId());
         if (this.combatVisuals?.playZenaBrutalityDeath?.(unit)) {
             unit.destroyVisuals();
             this.dyingVisualUnits.delete(unit);
@@ -6536,6 +6544,7 @@ export class Sandbox extends PixiScene {
             // Rune success/failure and any other stated roll; no forge to wait on.
             this.renderCastOutcomes(record.events);
         }
+        this.onReplaySpellImpact(record);
         this.renderReplayBuffApplications(record.events);
         // The magic-armor save on a Vine Throw is exactly such a stated roll.
         this.renderSnareResistVfx(record.events);
@@ -17753,6 +17762,7 @@ export class Sandbox extends PixiScene {
             (event, delay, removeBody) => this.renderPyreExplosion(event, delay, removeBody),
             (unit) => this.dyingVisualUnits.add(unit),
             (unit) => {
+                this.endHelpingHandLinksAtImpact(unit.getId());
                 this.dyingVisualUnits.delete(unit);
                 unit.destroyVisuals();
             },
@@ -19671,6 +19681,7 @@ export class Sandbox extends PixiScene {
                 })),
         ];
     }
+    protected onReplaySpellImpact(_record: SandboxReplayActionRecord): void {}
     protected onReplayRecordSettling(_record: SandboxReplayActionRecord): void {}
     protected onReplayRecordPresented(_record: SandboxReplayActionRecord): void {}
     private dispelSmokeUnderRegisteredUnit(unit: RenderableUnit): void {
@@ -20671,6 +20682,7 @@ export class Sandbox extends PixiScene {
     private barrelDragPointerOrigin?: HoCMath.XY;
     private barrelDragPointerMoved = false;
     private beginStackCountPresentation(): Map<RenderableUnit, number> {
+        this.combatVisuals?.captureHelpingHandPresentation?.();
         const amounts = new Map<RenderableUnit, number>();
         for (const unit of this.unitsHolder.getAllUnits().values()) {
             if (!(unit instanceof RenderableUnit)) continue;
@@ -20679,6 +20691,10 @@ export class Sandbox extends PixiScene {
             unit.beginDamagePresentation(amount);
         }
         return amounts;
+    }
+    protected endHelpingHandLinksAtImpact(unitId: string): void {
+        this.unitsHolder?.refreshHelpingHandLinks?.(unitId);
+        this.combatVisuals?.endHelpingHandLinksForUnit?.(unitId);
     }
     private drawAltInspectOverlay(): void {
         const g = this.altInspectGraphics;

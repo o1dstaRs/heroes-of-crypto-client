@@ -40,9 +40,9 @@ const SPELL_NOTES: Readonly<Record<string, NoteSpec>> = {
     },
     "Helping Hand": {
         en: ({ p, n }) =>
-            `For 3 laps the ally's creatures gain ${n(p)}% of one Satyr's max health and ${n(p)}% of its base armor, and the Satyr loses the same. It can't target the Satyr itself or another Satyr stack; Tome of Amplification makes the gift ${n(amplified(p))}% while the Satyr still pays ${n(p)}%.`,
+            `For 3 laps the ally's creatures gain ${n(p)}% of one caster creature's max health and ${n(p)}% of its base armor, and the caster loses the same. A visible golden spiritual link joins the two stacks. If either stack dies, the link, bonus and penalty end immediately. It can't target the caster itself or another stack of the same creature; Tome of Amplification makes the gift ${n(amplified(p))}% while the caster still pays ${n(p)}%.`,
         ru: ({ p, n }) =>
-            `3 круга существа союзника получают ${n(p)}% максимального здоровья одного Satyr и ${n(p)}% его базовой брони, а Satyr теряет столько же. Нельзя применить на себя или на другой стек Satyr; с Tome of Amplification подарок — ${n(amplified(p))}%, а Satyr по-прежнему теряет ${n(p)}%.`,
+            `3 круга существа союзника получают ${n(p)}% максимального здоровья одного существа заклинателя и ${n(p)}% его базовой брони, а заклинатель теряет столько же. Стеки соединяет видимая золотая духовная связь. Если любой из них погибает, связь, бонус и штраф немедленно исчезают. Нельзя применить на себя или на другой стек того же существа; с Tome of Amplification подарок — ${n(amplified(p))}%, а заклинатель по-прежнему теряет ${n(p)}%.`,
     },
     "Mass Heal": {
         en: ({ p, n }) =>

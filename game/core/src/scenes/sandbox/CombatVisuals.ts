@@ -45,6 +45,7 @@ import { DevourEssencePops } from "./DevourEssencePops";
 import { AiTurnBrainLoop } from "./AiTurnBrainLoop";
 import type { DeepWoundsVisualLevel } from "./deepWoundsFlagApplications";
 import { ZenaBrutalityVfx } from "./ZenaBrutalityVfx";
+import { HelpingHandLinks } from "./HelpingHandLinks";
 
 export interface ICombatVisualsContext {
     getGridSettings(): GridSettings;
@@ -703,6 +704,11 @@ export class CombatVisuals {
     private zenaKills = new Map<string, HoCMath.XY>();
     private zenaDeathBodies = new WeakSet<RenderableUnit>();
     private gravechains = new GravechainVfx((container) => this.attachEffect(container, 5505));
+    private helpingHandLinks = new HelpingHandLinks({
+        getUnits: () => this.context.getUnitsHolder()?.getAllUnits(),
+        getGridSettings: () => this.context.getGridSettings(),
+        attachToWorldRoot: (container, zIndex) => this.context.attachToWorldRoot(container, zIndex),
+    });
     private audioEpoch = 0;
     private context: ICombatVisualsContext;
     private floatingTexts: IFloatingText[] = [];
@@ -1751,7 +1757,14 @@ export class CombatVisuals {
         // fetching URL-backed assets immediately, so warming a rare spell kept both images decoded for
         // every battle. spawnCraftForge resolves them only when the spell is actually cast.
     }
+    public captureHelpingHandPresentation(): void {
+        this.helpingHandLinks.capturePresentation();
+    }
+    public endHelpingHandLinksForUnit(unitId: string): void {
+        this.helpingHandLinks.endForUnit(unitId);
+    }
     public clear(options?: { keepDetachedOverlays?: boolean }): void {
+        this.helpingHandLinks.clear();
         this.audioEpoch += 1;
         if (!options?.keepDetachedOverlays) this.gravechains.clear();
         const keepDetachedOverlays = options?.keepDetachedOverlays ?? false;
@@ -1904,6 +1917,7 @@ export class CombatVisuals {
         this.lightTexture = undefined;
     }
     public update(dt: number) {
+        this.helpingHandLinks.update(dt);
         this.gravechains.update(dt);
         this.battleRoarPops?.update(dt);
         this.predatoryAssimilationPops?.update(dt);

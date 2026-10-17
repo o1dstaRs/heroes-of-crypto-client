@@ -42,6 +42,7 @@ test.each([1, 2])("unfinished level %s death removes the figure without a proced
     const scene = Object.create(Sandbox.prototype);
     expect(
         scene.playCustomDeathAnimation({
+            getId: () => "unfinished-creature",
             hasAnimationState: () => false,
             getUnitProperties: () => ({ level }),
             destroyVisuals: () => removed++,

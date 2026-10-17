@@ -3,6 +3,12 @@ import { glyphScaleX, screenFacing } from "@/pixi/boardMirror";
 import { animationAtlasPrewarmKeys, approvedAnimationAssetKeysForUnit } from "@/pixi/creatureAnimationSettings";
 import { isAiSearchSimulating } from "./aiSearchGuard";
 import { initializeUnitPresentationFields } from "./unitPresentationFields";
+import {
+    captureReplayAppliedSpell,
+    restoreReplayAppliedSpell,
+    restoreReplayEffect,
+    type HelpingHandReplayStatState,
+} from "./sandbox/HelpingHandReplayState";
 import { syncTrollLabWalkPalette } from "./TrollLabWalkVisuals";
 import { isTrollLabCastGuard, syncTrollLabCastGlow } from "./TrollLabCastVisuals";
 import { syncTrollLabCastMatch } from "./TrollLabCastMatch";
@@ -12799,6 +12805,43 @@ export class RenderableUnit extends Unit {
     }
     public setHoverTurnAura(hovered: boolean): void {
         this.isHoverTurnAura = hovered;
+    }
+    public captureHelpingHandReplayStatState(): HelpingHandReplayStatState | undefined {
+        if (!this.getBuff("Helping Hand") && !this.getDebuff("Helping Hand")) return undefined;
+        const initial = this.initialUnitProperties;
+        return {
+            initialStats: {
+                max_hp: initial.max_hp,
+                base_armor: initial.base_armor,
+                armor_mod: initial.armor_mod,
+                base_attack: initial.base_attack,
+                attack_mod: initial.attack_mod,
+                attack_damage_min: initial.attack_damage_min,
+                attack_damage_max: initial.attack_damage_max,
+                magic_resist: initial.magic_resist,
+                initiative: initial.initiative,
+                steps: initial.steps,
+                shot_distance: initial.shot_distance,
+                luck: initial.luck,
+                morale: initial.morale,
+            },
+            buffs: this.buffs.map(captureReplayAppliedSpell),
+            debuffs: this.debuffs.map(captureReplayAppliedSpell),
+            effects: this.effects.map((effect) => ({
+                defaults: effect.getDefaultProperties(),
+                properties: structuredClone(effect.getProperties()),
+            })),
+            adjustedBaseStatsLaps: [...this.adjustedBaseStatsLaps],
+            luckPerTurn: this.luckPerTurn,
+        };
+    }
+    public restoreHelpingHandReplayStatState(state: HelpingHandReplayStatState): void {
+        Object.assign(this.initialUnitProperties, state.initialStats);
+        this.buffs = state.buffs.map(restoreReplayAppliedSpell);
+        this.debuffs = state.debuffs.map(restoreReplayAppliedSpell);
+        this.effects = state.effects.map(restoreReplayEffect);
+        this.adjustedBaseStatsLaps = [...state.adjustedBaseStatsLaps];
+        this.luckPerTurn = state.luckPerTurn;
     }
     public setRemainingStats(amountAlive: number, hp: number, amountDied: number): void {
         this.clearDamagePresentation();

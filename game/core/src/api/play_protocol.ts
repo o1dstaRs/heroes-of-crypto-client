@@ -212,6 +212,8 @@ export interface PlayUnitState {
     baseArmor?: number;
     /** Server-computed FINAL base attack (proto field 43) — the attack twin of baseArmor. */
     baseAttack?: number;
+    helpingHandCasterId?: string;
+    helpingHandPenaltyId?: string;
     /**
      * The unit's board footprint in cells (proto fields 45/46): footprintWidth across x, footprintHeight
      * up y, anchored on the max-corner baseCell. `size` cannot express a rectangle — a 2x1 and a 1x2 would
@@ -616,7 +618,7 @@ class ProtoReader {
             return;
         }
         if (wireType === 2) {
-            this.offset += this.varintNumber();
+            this.bytesValue();
             return;
         }
         if (wireType === 5) {
@@ -1224,6 +1226,10 @@ const decodeUnitState = (bytes: Uint8Array): PlayUnitState => {
             unit.footprintWidth = reader.varintNumber();
         } else if (field === 46) {
             unit.footprintHeight = reader.varintNumber();
+        } else if (field === 47) {
+            unit.helpingHandCasterId = reader.string();
+        } else if (field === 48) {
+            unit.helpingHandPenaltyId = reader.string();
         } else {
             reader.skip(wireType);
         }

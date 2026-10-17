@@ -69,6 +69,50 @@ const doubleField = (field: number, value: number): number[] => {
 };
 
 describe("play protobuf decoder", () => {
+    test("decodes Helping Hand caster and penalty bearer independently (proto fields 47 and 48)", () => {
+        const snapshot = decodePlaySnapshot(
+            new Uint8Array([
+                ...messageField(12, [
+                    ...stringField(1, "recipient"),
+                    ...stringField(47, "satyr"),
+                    ...stringField(48, "absorber"),
+                ]),
+            ]),
+        );
+
+        expect(snapshot.units[0]).toMatchObject({
+            helpingHandCasterId: "satyr",
+            helpingHandPenaltyId: "absorber",
+        });
+    });
+
+    test("keeps Helping Hand metadata absent in legacy snapshots", () => {
+        const snapshot = decodePlaySnapshot(new Uint8Array(messageField(12, stringField(1, "recipient"))));
+
+        expect(snapshot.units[0]).not.toHaveProperty("helpingHandCasterId");
+        expect(snapshot.units[0]).not.toHaveProperty("helpingHandPenaltyId");
+    });
+
+    test("skips future length-delimited fields without losing the following unit fields", () => {
+        const snapshot = decodePlaySnapshot(
+            new Uint8Array([
+                ...messageField(12, [
+                    ...stringField(99, "x".repeat(160)),
+                    ...stringField(1, "recipient"),
+                    ...stringField(98, "extra"),
+                    ...stringField(47, "satyr"),
+                    ...stringField(48, "absorber"),
+                ]),
+            ]),
+        );
+
+        expect(snapshot.units[0]).toMatchObject({
+            id: "recipient",
+            helpingHandCasterId: "satyr",
+            helpingHandPenaltyId: "absorber",
+        });
+    });
+
     test("decodes owned barrel slots, zero coordinates, and an authoritative empty list", () => {
         const barrel = (team: number, index: number, x: number, y: number) =>
             messageField(75, [
