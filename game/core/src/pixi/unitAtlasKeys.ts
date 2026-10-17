@@ -14,38 +14,15 @@ type AnimationAtlasIndex = Readonly<Record<string, Readonly<Record<string, unkno
 
 // The generated atlas metadata also carries a small draft UI animation. It shares the same file
 // shape as creature atlases but must remain a normal React-owned asset, including in production.
-const NON_UNIT_ATLAS_NAMES = new Set([
-    "Vfx Paralysis",
-    "Vfx Unicorn One In The Field",
-    "Vfx Unicorn Blindness",
-    "Vfx Absolving Arrow",
-    "Vfx Borrowed Grace",
+export const NON_UNIT_ATLAS_NAMES = new Set([
     "Pick Ban Slash",
-    "Vfx Arachna Web",
-    "Vfx Abomination Sand",
-    "Vfx Abomination Hand",
-    "Vfx Abomination Dust",
-    "Vfx Abomination Sand Gust",
-    "Vfx Battle Roar",
-    "Vfx Predatory Assimilation",
-    "Vfx Arachna Infest",
-    "Vfx Arachna Infest Spider",
-    "Vfx Arachna Infest Queen",
-    "Vfx Unyielding Power Curl",
-    "Vfx Angel Resurrection",
-    "Vfx Deep Wounds Level",
-    "Vfx Boar Saliva",
-    "Vfx Devour Essence",
-    "Vfx Ai Turn Brain",
-    "Vfx Thunderbird Chain",
-    "Vfx Whirlpool",
-    "Vfx Ring Fire",
-    "Vfx Meteor Shower",
-    "Vfx Magic Reflection",
-    "Vfx Enchanted Skin",
-    "Vfx Empower",
-    "Vfx Dulling Defense",
+    "Magic Aim Dual Helix",
+    "Peasant Left Screen",
+    ...Object.keys(animationAtlases).filter((name) => /^(Vfx |Fire Pit|Lava Chasm)/.test(name)),
 ]);
+
+const isNonUnitAtlasName = (name: string): boolean =>
+    NON_UNIT_ATLAS_NAMES.has(name) || /^(Vfx |Fire Pit|Lava Chasm)/.test(name);
 
 /**
  * Every per-unit animation atlas image key BASE (`<unit>_<state>_atlas`), derived from the generated
@@ -54,7 +31,7 @@ const NON_UNIT_ATLAS_NAMES = new Set([
 export function buildUnitAnimationAtlasKeyClassifier(atlases: AnimationAtlasIndex): (key: string) => boolean {
     const bases = new Set<string>();
     for (const [unitName, states] of Object.entries(atlases)) {
-        if (NON_UNIT_ATLAS_NAMES.has(unitName) || /^(Fire Pit|Lava Chasm)/.test(unitName)) continue;
+        if (isNonUnitAtlasName(unitName)) continue;
         const unitBase = unitName.toLowerCase().replace(/\s+/g, "_");
         for (const state of Object.keys(states)) {
             bases.add(`${unitBase}_${state.toLowerCase()}_atlas`);
@@ -80,12 +57,12 @@ const generatedUnitAnimationAtlasKey = buildUnitAnimationAtlasKeyClassifier(anim
 
 const generatedUnitCardImageKeys = new Set(
     Object.keys(animationAtlases)
-        .filter((name) => !NON_UNIT_ATLAS_NAMES.has(name) && !/^(Fire Pit|Lava Chasm)/.test(name))
+        .filter((name) => !isNonUnitAtlasName(name))
         .map((unitName) => `${unitName.toLowerCase().replace(/\s+/g, "_")}_512`),
 );
 const generatedUnitBoardImageKeys = new Set(
     Object.keys(animationAtlases)
-        .filter((unitName) => !NON_UNIT_ATLAS_NAMES.has(unitName))
+        .filter((unitName) => !isNonUnitAtlasName(unitName))
         .flatMap((unitName) => {
             const slug = unitName.toLowerCase().replace(/\s+/g, "_");
             return [`${slug}_128`, `${slug}_256`];
@@ -145,5 +122,3 @@ export const isUnitAnimationAtlasKey = (key: string): boolean =>
     /^arbalester_idle_page_\d{2}_atlas$/.test(key) ||
     generatedUnitAnimationAtlasKey(key) ||
     specialUnitAnimationAtlasBases.has(key.replace(/_(?:quarter|half)$/, ""));
-
-export { NON_UNIT_ATLAS_NAMES };

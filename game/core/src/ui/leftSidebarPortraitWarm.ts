@@ -11,6 +11,7 @@ import {
     warmDecodedImage,
     type PortraitImagePrefetch,
 } from "./decodedImageCache";
+import { resolveIntegratedArbalesterPortrait } from "./integratedArbalesterPortrait";
 import { resolveLeftSidebarPortraitAnimation } from "./leftSidebarPortraitAnimation";
 import { resolveLeftSidebarPortraitArt } from "./leftSidebarPortraitArt";
 
@@ -33,7 +34,7 @@ export const SIDEBAR_PORTRAIT_PREFETCH_LIMIT = 2;
 export const leftSidebarPortraitSources = (creatureId: number): LeftSidebarPortraitSources => {
     const art = resolveLeftSidebarPortraitArt(creatureId);
     const visual = resolveCreaturePortraitVisual(creatureId);
-    const animation = resolveLeftSidebarPortraitAnimation(creatureId);
+    const animation = resolveIntegratedArbalesterPortrait(creatureId, resolveLeftSidebarPortraitAnimation(creatureId));
     return {
         creature: art.source ?? visual?.source,
         background: visual?.background,

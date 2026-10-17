@@ -9175,6 +9175,7 @@ export class Sandbox extends PixiScene {
                     caster.playOneShotAnimation("cast");
                 }
                 this.cleanupAfterSpell(result.events, unitSnapshot);
+                this.renderCastOutcomes(result.events);
             } else {
                 this.sc_sceneLog.updateLog(`Cannot cast ${spell.getName()}`);
                 this.currentActiveSpell = undefined;
