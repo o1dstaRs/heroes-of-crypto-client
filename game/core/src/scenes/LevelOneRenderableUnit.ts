@@ -1,4 +1,6 @@
 import { RenderableUnit as LegacyRenderableUnit } from "./RenderableUnit";
+import { isAiSearchSimulating } from "./aiSearchGuard";
+import { initializeUnitPresentationFields } from "./unitPresentationFields";
 import {
     Container,
     Sprite,
@@ -2672,6 +2674,7 @@ export class RenderableUnit extends Unit {
     public static fromBase(base: Unit, texResolver: TexResolver): RenderableUnit {
         if (!usesApprovedBaseAnimations(base.getName()))
             return LegacyRenderableUnit.fromBase(base, texResolver) as unknown as RenderableUnit;
+        initializeUnitPresentationFields(base);
         Object.setPrototypeOf(base, RenderableUnit.prototype);
         const ru = base as RenderableUnit;
         ru.texResolver = texResolver;
@@ -2828,6 +2831,8 @@ export class RenderableUnit extends Unit {
         // Runtime ability changes (for example Predatory Assimilation) call this method to remove or grant
         // castable/spellbook mechanics; returning before the base parser left getSpells() stale in sandbox.
         super.parseSpells();
+
+        if (isAiSearchSimulating()) return;
 
         if (!this.spellBookLayer || !this.digitTextures) return;
 
@@ -7884,6 +7889,7 @@ export class RenderableUnit extends Unit {
     /** Build/reveal the response layer in the same tick the combat engine records a retaliation. */
     public override setResponded(hasResponded: boolean): void {
         super.setResponded(hasResponded);
+        if (isAiSearchSimulating()) return;
         if (hasResponded) {
             // Floating attack/response feedback remains on screen for roughly this interval. The latch is
             // only a presentation fallback: while the per-lap engine state remains true the emblem stays
@@ -7929,6 +7935,7 @@ export class RenderableUnit extends Unit {
     }
     /** Keep live sandbox effects and snapshot-only ranked state on the same visual update path. */
     private refreshTurnStatusIndicators(): void {
+        if (isAiSearchSimulating()) return;
         if (this.badgeContainer && this.badgeDrawState) this.ensureFlagStatusIndicators();
     }
     public override applyEffect(effect: Effect): boolean {
@@ -8514,6 +8521,7 @@ export class RenderableUnit extends Unit {
         if (this.stackPowerContainer?.visible) this.stackPowerContainer.visible = false;
     }
     protected override refreshAbilitiesDescriptions(_synergyAbilityPowerIncrease: number): void {
+        if (isAiSearchSimulating()) return;
         // Heavy Armor
         const heavyArmorAbility = this.getAbility("Heavy Armor");
         if (heavyArmorAbility) {

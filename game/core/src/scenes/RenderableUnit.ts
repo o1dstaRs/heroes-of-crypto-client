@@ -2,6 +2,7 @@ import { UnitLoadingPlaceholder } from "./unitLoadingPlaceholder";
 import { glyphScaleX, screenFacing } from "@/pixi/boardMirror";
 import { animationAtlasPrewarmKeys, approvedAnimationAssetKeysForUnit } from "@/pixi/creatureAnimationSettings";
 import { isAiSearchSimulating } from "./aiSearchGuard";
+import { initializeUnitPresentationFields } from "./unitPresentationFields";
 import { syncTrollLabWalkPalette } from "./TrollLabWalkVisuals";
 import { isTrollLabCastGuard, syncTrollLabCastGlow } from "./TrollLabCastVisuals";
 import { syncTrollLabCastMatch } from "./TrollLabCastMatch";
@@ -3253,6 +3254,7 @@ export class RenderableUnit extends Unit {
     private spellBookLayer?: Container;
     private digitTextures?: Map<number, Texture>;
     public static fromBase(base: Unit, texResolver: TexResolver): RenderableUnit {
+        initializeUnitPresentationFields(base);
         Object.setPrototypeOf(base, RenderableUnit.prototype);
         const ru = base as RenderableUnit;
         ru.lastFuseFatalHit = undefined;
