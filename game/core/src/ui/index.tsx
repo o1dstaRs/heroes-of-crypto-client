@@ -901,10 +901,6 @@ const pickEventUrl = (gameId: string): string => {
     return appendEncodedPath(buildApiUrl(HOST_GAME_API, endpoints.game.pickEvents), gameId);
 };
 
-// How long a participant's draft stream may stay unconnected before the view assumes the server refused it. The
-// server answers a second tab or device with 429 and the event source retries silently, which left a dead screen.
-const DRAFT_STREAM_STALL_MS = 12_000;
-
 // How long the finished draft may cover the loading board. Past this the board's own loader shows instead, so a slow
 // or failing load is never hidden behind a draft that has already ended.
 const DRAFT_HANDOFF_MAX_MS = 8_000;
@@ -913,16 +909,28 @@ const DRAFT_HANDOFF_MAX_MS = 8_000;
 const BOARD_BEHIND_DRAFT_STYLE: React.CSSProperties = { position: "fixed", inset: 0, visibility: "hidden" };
 const BOARD_SHOWN_STYLE: React.CSSProperties = { display: "contents" };
 
-const DraftConnectionWatch: React.FC<{ onStalled?: () => void }> = ({ onStalled }) => {
+const DraftConnectionNotice: React.FC = () => {
     const { isConnected } = usePickBanEvents();
-    useEffect(() => {
-        if (!onStalled || isConnected) {
-            return undefined;
-        }
-        const timer = window.setTimeout(onStalled, DRAFT_STREAM_STALL_MS);
-        return () => window.clearTimeout(timer);
-    }, [isConnected, onStalled]);
-    return null;
+    if (isConnected) return null;
+    return (
+        <div
+            role="status"
+            style={{
+                position: "fixed",
+                top: 16,
+                left: "50%",
+                transform: "translateX(-50%)",
+                zIndex: 10001,
+                padding: "8px 16px",
+                borderRadius: 8,
+                background: "rgba(11, 13, 18, 0.95)",
+                color: "#efe4cc",
+                pointerEvents: "none",
+            }}
+        >
+            {t("Connecting to the draft")}
+        </div>
+    );
 };
 
 const PickAndBanView: React.FC<{
@@ -930,9 +938,9 @@ const PickAndBanView: React.FC<{
     userTeam: TeamType;
     gameId: string;
     onPickPhaseChange?: (phase: number) => void;
-    /** The draft stream never connected (see DRAFT_STREAM_STALL_MS). */
-    onConnectionStalled?: () => void;
-}> = ({ windowSize, userTeam, gameId, onPickPhaseChange, onConnectionStalled }) => {
+    onConnectionConflict?: () => void;
+    reclaimConnection?: boolean;
+}> = ({ windowSize, userTeam, gameId, onPickPhaseChange, onConnectionConflict, reclaimConnection }) => {
     const manager = usePixiManager();
     const [started, setStarted] = useState(false);
     const [isLoading, setIsLoading] = useState(manager.isLoading);
@@ -954,9 +962,14 @@ const PickAndBanView: React.FC<{
     }, [manager]);
 
     return (
-        <PickBanEventProvider url={pickEventsUrl} userTeam={userTeam}>
+        <PickBanEventProvider
+            url={pickEventsUrl}
+            userTeam={userTeam}
+            onConnectionConflict={onConnectionConflict}
+            reclaimConnection={reclaimConnection}
+        >
             <PickPhaseReporter onPhaseChange={onPickPhaseChange} />
-            <DraftConnectionWatch onStalled={onConnectionStalled} />
+            <DraftConnectionNotice />
             <div
                 className="container"
                 style={{
@@ -1069,10 +1082,14 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
     // interactive pick screen for the read-only observer view; the play route already handles
     // observers via userTeam === NO_TEAM.
     const [observerMode, setObserverMode] = useState(false);
-    // A participant whose own draft stream would not connect (a second tab or device) watches read-only instead.
+    // Only an explicit stream conflict means another tab or device owns this participant's draft.
     const [draftOpenElsewhere, setDraftOpenElsewhere] = useState(false);
-    const handleDraftStalled = useCallback(() => setDraftOpenElsewhere(true), []);
-    const handleDraftHere = useCallback(() => setDraftOpenElsewhere(false), []);
+    const [reclaimDraftConnection, setReclaimDraftConnection] = useState(false);
+    const handleDraftConflict = useCallback(() => setDraftOpenElsewhere(true), []);
+    const handleDraftHere = useCallback(() => {
+        setReclaimDraftConnection(true);
+        setDraftOpenElsewhere(false);
+    }, []);
     // The error/ended overlay's way out: a spectator leaves the way they came; a signed-in player with no
     // spectating origin goes back to the arena.
     const leaveOverlay = useCallback(() => {
@@ -1136,9 +1153,8 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
         setPickNearingPlay(false);
         setObserverMode(false);
         setDraftHandoff(false);
-        // Per-game like the rest: a stalled stream in the previous match must not leave the next draft
-        // watching itself read-only.
         setDraftOpenElsewhere(false);
+        setReclaimDraftConnection(false);
     }, [gameId]);
 
     useEffect(() => {
@@ -1419,7 +1435,8 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                                 gameId={gameId}
                                 onPickPhaseChange={handlePickPhaseChange}
                                 // A finished draft's stream may close while it covers the loading board.
-                                onConnectionStalled={holdDraft ? undefined : handleDraftStalled}
+                                onConnectionConflict={holdDraft ? undefined : handleDraftConflict}
+                                reclaimConnection={reclaimDraftConnection}
                             />
                         ))}
                     {routeMode === "play" && (
